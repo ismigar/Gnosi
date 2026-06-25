@@ -1,0 +1,179 @@
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import {
+    Command, Search, FileText, Network, Users, Mail, Calendar, BookOpen,
+    Share2, Image as ImageIcon, Clock, Plus, Sun, Moon, Monitor, Settings, Hash, Presentation, Upload, MessageSquare, LayoutPanelLeft,
+} from 'lucide-react';
+
+/**
+ * CommandPalette
+ * Paleta de comandes global estil Obsidian/VSCode (Cmd/Ctrl+Shift+P). Llista
+ * accions cercables: navegació entre seccions, crear nota, canviar de tema i
+ * obrir la configuració. Navegable amb teclat (↑↓/Enter/Esc) i amb ratolí,
+ * compartint un sol `highlightedIndex` (vegeu feedback_autocomplete_keyboard_nav).
+ */
+
+const setTheme = (pref) => {
+    try {
+        localStorage.setItem('db-theme', pref);
+        window.dispatchEvent(new Event('db-theme-changed'));
+    } catch { /* noop */ }
+};
+
+export default function CommandPalette() {
+    const navigate = useNavigate();
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [highlighted, setHighlighted] = useState(0);
+    const inputRef = useRef(null);
+    const listRef = useRef(null);
+
+    const close = useCallback(() => { setOpen(false); setQuery(''); setHighlighted(0); }, []);
+
+    const importNotes = useCallback(() => {
+        const inp = document.createElement('input');
+        inp.type = 'file';
+        inp.multiple = true;
+        inp.accept = '.md,.markdown,.txt';
+        inp.onchange = async () => {
+            const files = Array.from(inp.files || []);
+            if (!files.length) return;
+            try {
+                const payload = await Promise.all(files.map(async (f) => ({ name: f.name, content: await f.text() })));
+                const res = await axios.post('/api/vault/import', { files: payload, folder: 'Importades' });
+                window.dispatchEvent(new CustomEvent('gnosi:imported', { detail: res.data }));
+            } catch (e) {
+                window.dispatchEvent(new CustomEvent('gnosi:imported', { detail: { error: String(e?.message || e) } }));
+            }
+        };
+        inp.click();
+    }, []);
+
+    const createNote = useCallback(async () => {
+        try {
+            const res = await axios.post('/api/vault/pages', { title: 'Sense títol', content: '', metadata: {} });
+            const id = res?.data?.id;
+            if (id) navigate(`/vault/page/${id}`);
+        } catch { /* noop */ }
+    }, [navigate]);
+
+    const commands = useMemo(() => [
+        { id: 'nav-home', title: 'Vés a Inici', section: 'Navegació', icon: Command, kw: ['inici', 'home', 'casa'], run: () => navigate('/') },
+        { id: 'nav-vault', title: 'Vés a Coneixement', section: 'Navegació', icon: FileText, kw: ['coneixement', 'vault', 'notes'], run: () => navigate('/vault') },
+        { id: 'nav-graph', title: 'Vés al Graf', section: 'Navegació', icon: Network, kw: ['graf', 'graph'], run: () => navigate('/graph') },
+        { id: 'nav-contacts', title: 'Vés a Contactes', section: 'Navegació', icon: Users, kw: ['contactes', 'contacts', 'persones'], run: () => navigate('/contacts') },
+        { id: 'nav-mail', title: 'Vés a Correu', section: 'Navegació', icon: Mail, kw: ['correu', 'mail', 'email'], run: () => navigate('/mail') },
+        { id: 'nav-calendar', title: 'Vés a Calendari', section: 'Navegació', icon: Calendar, kw: ['calendari', 'calendar', 'cites'], run: () => navigate('/calendar') },
+        { id: 'nav-reader', title: 'Vés al Lector', section: 'Navegació', icon: BookOpen, kw: ['lector', 'reader', 'rss'], run: () => navigate('/reader') },
+        { id: 'nav-social', title: 'Vés a Social', section: 'Navegació', icon: Share2, kw: ['social', 'xarxes'], run: () => navigate('/social-dashboard') },
+        { id: 'nav-media', title: 'Vés a Fotos', section: 'Navegació', icon: ImageIcon, kw: ['fotos', 'media', 'imatges'], run: () => navigate('/media') },
+        { id: 'nav-scheduler', title: 'Vés al Planificador', section: 'Navegació', icon: Clock, kw: ['planificador', 'scheduler', 'tasques'], run: () => navigate('/scheduler') },
+        { id: 'act-newnote', title: 'Nova nota', section: 'Accions', icon: Plus, kw: ['nova', 'nota', 'crear', 'new', 'note'], run: createNote },
+        { id: 'act-search', title: 'Cerca global', section: 'Accions', icon: Search, kw: ['cerca', 'search', 'buscar'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-search')), 60); } },
+        { id: 'act-tags', title: 'Etiquetes', section: 'Accions', icon: Hash, kw: ['etiquetes', 'tags', 'tag', '#'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-tags')), 60); } },
+        { id: 'act-present', title: 'Mode presentació', section: 'Accions', icon: Presentation, kw: ['presentació', 'presentation', 'slides', 'diapositives'], run: () => window.dispatchEvent(new CustomEvent('gnosi:present')) },
+        { id: 'act-import', title: 'Importa notes (Markdown/Obsidian)…', section: 'Accions', icon: Upload, kw: ['importa', 'import', 'markdown', 'obsidian', 'md'], run: importNotes },
+        { id: 'act-comments', title: 'Comentaris de la pàgina', section: 'Accions', icon: MessageSquare, kw: ['comentaris', 'comments', 'comentar'], run: () => window.dispatchEvent(new CustomEvent('gnosi:toggle-comments')) },
+        { id: 'act-workspaces', title: 'Espais de treball…', section: 'Accions', icon: LayoutPanelLeft, kw: ['espais', 'workspace', 'layout', 'disposició', 'pestanyes'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-workspaces')), 60); } },
+        { id: 'theme-light', title: 'Tema: Clar', section: 'Aparença', icon: Sun, kw: ['tema', 'clar', 'light', 'theme'], run: () => setTheme('light') },
+        { id: 'theme-dark', title: 'Tema: Fosc', section: 'Aparença', icon: Moon, kw: ['tema', 'fosc', 'dark', 'theme'], run: () => setTheme('dark') },
+        { id: 'theme-system', title: 'Tema: Sistema', section: 'Aparença', icon: Monitor, kw: ['tema', 'sistema', 'system', 'auto'], run: () => setTheme('system') },
+        { id: 'act-settings', title: 'Obre Configuració', section: 'Accions', icon: Settings, kw: ['configuració', 'settings', 'preferències', 'ajustos'], run: () => window.dispatchEvent(new CustomEvent('gnosi:open-settings')) },
+    ], [navigate, createNote, importNotes]);
+
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return commands;
+        return commands.filter(c =>
+            c.title.toLowerCase().includes(q) || c.kw.some(k => k.includes(q))
+        );
+    }, [commands, query]);
+
+    // Drecera global d'obertura (Cmd/Ctrl+Shift+P).
+    useEffect(() => {
+        const onKey = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
+                e.preventDefault();
+                setOpen((v) => !v);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, []);
+
+    useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 20); }, [open]);
+    useEffect(() => { setHighlighted(0); }, [query]);
+
+    const runAt = useCallback((idx) => {
+        const cmd = filtered[idx];
+        if (!cmd) return;
+        close();
+        cmd.run();
+    }, [filtered, close]);
+
+    const onInputKey = (e) => {
+        if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(i => Math.min(i + 1, filtered.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted(i => Math.max(i - 1, 0)); }
+        else if (e.key === 'Enter') { e.preventDefault(); runAt(highlighted); }
+        else if (e.key === 'Escape') { e.preventDefault(); close(); }
+    };
+
+    // Manté l'element ressaltat visible.
+    useEffect(() => {
+        if (!open || !listRef.current) return;
+        const el = listRef.current.querySelector(`[data-idx="${highlighted}"]`);
+        el?.scrollIntoView({ block: 'nearest' });
+    }, [highlighted, open]);
+
+    if (!open) return null;
+
+    let lastSection = null;
+    return (
+        <div
+            className="fixed inset-0 z-[100002] flex items-start justify-center bg-black/30 pt-[12vh]"
+            onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}
+        >
+            <div className="w-full max-w-lg overflow-hidden rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl">
+                <div className="flex items-center gap-2 border-b border-[var(--border-primary)] px-3 py-2.5">
+                    <Command size={16} className="text-[var(--text-tertiary)]" />
+                    <input
+                        ref={inputRef}
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={onInputKey}
+                        placeholder="Escriu una comanda…"
+                        className="flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
+                    />
+                    <kbd className="rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">Esc</kbd>
+                </div>
+                <ul ref={listRef} className="max-h-80 overflow-auto py-1">
+                    {filtered.length === 0 && (
+                        <li className="px-4 py-6 text-center text-sm text-[var(--text-tertiary)]">Cap comanda</li>
+                    )}
+                    {filtered.map((c, i) => {
+                        const Icon = c.icon;
+                        const showSection = c.section !== lastSection;
+                        lastSection = c.section;
+                        return (
+                            <React.Fragment key={c.id}>
+                                {showSection && (
+                                    <li className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">{c.section}</li>
+                                )}
+                                <li
+                                    data-idx={i}
+                                    onMouseEnter={() => setHighlighted(i)}
+                                    onMouseDown={(e) => { e.preventDefault(); runAt(i); }}
+                                    className={`mx-1 flex cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-sm ${i === highlighted ? 'bg-[var(--gnosi-primary)]/12 text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}
+                                >
+                                    <Icon size={16} className={i === highlighted ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
+                                    {c.title}
+                                </li>
+                            </React.Fragment>
+                        );
+                    })}
+                </ul>
+            </div>
+        </div>
+    );
+}

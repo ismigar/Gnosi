@@ -41,6 +41,11 @@
   "settings": {
     "tabs": {
       "general": "Général",
+      "profile": "Profil",
+      "workspace": "Espace de travail",
+      "references": "Références",
+      "api": "API et jetons",
+      "plugins": "Extensions",
       "language": "Langue et Région",
       "appearance": "Apparence",
       "calendar": "Calendrier Local",

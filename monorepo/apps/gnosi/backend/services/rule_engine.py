@@ -815,24 +815,101 @@ class RuleEngine:
         # 3. Process Automations (Only if target is not manual)
         automations = table.get("automations", [])
         for auto in automations:
-            trigger = auto.get("trigger", {})
-            if trigger.get("type") == "property_change":
-                trigger_prop = trigger.get("property")
-                if trigger_prop in updated_metadata:
-                    action = auto.get("action", {})
-                    if action.get("type") == "update_property":
-                        target = action.get("target_property")
-                        # Skip if user has explicitly overridden this target
-                        if updated_metadata.get(f"{target}_manual"):
-                            continue
-                            
-                        expr = action.get("expression")
-                        if target and expr:
-                            try:
-                                result = self._evaluate_expression(expr)
-                                updated_metadata[target] = result
-                                self.evaluator.names[target] = result
-                            except Exception as e:
-                                log.error(f"Error in automation action '{expr}': {e}")
+            try:
+                if self._automation_triggered(auto.get("trigger", {}), old_metadata, updated_metadata):
+                    # Suporta una sola `action` o una llista `actions` (estil Notion).
+                    actions = auto.get("actions")
+                    if not isinstance(actions, list):
+                        actions = [auto.get("action", {})]
+                    for action in actions:
+                        self._apply_automation_action(action, updated_metadata)
+            except Exception as e:
+                log.error(f"Error processing automation {auto.get('name', '?')}: {e}")
 
         return updated_metadata
+
+    def _automation_triggered(self, trigger: Dict[str, Any], old_metadata: Dict[str, Any], meta: Dict[str, Any]) -> bool:
+        """Decideix si una automatització s'ha de disparar.
+
+        Tipus de trigger:
+          - `always`: cada desat.
+          - `property_change`: quan una propietat canvia. Condicions opcionals:
+              `to` (valor final ha de coincidir), `from` (valor previ ha de
+              coincidir), `equals` (valor actual ha de coincidir, encara que no
+              hagi canviat).
+        """
+        ttype = trigger.get("type", "property_change")
+        if ttype == "always":
+            return True
+        if ttype == "property_change":
+            prop = trigger.get("property")
+            if not prop:
+                return False
+            old_val = old_metadata.get(prop)
+            new_val = meta.get(prop)
+            # `equals`: dispara si el valor actual coincideix (independent del canvi).
+            if "equals" in trigger:
+                return str(new_val) == str(trigger.get("equals"))
+            changed = old_val != new_val
+            if not changed:
+                return False
+            if "to" in trigger and str(new_val) != str(trigger.get("to")):
+                return False
+            if "from" in trigger and str(old_val) != str(trigger.get("from")):
+                return False
+            return True
+        return False
+
+    def _apply_automation_action(self, action: Dict[str, Any], meta: Dict[str, Any]) -> None:
+        """Aplica una acció d'automatització sobre `meta` (in-place).
+
+        Tipus suportats: update_property (expressió), set_property (valor literal),
+        set_today (data d'avui), clear_property (buida), append_text (afegeix
+        text), increment (suma numèrica). Respecta sempre els overrides manuals.
+        """
+        atype = action.get("type", "update_property")
+        target = action.get("target_property") or action.get("target")
+        if not target:
+            return
+        # No sobreescriguis mai un camp que l'usuari ha editat manualment.
+        if meta.get(f"{target}_manual"):
+            return
+
+        if atype == "update_property":
+            expr = action.get("expression")
+            if expr:
+                result = self._evaluate_expression(expr)
+                meta[target] = result
+                self.evaluator.names[target] = result
+        elif atype == "set_property":
+            meta[target] = action.get("value")
+            self.evaluator.names[target] = action.get("value")
+        elif atype == "set_today":
+            import datetime as _dt
+            today = _dt.date.today().isoformat()
+            meta[target] = today
+            self.evaluator.names[target] = today
+        elif atype == "clear_property":
+            meta[target] = ""
+            self.evaluator.names[target] = ""
+        elif atype == "append_text":
+            text = action.get("value", "")
+            if action.get("expression"):
+                try:
+                    text = str(self._evaluate_expression(action["expression"]))
+                except Exception:
+                    text = action.get("value", "")
+            sep = action.get("separator", " ")
+            current = str(meta.get(target) or "")
+            meta[target] = (current + sep + str(text)).strip() if current else str(text)
+            self.evaluator.names[target] = meta[target]
+        elif atype == "increment":
+            try:
+                by = float(action.get("by", 1))
+                current = float(meta.get(target) or 0)
+                val = current + by
+                # Manté int si no hi ha decimals.
+                meta[target] = int(val) if val == int(val) else val
+                self.evaluator.names[target] = meta[target]
+            except (ValueError, TypeError):
+                pass

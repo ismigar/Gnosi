@@ -310,6 +310,7 @@ import {
 } from './cellGridUtils';
 import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
+import { useAuth } from '../../context/AuthContext';
 import { applyDefaultFormulasToMetadata } from './defaultFormulaUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -371,6 +372,8 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
 
 export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null }) {
     const { t, i18n } = useTranslation();
+    // Usuari actual (per als camps "Creat per"/"Editat per" en mode personal).
+    const { user: currentUser } = useAuth();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
     const localeSettings = useLocaleSettings();
     // Overrides optimistic per cel·la. Map<noteId, partialMetadata>. Quan
@@ -2393,6 +2396,28 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     {label}
                 </button>
             );
+        }
+
+        // Camps de sistema (només lectura): Creat/Editat el (timestamps del
+        // fitxer) i Creat/Editat per (autoria). En mode personal l'autor és
+        // l'usuari únic; si la pàgina porta el valor desat (p. ex. d'un import),
+        // es respecta.
+        if (type === 'created_time' || type === 'last_edited_time') {
+            // Prioritza el timestamp del fitxer; cau a la marca estampada al
+            // frontmatter (created_at/last_edited_at) i, finalment, al camp.
+            const iso = type === 'created_time'
+                ? (note?.created_time || note?.metadata?.created_at || note?.metadata?.[field])
+                : (note?.last_modified || note?.metadata?.last_edited_at || note?.metadata?.[field]);
+            let label = '';
+            if (iso) { try { label = new Date(iso).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { label = String(iso).slice(0, 10); } }
+            return <span className="text-sm text-[var(--text-tertiary)]">{label || '—'}</span>;
+        }
+        if (type === 'created_by' || type === 'last_edited_by') {
+            // Autoria REAL estampada per pàgina (clau canònica), amb fallbacks.
+            const canonical = note?.metadata?.[type];
+            const stored = canonical || (value && String(value).trim()) || note?.metadata?.[field];
+            const who = stored || currentUser?.name || currentUser?.email || '—';
+            return <span className="text-sm text-[var(--text-secondary)]">{who}</span>;
         }
 
         if (isEditing) {

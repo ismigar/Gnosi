@@ -44,6 +44,13 @@ export function AppSidebar() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
 
+    // La paleta de comandes (i altres llocs) poden demanar obrir la configuració.
+    useEffect(() => {
+        const open = () => setSettingsOpen(true);
+        window.addEventListener('gnosi:open-settings', open);
+        return () => window.removeEventListener('gnosi:open-settings', open);
+    }, []);
+
     const handleLogout = async () => {
         await logout();
         toast.success('Sessió tancada.');

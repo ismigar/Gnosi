@@ -45,6 +45,7 @@ const GALLERY_PREVIEWS = [
 // conjunt acotat de valors) i eix temporal de calendari/timeline.
 const GROUP_FIELD_TYPES = new Set(['select', 'status', 'multi_select']);
 const DATE_FIELD_TYPES = new Set(['date', 'datetime', 'period']);
+const NUMERIC_FIELD_TYPES = new Set(['number', 'formula', 'rollup', 'currency', 'percent']);
 
 const TABS = [
     { id: 'properties', icon: Eye, label: 'Camps' },
@@ -208,6 +209,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [calendarView, setCalendarView] = useState('dayGridMonth');
     const [colorField, setColorField] = useState('');
     const [rowHeight, setRowHeight] = useState('normal');
+    // Opcions de la vista de gràfic (chart).
+    const [chartType, setChartType] = useState('bar');
+    const [xField, setXField] = useState('');
+    const [yField, setYField] = useState('');
+    const [aggregation, setAggregation] = useState('count');
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
@@ -301,6 +307,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setCalendarView(v?.calendarView || v?.calendar_view || 'dayGridMonth');
         setColorField(v?.colorField || v?.color_field || '');
         setRowHeight(v?.rowHeight || v?.row_height || 'normal');
+        setChartType(v?.chartType || v?.chart_type || 'bar');
+        setXField(v?.xField || v?.x_field || '');
+        setYField(v?.yField || v?.y_field || '');
+        setAggregation(v?.aggregation || (v?.yField || v?.y_field ? 'sum' : 'count'));
     };
     const resetTypeOptions = () => {
         setCardSize('medium');
@@ -313,6 +323,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setCalendarView('dayGridMonth');
         setColorField('');
         setRowHeight('normal');
+        setChartType('bar');
+        setXField('');
+        setYField('');
+        setAggregation('count');
     };
 
     useEffect(() => {
@@ -682,7 +696,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // existent) n'extreu els mateixos camps amb els mateixos defaults,
         // tolerant camelCase (registry) i snake_case (secció embeguda). Així la
         // detecció de canvis i el desat usen exactament la mateixa forma.
-        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, dateField, endDateField, calendarView, colorField, rowHeight };
+        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, dateField, endDateField, calendarView, colorField, rowHeight, chartType, xField, yField, aggregation };
         const extras = {};
         if (viewType === 'gallery') {
             extras.cardSize = s.cardSize || 'medium';
@@ -698,6 +712,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             extras.dateField = s.dateField || s.date_field || '';
             extras.endDateField = s.endDateField || s.end_date_field || '';
             extras.colorField = s.colorField || s.color_field || '';
+        } else if (viewType === 'chart') {
+            extras.chartType = s.chartType || s.chart_type || 'bar';
+            extras.xField = s.xField || s.x_field || '';
+            extras.yField = s.yField || s.y_field || '';
+            extras.aggregation = s.aggregation || ((s.yField || s.y_field) ? 'sum' : 'count');
         } else if (viewType === 'table' || viewType === 'list') {
             extras.rowHeight = s.rowHeight || s.row_height || 'normal';
         }
@@ -925,6 +944,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // Kanban (camps amb valors acotats) i eix temporal de calendari/timeline.
     const groupFieldOptions = tableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
     const dateFieldOptions = tableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const numericFieldOptions = tableFields.filter(f => NUMERIC_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
     // Camps aptes per a la portada de la galeria: adjunts/imatges/URL o camps amb
     // nom d'imatge (la galeria n'extreu la src amb getImageSrc).
     const coverFieldOptions = tableFields.filter(f => {
@@ -1226,6 +1246,80 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             )}
                                             {dateFieldOptions.length === 0 && (
                                                 <p className="text-[11px] text-[var(--text-tertiary)]">Cap camp de data a la taula; s'usarà la data de modificació.</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {viewType === 'chart' && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions del gràfic</p>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Tipus de gràfic</label>
+                                                <select
+                                                    value={chartType}
+                                                    onChange={e => setChartType(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="bar">Barres</option>
+                                                    <option value="hbar">Barres horitzontals</option>
+                                                    <option value="line">Línia</option>
+                                                    <option value="pie">Pastís</option>
+                                                    <option value="donut">Donut</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Agrupar per (eix X)</label>
+                                                <select
+                                                    value={xField}
+                                                    onChange={e => setXField(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="">— Tria un camp —</option>
+                                                    {tableFields.map(f => (
+                                                        <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Funció d'agregació</label>
+                                                <select
+                                                    value={aggregation}
+                                                    onChange={e => setAggregation(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="count">Recompte (nombre de files)</option>
+                                                    <option value="sum">Suma</option>
+                                                    <option value="avg">Mitjana</option>
+                                                    <option value="min">Mínim</option>
+                                                    <option value="max">Màxim</option>
+                                                </select>
+                                            </div>
+                                            {aggregation !== 'count' && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Camp de valor (eix Y)</label>
+                                                    <select
+                                                        value={yField}
+                                                        onChange={e => setYField(e.target.value)}
+                                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                    >
+                                                        <option value="">— Tria un camp numèric —</option>
+                                                        {numericFieldOptions.map(f => (
+                                                            <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                        ))}
+                                                    </select>
+                                                    {numericFieldOptions.length === 0 && (
+                                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Cap camp numèric a la taula; usa el «Recompte».</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!xField && (
+                                                <p className="text-[11px] text-[var(--text-tertiary)]">Tria el camp d'agrupació per veure el gràfic.</p>
                                             )}
                                         </>
                                     )}

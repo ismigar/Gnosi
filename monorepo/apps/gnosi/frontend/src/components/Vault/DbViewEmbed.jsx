@@ -687,6 +687,11 @@ export function DbViewEmbed({ block }) {
                         groupBy: section.groupBy || section.group_by,
                         dateField: section.dateField || section.date_field,
                         endDateField: section.endDateField || section.end_date_field,
+                        // Opcions del gràfic (vista 'chart').
+                        chartType: section.chartType || section.chart_type,
+                        xField: section.xField || section.x_field,
+                        yField: section.yField || section.y_field,
+                        aggregation: section.aggregation,
                     };
                     const merged = tv.some(v => v.id === section.view_id) ? tv : [sectionAsView, ...tv];
                     setTableViews(merged);
@@ -960,6 +965,11 @@ export function DbViewEmbed({ block }) {
         groupBy: effectiveView?.groupBy || effectiveView?.group_by,
         dateField: effectiveView?.dateField || effectiveView?.date_field,
         endDateField: effectiveView?.endDateField || effectiveView?.end_date_field,
+        // Opcions del gràfic (vista 'chart' incrustada).
+        chartType: effectiveView?.chartType || effectiveView?.chart_type,
+        xField: effectiveView?.xField || effectiveView?.x_field,
+        yField: effectiveView?.yField || effectiveView?.y_field,
+        aggregation: effectiveView?.aggregation,
     }), [effectiveView, viewType, columns]);
 
     if (loading) {
