@@ -703,6 +703,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             extras.galleryPreview = s.galleryPreview || 'cover';
             extras.coverField = s.coverField || s.cover_field || '';
             extras.imageFit = s.imageFit || s.image_fit || 'contain';
+            extras.groupBy = s.groupBy || s.group_by || '';
         } else if (viewType === 'board') {
             extras.groupBy = s.groupBy || s.group_by || '';
         } else if (viewType === 'calendar') {
@@ -719,6 +720,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             extras.aggregation = s.aggregation || ((s.yField || s.y_field) ? 'sum' : 'count');
         } else if (viewType === 'table' || viewType === 'list') {
             extras.rowHeight = s.rowHeight || s.row_height || 'normal';
+            extras.groupBy = s.groupBy || s.group_by || '';
         }
         return extras;
     };
@@ -1145,6 +1147,32 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             ))}
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Agrupació</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">Agrupa per</label>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={groupBy}
+                                                onChange={e => setGroupBy(e.target.value)}
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                            >
+                                                <option value="">Sense agrupar</option>
+                                                {groupFieldOptions.map(f => (
+                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                ))}
+                                            </select>
+                                            {groupFieldOptions.length === 0 && (
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Cap camp de selecció/estat a la taula per agrupar.</p>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             )}
 

@@ -36,6 +36,7 @@ from pathlib import Path
 
 # Import eines
 from backend.agent.system_tools import SYSTEM_TOOLS
+from backend.agent.vault_tools import VAULT_KNOWLEDGE_TOOLS
 from backend.agent.tools import get_mcp_tools
 from backend.agent.generated_tools.creator import TOOL_CREATOR_TOOLS
 from backend.agent.generated_tools.loader import loader as tool_loader
@@ -74,39 +75,35 @@ def _provider_is_available(provider_name: str, provider_cfg: Optional[dict]) -> 
 
 
 def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str, fallback_model: Optional[str]) -> tuple[str, Optional[str]]:
-    text = (message or "").strip().lower()
-    tokens = set(text.replace("\n", " ").split())
-    is_complex = len(text) > 320 or any(k in text for k in AUTO_COMPLEX_KEYWORDS)
-    is_simple = len(text) < 120 and (any(k in text for k in AUTO_SIMPLE_KEYWORDS) or "?" in text)
+    """Auto-selecció de model: delega al router data-driven conscient de pressupost.
 
-    # Preferred model stacks by cost/quality profile.
-    if is_simple:
-        preferred = [
-            ("groq", "llama-3.1-8b-instant"),
-            ("openai", "gpt-4o-mini"),
-            ("anthropic", "claude-3-5-haiku-latest"),
-            ("ollama", "llama3.2:latest"),
-        ]
-    elif is_complex or {"code", "codi", "codigo", "programa", "programar", "bug", "error"} & tokens:
-        preferred = [
-            ("groq", "llama-3.3-70b-versatile"),
-            ("openai", "gpt-4o"),
-            ("anthropic", "claude-3-5-sonnet-latest"),
-            ("ollama", "llama3.2"),
-        ]
-    else:
-        preferred = [
-            ("groq", "llama-3.3-70b-versatile"),
-            ("openai", "gpt-4o-mini"),
-            ("anthropic", "claude-3-5-haiku-latest"),
-            ("ollama", "llama3.2"),
-        ]
+    Camí modern: `model_router.route_model` (registry editable + capacitat + disponibilitat
+    + tokens/cost). Si el router no resol, manté el fallback de l'agent. Substitueix els
+    antics stacks hardcoded (cf. directiva `vault_knowledge_agents.md`).
+    """
+    try:
+        from backend.agent.model_router import route_model, load_registry, UsageStore
+    except Exception:
+        return fallback_provider, fallback_model
 
-    for provider_name, model_name in preferred:
-        provider_cfg = dict(providers_cfg.get(provider_name) or {})
-        if _provider_is_available(provider_name, provider_cfg):
-            return provider_name, model_name
+    registry = load_registry()
 
+    def _avail(provider_name: str) -> bool:
+        return _provider_is_available(provider_name, (providers_cfg or {}).get(provider_name) or {})
+
+    usage: dict = {}
+    budget: dict = {}
+    try:
+        from datetime import datetime
+        period = datetime.now().strftime("%Y-%m")
+        usage = UsageStore().usage_for(period)
+        budget = dict((cfg.get("ai", {}) or {}).get("budget", {}) or {})
+    except Exception:
+        pass
+
+    decision = route_model(message, registry, is_available=_avail, usage=usage, budget=budget)
+    if decision.get("provider") and decision.get("model_id"):
+        return decision["provider"], decision["model_id"]
     return fallback_provider, fallback_model
 
 
@@ -437,7 +434,7 @@ async def create_agent_workflow(
         if t.name
         in ["save_memory", "query_memory", "get_vault_registry", "search_vault"]
     ]
-    brain_tools = mcp_langchain_tools + memory_tools
+    brain_tools = mcp_langchain_tools + memory_tools + VAULT_KNOWLEDGE_TOOLS
     brain_llm = llm.bind_tools(brain_tools)
 
     # --- Nodes del Graf ---
@@ -466,9 +463,18 @@ async def create_agent_workflow(
 
     def brain_node(state: AgentState):
         messages = state["messages"]
-        response = brain_llm.invoke(
-            [SystemMessage(content="Ets el Brain Agent (Gnosi Vault, Memòria Sobirana).")] + messages
+        brain_system = (
+            "Ets el Brain Agent (Gnosi Vault, Memòria Sobirana). Tens EINES per treballar amb "
+            "les dades de l'usuari, no només cercar-les:\n"
+            "- search_vault: cerca semàntica al vault.\n"
+            "- read_page(id_o_títol) / read_pdf(ruta): llegeix una nota o un PDF d'Assets/Biblioteca.\n"
+            "- create_page(title, content, folder): crea una nota nova.\n"
+            "- propose_links(id_o_títol): proposa connexions [[...]] per a una pàgina.\n"
+            "- summarize_to_cornell(source): resumeix una nota o PDF en una fitxa Cornell i la desa.\n"
+            "Usa les eines quan l'usuari demani crear, resumir, connectar o organitzar coneixement. "
+            "Confirma sempre el resultat (id/títol de la pàgina creada)."
         )
+        response = brain_llm.invoke([SystemMessage(content=brain_system)] + messages)
         return {"messages": [response], "next": "supervisor"}
 
     def general_node(state: AgentState):
