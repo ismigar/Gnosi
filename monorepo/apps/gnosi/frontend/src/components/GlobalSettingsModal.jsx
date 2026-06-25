@@ -2256,7 +2256,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
                                                                     const res = await axios.post('/api/integrations/test-email', {
                                                                         imap_server: mailImapHost,
+                                                                        imap_port: mailImapPort,
+                                                                        imap_encryption: mailImapEnc,
                                                                         smtp_server: mailSmtpHost,
+                                                                        smtp_port: mailSmtpPort,
+                                                                        smtp_encryption: mailSmtpEnc,
                                                                         username: mailImapUser || addAccountEmail,
                                                                         password: mailImapPass,
                                                                     });

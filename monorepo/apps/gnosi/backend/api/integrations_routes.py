@@ -105,20 +105,55 @@ async def get_integrations():
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="GET /api/integrations"))
 
 
-def _test_email_sync(imap_server: str, smtp_server: str, username: str, password: str) -> dict:
+def _test_email_sync(
+    imap_host: str,
+    imap_port: int,
+    imap_encryption: str,
+    smtp_host: str,
+    smtp_port: int,
+    smtp_encryption: str,
+    username: str,
+    password: str,
+) -> dict:
     result = {"imap": False, "smtp": False, "error": None}
+    # 1. IMAP Test
     try:
-        imap = imaplib.IMAP4_SSL(imap_server, timeout=10)
+        import ssl
+        enc = imap_encryption.lower()
+        if enc == "ssl":
+            imap = imaplib.IMAP4_SSL(imap_host, imap_port, timeout=10)
+        else:
+            imap = imaplib.IMAP4(imap_host, imap_port, timeout=10)
+            if enc == "starttls":
+                imap.starttls()
         imap.login(username, password)
         imap.logout()
         result["imap"] = True
     except Exception as e:
         result["error"] = f"IMAP: {safe_error_detail(e, context='POST /api/integrations/test-email IMAP')}"
+
+    # Si la connexió IMAP ha fallat, no cal continuar amb SMTP, ja retorna error
+    if not result["imap"]:
+        return result
+
+    # 2. SMTP Test
     try:
-        smtp = smtplib.SMTP_SSL(smtp_server, timeout=10)
-        smtp.login(username, password)
-        smtp.quit()
-        result["smtp"] = True
+        import ssl
+        ctx = ssl.create_default_context()
+        enc = smtp_encryption.lower()
+        if enc == "ssl":
+            with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=10) as server:
+                server.ehlo()
+                server.login(username, password)
+            result["smtp"] = True
+        else:
+            with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+                server.ehlo()
+                if enc == "starttls":
+                    server.starttls(context=ctx)
+                    server.ehlo()
+                server.login(username, password)
+            result["smtp"] = True
     except Exception as e:
         result["error"] = f"SMTP: {safe_error_detail(e, context='POST /api/integrations/test-email SMTP')}"
     return result
@@ -128,17 +163,39 @@ def _test_email_sync(imap_server: str, smtp_server: str, username: str, password
 async def test_email_connection(payload: dict = Body(...)):
     """Tests IMAP/SMTP connection for an email account."""
     try:
-        imap_server = payload.get("imap_server")
-        smtp_server = payload.get("smtp_server")
+        imap_host = payload.get("imap_server") or payload.get("imap_host")
+        imap_encryption = payload.get("imap_encryption", "ssl")
+        imap_port_raw = payload.get("imap_port")
+        if imap_port_raw:
+            imap_port = int(imap_port_raw)
+        else:
+            imap_port = 993 if imap_encryption.lower() == "ssl" else 143
+
+        smtp_host = payload.get("smtp_server") or payload.get("smtp_host")
+        smtp_encryption = payload.get("smtp_encryption", "ssl")
+        smtp_port_raw = payload.get("smtp_port")
+        if smtp_port_raw:
+            smtp_port = int(smtp_port_raw)
+        else:
+            smtp_port = 465 if smtp_encryption.lower() == "ssl" else 587
+
         username = payload.get("username")
         password = payload.get("password")
 
-        if not all([imap_server, smtp_server, username, password]):
+        if not all([imap_host, smtp_host, username, password]):
             return {"success": False, "error": "Falten credencials"}
 
         # imaplib/smtplib són bloquejants → off-thread per no congelar l'event loop.
         result = await asyncio.to_thread(
-            _test_email_sync, imap_server, smtp_server, username, password
+            _test_email_sync,
+            imap_host,
+            imap_port,
+            imap_encryption,
+            smtp_host,
+            smtp_port,
+            smtp_encryption,
+            username,
+            password
         )
         return {"success": result["imap"] and result["smtp"], **result}
     except socket.timeout:

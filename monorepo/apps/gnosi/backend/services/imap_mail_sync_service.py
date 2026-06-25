@@ -75,11 +75,26 @@ def _decode_str(val):
     import html
     if not val:
         return val
-    parts = decode_header(val)
+    try:
+        parts = decode_header(val)
+    except Exception:
+        return str(val)
     result = []
     for part, enc in parts:
         if isinstance(part, bytes):
-            result.append(part.decode(enc or "utf-8", errors="replace"))
+            codec = enc
+            if codec:
+                codec = codec.strip().strip('"').strip("'").lower()
+                if codec in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                    codec = "utf-8"
+            else:
+                codec = "utf-8"
+            try:
+                result.append(part.decode(codec, errors="replace"))
+            except LookupError:
+                result.append(part.decode("latin1", errors="replace"))
+            except Exception:
+                result.append(part.decode("utf-8", errors="replace"))
         else:
             result.append(part)
     return html.unescape("".join(result))
@@ -561,7 +576,16 @@ class ImapMailSyncService:
                     payload = part.get_payload(decode=True)
                     if payload:
                         charset = part.get_content_charset() or "utf-8"
-                        text = payload.decode(charset, errors="replace")
+                        if isinstance(charset, str):
+                            charset = charset.strip().strip('"').strip("'").lower()
+                            if charset in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                                charset = "utf-8"
+                        try:
+                            text = payload.decode(charset, errors="replace")
+                        except LookupError:
+                            text = payload.decode("latin1", errors="replace")
+                        except Exception:
+                            text = payload.decode("utf-8", errors="replace")
                         if ct == "text/html" and not body_html:
                             body_html = text
                         elif ct == "text/plain" and not body_text:
@@ -573,7 +597,16 @@ class ImapMailSyncService:
                 payload = msg.get_payload(decode=True)
                 if payload:
                     charset = msg.get_content_charset() or "utf-8"
-                    body_text = payload.decode(charset, errors="replace")
+                    if isinstance(charset, str):
+                        charset = charset.strip().strip('"').strip("'").lower()
+                        if charset in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                            charset = "utf-8"
+                    try:
+                        body_text = payload.decode(charset, errors="replace")
+                    except LookupError:
+                        body_text = payload.decode("latin1", errors="replace")
+                    except Exception:
+                        body_text = payload.decode("utf-8", errors="replace")
             except Exception:
                 pass
 
