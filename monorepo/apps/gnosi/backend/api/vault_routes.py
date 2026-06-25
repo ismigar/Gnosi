@@ -10805,6 +10805,21 @@ async def delete_inline_comment(page_id: str, comment_id: str):
     return {"status": "deleted", "id": comment_id}
 
 
+# Pub/sub en memòria per a la sincronització EN TEMPS REAL dels synced blocks
+# entre dispositius/clients: cada client obre un SSE a /synced-events i, en
+# desar-se un bloc (PUT /synced), tots reben l'avís i recarreguen la font.
+_synced_subscribers: set = set()
+
+
+def _broadcast_synced(sync_id: str) -> None:
+    """Notifica tots els subscriptors SSE que un synced block ha canviat."""
+    for q in list(_synced_subscribers):
+        try:
+            q.put_nowait(sync_id)
+        except Exception:
+            pass
+
+
 def _synced_block_path(sync_id: str) -> Path:
     vault = get_active_vault_path()
     if not vault:
@@ -10815,6 +10830,36 @@ def _synced_block_path(sync_id: str) -> Path:
     d = Path(vault) / ".gnosi" / "synced"
     d.mkdir(parents=True, exist_ok=True)
     return d / f"{safe}.md"
+
+
+@router.get("/synced-events")
+async def synced_events():
+    """SSE: notifica EN TEMPS REAL els canvis de synced blocks a tots els clients
+    connectats (qualsevol dispositiu). El frontend s'hi subscriu amb EventSource
+    i recarrega la font del bloc afectat."""
+    from fastapi.responses import StreamingResponse
+    queue: asyncio.Queue = asyncio.Queue()
+    _synced_subscribers.add(queue)
+
+    async def gen():
+        try:
+            yield "event: ready\ndata: {}\n\n"
+            while True:
+                try:
+                    sync_id = await asyncio.wait_for(queue.get(), timeout=25)
+                    yield f"data: {json.dumps({'syncId': sync_id})}\n\n"
+                except asyncio.TimeoutError:
+                    yield "event: ping\ndata: {}\n\n"  # heartbeat
+        except asyncio.CancelledError:
+            raise
+        finally:
+            _synced_subscribers.discard(queue)
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
 
 
 @router.get("/synced/{sync_id}")
@@ -10835,6 +10880,7 @@ async def save_synced_block(sync_id: str, body: SyncedBlockSave):
     pàgina) que referencien aquest `sync_id` en reflecteixen el canvi."""
     p = _synced_block_path(sync_id)
     p.write_text(body.content or "", encoding="utf-8")
+    _broadcast_synced(sync_id)  # push en temps real a tots els clients (SSE)
     return {"sync_id": sync_id, "content": body.content or "", "saved": True}
 
 

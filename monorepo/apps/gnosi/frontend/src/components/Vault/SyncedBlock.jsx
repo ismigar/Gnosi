@@ -16,6 +16,22 @@ import { VaultMarkdown } from './VaultMarkdown';
 // Canal entre pestanyes: propaga els canvis a totes les pestanyes/finestres de
 // l'app del mateix origin (no només a la finestra actual).
 const _syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('gnosi-synced') : null;
+
+// Push EN TEMPS REAL entre DISPOSITIUS via SSE (/api/vault/synced-events): un
+// sol EventSource compartit per a tota l'app; cada synced block s'hi subscriu.
+const _sseListeners = new Set();
+let _sse = null;
+const ensureSyncedSSE = () => {
+    if (_sse || typeof EventSource === 'undefined') return;
+    try {
+        _sse = new EventSource('/api/vault/synced-events');
+        _sse.onmessage = (e) => {
+            let d; try { d = JSON.parse(e.data); } catch { return; }
+            if (d?.syncId) _sseListeners.forEach((fn) => { try { fn(d.syncId); } catch { /* noop */ } });
+        };
+        // EventSource es reconnecta sol en error; no cal tancar-lo.
+    } catch { _sse = null; }
+};
 export default function SyncedBlock({ block }) {
     const syncId = String(block?.props?.sync_id || '').trim();
     const [content, setContent] = useState('');
@@ -47,16 +63,21 @@ export default function SyncedBlock({ block }) {
         } catch { /* noop */ } finally { setSaving(false); }
     };
 
-    // Recarrega si una altra instància del mateix sync_id s'ha desat (mateixa
-    // finestra via event, o una altra pestanya via BroadcastChannel).
+    // Recarrega si una altra instància del mateix sync_id s'ha desat: mateixa
+    // finestra (event), una altra pestanya (BroadcastChannel) o un altre
+    // DISPOSITIU (SSE en temps real).
     useEffect(() => {
         const onUpd = (e) => { if (e.detail?.syncId === syncId && !editing) load(); };
         const onMsg = (e) => { if (e.data?.syncId === syncId && !editing) load(); };
+        const onSse = (sid) => { if (sid === syncId && !editing) load(); };
         window.addEventListener('gnosi:synced-updated', onUpd);
         _syncChannel?.addEventListener('message', onMsg);
+        ensureSyncedSSE();
+        _sseListeners.add(onSse);
         return () => {
             window.removeEventListener('gnosi:synced-updated', onUpd);
             _syncChannel?.removeEventListener('message', onMsg);
+            _sseListeners.delete(onSse);
         };
     }, [syncId, editing, load]);
 
