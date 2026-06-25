@@ -15,7 +15,9 @@ import { Pencil, Check, Workflow } from 'lucide-react';
 let _mermaidPromise = null;
 const loadMermaid = () => {
     if (_mermaidPromise) return _mermaidPromise;
-    _mermaidPromise = import(/* @vite-ignore */ 'https://esm.sh/mermaid@11?bundle')
+    // Import del paquet local (no CDN): Vite el fa code-split en un chunk a part,
+    // així funciona OFFLINE i no engreixa el bundle principal.
+    _mermaidPromise = import('mermaid')
         .then((mod) => {
             const mermaid = mod.default || mod;
             mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'strict' });

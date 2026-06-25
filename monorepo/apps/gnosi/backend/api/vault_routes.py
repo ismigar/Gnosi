@@ -3687,8 +3687,55 @@ def _get_unique_filepath(target_dir: Path, name: str, extension: str = ".md") ->
         counter += 1
 
 
+_user_label_cache: Dict[str, str] = {}
+
+
+def _resolve_user_label(user_id: Optional[str]) -> str:
+    """Nom visible d'un usuari pel seu id (cau a email o id). Cau en memòria
+    perquè els noms gairebé no canvien. Usat per a l'autoria Creat/Editat per."""
+    if not user_id:
+        return ""
+    if user_id in _user_label_cache:
+        return _user_label_cache[user_id]
+    label = user_id
+    try:
+        from backend.data.management_db import get_mgmt_db
+        from backend.models.management import User
+        gen = get_mgmt_db()
+        db = next(gen)
+        try:
+            u = db.query(User).filter(User.id == user_id).first()
+            if u:
+                label = (u.name or u.email or user_id)
+        finally:
+            try:
+                next(gen)
+            except StopIteration:
+                pass
+    except Exception:
+        label = user_id
+    _user_label_cache[user_id] = label
+    return label
+
+
+def _stamp_author(metadata: dict, user_id: Optional[str], is_create: bool) -> None:
+    """Estampa l'autoria al frontmatter: `created_by`/`created_at` (només en
+    crear, no es trepitja si ja hi són) i `last_edited_by`/`last_edited_at` (a
+    cada desat). Permet als camps Creat/Editat per mostrar l'autor REAL per
+    pàgina (no només el propietari derivat), útil també en mode multiusuari."""
+    label = _resolve_user_label(user_id)
+    if not label:
+        return
+    now = datetime.now(timezone.utc).isoformat()
+    if is_create:
+        metadata.setdefault("created_by", label)
+        metadata.setdefault("created_at", now)
+    metadata["last_edited_by"] = label
+    metadata["last_edited_at"] = now
+
+
 @router.post("/pages", dependencies=[Depends(require_role("editor"))])
-async def create_page(request: PageSaveRequest, background_tasks: BackgroundTasks):
+async def create_page(request: PageSaveRequest, background_tasks: BackgroundTasks, context: WorkspaceContext = Depends(get_workspace_context)):
     """Creates a new page with a UUID ID."""
     page_id = str(uuid.uuid4())
 
@@ -3732,6 +3779,9 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         metadata = get_rule_engine().process_updates(page_id, {}, metadata)
     except Exception as e:
         log.error(f"Error processing automations on create for {page_id}: {e}")
+
+    # Autoria: estampa creador + darrer editor (atribució real per pàgina).
+    _stamp_author(metadata, getattr(context, "user_id", None), is_create=True)
 
     metadata = _persist_metadata_assets(metadata)
 
@@ -7020,7 +7070,8 @@ async def bulk_warm_previews(payload: _BulkWarmPayload):
 
 @router.put("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
 async def save_page(
-    page_id: str, request: PageSaveRequest, background_tasks: BackgroundTasks
+    page_id: str, request: PageSaveRequest, background_tasks: BackgroundTasks,
+    context: WorkspaceContext = Depends(get_workspace_context),
 ):
     """Saves or updates a page existing or re-adapting its UUID."""
     # FS lookup off the asyncio loop — slow stat()/rglob() on OneDrive should
@@ -7153,6 +7204,9 @@ async def save_page(
     except Exception as e:
         log.error(f"Error processing automations for {page_id}: {e}")
 
+    # Autoria: estampa el darrer editor (i creador si la pàgina és nova).
+    _stamp_author(metadata, getattr(context, "user_id", None), is_create=not bool(old_metadata))
+
     metadata = _persist_metadata_assets(metadata)
 
     # Desar un recurs des del navegador també ha de garantir-ne la Citation Key.
@@ -7234,7 +7288,8 @@ async def save_page(
 
 @router.patch("/pages/{page_id}", dependencies=[Depends(require_role("editor"))])
 async def patch_page(
-    page_id: str, request: PagePatchRequest, background_tasks: BackgroundTasks
+    page_id: str, request: PagePatchRequest, background_tasks: BackgroundTasks,
+    context: WorkspaceContext = Depends(get_workspace_context),
 ):
     """Partial update of a page (e.g., metadata only)."""
     # Combinem find_page_path + (etag check) + read_file en un sol
@@ -7354,6 +7409,9 @@ async def patch_page(
             )
         except Exception as e:
             log.error(f"Error processing automations for {page_id}: {e}")
+
+        # Autoria: estampa el darrer editor (created_* es preserva si ja hi és).
+        _stamp_author(metadata, getattr(context, "user_id", None), is_create=False)
 
         metadata = _persist_metadata_assets(metadata)
 
@@ -10581,6 +10639,25 @@ async def get_link_preview(url: str):
     }
 
 
+def register_page_in_index(file_path: Path) -> None:
+    """Insereix/actualitza al page-index en memòria una pàgina acabada d'escriure
+    a disc, perquè aparegui IMMEDIATAMENT a /pages (sense esperar el rebuild) i
+    sigui esborrable per id. La fan servir l'importador, el web clipper i l'API
+    pública, que escriuen fitxers .md directament (no via el flux de /pages)."""
+    try:
+        v = get_active_vault_path()
+        if not v:
+            return
+        entry = _build_page_cache_entry(Path(file_path), Path(file_path).stat())
+        if not entry:
+            return
+        with _page_index_lock:
+            _page_index_entries.setdefault(str(v), {})[str(file_path)] = entry
+        _bump_page_index_version(str(v))
+    except Exception as e:
+        log.warning(f"register_page_in_index ha fallat per {file_path}: {e}")
+
+
 class ImportFile(BaseModel):
     name: str
     content: str
@@ -10629,14 +10706,11 @@ async def import_markdown(body: ImportRequest):
                 path = target_dir / f"{safe} {meta['id'][:8]}.md"
             fm = _yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
             path.write_text(f"---\n{fm}\n---\n\n{str(body_md).lstrip()}\n", encoding="utf-8")
+            register_page_in_index(path)  # apareix a /pages immediatament
             imported += 1
         except Exception as e:
             errors.append({"name": f.name, "error": str(e)})
 
-    try:
-        _bump_page_index_version(str(vault))
-    except Exception:
-        pass
     return {"imported": imported, "errors": errors, "folder": folder}
 
 
