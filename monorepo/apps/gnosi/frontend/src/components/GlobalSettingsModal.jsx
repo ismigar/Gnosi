@@ -688,6 +688,31 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const identityAutoSaveRef = useRef(null); // debounce timer
     const identityLoadedForRef = useRef(null); // tracks which account was last loaded (skip initial save)
 
+    // Referències fresques per a evitar stale closures en els callbacks de setTimeout/cleanup
+    const integrationsRef = useRef(integrations);
+    useEffect(() => {
+        integrationsRef.current = integrations;
+    }, [integrations]);
+
+    const mailFieldsRef = useRef({
+        display_name: mailDisplayName,
+        subject_prefix: mailSubjectPrefix,
+        signature: mailSignature,
+        certificate: mailCertificate,
+        aliases: mailAliases,
+        editingAccountId: editingAccountId,
+    });
+    useEffect(() => {
+        mailFieldsRef.current = {
+            display_name: mailDisplayName,
+            subject_prefix: mailSubjectPrefix,
+            signature: mailSignature,
+            certificate: mailCertificate,
+            aliases: mailAliases,
+            editingAccountId: editingAccountId,
+        };
+    }, [mailDisplayName, mailSubjectPrefix, mailSignature, mailCertificate, mailAliases, editingAccountId]);
+
     // Auto-save identity fields (signature, name, aliases, subject_prefix) when editing an account
     useEffect(() => {
         if (!editingAccountId) return;
@@ -696,23 +721,35 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             identityLoadedForRef.current = editingAccountId;
             return;
         }
-        clearTimeout(identityAutoSaveRef.current);
-        identityAutoSaveRef.current = setTimeout(async () => {
-            const currentList = integrations.mail_accounts || [];
-            const newList = currentList.map(a => a.id !== editingAccountId ? a : {
+
+        const saveChanges = async () => {
+            const fields = mailFieldsRef.current;
+            if (!fields.editingAccountId) return;
+            const currentList = integrationsRef.current.mail_accounts || [];
+            const newList = currentList.map(a => a.id !== fields.editingAccountId ? a : {
                 ...a,
-                display_name: mailDisplayName,
-                subject_prefix: mailSubjectPrefix,
-                signature: mailSignature,
-                certificate: mailCertificate,
-                aliases: mailAliases,
+                display_name: fields.display_name,
+                subject_prefix: fields.subject_prefix,
+                signature: fields.signature,
+                certificate: fields.certificate,
+                aliases: fields.aliases,
             });
             try {
-                await axios.post('/api/integrations/bulk', { ...integrations, mail_accounts: newList });
+                await axios.post('/api/integrations/bulk', { ...integrationsRef.current, mail_accounts: newList });
                 setIntegrations(prev => ({ ...prev, mail_accounts: newList }));
-            } catch { /* silent */ }
-        }, 1200);
-        return () => clearTimeout(identityAutoSaveRef.current);
+            } catch (err) {
+                console.error("Error saving pending mail identity:", err);
+            }
+        };
+
+        clearTimeout(identityAutoSaveRef.current);
+        identityAutoSaveRef.current = setTimeout(saveChanges, 800); // 800ms debounce és més interactiu
+
+        return () => {
+            clearTimeout(identityAutoSaveRef.current);
+            // Si el component es desmunta o canvia de compte i hi ha canvis pendents, els guardem immediatament
+            saveChanges();
+        };
     }, [mailSignature, mailDisplayName, mailSubjectPrefix, mailAliases, mailCertificate, editingAccountId]);
 
     // -- AUTO-SAVE CONTROLS --
@@ -898,9 +935,117 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // propi focus-trap. Mentre n'hi hagi un d'obert, desactivem el trap d'aquí
     // perquè no els hi robi el focus (el Tab quedaria atrapat al panell de fons).
     const childModalOpen = isConnectModalOpen || !!editingAgent || pickerOpen || confirmConfig.isOpen;
+
+    const handleClose = async () => {
+        // 1. Cancel·lem els timeouts d'auto-save per evitar que es tornin a disparar de forma duplicada
+        clearTimeout(autoSaveTimeoutRef.current);
+        clearTimeout(identityAutoSaveRef.current);
+        if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
+
+        // 2. Determinem si hi ha canvis pendents en la identitat del correu
+        let updatedIntegrations = { ...integrations };
+        let hasIdentityChanges = false;
+        if (editingAccountId) {
+            const fields = mailFieldsRef.current;
+            const currentList = integrations.mail_accounts || [];
+            const accountIndex = currentList.findIndex(a => a.id === fields.editingAccountId);
+            if (accountIndex !== -1) {
+                const a = currentList[accountIndex];
+                if (
+                    a.display_name !== fields.display_name ||
+                    a.subject_prefix !== fields.subject_prefix ||
+                    a.signature !== fields.signature ||
+                    a.certificate !== fields.certificate ||
+                    JSON.stringify(a.aliases) !== JSON.stringify(fields.aliases)
+                ) {
+                    const newList = currentList.map(acc => acc.id !== fields.editingAccountId ? acc : {
+                        ...acc,
+                        display_name: fields.display_name,
+                        subject_prefix: fields.subject_prefix,
+                        signature: fields.signature,
+                        certificate: fields.certificate,
+                        aliases: fields.aliases,
+                    });
+                    updatedIntegrations = { ...integrations, mail_accounts: newList };
+                    hasIdentityChanges = true;
+                }
+            }
+        }
+
+        // 3. Determinem si hi ha canvis pendents a la configuració general o integracions
+        const currentData = JSON.stringify({
+            settings: draft.settings,
+            paths: draft.paths,
+            graph: draft.graph,
+            ai: { 
+                agents: draft.ai.agents, 
+                active_agent_id: draft.ai.active_agent_id,
+                providers: draft.ai.providers
+            },
+            integrations: updatedIntegrations,
+            identity: draft.identity
+        });
+
+        const hasConfigChanges = lastSavedData.current !== null && lastSavedData.current !== currentData;
+
+        // Canvis newsletter POP3
+        let hasNewsletterChanges = false;
+        if (newsletterAccountLoaded) {
+            const currentNewsletter = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
+            hasNewsletterChanges = lastSavedNewsletterAccountRef.current !== currentNewsletter;
+        }
+
+        // 4. Si hi ha qualsevol canvi pendent, els guardem de forma seqüencial/síncrona (esperant el Promise.all)
+        if (hasIdentityChanges || hasConfigChanges || hasNewsletterChanges) {
+            setSavingStatus('saving');
+            setIsSaving(true);
+            try {
+                const promises = [];
+                
+                // Guardar config general, integracions i identitat
+                if (hasConfigChanges || hasIdentityChanges) {
+                    promises.push(
+                        axios.post('/api/config', {
+                            settings: draft.settings,
+                            paths: draft.paths,
+                            graph: draft.graph,
+                            ai: { 
+                                agents: draft.ai.agents, 
+                                active_agent_id: draft.ai.active_agent_id,
+                                providers: draft.ai.providers
+                            }
+                        }),
+                        axios.post('/api/integrations/bulk', updatedIntegrations),
+                        axios.post('/api/identity', draft.identity)
+                    );
+                }
+
+                // Guardar newsletter
+                if (hasNewsletterChanges) {
+                    const next = { ...newsletterAccount };
+                    if (!newsletterPasswordDirty) delete next.password;
+                    promises.push(
+                        axios.post('/api/newsletter/account', next)
+                    );
+                }
+
+                await Promise.all(promises);
+                setSavingStatus('saved');
+            } catch (err) {
+                console.error("Error guardant en tancar configuració:", err);
+                setSavingStatus('error');
+            } finally {
+                setIsSaving(false);
+            }
+        }
+
+        // 5. Cridem al onClose original per a tancar la modal
+        onClose();
+    };
+
     useModalKeyboard({
         isOpen,
-        onClose,
+        onClose: handleClose,
         containerRef: panelRef,
         trapFocus: !childModalOpen,
     });
@@ -1596,7 +1741,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             <div ref={panelRef} className={`settings-modal ${isOpen ? 'active' : ''}`}>
                 {/* Botó X fora de .settings-main perquè s'ancori al modal i no
                     desaparegui amb el scroll del contingut. */}
-                <button onClick={onClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
+                <button onClick={handleClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
                     <X />
                 </button>
                 {!draft.settings ? (
@@ -1607,7 +1752,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     <div className="settings-inner">
                     
                     {/* SIDEBAR */}
-                    <aside className="settings-sidebar">
+                    <aside className="settings-sidebar gnosi-modal-scroll">
                         <div className="settings-sidebar-header">
                             <div className="settings-sidebar-brand">
                                 <div className="settings-section-icon-wrap">
@@ -1649,7 +1794,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     </aside>
 
                     {/* CONTENT AREA */}
-                    <main className="settings-main">
+                    <main className="settings-main gnosi-modal-scroll">
                         <div className="settings-content-wrap">
                             
                              {/* API I TOKENS (PAT) */}

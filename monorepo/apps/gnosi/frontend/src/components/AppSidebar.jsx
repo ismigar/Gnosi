@@ -208,7 +208,7 @@ export function AppSidebar() {
             {settingsOpen && (
                 <GlobalSettingsModal
                     isOpen={settingsOpen}
-                    onClose={() => { setSettingsOpen(false); window.location.reload(); }}
+                    onClose={() => { setSettingsOpen(false); setTimeout(() => window.location.reload(), 400); }}
                     initialTab={settingsTab}
                 />
             )}
