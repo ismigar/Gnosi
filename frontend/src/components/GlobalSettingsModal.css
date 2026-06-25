@@ -221,46 +221,6 @@
     font-weight: 700 !important;
 }
 
-/* Scrollbar tuning — visible i clicable amb el cursor. Thumb amb variables
-   del tema (--text-tertiary) perquè contrasti en clar i fosc; abans era
-   var(--settings-border), quasi invisible sobre fons fosc. */
-.settings-sidebar::-webkit-scrollbar,
-.settings-main::-webkit-scrollbar {
-    width: 10px;
-}
-
-.settings-sidebar::-webkit-scrollbar-track,
-.settings-main::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.settings-sidebar::-webkit-scrollbar-thumb,
-.settings-main::-webkit-scrollbar-thumb {
-    background: var(--text-tertiary);
-    border-radius: 10px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-    min-height: 40px;
-}
-
-.settings-sidebar::-webkit-scrollbar-thumb:hover,
-.settings-main::-webkit-scrollbar-thumb:hover {
-    background: var(--text-secondary);
-    background-clip: padding-box;
-}
-
-/* Firefox: scrollbar amb colors del tema via les propietats estàndard.
-   Va dins d'un @supports només-Firefox expressament: a Chrome ≥121,
-   qualsevol valor de scrollbar-width/scrollbar-color diferent d'auto fa
-   que el navegador IGNORI els estils ::-webkit-scrollbar de dalt. */
-@supports (-moz-appearance: none) {
-    .settings-sidebar,
-    .settings-main {
-        scrollbar-width: thin;
-        scrollbar-color: var(--text-tertiary) transparent;
-    }
-}
-
 /* Sidebar Item Improvements */
 .settings-sidebar__item {
     padding: 12px 16px !important;
