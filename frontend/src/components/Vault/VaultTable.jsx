@@ -2403,13 +2403,19 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         // l'usuari únic; si la pàgina porta el valor desat (p. ex. d'un import),
         // es respecta.
         if (type === 'created_time' || type === 'last_edited_time') {
-            const iso = type === 'created_time' ? (note?.created_time || note?.metadata?.[field]) : (note?.last_modified || note?.metadata?.[field]);
+            // Prioritza el timestamp del fitxer; cau a la marca estampada al
+            // frontmatter (created_at/last_edited_at) i, finalment, al camp.
+            const iso = type === 'created_time'
+                ? (note?.created_time || note?.metadata?.created_at || note?.metadata?.[field])
+                : (note?.last_modified || note?.metadata?.last_edited_at || note?.metadata?.[field]);
             let label = '';
             if (iso) { try { label = new Date(iso).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { label = String(iso).slice(0, 10); } }
             return <span className="text-sm text-[var(--text-tertiary)]">{label || '—'}</span>;
         }
         if (type === 'created_by' || type === 'last_edited_by') {
-            const stored = (value && String(value).trim()) || note?.metadata?.[field];
+            // Autoria REAL estampada per pàgina (clau canònica), amb fallbacks.
+            const canonical = note?.metadata?.[type];
+            const stored = canonical || (value && String(value).trim()) || note?.metadata?.[field];
             const who = stored || currentUser?.name || currentUser?.email || '—';
             return <span className="text-sm text-[var(--text-secondary)]">{who}</span>;
         }

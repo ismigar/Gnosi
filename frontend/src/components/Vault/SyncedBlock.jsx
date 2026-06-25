@@ -8,9 +8,14 @@ import { VaultMarkdown } from './VaultMarkdown';
  * Bloc sincronitzat bidireccional (estil Notion synced block). El contingut viu
  * en una font compartida (`/api/vault/synced/{sync_id}`); editar qualsevol
  * instància actualitza la font i totes les altres instàncies la reflecteixen
- * (en recarregar / en el següent render). Es desa a Markdown com a fence
- * ```gnosi-synced amb el sync_id.
+ * EN VIU: dins la mateixa finestra (event) i entre pestanyes/finestres de l'app
+ * (BroadcastChannel). Es desa a Markdown com a fence ```gnosi-synced amb el sync_id.
+ * (Cross-device requeriria empènyer pel WS de col·laboració — fora de v1.)
  */
+
+// Canal entre pestanyes: propaga els canvis a totes les pestanyes/finestres de
+// l'app del mateix origin (no només a la finestra actual).
+const _syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('gnosi-synced') : null;
 export default function SyncedBlock({ block }) {
     const syncId = String(block?.props?.sync_id || '').trim();
     const [content, setContent] = useState('');
@@ -36,16 +41,23 @@ export default function SyncedBlock({ block }) {
             await axios.put(`/api/vault/synced/${syncId}`, { content: draft });
             setContent(draft);
             setEditing(false);
-            // Avisa altres instàncies de la mateixa font (mateixa pàgina) perquè recarreguin.
+            // Mateixa finestra (altres instàncies) + altres pestanyes/finestres.
             window.dispatchEvent(new CustomEvent('gnosi:synced-updated', { detail: { syncId } }));
+            try { _syncChannel?.postMessage({ syncId }); } catch { /* noop */ }
         } catch { /* noop */ } finally { setSaving(false); }
     };
 
-    // Recarrega si una altra instància del mateix sync_id s'ha desat.
+    // Recarrega si una altra instància del mateix sync_id s'ha desat (mateixa
+    // finestra via event, o una altra pestanya via BroadcastChannel).
     useEffect(() => {
         const onUpd = (e) => { if (e.detail?.syncId === syncId && !editing) load(); };
+        const onMsg = (e) => { if (e.data?.syncId === syncId && !editing) load(); };
         window.addEventListener('gnosi:synced-updated', onUpd);
-        return () => window.removeEventListener('gnosi:synced-updated', onUpd);
+        _syncChannel?.addEventListener('message', onMsg);
+        return () => {
+            window.removeEventListener('gnosi:synced-updated', onUpd);
+            _syncChannel?.removeEventListener('message', onMsg);
+        };
     }, [syncId, editing, load]);
 
     return (

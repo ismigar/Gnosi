@@ -155,6 +155,13 @@ def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -
     meta = {"id": page_id, "title": title, **extra_meta}
     fm = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
     path.write_text(f"---\n{fm}\n---\n\n{content or ''}\n", encoding="utf-8")
+    # Registra-la al page-index en memòria perquè aparegui a l'app de seguida
+    # i sigui esborrable per id (sense esperar el rebuild de l'índex).
+    try:
+        from backend.api.vault_routes import register_page_in_index
+        register_page_in_index(path)
+    except Exception:
+        pass
     return {"id": page_id, "path": str(path.relative_to(vault))}
 
 
