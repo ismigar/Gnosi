@@ -43,6 +43,7 @@ from backend.api import (
     workspace_routes, contacts_routes, identity_routes,
     microsoft_auth_routes,
     collab_routes,
+    public_routes,
     share_routes,
 )
 from backend.scheduler.manager import scheduler_manager
@@ -289,6 +290,7 @@ app.include_router(analytics_routes.router, tags=["Analytics"])
 # app.include_router(sync_routes.router, tags=["Sync"])
 app.include_router(scheduler_routes.router, tags=["Scheduler"])
 app.include_router(contacts_routes.router, prefix="/api", tags=["Contacts"])
+app.include_router(public_routes.router, prefix="/api", tags=["Public API / PAT"])
 
 # Integrations and Config
 app.include_router(google_auth_routes.router, tags=["Auth"])

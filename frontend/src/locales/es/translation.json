@@ -572,6 +572,9 @@
     "title": "Ajustes",
     "tabs": {
       "general": "General",
+      "workspace": "Espacio de trabajo",
+      "api": "API y tokens",
+      "plugins": "Conectores",
       "language": "Idioma y Región",
       "appearance": "Apariencia",
       "calendar": "Calendarios",

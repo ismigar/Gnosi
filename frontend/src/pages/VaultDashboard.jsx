@@ -15,6 +15,10 @@ import { inFlightSaves } from '../components/Vault/editorState';
 import { SchemaConfigModal } from '../components/Vault/SchemaConfigModal';
 import { PageViewModal } from '../components/Vault/PageViewModal';
 import { GlobalSearchModal } from '../components/Vault/GlobalSearchModal';
+import TagsModal from '../components/Vault/TagsModal';
+import PresentationMode from '../components/Vault/PresentationMode';
+import InlineComments from '../components/Vault/InlineComments';
+import WorkspacesModal from '../components/Vault/WorkspacesModal';
 import { MetadataLookupModal } from '../components/Vault/MetadataLookupModal';
 import { RecentModal } from '../components/Vault/RecentModal';
 import { TranslateLanguagesModal } from '../components/Vault/TranslateLanguagesModal';
@@ -87,6 +91,9 @@ export default function VaultDashboard() {
     const [views, setViews] = useState([]);
     const [activeViewId, setActiveViewId] = useState(null);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
+    const [isTagsOpen, setIsTagsOpen] = useState(false);
+    const [isPresentOpen, setIsPresentOpen] = useState(false);
+    const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(false);
     const [isRecentOpen, setIsRecentOpen] = useState(false);
     // Id de la pàgina per a la qual el modal «Tradueix la pàgina» està obert (null = tancat).
     const [translatePageModalId, setTranslatePageModalId] = useState(null);
@@ -98,6 +105,9 @@ export default function VaultDashboard() {
     const [commentsOpen, setCommentsOpen] = useState(false);
     const [shareOpen, setShareOpen] = useState(false);
     const [globalIndex, setGlobalIndex] = useState({});
+    // Mapa id → [àlies de nota] (frontmatter `aliases:`). Alimenta la resolució
+    // i els suggeriments de wikilinks per àlies (estil Obsidian).
+    const [aliasIndex, setAliasIndex] = useState({});
     const [registry, setRegistry] = useState({ databases: [], tables: [], views: [] });
     const [activeTableId, setActiveTableId] = useState(null);
     const [tableNotes, setTableNotes] = useState([]);
@@ -862,6 +872,14 @@ export default function VaultDashboard() {
         } catch (err) {
             console.error("Error carregant índex global:", err);
         }
+        // L'índex d'àlies és secundari: si falla, els wikilinks per títol
+        // segueixen funcionant (i `[[àlies]]` encara resol via /resolve-by-title).
+        try {
+            const aliasRes = await axios.get('/api/vault/alias-index');
+            setAliasIndex(aliasRes.data || {});
+        } catch (err) {
+            console.warn("Error carregant índex d'àlies:", err?.message || err);
+        }
     };
 
     const handleUpdateView = async (updatedView) => {
@@ -1279,6 +1297,23 @@ export default function VaultDashboard() {
     const loadPageRef = useRef(null);
     const closePromptModalRef = useRef(null);
     useEffect(() => { loadPageRef.current = loadPage; }, [loadPage]);
+
+    // Importació de notes (Markdown/Obsidian) feta des de la paleta de comandes:
+    // refresca la llista de pàgines i informa amb un toast.
+    useEffect(() => {
+        const onImported = (e) => {
+            const d = e.detail || {};
+            if (d.error) {
+                toast.error?.(`Error important: ${d.error}`) || toast(`Error important: ${d.error}`);
+                return;
+            }
+            const n = d.imported || 0;
+            fetchPages();
+            try { toast(`${n} ${n === 1 ? 'nota importada' : 'notes importades'} a «${d.folder || 'Importades'}»`); } catch { /* noop */ }
+        };
+        window.addEventListener('gnosi:imported', onImported);
+        return () => window.removeEventListener('gnosi:imported', onImported);
+    }, [fetchPages]);
     useEffect(() => { closePromptModalRef.current = closePromptModal; }, [closePromptModal]);
 
     // Keyboard listeners for Cmd+K / Ctrl+K and Escape
@@ -1294,6 +1329,19 @@ export default function VaultDashboard() {
                 closePromptModalRef.current?.();
             }
         };
+
+        // La paleta de comandes pot demanar obrir la cerca global.
+        const handleOpenSearch = () => setIsGlobalSearchOpen(true);
+        window.addEventListener('gnosi:open-search', handleOpenSearch);
+        // … o la vista d'etiquetes jeràrquiques.
+        const handleOpenTags = () => setIsTagsOpen(true);
+        window.addEventListener('gnosi:open-tags', handleOpenTags);
+        // … o el mode presentació de la nota actual.
+        const handlePresent = () => setIsPresentOpen(true);
+        window.addEventListener('gnosi:present', handlePresent);
+        // … o els espais de treball desats.
+        const handleWorkspaces = () => setIsWorkspacesOpen(true);
+        window.addEventListener('gnosi:open-workspaces', handleWorkspaces);
 
         const handleFolderOpen = (e) => {
             if (e.detail?.folder) {
@@ -1359,6 +1407,10 @@ export default function VaultDashboard() {
 
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
+            window.removeEventListener('gnosi:open-search', handleOpenSearch);
+            window.removeEventListener('gnosi:open-tags', handleOpenTags);
+            window.removeEventListener('gnosi:present', handlePresent);
+            window.removeEventListener('gnosi:open-workspaces', handleWorkspaces);
             window.removeEventListener('vault-open-folder', handleFolderOpen);
             window.removeEventListener('gnosi:open-pdf', handleOpenPdf);
             window.removeEventListener('gnosi:records-deleted', handleRecordsDeleted);
@@ -3042,6 +3094,7 @@ export default function VaultDashboard() {
                 allTables={registry.tables}
                 registry={registry}
                 idToTitle={globalIndex}
+                aliasIndex={aliasIndex}
                 onRefreshIndex={fetchGlobalIndex}
                 onRefreshNotes={fetchPages}
                 onUpdatePageMetadata={updatePageMetadataLocal}
@@ -3511,6 +3564,35 @@ export default function VaultDashboard() {
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
                 onNoteSelect={loadPage}
+            />
+
+            <TagsModal
+                isOpen={isTagsOpen}
+                onClose={() => setIsTagsOpen(false)}
+                allNotes={pages}
+                onNoteSelect={loadPage}
+            />
+
+            <PresentationMode
+                isOpen={isPresentOpen}
+                onClose={() => setIsPresentOpen(false)}
+                markdown={currentActiveTab?.content || ''}
+            />
+
+            <InlineComments
+                pageId={(viewMode === 'editor' && currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf) ? activeTabId : null}
+            />
+
+            <WorkspacesModal
+                isOpen={isWorkspacesOpen}
+                onClose={() => setIsWorkspacesOpen(false)}
+                currentTabs={tabs}
+                onRestore={(savedTabs) => {
+                    (savedTabs || []).forEach((t) => {
+                        if (t.isTable) handleTableSelect(t.id);
+                        else loadPage(t.id);
+                    });
+                }}
             />
 
             <MetadataLookupModal

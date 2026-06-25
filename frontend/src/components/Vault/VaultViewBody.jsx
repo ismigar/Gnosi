@@ -4,6 +4,7 @@ import { VaultKanban } from './VaultKanban';
 import { VaultGallery } from './VaultGallery';
 import { VaultTimeline } from './VaultTimeline';
 import { VaultFeed } from './VaultFeed';
+import { VaultChart } from './VaultChart';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { VaultViewErrorBoundary } from './VaultViewErrorBoundary';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
@@ -85,6 +86,8 @@ export function VaultViewBody({
         body = <VaultGallery {...common} />;
     } else if (t === 'timeline') {
         body = <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
+    } else if (t === 'chart') {
+        body = <VaultChart notes={viewFilteredNotes} schema={schema} activeView={activeView} />;
     } else if (t === 'feed') {
         body = (
             <VaultFeed

@@ -1,6 +1,6 @@
-import { 
-    Table, Columns2, LayoutGrid, List, 
-    Calendar, CalendarRange, Newspaper, Share2
+import {
+    Table, Columns2, LayoutGrid, List,
+    Calendar, CalendarRange, Newspaper, Share2, BarChart3
 } from 'lucide-react';
 
 export const VIEW_TYPES = [
@@ -11,6 +11,7 @@ export const VIEW_TYPES = [
     { id: 'calendar', label: 'Calendari', icon: Calendar },
     { id: 'timeline', label: 'Timeline', icon: CalendarRange },
     { id: 'feed', label: 'Feed', icon: Newspaper },
+    { id: 'chart', label: 'Gràfic', icon: BarChart3 },
     { id: 'graph', label: 'Graf', icon: Share2 },
 ];
 

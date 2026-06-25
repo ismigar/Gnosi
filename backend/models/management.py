@@ -80,6 +80,24 @@ class VaultAccess(Base):
     user = relationship("User")
     workspace = relationship("Workspace")
 
+class ApiToken(Base):
+    """Personal Access Token (PAT) per a l'API pública de Gnosi.
+
+    Es desa NOMÉS el hash SHA-256 del token (mai el text en clar). El prefix
+    visible (`gnosi_pat_xxxx…`) permet identificar-lo a la UI sense desxifrar.
+    """
+    __tablename__ = "api_tokens"
+
+    id = Column(String, primary_key=True, default=lambda: str(uuid.uuid4()))
+    user_id = Column(String, ForeignKey("users.id"), nullable=False, index=True)
+    workspace_id = Column(String, nullable=True)
+    name = Column(String, nullable=False)
+    token_hash = Column(String, unique=True, index=True, nullable=False)
+    token_prefix = Column(String, nullable=False)  # p.ex. "gnosi_pat_a1b2"
+    scopes = Column(String, default="read,write")    # CSV de scopes
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+    revoked = Column(Integer, default=0)  # soft-delete (0/1)
 class ShareLink(Base):
     """Public/external share link for a single vault page (Notion-style).
 

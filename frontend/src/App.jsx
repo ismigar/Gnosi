@@ -21,6 +21,7 @@ import AgentChat from './components/AgentChat';
 import MeetingReminderWatcher from './components/MeetingReminderWatcher';
 import MeetingRecorder from './components/MeetingRecorder';
 import PageOutline from './components/PageOutline';
+import CommandPalette from './components/CommandPalette';
 import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useAuth } from './context/AuthContext';
@@ -103,6 +104,7 @@ function App() {
           ZoteroMappingModal i AIAgentModal:100000). Sense això, els toasts
           quedaven amagats darrere de qualsevol modal oberta. */}
       <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
+      <CommandPalette />
       <PageOutline />
       <AgentChat />
       <MeetingReminderWatcher />
