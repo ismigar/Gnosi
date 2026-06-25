@@ -1,4 +1,5 @@
 import os
+import threading
 import chromadb
 from pathlib import Path
 from langchain_chroma import Chroma
@@ -98,10 +99,6 @@ class MemoryStore:
         return [doc.page_content for doc in results]
 
 
-# Singleton instance
-memory_store = MemoryStore()
-
-
 class VaultStore:
     def __init__(self):
         self.embeddings = _get_embeddings()
@@ -141,5 +138,48 @@ class VaultStore:
         return True
 
 
-# Singleton instance per al Vault
-vault_store = VaultStore()
+# --- Singletons MANDROSOS (lazy) -------------------------------------------
+# NO instanciem els stores a nivell de mòdul: construir-los crida
+# `_get_embeddings()`, que importa torch (sentence-transformers). Si això passa
+# en importar el mòdul, qualsevol procés `multiprocessing` (spawn, default a
+# macOS) que reimporti el backend durant el seu bootstrap carrega torch dins
+# d'aquell context restringit i es DEADLOCKA en un lock d'inicialització
+# (`PyThread_acquire_lock`). Resultat observat (2026-06-25): fills orfes penjats
+# que s'acumulen a cada reinici i, si el pare en fa `join` damunt l'event loop,
+# tot el backend es congela (tota petició -> 000, "no carrega"). Diferir la
+# construcció al 1r ús real elimina torch del bootstrap dels fills. Mateix patró
+# que `services/transcription.py`.
+_memory_store = None
+_vault_store = None
+_store_lock = threading.Lock()
+
+
+def get_memory_store() -> "MemoryStore":
+    """Retorna el `MemoryStore` singleton, construint-lo (i carregant torch) al 1r ús."""
+    global _memory_store
+    if _memory_store is None:
+        with _store_lock:
+            if _memory_store is None:
+                _memory_store = MemoryStore()
+    return _memory_store
+
+
+def get_vault_store() -> "VaultStore":
+    """Retorna el `VaultStore` singleton, construint-lo (i carregant torch) al 1r ús."""
+    global _vault_store
+    if _vault_store is None:
+        with _store_lock:
+            if _vault_store is None:
+                _vault_store = VaultStore()
+    return _vault_store
+
+
+def __getattr__(name):
+    # Retrocompat (PEP 562): `from .memory import memory_store` / `vault_store`
+    # segueix funcionant, però ara el singleton (i torch) es construeix NOMÉS en
+    # el 1r accés real a l'atribut, no en importar el mòdul.
+    if name == "memory_store":
+        return get_memory_store()
+    if name == "vault_store":
+        return get_vault_store()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
