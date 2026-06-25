@@ -633,6 +633,9 @@
     "title": "Configuració",
     "tabs": {
       "general": "General",
+      "workspace": "Espai de treball",
+      "api": "API i tokens",
+      "plugins": "Connectors",
       "language": "Idioma i Regió",
       "appearance": "Aparença",
       "calendar": "Calendaris",

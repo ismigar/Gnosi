@@ -634,6 +634,9 @@
     "title": "Settings",
     "tabs": {
       "general": "General",
+      "workspace": "Workspace",
+      "api": "API & tokens",
+      "plugins": "Plugins",
       "language": "Language & Region",
       "appearance": "Appearance",
       "calendar": "Calendars",
