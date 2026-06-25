@@ -213,6 +213,74 @@ async def update_provider_status(provider_id: str, payload: ProviderStatusPayloa
     return {"status": "success", "provider": provider, "enabled": payload.enabled}
 
 
+# ---------------------------------------------------------------------------
+# Registry de models del router (data-driven) + política de pressupost
+# cf. backend/agent/model_router.py i directiva vault_knowledge_agents.md
+# ---------------------------------------------------------------------------
+class ModelsPayload(BaseModel):
+    models: list
+    budget: Optional[dict] = None
+
+
+@router.get("/models")
+async def get_model_registry():
+    """Retorna el registry de models del router (config `ai.models`, o el per defecte)
+    i la política de pressupost (`ai.budget`)."""
+    from backend.agent.model_router import load_registry, DEFAULT_REGISTRY
+    cfg = load_params(strict_env=False)
+    ai_cfg = dict(cfg.get("ai", {}) or {})
+    return {
+        "models": load_registry(),
+        "budget": dict(ai_cfg.get("budget") or {}),
+        "default": DEFAULT_REGISTRY,
+    }
+
+
+@router.put("/models", dependencies=[Depends(require_role("admin"))])
+async def set_model_registry(payload: ModelsPayload):
+    """Desa el registry de models i la política de pressupost a params.yaml."""
+    if not isinstance(payload.models, list):
+        raise HTTPException(status_code=400, detail="models ha de ser una llista")
+    # Validació mínima de cada entrada
+    cleaned = []
+    for m in payload.models:
+        if not isinstance(m, dict) or not m.get("provider") or not m.get("model_id"):
+            raise HTTPException(status_code=400, detail="cada model necessita provider i model_id")
+        cleaned.append({
+            "provider": str(m["provider"]).strip().lower(),
+            "model_id": str(m["model_id"]).strip(),
+            "is_local": bool(m.get("is_local", False)),
+            "enabled": bool(m.get("enabled", True)),
+            "priority": int(m.get("priority", 100)),
+            "cost_in": float(m.get("cost_in", 0) or 0),
+            "cost_out": float(m.get("cost_out", 0) or 0),
+            "context_window": int(m.get("context_window", 8192) or 8192),
+            "quality": int(m.get("quality", 2) or 2),
+            "tags": [str(t) for t in (m.get("tags") or [])],
+            **({"monthly_quota": int(m["monthly_quota"])} if m.get("monthly_quota") else {}),
+            **({"endpoint": str(m["endpoint"])} if m.get("endpoint") else {}),
+        })
+
+    cfg = load_params(strict_env=False)
+    params_path = cfg.params_source
+    current_config = {}
+    if params_path.exists():
+        with open(params_path, "r", encoding="utf-8") as f:
+            current_config = yaml.safe_load(f) or {}
+
+    ai_cfg = dict(current_config.get("ai") or {})
+    ai_cfg["models"] = cleaned
+    if payload.budget is not None:
+        ai_cfg["budget"] = dict(payload.budget)
+    current_config["ai"] = ai_cfg
+
+    yaml_text = yaml.safe_dump(
+        current_config, default_flow_style=False, allow_unicode=True, sort_keys=False,
+    )
+    safe_write_text(params_path, yaml_text)
+    return {"status": "success", "count": len(cleaned)}
+
+
 # ── Generació de contingut amb IA (per a l'editor del Vault) ──────────────────
 
 class GeneratePayload(BaseModel):

@@ -21,6 +21,8 @@ import IdentityProfile from './Vault/IdentityProfile';
 import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
+import ModelRegistrySettings from './ModelRegistrySettings';
+import NotionImportSettings from './NotionImportSettings';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -1839,6 +1841,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SidebarItem id="social" icon={Share2} label="Social" active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
+                            <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
                             <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
                             <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
                             <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins'} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
@@ -3676,9 +3679,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             ))}
                                         </div>
                                     </Section>
+
+                                    {/* Registry de models del router (data-driven + pressupost) */}
+                                    <ModelRegistrySettings />
                                 </>
                             )}
 
+
+                            {/* NOTION IMPORT */}
+                            {activeTab === 'notion' && (
+                                <NotionImportSettings />
+                            )}
 
                             {/* PLUGINS */}
                             {activeTab === 'plugins' && (
