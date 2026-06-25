@@ -53,40 +53,65 @@ def delete_source(source_id: int, db: Session = Depends(get_db)):
 @router.post("/sources/opml", dependencies=[Depends(require_role("editor"))])
 async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Upload an OPML file to import feeds"""
+    log.info(f"[OPML] Iniciant pujada de: {file.filename}")
     if not file.filename.endswith('.opml') and not file.filename.endswith('.xml'):
+        log.warning(f"[OPML] Fitxer amb extensió no suportada: {file.filename}")
         raise HTTPException(status_code=400, detail="File must be .opml or .xml")
     
+    log.info("[OPML] Llegint contingut del fitxer...")
     content = await file.read()
+    log.info(f"[OPML] Contingut llegit: {len(content)} bytes. Parsejant XML...")
     try:
         tree = ET.fromstring(content)
-    except ET.ParseError:
+        log.info("[OPML] XML parsejat correctament.")
+    except ET.ParseError as e:
+        log.error(f"[OPML] Error de parsing XML: {e}")
         raise HTTPException(status_code=400, detail="Invalid XML format")
 
+    log.info("[OPML] Generant parent_map...")
     parent_map = {child: parent for parent in tree.iter() for child in parent}
+    log.info(f"[OPML] parent_map generat. Mida: {len(parent_map)}")
 
     imported_count = 0
-    for outline in tree.findall('.//outline'):
+    outlines = tree.findall('.//outline')
+    log.info(f"[OPML] S'han trobat {len(outlines)} elements outline.")
+    for idx, outline in enumerate(outlines):
         if 'xmlUrl' not in outline.attrib:
             continue
 
         url = outline.attrib.get('xmlUrl')
         title = outline.attrib.get('title', outline.attrib.get('text', 'Unknown'))
+        log.info(f"[OPML] Processant outline #{idx}: {title} ({url})")
 
         category = "Uncategorized"
         ancestor = parent_map.get(outline)
+        log.info(f"  [OPML] Ancestor inicial: {ancestor.tag if ancestor is not None else None}")
+        
+        step = 0
         while ancestor is not None and ancestor.tag == 'outline':
+            step += 1
+            log.info(f"    [OPML] Pas de bucle {step}: ancestor={ancestor.tag}, attrib={ancestor.attrib}")
             if 'xmlUrl' not in ancestor.attrib:
                 category = ancestor.attrib.get('title', ancestor.attrib.get('text', category))
+                log.info(f"    [OPML] Categoria trobada: {category}. Surt del bucle.")
                 break
             ancestor = parent_map.get(ancestor)
+            if step > 1000:
+                log.error("[OPML] BUCLE INFINIT DETECTAT EN ELS ANCESTORS!")
+                break
 
+        log.info(f"  [OPML] Categoria resolta: {category}. Cerca a DB...")
         existing = db.query(models.FeedSource).filter(models.FeedSource.url == url).first()
+        log.info(f"  [OPML] Cerca completada. Existeix? {existing is not None}")
         if not existing:
             new_source = models.FeedSource(name=title, url=url, category=category, type="rss")
             db.add(new_source)
             imported_count += 1
+            log.info(f"  [OPML] Afegida nova font a la sessió.")
 
+    log.info(f"[OPML] Fent commit a la base de dades. Nous importats: {imported_count}...")
     db.commit()
+    log.info("[OPML] Commit completat amb èxit!")
     return {"message": f"Successfully imported {imported_count} new feeds."}
 
 

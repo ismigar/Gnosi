@@ -160,7 +160,19 @@ def _decode_mime_words(raw: str) -> str:
         out = ""
         for part, enc in parts:
             if isinstance(part, bytes):
-                out += part.decode(enc if enc else "utf-8", errors='replace')
+                codec = enc
+                if codec:
+                    codec = codec.strip().strip('"').strip("'").lower()
+                    if codec in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                        codec = "utf-8"
+                else:
+                    codec = "utf-8"
+                try:
+                    out += part.decode(codec, errors='replace')
+                except LookupError:
+                    out += part.decode("latin1", errors='replace')
+                except Exception:
+                    out += part.decode("utf-8", errors='replace')
             else:
                 out += part
         return out.strip()
@@ -305,11 +317,26 @@ def fetch_and_store_newsletters():
 
                 # Decode Subject
                 subject_raw = msg.get("Subject", "(No subject)")
-                decoded_parts = decode_header(subject_raw)
+                try:
+                    decoded_parts = decode_header(subject_raw)
+                except Exception:
+                    decoded_parts = [(subject_raw, None)]
                 subject = ""
                 for part, enc in decoded_parts:
                     if isinstance(part, bytes):
-                        subject += part.decode(enc if enc else "utf-8", errors='replace')
+                        codec = enc
+                        if codec:
+                            codec = codec.strip().strip('"').strip("'").lower()
+                            if codec in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                                codec = "utf-8"
+                        else:
+                            codec = "utf-8"
+                        try:
+                            subject += part.decode(codec, errors='replace')
+                        except LookupError:
+                            subject += part.decode("latin1", errors='replace')
+                        except Exception:
+                            subject += part.decode("utf-8", errors='replace')
                     else:
                         subject += part
 

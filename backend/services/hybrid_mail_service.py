@@ -132,11 +132,26 @@ def _decode_mime(value: str) -> str:
     import html
     if not value:
         return ""
-    parts = _decode_header(value)
+    try:
+        parts = _decode_header(value)
+    except Exception:
+        return str(value)
     out = []
     for part, charset in parts:
         if isinstance(part, bytes):
-            out.append(part.decode(charset or "utf-8", errors="replace"))
+            codec = charset
+            if codec:
+                codec = codec.strip().strip('"').strip("'").lower()
+                if codec in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                    codec = "utf-8"
+            else:
+                codec = "utf-8"
+            try:
+                out.append(part.decode(codec, errors="replace"))
+            except LookupError:
+                out.append(part.decode("latin1", errors="replace"))
+            except Exception:
+                out.append(part.decode("utf-8", errors="replace"))
         else:
             out.append(part)
     return html.unescape("".join(out))
@@ -738,18 +753,40 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
                 if not payload:
                     continue
                 charset = part.get_content_charset() or "utf-8"
+                if isinstance(charset, str):
+                    charset = charset.strip().strip('"').strip("'").lower()
+                    if charset in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                        charset = "utf-8"
+                try:
+                    text_decoded = payload.decode(charset, errors="replace")
+                except LookupError:
+                    text_decoded = payload.decode("latin1", errors="replace")
+                except Exception:
+                    text_decoded = payload.decode("utf-8", errors="replace")
+
                 if ct == "text/plain" and not body_text:
-                    body_text = payload.decode(charset, errors="replace")
+                    body_text = text_decoded
                 elif ct == "text/html" and not body_html:
-                    body_html = payload.decode(charset, errors="replace")
+                    body_html = text_decoded
         else:
             payload = msg.get_payload(decode=True)
             if payload:
                 charset = msg.get_content_charset() or "utf-8"
+                if isinstance(charset, str):
+                    charset = charset.strip().strip('"').strip("'").lower()
+                    if charset in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                        charset = "utf-8"
+                try:
+                    text_decoded = payload.decode(charset, errors="replace")
+                except LookupError:
+                    text_decoded = payload.decode("latin1", errors="replace")
+                except Exception:
+                    text_decoded = payload.decode("utf-8", errors="replace")
+
                 if msg.get_content_type() == "text/html":
-                    body_html = payload.decode(charset, errors="replace")
+                    body_html = text_decoded
                 else:
-                    body_text = payload.decode(charset, errors="replace")
+                    body_text = text_decoded
 
         message_id_hdr = sanitize_filename_component(msg.get("Message-ID", ""))
         return {
