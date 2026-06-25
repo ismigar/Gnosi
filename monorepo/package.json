@@ -13,7 +13,10 @@
         "test": "npm run test --workspaces"
     },
     "devDependencies": {
-        "typescript": "^5.0.0",
-        "eslint": "^8.0.0"
+        "eslint": "^8.0.0",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "gulp": "^5.0.1"
     }
 }
