@@ -937,110 +937,114 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const childModalOpen = isConnectModalOpen || !!editingAgent || pickerOpen || confirmConfig.isOpen;
 
     const handleClose = async () => {
-        // 1. Cancel·lem els timeouts d'auto-save per evitar que es tornin a disparar de forma duplicada
-        clearTimeout(autoSaveTimeoutRef.current);
-        clearTimeout(identityAutoSaveRef.current);
-        if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
+        try {
+            // 1. Cancel·lem els timeouts d'auto-save per evitar que es tornin a disparar de forma duplicada
+            clearTimeout(autoSaveTimeoutRef.current);
+            clearTimeout(identityAutoSaveRef.current);
+            if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
 
-        // 2. Determinem si hi ha canvis pendents en la identitat del correu
-        let updatedIntegrations = { ...integrations };
-        let hasIdentityChanges = false;
-        if (editingAccountId) {
-            const fields = mailFieldsRef.current;
-            const currentList = integrations.mail_accounts || [];
-            const accountIndex = currentList.findIndex(a => a.id === fields.editingAccountId);
-            if (accountIndex !== -1) {
-                const a = currentList[accountIndex];
-                if (
-                    a.display_name !== fields.display_name ||
-                    a.subject_prefix !== fields.subject_prefix ||
-                    a.signature !== fields.signature ||
-                    a.certificate !== fields.certificate ||
-                    JSON.stringify(a.aliases) !== JSON.stringify(fields.aliases)
-                ) {
-                    const newList = currentList.map(acc => acc.id !== fields.editingAccountId ? acc : {
-                        ...acc,
-                        display_name: fields.display_name,
-                        subject_prefix: fields.subject_prefix,
-                        signature: fields.signature,
-                        certificate: fields.certificate,
-                        aliases: fields.aliases,
-                    });
-                    updatedIntegrations = { ...integrations, mail_accounts: newList };
-                    hasIdentityChanges = true;
+            // 2. Determinem si hi ha canvis pendents en la identitat del correu
+            let updatedIntegrations = { ...integrations };
+            let hasIdentityChanges = false;
+            if (editingAccountId) {
+                const fields = mailFieldsRef.current;
+                const currentList = integrations.mail_accounts || [];
+                const accountIndex = currentList.findIndex(a => a.id === fields.editingAccountId);
+                if (accountIndex !== -1) {
+                    const a = currentList[accountIndex];
+                    if (
+                        a.display_name !== fields.display_name ||
+                        a.subject_prefix !== fields.subject_prefix ||
+                        a.signature !== fields.signature ||
+                        a.certificate !== fields.certificate ||
+                        JSON.stringify(a.aliases) !== JSON.stringify(fields.aliases)
+                    ) {
+                        const newList = currentList.map(acc => acc.id !== fields.editingAccountId ? acc : {
+                            ...acc,
+                            display_name: fields.display_name,
+                            subject_prefix: fields.subject_prefix,
+                            signature: fields.signature,
+                            certificate: fields.certificate,
+                            aliases: fields.aliases,
+                        });
+                        updatedIntegrations = { ...integrations, mail_accounts: newList };
+                        hasIdentityChanges = true;
+                    }
                 }
             }
-        }
 
-        // 3. Determinem si hi ha canvis pendents a la configuració general o integracions
-        const currentData = JSON.stringify({
-            settings: draft.settings,
-            paths: draft.paths,
-            graph: draft.graph,
-            ai: { 
-                agents: draft.ai.agents, 
-                active_agent_id: draft.ai.active_agent_id,
-                providers: draft.ai.providers
-            },
-            integrations: updatedIntegrations,
-            identity: draft.identity
-        });
+            // 3. Determinem si hi ha canvis pendents a la configuració general o integracions
+            const currentData = JSON.stringify({
+                settings: draft.settings,
+                paths: draft.paths,
+                graph: draft.graph,
+                ai: { 
+                    agents: draft.ai.agents, 
+                    active_agent_id: draft.ai.active_agent_id,
+                    providers: draft.ai.providers
+                },
+                integrations: updatedIntegrations,
+                identity: draft.identity
+            });
 
-        const hasConfigChanges = lastSavedData.current !== null && lastSavedData.current !== currentData;
+            const hasConfigChanges = lastSavedData.current !== null && lastSavedData.current !== currentData;
 
-        // Canvis newsletter POP3
-        let hasNewsletterChanges = false;
-        if (newsletterAccountLoaded) {
-            const currentNewsletter = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
-            hasNewsletterChanges = lastSavedNewsletterAccountRef.current !== currentNewsletter;
-        }
-
-        // 4. Si hi ha qualsevol canvi pendent, els guardem de forma seqüencial/síncrona (esperant el Promise.all)
-        if (hasIdentityChanges || hasConfigChanges || hasNewsletterChanges) {
-            setSavingStatus('saving');
-            setIsSaving(true);
-            try {
-                const promises = [];
-                
-                // Guardar config general, integracions i identitat
-                if (hasConfigChanges || hasIdentityChanges) {
-                    promises.push(
-                        axios.post('/api/config', {
-                            settings: draft.settings,
-                            paths: draft.paths,
-                            graph: draft.graph,
-                            ai: { 
-                                agents: draft.ai.agents, 
-                                active_agent_id: draft.ai.active_agent_id,
-                                providers: draft.ai.providers
-                            }
-                        }),
-                        axios.post('/api/integrations/bulk', updatedIntegrations),
-                        axios.post('/api/identity', draft.identity)
-                    );
-                }
-
-                // Guardar newsletter
-                if (hasNewsletterChanges) {
-                    const next = { ...newsletterAccount };
-                    if (!newsletterPasswordDirty) delete next.password;
-                    promises.push(
-                        axios.post('/api/newsletter/account', next)
-                    );
-                }
-
-                await Promise.all(promises);
-                setSavingStatus('saved');
-            } catch (err) {
-                console.error("Error guardant en tancar configuració:", err);
-                setSavingStatus('error');
-            } finally {
-                setIsSaving(false);
+            // Canvis newsletter POP3
+            let hasNewsletterChanges = false;
+            if (newsletterAccountLoaded) {
+                const currentNewsletter = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
+                hasNewsletterChanges = lastSavedNewsletterAccountRef.current !== currentNewsletter;
             }
-        }
 
-        // 5. Cridem al onClose original per a tancar la modal
-        onClose();
+            // 4. Si hi ha qualsevol canvi pendent, els guardem de forma seqüencial/síncrona (esperant el Promise.all)
+            if (hasIdentityChanges || hasConfigChanges || hasNewsletterChanges) {
+                setSavingStatus('saving');
+                setIsSaving(true);
+                try {
+                    const promises = [];
+                    
+                    // Guardar config general, integracions i identitat
+                    if (hasConfigChanges || hasIdentityChanges) {
+                        promises.push(
+                            axios.post('/api/config', {
+                                settings: draft.settings,
+                                paths: draft.paths,
+                                graph: draft.graph,
+                                ai: { 
+                                    agents: draft.ai.agents, 
+                                    active_agent_id: draft.ai.active_agent_id,
+                                    providers: draft.ai.providers
+                                }
+                            }),
+                            axios.post('/api/integrations/bulk', updatedIntegrations),
+                            axios.post('/api/identity', draft.identity)
+                        );
+                    }
+
+                    // Guardar newsletter
+                    if (hasNewsletterChanges) {
+                        const next = { ...newsletterAccount };
+                        if (!newsletterPasswordDirty) delete next.password;
+                        promises.push(
+                            axios.post('/api/newsletter/account', next)
+                        );
+                    }
+
+                    await Promise.all(promises);
+                    setSavingStatus('saved');
+                } catch (err) {
+                    console.error("Error guardant en tancar configuració:", err);
+                    setSavingStatus('error');
+                } finally {
+                    setIsSaving(false);
+                }
+            }
+        } catch (globalErr) {
+            console.error("Error global crític a handleClose:", globalErr);
+        } finally {
+            // 5. Cridem al onClose original per a tancar la modal SEMPRE, fins i tot si hi ha errors
+            onClose();
+        }
     };
 
     useModalKeyboard({
@@ -1420,14 +1424,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     }, [draft, integrations]);
 
     // Fix scroll: a Mac+Chrome, <select>/<input>/<textarea> natius poden absorbir
-    // el wheel i evitar que .settings-main faci scroll. Redirigim el wheel quan
-    // el target és un control que no necessita scroll propi.
+    // el wheel i evitar que .settings-main/sidebar facin scroll. També donem suport
+    // a fer scroll amb tecles del teclat (fletxes amunt/avall, espai, repag, avpag, home, end)
+    // quan el focus no està en un camp de text editable.
     useEffect(() => {
         if (!isOpen) return;
-        const handler = (e) => {
-            // No interferir amb gestos de zoom (pinch-to-zoom a Mac arriba com
-            // wheel + ctrlKey; també respectem cmd+wheel per si l'usuari té
-            // mapping personalitzat).
+
+        const wheelHandler = (e) => {
             if (e.ctrlKey || e.metaKey) return;
             const t = e.target;
             if (!t || !t.closest) return;
@@ -1435,15 +1438,65 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             if (!main) return;
             const tag = t.tagName;
             if (tag !== 'SELECT' && tag !== 'INPUT' && tag !== 'TEXTAREA') return;
-            // Si textarea té contingut scrollable propi, deixa que el gestioni
             if (tag === 'TEXTAREA' && t.scrollHeight > t.clientHeight + 1) return;
             if (main.scrollHeight > main.clientHeight) {
                 main.scrollTop += e.deltaY;
                 e.preventDefault();
             }
         };
-        document.addEventListener('wheel', handler, { passive: false, capture: true });
-        return () => document.removeEventListener('wheel', handler, { capture: true });
+
+        const keyScrollHandler = (e) => {
+            const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '];
+            if (!scrollKeys.includes(e.key)) return;
+
+            const ae = document.activeElement;
+            if (ae) {
+                const tag = ae.tagName;
+                if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || ae.isContentEditable) {
+                    return;
+                }
+            }
+
+            const main = document.querySelector('.settings-main');
+            const sidebar = document.querySelector('.settings-sidebar');
+            if (!main) return;
+
+            let scrollTarget = main;
+            if (sidebar && sidebar.contains(ae)) {
+                scrollTarget = sidebar;
+            }
+
+            const step = 40;
+            const pageStep = scrollTarget.clientHeight - 40;
+
+            if (e.key === 'ArrowDown') {
+                scrollTarget.scrollTop += step;
+                e.preventDefault();
+            } else if (e.key === 'ArrowUp') {
+                scrollTarget.scrollTop -= step;
+                e.preventDefault();
+            } else if (e.key === 'PageDown' || (e.key === ' ' && !e.shiftKey)) {
+                scrollTarget.scrollTop += pageStep;
+                e.preventDefault();
+            } else if (e.key === 'PageUp' || (e.key === ' ' && e.shiftKey)) {
+                scrollTarget.scrollTop -= pageStep;
+                e.preventDefault();
+            } else if (e.key === 'Home') {
+                scrollTarget.scrollTop = 0;
+                e.preventDefault();
+            } else if (e.key === 'End') {
+                scrollTarget.scrollTop = scrollTarget.scrollHeight;
+                e.preventDefault();
+            }
+        };
+
+        document.addEventListener('wheel', wheelHandler, { passive: false, capture: true });
+        window.addEventListener('keydown', keyScrollHandler, { capture: true });
+
+        return () => {
+            document.removeEventListener('wheel', wheelHandler, { capture: true });
+            window.removeEventListener('keydown', keyScrollHandler, { capture: true });
+        };
     }, [isOpen]);
 
     const handleDeleteAccount = (category, accountId) => {
