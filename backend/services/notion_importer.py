@@ -391,6 +391,20 @@ class NotionClient:
             cursor = data.get("next_cursor")
         return results
 
+    def search_pages(self) -> List[Dict[str, Any]]:
+        """Totes les pàgines compartides amb la integració (object=page), paginat."""
+        results, cursor = [], None
+        while True:
+            body = {"filter": {"property": "object", "value": "page"}, "page_size": 100}
+            if cursor:
+                body["start_cursor"] = cursor
+            data = self._request("POST", "/search", json=body)
+            results.extend(data.get("results", []))
+            if not data.get("has_more"):
+                break
+            cursor = data.get("next_cursor")
+        return results
+
     def get_database(self, db_id: str) -> Dict[str, Any]:
         return self._request("GET", f"/databases/{db_id}")
 
@@ -490,6 +504,7 @@ def import_workspace(
     max_pages: int = 5000,
     exists: Optional[Callable[[str, str], bool]] = None,
     only_new: bool = True,
+    include_loose_pages: bool = False,
 ) -> Dict[str, Any]:
     """Importa un workspace de Notion seguint el GRAF de referències (sense orfes).
 
@@ -528,6 +543,15 @@ def import_workspace(
         if pid and pid not in visited_pages and pid not in queued:
             queued.add(pid)
             page_queue.append(pid)
+
+    # Pàgines SOLTES: sembra el crawler amb les pàgines compartides que NO pengen d'una BD
+    # (parent workspace/page). Les que són fila d'una BD (parent database_id) ja entren per
+    # la seva BD → s'exclouen aquí per estalviar crides.
+    if include_loose_pages:
+        for pg in client.search_pages():
+            parent = pg.get("parent") or {}
+            if parent.get("type") in ("workspace", "page_id"):
+                enq_page(pg.get("id"))
 
     def limit_hit() -> bool:
         if report["pages"] >= max_pages:

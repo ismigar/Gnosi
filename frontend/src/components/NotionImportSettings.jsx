@@ -18,6 +18,7 @@ export default function NotionImportSettings() {
     const [folder, setFolder] = useState('Importades/Notion');
     const [groupViews, setGroupViews] = useState(true);
     const [followLinks, setFollowLinks] = useState(true);
+    const [loosePages, setLoosePages] = useState(false);
     const [report, setReport] = useState(null);
     const [diff, setDiff] = useState(null);
 
@@ -79,6 +80,7 @@ export default function NotionImportSettings() {
                 create_group_views: groupViews,
                 target_folder: folder.trim() || 'Importades/Notion',
                 follow_links: followLinks,
+                include_loose_pages: loosePages,
             });
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -163,6 +165,13 @@ export default function NotionImportSettings() {
                                         <div className="gnosi-toggle-handle" />
                                     </div>
                                     Seguir relacions i enllaços (sense orfes)
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}
+                                    title="A més de les BD, importa les pàgines soltes compartides amb la integració que no pengen de cap base de dades.">
+                                    <div className={`gnosi-toggle ${loosePages ? 'active' : ''}`} onClick={() => setLoosePages(v => !v)}>
+                                        <div className="gnosi-toggle-handle" />
+                                    </div>
+                                    Incloure pàgines soltes (no a cap BD)
                                 </label>
                                 <button onClick={runDiff} disabled={busy === 'diff' || selected.size === 0}
                                     style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>

@@ -115,6 +115,7 @@ class ImportPayload(BaseModel):
     follow_links: bool = True   # tancament transitiu (relacions + child pages/dbs + mencions)
     max_pages: int = 5000
     only_new: bool = True        # sync guardat: només afegeix pàgines NOVES, mai sobreescriu
+    include_loose_pages: bool = False  # també pàgines soltes (no a cap BD)
 
 
 def _sanitize_folder(name: str) -> str:
@@ -156,7 +157,8 @@ def _build_exists(idx: dict):
 
 
 def _run_import_sync(token: str, database_ids, create_group_views, target_folder,
-                     follow_links=True, max_pages=5000, only_new=True) -> dict:
+                     follow_links=True, max_pages=5000, only_new=True,
+                     include_loose_pages=False) -> dict:
     """Executat en thread: writers síncrons que reusen registry + filesystem."""
     vault = get_active_vault_path()
     if not vault:
@@ -215,7 +217,7 @@ def _run_import_sync(token: str, database_ids, create_group_views, target_folder
         database_ids=database_ids, create_group_views=create_group_views,
         target_folder=target_folder,
         follow_relations=follow_links, follow_children=follow_links, max_pages=max_pages,
-        exists=exists, only_new=only_new,
+        exists=exists, only_new=only_new, include_loose_pages=include_loose_pages,
     )
 
 
@@ -230,6 +232,7 @@ async def run_import(payload: ImportPayload):
             _run_import_sync, token, payload.database_ids,
             payload.create_group_views, payload.target_folder,
             payload.follow_links, payload.max_pages, payload.only_new,
+            payload.include_loose_pages,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error important de Notion: {e}")

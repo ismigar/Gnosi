@@ -14,8 +14,9 @@ from services.notion_importer import (  # noqa: E402
 
 class FakeClient:
     """Client de Notion fals (sense xarxa) per provar el crawler de tancament."""
-    def __init__(self, dbs, rows, blocks, pages):
+    def __init__(self, dbs, rows, blocks, pages, loose=None):
         self.dbs, self.rows, self.blocks, self.pages = dbs, rows, blocks, pages
+        self.loose = loose or []  # resultats de search_pages (object=page)
         self.queried = []
 
     def list_users(self):
@@ -23,6 +24,9 @@ class FakeClient:
 
     def search_databases(self):
         return [{"id": k} for k in self.dbs]
+
+    def search_pages(self):
+        return list(self.loose)
 
     def get_database(self, db_id):
         return self.dbs[db_id]
@@ -146,6 +150,29 @@ def test_crawler_only_new_skips_existing():
     assert gnosi_id_for("p1", "page") not in written_ids   # existent → saltada
     assert gnosi_id_for("t1", "page") in written_ids        # nova → importada
     assert report["skipped_existing"] == 1
+
+
+def test_crawler_include_loose_pages():
+    # include_loose_pages sembra el crawler amb pàgines soltes (parent page/workspace);
+    # les files de BD (parent database_id) es filtren al seed (entren per la seva BD).
+    fc = _fixture()
+    fc.loose = [
+        {"id": "lp1", "parent": {"type": "page_id", "page_id": "root"}},          # solta → importa
+        {"id": "t1", "parent": {"type": "database_id", "database_id": "tasks"}},   # fila BD → filtrada
+    ]
+    fc.pages["lp1"] = {"id": "lp1", "parent": {"type": "page_id", "page_id": "root"},
+                       "properties": {"title": _title_prop("Nota solta")}}
+    fc.blocks["lp1"] = []
+
+    on = []
+    import_workspace(fc, write_table=lambda t: None, write_page=on.append,
+                     write_view=lambda v: None, database_ids=["projects"], include_loose_pages=True)
+    assert gnosi_id_for("lp1", "page") in {p["id"] for p in on}   # solta importada
+
+    off = []
+    import_workspace(fc, write_table=lambda t: None, write_page=off.append,
+                     write_view=lambda v: None, database_ids=["projects"], include_loose_pages=False)
+    assert gnosi_id_for("lp1", "page") not in {p["id"] for p in off}  # sense l'opció, no hi és
 
 
 def test_crawler_db_row_not_imported_as_standalone():
