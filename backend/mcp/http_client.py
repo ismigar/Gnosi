@@ -45,6 +45,10 @@ class HttpMCPClient:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
+            # mcp.notion.com és darrere Cloudflare i BLOQUEJA (error 1010) el User-Agent
+            # per defecte de Python (urllib/httpx). Cal un UA de navegador per passar.
+            "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                           "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"),
         }
         if self._session_id:
             h["Mcp-Session-Id"] = self._session_id
