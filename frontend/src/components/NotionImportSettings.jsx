@@ -206,6 +206,11 @@ export default function NotionImportSettings() {
                                     <div key={i} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--settings-border)' }}>
                                         <b>{t.notion_db}</b> → {t.vault_table || <span style={{ color: '#e0a52e' }}>taula inexistent</span>}
                                         {' · '}{t.new || 0} noves · {t.matched || 0} coincidents
+                                        {t.new_titles?.length > 0 && (
+                                            <div style={{ marginTop: 4, color: '#16a34a', fontSize: '0.78rem' }}>
+                                                🆕 {t.new_titles.slice(0, 8).join(', ')}{t.new_titles.length > 8 ? `, +${t.new_titles.length - 8}…` : ''}
+                                            </div>
+                                        )}
                                         {t.diverged?.length > 0 && (
                                             <div style={{ marginTop: 4, color: '#e0a52e', fontSize: '0.78rem' }}>
                                                 <AlertTriangle size={12} style={{ verticalAlign: 'middle' }} /> {t.diverged.length} divergides (p.ex. {t.diverged.slice(0, 3).map(d => `${d.title} ${d.similarity != null ? `(${Math.round(d.similarity * 100)}%)` : ''}`).join(', ')})

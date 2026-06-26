@@ -274,8 +274,22 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
                 out["summary"]["new"] += len(notion_rows)
                 continue
             vpages = vault_routes._get_pages_by_table_id(v_str, vtable["id"])
-            vlist = [{"id": p.id, "title": p.title, "path": p.path} for p in vpages]
-            m = notion_diff.match_pages(notion_rows, vlist)
+            # Pertinença per id-O-títol (mateixa lògica que el guard de l'import) → el diff
+            # no sobre-reporta "noves" respecte del que l'import realment afegiria.
+            v_ids, v_titles, vlist = set(), set(), []
+            for p in vpages:
+                meta = p.metadata if isinstance(p.metadata, dict) else {}
+                v_ids.add(_norm_id(p.id))
+                if meta.get("id"):
+                    v_ids.add(_norm_id(meta["id"]))
+                v_titles.add(_norm_name(p.title))
+                vlist.append({"id": p.id, "title": p.title, "path": p.path})
+
+            def _in_vault(n):
+                return _norm_id(n["id"]) in v_ids or _norm_name(n["title"]) in v_titles
+
+            new_rows = [n for n in notion_rows if not _in_vault(n)]
+            m = notion_diff.match_pages([n for n in notion_rows if _in_vault(n)], vlist)
             diverged, identical, similar, notion_blank, vault_blank, deep_done = [], 0, 0, 0, 0, 0
             for n, v in m["matched"]:
                 if not deep or deep_done >= max_deep_per_table:
@@ -305,14 +319,15 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
                 except Exception as e:  # noqa: BLE001
                     diverged.append({"title": v.get("title"), "error": str(e)})
             t = {"notion_db": db_name, "vault_table": vtable.get("name"),
-                 "new": len(m["notion_only"]), "matched": len(m["matched"]),
+                 "new": len(new_rows), "new_titles": [n["title"] for n in new_rows][:50],
+                 "matched": len(m["matched"]),
                  "vault_only": len(m["vault_only"]), "diverged": diverged,
                  "identical": identical, "similar": similar,
                  "notion_blank": notion_blank, "vault_blank": vault_blank,
                  "deep_sampled": deep_done}
             out["tables"].append(t)
             s = out["summary"]
-            s["new"] += len(m["notion_only"]); s["matched"] += len(m["matched"])
+            s["new"] += len(new_rows); s["matched"] += len(m["matched"])
             s["vault_only"] += len(m["vault_only"]); s["diverged"] += len(diverged)
             s["notion_blank"] += notion_blank; s["vault_blank"] += vault_blank
             s["identical"] += identical; s["similar"] += similar
