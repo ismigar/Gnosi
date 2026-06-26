@@ -146,7 +146,9 @@ def _vault_index() -> dict:
             titles.add(_norm_name(t))
     reg = vault_routes.load_registry()
     tables_by_name = {_norm_name(t.get("name")): t for t in reg.get("tables", [])}
-    return {"v_str": v_str, "ids": ids, "titles": titles, "tables_by_name": tables_by_name}
+    tables_by_id = {_norm_id(t.get("id")): t for t in reg.get("tables", [])}
+    return {"v_str": v_str, "ids": ids, "titles": titles,
+            "tables_by_name": tables_by_name, "tables_by_id": tables_by_id}
 
 
 def _build_exists(idx: dict):
@@ -165,24 +167,34 @@ def _run_import_sync(token: str, database_ids, create_group_views, target_folder
         raise RuntimeError("No hi ha cap vault actiu")
     client = NotionClient(token)
     folder_by_table: dict = {}
+    new_table_ids: set = set()
 
     def write_table(table: dict):
-        # Carpeta pròpia per a cada BD: <target>/<nom>
+        reg = vault_routes.load_registry()
+        tables = reg.setdefault("tables", [])
+        reg.setdefault("views", [])
+        idx = next((i for i, t in enumerate(tables) if t.get("id") == table["id"]), None)
+        if idx is not None:
+            # La taula JA existeix al vault (id = id de BD de Notion) → NO sobreescriure el
+            # seu esquema (propietats/àlies del vault); només reusar-la com a destí.
+            existing = tables[idx]
+            folder = existing.get("folder") or f"{_sanitize_folder(target_folder)}/{_sanitize_folder(table.get('name'))}"
+            folder_by_table[table["id"]] = folder
+            (vault / folder).mkdir(parents=True, exist_ok=True)
+            return
+        # Taula NOVA: carpeta pròpia <target>/<nom>
         folder = f"{_sanitize_folder(target_folder)}/{_sanitize_folder(table.get('name'))}"
         table["folder"] = folder
         folder_by_table[table["id"]] = folder
-        reg = vault_routes.load_registry()
-        tables = reg.setdefault("tables", [])
-        idx = next((i for i, t in enumerate(tables) if t.get("id") == table["id"]), None)
-        if idx is not None:
-            tables[idx] = table
-        else:
-            tables.append(table)
-        reg.setdefault("views", [])
+        new_table_ids.add(table["id"])
+        tables.append(table)
         vault_routes.save_registry(reg)
         (vault / folder).mkdir(parents=True, exist_ok=True)
 
     def write_view(view: dict):
+        # Només afegim vistes per a taules NOVES (les existents ja tenen les seves).
+        if view.get("table_id") not in new_table_ids:
+            return
         reg = vault_routes.load_registry()
         views = reg.setdefault("views", [])
         idx = next((i for i, v in enumerate(views) if v.get("id") == view.get("id")), None)
@@ -252,6 +264,7 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
     client = NotionClient(token)
     idx = _vault_index()
     tables_by_name = idx["tables_by_name"]
+    tables_by_id = idx["tables_by_id"]
     v_str = idx["v_str"]
 
     if database_ids is None:
@@ -264,7 +277,7 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
         try:
             db = client.get_database(db_id)
             db_name = _plain_title(db.get("title")) or "Sense títol"
-            vtable = tables_by_name.get(_norm_name(db_name))
+            vtable = tables_by_id.get(_norm_id(db_id)) or tables_by_name.get(_norm_name(db_name))
             notion_rows = [{"id": r["id"], "title": _page_title(r) or "Sense títol"}
                            for r in client.query_database(db_id)]
             if not vtable:
