@@ -258,7 +258,8 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
         database_ids = [d["id"] for d in client.search_databases()]
 
     out = {"tables": [], "summary": {"new": 0, "diverged": 0, "identical": 0,
-                                     "similar": 0, "vault_only": 0, "matched": 0}}
+                                     "similar": 0, "vault_only": 0, "matched": 0,
+                                     "notion_blank": 0, "vault_blank": 0}}
     for db_id in database_ids:
         try:
             db = client.get_database(db_id)
@@ -275,9 +276,7 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
             vpages = vault_routes._get_pages_by_table_id(v_str, vtable["id"])
             vlist = [{"id": p.id, "title": p.title, "path": p.path} for p in vpages]
             m = notion_diff.match_pages(notion_rows, vlist)
-            diverged, identical, similar, deep_done = [], 0, 0, 0
-            # row id → row per recuperar blocs
-            row_by_id = {r["id"]: r for r in notion_rows}
+            diverged, identical, similar, notion_blank, vault_blank, deep_done = [], 0, 0, 0, 0, 0
             for n, v in m["matched"]:
                 if not deep or deep_done >= max_deep_per_table:
                     continue
@@ -291,11 +290,16 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
                     child = notion_diff.extract_notion_child_databases(blocks)
                     dp = notion_diff.diff_page(nmd, vbody, notion_child_dbs=child)
                     deep_done += 1
-                    if dp["body_status"] == "diverged":
+                    st = dp["body_status"]
+                    if st == "diverged":
                         diverged.append({"title": v["title"], "similarity": dp["body_similarity"],
                                         "notion_embeds": dp["notion_embeds"], "vault_embeds": dp["vault_embeds"]})
-                    elif dp["body_status"] == "identical":
+                    elif st == "identical":
                         identical += 1
+                    elif st == "notion_blank":
+                        notion_blank += 1
+                    elif st == "vault_blank":
+                        vault_blank += 1
                     else:
                         similar += 1
                 except Exception as e:  # noqa: BLE001
@@ -303,11 +307,14 @@ def _run_diff_sync(token: str, database_ids, deep=True, max_deep_per_table=25) -
             t = {"notion_db": db_name, "vault_table": vtable.get("name"),
                  "new": len(m["notion_only"]), "matched": len(m["matched"]),
                  "vault_only": len(m["vault_only"]), "diverged": diverged,
-                 "identical": identical, "similar": similar, "deep_sampled": deep_done}
+                 "identical": identical, "similar": similar,
+                 "notion_blank": notion_blank, "vault_blank": vault_blank,
+                 "deep_sampled": deep_done}
             out["tables"].append(t)
             s = out["summary"]
             s["new"] += len(m["notion_only"]); s["matched"] += len(m["matched"])
             s["vault_only"] += len(m["vault_only"]); s["diverged"] += len(diverged)
+            s["notion_blank"] += notion_blank; s["vault_blank"] += vault_blank
             s["identical"] += identical; s["similar"] += similar
         except Exception as e:  # noqa: BLE001
             out["tables"].append({"notion_db": db_id, "error": str(e)})

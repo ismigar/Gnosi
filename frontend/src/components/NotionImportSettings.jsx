@@ -195,8 +195,10 @@ export default function NotionImportSettings() {
                             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 10 }}>
                                 <span>🆕 Noves: <b>{diff.summary?.new ?? 0}</b></span>
                                 <span style={{ color: '#e0a52e' }}>⚠️ Divergides: <b>{diff.summary?.diverged ?? 0}</b></span>
+                                {(diff.summary?.vault_blank ?? 0) > 0 && <span style={{ color: '#3b82f6' }}>📥 Notion té cos, vault buit: <b>{diff.summary.vault_blank}</b></span>}
                                 <span>✅ Idèntiques: <b>{diff.summary?.identical ?? 0}</b></span>
                                 <span>≈ Similars: <b>{diff.summary?.similar ?? 0}</b></span>
+                                {(diff.summary?.notion_blank ?? 0) > 0 && <span style={{ color: 'var(--text-tertiary)' }}>○ Notion en blanc: <b>{diff.summary.notion_blank}</b></span>}
                                 <span>📁 Només al vault: <b>{diff.summary?.vault_only ?? 0}</b></span>
                             </div>
                             <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 6 }}>
