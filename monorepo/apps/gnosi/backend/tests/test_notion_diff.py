@@ -69,6 +69,26 @@ def test_diff_page_identical_no_action():
     assert d["safe_action"] == "none"
 
 
+def test_diff_page_notion_blank_not_diverged():
+    # Cas real: pàgina de projecte de Notion en blanc (només propietats) vs vault amb 1 línia.
+    # NO és una divergència real → notion_blank, safe_action none (res a portar).
+    d = diff_page("", "## Notes\n- [[Quelcom relacionat]]")
+    assert d["body_status"] == "notion_blank"
+    assert d["safe_action"] == "none"
+
+
+def test_diff_page_vault_blank_review():
+    # Notion té cos i el vault no → es podria enriquir (review, no skip).
+    d = diff_page("# Contingut ric\nmolt de text útil aquí que el vault no té", "")
+    assert d["body_status"] == "vault_blank"
+    assert d["safe_action"] == "review"
+
+
+def test_diff_page_both_blank_identical():
+    d = diff_page("", "---\nid: 1\n---\n")
+    assert d["body_status"] == "identical"
+
+
 def test_match_pages_by_id_then_title():
     notion = [{"id": "103268e5-2714-8069-9ec2-e8121dae22c5", "title": "Ocio"},
               {"id": "xxxx", "title": "Projectes"},

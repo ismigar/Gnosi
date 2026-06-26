@@ -107,18 +107,39 @@ def diff_page(notion_md: str, vault_md: str,
     """Compara una pàgina Notion ↔ vault. Retorna un veredicte estructurat (no destructiu)."""
     n_embeds = list(notion_child_dbs) if notion_child_dbs is not None else extract_notion_inline_dbs(notion_md)
     v_embeds = extract_vault_views(vault_md)
+    n_body = normalize_body(notion_md)
+    v_body = normalize_body(vault_md)
+    n_has_embeds = len(n_embeds) > 0
+    v_has_embeds = len(v_embeds) > 0
+
+    # Classificació tenint en compte cossos buits (un projecte de Notion sovint NO té cos:
+    # només propietats + relacions → `<blank-page>`). Comparar buit vs no-buit donava 0%
+    # i ho marcava "divergit", que era soroll, no un conflicte real.
     sim = body_similarity(notion_md, vault_md)
-    status = "identical" if sim >= 0.98 else ("similar" if sim >= 0.6 else "diverged")
+    notion_empty = not n_body and not n_has_embeds
+    vault_empty = not v_body and not v_has_embeds
+    if notion_empty and vault_empty:
+        status = "identical"
+    elif notion_empty:
+        status = "notion_blank"   # Notion no té res a portar
+    elif vault_empty:
+        status = "vault_blank"    # el vault no té cos i Notion sí → es podria enriquir
+    else:
+        status = "identical" if sim >= 0.98 else ("similar" if sim >= 0.6 else "diverged")
+
+    safe_action = {
+        "identical": "none", "notion_blank": "none",
+        "vault_blank": "review", "similar": "review", "diverged": "skip",
+    }[status]
     return {
         "body_similarity": sim,
-        "body_status": status,                       # identical | similar | diverged
+        "body_status": status,   # identical | similar | diverged | notion_blank | vault_blank
         "notion_embeds": len(n_embeds),
         "vault_embeds": len(v_embeds),
         "embeds_match": len(n_embeds) == len(v_embeds),
         "notion_headings": headings(notion_md),
         "vault_headings": headings(vault_md),
-        # recomanació de sync segura: mai sobreescriure el que ha divergit sense confirmar
-        "safe_action": "skip" if status == "diverged" else ("none" if status == "identical" else "review"),
+        "safe_action": safe_action,
     }
 
 
