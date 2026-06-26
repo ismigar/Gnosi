@@ -24,6 +24,8 @@ from backend.services.notion_importer import (
     NotionClient, import_workspace, _plain_title, _page_title, blocks_to_md,
 )
 from backend.services import notion_diff
+from backend.services import notion_mcp
+from backend.services import notion_view_recreator as nvr
 from backend.api import vault_routes
 
 router = APIRouter(prefix="/notion", tags=["Notion Import"])
@@ -116,6 +118,7 @@ class ImportPayload(BaseModel):
     max_pages: int = 5000
     only_new: bool = True        # sync guardat: només afegeix pàgines NOVES, mai sobreescriu
     include_loose_pages: bool = False  # també pàgines soltes (no a cap BD)
+    recreate_views: bool = False  # Fase 2: recrear vistes incrustades via MCP (cal token OAuth)
 
 
 def _sanitize_folder(name: str) -> str:
@@ -158,9 +161,46 @@ def _build_exists(idx: dict):
     return exists
 
 
+def _recreate_page_views(path, notion_page_id: str, host_table_id: str) -> int:
+    """Fase 2: enriqueix una pàgina importada amb les seves vistes incrustades de Notion,
+    via l'MCP allotjat. Crea les `gnosi-view` i afegeix els embeds al cos. Defensiu: mai
+    trenca l'import. Inert si no hi ha token MCP."""
+    page_md = notion_mcp.fetch(notion_page_id)
+    if not page_md:
+        return 0
+    reg = vault_routes.load_registry()
+    tables = reg.get("tables", [])
+
+    def resolve_table(ds_name):
+        want = nvr._strip_icon(ds_name)
+        return next((t for t in tables if nvr._strip_icon(t.get("name")) == want), None)
+
+    results = nvr.recreate_views_for_page(
+        page_md, notion_page_id, host_table_id,
+        fetch_view=notion_mcp.fetch, resolve_table=resolve_table)
+    if not results:
+        return 0
+    views = reg.setdefault("views", [])
+    for r in results:
+        v = r["view"]
+        idx = next((i for i, x in enumerate(views) if x.get("id") == v.get("id")), None)
+        if idx is not None:
+            views[idx] = v
+        else:
+            views.append(v)
+    vault_routes.save_registry(reg)
+    from pathlib import Path as _P
+    body = _P(path).read_text(encoding="utf-8")
+    extra = "".join(f"\n## {r['heading']}\n\n{r['embed']}\n"
+                    for r in results if r["embed"] not in body)
+    if extra:
+        _P(path).write_text(body.rstrip() + "\n" + extra, encoding="utf-8")
+    return len(results)
+
+
 def _run_import_sync(token: str, database_ids, create_group_views, target_folder,
                      follow_links=True, max_pages=5000, only_new=True,
-                     include_loose_pages=False) -> dict:
+                     include_loose_pages=False, recreate_views=False) -> dict:
     """Executat en thread: writers síncrons que reusen registry + filesystem."""
     vault = get_active_vault_path()
     if not vault:
@@ -168,6 +208,7 @@ def _run_import_sync(token: str, database_ids, create_group_views, target_folder
     client = NotionClient(token)
     folder_by_table: dict = {}
     new_table_ids: set = set()
+    _mcp_views = bool(recreate_views and notion_mcp.is_connected())
 
     def write_table(table: dict):
         reg = vault_routes.load_registry()
@@ -221,6 +262,12 @@ def _run_import_sync(token: str, database_ids, create_group_views, target_folder
         path.write_text(f"---\n{fm}\n---\n\n{str(page.get('content') or '').lstrip()}\n",
                         encoding="utf-8")
         vault_routes.register_page_in_index(path)
+        # Fase 2 (opcional): recrear les vistes incrustades via MCP. Inert sense token.
+        if recreate_views and table_id and _mcp_views:
+            try:
+                _recreate_page_views(path, meta["id"], table_id)
+            except Exception:  # noqa: BLE001
+                pass
 
     exists = _build_exists(_vault_index()) if only_new else None
     return import_workspace(
@@ -244,7 +291,7 @@ async def run_import(payload: ImportPayload):
             _run_import_sync, token, payload.database_ids,
             payload.create_group_views, payload.target_folder,
             payload.follow_links, payload.max_pages, payload.only_new,
-            payload.include_loose_pages,
+            payload.include_loose_pages, payload.recreate_views,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error important de Notion: {e}")

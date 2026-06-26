@@ -21,14 +21,30 @@ export default function NotionImportSettings() {
     const [loosePages, setLoosePages] = useState(false);
     const [report, setReport] = useState(null);
     const [diff, setDiff] = useState(null);
+    const [mcpConnected, setMcpConnected] = useState(false);
+    const [recreateViews, setRecreateViews] = useState(false);
 
     const loadStatus = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/notion/status');
             setConnected(!!data.connected);
         } catch { setConnected(false); }
+        try {
+            const { data } = await axios.get('/api/notion-oauth/status');
+            setMcpConnected(!!data.connected);
+        } catch { setMcpConnected(false); }
     }, []);
     useEffect(() => { loadStatus(); }, [loadStatus]);
+
+    // En tornar del consentiment OAuth (?notion_mcp=ok), refresca l'estat i neteja la URL
+    useEffect(() => {
+        const p = new URLSearchParams(window.location.search).get('notion_mcp');
+        if (p) {
+            loadStatus();
+            const url = new URL(window.location.href); url.searchParams.delete('notion_mcp');
+            window.history.replaceState({}, '', url.toString());
+        }
+    }, [loadStatus]);
 
     const connect = async () => {
         setBusy('token'); setError('');
@@ -81,6 +97,7 @@ export default function NotionImportSettings() {
                 target_folder: folder.trim() || 'Importades/Notion',
                 follow_links: followLinks,
                 include_loose_pages: loosePages,
+                recreate_views: mcpConnected && recreateViews,
             }, { timeout: 0 });  // import pot trigar minuts: sense timeout de client
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -173,6 +190,21 @@ export default function NotionImportSettings() {
                                     </div>
                                     Incloure pàgines soltes (no a cap BD)
                                 </label>
+                                {mcpConnected ? (
+                                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}
+                                        title="Recrea les vistes incrustades de Notion (linked database views) com a vistes de Gnosi, via l'MCP allotjat.">
+                                        <div className={`gnosi-toggle ${recreateViews ? 'active' : ''}`} onClick={() => setRecreateViews(v => !v)}>
+                                            <div className="gnosi-toggle-handle" />
+                                        </div>
+                                        Recrear vistes incrustades <Check size={13} style={{ color: 'var(--gnosi-primary)' }} /> MCP
+                                    </label>
+                                ) : (
+                                    <button onClick={() => { window.location.href = '/api/notion-oauth/login'; }}
+                                        style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}
+                                        title="Connecta amb l'MCP allotjat de Notion (OAuth) per recrear les vistes incrustades.">
+                                        <Link2 size={15} /> Connecta MCP (vistes incrustades)
+                                    </button>
+                                )}
                                 <button onClick={runDiff} disabled={busy === 'diff' || selected.size === 0}
                                     style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>
                                     {busy === 'diff' ? <Loader size={15} className="spin" /> : <GitCompare size={15} />}
