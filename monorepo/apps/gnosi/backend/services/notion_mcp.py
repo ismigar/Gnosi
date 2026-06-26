@@ -28,17 +28,10 @@ def _env(name: str, default: str) -> str:
         return default
 
 
-def _integrations_path():
-    from backend.config.app_config import load_params
-    return load_params(strict_env=False).paths["SECRETS"] / "integrations.json"
-
-
 def get_mcp_token() -> Optional[str]:
     try:
-        p = _integrations_path()
-        if p.exists():
-            data = json.loads(p.read_text(encoding="utf-8"))
-            return (data.get("notion_mcp") or {}).get("token")
+        from backend.services.integration_manager import integration_manager
+        return (integration_manager.get_raw("notion_mcp") or {}).get("token")
     except Exception:
         pass
     return None

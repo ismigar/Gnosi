@@ -26,36 +26,19 @@ from backend.services.notion_importer import (
 from backend.services import notion_diff
 from backend.services import notion_mcp
 from backend.services import notion_view_recreator as nvr
+from backend.services.integration_manager import integration_manager
 from backend.api import vault_routes
 
 router = APIRouter(prefix="/notion", tags=["Notion Import"])
 
 
 # ---------------------------------------------------------------------------
-# Token (integrations.json, clau `notion`)
+# Token: integració de PRIMERA CLASSE via IntegrationManager (clau `notion`).
+# El manager fa read-modify-write amb lock i cau compartits → no el clobbera cap
+# altre servei (abans s'escrivia directe a integrations.json i es perdia).
 # ---------------------------------------------------------------------------
-def _integrations_path():
-    return load_params(strict_env=False).paths["SECRETS"] / "integrations.json"
-
-
-def _load_integrations() -> dict:
-    p = _integrations_path()
-    if p.exists():
-        try:
-            return json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-    return {}
-
-
-def _save_integrations(data: dict):
-    p = _integrations_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    safe_write_text(p, json.dumps(data, ensure_ascii=False, indent=2))
-
-
 def _get_token() -> Optional[str]:
-    return (_load_integrations().get("notion") or {}).get("token")
+    return (integration_manager.get_raw("notion") or {}).get("token")
 
 
 class TokenPayload(BaseModel):
@@ -72,10 +55,9 @@ async def set_token(payload: TokenPayload):
         me = await asyncio.to_thread(NotionClient(token).me)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Token invàlid o sense permisos: {e}")
-    data = _load_integrations()
-    data["notion"] = {"token": token, "name": me.get("name") or "Notion"}
-    _save_integrations(data)
-    return {"status": "success", "name": data["notion"]["name"]}
+    name = me.get("name") or "Notion"
+    integration_manager.replace_key("notion", {"token": token, "name": name})
+    return {"status": "success", "name": name}
 
 
 @router.get("/status")
@@ -85,10 +67,7 @@ async def notion_status():
 
 @router.delete("/token", dependencies=[Depends(require_role("admin"))])
 async def delete_token():
-    data = _load_integrations()
-    if "notion" in data:
-        data.pop("notion")
-        _save_integrations(data)
+    integration_manager.replace_key("notion", {})
     return {"status": "success"}
 
 
