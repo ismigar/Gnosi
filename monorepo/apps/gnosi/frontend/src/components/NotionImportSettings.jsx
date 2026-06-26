@@ -49,7 +49,7 @@ export default function NotionImportSettings() {
     const listDbs = async () => {
         setBusy('list'); setError(''); setReport(null);
         try {
-            const { data } = await axios.get('/api/notion/databases');
+            const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
             setDatabases(data.databases || []);
             setSelected(new Set((data.databases || []).map(d => d.id)));
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -66,7 +66,7 @@ export default function NotionImportSettings() {
             const { data } = await axios.post('/api/notion/diff', {
                 database_ids: databases.length ? Array.from(selected) : null,
                 deep: true,
-            });
+            }, { timeout: 0 });  // operació llarga (moltes crides a Notion): sense timeout de client
             setDiff(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
@@ -81,7 +81,7 @@ export default function NotionImportSettings() {
                 target_folder: folder.trim() || 'Importades/Notion',
                 follow_links: followLinks,
                 include_loose_pages: loosePages,
-            });
+            }, { timeout: 0 });  // import pot trigar minuts: sense timeout de client
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
