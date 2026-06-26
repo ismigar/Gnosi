@@ -29,6 +29,18 @@ def gnosi_id_for(notion_id: str, kind: str = "page") -> str:
     return str(uuid.uuid5(_GNOSI_NS, f"{kind}:{clean}"))
 
 
+def table_id_for(notion_db_id: str) -> str:
+    """ID de taula = id de BD de Notion SENSE guions (el vault de Gnosi els desa així:
+    p.ex. Àrees `90e31c41f815489b99f30086b120cbfa`) → reconcilia per id, no duplica."""
+    return str(notion_db_id or "").replace("-", "")
+
+
+def page_id_for(notion_page_id: str) -> str:
+    """ID de pàgina = id de Notion TAL QUAL (amb guions: el vault el conserva al frontmatter
+    `id`, p.ex. `103268e5-2714-8069-...`) → relacions i aparellament casen per id."""
+    return str(notion_page_id or "")
+
+
 # ---------------------------------------------------------------------------
 # Paleta de colors Notion → Gnosi
 # ---------------------------------------------------------------------------
@@ -82,7 +94,7 @@ def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
         field["type"] = "relation"
         target = (prop.get("relation") or {}).get("database_id")
         if target:
-            field["relation_database_id"] = gnosi_id_for(target, "table")
+            field["relation_database_id"] = table_id_for(target)
     elif ntype in ("select", "status"):
         field["type"] = "select" if ntype == "select" else "status"
         opts = (prop.get(ntype) or {}).get("options") or []
@@ -107,7 +119,7 @@ def map_database_schema(db: Dict[str, Any]) -> Dict[str, Any]:
     props = db.get("properties") or {}
     properties = [map_property_schema(name, p) for name, p in props.items()]
     return {
-        "id": gnosi_id_for(db.get("id"), "table"),
+        "id": table_id_for(db.get("id")),
         "name": title,
         "icon": _emoji_icon(db.get("icon")),
         "properties": properties,
@@ -186,7 +198,7 @@ def value_to_gnosi(prop: Dict[str, Any], users: Optional[Dict[str, str]] = None)
         return [_file_url(f) for f in (v or []) if _file_url(f)]
     if t == "relation":
         # IDs de Notion; es tradueixen a IDs de Gnosi a la passada B
-        return [gnosi_id_for(r.get("id"), "page") for r in (v or []) if r.get("id")]
+        return [page_id_for(r.get("id")) for r in (v or []) if r.get("id")]
     if t == "formula":
         f = v or {}
         return f.get(f.get("type"), "")
@@ -591,7 +603,7 @@ def import_workspace(
                             continue
                         blocks = client.get_block_children(row["id"])
                         write_page({
-                            "id": gnosi_id_for(row["id"], "page"),
+                            "id": page_id_for(row["id"]),
                             "title": title,
                             "content": blocks_to_md(blocks),
                             "metadata": {"table_id": table["id"], **values,
@@ -626,7 +638,7 @@ def import_workspace(
                     continue
                 blocks = client.get_block_children(pid)
                 write_page({
-                    "id": gnosi_id_for(pid, "page"),
+                    "id": page_id_for(pid),
                     "title": title,
                     "content": blocks_to_md(blocks),
                     "metadata": {"icon": _emoji_icon(pg.get("icon"))},

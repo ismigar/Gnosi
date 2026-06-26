@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.notion_importer import (  # noqa: E402
     map_database_schema, map_property_schema, rich_text_to_md, value_to_gnosi,
-    page_to_values, blocks_to_md, default_views_for_table, gnosi_id_for,
+    page_to_values, blocks_to_md, default_views_for_table, table_id_for, page_id_for,
     discover_block_refs, import_workspace,
 )
 
@@ -83,6 +83,13 @@ def _fixture():
     return FakeClient(dbs, rows, blocks, pages)
 
 
+def test_id_scheme_reconciles_with_vault():
+    # table id = id de BD de Notion SENSE guions (com el vault: 90e31c41f815...);
+    # page id = id de Notion TAL QUAL amb guions (com el frontmatter del vault).
+    assert table_id_for("90e31c41-f815-489b-99f3-0086b120cbfa") == "90e31c41f815489b99f30086b120cbfa"
+    assert page_id_for("103268e5-2714-8069-9ec2-e8121dae22c5") == "103268e5-2714-8069-9ec2-e8121dae22c5"
+
+
 def test_discover_block_refs():
     blocks = [
         {"id": "cp1", "type": "child_page", "child_page": {"title": "x"}},
@@ -105,14 +112,14 @@ def test_crawler_transitive_closure_no_orphans():
                               write_view=views.append, database_ids=["projects"])
     table_ids = {t["id"] for t in tables}
     # Tancament: tot i seleccionar NOMÉS projects, s'importa també tasks (relació)
-    assert gnosi_id_for("projects", "table") in table_ids
-    assert gnosi_id_for("tasks", "table") in table_ids
+    assert table_id_for("projects") in table_ids
+    assert table_id_for("tasks") in table_ids
     assert report["databases"] == 2
     # 3 pàgines: fila p1 + fila t1 + child_page autònom cp1
     written_ids = {p["id"] for p in pages}
-    assert gnosi_id_for("p1", "page") in written_ids
-    assert gnosi_id_for("t1", "page") in written_ids
-    assert gnosi_id_for("cp1", "page") in written_ids  # child_page no queda orfe
+    assert page_id_for("p1") in written_ids
+    assert page_id_for("t1") in written_ids
+    assert page_id_for("cp1") in written_ids  # child_page no queda orfe
     assert report["pages"] == 3
     assert report["truncated"] is False
 
@@ -147,8 +154,8 @@ def test_crawler_only_new_skips_existing():
                               write_view=lambda v: None, database_ids=["projects"],
                               exists=lambda nid, title: nid in existing, only_new=True)
     written_ids = {p["id"] for p in pages}
-    assert gnosi_id_for("p1", "page") not in written_ids   # existent → saltada
-    assert gnosi_id_for("t1", "page") in written_ids        # nova → importada
+    assert page_id_for("p1") not in written_ids   # existent → saltada
+    assert page_id_for("t1") in written_ids        # nova → importada
     assert report["skipped_existing"] == 1
 
 
@@ -167,12 +174,12 @@ def test_crawler_include_loose_pages():
     on = []
     import_workspace(fc, write_table=lambda t: None, write_page=on.append,
                      write_view=lambda v: None, database_ids=["projects"], include_loose_pages=True)
-    assert gnosi_id_for("lp1", "page") in {p["id"] for p in on}   # solta importada
+    assert page_id_for("lp1") in {p["id"] for p in on}   # solta importada
 
     off = []
     import_workspace(fc, write_table=lambda t: None, write_page=off.append,
                      write_view=lambda v: None, database_ids=["projects"], include_loose_pages=False)
-    assert gnosi_id_for("lp1", "page") not in {p["id"] for p in off}  # sense l'opció, no hi és
+    assert page_id_for("lp1") not in {p["id"] for p in off}  # sense l'opció, no hi és
 
 
 def test_crawler_db_row_not_imported_as_standalone():
@@ -182,8 +189,8 @@ def test_crawler_db_row_not_imported_as_standalone():
     pages = []
     import_workspace(fc, write_table=lambda t: None, write_page=pages.append,
                      write_view=lambda v: None, database_ids=["projects"])
-    t1 = next(p for p in pages if p["id"] == gnosi_id_for("t1", "page"))
-    assert t1["metadata"].get("table_id") == gnosi_id_for("tasks", "table")  # és fila, no solta
+    t1 = next(p for p in pages if p["id"] == page_id_for("t1"))
+    assert t1["metadata"].get("table_id") == table_id_for("tasks")  # és fila, no solta
 
 
 def _rt(text, **ann):
@@ -217,14 +224,14 @@ def test_property_schema_mapping():
     table = map_database_schema(db)
     assert table["name"] == "Projects"
     assert table["icon"] == "📀"
-    assert table["id"] == gnosi_id_for("db-123", "table")
+    assert table["id"] == table_id_for("db-123")
     by_name = {p["name"]: p for p in table["properties"]}
     assert by_name["Name"]["type"] == "title"
     assert by_name["Estat"]["type"] == "status"
     assert by_name["Estat"]["options"][0] == {"name": "Fet", "color": "green"}
     assert by_name["Tags"]["type"] == "multi_select"
     # relació apunta a l'ID de Gnosi derivat de la BD destí
-    assert by_name["Tasks"]["relation_database_id"] == gnosi_id_for("db-999", "table")
+    assert by_name["Tasks"]["relation_database_id"] == table_id_for("db-999")
     # formula = read-only
     assert by_name["Score"]["read_only"] is True
 
@@ -248,7 +255,7 @@ def test_value_extraction():
     assert vals["When"] == {"start": "2026-01-01", "end": "2026-01-05"}
     assert vals["Owner"] == "Ismael"
     # relació: IDs traduïts a Gnosi (passada B els cablejarà)
-    assert vals["Tasks"] == [gnosi_id_for("pg-1", "page")]
+    assert vals["Tasks"] == [page_id_for("pg-1")]
 
 
 def test_blocks_to_markdown_with_nesting():
