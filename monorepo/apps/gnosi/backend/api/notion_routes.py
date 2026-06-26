@@ -25,6 +25,8 @@ from backend.services.notion_importer import (
 )
 from backend.services import notion_diff
 from backend.services import notion_mcp
+from backend.services import notion_mcp_md
+from backend.services import notion_clone
 from backend.services import notion_view_recreator as nvr
 from backend.services.integration_manager import integration_manager
 from backend.api import vault_routes
@@ -274,6 +276,87 @@ async def run_import(payload: ImportPayload):
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error important de Notion: {e}")
+    return {"status": "success", **report}
+
+
+# ---------------------------------------------------------------------------
+# CLON EXACTE (Notion = font de veritat) → carpeta NOVA, ids namespaced, cos via MCP
+# ---------------------------------------------------------------------------
+class ClonePayload(BaseModel):
+    database_ids: Optional[List[str]] = None
+    target_folder: str = "Clon Notion"
+
+
+def _run_clone_sync(database_ids, target_folder="Clon Notion") -> dict:
+    token = _get_token()
+    if not token:
+        raise RuntimeError("No hi ha cap token d'integració de Notion configurat")
+    if not notion_mcp.is_connected():
+        raise RuntimeError("Cal connectar l'MCP de Notion (vistes incrustades) per al clon")
+    vault = get_active_vault_path()
+    if not vault:
+        raise RuntimeError("No hi ha cap vault actiu")
+    rest = NotionClient(token)
+    folder_by_table: dict = {}
+
+    def write_table(table: dict):
+        reg = vault_routes.load_registry()
+        tables = reg.setdefault("tables", [])
+        reg.setdefault("views", [])
+        idx = next((i for i, t in enumerate(tables) if t.get("id") == table["id"]), None)
+        if idx is not None:
+            tables[idx] = table
+        else:
+            tables.append(table)
+        folder_by_table[table["id"]] = table.get("folder")
+        vault_routes.save_registry(reg)
+        (vault / table["folder"]).mkdir(parents=True, exist_ok=True)
+
+    def write_view(view: dict):
+        reg = vault_routes.load_registry()
+        views = reg.setdefault("views", [])
+        idx = next((i for i, v in enumerate(views) if v.get("id") == view.get("id")), None)
+        if idx is not None:
+            views[idx] = view
+        else:
+            views.append(view)
+        vault_routes.save_registry(reg)
+
+    def write_page(page: dict):
+        meta = dict(page.get("metadata") or {})
+        folder = folder_by_table.get(meta.get("table_id")) or _sanitize_folder(target_folder)
+        meta["title"] = page.get("title") or "Sense títol"
+        meta["id"] = page.get("id") or str(uuid.uuid4())
+        meta = {k: v for k, v in meta.items() if v is not None}
+        safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", meta["title"]).strip()[:120] or "Sense títol"
+        target_dir = vault / folder
+        target_dir.mkdir(parents=True, exist_ok=True)
+        path = target_dir / f"{safe}.md"
+        if path.exists():
+            path = target_dir / f"{safe} {meta['id'][:8]}.md"
+        fm = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
+        path.write_text(f"---\n{fm}\n---\n\n{str(page.get('content') or '').lstrip()}\n",
+                        encoding="utf-8")
+        vault_routes.register_page_in_index(path)
+
+    return notion_clone.clone_workspace(
+        rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
+        write_table=write_table, write_page=write_page, write_view=write_view,
+        database_ids=database_ids or [d["id"] for d in rest.search_databases()],
+        target_folder=_sanitize_folder(target_folder),
+    )
+
+
+@router.post("/clone", dependencies=[Depends(require_role("editor"))])
+async def run_clone(payload: ClonePayload):
+    """Clon EXACTE de Notion a una carpeta NOVA (vistes+columnes via MCP). No toca el vault."""
+    if not notion_mcp.is_connected():
+        raise HTTPException(status_code=400,
+                            detail="Connecta l'MCP de Notion (vistes incrustades) per al clon exacte")
+    try:
+        report = await asyncio.to_thread(_run_clone_sync, payload.database_ids, payload.target_folder)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error clonant de Notion: {e}")
     return {"status": "success", **report}
 
 
