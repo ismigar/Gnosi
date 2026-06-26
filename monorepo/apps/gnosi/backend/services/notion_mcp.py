@@ -41,18 +41,32 @@ def is_connected() -> bool:
     return bool(get_mcp_token())
 
 
+def _unwrap_notion_json(raw: str) -> str:
+    """L'MCP de Notion retorna `content[].text` com un JSON `{metadata,title,url,text}` on
+    el markdown real (Notion-flavored, amb `<database inline>`) és al camp intern `text`.
+    Cal desembolicar-lo (el connector ho fa sol; nosaltres no ho fèiem)."""
+    s = (raw or "").strip()
+    if s.startswith("{"):
+        try:
+            obj = json.loads(s)
+            if isinstance(obj, dict) and isinstance(obj.get("text"), str):
+                return obj["text"]
+        except Exception:
+            pass
+    return raw
+
+
 def _extract_text(result) -> str:
-    """Treu el text del resultat d'una tool MCP ({content:[{type:text,text:...}]})."""
+    """Treu el markdown real del resultat d'una tool MCP de Notion."""
     if result is None:
         return ""
     if isinstance(result, str):
-        return result
+        return _unwrap_notion_json(result)
     content = result.get("content") if isinstance(result, dict) else None
     if isinstance(content, list):
         parts = [c.get("text", "") for c in content if isinstance(c, dict) and c.get("type") == "text"]
         if parts:
-            return "\n".join(parts)
-    # alguns servidors retornen {text: ...} o el markdown directament a 'structuredContent'
+            return _unwrap_notion_json("\n".join(parts))
     if isinstance(result, dict):
         return result.get("text") or json.dumps(result)
     return str(result)
