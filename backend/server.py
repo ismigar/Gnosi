@@ -46,6 +46,7 @@ from backend.api import (
     public_routes,
     share_routes,
     notion_routes,
+    notion_oauth_routes,
 )
 from backend.scheduler.manager import scheduler_manager
 from backend.models import * # Register all models for SQLAlchemy
@@ -303,6 +304,7 @@ app.include_router(env_routes.router, prefix="/api", tags=["Env"])
 app.include_router(credentials_routes.router, prefix="/api", tags=["Credentials"])
 app.include_router(ai_routes.router, prefix="/api", tags=["AI Settings"])
 app.include_router(notion_routes.router, prefix="/api", tags=["Notion Import"])
+app.include_router(notion_oauth_routes.router, prefix="/api", tags=["Notion MCP OAuth"])
 app.include_router(identity_routes.router, tags=["Identity"])
 
 @app.get("/api/health")
