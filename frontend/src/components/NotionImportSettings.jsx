@@ -104,6 +104,18 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
+    const runClone = async () => {
+        setBusy('clone'); setError(''); setReport(null);
+        try {
+            const { data } = await axios.post('/api/notion/clone', {
+                database_ids: databases.length ? Array.from(selected) : null,
+                target_folder: 'Clon Notion',
+            }, { timeout: 0 });  // clon = moltes crides MCP: sense timeout de client
+            setReport(data);
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
+
     const card = { marginTop: 32, padding: 24, borderRadius: 24, border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' };
     const inp = { background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 10, padding: '9px 12px', fontSize: '0.85rem' };
 
@@ -214,6 +226,15 @@ export default function NotionImportSettings() {
                                     style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
                                     {busy === 'import' ? <Loader size={15} className="spin" /> : <Download size={15} />}
                                     {busy === 'import' ? 'Important…' : `Importa ${selected.size} BD (només noves)`}
+                                </button>
+                                <button onClick={runClone}
+                                    disabled={busy === 'clone' || selected.size === 0 || !mcpConnected}
+                                    title={mcpConnected
+                                        ? "Clon EXACTE de Notion (vistes+columnes via MCP) a una carpeta NOVA «Clon Notion/». No toca el vault actual."
+                                        : "Connecta primer l'MCP per al clon exacte."}
+                                    style={{ ...inp, cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>
+                                    {busy === 'clone' ? <Loader size={15} className="spin" /> : <Database size={15} />}
+                                    {busy === 'clone' ? 'Clonant…' : 'Clon exacte (carpeta nova)'}
                                 </button>
                             </div>
                         </div>
