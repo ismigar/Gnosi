@@ -17,7 +17,7 @@ from typing import Optional
 log = logging.getLogger(__name__)
 
 _DEFAULT_URL = "https://mcp.notion.com/mcp"
-_DEFAULT_FETCH_TOOL = "fetch"
+_DEFAULT_FETCH_TOOL = "notion-fetch"
 
 
 def _env(name: str, default: str) -> str:
