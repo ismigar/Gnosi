@@ -19,9 +19,8 @@ from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
 
 from backend.config.env_config import get_env
-from backend.config.app_config import load_params
 from backend.services.workspace_service import require_role
-from backend.utils.safe_io import safe_write_text
+from backend.services.integration_manager import integration_manager
 
 log = logging.getLogger(__name__)
 router = APIRouter(prefix="/notion-oauth", tags=["Notion MCP OAuth"])
@@ -30,25 +29,8 @@ _BASE = lambda: get_env("NOTION_MCP_BASE", "https://mcp.notion.com").rstrip("/")
 _REDIRECT = lambda: get_env("NOTION_OAUTH_REDIRECT_URI", "http://localhost:5002/api/notion-oauth/callback")
 _FRONTEND = lambda: get_env("FRONTEND_BASE_URL", "http://localhost:5173")
 
-
-def _integrations_path():
-    return load_params(strict_env=False).paths["SECRETS"] / "integrations.json"
-
-
-def _load() -> dict:
-    p = _integrations_path()
-    if p.exists():
-        try:
-            return json.loads(p.read_text(encoding="utf-8"))
-        except Exception:
-            return {}
-    return {}
-
-
-def _save(data: dict):
-    p = _integrations_path()
-    p.parent.mkdir(parents=True, exist_ok=True)
-    safe_write_text(p, json.dumps(data, ensure_ascii=False, indent=2))
+# Secrets de PRIMERA CLASSE via IntegrationManager (lock + cau compartits): claus
+# `notion_mcp` (token), `notion_mcp_client` (client_id DCR), `notion_mcp_pending` (PKCE).
 
 
 def _discover() -> dict:
@@ -70,8 +52,7 @@ def _discover() -> dict:
 
 def _register_client(registration_endpoint: str) -> str:
     """Registre dinàmic (cau el client_id a integrations.json per reusar-lo)."""
-    data = _load()
-    cached = (data.get("notion_mcp_client") or {}).get("client_id")
+    cached = (integration_manager.get_raw("notion_mcp_client") or {}).get("client_id")
     if cached:
         return cached
     import httpx
@@ -85,8 +66,7 @@ def _register_client(registration_endpoint: str) -> str:
         })
         r.raise_for_status()
         client_id = r.json().get("client_id")
-    data["notion_mcp_client"] = {"client_id": client_id}
-    _save(data)
+    integration_manager.replace_key("notion_mcp_client", {"client_id": client_id})
     return client_id
 
 
@@ -99,8 +79,7 @@ def _pkce():
 
 @router.get("/status")
 async def status():
-    data = _load()
-    return {"connected": bool((data.get("notion_mcp") or {}).get("token"))}
+    return {"connected": bool((integration_manager.get_raw("notion_mcp") or {}).get("token"))}
 
 
 @router.get("/login")
@@ -110,12 +89,10 @@ async def login():
         client_id = _register_client(endpoints["registration_endpoint"])
         verifier, challenge = _pkce()
         state = secrets.token_urlsafe(24)
-        # desa l'estat pendent (state → verifier) per al callback
-        data = _load()
-        pend = data.get("notion_mcp_pending") or {}
-        pend[state] = {"verifier": verifier, "client_id": client_id}
-        data["notion_mcp_pending"] = pend
-        _save(data)
+        # desa l'estat pendent (state → verifier) per al callback; `update` fa merge
+        # atòmic sota lock → afegeix aquest state sense trepitjar altres pendents.
+        integration_manager.update("notion_mcp_pending",
+                                   {state: {"verifier": verifier, "client_id": client_id}})
         params = {
             "response_type": "code",
             "client_id": client_id,
@@ -134,8 +111,7 @@ async def login():
 async def callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
-    data = _load()
-    pend = (data.get("notion_mcp_pending") or {}).pop(state, None) if state else None
+    pend = (integration_manager.get_raw("notion_mcp_pending") or {}).get(state) if state else None
     if not code or not pend:
         return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
     try:
@@ -153,24 +129,20 @@ async def callback(request: Request):
             tok = r.json()
     except Exception as e:  # noqa: BLE001
         log.error(f"Notion MCP OAuth token exchange failed: {e}")
-        data["notion_mcp_pending"] = data.get("notion_mcp_pending") or {}
-        _save(data)
         return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
 
     access = tok.get("access_token")
     if not access:
         return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
-    data["notion_mcp"] = {"token": access, "refresh_token": tok.get("refresh_token"),
-                          "token_type": tok.get("token_type")}
-    data["notion_mcp_pending"] = {}  # neteja els pendents
-    _save(data)
+    integration_manager.replace_key("notion_mcp", {
+        "token": access, "refresh_token": tok.get("refresh_token"),
+        "token_type": tok.get("token_type")})
+    integration_manager.replace_key("notion_mcp_pending", {})  # neteja els pendents
     return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=ok")
 
 
 @router.delete("/token", dependencies=[Depends(require_role("admin"))])
 async def disconnect():
-    data = _load()
     for k in ("notion_mcp", "notion_mcp_client", "notion_mcp_pending"):
-        data.pop(k, None)
-    _save(data)
+        integration_manager.replace_key(k, {})
     return {"status": "success"}
