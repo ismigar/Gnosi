@@ -19,13 +19,13 @@ export default function NotionImportSettings() {
     const [folder, setFolder] = useState('Importades/Notion');
     const [groupViews, setGroupViews] = useState(true);
     const [followLinks, setFollowLinks] = useState(true);
-    const [loosePages, setLoosePages] = useState(false);
     const [report, setReport] = useState(null);
     const [diff, setDiff] = useState(null);
     const [mcpConnected, setMcpConnected] = useState(false);
     const [recreateViews, setRecreateViews] = useState(false);
     const [schemaOverrides, setSchemaOverrides] = useState({});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
+    const [loosePages, setLoosePages] = useState(false);          // mostra/inclou pàgines soltes
     const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pàgines fora de BD
     const [loosePageTypes, setLoosePageTypes] = useState({});     // {pageId: "wiki"|"dashboard"}
     const [looseSelected, setLooseSelected] = useState(new Set()); // pàgines soltes a clonar/importar
@@ -83,16 +83,26 @@ export default function NotionImportSettings() {
             const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
             setDatabases(data.databases || []);
             setSelected(new Set((data.databases || []).map(d => d.id)));
-            // pàgines fora de BD (per triar wiki/dashboard) — no bloqueja si falla
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
+
+    // Carrega les pàgines fora de BD només quan l'usuari activa el toggle (són moltes; evita
+    // la crida si no les vol). Per defecte cap seleccionada: l'usuari tria quines incloure.
+    const toggleLoosePages = async () => {
+        const next = !loosePages;
+        setLoosePages(next);
+        if (next && loosePagesList.length === 0) {
+            setBusy('loose'); setError('');
             try {
                 const lp = await axios.get('/api/notion/loose-pages', { timeout: 120000 });
                 const pages = lp.data.pages || [];
                 setLoosePagesList(pages);
                 setLoosePageTypes(Object.fromEntries(pages.map(p => [p.id, 'wiki'])));
-                setLooseSelected(new Set());   // per defecte cap: l'usuari tria quines clonar
-            } catch { /* opcional */ }
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
-        finally { setBusy(''); }
+                setLooseSelected(new Set());
+            } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+            finally { setBusy(''); }
+        }
     };
 
     const toggle = (id) => setSelected(s => {
@@ -119,7 +129,7 @@ export default function NotionImportSettings() {
                 create_group_views: groupViews,
                 target_folder: folder.trim() || 'Importades/Notion',
                 follow_links: followLinks,
-                include_loose_pages: loosePages,
+                loose_page_types: selectedLooseTypes(),   // pàgines soltes triades (wiki/dashboard)
                 recreate_views: mcpConnected && recreateViews,
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
             }, { timeout: 0 });  // import pot trigar minuts: sense timeout de client
@@ -128,8 +138,10 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
-    // Només les pàgines soltes MARCADES s'inclouen (amb el seu tipus wiki/dashboard).
+    // Només les pàgines soltes MARCADES s'inclouen (amb el seu tipus wiki/dashboard). Si el
+    // toggle de pàgines soltes està desactivat, no se n'inclou cap.
     const selectedLooseTypes = () => {
+        if (!loosePages) return null;
         const out = {};
         looseSelected.forEach(id => { out[id] = loosePageTypes[id] || 'wiki'; });
         return Object.keys(out).length ? out : null;
@@ -201,6 +213,17 @@ export default function NotionImportSettings() {
 
                     {databases.length > 0 && (
                         <div style={{ marginTop: 18 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                    Bases de dades — marca quines incloure ({selected.size}/{databases.length})
+                                </div>
+                                <button type="button"
+                                    onClick={() => setSelected(selected.size === databases.length
+                                        ? new Set() : new Set(databases.map(d => d.id)))}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gnosi-primary)' }}>
+                                    {selected.size === databases.length ? 'Cap' : 'Tots'}
+                                </button>
+                            </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
                                 {databases.map(d => (
                                     <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
@@ -217,11 +240,20 @@ export default function NotionImportSettings() {
                                 ))}
                             </div>
 
-                            {loosePagesList.length > 0 && (
-                                <div style={{ marginTop: 18 }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 16, cursor: 'pointer' }}
+                                title="Mostra les pàgines compartides que no pengen de cap base de dades, per triar quines incloure (wiki o dashboard).">
+                                <div className={`gnosi-toggle ${loosePages ? 'active' : ''}`} onClick={toggleLoosePages}>
+                                    <div className="gnosi-toggle-handle" />
+                                </div>
+                                Incloure pàgines soltes (no a cap BD)
+                                {busy === 'loose' && <Loader size={13} className="spin" />}
+                            </label>
+
+                            {loosePages && loosePagesList.length > 0 && (
+                                <div style={{ marginTop: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                                         <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                                            Pàgines fora de BD — marca quines clonar ({looseSelected.size}/{loosePagesList.length})
+                                            Pàgines fora de BD — marca quines incloure ({looseSelected.size}/{loosePagesList.length})
                                         </div>
                                         <button type="button"
                                             onClick={() => setLooseSelected(looseSelected.size === loosePagesList.length
@@ -278,13 +310,6 @@ export default function NotionImportSettings() {
                                         <div className="gnosi-toggle-handle" />
                                     </div>
                                     Seguir relacions i enllaços (sense orfes)
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}
-                                    title="A més de les BD, importa les pàgines soltes compartides amb la integració que no pengen de cap base de dades.">
-                                    <div className={`gnosi-toggle ${loosePages ? 'active' : ''}`} onClick={() => setLoosePages(v => !v)}>
-                                        <div className="gnosi-toggle-handle" />
-                                    </div>
-                                    Incloure pàgines soltes (no a cap BD)
                                 </label>
                                 {mcpConnected ? (
                                     <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}
