@@ -93,9 +93,15 @@ def clone_workspace(
     target_folder: str = "Clon Notion",
     max_pages: int = 5000,
     schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
+    save_asset: Optional[Callable[[str, Optional[str], Dict[str, Any]], Optional[str]]] = None,
 ) -> Dict[str, Any]:
-    """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP)."""
-    report = {"tables": 0, "pages": 0, "views": 0, "errors": [], "truncated": False}
+    """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP).
+
+    `save_asset(url, prop_or_None, table) -> ruta_local|None`: baixa un adjunt (camp d'arxiu o
+    imatge del cos) i torna la ruta `Assets/...`; si és None, no es baixen adjunts (es deixen
+    les URLs de Notion, que caduquen).
+    """
+    report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0, "errors": [], "truncated": False}
     users = rest_client.list_users()
 
     # Mapa nom-de-data-source (sense icona) → taula clonada, per resoldre vistes
@@ -132,6 +138,12 @@ def clone_workspace(
                     break
                 try:
                     values = clone_values(page_to_values(row, users), table.get("properties", []))
+                    props = table.get("properties", [])
+                    # Baixa adjunts dels camps d'arxiu (URLs S3 → rutes Assets/ locals)
+                    if save_asset is not None:
+                        from backend.services.notion_attachments import localize_values
+                        values, na = localize_values(values, props, lambda u, p: save_asset(u, p, table))
+                        report["attachments"] += na
                     title = values.pop("title", None) or _page_title(row) or "Sense títol"
                     # cos + vistes via MCP
                     body = ""
@@ -146,6 +158,11 @@ def clone_workspace(
                         for gv in gviews:
                             write_view(gv)
                             report["views"] += 1
+                        # Baixa les imatges del cos (![alt](url) remotes → Assets/ locals)
+                        if save_asset is not None and body:
+                            from backend.services.notion_attachments import localize_body
+                            body, nb = localize_body(body, lambda u, p: save_asset(u, p, table))
+                            report["attachments"] += nb
                     except Exception as e:  # noqa: BLE001
                         report["errors"].append({"page": row.get("id"), "stage": "mcp", "error": str(e)})
                     write_page({
