@@ -130,7 +130,8 @@ class ImportPayload(BaseModel):
     follow_links: bool = True   # tancament transitiu (relacions + child pages/dbs + mencions)
     max_pages: int = 5000
     only_new: bool = True        # sync guardat: només afegeix pàgines NOVES, mai sobreescriu
-    include_loose_pages: bool = False  # també pàgines soltes (no a cap BD)
+    include_loose_pages: bool = False  # també pàgines soltes (no a cap BD) — TOTES (retrocompat)
+    loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"} selecció per pàgina
     recreate_views: bool = False  # Fase 2: recrear vistes incrustades via MCP (cal token OAuth)
     schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal} configurat per l'usuari
 
@@ -215,7 +216,7 @@ def _recreate_page_views(path, notion_page_id: str, host_table_id: str) -> int:
 def _run_import_sync(token: str, database_ids, create_group_views, target_folder,
                      follow_links=True, max_pages=5000, only_new=True,
                      include_loose_pages=False, recreate_views=False,
-                     schema_overrides=None) -> dict:
+                     schema_overrides=None, loose_page_types=None) -> dict:
     """Executat en thread: writers síncrons que reusen registry + filesystem."""
     vault = get_active_vault_path()
     if not vault:
@@ -292,6 +293,7 @@ def _run_import_sync(token: str, database_ids, create_group_views, target_folder
         target_folder=target_folder,
         follow_relations=follow_links, follow_children=follow_links, max_pages=max_pages,
         exists=exists, only_new=only_new, include_loose_pages=include_loose_pages,
+        loose_page_types=loose_page_types,
         schema_overrides=schema_overrides,
     )
 
@@ -308,7 +310,7 @@ async def run_import(payload: ImportPayload):
             payload.create_group_views, payload.target_folder,
             payload.follow_links, payload.max_pages, payload.only_new,
             payload.include_loose_pages, payload.recreate_views,
-            payload.schema_overrides,
+            payload.schema_overrides, payload.loose_page_types,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error important de Notion: {e}")

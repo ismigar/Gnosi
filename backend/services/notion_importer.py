@@ -517,6 +517,7 @@ def import_workspace(
     exists: Optional[Callable[[str, str], bool]] = None,
     only_new: bool = True,
     include_loose_pages: bool = False,
+    loose_page_types: Optional[Dict[str, str]] = None,
     schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Importa un workspace de Notion seguint el GRAF de referències (sense orfes).
@@ -560,7 +561,14 @@ def import_workspace(
     # Pàgines SOLTES: sembra el crawler amb les pàgines compartides que NO pengen d'una BD
     # (parent workspace/page). Les que són fila d'una BD (parent database_id) ja entren per
     # la seva BD → s'exclouen aquí per estalviar crides.
-    if include_loose_pages:
+    # Selecció per pàgina (loose_page_types) MANA: sembra només les triades (amb wiki/dashboard);
+    # si no n'hi ha, include_loose_pages sembra TOTES (retrocompat).
+    _norm = lambda s: str(s or "").replace("-", "")  # noqa: E731
+    loose_types_norm = {_norm(k): v for k, v in (loose_page_types or {}).items()}
+    if loose_page_types:
+        for pid in loose_page_types:
+            enq_page(pid)
+    elif include_loose_pages:
         for pg in client.search_pages():
             parent = pg.get("parent") or {}
             if parent.get("type") in ("workspace", "page_id"):
@@ -641,11 +649,14 @@ def import_workspace(
                     report["skipped_existing"] += 1
                     continue
                 blocks = client.get_block_children(pid)
+                meta = {"icon": _emoji_icon(pg.get("icon"))}
+                if loose_types_norm.get(_norm(pid)) == "dashboard":
+                    meta["is_dashboard"] = True
                 write_page({
                     "id": page_id_for(pid),
                     "title": title,
                     "content": blocks_to_md(blocks),
-                    "metadata": {"icon": _emoji_icon(pg.get("icon"))},
+                    "metadata": meta,
                 })
                 report["pages"] += 1
                 if follow_children:
