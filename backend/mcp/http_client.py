@@ -55,23 +55,35 @@ class HttpMCPClient:
         return h
 
     def _rpc(self, method: str, params: Optional[Dict[str, Any]] = None) -> Any:
+        import time
         import httpx
         self._id += 1
         payload = {"jsonrpc": "2.0", "id": self._id, "method": method, "params": params or {}}
-        with httpx.Client(timeout=self.timeout) as c:
-            resp = c.post(self.base_url, json=payload, headers=self._headers())
-            # Captura l'id de sessió (streamable HTTP el retorna a la 1a resposta)
+        last = None
+        for attempt in range(4):
+            with httpx.Client(timeout=self.timeout) as c:
+                resp = c.post(self.base_url, json=payload, headers=self._headers())
             sid = resp.headers.get("Mcp-Session-Id")
             if sid:
                 self._session_id = sid
+            if resp.status_code == 429:  # rate limit → espera i reintenta
+                wait = resp.headers.get("Retry-After")
+                time.sleep(min(float(wait) if wait else 1.5 * (attempt + 1), 10.0))
+                last = resp
+                continue
+            if resp.status_code == 401:  # token caducat → el caller (notion_mcp) el renova
+                raise RuntimeError("MCP 401 invalid_token")
             resp.raise_for_status()
             ctype = resp.headers.get("content-type", "")
             data = _parse_sse(resp.text) if "text/event-stream" in ctype else resp.json()
-        if not data:
-            return None
-        if data.get("error"):
-            raise RuntimeError(f"MCP error: {data['error']}")
-        return data.get("result")
+            if not data:
+                return None
+            if data.get("error"):
+                raise RuntimeError(f"MCP error: {data['error']}")
+            return data.get("result")
+        if last is not None:
+            last.raise_for_status()
+        return None
 
     def initialize(self) -> Any:
         result = self._rpc("initialize", {
