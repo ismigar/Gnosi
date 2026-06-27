@@ -47,10 +47,13 @@ marcar les **pàgines soltes com a wiki o dashboard**. Substitueix l'autodetecci
   DASHBOARDS/.
 
 ## Fases
-1. **Esquema configurable**: endpoint schema + reutilitzar SchemaConfigModal al modal + payload
-   schema_overrides + backend que els aplica. (El cor de la petició.)
-2. **Adjunts**: downloader + reescriptura de rutes, dirigit pel `storage_folder` de cada camp.
-3. **Wiki/dashboard** per pàgines soltes.
+1. ✅ **Esquema configurable** (PR #622): endpoint `/databases/{id}/schema` + SchemaConfigModal
+   reutilitzat al modal (botó ⚙ per BD) + payload `schema_overrides` + backend `apply_override`.
+2. ✅ **Adjunts** (PR #623): `notion_attachments.py` (download_to + localize_values/localize_body)
+   + callback `save_asset` a clone_workspace → `Assets/<clon>/<Taula>/<Camp|_cos>/`.
+3. ✅ **Wiki/dashboard PER PÀGINA**: endpoint `/loose-pages` (parent workspace/page) + selector
+   wiki/dashboard per pàgina al modal + `loose_page_types` → 3a passada de clone_workspace
+   (is_dashboard com a etiqueta, contingut sempre markdown).
 
 ## QA
 - Conversió de format (Notion→modal i modal→properties): tests purs.

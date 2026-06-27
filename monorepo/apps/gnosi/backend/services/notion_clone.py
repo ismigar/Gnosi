@@ -94,12 +94,15 @@ def clone_workspace(
     max_pages: int = 5000,
     schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
     save_asset: Optional[Callable[[str, Optional[str], Dict[str, Any]], Optional[str]]] = None,
+    loose_page_types: Optional[Dict[str, str]] = None,
 ) -> Dict[str, Any]:
     """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP).
 
     `save_asset(url, prop_or_None, table) -> ruta_local|None`: baixa un adjunt (camp d'arxiu o
     imatge del cos) i torna la ruta `Assets/...`; si és None, no es baixen adjunts (es deixen
     les URLs de Notion, que caduquen).
+    `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} de pàgines FORA de BD a clonar amb
+    l'etiqueta is_dashboard corresponent.
     """
     report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0, "errors": [], "truncated": False}
     users = rest_client.list_users()
@@ -177,5 +180,39 @@ def clone_workspace(
                     report["errors"].append({"page": row.get("id"), "error": str(e)})
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"database": db_id, "error": str(e)})
+
+    # PASSADA 3: pàgines FORA de BD (wiki/dashboard segons tria de l'usuari)
+    for pid, ptype in (loose_page_types or {}).items():
+        if report["pages"] >= max_pages:
+            report["truncated"] = True
+            break
+        try:
+            page = rest_client.get_page(pid)
+            title = _page_title(page) or "Sense títol"
+            body = ""
+            try:
+                page_md = fetch_page(pid)
+                body = mcp_to_markdown(page_md) if page_md else ""
+                host_pid = str(pid).replace("-", "")
+                body, gviews = resolve_view_markers(
+                    body, host_pid, "",
+                    fetch_view=fetch_page,
+                    resolve_clone_table=lambda n: clone_tables_by_name.get(nvr._strip_icon(n)))
+                for gv in gviews:
+                    write_view(gv)
+                    report["views"] += 1
+                if save_asset is not None and body:
+                    from backend.services.notion_attachments import localize_body
+                    body, nb = localize_body(body, lambda u, p: save_asset(u, p, {"name": "Pàgines"}))
+                    report["attachments"] += nb
+            except Exception as e:  # noqa: BLE001
+                report["errors"].append({"page": pid, "stage": "mcp", "error": str(e)})
+            meta = {"icon": _emoji_icon(page.get("icon"))}
+            if str(ptype).lower() == "dashboard":
+                meta["is_dashboard"] = True
+            write_page({"id": clone_page_id(pid), "title": title, "content": body, "metadata": meta})
+            report["pages"] += 1
+        except Exception as e:  # noqa: BLE001
+            report["errors"].append({"page": pid, "stage": "loose", "error": str(e)})
 
     return report

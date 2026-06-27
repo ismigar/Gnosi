@@ -26,6 +26,8 @@ export default function NotionImportSettings() {
     const [recreateViews, setRecreateViews] = useState(false);
     const [schemaOverrides, setSchemaOverrides] = useState({});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
+    const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pàgines fora de BD
+    const [loosePageTypes, setLoosePageTypes] = useState({});     // {pageId: "wiki"|"dashboard"}
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
@@ -80,6 +82,13 @@ export default function NotionImportSettings() {
             const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
             setDatabases(data.databases || []);
             setSelected(new Set((data.databases || []).map(d => d.id)));
+            // pàgines fora de BD (per triar wiki/dashboard) — no bloqueja si falla
+            try {
+                const lp = await axios.get('/api/notion/loose-pages', { timeout: 120000 });
+                const pages = lp.data.pages || [];
+                setLoosePagesList(pages);
+                setLoosePageTypes(Object.fromEntries(pages.map(p => [p.id, 'wiki'])));
+            } catch { /* opcional */ }
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
     };
@@ -124,6 +133,7 @@ export default function NotionImportSettings() {
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: 'Clon Notion',
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
+                loose_page_types: Object.keys(loosePageTypes).length ? loosePageTypes : null,
             }, { timeout: 0 });  // clon = moltes crides MCP: sense timeout de client
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -197,6 +207,34 @@ export default function NotionImportSettings() {
                                     </div>
                                 ))}
                             </div>
+
+                            {loosePagesList.length > 0 && (
+                                <div style={{ marginTop: 18 }}>
+                                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>
+                                        Pàgines fora de BD ({loosePagesList.length}) — tria wiki o dashboard
+                                    </div>
+                                    <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                                        {loosePagesList.map(p => (
+                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
+                                                <span style={{ flex: 1, fontSize: '0.83rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                                                <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--settings-border)' }}>
+                                                    {['wiki', 'dashboard'].map(opt => {
+                                                        const active = (loosePageTypes[p.id] || 'wiki') === opt;
+                                                        return (
+                                                            <button key={opt} onClick={() => setLoosePageTypes(s => ({ ...s, [p.id]: opt }))}
+                                                                style={{ padding: '4px 11px', fontSize: '0.76rem', border: 'none', cursor: 'pointer',
+                                                                    background: active ? 'var(--gnosi-primary)' : 'transparent',
+                                                                    color: active ? '#fff' : 'var(--text-secondary)' }}>
+                                                                {opt === 'wiki' ? 'Wiki' : 'Dashboard'}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             <div style={{ marginTop: 16, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>

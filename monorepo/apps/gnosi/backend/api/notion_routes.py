@@ -105,6 +105,21 @@ async def database_schema(db_id: str):
     return {"name": table.get("name"), "schema": notion_props_to_modal_schema(table.get("properties", []))}
 
 
+@router.get("/loose-pages", dependencies=[Depends(require_role("editor"))])
+async def list_loose_pages():
+    """Pàgines de Notion FORA de qualsevol BD (parent workspace/page) → per triar wiki/dashboard."""
+    token = _get_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+    try:
+        pages = await asyncio.to_thread(NotionClient(token).search_pages)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error consultant Notion: {e}")
+    out = [{"id": p["id"], "title": _page_title(p) or "Sense títol"}
+           for p in pages if (p.get("parent") or {}).get("type") in ("workspace", "page_id")]
+    return {"pages": out}
+
+
 # ---------------------------------------------------------------------------
 # Import
 # ---------------------------------------------------------------------------
@@ -307,9 +322,11 @@ class ClonePayload(BaseModel):
     database_ids: Optional[List[str]] = None
     target_folder: str = "Clon Notion"
     schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal}
+    loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"}
 
 
-def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=None) -> dict:
+def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=None,
+                    loose_page_types=None) -> dict:
     token = _get_token()
     if not token:
         raise RuntimeError("No hi ha cap token d'integració de Notion configurat")
@@ -377,6 +394,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         target_folder=_sanitize_folder(target_folder),
         schema_overrides=schema_overrides,
         save_asset=save_asset,
+        loose_page_types=loose_page_types,
     )
 
 
@@ -388,7 +406,8 @@ async def run_clone(payload: ClonePayload):
                             detail="Connecta l'MCP de Notion (vistes incrustades) per al clon exacte")
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
-                                         payload.target_folder, payload.schema_overrides)
+                                         payload.target_folder, payload.schema_overrides,
+                                         payload.loose_page_types)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clonant de Notion: {e}")
     return {"status": "success", **report}
