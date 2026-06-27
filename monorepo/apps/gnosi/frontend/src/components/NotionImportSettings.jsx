@@ -28,6 +28,7 @@ export default function NotionImportSettings() {
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
     const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pàgines fora de BD
     const [loosePageTypes, setLoosePageTypes] = useState({});     // {pageId: "wiki"|"dashboard"}
+    const [looseSelected, setLooseSelected] = useState(new Set()); // pàgines soltes a clonar/importar
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
@@ -88,6 +89,7 @@ export default function NotionImportSettings() {
                 const pages = lp.data.pages || [];
                 setLoosePagesList(pages);
                 setLoosePageTypes(Object.fromEntries(pages.map(p => [p.id, 'wiki'])));
+                setLooseSelected(new Set());   // per defecte cap: l'usuari tria quines clonar
             } catch { /* opcional */ }
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
@@ -126,6 +128,13 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
+    // Només les pàgines soltes MARCADES s'inclouen (amb el seu tipus wiki/dashboard).
+    const selectedLooseTypes = () => {
+        const out = {};
+        looseSelected.forEach(id => { out[id] = loosePageTypes[id] || 'wiki'; });
+        return Object.keys(out).length ? out : null;
+    };
+
     const runClone = async () => {
         setBusy('clone'); setError(''); setReport(null);
         try {
@@ -133,7 +142,7 @@ export default function NotionImportSettings() {
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: 'Clon Notion',
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
-                loose_page_types: Object.keys(loosePageTypes).length ? loosePageTypes : null,
+                loose_page_types: selectedLooseTypes(),
             }, { timeout: 0 });  // clon = moltes crides MCP: sense timeout de client
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -210,19 +219,34 @@ export default function NotionImportSettings() {
 
                             {loosePagesList.length > 0 && (
                                 <div style={{ marginTop: 18 }}>
-                                    <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 8 }}>
-                                        Pàgines fora de BD ({loosePagesList.length}) — tria wiki o dashboard
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                                            Pàgines fora de BD — marca quines clonar ({looseSelected.size}/{loosePagesList.length})
+                                        </div>
+                                        <button type="button"
+                                            onClick={() => setLooseSelected(looseSelected.size === loosePagesList.length
+                                                ? new Set() : new Set(loosePagesList.map(p => p.id)))}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gnosi-primary)' }}>
+                                            {looseSelected.size === loosePagesList.length ? 'Cap' : 'Tots'}
+                                        </button>
                                     </div>
                                     <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                                        {loosePagesList.map(p => (
-                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
-                                                <span style={{ flex: 1, fontSize: '0.83rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                                        {loosePagesList.map(p => {
+                                            const included = looseSelected.has(p.id);
+                                            return (
+                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)', opacity: included ? 1 : 0.5 }}>
+                                                <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, cursor: 'pointer' }}>
+                                                    <input type="checkbox" checked={included}
+                                                        onChange={() => setLooseSelected(s => { const n = new Set(s); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} />
+                                                    <span style={{ flex: 1, fontSize: '0.83rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                                                </label>
                                                 <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--settings-border)' }}>
                                                     {['wiki', 'dashboard'].map(opt => {
                                                         const active = (loosePageTypes[p.id] || 'wiki') === opt;
                                                         return (
-                                                            <button key={opt} onClick={() => setLoosePageTypes(s => ({ ...s, [p.id]: opt }))}
-                                                                style={{ padding: '4px 11px', fontSize: '0.76rem', border: 'none', cursor: 'pointer',
+                                                            <button key={opt} disabled={!included}
+                                                                onClick={() => setLoosePageTypes(s => ({ ...s, [p.id]: opt }))}
+                                                                style={{ padding: '4px 11px', fontSize: '0.76rem', border: 'none', cursor: included ? 'pointer' : 'not-allowed',
                                                                     background: active ? 'var(--gnosi-primary)' : 'transparent',
                                                                     color: active ? '#fff' : 'var(--text-secondary)' }}>
                                                                 {opt === 'wiki' ? 'Wiki' : 'Dashboard'}
@@ -231,7 +255,8 @@ export default function NotionImportSettings() {
                                                     })}
                                                 </div>
                                             </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
