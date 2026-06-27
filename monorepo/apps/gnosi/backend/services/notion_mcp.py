@@ -72,13 +72,78 @@ def _extract_text(result) -> str:
     return str(result)
 
 
+_UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+
+
+def _is_auth_error(e) -> bool:
+    s = str(e).lower()
+    return "401" in s or "invalid_token" in s or "invalid access token" in s or "unauthorized" in s
+
+
+def refresh_token() -> Optional[str]:
+    """Renova l'access token MCP amb el refresh_token (els tokens OAuth són de vida curta).
+    Desa el nou token via IntegrationManager. Retorna el nou access token o None."""
+    try:
+        from backend.services.integration_manager import integration_manager
+        mcp = integration_manager.get_raw("notion_mcp") or {}
+        client = integration_manager.get_raw("notion_mcp_client") or {}
+        rt, cid = mcp.get("refresh_token"), client.get("client_id")
+        if not rt or not cid:
+            return None
+        import httpx
+        token_url = _env("NOTION_OAUTH_TOKEN_URL", "https://mcp.notion.com/token")
+        r = httpx.post(token_url, data={"grant_type": "refresh_token", "refresh_token": rt,
+                                        "client_id": cid},
+                       headers={"Content-Type": "application/x-www-form-urlencoded", "User-Agent": _UA},
+                       timeout=30)
+        r.raise_for_status()
+        tok = r.json()
+        access = tok.get("access_token")
+        if access:
+            integration_manager.replace_key("notion_mcp", {
+                "token": access, "refresh_token": tok.get("refresh_token") or rt,
+                "token_type": tok.get("token_type")})
+            log.info("Token MCP de Notion renovat")
+            return access
+    except Exception as e:  # noqa: BLE001
+        log.warning(f"No s'ha pogut renovar el token MCP: {e}")
+    return None
+
+
+_client_cache: dict = {}  # token → HttpMCPClient (inicialitzat un sol cop, reusat)
+
+
+def _get_client(token: str):
+    c = _client_cache.get(token)
+    if c is None:
+        from backend.mcp.http_client import HttpMCPClient
+        c = HttpMCPClient(_env("NOTION_MCP_URL", _DEFAULT_URL), token)
+        c.initialize()
+        _client_cache.clear()           # només mantenim el token actiu
+        _client_cache[token] = c
+    return c
+
+
+def _do_fetch(token: str, notion_id: str) -> str:
+    client = _get_client(token)
+    result = client.call_tool(_env("NOTION_MCP_FETCH_TOOL", _DEFAULT_FETCH_TOOL), {"id": notion_id})
+    return _extract_text(result)
+
+
 def fetch(notion_id: str) -> str:
-    """Fa `fetch` d'una pàgina/vista de Notion via l'MCP allotjat → markdown. '' si no hi ha token."""
+    """Fetch d'una pàgina/vista via l'MCP → markdown. Renova el token si ha caducat (401). '' si falla."""
     token = get_mcp_token()
     if not token:
         return ""
-    from backend.mcp.http_client import HttpMCPClient
-    client = HttpMCPClient(_env("NOTION_MCP_URL", _DEFAULT_URL), token)
-    client.initialize()
-    result = client.call_tool(_env("NOTION_MCP_FETCH_TOOL", _DEFAULT_FETCH_TOOL), {"id": notion_id})
-    return _extract_text(result)
+    try:
+        return _do_fetch(token, notion_id)
+    except Exception as e:  # noqa: BLE001
+        if _is_auth_error(e):
+            new = refresh_token()
+            if new:
+                try:
+                    return _do_fetch(new, notion_id)
+                except Exception:  # noqa: BLE001
+                    return ""
+        return ""
