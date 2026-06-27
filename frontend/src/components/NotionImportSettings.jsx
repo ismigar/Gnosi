@@ -234,7 +234,7 @@ export default function NotionImportSettings() {
                                         <button onClick={() => openSchemaConfig(d)} disabled={busy === 'schema:' + d.id}
                                             title={schemaOverrides[d.id] ? 'Camps configurats — editar' : "Configura els camps d'aquesta BD (tipus, adjunts…)"}
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: schemaOverrides[d.id] ? 'var(--gnosi-primary)' : 'var(--text-tertiary)' }}>
-                                            {busy === 'schema:' + d.id ? <Loader size={14} className="spin" /> : <Settings size={14} />}
+                                            {busy === 'schema:' + d.id ? <Loader size={14} className="animate-spin" /> : <Settings size={14} />}
                                         </button>
                                     </div>
                                 ))}
@@ -246,7 +246,7 @@ export default function NotionImportSettings() {
                                     <div className="gnosi-toggle-handle" />
                                 </div>
                                 Incloure pàgines soltes (no a cap BD)
-                                {busy === 'loose' && <Loader size={13} className="spin" />}
+                                {busy === 'loose' && <Loader size={13} className="animate-spin" />}
                             </label>
 
                             {loosePages && loosePagesList.length > 0 && (
@@ -328,12 +328,12 @@ export default function NotionImportSettings() {
                                 )}
                                 <button onClick={runDiff} disabled={busy === 'diff' || selected.size === 0}
                                     style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>
-                                    {busy === 'diff' ? <Loader size={15} className="spin" /> : <GitCompare size={15} />}
+                                    {busy === 'diff' ? <Loader size={15} className="animate-spin" /> : <GitCompare size={15} />}
                                     {busy === 'diff' ? 'Comparant…' : 'Previsualitza diferències'}
                                 </button>
                                 <button className="btn-gnosi-primary" onClick={runImport} disabled={busy === 'import' || selected.size === 0}
                                     style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
-                                    {busy === 'import' ? <Loader size={15} className="spin" /> : <Download size={15} />}
+                                    {busy === 'import' ? <Loader size={15} className="animate-spin" /> : <Download size={15} />}
                                     {busy === 'import' ? 'Important…' : `Importa ${selected.size} BD (només noves)`}
                                 </button>
                                 <button onClick={runClone}
@@ -342,7 +342,7 @@ export default function NotionImportSettings() {
                                         ? "Clon EXACTE de Notion (vistes+columnes via MCP) a una carpeta NOVA «Clon Notion/». No toca el vault actual."
                                         : "Connecta primer l'MCP per al clon exacte."}
                                     style={{ ...inp, cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>
-                                    {busy === 'clone' ? <Loader size={15} className="spin" /> : <Database size={15} />}
+                                    {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
                                     {busy === 'clone' ? 'Clonant…' : 'Clon exacte (carpeta nova)'}
                                 </button>
                             </div>
