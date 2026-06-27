@@ -361,12 +361,22 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
                         encoding="utf-8")
         vault_routes.register_page_in_index(path)
 
+    def save_asset(url, prop, table):
+        """Baixa un adjunt (camp d'arxiu o imatge del cos) a Assets/<carpeta clon>/<Taula>/<Camp|_cos>/."""
+        from backend.services.notion_attachments import download_to
+        clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731
+        leaf = clean(table.get("name"), "Taula")
+        sub = clean(prop, "") if prop else "_cos"
+        dest = vault / "Assets" / _sanitize_folder(target_folder) / leaf / (sub or "_camp")
+        return download_to(url, dest, vault)
+
     return notion_clone.clone_workspace(
         rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
         write_table=write_table, write_page=write_page, write_view=write_view,
         database_ids=database_ids or [d["id"] for d in rest.search_databases()],
         target_folder=_sanitize_folder(target_folder),
         schema_overrides=schema_overrides,
+        save_asset=save_asset,
     )
 
 
