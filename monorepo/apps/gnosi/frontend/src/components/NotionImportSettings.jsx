@@ -361,8 +361,10 @@ export default function NotionImportSettings() {
                     folder={folder.trim() || 'Importades/Notion'}
                     currentSchema={cfg.schema}
                     onSave={(newSchema) => {
-                        setSchemaOverrides(prev => ({ ...prev, [cfg.db.id]: newSchema }));
-                        setCfg(null);
+                        // SchemaConfigModal és d'AUTOSAVE: crida onSave a cada canvi (i un cop en
+                        // obrir). NO tanquem aquí (tancaria sol en obrir); només desem l'override.
+                        const dbId = cfg.db.id;
+                        setSchemaOverrides(prev => ({ ...prev, [dbId]: newSchema }));
                     }}
                 />
             )}
