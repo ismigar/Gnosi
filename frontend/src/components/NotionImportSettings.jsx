@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Database, Link2, Download, Check, Loader, Unlink, GitCompare, AlertTriangle } from 'lucide-react';
+import { Database, Link2, Download, Check, Loader, Unlink, GitCompare, AlertTriangle, Settings } from 'lucide-react';
+import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 
 /**
  * Importador de Notion → Vault. Connecta amb un token d'integració, llista les BD
@@ -23,6 +24,17 @@ export default function NotionImportSettings() {
     const [diff, setDiff] = useState(null);
     const [mcpConnected, setMcpConnected] = useState(false);
     const [recreateViews, setRecreateViews] = useState(false);
+    const [schemaOverrides, setSchemaOverrides] = useState({});   // {dbId: esquema SchemaConfigModal}
+    const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
+
+    const openSchemaConfig = async (d) => {
+        setBusy('schema:' + d.id); setError('');
+        try {
+            const { data } = await axios.get(`/api/notion/databases/${d.id}/schema`);
+            setCfg({ db: d, schema: schemaOverrides[d.id] || data.schema || {} });
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
 
     const loadStatus = useCallback(async () => {
         try {
@@ -98,6 +110,7 @@ export default function NotionImportSettings() {
                 follow_links: followLinks,
                 include_loose_pages: loosePages,
                 recreate_views: mcpConnected && recreateViews,
+                schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
             }, { timeout: 0 });  // import pot trigar minuts: sense timeout de client
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -110,6 +123,7 @@ export default function NotionImportSettings() {
             const { data } = await axios.post('/api/notion/clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: 'Clon Notion',
+                schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
             }, { timeout: 0 });  // clon = moltes crides MCP: sense timeout de client
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -170,10 +184,17 @@ export default function NotionImportSettings() {
                         <div style={{ marginTop: 18 }}>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
                                 {databases.map(d => (
-                                    <label key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.83rem', color: 'var(--text-primary)', padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
-                                        <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggle(d.id)} />
-                                        {d.title}
-                                    </label>
+                                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.83rem', color: 'var(--text-primary)', flex: 1, cursor: 'pointer' }}>
+                                            <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggle(d.id)} />
+                                            {d.title}
+                                        </label>
+                                        <button onClick={() => openSchemaConfig(d)} disabled={busy === 'schema:' + d.id}
+                                            title={schemaOverrides[d.id] ? 'Camps configurats — editar' : "Configura els camps d'aquesta BD (tipus, adjunts…)"}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: schemaOverrides[d.id] ? 'var(--gnosi-primary)' : 'var(--text-tertiary)' }}>
+                                            {busy === 'schema:' + d.id ? <Loader size={14} className="spin" /> : <Settings size={14} />}
+                                        </button>
+                                    </div>
                                 ))}
                             </div>
 
@@ -294,6 +315,19 @@ export default function NotionImportSettings() {
             )}
 
             {error && <div style={{ marginTop: 14, color: '#e05252', fontSize: '0.82rem' }}>{error}</div>}
+
+            {cfg && (
+                <SchemaConfigModal
+                    isOpen={true}
+                    onClose={() => setCfg(null)}
+                    folder={folder.trim() || 'Importades/Notion'}
+                    currentSchema={cfg.schema}
+                    onSave={(newSchema) => {
+                        setSchemaOverrides(prev => ({ ...prev, [cfg.db.id]: newSchema }));
+                        setCfg(null);
+                    }}
+                />
+            )}
         </div>
     );
 }

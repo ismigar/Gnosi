@@ -88,6 +88,23 @@ async def list_databases():
     ]}
 
 
+@router.get("/databases/{db_id}/schema", dependencies=[Depends(require_role("editor"))])
+async def database_schema(db_id: str):
+    """Esquema d'una BD de Notion en format de SchemaConfigModal (per configurar-lo abans
+    d'importar/clonar). {schema: {camp:tipus, camp_config:{...}}, name}."""
+    from backend.services.notion_importer import map_database_schema
+    from backend.services.notion_schema_config import notion_props_to_modal_schema
+    token = _get_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+    try:
+        db = await asyncio.to_thread(NotionClient(token).get_database, db_id)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error consultant Notion: {e}")
+    table = map_database_schema(db)
+    return {"name": table.get("name"), "schema": notion_props_to_modal_schema(table.get("properties", []))}
+
+
 # ---------------------------------------------------------------------------
 # Import
 # ---------------------------------------------------------------------------
@@ -100,6 +117,7 @@ class ImportPayload(BaseModel):
     only_new: bool = True        # sync guardat: només afegeix pàgines NOVES, mai sobreescriu
     include_loose_pages: bool = False  # també pàgines soltes (no a cap BD)
     recreate_views: bool = False  # Fase 2: recrear vistes incrustades via MCP (cal token OAuth)
+    schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal} configurat per l'usuari
 
 
 def _sanitize_folder(name: str) -> str:
@@ -181,7 +199,8 @@ def _recreate_page_views(path, notion_page_id: str, host_table_id: str) -> int:
 
 def _run_import_sync(token: str, database_ids, create_group_views, target_folder,
                      follow_links=True, max_pages=5000, only_new=True,
-                     include_loose_pages=False, recreate_views=False) -> dict:
+                     include_loose_pages=False, recreate_views=False,
+                     schema_overrides=None) -> dict:
     """Executat en thread: writers síncrons que reusen registry + filesystem."""
     vault = get_active_vault_path()
     if not vault:
@@ -258,6 +277,7 @@ def _run_import_sync(token: str, database_ids, create_group_views, target_folder
         target_folder=target_folder,
         follow_relations=follow_links, follow_children=follow_links, max_pages=max_pages,
         exists=exists, only_new=only_new, include_loose_pages=include_loose_pages,
+        schema_overrides=schema_overrides,
     )
 
 
@@ -273,6 +293,7 @@ async def run_import(payload: ImportPayload):
             payload.create_group_views, payload.target_folder,
             payload.follow_links, payload.max_pages, payload.only_new,
             payload.include_loose_pages, payload.recreate_views,
+            payload.schema_overrides,
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error important de Notion: {e}")
@@ -285,9 +306,10 @@ async def run_import(payload: ImportPayload):
 class ClonePayload(BaseModel):
     database_ids: Optional[List[str]] = None
     target_folder: str = "Clon Notion"
+    schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal}
 
 
-def _run_clone_sync(database_ids, target_folder="Clon Notion") -> dict:
+def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=None) -> dict:
     token = _get_token()
     if not token:
         raise RuntimeError("No hi ha cap token d'integració de Notion configurat")
@@ -344,6 +366,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion") -> dict:
         write_table=write_table, write_page=write_page, write_view=write_view,
         database_ids=database_ids or [d["id"] for d in rest.search_databases()],
         target_folder=_sanitize_folder(target_folder),
+        schema_overrides=schema_overrides,
     )
 
 
@@ -354,7 +377,8 @@ async def run_clone(payload: ClonePayload):
         raise HTTPException(status_code=400,
                             detail="Connecta l'MCP de Notion (vistes incrustades) per al clon exacte")
     try:
-        report = await asyncio.to_thread(_run_clone_sync, payload.database_ids, payload.target_folder)
+        report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
+                                         payload.target_folder, payload.schema_overrides)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clonant de Notion: {e}")
     return {"status": "success", **report}

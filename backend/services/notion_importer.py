@@ -517,6 +517,7 @@ def import_workspace(
     exists: Optional[Callable[[str, str], bool]] = None,
     only_new: bool = True,
     include_loose_pages: bool = False,
+    schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Importa un workspace de Notion seguint el GRAF de referències (sense orfes).
 
@@ -580,6 +581,9 @@ def import_workspace(
             try:
                 db = client.get_database(db_id)
                 table = map_database_schema(db)
+                if schema_overrides and db_id in schema_overrides:
+                    from backend.services.notion_schema_config import apply_override
+                    table = apply_override(table, schema_overrides[db_id])
                 table["folder"] = target_folder
                 write_table(table)
                 report["tables"] += 1

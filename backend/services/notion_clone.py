@@ -92,6 +92,7 @@ def clone_workspace(
     database_ids: List[str],
     target_folder: str = "Clon Notion",
     max_pages: int = 5000,
+    schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP)."""
     report = {"tables": 0, "pages": 0, "views": 0, "errors": [], "truncated": False}
@@ -108,6 +109,9 @@ def clone_workspace(
             db = rest_client.get_database(db_id)
             db_by_id[db_id] = db
             table = clone_table_schema(db)
+            if schema_overrides and db_id in schema_overrides:
+                from backend.services.notion_schema_config import apply_override
+                table = apply_override(table, schema_overrides[db_id])
             table["folder"] = f"{target_folder}/{table.get('name') or 'Taula'}"
             write_table(table)
             report["tables"] += 1
