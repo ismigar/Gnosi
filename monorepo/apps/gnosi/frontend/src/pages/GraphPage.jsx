@@ -26,7 +26,10 @@ function GraphPage() {
     const [graphData, setGraphData] = useState(null);
     const [graphInstance, setGraphInstance] = useState(null);
     const [rendererInstance, setRendererInstance] = useState(null);
-    const [isDarkMode, setIsDarkMode] = useState(window.matchMedia('(prefers-color-scheme: dark)').matches);
+    // El tema del graf segueix la classe `.dark` de l'app (commutador manual),
+    // no `prefers-color-scheme` del sistema, que ignorava el toggle i deixava
+    // els overlays (recompte de nodes, llegenda, minimap…) clars en mode fosc.
+    const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
     // Layout igraph FR calculat al backend. FA2 desactivat per defecte.
     const isPhysicsEnabled = false;
@@ -234,9 +237,13 @@ function GraphPage() {
             .then(data => setIdTitleMap(data && typeof data === 'object' ? data : {}))
             .catch(e => console.error("Error fetching global index for filters:", e));
 
-        const matcher = window.matchMedia('(prefers-color-scheme: dark)');
-        const onChange = (e) => setIsDarkMode(e.matches);
-        matcher.addEventListener('change', onChange);
+        // Observa la classe `.dark` de documentElement perquè els overlays i el
+        // canvas del graf segueixin el tema de l'app en viu (no l'OS).
+        const root = document.documentElement;
+        const syncTheme = () => setIsDarkMode(root.classList.contains('dark'));
+        syncTheme();
+        const themeObserver = new MutationObserver(syncTheme);
+        themeObserver.observe(root, { attributes: true, attributeFilter: ['class'] });
 
         // Deep linking support
         const params = new URLSearchParams(location.search);
@@ -251,7 +258,7 @@ function GraphPage() {
             }, 1500);
         }
 
-        return () => matcher.removeEventListener('change', onChange);
+        return () => themeObserver.disconnect();
     }, []);
 
     // Populate filter states from config
