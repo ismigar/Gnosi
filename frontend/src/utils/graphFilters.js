@@ -101,6 +101,7 @@ export function applyFilters(graph, filters) {
         timelineDate = null,
         visibleDatabases = [],
         visibleTables = [],
+        sourcesInitialized = false,
         activeTableFilters = new Set(),
         fieldFilters = {},
         isVaultMode = false,
@@ -174,17 +175,36 @@ export function applyFilters(graph, filters) {
             }
 
             // 1. Database/Table visibility from global settings
+            // Convenció: un cop l'usuari ha inicialitzat les seves fonts
+            // (`sourcesInitialized`, sembrades a la primera càrrega), una selecció
+            // BUIDA vol dir "no mostris res". Abans d'inicialitzar mantenim el
+            // comportament heretat ("buit = mostra-ho tot") per no deixar el graf
+            // en blanc durant la càrrega/migració.
+            const enforceSources = sourcesInitialized;
             if (isSystemNode) {
-                if (hasDbVisibility && !visibleDbSet.has(systemCategory)) return;
-                if (hasTableVisibility && !visibleTableSet.has(effectiveTableId)) {
-                    if (!['wiki', 'drawings', 'images', 'assets'].includes(systemCategory)) return;
+                const isBucketOnly = ['wiki', 'drawings', 'images', 'assets'].includes(systemCategory);
+                if (enforceSources || hasDbVisibility) {
+                    if (!visibleDbSet.has(systemCategory)) return;
+                }
+                // wiki/drawings/images/assets no tenen sub-element: només es filtren per categoria.
+                if (!isBucketOnly && (enforceSources || hasTableVisibility)) {
+                    if (!visibleTableSet.has(effectiveTableId)) return;
                 }
             } else {
                 if (nodeTableRaw) {
-                    if (hasTableVisibility && !visibleTableSet.has(nodeTableRaw)) return;
-                    if (hasDbVisibility && nodeDb && !visibleDbSet.has(nodeDb)) return;
+                    if (enforceSources) {
+                        // Visible si la taula està seleccionada O la seva BD pare ho està.
+                        if (!visibleTableSet.has(nodeTableRaw) && !(nodeDb && visibleDbSet.has(nodeDb))) return;
+                    } else {
+                        if (hasTableVisibility && !visibleTableSet.has(nodeTableRaw)) return;
+                        if (hasDbVisibility && nodeDb && !visibleDbSet.has(nodeDb)) return;
+                    }
                 } else {
-                    if (hasDbVisibility && (!nodeDb || !visibleDbSet.has(nodeDb))) return;
+                    if (enforceSources) {
+                        if (!nodeDb || !visibleDbSet.has(nodeDb)) return;
+                    } else {
+                        if (hasDbVisibility && (!nodeDb || !visibleDbSet.has(nodeDb))) return;
+                    }
                 }
             }
 
