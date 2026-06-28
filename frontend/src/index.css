@@ -412,9 +412,14 @@ body {
   color: var(--sidebar-item-active-text);
 }
 
-.app-sidebar__item:focus,
+.app-sidebar__item:focus {
+  outline: none;
+}
+
 .app-sidebar__item:focus-visible {
   outline: none;
+  background-color: var(--sidebar-item-hover);
+  box-shadow: 0 0 0 2px var(--gnosi-primary);
 }
 
 .app-sidebar__tooltip {
@@ -980,6 +985,21 @@ button:hover > .row-action-tooltip {
 
 .btn-gnosi-secondary:hover {
     background: var(--settings-border);
+}
+
+/* Feedback d'enfocament per teclat (a11y): mirall del hover amb un anell
+   primary. `:focus-visible` només casa amb el focus de teclat, així que els
+   clics de ratolí no mostren l'anell. */
+.settings-sidebar__item:focus-visible,
+.gnosi-close-btn:focus-visible,
+.btn-gnosi-primary:focus-visible,
+.btn-gnosi-primary7:focus-visible,
+.btn-gnosi-danger:focus-visible,
+.btn-gnosi-secondary:focus-visible,
+.provider-card:focus-visible,
+.gnosi-toggle:focus-visible {
+    outline: 2px solid var(--gnosi-primary);
+    outline-offset: 2px;
 }
 
 /* Embed gnosi_view: BlockNote pinta `outline: 4px solid rgb(100, 160, 255)`
