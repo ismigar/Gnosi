@@ -1,32 +1,28 @@
 /* ───────────────────────────────────────────── */
 /* 🎨 VARIABLES PRINCIPALS */
 /* ───────────────────────────────────────────── */
+/* Les variables locals del visor aliasen les variables de tema globals
+   (definides a src/index.css). Així el graf segueix el tema clar/fosc de
+   l'app (classe `.dark` a documentElement) en comptes de `prefers-color-scheme`
+   del sistema, que ignorava el commutador manual i deixava els panells blancs. */
 :root {
-  --bg-main: #f7f7f7;
-  --bg-side: rgba(255, 255, 255, 0.95);
-  --bg-graph: radial-gradient(circle at center, #fcfcfc 0%, #f1f1f1 100%);
-  --color-text: #2f3437;
-  --color-border: #e4e4e4;
-  --color-accent: #4583ec;
-  --color-accent-light: #e8f0fe;
+  --bg-main: var(--bg-primary);
+  --bg-side: var(--bg-secondary);
+  --bg-graph: var(--bg-primary);
+  --color-text: var(--text-primary);
+  --color-text-muted: var(--text-secondary);
+  --color-border: var(--border-primary);
+  --color-accent: var(--gnosi-primary);
+  --color-accent-light: rgba(var(--gnosi-primary-rgb), 0.12);
   --radius: 8px;
   --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-medium: 0 2px 6px rgba(0, 0, 0, 0.15);
   --transition: 0.2s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-main: #111;
-    --bg-side: rgba(25, 25, 25, 0.95);
-    --bg-graph: radial-gradient(circle at center, #151515 0%, #0e0e0e 100%);
-    --color-text: #eee;
-    --color-border: #333;
-    --color-accent: #6ba8ff;
-    --color-accent-light: #2a3a52;
-    --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.5);
-    --shadow-medium: 0 2px 8px rgba(0, 0, 0, 0.6);
-  }
+.dark {
+  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.5);
+  --shadow-medium: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
 /* ───────────────────────────────────────────── */
@@ -97,17 +93,11 @@ body {
   left: 16px;
   width: 160px;
   height: 160px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--bg-secondary);
   border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
   z-index: 10;
-}
-
-@media (prefers-color-scheme: dark) {
-  #minimap {
-    background: rgba(30, 30, 30, 0.7);
-  }
 }
 
 /* ───────────────────────────────────────────── */
@@ -150,6 +140,7 @@ body {
   top: 0;
   z-index: 3;
   padding: 6px 8px 4px 8px;
+  background: var(--bg-secondary);
 }
 
 .filter-title {
@@ -182,21 +173,9 @@ body {
   color: var(--color-accent);
 }
 
-@media (prefers-color-scheme: dark) {
-  .filter-header {
-    background: rgba(25, 25, 25, 0.95);
-  }
-
-  .btn-filter-action {
-    border-color: #444;
-    background: rgba(30, 30, 30, 0.9);
-    color: #ddd;
-  }
-
-  .btn-filter-action:hover {
-    background: var(--color-accent-light);
-    color: #fff;
-  }
+.btn-filter-action:focus-visible {
+  outline: 2px solid var(--gnosi-primary);
+  outline-offset: 2px;
 }
 
 /* ───────────────────────────────────────────── */
@@ -209,18 +188,12 @@ body {
   border-radius: 50%;
   margin-right: 6px;
   flex-shrink: 0;
-  border: 1px solid rgba(0, 0, 0, 0.15);
+  border: 1px solid var(--border-primary);
   transition: transform 0.15s ease;
 }
 
 .filter-item:hover .cluster-dot {
   transform: scale(1.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  .cluster-dot {
-    border: 1px solid rgba(255, 255, 255, 0.2);
-  }
 }
 
 /* ───────────────────────────────────────────── */
@@ -285,17 +258,9 @@ select {
   transform: translateY(0);
 }
 
-@media (prefers-color-scheme: dark) {
-  .graph-controls button {
-    background: rgba(40, 40, 40, 0.9);
-    border-color: #444;
-    color: var(--color-text);
-  }
-
-  .graph-controls button:hover {
-    background: var(--color-accent-light);
-    color: #fff;
-  }
+.graph-controls button:focus-visible {
+  outline: 2px solid var(--gnosi-primary);
+  outline-offset: 2px;
 }
 
 .filter-item-advanced {
@@ -319,7 +284,7 @@ select {
   height: 14px;
   border-radius: 50%;
   margin-right: 8px;
-  border: 1px solid rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-primary);
   position: relative;
   transition: transform 0.2s ease;
 }
@@ -346,7 +311,7 @@ select {
 .density-bar-container {
   width: 100%;
   height: 3px;
-  background-color: #e0e0e0;
+  background-color: var(--bg-tertiary);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -371,7 +336,8 @@ select {
   bottom: 12px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
   padding: 6px 12px;
   border-radius: 8px;
   box-shadow: var(--shadow-soft);
@@ -381,12 +347,6 @@ select {
 
 #sigma-container canvas {
   z-index: 1;
-}
-
-@media (prefers-color-scheme: dark) {
-  #legend-container {
-    background: rgba(20, 20, 20, 0.75);
-  }
 }
 
 #legend-edges {
@@ -418,7 +378,7 @@ select {
   width: 15px;
   height: 15px;
   margin-right: 8px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--border-primary);
 }
 
 .legend-color-line {
