@@ -112,6 +112,152 @@ def test_clone_workspace_end_to_end_with_fakes():
     assert rep["views"] == 1
 
 
+class FakeRestAreas:
+    """BD amb camp d'emoji, relació i created_time per provar neteja+decoració+dates."""
+    def list_users(self): return {}
+    def search_databases(self): return [{"id": "areas"}]
+    def get_database(self, i):
+        return {"id": "areas", "title": [{"plain_text": "Àrees"}], "properties": {
+            "Nom": {"id": "t", "type": "title", "title": {}},
+            "📀 Projectes": {"id": "r", "type": "relation", "relation": {"database_id": "areas"}},
+            "Data de creació": {"id": "d", "type": "created_time", "created_time": {}}}}
+    def query_database(self, i):
+        mk = lambda pid, nom, rel: {"id": pid, "icon": None, "properties": {
+            "Nom": {"type": "title", "title": [{"plain_text": nom, "type": "text"}]},
+            "📀 Projectes": {"type": "relation", "relation": rel},
+            "Data de creació": {"type": "created_time", "created_time": "2025-04-11T16:22:00.000Z"}}}
+        return [mk("11111111-1111-1111-1111-111111111111", "Filosofia",
+                   [{"id": "22222222-2222-2222-2222-222222222222"}]),
+                mk("22222222-2222-2222-2222-222222222222", "Oci", [])]
+
+
+def test_clone_strips_field_emojis_decorates_relations_and_dates():
+    pages = []
+    clone_workspace(FakeRestAreas(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                    write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+                    database_ids=["areas"])
+    m = next(p for p in pages if p["title"] == "Filosofia")["metadata"]
+    assert "Projectes" in m and "📀 Projectes" not in m          # emoji tret del nom de camp
+    oci = clone_page_id("22222222-2222-2222-2222-222222222222")
+    assert m["Projectes"] == [f"[[Oci|{oci}]]"]                  # relació decorada (forward ref)
+    assert m["Data de creació"] == "2025-04-11T16:22:00.000Z"    # data TAL QUAL (es preserva l'hora)
+
+
+class FakeRestIcons:
+    """Pàgines amb icona d'imatge / emoji i portada, per provar la baixada d'icones+portades."""
+    def list_users(self): return {}
+    def search_databases(self): return [{"id": "areas"}]
+    def get_database(self, i):
+        return {"id": "areas", "title": [{"plain_text": "Àrees"}],
+                "properties": {"Nom": {"id": "t", "type": "title", "title": {}}}}
+    def query_database(self, i):
+        return [
+            {"id": "11111111-1111-1111-1111-111111111111",
+             "icon": {"type": "file", "file": {"url": "https://s3/i.png"}},
+             "cover": {"type": "external", "external": {"url": "https://ex/c.jpg"}},
+             "properties": {"Nom": {"type": "title", "title": [{"plain_text": "Img", "type": "text"}]}}},
+            {"id": "22222222-2222-2222-2222-222222222222",
+             "icon": {"type": "emoji", "emoji": "📌"}, "cover": None,
+             "properties": {"Nom": {"type": "title", "title": [{"plain_text": "Emoji", "type": "text"}]}}}]
+
+
+def test_clone_downloads_image_icons_and_covers():
+    saved = []
+    def save_asset(url, prop, table):
+        saved.append(prop)
+        return f"Assets/Clon Notion/{table['name']}/{prop}/x.png"
+    pages = []
+    rep = clone_workspace(FakeRestIcons(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                          write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+                          database_ids=["areas"], save_asset=save_asset)
+    img = next(p for p in pages if p["title"] == "Img")["metadata"]
+    assert img["icon"] == "Assets/Clon Notion/Àrees/_icones/x.png"     # icona d'imatge baixada
+    assert img["cover"] == "Assets/Clon Notion/Àrees/_portades/x.png"  # portada baixada
+    emoji = next(p for p in pages if p["title"] == "Emoji")["metadata"]
+    assert emoji["icon"] == "📌" and "cover" not in emoji              # emoji tal qual, sense baixar
+    assert rep["attachments"] == 2                                     # només les 2 imatges
+
+
+class FakeRestDual:
+    """Projectes ↔ Tasques (relació dual) per provar inversos i avisos."""
+    def __init__(self, both=True): self.both = both
+    def list_users(self): return {}
+    def search_databases(self): return [{"id": "proj"}, {"id": "task"}]
+    def get_database(self, i):
+        if i == "proj":
+            return {"id": "proj", "title": [{"plain_text": "Projectes"}], "properties": {
+                "Nom": {"id": "t", "type": "title", "title": {}},
+                "Tasques": {"id": "r1", "type": "relation", "relation": {"database_id": "task"}}}}
+        return {"id": "task", "title": [{"plain_text": "Tasques"}], "properties": {
+            "Nom": {"id": "t", "type": "title", "title": {}},
+            "Projecte": {"id": "r2", "type": "relation", "relation": {"database_id": "proj"}}}}
+    def query_database(self, i):
+        if i == "proj":
+            return [{"id": "p0000000-0000-0000-0000-000000000001", "icon": None, "properties": {
+                "Nom": {"type": "title", "title": [{"plain_text": "Web", "type": "text"}]},
+                "Tasques": {"type": "relation", "relation": []}}}]   # buit → ha de rebre l'invers
+        return [{"id": "t0000000-0000-0000-0000-000000000002", "icon": None, "properties": {
+            "Nom": {"type": "title", "title": [{"plain_text": "Disseny", "type": "text"}]},
+            "Projecte": {"type": "relation", "relation": [{"id": "p0000000-0000-0000-0000-000000000001"}]}}}]
+
+
+def test_clone_populates_inverse_relations():
+    pages = []
+    rep = clone_workspace(FakeRestDual(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                          write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+                          database_ids=["proj", "task"])
+    web = next(p for p in pages if p["title"] == "Web")["metadata"]
+    tcid = clone_page_id("t0000000-0000-0000-0000-000000000002")
+    assert web["Tasques"] == [f"[[Disseny|{tcid}]]"]   # invers poblat des de Tasques.Projecte
+    assert rep["warnings"] == []                        # totes les BD seleccionades → cap avís
+
+
+def test_clone_warns_on_unselected_related_db():
+    # Només "task": el seu camp Projecte apunta a "proj" (no clonada) → avís
+    rep = clone_workspace(FakeRestDual(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                          write_table=lambda t: None, write_page=lambda p: None, write_view=lambda v: None,
+                          database_ids=["task"])
+    assert any("Projecte" in w and "no seleccionada" in w for w in rep["warnings"])
+
+
+class FakeRestSub:
+    """Una fila amb sub-pàgina, i la sub-pàgina amb una altra (recursió + cicle-safe)."""
+    P, C, G = ("p0000000-0000-0000-0000-000000000001",
+               "c0000000-0000-0000-0000-000000000002",
+               "g0000000-0000-0000-0000-000000000003")
+    def list_users(self): return {}
+    def search_databases(self): return [{"id": "areas"}]
+    def get_database(self, i):
+        return {"id": "areas", "title": [{"plain_text": "Àrees"}],
+                "properties": {"Nom": {"id": "t", "type": "title", "title": {}}}}
+    def query_database(self, i):
+        return [{"id": self.P, "icon": None, "properties": {
+            "Nom": {"type": "title", "title": [{"plain_text": "Mare", "type": "text"}]}}}]
+    def get_block_children(self, pid):
+        if pid == self.P:
+            return [{"id": self.C, "type": "child_page", "child_page": {"title": "Filla"}}]
+        if pid == self.C:
+            return [{"id": self.G, "type": "child_page", "child_page": {"title": "Néta"}},
+                    {"id": self.P, "type": "child_page", "child_page": {"title": "Mare"}}]  # cicle
+        return []
+    def get_page(self, pid):
+        t = {self.C: "Filla", self.G: "Néta"}.get(pid, "?")
+        return {"id": pid, "icon": None,
+                "properties": {"title": {"type": "title", "title": [{"plain_text": t, "type": "text"}]}}}
+
+
+def test_clone_follows_subpages_recursively_cycle_safe():
+    pages = []
+    rep = clone_workspace(FakeRestSub(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                          write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+                          database_ids=["areas"])
+    titles = sorted(p["title"] for p in pages)
+    assert titles == ["Filla", "Mare", "Néta"]          # sub-pàgina i sub-sub-pàgina clonades
+    assert rep["pages"] == 3                              # el cicle (Filla→Mare) no en duplica cap
+    filla = next(p for p in pages if p["title"] == "Filla")
+    assert "table_id" not in filla["metadata"]           # sub-pàgina = pàgina autònoma (sense taula)
+
+
 if __name__ == "__main__":
     import traceback
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]

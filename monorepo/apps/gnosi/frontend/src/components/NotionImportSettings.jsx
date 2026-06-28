@@ -1,12 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
-import { Database, Link2, Download, Check, Loader, Unlink, GitCompare, AlertTriangle, Settings } from 'lucide-react';
+import { Database, Link2, Check, Loader, Unlink, Settings } from 'lucide-react';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 
 /**
- * Importador de Notion → Vault. Connecta amb un token d'integració, llista les BD
- * compartides i les importa (esquema → taula, files → pàgines, relacions, contingut,
- * vistes heurístiques). Consumeix /api/notion/{token,status,databases,import}.
+ * Clon de Notion → Vault. Connecta amb un token d'integració + l'MCP allotjat (OAuth) i fa un
+ * CLON EXACTE a una carpeta nova (esquema, pàgines, relacions, vistes incrustades, colors,
+ * columnes, adjunts, portades). Consumeix /api/notion/{token,status,databases,schema,
+ * loose-pages,clone} i /api/notion-oauth/*.
  */
 export default function NotionImportSettings() {
     const [connected, setConnected] = useState(null);
@@ -16,13 +17,9 @@ export default function NotionImportSettings() {
     const [error, setError] = useState('');
     const [databases, setDatabases] = useState([]);
     const [selected, setSelected] = useState(new Set());
-    const [folder, setFolder] = useState('Importades/Notion');
-    const [groupViews, setGroupViews] = useState(true);
-    const [followLinks, setFollowLinks] = useState(true);
+    const [folder, setFolder] = useState('Clon Notion');
     const [report, setReport] = useState(null);
-    const [diff, setDiff] = useState(null);
     const [mcpConnected, setMcpConnected] = useState(false);
-    const [recreateViews, setRecreateViews] = useState(false);
     const [schemaOverrides, setSchemaOverrides] = useState({});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
     const [loosePages, setLoosePages] = useState(false);          // mostra/inclou pàgines soltes
@@ -109,35 +106,6 @@ export default function NotionImportSettings() {
         const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     });
 
-    const runDiff = async () => {
-        setBusy('diff'); setError(''); setDiff(null); setReport(null);
-        try {
-            const { data } = await axios.post('/api/notion/diff', {
-                database_ids: databases.length ? Array.from(selected) : null,
-                deep: true,
-            }, { timeout: 0 });  // operació llarga (moltes crides a Notion): sense timeout de client
-            setDiff(data);
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
-        finally { setBusy(''); }
-    };
-
-    const runImport = async () => {
-        setBusy('import'); setError(''); setReport(null);
-        try {
-            const { data } = await axios.post('/api/notion/import', {
-                database_ids: databases.length ? Array.from(selected) : null,
-                create_group_views: groupViews,
-                target_folder: folder.trim() || 'Importades/Notion',
-                follow_links: followLinks,
-                loose_page_types: selectedLooseTypes(),   // pàgines soltes triades (wiki/dashboard)
-                recreate_views: mcpConnected && recreateViews,
-                schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
-            }, { timeout: 0 });  // import pot trigar minuts: sense timeout de client
-            setReport(data);
-        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
-        finally { setBusy(''); }
-    };
-
     // Només les pàgines soltes MARCADES s'inclouen (amb el seu tipus wiki/dashboard). Si el
     // toggle de pàgines soltes està desactivat, no se n'inclou cap.
     const selectedLooseTypes = () => {
@@ -152,7 +120,7 @@ export default function NotionImportSettings() {
         try {
             const { data } = await axios.post('/api/notion/clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
-                target_folder: 'Clon Notion',
+                target_folder: folder.trim() || 'Clon Notion',
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
                 loose_page_types: selectedLooseTypes(),
             }, { timeout: 0 });  // clon = moltes crides MCP: sense timeout de client
@@ -169,9 +137,9 @@ export default function NotionImportSettings() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                 <Database size={20} />
                 <div>
-                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Importar de Notion</div>
+                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Clonar de Notion</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        Reprodueix bases de dades, pàgines, relacions i contingut. Les vistes es generen per heurística (taula + agrupada).
+                        Clon exacte a una carpeta nova: BD, pàgines, relacions, vistes incrustades, colors, columnes, adjunts i portades. Per migrar a Gnosi d'un sol tret.
                     </div>
                 </div>
             </div>
@@ -298,101 +266,41 @@ export default function NotionImportSettings() {
                                     Carpeta destí:&nbsp;
                                     <input style={{ ...inp, width: 220, display: 'inline-block' }} value={folder} onChange={e => setFolder(e.target.value)} />
                                 </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                    <div className={`gnosi-toggle ${groupViews ? 'active' : ''}`} onClick={() => setGroupViews(v => !v)}>
-                                        <div className="gnosi-toggle-handle" />
-                                    </div>
-                                    Crear vista agrupada (per status/select)
-                                </label>
-                                <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}
-                                    title="Importa també les BD relacionades, sub-pàgines i mencions perquè res quedi orfe (workspace sencer).">
-                                    <div className={`gnosi-toggle ${followLinks ? 'active' : ''}`} onClick={() => setFollowLinks(v => !v)}>
-                                        <div className="gnosi-toggle-handle" />
-                                    </div>
-                                    Seguir relacions i enllaços (sense orfes)
-                                </label>
                                 {mcpConnected ? (
-                                    <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}
-                                        title="Recrea les vistes incrustades de Notion (linked database views) com a vistes de Gnosi, via l'MCP allotjat.">
-                                        <div className={`gnosi-toggle ${recreateViews ? 'active' : ''}`} onClick={() => setRecreateViews(v => !v)}>
-                                            <div className="gnosi-toggle-handle" />
-                                        </div>
-                                        Recrear vistes incrustades <Check size={13} style={{ color: 'var(--gnosi-primary)' }} /> MCP
-                                    </label>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: 'var(--gnosi-primary)', fontWeight: 700 }}>
+                                        <Check size={14} /> MCP connectat
+                                    </span>
                                 ) : (
                                     <button onClick={() => { window.location.href = '/api/notion-oauth/login'; }}
                                         style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}
-                                        title="Connecta amb l'MCP allotjat de Notion (OAuth) per recrear les vistes incrustades.">
-                                        <Link2 size={15} /> Connecta MCP (vistes incrustades)
+                                        title="Connecta amb l'MCP allotjat de Notion (OAuth). IMPRESCINDIBLE per al clon: vistes incrustades, columnes i colors vénen de l'MCP.">
+                                        <Link2 size={15} /> Connecta MCP (imprescindible)
                                     </button>
                                 )}
-                                <button onClick={runDiff} disabled={busy === 'diff' || selected.size === 0}
-                                    style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>
-                                    {busy === 'diff' ? <Loader size={15} className="animate-spin" /> : <GitCompare size={15} />}
-                                    {busy === 'diff' ? 'Comparant…' : 'Previsualitza diferències'}
-                                </button>
-                                <button className="btn-gnosi-primary" onClick={runImport} disabled={busy === 'import' || selected.size === 0}
-                                    style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
-                                    {busy === 'import' ? <Loader size={15} className="animate-spin" /> : <Download size={15} />}
-                                    {busy === 'import' ? 'Important…' : `Importa ${selected.size} BD (només noves)`}
-                                </button>
-                                <button onClick={runClone}
+                                <button className="btn-gnosi-primary" onClick={runClone}
                                     disabled={busy === 'clone' || selected.size === 0 || !mcpConnected}
                                     title={mcpConnected
-                                        ? "Clon EXACTE de Notion (vistes+columnes via MCP) a una carpeta NOVA «Clon Notion/». No toca el vault actual."
+                                        ? "Clon EXACTE de Notion a una carpeta NOVA. No toca el vault actual."
                                         : "Connecta primer l'MCP per al clon exacte."}
-                                    style={{ ...inp, cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.5, display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}>
+                                    style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.6 }}>
                                     {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
-                                    {busy === 'clone' ? 'Clonant…' : 'Clon exacte (carpeta nova)'}
+                                    {busy === 'clone' ? 'Clonant…' : `Clon exacte (${selected.size} BD)`}
                                 </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {diff && (
-                        <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, marginBottom: 8 }}>
-                                <GitCompare size={16} /> Diferències (dry-run, no s'ha tocat res)
-                            </div>
-                            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginBottom: 10 }}>
-                                <span>🆕 Noves: <b>{diff.summary?.new ?? 0}</b></span>
-                                <span style={{ color: '#e0a52e' }}>⚠️ Divergides: <b>{diff.summary?.diverged ?? 0}</b></span>
-                                {(diff.summary?.vault_blank ?? 0) > 0 && <span style={{ color: '#3b82f6' }}>📥 Notion té cos, vault buit: <b>{diff.summary.vault_blank}</b></span>}
-                                <span>✅ Idèntiques: <b>{diff.summary?.identical ?? 0}</b></span>
-                                <span>≈ Similars: <b>{diff.summary?.similar ?? 0}</b></span>
-                                {(diff.summary?.notion_blank ?? 0) > 0 && <span style={{ color: 'var(--text-tertiary)' }}>○ Notion en blanc: <b>{diff.summary.notion_blank}</b></span>}
-                                <span>📁 Només al vault: <b>{diff.summary?.vault_only ?? 0}</b></span>
-                            </div>
-                            <div style={{ maxHeight: 220, overflowY: 'auto', display: 'grid', gap: 6 }}>
-                                {(diff.tables || []).map((t, i) => (
-                                    <div key={i} style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid var(--settings-border)' }}>
-                                        <b>{t.notion_db}</b> → {t.vault_table || <span style={{ color: '#e0a52e' }}>taula inexistent</span>}
-                                        {' · '}{t.new || 0} noves · {t.matched || 0} coincidents
-                                        {t.new_titles?.length > 0 && (
-                                            <div style={{ marginTop: 4, color: '#16a34a', fontSize: '0.78rem' }}>
-                                                🆕 {t.new_titles.slice(0, 8).join(', ')}{t.new_titles.length > 8 ? `, +${t.new_titles.length - 8}…` : ''}
-                                            </div>
-                                        )}
-                                        {t.diverged?.length > 0 && (
-                                            <div style={{ marginTop: 4, color: '#e0a52e', fontSize: '0.78rem' }}>
-                                                <AlertTriangle size={12} style={{ verticalAlign: 'middle' }} /> {t.diverged.length} divergides (p.ex. {t.diverged.slice(0, 3).map(d => `${d.title} ${d.similarity != null ? `(${Math.round(d.similarity * 100)}%)` : ''}`).join(', ')})
-                                            </div>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                            <div style={{ marginTop: 8, fontSize: '0.78rem', color: 'var(--text-tertiary)' }}>
-                                «Importa» només afegirà les <b>noves</b>; les divergides no es toquen (el vault mana).
                             </div>
                         </div>
                     )}
 
                     {report && (
                         <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                            ✓ Importat: <b>{report.databases ?? report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
-                            {report.skipped_existing > 0 && <span> · <b>{report.skipped_existing}</b> ja existents (saltades)</span>}
+                            ✓ Clonat: <b>{report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
+                            {report.attachments > 0 && <span> · <b>{report.attachments}</b> adjunts</span>}
                             {report.truncated && (
-                                <div style={{ marginTop: 6, color: '#e0a52e' }}>⚠️ Límit de pàgines assolit: el workspace és més gran. Augmenta el límit o importa per parts.</div>
+                                <div style={{ marginTop: 6, color: '#e0a52e' }}>⚠️ Límit de pàgines assolit: el workspace és més gran. Augmenta el límit.</div>
+                            )}
+                            {report.warnings?.length > 0 && (
+                                <div style={{ marginTop: 6, color: '#e0a52e' }}>
+                                    {report.warnings.map((w, i) => <div key={i}>⚠️ {w}</div>)}
+                                </div>
                             )}
                             {report.errors?.length > 0 && (
                                 <div style={{ marginTop: 6, color: '#e0a52e' }}>{report.errors.length} errors (revisa els logs)</div>

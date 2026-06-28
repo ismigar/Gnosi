@@ -31,25 +31,86 @@ def clone_page_id(notion_page_id: str) -> str:
     return str(uuid.uuid5(_CLONE_NS, "page:" + str(notion_page_id or "").replace("-", "")))
 
 
+# Emoji/símbols de prefix decoratiu (📀, 🗒️, variation selectors, ZWJ…) + espais inicials.
+# NOMÉS treu el prefix: preserva majúscules i accents (≠ `nvr._strip_icon`, que és per comparar:
+# minúscula + treu-ho tot). Els filtres de vistes igualment resolen perquè `resolve_filter_field`
+# re-normalitza amb `_strip_icon` als dos costats.
+_LEADING_ICON_RE = re.compile(
+    r"^[\s\U0001F000-\U0001FAFF☀-➿←-⇿⬀-⯿️‍⃣™ℹ]+")
+
+
+def _clean(name: Any) -> Any:
+    """Nom de camp sense l'emoji de prefix (com el vault), preservant la resta del nom."""
+    if not isinstance(name, str) or not name:
+        return name
+    return _LEADING_ICON_RE.sub("", name).strip() or name
+
+
+def _child_page_ids(blocks: Any) -> List[str]:
+    """ids de les sub-pàgines (blocs `child_page`) d'una pàgina."""
+    return [b["id"] for b in (blocks or [])
+            if isinstance(b, dict) and b.get("type") == "child_page" and b.get("id")]
+
+
+def _icon_or_cover_url(obj: Any) -> Optional[str]:
+    """URL d'una icona/portada de Notion de tipus file/external (None si és emoji o buit)."""
+    if isinstance(obj, dict):
+        t = obj.get("type")
+        if t == "external":
+            return (obj.get("external") or {}).get("url")
+        if t == "file":
+            return (obj.get("file") or {}).get("url")
+    return None
+
+
+def _apply_icon_cover(meta: Dict[str, Any], page: Dict[str, Any], table: Dict[str, Any],
+                      save_asset) -> int:
+    """Posa `icon` i `cover` a `meta`. Icona emoji → tal qual; icona/portada d'imatge → es baixa
+    (si hi ha `save_asset`) a Assets i es desa la ruta. Torna el nombre d'imatges baixades."""
+    n = 0
+    emoji = _emoji_icon(page.get("icon"))
+    if emoji:
+        meta["icon"] = emoji
+    elif save_asset is not None:
+        u = _icon_or_cover_url(page.get("icon"))
+        local = save_asset(u, "_icones", table) if u else None
+        if local:
+            meta["icon"] = local
+            n += 1
+    if save_asset is not None:
+        u = _icon_or_cover_url(page.get("cover"))
+        local = save_asset(u, "_portades", table) if u else None
+        if local:
+            meta["cover"] = local
+            n += 1
+    return n
+
+
 def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
-    """Esquema de taula clonat: id i relacions namespaced al clon."""
+    """Esquema de taula clonat: noms de camp SENSE emoji (com el vault), id i relacions
+    namespaced al clon."""
     t = map_database_schema(notion_db)
     t["id"] = clone_table_id(notion_db.get("id"))
     for p in t.get("properties", []):
+        p["name"] = _clean(p.get("name"))
         if p.get("type") == "relation" and p.get("relation_database_id"):
             p["relation_database_id"] = clone_table_id(p["relation_database_id"])
     return t
 
 
 def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Remapa NOMÉS els camps de relació a ids de pàgina del clon (la resta intacta)."""
-    rel_fields = {p["name"] for p in (schema or []) if p.get("type") == "relation"}
+    """Re-keya els valors a noms NETS (sense emoji) i remapa les relacions a ids de pàgina del
+    clon. Les dates es deixen TAL QUAL (es preserva la granularitat de Notion: data o data+hora).
+    La decoració de relacions a `[[Títol|id]]` es fa al write_page (cal el mapa de títols)."""
+    by_clean = {p.get("name"): p for p in (schema or [])}
     out: Dict[str, Any] = {}
     for k, v in values.items():
-        if k in rel_fields and isinstance(v, list):
-            out[k] = [clone_page_id(x) for x in v if x]
+        ck = _clean(k)
+        t = (by_clean.get(ck) or {}).get("type")
+        if t == "relation" and isinstance(v, list):
+            out[ck] = [clone_page_id(x) for x in v if x]
         else:
-            out[k] = v
+            out[ck] = v
     return out
 
 
@@ -73,6 +134,8 @@ def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_tabl
             gv = nvr.build_gnosi_view(notion_host_page_id, ct, clone_host_table_id, meta,
                                       meta.get("data_source_name") or ct.get("name") or "Vista")
             gv["id"] = str(uuid.uuid5(_CLONE_NS, f"view:{notion_host_page_id}:{vid}"))
+            # Columnes visibles SENSE emoji (els camps clonats també ho estan) → casen
+            gv["visibleProperties"] = [_clean(x) for x in (gv.get("visibleProperties") or [])]
             views.append(gv)
             return nvr.view_embed(gv["id"])
         except Exception:
@@ -95,6 +158,7 @@ def clone_workspace(
     schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
     save_asset: Optional[Callable[[str, Optional[str], Dict[str, Any]], Optional[str]]] = None,
     loose_page_types: Optional[Dict[str, str]] = None,
+    follow_subpages: bool = True,
 ) -> Dict[str, Any]:
     """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP).
 
@@ -104,7 +168,8 @@ def clone_workspace(
     `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} de pàgines FORA de BD a clonar amb
     l'etiqueta is_dashboard corresponent.
     """
-    report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0, "errors": [], "truncated": False}
+    report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0,
+              "errors": [], "warnings": [], "truncated": False}
     users = rest_client.list_users()
 
     # Mapa nom-de-data-source (sense icona) → taula clonada, per resoldre vistes
@@ -128,58 +193,144 @@ def clone_workspace(
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"database": db_id, "stage": "schema", "error": str(e)})
 
-    # PASSADA 2: clonar les pàgines (cos + vistes via MCP) — totes les taules ja existeixen
+    # AVÍS: camps de relació que apunten a una BD NO seleccionada → quedaran orfes (cal marcar
+    # totes les BD per a un clon complet). Guard-rail per al clon "d'un sol tret".
+    cloned_ids = {t.get("id") for t in clone_tables_by_name.values()}
+    for t in clone_tables_by_name.values():
+        for p in t.get("properties", []):
+            tgt = p.get("relation_database_id")
+            if p.get("type") == "relation" and tgt and tgt not in cloned_ids:
+                report["warnings"].append(
+                    f"La taula «{t.get('name')}» té el camp de relació «{p.get('name')}» cap a una "
+                    f"BD no seleccionada: aquestes relacions quedaran sense destí. Marca totes les BD.")
+
+    # PASSADA 2a: RECOLLIR files + títols de TOTES les BD abans d'escriure, per tenir el mapa
+    # complet id_clon → títol (cal per decorar les relacions a `[[Títol|id]]`, fins i tot quan
+    # apunten a una pàgina que es clona més tard o d'una altra BD). No torna a consultar Notion
+    # a la passada 2b (reusa les files recollides).
+    from backend.services.notion_importer import _plain_title
+    from backend.services.relation_links import decorate_relation_wikilinks, relation_keys_from_table
+    collected: List[tuple] = []          # (table, row, values, title, rel_keys)
+    clone_titles: Dict[str, str] = {}
     for db_id, db in db_by_id.items():
         try:
-            from backend.services.notion_importer import _plain_title
             table = clone_tables_by_name.get(nvr._strip_icon(_plain_title(db.get("title"))))
             if not table:
                 continue
+            rel_keys = relation_keys_from_table(table)
             for row in rest_client.query_database(db_id):
-                if report["pages"] >= max_pages:
+                if len(collected) >= max_pages:
                     report["truncated"] = True
                     break
                 try:
                     values = clone_values(page_to_values(row, users), table.get("properties", []))
-                    props = table.get("properties", [])
-                    # Baixa adjunts dels camps d'arxiu (URLs S3 → rutes Assets/ locals)
-                    if save_asset is not None:
-                        from backend.services.notion_attachments import localize_values
-                        values, na = localize_values(values, props, lambda u, p: save_asset(u, p, table))
-                        report["attachments"] += na
-                    title = values.pop("title", None) or _page_title(row) or "Sense títol"
-                    # cos + vistes via MCP
-                    body = ""
-                    try:
-                        page_md = fetch_page(row["id"])
-                        body = mcp_to_markdown(page_md) if page_md else ""
-                        host_pid = str(row["id"]).replace("-", "")
-                        body, gviews = resolve_view_markers(
-                            body, host_pid, table["id"],
-                            fetch_view=fetch_page,
-                            resolve_clone_table=lambda n: clone_tables_by_name.get(nvr._strip_icon(n)))
-                        for gv in gviews:
-                            write_view(gv)
-                            report["views"] += 1
-                        # Baixa les imatges del cos (![alt](url) remotes → Assets/ locals)
-                        if save_asset is not None and body:
-                            from backend.services.notion_attachments import localize_body
-                            body, nb = localize_body(body, lambda u, p: save_asset(u, p, table))
-                            report["attachments"] += nb
-                    except Exception as e:  # noqa: BLE001
-                        report["errors"].append({"page": row.get("id"), "stage": "mcp", "error": str(e)})
-                    write_page({
-                        "id": clone_page_id(row["id"]),
-                        "title": title,
-                        "content": body,
-                        "metadata": {"table_id": table["id"], **values,
-                                    "icon": _emoji_icon(row.get("icon"))},
-                    })
-                    report["pages"] += 1
+                    title = _page_title(row) or "Sense títol"
+                    clone_titles[clone_page_id(row["id"])] = title
+                    collected.append((table, row, values, title, rel_keys))
                 except Exception as e:  # noqa: BLE001
                     report["errors"].append({"page": row.get("id"), "error": str(e)})
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"database": db_id, "error": str(e)})
+
+    def _id_to_title(rid):
+        return clone_titles.get(rid)
+
+    # INVERSOS de relació: Notion mostra les dues bandes (dual relation). Com que ja tenim totes
+    # les files recollides, poblem el camp invers de cada destí (best-effort i NOMÉS quan és no
+    # ambigu, via relation_sync.resolve_inverse_relation). Així les relacions es veuen completes
+    # sense dependre de cap sincronització posterior.
+    from backend.services import relation_sync
+    table_by_id = {t.get("id"): t for t in clone_tables_by_name.values()}
+    inverse_adds: Dict[str, Dict[str, set]] = {}   # target_clone_id → {camp_invers: {source_ids}}
+    for table, row, values, title, rel_keys in collected:
+        src = clone_page_id(row["id"])
+        for key in rel_keys:
+            v = values.get(key)
+            if not isinstance(v, list) or not v:
+                continue
+            pair = relation_sync.resolve_inverse_relation(table, key, lambda tid: table_by_id.get(tid))
+            if not pair:
+                continue
+            inv_field = pair[1]
+            for tgt in v:    # tgt = id de clon (ja remapat per clone_values)
+                inverse_adds.setdefault(tgt, {}).setdefault(inv_field, set()).add(src)
+
+    # PASSADA 2b: escriure (cos + vistes via MCP, adjunts, relacions decorades a `[[Títol|id]]`)
+    for table, row, values, title, rel_keys in collected:
+        try:
+            props = table.get("properties", [])
+            # Baixa adjunts dels camps d'arxiu (URLs S3 → rutes Assets/ locals)
+            if save_asset is not None:
+                from backend.services.notion_attachments import localize_values
+                values, na = localize_values(values, props, lambda u, p: save_asset(u, p, table))
+                report["attachments"] += na
+            body = ""
+            try:
+                page_md = fetch_page(row["id"])
+                body = mcp_to_markdown(page_md) if page_md else ""
+                host_pid = str(row["id"]).replace("-", "")
+                body, gviews = resolve_view_markers(
+                    body, host_pid, table["id"],
+                    fetch_view=fetch_page,
+                    resolve_clone_table=lambda n: clone_tables_by_name.get(nvr._strip_icon(n)))
+                for gv in gviews:
+                    write_view(gv)
+                    report["views"] += 1
+                # Baixa les imatges del cos (![alt](url) remotes → Assets/ locals)
+                if save_asset is not None and body:
+                    from backend.services.notion_attachments import localize_body
+                    body, nb = localize_body(body, lambda u, p: save_asset(u, p, table))
+                    report["attachments"] += nb
+            except Exception as e:  # noqa: BLE001
+                report["errors"].append({"page": row.get("id"), "stage": "mcp", "error": str(e)})
+            # Fusiona els inversos que apunten a AQUESTA pàgina (dedup, preservant els directes)
+            adds = inverse_adds.get(clone_page_id(row["id"]))
+            if adds:
+                for f, ids in adds.items():
+                    cur = values.get(f)
+                    cur = list(cur) if isinstance(cur, list) else ([cur] if cur else [])
+                    for i in ids:
+                        if i not in cur:
+                            cur.append(i)
+                    values[f] = cur
+            meta = {"table_id": table["id"], **values}
+            decorate_relation_wikilinks(meta, rel_keys, id_to_title=_id_to_title)  # id → [[Títol|id]]
+            report["attachments"] += _apply_icon_cover(meta, row, table, save_asset)  # icona+portada
+            write_page({
+                "id": clone_page_id(row["id"]),
+                "title": title,
+                "content": body,
+                "metadata": meta,
+            })
+            report["pages"] += 1
+        except Exception as e:  # noqa: BLE001
+            report["errors"].append({"page": row.get("id"), "error": str(e)})
+
+    def _clone_standalone(pid, page, extra_meta):
+        """Clona una pàgina autònoma (solta o sub-pàgina): cos+vistes via MCP, adjunts, icona+portada."""
+        title = _page_title(page) or "Sense títol"
+        body = ""
+        try:
+            page_md = fetch_page(pid)
+            body = mcp_to_markdown(page_md) if page_md else ""
+            host_pid = str(pid).replace("-", "")
+            body, gviews = resolve_view_markers(
+                body, host_pid, "",
+                fetch_view=fetch_page,
+                resolve_clone_table=lambda n: clone_tables_by_name.get(nvr._strip_icon(n)))
+            for gv in gviews:
+                write_view(gv)
+                report["views"] += 1
+            if save_asset is not None and body:
+                from backend.services.notion_attachments import localize_body
+                body, nb = localize_body(body, lambda u, p: save_asset(u, p, {"name": "Pàgines"}))
+                report["attachments"] += nb
+        except Exception as e:  # noqa: BLE001
+            report["errors"].append({"page": pid, "stage": "mcp", "error": str(e)})
+        meta = dict(extra_meta or {})
+        report["attachments"] += _apply_icon_cover(meta, page, {"name": "Pàgines"}, save_asset)
+        write_page({"id": clone_page_id(pid), "title": title, "content": body, "metadata": meta})
+        report["pages"] += 1
 
     # PASSADA 3: pàgines FORA de BD (wiki/dashboard segons tria de l'usuari)
     for pid, ptype in (loose_page_types or {}).items():
@@ -188,31 +339,35 @@ def clone_workspace(
             break
         try:
             page = rest_client.get_page(pid)
-            title = _page_title(page) or "Sense títol"
-            body = ""
-            try:
-                page_md = fetch_page(pid)
-                body = mcp_to_markdown(page_md) if page_md else ""
-                host_pid = str(pid).replace("-", "")
-                body, gviews = resolve_view_markers(
-                    body, host_pid, "",
-                    fetch_view=fetch_page,
-                    resolve_clone_table=lambda n: clone_tables_by_name.get(nvr._strip_icon(n)))
-                for gv in gviews:
-                    write_view(gv)
-                    report["views"] += 1
-                if save_asset is not None and body:
-                    from backend.services.notion_attachments import localize_body
-                    body, nb = localize_body(body, lambda u, p: save_asset(u, p, {"name": "Pàgines"}))
-                    report["attachments"] += nb
-            except Exception as e:  # noqa: BLE001
-                report["errors"].append({"page": pid, "stage": "mcp", "error": str(e)})
-            meta = {"icon": _emoji_icon(page.get("icon"))}
-            if str(ptype).lower() == "dashboard":
-                meta["is_dashboard"] = True
-            write_page({"id": clone_page_id(pid), "title": title, "content": body, "metadata": meta})
-            report["pages"] += 1
+            _clone_standalone(pid, page, {"is_dashboard": True} if str(ptype).lower() == "dashboard" else {})
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"page": pid, "stage": "loose", "error": str(e)})
+
+    # PASSADA 4: SUB-PÀGINES (blocs child_page) — clona-les com a pàgines pròpies perquè res quedi
+    # orfe. Cicle-segur (conjunt de vistos) i acotat per max_pages. Per a la migració d'un sol tret.
+    if follow_subpages:
+        from collections import deque
+        seed = [r["id"] for _, r, _, _, _ in collected] + list(loose_page_types or {})
+        seen = {str(x).replace("-", "") for x in seed}
+        to_scan = deque(seed)
+        while to_scan and report["pages"] < max_pages:
+            parent = to_scan.popleft()
+            try:
+                blocks = rest_client.get_block_children(parent)
+            except Exception:  # noqa: BLE001
+                continue
+            for cid in _child_page_ids(blocks):
+                if str(cid).replace("-", "") in seen:
+                    continue
+                seen.add(str(cid).replace("-", ""))
+                if report["pages"] >= max_pages:
+                    report["truncated"] = True
+                    break
+                try:
+                    page = rest_client.get_page(cid)
+                    _clone_standalone(cid, page, {})
+                    to_scan.append(cid)   # recursa: sub-pàgines de la sub-pàgina
+                except Exception as e:  # noqa: BLE001
+                    report["errors"].append({"page": cid, "stage": "subpage", "error": str(e)})
 
     return report

@@ -122,6 +122,17 @@ def refresh_token() -> Optional[str]:
 
 _client_cache: dict = {}  # token → HttpMCPClient (inicialitzat un sol cop, reusat)
 
+# Tallafoc: si el token caduca i NO es pot renovar, marquem l'MCP com a mort perquè les crides
+# següents (clon = centenars de pàgines × vistes) tornin "" a l'instant sense un round-trip de
+# xarxa + refresc fallit cadascuna (era la causa del "no acaba mai"). Es reseteja en reconnectar
+# (healthcheck amb token nou) o explícitament via reset_health().
+_mcp_dead: bool = False
+
+
+def reset_health() -> None:
+    global _mcp_dead
+    _mcp_dead = False
+
 
 def _get_client(token: str):
     c = _client_cache.get(token)
@@ -134,6 +145,32 @@ def _get_client(token: str):
     return c
 
 
+def healthcheck() -> tuple[bool, str]:
+    """Una sola comprovació viva de l'MCP (initialize, renovant si cal). Retorna (ok, motiu):
+    "ok" | "no_token" | "expired" | <error>. Reseteja el tallafoc si l'MCP respon."""
+    global _mcp_dead
+    token = get_mcp_token()
+    if not token:
+        return False, "no_token"
+    try:
+        _get_client(token)
+        _mcp_dead = False
+        return True, "ok"
+    except Exception as e:  # noqa: BLE001
+        if _is_auth_error(e):
+            new = refresh_token()
+            if new:
+                try:
+                    _get_client(new)
+                    _mcp_dead = False
+                    return True, "ok"
+                except Exception:  # noqa: BLE001
+                    pass
+            _mcp_dead = True
+            return False, "expired"
+        return False, str(e)
+
+
 def _do_fetch(token: str, notion_id: str) -> str:
     client = _get_client(token)
     result = client.call_tool(_env("NOTION_MCP_FETCH_TOOL", _DEFAULT_FETCH_TOOL), {"id": notion_id})
@@ -142,6 +179,9 @@ def _do_fetch(token: str, notion_id: str) -> str:
 
 def fetch(notion_id: str) -> str:
     """Fetch d'una pàgina/vista via l'MCP → markdown. Renova el token si ha caducat (401). '' si falla."""
+    global _mcp_dead
+    if _mcp_dead:
+        return ""
     token = get_mcp_token()
     if not token:
         return ""
@@ -155,4 +195,5 @@ def fetch(notion_id: str) -> str:
                     return _do_fetch(new, notion_id)
                 except Exception:  # noqa: BLE001
                     return ""
+            _mcp_dead = True   # token mort i sense renovació → no segueixis picant per cada pàgina
         return ""

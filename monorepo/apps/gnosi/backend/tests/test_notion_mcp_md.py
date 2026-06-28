@@ -1,4 +1,5 @@
-"""Tests del conversor MCP-markdown → Gnosi-markdown amb dades REALS (pàgina Oci)."""
+"""Tests del conversor MCP-markdown → Gnosi-markdown (clon fidel) amb dades REALS."""
+import re
 import sys
 from pathlib import Path
 
@@ -40,41 +41,87 @@ def test_databases_become_view_markers():
     out = mcp_to_markdown(OCI_MCP)
     assert "<!-- gnosi-notion-db:2a6b116904844d81a7a382a809a590f6 -->" in out
     assert "<!-- gnosi-notion-db:7d1c70ce8c0a4cb7844d635485993bc1 -->" in out
-    assert "<database" not in out  # cap etiqueta de BD crua
+    assert "<database" not in out
 
 
-def test_color_and_toggle_annotations_stripped():
+def test_colors_become_spans():
     out = mcp_to_markdown(OCI_MCP)
-    assert "{color=" not in out
-    assert "# Formación" in out and "# Competencias" in out
+    assert "{color=" not in out                                   # cap anotació crua
+    assert '# <span style="background-color:#e7f3f8">Formación</span>' in out   # blue_bg
+    assert '<span style="background-color:#edf3ec">Desarrolladas</span>' in out  # green_bg
 
 
-def test_columns_flattened_content_preserved():
+def test_columns_become_fences():
     out = mcp_to_markdown(OCI_MCP)
+    assert ":::column-list" in out and ":::column" in out
     assert "<column" not in out and "<columns" not in out
-    assert "## Desarrolladas" in out
-    assert "- Montar en bici adaptada" in out   # contingut de la columna conservat
-    assert "## A desarrollar" in out
+    # contingut de cada columna conservat sota la seva fence
+    assert "- Montar en bici adaptada" in out
+    assert "Desarrolladas" in out and "A desarrollar" in out
 
 
 def test_mentions_become_wikilinks():
     out = mcp_to_markdown(OCI_MCP)
-    # menció auto-tancada → [[id]]
     assert "[[101268e52714803a95f7d0072f8a01df]]" in out
-    # menció amb text → [[Text]]
     assert "[[Àrees]]" in out
 
 
-def test_no_residual_tags():
+def test_no_residual_notion_tags():
     out = mcp_to_markdown(OCI_MCP)
-    import re
-    assert not re.search(r"<[a-zA-Z/][^>]*>", out)   # cap etiqueta residual
+    # cap etiqueta de Notion; els <span style> de color SÍ són vàlids a Gnosi
+    for tag in ("<database", "<mention", "<columns", "<column", "<page", "<content"):
+        assert tag not in out
 
 
-def test_dedented_and_clean():
+def test_no_tabs():
     out = mcp_to_markdown(OCI_MCP)
-    assert "\t" not in out                       # tabs desfets
+    assert "\t" not in out
     assert "El ocio proporciona" in out
+
+
+TOGGLE_MCP = (
+    '<content>\n'
+    '## Planificació {toggle="true"}\n'
+    '\t- Tasca 1\n'
+    '\t- Tasca 2\n'
+    '\t\t- Subtasca\n'
+    'Fora del toggle\n'
+    '</content>')
+
+
+def test_toggle_becomes_fence_with_children_inside():
+    out = mcp_to_markdown(TOGGLE_MCP)
+    lines = out.splitlines()
+    assert ":::toggle-heading{level=2} Planificació" in lines
+    i = lines.index(":::toggle-heading{level=2} Planificació")
+    block = lines[i:]
+    assert "- Tasca 1" in block and "- Tasca 2" in block       # fills dins el toggle
+    assert "  - Subtasca" in block                             # nidificació preservada
+    assert ":::" in block                                       # tanca
+    assert "Fora del toggle" in out
+
+
+CODE_MCP = (
+    '<content>\n'
+    'Abans\n'
+    '```python\n'
+    'def f(x):\n'
+    '\treturn x  # {color="red"} <no-tag>\n'
+    '```\n'
+    'Després\n'
+    '</content>')
+
+
+def test_code_block_is_protected():
+    out = mcp_to_markdown(CODE_MCP)
+    assert "```python" in out
+    assert "\treturn x  # {color=\"red\"} <no-tag>" in out   # contingut del codi intacte
+    assert "Abans" in out and "Després" in out
+
+
+def test_block_equation_to_latex_fence():
+    out = mcp_to_markdown('<content>\nText\n$$E = mc^2$$\n</content>')
+    assert "```latex" in out and "E = mc^2" in out
 
 
 if __name__ == "__main__":
