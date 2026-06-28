@@ -915,6 +915,19 @@ button:hover > .row-action-tooltip {
     background: var(--gnosi-blue);
 }
 
+/* Anell de focus visible per a navegació amb teclat (role="switch"). */
+.gnosi-toggle:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--gnosi-blue);
+}
+
+/* Contenidor-switch (toggle + etiqueta) enfocable: anell al voltant de la fila. */
+.gnosi-switch-row:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--gnosi-blue);
+    border-radius: 8px;
+}
+
 .gnosi-toggle-handle {
     width: 20px;
     height: 20px;

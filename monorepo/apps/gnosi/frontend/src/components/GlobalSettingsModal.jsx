@@ -54,6 +54,46 @@ const NOTION_COLORS = [
 ];
 
 // -- REUSABLE UI COMPONENTS --
+
+/**
+ * Interruptor accessible (role="switch") amb suport de teclat.
+ * Substitueix els `<div className="gnosi-toggle">` no enfocables: ara és
+ * enfocable amb Tab i activable amb Enter/Espai. El handler `onChange` rep
+ * l'esdeveniment (clic o teclat) perquè qui crida pugui fer stopPropagation.
+ * `display` el deixa només-visual (sense rol ni teclat) quan el control
+ * interactiu real és un contenidor pare.
+ */
+export const GnosiToggle = ({ active, onChange, label, style, scale, display = false }) => {
+    const mergedStyle = scale != null ? { ...style, transform: `scale(${scale})` } : style;
+    if (display) {
+        return (
+            <div className={`gnosi-toggle ${active ? 'active' : ''}`} aria-hidden="true" style={{ pointerEvents: 'none', ...mergedStyle }}>
+                <div className="gnosi-toggle-handle" />
+            </div>
+        );
+    }
+    const handleKeyDown = (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            onChange && onChange(e);
+        }
+    };
+    return (
+        <div
+            role="switch"
+            tabIndex={0}
+            aria-checked={!!active}
+            aria-label={label}
+            className={`gnosi-toggle ${active ? 'active' : ''}`}
+            onClick={(e) => onChange && onChange(e)}
+            onKeyDown={handleKeyDown}
+            style={mergedStyle}
+        >
+            <div className="gnosi-toggle-handle" />
+        </div>
+    );
+};
+
 export const Section = ({ title, icon: Icon, children, extra }) => (
     <div className="settings-section animate-in">
         <div className="settings-section-title-wrap">
@@ -242,8 +282,8 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
             >
                 {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
-            <button onClick={onEdit} className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
-            <button onClick={onDelete} className="icon-btn hover-bg-danger" style={{ color: '#ef4444', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
+            <button onClick={onEdit} aria-label="Editar compte" title="Editar compte" className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
+            <button onClick={onDelete} aria-label="Eliminar compte" title="Eliminar compte" className="icon-btn hover-bg-danger" style={{ color: '#ef4444', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
         </div>
     </div>
 );
@@ -2046,9 +2086,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Efectes i Animacions Neutres</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>Redueix la càrrega visual eliminant transicions innecessàries i optimitzant el rendiment.</div>
                                         </div>
-                                        <div className={`gnosi-toggle ${draft.settings.reduce_animations ? 'active' : ''}`} onClick={() => setDraft({...draft, settings: {...draft.settings, reduce_animations: !draft.settings.reduce_animations}})} style={{ transform: 'scale(1.2)' }}>
-                                            <div className="gnosi-toggle-handle" />
-                                        </div>
+                                        <GnosiToggle
+                                            active={draft.settings.reduce_animations}
+                                            label="Efectes i animacions neutres"
+                                            scale={1.2}
+                                            onChange={() => setDraft({...draft, settings: {...draft.settings, reduce_animations: !draft.settings.reduce_animations}})}
+                                        />
                                     </div>
 
                                     <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
@@ -2056,31 +2099,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Llegir correus en mode fosc</div>
                                             <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>Aplica una paleta fosca al cos del correu en lloc del fons blanc. Per defecte els correus es mostren amb fons clar (com Gmail/Apple Mail/Outlook) per assegurar la llegibilitat de newsletters i correus amb estils inline; activa-ho si prefereixes contrast amb el tema fosc, sabent que alguns correus poden quedar amb baix contrast.</div>
                                         </div>
-                                        <div
-                                            role="switch"
-                                            tabIndex={0}
-                                            aria-checked={mailDarkBody}
-                                            aria-label="Llegir correus en mode fosc"
-                                            className={`gnosi-toggle ${mailDarkBody ? 'active' : ''}`}
-                                            onClick={() => {
+                                        <GnosiToggle
+                                            active={mailDarkBody}
+                                            label="Llegir correus en mode fosc"
+                                            scale={1.2}
+                                            onChange={() => {
                                                 const next = !mailDarkBody;
                                                 setMailDarkBody(next);
                                                 try { localStorage.setItem('gnosi_mail_dark_body', next ? '1' : '0'); } catch {}
                                                 try { window.dispatchEvent(new Event('gnosi-mail-dark-body-changed')); } catch {}
                                             }}
-                                            onKeyDown={(e) => {
-                                                if (e.key === ' ' || e.key === 'Enter') {
-                                                    e.preventDefault();
-                                                    const next = !mailDarkBody;
-                                                    setMailDarkBody(next);
-                                                    try { localStorage.setItem('gnosi_mail_dark_body', next ? '1' : '0'); } catch {}
-                                                    try { window.dispatchEvent(new Event('gnosi-mail-dark-body-changed')); } catch {}
-                                                }
-                                            }}
-                                            style={{ transform: 'scale(1.2)' }}
-                                        >
-                                            <div className="gnosi-toggle-handle" />
-                                        </div>
+                                        />
                                     </div>
                                 </Section>
                             )}
@@ -2279,7 +2308,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                                     <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selecciona una taula del Vault</span>
-                                                    <button onClick={() => setIsAddingTable(false)} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                    <button onClick={() => setIsAddingTable(false)} aria-label="Tancar" title="Tancar" className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', maxHeight: '400px', overflowY: 'auto', padding: '4px' }}>
                                                     {tables.filter(t => !integrations.vault_calendar?.enabled_tables?.includes(t.id)).map(tbl => (
@@ -2317,7 +2346,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                                     <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Configuració del Compte</span>
-                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} aria-label="Tancar" title="Tancar" className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
                                                 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -2917,15 +2946,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <span style={{ fontSize: '1.4rem' }}>{net.icon}</span>
                                                         <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{net.name}</span>
                                                     </div>
-                                                    <div
-                                                        className={`gnosi-toggle ${net.enabled ? 'active' : ''}`}
-                                                        onClick={() => {
+                                                    <GnosiToggle
+                                                        active={net.enabled}
+                                                        label={`Activar ${net.name}`}
+                                                        onChange={() => {
                                                             const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
                                                             saveSocialNetworks(updated);
                                                         }}
-                                                    >
-                                                        <div className="gnosi-toggle-handle" />
-                                                    </div>
+                                                    />
                                                 </div>
                                             ))}
                                         </div>
@@ -3115,9 +3143,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 )}
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
                                                     <FormGroup label={t('subs_news_field_delete')} horizontal>
-                                                        <div className={`gnosi-toggle ${newsletterAccount.delete_after_ingest ? 'active' : ''}`} onClick={() => setNewsletterAccount(a => ({ ...a, delete_after_ingest: !a.delete_after_ingest }))}>
-                                                            <div className="gnosi-toggle-handle" />
-                                                        </div>
+                                                        <GnosiToggle
+                                                            active={newsletterAccount.delete_after_ingest}
+                                                            label={t('subs_news_field_delete')}
+                                                            onChange={() => setNewsletterAccount(a => ({ ...a, delete_after_ingest: !a.delete_after_ingest }))}
+                                                        />
                                                     </FormGroup>
                                                     <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                                                         <button onClick={testNewsletterAccount} disabled={newsletterAccountTesting} className="btn-gnosi-secondary" style={{ padding: '10px 18px', borderRadius: '12px', fontSize: '0.85rem', opacity: newsletterAccountTesting ? 0.6 : 1 }}>{newsletterAccountTesting ? t('subs_news_btn_test_loading') : t('subs_news_btn_test')}</button>
@@ -3191,9 +3221,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </FormGroup>
                                             <div style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                 <FormGroup label="Direccionalitat" description="Mostra fletxes per indicar relacions pare-fill." horizontal>
-                                                    <div className={`gnosi-toggle ${draft.graph.show_arrows ? 'active' : ''}`} onClick={() => setDraft({...draft, graph: {...draft.graph, show_arrows: !draft.graph.show_arrows}})}>
-                                                        <div className="gnosi-toggle-handle" />
-                                                    </div>
+                                                    <GnosiToggle
+                                                        active={draft.graph.show_arrows}
+                                                        label="Direccionalitat"
+                                                        onChange={() => setDraft({...draft, graph: {...draft.graph, show_arrows: !draft.graph.show_arrows}})}
+                                                    />
                                                 </FormGroup>
                                             </div>
                                         </div>
@@ -3260,16 +3292,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 return (
                                                                 <div key={db.id} style={{ marginBottom: isDbVisible ? '12px' : '0' }}>
                                                                     <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
-                                                                        <div className={`gnosi-toggle ${isDbVisible ? 'active' : ''}`} onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            const checked = !isDbVisible;
-                                                                            setDraft(prev => ({
-                                                                                ...prev,
-                                                                                graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), db.id] : (prev.graph.visible_databases||[]).filter(id => id !== db.id) }
-                                                                            }));
-                                                                        }} style={{ transform: 'scale(0.8)' }}>
-                                                                            <div className="gnosi-toggle-handle" />
-                                                                        </div>
+                                                                        <GnosiToggle
+                                                                            active={isDbVisible}
+                                                                            label={`Mostrar ${db.name} al graf`}
+                                                                            scale={0.8}
+                                                                            onChange={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const checked = !isDbVisible;
+                                                                                setDraft(prev => ({
+                                                                                    ...prev,
+                                                                                    graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), db.id] : (prev.graph.visible_databases||[]).filter(id => id !== db.id) }
+                                                                                }));
+                                                                            }}
+                                                                        />
                                                                         <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${db.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                             <Database size={16} color={db.color || '#3b82f6'} />
                                                                         </div>
@@ -3285,16 +3320,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                 return (
                                                                                     <div key={table.id}>
                                                                                         <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
-                                                                                            <div className={`gnosi-toggle ${isTableVisible ? 'active' : ''}`} onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                const checked = !isTableVisible;
-                                                                                                setDraft(prev => ({
-                                                                                                    ...prev,
-                                                                                                    graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), table.id] : (prev.graph.visible_tables||[]).filter(id => id !== table.id) }
-                                                                                                }));
-                                                                                            }} style={{ transform: 'scale(0.7)' }}>
-                                                                                                <div className="gnosi-toggle-handle" />
-                                                                                            </div>
+                                                                                            <GnosiToggle
+                                                                                                active={isTableVisible}
+                                                                                                label={`Mostrar ${table.name} al graf`}
+                                                                                                scale={0.7}
+                                                                                                onChange={(e) => {
+                                                                                                    e.stopPropagation();
+                                                                                                    const checked = !isTableVisible;
+                                                                                                    setDraft(prev => ({
+                                                                                                        ...prev,
+                                                                                                        graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), table.id] : (prev.graph.visible_tables||[]).filter(id => id !== table.id) }
+                                                                                                    }));
+                                                                                                }}
+                                                                                            />
                                                                                             <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{table.name}</span>
                                                                                         </div>
 
@@ -3307,13 +3345,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                         <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                                                                             <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
                                                                                                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                                                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
-                                                                                                                    const checked = !isExposed;
-                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: checked ? [...(p.graph.visible_fields||[]), fieldKey] : (p.graph.visible_fields||[]).filter(f => f !== fieldKey) } }));
-                                                                                                                }}>
-                                                                                                                    <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}><div className="gnosi-toggle-handle" /></div>
-                                                                                                                    <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
-                                                                                                                </div>
+                                                                                                                {(() => {
+                                                                                                                    const toggleExposed = () => {
+                                                                                                                        const checked = !isExposed;
+                                                                                                                        setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: checked ? [...(p.graph.visible_fields||[]), fieldKey] : (p.graph.visible_fields||[]).filter(f => f !== fieldKey) } }));
+                                                                                                                    };
+                                                                                                                    return (
+                                                                                                                    <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
+                                                                                                                        <GnosiToggle display active={isExposed} scale={0.6} />
+                                                                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                    </div>
+                                                                                                                    );
+                                                                                                                })()}
                                                                                                                 {renderFieldDefaultInput(field, fieldKey, "Valor fix / defecte")}
                                                                                                             </div>
                                                                                                         </div>
@@ -3347,10 +3390,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                 return (
                                                                                     <div key={table.id}>
                                                                                         <div className="hover-scale" style={{ padding: '14px 18px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                                                            <div className={`gnosi-toggle ${isTableVisible ? 'active' : ''}`} onClick={() => {
-                                                                                                const checked = !isTableVisible;
-                                                                                                setDraft(p => ({ ...p, graph: { ...p.graph, visible_tables: checked ? [...(p.graph.visible_tables||[]), table.id] : (p.graph.visible_tables||[]).filter(id => id !== table.id) } }));
-                                                                                            }} style={{ transform: 'scale(0.75)' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                            <GnosiToggle
+                                                                                                active={isTableVisible}
+                                                                                                label={`Mostrar ${table.name} al graf`}
+                                                                                                scale={0.75}
+                                                                                                onChange={() => {
+                                                                                                    const checked = !isTableVisible;
+                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, visible_tables: checked ? [...(p.graph.visible_tables||[]), table.id] : (p.graph.visible_tables||[]).filter(id => id !== table.id) } }));
+                                                                                                }}
+                                                                                            />
                                                                                             <div style={{ flex: 1 }}>
                                                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                                                     <Database size={14} color="var(--text-secondary)" opacity={0.5} />
@@ -3367,10 +3415,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                     return (
                                                                                                         <div key={field.name} style={{ padding: '8px 12px', borderRadius: '10px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                                                                                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{field.name}</span>
-                                                                                                            <div onClick={() => {
-                                                                                                                const chk = !exposed;
-                                                                                                                setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: chk ? [...(p.graph.visible_fields||[]), key] : (p.graph.visible_fields||[]).filter(f => f !== key) } }));
-                                                                                                            }} className={`gnosi-toggle ${exposed ? 'active' : ''}`} style={{ transform: 'scale(0.5)' }}><div className="gnosi-toggle-handle" /></div>
+                                                                                                            <GnosiToggle
+                                                                                                                active={exposed}
+                                                                                                                label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`}
+                                                                                                                scale={0.5}
+                                                                                                                onChange={() => {
+                                                                                                                    const chk = !exposed;
+                                                                                                                    setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: chk ? [...(p.graph.visible_fields||[]), key] : (p.graph.visible_fields||[]).filter(f => f !== key) } }));
+                                                                                                                }}
+                                                                                                            />
                                                                                                         </div>
                                                                                                     );
                                                                                                 })}
@@ -3432,16 +3485,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 return (
                                                                     <div key={entity.id} style={{ marginBottom: isEntityVisible ? '12px' : '0' }}>
                                                                         <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
-                                                                            <div className={`gnosi-toggle ${isEntityVisible ? 'active' : ''}`} onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                const checked = !isEntityVisible;
-                                                                                setDraft(prev => ({
-                                                                                    ...prev,
-                                                                                    graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), entity.id] : (prev.graph.visible_databases||[]).filter(id => id !== entity.id) }
-                                                                                }));
-                                                                            }} style={{ transform: 'scale(0.8)' }}>
-                                                                                <div className="gnosi-toggle-handle" />
-                                                                            </div>
+                                                                            <GnosiToggle
+                                                                                active={isEntityVisible}
+                                                                                label={`Mostrar ${entity.name} al graf`}
+                                                                                scale={0.8}
+                                                                                onChange={(e) => {
+                                                                                    e.stopPropagation();
+                                                                                    const checked = !isEntityVisible;
+                                                                                    setDraft(prev => ({
+                                                                                        ...prev,
+                                                                                        graph: { ...prev.graph, visible_databases: checked ? [...(prev.graph.visible_databases||[]), entity.id] : (prev.graph.visible_databases||[]).filter(id => id !== entity.id) }
+                                                                                    }));
+                                                                                }}
+                                                                            />
                                                                             <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: `${entity.color || '#3b82f6'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                                                 <entity.icon size={16} color={entity.color || '#3b82f6'} />
                                                                             </div>
@@ -3457,16 +3513,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                     return (
                                                                                         <div key={item.id}>
                                                                                             <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
-                                                                                                <div className={`gnosi-toggle ${isItemVisible ? 'active' : ''}`} onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    const checked = !isItemVisible;
-                                                                                                    setDraft(prev => ({
-                                                                                                        ...prev,
-                                                                                                        graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), item.id] : (prev.graph.visible_tables||[]).filter(id => id !== item.id) }
-                                                                                                    }));
-                                                                                                }} style={{ transform: 'scale(0.7)' }}>
-                                                                                                    <div className="gnosi-toggle-handle" />
-                                                                                                </div>
+                                                                                                <GnosiToggle
+                                                                                                    active={isItemVisible}
+                                                                                                    label={`Mostrar ${item.name} al graf`}
+                                                                                                    scale={0.7}
+                                                                                                    onChange={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        const checked = !isItemVisible;
+                                                                                                        setDraft(prev => ({
+                                                                                                            ...prev,
+                                                                                                            graph: { ...prev.graph, visible_tables: checked ? [...(prev.graph.visible_tables||[]), item.id] : (prev.graph.visible_tables||[]).filter(id => id !== item.id) }
+                                                                                                        }));
+                                                                                                    }}
+                                                                                                />
                                                                                                 <span style={{ fontWeight: '700', fontSize: '0.85rem', color: 'var(--text-primary)' }}>{item.name}</span>
                                                                                             </div>
                                                                                             
@@ -3480,18 +3539,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                             <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                                                                                 <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
                                                                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                                                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
-                                                                                                                        const checked = !isExposed;
-                                                                                                                        setDraft(prev => ({
-                                                                                                                            ...prev,
-                                                                                                                            graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
-                                                                                                                        }));
-                                                                                                                    }}>
-                                                                                                                        <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}>
-                                                                                                                            <div className="gnosi-toggle-handle" />
+                                                                                                                    {(() => {
+                                                                                                                        const toggleExposed = () => {
+                                                                                                                            const checked = !isExposed;
+                                                                                                                            setDraft(prev => ({
+                                                                                                                                ...prev,
+                                                                                                                                graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
+                                                                                                                            }));
+                                                                                                                        };
+                                                                                                                        return (
+                                                                                                                        <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
+                                                                                                                            <GnosiToggle display active={isExposed} scale={0.6} />
+                                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
                                                                                                                         </div>
-                                                                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
-                                                                                                                    </div>
+                                                                                                                        );
+                                                                                                                    })()}
                                                                                                                     {renderFieldDefaultInput(field, fieldKey, "Valor defecte")}
                                                                                                                 </div>
                                                                                                             </div>
@@ -3513,18 +3575,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                 <div key={field.name} style={{ padding: '10px 14px', borderRadius: '12px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
                                                                                                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: '600' }}>{field.name}</span>
                                                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                                                                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={() => {
-                                                                                                            const checked = !isExposed;
-                                                                                                            setDraft(prev => ({
-                                                                                                                ...prev,
-                                                                                                                graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
-                                                                                                            }));
-                                                                                                        }}>
-                                                                                                            <div className={`gnosi-toggle ${isExposed ? 'active' : ''}`} style={{ transform: 'scale(0.6)', pointerEvents: 'none' }}>
-                                                                                                                <div className="gnosi-toggle-handle" />
+                                                                                                        {(() => {
+                                                                                                            const toggleExposed = () => {
+                                                                                                                const checked = !isExposed;
+                                                                                                                setDraft(prev => ({
+                                                                                                                    ...prev,
+                                                                                                                    graph: { ...prev.graph, visible_fields: checked ? [...(prev.graph.visible_fields||[]), fieldKey] : (prev.graph.visible_fields||[]).filter(f => f !== fieldKey) }
+                                                                                                                }));
+                                                                                                            };
+                                                                                                            return (
+                                                                                                            <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
+                                                                                                                <GnosiToggle display active={isExposed} scale={0.6} />
+                                                                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
                                                                                                             </div>
-                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
-                                                                                                        </div>
+                                                                                                            );
+                                                                                                        })()}
                                                                                                         {renderFieldDefaultInput(field, fieldKey, "Valor defecte")}
                                                                                                     </div>
                                                                                                 </div>
@@ -3578,13 +3643,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         opacity: p.enabled === false ? 0.6 : 1
                                                     }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-                                                            <div 
-                                                                className={`gnosi-toggle ${p.enabled !== false ? 'active' : ''}`} 
-                                                                onClick={() => handleToggleAIProvider(pId, p.enabled === false)}
-                                                                style={{ transform: 'scale(1.1)', marginRight: '10px' }}
-                                                            >
-                                                                <div className="gnosi-toggle-handle" />
-                                                            </div>
+                                                            <GnosiToggle
+                                                                active={p.enabled !== false}
+                                                                label={`Activar proveïdor ${pName}`}
+                                                                scale={1.1}
+                                                                style={{ marginRight: '10px' }}
+                                                                onChange={() => handleToggleAIProvider(pId, p.enabled === false)}
+                                                            />
                                                             <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: 'var(--settings-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--gnosi-blue)', boxShadow: '0 5px 15px rgba(0,0,0,0.05)' }}>
                                                                 {pIcon ? <img src={pIcon} style={{ width: '28px', height: '28px' }} alt="" /> : <Cpu size={28} />}
                                                             </div>
@@ -3621,7 +3686,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     setProviderToEdit(catalogItem);
                                                                     setIsConnectModalOpen(true);
                                                                 }}
-                                                                className="icon-btn hover-bg-strong" 
+                                                                aria-label={`Configurar ${pName}`}
+                                                                title={`Configurar ${pName}`}
+                                                                className="icon-btn hover-bg-strong"
                                                                 style={{ padding: '14px', borderRadius: '16px' }}
                                                             >
                                                                 <SettingsIcon size={22} />
@@ -3631,7 +3698,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     e.stopPropagation();
                                                                     handleDeleteAIProvider(pId);
                                                                 }}
-                                                                className="icon-btn hover-bg-strong" 
+                                                                aria-label={`Eliminar ${pName}`}
+                                                                title={`Eliminar ${pName}`}
+                                                                className="icon-btn hover-bg-strong"
                                                                 style={{ padding: '14px', borderRadius: '16px', color: '#ef4444' }}
                                                             >
                                                                 <Trash2 size={22} />
@@ -3669,12 +3738,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
                                                         <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{agent.provider} • {agent.model}</div>
                                                     </div>
-                                                    <div className={`gnosi-toggle ${agent.enabled ? 'active' : ''}`} onClick={() => {
-                                                        const newList = draft.ai.agents.map(a => a.id === agent.id ? {...a, enabled: !a.enabled} : a);
-                                                        setDraft({...draft, ai: {...draft.ai, agents: newList}});
-                                                    }} style={{ transform: 'scale(1.1)' }}>
-                                                        <div className="gnosi-toggle-handle" />
-                                                    </div>
+                                                    <GnosiToggle
+                                                        active={agent.enabled}
+                                                        label={`Activar agent ${agent.name}`}
+                                                        scale={1.1}
+                                                        onChange={() => {
+                                                            const newList = draft.ai.agents.map(a => a.id === agent.id ? {...a, enabled: !a.enabled} : a);
+                                                            setDraft({...draft, ai: {...draft.ai, agents: newList}});
+                                                        }}
+                                                    />
                                                 </div>
                                             ))}
                                         </div>
@@ -3938,8 +4010,8 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                 borderRadius: '32px', boxShadow: '0 30px 80px rgba(0,0,0,0.15)', border: '1px solid var(--settings-border)',
                 background: 'var(--settings-bg)', overflow: 'hidden', position: 'relative'
             }}>
-                <button onClick={onClose} className="icon-btn hover-bg" style={{ 
-                    position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%', 
+                <button onClick={onClose} aria-label="Tancar" title="Tancar" className="icon-btn hover-bg" style={{
+                    position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%',
                     color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
                     width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
                 }}><X size={18} /></button>
