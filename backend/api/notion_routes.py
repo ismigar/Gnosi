@@ -225,3 +225,75 @@ async def run_clone(payload: ClonePayload):
         raise HTTPException(status_code=500, detail=f"Error clonant de Notion: {e}")
     return {"status": "success", **report}
 
+
+# ---------------------------------------------------------------------------
+# VERIFICA EL CLON (salut Notion ↔ clon): per donar confiança abans d'abandonar Notion
+# ---------------------------------------------------------------------------
+class VerifyPayload(BaseModel):
+    database_ids: Optional[List[str]] = None
+    target_folder: str = "Clon Notion"
+
+
+def _split_frontmatter(text: str):
+    if text.startswith("---"):
+        parts = text.split("---", 2)
+        if len(parts) >= 3:
+            meta = yaml.safe_load(parts[1]) or {}
+            return (meta if isinstance(meta, dict) else {}), parts[2].lstrip("\n")
+    return {}, text
+
+
+def _run_verify_sync(token: str, database_ids, target_folder="Clon Notion") -> dict:
+    from backend.services.notion_clone_verify import verify_clone, relation_ids
+    from backend.services.relation_links import relation_keys_from_table
+    vault = get_active_vault_path()
+    if not vault:
+        raise RuntimeError("No hi ha cap vault actiu")
+    rest = NotionClient(token)
+    db_ids = database_ids or [d["id"] for d in rest.search_databases()]
+    notion_counts = {}
+    for db_id in db_ids:
+        try:
+            notion_counts[notion_clone.clone_table_id(db_id)] = sum(1 for _ in rest.query_database(db_id))
+        except Exception:  # noqa: BLE001
+            notion_counts[notion_clone.clone_table_id(db_id)] = -1
+
+    reg = vault_routes.load_registry()
+    rel_keys_by_table = {t.get("id"): relation_keys_from_table(t) for t in reg.get("tables", [])}
+
+    pages = []
+    folder = vault / _sanitize_folder(target_folder)
+    for md in folder.rglob("*.md"):
+        try:
+            meta, body = _split_frontmatter(md.read_text(encoding="utf-8"))
+            tid = meta.get("table_id")
+            relations = []
+            for k in rel_keys_by_table.get(tid, set()):
+                relations += relation_ids(meta.get(k))
+            assets = [v for key in ("icon", "cover")
+                      for v in [meta.get(key)] if isinstance(v, str) and v.startswith("Assets/")]
+            assets += re.findall(r"!\[[^\]]*\]\((Assets/[^)\s]+)\)", body)
+            missing = [a for a in assets if not (vault / a).exists()]
+            pages.append({"id": meta.get("id"), "table_id": tid,
+                          "body_empty": not body.strip(),
+                          "view_count": body.count("gnosi-view:def"),
+                          "relations": relations, "missing_assets": missing})
+        except Exception:  # noqa: BLE001
+            continue
+    return verify_clone(notion_counts, pages)
+
+
+@router.post("/verify-clone", dependencies=[Depends(require_role("editor"))])
+async def verify_clone_route(payload: VerifyPayload):
+    """Comprova la salut del clon (Notion ↔ clon): paritat de recompte per BD, cossos buits,
+    relacions òrfenes, vistes recreades i adjunts que falten al disc. No toca res."""
+    token = _get_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+    try:
+        result = await asyncio.to_thread(_run_verify_sync, token, payload.database_ids,
+                                         payload.target_folder)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error verificant el clon: {e}")
+    return {"status": "success", **result}
+
