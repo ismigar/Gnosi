@@ -124,6 +124,17 @@ def test_block_equation_to_latex_fence():
     assert "```latex" in out and "E = mc^2" in out
 
 
+def test_subpage_tags_become_wikilinks():
+    md = ('<content>\n'
+          '<page url="https://app.notion.com/p/877725a8de414f028cb8445686c10377">Jesús?</page>\n'
+          '<page url="https://app.notion.com/p/9bde8a165b8b49ef8bcf2afc30a36581"/>\n'
+          '</content>')
+    out = mcp_to_markdown(md)
+    assert "[[Jesús?]]" in out                                   # amb títol → [[Títol]]
+    assert "[[9bde8a165b8b49ef8bcf2afc30a36581]]" in out         # auto-tancat → [[id]]
+    assert "<page" not in out                                    # cap tag cru
+
+
 if __name__ == "__main__":
     import traceback
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]

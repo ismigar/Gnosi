@@ -36,6 +36,10 @@ _DB_SELFCLOSE_RE = re.compile(
 _MENTION_RE = re.compile(
     r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*>(.*?)</mention-page>', re.DOTALL)
 _MENTION_SELF_RE = re.compile(r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*/>')
+# Sub-pàgines: l'MCP les llista com <page url=".../<id>">Títol</page> → wikilink (per títol, que
+# resol al clon; el clon ja segueix les sub-pàgines com a pàgines pròpies).
+_PAGE_RE = re.compile(r'<page\s+url="[^"]*?([0-9a-f]{32})"\s*>(.*?)</page>', re.DOTALL)
+_PAGE_SELF_RE = re.compile(r'<page\s+url="[^"]*?([0-9a-f]{32})"\s*/>')
 _CODE_RE = re.compile(r"```.*?```", re.DOTALL)
 # Anotació {k="v" ...} al FINAL de la línia
 _ANNOT_RE = re.compile(r'\s*\{([a-zA-Z_]+="[^"]*"(?:\s+[a-zA-Z_]+="[^"]*")*)\}\s*$')
@@ -167,9 +171,11 @@ def mcp_to_markdown(page_md: str) -> str:
     text = _DB_RE.sub(lambda mm: f"§§GNOSIDB:{mm.group(1)}§§", text)
     text = _DB_SELFCLOSE_RE.sub(lambda mm: f"§§GNOSIDB:{mm.group(1)}§§", text)
 
-    # 2) mencions → wikilinks
+    # 2) mencions i sub-pàgines → wikilinks (per títol quan n'hi ha → resol al clon)
     text = _MENTION_RE.sub(lambda mm: f"[[{(mm.group(2).strip() or mm.group(1))}]]", text)
     text = _MENTION_SELF_RE.sub(lambda mm: f"[[{mm.group(1)}]]", text)
+    text = _PAGE_RE.sub(lambda mm: f"[[{(mm.group(2).strip() or mm.group(1))}]]", text)
+    text = _PAGE_SELF_RE.sub(lambda mm: f"[[{mm.group(1)}]]", text)
 
     # 3) arbre per indentació → serialització (columnes, toggles, colors, llistes niades)
     pairs = [_indent_and_text(ln) for ln in text.splitlines() if ln.strip()]
