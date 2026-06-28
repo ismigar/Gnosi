@@ -116,7 +116,7 @@ export function Sidebar({
                 </div>
 
                 {isPathfindingMode && (
-                    <div style={{ fontSize: '0.9rem', color: '#888' }}>
+                    <div style={{ fontSize: '0.9rem', color: 'var(--text-tertiary)' }}>
                         <div
                             style={{
                                 marginBottom: '8px',
@@ -216,7 +216,7 @@ export function Sidebar({
                             </label>
                         </>
                     ) : (
-                        <div style={{ fontSize: "0.8rem", color: "#888" }}>No hi ha dades de temps</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>No hi ha dades de temps</div>
                     )}
                 </div>
             </div>

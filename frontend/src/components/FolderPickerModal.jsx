@@ -85,16 +85,16 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                 <div className="settings-modal__content" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
 
                     {/* Path Bar */}
-                    <div style={{ padding: '12px', background: '#18181b', borderBottom: '1px solid #27272a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                            <div style={{ fontSize: '0.7rem', color: '#71717a', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ruta real al Mac:</div>
-                            <div style={{ fontSize: '0.85em', color: '#60a5fa', wordBreak: 'break-all', background: '#09090b', border: '1px solid #27272a', padding: '8px 10px', borderRadius: '4px', fontFamily: 'monospace', lineHeight: '1.4' }}>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ruta real al Mac:</div>
+                            <div style={{ fontSize: '0.85em', color: '#60a5fa', wordBreak: 'break-all', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', padding: '8px 10px', borderRadius: '4px', fontFamily: 'monospace', lineHeight: '1.4' }}>
                                 {displayPath || currentPath}
                             </div>
                         </div>
                         <button
                             onClick={() => browse(joinPath(currentPath, '..'))}
-                            className="p-1 hover:bg-zinc-800 rounded text-zinc-400"
+                            className="p-1 folder-picker-item rounded text-zinc-400"
                             title="Pujar un nivell (Up)"
                             style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                         >
@@ -103,8 +103,8 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                     </div>
 
                     {/* Shortcuts Bar */}
-                    <div style={{ padding: '8px 12px', background: '#09090b', borderBottom: '1px solid #27272a', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: '500', textTransform: 'uppercase' }}>Dreceres:</span>
+                    <div style={{ padding: '8px 12px', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: '500', textTransform: 'uppercase' }}>Dreceres:</span>
                         <button
                             onClick={() => browse('/vault')}
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', fontSize: '0.85rem' }}
@@ -130,33 +130,33 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
 
                     {/* Search */}
                     <div style={{ padding: '10px 12px', position: 'relative' }}>
-                        <Search size={14} style={{ position: 'absolute', left: '20px', top: '18px', color: '#71717a' }} />
+                        <Search size={14} style={{ position: 'absolute', left: '20px', top: '18px', color: 'var(--text-tertiary)' }} />
                         <input
                             type="text"
                             placeholder="Filtrar carpetes..."
-                            style={{ width: '100%', padding: '6px 12px 6px 30px', background: '#18181b', border: '1px solid #27272a', borderRadius: '6px', fontSize: '0.9em', color: 'white' }}
+                            style={{ width: '100%', padding: '6px 12px 6px 30px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '6px', fontSize: '0.9em', color: 'var(--text-primary)' }}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                         />
                     </div>
 
                 {/* Directory List */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '10px', background: '#09090b' }}>
+                <div style={{ flex: 1, overflowY: 'auto', padding: '10px', background: 'var(--bg-primary)' }}>
                     {loading ? (
-                        <div style={{ textAlign: 'center', padding: '40px', color: '#71717a' }}>Carregant...</div>
+                        <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-tertiary)' }}>Carregant...</div>
                     ) : error ? (
-                        <div style={{ color: '#ef4444', padding: '20px', textAlign: 'center' }}>{error}</div>
+                        <div style={{ color: 'var(--status-error)', padding: '20px', textAlign: 'center' }}>{error}</div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                             {filteredDirectories.length === 0 && (
-                                <div style={{ textAlign: 'center', padding: '20px', color: '#71717a', fontSize: '0.9em' }}>No s'han trobat carpetes</div>
+                                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-tertiary)', fontSize: '0.9em' }}>No s'han trobat carpetes</div>
                             )}
                             {filteredDirectories.map(dir => (
                                 <button
                                     key={dir}
                                     onClick={() => browse(joinPath(currentPath, dir))}
-                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'transparent', border: 'none', color: '#e4e4e7', cursor: 'pointer', borderRadius: '6px', textAlign: 'left', transition: 'background 0.2s' }}
-                                    className="hover:bg-zinc-800 group"
+                                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: 'transparent', border: 'none', color: 'var(--text-primary)', cursor: 'pointer', borderRadius: '6px', textAlign: 'left', transition: 'background 0.2s' }}
+                                    className="folder-picker-item group"
                                 >
                                     <Folder size={18} className="text-indigo-400" />
                                     <span style={{ flex: 1 }}>{dir}</span>
@@ -168,17 +168,17 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                 </div>
 
                 {/* Footer Actions */}
-                <div style={{ padding: '15px', borderTop: '1px solid #27272a', background: '#18181b', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
+                <div style={{ padding: '15px', borderTop: '1px solid var(--border-primary)', background: 'var(--bg-secondary)', display: 'flex', justifyContent: 'flex-end', gap: '10px', flexShrink: 0 }}>
                     <button
                         onClick={onClose}
-                        style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', border: '1px solid #27272a', color: '#e4e4e7', cursor: 'pointer' }}
+                        style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', border: '1px solid var(--border-primary)', color: 'var(--text-primary)', cursor: 'pointer' }}
                     >
                         Cancel·lar
                     </button>
                     <button
                         data-autofocus="true"
                         onClick={() => onSelect(currentPath)}
-                        style={{ padding: '8px 16px', borderRadius: '6px', background: '#3b82f6', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '500' }}
+                        style={{ padding: '8px 16px', borderRadius: '6px', background: 'var(--gnosi-primary)', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '500' }}
                     >
                         Seleccionar
                     </button>

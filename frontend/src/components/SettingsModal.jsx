@@ -358,7 +358,7 @@ export function SettingsModal({ isOpen, onClose }) {
                             {activeTab === 'schedulers' && (
                                 <div className="settings-section">
                                     <h3>Tasques Programades</h3>
-                                    <p style={{ marginBottom: '20px', color: '#a0aec0' }}>
+                                    <p style={{ marginBottom: '20px', color: 'var(--text-secondary)' }}>
                                         Configura tasques automàtiques del sistema.
                                     </p>
                                     {schedulers.length === 0 ? (
@@ -369,16 +369,16 @@ export function SettingsModal({ isOpen, onClose }) {
                                                 <div
                                                     key={task.name}
                                                     style={{
-                                                        background: '#2d3748',
+                                                        background: 'var(--bg-secondary)',
                                                         padding: '15px',
                                                         borderRadius: '8px',
-                                                        border: task.enabled ? '1px solid #48bb78' : '1px solid #4a5568'
+                                                        border: task.enabled ? '1px solid var(--status-success)' : '1px solid var(--border-primary)'
                                                     }}
                                                 >
                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <div>
                                                             <strong>{task.name.replace(/_/g, ' ').toUpperCase()}</strong>
-                                                            <p style={{ margin: '5px 0', color: '#a0aec0', fontSize: '0.9em' }}>
+                                                            <p style={{ margin: '5px 0', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
                                                                 {task.description}
                                                             </p>
                                                         </div>
@@ -425,7 +425,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     ));
                                                                 }
                                                             }}
-                                                            style={{ padding: '5px', borderRadius: '4px', background: '#1a202c', color: 'white' }}
+                                                            style={{ padding: '5px', borderRadius: '4px', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                         >
                                                             <option value={60}>1 hora</option>
                                                             <option value={360}>6 hores</option>
@@ -447,13 +447,13 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     toast.error('Error: ' + err.message, { id: t_id });
                                                                 }
                                                             }}
-                                                            style={{ padding: '5px 10px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                                            style={{ padding: '5px 10px', background: 'var(--settings-btn-bg)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}
                                                         >
                                                             ▶️ Executar ara
                                                         </button>
                                                     </div>
                                                     {task.last_run && (
-                                                        <p style={{ marginTop: '5px', fontSize: '0.8em', color: '#718096' }}>
+                                                        <p style={{ marginTop: '5px', fontSize: '0.8em', color: 'var(--text-tertiary)' }}>
                                                             Última execució: {new Date(task.last_run).toLocaleString()}
                                                         </p>
                                                     )}
@@ -467,7 +467,7 @@ export function SettingsModal({ isOpen, onClose }) {
                             {activeTab === 'credentials' && (
                                 <div className="settings-section">
                                     <h3>API Keys & Credentials</h3>
-                                    <p style={{ marginBottom: '20px', color: '#a0aec0', fontSize: '0.9em' }}>
+                                    <p style={{ marginBottom: '20px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
                                         Les teves claus API s'emmagatzemen de forma segura al Keychain del teu ordinador.
                                         Aquesta pestanya mostra quines claus estan configurades.
                                     </p>
@@ -476,10 +476,10 @@ export function SettingsModal({ isOpen, onClose }) {
                                             <div
                                                 key={cred.key}
                                                 style={{
-                                                    background: '#2d3748',
+                                                    background: 'var(--bg-secondary)',
                                                     padding: '15px',
                                                     borderRadius: '8px',
-                                                    border: cred.has_value ? '1px solid #48bb78' : '1px solid #4a5568'
+                                                    border: cred.has_value ? '1px solid var(--status-success)' : '1px solid var(--border-primary)'
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -488,20 +488,20 @@ export function SettingsModal({ isOpen, onClose }) {
                                                             {cred.has_value ? '🔐' : '🔓'}
                                                             {cred.name}
                                                         </strong>
-                                                        <p style={{ margin: '5px 0 0 24px', color: '#a0aec0', fontSize: '0.85em' }}>
+                                                        <p style={{ margin: '5px 0 0 24px', color: 'var(--text-secondary)', fontSize: '0.85em' }}>
                                                             {cred.description}
                                                         </p>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         {cred.has_value ? (
                                                             <>
-                                                                <span style={{ color: '#48bb78', fontSize: '0.85em' }}>✓ Configurat</span>
+                                                                <span style={{ color: 'var(--status-success)', fontSize: '0.85em' }}>✓ Configurat</span>
                                                                 <button
                                                                     onClick={() => {
                                                                         setEditingCredential(cred.key);
                                                                         setCredentialValue('');
                                                                     }}
-                                                                    style={{ padding: '5px 10px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em' }}
+                                                                    style={{ padding: '5px 10px', background: 'var(--settings-btn-bg)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-primary)' }}
                                                                 >
                                                                     Editar
                                                                 </button>
@@ -512,7 +512,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     setEditingCredential(cred.key);
                                                                     setCredentialValue('');
                                                                 }}
-                                                                style={{ padding: '5px 10px', background: '#4a90d9', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85em' }}
+                                                                style={{ padding: '5px 10px', background: 'var(--gnosi-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85em' }}
                                                             >
                                                                 + Afegir
                                                             </button>
@@ -520,14 +520,14 @@ export function SettingsModal({ isOpen, onClose }) {
                                                     </div>
                                                 </div>
                                                 {editingCredential === cred.key && (
-                                                    <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #4a5568' }}>
+                                                    <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid var(--border-primary)' }}>
                                                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                                                             <input
                                                                 type="password"
                                                                 value={credentialValue}
                                                                 onChange={(e) => setCredentialValue(e.target.value)}
                                                                 placeholder={`Introdueix la clau per a ${cred.name}`}
-                                                                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #4a5568', background: '#1a202c', color: 'white' }}
+                                                                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                             />
                                                             <button
                                                                 onClick={async () => {
@@ -547,7 +547,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     }
                                                                 }}
                                                                 disabled={!credentialValue}
-                                                                style={{ padding: '8px 16px', background: '#48bb78', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
+                                                                style={{ padding: '8px 16px', background: 'var(--status-success)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
                                                             >
                                                                 Guardar
                                                             </button>
@@ -556,7 +556,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     setEditingCredential(null);
                                                                     setCredentialValue('');
                                                                 }}
-                                                                style={{ padding: '8px 16px', background: '#4a5568', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                                                style={{ padding: '8px 16px', background: 'var(--settings-btn-bg)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}
                                                             >
                                                                 Cancel·lar
                                                             </button>
@@ -566,9 +566,9 @@ export function SettingsModal({ isOpen, onClose }) {
                                             </div>
                                         ))}
                                     </div>
-                                    <div style={{ marginTop: '20px', padding: '15px', background: '#1a202c', borderRadius: '8px' }}>
+                                    <div style={{ marginTop: '20px', padding: '15px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
                                         <h4 style={{ marginTop: 0 }}>Migració des de .env_shared</h4>
-                                        <p style={{ color: '#a0aec0', fontSize: '0.9em', marginBottom: '15px' }}>
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.9em', marginBottom: '15px' }}>
                                             Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament.
                                         </p>
                                         <button
@@ -583,7 +583,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                     toast.error('Error migrant: ' + err.message);
                                                 }
                                             }}
-                                            style={{ padding: '10px 20px', background: '#805ad5', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}
+                                            style={{ padding: '10px 20px', background: 'var(--gnosi-primary)', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}
                                         >
                                             🔄 Migrar claus des de .env_shared
                                         </button>

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { applyFilters } from '../utils/graphFilters';
 
-export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
+export const ConnectionList = ({ graphInstance, filters }) => {
     const { t } = useTranslation();
     const groupedConnections = useMemo(() => {
         if (!graphInstance) return [];
@@ -53,9 +53,9 @@ export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
 
     return (
         <div style={{
-            background: isDarkMode ? '#1e1e1e' : '#fff',
-            color: isDarkMode ? '#eee' : '#333',
-            borderTop: `1px solid ${isDarkMode ? '#333' : '#eee'}`,
+            background: 'var(--bg-primary)',
+            color: 'var(--text-primary)',
+            borderTop: '1px solid var(--border-primary)',
             borderRadius: '8px',
             padding: '20px'
         }}>
@@ -63,11 +63,11 @@ export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 {groupedConnections.map(group => (
                     <div key={group.id} style={{
-                        background: isDarkMode ? '#252525' : '#f0f0f0',
+                        background: 'var(--bg-secondary)',
                         borderRadius: '8px',
                         padding: '12px'
                     }}>
-                        <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '1rem', borderBottom: `1px solid ${isDarkMode ? '#444' : '#ddd'}`, paddingBottom: '4px' }}>
+                        <div style={{ marginBottom: '8px', fontWeight: 'bold', fontSize: '1rem', borderBottom: '1px solid var(--border-primary)', paddingBottom: '4px' }}>
                             {group.url ? (
                                 <a href={group.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted currentColor' }}>
                                     {group.label}
@@ -83,7 +83,7 @@ export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
                                     alignItems: 'center',
                                     fontSize: '0.9rem'
                                 }}>
-                                    <span style={{ marginRight: '8px', color: '#888' }}>↳</span>
+                                    <span style={{ marginRight: '8px', color: 'var(--text-tertiary)' }}>↳</span>
                                     <span style={{ fontWeight: 500 }}>
                                         {conn.url ? (
                                             <a href={conn.url} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', textDecoration: 'none', borderBottom: '1px dotted currentColor' }}>
@@ -97,7 +97,7 @@ export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
                                     <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                         <span style={{
                                             fontSize: '0.8rem',
-                                            color: isDarkMode ? '#aaa' : '#666',
+                                            color: 'var(--text-secondary)',
                                             fontStyle: 'italic'
                                         }}>
                                             {(() => {
@@ -107,7 +107,7 @@ export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
                                         </span>
                                         {!conn.isTagEdge && conn.similarity !== undefined && (
                                             <span style={{
-                                                background: conn.color || '#888',
+                                                background: conn.color || 'var(--text-tertiary)',
                                                 color: '#fff',
                                                 padding: '2px 6px',
                                                 borderRadius: '4px',
@@ -120,8 +120,8 @@ export const ConnectionList = ({ graphInstance, filters, isDarkMode }) => {
                                         )}
                                         {conn.isTagEdge && (
                                             <span style={{
-                                                background: '#ddd',
-                                                color: '#555',
+                                                background: 'var(--bg-tertiary)',
+                                                color: 'var(--text-secondary)',
                                                 padding: '2px 6px',
                                                 borderRadius: '4px',
                                                 fontSize: '0.75rem'
