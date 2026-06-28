@@ -93,7 +93,7 @@ export function Sidebar({
             </div>
 
             {/* --- PATHFINDING SECTION --- */}
-            <div className="section" style={{ border: isPathfindingMode ? '2px solid #3498db' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>
+            <div className="section" style={{ border: isPathfindingMode ? '2px solid var(--gnosi-blue)' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>
                 <h2 className="filter-title" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                     Cerca de camins
                 </h2>
@@ -103,7 +103,7 @@ export function Sidebar({
                         style={{
                             width: '100%',
                             padding: '8px',
-                            backgroundColor: isPathfindingMode ? '#e74c3c' : '#3498db',
+                            backgroundColor: isPathfindingMode ? 'var(--status-error)' : 'var(--gnosi-blue)',
                             color: 'white',
                             border: 'none',
                             borderRadius: '4px',
@@ -122,12 +122,12 @@ export function Sidebar({
                                 marginBottom: '8px',
                                 padding: '8px',
                                 borderRadius: '4px',
-                                border: !pathSource ? '2px solid #e67e22' : '1px solid #ddd',
-                                backgroundColor: !pathSource ? '#fff3e0' : 'transparent',
+                                border: !pathSource ? '2px solid var(--status-warning)' : '1px solid var(--border-primary)',
+                                backgroundColor: !pathSource ? 'rgba(245, 158, 11, 0.12)' : 'transparent',
                                 cursor: 'default'
                             }}
                         >
-                            <div style={{ fontWeight: 'bold', color: !pathSource ? '#d35400' : 'inherit' }}>
+                            <div style={{ fontWeight: 'bold', color: !pathSource ? 'var(--status-warning)' : 'inherit' }}>
                                 {!pathSource ? '👉 SELECCIONA:' : '✅'} Origen
                             </div>
                             <div style={{ fontSize: '0.85em' }}>
@@ -140,12 +140,12 @@ export function Sidebar({
                                 marginBottom: '10px',
                                 padding: '8px',
                                 borderRadius: '4px',
-                                border: (pathSource && !pathTarget) ? '2px solid #27ae60' : '1px solid #ddd',
-                                backgroundColor: (pathSource && !pathTarget) ? '#e8f8f5' : 'transparent',
+                                border: (pathSource && !pathTarget) ? '2px solid var(--status-success)' : '1px solid var(--border-primary)',
+                                backgroundColor: (pathSource && !pathTarget) ? 'rgba(16, 185, 129, 0.12)' : 'transparent',
                                 cursor: 'default'
                             }}
                         >
-                            <div style={{ fontWeight: 'bold', color: (pathSource && !pathTarget) ? '#27ae60' : 'inherit' }}>
+                            <div style={{ fontWeight: 'bold', color: (pathSource && !pathTarget) ? 'var(--status-success)' : 'inherit' }}>
                                 {(pathSource && !pathTarget) ? '👉 SELECCIONA:' : (pathTarget ? '✅' : '⏳')} Destí
                             </div>
                             <div style={{ fontSize: '0.85em' }}>
@@ -160,7 +160,7 @@ export function Sidebar({
                                     width: '100%',
                                     padding: '5px',
                                     background: 'none',
-                                    border: '1px solid #ccc',
+                                    border: '1px solid var(--border-primary)',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
                                     fontSize: '0.8rem',
@@ -172,12 +172,12 @@ export function Sidebar({
                         )}
 
                         {pathResult && pathResult.fullPath && pathResult.fullPath.length > 0 && (
-                            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(52, 152, 219, 0.1)', borderRadius: '4px' }}>
-                                <div style={{ fontWeight: 'bold', color: '#3498db', marginBottom: '5px' }}>Camí trobat ({pathResult.fullPath.length} nodes):</div>
+                            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '4px' }}>
+                                <div style={{ fontWeight: 'bold', color: 'var(--gnosi-blue)', marginBottom: '5px' }}>Camí trobat ({pathResult.fullPath.length} nodes):</div>
                                 <div style={{ fontSize: '0.8rem' }}>
                                     {pathResult.fullPath.map((nodeId, index) => (
                                         <div key={nodeId} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                                            <span style={{ color: '#3498db' }}>{index + 1}.</span>
+                                            <span style={{ color: 'var(--gnosi-blue)' }}>{index + 1}.</span>
                                             <span>{getNodeLabel(nodeId)}</span>
                                         </div>
                                     ))}
@@ -186,7 +186,7 @@ export function Sidebar({
                         )}
 
                         {pathResult && pathResult.noPath && (
-                            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(231, 76, 60, 0.1)', borderRadius: '4px', color: '#e74c3c', fontSize: '0.8rem' }}>
+                            <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', color: 'var(--status-error)', fontSize: '0.8rem' }}>
                                 No s'ha trobat cap camí entre aquests nodes.
                             </div>
                         )}
