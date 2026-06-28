@@ -67,7 +67,7 @@ _PROP_TYPE_MAP = {
     "phone_number": "phone", "people": "text", "files": "file",
     "created_time": "created_time", "last_edited_time": "last_edited_time",
     "created_by": "created_by", "last_edited_by": "last_edited_by",
-    "formula": "text", "rollup": "text",
+    "formula": "text", "rollup": "text", "unique_id": "text",
 }
 
 # Tipus de Notion que són calculats: desem el valor però NO s'han de reescriure a Notion
@@ -213,6 +213,12 @@ def value_to_gnosi(prop: Dict[str, Any], users: Optional[Dict[str, str]] = None)
         return v
     if t in ("created_by", "last_edited_by"):
         return users.get((v or {}).get("id"), "") if isinstance(v, dict) else ""
+    if t == "unique_id":
+        d = v or {}
+        num, pref = d.get("number"), d.get("prefix")
+        if num is None:
+            return None
+        return f"{pref}-{num}" if pref else str(num)
     return None
 
 
@@ -303,32 +309,6 @@ def blocks_to_md(blocks: List[Dict[str, Any]], depth: int = 0) -> str:
         if children:
             lines.append(blocks_to_md(children, depth + 1))
     return "\n\n".join(l for l in lines if l != "")
-
-
-# ---------------------------------------------------------------------------
-# Heurística de vistes (Fase 1: l'API pública no exposa vistes)
-# ---------------------------------------------------------------------------
-def default_views_for_table(table: Dict[str, Any], create_group_view: bool = True) -> List[Dict[str, Any]]:
-    """Genera la vista de taula per defecte + (opcional) una vista agrupada per status/select."""
-    props = table.get("properties") or []
-    visible = [p["name"] for p in props]
-    views = [{
-        "id": str(uuid.uuid5(_GNOSI_NS, f"view:{table['id']}:main")),
-        "table_id": table["id"], "name": "Tot", "type": "table",
-        "visibleProperties": visible,
-    }]
-    if create_group_view:
-        group_field = next((p["name"] for p in props if p.get("type") == "status"), None)
-        if not group_field:
-            selects = [p["name"] for p in props if p.get("type") == "select"]
-            group_field = selects[0] if len(selects) == 1 else None
-        if group_field:
-            views.append({
-                "id": str(uuid.uuid5(_GNOSI_NS, f"view:{table['id']}:group")),
-                "table_id": table["id"], "name": f"Per {group_field}", "type": "table",
-                "visibleProperties": visible, "groupBy": group_field,
-            })
-    return views
 
 
 # ---------------------------------------------------------------------------
@@ -454,224 +434,8 @@ class NotionClient:
         return results
 
 
-# ---------------------------------------------------------------------------
-# Descobriment de referències dins els blocs (per al tancament transitiu)
-# ---------------------------------------------------------------------------
-def discover_block_refs(blocks: List[Dict[str, Any]]) -> tuple:
-    """Escaneja un arbre de blocs (amb `_children`) i retorna (db_ids, page_ids) referenciats.
-
-    Detecta `child_page`, `child_database`, `link_to_page` i mencions (`mention`) inline a
-    qualsevol `rich_text`. PUR (sense xarxa) → testejable amb fixtures.
-    """
-    db_ids: set = set()
-    page_ids: set = set()
-
-    def scan_rich(rich):
-        for r in rich or []:
-            if r.get("type") == "mention":
-                m = r.get("mention") or {}
-                if m.get("type") == "page":
-                    page_ids.add((m.get("page") or {}).get("id"))
-                elif m.get("type") == "database":
-                    db_ids.add((m.get("database") or {}).get("id"))
-
-    def walk(bl):
-        for b in bl or []:
-            t = b.get("type")
-            data = b.get(t) if isinstance(b.get(t), dict) else {}
-            if t == "child_page":
-                page_ids.add(b.get("id"))
-            elif t == "child_database":
-                db_ids.add(b.get("id"))
-            elif t == "link_to_page":
-                ltp = b.get("link_to_page") or {}
-                if ltp.get("type") == "page_id":
-                    page_ids.add(ltp.get("page_id"))
-                elif ltp.get("type") == "database_id":
-                    db_ids.add(ltp.get("database_id"))
-            if data.get("rich_text"):
-                scan_rich(data.get("rich_text"))
-            walk(b.get("_children"))
-
-    walk(blocks)
-    db_ids.discard(None)
-    page_ids.discard(None)
-    return db_ids, page_ids
-
-
-# ---------------------------------------------------------------------------
-# Orquestrador: crawler BFS de tancament transitiu (writers injectats)
-# ---------------------------------------------------------------------------
-def import_workspace(
-    client: NotionClient,
-    *,
-    write_table: Callable[[Dict[str, Any]], None],
-    write_page: Callable[[Dict[str, Any]], None],
-    write_view: Callable[[Dict[str, Any]], None],
-    database_ids: Optional[List[str]] = None,
-    create_group_views: bool = True,
-    target_folder: str = "Importades/Notion",
-    follow_relations: bool = True,
-    follow_children: bool = True,
-    max_pages: int = 5000,
-    exists: Optional[Callable[[str, str], bool]] = None,
-    only_new: bool = True,
-    include_loose_pages: bool = False,
-    loose_page_types: Optional[Dict[str, str]] = None,
-    schema_overrides: Optional[Dict[str, Dict[str, Any]]] = None,
-) -> Dict[str, Any]:
-    """Importa un workspace de Notion seguint el GRAF de referències (sense orfes).
-
-    BFS sobre BD i pàgines: en importar una BD se n'encuen les BD relacionades (esquema);
-    en importar una pàgina se n'encuen els `child_page`/`child_database`/mencions del seu
-    contingut. Conjunt de visitats → segur amb cicles (Projects↔Tasks↔Areas). `max_pages`
-    evita desbordaments i es reporta si s'arriba (cap tall silenciós).
-
-    Els IDs de Gnosi són deterministes (`gnosi_id_for`): un cop el destí d'una relació
-    s'importa, el cablejat ja casa sense mapa explícit.
-    """
-    from collections import deque
-
-    report = {"databases": 0, "tables": 0, "pages": 0, "views": 0,
-              "errors": [], "truncated": False, "skipped_existing": 0}
-    users = client.list_users()
-
-    def _skip(notion_id: str, title: str) -> bool:
-        # Sync guardat: si la pàgina JA existeix al vault (per id o títol) i only_new,
-        # NO la toquem (evita duplicar i evita sobreescriure feina divergida).
-        return bool(only_new and exists and exists(notion_id, title))
-
-    seed = database_ids if database_ids is not None else [d["id"] for d in client.search_databases()]
-    db_queue = deque(seed)
-    page_queue: deque = deque()
-    visited_dbs: set = set()
-    visited_pages: set = set()
-    queued: set = set(seed)
-
-    def enq_db(did):
-        if did and did not in visited_dbs and did not in queued:
-            queued.add(did)
-            db_queue.append(did)
-
-    def enq_page(pid):
-        if pid and pid not in visited_pages and pid not in queued:
-            queued.add(pid)
-            page_queue.append(pid)
-
-    # Pàgines SOLTES: sembra el crawler amb les pàgines compartides que NO pengen d'una BD
-    # (parent workspace/page). Les que són fila d'una BD (parent database_id) ja entren per
-    # la seva BD → s'exclouen aquí per estalviar crides.
-    # Selecció per pàgina (loose_page_types) MANA: sembra només les triades (amb wiki/dashboard);
-    # si no n'hi ha, include_loose_pages sembra TOTES (retrocompat).
-    _norm = lambda s: str(s or "").replace("-", "")  # noqa: E731
-    loose_types_norm = {_norm(k): v for k, v in (loose_page_types or {}).items()}
-    if loose_page_types:
-        for pid in loose_page_types:
-            enq_page(pid)
-    elif include_loose_pages:
-        for pg in client.search_pages():
-            parent = pg.get("parent") or {}
-            if parent.get("type") in ("workspace", "page_id"):
-                enq_page(pg.get("id"))
-
-    def limit_hit() -> bool:
-        if report["pages"] >= max_pages:
-            report["truncated"] = True
-            return True
-        return False
-
-    while (db_queue or page_queue) and not limit_hit():
-        if db_queue:
-            db_id = db_queue.popleft()
-            if db_id in visited_dbs:
-                continue
-            visited_dbs.add(db_id)
-            try:
-                db = client.get_database(db_id)
-                table = map_database_schema(db)
-                if schema_overrides and db_id in schema_overrides:
-                    from backend.services.notion_schema_config import apply_override
-                    table = apply_override(table, schema_overrides[db_id])
-                table["folder"] = target_folder
-                write_table(table)
-                report["tables"] += 1
-                report["databases"] += 1
-                for view in default_views_for_table(table, create_group_views):
-                    write_view(view)
-                    report["views"] += 1
-                if follow_relations:
-                    for prop in (db.get("properties") or {}).values():
-                        if prop.get("type") == "relation":
-                            enq_db((prop.get("relation") or {}).get("database_id"))
-                for row in client.query_database(db_id):
-                    if limit_hit():
-                        break
-                    visited_pages.add(row["id"])
-                    try:
-                        values = page_to_values(row, users)
-                        title = values.pop("title", None) or _page_title(row) or "Sense títol"
-                        if _skip(row["id"], title):
-                            report["skipped_existing"] += 1
-                            continue
-                        blocks = client.get_block_children(row["id"])
-                        write_page({
-                            "id": page_id_for(row["id"]),
-                            "title": title,
-                            "content": blocks_to_md(blocks),
-                            "metadata": {"table_id": table["id"], **values,
-                                        "icon": _emoji_icon(row.get("icon"))},
-                        })
-                        report["pages"] += 1
-                        if follow_children:
-                            rdb, rpg = discover_block_refs(blocks)
-                            for d in rdb:
-                                enq_db(d)
-                            for p in rpg:
-                                enq_page(p)
-                    except Exception as e:  # noqa: BLE001
-                        report["errors"].append({"page": row.get("id"), "error": str(e)})
-            except Exception as e:  # noqa: BLE001
-                report["errors"].append({"database": db_id, "error": str(e)})
-        else:
-            pid = page_queue.popleft()
-            if pid in visited_pages:
-                continue
-            visited_pages.add(pid)
-            try:
-                pg = client.get_page(pid)
-                parent = pg.get("parent") or {}
-                if parent.get("type") == "database_id":
-                    # És una fila d'una BD → importa la BD sencera (no com a pàgina solta)
-                    enq_db(parent.get("database_id"))
-                    continue
-                title = _page_title(pg) or "Sense títol"
-                if _skip(pid, title):
-                    report["skipped_existing"] += 1
-                    continue
-                blocks = client.get_block_children(pid)
-                meta = {"icon": _emoji_icon(pg.get("icon"))}
-                if loose_types_norm.get(_norm(pid)) == "dashboard":
-                    meta["is_dashboard"] = True
-                write_page({
-                    "id": page_id_for(pid),
-                    "title": title,
-                    "content": blocks_to_md(blocks),
-                    "metadata": meta,
-                })
-                report["pages"] += 1
-                if follow_children:
-                    rdb, rpg = discover_block_refs(blocks)
-                    for d in rdb:
-                        enq_db(d)
-                    for p in rpg:
-                        enq_page(p)
-            except Exception as e:  # noqa: BLE001
-                report["errors"].append({"page": pid, "error": str(e)})
-
-    return report
-
-
 def _page_title(page: Dict[str, Any]) -> str:
+    """Títol d'una pàgina de Notion (valor del camp `title`)."""
     for prop in (page.get("properties") or {}).values():
         if prop.get("type") == "title":
             return rich_text_to_md(prop.get("title"))

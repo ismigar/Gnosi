@@ -138,6 +138,11 @@ async def callback(request: Request):
         "token": access, "refresh_token": tok.get("refresh_token"),
         "token_type": tok.get("token_type")})
     integration_manager.replace_key("notion_mcp_pending", {})  # neteja els pendents
+    try:
+        from backend.services import notion_mcp
+        notion_mcp.reset_health()   # token nou → reobre el tallafoc
+    except Exception:
+        pass
     return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=ok")
 
 
