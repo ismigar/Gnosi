@@ -14,7 +14,7 @@ import { Legend } from '../components/Legend';
 import { Minimap } from '../components/Minimap';
 import { ConnectionList } from '../components/ConnectionList';
 import Graph from 'graphology';
-import { applyFilters, getEffectiveTableId, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
+import { applyFilters, getEffectiveTableId, getSystemCategory, resolveMetaValue, toValueStrings } from '../utils/graphFilters';
 import { useConfigChanged } from '../lib/configEvents';
 
 
@@ -45,6 +45,8 @@ function GraphPage() {
     // Visibility & Configuration (from config.graph)
     const [visibleDatabases, setVisibleDatabases] = useState([]);
     const [visibleTables, setVisibleTables] = useState([]);
+    // Un cop sembrades les fonts (1a càrrega), una selecció buida = "no mostris res".
+    const [sourcesInitialized, setSourcesInitialized] = useState(false);
     const [visibleFields, setVisibleFields] = useState([]); // Array of "tableId:fieldName"
     const [graphTableFiltersSettings, setGraphTableFiltersSettings] = useState([]); // Which tables HAVE a toggle
     const [activeTableFilters, setActiveTableFilters] = useState(new Set()); // Which table toggles are ON
@@ -256,6 +258,8 @@ function GraphPage() {
     useEffect(() => {
         if (!config?.graph) return;
         const g = config.graph;
+        const seeded = !!g.sources_initialized;
+        setSourcesInitialized(seeded);
         if (g.visible_databases) setVisibleDatabases(g.visible_databases);
         if (g.visible_tables) setVisibleTables(g.visible_tables);
         if (g.visible_fields) setVisibleFields(g.visible_fields);
@@ -276,14 +280,67 @@ function GraphPage() {
             ? g.graph_table_filters
             : (g.visible_tables || []);
         setGraphTableFiltersSettings(tableFilters);
-        // Wiki s'inclou si visible_databases és buit (= tot visible) o conté 'wiki'
-        const wikiVisible = !g.visible_databases?.length || g.visible_databases.includes('wiki');
+        // Wiki: un cop sembrades les fonts, només si 'wiki' hi és explícitament;
+        // abans de sembrar mantenim el llegat (buit = tot visible).
+        const wikiVisible = seeded
+            ? g.visible_databases?.includes('wiki')
+            : (!g.visible_databases?.length || g.visible_databases.includes('wiki'));
         setActiveTableFilters(new Set([...(wikiVisible ? ['__wiki__'] : []), ...tableFilters]));
         if (g.show_arrows !== undefined) setShowArrows(g.show_arrows);
         if (g.label_threshold) setLabelThreshold(g.label_threshold);
         if (g.node_size) setNodeSize(g.node_size);
         if (g.edge_thickness) setEdgeThickness(g.edge_thickness);
     }, [config]);
+
+    // Sembra única de fonts: la primera vegada (config sense `sources_initialized`)
+    // marquem TOTES les fonts amb contingut com a visibles i ho persistim. A partir
+    // d'aquí, desactivar-les totes a Configuració deixa el graf BUIT (en comptes de
+    // mostrar-ho tot). Així un usuari nou no veu un graf en blanc per defecte.
+    useEffect(() => {
+        if (!config?.graph || config.graph.sources_initialized) return;
+        const nodes = graphData?.nodes;
+        if (!nodes || nodes.length === 0) return;
+
+        const dbSet = new Set();
+        const tableSet = new Set();
+        nodes.forEach(n => {
+            const sysCat = getSystemCategory(n);
+            if (sysCat) {
+                dbSet.add(sysCat);
+                const eff = getEffectiveTableId(n);
+                if (eff) tableSet.add(eff);
+            } else {
+                const db = n.database_id || n.metadata?.database_id;
+                const tbl = n.table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+                if (db) dbSet.add(db);
+                if (tbl) tableSet.add(tbl);
+            }
+        });
+
+        const seededDbs = [...dbSet];
+        const seededTables = [...tableSet];
+        // Si no hem derivat cap font, no marquem com inicialitzat (evita un graf
+        // permanentment buit si el graf ve sense classificació).
+        if (seededDbs.length === 0 && seededTables.length === 0) return;
+
+        setVisibleDatabases(seededDbs);
+        setVisibleTables(seededTables);
+        setSourcesInitialized(true);
+
+        fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                graph: {
+                    sources_initialized: true,
+                    visible_databases: seededDbs,
+                    visible_tables: seededTables,
+                },
+            }),
+        })
+            .then(() => setConfig(c => (c ? { ...c, graph: { ...c.graph, sources_initialized: true, visible_databases: seededDbs, visible_tables: seededTables } } : c)))
+            .catch(e => console.error('Error sembrant les fonts del graf:', e));
+    }, [config, graphData]);
 
     // (Eliminat l'antic polling d'auto-refresc cada 30s: cridava
     // `POST /api/sync` i `GET /api/graph/version`, dos endpoints que ja no
@@ -362,11 +419,12 @@ function GraphPage() {
         pathResult,
         visibleDatabases,
         visibleTables,
+        sourcesInitialized,
         activeTableFilters,
         fieldFilters,
         graphTableFiltersSettings,
         activeMediaTags
-    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
+    }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, sourcesInitialized, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
     // Només comptem edges "link" (wikilinks) per mantenir coherència amb el que es renderitza.
