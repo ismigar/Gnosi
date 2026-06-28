@@ -554,13 +554,13 @@ button:hover > .row-action-tooltip {
 .home-page__glow--1 {
   top: -10%;
   left: -10%;
-  background: #0066ff;
+  background: var(--gnosi-primary);
 }
 
 .home-page__glow--2 {
   bottom: -10%;
   right: -10%;
-  background: #7000ff;
+  background: var(--gnosi-primary);
 }
 
 .home-page__hero {
@@ -574,14 +574,15 @@ button:hover > .row-action-tooltip {
   font-size: clamp(3rem, 8vw, 5rem);
   font-weight: 800;
   margin-bottom: 1rem;
-  background: linear-gradient(to bottom, #fff, #888);
+  background: linear-gradient(to bottom, var(--text-primary), var(--text-secondary));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .home-page__subtitle {
   font-size: 1.25rem;
-  color: #939393;
+  color: var(--text-secondary);
   max-width: 600px;
 }
 
@@ -601,6 +602,12 @@ button:hover > .row-action-tooltip {
   padding: 2rem;
   border-radius: 20px;
   text-decoration: none;
+  text-align: left;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
   color: var(--text-primary);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
@@ -609,11 +616,17 @@ button:hover > .row-action-tooltip {
   backdrop-filter: blur(10px);
 }
 
-.home-card:hover {
+.home-card:hover,
+.home-card:focus-visible {
   transform: translateY(-8px);
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(var(--gnosi-primary-rgb), 0.06);
+  border-color: rgba(var(--gnosi-primary-rgb), 0.3);
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.home-card:focus-visible {
+  outline: 2px solid var(--gnosi-primary);
+  outline-offset: 2px;
 }
 
 .home-card__icon-wrap {
@@ -628,10 +641,11 @@ button:hover > .row-action-tooltip {
   transition: all 0.3s ease;
 }
 
-.home-card:hover .home-card__icon-wrap {
+.home-card:hover .home-card__icon-wrap,
+.home-card:focus-visible .home-card__icon-wrap {
   transform: scale(1.1);
-  background: white;
-  color: black;
+  background: var(--gnosi-primary);
+  color: #fff;
 }
 
 .home-card__title {
@@ -641,7 +655,7 @@ button:hover > .row-action-tooltip {
 
 .home-card__desc {
   font-size: 0.9375rem;
-  color: #939393;
+  color: var(--text-secondary);
   line-height: 1.5;
 }
 
@@ -652,16 +666,31 @@ button:hover > .row-action-tooltip {
   transition: all 0.3s ease;
 }
 
-.home-card:hover .home-card__arrow {
+.home-card:hover .home-card__arrow,
+.home-card:focus-visible .home-card__arrow {
   opacity: 1;
   transform: translateX(8px);
 }
 
-/* Specific Card Gradients (Subtle) */
-.home-card--graph:hover,
-.home-card--reader:hover,
-.home-card--dashboard:hover,
-.home-card--social:hover { border-color: rgba(var(--gnosi-primary-rgb), 0.3); }
+@media (prefers-reduced-motion: reduce) {
+  .home-card,
+  .home-card__icon-wrap,
+  .home-card__arrow {
+    transition: none;
+  }
+  .home-card:hover,
+  .home-card:focus-visible {
+    transform: none;
+  }
+  .home-card:hover .home-card__icon-wrap,
+  .home-card:focus-visible .home-card__icon-wrap {
+    transform: none;
+  }
+  .home-card:hover .home-card__arrow,
+  .home-card:focus-visible .home-card__arrow {
+    transform: none;
+  }
+}
 
 /* Botons Estàndard Gnosi */
 .btn-gnosi {
