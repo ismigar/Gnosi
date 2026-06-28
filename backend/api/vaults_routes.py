@@ -86,3 +86,26 @@ def create_vault(payload: CreateVaultPayload,
         db.rollback()
         raise HTTPException(status_code=500, detail="Error desant el vault")
     return {"id": v.id, "name": v.name, "path": str(path)}
+
+
+@router.delete("/{vault_id}", dependencies=[Depends(require_role("editor"))])
+def delete_vault(vault_id: str,
+                 ctx: WorkspaceContext = Depends(get_workspace_context),
+                 db: Session = Depends(get_mgmt_db)):
+    """Esborra la FILA d'un vault del registre (no toca cap fitxer del disc). No es pot esborrar
+    el vault actiu ni el principal (el de la ruta per defecte)."""
+    v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vault no trobat")
+    default = str(_default_vault_path())
+    if (v.path_override or "") == str(ctx.vault_path):
+        raise HTTPException(status_code=400, detail="No pots esborrar el vault actiu; canvia'n primer")
+    if (v.path_override or "") == default:
+        raise HTTPException(status_code=400, detail="No pots esborrar el vault principal")
+    db.delete(v)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error esborrant el vault")
+    return {"status": "success", "deleted": vault_id}
