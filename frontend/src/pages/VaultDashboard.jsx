@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { useNavigate, useParams, useNavigationType } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from '../lib/toast';
@@ -37,7 +37,9 @@ import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSche
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
-import TldrawEditor from '../components/Vault/TldrawEditor';
+// L'editor de dibuix (tldraw) és molt pesat i només s'usa en mode 'drawing':
+// el carreguem mandrosament perquè no entri al chunk del Vault.
+const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
 
 // La taula de referències ja NO es detecta per heurística (nom o columna
 // "Citation Key") sinó per la designació de Settings — backend
@@ -3379,17 +3381,19 @@ export default function VaultDashboard() {
                     ) : viewMode === 'drawing' ? (
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {activeTabId ? (
-                                <TldrawEditor
-                                    key={activeTabId}
-                                    drawingId={activeTabId}
-                                    title={tabs.find(t => t.id === activeTabId)?.title}
-                                    onClose={() => {
-                                        handleTabClose(activeTabId);
-                                        setViewMode('editor');
-                                    }}
-                                    onSaveSuccess={() => { }}
-                                    onOpenPage={(pageId) => { setViewMode('editor'); loadPage(pageId); }}
-                                />
+                                <Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-[var(--text-secondary)] animate-pulse">Carregant editor de dibuix…</div>}>
+                                    <TldrawEditor
+                                        key={activeTabId}
+                                        drawingId={activeTabId}
+                                        title={tabs.find(t => t.id === activeTabId)?.title}
+                                        onClose={() => {
+                                            handleTabClose(activeTabId);
+                                            setViewMode('editor');
+                                        }}
+                                        onSaveSuccess={() => { }}
+                                        onOpenPage={(pageId) => { setViewMode('editor'); loadPage(pageId); }}
+                                    />
+                                </Suspense>
                             ) : (
                                 <VaultDrawings
                                     onDrawingSelect={(id, title) => {

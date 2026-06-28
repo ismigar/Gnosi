@@ -95,6 +95,45 @@ export default defineConfig(({ mode }) => {
         ).version,
       ),
     },
+    build: {
+      // Separem els vendors grans en chunks propis perquè (1) el chunk
+      // principal no creixi sense control i dispari l'avís dels 500 kB, i
+      // (2) cada llibreria es cacheï independentment entre desplegaments.
+      // Les rutes pesades ja es carreguen amb React.lazy (vegeu src/App.jsx);
+      // aquests grups asseguren que les dependències compartides entre rutes
+      // (p.ex. blocknote a Vault i a MailComposer) no es dupliquin.
+      // Els chunks que encara superen 500 kB (editor-vendor ~1,4 MB,
+      // tldraw-vendor ~1,1 MB) són vendors pesats carregats NOMÉS sota demanda
+      // (editor del Vault / dibuix tldraw), no a l'arrencada. Pugem el llindar
+      // perquè l'avís no soroll·legi pels chunks lazy esperats; el chunk
+      // inicial (index) ja ha baixat de ~7 MB a ~1 MB.
+      chunkSizeWarningLimit: 1500,
+      rollupOptions: {
+        output: {
+          // NOTA: deixem React (react/react-dom/router) al chunk principal a
+          // posta. Extreure'l a un chunk propi creava cicles
+          // (react-vendor ↔ editor-vendor) perquè els vendors que en depenen el
+          // tornen a referenciar; el cicle forçaria el chunk de l'editor a la
+          // càrrega inicial. Només aïllem llibreries "fulla" pesades que NOMÉS
+          // s'arriben per rutes mandroses, de manera que no entren a l'inici.
+          manualChunks(id) {
+            if (!id.includes("node_modules")) return undefined;
+            // Editor de text ric + el seu pont Mantine (només l'usa blocknote):
+            // és el grup més pesat fora de mermaid i tldraw.
+            if (
+              /[\\/]node_modules[\\/](@blocknote|@tiptap|prosemirror-|@mantine)/.test(id)
+            ) {
+              return "editor-vendor";
+            }
+            if (/[\\/]node_modules[\\/]tldraw[\\/]/.test(id)) return "tldraw-vendor";
+            if (/[\\/]node_modules[\\/]@fullcalendar[\\/]/.test(id)) return "calendar-vendor";
+            if (/[\\/]node_modules[\\/](sigma|graphology)/.test(id)) return "graph-vendor";
+            if (/[\\/]node_modules[\\/](react-pdf|pdfjs-dist)[\\/]/.test(id)) return "pdf-vendor";
+            return undefined;
+          },
+        },
+      },
+    },
     server: {
       host: true, // Ensure it listens on 0.0.0.0
       port: Number(frontendPort),
