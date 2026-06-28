@@ -1,8 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { GlobalSettingsModal } from './GlobalSettingsModal';
+// El modal de Configuració arrossega el BlockEditor (blocknote/tiptap) i altres
+// vistes pesades. Carregant-lo mandrosament evitem que aquestes llibreries
+// entrin al bundle inicial només perquè la barra lateral hi referencia el modal.
+const GlobalSettingsModal = lazy(() =>
+  import('./GlobalSettingsModal').then((m) => ({ default: m.GlobalSettingsModal })),
+);
 import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
@@ -206,11 +211,13 @@ export function AppSidebar() {
 
             {/* Global Settings Modal */}
             {settingsOpen && (
-                <GlobalSettingsModal
-                    isOpen={settingsOpen}
-                    onClose={() => { setSettingsOpen(false); setTimeout(() => window.location.reload(), 400); }}
-                    initialTab={settingsTab}
-                />
+                <Suspense fallback={null}>
+                    <GlobalSettingsModal
+                        isOpen={settingsOpen}
+                        onClose={() => { setSettingsOpen(false); setTimeout(() => window.location.reload(), 400); }}
+                        initialTab={settingsTab}
+                    />
+                </Suspense>
             )}
         </>
     );

@@ -1,20 +1,30 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppSidebar } from './components/AppSidebar';
-import GraphPage from './pages/GraphPage';
-import Dashboard from './pages/Dashboard';
-import SocialDashboard from './pages/SocialDashboard';
-import CalendarPage from './pages/CalendarPage';
-import VaultDashboard from './pages/VaultDashboard';
-import { ZoteroReaderPage } from './components/Vault/ZoteroReaderTab';
-import ReaderDashboard from './pages/ReaderDashboard';
 import HomePage from './pages/HomePage';
-import MailPage from './pages/MailPage';
-import MediaCenter from './pages/MediaCenter';
-import ContactsPage from './pages/ContactsPage';
 
-import SchedulerPage from './pages/SchedulerPage';
-import ComposerPage from './pages/ComposerPage';
+// ── Rutes carregades mandrosament (code-splitting) ──────────────────────────
+// Cada pàgina pesada arrossega llibreries grans (BlockEditor→blocknote/tiptap,
+// GraphPage→sigma/graphology, MailPage→react-pdf, CalendarPage→fullcalendar,
+// MediaCenter→framer-motion). Importar-les amb React.lazy les treu del bundle
+// inicial: el navegador només baixa el chunk de la ruta quan s'hi navega.
+// HomePage queda EAGER perquè és l'arrencada més habitual (sense flaix de
+// Suspense a l'inici).
+const GraphPage = lazy(() => import('./pages/GraphPage'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const SocialDashboard = lazy(() => import('./pages/SocialDashboard'));
+const CalendarPage = lazy(() => import('./pages/CalendarPage'));
+const VaultDashboard = lazy(() => import('./pages/VaultDashboard'));
+const ZoteroReaderPage = lazy(() =>
+  import('./components/Vault/ZoteroReaderTab').then((m) => ({ default: m.ZoteroReaderPage })),
+);
+const ReaderDashboard = lazy(() => import('./pages/ReaderDashboard'));
+const MailPage = lazy(() => import('./pages/MailPage'));
+const MediaCenter = lazy(() => import('./pages/MediaCenter'));
+const ContactsPage = lazy(() => import('./pages/ContactsPage'));
+const SchedulerPage = lazy(() => import('./pages/SchedulerPage'));
+const ComposerPage = lazy(() => import('./pages/ComposerPage'));
+const SharedPage = lazy(() => import('./pages/SharedPage'));
 import { Toaster } from './lib/toast';
 
 import AgentChat from './components/AgentChat';
@@ -26,7 +36,16 @@ import { useTheme } from './hooks/useTheme';
 import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/Auth/LoginPage';
-import SharedPage from './pages/SharedPage';
+
+// Fallback mentre es baixa el chunk d'una ruta mandrosa. Discret i centrat,
+// reutilitzant l'estil del bootstrap d'auth perquè no hi hagi salt visual.
+function RouteFallback() {
+  return (
+    <div className="flex h-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
+      <div className="animate-pulse text-sm">Carregant…</div>
+    </div>
+  );
+}
 
 function App() {
   const { effectiveTheme } = useTheme();
@@ -58,9 +77,11 @@ function App() {
   if (window.location.pathname.startsWith('/s/')) {
     return (
       <>
-        <Routes>
-          <Route path="/s/:token" element={<SharedPage />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/s/:token" element={<SharedPage />} />
+          </Routes>
+        </Suspense>
         <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
       </>
     );
@@ -79,6 +100,7 @@ function App() {
 
       {/* Contingut principal */}
       <div id="page-content-scroll" className="flex-1 overflow-y-auto overflow-x-hidden bg-[var(--bg-secondary)] transition-colors duration-300">
+        <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/dashboard" element={<Dashboard />} />
@@ -99,6 +121,7 @@ function App() {
               l'historial). */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        </Suspense>
       </div>
       {/* z-index per sobre de tots els overlays modals (GlobalSettingsModal:10000,
           ZoteroMappingModal i AIAgentModal:100000). Sense això, els toasts
