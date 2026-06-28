@@ -103,9 +103,27 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
 
     return membership.workspace_id
 
+def _resolve_personal_vault(db: Session, ws_id: str, x_vault_id: Optional[str],
+                            default_vault_path: Path) -> Path:
+    """Mode personal multi-vault: si s'indica `X-Vault-Id` i és un Vault vàlid del workspace
+    personal, en retorna la ruta; altrament, el vault per defecte (compatibilitat enrere)."""
+    if not x_vault_id:
+        return default_vault_path
+    v = db.query(Vault).filter(Vault.id == x_vault_id, Vault.workspace_id == ws_id).first()
+    if not v or not v.path_override:
+        return default_vault_path
+    p = Path(v.path_override)
+    try:
+        p.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return default_vault_path
+    return p
+
+
 def get_workspace_context(
     x_workspace_id: Optional[str] = Header(None),
     x_user_id: Optional[str] = Header(None),
+    x_vault_id: Optional[str] = Header(None),
     db: Session = Depends(get_mgmt_db),
     auth_uid: Optional[str] = Depends(get_current_user_id),
 ) -> WorkspaceContext:
@@ -119,15 +137,16 @@ def get_workspace_context(
     from backend.services.auth_service import get_user_id_or_legacy
     resolved_user_id = get_user_id_or_legacy(auth_uid, x_user_id)
 
-    # MODE PERSONAL: Simplificació total
+    # MODE PERSONAL: un workspace, però multi-vault opcional (X-Vault-Id; per defecte el principal)
     if params.gnosi_mode == "personal":
         ws_id = _ensure_personal_exists(db, resolved_user_id, default_vault_path)
-        active_vault_path.set(default_vault_path)
+        vpath = _resolve_personal_vault(db, ws_id, x_vault_id, default_vault_path)
+        active_vault_path.set(vpath)
         return WorkspaceContext(
             workspace_id=ws_id,
             user_id=resolved_user_id,
             role="owner",
-            vault_path=default_vault_path
+            vault_path=vpath
         )
 
     # MODE ORG: substitueix x_user_id per resolved_user_id a partir d'aquí.

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Database, Link2, Check, Loader, Unlink, Settings } from 'lucide-react';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
+import VaultSwitcher from './VaultSwitcher';
 
 /**
  * Clon de Notion → Vault. Connecta amb un token d'integració + l'MCP allotjat (OAuth) i fa un
@@ -19,6 +20,7 @@ export default function NotionImportSettings() {
     const [selected, setSelected] = useState(new Set());
     const [folder, setFolder] = useState('Clon Notion');
     const [report, setReport] = useState(null);
+    const [verify, setVerify] = useState(null);
     const [mcpConnected, setMcpConnected] = useState(false);
     const [schemaOverrides, setSchemaOverrides] = useState({});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
@@ -129,6 +131,18 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
+    const runVerify = async () => {
+        setBusy('verify'); setError(''); setVerify(null);
+        try {
+            const { data } = await axios.post('/api/notion/verify-clone', {
+                database_ids: databases.length ? Array.from(selected) : null,
+                target_folder: folder.trim() || 'Clon Notion',
+            }, { timeout: 0 });  // recompta totes les files de Notion: sense timeout
+            setVerify(data);
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
+
     const card = { marginTop: 32, padding: 24, borderRadius: 24, border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' };
     const inp = { background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 10, padding: '9px 12px', fontSize: '0.85rem' };
 
@@ -143,6 +157,8 @@ export default function NotionImportSettings() {
                     </div>
                 </div>
             </div>
+
+            <VaultSwitcher />
 
             {connected === null && <div style={{ color: 'var(--text-tertiary)', padding: 8 }}>Carregant…</div>}
 
@@ -304,6 +320,38 @@ export default function NotionImportSettings() {
                             )}
                             {report.errors?.length > 0 && (
                                 <div style={{ marginTop: 6, color: '#e0a52e' }}>{report.errors.length} errors (revisa els logs)</div>
+                            )}
+                            <button onClick={runVerify} disabled={busy === 'verify'}
+                                style={{ ...inp, marginTop: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px' }}
+                                title="Compara Notion ↔ clon: recompte per BD, cossos buits, relacions òrfenes, vistes i adjunts.">
+                                {busy === 'verify' ? <Loader size={14} className="animate-spin" /> : <Check size={14} />}
+                                {busy === 'verify' ? 'Verificant…' : 'Verifica el clon'}
+                            </button>
+                        </div>
+                    )}
+
+                    {verify && (
+                        <div style={{ marginTop: 14, padding: 14, borderRadius: 12, fontSize: '0.85rem', color: 'var(--text-primary)',
+                            background: 'var(--bg-primary)', border: `1px solid ${verify.summary?.healthy ? 'var(--gnosi-primary)' : '#e0a52e'}` }}>
+                            <div style={{ fontWeight: 800, marginBottom: 8 }}>
+                                {verify.summary?.healthy ? '✅ Clon saludable' : '⚠️ Clon amb incidències'}
+                            </div>
+                            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
+                                <span>BD OK: <b>{verify.summary?.tables_ok}/{verify.summary?.tables_total}</b></span>
+                                <span>Pàgines: <b>{verify.summary?.pages}</b></span>
+                                <span>Vistes: <b>{verify.summary?.views}</b></span>
+                                <span style={{ color: verify.summary?.empty_bodies ? '#e0a52e' : 'inherit' }}>Cossos buits: <b>{verify.summary?.empty_bodies}</b></span>
+                                <span style={{ color: verify.summary?.orphan_relations ? '#e0a52e' : 'inherit' }}>Relacions òrfenes: <b>{verify.summary?.orphan_relations}</b></span>
+                                <span style={{ color: verify.summary?.missing_assets ? '#e0a52e' : 'inherit' }}>Adjunts que falten: <b>{verify.summary?.missing_assets}</b></span>
+                            </div>
+                            {(verify.tables || []).filter(t => !t.ok).length > 0 && (
+                                <div style={{ display: 'grid', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
+                                    {verify.tables.filter(t => !t.ok).map((t, i) => (
+                                        <div key={i} style={{ color: '#e0a52e', fontSize: '0.8rem' }}>
+                                            ⚠️ Una BD: Notion <b>{t.notion}</b> · clon <b>{t.clone}</b> {t.missing > 0 ? `(falten ${t.missing})` : ''}
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
                     )}

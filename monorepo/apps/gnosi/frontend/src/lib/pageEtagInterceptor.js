@@ -60,6 +60,12 @@ export function installPageEtagInterceptor() {
     // Request: auto-attach expected_etag on PATCH/PUT to /pages/{id}
     axios.interceptors.request.use((config) => {
         try {
+            // Mode personal multi-vault: el vault actiu triat es propaga a CADA petició
+            // (sense res triat → el backend usa el vault principal: compatibilitat enrere).
+            try {
+                const vid = typeof localStorage !== 'undefined' ? localStorage.getItem('gnosi_active_vault') : null;
+                if (vid) config.headers = { ...(config.headers || {}), 'X-Vault-Id': vid };
+            } catch { /* localStorage no disponible */ }
             const method = (config.method || 'get').toLowerCase();
             if (method !== 'patch' && method !== 'put') return config;
             const pageId = extractPageId(config.url);
