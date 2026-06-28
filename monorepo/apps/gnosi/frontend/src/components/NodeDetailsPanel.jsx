@@ -60,15 +60,15 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
             right: 0,
             width: '400px',
             height: '100%',
-            backgroundColor: 'var(--panel-bg, #fff)',
+            backgroundColor: 'var(--bg-primary)',
             boxShadow: '-2px 0 10px rgba(0,0,0,0.1)',
             zIndex: 1000,
             padding: '20px',
             overflowY: 'auto',
             transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
             transition: 'transform 0.3s ease-in-out',
-            borderLeft: '1px solid var(--border-color, #eee)',
-            color: 'var(--text-color, #333)'
+            borderLeft: '1px solid var(--border-primary)',
+            color: 'var(--text-primary)'
         }}>
             {/* Top Actions: Close */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginBottom: '10px', gap: '10px' }}>
@@ -99,7 +99,7 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
 
                         {/* Media Preview (New) */}
                         {(data.kind === 'media' || data.url?.match(/\.(jpg|jpeg|png|webp|gif|svg)$/i)) && (
-                            <div style={{ marginBottom: '20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid #eee' }}>
+                            <div style={{ marginBottom: '20px', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border-primary)' }}>
                                 <img 
                                     src={data.url} 
                                     alt={displayTitle} 
@@ -113,8 +113,8 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '15px' }}>
                             {data.tags && data.tags.map(tag => (
                                 <span key={typeof tag === 'string' ? tag : tag.name || tag} style={{
-                                    backgroundColor: '#e0e0e0',
-                                    color: '#333',
+                                    backgroundColor: 'var(--bg-tertiary)',
+                                    color: 'var(--text-primary)',
                                     padding: '2px 8px',
                                     borderRadius: '12px',
                                     fontSize: '0.8rem'
@@ -125,21 +125,21 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
                         </div>
 
                         {data.last_edited_time && (
-                            <div style={{ fontSize: '0.8rem', color: '#888' }}>
+                            <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
                                 Actualitzat: {new Date(data.last_edited_time).toLocaleDateString()}
                             </div>
                         )}
                     </div>
 
                     {/* Content Body */}
-                    {loading && <div style={{ marginBottom: '20px', color: '#aaa' }}>Acabant de carregar contingut...</div>}
+                    {loading && <div style={{ marginBottom: '20px', color: 'var(--text-tertiary)' }}>Acabant de carregar contingut...</div>}
 
                     <div className="markdown-body" style={{
                         lineHeight: '1.6',
                         fontSize: '0.95rem',
                         whiteSpace: 'pre-wrap'
                     }}>
-                        {data.content ? data.content : (!loading && <em style={{ color: '#888' }}>Sense contingut...</em>)}
+                        {data.content ? data.content : (!loading && <em style={{ color: 'var(--text-tertiary)' }}>Sense contingut...</em>)}
                     </div>
                 </div>
             )}

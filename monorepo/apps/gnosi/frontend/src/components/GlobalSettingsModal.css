@@ -240,3 +240,10 @@
 .settings-sidebar__item.active svg {
     opacity: 1 !important;
 }
+
+/* Hover temàtic per a les files/botons del FolderPickerModal.
+   Substitueix `hover:bg-zinc-800` (fons fosc fix que trencava el mode clar)
+   per un hover que segueix el tema actiu. */
+.folder-picker-item:hover {
+    background: var(--sidebar-item-hover) !important;
+}

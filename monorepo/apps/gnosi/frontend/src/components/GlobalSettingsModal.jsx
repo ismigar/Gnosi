@@ -257,7 +257,7 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
                     <span style={{
                         fontSize: '0.68rem', padding: '5px 14px', borderRadius: '20px',
                         background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : status === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
-                        color: status === 'connected' ? '#10b981' : status === 'error' ? '#ef4444' : '#f59e0b', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
+                        color: status === 'connected' ? 'var(--status-success)' : status === 'error' ? 'var(--status-error)' : 'var(--status-warning)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
                     }}>
                         {status === 'connected' ? 'Connectat' : status === 'error' ? 'Error' : 'Pendent'}
                     </span>
@@ -283,7 +283,7 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
                 {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
             <button onClick={onEdit} aria-label="Editar compte" title="Editar compte" className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
-            <button onClick={onDelete} aria-label="Eliminar compte" title="Eliminar compte" className="icon-btn hover-bg-danger" style={{ color: '#ef4444', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
+            <button onClick={onDelete} aria-label="Eliminar compte" title="Eliminar compte" className="icon-btn hover-bg-danger" style={{ color: 'var(--status-error)', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
         </div>
     </div>
 );
@@ -3036,7 +3036,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 }>
                                     <input ref={newsletterOpmlRef} type="file" accept=".opml,.xml" onChange={(e) => handleNewsletterOpmlUpload(e.target.files?.[0])} style={{ display: 'none' }} />
                                     {newsletterSourcesError && (
-                                        <div style={{ marginBottom: '20px', padding: '14px 20px', borderRadius: '14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: '#dc2626', fontSize: '0.9rem' }}>{newsletterSourcesError}</div>
+                                        <div style={{ marginBottom: '20px', padding: '14px 20px', borderRadius: '14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-error)', fontSize: '0.9rem' }}>{newsletterSourcesError}</div>
                                     )}
 
                                     {/* FORMULARI DINÀMIC ÚNIC */}
@@ -3197,7 +3197,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             }
                                                         }
                                                     });
-                                                }} style={{ color: '#ef4444', border: 'none', background: 'transparent', cursor: 'pointer', padding: '12px', borderRadius: '12px' }} className="hover-bg-danger"><Trash2 size={24} /></button>
+                                                }} style={{ color: 'var(--status-error)', border: 'none', background: 'transparent', cursor: 'pointer', padding: '12px', borderRadius: '12px' }} className="hover-bg-danger"><Trash2 size={24} /></button>
                                             </div>
                                         ))}
                                     </div>
@@ -3672,7 +3672,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 style={{ 
                                                                     padding: '14px 28px', borderRadius: '18px', fontWeight: '900', border: 'none',
                                                                     background: aiValidationStatus[pId] === 'success' ? '#10b98120' : (aiValidationStatus[pId] === 'error' ? '#ef444420' : 'var(--settings-border)'),
-                                                                    color: aiValidationStatus[pId] === 'success' ? '#10b981' : (aiValidationStatus[pId] === 'error' ? '#ef4444' : 'var(--text-primary)'),
+                                                                    color: aiValidationStatus[pId] === 'success' ? 'var(--status-success)' : (aiValidationStatus[pId] === 'error' ? 'var(--status-error)' : 'var(--text-primary)'),
                                                                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                                                                     opacity: p.enabled === false ? 0.5 : 1,
                                                                     whiteSpace: 'nowrap'
@@ -3701,7 +3701,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 aria-label={`Eliminar ${pName}`}
                                                                 title={`Eliminar ${pName}`}
                                                                 className="icon-btn hover-bg-strong"
-                                                                style={{ padding: '14px', borderRadius: '16px', color: '#ef4444' }}
+                                                                style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}
                                                             >
                                                                 <Trash2 size={22} />
                                                             </button>
@@ -3792,7 +3792,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     fontSize: '0.85rem', color: 'var(--text-primary)'
                                                 }}>
                                                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
-                                                        <Check size={16} style={{ color: '#10b981' }} />
+                                                        <Check size={16} style={{ color: 'var(--status-success)' }} />
                                                         {t('translate_settings.deepl_configured') || 'API key configurada al Keychain'}
                                                     </span>
                                                     <button
@@ -3802,7 +3802,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         style={{
                                                             padding: '4px 12px', fontSize: '0.78rem', fontWeight: 700,
                                                             border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px',
-                                                            background: 'transparent', color: '#ef4444', cursor: 'pointer',
+                                                            background: 'transparent', color: 'var(--status-error)', cursor: 'pointer',
                                                             opacity: translateState.saving_deepl ? 0.5 : 1,
                                                         }}
                                                     >

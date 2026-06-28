@@ -28,14 +28,14 @@ export function ForcesSection({
 
     const labelStyle = {
         fontSize: '0.85rem',
-        color: '#666',
+        color: 'var(--text-secondary)',
         display: 'block',
         marginBottom: '4px'
     };
 
     const valueStyle = {
         fontSize: '0.75rem',
-        color: '#888',
+        color: 'var(--text-tertiary)',
         marginLeft: '8px'
     };
 
@@ -54,7 +54,7 @@ export function ForcesSection({
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onLinLogModeChange(!linLogMode)}>
-                    Mode Núvol (LinLog) - <span style={{ fontSize: '0.7rem', color: '#999' }}>Millor per clústers</span>
+                    Mode Núvol (LinLog) - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Millor per clústers</span>
                 </label>
             </div>
 
@@ -138,7 +138,7 @@ export function ForcesSection({
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onStrongGravityModeChange(!strongGravityMode)}>
-                    Gravetat forta - <span style={{ fontSize: '0.7rem', color: '#999' }}>Evita que els orfes escapin</span>
+                    Gravetat forta - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Evita que els orfes escapin</span>
                 </label>
             </div>
 
@@ -151,11 +151,11 @@ export function ForcesSection({
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onOutboundAttractionDistributionChange(!outboundAttractionDistribution)}>
-                    Distribuir atracció per grau - <span style={{ fontSize: '0.7rem', color: '#999' }}>Comprimeix hubs (off = radial tipus Obsidian)</span>
+                    Distribuir atracció per grau - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>Comprimeix hubs (off = radial tipus Obsidian)</span>
                 </label>
             </div>
 
-            <div style={{ fontSize: '0.7rem', color: '#999', marginTop: '8px', fontStyle: 'italic' }}>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', fontStyle: 'italic' }}>
                 Nota: Canviar aquests valors reiniciarà la simulació física.
             </div>
         </CollapsibleSection>
