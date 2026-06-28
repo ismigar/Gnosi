@@ -9,6 +9,7 @@ const GlobalSettingsModal = lazy(() =>
   import('./GlobalSettingsModal').then((m) => ({ default: m.GlobalSettingsModal })),
 );
 import { WorkspaceSwitcher } from './Navigation/WorkspaceSwitcher';
+import VaultMenu from './VaultMenu';
 import { useAuth } from '../context/AuthContext';
 import { toast } from '../lib/toast';
 
@@ -168,6 +169,7 @@ export function AppSidebar() {
                 </div>
 
                 <div className="app-sidebar__footer">
+                    {gnosiMode === 'personal' && <VaultMenu />}
                     <NavLink
                         to="/dashboard"
                         title={t('sidebar.nav_dashboard')}

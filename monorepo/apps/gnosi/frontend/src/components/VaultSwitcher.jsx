@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Database, Plus, Check, Loader } from 'lucide-react';
+import { Database, Plus, Check, Loader, Trash2 } from 'lucide-react';
 
 /**
  * Selector de vault (mode personal multi-vault). Llista els vaults, permet crear-ne de nous i
@@ -40,6 +40,16 @@ export default function VaultSwitcher() {
         finally { setBusy(''); }
     };
 
+    const remove = async (v) => {
+        if (!window.confirm(`Esborrar el vault «${v.name}» del registre? (no esborra cap fitxer del disc)`)) return;
+        setBusy('del:' + v.id); setError('');
+        try {
+            await axios.delete(`/api/vaults/${v.id}`);
+            await load();
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
+
     const inp = { background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 10, padding: '7px 12px', fontSize: '0.85rem' };
 
     return (
@@ -49,12 +59,20 @@ export default function VaultSwitcher() {
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {vaults.map(v => (
-                    <button key={v.id} onClick={() => !v.active && switchTo(v.id)} title={v.path}
-                        style={{ ...inp, cursor: v.active ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
-                            border: `1px solid ${v.active ? 'var(--gnosi-primary)' : 'var(--settings-border)'}`,
-                            color: v.active ? 'var(--gnosi-primary)' : 'var(--text-primary)', fontWeight: v.active ? 700 : 400 }}>
-                        {v.active && <Check size={13} />}{v.name}
-                    </button>
+                    <div key={v.id} style={{ display: 'flex', alignItems: 'center', gap: 0, borderRadius: 10,
+                        border: `1px solid ${v.active ? 'var(--gnosi-primary)' : 'var(--settings-border)'}`, overflow: 'hidden' }}>
+                        <button onClick={() => !v.active && switchTo(v.id)} title={v.path}
+                            style={{ ...inp, border: 'none', borderRadius: 0, cursor: v.active ? 'default' : 'pointer', display: 'flex', alignItems: 'center', gap: 6,
+                                color: v.active ? 'var(--gnosi-primary)' : 'var(--text-primary)', fontWeight: v.active ? 700 : 400 }}>
+                            {v.active && <Check size={13} />}{v.name}
+                        </button>
+                        {!v.active && (
+                            <button onClick={() => remove(v)} disabled={busy === 'del:' + v.id} title="Esborra aquest vault del registre"
+                                style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--settings-border)', cursor: 'pointer', padding: '7px 8px', color: 'var(--text-tertiary)', display: 'flex' }}>
+                                {busy === 'del:' + v.id ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                            </button>
+                        )}
+                    </div>
                 ))}
                 {creating ? (
                     <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
