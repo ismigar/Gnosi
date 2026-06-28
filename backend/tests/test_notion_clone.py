@@ -246,6 +246,38 @@ class FakeRestSub:
                 "properties": {"title": {"type": "title", "title": [{"plain_text": t, "type": "text"}]}}}
 
 
+class FakeRestLooseViews:
+    """Dues pàgines soltes: una amb vista incrustada, una sense."""
+    DB = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    def list_users(self): return {}
+    def search_databases(self): return []
+    def get_database(self, i): return {}
+    def query_database(self, i): return []
+    def get_block_children(self, pid): return []
+    def get_page(self, pid):
+        t = {"wiki-page": "Wiki", "dash-page": "Tauler"}.get(pid, "?")
+        return {"id": pid, "icon": None,
+                "properties": {"title": {"type": "title", "title": [{"plain_text": t, "type": "text"}]}}}
+
+
+def test_loose_page_with_embedded_views_is_dashboard():
+    def fetch_page(pid):
+        if pid == "dash-page":
+            return ('<content>\nText\n<database url="https://notion.so/p/'
+                    + FakeRestLooseViews.DB + '" inline="true"></database>\n</content>')
+        return '<content>\nNomés text.\n</content>'
+    pages = []
+    clone_workspace(FakeRestLooseViews(), fetch_page=fetch_page,
+                    mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
+                    write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+                    database_ids=[], follow_subpages=False,
+                    loose_page_types={"wiki-page": "wiki", "dash-page": "wiki"})  # totes "wiki"
+    dash = next(p for p in pages if p["title"] == "Tauler")["metadata"]
+    wiki = next(p for p in pages if p["title"] == "Wiki")["metadata"]
+    assert dash.get("is_dashboard") is True       # té vista incrustada → dashboard (tot i "wiki")
+    assert "is_dashboard" not in wiki              # sense vista → wiki
+
+
 def test_clone_follows_subpages_recursively_cycle_safe():
     pages = []
     rep = clone_workspace(FakeRestSub(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",

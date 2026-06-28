@@ -307,17 +307,21 @@ def clone_workspace(
             report["errors"].append({"page": row.get("id"), "error": str(e)})
 
     def _clone_standalone(pid, page, extra_meta):
-        """Clona una pàgina autònoma (solta o sub-pàgina): cos+vistes via MCP, adjunts, icona+portada."""
+        """Clona una pàgina autònoma (solta o sub-pàgina): cos+vistes via MCP, adjunts, icona+portada.
+        Si té vistes incrustades (linked database views) → és un DASHBOARD."""
         title = _page_title(page) or "Sense títol"
         body = ""
+        has_views = False
         try:
             page_md = fetch_page(pid)
             body = mcp_to_markdown(page_md) if page_md else ""
+            has_views = "gnosi-notion-db:" in body   # marcadors d'embedded db abans de resoldre
             host_pid = str(pid).replace("-", "")
             body, gviews = resolve_view_markers(
                 body, host_pid, "",
                 fetch_view=fetch_page,
                 resolve_clone_table=lambda n: clone_tables_by_name.get(nvr._strip_icon(n)))
+            has_views = has_views or bool(gviews)
             for gv in gviews:
                 write_view(gv)
                 report["views"] += 1
@@ -328,6 +332,8 @@ def clone_workspace(
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"page": pid, "stage": "mcp", "error": str(e)})
         meta = dict(extra_meta or {})
+        if has_views:
+            meta["is_dashboard"] = True   # pàgina solta amb vistes incrustades = dashboard
         report["attachments"] += _apply_icon_cover(meta, page, {"name": "Pàgines"}, save_asset)
         write_page({"id": clone_page_id(pid), "title": title, "content": body, "metadata": meta})
         report["pages"] += 1
