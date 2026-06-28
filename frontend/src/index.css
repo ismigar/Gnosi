@@ -658,10 +658,10 @@ button:hover > .row-action-tooltip {
 }
 
 /* Specific Card Gradients (Subtle) */
-.home-card--graph:hover { border-color: rgba(0, 102, 255, 0.3); }
-.home-card--reader:hover { border-color: rgba(0, 212, 255, 0.3); }
-.home-card--dashboard:hover { border-color: rgba(112, 0, 255, 0.3); }
-.home-card--social:hover { border-color: rgba(255, 0, 112, 0.3); }
+.home-card--graph:hover,
+.home-card--reader:hover,
+.home-card--dashboard:hover,
+.home-card--social:hover { border-color: rgba(var(--gnosi-primary-rgb), 0.3); }
 
 /* Botons Estàndard Gnosi */
 .btn-gnosi {
