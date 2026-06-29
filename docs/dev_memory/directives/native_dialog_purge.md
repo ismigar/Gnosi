@@ -31,5 +31,20 @@ Native dialogs are:
 ## 5. Lessons Learned
 *"Note: Using window.confirm in an async handler without a try-catch can crash the UI state if the dialog is blocked by the browser."*
 
+*"Cerca SEMPRE les dues formes: `window.confirm/alert/prompt` I les **pelades** sense prefix (`confirm(...)`, `alert(...)`, `prompt(...)`) — són el mateix objecte global. Un recompte que només busca `window.` se'n deixa la majoria (en una sessió, 10 amb `window.` vs 12 més pelades)."*
+
+*"Per als `prompt` cal un modal d'input; usa el component reutilitzable `PromptModal.jsx` (controlat: `isOpen`/`onClose`/`onSubmit(valor)`), germà de `ConfirmModal.jsx`. Per a `alert` → `toast.error` (wrapper `src/lib/toast`)."*
+
+*"Patró de refactor confirm→modal: el handler síncron `if(!confirm())return; …` es parteix en `handleX` (només obre: `setConfirmTarget(payload)`) i `doX` async (la lògica original, executada des de `onConfirm`). Captura el payload/context a l'estat en obrir, perquè `doX` corre més tard (clau en callbacks d'editor com BlockEditor)."*
+
+## 6. Components canòniques
+- `src/components/ConfirmModal.jsx` — confirmacions binàries (`isDestructive` per a accions perilloses).
+- `src/components/PromptModal.jsx` — entrada de text (substitut de `window.prompt`).
+- `src/lib/toast` — `toast.error` / `toast.success` (substitut de `window.alert`).
+
+## 7. Purga completa (sessió 2026-06-29)
+Purgats: `VaultSwitcher`, `Dashboard` (3 confirm + 1 confirm pelat + member), `ContentCalendar`, `WorkspaceMembersPanel`, `DbViewEmbed` (confirm+prompt+alert), `SchemaConfigModal` (prompt), `BlockEditor` (prompt), i `alert` pelats a `SettingsModal`, `GlobalSettingsModal`, `social/Composer`, `VaultTable`, `ContactsPage`. Verificat: grep net + `npm run build` OK. (`MediaCenter` i `VaultTrashView` ja estaven fets.)
+
 ---
 *Updated after a protocol failure detected in session ce6003d5.*
+*Ampliat 2026-06-29: PromptModal + lliçó dels diàlegs pelats + purga completa.*

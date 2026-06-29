@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Calendar as CalendarIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
 import Scheduler from './Scheduler';
+import { toast } from '../../lib/toast';
 
 const NETWORK_STYLES = {
     mastodon: { color: 'bg-purple-600', border: 'border-purple-500/50' },
@@ -64,13 +65,13 @@ const Composer = () => {
                 ? 'Post published successfully!'
                 : `Post scheduled for ${scheduledTime.toLocaleString()}`;
 
-            alert(message);
+            toast.error(message);
             setContent('');
             setScheduledTime(null);
             setShowScheduler(false);
         } catch (error) {
             console.error(error);
-            alert(`Error: ${error.message}`);
+            toast.error(`Error: ${error.message}`);
         } finally {
             setIsPosting(false);
         }

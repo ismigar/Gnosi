@@ -7,6 +7,7 @@ import ContactDetail from '../components/Contacts/ContactDetail';
 import ContactForm from '../components/Contacts/ContactForm';
 import { AppHeader } from '../components/AppHeader';
 import ConfirmModal from '../components/ConfirmModal';
+import { toast } from '../lib/toast';
 
 export default function ContactsPage() {
     const { t } = useTranslation();
@@ -111,7 +112,7 @@ export default function ContactsPage() {
             setDeleteModal({ isOpen: false, contactId: null });
         } catch (error) {
             console.error('Error deleting contact:', error);
-            alert(t('errors.delete_contact', 'Error al eliminar el contacte: ') + error.message);
+            toast.error(t('errors.delete_contact', 'Error al eliminar el contacte: ') + error.message);
         }
     };
 

@@ -1648,19 +1648,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 setSavingStatus(partial ? 'error' : 'saved');
                 loadIntegrations();
                 if (partial && failedEmails.length) {
-                    alert(`Alguns comptes no s'han pogut sincronitzar: ${failedEmails.join(', ')}. Comprova les credencials IMAP a Configuració.`);
+                    toast.error(`Alguns comptes no s'han pogut sincronitzar: ${failedEmails.join(', ')}. Comprova les credencials IMAP a Configuració.`);
                 }
             } else {
                 setSavingStatus('error');
                 if (email) markError(prev => new Set(prev).add(email));
-                alert(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
+                toast.error(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
             }
         } catch (e) {
             console.error("Sync error:", e);
             setSavingStatus('error');
             if (email) markError(prev => new Set(prev).add(email));
             const detail = e?.response?.data?.detail || e?.message || 'Error desconegut';
-            alert(`Error en la sincronització: ${detail}`);
+            toast.error(`Error en la sincronització: ${detail}`);
         } finally {
             setSyncingAccounts(prev => ({ ...prev, [accountId]: false }));
             setTimeout(() => setSavingStatus('idle'), 3000);

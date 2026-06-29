@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Vault, Plus, Check, Loader, Trash2 } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 /**
  * Selector de vault (mode personal multi-vault). Llista els vaults, permet crear-ne de nous i
@@ -14,6 +15,7 @@ export default function VaultSwitcher() {
     const [creating, setCreating] = useState(false);
     const [newName, setNewName] = useState('');
     const [error, setError] = useState('');
+    const [confirmTarget, setConfirmTarget] = useState(null);
 
     const load = async () => {
         try {
@@ -40,14 +42,17 @@ export default function VaultSwitcher() {
         finally { setBusy(''); }
     };
 
-    const remove = async (v) => {
-        if (!window.confirm(`Esborrar el vault «${v.name}» del registre? (no esborra cap fitxer del disc)`)) return;
+    const remove = (v) => setConfirmTarget(v);   // obre el modal de confirmació de Gnosi
+
+    const doRemove = async () => {
+        const v = confirmTarget;
+        if (!v) return;
         setBusy('del:' + v.id); setError('');
         try {
             await axios.delete(`/api/vaults/${v.id}`);
             await load();
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
-        finally { setBusy(''); }
+        finally { setBusy(''); setConfirmTarget(null); }
     };
 
     const inp = { background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 10, padding: '7px 12px', fontSize: '0.85rem' };
@@ -95,6 +100,16 @@ export default function VaultSwitcher() {
                 Clona Notion a un vault separat, verifica'l aïllat i adopta'l o descarta'l sense tocar el principal.
             </div>
             {error && <div style={{ marginTop: 6, color: '#e05252', fontSize: '0.8rem' }}>{error}</div>}
+            <ConfirmModal
+                isOpen={!!confirmTarget}
+                onClose={() => setConfirmTarget(null)}
+                onConfirm={doRemove}
+                title="Esborrar vault"
+                message={confirmTarget ? `Esborrar el vault «${confirmTarget.name}» del registre? No esborra cap fitxer del disc.` : ''}
+                confirmText="Esborrar"
+                cancelText="Cancel·la"
+                isDestructive
+            />
         </div>
     );
 }

@@ -8,6 +8,9 @@ import { normalizeAssetUrl } from './vaultMarkdownUtils';
 import { VaultViewBody } from './VaultViewBody';
 import { buildSchemaFromTableProperties } from './schemaUtils';
 import { VIEW_TYPES } from './viewConstants';
+import ConfirmModal from '../ConfirmModal';
+import PromptModal from '../PromptModal';
+import { toast } from '../../lib/toast';
 
 // Contenidor amb scroll per encabir els components de vista complets (que
 // assumeixen alçada) dins del flux del document de l'embed. A nivell de mòdul
@@ -556,6 +559,8 @@ export function DbViewEmbed({ block }) {
     const [addMenuOpen, setAddMenuOpen] = useState(false); // menú d'afegir vista (tipus / existents)
     const [tabMenuFor, setTabMenuFor] = useState(null);     // id de la vista amb el menú (treure/eliminar) obert
     const [menuUp, setMenuUp] = useState(false);            // obrir el desplegable cap amunt si no cap a sota
+    const [confirmDeleteView, setConfirmDeleteView] = useState(null); // vista pendent d'eliminar a tot arreu (ConfirmModal)
+    const [renameView, setRenameView] = useState(null);     // vista pendent de reanomenar (PromptModal)
     // Decideix la direcció del desplegable segons l'espai sota el disparador.
     const decideMenuDir = (e) => {
         try { const r = e.currentTarget.getBoundingClientRect(); setMenuUp(window.innerHeight - r.bottom < 300); } catch { setMenuUp(false); }
@@ -855,16 +860,22 @@ export function DbViewEmbed({ block }) {
         setActiveViewId(v.id);
     }, [pinView]);
 
-    const handleDeleteView = useCallback(async (v) => {
+    const handleDeleteView = useCallback((v) => {
         if (!v?.id) return;
-        if (tableViews.length <= 1) { window.alert?.('No es pot eliminar l\'única vista.'); return; }
-        if (!window.confirm?.(`Eliminar la vista "${v.name || v.heading || ''}" a TOT arreu? Desapareixerà de totes les pàgines.`)) return;
+        if (tableViews.length <= 1) { toast.error('No es pot eliminar l\'única vista.'); return; }
+        setConfirmDeleteView(v);
+    }, [tableViews]);
+
+    const doDeleteView = useCallback(async () => {
+        const v = confirmDeleteView;
+        setConfirmDeleteView(null);
+        if (!v?.id) return;
         try {
             await axios.delete(`/api/vault/views/${encodeURIComponent(v.id)}`);
             await refetchTableViews();
             if (activeViewId === v.id) setActiveViewId(view?.view_id || '');
         } catch (e) { console.warn('delete view failed', e); }
-    }, [tableViews, activeViewId, view, refetchTableViews]);
+    }, [confirmDeleteView, activeViewId, view, refetchTableViews]);
 
     // Treu la vista d'aquest bloc (la "desfixa"); NO l'elimina del registry.
     // La vista de la secció (àncora) no es pot treure.
@@ -874,15 +885,21 @@ export function DbViewEmbed({ block }) {
         if (activeViewId === v.id) setActiveViewId(viewId);
     }, [viewId, pageId, activeViewId]);
 
-    const handleRenameView = useCallback(async (v) => {
+    const handleRenameView = useCallback((v) => {
         if (!v?.id) return;
-        const name = window.prompt?.('Nou nom de la vista:', v.name || v.heading || '');
+        setRenameView(v);
+    }, []);
+
+    const doRename = useCallback(async (name) => {
+        const v = renameView;
+        setRenameView(null);
+        if (!v?.id) return;
         if (!name || name === (v.name || v.heading)) return;
         try {
             await axios.put(`/api/vault/views/${encodeURIComponent(v.id)}`, { ...v, name });
             await refetchTableViews();
         } catch (e) { console.warn('rename view failed', e); }
-    }, [refetchTableViews]);
+    }, [renameView, refetchTableViews]);
 
     // Configura una vista CONCRETA (la del menú "...", no necessàriament l'activa).
     // Mateixa lògica que handleOpenConfig però parametritzada per `v`: si és la
@@ -1216,6 +1233,26 @@ export function DbViewEmbed({ block }) {
                 );
             })()}
             {renderBody()}
+            <ConfirmModal
+                isOpen={confirmDeleteView != null}
+                onClose={() => setConfirmDeleteView(null)}
+                onConfirm={doDeleteView}
+                title="Eliminar vista"
+                message={confirmDeleteView ? `Eliminar la vista "${confirmDeleteView.name || confirmDeleteView.heading || ''}" a TOT arreu? Desapareixerà de totes les pàgines.` : ''}
+                confirmText="Eliminar"
+                cancelText="Cancel·la"
+                isDestructive
+            />
+            <PromptModal
+                isOpen={renameView != null}
+                onClose={() => setRenameView(null)}
+                onSubmit={doRename}
+                title="Reanomenar vista"
+                label="Nou nom de la vista"
+                defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
+                confirmText="Reanomena"
+                cancelText="Cancel·la"
+            />
         </div>
     );
 }

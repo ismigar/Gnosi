@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../hooks/useTheme';
 import { useConfigChanged } from '../lib/configEvents';
 import { APP_VERSION } from '../lib/version';
+import ConfirmModal from '../components/ConfirmModal';
 
 function Dashboard() {
     const navigate = useNavigate();
@@ -140,6 +141,11 @@ function Dashboard() {
     const [editingDirective, setEditingDirective] = useState(null);
     const [isEditorSaving, setIsEditorSaving] = useState(false);
     const [editorContent, setEditorContent] = useState('');
+
+    // Estats per als modals de confirmació (substitueixen window.confirm)
+    const [confirmDeleteDirective, setConfirmDeleteDirective] = useState(null); // directiva a esborrar
+    const [confirmPurgeHistory, setConfirmPurgeHistory] = useState(false);
+    const [confirmPurgeLogs, setConfirmPurgeLogs] = useState(false);
     
     // Nous estats per a modals de drill-down
     const [isToolsModalOpen, setIsToolsModalOpen] = useState(false);
@@ -350,11 +356,13 @@ function Dashboard() {
         }
     }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, apiFetch]);
 
-    const handleDeleteDirective = async (directive) => {
+    const handleDeleteDirective = (directive) => setConfirmDeleteDirective(directive);
+
+    const doDeleteDirective = async () => {
+        const directive = confirmDeleteDirective;
+        setConfirmDeleteDirective(null);
+        if (!directive) return;
         const type = directive.path?.includes("pipeline/skills") ? "skill" : "directiva";
-        if (!window.confirm(`Estàs segur que vols eliminar la ${type} "${directive.name}"? Aquesta acció no es pot desfer.`)) {
-            return;
-        }
         try {
             await apiFetch(`/api/analytics/directives?path=${encodeURIComponent(directive.path)}`, {
                 method: 'DELETE'
@@ -368,8 +376,10 @@ function Dashboard() {
         }
     };
 
-    const handlePurgeHistory = async () => {
-        if (!window.confirm(t('dashboard.confirm_purge_history'))) return;
+    const handlePurgeHistory = () => setConfirmPurgeHistory(true);
+
+    const doPurgeHistory = async () => {
+        setConfirmPurgeHistory(false);
         try {
             await apiFetch('/api/schedulers/history', { method: 'DELETE' });
             toast.success("Historial purgat");
@@ -379,8 +389,10 @@ function Dashboard() {
         }
     };
 
-    const handlePurgeLogs = async () => {
-        if (!window.confirm(t('dashboard.confirm_purge_logs'))) return;
+    const handlePurgeLogs = () => setConfirmPurgeLogs(true);
+
+    const doPurgeLogs = async () => {
+        setConfirmPurgeLogs(false);
         try {
             await apiFetch('/api/system/notifications', { method: 'DELETE' });
             toast.success("Logs purgats");
@@ -471,8 +483,11 @@ function Dashboard() {
         }
     }, [newMemberEmail, activeWorkspaceId, newMemberRole, fetchMembers, apiFetch]);
 
-    const handleDeleteMember = async (userId) => {
-        if (!confirm(t('dashboard.confirm_delete_member'))) return;
+    const [confirmDeleteMember, setConfirmDeleteMember] = useState(null);
+    const handleDeleteMember = (userId) => setConfirmDeleteMember(userId);
+    const doDeleteMember = async () => {
+        const userId = confirmDeleteMember;
+        setConfirmDeleteMember(null);
         try {
             await apiFetch(`/api/workspaces/${activeWorkspaceId}/members/${userId}`, {
                 method: 'DELETE'
@@ -1837,6 +1852,50 @@ function Dashboard() {
                     </div>
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={confirmDeleteDirective != null}
+                onClose={() => setConfirmDeleteDirective(null)}
+                onConfirm={doDeleteDirective}
+                title="Eliminar"
+                message={confirmDeleteDirective ? `Estàs segur que vols eliminar la ${confirmDeleteDirective.path?.includes("pipeline/skills") ? "skill" : "directiva"} "${confirmDeleteDirective.name}"? Aquesta acció no es pot desfer.` : ''}
+                confirmText="Esborrar"
+                cancelText="Cancel·la"
+                isDestructive
+            />
+
+            <ConfirmModal
+                isOpen={confirmPurgeHistory}
+                onClose={() => setConfirmPurgeHistory(false)}
+                onConfirm={doPurgeHistory}
+                title="Purgar historial"
+                message={t('dashboard.confirm_purge_history')}
+                confirmText="Esborrar"
+                cancelText="Cancel·la"
+                isDestructive
+            />
+
+            <ConfirmModal
+                isOpen={confirmPurgeLogs}
+                onClose={() => setConfirmPurgeLogs(false)}
+                onConfirm={doPurgeLogs}
+                title="Purgar logs"
+                message={t('dashboard.confirm_purge_logs')}
+                confirmText="Esborrar"
+                cancelText="Cancel·la"
+                isDestructive
+            />
+
+            <ConfirmModal
+                isOpen={confirmDeleteMember != null}
+                onClose={() => setConfirmDeleteMember(null)}
+                onConfirm={doDeleteMember}
+                title="Eliminar membre"
+                message={t('dashboard.confirm_delete_member')}
+                confirmText="Esborrar"
+                cancelText="Cancel·la"
+                isDestructive
+            />
         </div>
     </div>
 );

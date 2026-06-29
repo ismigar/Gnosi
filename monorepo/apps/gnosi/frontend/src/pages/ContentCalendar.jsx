@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from '../lib/toast';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 const ContentCalendar = () => {
     const [scheduledPosts, setScheduledPosts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(new Date());
+    const [confirmTarget, setConfirmTarget] = useState(null);
 
     useEffect(() => {
         fetchScheduledPosts();
@@ -25,11 +27,11 @@ const ContentCalendar = () => {
         }
     };
 
-    const cancelPost = async (postId) => {
-        // window.confirm bloqueja la UI; ho mantenim per compatibilitat
-        // (no hi ha modal de confirmació al ContentCalendar) però usem
-        // toast.error en lloc d'alert (que també bloqueja).
-        if (!window.confirm('Cancel this scheduled post?')) return;
+    const cancelPost = (postId) => setConfirmTarget(postId);
+
+    const doCancelPost = async () => {
+        const postId = confirmTarget;
+        setConfirmTarget(null);
 
         try {
             const res = await fetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
@@ -202,6 +204,17 @@ const ContentCalendar = () => {
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                isOpen={confirmTarget != null}
+                onClose={() => setConfirmTarget(null)}
+                onConfirm={doCancelPost}
+                title="Cancel·lar publicació"
+                message="Cancel·lar aquesta publicació programada?"
+                confirmText="Sí, cancel·la"
+                cancelText="No"
+                isDestructive
+            />
         </div>
     );
 };
