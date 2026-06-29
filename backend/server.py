@@ -223,6 +223,11 @@ app.add_middleware(
 # frontend significativament en xarxes lentes.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
+# Multi-vault: fixa el vault ACTIU des de X-Vault-Id en un context que propaga als endpoints
+# (una dependència síncrona no ho aconseguia). Vegeu services/active_vault_middleware.py.
+from backend.services.active_vault_middleware import ActiveVaultMiddleware
+app.add_middleware(ActiveVaultMiddleware)
+
 # ──────────────── Global Error Handler ────────────────
 try:
     from pipeline.skills.notification_service.scripts.notification_service import notify as _notify_fn

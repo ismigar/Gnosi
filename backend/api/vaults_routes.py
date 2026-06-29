@@ -85,6 +85,11 @@ def create_vault(payload: CreateVaultPayload,
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error desant el vault")
+    try:
+        from backend.services.active_vault_middleware import reset_vault_path_cache
+        reset_vault_path_cache()
+    except Exception:
+        pass
     return {"id": v.id, "name": v.name, "path": str(path)}
 
 
@@ -108,4 +113,9 @@ def delete_vault(vault_id: str,
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error esborrant el vault")
+    try:
+        from backend.services.active_vault_middleware import reset_vault_path_cache
+        reset_vault_path_cache()
+    except Exception:
+        pass
     return {"status": "success", "deleted": vault_id}

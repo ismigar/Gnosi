@@ -67,17 +67,31 @@ def load_params(strict_env: bool = True) -> Config:
     
     params_path = local_path
     
-    # ── 2. Determinar la font d'usuari (Vault o Home) ──
+    # ── 2. Determinar la font d'usuari (Vault ACTIU > Vault env > Home) ──
     user_params_path = None
+
+    # Multi-vault: si hi ha un vault ACTIU al context, la seva config (graph, colors, ai…)
+    # mana. Llegim el contextvar DIRECTAMENT (no `get_active_vault_path`) per evitar el cicle
+    # load_params ↔ get_active_vault_path. Fora de petició → None → comportament d'abans.
+    active_params_path = None
+    try:
+        from backend.services.context_vars import active_vault_path as _avp_var
+        _av = _avp_var.get()
+        if _av:
+            active_params_path = Path(_av) / ".gnosi" / "params.yaml"
+    except Exception:
+        active_params_path = None
+
     env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
-    
-    if env_vault:
+    if active_params_path and active_params_path.exists():
+        user_params_path = active_params_path
+    elif env_vault:
         vault_params = Path(env_vault) / ".gnosi" / "params.yaml"
         if vault_params.exists():
             user_params_path = vault_params
     elif home_path.exists():
         user_params_path = home_path
-        
+
     # Si hem carregat el local però aquest defineix un vault que té el seu propi params.yaml, saltem al del vault.
     if not user_params_path and "paths" in params:
         vault_raw = params.get("paths", {}).get("vault")
@@ -93,6 +107,12 @@ def load_params(strict_env: bool = True) -> Config:
             user_params = yaml.safe_load(f) or {}
             params = deep_merge(params, user_params)
         params_path = user_params_path
+
+    # Vault ACTIU: l'origen per a DESAR és sempre el seu params.yaml (es crearà si encara no
+    # existeix), encara que els valors s'hagin heretat del per defecte. Així, editar la config
+    # del Graf (o colors, ai…) d'un vault nou escriu al SEU .gnosi/, no al principal.
+    if active_params_path:
+        params_path = active_params_path
 
     # --- Manteniment i Migració ---
     migrated = False

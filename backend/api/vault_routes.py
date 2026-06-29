@@ -11346,9 +11346,12 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
     }
 
 
-_registry_cache = None
-_registry_cache_mtime = 0
-_registry_cache_ts = 0.0  # monotonic time of last successful cache load
+# Caus del registre PER-VAULT (clau = ruta del registre, que depèn del vault actiu via get_p).
+# Abans eren globals → en multi-vault servien el registre d'un altre vault. Ara cada vault té
+# la seva entrada de cau.
+_registry_cache: dict = {}        # registry_path_str -> data
+_registry_cache_mtime: dict = {}  # registry_path_str -> mtime
+_registry_cache_ts: dict = {}     # registry_path_str -> monotonic ts
 _registry_cache_ttl_seconds = 30  # serve from cache without stat() if recent
 
 # Tracks tables that already had _ensure_table_vault_folder called once successfully
@@ -11368,31 +11371,35 @@ def load_registry():
     """
     global _registry_cache, _registry_cache_mtime, _registry_cache_ts
 
-    # Fast path: cache is fresh (TTL not expired) → no filesystem I/O at all
     now = time.monotonic()
-    if _registry_cache is not None and (now - _registry_cache_ts) < _registry_cache_ttl_seconds:
-        return _registry_cache
-
+    # La clau depèn del VAULT ACTIU (get_p("REGISTRY") = <vault_actiu>/BD/vault_db_registry.json)
     registry_path = get_p("REGISTRY")
+    empty = {"databases": [], "tables": [], "views": []}
     if not registry_path:
-        return _registry_cache or {"databases": [], "tables": [], "views": []}
+        return empty
+    _ck = str(registry_path)
+    cached = _registry_cache.get(_ck)
+
+    # Fast path: cache d'AQUEST vault fresca (TTL) → cap I/O
+    if cached is not None and (now - _registry_cache_ts.get(_ck, 0.0)) < _registry_cache_ttl_seconds:
+        return cached
 
     # mtime check: if file unchanged since last load, return cache without re-reading
     try:
         if not registry_path.exists():
-            return _registry_cache or {"databases": [], "tables": [], "views": []}
+            return cached if cached is not None else empty
         mtime = registry_path.stat().st_mtime
-        if _registry_cache is not None and mtime <= _registry_cache_mtime:
-            _registry_cache_ts = now
-            return _registry_cache
+        if cached is not None and mtime <= _registry_cache_mtime.get(_ck, 0):
+            _registry_cache_ts[_ck] = now
+            return cached
     except Exception as e:
         # FS hung (cloud sync etc.). Prefer stale cache over blocking the request.
-        if _registry_cache is not None:
+        if cached is not None:
             log.warning(f"⚠️ load_registry: stat failed ({e}); serving stale cache")
-            return _registry_cache
+            return cached
         # No cache yet: bail out with empty registry (better than hanging).
         log.error(f"❌ load_registry: stat failed and no cache available: {e}")
-        return {"databases": [], "tables": [], "views": []}
+        return empty
 
     try:
         data = json.loads(registry_path.read_text(encoding="utf-8"))
@@ -11443,21 +11450,21 @@ def load_registry():
         if changed:
             save_registry(data)
 
-        # Sync cache
-        _registry_cache = data
-        _registry_cache_ts = now
+        # Sync cache (per-vault, clau = ruta del registre)
+        _registry_cache[_ck] = data
+        _registry_cache_ts[_ck] = now
         try:
-            _registry_cache_mtime = registry_path.stat().st_mtime
+            _registry_cache_mtime[_ck] = registry_path.stat().st_mtime
         except Exception:
-            _registry_cache_mtime = mtime if 'mtime' in locals() else 0
+            _registry_cache_mtime[_ck] = mtime if 'mtime' in locals() else 0
 
         return data
     except Exception as e:
         log.error(f"❌ Error loading registry: {e}")
-        if _registry_cache is not None:
+        if cached is not None:
             log.warning("⚠️ load_registry: serving stale cache after error")
-            return _registry_cache
-        return {"databases": [], "tables": [], "views": []}
+            return cached
+        return empty
 
 
 def save_registry(data):
@@ -11472,11 +11479,12 @@ def save_registry(data):
         # half-flushed write would propagate to other devices and corrupt the
         # central config. safe_write_json does tmp + fsync + rename.
         safe_write_json(reg_path, data, indent=2, ensure_ascii=False)
-        # Refresh cache so subsequent reads see new data without re-stat
-        _registry_cache = data
-        _registry_cache_ts = time.monotonic()
+        # Refresh cache (per-vault) so subsequent reads see new data without re-stat
+        _sk = str(reg_path)
+        _registry_cache[_sk] = data
+        _registry_cache_ts[_sk] = time.monotonic()
         try:
-            _registry_cache_mtime = reg_path.stat().st_mtime
+            _registry_cache_mtime[_sk] = reg_path.stat().st_mtime
         except Exception:
             pass
     except Exception as e:

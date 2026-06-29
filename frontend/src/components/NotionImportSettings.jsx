@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Database, Link2, Check, Loader, Unlink, Settings } from 'lucide-react';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
-import VaultSwitcher from './VaultSwitcher';
 
 /**
  * Clon de Notion → Vault. Connecta amb un token d'integració + l'MCP allotjat (OAuth) i fa un
@@ -157,8 +156,6 @@ export default function NotionImportSettings() {
                     </div>
                 </div>
             </div>
-
-            <VaultSwitcher />
 
             {connected === null && <div style={{ color: 'var(--text-tertiary)', padding: 8 }}>Carregant…</div>}
 
