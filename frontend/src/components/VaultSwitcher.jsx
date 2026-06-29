@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Database, Plus, Check, Loader, Trash2 } from 'lucide-react';
+import { Vault, Plus, Check, Loader, Trash2 } from 'lucide-react';
 
 /**
  * Selector de vault (mode personal multi-vault). Llista els vaults, permet crear-ne de nous i
@@ -55,7 +55,7 @@ export default function VaultSwitcher() {
     return (
         <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: '1px solid var(--settings-border)', background: 'var(--bg-primary)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                <Database size={15} /> Vault actiu
+                <Vault size={15} /> Vault actiu
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {vaults.map(v => (

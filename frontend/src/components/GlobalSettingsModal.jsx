@@ -1946,9 +1946,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     <div style={{ marginTop: '50px' }}>
                                         <Section title="Estructura de Fitxers" icon={FolderOpen}>
-                                            <FormGroup label="Ruta del Vault" description="Carpeta principal on s'emmgatzemen totes les dades del sistema.">
+                                            <FormGroup label="Carpeta arrel" description="Carpeta principal on s'emmagatzemen tots els vaults i les dades del sistema.">
                                                 <div style={{ display: 'flex', gap: '14px' }}>
-                                                    <input type="text" className="gnosi-input" value={draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
+                                                    {/* Mostra la carpeta CONTENIDORA (pare del vault actiu), no el vault: els vaults viuen dins d'aquesta arrel. */}
+                                                    <input type="text" className="gnosi-input" value={(draft.paths.vault || '').replace(/[/\\][^/\\]+[/\\]?$/, '') || draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
                                                     <button onClick={() => { setPickerField('vault'); setPickerOpen(true); }} className="btn-gnosi-secondary" style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}>
                                                         <FolderOpen size={18} />
                                                     </button>
