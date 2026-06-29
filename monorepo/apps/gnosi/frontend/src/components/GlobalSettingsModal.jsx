@@ -23,6 +23,7 @@ import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
 import ModelRegistrySettings from './ModelRegistrySettings';
 import NotionImportSettings from './NotionImportSettings';
+import VaultSwitcher from './VaultSwitcher';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -1953,6 +1954,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     </button>
                                                 </div>
                                             </FormGroup>
+                                            {draft.settings.gnosi_mode === 'personal' && (
+                                                <FormGroup label="Vaults" description="Diversos vaults dins la carpeta arrel: crea'n, canvia l'actiu o esborra'ls. L'actiu és el que fan servir Coneixement, Graf, etc.">
+                                                    <VaultSwitcher />
+                                                </FormGroup>
+                                            )}
                                         </Section>
                                     </div>
                                 </Section>
