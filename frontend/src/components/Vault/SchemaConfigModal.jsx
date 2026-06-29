@@ -15,6 +15,7 @@ import {
     seedOptionsForFeature,
 } from './optionCatalogUtils';
 import { ConfirmModal } from '../ConfirmModal';
+import PromptModal from '../PromptModal';
 import { useTranslation } from 'react-i18next';
 
 // ID immutable per a properties: 'fld_' + 8 hex chars. Es persisteix al
@@ -238,6 +239,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
     const [newOption, setNewOption] = useState('');
     const [usage, setUsage] = useState(null); // {nom: recompte} o null mentre carrega
     const [confirmRemove, setConfirmRemove] = useState({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
+    const [showNewCatalog, setShowNewCatalog] = useState(false);
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -357,11 +359,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
     const handleCatalogLink = (value) => {
         if (!onLinkCatalog) return;
         if (value === '__create__') {
-            const name = window.prompt(t('schema.shared_catalog_new_prompt', 'Nom del nou catàleg compartit:'));
-            const clean = (name || '').trim();
-            if (!clean) return;
-            optionTools?.updateSharedCatalog?.(clean, richOptions);
-            onLinkCatalog(clean);
+            setShowNewCatalog(true);
             return;
         }
         if (!value && isShared) {
@@ -370,6 +368,14 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
             return;
         }
         if (value) onLinkCatalog(value);
+    };
+
+    const doNewCatalog = async (name) => {
+        setShowNewCatalog(false);
+        const clean = (name || '').trim();
+        if (!clean) return;
+        optionTools?.updateSharedCatalog?.(clean, richOptions);
+        onLinkCatalog(clean);
     };
 
     return (
@@ -460,6 +466,15 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
             options={richOptions}
             onCancel={() => setConfirmRemove({ isOpen: false, value: null, usageCount: null, protectedReason: '' })}
             onConfirm={executeRemoveOption}
+        />
+        <PromptModal
+            isOpen={showNewCatalog}
+            onClose={() => setShowNewCatalog(false)}
+            onSubmit={doNewCatalog}
+            title={t('schema.shared_catalog_new_title', 'Nou catàleg compartit')}
+            label={t('schema.shared_catalog_new_prompt', 'Nom del nou catàleg compartit:')}
+            confirmText={t('common.create', 'Crea')}
+            cancelText={t('common.cancel', 'Cancel·la')}
         />
         </>
     );

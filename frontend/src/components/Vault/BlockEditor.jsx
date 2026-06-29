@@ -127,6 +127,7 @@ import { AutoriaEditor, AutoriaDisplay } from './AutoriaField';
 import { dedupeAuthors } from './autoriaUtils';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 import AIGenerateModal from './AIGenerateModal';
+import PromptModal from '../PromptModal';
 import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
 
@@ -1285,6 +1286,15 @@ export function EditorInner({
 
     // Modal de generació amb IA (slash «IA»). Render al final via <AIGenerateModal>.
     const [aiRequest, setAiRequest] = useState(null);
+    const [linkCardCtx, setLinkCardCtx] = useState(null);
+    const doLinkCard = async (raw) => {
+        const ctx = linkCardCtx;
+        setLinkCardCtx(null);
+        const u = String(raw || '').trim();
+        if (u && /^https?:\/\//i.test(u) && ctx?.editor) {
+            insertOrUpdateBlockForSlashMenu(ctx.editor, { type: 'linkcard', props: { url: u } });
+        }
+    };
 
     const requestInsertContent = useCallback(({ initialFile = null, initialTab = 'vault' } = {}) => {
         const prev = pendingInsertRef.current;
@@ -2872,13 +2882,7 @@ export function EditorInner({
                             },
                             {
                                 title: t('editor.linkcard', { defaultValue: 'Targeta d\'enllaç' }),
-                                onItemClick: () => {
-                                    const raw = window.prompt(t('editor.linkcard_prompt', { defaultValue: 'Enganxa la URL de la targeta:' }), 'https://');
-                                    const u = String(raw || '').trim();
-                                    if (u && /^https?:\/\//i.test(u)) {
-                                        insertOrUpdateBlockForSlashMenu(editor, { type: 'linkcard', props: { url: u } });
-                                    }
-                                },
+                                onItemClick: () => setLinkCardCtx({ editor }),
                                 aliases: ["bookmark", "targeta", "card", "link", "enllaç", "preview", "og", "marcador"],
                                 group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
                                 icon: <Link2 size={18} />,
@@ -3254,6 +3258,18 @@ export function EditorInner({
                 onClose={() => setAiRequest(null)}
                 onInsert={insertGeneratedMarkdown}
                 t={t}
+            />
+            <PromptModal
+                isOpen={linkCardCtx != null}
+                onClose={() => setLinkCardCtx(null)}
+                onSubmit={doLinkCard}
+                title={t('editor.linkcard_title', { defaultValue: 'Targeta d\'enllaç' })}
+                label={t('editor.linkcard_prompt', { defaultValue: 'Enganxa la URL de la targeta:' })}
+                placeholder="https://"
+                defaultValue="https://"
+                inputType="url"
+                confirmText={t('common.add', { defaultValue: 'Afegeix' })}
+                cancelText={t('common.cancel', { defaultValue: 'Cancel·la' })}
             />
         </VaultEditorContext.Provider>
     );

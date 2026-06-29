@@ -543,7 +543,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                             loadCredentials();
                                                                         }
                                                                     } catch (err) {
-                                                                        alert('Error guardant: ' + err.message);
+                                                                        toast.error('Error guardant: ' + err.message);
                                                                     }
                                                                 }}
                                                                 disabled={!credentialValue}

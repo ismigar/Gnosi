@@ -1214,7 +1214,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const attachments = getMetadataValueByNormalizedKey(metadata, ['Adjunts', 'attachments', 'adjuntos']);
 
         if (!zoteroUri && !filePath && !attachments) {
-            alert(t('table.no_resource_error'));
+            toast.error(t('table.no_resource_error'));
             return;
         }
 
@@ -1236,7 +1236,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : t('table.open_resource_error');
-            alert(message);
+            toast.error(message);
         } finally {
             setOpeningResourceId(null);
         }
@@ -1815,7 +1815,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const handleOpenZoteroValue = useCallback(async (rawValue) => {
         const payload = parseResourceValue(rawValue);
         if (!payload || (!payload.zotero_uri && !payload.file_path)) {
-            alert(t('table.zotero_empty_error'));
+            toast.error(t('table.zotero_empty_error'));
             return;
         }
 
@@ -1832,7 +1832,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
         } catch (error) {
             const message = error instanceof Error ? error.message : t('table.zotero_open_error');
-            alert(message);
+            toast.error(message);
         }
     }, [parseResourceValue, t]);
 

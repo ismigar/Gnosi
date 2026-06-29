@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { UserPlus, Trash2, Shield, X, Loader2, Lock } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import ConfirmModal from '../ConfirmModal';
 
 /**
  * Panell de gestió de membres + accés a vaults d'un workspace.
@@ -43,6 +44,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
     const [newRole, setNewRole] = useState('viewer');
     const [selectedMember, setSelectedMember] = useState(null);
     const [vaultAccess, setVaultAccess] = useState([]);
+    const [confirmUserId, setConfirmUserId] = useState(null);
 
     const fetchMembers = useCallback(async () => {
         if (!workspaceId) return;
@@ -98,12 +100,17 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         }
     };
 
-    const removeMember = async (userId) => {
+    const removeMember = (userId) => {
         if (userId === currentUserId) {
             toast.error(t('workspace.cant_remove_self', { defaultValue: 'No pots eliminar-te a tu mateix' }));
             return;
         }
-        if (!window.confirm(t('workspace.confirm_remove', { defaultValue: 'Eliminar aquest membre?' }))) return;
+        setConfirmUserId(userId);
+    };
+
+    const doRemove = async () => {
+        const userId = confirmUserId;
+        setConfirmUserId(null);
         try {
             await axios.delete(`/api/workspaces/${workspaceId}/members/${userId}`);
             fetchMembers();
@@ -307,6 +314,17 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                     )}
                 </div>
             )}
+
+            <ConfirmModal
+                isOpen={confirmUserId != null}
+                onClose={() => setConfirmUserId(null)}
+                onConfirm={doRemove}
+                title={t('workspace.confirm_remove_title', { defaultValue: 'Eliminar membre' })}
+                message={t('workspace.confirm_remove', { defaultValue: 'Eliminar aquest membre?' })}
+                confirmText={t('common.delete', { defaultValue: 'Eliminar' })}
+                cancelText={t('common.cancel', { defaultValue: 'Cancel·la' })}
+                isDestructive
+            />
         </div>
     );
 }
