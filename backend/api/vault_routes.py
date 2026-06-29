@@ -488,6 +488,16 @@ def _pages_cache_invalidate_all() -> None:
     with _pages_resp_cache_lock:
         _pages_resp_cache.clear()
 
+
+def _vault_cache_key() -> str:
+    """Prefix de cau lligat al VAULT ACTIU: la cau de respostes de pàgines ha de ser per-vault
+    (sense això, en multi-vault un vault servia les pàgines cachejades d'un altre)."""
+    from backend.services.context_vars import get_active_vault_path
+    try:
+        return str(get_active_vault_path() or "")
+    except Exception:
+        return ""
+
 # Google Calendar sync cooldown (5 minutes)
 _GOOGLE_CALENDAR_SYNC_COOLDOWN_SECONDS = 300
 _last_google_calendar_sync_time = 0.0
@@ -3144,7 +3154,7 @@ def _get_pages_snapshot(
     # TTL micro-cache. Les rutes `/pages`, `/sidebar/summary` i les seves
     # invocacions paral·leles al primer load del frontend (4-6 alhora) van
     # poder unir-se a un sol càlcul real.
-    cache_key = f"snapshot:{'cal' if only_calendar else 'all'}"
+    cache_key = f"snapshot:{_vault_cache_key()}:{'cal' if only_calendar else 'all'}"
     cached = _pages_cache_get(cache_key)
     if cached is not None:
         return cached
@@ -3401,7 +3411,7 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
     # TTL micro-cache: si una crida idèntica recent ja ha calculat la
     # llista, retornem-la directament. Burst típic /by-table + /snapshot +
     # global-index al mateix segon → un sol càlcul real.
-    cache_key = f"by-table:{table_id}"
+    cache_key = f"by-table:{_vault_cache_key()}:{table_id}"
     cached = _pages_cache_get(cache_key)
     if cached is not None:
         return cached
