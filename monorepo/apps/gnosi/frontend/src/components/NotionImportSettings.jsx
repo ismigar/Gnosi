@@ -1,7 +1,16 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Database, Link2, Check, Loader, Unlink, Settings } from 'lucide-react';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
+
+// Persistència de la config d'import: en tancar el modal de Configuració l'estat de React es
+// perd, així que la desem a localStorage amb autosave i la restaurem en obrir. Els Set es
+// serialitzen com a array. La feina puntual (report, verify, busy, error) NO es persisteix.
+const CFG_KEY = 'gnosi_notion_import_cfg';
+const loadCfg = () => {
+    try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
+    catch { return {}; }
+};
 
 /**
  * Clon de Notion → Vault. Connecta amb un token d'integració + l'MCP allotjat (OAuth) i fa un
@@ -10,23 +19,35 @@ import { SchemaConfigModal } from './Vault/SchemaConfigModal';
  * loose-pages,clone} i /api/notion-oauth/*.
  */
 export default function NotionImportSettings() {
+    const saved = useRef(loadCfg()).current;
     const [connected, setConnected] = useState(null);
     const [name, setName] = useState('');
     const [token, setToken] = useState('');
     const [busy, setBusy] = useState('');
     const [error, setError] = useState('');
-    const [databases, setDatabases] = useState([]);
-    const [selected, setSelected] = useState(new Set());
-    const [folder, setFolder] = useState('Clon Notion');
+    const [databases, setDatabases] = useState(saved.databases || []);
+    const [selected, setSelected] = useState(new Set(saved.selected || []));
+    const [folder, setFolder] = useState(saved.folder || 'Clon Notion');
     const [report, setReport] = useState(null);
     const [verify, setVerify] = useState(null);
     const [mcpConnected, setMcpConnected] = useState(false);
-    const [schemaOverrides, setSchemaOverrides] = useState({});   // {dbId: esquema SchemaConfigModal}
+    const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
-    const [loosePages, setLoosePages] = useState(false);          // mostra/inclou pàgines soltes
-    const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pàgines fora de BD
-    const [loosePageTypes, setLoosePageTypes] = useState({});     // {pageId: "wiki"|"dashboard"}
-    const [looseSelected, setLooseSelected] = useState(new Set()); // pàgines soltes a clonar/importar
+    const [loosePages, setLoosePages] = useState(saved.loosePages || false);          // mostra/inclou pàgines soltes
+    const [loosePagesList, setLoosePagesList] = useState(saved.loosePagesList || []);     // [{id,title}] pàgines fora de BD
+    const [loosePageTypes, setLoosePageTypes] = useState(saved.loosePageTypes || {});     // {pageId: "wiki"|"dashboard"}
+    const [looseSelected, setLooseSelected] = useState(new Set(saved.looseSelected || [])); // pàgines soltes a clonar/importar
+
+    // Autosave: cada canvi a la config es desa a localStorage (debounce no cal, és poc freqüent).
+    useEffect(() => {
+        try {
+            localStorage.setItem(CFG_KEY, JSON.stringify({
+                databases, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes,
+                selected: Array.from(selected),
+                looseSelected: Array.from(looseSelected),
+            }));
+        } catch { /* quota plena o privat: ignora */ }
+    }, [databases, selected, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes, looseSelected]);
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
