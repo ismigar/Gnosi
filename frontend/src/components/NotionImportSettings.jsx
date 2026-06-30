@@ -276,11 +276,18 @@ export default function NotionImportSettings() {
                                                 </label>
                                                 <div style={{ display: 'flex', flexShrink: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--settings-border)' }}>
                                                     {['wiki', 'dashboard'].map(opt => {
-                                                        const active = (loosePageTypes[p.id] || 'wiki') === opt;
+                                                        // El ressaltat només compta si la pàgina està inclosa,
+                                                        // així una pàgina no marcada no sembla tenir tipus triat.
+                                                        const active = included && (loosePageTypes[p.id] || 'wiki') === opt;
                                                         return (
-                                                            <button key={opt} disabled={!included}
-                                                                onClick={() => setLoosePageTypes(s => ({ ...s, [p.id]: opt }))}
-                                                                style={{ padding: '4px 11px', fontSize: '0.76rem', border: 'none', cursor: included ? 'pointer' : 'not-allowed',
+                                                            // Clicar Wiki/Dashboard SELECCIONA la pàgina (la marca)
+                                                            // i li fixa el tipus, sense haver de clicar el checkbox.
+                                                            <button key={opt}
+                                                                onClick={() => {
+                                                                    setLoosePageTypes(s => ({ ...s, [p.id]: opt }));
+                                                                    setLooseSelected(s => { const n = new Set(s); n.add(p.id); return n; });
+                                                                }}
+                                                                style={{ padding: '4px 11px', fontSize: '0.76rem', border: 'none', cursor: 'pointer',
                                                                     background: active ? 'var(--gnosi-primary)' : 'transparent',
                                                                     color: active ? '#fff' : 'var(--text-secondary)' }}>
                                                                 {opt === 'wiki' ? 'Wiki' : 'Dashboard'}
