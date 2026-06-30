@@ -205,12 +205,12 @@ export default function NotionImportSettings() {
                                     {selected.size === databases.length ? 'Cap' : 'Tots'}
                                 </button>
                             </div>
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxHeight: 220, overflowY: 'auto' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxHeight: 220, overflowY: 'auto', overflowX: 'hidden' }}>
                                 {databases.map(d => (
-                                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
-                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.83rem', color: 'var(--text-primary)', flex: 1, cursor: 'pointer' }}>
+                                    <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)' }}>
+                                        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.83rem', color: 'var(--text-primary)', flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                             <input type="checkbox" checked={selected.has(d.id)} onChange={() => toggle(d.id)} />
-                                            {d.title}
+                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
                                         </label>
                                         <button onClick={() => openSchemaConfig(d)} disabled={busy === 'schema:' + d.id}
                                             title={schemaOverrides[d.id] ? 'Camps configurats — editar' : "Configura els camps d'aquesta BD (tipus, adjunts…)"}
@@ -243,17 +243,17 @@ export default function NotionImportSettings() {
                                             {looseSelected.size === loosePagesList.length ? 'Cap' : 'Tots'}
                                         </button>
                                     </div>
-                                    <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
+                                    <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflowY: 'auto', overflowX: 'hidden' }}>
                                         {loosePagesList.map(p => {
                                             const included = looseSelected.has(p.id);
                                             return (
-                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)', opacity: included ? 1 : 0.5 }}>
+                                            <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, padding: '6px 10px', borderRadius: 10, border: '1px solid var(--settings-border)', opacity: included ? 1 : 0.5 }}>
                                                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0, cursor: 'pointer' }}>
                                                     <input type="checkbox" checked={included}
                                                         onChange={() => setLooseSelected(s => { const n = new Set(s); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })} />
-                                                    <span style={{ flex: 1, fontSize: '0.83rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
+                                                    <span style={{ flex: 1, minWidth: 0, fontSize: '0.83rem', color: 'var(--text-primary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.title}</span>
                                                 </label>
-                                                <div style={{ display: 'flex', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--settings-border)' }}>
+                                                <div style={{ display: 'flex', flexShrink: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--settings-border)' }}>
                                                     {['wiki', 'dashboard'].map(opt => {
                                                         const active = (loosePageTypes[p.id] || 'wiki') === opt;
                                                         return (

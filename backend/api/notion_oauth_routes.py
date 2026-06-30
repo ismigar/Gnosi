@@ -13,7 +13,7 @@ import hashlib
 import json
 import logging
 import secrets
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 
 from fastapi import APIRouter, Request, Depends
 from fastapi.responses import RedirectResponse
@@ -31,6 +31,25 @@ _FRONTEND = lambda: get_env("FRONTEND_BASE_URL", "http://localhost:5173")
 
 # Secrets de PRIMERA CLASSE via IntegrationManager (lock + cau compartits): claus
 # `notion_mcp` (token), `notion_mcp_client` (client_id DCR), `notion_mcp_pending` (PKCE).
+
+
+def _frontend_base(request: Request) -> str:
+    """Origen REAL del frontend (esquema + host) derivat de la petició de /login.
+
+    El dev server serveix HTTPS al 5173 (mkcert), però FRONTEND_BASE_URL per defecte és
+    http:// → redirigir-hi després de l'OAuth dóna "Empty reply". Agafem l'origen de la
+    capçalera Referer/Origin de la navegació (mateix origen, proxied) per tornar al MATEIX
+    esquema/host des d'on s'ha clicat. Fallback a FRONTEND_BASE_URL si no n'hi ha.
+    """
+    ref = request.headers.get("origin") or request.headers.get("referer")
+    if ref:
+        try:
+            u = urlparse(ref)
+            if u.scheme and u.netloc:
+                return f"{u.scheme}://{u.netloc}"
+        except Exception:  # noqa: BLE001
+            pass
+    return _FRONTEND()
 
 
 def _discover() -> dict:
@@ -83,16 +102,17 @@ async def status():
 
 
 @router.get("/login")
-async def login():
+async def login(request: Request):
+    front = _frontend_base(request)
     try:
         endpoints = _discover()
         client_id = _register_client(endpoints["registration_endpoint"])
         verifier, challenge = _pkce()
         state = secrets.token_urlsafe(24)
-        # desa l'estat pendent (state → verifier) per al callback; `update` fa merge
-        # atòmic sota lock → afegeix aquest state sense trepitjar altres pendents.
+        # desa l'estat pendent (state → verifier + origen del frontend) per al callback;
+        # `update` fa merge atòmic sota lock → afegeix aquest state sense trepitjar altres.
         integration_manager.update("notion_mcp_pending",
-                                   {state: {"verifier": verifier, "client_id": client_id}})
+                                   {state: {"verifier": verifier, "client_id": client_id, "frontend": front}})
         params = {
             "response_type": "code",
             "client_id": client_id,
@@ -104,7 +124,7 @@ async def login():
         return RedirectResponse(url=f"{endpoints['authorization_endpoint']}?{urlencode(params)}")
     except Exception as e:  # noqa: BLE001
         log.error(f"Notion MCP OAuth login failed: {e}")
-        return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
+        return RedirectResponse(url=f"{front}/?notion_mcp=error")
 
 
 @router.get("/callback")
@@ -112,8 +132,10 @@ async def callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     pend = (integration_manager.get_raw("notion_mcp_pending") or {}).get(state) if state else None
+    # torna al MATEIX origen del frontend des d'on s'ha iniciat (desat a /login); fallback a env.
+    front = (pend or {}).get("frontend") or _FRONTEND()
     if not code or not pend:
-        return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
+        return RedirectResponse(url=f"{front}/?notion_mcp=error")
     try:
         endpoints = _discover()
         import httpx
@@ -129,11 +151,11 @@ async def callback(request: Request):
             tok = r.json()
     except Exception as e:  # noqa: BLE001
         log.error(f"Notion MCP OAuth token exchange failed: {e}")
-        return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
+        return RedirectResponse(url=f"{front}/?notion_mcp=error")
 
     access = tok.get("access_token")
     if not access:
-        return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=error")
+        return RedirectResponse(url=f"{front}/?notion_mcp=error")
     integration_manager.replace_key("notion_mcp", {
         "token": access, "refresh_token": tok.get("refresh_token"),
         "token_type": tok.get("token_type")})
@@ -143,7 +165,7 @@ async def callback(request: Request):
         notion_mcp.reset_health()   # token nou → reobre el tallafoc
     except Exception:
         pass
-    return RedirectResponse(url=f"{_FRONTEND()}/?notion_mcp=ok")
+    return RedirectResponse(url=f"{front}/?notion_mcp=ok")
 
 
 @router.delete("/token", dependencies=[Depends(require_role("admin"))])
