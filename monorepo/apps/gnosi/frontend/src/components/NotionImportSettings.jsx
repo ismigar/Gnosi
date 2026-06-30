@@ -13,6 +13,10 @@ const loadCfg = () => {
     catch { return {}; }
 };
 
+// Ordena BD/pàgines pel títol, alfabètic i insensible a accents/majúscules (locale català).
+const byTitle = (a, b) => (a?.title || '').localeCompare(b?.title || '', 'ca', { sensitivity: 'base' });
+const sortByTitle = (list) => [...(list || [])].sort(byTitle);
+
 /**
  * Clon de Notion → Vault. Connecta amb un token d'integració + l'MCP allotjat (OAuth) i fa un
  * CLON EXACTE a una carpeta nova (esquema, pàgines, relacions, vistes incrustades, colors,
@@ -26,7 +30,7 @@ export default function NotionImportSettings() {
     const [token, setToken] = useState('');
     const [busy, setBusy] = useState('');
     const [error, setError] = useState('');
-    const [databases, setDatabases] = useState(saved.databases || []);
+    const [databases, setDatabases] = useState(sortByTitle(saved.databases));
     const [selected, setSelected] = useState(new Set(saved.selected || []));
     const [folder, setFolder] = useState(saved.folder || 'Clon Notion');
     const [report, setReport] = useState(null);
@@ -43,7 +47,7 @@ export default function NotionImportSettings() {
     const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
     const [loosePages, setLoosePages] = useState(saved.loosePages || false);          // mostra/inclou pàgines soltes
-    const [loosePagesList, setLoosePagesList] = useState(saved.loosePagesList || []);     // [{id,title}] pàgines fora de BD
+    const [loosePagesList, setLoosePagesList] = useState(sortByTitle(saved.loosePagesList));     // [{id,title}] pàgines fora de BD
     const [loosePageTypes, setLoosePageTypes] = useState(saved.loosePageTypes || {});     // {pageId: "wiki"|"dashboard"}
     const [looseSelected, setLooseSelected] = useState(new Set(saved.looseSelected || [])); // pàgines soltes a clonar/importar
 
@@ -129,7 +133,7 @@ export default function NotionImportSettings() {
         setBusy('list'); setError(''); setReport(null);
         try {
             const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
-            setDatabases(data.databases || []);
+            setDatabases(sortByTitle(data.databases));
             setSelected(new Set((data.databases || []).map(d => d.id)));
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
@@ -144,7 +148,7 @@ export default function NotionImportSettings() {
             setBusy('loose'); setError('');
             try {
                 const lp = await axios.get('/api/notion/loose-pages', { timeout: 120000 });
-                const pages = lp.data.pages || [];
+                const pages = sortByTitle(lp.data.pages);
                 setLoosePagesList(pages);
                 setLoosePageTypes(Object.fromEntries(pages.map(p => [p.id, 'wiki'])));
                 setLooseSelected(new Set());
