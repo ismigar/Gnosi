@@ -43,6 +43,7 @@ export default function NotionImportSettings() {
     const [usedVaultId, setUsedVaultId] = useState(null);  // vault on s'ha clonat realment (per verificar-lo allà)
     const [usedVaultName, setUsedVaultName] = useState('');  // nom d'aquell vault (per la pista «canvia-hi»)
     const [verify, setVerify] = useState(null);
+    const [linkedDbs, setLinkedDbs] = useState(null);   // {linked:[{title,page_title,kind}],scanned,capped} o null
     const [mcpConnected, setMcpConnected] = useState(false);
     const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
@@ -129,12 +130,34 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
+    // Detecta vistes enllaçades (linked databases): es veuen a Notion però l'API no les pot
+    // clonar i `/search` no les retorna. Cal compartir-ne la FONT. Escaneig sota demanda.
+    const checkLinked = async () => {
+        setBusy('linked'); setError(''); setLinkedDbs(null);
+        try {
+            const { data } = await axios.get('/api/notion/linked-databases', { timeout: 0 });
+            setLinkedDbs(data);
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
+
     const listDbs = async () => {
         setBusy('list'); setError(''); setReport(null);
         try {
             const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
-            setDatabases(sortByTitle(data.databases));
-            setSelected(new Set((data.databases || []).map(d => d.id)));
+            const list = data.databases || [];
+            // Preserva la selecció: conserva les BD que ja tenies marcades i marca les NOVES
+            // (les que no eren a la llista anterior, p. ex. una BD acabada de compartir). A la
+            // primera càrrega (no n'hi havia cap) → totes marcades.
+            const prevIds = new Set(databases.map(d => d.id));
+            setSelected(prev => {
+                const next = new Set();
+                for (const d of list) {
+                    if (!prevIds.has(d.id) || prev.has(d.id)) next.add(d.id);
+                }
+                return next;
+            });
+            setDatabases(sortByTitle(list));
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
     };
@@ -281,7 +304,47 @@ export default function NotionImportSettings() {
                             style={{ padding: '7px 14px', borderRadius: 10, fontSize: '0.82rem' }}>
                             {busy === 'list' ? 'Carregant…' : 'Llista bases de dades'}
                         </button>
+                        <button onClick={checkLinked} disabled={busy === 'linked'}
+                            title="Cerca BD que es veuen a Notion però són vistes enllaçades (no importables): cal compartir-ne la font."
+                            style={{ ...inp, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px' }}>
+                            {busy === 'linked' ? <Loader size={14} className="animate-spin" /> : <Unlink size={14} />}
+                            {busy === 'linked' ? 'Cercant…' : 'Detecta vistes enllaçades'}
+                        </button>
                     </div>
+
+                    {linkedDbs && (
+                        linkedDbs.linked.length === 0 ? (
+                            <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                ✓ Cap vista enllaçada no importable detectada{linkedDbs.capped ? ' (escaneig parcial: hi ha més pàgines de les revisades)' : ''}.
+                            </div>
+                        ) : (
+                            <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: '1px solid #e0a52e', fontSize: '0.83rem', color: 'var(--text-primary)' }}>
+                                <div style={{ fontWeight: 800, color: '#e0a52e', marginBottom: 6 }}>
+                                    ⚠️ {linkedDbs.linked.length} BD enllaçada{linkedDbs.linked.length > 1 ? 'es' : ''} (no importables)
+                                </div>
+                                <div style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>
+                                    Es veuen a Notion però són <b>vistes enllaçades</b>: l'API no les pot clonar. Obre-les a Notion, ves a la <b>BD original</b> i comparteix-la amb la integració; després torna a llistar.
+                                </div>
+                                {linkedDbs.linked.map((l, i) => {
+                                    const named = l.title && l.title !== 'Untitled';
+                                    return (
+                                        <div key={i} style={{ display: 'flex', gap: 8, padding: '3px 0' }}>
+                                            <span>🔗</span>
+                                            <span>
+                                                {named ? <><b>{l.title}</b> <span style={{ color: 'var(--text-tertiary)' }}>— a «{l.page_title}»</span></>
+                                                    : <>Vista enllaçada dins de <b>«{l.page_title}»</b></>}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                                {linkedDbs.capped && (
+                                    <div style={{ marginTop: 6, color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
+                                        Escaneig parcial ({linkedDbs.scanned} pàgines): pot haver-n'hi més.
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    )}
 
                     {databases.length > 0 && (
                         <div style={{ marginTop: 18 }}>

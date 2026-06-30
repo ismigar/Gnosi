@@ -436,6 +436,43 @@ class NotionClient:
             cursor = data.get("next_cursor")
         return results
 
+    def get_block_children_shallow(self, block_id: str) -> List[Dict[str, Any]]:
+        """Fills DIRECTES d'un bloc/pàgina (un sol nivell, sense recursió) — per escanejar
+        ràpid quins blocs hi ha sense baixar tot l'arbre."""
+        results, cursor = [], None
+        while True:
+            params = {"page_size": 100}
+            if cursor:
+                params["start_cursor"] = cursor
+            data = self._request("GET", f"/blocks/{block_id}/children", params=params)
+            results.extend(data.get("results", []))
+            if not data.get("has_more"):
+                break
+            cursor = data.get("next_cursor")
+        return results
+
+    def database_kind(self, db_id: str) -> str:
+        """Classifica una BD sense llançar excepció (llegeix el cos de l'error de Notion):
+        'source' (BD font accessible), 'linked' (vista enllaçada: l'API no la pot llegir),
+        'page' (l'id és una pàgina, no una BD), 'inaccessible' (no s'hi té accés) o 'error'."""
+        self._throttle()
+        resp = self._http().request("GET", f"/databases/{db_id}")
+        if resp.status_code == 200:
+            return "source"
+        try:
+            body = resp.json()
+        except Exception:  # noqa: BLE001
+            return "error"
+        msg = (body.get("message") or "").lower()
+        code = body.get("code") or ""
+        if "linked database" in msg:
+            return "linked"
+        if "is a page" in msg:
+            return "page"
+        if code == "object_not_found" or "could not find" in msg:
+            return "inaccessible"
+        return "error"
+
 
 def _page_title(page: Dict[str, Any]) -> str:
     """Títol d'una pàgina de Notion (valor del camp `title`)."""
