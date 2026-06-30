@@ -1812,7 +1812,13 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
 
     if (!isOpen) return null;
 
-    return (
+    // Portal a document.body: quan aquest modal s'obre des de dins del modal de
+    // Configuració global, l'ancestre `.settings-modal` té un `transform` (que fa
+    // que el nostre `fixed inset-0` es resolgui contra ESE caixa, no el viewport) i
+    // `.settings-main` és `overflow-y:auto` amb el seu propi handler de wheel en
+    // captura → el scroll amb el cursor se l'enduia el panell de fons. Renderitzant
+    // al body escapem d'aquell context (igual que el popover intern d'aquest fitxer).
+    return createPortal(
         <>
         <div
             ref={modalRef}
@@ -2074,6 +2080,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
             cancelText={t('common.cancel', 'Cancel·lar')}
             isDestructive={true}
         />
-        </>
+        </>,
+        document.body
     );
 }
