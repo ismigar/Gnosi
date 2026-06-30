@@ -218,7 +218,7 @@ def _sanitize_folder(name: str) -> str:
 # ---------------------------------------------------------------------------
 class ClonePayload(BaseModel):
     database_ids: Optional[List[str]] = None
-    target_folder: str = "Clon Notion"
+    target_folder: str = ""   # buit = arrel del vault (clon sense subcarpeta)
     schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal}
     loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"}
 
@@ -269,6 +269,8 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         raise RuntimeError("No hi ha cap vault actiu")
     rest = NotionClient(token)
     folder_by_table: dict = {}
+    # Subcarpeta opcional: buit ("") = el clon va DIRECTE a l'arrel del vault (sense embolcall).
+    tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
 
     def write_table(table: dict):
         reg = vault_routes.load_registry()
@@ -295,12 +297,13 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
     def write_page(page: dict):
         meta = dict(page.get("metadata") or {})
-        folder = folder_by_table.get(meta.get("table_id")) or _sanitize_folder(target_folder)
+        # Taula → la seva carpeta; pàgina solta → subcarpeta (tf) o arrel del vault si tf és buit.
+        folder = folder_by_table.get(meta.get("table_id")) or tf
         meta["title"] = page.get("title") or "Sense títol"
         meta["id"] = page.get("id") or str(uuid.uuid4())
         meta = {k: v for k, v in meta.items() if v is not None}
         safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", meta["title"]).strip()[:120] or "Sense títol"
-        target_dir = vault / folder
+        target_dir = (vault / folder) if folder else vault
         target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / f"{safe}.md"
         if path.exists():
@@ -311,19 +314,22 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         vault_routes.register_page_in_index(path)
 
     def save_asset(url, prop, table):
-        """Baixa un adjunt (camp d'arxiu o imatge del cos) a Assets/<carpeta clon>/<Taula>/<Camp|_cos>/."""
+        """Baixa un adjunt (camp d'arxiu o imatge del cos) a Assets/[subcarpeta/]<Taula>/<Camp|_cos>/."""
         from backend.services.notion_attachments import download_to
         clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731
         leaf = clean(table.get("name"), "Taula")
         sub = clean(prop, "") if prop else "_cos"
-        dest = vault / "Assets" / _sanitize_folder(target_folder) / leaf / (sub or "_camp")
+        dest = vault / "Assets"
+        if tf:
+            dest = dest / tf
+        dest = dest / leaf / (sub or "_camp")
         return download_to(url, dest, vault)
 
     return notion_clone.clone_workspace(
         rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
         write_table=write_table, write_page=write_page, write_view=write_view,
         database_ids=database_ids or [d["id"] for d in rest.search_databases()],
-        target_folder=_sanitize_folder(target_folder),
+        target_folder=tf,
         schema_overrides=schema_overrides,
         save_asset=save_asset,
         loose_page_types=loose_page_types,
@@ -377,7 +383,7 @@ async def run_clone(payload: ClonePayload):
 # ---------------------------------------------------------------------------
 class VerifyPayload(BaseModel):
     database_ids: Optional[List[str]] = None
-    target_folder: str = "Clon Notion"
+    target_folder: str = ""   # buit = arrel del vault (clon sense subcarpeta)
 
 
 def _split_frontmatter(text: str):
@@ -389,7 +395,7 @@ def _split_frontmatter(text: str):
     return {}, text
 
 
-def _run_verify_sync(token: str, database_ids, target_folder="Clon Notion") -> dict:
+def _run_verify_sync(token: str, database_ids, target_folder="") -> dict:
     from backend.services.notion_clone_verify import verify_clone, relation_ids
     from backend.services.relation_links import relation_keys_from_table
     vault = get_active_vault_path()
@@ -408,7 +414,8 @@ def _run_verify_sync(token: str, database_ids, target_folder="Clon Notion") -> d
     rel_keys_by_table = {t.get("id"): relation_keys_from_table(t) for t in reg.get("tables", [])}
 
     pages = []
-    folder = vault / _sanitize_folder(target_folder)
+    tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
+    folder = (vault / tf) if tf else vault   # buit = arrel del vault
     for md in folder.rglob("*.md"):
         try:
             meta, body = _split_frontmatter(md.read_text(encoding="utf-8"))
