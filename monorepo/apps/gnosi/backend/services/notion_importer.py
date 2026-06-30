@@ -403,6 +403,9 @@ class NotionClient:
     def get_page(self, page_id: str) -> Dict[str, Any]:
         return self._request("GET", f"/pages/{page_id}")
 
+    def get_block(self, block_id: str) -> Dict[str, Any]:
+        return self._request("GET", f"/blocks/{block_id}")
+
     def query_database(self, db_id: str) -> Iterable[Dict[str, Any]]:
         cursor = None
         while True:
