@@ -4034,17 +4034,61 @@ async def list_vault_tags():
     Powers the Obsidian-style Tags page: each tag lists the pages that carry
     it so the UI can navigate straight to them. Built from the in-memory page
     snapshot (same source the sidebar uses), so it's O(pages) and cache-warm.
+
+    Dues fonts unificades:
+      * el camp `tags` del frontmatter (estil Obsidian), i
+      * el valor del camp d'etiquetes semàntic de cada taula — un `multi_select`
+        amb `config.role == "tags"` (o anomenat tags/etiquetes/labels), un array
+        de noms d'opció a la metadata de la fila.
+    Una pàgina compta UN sol cop per etiqueta encara que la porti a totes dues
+    bandes (p. ex. mateix tag al frontmatter i a la columna de la taula).
     """
     pages = await asyncio.to_thread(_get_pages_snapshot)
+
+    # Camp d'etiquetes per taula (id + nom de la property), resolt un sol cop des
+    # del registry perquè el bucle de pàgines segueixi sent O(pàgines). Només hi
+    # participen les taules amb una property de rol ROLE_TAGS.
+    tag_fields: dict = {}
+    try:
+        registry = await asyncio.to_thread(load_registry)
+        for t in registry.get("tables", []) or []:
+            prop = option_catalogs_service.find_role_prop(
+                t, option_catalogs_service.ROLE_TAGS
+            )
+            if prop:
+                tag_fields[str(t.get("id"))] = (prop.get("id"), prop.get("name"))
+    except Exception:
+        # Si el registry no es pot llegir, degradem a només frontmatter.
+        tag_fields = {}
+
+    # tag -> {page_id: title}, dedup per id perquè el mateix tag a frontmatter i
+    # a la columna de taula no dupliqui la pàgina ni infli el recompte.
     tag_map: dict = {}
+
+    def _add(tag: str, page) -> None:
+        tag_map.setdefault(tag, {}).setdefault(page.id, page.title)
+
     for p in pages:
         meta = p.metadata or {}
         if meta.get("is_template"):
             continue
         for tag in _extract_tags(meta.get("tags")):
-            tag_map.setdefault(tag, []).append({"id": p.id, "title": p.title})
+            _add(tag, p)
+        field = tag_fields.get(get_table_id(meta) or "")
+        if field:
+            fid, fname = field
+            raw = meta.get(fid) if fid else None
+            if raw is None and fname:
+                raw = meta.get(fname)
+            for tag in _extract_tags(raw):
+                _add(tag, p)
+
     result = [
-        {"name": name, "count": len(pgs), "pages": pgs}
+        {
+            "name": name,
+            "count": len(pgs),
+            "pages": [{"id": pid, "title": title} for pid, title in pgs.items()],
+        }
         for name, pgs in tag_map.items()
     ]
     # Most-used first, then alphabetical for stability.
