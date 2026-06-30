@@ -23,6 +23,10 @@ _CLONE_NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000003")
 _MARKER_RE = re.compile(r"<!--\s*gnosi-notion-db:([0-9a-f]{32})\s*-->")
 
 
+class CloneAborted(Exception):
+    """L'usuari ha demanat avortar el clon (cancel·lació cooperativa entre passades)."""
+
+
 def clone_table_id(notion_db_id: str) -> str:
     return str(uuid.uuid5(_CLONE_NS, "table:" + str(notion_db_id or "").replace("-", "")))
 
@@ -159,6 +163,8 @@ def clone_workspace(
     save_asset: Optional[Callable[[str, Optional[str], Dict[str, Any]], Optional[str]]] = None,
     loose_page_types: Optional[Dict[str, str]] = None,
     follow_subpages: bool = True,
+    progress_cb: Optional[Callable[[str, int, int, Dict[str, Any]], None]] = None,
+    should_cancel: Optional[Callable[[], bool]] = None,
 ) -> Dict[str, Any]:
     """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP).
 
@@ -170,6 +176,20 @@ def clone_workspace(
     """
     report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0,
               "errors": [], "warnings": [], "truncated": False}
+
+    def _emit(phase: str, done: int, total: int) -> None:
+        """Reporta progrés i comprova la cancel·lació. Es crida a l'inici de cada element de cada
+        passada → punt de control cooperatiu per avortar. Un error al callback no atura el clon,
+        però una cancel·lació SÍ (CloneAborted, propagada amunt)."""
+        if should_cancel is not None and should_cancel():
+            raise CloneAborted()
+        if progress_cb is None:
+            return
+        try:
+            progress_cb(phase, done, total, report)
+        except Exception:  # noqa: BLE001
+            pass
+
     users = rest_client.list_users()
 
     # Mapa nom-de-data-source (sense icona) → taula clonada, per resoldre vistes
@@ -178,7 +198,8 @@ def clone_workspace(
     # PASSADA 1: clonar TOTS els esquemes de taula abans de les pàgines, perquè una vista pot
     # referenciar una taula que es clona més tard (resolució de marcadors completa).
     db_by_id: Dict[str, Dict[str, Any]] = {}
-    for db_id in database_ids:
+    for i, db_id in enumerate(database_ids):
+        _emit("schema", i, len(database_ids))
         try:
             db = rest_client.get_database(db_id)
             db_by_id[db_id] = db
@@ -212,7 +233,8 @@ def clone_workspace(
     from backend.services.relation_links import decorate_relation_wikilinks, relation_keys_from_table
     collected: List[tuple] = []          # (table, row, values, title, rel_keys)
     clone_titles: Dict[str, str] = {}
-    for db_id, db in db_by_id.items():
+    for di, (db_id, db) in enumerate(db_by_id.items()):
+        _emit("collect", di, len(db_by_id))
         try:
             table = clone_tables_by_name.get(nvr._strip_icon(_plain_title(db.get("title"))))
             if not table:
@@ -256,7 +278,8 @@ def clone_workspace(
                 inverse_adds.setdefault(tgt, {}).setdefault(inv_field, set()).add(src)
 
     # PASSADA 2b: escriure (cos + vistes via MCP, adjunts, relacions decorades a `[[Títol|id]]`)
-    for table, row, values, title, rel_keys in collected:
+    for pi, (table, row, values, title, rel_keys) in enumerate(collected):
+        _emit("pages", pi, len(collected))
         try:
             props = table.get("properties", [])
             # Baixa adjunts dels camps d'arxiu (URLs S3 → rutes Assets/ locals)
@@ -339,7 +362,9 @@ def clone_workspace(
         report["pages"] += 1
 
     # PASSADA 3: pàgines FORA de BD (wiki/dashboard segons tria de l'usuari)
-    for pid, ptype in (loose_page_types or {}).items():
+    _loose = list((loose_page_types or {}).items())
+    for li, (pid, ptype) in enumerate(_loose):
+        _emit("loose", li, len(_loose))
         if report["pages"] >= max_pages:
             report["truncated"] = True
             break
@@ -356,6 +381,7 @@ def clone_workspace(
         seed = [r["id"] for _, r, _, _, _ in collected] + list(loose_page_types or {})
         seen = {str(x).replace("-", "") for x in seed}
         to_scan = deque(seed)
+        sub_done = 0
         while to_scan and report["pages"] < max_pages:
             parent = to_scan.popleft()
             try:
@@ -369,11 +395,15 @@ def clone_workspace(
                 if report["pages"] >= max_pages:
                     report["truncated"] = True
                     break
+                # Total desconegut (es descobreix amb el BFS): total=0 → barra indeterminada.
+                _emit("subpages", sub_done, 0)
                 try:
                     page = rest_client.get_page(cid)
                     _clone_standalone(cid, page, {})
+                    sub_done += 1
                     to_scan.append(cid)   # recursa: sub-pàgines de la sub-pàgina
                 except Exception as e:  # noqa: BLE001
                     report["errors"].append({"page": cid, "stage": "subpage", "error": str(e)})
 
+    _emit("done", report["pages"], report["pages"])
     return report

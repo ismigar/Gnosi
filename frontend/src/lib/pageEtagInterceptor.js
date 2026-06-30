@@ -63,8 +63,12 @@ export function installPageEtagInterceptor() {
             // Mode personal multi-vault: el vault actiu triat es propaga a CADA petició
             // (sense res triat → el backend usa el vault principal: compatibilitat enrere).
             try {
+                // Una capçalera X-Vault-Id explícita de la petició MANA (p. ex. clonar Notion a un
+                // vault separat sense canviar el vault global actiu); només si no n'hi ha, posem
+                // el vault actiu del localStorage.
+                const explicit = config.headers && config.headers['X-Vault-Id'];
                 const vid = typeof localStorage !== 'undefined' ? localStorage.getItem('gnosi_active_vault') : null;
-                if (vid) config.headers = { ...(config.headers || {}), 'X-Vault-Id': vid };
+                if (!explicit && vid) config.headers = { ...(config.headers || {}), 'X-Vault-Id': vid };
             } catch { /* localStorage no disponible */ }
             const method = (config.method || 'get').toLowerCase();
             if (method !== 'patch' && method !== 'put') return config;

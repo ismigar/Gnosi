@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Database, Link2, Check, Loader, Unlink, Settings } from 'lucide-react';
+import { Database, Link2, Check, Loader, Unlink, Settings, X } from 'lucide-react';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
+import { ConfirmModal } from './ConfirmModal';
 
 // Persistència de la config d'import: en tancar el modal de Configuració l'estat de React es
 // perd, així que la desem a localStorage amb autosave i la restaurem en obrir. Els Set es
@@ -29,6 +30,14 @@ export default function NotionImportSettings() {
     const [selected, setSelected] = useState(new Set(saved.selected || []));
     const [folder, setFolder] = useState(saved.folder || 'Clon Notion');
     const [report, setReport] = useState(null);
+    const [progress, setProgress] = useState(null);   // {phase,done,total,pages,...} del clon en curs
+    const [confirmAbort, setConfirmAbort] = useState(false);   // modal de confirmació d'avortar
+    const pollRef = useRef(null);                      // id del setInterval de polling del progrés
+    const [vaults, setVaults] = useState([]);          // [{id,name,path,active}] vaults del workspace
+    const [cloneVaultId, setCloneVaultId] = useState(saved.cloneVaultId || '__new__'); // vault destí del clon ('__new__' = crear-ne un)
+    const [newVaultName, setNewVaultName] = useState(saved.newVaultName || 'Notion');   // nom del vault nou a crear
+    const [usedVaultId, setUsedVaultId] = useState(null);  // vault on s'ha clonat realment (per verificar-lo allà)
+    const [usedVaultName, setUsedVaultName] = useState('');  // nom d'aquell vault (per la pista «canvia-hi»)
     const [verify, setVerify] = useState(null);
     const [mcpConnected, setMcpConnected] = useState(false);
     const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: esquema SchemaConfigModal}
@@ -43,11 +52,12 @@ export default function NotionImportSettings() {
         try {
             localStorage.setItem(CFG_KEY, JSON.stringify({
                 databases, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes,
+                cloneVaultId, newVaultName,
                 selected: Array.from(selected),
                 looseSelected: Array.from(looseSelected),
             }));
         } catch { /* quota plena o privat: ignora */ }
-    }, [databases, selected, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes, looseSelected]);
+    }, [databases, selected, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
@@ -58,6 +68,13 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
+    const loadVaults = useCallback(async () => {
+        try {
+            const { data } = await axios.get('/api/vaults');
+            setVaults(data.vaults || []);
+        } catch { /* multi-vault no disponible: es clona al vault actiu */ }
+    }, []);
+
     const loadStatus = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/notion/status');
@@ -67,8 +84,20 @@ export default function NotionImportSettings() {
             const { data } = await axios.get('/api/notion-oauth/status');
             setMcpConnected(!!data.connected);
         } catch { setMcpConnected(false); }
-    }, []);
+        loadVaults();
+    }, [loadVaults]);
     useEffect(() => { loadStatus(); }, [loadStatus]);
+
+    // Resol el vault destí del clon: si és '__new__', crea un vault germà a l'arrel (…/Gnosi/<nom>)
+    // i retorna el seu id; si no, l'id triat. El clon hi escriu via la capçalera X-Vault-Id.
+    const resolveCloneVault = async () => {
+        if (cloneVaultId && cloneVaultId !== '__new__') return cloneVaultId;
+        const name = (newVaultName.trim() || 'Notion');
+        const { data } = await axios.post('/api/vaults', { name });
+        await loadVaults();
+        setCloneVaultId(data.id);
+        return data.id;
+    };
 
     // En tornar del consentiment OAuth (?notion_mcp=ok), refresca l'estat i neteja la URL
     useEffect(() => {
@@ -137,18 +166,55 @@ export default function NotionImportSettings() {
         return Object.keys(out).length ? out : null;
     };
 
+    // Atura el polling de progrés (si n'hi ha) i neteja la barra.
+    const stopProgressPoll = () => {
+        if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    };
+    useEffect(() => stopProgressPoll, []);   // neteja en desmuntar
+
     const runClone = async () => {
         setBusy('clone'); setError(''); setReport(null);
+        // Resol/crea el vault destí ABANS de res; el clon hi escriurà via X-Vault-Id (sense tocar
+        // el vault global actiu). Si falla, no engeguem el clon.
+        let vid;
+        try { vid = await resolveCloneVault(); }
+        catch (e) {
+            setError('No s\'ha pogut preparar el vault destí: ' + String(e?.response?.data?.detail || e.message));
+            setBusy(''); return;
+        }
+        setUsedVaultId(vid);
+        setUsedVaultName(cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion')
+            : (vaults.find(v => v.id === vid)?.name || ''));
+        const vaultHeader = { 'X-Vault-Id': vid };
+        setProgress({ phase: 'starting', done: 0, total: 0, pages: 0 });
+        // El clon és una sola petició bloquejant; mentrestant, consultem el progrés cada 1,5s.
+        stopProgressPoll();
+        pollRef.current = setInterval(async () => {
+            try {
+                const { data } = await axios.get('/api/notion/clone/progress', { timeout: 8000 });
+                setProgress(data);
+            } catch { /* transitori: ignora, el següent tic ho reintenta */ }
+        }, 1500);
         try {
             const { data } = await axios.post('/api/notion/clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: folder.trim() || 'Clon Notion',
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
                 loose_page_types: selectedLooseTypes(),
-            }, { timeout: 0 });  // clon = moltes crides MCP: sense timeout de client
+            }, { timeout: 0, headers: vaultHeader });  // clon = moltes crides MCP: sense timeout; al vault destí
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
-        finally { setBusy(''); }
+        finally { setBusy(''); stopProgressPoll(); setProgress(null); }
+    };
+
+    // Avorta el clon en curs (després de confirmar al modal). El backend para al següent punt de
+    // control entre pàgines; la petició /clone segueix oberta i retornarà el report parcial.
+    const doAbortClone = async () => {
+        setConfirmAbort(false);
+        try {
+            await axios.post('/api/notion/clone/abort');
+            setProgress(p => p ? { ...p, phase: 'cancelled' } : p);
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
     };
 
     const runVerify = async () => {
@@ -157,7 +223,7 @@ export default function NotionImportSettings() {
             const { data } = await axios.post('/api/notion/verify-clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: folder.trim() || 'Clon Notion',
-            }, { timeout: 0 });  // recompta totes les files de Notion: sense timeout
+            }, { timeout: 0, headers: usedVaultId ? { 'X-Vault-Id': usedVaultId } : undefined });  // verifica al vault on s'ha clonat
             setVerify(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
@@ -302,9 +368,36 @@ export default function NotionImportSettings() {
                                 </div>
                             )}
 
-                            <div style={{ marginTop: 16, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                            {/* Vault destí: el clon va a un vault SEPARAT a l'arrel (germà del principal)
+                                perquè el puguis validar aïllat i adoptar-lo o descartar-lo, sense barrejar-lo
+                                amb el vault actiu. Per defecte, en crea un de nou. */}
+                            <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                    Carpeta destí:&nbsp;
+                                    Vault destí:&nbsp;
+                                    <select style={{ ...inp, display: 'inline-block', cursor: 'pointer' }}
+                                        value={cloneVaultId} onChange={e => setCloneVaultId(e.target.value)}>
+                                        <option value="__new__">➕ Crear un vault nou (a l'arrel)</option>
+                                        {vaults.map(v => (
+                                            <option key={v.id} value={v.id}>{v.name}{v.active ? ' (actiu)' : ''}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                                {cloneVaultId === '__new__' && (
+                                    <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                        Nom:&nbsp;
+                                        <input style={{ ...inp, width: 160, display: 'inline-block' }}
+                                            value={newVaultName} onChange={e => setNewVaultName(e.target.value)}
+                                            placeholder="Notion" />
+                                    </label>
+                                )}
+                                <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
+                                    El clon es crea a …/Gnosi/{cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?')} (vault separat).
+                                </span>
+                            </div>
+
+                            <div style={{ marginTop: 12, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
+                                <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                                    Subcarpeta:&nbsp;
                                     <input style={{ ...inp, width: 220, display: 'inline-block' }} value={folder} onChange={e => setFolder(e.target.value)} />
                                 </label>
                                 {mcpConnected ? (
@@ -327,14 +420,55 @@ export default function NotionImportSettings() {
                                     {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
                                     {busy === 'clone' ? 'Clonant…' : `Clon exacte (${selected.size} BD)`}
                                 </button>
+                                {busy === 'clone' && (
+                                    <button onClick={() => setConfirmAbort(true)}
+                                        disabled={progress?.phase === 'cancelled'}
+                                        title="Atura el clon. El que ja s'ha clonat queda al disc (parcial)."
+                                        style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', color: '#e0524e', borderColor: '#e0524e' }}>
+                                        <X size={15} /> {progress?.phase === 'cancelled' ? 'Avortant…' : 'Avortar'}
+                                    </button>
+                                )}
                             </div>
+
+                            {busy === 'clone' && progress && (() => {
+                                const labels = {
+                                    starting: 'Preparant…', schema: 'Clonant esquemes de BD',
+                                    collect: 'Recollint files', pages: 'Escrivint pàgines',
+                                    loose: 'Pàgines soltes', subpages: 'Sub-pàgines', done: 'Finalitzant…',
+                                };
+                                const total = progress.total || 0;
+                                const done = progress.done || 0;
+                                const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : null;
+                                return (
+                                    <div style={{ marginTop: 14 }}>
+                                        <style>{'@keyframes gnosi-indeterminate{0%{margin-left:-40%}100%{margin-left:100%}}'}</style>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
+                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}</span>
+                                            <span>{progress.pages || 0} pàgines · {progress.tables || 0} BD · {progress.views || 0} vistes</span>
+                                        </div>
+                                        <div style={{ height: 8, borderRadius: 99, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
+                                            <div style={{
+                                                height: '100%', borderRadius: 99, background: 'var(--gnosi-primary)',
+                                                transition: 'width 0.4s ease',
+                                                width: pct !== null ? `${pct}%` : '40%',
+                                                ...(pct === null ? { animation: 'gnosi-indeterminate 1.2s ease-in-out infinite' } : {}),
+                                            }} />
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     )}
 
                     {report && (
-                        <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                            ✓ Clonat: <b>{report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
+                        <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: `1px solid ${report.status === 'cancelled' ? '#e0a52e' : 'var(--settings-border)'}`, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                            {report.status === 'cancelled' ? '⏹️ Clon avortat (parcial): ' : '✓ Clonat: '}<b>{report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
                             {report.attachments > 0 && <span> · <b>{report.attachments}</b> adjunts</span>}
+                            {usedVaultName && (
+                                <div style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
+                                    📁 Al vault <b>«{usedVaultName}»</b> (a l'arrel). Canvia-hi des del selector de vaults per veure'l i validar-lo.
+                                </div>
+                            )}
                             {report.truncated && (
                                 <div style={{ marginTop: 6, color: '#e0a52e' }}>⚠️ Límit de pàgines assolit: el workspace és més gran. Augmenta el límit.</div>
                             )}
@@ -400,6 +534,17 @@ export default function NotionImportSettings() {
                     }}
                 />
             )}
+
+            <ConfirmModal
+                isOpen={confirmAbort}
+                onClose={() => setConfirmAbort(false)}
+                onConfirm={doAbortClone}
+                title="Avortar el clon?"
+                message="El clon s'aturarà al següent punt de control (entre pàgines). El que ja s'ha clonat quedarà al disc com a clon parcial; pots esborrar la carpeta destí i tornar a començar."
+                confirmText="Avortar el clon"
+                cancelText="Continuar clonant"
+                isDestructive={true}
+            />
         </div>
     );
 }

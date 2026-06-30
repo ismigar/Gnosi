@@ -100,18 +100,63 @@ async def database_schema(db_id: str):
     return {"name": table.get("name"), "schema": notion_props_to_modal_schema(table.get("properties", []))}
 
 
+def _collect_loose_pages(token: str) -> list:
+    """Pàgines REALMENT fora de qualsevol BD: pujant per la cadena de `parent` s'arriba a
+    `workspace` sense trobar mai cap `database_id`. No n'hi ha prou amb mirar el pare directe:
+    una subpàgina niada dins d'una fila de BD té `parent.type == "page_id"` (el pare és la
+    pàgina-fila) i s'havia colat a la llista de "soltes". Resolem la cadena amb memoització
+    (cau per id + reús de les pàgines ja carregades) per limitar les crides a Notion."""
+    client = NotionClient(token)
+    pages = client.search_pages()
+    by_id = {p["id"]: p for p in pages}
+    cache: dict = {}
+
+    def _parent_of(node_id: str, fetch) -> dict:
+        node = by_id.get(node_id)
+        if node is None:
+            try:
+                node = fetch(node_id)
+                by_id[node_id] = node
+            except Exception:
+                return {}
+        return node.get("parent") or {}
+
+    def _is_loose(node_id: str, kind: str, seen: set) -> bool:
+        key = (kind, node_id)
+        if key in cache:
+            return cache[key]
+        if key in seen:  # guarda contra cicles (no n'hi hauria d'haver)
+            return True
+        seen.add(key)
+        parent = _parent_of(node_id, client.get_block if kind == "block" else client.get_page)
+        ptype = parent.get("type")
+        if ptype == "database_id":
+            res = False
+        elif ptype == "workspace":
+            res = True
+        elif ptype == "page_id":
+            res = _is_loose(parent["page_id"], "page", seen)
+        elif ptype == "block_id":
+            res = _is_loose(parent["block_id"], "block", seen)
+        else:  # desconegut → no amaguem la pàgina (comportament conservador)
+            res = True
+        cache[key] = res
+        return res
+
+    return [{"id": p["id"], "title": _page_title(p) or "Sense títol"}
+            for p in pages if _is_loose(p["id"], "page", set())]
+
+
 @router.get("/loose-pages", dependencies=[Depends(require_role("editor"))])
 async def list_loose_pages():
-    """Pàgines de Notion FORA de qualsevol BD (parent workspace/page) → per triar wiki/dashboard."""
+    """Pàgines de Notion FORA de qualsevol BD → per triar wiki/dashboard."""
     token = _get_token()
     if not token:
         raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
     try:
-        pages = await asyncio.to_thread(NotionClient(token).search_pages)
+        out = await asyncio.to_thread(_collect_loose_pages, token)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error consultant Notion: {e}")
-    out = [{"id": p["id"], "title": _page_title(p) or "Sense títol"}
-           for p in pages if (p.get("parent") or {}).get("type") in ("workspace", "page_id")]
     return {"pages": out}
 
 
@@ -127,6 +172,40 @@ class ClonePayload(BaseModel):
     target_folder: str = "Clon Notion"
     schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal}
     loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"}
+
+
+# Progrés del clon en curs: el clon corre en un thread (bloquejant) i el frontend el consulta
+# amb polling a GET /clone/progress. Single-user local → n'hi ha prou amb un estat de mòdul (les
+# escriptures/lectures de dict són atòmiques sota el GIL). Es reinicia a l'inici de cada clon.
+_CLONE_PROGRESS: dict = {"running": False, "phase": "idle", "done": 0, "total": 0,
+                         "pages": 0, "tables": 0, "views": 0, "attachments": 0}
+# Senyal d'avortament cooperatiu: POST /clone/abort el posa a True; clone_workspace el comprova
+# entre elements (via should_cancel) i atura amb CloneAborted (deixa el clon parcial al disc).
+_CLONE_CANCEL: dict = {"flag": False}
+
+
+def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
+    _CLONE_PROGRESS.update({
+        "running": phase != "done", "phase": phase, "done": done, "total": total,
+        "pages": report.get("pages", 0), "tables": report.get("tables", 0),
+        "views": report.get("views", 0), "attachments": report.get("attachments", 0),
+    })
+
+
+@router.get("/clone/progress", dependencies=[Depends(require_role("editor"))])
+async def clone_progress():
+    """Estat del clon en curs (per a la barra de progrés del frontend). No bloca."""
+    return dict(_CLONE_PROGRESS)
+
+
+@router.post("/clone/abort", dependencies=[Depends(require_role("editor"))])
+async def clone_abort():
+    """Demana avortar el clon en curs. Cancel·lació cooperativa: s'atura al següent punt de
+    control (entre pàgines), deixant el que ja s'ha clonat al disc. No bloca."""
+    if not _CLONE_PROGRESS.get("running"):
+        return {"status": "idle", "detail": "No hi ha cap clon en curs"}
+    _CLONE_CANCEL["flag"] = True
+    return {"status": "aborting"}
 
 
 def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=None,
@@ -199,6 +278,8 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         schema_overrides=schema_overrides,
         save_asset=save_asset,
         loose_page_types=loose_page_types,
+        progress_cb=_clone_progress_cb,
+        should_cancel=lambda: _CLONE_CANCEL["flag"],
     )
 
 
@@ -217,12 +298,28 @@ async def run_clone(payload: ClonePayload):
                if reason in ("expired", "no_token")
                else f"L'MCP de Notion no respon ({reason}); reconnecta'l i torna-ho a provar")
         raise HTTPException(status_code=400, detail=msg)
+    _CLONE_CANCEL["flag"] = False
+    _CLONE_PROGRESS.update({"running": True, "phase": "starting", "done": 0, "total": 0,
+                            "pages": 0, "tables": 0, "views": 0, "attachments": 0})
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
                                          payload.target_folder, payload.schema_overrides,
                                          payload.loose_page_types)
+    except notion_clone.CloneAborted:
+        # Avortat per l'usuari: el que s'ha clonat fins ara queda al disc. Tornem els comptadors
+        # parcials (de _CLONE_PROGRESS) perquè el frontend mostri què s'ha fet abans d'aturar.
+        _CLONE_PROGRESS["phase"] = "cancelled"
+        return {"status": "cancelled",
+                "tables": _CLONE_PROGRESS.get("tables", 0), "pages": _CLONE_PROGRESS.get("pages", 0),
+                "views": _CLONE_PROGRESS.get("views", 0),
+                "attachments": _CLONE_PROGRESS.get("attachments", 0),
+                "errors": [], "warnings": ["Clon avortat per l'usuari: parcial (el que ja s'havia "
+                                           "clonat queda al disc)."], "truncated": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error clonant de Notion: {e}")
+    finally:
+        _CLONE_PROGRESS["running"] = False
+        _CLONE_CANCEL["flag"] = False
     return {"status": "success", **report}
 
 
