@@ -1475,6 +1475,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
         const wheelHandler = (e) => {
             if (e.ctrlKey || e.metaKey) return;
+            // Hi ha un modal niat al damunt (p. ex. SchemaConfigModal, portat al
+            // body): defereix-li l'scroll, no robis l'event cap a .settings-main.
+            if (document.body.classList.contains('gnosi-modal-open')) return;
             const t = e.target;
             if (!t || !t.closest) return;
             const main = t.closest('.settings-main');
@@ -1491,6 +1494,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         const keyScrollHandler = (e) => {
             const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '];
             if (!scrollKeys.includes(e.key)) return;
+            // Modal niat obert al damunt: que gestioni ell l'scroll amb teclat. Si no,
+            // aquest handler (a window, en captura) scrolleja .settings-main del fons
+            // i fa preventDefault → el handler del modal niat bota per defaultPrevented.
+            if (document.body.classList.contains('gnosi-modal-open')) return;
 
             const ae = document.activeElement;
             if (ae) {
