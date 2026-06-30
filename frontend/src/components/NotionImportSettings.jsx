@@ -32,7 +32,6 @@ export default function NotionImportSettings() {
     const [error, setError] = useState('');
     const [databases, setDatabases] = useState(sortByTitle(saved.databases));
     const [selected, setSelected] = useState(new Set(saved.selected || []));
-    const [folder, setFolder] = useState(saved.folder || 'Clon Notion');
     const [report, setReport] = useState(null);
     const [progress, setProgress] = useState(null);   // {phase,done,total,pages,...} del clon en curs
     const [confirmAbort, setConfirmAbort] = useState(false);   // modal de confirmació d'avortar
@@ -56,13 +55,13 @@ export default function NotionImportSettings() {
     useEffect(() => {
         try {
             localStorage.setItem(CFG_KEY, JSON.stringify({
-                databases, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes,
+                databases, schemaOverrides, loosePages, loosePagesList, loosePageTypes,
                 cloneVaultId, newVaultName,
                 selected: Array.from(selected),
                 looseSelected: Array.from(looseSelected),
             }));
         } catch { /* quota plena o privat: ignora */ }
-    }, [databases, selected, folder, schemaOverrides, loosePages, loosePagesList, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
+    }, [databases, selected, schemaOverrides, loosePages, loosePagesList, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
@@ -225,7 +224,7 @@ export default function NotionImportSettings() {
         try {
             const { data } = await axios.post('/api/notion/clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
-                target_folder: folder.trim() || 'Clon Notion',
+                target_folder: '',   // arrel del vault destí (sense subcarpeta)
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
                 loose_page_types: selectedLooseTypes(),
             }, { timeout: 0, headers: vaultHeader });  // clon = moltes crides MCP: sense timeout; al vault destí
@@ -249,7 +248,7 @@ export default function NotionImportSettings() {
         try {
             const { data } = await axios.post('/api/notion/verify-clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
-                target_folder: folder.trim() || 'Clon Notion',
+                target_folder: '',   // arrel del vault destí (sense subcarpeta)
             }, { timeout: 0, headers: usedVaultId ? { 'X-Vault-Id': usedVaultId } : undefined });  // verifica al vault on s'ha clonat
             setVerify(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
@@ -458,15 +457,11 @@ export default function NotionImportSettings() {
                                     </label>
                                 )}
                                 <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
-                                    El clon es crea a …/Gnosi/{cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?')} (vault separat).
+                                    El clon es crea directament a …/Gnosi/{cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?')} (vault separat, sense subcarpeta).
                                 </span>
                             </div>
 
                             <div style={{ marginTop: 12, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
-                                <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                    Subcarpeta:&nbsp;
-                                    <input style={{ ...inp, width: 220, display: 'inline-block' }} value={folder} onChange={e => setFolder(e.target.value)} />
-                                </label>
                                 {mcpConnected ? (
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: 'var(--gnosi-primary)', fontWeight: 700 }}>
                                         <Check size={14} /> MCP connectat
@@ -590,7 +585,7 @@ export default function NotionImportSettings() {
                 <SchemaConfigModal
                     isOpen={true}
                     onClose={() => setCfg(null)}
-                    folder={folder.trim() || 'Importades/Notion'}
+                    folder={cfg.db.title || 'Notion'}
                     tableName={cfg.db.title}
                     currentSchema={cfg.schema}
                     onSave={(newSchema) => {

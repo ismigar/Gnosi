@@ -23,6 +23,20 @@ from backend.config.app_config import load_params
 
 router = APIRouter(prefix="/vaults", tags=["Vaults"])
 
+# Estructura estàndard d'un vault (mirall del mapping de get_p a vault_routes): es crea en crear
+# un vault nou perquè quedi llest per usar (registre a BD/, adjunts a Assets/, etc.).
+_VAULT_SUBFOLDERS = ["Assets", "BD", "Wiki", "Calendar", "Mail", "Templates", "Drawings",
+                     "Daily Notes", "Newsletters", ".Dashboards", ".gnosi"]
+
+
+def _scaffold_vault_structure(base: Path) -> None:
+    """Crea les subcarpetes estàndard d'un vault sota `base` (idempotent)."""
+    for sub in _VAULT_SUBFOLDERS:
+        try:
+            (base / sub).mkdir(parents=True, exist_ok=True)
+        except Exception:  # noqa: BLE001
+            pass
+
 
 class CreateVaultPayload(BaseModel):
     name: str
@@ -76,6 +90,7 @@ def create_vault(payload: CreateVaultPayload,
         path = _default_vault_path().parent / safe
     try:
         path.mkdir(parents=True, exist_ok=True)
+        _scaffold_vault_structure(path)   # Assets, BD, Wiki… → vault llest per usar
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"No s'ha pogut crear la carpeta del vault: {e}")
     v = Vault(id=str(uuid.uuid4()), workspace_id=ctx.workspace_id, name=name, path_override=str(path))

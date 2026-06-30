@@ -207,7 +207,9 @@ def clone_workspace(
             if schema_overrides and db_id in schema_overrides:
                 from backend.services.notion_schema_config import apply_override
                 table = apply_override(table, schema_overrides[db_id])
-            table["folder"] = f"{target_folder}/{table.get('name') or 'Taula'}"
+            _tname = table.get('name') or 'Taula'
+            # Sense subcarpeta (target_folder buit) → la taula penja directament de l'arrel del vault.
+            table["folder"] = f"{target_folder}/{_tname}" if target_folder else _tname
             write_table(table)
             report["tables"] += 1
             clone_tables_by_name[nvr._strip_icon(table.get("name"))] = table
