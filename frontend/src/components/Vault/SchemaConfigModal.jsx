@@ -993,7 +993,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     );
 }
 
-export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null }) {
+export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null }) {
     const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
@@ -1829,7 +1829,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, currentSchema, onSc
                 <div className="px-6 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Settings size={20} className="text-[var(--gnosi-primary)]" />
-                        {t('schema.manage_properties_of')} {folder}
+                        {t('schema.manage_properties_of')} {folder}{tableName ? ` · ${tableName}` : ''}
                     </h2>
                     <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar">
                         <X />
