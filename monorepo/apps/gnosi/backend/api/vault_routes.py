@@ -3958,13 +3958,111 @@ def _find_daily_note_id(date_str: str) -> Optional[str]:
     return None
 
 
+def _norm_date(value: Any) -> str:
+    """Normalizes a frontmatter date to a bare `YYYY-MM-DD` for comparison.
+
+    Date columns may store an ISO datetime (`2026-06-30T08:00:00`) or just the
+    day; we only key daily notes by the day, so trim to the first 10 chars when
+    they form a valid ISO date.
+    """
+    s = str(value or "").strip()
+    return s[:10] if _DAILY_DATE_RE.match(s[:10]) else s
+
+
+def _daily_source_config() -> Tuple[Optional[dict], Optional[dict]]:
+    """Resolves the BD (table) configured as the backing store for daily notes.
+
+    The daily-notes plugin can be pointed at a database table (e.g. "Bitàcora")
+    via `plugins.json` → `settings["daily-notes"]`:
+        {"source_table_id": "<table id>", "date_property": "<prop id or name>"}
+
+    Returns `(table, date_prop)` when a valid table + date column resolve, else
+    `(None, None)` — in which case the classic `Daily Notes/` folder is used.
+    The date column is auto-detected (first `date`-typed property) when the
+    stored `date_property` is missing or no longer matches.
+    """
+    try:
+        state = _load_plugins_state()
+        cfg = (state.get("settings") or {}).get("daily-notes") or {}
+        table_id = str(cfg.get("source_table_id") or "").strip()
+        if not table_id:
+            return None, None
+        table = _table_by_id(table_id)
+        if not table:
+            return None, None
+        props = table.get("properties") or []
+        date_ref = str(cfg.get("date_property") or "").strip()
+        date_prop = None
+        if date_ref:
+            for p in props:
+                if p.get("id") == date_ref or p.get("name") == date_ref:
+                    date_prop = p
+                    break
+        if date_prop is None:
+            for p in props:
+                if p.get("type") == "date":
+                    date_prop = p
+                    break
+        return (table, date_prop) if date_prop else (None, None)
+    except Exception as e:
+        log.warning(f"Could not resolve daily-notes source table: {e}")
+        return None, None
+
+
+def _find_daily_note_in_table(
+    table: dict, date_prop: dict, date_str: str
+) -> Optional[str]:
+    """Returns the page id of the BD row whose date column equals `date_str`."""
+    try:
+        pages = _get_pages_for_table(table.get("id"))
+    except Exception:
+        return None
+    for p in pages:
+        md = p.metadata or {}
+        if md.get("is_template"):
+            continue
+        if _norm_date(action_rules_service.read_prop_value(md, date_prop)) == date_str:
+            pid = md.get("id") or getattr(p, "id", None)
+            if pid:
+                return str(pid)
+    return None
+
+
 @router.get("/daily")
 async def list_daily_notes():
     """Lists existing daily notes (one per day), newest first.
 
     Used by the sidebar list and by prev/next navigation to jump to the
     nearest existing note without creating empty ones on every arrow press.
+
+    When the plugin is configured to use a BD as its source, the list is built
+    from that table's rows (keyed by the date column) instead of the
+    `Daily Notes/` folder.
     """
+    table, date_prop = await asyncio.to_thread(_daily_source_config)
+    if table and date_prop:
+        notes = []
+        try:
+            pages = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
+        except Exception:
+            pages = []
+        for p in pages:
+            md = p.metadata or {}
+            if md.get("is_template"):
+                continue
+            date_val = _norm_date(action_rules_service.read_prop_value(md, date_prop))
+            if not _DAILY_DATE_RE.match(date_val):
+                continue
+            notes.append(
+                {
+                    "id": str(md.get("id") or getattr(p, "id", "") or ""),
+                    "date": date_val,
+                    "title": md.get("title") or date_val,
+                }
+            )
+        notes.sort(key=lambda n: n["date"], reverse=True)
+        return notes
+
     daily_dir = get_p("DAILY")
     notes = []
     if daily_dir.exists():
@@ -4004,6 +4102,32 @@ async def get_or_create_daily_note(
         raise HTTPException(
             status_code=422, detail="date must be in YYYY-MM-DD format"
         )
+
+    # BD-backed mode: when a source table is configured, the daily note IS a row
+    # of that table (e.g. "Bitàcora"), found/created by its date column. The
+    # `Daily Notes/` folder is bypassed entirely while this is configured.
+    table, date_prop = await asyncio.to_thread(_daily_source_config)
+    if table and date_prop:
+        existing_id = await asyncio.to_thread(
+            _find_daily_note_in_table, table, date_prop, date_str
+        )
+        if existing_id:
+            return await get_page(existing_id)
+        content = await asyncio.to_thread(_load_daily_template_content)
+        write_key = (
+            action_rules_service.effect_write_key({}, date_prop)
+            or date_prop.get("name")
+            or date_prop.get("id")
+        )
+        save_req = PageSaveRequest(
+            title=date_str,
+            content=content,
+            metadata={
+                "database_table_id": table.get("id"),
+                write_key: date_str,
+            },
+        )
+        return await create_page(save_req, background_tasks)
 
     existing_id = await asyncio.to_thread(_find_daily_note_id, date_str)
     if existing_id:
@@ -4224,6 +4348,9 @@ _plugins_lock = threading.Lock()
 class PluginsUpdateRequest(BaseModel):
     # List of plugin ids the user has turned OFF. Everything else is on.
     disabled: list = []
+    # Per-plugin configuration, keyed by plugin id. Free-form so each plugin
+    # owns its own schema (e.g. daily-notes → {"source_table_id", "date_property"}).
+    settings: dict = {}
 
 
 def _get_plugins_path() -> Path:
@@ -4235,14 +4362,17 @@ def _load_plugins_state() -> dict:
         try:
             path = _get_plugins_path()
             if not path.exists():
-                return {"disabled": []}
+                return {"disabled": [], "settings": {}}
             data = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
-                return {"disabled": []}
+                return {"disabled": [], "settings": {}}
             data.setdefault("disabled", [])
+            data.setdefault("settings", {})
+            if not isinstance(data.get("settings"), dict):
+                data["settings"] = {}
             return data
         except Exception:
-            return {"disabled": []}
+            return {"disabled": [], "settings": {}}
 
 
 @router.get("/plugins")
@@ -4253,9 +4383,10 @@ async def get_plugins_state():
 
 @router.put("/plugins", dependencies=[Depends(require_role("editor"))])
 async def set_plugins_state(request: PluginsUpdateRequest):
-    """Persists which plugins are disabled."""
+    """Persists which plugins are disabled and their per-plugin settings."""
     disabled = [str(x) for x in (request.disabled or [])]
-    payload = {"disabled": disabled}
+    settings = request.settings if isinstance(request.settings, dict) else {}
+    payload = {"disabled": disabled, "settings": settings}
     def _write():
         with _plugins_lock:
             path = _get_plugins_path()
