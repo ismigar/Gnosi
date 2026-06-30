@@ -383,6 +383,7 @@ export default function NotionImportSettings() {
                     isOpen={true}
                     onClose={() => setCfg(null)}
                     folder={folder.trim() || 'Importades/Notion'}
+                    tableName={cfg.db.title}
                     currentSchema={cfg.schema}
                     onSave={(newSchema) => {
                         // SchemaConfigModal és d'AUTOSAVE: crida onSave a cada canvi (i un cop en
