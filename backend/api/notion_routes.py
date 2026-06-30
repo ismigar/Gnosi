@@ -147,6 +147,55 @@ def _collect_loose_pages(token: str) -> list:
             for p in pages if _is_loose(p["id"], "page", set())]
 
 
+def _find_linked_databases(token: str, max_pages: int = 400) -> dict:
+    """Troba les BD ENLLAÇADES (vistes) visibles a Notion però NO importables: l'API no pot
+    llegir-les i `/search` no les retorna. Viuen com a blocs `child_database` dins de pàgines
+    (taullells/directoris). Escanegem els fills DIRECTES de les pàgines soltes (depth 1, on solen
+    estar, p. ex. una pàgina «BD»); una BD que no és font accessible i dona error 'linked database'
+    / no trobada → és una vista enllaçada (cal compartir-ne la FONT). Acotat per `max_pages`."""
+    client = NotionClient(token)
+    accessible = {d["id"] for d in client.search_databases()}
+    loose = _collect_loose_pages(token)
+    found: dict = {}
+    scanned, capped = 0, False
+    for p in loose:
+        if scanned >= max_pages:
+            capped = True
+            break
+        scanned += 1
+        try:
+            blocks = client.get_block_children_shallow(p["id"])
+        except Exception:  # noqa: BLE001
+            continue
+        for b in blocks:
+            if b.get("type") != "child_database":
+                continue
+            dbid = b["id"]
+            if dbid in accessible or dbid in found:
+                continue
+            kind = client.database_kind(dbid)
+            if kind in ("linked", "inaccessible", "page"):
+                found[dbid] = {
+                    "title": (b.get("child_database") or {}).get("title") or "Sense títol",
+                    "page_title": p.get("title") or "Sense títol",
+                    "kind": kind,
+                }
+    return {"linked": list(found.values()), "scanned": scanned, "capped": capped}
+
+
+@router.get("/linked-databases", dependencies=[Depends(require_role("editor"))])
+async def list_linked_databases():
+    """BD enllaçades (vistes) que es veuen a Notion però no es poden importar via API."""
+    token = _get_token()
+    if not token:
+        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+    try:
+        out = await asyncio.to_thread(_find_linked_databases, token)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error consultant Notion: {e}")
+    return out
+
+
 @router.get("/loose-pages", dependencies=[Depends(require_role("editor"))])
 async def list_loose_pages():
     """Pàgines de Notion FORA de qualsevol BD → per triar wiki/dashboard."""
