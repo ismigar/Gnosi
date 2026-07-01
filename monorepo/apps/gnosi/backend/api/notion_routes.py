@@ -281,9 +281,13 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
             tables[idx] = table
         else:
             tables.append(table)
-        folder_by_table[table["id"]] = table.get("folder")
+        # El registre guarda la FULLA (table["folder"], p. ex. "Àrees"); el físic va sota BD/ com
+        # fan les taules natives de Gnosi (cf. _ensure_table_vault_folder / _resolve_table_folder_
+        # from_metadata: VAULT/BD/<folder> quan la taula no té database). Així no es migra després.
+        phys = f"BD/{table['folder']}"
+        folder_by_table[table["id"]] = phys
         vault_routes.save_registry(reg)
-        (vault / table["folder"]).mkdir(parents=True, exist_ok=True)
+        (vault / phys).mkdir(parents=True, exist_ok=True)
 
     def write_view(view: dict):
         reg = vault_routes.load_registry()
@@ -297,13 +301,18 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
     def write_page(page: dict):
         meta = dict(page.get("metadata") or {})
-        # Taula → la seva carpeta; pàgina solta → subcarpeta (tf) o arrel del vault si tf és buit.
-        folder = folder_by_table.get(meta.get("table_id")) or tf
+        # Mateixa col·locació que el desat natiu (cf. vault_routes save_page):
+        #   · fila d'una taula → carpeta de la taula (BD/<Taula>)
+        #   · pàgina solta dashboard (is_dashboard) → .Dashboards/
+        #   · pàgina solta wiki → Wiki/
+        folder = folder_by_table.get(meta.get("table_id"))
+        if folder is None:
+            folder = ".Dashboards" if meta.get("is_dashboard") else "Wiki"
         meta["title"] = page.get("title") or "Sense títol"
         meta["id"] = page.get("id") or str(uuid.uuid4())
         meta = {k: v for k, v in meta.items() if v is not None}
         safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", meta["title"]).strip()[:120] or "Sense títol"
-        target_dir = (vault / folder) if folder else vault
+        target_dir = vault / folder
         target_dir.mkdir(parents=True, exist_ok=True)
         path = target_dir / f"{safe}.md"
         if path.exists():
