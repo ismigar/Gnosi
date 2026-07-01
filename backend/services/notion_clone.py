@@ -233,6 +233,7 @@ def clone_workspace(
     # a la passada 2b (reusa les files recollides).
     from backend.services.notion_importer import _plain_title
     from backend.services.relation_links import decorate_relation_wikilinks, relation_keys_from_table
+    from backend.services.notion_attachments import localize_values
     collected: List[tuple] = []          # (table, row, values, title, rel_keys)
     clone_titles: Dict[str, str] = {}
     for di, (db_id, db) in enumerate(db_by_id.items()):
@@ -248,6 +249,14 @@ def clone_workspace(
                     break
                 try:
                     values = clone_values(page_to_values(row, users), table.get("properties", []))
+                    # Baixa els adjunts dels camps d'arxiu ARA que la URL signada de Notion és
+                    # FRESCA. Si es deixés per a la passada 2b (com abans), en clons llargs (>1h)
+                    # les URLs S3 caduquen (X-Amz-Expires=3600) i donen 403 → adjunts perduts.
+                    if save_asset is not None:
+                        values, na = localize_values(
+                            values, table.get("properties", []),
+                            lambda u, p, _t=table: save_asset(u, p, _t))
+                        report["attachments"] += na
                     title = _page_title(row) or "Sense títol"
                     clone_titles[clone_page_id(row["id"])] = title
                     collected.append((table, row, values, title, rel_keys))
@@ -284,11 +293,7 @@ def clone_workspace(
         _emit("pages", pi, len(collected))
         try:
             props = table.get("properties", [])
-            # Baixa adjunts dels camps d'arxiu (URLs S3 → rutes Assets/ locals)
-            if save_asset is not None:
-                from backend.services.notion_attachments import localize_values
-                values, na = localize_values(values, props, lambda u, p: save_asset(u, p, table))
-                report["attachments"] += na
+            # (Els adjunts dels camps d'arxiu ja s'han baixat a la passada 2a amb URLs fresques.)
             body = ""
             try:
                 page_md = fetch_page(row["id"])

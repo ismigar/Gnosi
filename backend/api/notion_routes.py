@@ -14,7 +14,7 @@ import uuid
 from typing import List, Optional
 
 import yaml
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from backend.services.workspace_service import require_role
@@ -221,6 +221,7 @@ class ClonePayload(BaseModel):
     target_folder: str = ""   # buit = arrel del vault (clon sense subcarpeta)
     schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal}
     loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"}
+    download_assets: bool = True  # False = no baixa adjunts (deixa les URLs de Notion); clon ràpid
 
 
 # Progrés del clon en curs: el clon corre en un thread (bloquejant) i el frontend el consulta
@@ -258,7 +259,7 @@ async def clone_abort():
 
 
 def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=None,
-                    loose_page_types=None) -> dict:
+                    loose_page_types=None, download_assets=True) -> dict:
     token = _get_token()
     if not token:
         raise RuntimeError("No hi ha cap token d'integració de Notion configurat")
@@ -332,9 +333,12 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         # llegir-ne storage_folder; només els camps d'arxiu reals poden anar a Biblioteca.
         prop_dict = next((p for p in (table.get("properties") or []) if p.get("name") == prop), None) if prop else None
         storage = str((vault_routes._property_config_value(prop_dict, "storage_folder") if prop_dict else "") or "").strip().lower()
+        # Timeout curt: sota xarxa lenta, un fitxer que no baixa en 15s es salta (millor un clon
+        # complet amb algun adjunt de menys que quedar-se encallat 60s per fitxer). Els ràpids sí.
+        DL_TIMEOUT = 15.0
         if storage == "biblioteca":
             biblio = vault_routes.get_p("BIBLIOTECA")
-            fname = download_file(url, biblio)
+            fname = download_file(url, biblio, timeout=DL_TIMEOUT)
             return f"/api/vault/biblioteca/{fname}" if fname else None
         clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731
         leaf = clean(table.get("name"), "Taula")
@@ -343,7 +347,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         if tf:
             dest = dest / tf
         dest = dest / leaf / (sub or "_camp")
-        return download_to(url, dest, vault)
+        return download_to(url, dest, vault, timeout=DL_TIMEOUT)
 
     return notion_clone.clone_workspace(
         rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
@@ -351,7 +355,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         database_ids=database_ids or [d["id"] for d in rest.search_databases()],
         target_folder=tf,
         schema_overrides=schema_overrides,
-        save_asset=save_asset,
+        save_asset=(save_asset if download_assets else None),
         loose_page_types=loose_page_types,
         progress_cb=_clone_progress_cb,
         should_cancel=lambda: _CLONE_CANCEL["flag"],
@@ -359,8 +363,31 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
 
 @router.post("/clone", dependencies=[Depends(require_role("editor"))])
-async def run_clone(payload: ClonePayload):
+async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(default=None)):
     """Clon EXACTE de Notion a una carpeta NOVA (vistes+columnes via MCP). No toca el vault."""
+    # GUARD DE SEGURETAT: si es demana un vault destí concret (X-Vault-Id) però NO resol a cap
+    # vault real (p. ex. s'ha esborrat i el frontend n'envia l'id vell), avortem. Sense això el
+    # middleware cau silenciosament al vault PRINCIPAL i el clon l'embruta (incident real).
+    if x_vault_id:
+        # Validació directa a BD (sense caché) per evitar falsos positius i no dependre de funcions privades.
+        try:
+            from backend.data.management_db import _get_or_init_mgmt_engine
+            from backend.models.management import Vault
+            _, SessionLocal = _get_or_init_mgmt_engine()
+            db = SessionLocal()
+            try:
+                row = db.query(Vault.path_override).filter(Vault.id == x_vault_id).first()
+                ok = bool(row and row[0])
+            finally:
+                db.close()
+        except Exception:
+            ok = False
+        if not ok:
+            raise HTTPException(
+                status_code=400,
+                detail="El vault destí indicat no existeix (potser s'ha esborrat). "
+                       "Refresca la pàgina i torna a triar-lo abans de clonar.",
+            )
     if not notion_mcp.is_connected():
         raise HTTPException(status_code=400,
                             detail="Connecta l'MCP de Notion (vistes incrustades) per al clon exacte")
@@ -379,7 +406,7 @@ async def run_clone(payload: ClonePayload):
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
                                          payload.target_folder, payload.schema_overrides,
-                                         payload.loose_page_types)
+                                         payload.loose_page_types, payload.download_assets)
     except notion_clone.CloneAborted:
         # Avortat per l'usuari: el que s'ha clonat fins ara queda al disc. Tornem els comptadors
         # parcials (de _CLONE_PROGRESS) perquè el frontend mostri què s'ha fet abans d'aturar.

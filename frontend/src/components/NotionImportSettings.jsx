@@ -82,6 +82,14 @@ export default function NotionImportSettings() {
         } catch { /* multi-vault no disponible: es clona al vault actiu */ }
     }, []);
 
+    // Si el vault destí desat (localStorage) ja no existeix (esborrat), torna a "Crear vault nou"
+    // perquè el selector no quedi en blanc apuntant a un id fantasma (causa de l'incident del clon).
+    useEffect(() => {
+        if (cloneVaultId && cloneVaultId !== '__new__' && vaults.length && !vaults.some(v => v.id === cloneVaultId)) {
+            setCloneVaultId('__new__');
+        }
+    }, [vaults, cloneVaultId]);
+
     const loadStatus = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/notion/status');
@@ -98,7 +106,9 @@ export default function NotionImportSettings() {
     // Resol el vault destí del clon: si és '__new__', crea un vault germà a l'arrel (…/Gnosi/<nom>)
     // i retorna el seu id; si no, l'id triat. El clon hi escriu via la capçalera X-Vault-Id.
     const resolveCloneVault = async () => {
-        if (cloneVaultId && cloneVaultId !== '__new__') return cloneVaultId;
+        if (cloneVaultId && cloneVaultId !== '__new__' && (!vaults.length || vaults.some(v => v.id === cloneVaultId))) {
+            return cloneVaultId;
+        }
         const name = (newVaultName.trim() || 'Notion');
         const { data } = await axios.post('/api/vaults', { name });
         await loadVaults();
