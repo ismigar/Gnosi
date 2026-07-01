@@ -1313,5 +1313,7 @@
     "trashed": "Fitxer mogut a la Paperera",
     "deleted": "Fitxer eliminat",
     "delete_error": "No s'ha pogut eliminar el fitxer: {{msg}}"
-  }
+  },
+  "notion_clone": "Clonar",
+  "notion_cloning": "Clonant…"
 }
