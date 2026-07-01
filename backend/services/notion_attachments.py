@@ -45,9 +45,10 @@ def filename_for(url: str, *, default_ext: str = "") -> str:
     return f"{stem}_{h}.{ext}" if ext else f"{stem}_{h}"
 
 
-def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 60.0) -> Optional[str]:
-    """Baixa `url` a `dest_dir` (creant-lo) i torna la ruta RELATIVA a `vault_root` amb `/`
-    (p.ex. `Assets/DB/Taula/Camp/foto_ab12cd34.png`). None si no és remota o falla."""
+def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optional[str]:
+    """Baixa `url` a `dest_dir` (creant-lo) i torna el NOM del fitxer creat (o None si no és remota
+    o falla). No calcula cap ruta relativa → serveix per a destins FORA del vault (p. ex. Biblioteca,
+    germana del vault)."""
     if not is_remote(url):
         return None
     try:
@@ -62,10 +63,23 @@ def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 
         dest_dir.mkdir(parents=True, exist_ok=True)
         fname = filename_for(url, default_ext=ext)
         (dest_dir / fname).write_bytes(data)
+        return fname
+    except Exception as e:  # noqa: BLE001
+        log.warning("No s'ha pogut baixar l'adjunt %s: %s", url[:80], e)
+        return None
+
+
+def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 60.0) -> Optional[str]:
+    """Baixa `url` a `dest_dir` (dins del vault) i torna la ruta RELATIVA a `vault_root` amb `/`
+    (p.ex. `Assets/DB/Taula/Camp/foto_ab12cd34.png`). None si no és remota o falla."""
+    fname = download_file(url, dest_dir, timeout=timeout)
+    if not fname:
+        return None
+    try:
         rel = (dest_dir / fname).resolve().relative_to(vault_root.resolve())
         return str(rel).replace("\\", "/")
     except Exception as e:  # noqa: BLE001
-        log.warning("No s'ha pogut baixar l'adjunt %s: %s", url[:80], e)
+        log.warning("Adjunt baixat fora del vault (%s): %s", dest_dir, e)
         return None
 
 
