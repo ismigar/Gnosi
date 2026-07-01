@@ -323,8 +323,19 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         vault_routes.register_page_in_index(path)
 
     def save_asset(url, prop, table):
-        """Baixa un adjunt (camp d'arxiu o imatge del cos) a Assets/[subcarpeta/]<Taula>/<Camp|_cos>/."""
-        from backend.services.notion_attachments import download_to
+        """Baixa un adjunt al seu lloc segons la config del camp (com el desat natiu):
+        · camp d'arxiu amb `storage_folder='biblioteca'` → carpeta Biblioteca (germana del vault),
+          valor portable `/api/vault/biblioteca/<fitxer>`.
+        · resta (Assets per defecte, imatges del cos, icones/portades) → Assets/[subcarpeta/]<Taula>/<Camp|_cos>/."""
+        from backend.services.notion_attachments import download_to, download_file
+        # `prop` és el NOM del camp (o None per al cos/_icones/_portades). Busca'l a l'esquema per
+        # llegir-ne storage_folder; només els camps d'arxiu reals poden anar a Biblioteca.
+        prop_dict = next((p for p in (table.get("properties") or []) if p.get("name") == prop), None) if prop else None
+        storage = str((vault_routes._property_config_value(prop_dict, "storage_folder") if prop_dict else "") or "").strip().lower()
+        if storage == "biblioteca":
+            biblio = vault_routes.get_p("BIBLIOTECA")
+            fname = download_file(url, biblio)
+            return f"/api/vault/biblioteca/{fname}" if fname else None
         clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731
         leaf = clean(table.get("name"), "Taula")
         sub = clean(prop, "") if prop else "_cos"

@@ -38,6 +38,7 @@ export default function NotionImportSettings() {
     const [progress, setProgress] = useState(null);   // {phase,done,total,pages,...} del clon en curs
     const [confirmAbort, setConfirmAbort] = useState(false);   // modal de confirmació d'avortar
     const pollRef = useRef(null);                      // id del setInterval de polling del progrés
+    const pollResumeRef = useRef(false);               // true = polling en mode "resume" (modal reobert)
     const [vaults, setVaults] = useState([]);          // [{id,name,path,active}] vaults del workspace
     const [cloneVaultId, setCloneVaultId] = useState(saved.cloneVaultId || '__new__'); // vault destí del clon ('__new__' = crear-ne un)
     const [newVaultName, setNewVaultName] = useState(saved.newVaultName || 'Notion');   // nom del vault nou a crear
@@ -200,6 +201,39 @@ export default function NotionImportSettings() {
     };
     useEffect(() => stopProgressPoll, []);   // neteja en desmuntar
 
+    // Consulta el progrés del clon cada 1,5s. En mode "resume" (modal reobert amb un clon ja en
+    // marxa) la petició /clone original s'ha perdut, així que és el mateix polling qui detecta el
+    // final (running=false) i tanca la barra amb els comptadors acumulats.
+    const startProgressPoll = (resume) => {
+        pollResumeRef.current = resume;
+        stopProgressPoll();
+        pollRef.current = setInterval(async () => {
+            try {
+                const { data } = await axios.get('/api/notion/clone/progress', { timeout: 8000 });
+                setProgress(data);
+                if (pollResumeRef.current && data && data.running === false) {
+                    stopProgressPoll(); setBusy(''); setProgress(null);
+                    setReport({ status: 'success', tables: data.tables, pages: data.pages,
+                        views: data.views, attachments: data.attachments,
+                        errors: [], warnings: [], truncated: false });
+                }
+            } catch { /* transitori: ignora, el següent tic ho reintenta */ }
+        }, 1500);
+    };
+
+    // En obrir el panell, si JA hi ha un clon en marxa (p. ex. es va tancar el modal sense esperar),
+    // recupera'n l'estat i reprèn la barra en comptes d'oferir disparar el clon de nou.
+    useEffect(() => {
+        let alive = true;
+        axios.get('/api/notion/clone/progress', { timeout: 8000 }).then(({ data }) => {
+            if (alive && data && data.running) {
+                setBusy('clone'); setProgress(data); startProgressPoll(true);
+            }
+        }).catch(() => {});
+        return () => { alive = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const runClone = async () => {
         setBusy('clone'); setError(''); setReport(null);
         // Resol/crea el vault destí ABANS de res; el clon hi escriurà via X-Vault-Id (sense tocar
@@ -216,13 +250,7 @@ export default function NotionImportSettings() {
         const vaultHeader = { 'X-Vault-Id': vid };
         setProgress({ phase: 'starting', done: 0, total: 0, pages: 0 });
         // El clon és una sola petició bloquejant; mentrestant, consultem el progrés cada 1,5s.
-        stopProgressPoll();
-        pollRef.current = setInterval(async () => {
-            try {
-                const { data } = await axios.get('/api/notion/clone/progress', { timeout: 8000 });
-                setProgress(data);
-            } catch { /* transitori: ignora, el següent tic ho reintenta */ }
-        }, 1500);
+        startProgressPoll(false);
         try {
             const { data } = await axios.post('/api/notion/clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
