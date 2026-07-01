@@ -481,7 +481,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
 }
 
 // Child component for each draggable property
-function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null }) {
+function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveField, allTables = [], currentTableName = '', virtualComputers = [], enableTranslation = false, enableDrupalSync = false, drupalBundle = '', drupalFields = [], drupalFieldMapping = {}, setDrupalFieldMapping = () => {}, optionTools = null }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
@@ -533,31 +533,37 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         className="w-full text-xs font-medium border border-[var(--border-primary)] rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-secondary)] text-[var(--text-primary)] disabled:opacity-50"
                         disabled={field.type === 'title'}
                     >
-                        <option value="text">{t('schema.type_text')}</option>
-                        <option value="rich_text">{t('schema.type_rich_text')}</option>
-                        <option value="number">{t('schema.type_number')}</option>
-                        <option value="select">{t('schema.type_select')}</option>
-                        <option value="multi_select">{t('schema.type_multi_select')}</option>
-                        <option value="autoria">{t('schema.type_autoria', 'Autoria')}</option>
-                        <option value="status">{t('schema.type_status')}</option>
-                        <option value="date">{t('schema.type_date')}</option>
-                        <option value="datetime">{t('schema.type_datetime')}</option>
-                        <option value="period">{t('schema.type_period')}</option>
-                        <option value="checkbox">{t('schema.type_checkbox')}</option>
-                        <option value="url">{t('schema.type_url')}</option>
-                        <option value="zotero">Zotero</option>
-                        <option value="files">{t('schema.type_files')}</option>
-                        <option value="image">{t('schema.type_image', 'Imatge')}</option>
-                        <option value="relation">{t('schema.type_relation')}</option>
-                        <option value="formula">{t('schema.type_formula')}</option>
-                        <option value="rollup">{t('schema.type_rollup')}</option>
-                        <option value="virtual">{t('schema.type_virtual', 'Derivat')}</option>
-                        <option value="created_time">{t('schema.type_created_time', 'Creat el')}</option>
-                        <option value="last_edited_time">{t('schema.type_last_edited_time', 'Editat el')}</option>
-                        <option value="created_by">{t('schema.type_created_by', 'Creat per')}</option>
-                        <option value="last_edited_by">{t('schema.type_last_edited_by', 'Editat per')}</option>
-                        <option value="button">{t('schema.type_button', 'Botó')}</option>
-                        <option value="title">{t('schema.type_title')}</option>
+                        {[
+                            { value: 'text', label: t('schema.type_text') },
+                            { value: 'rich_text', label: t('schema.type_rich_text') },
+                            { value: 'number', label: t('schema.type_number') },
+                            { value: 'select', label: t('schema.type_select') },
+                            { value: 'multi_select', label: t('schema.type_multi_select') },
+                            { value: 'autoria', label: t('schema.type_autoria', 'Autoria') },
+                            { value: 'status', label: t('schema.type_status') },
+                            { value: 'date', label: t('schema.type_date') },
+                            { value: 'datetime', label: t('schema.type_datetime') },
+                            { value: 'period', label: t('schema.type_period') },
+                            { value: 'checkbox', label: t('schema.type_checkbox') },
+                            { value: 'url', label: t('schema.type_url') },
+                            { value: 'zotero', label: 'Zotero' },
+                            { value: 'files', label: t('schema.type_files') },
+                            { value: 'image', label: t('schema.type_image', 'Imatge') },
+                            { value: 'relation', label: t('schema.type_relation') },
+                            { value: 'formula', label: t('schema.type_formula') },
+                            { value: 'rollup', label: t('schema.type_rollup') },
+                            { value: 'virtual', label: t('schema.type_virtual', 'Derivat') },
+                            { value: 'created_time', label: t('schema.type_created_time', 'Creat el') },
+                            { value: 'last_edited_time', label: t('schema.type_last_edited_time', 'Editat el') },
+                            { value: 'created_by', label: t('schema.type_created_by', 'Creat per') },
+                            { value: 'last_edited_by', label: t('schema.type_last_edited_by', 'Editat per') },
+                            { value: 'button', label: t('schema.type_button', 'Botó') },
+                            { value: 'title', label: t('schema.type_title') },
+                        ]
+                            .sort((a, b) => a.label.localeCompare(b.label))
+                            .map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
                     </select>
                 </div>
 
@@ -937,18 +943,33 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                         ))}
                                     </select>
                                 </div>
-                                <div className="space-y-1">
-                                    <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.relation_cardinality')}</label>
-                                    <select
-                                        value={field.cardinality || 'one-to-many'}
-                                        onChange={(e) => handleUpdateField(idx, 'cardinality', e.target.value)}
-                                        className="w-full text-xs border border-[var(--border-primary)] rounded-md px-3 py-2 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
-                                    >
-                                        <option value="one-to-one">{t('schema.one_to_one')}</option>
-                                        <option value="one-to-many">{t('schema.one_to_many')}</option>
-                                        <option value="many-to-many">{t('schema.many_to_many')}</option>
-                                    </select>
-                                </div>
+                                {(() => {
+                                    const relatedTable = (allTables || []).find(tt => tt.id === field.relation_database_id);
+                                    const relatedName = relatedTable ? (relatedTable.name || relatedTable.title || relatedTable.id) : '';
+                                    const srcName = currentTableName || '';
+                                    // Etiqueta llegible: "[Taula actual] <cardinalitat> [Taula relacionada]".
+                                    // Ex: "Recursos molts a un Àrees" = cada recurs pertany a una àrea, però una àrea té molts recursos.
+                                    const cardLabel = (key) => {
+                                        const base = t(`schema.${key}`);
+                                        if (srcName && relatedName) return `${srcName} ${base.toLowerCase()} ${relatedName}`;
+                                        return base;
+                                    };
+                                    return (
+                                        <div className="space-y-1">
+                                            <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">{t('schema.relation_cardinality')}</label>
+                                            <select
+                                                value={field.cardinality || 'one-to-many'}
+                                                onChange={(e) => handleUpdateField(idx, 'cardinality', e.target.value)}
+                                                className="w-full text-xs border border-[var(--border-primary)] rounded-md px-3 py-2 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 focus:border-[var(--gnosi-primary)] outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                                            >
+                                                <option value="one-to-one">{cardLabel('one_to_one')}</option>
+                                                <option value="one-to-many">{cardLabel('one_to_many')}</option>
+                                                <option value="many-to-one">{cardLabel('many_to_one')}</option>
+                                                <option value="many-to-many">{cardLabel('many_to_many')}</option>
+                                            </select>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>
@@ -2033,6 +2054,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                         idx={idx}
                                         allFields={fields}
                                         allTables={allTables}
+                                        currentTableName={tableName}
                                         virtualComputers={virtualComputers}
                                         handleUpdateField={handleUpdateField}
                                         handleRemoveField={handleRemoveField}

@@ -929,6 +929,7 @@
     "relation_cardinality": "Cardinalidad",
     "one_to_one": "Uno a uno",
     "one_to_many": "Uno a muchos",
+    "many_to_one": "Muchos a uno",
     "many_to_many": "Muchos a muchos",
     "default_formula_placeholder": "Valor por defecto o fórmula...",
     "default_label": "Por defecto",

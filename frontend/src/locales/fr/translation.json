@@ -162,6 +162,7 @@
     "relation_cardinality": "Cardinalité",
     "one_to_one": "Un à un",
     "one_to_many": "Un à plusieurs",
+    "many_to_one": "Plusieurs à un",
     "many_to_many": "Plusieurs à plusieurs",
     "default_formula_placeholder": "Valeur par défaut ou formule...",
     "default_label": "Par défaut",
