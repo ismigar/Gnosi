@@ -1041,6 +1041,7 @@
     "relation_cardinality": "Cardinalitat",
     "one_to_one": "Un a un",
     "one_to_many": "Un a molts",
+    "many_to_one": "Molts a un",
     "many_to_many": "Molts a molts",
     "default_formula_placeholder": "Valor per defecte o fórmula...",
     "default_label": "Per defecte",
