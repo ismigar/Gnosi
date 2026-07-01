@@ -15,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Tuple
 from urllib.parse import unquote, urlparse
@@ -55,11 +56,20 @@ def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optiona
         import httpx
         ua = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+        # Streaming amb DEADLINE TOTAL: el timeout de httpx és per-operació de lectura, així que un
+        # fitxer que degota (chunks lents però constants) no timeout mai i pot encallar el clon
+        # minuts. Acotem el temps TOTAL: si supera `timeout` segons, avortem i saltem el fitxer.
+        deadline = time.monotonic() + timeout
         with httpx.Client(timeout=timeout, follow_redirects=True) as c:
-            resp = c.get(url, headers={"User-Agent": ua})
-            resp.raise_for_status()
-            data = resp.content
-            ext = _ext_from_content_type(resp.headers.get("content-type", ""))
+            with c.stream("GET", url, headers={"User-Agent": ua}) as resp:
+                resp.raise_for_status()
+                ext = _ext_from_content_type(resp.headers.get("content-type", ""))
+                buf = bytearray()
+                for chunk in resp.iter_bytes():
+                    buf += chunk
+                    if time.monotonic() > deadline:
+                        raise TimeoutError(f"baixada supera el pressupost total de {timeout:.0f}s")
+                data = bytes(buf)
         dest_dir.mkdir(parents=True, exist_ok=True)
         fname = filename_for(url, default_ext=ext)
         (dest_dir / fname).write_bytes(data)

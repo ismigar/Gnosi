@@ -341,15 +341,27 @@ class NotionClient:
         self._last = time.monotonic()
 
     def _request(self, method: str, path: str, **kw) -> Dict[str, Any]:
-        for attempt in range(5):
+        import httpx
+        last_exc = None
+        for attempt in range(6):
             self._throttle()
-            resp = self._http().request(method, path, **kw)
+            try:
+                resp = self._http().request(method, path, **kw)
+            except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                    httpx.ReadError, httpx.RemoteProtocolError, httpx.PoolTimeout) as e:
+                # Blip de xarxa/DNS transitori (p. ex. "[Errno 8] nodename nor servname"):
+                # reintenta amb backoff en comptes de deixar caure la BD sencera del clon.
+                last_exc = e
+                time.sleep(min(2 ** attempt, 15))
+                continue
             if resp.status_code == 429:
                 wait = float(resp.headers.get("Retry-After", 1.0))
                 time.sleep(wait)
                 continue
             resp.raise_for_status()
             return resp.json()
+        if last_exc is not None:
+            raise last_exc
         resp.raise_for_status()
         return {}
 
