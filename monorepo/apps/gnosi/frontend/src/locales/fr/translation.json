@@ -456,5 +456,7 @@
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale"
-  }
+  },
+  "notion_clone": "Cloner",
+  "notion_cloning": "Clonage…"
 }

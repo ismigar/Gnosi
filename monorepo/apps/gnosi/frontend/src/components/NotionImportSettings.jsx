@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Database, Link2, Check, Loader, Unlink, Settings, X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 import { ConfirmModal } from './ConfirmModal';
 
@@ -24,6 +25,7 @@ const sortByTitle = (list) => [...(list || [])].sort(byTitle);
  * loose-pages,clone} i /api/notion-oauth/*.
  */
 export default function NotionImportSettings() {
+    const { t } = useTranslation();
     const saved = useRef(loadCfg()).current;
     const [connected, setConnected] = useState(null);
     const [name, setName] = useState('');
@@ -480,7 +482,7 @@ export default function NotionImportSettings() {
                                         : "Connecta primer l'MCP per al clon exacte."}
                                     style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.6 }}>
                                     {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
-                                    {busy === 'clone' ? 'Clonant…' : `Clon exacte (${selected.size} BD)`}
+                                    {busy === 'clone' ? t('notion_cloning') : t('notion_clone')}
                                 </button>
                                 {busy === 'clone' && (
                                     <button onClick={() => setConfirmAbort(true)}

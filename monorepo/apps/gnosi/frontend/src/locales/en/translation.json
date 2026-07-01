@@ -1302,5 +1302,7 @@
     "trashed": "File moved to Trash",
     "deleted": "File deleted",
     "delete_error": "Could not delete the file: {{msg}}"
-  }
+  },
+  "notion_clone": "Clone",
+  "notion_cloning": "Cloning…"
 }

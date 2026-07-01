@@ -1200,5 +1200,7 @@
     "trashed": "Archivo movido a la Papelera",
     "deleted": "Archivo eliminado",
     "delete_error": "No se pudo eliminar el archivo: {{msg}}"
-  }
+  },
+  "notion_clone": "Clonar",
+  "notion_cloning": "Clonando…"
 }
