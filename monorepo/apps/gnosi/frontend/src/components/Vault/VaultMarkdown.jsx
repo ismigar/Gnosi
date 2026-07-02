@@ -1,8 +1,24 @@
 import React, { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { WikilinkInline } from './WikilinkInline';
 import { WIKILINK_HREF_SENTINEL, convertWikilinksToMd, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
+
+/* -------------------------------------------------------------------------- */
+/*  Equacions heretades de Notion                                              */
+/*  El clon de Notion desa els blocs d'equació com a fence ```latex (o ```math)*/
+/*  perquè abans no teníem math natiu. Ara que sí, els reconvertim a `$$…$$`    */
+/*  perquè remark-math els renderitzi. La resta de fences (js, py…) intactes.  */
+/* -------------------------------------------------------------------------- */
+function latexFencesToMath(md) {
+    return md.replace(
+        /```(?:latex|math)\n([\s\S]*?)\n```/g,
+        (_m, body) => `\n$$\n${body.trim()}\n$$\n`,
+    );
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Imatge amb retry (OneDrive Errno 35 → 503 fins que el fitxer es baixa)     */
@@ -50,7 +66,8 @@ export function RetryableImage({ src, title, onClick }) {
 export function VaultMarkdown({ md, onActivate, imageTitle = '' }) {
     return (
         <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeKatex]}
             urlTransform={wikilinkUrlTransform}
             components={{
                 // Imatges inline: normalitzem la URL (Assets/... →
@@ -96,7 +113,7 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '' }) {
                 },
             }}
         >
-            {convertWikilinksToMd(md || '')}
+            {convertWikilinksToMd(latexFencesToMath(md || ''))}
         </ReactMarkdown>
     );
 }
