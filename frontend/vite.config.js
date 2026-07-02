@@ -134,6 +134,17 @@ export default defineConfig(({ mode }) => {
         },
       },
     },
+    // `vite preview` (build servit) reutilitza el mateix proxy /api → backend,
+    // perquè les proves visuals sobre el build funcionin sense CORS.
+    preview: {
+      proxy: {
+        "/api": {
+          target: `http://${env.VITE_BACKEND_HOST || "127.0.0.1"}:${backendPort}`,
+          changeOrigin: true,
+          ws: true,
+        },
+      },
+    },
     server: {
       host: true, // Ensure it listens on 0.0.0.0
       port: Number(frontendPort),

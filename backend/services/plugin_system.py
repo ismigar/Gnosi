@@ -19,9 +19,12 @@ l'estat. No importa routers ni serveis pesants.
 """
 from __future__ import annotations
 
+import io
 import json
 import re
+import shutil
 import threading
+import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -48,6 +51,12 @@ PERMISSIONS: Dict[str, str] = {
 # Permisos que impliquen execució al backend (sandbox de dades). La resta són
 # només de UI (frontend). Serveix per decidir si cal arrencar el sandbox Node.
 BACKEND_PERMISSIONS = {"vault:read", "vault:write", "vault:delete", "network"}
+
+# Versió MAJOR de l'API de plugins que aquest Gnosi implementa. Un plugin declara
+# `apiVersion` al manifest; si demana una major SUPERIOR, el host la refusa (el
+# plugin necessita un Gnosi més nou). Incrementar-la NOMÉS en canvis d'API
+# incompatibles. Els plugins que no la declaren assumeixen 1 (compat enrere).
+PLUGIN_API_VERSION = 1
 
 # id de plugin segur com a segment de path (mateixa política que _PAGE_ID_RE de
 # vault_routes: bloqueja `..`, `/`, `\`, punts inicials → anti path-traversal).
@@ -126,9 +135,18 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         raise PluginError("events ha de ser una llista")
     events = [str(e) for e in events_raw if str(e).strip()]
 
+    # apiVersion: major enter de l'API que el plugin espera. Per defecte 1.
+    try:
+        api_version = int(raw.get("apiVersion", 1))
+    except (TypeError, ValueError):
+        raise PluginError("apiVersion ha de ser un enter")
+    if api_version < 1:
+        raise PluginError("apiVersion ha de ser >= 1")
+
     return {
         "id": pid,
         "version": version,
+        "apiVersion": api_version,
         "name": str(raw.get("name") or pid),
         "description": str(raw.get("description") or ""),
         "icon": str(raw.get("icon") or "Puzzle"),
@@ -158,6 +176,11 @@ def read_manifest(config_dir: Path, plugin_id: str) -> Dict[str, Any]:
     if manifest["id"] != plugin_id:
         raise PluginError(
             f"id del manifest ({manifest['id']!r}) no coincideix amb la carpeta ({plugin_id!r})"
+        )
+    if manifest["apiVersion"] > PLUGIN_API_VERSION:
+        raise PluginError(
+            f"el plugin necessita una versió més nova de Gnosi "
+            f"(apiVersion {manifest['apiVersion']} > {PLUGIN_API_VERSION})"
         )
     return manifest
 
@@ -193,6 +216,103 @@ def discover_plugins(config_dir: Path) -> List[Dict[str, Any]]:
 # El load/save del fitxer sencer viu a vault_routes (_load/_save_plugins_state);
 # aquí només oferim helpers purs sobre el dict d'estat.
 # ---------------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Instal·lació / desinstal·lació de plugins des d'un .zip.
+# ---------------------------------------------------------------------------
+# Un .zip amb el manifest.json a l'arrel (o dins d'una única carpeta arrel). Es
+# valida el manifest ABANS d'escriure res, i l'extracció és anti zip-slip.
+_MAX_ZIP_BYTES = 20 * 1024 * 1024      # 20 MB de zip comprimit
+_MAX_UNCOMPRESSED = 80 * 1024 * 1024   # 80 MB descomprimits (anti zip-bomb)
+_MAX_ENTRIES = 2000
+
+
+def _find_manifest_root(zf: zipfile.ZipFile) -> str:
+    """Retorna el prefix intern on viu el manifest.json (arrel o subcarpeta única).
+
+    Accepta `manifest.json` a l'arrel del zip o dins d'exactament una carpeta de
+    primer nivell (cas típic quan es comprimeix la carpeta del plugin).
+    """
+    names = [n for n in zf.namelist() if not n.endswith("/")]
+    if "manifest.json" in names:
+        return ""
+    roots = {n.split("/", 1)[0] for n in names if "/" in n}
+    if len(roots) == 1:
+        root = next(iter(roots))
+        if f"{root}/manifest.json" in names:
+            return f"{root}/"
+    raise PluginError("El zip no conté manifest.json a l'arrel ni en una única carpeta")
+
+
+def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -> Dict[str, Any]:
+    """Instal·la un plugin des dels bytes d'un .zip. Retorna el manifest instal·lat.
+
+    Passos: mida → obrir zip → localitzar+validar manifest → extreure amb guàrdies
+    anti zip-slip/zip-bomb a `.gnosi/plugins/<id>/`. Fail-closed: si el manifest
+    és invàlid, no s'escriu res.
+    """
+    if not data:
+        raise PluginError("zip buit")
+    if len(data) > _MAX_ZIP_BYTES:
+        raise PluginError(f"zip massa gran (> {_MAX_ZIP_BYTES // (1024*1024)} MB)")
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(data))
+    except zipfile.BadZipFile as e:
+        raise PluginError(f"zip invàlid: {e}") from e
+
+    infos = zf.infolist()
+    if len(infos) > _MAX_ENTRIES:
+        raise PluginError("el zip té massa entrades")
+    total = sum(i.file_size for i in infos)
+    if total > _MAX_UNCOMPRESSED:
+        raise PluginError("contingut descomprimit massa gran")
+
+    prefix = _find_manifest_root(zf)
+    try:
+        raw = json.loads(zf.read(f"{prefix}manifest.json").decode("utf-8"))
+    except Exception as e:  # noqa: BLE001
+        raise PluginError(f"manifest.json il·legible al zip: {e}") from e
+    manifest = validate_manifest(raw)
+    if manifest["apiVersion"] > PLUGIN_API_VERSION:
+        raise PluginError(
+            f"el plugin necessita una versió més nova de Gnosi "
+            f"(apiVersion {manifest['apiVersion']} > {PLUGIN_API_VERSION})"
+        )
+    pid = manifest["id"]
+
+    dest = plugin_dir(config_dir, pid)  # valida l'id contra path-traversal
+    if dest.exists():
+        if not overwrite:
+            raise PluginError(f"el plugin {pid!r} ja està instal·lat")
+        shutil.rmtree(dest)
+    dest.mkdir(parents=True, exist_ok=True)
+    dest_resolved = dest.resolve()
+
+    for info in infos:
+        name = info.filename
+        if prefix and not name.startswith(prefix):
+            continue
+        rel = name[len(prefix):]
+        if not rel or rel.endswith("/"):
+            continue
+        # Anti zip-slip: la ruta resolta ha de quedar DINS de dest.
+        out = (dest / rel).resolve()
+        if dest_resolved not in out.parents and out != dest_resolved:
+            shutil.rmtree(dest, ignore_errors=True)
+            raise PluginError(f"entrada de zip insegura: {name}")
+        out.parent.mkdir(parents=True, exist_ok=True)
+        with zf.open(info) as src, open(out, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+
+    return manifest
+
+
+def uninstall(config_dir: Path, plugin_id: str) -> None:
+    """Esborra el directori d'un plugin instal·lat. No toca l'estat (granted/disabled)."""
+    dest = plugin_dir(config_dir, plugin_id)
+    if dest.exists():
+        shutil.rmtree(dest)
+
+
 def granted_permissions(state: Dict[str, Any], plugin_id: str) -> List[str]:
     granted = state.get("granted") or {}
     vals = granted.get(plugin_id) or []

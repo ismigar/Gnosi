@@ -1,5 +1,6 @@
 {
   "id": "clone-logger",
+  "apiVersion": 1,
   "version": "1.0.0",
   "name": "Registre de clons (dades d'exemple)",
   "description": "Plugin de dades que reacciona a clone:finished i ho registra. Demostra el sandbox de backend.",

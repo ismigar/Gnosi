@@ -33,3 +33,37 @@ els permisos que demana. Fins que no aprovis els permisos, el plugin no fa res
 
 Els permisos declarats al manifest són el MÀXIM que l'usuari pot concedir; sense
 concessió, l'API corresponent no existeix per al plugin.
+
+- `apiVersion` (opcional, per defecte 1) — versió MAJOR de l'API que el plugin
+  espera. Gnosi refusa instal·lar un plugin que en demani una de superior a la que
+  implementa (`plugin_system.PLUGIN_API_VERSION`).
+
+## Signatura i distribució (plugins remots)
+
+Els plugins instal·lats des d'un **.zip remot** o des d'un **índex remot** poden
+anar signats (Ed25519). Gnosi verifica la signatura contra el seu magatzem de
+confiança abans d'instal·lar: signat i verificat → s'instal·la; signat però no
+verificat → es rebutja; sense signatura → s'instal·la marcat com «no verificat».
+
+Eina d'autor (`sign_plugin.py`, depèn només de `cryptography`):
+
+```sh
+# 1) genera un parell de claus (guarda la PRIVADA en un lloc segur)
+python sign_plugin.py keygen
+
+# 2) signa la carpeta del plugin → escriu el .zip i imprimeix l'entrada de catàleg
+python sign_plugin.py sign el-meu-plugin <CLAU_PRIVADA_B64> \
+    --url https://on-el-publiques/el-meu.zip --out el-meu.zip
+```
+
+L'usuari final afegeix la teva clau PÚBLICA al seu magatzem de confiança a
+**Configuració → Plugins → Font remota i confiança** (o `POST /api/vault/plugins/trust`).
+
+### Clau oficial de Gnosi
+
+La clau pública `gnosi-official` ve integrada a `plugin_signing.BUNDLED_TRUSTED_KEYS`
+(no cal afegir-la). La seva **privada** viu FORA del repo, a
+`~/.gnosi-local/plugin_signing_key.json` (permisos 600), i s'usa per signar els
+plugins oficials. Per rotar-la: `sign_plugin.py keygen`, substitueix la pública al
+codi i desa la nova privada al mateix lloc. Per a builds de distribució, la privada
+s'ha d'injectar de forma segura (no viatja mai amb el binari).

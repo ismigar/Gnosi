@@ -109,3 +109,140 @@ def test_discover_plugins(tmp_path):
 
 def test_discover_empty(tmp_path):
     assert ps.discover_plugins(tmp_path) == []
+
+
+# --- Instal·lació des de zip -------------------------------------------------
+def _make_zip(files: dict) -> bytes:
+    import io, zipfile
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        for name, content in files.items():
+            z.writestr(name, content)
+    return buf.getvalue()
+
+
+def test_install_from_zip_root_manifest(tmp_path):
+    data = _make_zip({
+        "manifest.json": json.dumps({"id": "zp", "version": "1.0.0", "name": "Zp",
+                                     "permissions": ["ui:command"], "main": "main.js"}),
+        "main.js": "gnosi.log('hi')",
+    })
+    m = ps.install_from_zip(tmp_path, data)
+    assert m["id"] == "zp"
+    assert (ps.plugin_dir(tmp_path, "zp") / "main.js").exists()
+
+
+def test_install_from_zip_single_subfolder(tmp_path):
+    data = _make_zip({
+        "my-plugin/manifest.json": json.dumps({"id": "sub", "version": "1.0.0"}),
+        "my-plugin/main.js": "x",
+    })
+    m = ps.install_from_zip(tmp_path, data)
+    assert m["id"] == "sub"
+    assert (ps.plugin_dir(tmp_path, "sub") / "main.js").exists()
+
+
+def test_install_from_zip_blocks_zip_slip(tmp_path):
+    data = _make_zip({
+        "manifest.json": json.dumps({"id": "evil", "version": "1.0.0"}),
+        "../escape.txt": "pwned",
+    })
+    with pytest.raises(ps.PluginError):
+        ps.install_from_zip(tmp_path, data)
+    assert not (tmp_path.parent / "escape.txt").exists()
+
+
+def test_install_from_zip_rejects_bad_manifest(tmp_path):
+    data = _make_zip({"manifest.json": json.dumps({"id": "Bad Id!!"})})
+    with pytest.raises(ps.PluginError):
+        ps.install_from_zip(tmp_path, data)
+
+
+def test_uninstall_removes_dir(tmp_path):
+    data = _make_zip({"manifest.json": json.dumps({"id": "gone", "version": "1.0.0"})})
+    ps.install_from_zip(tmp_path, data)
+    assert ps.plugin_dir(tmp_path, "gone").exists()
+    ps.uninstall(tmp_path, "gone")
+    assert not ps.plugin_dir(tmp_path, "gone").exists()
+
+
+# --- Catàleg / galeria -------------------------------------------------------
+def test_catalog_loads_and_installs_bundled(tmp_path):
+    from backend.services import plugin_catalog as pc
+    cat = pc.load_catalog()
+    ids = {e.get("id") for e in cat}
+    assert "hello-command" in ids  # exemple empaquetat al repo
+    m = pc.install_bundled(tmp_path, "hello-command")
+    assert m["id"] == "hello-command"
+    assert (ps.plugin_dir(tmp_path, "hello-command") / "manifest.json").exists()
+
+
+def test_catalog_install_unknown_raises(tmp_path):
+    from backend.services import plugin_catalog as pc
+    with pytest.raises(ps.PluginError):
+        pc.install_bundled(tmp_path, "no-existeix")
+
+
+# --- Verificació d'integritat (checksum) d'instal·lació remota ---------------
+def test_install_from_url_checksum_mismatch(tmp_path, monkeypatch):
+    import hashlib
+    from backend.services import plugin_catalog as pc
+
+    data = _make_zip({"manifest.json": json.dumps({"id": "remot", "version": "1.0.0"})})
+
+    class _Resp:
+        def raise_for_status(self): pass
+        def iter_content(self, n): yield data
+
+    monkeypatch.setattr(pc.requests, "get", lambda *a, **k: _Resp())
+
+    good = hashlib.sha256(data).hexdigest()
+    # Checksum correcte → instal·la.
+    m = pc.install_from_url(tmp_path, "https://x/plugin.zip", good)
+    assert m["id"] == "remot"
+    # Checksum incorrecte → rebutja i NO instal·la.
+    ps.uninstall(tmp_path, "remot")
+    with pytest.raises(ps.PluginError):
+        pc.install_from_url(tmp_path, "https://x/plugin.zip", "deadbeef" * 8)
+    assert not ps.plugin_dir(tmp_path, "remot").exists()
+
+
+# --- Versionat de l'API de plugins ------------------------------------------
+def test_manifest_api_version_default_and_parse():
+    assert ps.validate_manifest({"id": "av1", "version": "1.0.0"})["apiVersion"] == 1
+    assert ps.validate_manifest({"id": "av2", "version": "1.0.0", "apiVersion": 1})["apiVersion"] == 1
+
+
+def test_manifest_api_version_invalid():
+    with pytest.raises(ps.PluginError):
+        ps.validate_manifest({"id": "av3", "version": "1.0.0", "apiVersion": "x"})
+    with pytest.raises(ps.PluginError):
+        ps.validate_manifest({"id": "av4", "version": "1.0.0", "apiVersion": 0})
+
+
+def test_install_refuses_future_api_version(tmp_path):
+    future = ps.PLUGIN_API_VERSION + 1
+    data = _make_zip({"manifest.json": json.dumps(
+        {"id": "futur", "version": "1.0.0", "apiVersion": future})})
+    with pytest.raises(ps.PluginError):
+        ps.install_from_zip(tmp_path, data)
+    assert not ps.plugin_dir(tmp_path, "futur").exists()
+
+
+def test_read_manifest_refuses_future_api_version(tmp_path):
+    _install(tmp_path, "futur2", {"id": "futur2", "version": "1.0.0",
+                                   "apiVersion": ps.PLUGIN_API_VERSION + 1})
+    with pytest.raises(ps.PluginError):
+        ps.read_manifest(tmp_path, "futur2")
+
+
+def test_bundled_examples_have_valid_manifests():
+    # Els exemples del catàleg s'han d'instal·lar tots (manifest vàlid + compat).
+    from backend.services import plugin_catalog as pc
+    import tempfile
+    cfg = Path(tempfile.mkdtemp())
+    for entry in pc.load_catalog():
+        if entry.get("source") == "bundled":
+            m = pc.install_bundled(cfg, entry["id"])
+            assert m["id"] == entry["id"]
+            assert m["apiVersion"] <= ps.PLUGIN_API_VERSION
