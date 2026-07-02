@@ -1019,6 +1019,13 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
     const [virtualComputers, setVirtualComputers] = useState([]);
+    // Nom de la taula ACTUAL per a l'etiqueta llegible de cardinalitat ("[origen] X a Y [destí]").
+    // El VaultDashboard passa el nom via `folder`, no `tableName`; a més el resolem per `tableId`
+    // contra allTables (autoritatiu). Sense això, l'origen sortia buit i la cardinalitat es
+    // mostrava sense les taules (regressió).
+    const resolvedTableName = tableName
+        || (allTables.find(tt => tt.id === tableId)?.name)
+        || folder || '';
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
     const [enableTranslation, setEnableTranslation] = useState(initialEnableTranslation);
     // Catàlegs compartits d'opcions ({nom: [{name,color,group}…]}).
@@ -2054,7 +2061,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                         idx={idx}
                                         allFields={fields}
                                         allTables={allTables}
-                                        currentTableName={tableName}
+                                        currentTableName={resolvedTableName}
                                         virtualComputers={virtualComputers}
                                         handleUpdateField={handleUpdateField}
                                         handleRemoveField={handleRemoveField}
