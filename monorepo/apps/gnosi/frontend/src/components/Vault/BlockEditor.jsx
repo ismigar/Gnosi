@@ -38,6 +38,7 @@ import {
     Superscript,
     Calendar as CalendarIcon,
     RefreshCw,
+    SpellCheck2,
 } from 'lucide-react';
 import axios from 'axios';
 import {
@@ -89,6 +90,8 @@ import MentionInline from './MentionInline';
 import DateMentionInline from './DateMentionInline';
 import LinkCardBlock from './LinkCardBlock';
 import SyncedBlock from './SyncedBlock';
+import SpellCheckLayer from './SpellCheckLayer';
+import AICorrectLayer from './AICorrectLayer';
 
 /**
  * Resol l'URI del PDF associat a una pàgina de Recursos.
@@ -996,6 +999,9 @@ export function EditorInner({
     registerEditorApi,
     onNavigateUp,
     onOpenProperties,
+    spellEnabled = true,
+    spellLang = 'ca',
+    onLangDetected,
 }) {
     const { t } = useTranslation();
     const schema = useMemo(() => {
@@ -3228,6 +3234,13 @@ export function EditorInner({
                 />
             </BlockNoteView>
             </div>
+            <SpellCheckLayer
+                editor={editor}
+                enabled={spellEnabled}
+                pageId={noteFilename}
+                onLangDetected={onLangDetected}
+            />
+            <AICorrectLayer editor={editor} lang={spellLang} />
             <InsertContentModal
                 open={Boolean(pendingInsert)}
                 initialFile={pendingInsert?.initialFile || null}
@@ -3295,6 +3308,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // (interceptor de file:// està al hook useFileLinkInterceptor invocat a App.jsx)
     
     const [saveStatus, setSaveStatus] = useState('idle');
+
+    // Corrector ortogràfic (Hunspell-WASM): activat per defecte, persistit a
+    // localStorage. Viu aquí (component extern) perquè els controls de la
+    // capçalera i el cos (EditorInner, on viuen les capes) el comparteixin.
+    // `spellLang` el reporta EditorInner via detecció automàtica d'idioma.
+    const [spellEnabled, setSpellEnabled] = useState(() => localStorage.getItem('gnosi_spell_enabled') !== '0');
+    const [spellLang, setSpellLang] = useState('ca');
+    useEffect(() => { localStorage.setItem('gnosi_spell_enabled', spellEnabled ? '1' : '0'); }, [spellEnabled]);
+
     const metadataRef = useRef(metadata);
     useEffect(() => {
         metadataRef.current = metadata;
@@ -4039,6 +4061,22 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         {t('editor.save_error')}
                                     </div>
                                 )}
+                                <button
+                                    type="button"
+                                    onClick={() => setSpellEnabled((v) => !v)}
+                                    title={spellEnabled ? `Corrector ortogràfic actiu (${spellLang.toUpperCase()}) — clica per desactivar` : 'Corrector ortogràfic desactivat'}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${spellEnabled ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]'}`}
+                                >
+                                    <SpellCheck2 size={12} /> {spellLang.toUpperCase()}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page'))}
+                                    title="Corregeix ortografia i gramàtica de tota la pàgina amb IA"
+                                    className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)] transition-colors"
+                                >
+                                    <Sparkles size={12} /> IA
+                                </button>
                                 <CollaborationPresence pageId={noteFilename} />
                             </div>
                         </div>
@@ -4542,6 +4580,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 registerEditorApi={registerEditorApi}
                                 onNavigateUp={navigateUpFromBody}
                                 onOpenProperties={openPropertiesNav}
+                                spellEnabled={spellEnabled}
+                                spellLang={spellLang}
+                                onLangDetected={setSpellLang}
                             />
                         )}
                     </ErrorBoundary>

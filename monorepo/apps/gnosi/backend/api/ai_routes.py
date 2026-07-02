@@ -386,3 +386,72 @@ async def generate_content(payload: GeneratePayload):
         )
 
     return {"content": (content or "").strip(), "provider": provider}
+
+
+class CorrectPayload(BaseModel):
+    text: str
+    language: Optional[str] = None   # "català" | "castellà" | "anglès"… (pista opcional)
+    scope: Optional[str] = "selection"  # selection | block | page (només per matís de prompt)
+
+
+_LANG_LABELS = {
+    "ca": "català",
+    "es": "castellà",
+    "en": "anglès",
+}
+
+
+@router.post("/correct")
+async def correct_text(payload: CorrectPayload):
+    """Corregeix ortografia i gramàtica d'un fragment amb IA.
+
+    Germà de `/ai/generate` però amb un contracte estricte: retorna NOMÉS el text
+    corregit, conservant sentit, to, idioma i format. Pensat per aplicar-se sobre
+    una selecció, un bloc o una pàgina sencera de l'editor. Degrada amb 503 si no
+    hi ha proveïdor, mai amb error dur.
+    """
+    from backend.agent.factory import generate_text
+
+    text = (payload.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Cal text per corregir.")
+
+    hint = (payload.language or "").strip()
+    lang_note = f" El text és en {_LANG_LABELS.get(hint, hint)}." if hint else ""
+
+    prompt = (
+        "Ets un corrector ortogràfic i gramatical. Corregeix el text següent: "
+        "faltes d'ortografia, accents, puntuació, concordança i gramàtica."
+        f"{lang_note} Conserva EXACTAMENT el mateix idioma, sentit, to i registre. "
+        "No reescriguis l'estil ni resumeixis, no afegeixis ni treguis idees. "
+        "Conserva el format Markdown, els salts de línia, els enllaços [[wiki]], "
+        "les URL i el codi tal com estan. Respon NOMÉS amb el text corregit, "
+        "sense cometes, sense explicacions ni comentaris.\n\n"
+        f"--- TEXT ---\n{text}"
+    )
+
+    try:
+        content, provider = await asyncio.to_thread(
+            generate_text, prompt, text[:200],
+        )
+    except RuntimeError as e:
+        raise HTTPException(
+            status_code=503,
+            detail="No hi ha cap proveïdor d'IA disponible. Revisa Configuració › IA.",
+        ) from e
+    except Exception as e:
+        msg = str(e).lower()
+        if any(k in msg for k in (
+            "authentication", "api key", "api_key", "invalid_api_key",
+            "unauthor", "permission", "401", "403",
+        )):
+            raise HTTPException(
+                status_code=503,
+                detail="El proveïdor d'IA ha rebutjat la clau. Revisa Configuració › IA.",
+            ) from e
+        raise HTTPException(
+            status_code=502,
+            detail=safe_error_detail(e, context="POST /ai/correct"),
+        )
+
+    return {"corrected": (content or "").strip(), "provider": provider}
