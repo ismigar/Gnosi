@@ -29,10 +29,12 @@ _BG_HEX = {
     "green": "#edf3ec", "blue": "#e7f3f8", "purple": "#f6f3f9", "pink": "#faf1f8", "red": "#fdebec",
 }
 
+# inline="true" pot NO ser l'últim atribut: el format nou de l'MCP hi afegeix
+# data-source-url="collection://…" després → cal tolerar atributs posteriors ([^>]*).
 _DB_RE = re.compile(
-    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"\s*>.*?</database>', re.DOTALL)
+    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"[^>]*>.*?</database>', re.DOTALL)
 _DB_SELFCLOSE_RE = re.compile(
-    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"\s*/?>')
+    r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"[^>]*/?>')
 _MENTION_RE = re.compile(
     r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*>(.*?)</mention-page>', re.DOTALL)
 _MENTION_SELF_RE = re.compile(r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*/>')

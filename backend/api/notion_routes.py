@@ -377,6 +377,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         loose_page_types=loose_page_types,
         progress_cb=_clone_progress_cb,
         should_cancel=lambda: _CLONE_CANCEL["flag"],
+        registry_tables=vault_routes.load_registry().get("tables", []),
     )
 
 
