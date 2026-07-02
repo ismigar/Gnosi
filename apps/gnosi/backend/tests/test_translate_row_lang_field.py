@@ -1,0 +1,222 @@
+"""Test d'integració de `_do_translate_row`: el subitem traduït queda marcat amb
+el camp "Idioma" de l'idioma destí (abans heretava els camps traduïts però el
+camp idioma quedava buit).
+
+Mockeja TOT l'I/O (lectura del registre, registre de taules, escriptura) i passa
+funcions de traducció falses — NO toca el Vault ni fa cap crida de xarxa. Cobreix
+el que els tests purs de `translation_helpers` no poden: que `_do_translate_row`
+injecta de debò el valor al `metadata` que passa a `create_page`/`patch_page`.
+
+Run dins el container (té les deps que arrossega vault_routes):
+    docker exec gnosi_backend python -m pytest backend/tests/test_translate_row_lang_field.py -v
+"""
+from __future__ import annotations
+
+import asyncio
+
+import pytest
+from fastapi import BackgroundTasks
+
+import backend.api.vault_routes as vr
+from backend.api.vault_routes import _do_translate_row
+from backend.services import translation_index
+
+TABLE_ID = "tbl_articles"
+ORIGIN_ID = "11111111-2714-8031-911a-e4191d7d01fd"
+
+
+def _make_table():
+    """Taula 'Articles' simplificada: traducció activada, camp Idioma (select
+    sense catàleg → s'autogenera) i dos camps traduïbles (títol + text)."""
+    return {
+        "id": TABLE_ID,
+        "translation_enabled": True,
+        "properties": [
+            {"name": "Títol", "type": "title", "id": "fld_title", "translatable": True},
+            {"name": "Idioma", "type": "select", "id": "fld_lang"},
+            {"name": "Descripció", "type": "text", "id": "fld_desc", "translatable": True},
+            {"name": "Imatge", "type": "text", "id": "fld_img", "translatable": True},
+        ],
+    }
+
+
+def _fake_translate(text, src, tgt, deepl_api_key=None):
+    return f"{text} [{tgt}]", "fake_provider"
+
+
+def _fake_detect(text):
+    # Mai és l'idioma destí (ca/en) → tot es tradueix; no salta cap camp.
+    return "es"
+
+
+@pytest.fixture
+def captured(tmp_path, monkeypatch):
+    """Aïlla _do_translate_row de l'I/O i captura els PageSaveRequest creats."""
+    origin = tmp_path / "original.md"
+    origin.write_text(
+        "---\n"
+        f"id: {ORIGIN_ID}\n"
+        f"table_id: {TABLE_ID}\n"
+        "title: Enfadoaccionados en las plazas\n"
+        "Idioma: ES\n"
+        "Descripció: Texto de prueba en castellano.\n"
+        "Imatge:\n"
+        "  src: Articles/prueba.png\n"
+        "  alt: Texto alternativo en castellano.\n"
+        "---\n",  # cos buit a propòsit: no carrega el segmenter → cap crida de xarxa
+        encoding="utf-8",
+    )
+    # Índex de traduccions aïllat al tmp (mai toca el /app/data real).
+    monkeypatch.setenv("GNOSI_LOCAL_DATA", str(tmp_path))
+
+    monkeypatch.setattr(vr, "find_page_path", lambda pid: origin)
+    monkeypatch.setattr(vr, "_table_by_id", lambda tid: _make_table() if tid == TABLE_ID else None)
+
+    async def _no_existing(_id):
+        return {}
+
+    async def _no_recover(*a, **k):
+        return {}
+
+    async def _noop_materialize(p, label=""):
+        return None
+
+    monkeypatch.setattr(vr, "_get_existing_translations", _no_existing)
+    monkeypatch.setattr(vr, "_recover_translations_from_disk", _no_recover)
+    monkeypatch.setattr(vr, "_materialize_if_online_only", _noop_materialize)
+
+    created = []
+
+    async def _fake_create_page(request, background_tasks):
+        created.append(request)
+        return {"id": f"new-{len(created)}"}
+
+    async def _fake_patch_page(page_id, request, background_tasks):
+        return {"id": page_id}
+
+    monkeypatch.setattr(vr, "create_page", _fake_create_page)
+    monkeypatch.setattr(vr, "patch_page", _fake_patch_page)
+    return created
+
+
+def _lang_of(metadata):
+    """El camp idioma desat (per id o per nom, segons resolgui _do_translate_row)."""
+    return metadata.get("fld_lang") or metadata.get("Idioma")
+
+
+def test_subitems_get_language_field(captured):
+    """Cada subitem traduït porta el camp Idioma amb el codi destí en majúscules."""
+    result = asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca", "en"],
+            translate_fn=_fake_translate,
+            detect_fn=_fake_detect,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    assert len(result["created"]) == 2
+    by_lang = {req.metadata.get("translation_lang"): req.metadata for req in captured}
+    assert _lang_of(by_lang["ca"]) == "CA"
+    assert _lang_of(by_lang["en"]) == "EN"
+    # I no s'ha tocat el codi de control: l'idioma destí també hi és com translation_lang.
+    assert by_lang["ca"]["translation_source_lang"] == "es"
+
+
+def test_source_language_is_skipped(captured):
+    """L'idioma origen (ES, del camp Idioma) se salta: no es crea cap subitem ES."""
+    result = asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["es", "ca"],
+            translate_fn=_fake_translate,
+            detect_fn=_fake_detect,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    langs_created = {req.metadata.get("translation_lang") for req in captured}
+    assert langs_created == {"ca"}
+    assert any(s["lang"] == "es" and "source" in s["reason"] for s in result["skipped"])
+
+
+def test_explicit_source_translates_title_despite_spurious_detect(captured):
+    """Bug del títol: amb origen declarat (Idioma: ES), un títol curt s'ha de
+    traduir a CA encara que `detect_fn` el torni com a 'ca' (el default espuri
+    de `detect_source_lang` sobre text sense paraules-pista). Abans el salt
+    `field_lang == lang` el deixava sense traduir (noop)."""
+
+    def detect_always_ca(_text):
+        # Imita el default espuri: torna el TARGET (ca) per a qualsevol text.
+        return "ca"
+
+    result = asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca"],
+            translate_fn=_fake_translate,
+            detect_fn=detect_always_ca,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    assert len(result["created"]) == 1
+    md = captured[0].metadata
+    # El títol porta el marcador [ca] de _fake_translate → s'ha traduït, no és noop.
+    assert md.get("fld_title", "").endswith("[ca]"), md
+    assert captured[0].title.endswith("[ca]")
+
+
+def test_image_field_keeps_src_translates_alt(captured):
+    """Camp imatge compost traduïble: el subitem manté la MATEIXA imatge (src, sense
+    duplicar el fitxer) i tradueix els subcamps de text (alt)."""
+    result = asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca"],
+            translate_fn=_fake_translate,
+            detect_fn=_fake_detect,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    assert len(result["created"]) == 1
+    md = captured[0].metadata
+    img = md.get("fld_img") or md.get("Imatge")
+    assert isinstance(img, dict), md
+    assert img["src"] == "Articles/prueba.png"  # imatge mantinguda, no duplicada
+    assert img["alt"] == "Texto alternativo en castellano. [ca]"  # alt traduït
+
+
+def test_translation_registered_in_local_index(captured):
+    """En crear subitems, translate-row els registra a l'índex local
+    (origin → lang → id), font fiable d'idempotència fora d'OneDrive."""
+    asyncio.run(
+        _do_translate_row(
+            ORIGIN_ID,
+            ["ca", "en"],
+            translate_fn=_fake_translate,
+            detect_fn=_fake_detect,
+            deepl_api_key="",
+            background_tasks=BackgroundTasks(),
+        )
+    )
+    known = translation_index.get_known_translations(ORIGIN_ID)
+    assert set(known.keys()) == {"ca", "en"}
+    assert all(v for v in known.values())
+
+
+def test_idempotent_via_local_index_no_duplicate(captured):
+    """Re-traduir el mateix idioma reusa el subitem registrat a l'índex local
+    (patch), no en crea un de nou — encara que snapshot i _recover tornin buit
+    (el cas OneDrive online-only que duplicava). Només hi ha d'haver 1 create."""
+    args = dict(
+        translate_fn=_fake_translate,
+        detect_fn=_fake_detect,
+        deepl_api_key="",
+        background_tasks=BackgroundTasks(),
+    )
+    asyncio.run(_do_translate_row(ORIGIN_ID, ["ca"], **args))
+    asyncio.run(_do_translate_row(ORIGIN_ID, ["ca"], **args))
+    assert len(captured) == 1  # el segon translate fa patch via l'índex, no create

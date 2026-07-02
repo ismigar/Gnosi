@@ -1,0 +1,93 @@
+/**
+ * formulaUtils.js
+ * Utilitats per avaluar fórmules simples sobre els metadades del Vault.
+ *
+ * Expressions suportades:
+ *   {Camp}           → Valor d'un camp dels metadades
+ *   {Camp1} + {Camp2}→ Concatenació o suma
+ *   prop('Camp')     → Àlies de {Camp}
+ *   Operadors: +, -, *, /
+ *   Funcions: now(), today(), len({Camp}), if(cond, val1, val2)
+ */
+
+/**
+ * Evalua una expressió de fórmula sobre un registre.
+ * @param {string} formula - L'expressió de la fórmula
+ * @param {Object} metadata - Els metadades del registre
+ * @param {string} title - El títol del registre
+ * @param {Object} options - Opcions addicionals
+ * @returns {string|number|null}
+ */
+export function evaluateFormula(formula, metadata = {}, title = '', options = {}) {
+    if (!formula || typeof formula !== 'string') return null;
+
+    try {
+        let expr = formula.trim();
+
+        // if(cond, val1, val2) → crida a la funció real `__IF` injectada a
+        // l'scope d'avaluació. Es fa ABANS de substituir valors (perquè un
+        // valor de camp que contingui "if(" no es confongui amb la funció) i
+        // com a crida JS real gestiona correctament el NIAT i les comes dins
+        // dels arguments —cosa que una simple regex no podria—. Sense això,
+        // `if(...)` arribava a `Function('return (if(...))')` com una sentència
+        // i petava → la fórmula tornava `null` (la funció estava documentada
+        // però no implementada).
+        expr = expr.replace(/\bif\s*\(/gi, '__IF(');
+
+        // Substituir now() i today(). Data en hora LOCAL (no `toISOString`, que
+        // és UTC): prop de mitjanit la data UTC pot ser el dia anterior i el
+        // càlcul de dates a la fórmula (p. ex. dies fins al venciment) sortiria
+        // desfasat un dia.
+        const _now = new Date();
+        const _pad = (n) => String(n).padStart(2, '0');
+        const today = `${_now.getFullYear()}-${_pad(_now.getMonth() + 1)}-${_pad(_now.getDate())}`;
+        expr = expr.replace(/\bnow\(\)/gi, `"${today}"`);
+        expr = expr.replace(/\btoday\(\)/gi, `"${today}"`);
+
+        // Substituir prop('Camp') per valor. `prop('Camp')` és un àlies de
+        // `{Camp}` (mateixa documentació), així que ha de resoldre el títol amb
+        // els MATEIXOS noms que el handler de `{Camp}` de més avall: 'title' i
+        // l'àlies català 'Títol'. Abans només reconeixia 'title', de manera que
+        // `prop('Títol')` tornava buit mentre que `{Títol}` sí donava el títol.
+        expr = expr.replace(/\bprop\('([^']+)'\)/g, (_, name) => {
+            const val = (name === 'title' || name === 'Títol') ? title : (metadata[name] ?? '');
+            return typeof val === 'string' ? `"${val.replace(/"/g, '\\"')}"` : String(val ?? '');
+        });
+
+        // Substituir {Camp} per valor
+        expr = expr.replace(/\{([^}]+)\}/g, (_, name) => {
+            const val = name === 'title' || name === 'Títol' ? title : (metadata[name] ?? '');
+            if (typeof val === 'number') return String(val);
+            if (typeof val === 'boolean') return val ? '1' : '0';
+            return `"${String(val ?? '').replace(/"/g, '\\"')}"`;
+        });
+
+        // Substituir len(...)
+        expr = expr.replace(/\blen\("([^"]*)"\)/g, (_, s) => String(s.length));
+
+        // Avaluació segura d'operacions numèriques simples. `__IF` implementa
+        // if(cond, a, b) com a ternari (tots dos branques s'avaluen, cosa
+        // acceptable per a fórmules de valors sense efectes secundaris).
+        // Un checkbox es pot desar com a STRING "false" (o "0"); en JS "false"
+        // és truthy, així que `if({Checkbox}, …)` agafava sempre la branca
+        // "true". Tractem "false"/"0" (a més del buit, null, 0 i false) com a
+        // falsy —coherent amb la lectura del checkbox a VaultTable
+        // (`val !== 'false'`)— sense alterar cap altre text no buit.
+        const __IF = (cond, a, b) => {
+            const falsy = cond == null || cond === false || cond === 0
+                || cond === '' || cond === 'false' || cond === '0';
+            return falsy ? b : a;
+        };
+        const result = Function('__IF', '"use strict"; return (' + expr + ')')(__IF);
+        // Un resultat numèric NO FINIT no és un valor de cel·la útil i `?? null`
+        // no l'atrapa (NaN i Infinity no són null/undefined): `NaN` surt
+        // d'operar sobre valors no numèrics ("12,5" * 2, o text - text) i
+        // `Infinity` d'una divisió per zero. Els normalitzem a null perquè la
+        // cel·la quedi BUIDA —i ordeni/filtri com a buida— en lloc de mostrar
+        // "NaN"/"Infinity".
+        if (typeof result === 'number' && !Number.isFinite(result)) return null;
+        return result ?? null;
+    } catch (e) {
+        return null;
+    }
+}

@@ -1,0 +1,1523 @@
+/**
+ * markdown-mapper.js
+ * Utilitat per a la conversió bi-direccional entre BlockNote JSON i Markdown Enriquit.
+ */
+
+// Sentinella per als enllaços file:// dins l'editor.
+//
+// BlockNote/Tiptap (extension-link) blanqueja qualsevol href el protocol del
+// qual no és a la seva allowlist (http/https/ftp/mailto/tel/...). `file:` no
+// hi és, així que un anchor amb href="file:///..." es rendireitza com
+// <a href=""> i, en clicar, window.open("") obre una pestanya nova a l'origin
+// de Gnosi. Per evitar-ho, el href intern dels enllaços a fitxer queda com
+// "https://gnosi-file-protocol.local/..." (passa la validació de Tiptap
+// perquè és https) i es converteix de tornada a "file://" només (a) quan se
+// serialitza a markdown per guardar al disc, i (b) quan l'interceptor de
+// clicks crida el backend per obrir la ruta amb el shell del sistema.
+// Sentinel sense slash final perquè la conversió sigui un swap directe del
+// prefix: "file://" (7 chars) ↔ "https://gnosi-file-protocol.local" (33 chars).
+// Així mantenim la barra inicial del path local en totes dues direccions.
+//
+// IMPORTANT: el sentinel NO pot contenir "__" perquè el parser markdown de
+// BlockNote (markdown-it) interpreta `__...__` com a bold i trenca la URL
+// dins de `](...)`. Per això usem guions normals i un TLD ".local" reservat.
+export const FILE_PROTOCOL_SENTINEL = "https://gnosi-file-protocol.local";
+// Sentinel legacy (versions anteriors). Mantenim el reconeixement per
+// compatibilitat amb notes ja desades a l'editor abans del canvi.
+const LEGACY_FILE_PROTOCOL_SENTINEL = "https://__gnosi_file_protocol__";
+// Variant corrompuda: si una nota legacy va passar per un re-serialitzador
+// que va aplicar èmfasi (markdown-it interpreta `__...__` com a strong) i
+// va escriure el resultat a disc literal, queda `**gnosi_file_protocol**`.
+// La detectem per recuperar enllaços ja danyats al markdown.
+const CORRUPTED_FILE_PROTOCOL_SENTINEL = "https://**gnosi_file_protocol**";
+
+/**
+ * Sentinella → file:// (per a serialització a markdown o per al backend).
+ */
+export const sentinelToFileUrl = (href) => {
+    if (typeof href !== "string") return href;
+    if (href.startsWith(FILE_PROTOCOL_SENTINEL)) {
+        return "file://" + href.slice(FILE_PROTOCOL_SENTINEL.length);
+    }
+    if (href.startsWith(LEGACY_FILE_PROTOCOL_SENTINEL)) {
+        return "file://" + href.slice(LEGACY_FILE_PROTOCOL_SENTINEL.length);
+    }
+    if (href.startsWith(CORRUPTED_FILE_PROTOCOL_SENTINEL)) {
+        return "file://" + href.slice(CORRUPTED_FILE_PROTOCOL_SENTINEL.length);
+    }
+    return href;
+};
+
+/**
+ * file:// → sentinella (per a inserció a l'editor).
+ */
+export const fileUrlToSentinel = (href) => {
+    if (typeof href !== "string") return href;
+    if (/^file:\/\//i.test(href)) {
+        return FILE_PROTOCOL_SENTINEL + href.slice(7);
+    }
+    return href;
+};
+
+// --- Estat de serialització de notes al peu ---
+// Les footnotes inline (`[^N]`) numeren seqüencialment segons l'ordre del
+// document i acumulen les seves definicions (`[^N]: text`) per afegir-les al
+// final del Markdown. Com que `blocksToRichMarkdown` serialitza els blocs (i
+// els seus fills) EN ORDRE, n'hi ha prou amb un comptador d'estat de mòdul que
+// es reinicia a cada serialització completa.
+let _footnoteDefs = [];
+let _footnoteOrder = new Map(); // id de la footnote → número assignat
+
+/**
+ * Converteix una llista de blocs de BlockNote a Markdown enriquit.
+ */
+export const blocksToRichMarkdown = (blocks, editor) => {
+    if (!blocks || !Array.isArray(blocks)) return "";
+
+    // Reinicia l'estat de footnotes per a aquesta serialització.
+    _footnoteDefs = [];
+    _footnoteOrder = new Map();
+
+    // Separem els blocs top-level amb una línia en blanc (\n\n).
+    // Sense això, dos paràgrafs consecutius serien "Linia1\nLinia2" i el
+    // parser de BlockNote (tryParseMarkdownToBlocks) els interpreta com un sol
+    // paràgraf amb soft-break, perdent els salts en re-parse.
+    const parts = blocks.map(
+        (block) => blockToMarkdown(block, editor, 0).replace(/\n+$/, "")
+    );
+    // Els ítems de llista CONSECUTIUS del mateix tipus s'uneixen amb un sol salt
+    // de línia (llista "tight"); la resta de blocs amb una línia en blanc (\n\n)
+    // perquè el re-parse de BlockNote no fusioni paràgrafs consecutius. Sense
+    // això, cada ítem de llista quedava separat per una línia en blanc al .md →
+    // llistes "loose" amb espaiat extra (i lletgeses en visors com Obsidian).
+    const LIST_ITEM_TYPES = new Set(["bulletListItem", "numberedListItem", "checkListItem"]);
+    let result = "";
+    blocks.forEach((block, i) => {
+        if (i === 0) { result = parts[i]; return; }
+        const tight = LIST_ITEM_TYPES.has(block.type) && block.type === blocks[i - 1].type;
+        result += (tight ? "\n" : "\n\n") + parts[i];
+    });
+    result = result.trim();
+
+    // Sentinella defensiva: si trobem "[object Object]" al resultat,
+    // alguna part del converter ha rebut un valor mal format. Llançem error
+    // en lloc d'escriure brossa al disc (i evitem perdre la nota).
+    if (result.includes("[object Object]")) {
+        throw new Error(
+            "blocksToRichMarkdown: detectat '[object Object]' al resultat — " +
+            "el contingut de l'editor té un format inesperat. Save abortat per " +
+            "no sobreescriure la nota."
+        );
+    }
+
+    // Afegeix les definicions de les notes al peu al final del document
+    // (`[^1]: text`), recollides durant la serialització dels blocs.
+    if (_footnoteDefs.length > 0) {
+        result = (result ? result + "\n\n" : "") + _footnoteDefs.join("\n");
+    }
+    return result;
+};
+
+/**
+ * Converteix un bloc individual a Markdown recursivament.
+ * ESTRATÈGIA: Cada bloc-nivell s'assegura de tenir el seu propi \n.
+ */
+const blockToMarkdown = (block, editor, indentLevel = 0) => {
+    const indent = "  ".repeat(indentLevel);
+    let content = "";
+
+    // Directives Estructurals (Gnosi)
+    if (block.type === "columnList") {
+        let res = `:::column-list\n`;
+        if (block.children) {
+            block.children.forEach(col => {
+                res += blockToMarkdown(col, editor, indentLevel + 1);
+            });
+        }
+        res += `:::\n`;
+        return res;
+    }
+
+    if (block.type === "column") {
+        const widthAttr = (block.props && block.props.width && block.props.width !== 1) ? ` {width=${block.props.width}}` : "";
+        let res = `:::column${widthAttr}\n`;
+        if (block.children) {
+            block.children.forEach(child => {
+                res += blockToMarkdown(child, editor, indentLevel + 1);
+            });
+        }
+        res += `:::\n`;
+        return res;
+    }
+
+    // Inclou el `toggleListItem` BUILT-IN de BlockNote (disponible al slash menu
+    // per defecte), no només el bloc `toggle` custom de Gnosi: sense això, una
+    // "Toggle List" creada des del menú queia al `default` i es desava com a
+    // paràgraf + fills indentats, PERDENT l'estructura de desplegable. Tots dos
+    // tenen la mateixa forma (label inline + fills), així que es normalitzen a la
+    // mateixa fence `:::toggle` (en re-llegir, esdevé el toggle custom canònic).
+    if (block.type === "toggle" || block.type === "toggleListItem") {
+        // El label del toggle es recupera amb un slice cru del parser (no markdown-it):
+        // escapar-lo hi deixaria backslashes literals → escape:false.
+        let res = `:::toggle ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
+        if (block.children) {
+            block.children.forEach(child => {
+                res += blockToMarkdown(child, editor, indentLevel + 1);
+            });
+        }
+        res += `:::\n`;
+        return res;
+    }
+
+    // Encapçalament desplegable (heading + isToggleable, creat amb /tur). El
+    // `#` de Markdown no pot codificar ni el `isToggleable` ni el niat dels
+    // fills, així que el serialitzem com a fence pròpia que embolcalla els
+    // fills (mirall de :::toggle), preservant el nivell a {level=N}.
+    if (block.type === "heading" && block.props?.isToggleable) {
+        const lvl = Number(block.props.level) || 1;
+        // Label recuperat amb slice cru del parser de directives (no markdown-it).
+        let res = `:::toggle-heading{level=${lvl}} ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
+        if (block.children) {
+            block.children.forEach(child => {
+                res += blockToMarkdown(child, editor, indentLevel + 1);
+            });
+        }
+        res += `:::\n`;
+        return res;
+    }
+
+    if (block.type === "database") {
+        return `\`\`\`gnosi-database\n${JSON.stringify(block.props, null, 2)}\n\`\`\`\n`;
+    }
+
+    if (block.type === "gnosi_view") {
+        // `heading`/`heading_level` són opcionals i no tenen UI per definir-los:
+        // només s'inclouen si hi ha un títol real, per no embrutar la definició
+        // amb un `"heading":""` sense sentit. Els usuaris posen un `#` de
+        // markdown normal (portable) damunt del bloc. En llegir, promoteCustomFences
+        // ja els posa per defecte ('' i 1) quan no hi són.
+        const h = String(block.props?.heading || '').trim();
+        const payload = { view_id: String(block.props?.view_id || '') };
+        if (h) {
+            payload.heading = h;
+            payload.heading_level = Number(block.props?.heading_level) || 1;
+        }
+        return `\`\`\`gnosi-view\n${JSON.stringify(payload, null, 2)}\n\`\`\`\n`;
+    }
+
+    if (block.type === "bibliography") {
+        // Serialitza el block bibliografia com a `{{bibliography}}` (style
+        // i locale per defecte) o `{{bibliography:apa}}` / `{{bibliography:
+        // apa:ca-AD}}` si l'usuari ha sobreescrit els defaults.
+        const style = String(block?.props?.style || '').trim();
+        const locale = String(block?.props?.locale || '').trim();
+        if (!style || (style === 'apa' && (!locale || locale === 'ca-AD'))) {
+            return '{{bibliography}}\n';
+        }
+        if (!locale || locale === 'ca-AD') return `{{bibliography:${style}}}\n`;
+        return `{{bibliography:${style}:${locale}}}\n`;
+    }
+
+    if (block.type === "mermaid") {
+        // Diagrama Mermaid → fence ```mermaid (portable a Obsidian/GitHub).
+        const code = String(block?.props?.code || "").replace(/\n+$/, "");
+        return "```mermaid\n" + code + "\n```\n";
+    }
+
+    if (block.type === "tableOfContents") {
+        // Índex de continguts → marca `{{toc}}` (mirall de `{{bibliography}}`).
+        return "{{toc}}\n";
+    }
+
+    if (block.type === "linkcard") {
+        // Targeta d'enllaç → `[bookmark: URL](URL)` (simètric a l'embed).
+        const u = String(block?.props?.url || "").trim();
+        return u ? `[bookmark: ${u}](${u})\n` : "";
+    }
+
+    if (block.type === "synced") {
+        // Bloc sincronitzat → fence ```gnosi-synced amb el sync_id.
+        const sid = String(block?.props?.sync_id || "").trim();
+        if (!sid) return "";
+        return "```gnosi-synced\n" + JSON.stringify({ sync_id: sid }) + "\n```\n";
+    }
+
+    if (block.type === "transclusion") {
+        const target = String(block?.props?.target || "").trim();
+        const alias = String(block?.props?.alias || "").trim();
+        const section = String(block?.props?.section || "").trim();
+        if (!target) return "";
+
+        const targetWithSection = section ? `${target}#${section}` : target;
+        return alias ? `![[${targetWithSection}|${alias}]]\n` : `![[${targetWithSection}]]\n`;
+    }
+
+    // Tipus estàndard
+    switch (block.type) {
+        case "heading": {
+            const level = "#".repeat(block.props.level || 1);
+            content = `${level} ${inlineContentToMarkdown(block.content)}`;
+            break;
+        }
+        case "bulletListItem":
+            content = `- ${inlineContentToMarkdown(block.content, { atLineStart: true })}`;
+            break;
+        case "numberedListItem":
+            content = `1. ${inlineContentToMarkdown(block.content, { atLineStart: true })}`;
+            break;
+        case "checkListItem": {
+            const checked = block.props.checked ? "[x]" : "[ ]";
+            content = `- ${checked} ${inlineContentToMarkdown(block.content, { atLineStart: true })}`;
+            break;
+        }
+        case "codeBlock":
+            // Text VERBATIM: `codeBlockText` uneix els .text sense passar per
+            // `inlineContentToMarkdown` (que escaparia `a ** b`/`arr[0]` I
+            // converteix els salts de línia tous en `<br>\n` — correcte per a
+            // paràgrafs, NO per a codi). Amb el serialitzador inline, un bloc de
+            // codi multilínia injectava un `<br>` a cada `\n` i, com que en
+            // recarregar quedava literal dins el codi, s'ACUMULAVA un `<br>` més
+            // a cada cicle desar/recarregar. `codeBlockText` és RAW i sense `<br>`.
+            content = `\`\`\`${block.props.language || ""}\n${codeBlockText(block)}\n\`\`\``;
+            break;
+        case "horizontalRule": // nom legacy del bloc de línia horitzontal
+        case "divider":        // nom ACTUAL a BlockNote (defaultBlockSpecs.divider)
+            content = `---`;
+            break;
+        case "image":
+        case "video":
+        case "audio":
+        case "file":
+        case "embed": {
+            const url = block.props.url || block.props.src || "";
+            const caption = block.props.caption ? `|${block.props.caption}` : "";
+            content = block.type === "image" ? `![${caption}](${url})` : `[${block.type}: ${url}](${url})`;
+            break;
+        }
+        case "alert": { // BlockNote calls callouts 'alert'
+            const alertType = block.props?.type || "info";
+            // El cos del callout es re-llegeix cru (parser propi de `> [!type]`), no per
+            // markdown-it, així que NO s'escapa (ja és segur del round-trip per disseny).
+            const alertContent = inlineContentToMarkdown(block.content, { escape: false });
+            return `> [!${alertType}]\n> ${alertContent.replace(/\n/g, "\n> ")}`;
+        }
+        case "quote": {
+            // Cita en bloc → blockquote de Markdown (`> …`). BlockNote suporta el
+            // bloc `quote` de sèrie; sense aquest cas queia al `default` i es
+            // desava com a paràgraf PLA, perdent el format de cita a cada desat.
+            let inner = inlineContentToMarkdown(block.content, { atLineStart: true });
+            if (block.children && block.children.length > 0) {
+                block.children.forEach(child => {
+                    inner += "\n" + blockToMarkdown(child, editor, 0).replace(/\n+$/, "");
+                });
+            }
+            return `> ${inner.replace(/\n/g, "\n> ")}`;
+        }
+        case "table": {
+            // GFM Table serialization
+            // Support native BlockNote table format (block.content.rows) or fallback to custom nested children
+            let tableRows = [];
+            if (block.content && block.content.type === "tableContent" && Array.isArray(block.content.rows)) {
+                tableRows = block.content.rows;
+            } else if (Array.isArray(block.children) && block.children.length > 0) {
+                tableRows = block.children;
+            }
+
+            if (tableRows.length === 0) return "";
+
+            const markdownRows = tableRows.map(row => {
+                const cellDataRow = row.cells || row.children || [];
+                const markdownCells = cellDataRow.map(cell => {
+                    const cellContent = cell.content !== undefined ? cell.content : cell; // Custom has .content, native cell IS the inline content array
+                    // Les cel·les es re-llegeixen crues (parser GFM propi que talla per `|`),
+                    // no per markdown-it → NO s'escapa el text (només el `|` literal).
+                    return inlineContentToMarkdown(cellContent, { escape: false }).replace(/\|/g, "\\|");
+                });
+                return `| ${markdownCells.join(" | ")} |`;
+            });
+
+            if (markdownRows.length === 0) return "";
+
+            // Add separator row after header
+            let headerCellsCount = 1;
+            if (tableRows[0].cells) {
+                headerCellsCount = tableRows[0].cells.length;
+            } else if (tableRows[0].children) {
+                headerCellsCount = tableRows[0].children.length;
+            }
+
+            const separator = `| ${Array(headerCellsCount).fill("---").join(" | ")} |`;
+
+            markdownRows.splice(1, 0, separator);
+            return markdownRows.join("\n");
+        }
+        case "paragraph":
+        default:
+            content = inlineContentToMarkdown(block.content, { atLineStart: true });
+            break;
+    }
+
+    // Color/Background
+    const textColor = block.props?.textColor;
+    const bgColor = block.props?.backgroundColor;
+    const hasTextColor = textColor && textColor !== "default";
+    const hasBgColor = bgColor && bgColor !== "default";
+    if (hasTextColor || hasBgColor) {
+        let style = "";
+        if (hasTextColor) style += `color: ${textColor};`;
+        if (hasBgColor) style += `background-color: ${bgColor};`;
+        content = `<div style="${style}">${content}</div>`;
+    }
+
+    // Fills (standard nesting)
+    if (block.children && block.children.length > 0 && !["columnList", "column", "toggle"].includes(block.type)) {
+        block.children.forEach(child => {
+            // For standard Markdown, a paragraph block inside a list item needs a preceding blank line
+            // If the child is not a list item itself and parent is a list, prepend a blank line to force a separate paragraph
+            const needsBlankLine = ["bulletListItem", "numberedListItem", "checkListItem"].includes(block.type) 
+                                   && !["bulletListItem", "numberedListItem", "checkListItem"].includes(child.type);
+            
+            const prefix = needsBlankLine ? "\n\n" : "\n";
+            let childMd = blockToMarkdown(child, editor, indentLevel + 1);
+            
+            // if needsBlankLine is true, the child block receives an extra newline, but wait, the childMd already has its own formatting.
+            // Let's just adjust the spacing before appending.
+            content += prefix + childMd.trimEnd(); 
+        });
+        content += "\n";
+    }
+
+    return indent + content.trimStart() + "\n";
+};
+
+const convertToWikilinks = (content) => {
+    if (!Array.isArray(content)) return content;
+    const next = [];
+    content.forEach(item => {
+        if (item.type === "text") {
+            const text = item.text;
+            // Regex for [[Title]] or [[Title#Section]] or [[Title|Alias]].
+            // Excloem `[` dels grups de captura: si no, un `[[` no tancat seguit
+            // d'un wikilink ben format més endavant a la mateixa línia consumeix
+            // tot el text intermedi com a target. Ex.: `[[port. ... [[id|Alias]]`
+            // ha de matchar només el wikilink intern; el `[[port. ` queda com a
+            // text. Sense aquesta exclusió, el target del wikilink resultant
+            // contenia 400+ chars amb `[[` inside, i BlockNote es bloquejava
+            // serialitzant/rendering-lo.
+            const regex = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
+            let lastIndex = 0;
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                const start = match.index;
+                const fullMatch = match[0];
+                const target = match[1];
+                const section = match[2];
+                const alias = match[3];
+
+                if (start > lastIndex) {
+                    next.push({ ...item, text: text.slice(lastIndex, start) });
+                }
+
+                next.push({
+                    type: "wikilink",
+                    props: {
+                        title: alias || (section ? `${target}#${section}` : target),
+                        target: target + (section ? `#${section}` : "")
+                    }
+                });
+                lastIndex = start + fullMatch.length;
+            }
+            if (lastIndex < text.length) {
+                next.push({ ...item, text: text.slice(lastIndex) });
+            }
+        } else if (item.type === "link") {
+            next.push({
+                ...item,
+                content: convertToWikilinks(item.content)
+            });
+        } else {
+            next.push(item);
+        }
+    });
+    return next;
+};
+
+// Aplica `convertToWikilinks` a totes les cel·les d'una taula nativa de
+// BlockNote. El contingut d'una taula no és un array inline sinó un objecte
+// `tableContent` amb `rows[].cells[]`, on cada cel·la pot ser directament
+// l'array inline (format natiu) o un objecte `{ content: [...] }`.
+const convertTableContentWikilinks = (tableContent) => ({
+    ...tableContent,
+    rows: (tableContent.rows || []).map(row => ({
+        ...row,
+        cells: Array.isArray(row.cells)
+            ? row.cells.map(cell => (
+                Array.isArray(cell)
+                    ? convertToWikilinks(cell)
+                    : (cell && Array.isArray(cell.content)
+                        ? { ...cell, content: convertToWikilinks(cell.content) }
+                        : cell)
+            ))
+            : row.cells,
+    })),
+});
+
+const processBlocksForWikilinks = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        const newBlock = { ...block };
+        if (newBlock.content) {
+            // Les taules natives porten el contingut a `content.rows[].cells`;
+            // `convertToWikilinks` només sap tractar arrays inline, així que
+            // sense aquest cas els `[[…]]` dins de cel·les quedaven en cru.
+            if (newBlock.content.type === 'tableContent' && Array.isArray(newBlock.content.rows)) {
+                newBlock.content = convertTableContentWikilinks(newBlock.content);
+            } else {
+                newBlock.content = convertToWikilinks(newBlock.content);
+            }
+        }
+        if (newBlock.children) {
+            newBlock.children = processBlocksForWikilinks(newBlock.children);
+        }
+        return newBlock;
+    });
+};
+
+// --- Citations Pandoc-style: `[@key]` o `[@key1; @key2]` ---
+// Detecta cada token `@<citationkey>` dins de `[ ]` i el converteix en
+// inline content de tipus `cite`. Sintaxi acceptada (subset Pandoc):
+//   [@smith2020]                      → 1 cite
+//   [@smith2020; @jones2019]          → 2 cites
+//   @smith2020                        → 1 cite "naked" (sense brackets)
+// La meva regex és intencionalment restrictiva per evitar falsos positius:
+// el key ha de començar per lletra ASCII low + permet [a-z0-9_:-]. Si vols
+// keys amb capitals o accents al teu Citation Key, amplia el charset.
+const CITATION_KEY_RE = /[a-z][a-z0-9_:-]*/i;
+const CITATION_BRACKET_RE = /\[@([a-z][a-z0-9_:-]*(?:\s*;\s*@[a-z][a-z0-9_:-]*)*)\]/gi;
+const CITATION_NAKED_RE = /(^|[\s(])@([a-z][a-z0-9_:-]*)\b/g;
+
+const convertToCitations = (content) => {
+    if (!Array.isArray(content)) return content;
+    const next = [];
+    content.forEach(item => {
+        // Sols els nodes de text es processen. Wikilinks ja convertits no
+        // s'han de tocar; els altres tipus es passen tal qual.
+        if (item.type !== "text") {
+            if (item.type === "link" && Array.isArray(item.content)) {
+                next.push({ ...item, content: convertToCitations(item.content) });
+            } else {
+                next.push(item);
+            }
+            return;
+        }
+        const text = item.text;
+        if (!text) { next.push(item); return; }
+        // Estratègia: dos passes. Primer trobem tots els tokens
+        // (bracketed o naked) amb la seva posició, després tallem el text
+        // i intercalem els nodes `cite`. Així evitem regex globals
+        // competint per la mateixa posició.
+        const tokens = [];
+        CITATION_BRACKET_RE.lastIndex = 0;
+        let m;
+        while ((m = CITATION_BRACKET_RE.exec(text)) !== null) {
+            const inner = m[1];
+            const keys = inner.split(';').map(s => s.replace(/^\s*@?/, '').trim()).filter(Boolean);
+            tokens.push({ start: m.index, end: m.index + m[0].length, keys });
+        }
+        CITATION_NAKED_RE.lastIndex = 0;
+        while ((m = CITATION_NAKED_RE.exec(text)) !== null) {
+            // L'offset és el del key, no del prefix (capture group 2)
+            const keyStart = m.index + (m[1]?.length || 0);
+            const key = m[2];
+            // Evitar superposició amb tokens bracketed ja agafats.
+            if (tokens.some(t => keyStart >= t.start && keyStart < t.end)) continue;
+            tokens.push({ start: keyStart, end: keyStart + 1 + key.length, keys: [key] });
+        }
+        if (tokens.length === 0) { next.push(item); return; }
+        tokens.sort((a, b) => a.start - b.start);
+        let last = 0;
+        for (const t of tokens) {
+            if (t.start > last) next.push({ ...item, text: text.slice(last, t.start) });
+            for (let i = 0; i < t.keys.length; i++) {
+                if (i > 0) next.push({ ...item, text: '; ' });
+                next.push({ type: 'cite', props: { citationKey: t.keys[i] } });
+            }
+            last = t.end;
+        }
+        if (last < text.length) next.push({ ...item, text: text.slice(last) });
+    });
+    return next;
+};
+
+const processBlocksForCitations = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        const newBlock = { ...block };
+        if (newBlock.content) {
+            newBlock.content = convertToCitations(newBlock.content);
+        }
+        if (newBlock.children) {
+            newBlock.children = processBlocksForCitations(newBlock.children);
+        }
+        return newBlock;
+    });
+};
+
+// --- Mencions de persones (`@[Nom|id]`) i dates (`@2026-06-25[T09:00]`) ---
+// Tokens segurs: `@[` no col·lisiona amb cites (`@key` exigeix lletra) ni amb
+// wikilinks; `@dígit` tampoc és cita. Es processen DESPRÉS de cites/wikilinks.
+const MENTION_RE = /@\[([^\]|]*)\|([^\]]*)\]/g;
+const DATEREF_RE = /@(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/g;
+
+const convertTextTokens = (content, regex, build) => {
+    if (!Array.isArray(content)) return content;
+    const next = [];
+    content.forEach(item => {
+        if (item?.type === 'link' && Array.isArray(item.content)) {
+            next.push({ ...item, content: convertTextTokens(item.content, regex, build) });
+            return;
+        }
+        if (item?.type !== 'text' || typeof item.text !== 'string') { next.push(item); return; }
+        const text = item.text;
+        let lastIndex = 0;
+        let match;
+        regex.lastIndex = 0;
+        let found = false;
+        while ((match = regex.exec(text)) !== null) {
+            found = true;
+            if (match.index > lastIndex) next.push({ ...item, text: text.slice(lastIndex, match.index) });
+            next.push(build(match));
+            lastIndex = match.index + match[0].length;
+        }
+        if (!found) { next.push(item); return; }
+        if (lastIndex < text.length) next.push({ ...item, text: text.slice(lastIndex) });
+    });
+    return next;
+};
+
+const convertToMentions = (content) => convertTextTokens(content, MENTION_RE, (m) => ({
+    type: 'mention', props: { name: String(m[1] || '').trim(), id: String(m[2] || '').trim() },
+}));
+const convertToDates = (content) => convertTextTokens(content, DATEREF_RE, (m) => ({
+    type: 'dateref', props: { date: String(m[1] || ''), time: String(m[2] || '') },
+}));
+
+const makeBlockProcessor = (convert) => {
+    const proc = (blocks) => {
+        if (!blocks || !Array.isArray(blocks)) return blocks;
+        return blocks.map(block => {
+            const nb = { ...block };
+            if (nb.content) nb.content = convert(nb.content);
+            if (nb.children) nb.children = proc(nb.children);
+            return nb;
+        });
+    };
+    return proc;
+};
+const processBlocksForMentions = makeBlockProcessor(convertToMentions);
+const processBlocksForDates = makeBlockProcessor(convertToDates);
+
+const codeBlockText = (block) => {
+    if (!block?.content) return '';
+    if (typeof block.content === 'string') return block.content;
+    if (!Array.isArray(block.content)) return '';
+    return block.content
+        .map(it => (it && typeof it === 'object' && typeof it.text === 'string') ? it.text : '')
+        .join('');
+};
+
+// Converteix paràgrafs que només contenen un link `[embed: URL](URL)` en
+// blocs nadius `embed`. La sintaxi és simètrica a la de `[file: URL](URL)`
+// però aquí volem un bloc dedicat perquè es renderitzi com a iframe/viewer
+// en lloc d'enllaç plain. BlockNote no reconeix la sintaxi per defecte; per
+// això fem aquest post-procés després del parser.
+const promoteEmbedBlocks = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteEmbedBlocks(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content || content.length !== 1) return newBlock;
+        const item = content[0];
+        if (!item || item.type !== 'link' || !Array.isArray(item.content)) return newBlock;
+        const text = item.content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('');
+        const match = text.match(/^embed:\s*(.+)$/i);
+        if (!match || !item.href) return newBlock;
+        return {
+            ...newBlock,
+            type: 'embed',
+            props: { url: String(item.href), caption: '' },
+            content: undefined,
+        };
+    });
+};
+
+// Converteix paràgrafs que només contenen `[bookmark: URL](URL)` en blocs
+// `linkcard` (targeta de previsualització). Mirall de `promoteEmbedBlocks`.
+const promoteLinkCards = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteLinkCards(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content || content.length !== 1) return newBlock;
+        const item = content[0];
+        if (!item || item.type !== 'link' || !Array.isArray(item.content)) return newBlock;
+        const text = item.content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('');
+        const match = text.match(/^bookmark:\s*(.+)$/i);
+        if (!match || !item.href) return newBlock;
+        return { ...newBlock, type: 'linkcard', props: { url: String(item.href) }, content: undefined };
+    });
+};
+
+// Restaura la llegenda d'una imatge des del sentinella `|` de l'alt-text.
+// El serialitzador desa `props.caption` a l'slot d'alt del Markdown amb un
+// prefix `|` (`![|llegenda](url)`). En parsejar, BlockNote posa l'alt-text a
+// `props.name` (NO a `props.caption`), de manera que sense aquesta restauració
+// la llegenda que l'usuari escriu sota una imatge es PERDIA a cada recàrrega
+// (quedava com a `name="|llegenda"`, invisible, i `caption=""`). Només tractem
+// els `name` que comencen amb `|` (el sentinella que escriu el serialitzador);
+// un `name`/alt real mai no hi comença. `slice(1)` treu NOMÉS el sentinella,
+// així una llegenda amb `|` interns (p.ex. "abans | després") es preserva sencera.
+const restoreImageCaptions = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: restoreImageCaptions(newBlock.children) };
+        }
+        if (newBlock?.type === 'image' && typeof newBlock.props?.name === 'string'
+            && newBlock.props.name.startsWith('|')) {
+            newBlock = {
+                ...newBlock,
+                props: { ...newBlock.props, caption: newBlock.props.name.slice(1), name: '' },
+            };
+        }
+        return newBlock;
+    });
+};
+
+// Detecta paràgrafs que només contenen `{{bibliography}}` (opcionalment
+// `{{bibliography:apa}}` o `{{bibliography:chicago-author-date:ca-AD}}`)
+// i els converteix en un block `bibliography`. Patró simètric al
+// `promoteEmbedBlocks`. Sense aquest, el text literal apareixeria a la
+// pàgina i el block real no es renderitzaria.
+const promoteBibliographyBlocks = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteBibliographyBlocks(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content) return newBlock;
+        const text = content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('').trim();
+        const m = text.match(/^\{\{bibliography(?::([a-z][a-z0-9-]*))?(?::([a-zA-Z-]+))?\}\}$/);
+        if (!m) return newBlock;
+        return {
+            ...newBlock,
+            type: 'bibliography',
+            props: {
+                style: m[1] || 'apa',
+                locale: m[2] || 'ca-AD',
+            },
+            content: undefined,
+        };
+    });
+};
+
+const promoteCustomFences = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        if (block?.children && Array.isArray(block.children)) {
+            block = { ...block, children: promoteCustomFences(block.children) };
+        }
+        if (block?.type !== 'codeBlock') return block;
+        const lang = String(block.props?.language || '').toLowerCase();
+        if (lang === 'mermaid') {
+            // Fence ```mermaid → bloc `mermaid` (renderitza el diagrama).
+            return { type: 'mermaid', props: { code: codeBlockText(block) } };
+        }
+        if (lang === 'gnosi-synced') {
+            // Fence ```gnosi-synced → bloc `synced` (contingut de font compartida).
+            let sid = '';
+            try { sid = String(JSON.parse(codeBlockText(block))?.sync_id || ''); } catch { sid = codeBlockText(block).trim(); }
+            return { type: 'synced', props: { sync_id: sid } };
+        }
+        if (lang !== 'gnosi-view' && lang !== 'gnosi-database') return block;
+        let payload = null;
+        try { payload = JSON.parse(codeBlockText(block)); } catch { return block; }
+        if (!payload || typeof payload !== 'object') return block;
+        if (lang === 'gnosi-database') {
+            // Mirall del serialitzador `gnosi-database`: restaura el bloc
+            // `database` (InlineDatabase). Sense això, una base de dades
+            // incrustada es desava com a fence `gnosi-database` però es tornava a
+            // llegir com un bloc de CODI amb el JSON cru.
+            return {
+                type: 'database',
+                props: {
+                    database_table_id: String(payload.database_table_id || ''),
+                    viewId: String(payload.viewId || ''),
+                    filters: String(payload.filters || ''),
+                    sort: String(payload.sort || ''),
+                    search: String(payload.search || ''),
+                    visibleProperties: String(payload.visibleProperties || ''),
+                    viewType: String(payload.viewType || 'table'),
+                },
+            };
+        }
+        return {
+            type: 'gnosi_view',
+            props: {
+                view_id: String(payload.view_id || ''),
+                heading: String(payload.heading || ''),
+                heading_level: String(Number(payload.heading_level) || 1),
+            },
+        };
+    });
+};
+
+// Converteix un paràgraf que només conté `{{toc}}` en un bloc `tableOfContents`.
+// Patró simètric a `promoteBibliographyBlocks`.
+const promoteToc = (blocks) => {
+    if (!blocks || !Array.isArray(blocks)) return blocks;
+    return blocks.map(block => {
+        let newBlock = block;
+        if (newBlock?.children && Array.isArray(newBlock.children)) {
+            newBlock = { ...newBlock, children: promoteToc(newBlock.children) };
+        }
+        if (newBlock?.type !== 'paragraph') return newBlock;
+        const content = Array.isArray(newBlock.content) ? newBlock.content : null;
+        if (!content) return newBlock;
+        const text = content.map(c => (c && typeof c.text === 'string' ? c.text : '')).join('').trim();
+        if (!/^\{\{toc\}\}$/i.test(text)) return newBlock;
+        return { ...newBlock, type: 'tableOfContents', props: {}, content: undefined };
+    });
+};
+
+// Reemplaça els marcadors de nota al peu (`[^id]`) dins de nodes de text per
+// contingut inline `footnote`, recuperant el text de la definició de `defs`
+// (mapa id→text extret abans del parser, vegeu richMarkdownToBlocks). El
+// marcador en si NO és un wikilink ni un link (BlockNote el deixa com a text
+// literal), així que aquest post-procés és segseur.
+const FOOTNOTE_MARK_RE = /\[\^([^\]\s]+)\]/g;
+const splitTextForFootnotes = (item, defs) => {
+    const text = item.text;
+    if (typeof text !== 'string' || text.indexOf('[^') === -1) return [item];
+    const out = [];
+    let lastIndex = 0;
+    let match;
+    FOOTNOTE_MARK_RE.lastIndex = 0;
+    while ((match = FOOTNOTE_MARK_RE.exec(text)) !== null) {
+        const start = match.index;
+        const label = match[1];
+        if (start > lastIndex) out.push({ ...item, text: text.slice(lastIndex, start) });
+        const fid = (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : `fn-${label}-${start}`;
+        out.push({ type: 'footnote', props: { id: fid, content: String(defs[label] || '') } });
+        lastIndex = start + match[0].length;
+    }
+    if (lastIndex < text.length) out.push({ ...item, text: text.slice(lastIndex) });
+    return out;
+};
+const promoteFootnotes = (blocks, defs) => {
+    if (!defs || !blocks || !Array.isArray(blocks)) return blocks;
+    if (Object.keys(defs).length === 0) return blocks;
+    return blocks.map(block => {
+        const newBlock = { ...block };
+        if (Array.isArray(newBlock.content)) {
+            newBlock.content = newBlock.content.flatMap(it =>
+                (it && it.type === 'text') ? splitTextForFootnotes(it, defs) : [it]
+            );
+        }
+        if (Array.isArray(newBlock.children)) {
+            newBlock.children = promoteFootnotes(newBlock.children, defs);
+        }
+        return newBlock;
+    });
+};
+
+// --- Escapat contextual de Markdown en text SENSE estil ---
+// Vegeu docs/dev_memory/directives/markdown_roundtrip_escaping.md
+//
+// `inlineContentToMarkdown` serialitzava el text sense estil literal, així que el text
+// pla amb significat Markdown es corrompia en el round-trip (blocs → md → blocs) perquè
+// markdown-it (tryParseMarkdownToBlocks) el reinterpretava: `the __init__ method` → bold
+// "init", backticks → codi, `*word*` → cursiva, `# foo` a inici de línia → heading.
+// Escapem NOMÉS allò que CommonMark reinterpretaria de debò, per no embrutar el .md.
+// CRÍTIC: només s'aplica al contingut que torna a passar per markdown-it (paràgrafs,
+// headings normals, list items, text d'enllaç). Els blocs amb parser propi (toggle,
+// toggle-heading, callout, cel·les de taula) guarden el text CRU i s'han de serialitzar
+// amb `escape:false` (re-escapar-los hi deixaria backslashes literals).
+
+// Puntuació ASCII — les classes que fa servir CommonMark per a la regla de flanking.
+// eslint-disable-next-line no-useless-escape
+const _isMdPunct = (c) => c !== undefined && /[!-\/:-@\[-`{-~]/.test(c);
+// El límit del node de text es tracta com a espai (límit de paraula): segur a la
+// pràctica perquè BlockNote fusiona els nodes de text pla adjacents en un de sol.
+const _isMdSpace = (c) => c === undefined || /\s/.test(c);
+
+// Escapa el marcador de bloc inicial d'UNA línia (heading/quote/llista/hr/setext).
+const escapeLeadingBlockMarker = (line) => {
+    const m = line.match(/^(\s*)([\s\S]*)$/);
+    const ws = m ? m[1] : "";
+    let rest = m ? m[2] : line;
+    if (!rest) return line;
+    if (/^#{1,6}(\s|$)/.test(rest)) {                       // ATX heading
+        rest = "\\" + rest;
+    } else if (rest[0] === ">") {                            // blockquote / callout
+        rest = "\\" + rest;
+    } else if (/^[-+*]\s/.test(rest)) {                      // bullet list
+        rest = "\\" + rest;
+    } else if (/^\d{1,9}[.)]\s/.test(rest)) {                // ordered list
+        rest = rest.replace(/^(\d{1,9})([.)])/, "$1\\$2");
+    } else if (/^([-*_])\1{2,}\s*$/.test(rest)) {            // thematic break --- *** ___
+        rest = "\\" + rest;
+    } else if (/^=+\s*$/.test(rest) || /^-+\s*$/.test(rest)) { // setext underline
+        rest = "\\" + rest;
+    }
+    return ws + rest;
+};
+
+// Escapa un node de text SENSE marques. `atLineStart` activa també l'escapat dels
+// marcadors de bloc a l'inici de cada línia (només per a paràgrafs i list items).
+const escapeUnstyledMarkdown = (text, atLineStart) => {
+    if (!text) return text;
+    let out = "";
+    for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        if (c === "\\") { out += "\\\\"; continue; }        // backslash PRIMER (idempotència)
+        if (c === "`") { out += "\\`"; continue; }           // backtick → codi inline
+        const prev = i > 0 ? text[i - 1] : undefined;
+        const next = i < text.length - 1 ? text[i + 1] : undefined;
+        if (c === "~") {                                      // strikethrough ~~ (GFM)
+            out += (next === "~" || prev === "~") ? "\\~" : "~";
+            continue;
+        }
+        if (c === "*" || c === "_") {
+            const prevSpace = _isMdSpace(prev), nextSpace = _isMdSpace(next);
+            const prevPunct = _isMdPunct(prev), nextPunct = _isMdPunct(next);
+            const leftFlank = !nextSpace && (!nextPunct || prevSpace || prevPunct);
+            const rightFlank = !prevSpace && (!prevPunct || nextSpace || nextPunct);
+            let dangerous;
+            if (c === "*") {
+                dangerous = leftFlank || rightFlank;          // asterisc: intraword permès
+            } else {                                           // underscore: NO intraword
+                const canOpen = leftFlank && (!rightFlank || prevPunct);
+                const canClose = rightFlank && (!leftFlank || nextPunct);
+                dangerous = canOpen || canClose;               // `my_var_name` queda net
+            }
+            out += dangerous ? "\\" + c : c;
+            continue;
+        }
+        out += c;
+    }
+    // Links/imatges inline `[...](` o `![...](`: escapa el `[` perquè no es torni enllaç.
+    // Els `[ref]` solts NO es toquen (markdown-it ja els deixa literals) → mínima pol·lució.
+    out = out.replace(/(!?)\[([^[\]\n]*)]\(/g, (mm, bang, label) => `${bang}\\[${label}](`);
+    // Tags HTML inline (`<b>tag</b>`) i autolinks (`<http://…>`): markdown-it
+    // (amb HTML activat) els reinterpretaria, de manera que un text PLA amb
+    // aquesta sintaxi (sovint HTML o una URL enganxats) es perdia/transformava
+    // en el round-trip. Escapem NOMÉS el `<` que inicia un tag o autolink COMPLET
+    // (amb el seu `>`), per no tocar `a < b` ni `a<b` (que CommonMark deixa
+    // literals). El `<br>`/`<u>`/`<span>` que injecta el serialitzador s'afegeixen
+    // DESPRÉS, així que no els afecta.
+    out = out.replace(/<(\/?[A-Za-z][^<>]*>|[A-Za-z][A-Za-z0-9+.-]*:[^<>\s]*>)/g, "\\<$1");
+    // Marcadors de bloc a inici de cada línia.
+    if (atLineStart) {
+        out = out.split("\n").map(escapeLeadingBlockMarker).join("\n");
+    }
+    return out;
+};
+
+/**
+ * Converteix contingut inline.
+ * @param {object} [opts]
+ * @param {boolean} [opts.escape=true] Escapa els caràcters Markdown del text sense estil.
+ *   Posar `false` per a contingut que NO torna per markdown-it (toggle/callout/cel·les).
+ * @param {boolean} [opts.atLineStart=false] El contingut comença a inici de línia
+ *   (paràgrafs i list items) → escapa també els marcadors de bloc inicials.
+ */
+const inlineContentToMarkdown = (content, { escape = true, atLineStart = false } = {}) => {
+    if (!content) return "";
+    if (typeof content === "string") return content;
+    if (!Array.isArray(content)) return "";
+
+    let lineStart = atLineStart;
+    return content.map(item => {
+        const nodeAtLineStart = lineStart;
+        lineStart = false; // els nodes inline no acaben (per defecte) en línia nova
+        if (!item || typeof item !== "object") return "";
+        if (item.type === "text") {
+            // Defensiva: si item.text no és string, NO el toString-egem
+            // (tornaria "[object Object]" i sobreescriuria la nota al disc).
+            if (typeof item.text !== "string") {
+                console.warn("inlineContentToMarkdown: item.text no és string", item);
+                return "";
+            }
+            let text = item.text;
+            // El node següent està a inici de línia si AQUEST text acaba en salt.
+            lineStart = text.endsWith("\n");
+
+            // Escapat contextual NOMÉS en text sense cap marca (ni dins de code spans):
+            // dins de bold/italic/underline/strike/code el text es deixa cru.
+            const s = item.styles || {};
+            const hasMark = !!(s.bold || s.italic || s.underline || s.strike || s.code);
+            if (escape && !hasMark) {
+                text = escapeUnstyledMarkdown(text, nodeAtLineStart);
+            }
+
+            // Handle soft line breaks inside text nodes. Standard Markdown requires two spaces or <br>.
+            // (Després d'escapar, per no escapar el `<br>` que injectem.)
+            if (text.includes('\n')) {
+                text = text.replace(/\n/g, '<br>\n');
+            }
+
+            if (item.styles) {
+                // CommonMark no reconeix delimitadors d'èmfasi quan tenen
+                // espais immediatament adjacents (p.ex. "** text **" no és bold).
+                // Movem els espais d'inici/final fora dels marcadors.
+                const wrap = (str, open, close = open) => {
+                    if (!str) return str;
+                    const m = String(str).match(/^(\s*)([\s\S]*?)(\s*)$/);
+                    const lead = m ? m[1] : "";
+                    const core = m ? m[2] : str;
+                    const trail = m ? m[3] : "";
+                    if (!core) return str; // tot espais; no aplicar marca
+                    return `${lead}${open}${core}${close}${trail}`;
+                };
+                if (item.styles.bold) text = wrap(text, "**");
+                if (item.styles.italic) text = wrap(text, "*");
+                if (item.styles.underline) text = wrap(text, "<u>", "</u>");
+                if (item.styles.strike) text = wrap(text, "~~");
+                if (item.styles.code) text = wrap(text, "`");
+                // Color de text/fons INLINE → <span style> (mirall del color de
+                // BLOC, que es desa amb <div style>). Sense això, un tros de text
+                // acolorit des de la toolbar es desava sense cap marca i el color
+                // es perdia silenciosament a cada desat.
+                const tc = item.styles.textColor;
+                const bgc = item.styles.backgroundColor;
+                if ((tc && tc !== "default") || (bgc && bgc !== "default")) {
+                    let st = "";
+                    if (tc && tc !== "default") st += `color: ${tc};`;
+                    if (bgc && bgc !== "default") st += `background-color: ${bgc};`;
+                    text = `<span style="${st}">${text}</span>`;
+                }
+            }
+            return text;
+        }
+        if (item.type === "link") {
+            // Robustesa: el content d'un link pot ser array (esperat),
+            // string (legacy) o un sol objecte (insertion bug). Normalitzem.
+            let linkContent = item.content;
+            if (linkContent && !Array.isArray(linkContent) && typeof linkContent !== "string") {
+                linkContent = [linkContent];
+            }
+            const innerText = inlineContentToMarkdown(linkContent);
+            const rawHref = typeof item.href === "string" ? item.href : "";
+            // El sentinel intern es desserialitza a file:// abans d'escriure
+            // al disc, perquè els lectors externs (Obsidian, etc.) entenguin
+            // l'enllaç local original.
+            const safeHref = sentinelToFileUrl(rawHref);
+            // CommonMark: si la URL té espais o parèntesis no balancejats, cal
+            // envoltar-la amb <...>. Sense això, [text](file:///foo bar.docx)
+            // es trenca al primer espai i el link queda inservible.
+            const needsAngleBrackets = /[\s<>]/.test(safeHref);
+            const finalHref = needsAngleBrackets ? `<${safeHref}>` : safeHref;
+            return `[${innerText}](${finalHref})`;
+        }
+        if (item.type === "wikilink") {
+            const target = item.props?.target || "";
+            const section = item.props?.section || "";
+            const title = item.props?.title || "";
+            const link = section ? `${target}#${section}` : target;
+
+            // Si el títol és representatiu però diferent del link pur, usem alias [[Link|Title]]
+            if (title && title !== link && title !== target) {
+                return `[[${link}|${title}]]`;
+            }
+            return `[[${link}]]`;
+        }
+        if (item.type === "cite") {
+            // Serialitzem com a Pandoc citation `[@key]`. Compatible amb
+            // pandoc-citeproc, Quarto, Obsidian Citations Plugin, etc.
+            const ck = item.props?.citationKey || "";
+            return ck ? `[@${ck}]` : "";
+        }
+        if (item.type === "footnote") {
+            // Nota al peu inline: assigna un número seqüencial (per ordre del
+            // document) i acumula la definició `[^N]: text` per al final.
+            const fid = String(item.props?.id || "");
+            const key = fid || `auto-${_footnoteOrder.size + 1}`;
+            let num = _footnoteOrder.get(key);
+            if (!num) {
+                num = _footnoteOrder.size + 1;
+                _footnoteOrder.set(key, num);
+                const body = String(item.props?.content || "").replace(/\s*\n\s*/g, " ").trim();
+                _footnoteDefs.push(`[^${num}]: ${body}`);
+            }
+            return `[^${num}]`;
+        }
+        if (item.type === "mention") {
+            // Menció de persona → `@[Nom|id]` (token segur: `@[` no és cita ni
+            // wikilink). Es netegen `|` i `]` del nom per no trencar el token.
+            const name = String(item.props?.name || "").replace(/[|\]]/g, " ").trim();
+            const id = String(item.props?.id || "").trim();
+            if (!name && !id) return "";
+            return `@[${name}|${id}]`;
+        }
+        if (item.type === "dateref") {
+            // Menció de data → `@2026-06-25` o `@2026-06-25T09:00` (amb recordatori).
+            const date = String(item.props?.date || "").trim();
+            const time = String(item.props?.time || "").trim();
+            if (!date) return "";
+            return time ? `@${date}T${time}` : `@${date}`;
+        }
+        return "";
+    }).join("");
+};
+
+// Els enllaços file:// dins el markdown se substitueixen pel sentinel abans
+// del parse perquè BlockNote/Tiptap no els accepta com a href vàlid (no és
+// als seus protocols permesos). Mantenim el sentinel als blocs durant tota
+// la vida útil al editor; només es reverteix a file:// al moment de
+// serialitzar a markdown (vegeu inlineContentToMarkdown). El sentinel passa
+// la validació de Tiptap perquè comença amb https://, així que l'<a> al DOM
+// té un href clicable que el nostre useFileLinkInterceptor pot capturar.
+const parsePlainMarkdownBlock = async (text, editor) => {
+    if (!text) return [];
+
+    // Reemplaça file:// pel sentinel abans de delegar al parser.
+    // També reemplaça el sentinel legacy (`__gnosi_file_protocol__`) i la
+    // seva variant corrompuda (`**gnosi_file_protocol**`, escrita per un
+    // re-serialitzador que va interpretar els `__` com a bold) pel sentinel
+    // actual. Sense aquesta normalització, el parser veu un href trencat
+    // i renderitza `[text](url)` com a markdown literal.
+    const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // Captura tant `](file://` com `](<file://` (URL envoltada amb angle
+    // brackets per CommonMark quan té espais o non-ASCII). Sense capturar el
+    // `<` opcional, file:// arriba intacte al parser de Tiptap, que el rebutja
+    // per esquema no permès i descarta el link silenciosament; el round-trip
+    // següent escriu el text sense href, perdent l'enllaç.
+    let protectedText = text
+        .replace(/\]\((<?)file:\/\//g, `]($1${FILE_PROTOCOL_SENTINEL}`)
+        .replace(
+            new RegExp(`\\]\\((<?)${escapeRe(LEGACY_FILE_PROTOCOL_SENTINEL)}`, 'g'),
+            `]($1${FILE_PROTOCOL_SENTINEL}`,
+        )
+        .replace(
+            new RegExp(`\\]\\((<?)${escapeRe(CORRUPTED_FILE_PROTOCOL_SENTINEL)}`, 'g'),
+            `]($1${FILE_PROTOCOL_SENTINEL}`,
+        );
+
+    // Sanititza URLs en markdown links `[text](url)`. Markdown-it només
+    // accepta URLs amb espais si estan envoltades de `<...>`. A més, l'extensió
+    // Link de Tiptap rebutja URLs amb UTF-8 al path (Administració, Pla, etc.)
+    // i descarta el link silenciosament. Solució més robusta: envoltar SEMPRE
+    // amb `<...>` quan la URL té caràcters problemàtics (espais o non-ASCII).
+    // CommonMark accepta qualsevol caràcter dins de `<...>` excepte `<`, `>` i
+    // line breaks; així el parser respecta la URL literal i no la valida.
+    protectedText = protectedText.replace(
+        /\]\(([^)]*)\)/g,
+        (m, url) => {
+            // Si la URL ja està entre angle brackets, no fem res.
+            if (url.startsWith('<') && url.endsWith('>')) return m;
+            // Backslashes Windows-style → slashes (paths Unix).
+            const normalized = url.replace(/\\/g, '/');
+            // Si conté espais o caràcters non-ASCII, envolta amb <...>.
+            // eslint-disable-next-line no-control-regex
+            if (/[\s<>]|[^\x00-\x7F]/.test(normalized)) {
+                return `](<${normalized}>)`;
+            }
+            return `](${normalized})`;
+        },
+    );
+
+    // Sanitització de `[[` no aparellats: si la pàgina té un `[[xxx` que
+    // no troba el seu `]]`, el regex de wikilinks pot capturar centenars de
+    // chars de text (incloent un wikilink ben format intern), creant un
+    // wikilink amb target malformat que penja BlockNote al render. Aquí
+    // escapem els `[[` orfes a `\[\[` perquè markdown-it els tracti com a
+    // text literal i només els `[[...]]` ben aparellats arribin a
+    // `convertToWikilinks`.
+    const balancedText = (() => {
+        const opens = [];
+        for (let i = 0; i < protectedText.length - 1; i++) {
+            if (protectedText[i] === '[' && protectedText[i + 1] === '[') {
+                opens.push(i);
+                i++;
+            } else if (protectedText[i] === ']' && protectedText[i + 1] === ']') {
+                if (opens.length > 0) {
+                    opens.pop();
+                }
+                i++;
+            }
+        }
+        if (opens.length === 0) return protectedText;
+        // opens conté índexs de `[[` SENSE tancament — els escapem.
+        const openSet = new Set(opens);
+        let result = '';
+        for (let i = 0; i < protectedText.length; i++) {
+            if (openSet.has(i)) {
+                result += '\\[\\[';
+                i++; // Saltem el segon `[`
+            } else {
+                result += protectedText[i];
+            }
+        }
+        return result;
+    })();
+
+    let blocks = [];
+    if (editor?.tryParseMarkdownToBlocks) {
+        try {
+            // Race amb timeout: si el parser de BlockNote/markdown-it entra en
+            // un estat patològic (URLs amb backslash escapats, brackets no
+            // aparellats, etc.), no volem que bloquegi el thread principal
+            // per sempre i pengi el "Carregant editor...". 5s és més que
+            // suficient per qualsevol pàgina raonable.
+            blocks = await Promise.race([
+                editor.tryParseMarkdownToBlocks(balancedText),
+                new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('parse-timeout')), 5000),
+                ),
+            ]);
+        } catch (e) {
+            console.warn('parsePlainMarkdownBlock fallback:', e?.message);
+            blocks = [{ type: "paragraph", content: text }];
+        }
+    } else {
+        blocks = [{ type: "paragraph", content: text }];
+    }
+
+    return processBlocksForDates(
+        processBlocksForMentions(
+            processBlocksForCitations(processBlocksForWikilinks(blocks))
+        )
+    );
+};
+
+/**
+ * Parseja una cadena de markdown a contingut INLINE de BlockNote (negreta,
+ * cursiva, codi, enllaços, [[wikilinks]]…) reaprofitant parsePlainMarkdownBlock.
+ * Retorna el contingut inline del primer bloc, o un únic node de text pla com a
+ * reserva. S'usa per a títols/labels que abans es desaven com a text pla i
+ * perdien el format inline en el round-trip (toggle, encapçalament desplegable).
+ */
+const parseInlineFromMarkdown = async (text, editor) => {
+    const fallback = [{ type: "text", text: String(text ?? ""), styles: {} }];
+    if (!text) return fallback;
+    try {
+        const parsed = await parsePlainMarkdownBlock(text, editor);
+        const inline = parsed?.[0]?.content;
+        return (Array.isArray(inline) && inline.length > 0) ? inline : fallback;
+    } catch {
+        return fallback;
+    }
+};
+
+/**
+ * Converteix Markdown enriquit a blocs.
+ */
+export const richMarkdownToBlocks = async (markdown, editor) => {
+    if (!markdown || typeof markdown !== 'string') return [];
+    
+    const trimmed = markdown.trim();
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+        try { return JSON.parse(markdown); } catch (e) { console.error(e); }
+    }
+
+    // Extreu les definicions de notes al peu (`[^id]: text`) ABANS del parser.
+    // markdown-it (tryParseMarkdownToBlocks) interpretaria `[^id]: text` com una
+    // "link reference definition" i l'eliminaria silenciosament; per això les
+    // capturem i traiem aquí, i després `promoteFootnotes` reconstrueix les
+    // marques inline `[^id]` amb el seu text. Els marcadors dins del cos SÍ que
+    // passen pel parser com a text literal (no són links vàlids).
+    const footnoteDefs = {};
+    const _rawLines = markdown.split("\n");
+    const _keptLines = [];
+    for (const _ln of _rawLines) {
+        const _m = _ln.match(/^\[\^([^\]\s]+)\]:\s?(.*)$/);
+        if (_m) { footnoteDefs[_m[1]] = _m[2]; }
+        else { _keptLines.push(_ln); }
+    }
+    markdown = _keptLines.join("\n");
+
+    const lines = markdown.split("\n");
+
+    const parseRecursive = async (inputLines) => {
+        let blocks = [];
+        let i = 0;
+
+        while (i < inputLines.length) {
+            const line = inputLines[i];
+            const trimmed = line.trim();
+
+            // REGLA ESTRICTA: La directiva ha de ser l'únic que hi ha a la línia trimada
+            const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle-heading|toggle|gnosi-ignore)(.*)$/);
+            
+            if (startMatch) {
+                const typeRaw = startMatch[2];
+                const label = startMatch[3].trim();
+
+                // Cas especial: gnosi-ignore (saltem tot el bloc)
+                if (typeRaw === "gnosi-ignore") {
+                    let depth = 1;
+                    let j = i + 1;
+                    while (j < inputLines.length && depth > 0) {
+                        const currentTrimmed = inputLines[j].trim();
+                        // Suport per a anidament de gnosi-ignore (opcional però recomanat)
+                        if (currentTrimmed.match(/^:{3,}gnosi-ignore/)) depth++;
+                        else if (currentTrimmed.match(/^:{3,}$/)) depth--;
+                        j++;
+                    }
+                    i = j;
+                    continue;
+                }
+
+                let type = typeRaw === "column-list" ? "columnList" : typeRaw;
+                if (typeRaw === "toggle-heading") type = "heading";
+
+                let innerLines = [];
+                let depth = 1;
+                let j = i + 1;
+                
+                while (j < inputLines.length && depth > 0) {
+                    const currentTrimmed = inputLines[j].trim();
+                    if (currentTrimmed.match(/^:{3,}(column-list|column|toggle-heading|toggle)\b/)) depth++;
+                    else if (currentTrimmed.match(/^:{3,}$/)) depth--;
+                    
+                    if (depth > 0) innerLines.push(inputLines[j]);
+                    j++;
+                }
+
+                // Dedenta el contingut intern abans de parsejar-lo: el
+                // serialitzador indenta els fills de :::column/:::column-list/
+                // :::toggle. Sense dedentar, una LLISTA indentada (4 espais) es
+                // parseja com a BLOC DE CODI (regla de CommonMark) i es veu com
+                // una caixa fosca. Treiem la indentació COMUNA (preserva el niat
+                // relatiu intern, p. ex. sub-llistes).
+                const _nonEmpty = innerLines.filter(l => l.trim().length > 0);
+                const _minIndent = _nonEmpty.length
+                    ? Math.min(..._nonEmpty.map(l => (l.match(/^ */)[0] || "").length))
+                    : 0;
+                const _innerDedented = _minIndent > 0
+                    ? innerLines.map(l => l.slice(_minIndent))
+                    : innerLines;
+
+                const block = {
+                    type,
+                    props: { backgroundColor: "default" },
+                    children: await parseRecursive(_innerDedented)
+                };
+
+                // Per al tipus "column", cal afegir l'amplada segons l'esquema de @blocknote/xl-multi-column
+                if (type === "column") {
+                    const widthMatch = label.match(/\{width=([0-9.]+)\}/);
+                    block.props.width = widthMatch ? parseFloat(widthMatch[1]) : 1;
+                    // BlockNote rebutja una columna sense fills ("Invalid content
+                    // for node column: <>") i això fa petar el render de TOTA la
+                    // pàgina. Una columna buida apareix quan el seu únic fill era
+                    // un paràgraf buit (que es serialitza a no-res i no torna a
+                    // parsejar com a bloc). Hi posem un paràgraf buit de reserva.
+                    if (!block.children || block.children.length === 0) {
+                        block.children = [{ type: "paragraph", props: { backgroundColor: "default", textColor: "default", textAlignment: "left" }, content: [] }];
+                    }
+                }
+
+                // Per als toggles, el contingut és un array d'inlineContent
+                if (type === "toggle") {
+                    // Netegem possibles atributs del label si fos necessari
+                    const cleanLabel = label.replace(/\{.*\}/, "").trim();
+                    // El títol del toggle és contingut inline: el parsegem com a
+                    // markdown perquè **negreta**, `codi`, [[wikilinks]]… no es
+                    // perdin (abans es desava com a text pla literal).
+                    block.content = await parseInlineFromMarkdown(cleanLabel || "Toggle", editor);
+                    block.props.textColor = "default";
+                }
+
+                // Encapçalament desplegable: recuperem nivell + isToggleable i el
+                // títol (label sense l'atribut {level=N}).
+                if (typeRaw === "toggle-heading") {
+                    const levelMatch = label.match(/\{level=([0-9]+)\}/);
+                    block.props.level = levelMatch ? parseInt(levelMatch[1], 10) : 1;
+                    block.props.isToggleable = true;
+                    block.props.textColor = "default";
+                    const cleanLabel = label.replace(/\{[^}]*\}/, "").trim();
+                    // Títol inline: parsegem el markdown (negreta/codi/wikilinks…).
+                    block.content = cleanLabel ? await parseInlineFromMarkdown(cleanLabel, editor) : [];
+                }
+
+                // El contenidor de columnes (germà del guard de columna buida de
+                // dalt). BlockNote EXIGEIX que un columnList tingui ≥2 fills i que
+                // TOTS siguin "column"; si no, llança "Invalid content for node
+                // columnList" i fa petar el render de TOTA la pàgina. Amb markdown
+                // extern / generat per IA / editat a mà pot arribar un :::column-list
+                // buit, amb una sola columna o amb contingut solt (no encolumnat).
+                // Ho normalitzem perquè el contingut no es perdi ni peti la nota.
+                if (type === "columnList") {
+                    // Tot fill que no sigui columna (text solt dins :::column-list)
+                    // l'embolcallem en una columna pròpia per no perdre'l.
+                    const columns = (block.children || []).map(child =>
+                        child.type === "column"
+                            ? child
+                            : { type: "column", props: { backgroundColor: "default", width: 1 }, children: [child] }
+                    );
+                    if (columns.length >= 2) {
+                        block.children = columns;
+                    } else {
+                        // <2 columnes no és un layout vàlid: desempaquetem el
+                        // contingut al nivell actual en lloc de fer petar la pàgina.
+                        const promoted = columns.flatMap(col => col.children || []);
+                        if (promoted.length > 0) blocks.push(...promoted);
+                        i = j;
+                        continue;
+                    }
+                }
+
+                blocks.push(block);
+                i = j;
+                continue;
+            }
+
+            // Obsidian Callout check
+            if (trimmed.startsWith("> [!")) {
+                const match = trimmed.match(/^> \[!([^\]]+)\]/);
+                if (match) {
+                    const calloutType = match[1].toLowerCase();
+                    let calloutLines = [];
+                    // Skip the header line for content parsing if it has no extra text
+                    const firstLineContent = trimmed.slice(match[0].length).trim();
+                    if (firstLineContent) calloutLines.push(firstLineContent);
+                    
+                    i++;
+                    while (i < inputLines.length && inputLines[i].trim().startsWith(">")) {
+                        calloutLines.push(inputLines[i].trim().slice(1).trim());
+                        i++;
+                    }
+                    
+                    // Parsegem el contingut del callout com a markdown INLINE
+                    // (mateix camí que el text normal) perquè **negreta**, _cursiva_,
+                    // `codi`, [enllaços](url) i [[wikilinks]] sobrevisquin el
+                    // round-trip. Abans es desava com a text PLA → en recarregar es
+                    // veia el markdown literal ("**negreta**") en lloc del format.
+                    const innerText = calloutLines.join("\n");
+                    let alertContent = [{ type: "text", text: innerText, styles: {} }];
+                    try {
+                        const innerParsed = await parsePlainMarkdownBlock(innerText, editor);
+                        const inline = innerParsed?.[0]?.content;
+                        if (Array.isArray(inline) && inline.length > 0) alertContent = inline;
+                    } catch { /* mantenim el text pla com a reserva */ }
+
+                    blocks.push({
+                        id: Math.random().toString(36).substring(7),
+                        type: "alert",
+                        props: { type: calloutType },
+                        content: alertContent
+                    });
+                    continue;
+                }
+            }
+
+            // GFM Table check
+            if (trimmed.startsWith("|") && i + 1 < inputLines.length && inputLines[i+1].trim().match(/^\|?\s*[:\- ]+\s*(\|?\s*[:\- ]+\s*)*\|?$/)) {
+                let tableLines = [];
+                while (i < inputLines.length && inputLines[i].trim().startsWith("|")) {
+                    tableLines.push(inputLines[i].trim());
+                    i++;
+                }
+
+                const dataLines = tableLines
+                    .filter(line => !line.match(/^\|?\s*[:\- ]+\s*(\|?\s*[:\- ]+\s*)*\|?$/)); // filter separator
+                const tableRows = [];
+                for (const line of dataLines) {
+                    const cells = line.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+                    const richCells = [];
+                    for (const cell of cells) {
+                        const text = cell.trim();
+                        // Parsegem el contingut de la cel·la com a markdown INLINE
+                        // (bold/cursiva/codi/enllaços/[[wikilinks]]) en lloc de
+                        // desar-lo com a text PLA, que perdia tot el format inline
+                        // en el round-trip (es veia "**negreta**" literal).
+                        let inline = [{ type: "text", text, styles: {} }];
+                        if (text) {
+                            try {
+                                const parsed = await parsePlainMarkdownBlock(text, editor);
+                                const c = parsed?.[0]?.content;
+                                if (Array.isArray(c) && c.length > 0) inline = c;
+                            } catch { /* mantenim el text pla com a reserva */ }
+                        }
+                        richCells.push(inline);
+                    }
+                    tableRows.push({ cells: richCells });
+                }
+
+                blocks.push({
+                    id: Math.random().toString(36).substring(7),
+                    type: "table",
+                    content: {
+                        type: "tableContent",
+                        rows: tableRows
+                    }
+                });
+                continue;
+            }
+
+            // Normal text block
+            let textBuffer = [];
+            while (i < inputLines.length) {
+                const nextTrimmed = inputLines[i].trim();
+                if (nextTrimmed.match(/^:{3,}(column-list|column|toggle-heading|toggle)\b/)) break;
+                textBuffer.push(inputLines[i]);
+                i++;
+            }
+
+            if (textBuffer.length > 0) {
+                let plainBuffer = [];
+
+                const flushPlain = async () => {
+                    const text = plainBuffer.join("\n").trim();
+                    plainBuffer = [];
+                    if (!text) return;
+                    const parsed = await parsePlainMarkdownBlock(text, editor);
+                    blocks.push(...parsed);
+                };
+
+                for (const rawLine of textBuffer) {
+                    const trimmedLine = rawLine.trim();
+                    const transclusionMatch = trimmedLine.match(/^!\[\[([^\]|#]+)(?:#([^\]|]+))?(?:\|([^\]]+))?\]\]$/);
+                    if (transclusionMatch) {
+                        await flushPlain();
+                        blocks.push({
+                            type: "transclusion",
+                            props: {
+                                target: String(transclusionMatch[1] || "").trim(),
+                                section: String(transclusionMatch[2] || "").trim(),
+                                alias: String(transclusionMatch[3] || "").trim(),
+                            },
+                        });
+                    } else {
+                        plainBuffer.push(rawLine);
+                    }
+                }
+
+                await flushPlain();
+            }
+        }
+        return blocks;
+    };
+
+    const parsed = await parseRecursive(lines);
+    return promoteFootnotes(
+        promoteToc(
+            restoreImageCaptions(promoteCustomFences(promoteBibliographyBlocks(promoteLinkCards(promoteEmbedBlocks(parsed)))))
+        ),
+        footnoteDefs,
+    );
+};

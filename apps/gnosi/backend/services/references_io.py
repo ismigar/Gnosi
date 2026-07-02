@@ -1,0 +1,496 @@
+"""Import/Export BibTeX i RIS ↔ camps de Recursos (Gnosi).
+
+Funcions **pures** (només stdlib) — no depenen del backend ni de la xarxa, per
+poder-se provar de manera aïllada. Els dicts de sortida usen els noms de columna
+canònics de Recursos (vegeu la directiva `gnosi_native_reference_manager.md`):
+`Citation Key`, `Item Type`, `Authors`, `Any`, `Llibre/Revista`, `Editorial`,
+`Lloc`, `Volum`, `Número`, `Pàgines`, `Edició`, `DOI`, `ISBN`, `ISSN`, `URL`,
+`Idioma`, `Title`, `Títol del llibre`.
+
+`Item Type` es desa amb els valors estil Zotero (anglès), que la skill
+`zotero_schema` (vegeu `backend/services/zotero_schema.py`) mapeja
+automàticament a CSL via `_resolve_csl_type`.
+"""
+from __future__ import annotations
+
+import re
+import unicodedata
+from typing import Dict, List
+
+# Accents LaTeX habituals en BibTeX → diacrític combinant Unicode.
+_LATEX_ACCENTS = {
+    "'": '́', '`': '̀', '"': '̈', '^': '̂', '~': '̃',
+    '=': '̄', '.': '̇', 'c': '̧', 'v': '̌', 'u': '̆',
+    'H': '̋',
+}
+
+
+def _decode_latex_accents(s: str) -> str:
+    """`Sin\\'ead` → `Sinéad`, `\\c{c}` → `ç`. Cobreix les formes `\\'{e}` i `\\'e`."""
+    def repl(m: 're.Match') -> str:
+        comb = _LATEX_ACCENTS.get(m.group(1))
+        if not comb:
+            return m.group(0)
+        return unicodedata.normalize('NFC', m.group(2) + comb)
+    s = re.sub(r"\\([`'\"^~=.cvuH])\{(\w)\}", repl, s)   # \'{e}
+    s = re.sub(r"\\([`'\"^~=.])(\w)", repl, s)            # \'e
+    s = re.sub(r"\\([cvuH])\{?(\w)\}?", repl, s)          # \c{c} / \cc
+    return s
+
+# ---------------------------------------------------------------------------
+# Type maps.
+# ---------------------------------------------------------------------------
+_BIBTEX_TYPE_TO_ITEM = {
+    'article': 'journalArticle',
+    'book': 'book',
+    'booklet': 'book',
+    'inbook': 'bookSection',
+    'incollection': 'bookSection',
+    'inproceedings': 'conferencePaper',
+    'conference': 'conferencePaper',
+    'proceedings': 'book',
+    'phdthesis': 'thesis',
+    'mastersthesis': 'thesis',
+    'techreport': 'report',
+    'manual': 'book',
+    'misc': 'document',
+    'unpublished': 'manuscript',
+    'online': 'webpage',
+    'electronic': 'webpage',
+}
+_ITEM_TO_BIBTEX_TYPE = {
+    'journalArticle': 'article', 'magazineArticle': 'article', 'newspaperArticle': 'article',
+    'book': 'book', 'bookSection': 'incollection', 'conferencePaper': 'inproceedings',
+    'thesis': 'phdthesis', 'report': 'techreport', 'webpage': 'online',
+    'preprint': 'misc', 'document': 'misc', 'manuscript': 'unpublished',
+}
+_RIS_TYPE_TO_ITEM = {
+    'JOUR': 'journalArticle', 'MGZN': 'magazineArticle', 'NEWS': 'newspaperArticle',
+    'BOOK': 'book', 'CHAP': 'bookSection', 'CONF': 'conferencePaper', 'CPAPER': 'conferencePaper',
+    'THES': 'thesis', 'RPRT': 'report', 'ELEC': 'webpage', 'GEN': 'document',
+}
+_ITEM_TO_RIS_TYPE = {
+    'journalArticle': 'JOUR', 'magazineArticle': 'MGZN', 'newspaperArticle': 'NEWS',
+    'book': 'BOOK', 'bookSection': 'CHAP', 'conferencePaper': 'CONF',
+    'thesis': 'THES', 'report': 'RPRT', 'webpage': 'ELEC', 'document': 'GEN', 'preprint': 'JOUR',
+}
+
+# Camps "simples" de Recursos en l'ordre canònic de serialització.
+_RECURSOS_SIMPLE_FIELDS = [
+    'Title', 'Any', 'Llibre/Revista', 'Títol del llibre', 'Editorial', 'Lloc',
+    'Volum', 'Número', 'Pàgines', 'Edició', 'DOI', 'ISBN', 'ISSN', 'URL', 'Idioma',
+]
+
+
+# ---------------------------------------------------------------------------
+# Author normalization.
+# ---------------------------------------------------------------------------
+
+def _name_to_canonical(name: str) -> str:
+    """`"First Last"` → `"Last, First"`; manté `"Last, First"` si ja té coma."""
+    name = (name or '').strip()
+    if not name or ',' in name:
+        return name
+    toks = name.split()
+    if len(toks) == 1:
+        return toks[0]
+    return f"{toks[-1]}, {' '.join(toks[:-1])}"
+
+
+def _authors_to_recursos_string(authors: List[str]) -> str:
+    """Llista d'autors → string canònic de Recursos (`"Cognom, Nom; …"`)."""
+    out = [_name_to_canonical(a) for a in authors if a and a.strip()]
+    return '; '.join(o for o in out if o)
+
+
+def _recursos_authors_to_list(authors) -> List[str]:
+    """Camp `Authors` de Recursos (string o estructurat) → llista `"Cognom, Nom"`."""
+    if isinstance(authors, list):
+        out = []
+        for a in authors:
+            if isinstance(a, dict):
+                fam = ' '.join(p for p in [a.get('cognom1'), a.get('cognom2')] if p).strip()
+                given = (a.get('nom') or '').strip()
+                if fam and given:
+                    out.append(f"{fam}, {given}")
+                elif fam:
+                    out.append(fam)
+                elif given:
+                    out.append(given)
+            elif isinstance(a, str) and a.strip():
+                out.append(a.strip())
+        return out
+    if isinstance(authors, str) and authors.strip():
+        return [p.strip() for p in authors.split(';') if p.strip()]
+    return []
+
+
+# ---------------------------------------------------------------------------
+# BibTeX — parse.
+# ---------------------------------------------------------------------------
+
+def _strip_bibtex_value(raw: str) -> str:
+    """Neteja un valor BibTeX: treu claus/cometes externes, col·lapsa espais i
+    desfà alguns escapats habituals."""
+    s = raw.strip()
+    # Treu un nivell de {…} o "…" extern.
+    while len(s) >= 2 and ((s[0] == '{' and s[-1] == '}') or (s[0] == '"' and s[-1] == '"')):
+        s = s[1:-1].strip()
+    # Descodifica accents LaTeX abans de treure les claus internes (que poden
+    # formar part de `\'{e}`).
+    s = _decode_latex_accents(s)
+    s = s.replace('{', '').replace('}', '')
+    s = re.sub(r'\\&', '&', s)
+    s = re.sub(r'\\%', '%', s)
+    s = re.sub(r'\s+', ' ', s)
+    return s.strip()
+
+
+def _parse_bibtex_fields(body: str) -> Dict[str, str]:
+    """Parseja `name = value, …` respectant claus i cometes balancejades."""
+    fields: Dict[str, str] = {}
+    i, n = 0, len(body)
+    while i < n:
+        # nom del camp
+        m = re.match(r'\s*([A-Za-z][\w-]*)\s*=\s*', body[i:])
+        if not m:
+            # salta fins a la pròxima coma de nivell 0
+            nxt = body.find(',', i)
+            if nxt == -1:
+                break
+            i += (nxt - i) + 1
+            continue
+        name = m.group(1).lower()
+        i += m.end()
+        # valor: {…} balancejat, "…", o token nu fins a la coma
+        if i < n and body[i] == '{':
+            depth, j = 0, i
+            while j < n:
+                if body[j] == '{':
+                    depth += 1
+                elif body[j] == '}':
+                    depth -= 1
+                    if depth == 0:
+                        j += 1
+                        break
+                j += 1
+            value, i = body[i:j], j
+        elif i < n and body[i] == '"':
+            j = i + 1
+            while j < n and body[j] != '"':
+                j += 1
+            value, i = body[i:j + 1], min(j + 1, n)
+        else:
+            nxt = body.find(',', i)
+            if nxt == -1:
+                nxt = n
+            value, i = body[i:nxt], nxt
+        fields[name] = _strip_bibtex_value(value)
+        # consumeix la coma separadora
+        while i < n and body[i] in ' \t\r\n':
+            i += 1
+        if i < n and body[i] == ',':
+            i += 1
+    return fields
+
+
+def _bibtex_entry_to_recursos(etype: str, key: str, f: Dict[str, str]) -> Dict:
+    out: Dict = {'Citation Key': key, 'Item Type': _BIBTEX_TYPE_TO_ITEM.get(etype, 'document')}
+    if f.get('title'):
+        out['Title'] = f['title']
+    if f.get('author'):
+        authors = [a.strip() for a in re.split(r'\s+and\s+', f['author']) if a.strip()]
+        s = _authors_to_recursos_string(authors)
+        if s:
+            out['Authors'] = s
+    if f.get('year'):
+        m = re.search(r'\d{4}', f['year'])
+        if m:
+            out['Any'] = int(m.group(0))
+    # journal (articles) o booktitle (capítols/conf)
+    if f.get('journal'):
+        out['Llibre/Revista'] = f['journal']
+    elif f.get('booktitle'):
+        out['Llibre/Revista'] = f['booktitle']
+        out['Títol del llibre'] = f['booktitle']
+    if f.get('publisher'):
+        out['Editorial'] = f['publisher']
+    if f.get('address'):
+        out['Lloc'] = f['address']
+    if f.get('volume'):
+        out['Volum'] = f['volume']
+    if f.get('number'):
+        out['Número'] = f['number']
+    if f.get('pages'):
+        out['Pàgines'] = f['pages'].replace('--', '-')
+    if f.get('edition'):
+        out['Edició'] = f['edition']
+    if f.get('doi'):
+        out['DOI'] = f['doi']
+    if f.get('isbn'):
+        out['ISBN'] = f['isbn']
+    if f.get('issn'):
+        out['ISSN'] = f['issn']
+    if f.get('url'):
+        out['URL'] = f['url']
+    if f.get('language'):
+        out['Idioma'] = f['language']
+    return out
+
+
+def parse_bibtex(text: str) -> List[Dict]:
+    """Parseja un document BibTeX → llista de dicts de metadata de Recursos."""
+    entries: List[Dict] = []
+    n = len(text)
+    i = 0
+    while i < n:
+        at = text.find('@', i)
+        if at == -1:
+            break
+        m = re.match(r'@(\w+)\s*\{\s*', text[at:])
+        if not m:
+            i = at + 1
+            continue
+        etype = m.group(1).lower()
+        cur = at + m.end()
+        # ignora @comment/@string/@preamble
+        if etype in ('comment', 'string', 'preamble'):
+            i = cur
+            continue
+        # key fins a la primera coma
+        comma = text.find(',', cur)
+        if comma == -1:
+            break
+        key = text[cur:comma].strip()
+        # cos fins a la clau de tancament balancejada
+        depth, j = 1, comma + 1
+        while j < n and depth > 0:
+            if text[j] == '{':
+                depth += 1
+            elif text[j] == '}':
+                depth -= 1
+            j += 1
+        body = text[comma + 1:j - 1]
+        fields = _parse_bibtex_fields(body)
+        if key:
+            entries.append(_bibtex_entry_to_recursos(etype, key, fields))
+        i = j
+    return entries
+
+
+# ---------------------------------------------------------------------------
+# BibTeX — serialize.
+# ---------------------------------------------------------------------------
+
+def _bibtex_escape(value: str) -> str:
+    return str(value).replace('&', r'\&').replace('%', r'\%')
+
+
+def entry_to_bibtex(meta: Dict) -> str:
+    key = str(meta.get('Citation Key') or 'ref').strip() or 'ref'
+    item_type = meta.get('Item Type') or 'document'
+    btype = _ITEM_TO_BIBTEX_TYPE.get(item_type, 'misc')
+    lines = [f"@{btype}{{{key},"]
+    fld: List[tuple] = []
+    if meta.get('Title'):
+        fld.append(('title', meta['Title']))
+    authors = _recursos_authors_to_list(meta.get('Authors'))
+    if authors:
+        fld.append(('author', ' and '.join(authors)))
+    if meta.get('Any') not in (None, '', 'null'):
+        fld.append(('year', str(meta['Any'])))
+    container = meta.get('Llibre/Revista') or meta.get('Títol del llibre')
+    if container:
+        fld.append(('journal' if btype == 'article' else 'booktitle', container))
+    if meta.get('Editorial'):
+        fld.append(('publisher', meta['Editorial']))
+    if meta.get('Lloc'):
+        fld.append(('address', meta['Lloc']))
+    if meta.get('Volum'):
+        fld.append(('volume', meta['Volum']))
+    if meta.get('Número'):
+        fld.append(('number', meta['Número']))
+    if meta.get('Pàgines'):
+        fld.append(('pages', str(meta['Pàgines']).replace('-', '--')))
+    if meta.get('Edició'):
+        fld.append(('edition', meta['Edició']))
+    if meta.get('DOI'):
+        fld.append(('doi', meta['DOI']))
+    if meta.get('ISBN'):
+        fld.append(('isbn', meta['ISBN']))
+    if meta.get('ISSN'):
+        fld.append(('issn', meta['ISSN']))
+    if meta.get('URL'):
+        fld.append(('url', meta['URL']))
+    if meta.get('Idioma'):
+        fld.append(('language', meta['Idioma']))
+    body = ',\n'.join(f"  {name} = {{{_bibtex_escape(val)}}}" for name, val in fld)
+    return lines[0] + ('\n' + body if body else '') + '\n}'
+
+
+def to_bibtex(entries: List[Dict]) -> str:
+    return '\n\n'.join(entry_to_bibtex(e) for e in entries) + '\n'
+
+
+# ---------------------------------------------------------------------------
+# RIS — parse.
+# ---------------------------------------------------------------------------
+
+def parse_ris(text: str) -> List[Dict]:
+    """Parseja un document RIS → llista de dicts de metadata de Recursos."""
+    entries: List[Dict] = []
+    cur: Dict[str, List[str]] = {}
+
+    def flush():
+        if cur:
+            entries.append(_ris_record_to_recursos(cur))
+            cur.clear()
+
+    for raw in text.splitlines():
+        m = re.match(r'^([A-Z][A-Z0-9])\s{2}-\s?(.*)$', raw.rstrip('\r\n'))
+        if not m:
+            continue
+        tag, val = m.group(1), m.group(2).strip()
+        if tag == 'ER':
+            flush()
+            continue
+        if tag == 'TY':
+            flush()
+        cur.setdefault(tag, []).append(val)
+    flush()
+    return entries
+
+
+def _ris_record_to_recursos(r: Dict[str, List[str]]) -> Dict:
+    def first(*tags):
+        for t in tags:
+            if r.get(t):
+                return r[t][0]
+        return ''
+
+    out: Dict = {}
+    ty = (r.get('TY') or ['GEN'])[0]
+    out['Item Type'] = _RIS_TYPE_TO_ITEM.get(ty, 'document')
+    if first('ID'):
+        out['Citation Key'] = first('ID')
+    if first('TI', 'T1'):
+        out['Title'] = first('TI', 'T1')
+    authors = (r.get('AU') or []) + (r.get('A1') or [])
+    if authors:
+        s = _authors_to_recursos_string(authors)
+        if s:
+            out['Authors'] = s
+    year = first('PY', 'Y1', 'DA')
+    m = re.search(r'\d{4}', year)
+    if m:
+        out['Any'] = int(m.group(0))
+    journal = first('JO', 'JF', 'T2', 'J2')
+    if journal:
+        out['Llibre/Revista'] = journal
+    if first('PB'):
+        out['Editorial'] = first('PB')
+    if first('CY', 'PP'):
+        out['Lloc'] = first('CY', 'PP')
+    if first('VL'):
+        out['Volum'] = first('VL')
+    if first('IS'):
+        out['Número'] = first('IS')
+    sp, ep = first('SP'), first('EP')
+    if sp and ep:
+        out['Pàgines'] = f"{sp}-{ep}"
+    elif sp:
+        out['Pàgines'] = sp
+    if first('DO'):
+        out['DOI'] = first('DO')
+    if first('SN'):
+        # SN serveix tant per ISBN com ISSN; heurística pel guió de l'ISSN.
+        sn = first('SN')
+        out['ISSN' if re.match(r'^\d{4}-\d{3}[\dxX]$', sn) else 'ISBN'] = sn
+    if first('UR', 'L1'):
+        out['URL'] = first('UR', 'L1')
+    if first('LA'):
+        out['Idioma'] = first('LA')
+    return out
+
+
+# ---------------------------------------------------------------------------
+# RIS — serialize.
+# ---------------------------------------------------------------------------
+
+def entry_to_ris(meta: Dict) -> str:
+    item_type = meta.get('Item Type') or 'document'
+    ty = _ITEM_TO_RIS_TYPE.get(item_type, 'GEN')
+    lines = [f"TY  - {ty}"]
+    if meta.get('Citation Key'):
+        lines.append(f"ID  - {meta['Citation Key']}")
+    if meta.get('Title'):
+        lines.append(f"TI  - {meta['Title']}")
+    for a in _recursos_authors_to_list(meta.get('Authors')):
+        lines.append(f"AU  - {a}")
+    if meta.get('Any') not in (None, '', 'null'):
+        lines.append(f"PY  - {meta['Any']}")
+    container = meta.get('Llibre/Revista') or meta.get('Títol del llibre')
+    if container:
+        lines.append(f"JO  - {container}")
+    if meta.get('Editorial'):
+        lines.append(f"PB  - {meta['Editorial']}")
+    if meta.get('Lloc'):
+        lines.append(f"CY  - {meta['Lloc']}")
+    if meta.get('Volum'):
+        lines.append(f"VL  - {meta['Volum']}")
+    if meta.get('Número'):
+        lines.append(f"IS  - {meta['Número']}")
+    pages = str(meta.get('Pàgines') or '')
+    if pages:
+        parts = re.split(r'\s*-\s*', pages, maxsplit=1)
+        lines.append(f"SP  - {parts[0]}")
+        if len(parts) == 2:
+            lines.append(f"EP  - {parts[1]}")
+    if meta.get('DOI'):
+        lines.append(f"DO  - {meta['DOI']}")
+    if meta.get('ISSN'):
+        lines.append(f"SN  - {meta['ISSN']}")
+    elif meta.get('ISBN'):
+        lines.append(f"SN  - {meta['ISBN']}")
+    if meta.get('URL'):
+        lines.append(f"UR  - {meta['URL']}")
+    if meta.get('Idioma'):
+        lines.append(f"LA  - {meta['Idioma']}")
+    lines.append("ER  - ")
+    return '\n'.join(lines)
+
+
+def to_ris(entries: List[Dict]) -> str:
+    return '\n'.join(entry_to_ris(e) for e in entries) + '\n'
+
+
+# ---------------------------------------------------------------------------
+# Auto-detect + dispatch.
+# ---------------------------------------------------------------------------
+
+def detect_format(text: str) -> str:
+    """`'bibtex'`, `'ris'` o `'unknown'` segons el contingut."""
+    head = text.lstrip()[:4000]
+    if re.search(r'^\s*TY\s{2}-\s', head, re.MULTILINE):
+        return 'ris'
+    if re.search(r'@\w+\s*\{', head):
+        return 'bibtex'
+    return 'unknown'
+
+
+def parse_references(text: str, fmt: str = 'auto') -> List[Dict]:
+    if fmt == 'auto':
+        fmt = detect_format(text)
+    if fmt == 'bibtex':
+        return parse_bibtex(text)
+    if fmt == 'ris':
+        return parse_ris(text)
+    return []
+
+
+def serialize_references(entries: List[Dict], fmt: str) -> str:
+    if fmt == 'bibtex':
+        return to_bibtex(entries)
+    if fmt == 'ris':
+        return to_ris(entries)
+    raise ValueError(f"Format no suportat: {fmt}")
