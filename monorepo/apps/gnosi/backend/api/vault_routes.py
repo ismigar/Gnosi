@@ -3881,6 +3881,11 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         rel_folder, resolved_table_id = _resolve_page_context_from_path(
             metadata, file_path
         )
+        try:
+            from backend.services import plugin_events
+            plugin_events.emit("page:created", {"page_id": page_id, "title": request.title})
+        except Exception:  # noqa: BLE001
+            pass
         return {
             "status": "created",
             "id": page_id,
@@ -4385,12 +4390,14 @@ async def get_plugins_state():
 
 
 def _save_plugins_state(state: dict) -> dict:
-    """Persisteix l'estat sencer de plugins (disabled + settings + granted)."""
+    """Persisteix l'estat sencer de plugins (disabled + settings + granted + registry_url)."""
     payload = {
         "disabled": [str(x) for x in (state.get("disabled") or [])],
         "settings": state.get("settings") if isinstance(state.get("settings"), dict) else {},
         "granted": state.get("granted") if isinstance(state.get("granted"), dict) else {},
     }
+    if state.get("registry_url"):
+        payload["registry_url"] = str(state.get("registry_url"))
     with _plugins_lock:
         path = _get_plugins_path()
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -4425,9 +4432,9 @@ class PluginPermissionsRequest(BaseModel):
 
 @router.get("/plugins/catalog")
 async def get_plugins_catalog():
-    """Catàleg de permisos disponibles (id → descripció) per a la UI."""
+    """Catàleg de permisos disponibles (id → descripció) + versió d'API del host."""
     from backend.services import plugin_system as ps
-    return {"permissions": ps.PERMISSIONS}
+    return {"permissions": ps.PERMISSIONS, "apiVersion": ps.PLUGIN_API_VERSION}
 
 
 @router.get("/plugins/installed")
@@ -4479,6 +4486,34 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
         raise HTTPException(status_code=404, detail=str(e))
 
 
+class PluginSettingsRequest(BaseModel):
+    # Patch a fusionar amb la configuració pròpia del plugin (clau `settings`).
+    settings: dict = {}
+
+
+@router.get("/plugins/{plugin_id}/settings")
+async def get_plugin_settings(plugin_id: str):
+    """Retorna la configuració pròpia d'un plugin (`settings[plugin_id]`)."""
+    def _work():
+        state = _load_plugins_state()
+        return {"settings": (state.get("settings") or {}).get(plugin_id) or {}}
+    return await asyncio.to_thread(_work)
+
+
+@router.put("/plugins/{plugin_id}/settings", dependencies=[Depends(require_role("editor"))])
+async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
+    """Fusiona un patch a la configuració pròpia d'un plugin."""
+    def _work():
+        state = _load_plugins_state()
+        settings = dict(state.get("settings") or {})
+        patch = request.settings if isinstance(request.settings, dict) else {}
+        settings[plugin_id] = {**(settings.get(plugin_id) or {}), **patch}
+        state["settings"] = settings
+        _save_plugins_state(state)
+        return {"settings": settings[plugin_id]}
+    return await asyncio.to_thread(_work)
+
+
 @router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
 async def get_plugin_asset(plugin_id: str, asset_path: str):
     """Serveix un fitxer estàtic del directori del plugin (entry de UI, etc.).
@@ -4503,6 +4538,205 @@ async def get_plugin_asset(plugin_id: str, asset_path: str):
     except ps.PluginError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return FileResponse(str(target))
+
+
+@router.post("/plugins/install", dependencies=[Depends(require_role("editor"))])
+async def install_plugin(file: UploadFile = File(...)):
+    """Instal·la un plugin de tercers des d'un .zip pujat (amb el seu manifest.json).
+
+    Validació del manifest + extracció anti zip-slip. Un cop instal·lat queda
+    DESACTIVAT i sense permisos fins que l'usuari els concedeix.
+    """
+    from backend.services import plugin_system as ps
+    data = await file.read()
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        manifest = ps.install_from_zip(config_dir, data, overwrite=True)
+        # Instal·lat de nou → arrenca desactivat (afegit a `disabled`), permisos nets.
+        state = _load_plugins_state()
+        disabled = set(state.get("disabled") or [])
+        disabled.add(manifest["id"])
+        state["disabled"] = list(disabled)
+        state = ps.set_granted(state, manifest["id"], [])
+        _save_plugins_state(state)
+        return manifest
+
+    try:
+        manifest = await asyncio.to_thread(_work)
+    except ps.PluginError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"installed": manifest}
+
+
+@router.delete("/plugins/{plugin_id}", dependencies=[Depends(require_role("editor"))])
+async def uninstall_plugin(plugin_id: str):
+    """Desinstal·la un plugin de tercers: esborra la carpeta i neteja el seu estat."""
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        ps.uninstall(config_dir, plugin_id)
+        # Neteja l'estat associat (disabled + granted) perquè no quedi orfe.
+        state = _load_plugins_state()
+        state["disabled"] = [d for d in (state.get("disabled") or []) if d != plugin_id]
+        state = ps.set_granted(state, plugin_id, [])
+        _save_plugins_state(state)
+        return True
+
+    try:
+        await asyncio.to_thread(_work)
+    except ps.PluginError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"uninstalled": plugin_id}
+
+
+class CatalogInstallRequest(BaseModel):
+    # Instal·la un plugin `bundled` del catàleg pel seu id, O des d'un .zip remot.
+    id: Optional[str] = None
+    url: Optional[str] = None
+    # Checksum SHA-256 opcional per verificar la integritat d'un .zip remot.
+    sha256: Optional[str] = None
+    # Signatura Ed25519 (base64) opcional; si es dona, ha de verificar amb una
+    # clau del magatzem de confiança o la instal·lació es rebutja.
+    signature: Optional[str] = None
+
+
+@router.get("/plugins/catalog/list")
+async def list_plugin_catalog():
+    """Llista les entrades del catàleg de plugins (galeria), marcant-ne l'estat.
+
+    Afegeix `installed: bool` a cada entrada perquè la UI mostri "Instal·la" o
+    "Instal·lat".
+    """
+    from backend.services import plugin_catalog as pc
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        state = _load_plugins_state()
+        installed_ids = {
+            e["manifest"]["id"] for e in ps.discover_plugins(config_dir) if e.get("manifest")
+        }
+        out = []
+        for entry in pc.load_catalog(state.get("registry_url")):
+            out.append({
+                **entry,
+                "installed": entry.get("id") in installed_ids,
+                # La UI pot mostrar un distintiu segons la font i si porta signatura.
+                "signed": bool(entry.get("signature")),
+            })
+        return {"catalog": out}
+
+    return await asyncio.to_thread(_work)
+
+
+@router.post("/plugins/catalog/install", dependencies=[Depends(require_role("editor"))])
+async def install_from_catalog(request: CatalogInstallRequest):
+    """Instal·la un plugin del catàleg (bundled per `id`, o remot per `url`)."""
+    from backend.services import plugin_catalog as pc
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        if request.url:
+            manifest = pc.install_from_url(config_dir, request.url, request.sha256, request.signature)
+        elif request.id:
+            manifest = pc.install_catalog_entry(config_dir, request.id)
+        else:
+            raise ps.PluginError("cal `id` o `url`")
+        # Instal·lat → desactivat + sense permisos (com l'install per zip).
+        state = _load_plugins_state()
+        disabled = set(state.get("disabled") or [])
+        disabled.add(manifest["id"])
+        state["disabled"] = list(disabled)
+        state = ps.set_granted(state, manifest["id"], [])
+        _save_plugins_state(state)
+        return manifest
+
+    try:
+        manifest = await asyncio.to_thread(_work)
+    except ps.PluginError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"installed": manifest}
+
+
+# ---------------------------------------------------------------------------
+# Fase 3: magatzem de claus de confiança (signatura de plugins) + índex remot.
+# ---------------------------------------------------------------------------
+class TrustedKeyRequest(BaseModel):
+    name: str
+    public_key: str
+
+
+class RegistryUrlRequest(BaseModel):
+    url: Optional[str] = None
+
+
+@router.get("/plugins/trust")
+async def list_trusted_keys():
+    """Llista els NOMS de les claus de confiança (no exposa el material sencer)."""
+    from backend.services import plugin_signing as psign
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        keys = psign.load_trust_store(config_dir)
+        return {"keys": [{"name": n, "fingerprint": (pk or "")[:16]} for n, pk in keys.items()]}
+
+    return await asyncio.to_thread(_work)
+
+
+@router.post("/plugins/trust", dependencies=[Depends(require_role("admin"))])
+async def add_trusted_key(request: TrustedKeyRequest):
+    """Afegeix una clau pública Ed25519 de confiança (base64). Acció d'administrador."""
+    from backend.services import plugin_signing as psign
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        psign.add_trusted_key(config_dir, request.name, request.public_key)
+        return {"added": request.name}
+
+    try:
+        return await asyncio.to_thread(_work)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/plugins/trust/{name}", dependencies=[Depends(require_role("admin"))])
+async def remove_trusted_key(name: str):
+    """Elimina una clau de confiança pel seu nom."""
+    from backend.services import plugin_signing as psign
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        psign.remove_trusted_key(config_dir, name)
+        return {"removed": name}
+
+    return await asyncio.to_thread(_work)
+
+
+@router.get("/plugins/registry-url")
+async def get_registry_url():
+    """URL de l'índex remot de plugins configurat (buit si no n'hi ha)."""
+    def _work():
+        return {"url": _load_plugins_state().get("registry_url") or ""}
+    return await asyncio.to_thread(_work)
+
+
+@router.put("/plugins/registry-url", dependencies=[Depends(require_role("admin"))])
+async def set_registry_url(request: RegistryUrlRequest):
+    """Configura (o esborra) la URL de l'índex remot de plugins."""
+    url = (request.url or "").strip()
+    if url and not url.lower().startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="url ha de ser http(s)")
+
+    def _work():
+        state = _load_plugins_state()
+        state["registry_url"] = url
+        _save_plugins_state(state)
+        return {"url": url}
+
+    return await asyncio.to_thread(_work)
 
 
 def get_table_id(metadata: Optional[dict]) -> Optional[str]:
@@ -8156,6 +8390,11 @@ async def delete_page(page_id: str):
         sidecar = await asyncio.to_thread(_move_page_to_trash, page_id, file_path)
         await asyncio.to_thread(remove_from_link_index, page_id)
         _remove_page_from_index_cache(page_id, file_path)
+        try:
+            from backend.services import plugin_events
+            plugin_events.emit("page:deleted", {"page_id": page_id})
+        except Exception:  # noqa: BLE001
+            pass
         deleted_at_iso = sidecar.get("deleted_at")
         restorable_until = None
         if deleted_at_iso:

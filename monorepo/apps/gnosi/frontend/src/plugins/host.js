@@ -87,8 +87,18 @@ function _runtimeSource() {
         },
         vault: {
           readPage: function (id) { return call('vault.readPage', { pageId: id }); },
-          writePage: function (id, content) { return call('vault.writePage', { pageId: id, content: content }); },
+          // writePage(id, "text nou")  o  writePage(id, {content, metadata})
+          writePage: function (id, patch) {
+            var p = (typeof patch === 'string') ? { content: patch } : (patch || {});
+            return call('vault.writePage', Object.assign({ pageId: id }, p));
+          },
+          createPage: function (opts) { return call('vault.createPage', opts || {}); },
           queryDB: function (tableId, opts) { return call('vault.queryDB', { tableId: tableId, limit: (opts && opts.limit) || 200 }); },
+          listTables: function () { return call('vault.listTables', {}); },
+        },
+        settings: {
+          get: function () { return call('settings.get', {}); },
+          set: function (settings) { return call('settings.set', { settings: settings }); },
         },
         fetch: function (url, opts) { return call('network.fetch', { url: url, opts: opts || {} }); },
         log: function () { post('log', { level: 'info', message: Array.prototype.join.call(arguments, ' ') }); },
@@ -138,12 +148,18 @@ const _HOST_METHODS = {
     'vault.readPage': { perm: 'vault:read', run: async (args) => {
         const id = String(args.pageId || '');
         const res = await axios.get(`/api/vault/pages/${encodeURIComponent(id)}`);
-        return res.data;
+        const d = res.data || {};
+        // Forma unificada amb el sandbox de dades: {pageId, title, content, metadata}.
+        return { pageId: d.id, title: d.title || '', content: d.content || '', metadata: d.metadata || {} };
     } },
     'vault.writePage': { perm: 'vault:write', run: async (args) => {
         const id = String(args.pageId || '');
-        const res = await axios.patch(`/api/vault/pages/${encodeURIComponent(id)}`, { content: args.content });
-        return { pageId: id, ok: true, data: res.data };
+        // Actualització parcial (PATCH preserva el frontmatter): content i/o metadata.
+        const payload = {};
+        if (args.content !== undefined) payload.content = args.content;
+        if (args.metadata !== undefined) payload.metadata = args.metadata;
+        await axios.patch(`/api/vault/pages/${encodeURIComponent(id)}`, payload);
+        return { pageId: id, written: (args.content || '').length };
     } },
     'vault.queryDB': { perm: 'vault:read', run: async (args) => {
         const id = String(args.tableId || '');
@@ -152,6 +168,28 @@ const _HOST_METHODS = {
         const all = Array.isArray(res.data) ? res.data : [];
         const rows = all.slice(0, limit).map((p) => ({ id: p.id, title: p.title, metadata: p.metadata || {} }));
         return { tableId: id, rows, total: all.length, truncated: all.length > limit };
+    } },
+    'vault.listTables': { perm: 'vault:read', run: async () => {
+        const res = await axios.get('/api/vault/tables');
+        const all = Array.isArray(res.data) ? res.data : [];
+        return { tables: all.map((t) => ({ id: t.id, name: t.name || t.id, fields: (t.properties || []).length })) };
+    } },
+    'vault.createPage': { perm: 'vault:write', run: async (args) => {
+        const res = await axios.post('/api/vault/pages', {
+            title: args.title || 'Sense títol',
+            content: args.content || '',
+            metadata: {},
+            ...(args.parent_id ? { parent_id: args.parent_id } : {}),
+        });
+        return { pageId: res.data?.id, title: res.data?.title };
+    } },
+    'settings.get': { perm: 'settings', run: async (args, pluginId) => {
+        const res = await axios.get(`/api/vault/plugins/${encodeURIComponent(pluginId)}/settings`);
+        return { settings: res.data?.settings || {} };
+    } },
+    'settings.set': { perm: 'settings', run: async (args, pluginId) => {
+        const res = await axios.put(`/api/vault/plugins/${encodeURIComponent(pluginId)}/settings`, { settings: args.settings || {} });
+        return { settings: res.data?.settings || {} };
     } },
     'network.fetch': { perm: 'network', run: async (args) => {
         const res = await fetch(args.url, args.opts || {});
@@ -190,7 +228,7 @@ function _onMessage(entry, ev) {
             { __gnosi_host: true, type: 'host-result', id: m.id, ok, ...(ok ? { result: payload } : { error: payload }) }, '*');
         if (!def) { reply(false, `mètode desconegut: ${m.method}`); return; }
         if (!granted.includes(def.perm)) { reply(false, `permís denegat: ${def.perm}`); return; }
-        def.run(m.args || {}).then((r) => reply(true, r)).catch((e) => reply(false, String(e?.message || e)));
+        def.run(m.args || {}, pid).then((r) => reply(true, r)).catch((e) => reply(false, String(e?.message || e)));
     }
 }
 

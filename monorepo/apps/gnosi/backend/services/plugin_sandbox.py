@@ -44,10 +44,15 @@ _METHOD_PERMISSION: Dict[str, str] = {
     "vault.readPage": "vault:read",
     "vault.writePage": "vault:write",
     "vault.queryDB": "vault:read",
+    "vault.listTables": "vault:read",
+    "vault.createPage": "vault:write",
+    "settings.get": "settings",
+    "settings.set": "settings",
     "network.fetch": "network",
 }
 
-# Handlers del host, injectats des de les rutes. Signatura: (args: dict) -> Any.
+# Handlers del host, injectats des de les rutes. Signatura: (args, plugin_id) -> Any.
+# El plugin_id permet als handlers de `settings` saber a QUIN plugin pertoquen.
 # Poden llançar; l'error es reenvia al plugin com a rebuig de la promesa.
 _host_handlers: Dict[str, Callable[[Dict[str, Any]], Any]] = {}
 
@@ -176,7 +181,7 @@ def run_event(
                             "error": f"host no implementa {method}"})
                     continue
                 try:
-                    res = handler(args)
+                    res = handler(args, pid)
                     _write({"type": "rpc-result", "id": rid, "ok": True, "result": res})
                 except Exception as e:  # noqa: BLE001
                     _write({"type": "rpc-result", "id": rid, "ok": False, "error": str(e)})

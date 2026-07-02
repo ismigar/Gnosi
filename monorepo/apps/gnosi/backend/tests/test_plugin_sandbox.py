@@ -45,7 +45,7 @@ def test_sandbox_runs_and_logs(tmp_path):
 def test_sandbox_permission_granted_calls_host(tmp_path):
     called = {}
 
-    def read_page(args):
+    def read_page(args, plugin_id):
         called["pageId"] = args.get("pageId")
         return {"content": "hola mon"}
 
@@ -67,7 +67,7 @@ def test_sandbox_permission_granted_calls_host(tmp_path):
 def test_sandbox_query_db_gated(tmp_path):
     rows = {"rows": [{"id": "p1", "title": "Fila 1", "metadata": {}}], "total": 1}
 
-    def query_db(args):
+    def query_db(args, plugin_id):
         assert args.get("tableId") == "t1"
         return rows
 
@@ -120,3 +120,80 @@ def test_sandbox_permission_denied(tmp_path):
     assert res["ok"] is True
     assert any("denegat" in l["message"] for l in res["logs"])
     assert not any("CAP_ERROR" in l["message"] for l in res["logs"])
+
+
+def test_sandbox_settings_roundtrip(tmp_path):
+    # settings.set desa i settings.get llegeix, per plugin. Handlers reals del
+    # dispatcher (toquen `.gnosi/plugins.json` via l'estat), amb el vault a tmp.
+    from backend.services.context_vars import active_vault_path
+    from backend.services.plugin_dispatcher import _HOST_HANDLERS
+    active_vault_path.set(tmp_path)
+    (tmp_path / ".gnosi").mkdir(parents=True, exist_ok=True)
+    sb.set_host_handlers(_HOST_HANDLERS)
+
+    code = """
+    export default { async onEvent(event, api) {
+      await api.settings.set({ theme: 'dark', n: 42 });
+      const s = await api.settings.get();
+      api.log('theme', s.settings.theme, 'n', String(s.settings.n));
+    } };
+    """
+    manifest = _install_backend_plugin(tmp_path, "cfg", code, ["settings"], ["page:updated"])
+    res = sb.run_event(tmp_path, manifest, ["settings"], "page:updated", {})
+    assert res["ok"] is True
+    assert any("theme dark n 42" in l["message"] for l in res["logs"])
+
+
+def test_sandbox_create_page(tmp_path):
+    # vault.createPage crea un .md nou al vault (tmp). Requereix vault:write.
+    from backend.services.context_vars import active_vault_path
+    from backend.services.plugin_dispatcher import _HOST_HANDLERS
+    active_vault_path.set(tmp_path)
+    (tmp_path / ".gnosi").mkdir(parents=True, exist_ok=True)
+    sb.set_host_handlers(_HOST_HANDLERS)
+
+    code = """
+    export default { async onEvent(event, api) {
+      const r = await api.vault.createPage({ title: 'Nova del plugin', content: 'hola' });
+      api.log('creada', r.pageId ? 'si' : 'no');
+    } };
+    """
+    manifest = _install_backend_plugin(tmp_path, "creator", code, ["vault:write"], ["page:updated"])
+    res = sb.run_event(tmp_path, manifest, ["vault:write"], "page:updated", {})
+    assert res["ok"] is True
+    assert any("creada si" in l["message"] for l in res["logs"])
+    # El fitxer .md ha d'existir al vault tmp.
+    mds = list(tmp_path.rglob("*.md"))
+    assert any("Nova del plugin" in p.name for p in mds)
+
+
+def test_sandbox_write_page_preserves_frontmatter(tmp_path):
+    # writePage NO ha de trepitjar el frontmatter: es crea una pàgina amb
+    # metadata, el plugin escriu un cos nou, i la metadata ha de sobreviure.
+    from backend.services.context_vars import active_vault_path
+    from backend.services.plugin_dispatcher import _HOST_HANDLERS
+    from backend.api.vault_routes import save_page_md, parse_frontmatter, register_page_in_index
+    active_vault_path.set(tmp_path)
+    (tmp_path / ".gnosi").mkdir(parents=True, exist_ok=True)
+    sb.set_host_handlers(_HOST_HANDLERS)
+
+    fp = tmp_path / "Nota.md"
+    save_page_md(fp, {"id": "pg-1", "title": "Nota", "estat": "actiu"}, "cos vell")
+    register_page_in_index(fp)
+
+    code = """
+    export default { async onEvent(event, api) {
+      const p = await api.vault.readPage('pg-1');
+      api.log('meta-estat', p.metadata.estat, 'cos', p.content.trim());
+      await api.vault.writePage('pg-1', 'cos NOU');
+    } };
+    """
+    manifest = _install_backend_plugin(tmp_path, "wr", code, ["vault:read", "vault:write"], ["page:updated"])
+    res = sb.run_event(tmp_path, manifest, ["vault:read", "vault:write"], "page:updated", {})
+    assert res["ok"] is True
+    assert any("meta-estat actiu cos cos vell" in l["message"] for l in res["logs"])
+    # Rellegeix del disc: el cos ha canviat però el frontmatter (estat) es manté.
+    meta, body = parse_frontmatter(fp.read_text(encoding="utf-8"), fp)
+    assert meta.get("estat") == "actiu"
+    assert meta.get("title") == "Nota"
+    assert "cos NOU" in body

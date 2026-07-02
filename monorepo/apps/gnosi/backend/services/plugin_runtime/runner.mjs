@@ -76,7 +76,13 @@ function makeApi(event) {
     vault: {
       readPage: (pageId) => rpc('vault.readPage', { pageId }),
       writePage: (pageId, content) => rpc('vault.writePage', { pageId, content }),
-      queryDB: (tableId) => rpc('vault.queryDB', { tableId }),
+      createPage: (opts) => rpc('vault.createPage', opts || {}),
+      queryDB: (tableId, opts) => rpc('vault.queryDB', { tableId, limit: (opts && opts.limit) || 200 }),
+      listTables: () => rpc('vault.listTables', {}),
+    },
+    settings: {
+      get: () => rpc('settings.get', {}),
+      set: (settings) => rpc('settings.set', { settings }),
     },
     fetch: NET_ALLOWED
       ? (url, opts) => rpc('network.fetch', { url, opts })

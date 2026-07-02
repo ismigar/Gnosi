@@ -1,5 +1,6 @@
 {
   "id": "hello-command",
+  "apiVersion": 1,
   "version": "1.0.0",
   "name": "Hola (comanda d'exemple)",
   "description": "Afegeix una comanda a la paleta que saluda i, si té permís, escriu a la pàgina.",

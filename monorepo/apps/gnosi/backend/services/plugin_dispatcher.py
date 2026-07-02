@@ -36,32 +36,107 @@ def _load_state() -> Dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Handlers del host (implementacions reals de les crides RPC del sandbox).
 # ---------------------------------------------------------------------------
-def _handle_read_page(args: Dict[str, Any]) -> Dict[str, Any]:
-    from backend.api.vault_routes import find_page_path, _validate_safe_page_id
+def _handle_read_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    """Llegeix una pàgina i retorna forma ESTRUCTURADA (igual que la UI):
+    {pageId, title, content (només el cos), metadata}."""
+    from backend.api.vault_routes import find_page_path, _validate_safe_page_id, parse_frontmatter
     page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
     path = find_page_path(page_id)
     if not path or not path.exists():
         raise ValueError(f"pàgina no trobada: {page_id}")
-    return {"pageId": page_id, "content": path.read_text(encoding="utf-8")}
+    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    return {
+        "pageId": page_id,
+        "title": (metadata or {}).get("title") or "",
+        "content": body,
+        "metadata": metadata or {},
+    }
 
 
-def _handle_write_page(args: Dict[str, Any]) -> Dict[str, Any]:
-    from backend.api.vault_routes import find_page_path, _validate_safe_page_id
-    from backend.utils.safe_io import safe_write_text
+def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    """Actualitza una pàgina SENSE trepitjar el frontmatter (com el PATCH de la UI).
+
+    Accepta `content` (nou cos) i/o `metadata` (patch fusionat). Abans això feia
+    un overwrite del fitxer sencer amb `content` cru → es carregava el frontmatter
+    i el sidecar; ara es preserven i es reescriu via `save_page_md`.
+    """
+    from backend.api.vault_routes import (
+        find_page_path, _validate_safe_page_id, parse_frontmatter, save_page_md,
+    )
     page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
-    content = args.get("content")
-    if not isinstance(content, str):
-        raise ValueError("content ha de ser una cadena de text")
     path = find_page_path(page_id)
     if not path or not path.exists():
         raise ValueError(f"pàgina no trobada: {page_id}")
-    safe_write_text(path, content)
+    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    metadata = metadata or {}
+
+    new_content = args.get("content")
+    if new_content is not None:
+        if not isinstance(new_content, str):
+            raise ValueError("content ha de ser una cadena de text")
+        body = new_content
+    new_meta = args.get("metadata")
+    if new_meta is not None:
+        if not isinstance(new_meta, dict):
+            raise ValueError("metadata ha de ser un objecte")
+        metadata = {**metadata, **new_meta}
+    metadata["id"] = page_id  # l'id no es pot canviar via writePage
+
+    save_page_md(path, metadata, body)
     # Notifica la resta del sistema que la pàgina ha canviat (i altres plugins).
     plugin_events.emit("page:updated", {"page_id": page_id, "source": "plugin"})
-    return {"pageId": page_id, "written": len(content)}
+    return {"pageId": page_id, "written": len(body)}
 
 
-def _handle_query_db(args: Dict[str, Any]) -> Dict[str, Any]:
+def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    """Crea una pàgina nova al vault (opcionalment dins d'una carpeta relativa)."""
+    import uuid
+    from backend.api.vault_routes import (
+        save_page_md, register_page_in_index, _get_unique_filepath, get_p,
+    )
+    title = str(args.get("title") or "Sense títol").strip() or "Sense títol"
+    content = args.get("content") or ""
+    if not isinstance(content, str):
+        raise ValueError("content ha de ser text")
+    vault = get_p("VAULT")
+    target_dir = vault
+    folder = str(args.get("folder") or "").strip().strip("/")
+    if folder:
+        if ".." in folder.split("/"):
+            raise ValueError("folder invàlid")
+        target_dir = (vault / folder)
+        if vault.resolve() not in target_dir.resolve().parents and target_dir.resolve() != vault.resolve():
+            raise ValueError("folder fora del vault")
+    target_dir.mkdir(parents=True, exist_ok=True)
+    page_id = str(uuid.uuid4())
+    metadata = {"id": page_id, "title": title}
+    fp = _get_unique_filepath(target_dir, title)
+    save_page_md(fp, metadata, content)
+    register_page_in_index(fp)
+    plugin_events.emit("page:created", {"page_id": page_id, "title": title, "source": "plugin"})
+    return {"pageId": page_id, "title": title}
+
+
+def _handle_settings_get(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    from backend.api.vault_routes import _load_plugins_state
+    state = _load_plugins_state()
+    return {"settings": (state.get("settings") or {}).get(plugin_id) or {}}
+
+
+def _handle_settings_set(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    from backend.api.vault_routes import _load_plugins_state, _save_plugins_state
+    patch = args.get("settings")
+    if not isinstance(patch, dict):
+        raise ValueError("settings ha de ser un objecte")
+    state = _load_plugins_state()
+    settings = dict(state.get("settings") or {})
+    settings[plugin_id] = {**(settings.get(plugin_id) or {}), **patch}
+    state["settings"] = settings
+    _save_plugins_state(state)
+    return {"settings": settings[plugin_id]}
+
+
+def _handle_query_db(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     """Retorna les files (pàgines) d'una taula del vault, com a llista de dicts.
 
     Limitat per evitar payloads enormes: `limit` (per defecte 200, màx 1000).
@@ -84,7 +159,21 @@ def _handle_query_db(args: Dict[str, Any]) -> Dict[str, Any]:
     return {"tableId": table_id, "rows": rows, "total": len(pages), "truncated": len(pages) > limit}
 
 
-def _handle_network_fetch(args: Dict[str, Any]) -> Dict[str, Any]:
+def _handle_list_tables(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
+    """Retorna les taules (bases de dades) del vault: id, nom i nombre de camps."""
+    from backend.api.vault_routes import load_registry
+    reg = load_registry() or {}
+    tables = []
+    for t in reg.get("tables", []) or []:
+        tables.append({
+            "id": t.get("id"),
+            "name": t.get("name") or t.get("id"),
+            "fields": len(t.get("properties") or []),
+        })
+    return {"tables": tables}
+
+
+def _handle_network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     import requests
     url = str(args.get("url") or "")
     if not url.lower().startswith(("http://", "https://")):
@@ -103,7 +192,11 @@ def _handle_network_fetch(args: Dict[str, Any]) -> Dict[str, Any]:
 _HOST_HANDLERS = {
     "vault.readPage": _handle_read_page,
     "vault.writePage": _handle_write_page,
+    "vault.createPage": _handle_create_page,
     "vault.queryDB": _handle_query_db,
+    "vault.listTables": _handle_list_tables,
+    "settings.get": _handle_settings_get,
+    "settings.set": _handle_settings_set,
     "network.fetch": _handle_network_fetch,
 }
 

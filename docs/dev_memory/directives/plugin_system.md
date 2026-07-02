@@ -31,11 +31,35 @@ Les 4 fases estan implementades i provades (22 tests verds + E2E live backend i 
 - ✅ `vault.queryDB` IMPLEMENTAT (backend `_handle_query_db` via `_get_pages_for_table` + frontend via `/pages/by-table/{id}`), amb `limit` (200/màx 1000) i flag `truncated`. Verificat live (taula de 273 files). Gated per `vault:read`.
 - ✅ Bloqueig de `network` als plugins de DADES ara és DUR: `runner.mjs` fa `module.registerHooks` (hook ESM síncron, compatible amb `--permission` sense worker) que rebutja tot `import` de `node:net/http/https/tls/dgram/http2/module` + neutralitza globals (fetch/WebSocket/XMLHttpRequest/EventSource). Amb child_process/worker/addons ja bloquejats per `--permission`, un plugin ESM no pot obrir xarxa. Test: `test_sandbox_network_hard_block`.
 
-**Limitacions honestes (deute conegut, fase 4+):**
-- Asimetria d'API llegir/escriure entre UI (PATCH parcial via `/pages/{id}`) i dades (fitxer sencer via `safe_write_text`). Unificar a fase 4.
-- Sense canal de distribució ni signatura de plugins (community plugins) — veure `gnosi_distribution_plan.md`.
-- Instal·lació encara manual (copiar carpeta); falta UI d'instal·lació des de zip/URL.
-- El bloqueig dur de xarxa cobreix plugins ESM (l'únic format suportat); no s'ha auditat cada primitiva interna de Node (`process.binding` i similars queden fora de l'abast, però estan restringits/deprecats).
+**Resolt (2026-07-02, FASE 2):**
+- ✅ **Instal·lació des de .zip**: `plugin_system.install_from_zip` (validació de manifest ABANS d'escriure + extracció anti zip-slip/zip-bomb) + endpoints `POST /plugins/install` (upload) i `DELETE /plugins/{id}` (desinstal·la + neteja estat). UI a `PluginsSettings.jsx`: botó "Instal·la des d'un .zip" + paperera per plugin. Instal·lat → arrenca DESACTIVAT i sense permisos.
+- ✅ **Galeria/catàleg**: `plugin_catalog.py` (fonts `bundled` des de `plugins-examples/` comprimint al vol, i `url` remot) + `plugins-examples/catalog.json` + endpoints `GET /plugins/catalog/list` i `POST /plugins/catalog/install` ({id}|{url}). Secció "Galeria" a la UI amb instal·lació d'1 clic.
+- ✅ **Més punts d'extensió**: nous esdeveniments emesos `page:created` i `page:deleted` (a més de `page:updated`/`clone:finished`); nous mètodes host `vault.listTables` (gated `vault:read`), **`vault.createPage`** (gated `vault:write`, crea .md nou via `save_page_md`+`register_page_in_index`) i **API de settings** `settings.get`/`settings.set` (gated `settings` — tanca el permís que abans estava declarat però inert; endpoints `GET/PUT /plugins/{id}/settings`). Els handlers del host ara reben `(args, plugin_id)` perquè `settings.*` sàpiga a quin plugin pertoquen. Verificat live (listTables 4 taules, createPage al vault real, settings roundtrip).
+
+- ✅ **API read/write UNIFICADA (footgun resolt)**: el `writePage` de dades ja NO fa overwrite del fitxer sencer (es carregava el frontmatter/sidecar); ara llegeix amb `parse_frontmatter`, fusiona `content` i/o `metadata` i reescriu amb `save_page_md` — igual que el PATCH de la UI. `readPage` retorna forma estructurada `{pageId, title, content(cos), metadata}` en ELS DOS runtimes. UI `writePage(id, "text"|{content,metadata})`. Test `test_sandbox_write_page_preserves_frontmatter`.
+- ✅ **Verificació d'integritat (SHA-256)** per instal·lacions remotes: `install_from_url(url, sha256)` + entrades de catàleg `url` amb `sha256` (via `install_catalog_entry`) + camp `sha256` a `POST /plugins/catalog/install`. Rebutja si el hash no coincideix (detecció de manipulació/corrupció). Mecanisme de confiança mínim mentre no hi hagi signatura formal. Test `test_install_from_url_checksum_mismatch`.
+
+- ✅ **Versionat de l'API** (`apiVersion`): constant `ps.PLUGIN_API_VERSION = 1`; el manifest declara `apiVersion` (per defecte 1). Si demana una MAJOR superior, `read_manifest` i `install_from_zip` la refusen amb missatge clar ("necessita un Gnosi més nou") → els plugins no es trencaran silenciosament en canvis d'API futurs. Exposada a `GET /plugins/catalog` → `apiVersion`. Incrementar-la NOMÉS en canvis incompatibles.
+- ✅ **Exemple ric `vault-stats`** (a `plugins-examples/` + catàleg): comanda que fa `listTables`+`queryDB` de cada taula i desa el recompte a `settings` — exercita bona part de l'API i serveix de plantilla. Verificat live (galeria de 3 entrades, instal·lació OK).
+
+## FASE 3 (feta 2026-07-02) — signatura, confiança i índex remot
+
+- ✅ **Signatura Ed25519** (`plugin_signing.py`, via `cryptography`): signatura DETACHED sobre els bytes del zip. `sign`/`verify`/`generate_keypair` + magatzem de confiança (`.gnosi/plugins_trust.json` + `BUNDLED_TRUSTED_KEYS` buides de sèrie). Política: entrada amb `signature` que verifica amb clau de confiança → instal·la (`signedBy=<nom>`); que NO verifica → REBUTJA; sense signatura → instal·la marcada `signedBy=None` ("no verificat").
+- ✅ **Integració a la instal·lació remota**: `install_from_url(url, sha256, signature)` + `install_catalog_entry` verifiquen sha256 I signatura abans d'escriure. `POST /plugins/catalog/install` accepta `signature`.
+- ✅ **Endpoints de confiança**: `GET /plugins/trust` (noms + fingerprint), `POST /plugins/trust` (afegeix clau, admin), `DELETE /plugins/trust/{name}` (admin).
+- ✅ **Índex remot**: `plugin_catalog.fetch_remote_index(url)` + `load_catalog(registry_url)` fusiona entrades remotes amb les `bundled` (bundled tenen prioritat). URL a `.gnosi/plugins.json` → `registry_url`, via `GET/PUT /plugins/registry-url` (admin).
+- ✅ **Eina d'autor**: `plugins-examples/sign_plugin.py` (`keygen` + `sign`) — depèn només de `cryptography`, imprimeix una entrada de catàleg amb `sha256`+`signature`.
+- ✅ **UI**: distintiu "signat"/"no verificat" a la galeria + secció "Font remota i confiança" (URL d'índex + gestió de claus) a `PluginsSettings.jsx`.
+- Verificat: 51 tests (11 de signatura: roundtrip, tamper, clau incorrecta, magatzem, trusted/untrusted/tampered install, unsigned, índex remot, flux E2E de l'eina). Live: eina keygen+sign OK, endpoints trust/registry-url OK, build+lint nets.
+
+## Deute residual TANCAT (2026-07-02)
+
+- ✅ **Clau oficial**: `BUNDLED_TRUSTED_KEYS["gnosi-official"]` porta ara la clau pública real; la PRIVADA viu a `~/.gnosi-local/plugin_signing_key.json` (600, FORA del repo). Documentat a `plugins-examples/README.md` (rotació + custòdia). Test `test_bundled_official_key_valid_and_loaded` + live: signar amb la privada oficial → verifica com `gnosi-official`.
+- ✅ **QA visual del modal FETA** (preview 5199, `vite preview` amb proxy `/api` afegit + `.claude/launch.json`): el panell Configuració → Plugins renderitza correctament tot (built-in, plugins de tercers amb paperera/permisos, Galeria amb les 3 entrades "Instal·lat", "Instal·la des d'un .zip", "Font remota i confiança" amb la clau `gnosi-official` visible).
+- 🐛 **Bug i18n preexistent trobat i corregit**: la pestanya de plugins sortia etiquetada "Conectores" (ES) / "Connectors" (CA) — traducció antiga. Corregit a `locales/es|ca/translation.json` → "Plugins" (consistent amb EN i amb el títol del panell).
+
+**Limitació residual (operativa, no de codi):**
+- Per a builds de DISTRIBUCIÓ, la privada oficial s'ha d'injectar de forma segura al pipeline de signatura (mai viatja amb el binari). El bloqueig dur de xarxa cobreix plugins ESM; primitives internes de Node (`process.binding`) fora d'abast (restringides/deprecades).
 
 ## Punt de partida REAL (no és greenfield) — v1 ja existeix
 
