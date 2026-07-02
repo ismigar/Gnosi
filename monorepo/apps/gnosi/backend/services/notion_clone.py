@@ -165,6 +165,7 @@ def clone_workspace(
     follow_subpages: bool = True,
     progress_cb: Optional[Callable[[str, int, int, Dict[str, Any]], None]] = None,
     should_cancel: Optional[Callable[[], bool]] = None,
+    registry_tables: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP).
 
@@ -192,8 +193,16 @@ def clone_workspace(
 
     users = rest_client.list_users()
 
-    # Mapa nom-de-data-source (sense icona) → taula clonada, per resoldre vistes
+    # Mapa nom-de-data-source (sense icona) → taula clonada, per resoldre vistes.
+    # SEED amb les taules del registre existent (`registry_tables`): en un clon INCREMENTAL
+    # (p. ex. només pàgines soltes sobre un vault ja clonat) les vistes incrustades han de
+    # resoldre contra les taules ja clonades; sense seed, el marcador es descartava i els
+    # taulells quedaven sense vistes. La passada 1 sobreescriu amb les taules fresques.
     clone_tables_by_name: Dict[str, Dict[str, Any]] = {}
+    for t in (registry_tables or []):
+        key = nvr._strip_icon(t.get("name"))
+        if key:
+            clone_tables_by_name[key] = t
 
     # PASSADA 1: clonar TOTS els esquemes de taula abans de les pàgines, perquè una vista pot
     # referenciar una taula que es clona més tard (resolució de marcadors completa).
