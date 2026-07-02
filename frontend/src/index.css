@@ -1106,3 +1106,11 @@ button:hover > .row-action-tooltip {
 .feed-md > blockquote:first-child { margin-top: 0; }
 .feed-md > p:last-child,
 .feed-md > blockquote:last-child { margin-bottom: 0; }
+
+/* Corrector ortogràfic (nspell): subratllat ondulat vermell sota les faltes. */
+.ProseMirror .gnosi-spell-error {
+    text-decoration: underline wavy var(--status-error, #dc2626);
+    text-decoration-skip-ink: none;
+    text-underline-offset: 2px;
+    cursor: pointer;
+}
