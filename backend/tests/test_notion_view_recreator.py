@@ -132,3 +132,30 @@ if __name__ == "__main__":
             failed += 1; print(f"FAIL {fn.__name__}"); traceback.print_exc()
     print(f"\n{len(fns) - failed}/{len(fns)} OK")
     sys.exit(1 if failed else 0)
+
+
+# Vista amb filtre de checkbox + ordre + agrupació (format nou de l'MCP, 2026-07):
+# abans NOMÉS es detectava el filtre de relació "aquesta pàgina" i es perdien
+# filtres/ordre/grup (vistes clonades sense configurar).
+VIEW_MD_CHECKBOX = (
+    '<database url="{{https://app.notion.com/p/a58c144f894f4a47939042b7627cd14e}}" inline="true">\n'
+    'The title of this Database is: Vista de Projectes\n'
+    '<data-sources>\n<data-source url="{{collection://4d490294}}">\n'
+    'The title of this Data Source is: 📀 Projectes\n</data-source>\n</data-sources>\n'
+    '<views>\n<view url="{{view://37b76525}}">\n'
+    '{"dataSourceUrl":"{{collection://4d490294}}","displayProperties":["Nom","Arxivar"],'
+    '"name":"","simpleFilters":[{"filter":{"operator":"checkbox_is","property":"Arxivar",'
+    '"propertyType":"checkbox","type":"property","value":{"type":"exact","value":true}},"id":"ubDE"}],'
+    '"sorts":[{"property":"Nom","direction":"descending"}],"groupBy":{"property":"Estat"},'
+    '"type":"table"}\n</view>\n</views>\n</database>'
+)
+
+
+def test_build_gnosi_view_maps_filters_sorts_group():
+    meta = parse_mcp_view(VIEW_MD_CHECKBOX)
+    view = build_gnosi_view("deadbeef" * 4, {"id": "t1", "name": "Projectes", "properties": []},
+                            "host-t", meta, "Projectes arxivats")
+    # checkbox_is true → equals "true" (paritat amb vaultFilters.asBool del frontend)
+    assert view["filters"] == [{"field": "Arxivar", "operator": "equals", "value": "true"}]
+    assert view["sorts"] == [{"field": "Nom", "direction": "desc"}]
+    assert view["groupBy"] == "Estat"

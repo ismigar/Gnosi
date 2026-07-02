@@ -64,7 +64,11 @@ _PROP_TYPE_MAP = {
     "title": "title", "rich_text": "text", "number": "number",
     "select": "select", "multi_select": "multi_select", "status": "status",
     "checkbox": "checkbox", "url": "url", "email": "email",
-    "phone_number": "phone", "people": "text", "files": "file",
+    # Notion "files" (arxius/imatges) → Gnosi "files" (tipus canònic vàlid). NO "file" (singular):
+    # no és cap tipus real de Gnosi (el modal i VaultTable només coneixen "files"/"image"), i
+    # deixar-lo feia que en obrir la config d'esquema el <select> el corrompés (bug 2026-07-02:
+    # Articles/Imatge → "autoria"). Els camps d'imatge, l'usuari els pot passar a "image".
+    "phone_number": "phone", "people": "text", "files": "files",
     "created_time": "created_time", "last_edited_time": "last_edited_time",
     "created_by": "created_by", "last_edited_by": "last_edited_by",
     "formula": "text", "rollup": "text", "unique_id": "text",
