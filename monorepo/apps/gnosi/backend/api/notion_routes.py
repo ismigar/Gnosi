@@ -240,6 +240,17 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
         "pages": report.get("pages", 0), "tables": report.get("tables", 0),
         "views": report.get("views", 0), "attachments": report.get("attachments", 0),
     })
+    # Notifica els plugins de dades quan el clon acaba (bus d'esdeveniments v2).
+    if phase == "done":
+        try:
+            from backend.services import plugin_events
+            plugin_events.emit("clone:finished", {
+                "source": "notion",
+                "pages": report.get("pages", 0),
+                "tables": report.get("tables", 0),
+            })
+        except Exception:  # noqa: BLE001
+            pass
 
 
 @router.get("/clone/progress", dependencies=[Depends(require_role("editor"))])

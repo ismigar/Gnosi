@@ -4368,11 +4368,14 @@ def _load_plugins_state() -> dict:
                 return {"disabled": [], "settings": {}}
             data.setdefault("disabled", [])
             data.setdefault("settings", {})
+            data.setdefault("granted", {})
             if not isinstance(data.get("settings"), dict):
                 data["settings"] = {}
+            if not isinstance(data.get("granted"), dict):
+                data["granted"] = {}
             return data
         except Exception:
-            return {"disabled": [], "settings": {}}
+            return {"disabled": [], "settings": {}, "granted": {}}
 
 
 @router.get("/plugins")
@@ -4381,19 +4384,125 @@ async def get_plugins_state():
     return await asyncio.to_thread(_load_plugins_state)
 
 
+def _save_plugins_state(state: dict) -> dict:
+    """Persisteix l'estat sencer de plugins (disabled + settings + granted)."""
+    payload = {
+        "disabled": [str(x) for x in (state.get("disabled") or [])],
+        "settings": state.get("settings") if isinstance(state.get("settings"), dict) else {},
+        "granted": state.get("granted") if isinstance(state.get("granted"), dict) else {},
+    }
+    with _plugins_lock:
+        path = _get_plugins_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_json(path, payload, indent=2, ensure_ascii=False)
+    return payload
+
+
 @router.put("/plugins", dependencies=[Depends(require_role("editor"))])
 async def set_plugins_state(request: PluginsUpdateRequest):
-    """Persists which plugins are disabled and their per-plugin settings."""
-    disabled = [str(x) for x in (request.disabled or [])]
-    settings = request.settings if isinstance(request.settings, dict) else {}
-    payload = {"disabled": disabled, "settings": settings}
+    """Persists which plugins are disabled and their per-plugin settings.
+
+    Preserva `granted` (permisos concedits a plugins de tercers), que es
+    gestiona per un endpoint propi i no viatja en aquest payload.
+    """
     def _write():
-        with _plugins_lock:
-            path = _get_plugins_path()
-            path.parent.mkdir(parents=True, exist_ok=True)
-            safe_write_json(path, payload, indent=2, ensure_ascii=False)
-    await asyncio.to_thread(_write)
-    return payload
+        current = _load_plugins_state()
+        current["disabled"] = [str(x) for x in (request.disabled or [])]
+        current["settings"] = request.settings if isinstance(request.settings, dict) else {}
+        return _save_plugins_state(current)
+    return await asyncio.to_thread(_write)
+
+
+# ---------------------------------------------------------------------------
+# Plugins de TERCERS (v2): manifest, permisos i assets. Veure directiva
+# `plugin_system.md` i serveis `plugin_system` / `plugin_sandbox`.
+# ---------------------------------------------------------------------------
+class PluginPermissionsRequest(BaseModel):
+    # Llista de permisos que l'usuari CONCEDEIX al plugin (subconjunt del
+    # catàleg). Buida = revocar-los tots.
+    permissions: list = []
+
+
+@router.get("/plugins/catalog")
+async def get_plugins_catalog():
+    """Catàleg de permisos disponibles (id → descripció) per a la UI."""
+    from backend.services import plugin_system as ps
+    return {"permissions": ps.PERMISSIONS}
+
+
+@router.get("/plugins/installed")
+async def get_installed_plugins():
+    """Llista els plugins de tercers instal·lats amb manifest + estat + permisos."""
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        state = _load_plugins_state()
+        disabled = set(state.get("disabled") or [])
+        out = []
+        for entry in ps.discover_plugins(config_dir):
+            manifest = entry.get("manifest")
+            if not manifest:
+                out.append({"id": entry.get("id"), "error": entry.get("error")})
+                continue
+            pid = manifest["id"]
+            out.append({
+                "manifest": manifest,
+                "enabled": pid not in disabled,
+                "granted": ps.granted_permissions(state, pid),
+            })
+        return {"plugins": out}
+
+    return await asyncio.to_thread(_work)
+
+
+@router.post("/plugins/{plugin_id}/permissions", dependencies=[Depends(require_role("editor"))])
+async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsRequest):
+    """Concedeix (o revoca) permisos a un plugin de tercers."""
+    from backend.services import plugin_system as ps
+
+    def _work():
+        config_dir = get_p("GNOSI_CONFIG")
+        # Valida que el plugin existeix i que només concedim permisos que declara.
+        manifest = ps.read_manifest(config_dir, plugin_id)
+        requested = [p for p in (request.permissions or []) if p in ps.PERMISSIONS]
+        declared = set(manifest.get("permissions") or [])
+        clean = [p for p in requested if p in declared]
+        state = _load_plugins_state()
+        new_state = ps.set_granted(state, plugin_id, clean)
+        _save_plugins_state(new_state)
+        return {"id": plugin_id, "granted": clean}
+
+    try:
+        return await asyncio.to_thread(_work)
+    except ps.PluginError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
+async def get_plugin_asset(plugin_id: str, asset_path: str):
+    """Serveix un fitxer estàtic del directori del plugin (entry de UI, etc.).
+
+    Blindat contra path-traversal: l'id es valida i el fitxer resolt ha de
+    quedar DINS del directori del plugin.
+    """
+    from backend.services import plugin_system as ps
+
+    def _resolve() -> Path:
+        config_dir = get_p("GNOSI_CONFIG")
+        pdir = ps.plugin_dir(config_dir, plugin_id).resolve()
+        target = (pdir / asset_path).resolve()
+        if pdir not in target.parents:
+            raise HTTPException(status_code=400, detail="Ruta d'asset invàlida")
+        if not target.exists() or not target.is_file():
+            raise HTTPException(status_code=404, detail="Asset no trobat")
+        return target
+
+    try:
+        target = await asyncio.to_thread(_resolve)
+    except ps.PluginError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return FileResponse(str(target))
 
 
 def get_table_id(metadata: Optional[dict]) -> Optional[str]:
