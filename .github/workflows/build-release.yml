@@ -159,6 +159,9 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Download all artifacts
         uses: actions/download-artifact@v8
         with:
@@ -168,6 +171,26 @@ jobs:
 
       - name: List artifacts
         run: ls -laR artifacts/
+
+      # Construeix i SIGNA l'índex remot de plugins oficials. La clau privada
+      # arriba per secret (GNOSI_PLUGIN_SIGNING_KEY) i no toca mai el disc del
+      # repo; si no està configurada, l'índex es genera sense signatura (l'app
+      # els marcaria "no verificat"). Les entrades apunten a
+      # releases/latest/download → l'app hi accedeix un cop publiques el release.
+      - name: Setup Python (per a l'índex de plugins)
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Construeix l'índex de plugins signat
+        env:
+          GNOSI_PLUGIN_SIGNING_KEY: ${{ secrets.GNOSI_PLUGIN_SIGNING_KEY }}
+        run: |
+          python -m pip install --quiet cryptography
+          python monorepo/apps/gnosi/plugins-examples/build_index.py \
+            --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
+            --out artifacts/plugins
+          ls -la artifacts/plugins/
 
       # Publiquem al repo PÚBLIC Gnosi (Projectes és privat) amb el SYNC_PAT,
       # el mateix token que el sync fa servir per escriure a Gnosi. Per això no
@@ -202,3 +225,5 @@ jobs:
             artifacts/*.AppImage
             artifacts/*.deb
             artifacts/*Setup*.exe
+            artifacts/plugins/*.zip
+            artifacts/plugins/plugins-index.json

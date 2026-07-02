@@ -65,5 +65,30 @@ La clau pública `gnosi-official` ve integrada a `plugin_signing.BUNDLED_TRUSTED
 (no cal afegir-la). La seva **privada** viu FORA del repo, a
 `~/.gnosi-local/plugin_signing_key.json` (permisos 600), i s'usa per signar els
 plugins oficials. Per rotar-la: `sign_plugin.py keygen`, substitueix la pública al
-codi i desa la nova privada al mateix lloc. Per a builds de distribució, la privada
-s'ha d'injectar de forma segura (no viatja mai amb el binari).
+codi i desa la nova privada al mateix lloc.
+
+### Distribució: índex remot signat (pipeline)
+
+L'índex oficial de plugins es construeix i **se signa al pipeline de release**
+(`.github/workflows/build-release.yml`, job `release`) amb `build_index.py`:
+
+- La clau privada arriba pel secret **`GNOSI_PLUGIN_SIGNING_KEY`** (base64 de la
+  clau Ed25519 crua) i **no toca mai el disc del repo**. Si no està configurada,
+  l'índex es genera sense signatura (l'app els marcaria «no verificat»).
+- Es publiquen, com a assets del release a `ismigar/Gnosi`, els `.zip` de cada
+  plugin oficial i `plugins-index.json` (amb `url`, `sha256` i `signature`).
+- Les entrades apunten a `releases/latest/download/…`, així que l'índex queda
+  actiu un cop **publiques** el release (recorda: el workflow el crea en *draft*).
+
+Configurar el secret un cop (des de la màquina amb la privada):
+
+```sh
+python3 -c "import json,pathlib;print(json.loads((pathlib.Path.home()/'.gnosi-local'/'plugin_signing_key.json').read_text())['private'])" \
+  | gh secret set GNOSI_PLUGIN_SIGNING_KEY --repo ismigar/Projectes
+```
+
+L'usuari final apunta la galeria a l'índex des de **Configuració → Plugins → Font
+remota i confiança**:
+`https://github.com/ismigar/Gnosi/releases/latest/download/plugins-index.json`
+(ja és el text suggerit del camp). Gnosi en verifica la signatura contra la clau
+`gnosi-official` abans d'instal·lar.

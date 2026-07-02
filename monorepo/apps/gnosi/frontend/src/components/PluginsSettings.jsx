@@ -411,7 +411,7 @@ function ThirdPartyPlugins() {
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <input
-                            type="url" placeholder="https://…/index.json"
+                            type="url" placeholder="https://github.com/ismigar/Gnosi/releases/latest/download/plugins-index.json"
                             value={registryUrl}
                             onChange={(e) => setRegistryUrl(e.target.value)}
                             style={{ ...SELECT_STYLE, flex: 1 }}

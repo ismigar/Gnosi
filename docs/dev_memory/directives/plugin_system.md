@@ -58,8 +58,10 @@ Les 4 fases estan implementades i provades (22 tests verds + E2E live backend i 
 - ✅ **QA visual del modal FETA** (preview 5199, `vite preview` amb proxy `/api` afegit + `.claude/launch.json`): el panell Configuració → Plugins renderitza correctament tot (built-in, plugins de tercers amb paperera/permisos, Galeria amb les 3 entrades "Instal·lat", "Instal·la des d'un .zip", "Font remota i confiança" amb la clau `gnosi-official` visible).
 - 🐛 **Bug i18n preexistent trobat i corregit**: la pestanya de plugins sortia etiquetada "Conectores" (ES) / "Connectors" (CA) — traducció antiga. Corregit a `locales/es|ca/translation.json` → "Plugins" (consistent amb EN i amb el títol del panell).
 
-**Limitació residual (operativa, no de codi):**
-- Per a builds de DISTRIBUCIÓ, la privada oficial s'ha d'injectar de forma segura al pipeline de signatura (mai viatja amb el binari). El bloqueig dur de xarxa cobreix plugins ESM; primitives internes de Node (`process.binding`) fora d'abast (restringides/deprecades).
+- ✅ **Pipeline de distribució FET** (2026-07-03): `plugins-examples/build_index.py` construeix i SIGNA l'índex remot de plugins oficials (llegeix la privada de l'entorn `GNOSI_PLUGIN_SIGNING_KEY`, mai del disc; sense clau → índex sense signatura). Connectat al job `release` de `build-release.yml` (checkout + python + build_index → publica `*.zip` + `plugins-index.json` com a assets del release a `ismigar/Gnosi`, base URL `releases/latest/download`). Secret `GNOSI_PLUGIN_SIGNING_KEY` afegit al repo `ismigar/Projectes` (xifrat). URL oficial suggerida al camp de la UI. Verificat live: build_index signa i l'índex verifica com `gnosi-official`.
+
+**Limitació residual (mínima):**
+- El bloqueig dur de xarxa cobreix plugins ESM; primitives internes de Node (`process.binding`) fora d'abast (restringides/deprecades). La cadena de distribució queda activa quan es publica (no draft) un release amb tag `v*`.
 
 ## Punt de partida REAL (no és greenfield) — v1 ja existeix
 
