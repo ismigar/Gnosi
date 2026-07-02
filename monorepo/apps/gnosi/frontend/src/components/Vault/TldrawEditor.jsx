@@ -414,6 +414,14 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         }
     }, [insertPageOnCanvas]);
 
+    // ── Warmup del model TrOCR ──
+    // En obrir el llenç, demana al backend que precarregui el model en segon
+    // pla (fire-and-forget). Mentre l'usuari dibuixa, el model es carrega, i
+    // quan clica "Passar a text" ja hi és → la 1a crida no espera ~1.3 GB.
+    useEffect(() => {
+        axios.post('/api/vault/handwriting/warmup').catch(() => {});
+    }, []);
+
     // ── Passar traços manuscrits a text (OCR local amb TrOCR al backend) ──
     // Exporta els shapes seleccionats (o tot el llenç si no hi ha selecció) a
     // PNG amb fons blanc, l'envia al backend i insereix el text reconegut just
@@ -468,7 +476,9 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 props: { richText: toRichText(text), color: 'black', size: 'm' },
             });
             editor.select(textId);
-            toast.success('Text reconegut i afegit al llenç');
+            toast.success(res.data?.corrected
+                ? 'Text reconegut (amb correcció IA) i afegit al llenç'
+                : 'Text reconegut i afegit al llenç');
         } catch (err) {
             console.error('Error reconeixent escriptura a mà:', err);
             const status = err?.response?.status;

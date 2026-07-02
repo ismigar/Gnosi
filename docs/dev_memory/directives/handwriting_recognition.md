@@ -11,13 +11,24 @@ coherent amb el vault offline-first.
     CPU. Cache a `GNOSI_LOCAL_DATA/cache/trocr` (mai OneDrive). Segmentació simple
     per projecció horitzontal (TrOCR és mono-línia → partim en línies).
   - `backend/api/handwriting_routes.py` — `POST /api/vault/handwriting/recognize`
-    (multipart `image` PNG → `{text, lines, model}`) i `GET .../status`.
+    (multipart `image` PNG + `correct`/`language` opcionals → `{text, raw, lines,
+    model, corrected}`), `POST .../warmup` i `GET .../status`.
   - Registrat a `server.py` (`include_router(handwriting_routes.router)`, el router
     ja porta el prefix `/api/vault/handwriting`).
+  - **Correcció IA (accents ca/es):** després de TrOCR, opcionalment es passa el
+    text per l'LLM local (Ollama, mateix `generate_text` que `POST /api/ai/correct`)
+    per fixar accents/dígrafs. Degradació NETA: si no hi ha proveïdor d'IA, es
+    retorna el text cru (`raw`) sense fallar. Default via `ai.handwriting.correct`.
+  - **Warmup:** `handwriting.warmup()` precarrega el model en thread daemon
+    (idempotent). NO es fa a l'arrencada (reservaria ~1.3 GB sempre): es dispara
+    quan el frontend obre el llenç.
 - **Frontend** — `components/Vault/TldrawEditor.jsx`:
+  - En muntar el llenç, `POST .../warmup` (fire-and-forget) → el model es carrega
+    mentre l'usuari dibuixa.
   - Botó **"Passar a text"**: exporta els shapes seleccionats (o tot el llenç) amb
     `editor.toImage(ids, { format:'png', background:true, darkMode:false })` i POST
-    a l'endpoint; insereix el text reconegut com a shape `text` sota els traços.
+    a l'endpoint; insereix el text reconegut com a shape `text` sota els traços. El
+    toast indica si s'ha aplicat correcció IA.
   - Toggle **"Només llapis"** (palm rejection): bloqueja `pointerType==='touch'` en
     fase de captura al wrapper → el palmell no dibuixa; llapis/ratolí sí.
 
