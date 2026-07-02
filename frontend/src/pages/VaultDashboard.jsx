@@ -3385,6 +3385,8 @@ export default function VaultDashboard() {
                                     <TldrawEditor
                                         key={activeTabId}
                                         drawingId={activeTabId}
+                                        allNotes={pages}
+                                        tables={registry.tables}
                                         title={tabs.find(t => t.id === activeTabId)?.title}
                                         onClose={() => {
                                             handleTabClose(activeTabId);
@@ -3567,6 +3569,7 @@ export default function VaultDashboard() {
                 isOpen={isGlobalSearchOpen}
                 onClose={() => setIsGlobalSearchOpen(false)}
                 allNotes={pages}
+                tables={registry.tables}
                 onNoteSelect={loadPage}
             />
 

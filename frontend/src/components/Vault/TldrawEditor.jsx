@@ -9,8 +9,9 @@ import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2 } from 'lucide-react';
+import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2, Search } from 'lucide-react';
 import { PageCardShapeUtil, CanvasPageContext } from './canvasPageCardShape';
+import { GlobalSearchModal } from './GlobalSearchModal';
 import { usePlugins } from '../../plugins/usePlugins';
 
 // Custom shape utils for the canvas (page cards) on top of the tldraw defaults.
@@ -99,7 +100,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
 }
 
 // ──────────────── TldrawEditor Component ────────────────
-export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess, onOpenPage }) {
+export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess, onOpenPage, allNotes = [], tables = [] }) {
     const { isEnabled: isPluginEnabled } = usePlugins();
     const cardsEnabled = isPluginEnabled('canvas-cards');
     const [store] = useState(() => createTLStore({ shapeUtils: CANVAS_SHAPE_UTILS }));
@@ -113,6 +114,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const wrapperRef = useRef(null);
     const autosaveTimerRef = useRef(null);
     const [selectedPage, setSelectedPage] = useState(null);
+    const [isSearchOpen, setIsSearchOpen] = useState(false);
 
     // Reset síncron si canvia el dibuix sense remuntar (patró React
     // "adjusting state when props change"): cap render no pot veure 'ready'
@@ -354,6 +356,42 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         };
     }, []);
 
+    // Incrusta una pàgina existent com a targeta al centre del llenç (mateixa
+    // lògica que el drop de drag&drop, però sense punt de destí: el viewport).
+    const insertPageOnCanvas = useCallback((pageId, pageTitle) => {
+        const editor = editorRef.current;
+        if (!editor) return;
+        const displayTitle = pageTitle || 'Pàgina sense títol';
+        const center = editor.getViewportPageBounds().center;
+        const shapeId = createShapeId();
+        if (cardsEnabled) {
+            editor.createShape({
+                id: shapeId,
+                type: 'page-card',
+                x: center.x - 130,
+                y: center.y - 85,
+                props: { w: 260, h: 170, pageId, pageTitle: displayTitle },
+            });
+        } else {
+            editor.createShape({
+                id: shapeId,
+                type: 'note',
+                x: center.x - 100,
+                y: center.y - 50,
+                props: { color: 'blue', size: 'm', font: 'sans', richText: toRichText(displayTitle) },
+                meta: { pageId, pageTitle: displayTitle },
+            });
+        }
+        editor.select(shapeId);
+    }, [cardsEnabled]);
+
+    // Cerca una nota del vault (inclou files de BDs) i la col·loca al llenç.
+    const handleSearchSelect = useCallback((pageId) => {
+        const note = allNotes.find((n) => n.id === pageId);
+        insertPageOnCanvas(pageId, note?.title);
+        toast.success(`Pàgina "${note?.title || 'sense títol'}" afegida al llenç`);
+    }, [allNotes, insertPageOnCanvas]);
+
     // Crea una pàgina nova al Vault i la incrusta com a targeta al centre del llenç.
     const handleCreateNoteOnCanvas = useCallback(async () => {
         const editor = editorRef.current;
@@ -366,22 +404,13 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 metadata: {},
             });
             const page = res.data;
-            const center = editor.getViewportPageBounds().center;
-            const shapeId = createShapeId();
-            editor.createShape({
-                id: shapeId,
-                type: 'page-card',
-                x: center.x - 130,
-                y: center.y - 85,
-                props: { w: 260, h: 170, pageId: page.id, pageTitle: page.title || 'Nova nota' },
-            });
-            editor.select(shapeId);
+            insertPageOnCanvas(page.id, page.title || 'Nova nota');
             toast.success('Nota creada al llenç');
         } catch (err) {
             console.error('Error creant nota al llenç:', err);
             toast.error('Error creant la nota');
         }
-    }, []);
+    }, [insertPageOnCanvas]);
 
     return (
         <div className="flex flex-col h-full w-full">
@@ -391,6 +420,15 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     {title || 'Dibuix sense títol'}
                 </h2>
                 <div className="flex items-center gap-2">
+                    {loadState === 'ready' && (
+                        <button
+                            onClick={() => setIsSearchOpen(true)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
+                            title="Cerca una nota del vault (també dins de BDs) i afegeix-la al llenç"
+                        >
+                            <Search size={14} /> Afegeix nota
+                        </button>
+                    )}
                     {loadState === 'ready' && cardsEnabled && (
                         <button
                             onClick={handleCreateNoteOnCanvas}
@@ -458,6 +496,15 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                         </div>
                     </div>
                 )}
+
+                {/* Cercador de notes del vault per col·locar-les al llenç */}
+                <GlobalSearchModal
+                    isOpen={isSearchOpen}
+                    onClose={() => setIsSearchOpen(false)}
+                    allNotes={allNotes}
+                    tables={tables}
+                    onNoteSelect={handleSearchSelect}
+                />
 
                 {/* Panel d'accions per a pàgines seleccionades */}
                 {selectedPage && (

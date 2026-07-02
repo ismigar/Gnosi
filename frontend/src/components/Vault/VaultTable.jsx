@@ -2825,6 +2825,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 `}
                 onClick={() => { /* Row: selection via checkbox */ }}
                     onDoubleClick={() => onNoteSelect(note.id)}
+                    draggable
+                    onDragStart={(e) => {
+                        // No segrestar la selecció de text dins d'editors inline.
+                        if (editingCell || e.target.closest?.('input, textarea, button, a, label, select, [contenteditable="true"]')) {
+                            e.preventDefault();
+                            return;
+                        }
+                        // Mateix protocol que la sidebar: el llenç (page-card) i
+                        // l'editor (wikilink) ja accepten aquest tipus.
+                        e.dataTransfer.setData('application/gnosi-note', JSON.stringify({ id: note.id, title: note.title }));
+                        e.dataTransfer.effectAllowed = 'copy';
+                    }}
                 >
                     {/* Acció cel·la */}
                     <td className={`w-10 px-2 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
