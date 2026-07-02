@@ -9,7 +9,7 @@ import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2, Search } from 'lucide-react';
+import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2, Search, ScanText, PenLine } from 'lucide-react';
 import { PageCardShapeUtil, CanvasPageContext } from './canvasPageCardShape';
 import { GlobalSearchModal } from './GlobalSearchModal';
 import { usePlugins } from '../../plugins/usePlugins';
@@ -115,6 +115,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const autosaveTimerRef = useRef(null);
     const [selectedPage, setSelectedPage] = useState(null);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [recognizing, setRecognizing] = useState(false);
+    const [penOnly, setPenOnly] = useState(false);
 
     // Reset síncron si canvia el dibuix sense remuntar (patró React
     // "adjusting state when props change"): cap render no pot veure 'ready'
@@ -412,6 +414,96 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         }
     }, [insertPageOnCanvas]);
 
+    // ── Passar traços manuscrits a text (OCR local amb TrOCR al backend) ──
+    // Exporta els shapes seleccionats (o tot el llenç si no hi ha selecció) a
+    // PNG amb fons blanc, l'envia al backend i insereix el text reconegut just
+    // a sota. Els traços NO s'esborren: el text s'afegeix al costat.
+    const handleRecognize = useCallback(async () => {
+        const editor = editorRef.current;
+        if (!editor || recognizing) return;
+
+        let ids = editor.getSelectedShapeIds();
+        if (!ids || ids.length === 0) {
+            // Sense selecció: usa tots els traços de la pàgina actual.
+            ids = [...editor.getCurrentPageShapeIds()];
+        }
+        if (ids.length === 0) {
+            toast.error('No hi ha traços per reconèixer');
+            return;
+        }
+
+        setRecognizing(true);
+        try {
+            // Fons blanc + mode clar: TrOCR espera document fosc sobre blanc.
+            const img = await editor.toImage(ids, {
+                format: 'png',
+                background: true,
+                darkMode: false,
+                padding: 16,
+                scale: 2,
+            });
+            if (!img?.blob) throw new Error('No s\'ha pogut exportar la imatge');
+
+            const form = new FormData();
+            form.append('image', img.blob, 'ink.png');
+            const res = await axios.post('/api/vault/handwriting/recognize', form);
+            const text = (res.data?.text || '').trim();
+
+            if (!text) {
+                toast.error('No s\'ha reconegut cap text');
+                return;
+            }
+
+            // Col·loca el text just a sota dels traços reconeguts.
+            const bounds = editor.getSelectionPageBounds()
+                || editor.getCurrentPageBounds();
+            const x = bounds ? bounds.x : editor.getViewportPageBounds().center.x;
+            const y = bounds ? bounds.maxY + 24 : editor.getViewportPageBounds().center.y;
+            const textId = createShapeId();
+            editor.createShape({
+                id: textId,
+                type: 'text',
+                x,
+                y,
+                props: { richText: toRichText(text), color: 'black', size: 'm' },
+            });
+            editor.select(textId);
+            toast.success('Text reconegut i afegit al llenç');
+        } catch (err) {
+            console.error('Error reconeixent escriptura a mà:', err);
+            const status = err?.response?.status;
+            if (status === 503) {
+                toast.error('El motor de reconeixement local no està disponible');
+            } else {
+                toast.error('Error reconeixent el text');
+            }
+        } finally {
+            setRecognizing(false);
+        }
+    }, [recognizing]);
+
+    // ── Mode "només llapis" (palm rejection) ──
+    // Bloqueja els pointer events de tipus 'touch' abans que arribin a tldraw
+    // (fase de captura) perquè el palmell recolzat no dibuixi. El llapis
+    // (pointerType 'pen') i el ratolí segueixen funcionant. És un toggle: quan
+    // està actiu es perd el pan/zoom amb dos dits, cosa esperada en aquest mode.
+    useEffect(() => {
+        if (!penOnly) return;
+        const wrapper = wrapperRef.current;
+        if (!wrapper) return;
+
+        const blockTouch = (e) => {
+            if (e.pointerType === 'touch') {
+                e.stopPropagation();
+            }
+        };
+        const events = ['pointerdown', 'pointermove', 'pointerup', 'pointerenter'];
+        events.forEach((ev) => wrapper.addEventListener(ev, blockTouch, true));
+        return () => {
+            events.forEach((ev) => wrapper.removeEventListener(ev, blockTouch, true));
+        };
+    }, [penOnly, loadState]);
+
     return (
         <div className="flex flex-col h-full w-full">
             {/* Capçalera */}
@@ -420,6 +512,29 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     {title || 'Dibuix sense títol'}
                 </h2>
                 <div className="flex items-center gap-2">
+                    {loadState === 'ready' && (
+                        <button
+                            onClick={handleRecognize}
+                            disabled={recognizing}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                            title="Reconeix l'escriptura a mà seleccionada (o tot el llenç) i insereix-la com a text"
+                        >
+                            {recognizing ? <Loader2 size={14} className="animate-spin" /> : <ScanText size={14} />}
+                            {recognizing ? 'Reconeixent…' : 'Passar a text'}
+                        </button>
+                    )}
+                    {loadState === 'ready' && (
+                        <button
+                            onClick={() => setPenOnly((v) => !v)}
+                            aria-pressed={penOnly}
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border rounded-md transition-colors ${penOnly
+                                ? 'text-indigo-700 bg-indigo-50 border-indigo-300'
+                                : 'text-slate-600 bg-slate-50 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
+                            title="Mode només llapis: ignora el tacte per no dibuixar amb el palmell (palm rejection)"
+                        >
+                            <PenLine size={14} /> Només llapis
+                        </button>
+                    )}
                     {loadState === 'ready' && (
                         <button
                             onClick={() => setIsSearchOpen(true)}
