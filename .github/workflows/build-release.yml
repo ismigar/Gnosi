@@ -36,6 +36,11 @@ jobs:
           python3.11 --version
 
       - name: Build frontend
+        env:
+          # El bundle ha crescut (plugins, handwriting, spellcheck, KaTeX…) i el
+          # build de Vite/rollup supera el heap per defecte de Node al runner
+          # (~2 GB) → "JavaScript heap out of memory". Ampliem el heap.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           cd monorepo/apps/gnosi/frontend
           npm install
@@ -85,6 +90,11 @@ jobs:
           npm install
 
       - name: Build frontend
+        env:
+          # El bundle ha crescut (plugins, handwriting, spellcheck, KaTeX…) i el
+          # build de Vite/rollup supera el heap per defecte de Node al runner
+          # (~2 GB) → "JavaScript heap out of memory". Ampliem el heap.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           cd monorepo/apps/gnosi/frontend
           npm install
@@ -132,6 +142,11 @@ jobs:
           npm install
 
       - name: Build frontend
+        env:
+          # El bundle ha crescut (plugins, handwriting, spellcheck, KaTeX…) i el
+          # build de Vite/rollup supera el heap per defecte de Node al runner
+          # (~2 GB) → "JavaScript heap out of memory". Ampliem el heap.
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           cd monorepo/apps/gnosi/frontend
           npm install
