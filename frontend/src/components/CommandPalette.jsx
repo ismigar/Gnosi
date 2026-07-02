@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import {
     Command, Search, FileText, Network, Users, Mail, Calendar, BookOpen,
-    Share2, Image as ImageIcon, Clock, Plus, Sun, Moon, Monitor, Settings, Hash, Presentation, Upload, MessageSquare, LayoutPanelLeft,
+    Share2, Image as ImageIcon, Clock, Plus, Sun, Moon, Monitor, Settings, Hash, Presentation, Upload, MessageSquare, LayoutPanelLeft, Puzzle,
 } from 'lucide-react';
+import { usePluginHost } from '../plugins/usePluginHost';
+import { runCommand } from '../plugins/host';
 
 /**
  * CommandPalette
@@ -82,13 +84,28 @@ export default function CommandPalette() {
         { id: 'act-settings', title: 'Obre Configuració', section: 'Accions', icon: Settings, kw: ['configuració', 'settings', 'preferències', 'ajustos'], run: () => window.dispatchEvent(new CustomEvent('gnosi:open-settings')) },
     ], [navigate, createNote, importNotes]);
 
+    // Comandes contribuïdes per plugins de tercers (executades a l'iframe
+    // sandbox via runCommand). Es fusionen sota la secció "Plugins".
+    const { commands: pluginCommands } = usePluginHost();
+    const allCommands = useMemo(() => {
+        const extra = (pluginCommands || []).map((pc) => ({
+            id: `plugin:${pc.pluginId}:${pc.id}`,
+            title: pc.title,
+            section: 'Plugins',
+            icon: Puzzle,
+            kw: [pc.title.toLowerCase(), 'plugin'],
+            run: () => runCommand(pc.pluginId, pc.id),
+        }));
+        return [...commands, ...extra];
+    }, [commands, pluginCommands]);
+
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
-        if (!q) return commands;
-        return commands.filter(c =>
+        if (!q) return allCommands;
+        return allCommands.filter(c =>
             c.title.toLowerCase().includes(q) || c.kw.some(k => k.includes(q))
         );
-    }, [commands, query]);
+    }, [allCommands, query]);
 
     // Drecera global d'obertura (Cmd/Ctrl+Shift+P).
     useEffect(() => {

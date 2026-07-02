@@ -127,6 +127,16 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
+    # 5. Connecta el sistema de plugins v2 (bus d'esdeveniments → sandbox de
+    #    dades). Idempotent; si falla, els plugins de dades queden inerts però
+    #    la resta del backend arrenca normalment.
+    try:
+        from backend.services.plugin_dispatcher import wire as wire_plugins
+        wire_plugins()
+        log.info("🧩 Sistema de plugins connectat")
+    except Exception as e:
+        log.warning(f"⚠️ No s'ha pogut connectar el sistema de plugins: {e}")
+
     # 4b. Índex de noms de fitxers/carpetes del Vault per a la cerca del picker
     #     ("Seleccionar fitxer o carpeta"). El host_open_helper (Spotlight) no
     #     veu de forma fiable ~/Library/CloudStorage (OneDrive); aquest índex,
