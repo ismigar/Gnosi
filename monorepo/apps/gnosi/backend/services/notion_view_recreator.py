@@ -58,7 +58,11 @@ def parse_mcp_page(page_md: str) -> List[Dict[str, Any]]:
 # ---------------------------------------------------------------------------
 def parse_mcp_view(view_md: str) -> Dict[str, Any]:
     """Extreu {data_source_name, view_type, display_properties, filter_property,
-    filter_value_page_id} d'una vista incrustada retornada per l'MCP."""
+    filter_value_page_id, filters_raw, sorts, group_by} d'una vista incrustada de l'MCP.
+
+    `filters_raw` conserva TOTS els simpleFilters (property/operator/value) perquè
+    `build_gnosi_view` els mapi a filtres de Gnosi (abans només es mirava el primer i únicament
+    per detectar el filtre de relació "aquesta pàgina" → les vistes perdien filtres/ordre/grup)."""
     ds_name = ""
     nm = _DS_NAME_RE.search(view_md)
     if nm:
@@ -66,6 +70,7 @@ def parse_mcp_view(view_md: str) -> Dict[str, Any]:
     meta: Dict[str, Any] = {
         "data_source_name": ds_name, "view_type": "table",
         "display_properties": [], "filter_property": None, "filter_value_page_id": None,
+        "filters_raw": [], "sorts": [], "group_by": None,
     }
     vm = _VIEW_RE.search(view_md)
     if vm:
@@ -75,15 +80,81 @@ def parse_mcp_view(view_md: str) -> Dict[str, Any]:
             meta["display_properties"] = v.get("displayProperties", []) or []
             for f in (v.get("simpleFilters") or []):
                 flt = f.get("filter") or {}
-                if flt.get("type") == "property" and flt.get("property"):
+                if flt.get("type") != "property" or not flt.get("property"):
+                    continue
+                meta["filters_raw"].append(flt)
+                if meta["filter_property"] is None:
                     meta["filter_property"] = flt.get("property")
                     val = ((flt.get("value") or {}).get("value")) or ""
                     pid = _PAGE_ID_RE.search(str(val))
                     meta["filter_value_page_id"] = pid.group(1) if pid else None
-                    break
+            # Ordre i agrupació (si la vista en porta; formats defensius)
+            for s in (v.get("sorts") or []):
+                if not isinstance(s, dict):
+                    continue
+                fld = s.get("property") or s.get("field")
+                if not fld:
+                    continue
+                d = "desc" if str(s.get("direction") or "").lower().startswith("desc") else "asc"
+                meta["sorts"].append({"field": fld, "direction": d})
+            gb = v.get("groupBy") or v.get("group_by")
+            if isinstance(gb, dict):
+                gb = gb.get("property") or gb.get("field")
+            meta["group_by"] = gb or None
         except Exception:
             pass
     return meta
+
+
+def _scalar(v: Any) -> str:
+    """Valor de filtre de Notion → string de Gnosi (checkbox: 'true'/'false', paritat amb
+    vaultFilters.asBool del frontend)."""
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    return "" if v is None else str(v)
+
+
+def _filter_value(flt: Dict[str, Any]) -> Any:
+    """El `value` d'un simpleFilter en qualsevol de les formes vistes de l'MCP:
+    {"type":"exact","value":X} · llista directa · escalar directe."""
+    v = flt.get("value")
+    if isinstance(v, dict):
+        return v.get("value")
+    return v
+
+
+def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """simpleFilter de Notion → filtre de Gnosi {field, operator, value} (None si no mapejable).
+    Operadors de Gnosi (cf. frontend vaultFilters.js): equals, not_equals, contains,
+    not_contains, is_empty, is_not_empty, greater_than, less_than."""
+    prop = flt.get("property")
+    op = str(flt.get("operator") or "")
+    if not prop or not op:
+        return None
+    val = _filter_value(flt)
+    if isinstance(val, list):
+        # llista = OR ("és una de…"); els filtres de Gnosi són AND → només el cas d'un element
+        # és mapejable amb fidelitat.
+        if len(val) != 1:
+            return None
+        val = val[0]
+    if op.endswith("is_not_empty"):
+        return {"field": prop, "operator": "is_not_empty"}
+    if op.endswith("is_empty"):
+        return {"field": prop, "operator": "is_empty"}
+    if "not_contain" in op:
+        return {"field": prop, "operator": "not_contains", "value": _scalar(val)}
+    if "contain" in op:
+        return {"field": prop, "operator": "contains", "value": _scalar(val)}
+    if op.endswith("is_not") or "not_equal" in op:
+        return {"field": prop, "operator": "not_equals", "value": _scalar(val)}
+    if op.endswith("_is") or op in ("is", "equals", "equal"):
+        return {"field": prop, "operator": "equals", "value": _scalar(val)}
+    if "greater" in op or op.endswith("_after"):
+        return {"field": prop, "operator": "greater_than", "value": _scalar(val)}
+    if "less" in op or op.endswith("_before"):
+        return {"field": prop, "operator": "less_than", "value": _scalar(val)}
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -117,11 +188,39 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
         "type": view_meta.get("view_type", "table"),
         "visibleProperties": view_meta.get("display_properties") or [],
     }
-    # Filtre "aquesta pàgina" si la vista de Notion filtrava per relació a l'amfitrió
-    if view_meta.get("filter_value_page_id") and _uid(view_meta["filter_value_page_id"]) == _uid(host_page_id):
+    # TOTS els filtres de la vista: el de relació a la pàgina amfitriona → {value:"this"}
+    # (format històric, el motor el resol al host); la resta → operadors de Gnosi.
+    filters: List[Dict[str, Any]] = []
+    for flt in (view_meta.get("filters_raw") or []):
+        val = _filter_value(flt)
+        # el filtre de relació pot dur la pàgina com a escalar O dins d'una llista
+        _cands = val if isinstance(val, list) else [val]
+        pid = None
+        for c in _cands:
+            m = _PAGE_ID_RE.search(str(c)) if c is not None else None
+            if m:
+                pid = m
+                break
+        if pid and _uid(pid.group(1)) == _uid(host_page_id):
+            fname = resolve_filter_field(target_table, host_table_id, flt.get("property"))
+            if fname:
+                filters.append({"field": fname, "value": "this"})
+            continue
+        mapped = map_simple_filter(flt)
+        if mapped:
+            filters.append(mapped)
+    # Compat: metas antics sense filters_raw però amb el filtre "aquesta pàgina" detectat
+    if not filters and view_meta.get("filter_value_page_id") \
+            and _uid(view_meta["filter_value_page_id"]) == _uid(host_page_id):
         fname = resolve_filter_field(target_table, host_table_id, view_meta.get("filter_property"))
         if fname:
-            view["filters"] = [{"field": fname, "value": "this"}]
+            filters.append({"field": fname, "value": "this"})
+    if filters:
+        view["filters"] = filters
+    if view_meta.get("sorts"):
+        view["sorts"] = [dict(s) for s in view_meta["sorts"]]
+    if view_meta.get("group_by"):
+        view["groupBy"] = view_meta["group_by"]
     return view
 
 

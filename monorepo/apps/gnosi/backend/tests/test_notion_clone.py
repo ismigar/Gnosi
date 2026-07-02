@@ -301,3 +301,71 @@ if __name__ == "__main__":
             failed += 1; print(f"FAIL {fn.__name__}"); traceback.print_exc()
     print(f"\n{len(fns) - failed}/{len(fns)} OK")
     sys.exit(1 if failed else 0)
+
+
+class FakeRestOverride:
+    """Dues BD amb relació dual: l'override del modal (noms AMB emoji + relation_database_id de
+    NOTION) no ha de despullar l'esquema clonat (regressió del bug de Recursos, 2026-07-02)."""
+    def __init__(self):
+        self.dbs = {
+            "recs": {"id": "recs", "title": [{"plain_text": "Recursos"}], "properties": {
+                "Title": {"id": "t", "type": "title", "title": {}},
+                "📀 Projecte": {"id": "r1", "type": "relation",
+                                "relation": {"database_id": "projs"}},
+            }},
+            "projs": {"id": "projs", "title": [{"plain_text": "Projectes"}], "properties": {
+                "Nom": {"id": "t", "type": "title", "title": {}}}},
+        }
+        self.rows = {
+            "recs": [{"id": "11111111-1111-1111-1111-111111111111", "properties": {
+                "Title": {"type": "title", "title": [{"plain_text": "Un llibre"}]},
+                "📀 Projecte": {"type": "relation",
+                                "relation": [{"id": "22222222-2222-2222-2222-222222222222"}]},
+            }}],
+            "projs": [{"id": "22222222-2222-2222-2222-222222222222", "properties": {
+                "Nom": {"type": "title", "title": [{"plain_text": "El projecte"}]}}}],
+        }
+    def list_users(self): return {}
+    def get_database(self, i): return self.dbs[i]
+    def query_database(self, i):
+        for r in self.rows.get(i, []):
+            yield r
+
+
+def test_schema_override_keeps_relations_normalized():
+    from backend.services.notion_schema_config import notion_props_to_modal_schema
+    from backend.services.notion_importer import map_database_schema
+    # L'override tal com el produeix el modal: noms crus (emoji) + ids de relació de Notion,
+    # amb un canvi de config real (storage_folder d'un camp d'arxiu no cal per la regressió).
+    fake = FakeRestOverride()
+    modal = notion_props_to_modal_schema(map_database_schema(fake.dbs["recs"]).get("properties", []))
+    tables, pages = [], []
+    clone_workspace(fake, fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                    write_table=tables.append, write_page=pages.append,
+                    write_view=lambda v: None, database_ids=["recs", "projs"],
+                    target_folder="", schema_overrides={"recs": modal})
+    recs = next(t for t in tables if t["name"] == "Recursos")
+    rel = next(p for p in recs["properties"] if p["type"] == "relation")
+    assert rel["name"] == "Projecte"                       # nom NET (sense emoji)
+    assert rel["relation_database_id"] == clone_table_id("projs")   # id de CLON, no de Notion
+    # ... i els valors es remapen + decoren (no queden ids de Notion crus)
+    rec_page = next(p for p in pages
+                    if p["metadata"].get("table_id") == recs["id"])
+    v = rec_page["metadata"].get("Projecte")
+    assert v == [f"[[El projecte|{clone_page_id('22222222-2222-2222-2222-222222222222')}]]"]
+
+
+def test_notion_files_maps_to_valid_gnosi_type():
+    """Notion 'files' → Gnosi 'files' (tipus vàlid), MAI 'file' (singular): 'file' no existeix
+    al modal ni a VaultTable i corrompia l'esquema en obrir-ne la config (bug 2026-07-02:
+    Articles/Imatge → 'autoria')."""
+    from backend.services.notion_importer import map_database_schema
+    db = {"id": "d1", "title": [{"plain_text": "Articles"}], "properties": {
+        "Títol": {"id": "t", "type": "title", "title": {}},
+        "Imatge": {"id": "i", "type": "files", "files": {}},
+    }}
+    props = {p["name"]: p["type"] for p in map_database_schema(db)["properties"]}
+    assert props["Imatge"] == "files"
+    # i el clon el manté vàlid
+    t = clone_table_schema(db)
+    assert next(p["type"] for p in t["properties"] if p["name"] == "Imatge") == "files"

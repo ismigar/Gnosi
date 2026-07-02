@@ -11,6 +11,7 @@ cf. directiva `notion_exact_clone.md`.
 from __future__ import annotations
 
 import re
+import time
 import uuid
 from typing import Any, Callable, Dict, List, Optional
 
@@ -138,8 +139,17 @@ def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_tabl
             gv = nvr.build_gnosi_view(notion_host_page_id, ct, clone_host_table_id, meta,
                                       meta.get("data_source_name") or ct.get("name") or "Vista")
             gv["id"] = str(uuid.uuid5(_CLONE_NS, f"view:{notion_host_page_id}:{vid}"))
-            # Columnes visibles SENSE emoji (els camps clonats també ho estan) → casen
+            # Camps SENSE emoji (els camps clonats també ho estan) → casen: columnes visibles,
+            # filtres, ordre i agrupació.
             gv["visibleProperties"] = [_clean(x) for x in (gv.get("visibleProperties") or [])]
+            for _f in gv.get("filters") or []:
+                if _f.get("field"):
+                    _f["field"] = _clean(_f["field"])
+            for _s in gv.get("sorts") or []:
+                if _s.get("field"):
+                    _s["field"] = _clean(_s["field"])
+            if gv.get("groupBy"):
+                gv["groupBy"] = _clean(gv["groupBy"])
             views.append(gv)
             return nvr.view_embed(gv["id"])
         except Exception:
@@ -216,6 +226,17 @@ def clone_workspace(
             if schema_overrides and db_id in schema_overrides:
                 from backend.services.notion_schema_config import apply_override
                 table = apply_override(table, schema_overrides[db_id])
+                # L'override ve del MODAL (esquema de /databases/{id}/schema): noms AMB emoji i
+                # relation_database_id de NOTION. Com que substitueix les props ja normalitzades
+                # per clone_table_schema, cal re-normalitzar: sense això els camps de relació
+                # deixaven de casar amb clone_values/decorate i els valors quedaven com a ids de
+                # Notion crus (bug real del clon de Recursos, 2026-07-02).
+                _sel_clone_ids = {clone_table_id(d) for d in database_ids}
+                for p in table.get("properties", []):
+                    p["name"] = _clean(p.get("name"))
+                    tgt = p.get("relation_database_id")
+                    if p.get("type") == "relation" and tgt and tgt not in _sel_clone_ids:
+                        p["relation_database_id"] = clone_table_id(tgt)
             _tname = table.get('name') or 'Taula'
             # Sense subcarpeta (target_folder buit) → la taula penja directament de l'arrel del vault.
             table["folder"] = f"{target_folder}/{_tname}" if target_folder else _tname
@@ -277,6 +298,48 @@ def clone_workspace(
     def _id_to_title(rid):
         return clone_titles.get(rid)
 
+    def _fetch_page_checked(pid) -> str:
+        """fetch_page amb reintents: l'MCP torna '' en error (silenciós) i un fetch buit vol dir
+        COS PERDUT (fins i tot una pàgina buida de Notion torna l'embolcall <page>). Si després
+        de 3 intents segueix buit, es registra com a ERROR al report (abans passava desapercebut:
+        120 cossos perduts al clon del 2026-07-01)."""
+        md = fetch_page(pid)
+        for backoff in (2, 4):
+            if md:
+                return md
+            time.sleep(backoff)
+            md = fetch_page(pid)
+        if not md:
+            report["errors"].append({"page": pid, "stage": "mcp_empty",
+                                     "error": "fetch MCP buit després de 3 intents (cos no clonat)"})
+        return md
+
+    # Mencions/sub-pàgines SENSE títol al markdown de l'MCP → el conversor (pur) emet `[[<id
+    # notion 32-hex>]]`. Aquí (que SÍ tenim context) ho resolem a `[[Títol]]` (el renderer del
+    # cos resol wikilinks per títol): primer via clone_titles; si l'id no és d'aquest clon,
+    # fallback a la REST (get_page, memoitzat). Si no es pot resoldre, es deixa tal qual.
+    _wiki_id_re = re.compile(r"\[\[([0-9a-f]{32})\]\]")
+    _missing_title_cache: Dict[str, Optional[str]] = {}
+
+    def _resolve_body_links(body: str) -> str:
+        if not body or "[[" not in body:
+            return body
+        def repl(m):
+            nid = m.group(1)
+            t = clone_titles.get(clone_page_id(nid))
+            if not t:
+                if nid not in _missing_title_cache:
+                    try:
+                        _missing_title_cache[nid] = _page_title(rest_client.get_page(nid)) or None
+                    except Exception:  # noqa: BLE001
+                        _missing_title_cache[nid] = None
+                t = _missing_title_cache[nid]
+            if not t:
+                return m.group(0)
+            safe = re.sub(r"[\[\]|#]", "", t)
+            return f"[[{safe}]]"
+        return _wiki_id_re.sub(repl, body)
+
     # INVERSOS de relació: Notion mostra les dues bandes (dual relation). Com que ja tenim totes
     # les files recollides, poblem el camp invers de cada destí (best-effort i NOMÉS quan és no
     # ambigu, via relation_sync.resolve_inverse_relation). Així les relacions es veuen completes
@@ -305,7 +368,7 @@ def clone_workspace(
             # (Els adjunts dels camps d'arxiu ja s'han baixat a la passada 2a amb URLs fresques.)
             body = ""
             try:
-                page_md = fetch_page(row["id"])
+                page_md = _fetch_page_checked(row["id"])
                 body = mcp_to_markdown(page_md) if page_md else ""
                 host_pid = str(row["id"]).replace("-", "")
                 body, gviews = resolve_view_markers(
@@ -338,7 +401,7 @@ def clone_workspace(
             write_page({
                 "id": clone_page_id(row["id"]),
                 "title": title,
-                "content": body,
+                "content": _resolve_body_links(body),
                 "metadata": meta,
             })
             report["pages"] += 1
@@ -349,10 +412,11 @@ def clone_workspace(
         """Clona una pàgina autònoma (solta o sub-pàgina): cos+vistes via MCP, adjunts, icona+portada.
         Si té vistes incrustades (linked database views) → és un DASHBOARD."""
         title = _page_title(page) or "Sense títol"
+        clone_titles[clone_page_id(pid)] = title   # que les mencions entre soltes resolguin
         body = ""
         has_views = False
         try:
-            page_md = fetch_page(pid)
+            page_md = _fetch_page_checked(pid)
             body = mcp_to_markdown(page_md) if page_md else ""
             has_views = "gnosi-notion-db:" in body   # marcadors d'embedded db abans de resoldre
             host_pid = str(pid).replace("-", "")
@@ -374,7 +438,8 @@ def clone_workspace(
         if has_views:
             meta["is_dashboard"] = True   # pàgina solta amb vistes incrustades = dashboard
         report["attachments"] += _apply_icon_cover(meta, page, {"name": "Pàgines"}, save_asset)
-        write_page({"id": clone_page_id(pid), "title": title, "content": body, "metadata": meta})
+        write_page({"id": clone_page_id(pid), "title": title,
+                    "content": _resolve_body_links(body), "metadata": meta})
         report["pages"] += 1
 
     # PASSADA 3: pàgines FORA de BD (wiki/dashboard segons tria de l'usuari)
