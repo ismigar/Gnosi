@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, FileText, Hash, FolderClosed, Star, X } from 'lucide-react';
+import { Search, FileText, Hash, FolderClosed, Star, X, Database } from 'lucide-react';
 import { isCalendarPage } from './schemaUtils';
 import { normalizeForSearch } from '../../utils/vaultFilters';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -69,7 +69,7 @@ const matchNote = (note, parsed) => {
     return true;
 };
 
-export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
+export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect, tables = [] }) {
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [saved, setSaved] = useState(loadSaved);
@@ -87,6 +87,37 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
             return matchNote(note, parsed);
         }).slice(0, 30);
     }, [query, allNotes]);
+
+    // Títol de la BD d'origen d'una fila. Tres camins, per ordre de fiabilitat:
+    // 1) resolved_table_id → nom al registre de taules; 2) avantpassat amb
+    // is_database (pàgines-BD wiki); 3) últim segment del folder BD/… (les
+    // files de BD tenen parent_id nul i el seu table_id pot no ser al registre).
+    const getSourceDbTitle = React.useMemo(() => {
+        const byId = new Map(allNotes.map((n) => [n.id, n]));
+        const tableNameById = new Map((tables || []).map((t) => [t.id, t.name]));
+        return (note) => {
+            const rawTableId = note?.resolved_table_id || note?.metadata?.table_id || note?.metadata?.database_table_id;
+            const tableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
+            if (tableId && tableNameById.has(tableId)) return tableNameById.get(tableId);
+
+            let current = note;
+            for (let hop = 0; hop < 8; hop += 1) {
+                const parentId = current?.parent_id;
+                if (!parentId) break;
+                const parent = byId.get(parentId);
+                if (!parent || parent.id === current.id) break;
+                if (parent.is_database) return parent.title || null;
+                current = parent;
+            }
+
+            const folder = String(note?.folder || '');
+            if (/^BD\//i.test(folder)) {
+                const segments = folder.split('/').filter(Boolean);
+                if (segments.length > 1) return segments[1];
+            }
+            return null;
+        };
+    }, [allNotes, tables]);
 
     useEffect(() => {
         if (isOpen) {
@@ -206,6 +237,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         <div className="p-2 space-y-1">
                             {filteredNotes.map((note, index) => {
                                 const isSelected = index === selectedIndex;
+                                const sourceDb = getSourceDbTitle(note);
                                 return (
                                     <button
                                         key={note.id}
@@ -222,7 +254,14 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                                     {note.title || note.id || 'Sense Títol'}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
-                                                    <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">{note.folder}</span>
+                                                    {sourceDb ? (
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">
+                                                            <Database size={10} className="shrink-0" />
+                                                            {sourceDb}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-[11px] font-medium px-1.5 py-0.5 rounded bg-[var(--bg-tertiary)] text-[var(--text-secondary)]">{note.folder}</span>
+                                                    )}
                                                     {noteTags(note).slice(0, 3).map((tg) => (
                                                         <span key={tg} className="text-[11px] text-[var(--text-tertiary)]">#{tg}</span>
                                                     ))}
