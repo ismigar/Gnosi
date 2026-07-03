@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { Database, Link2, Check, Loader, Unlink, Settings, X } from 'lucide-react';
+import { Database, Link2, Check, Loader, Unlink, Settings, X, RotateCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 import { ConfirmModal } from './ConfirmModal';
@@ -52,7 +52,11 @@ export default function NotionImportSettings() {
     const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: esquema SchemaConfigModal}
     const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
     const [loosePages, setLoosePages] = useState(saved.loosePages || false);          // mostra/inclou pàgines soltes
-    const [loosePagesList, setLoosePagesList] = useState(sortByTitle(saved.loosePagesList));     // [{id,title}] pàgines fora de BD
+    // La llista de pàgines soltes NO es restaura de localStorage: és estat del SERVIDOR i
+    // quedava fossilitzada (una llista capturada amb un backend antic es mostrava per sempre
+    // perquè només es re-demanava si era buida). Es demana fresca en obrir amb el toggle
+    // actiu i a cada activació; només persisteix la TRIA (looseSelected/loosePageTypes).
+    const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pàgines fora de BD
     const [loosePageTypes, setLoosePageTypes] = useState(saved.loosePageTypes || {});     // {pageId: "wiki"|"dashboard"}
     const [looseSelected, setLooseSelected] = useState(new Set(saved.looseSelected || [])); // pàgines soltes a clonar/importar
 
@@ -60,13 +64,13 @@ export default function NotionImportSettings() {
     useEffect(() => {
         try {
             localStorage.setItem(CFG_KEY, JSON.stringify({
-                databases, schemaOverrides, loosePages, loosePagesList, loosePageTypes,
+                databases, schemaOverrides, loosePages, loosePageTypes,
                 cloneVaultId, newVaultName,
                 selected: Array.from(selected),
                 looseSelected: Array.from(looseSelected),
             }));
         } catch { /* quota plena o privat: ignora */ }
-    }, [databases, selected, schemaOverrides, loosePages, loosePagesList, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
+    }, [databases, selected, schemaOverrides, loosePages, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
 
     const openSchemaConfig = async (d) => {
         setBusy('schema:' + d.id); setError('');
@@ -192,23 +196,29 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
-    // Carrega les pàgines fora de BD només quan l'usuari activa el toggle (són moltes; evita
-    // la crida si no les vol). Per defecte cap seleccionada: l'usuari tria quines incloure.
-    const toggleLoosePages = async () => {
-        const next = !loosePages;
-        setLoosePages(next);
-        if (next && loosePagesList.length === 0) {
-            setBusy('loose'); setError('');
-            try {
-                const lp = await axios.get('/api/notion/loose-pages', { timeout: 120000 });
-                const pages = sortByTitle(lp.data.pages);
-                setLoosePagesList(pages);
-                setLoosePageTypes(Object.fromEntries(pages.map(p => [p.id, 'wiki'])));
-                setLooseSelected(new Set());
-            } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
-            finally { setBusy(''); }
-        }
-    };
+    // Demana la llista FRESCA de pàgines soltes i hi reconcilia la tria de l'usuari per id:
+    // conserva selecció i tipus de les pàgines que continuen existint, les noves entren
+    // desmarcades (l'usuari tria) i les desaparegudes cauen de la selecció.
+    const fetchLoosePages = useCallback(async () => {
+        setBusy('loose'); setError('');
+        try {
+            const lp = await axios.get('/api/notion/loose-pages', { timeout: 120000 });
+            const pages = sortByTitle(lp.data.pages);
+            const ids = new Set(pages.map(p => p.id));
+            setLoosePagesList(pages);
+            setLoosePageTypes(prev => Object.fromEntries(pages.map(p => [p.id, prev[p.id] || 'wiki'])));
+            setLooseSelected(prev => new Set([...prev].filter(id => ids.has(id))));
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    }, []);
+
+    // La llista es demana quan hi ha connexió i el toggle és actiu: en obrir el panell amb el
+    // toggle persistit i a cada activació. Mai es reutilitza una llista desada (vegeu amunt).
+    useEffect(() => {
+        if (connected && loosePages) fetchLoosePages();
+    }, [connected, loosePages, fetchLoosePages]);
+
+    const toggleLoosePages = () => setLoosePages(v => !v);
 
     const toggle = (id) => setSelected(s => {
         const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
@@ -474,12 +484,19 @@ export default function NotionImportSettings() {
                                         <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
                                             Pàgines fora de BD — marca quines incloure ({looseSelected.size}/{loosePagesList.length})
                                         </div>
-                                        <button type="button"
-                                            onClick={() => setLooseSelected(looseSelected.size === loosePagesList.length
-                                                ? new Set() : new Set(loosePagesList.map(p => p.id)))}
-                                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gnosi-primary)' }}>
-                                            {looseSelected.size === loosePagesList.length ? 'Cap' : 'Tots'}
-                                        </button>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                            <button type="button" onClick={fetchLoosePages} disabled={busy === 'loose'}
+                                                title="Torna a demanar la llista a Notion"
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--text-tertiary)' }}>
+                                                <RotateCw size={13} className={busy === 'loose' ? 'animate-spin' : undefined} />
+                                            </button>
+                                            <button type="button"
+                                                onClick={() => setLooseSelected(looseSelected.size === loosePagesList.length
+                                                    ? new Set() : new Set(loosePagesList.map(p => p.id)))}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gnosi-primary)' }}>
+                                                {looseSelected.size === loosePagesList.length ? 'Cap' : 'Tots'}
+                                            </button>
+                                        </div>
                                     </div>
                                     <div style={{ display: 'grid', gap: 6, maxHeight: 200, overflowY: 'auto', overflowX: 'hidden' }}>
                                         {loosePagesList.map(p => {
