@@ -82,14 +82,28 @@ def load_params(strict_env: bool = True) -> Config:
     except Exception:
         active_params_path = None
 
+    # `Path.exists()` tolerant a errors d'E/S d'OneDrive: un params.yaml online-only encara
+    # no hidratat (o amb la sincronització encallada) fa que `stat()` peti amb EDEADLK/EAGAIN
+    # (Errno 11/35). Sense això, UN fitxer .gnosi no disponible tombava TOTS els endpoints
+    # del vault (500 a get_workspace_context). Es tracta com a "no disponible" i se segueix
+    # amb la config heretada; quan OneDrive el materialitzi, es fusionarà amb normalitat.
+    def _exists_tolerant(p):
+        if p is None:
+            return False
+        try:
+            return p.exists()
+        except OSError as e:
+            log.warning(f"params.yaml no llegible (placeholder OneDrive?): {p} → {e}")
+            return False
+
     env_vault = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
-    if active_params_path and active_params_path.exists():
+    if _exists_tolerant(active_params_path):
         user_params_path = active_params_path
     elif env_vault:
         vault_params = Path(env_vault) / ".gnosi" / "params.yaml"
-        if vault_params.exists():
+        if _exists_tolerant(vault_params):
             user_params_path = vault_params
-    elif home_path.exists():
+    elif _exists_tolerant(home_path):
         user_params_path = home_path
 
     # Si hem carregat el local però aquest defineix un vault que té el seu propi params.yaml, saltem al del vault.
@@ -97,16 +111,21 @@ def load_params(strict_env: bool = True) -> Config:
         vault_raw = params.get("paths", {}).get("vault")
         if vault_raw:
             vault_params = Path(vault_raw) / ".gnosi" / "params.yaml"
-            if vault_params.exists() and vault_params != local_path:
+            if _exists_tolerant(vault_params) and vault_params != local_path:
                 user_params_path = vault_params
 
     # ── 3. Fusionar si hi ha configuració d'usuari ──
     if user_params_path:
         # log.info(f"Fusionant configuració d'usuari des de: {user_params_path}")
-        with open(user_params_path, "r", encoding="utf-8") as f:
-            user_params = yaml.safe_load(f) or {}
-            params = deep_merge(params, user_params)
-        params_path = user_params_path
+        try:
+            with open(user_params_path, "r", encoding="utf-8") as f:
+                user_params = yaml.safe_load(f) or {}
+                params = deep_merge(params, user_params)
+            params_path = user_params_path
+        except OSError as e:
+            # El fitxer s'ha tornat il·legible entre l'exists() i l'open() (placeholder
+            # OneDrive): mateixa política que amunt — config heretada i seguim.
+            log.warning(f"params.yaml il·legible en obrir (placeholder OneDrive?): {user_params_path} → {e}")
 
     # Vault ACTIU: l'origen per a DESAR és sempre el seu params.yaml (es crearà si encara no
     # existeix), encara que els valors s'hagin heretat del per defecte. Així, editar la config

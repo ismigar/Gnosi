@@ -730,14 +730,60 @@ export const VaultSidebar = ({
         };
 
 
+        const ownTableId = (page) =>
+            page.resolved_table_id || page.metadata?.table_id || page.metadata?.database_table_id;
+        const hasOwnDataMarkers = (page) => {
+            const t = ownTableId(page);
+            return page.is_database || (!!t && t !== 'wiki') || page.folder?.startsWith('BD/');
+        };
+
+        // Secció on viu una pàgina: marcadors propis primer (dashboard / dades) i, si no en
+        // té cap, la del seu PARE (cadena de parent_id, memoïtzada i a prova de cicles). Així
+        // una subpàgina sense table_id que penja d'una fila (el fitxer viu a Wiki/, cf.
+        // directiva vault_subpages_hierarchy.md) s'enganxa a l'arbre de la taula del pare, i
+        // una subpàgina d'un dashboard al del dashboard — abans queien al childrenMap del
+        // wiki sota un pare que no s'hi renderitza mai (invisibles).
+        const sectionCache = {};
+        const sectionOf = (page, visiting) => {
+            if (!page) return { kind: 'wiki' };
+            const hit = sectionCache[page.id];
+            if (hit) return hit;
+            const seen = visiting || new Set();
+            if (seen.has(page.id)) return { kind: 'wiki' };   // cicle de parent_id: talla
+            seen.add(page.id);
+            let sec;
+            if (isDashboardPage(page)) {
+                sec = { kind: 'dashboard' };
+            } else if (hasOwnDataMarkers(page)) {
+                let tableId = ownTableId(page);
+                if (!tableId && page.parent_id && pagesById[page.parent_id]) {
+                    const psec = sectionOf(pagesById[page.parent_id], seen);
+                    if (psec.kind === 'data') tableId = psec.tableId;
+                }
+                // Sense taula resoluble es manté el comportament previ: no s'ensenya enlloc.
+                sec = { kind: 'data', tableId: tableId || null };
+            } else if (page.parent_id && pagesById[page.parent_id]) {
+                sec = sectionOf(pagesById[page.parent_id], seen);
+            } else {
+                sec = { kind: 'wiki' };
+            }
+            sectionCache[page.id] = sec;
+            return sec;
+        };
+
         (pages || []).forEach(p => {
-            if (p.metadata?.is_template || isCalendarPage(p) || isAppContent(p)) return;
+            // `isAppContent` tracta tota la carpeta BD/ com a contingut d'app: sense
+            // l'excepció de sota, CAP fila entrava mai als mapes i l'arbre de dades
+            // (files sota la taula, chevron d'expandir, subpàgines de fila) era codi
+            // dorment. Les pàgines amb marcadors de dades propis entren al seu arbre;
+            // Mail/Assets/Calendar/… segueixen fora.
+            if (p.metadata?.is_template || isCalendarPage(p) || (isAppContent(p) && !hasOwnDataMarkers(p))) return;
 
-            if (isDashboardPage(p)) {
-                const parent = p.parent_id ? pagesById[p.parent_id] : null;
-                const parentIsDashboard = isDashboardPage(parent);
+            const parent = p.parent_id ? pagesById[p.parent_id] : null;
+            const sec = sectionOf(p);
 
-                if (parentIsDashboard) {
+            if (sec.kind === 'dashboard') {
+                if (parent && sectionOf(parent).kind === 'dashboard') {
                     if (!computedDashboardChildrenMap[p.parent_id]) computedDashboardChildrenMap[p.parent_id] = [];
                     computedDashboardChildrenMap[p.parent_id].push(p);
                 } else {
@@ -746,42 +792,36 @@ export const VaultSidebar = ({
                 return;
             }
 
-            // Determine if the page belongs to the data section (DB)
-            const tableId = p.resolved_table_id || p.metadata?.table_id || p.metadata?.database_table_id;
-            const isData = p.is_database || (!!tableId && tableId !== 'wiki') || p.folder?.startsWith('BD/');
-
-            if (isData) {
-                let finalTableId = tableId;
-                
-                // If we don't have tableId but it's in BD/, check if the parent has one
-                if (!finalTableId && p.parent_id && pagesById[p.parent_id]) {
-                    finalTableId = pagesById[p.parent_id].resolved_table_id || pagesById[p.parent_id].metadata?.table_id;
-                }
-
-                if (finalTableId) {
-                    if (!computedDataChildrenMap[finalTableId]) {
-                        computedDataChildrenMap[finalTableId] = { roots: [], children: {} };
+            if (sec.kind === 'data') {
+                if (!sec.tableId) return;   // BD/ sense taula resoluble: com abans, fora
+                const psec = parent ? sectionOf(parent) : null;
+                if (psec?.kind === 'data' && psec.tableId === sec.tableId) {
+                    if (!computedDataChildrenMap[sec.tableId]) {
+                        computedDataChildrenMap[sec.tableId] = { roots: [], children: {} };
                     }
-                    
-                    const tableTree = computedDataChildrenMap[finalTableId];
-                    const parentIsInData = p.parent_id && pagesById[p.parent_id] && 
-                                         (pagesById[p.parent_id].resolved_table_id === finalTableId || 
-                                          pagesById[p.parent_id].metadata?.table_id === finalTableId);
-
-                    if (parentIsInData) {
-                        if (!tableTree.children[p.parent_id]) tableTree.children[p.parent_id] = [];
-                        tableTree.children[p.parent_id].push(p);
-                    } else {
-                        tableTree.roots.push(p);
+                    const tableTree = computedDataChildrenMap[sec.tableId];
+                    if (!tableTree.children[p.parent_id]) tableTree.children[p.parent_id] = [];
+                    tableTree.children[p.parent_id].push(p);
+                } else if (hasOwnDataMarkers(p)) {
+                    if (!computedDataChildrenMap[sec.tableId]) {
+                        computedDataChildrenMap[sec.tableId] = { roots: [], children: {} };
                     }
+                    computedDataChildrenMap[sec.tableId].roots.push(p);
+                } else {
+                    // Subpàgina amb el pare desaparegut (fila esborrada): visible al wiki,
+                    // mai com a pseudo-fila arrel de la taula.
+                    computedRootPages.push(p);
                 }
                 return;
             }
 
-            if (p.parent_id) {
+            if (parent) {
                 if (!computedChildrenMap[p.parent_id]) computedChildrenMap[p.parent_id] = [];
                 computedChildrenMap[p.parent_id].push(p);
             } else {
+                // Sense parent_id o amb el pare inexistent: arrel del wiki. Abans, un
+                // parent_id orfe amagava la pàgina per sempre (childrenMap d'un pare que
+                // no es renderitza); ara com a mínim es veu i es pot recol·locar.
                 computedRootPages.push(p);
             }
         });
