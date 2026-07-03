@@ -15,7 +15,12 @@ if [ -f "$REPO_ROOT/.env_shared" ]; then
 fi
 
 # 2) Variables específiques del runtime NATIU (sobreescriuen les de Docker)
-export DIGITAL_BRAIN_VAULT_PATH="$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi"
+# Vault per defecte: mana el valor de `.env_shared` (ja és ruta de host). Només
+# si no hi és, caiem al vault Principal. MAI l'arrel OneDrive-UNED/Gnosi: des
+# del multi-vault és el CONTENIDOR de vaults (Principal/, Notion/, …) —
+# apuntar-hi el backend re-crea tota l'estructura (BD/, Mail/, Assets/…) a
+# l'arrel i el Mail sync hi bolca la bústia sencera.
+export DIGITAL_BRAIN_VAULT_PATH="${DIGITAL_BRAIN_VAULT_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal}"
 export VAULT_HOST_PATH="$DIGITAL_BRAIN_VAULT_PATH"
 export BIBLIOTECA_HOST_PATH="$HOME/Library/CloudStorage/OneDrive-UNED/Biblioteca"
 export HOME_HOST_PATH="$HOME"
