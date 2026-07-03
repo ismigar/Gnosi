@@ -5,11 +5,12 @@ _resolve_personal_vault`). Sense capçalera → el vault principal (compatibilit
 clonar Notion a un vault SEPARAT, validar-lo aïllat i adoptar-lo o descartar-lo.
 """
 import re
+import shutil
 import uuid
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -110,10 +111,11 @@ def create_vault(payload: CreateVaultPayload,
 
 @router.delete("/{vault_id}", dependencies=[Depends(require_role("editor"))])
 def delete_vault(vault_id: str,
+                 delete_files: bool = Query(default=False),
                  ctx: WorkspaceContext = Depends(get_workspace_context),
                  db: Session = Depends(get_mgmt_db)):
-    """Esborra la FILA d'un vault del registre (no toca cap fitxer del disc). No es pot esborrar
-    el vault actiu ni el principal (el de la ruta per defecte)."""
+    """Esborra la FILA d'un vault del registre. Amb `delete_files=true` també ESBORRA la carpeta
+    del disc (per descartar un clon sencer). No es pot esborrar el vault actiu ni el principal."""
     v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
     if not v:
         raise HTTPException(status_code=404, detail="Vault no trobat")
@@ -122,12 +124,23 @@ def delete_vault(vault_id: str,
         raise HTTPException(status_code=400, detail="No pots esborrar el vault actiu; canvia'n primer")
     if (v.path_override or "") == default:
         raise HTTPException(status_code=400, detail="No pots esborrar el vault principal")
+    vpath = Path(v.path_override) if v.path_override else None
     db.delete(v)
     try:
         db.commit()
     except Exception:
         db.rollback()
         raise HTTPException(status_code=500, detail="Error esborrant el vault")
+    if delete_files and vpath:
+        # SEGURETAT: només esborrem si la carpeta viu SOTA l'arrel de vaults (…/Gnosi/) i no és
+        # l'arrel ni el vault per defecte. Així un `delete_files` no pot esborrar res arbitrari.
+        try:
+            root = _default_vault_path().parent.resolve()
+            p = vpath.resolve()
+            if p.exists() and p != root and str(p) != default and root in p.parents:
+                shutil.rmtree(p)
+        except Exception:  # noqa: BLE001
+            pass
     try:
         from backend.services.active_vault_middleware import reset_vault_path_cache
         reset_vault_path_cache()
