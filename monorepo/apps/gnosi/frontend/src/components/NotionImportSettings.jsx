@@ -5,9 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 import { ConfirmModal } from './ConfirmModal';
 
-// Persistència de la config d'import: en tancar el modal de Configuració l'estat de React es
-// perd, així que la desem a localStorage amb autosave i la restaurem en obrir. Els Set es
-// serialitzen com a array. La feina puntual (report, verify, busy, error) NO es persisteix.
+// Persistència de la config d'import: la font de veritat és el SERVIDOR (GET/PUT
+// /api/notion/import-config, per-workspace) perquè sobrevisqui a canvis d'origen
+// (http→https, ports de preview, altre Mac, perfil de navegador — incident 2026-07-03).
+// localStorage queda com a fallback offline i via de migració: pinta l'estat inicial a
+// l'instant i, si el servidor encara no té config però localStorage sí, s'hi puja. Els Set
+// es serialitzen com a array. La feina puntual (report, verify, busy, error) NO es persisteix.
 const CFG_KEY = 'gnosi_notion_import_cfg';
 const loadCfg = () => {
     try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
@@ -60,16 +63,59 @@ export default function NotionImportSettings() {
     const [loosePageTypes, setLoosePageTypes] = useState(saved.loosePageTypes || {});     // {pageId: "wiki"|"dashboard"}
     const [looseSelected, setLooseSelected] = useState(new Set(saved.looseSelected || [])); // pàgines soltes a clonar/importar
 
-    // Autosave: cada canvi a la config es desa a localStorage (debounce no cal, és poc freqüent).
+    // true quan el GET inicial d'/import-config ha anat bé: fins llavors NO es fa cap PUT
+    // (evitaria clobberar la config del servidor amb l'estat inicial/per defecte del component).
+    const serverCfgOkRef = useRef(false);
+
+    // Aplica una config desada (del servidor) a l'estat del panell. Mateixa forma que loadCfg().
+    const applyCfg = useCallback((c) => {
+        setDatabases(sortByTitle(c.databases));
+        setSelected(new Set(c.selected || []));
+        setSchemaOverrides(c.schemaOverrides || {});
+        setCloneVaultId(c.cloneVaultId || '__new__');
+        setNewVaultName(c.newVaultName || 'Notion');
+        setLoosePages(!!c.loosePages);
+        setLoosePageTypes(c.loosePageTypes || {});
+        setLooseSelected(new Set(c.looseSelected || []));
+    }, []);
+
+    // En obrir: carrega la config del SERVIDOR (font de veritat). Si el servidor encara no en
+    // té però localStorage sí (instal·lació antiga), la hi puja (migració). Si el GET falla
+    // (backend antic, offline), es queda el comportament localStorage-only i no es PUTeja mai.
     useEffect(() => {
-        try {
-            localStorage.setItem(CFG_KEY, JSON.stringify({
-                databases, schemaOverrides, loosePages, loosePageTypes,
-                cloneVaultId, newVaultName,
-                selected: Array.from(selected),
-                looseSelected: Array.from(looseSelected),
-            }));
-        } catch { /* quota plena o privat: ignora */ }
+        let alive = true;
+        (async () => {
+            try {
+                const { data } = await axios.get('/api/notion/import-config');
+                if (!alive) return;
+                if (data?.config && Object.keys(data.config).length > 0) {
+                    applyCfg(data.config);
+                } else {
+                    const local = loadCfg();
+                    if (Object.keys(local).length > 0) {
+                        await axios.put('/api/notion/import-config', local).catch(() => {});
+                    }
+                }
+                serverCfgOkRef.current = true;
+            } catch { /* backend sense l'endpoint o offline: només localStorage */ }
+        })();
+        return () => { alive = false; };
+    }, [applyCfg]);
+
+    // Autosave: cada canvi es desa a localStorage (fallback instantani) i, amb debounce,
+    // al servidor (per-workspace). El PUT només s'activa un cop llegida la config del servidor.
+    useEffect(() => {
+        const cfg = {
+            databases, schemaOverrides, loosePages, loosePageTypes,
+            cloneVaultId, newVaultName,
+            selected: Array.from(selected),
+            looseSelected: Array.from(looseSelected),
+        };
+        try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
+        catch { /* quota plena o privat: ignora */ }
+        if (!serverCfgOkRef.current) return undefined;
+        const tid = setTimeout(() => { axios.put('/api/notion/import-config', cfg).catch(() => {}); }, 800);
+        return () => clearTimeout(tid);
     }, [databases, selected, schemaOverrides, loosePages, loosePageTypes, looseSelected, cloneVaultId, newVaultName]);
 
     const openSchemaConfig = async (d) => {
