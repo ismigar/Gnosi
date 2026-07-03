@@ -5,7 +5,6 @@
     "workspaces": [
         "packages/*",
         "apps/*",
-        "apps/gnosi/frontend",
         "apps/gnosi/frontend"
     ],
     "scripts": {
