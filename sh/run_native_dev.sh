@@ -22,7 +22,8 @@ fi
 # l'arrel i el Mail sync hi bolca la bústia sencera.
 export DIGITAL_BRAIN_VAULT_PATH="${DIGITAL_BRAIN_VAULT_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal}"
 export VAULT_HOST_PATH="$DIGITAL_BRAIN_VAULT_PATH"
-export BIBLIOTECA_HOST_PATH="$HOME/Library/CloudStorage/OneDrive-UNED/Biblioteca"
+# (BIBLIOTECA_HOST_PATH retirada: la Biblioteca viu DINS de cada vault —
+# vault-first pur, 2026-07-03 — i es resol sempre com <vault>/Biblioteca.)
 export HOME_HOST_PATH="$HOME"
 # Materialització de fitxers online-only d'OneDrive: en NATIU el backend hi té
 # accés directe, així que els materialitza llegint-los (baixada on-access de

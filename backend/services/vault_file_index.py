@@ -50,7 +50,6 @@ log = logging.getLogger(__name__)
 # ── Configuració ──
 _VAULT_INTERNAL = os.environ.get("DIGITAL_BRAIN_VAULT_PATH") or "/vault"
 _VAULT_HOST = os.environ.get("VAULT_HOST_PATH") or ""
-_BIBLIOTECA_HOST = os.environ.get("BIBLIOTECA_HOST_PATH") or ""
 _LOCAL_DATA = Path(os.environ.get("GNOSI_LOCAL_DATA") or "/app/data")
 _CACHE_PATH = _LOCAL_DATA / "cache" / "vault_file_index.json"
 # Refresc periòdic (segons). El walk és metadata-only (no baixa fitxers).
@@ -107,12 +106,11 @@ def _index_roots() -> List[str]:
     cloudstorage = os.path.join(home, "Library", "CloudStorage")
     if Path(cloudstorage).is_dir():
         return [cloudstorage]
-    # Fallback (layouts sense CloudStorage o fora de Docker): Vault + Biblioteca.
+    # Fallback (layouts sense CloudStorage o fora de Docker): el Vault (la
+    # Biblioteca viu a dins des del disseny vault-first pur).
     roots: List[str] = []
     if Path(_VAULT_INTERNAL).is_dir():
         roots.append(_VAULT_INTERNAL)
-    if _BIBLIOTECA_HOST and Path(_BIBLIOTECA_HOST).is_dir():
-        roots.append(_BIBLIOTECA_HOST)
     return roots
 
 

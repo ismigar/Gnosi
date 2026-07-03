@@ -9268,8 +9268,8 @@ def _resolve_thumb_source(rel_url: str) -> Path:
 def _container_to_host_path(container_path: Path) -> Optional[str]:
     """Tradueix /vault/X → VAULT_HOST_PATH/X (i /vaults/X → VAULTS_ROOT_HOST_PATH/X
     per als vaults germans del multi-vault). Necessari perquè el daemon
-    treballa amb paths del host (qlmanage hi viu). Els mounts identitat
-    (Biblioteca, HOME — mateixa ruta host ↔ contenidor) es passen tal qual."""
+    treballa amb paths del host (qlmanage hi viu). El mount identitat
+    (HOME — mateixa ruta host ↔ contenidor) es passa tal qual."""
     vault_host = os.environ.get("VAULT_HOST_PATH")
     if not vault_host:
         return None
@@ -9285,7 +9285,7 @@ def _container_to_host_path(container_path: Path) -> Optional[str]:
             except ValueError:
                 pass
         resolved = container_path.resolve()  # col·lapsa `..` i symlinks
-        for env_key in ("BIBLIOTECA_HOST_PATH", "HOME_HOST_PATH"):
+        for env_key in ("HOME_HOST_PATH",):
             root = os.environ.get(env_key)
             if not root or not root.rstrip("/"):
                 continue
@@ -12374,18 +12374,23 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
         cand = Path(_expand_host_tilde(s))
         return cand if cand.exists() else None
     try:
-        from backend.services.context_vars import get_active_vault_path
-        # L'arrel del núvol es deriva de la Biblioteca LLEGADA (germana del vault):
-        # amb la resolució vault-first, get_p("BIBLIOTECA") pot tornar la de DINS del
-        # vault i el seu parent seria el vault mateix, no `.../OneDrive-UNED`.
-        biblioteca_root = _biblioteca_roots(get_active_vault_path())[-1]
+        # Arrel del núvol (p. ex. `.../OneDrive-UNED`) en ruta de HOST: l'àvia del
+        # vault actiu (…/OneDrive-UNED/Gnosi/<vault>). Derivada de l'env de host —
+        # no de get_active_vault_path(), que dins Docker tornaria /vault(s).
+        # (Abans s'ancorava a la Biblioteca LLEGADA germana; la Biblioteca ara viu
+        # DINS del vault i ja no serveix d'àncora del núvol.)
+        _vrh = (os.environ.get("VAULTS_ROOT_HOST_PATH") or "").strip()
+        if _vrh:
+            cloud_root = Path(_vrh).parent          # …/Gnosi → …/OneDrive-UNED
+        else:
+            _vh = (os.environ.get("VAULT_HOST_PATH") or "").strip()
+            if _vh:
+                cloud_root = Path(_vh).parent.parent  # …/Gnosi/<vault> → …/OneDrive-UNED
+            else:
+                from backend.services.context_vars import get_active_vault_path
+                cloud_root = get_active_vault_path().parent.parent
     except Exception:
         return None
-    # Arrel del núvol = germana comuna del vault i de Biblioteca (p. ex.
-    # `.../OneDrive-UNED`). Derivada de BIBLIOTECA llegada, que dins Docker ve de
-    # VAULT_HOST_PATH (ruta del host, muntada al contenidor) — no de
-    # get_active_vault_path(), que dins Docker tornaria `/vault`.
-    cloud_root = biblioteca_root.parent
 
     candidates: List[Path] = []
 
@@ -12400,17 +12405,17 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
             candidates.append(cloud_root / rel)
 
     # (3) Intercanvi del home macOS: /Users/<algú>/<resta> → <home_actual>/<resta>.
-    # El home actual es deriva de biblioteca_root (/Users/<actual>/Library/...).
+    # El home actual es deriva de cloud_root (/Users/<actual>/Library/...).
     m_home = re.match(r"^/Users/[^/]+/(.+)$", s)
     if (
         m_home
-        and len(biblioteca_root.parts) >= 3
-        and biblioteca_root.parts[1] == "Users"
+        and len(cloud_root.parts) >= 3
+        and cloud_root.parts[1] == "Users"
     ):
         host_home = (
-            Path(biblioteca_root.parts[0])
-            / biblioteca_root.parts[1]
-            / biblioteca_root.parts[2]
+            Path(cloud_root.parts[0])
+            / cloud_root.parts[1]
+            / cloud_root.parts[2]
         )
         candidates.append(host_home / m_home.group(1))
 
