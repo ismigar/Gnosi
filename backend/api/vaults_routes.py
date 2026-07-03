@@ -48,6 +48,41 @@ def _default_vault_path() -> Path:
     return Path(load_params(strict_env=False).paths.get("VAULT"))
 
 
+def _prune_container_rows(db: Session, ws_id: str, default_path: Path) -> None:
+    """Elimina files ràncies que apunten al CONTENIDOR de vaults (…/Gnosi), no a un vault.
+
+    De l'època pre-multi-vault (o d'un env mal apuntat) pot quedar una fila el path de la
+    qual és ANCESTRE del path d'un altre vault registrat (…/Gnosi vs …/Gnosi/Principal).
+    Seleccionar-la re-crea tota l'estructura (BD/, Mail/, Assets/…) a l'arrel de vaults.
+    Els vaults registrats són sempre germans: un path que conté un altre vault és per
+    definició el contenidor. Comparació lexical (`is_relative_to`), sense tocar el FS
+    (OneDrive). Mai s'esborra la fila del vault per defecte.
+    """
+    rows = db.query(Vault).filter(Vault.workspace_id == ws_id).all()
+    paths = {r.id: Path(r.path_override) for r in rows if r.path_override}
+    default = Path(str(default_path))
+    stale = [
+        r for r in rows
+        if r.id in paths and paths[r.id] != default
+        and any(p != paths[r.id] and p.is_relative_to(paths[r.id])
+                for rid, p in paths.items() if rid != r.id)
+    ]
+    if not stale:
+        return
+    for r in stale:
+        db.delete(r)
+    try:
+        db.commit()
+    except Exception:  # noqa: BLE001
+        db.rollback()
+        return
+    try:
+        from backend.services.active_vault_middleware import reset_vault_path_cache
+        reset_vault_path_cache()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _ensure_main_vault(db: Session, ws_id: str, default_path: Path):
     """Garanteix una fila 'Main Vault' apuntant al vault per defecte (usuaris antics sense fila)."""
     dp = str(default_path)
@@ -69,6 +104,7 @@ def list_vaults(ctx: WorkspaceContext = Depends(get_workspace_context),
                 db: Session = Depends(get_mgmt_db)):
     """Vaults del workspace + quin és l'actiu (el resolt per X-Vault-Id o el principal)."""
     _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
+    _prune_container_rows(db, ctx.workspace_id, _default_vault_path())
     active = str(get_active_vault_path() or "")
     rows = db.query(Vault).filter(Vault.workspace_id == ctx.workspace_id).all()
     vaults = [{"id": v.id, "name": v.name, "path": v.path_override or "",
