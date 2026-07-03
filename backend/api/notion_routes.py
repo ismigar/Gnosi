@@ -10,11 +10,12 @@ cf. directives `notion_exact_clone.md` i `notion_import_configurable_schema.md`.
 import asyncio
 import json
 import re
+import threading
 import uuid
 from typing import List, Optional
 
 import yaml
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, Body, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from backend.services.workspace_service import require_role
@@ -65,6 +66,50 @@ async def notion_status():
 @router.delete("/token", dependencies=[Depends(require_role("admin"))])
 async def delete_token():
     integration_manager.replace_key("notion", {})
+    return {"status": "success"}
+
+
+# ---------------------------------------------------------------------------
+# Config del panell d'importació: PER-WORKSPACE al servidor (no només localStorage).
+# El frontend la desava NOMÉS a localStorage i es perdia a cada canvi d'origen
+# (http→https, port de preview, altre Mac, perfil de navegador) — incident 2026-07-03.
+# Es guarda tal qual (mateixa forma JSON que la clau localStorage
+# `gnosi_notion_import_cfg`) a local_data/system/notion_import_config.json amb
+# escriptura atòmica (safe_write_json) i lock de read-modify-write, com integrations.json.
+# NO va a integrations.json: get_all_safe() emmascararia/mostraria la config com si
+# fos una credencial a la resta de consumidors (mail, calendari, settings).
+# ---------------------------------------------------------------------------
+_IMPORT_CFG_LOCK = threading.Lock()
+
+
+def _import_cfg_path():
+    from backend.config.app_config import load_params
+    return load_params(strict_env=False).paths["LOCAL_DATA"] / "system" / "notion_import_config.json"
+
+
+@router.get("/import-config", dependencies=[Depends(require_role("editor"))])
+async def get_import_config():
+    """Config desada del panell d'importació (databases, selected, schemaOverrides,
+    cloneVaultId, newVaultName, loosePageTypes…). {config: null} si no n'hi ha."""
+    path = _import_cfg_path()
+    if not path.exists():
+        return {"config": None}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:  # noqa: BLE001 — fitxer corrupte = com si no existís
+        return {"config": None}
+    return {"config": data if isinstance(data, dict) else None}
+
+
+@router.put("/import-config", dependencies=[Depends(require_role("editor"))])
+async def put_import_config(payload: dict = Body(...)):
+    """Desa la config del panell d'importació (JSON lliure, mateixa forma que el
+    localStorage del frontend). Sobreescriu sencer (last-write-wins)."""
+    from backend.utils.safe_io import safe_write_json
+    path = _import_cfg_path()
+    with _IMPORT_CFG_LOCK:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        safe_write_json(path, payload, ensure_ascii=False, indent=2)
     return {"status": "success"}
 
 
