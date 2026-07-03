@@ -776,6 +776,10 @@ export default function NotionImportSettings() {
                     folder={cfg.db.title || 'Notion'}
                     tableName={cfg.db.title}
                     currentSchema={cfg.schema}
+                    // Les relacions han d'apuntar a BDs del workspace de NOTION (no a les
+                    // taules del vault local). Id sense guions = table_id_for del backend,
+                    // que és com arriba relation_database_id a l'esquema preconfigurat.
+                    availableTables={databases.map(d => ({ id: String(d.id || '').replace(/-/g, ''), name: d.title }))}
                     onSave={(newSchema) => {
                         // SchemaConfigModal és d'AUTOSAVE: crida onSave a cada canvi (i un cop en
                         // obrir). NO tanquem aquí (tancaria sol en obrir); només desem l'override.

@@ -1014,7 +1014,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     );
 }
 
-export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null }) {
+export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', currentSchema, onSchemaUpdated, onSave, initialEnableSubitems = false, initialVisibleProperties = null, initialEnableTranslation = false, initialEnableDrupalSync = false, initialDrupalBundle = '', initialDrupalFieldMapping = null, tableId = null, availableTables = null }) {
     const { t } = useTranslation();
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
@@ -1118,17 +1118,23 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             setDrupalFieldMapping(initialDrupalFieldMapping || {});
             setEnableSocialPublish(fieldsArray.some((f) => f.system && /xxss|social/i.test(f.name || '')));
 
-            // Load all tables for relations
-            const fetchTables = async () => {
-                try {
-                    const response = await axios.get('/api/vault/tables');
-                    const tables = response.data?.tables || response.data || [];
-                    setAllTables(tables);
-                } catch (err) {
-                    console.error('Error carregant taules per al modal:', err);
-                }
-            };
-            fetchTables();
+            // Taules candidates per a camps de relació. Si el pare en passa una llista
+            // (p.ex. Importa Notion: les BDs del workspace de Notion, no les del vault
+            // local), mana ella; si no, es carreguen les taules del vault actiu.
+            if (Array.isArray(availableTables)) {
+                setAllTables(availableTables);
+            } else {
+                const fetchTables = async () => {
+                    try {
+                        const response = await axios.get('/api/vault/tables');
+                        const tables = response.data?.tables || response.data || [];
+                        setAllTables(tables);
+                    } catch (err) {
+                        console.error('Error carregant taules per al modal:', err);
+                    }
+                };
+                fetchTables();
+            }
 
             // Catàlegs compartits d'opcions (registry arrel `option_catalogs`).
             const fetchSharedCatalogs = async () => {
@@ -1152,7 +1158,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             };
             fetchVirtualComputers();
         }
-    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping]);
+    }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping, availableTables]);
 
     // Comprova si ja existeix un camp botó amb l'acció de traducció.
     // Tot camp `button` rep `button_action` al crear-se (handleUpdateField i
