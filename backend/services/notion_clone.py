@@ -52,9 +52,19 @@ def _clean(name: Any) -> Any:
 
 
 def _child_page_ids(blocks: Any) -> List[str]:
-    """ids de les sub-pàgines (blocs `child_page`) d'una pàgina."""
-    return [b["id"] for b in (blocks or [])
-            if isinstance(b, dict) and b.get("type") == "child_page" and b.get("id")]
+    """ids de les sub-pàgines (blocs `child_page`) d'una pàgina, incloses les niades dins de
+    blocs contenidors (toggle, columna, callout…) via `_children`. NO baixa dins de les
+    `child_page` trobades: els seus fills pertanyen a la subpàgina (el BFS la visita després
+    com a pare); baixar-hi els atribuiria a l'avi."""
+    out: List[str] = []
+    for b in (blocks or []):
+        if not isinstance(b, dict):
+            continue
+        if b.get("type") == "child_page" and b.get("id"):
+            out.append(b["id"])
+            continue
+        out.extend(_child_page_ids(b.get("_children")))
+    return out
 
 
 def _icon_or_cover_url(obj: Any) -> Optional[str]:
@@ -479,7 +489,11 @@ def clone_workspace(
                 _emit("subpages", sub_done, 0)
                 try:
                     page = rest_client.get_page(cid)
-                    _clone_standalone(cid, page, {})
+                    # La jerarquia es conserva NOMÉS via metadata `parent_id` (el fitxer viu a
+                    # Wiki/ igualment): la sidebar nia per parent_id i la pertinença a taula va
+                    # per carpeta — cf. directiva `vault_subpages_hierarchy.md`. Sense això,
+                    # totes les subpàgines s'aplanaven com a soltes del Wiki.
+                    _clone_standalone(cid, page, {"parent_id": clone_page_id(parent)})
                     sub_done += 1
                     to_scan.append(cid)   # recursa: sub-pàgines de la sub-pàgina
                 except Exception as e:  # noqa: BLE001

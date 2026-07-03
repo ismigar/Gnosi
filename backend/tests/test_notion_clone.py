@@ -304,6 +304,58 @@ def test_clone_follows_subpages_recursively_cycle_safe():
     assert rep["pages"] == 3                              # el cicle (Filla→Mare) no en duplica cap
     filla = next(p for p in pages if p["title"] == "Filla")
     assert "table_id" not in filla["metadata"]           # sub-pàgina = pàgina autònoma (sense taula)
+    # La jerarquia es conserva via parent_id (cf. vault_subpages_hierarchy.md): Filla penja de
+    # la fila Mare, Néta de Filla; la fila (llavor) no porta parent_id.
+    mare = next(p for p in pages if p["title"] == "Mare")
+    neta = next(p for p in pages if p["title"] == "Néta")
+    assert filla["metadata"]["parent_id"] == clone_page_id(FakeRestSub.P)
+    assert neta["metadata"]["parent_id"] == clone_page_id(FakeRestSub.C)
+    assert "parent_id" not in mare["metadata"]
+
+
+class FakeRestToggleSub:
+    """Sub-pàgina NIADA dins d'un toggle (via `_children`) + frontera de `child_page`: el bloc
+    de la Filla dins del pare també conté la Néta niada, però la Néta s'ha d'atribuir a la
+    Filla (que el BFS visita com a pare), no a l'avi."""
+    P, C, G = ("p0000000-0000-0000-0000-000000000011",
+               "c0000000-0000-0000-0000-000000000012",
+               "g0000000-0000-0000-0000-000000000013")
+    def list_users(self): return {}
+    def search_databases(self): return [{"id": "areas"}]
+    def get_database(self, i):
+        return {"id": "areas", "title": [{"plain_text": "Àrees"}],
+                "properties": {"Nom": {"id": "t", "type": "title", "title": {}}}}
+    def query_database(self, i):
+        return [{"id": self.P, "icon": None, "properties": {
+            "Nom": {"type": "title", "title": [{"plain_text": "Mare", "type": "text"}]}}}]
+    def get_block_children(self, pid):
+        if pid == self.P:
+            return [{"id": "tg", "type": "toggle", "_children": [
+                {"id": self.C, "type": "child_page", "child_page": {"title": "Filla"},
+                 "_children": [{"id": self.G, "type": "child_page",
+                                "child_page": {"title": "Néta"}}]},
+            ]}]
+        if pid == self.C:
+            return [{"id": self.G, "type": "child_page", "child_page": {"title": "Néta"}}]
+        return []
+    def get_page(self, pid):
+        t = {self.C: "Filla", self.G: "Néta"}.get(pid, "?")
+        return {"id": pid, "icon": None,
+                "properties": {"title": {"type": "title", "title": [{"plain_text": t, "type": "text"}]}}}
+
+
+def test_subpages_inside_toggles_and_child_page_boundary():
+    pages = []
+    clone_workspace(FakeRestToggleSub(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                    write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+                    database_ids=["areas"])
+    filla = next(p for p in pages if p["title"] == "Filla")
+    neta = next(p for p in pages if p["title"] == "Néta")
+    # La Filla (dins del toggle) es descobreix i penja de la fila; abans es perdia perquè
+    # només es miraven els blocs de primer nivell.
+    assert filla["metadata"]["parent_id"] == clone_page_id(FakeRestToggleSub.P)
+    # La Néta penja de la Filla (frontera de child_page), NO de l'avi.
+    assert neta["metadata"]["parent_id"] == clone_page_id(FakeRestToggleSub.C)
 
 
 if __name__ == "__main__":
