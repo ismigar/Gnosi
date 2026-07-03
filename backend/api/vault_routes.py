@@ -9266,7 +9266,8 @@ def _resolve_thumb_source(rel_url: str) -> Path:
 
 
 def _container_to_host_path(container_path: Path) -> Optional[str]:
-    """Tradueix /vault/X → VAULT_HOST_PATH/X. Necessari perquè el daemon
+    """Tradueix /vault/X → VAULT_HOST_PATH/X (i /vaults/X → VAULTS_ROOT_HOST_PATH/X
+    per als vaults germans del multi-vault). Necessari perquè el daemon
     treballa amb paths del host (qlmanage hi viu). Els mounts identitat
     (Biblioteca, HOME — mateixa ruta host ↔ contenidor) es passen tal qual."""
     vault_host = os.environ.get("VAULT_HOST_PATH")
@@ -9275,6 +9276,14 @@ def _container_to_host_path(container_path: Path) -> Optional[str]:
     try:
         rel = container_path.relative_to("/vault")
     except ValueError:
+        # Vault germà actiu (multi-vault): viu sota /vaults, no sota /vault.
+        vaults_root_host = os.environ.get("VAULTS_ROOT_HOST_PATH")
+        if vaults_root_host:
+            try:
+                rel = container_path.relative_to("/vaults")
+                return str(Path(vaults_root_host) / rel)
+            except ValueError:
+                pass
         resolved = container_path.resolve()  # col·lapsa `..` i symlinks
         for env_key in ("BIBLIOTECA_HOST_PATH", "HOME_HOST_PATH"):
             root = os.environ.get(env_key)

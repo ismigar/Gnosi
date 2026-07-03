@@ -4,6 +4,7 @@ El frontend tria el vault actiu amb la capçalera `X-Vault-Id` (vegeu `workspace
 _resolve_personal_vault`). Sense capçalera → el vault principal (compatibilitat enrere). Útil per
 clonar Notion a un vault SEPARAT, validar-lo aïllat i adoptar-lo o descartar-lo.
 """
+import os
 import re
 import shutil
 import uuid
@@ -46,6 +47,14 @@ class CreateVaultPayload(BaseModel):
 
 def _default_vault_path() -> Path:
     return Path(load_params(strict_env=False).paths.get("VAULT"))
+
+
+def _vaults_root() -> Path:
+    """Arrel on viuen els vaults (…/Gnosi al host). En natiu és el pare del vault per
+    defecte; sota Docker el pare de /vault és `/` (arrel del container!), així que el
+    compose munta el contenidor de vaults a /vaults i ho declara via GNOSI_VAULTS_ROOT."""
+    env = os.environ.get("GNOSI_VAULTS_ROOT")
+    return Path(env) if env else _default_vault_path().parent
 
 
 def _prune_container_rows(db: Session, ws_id: str, default_path: Path) -> None:
@@ -124,7 +133,7 @@ def create_vault(payload: CreateVaultPayload,
         path = Path(payload.path)
     else:
         safe = re.sub(r"[^\w\s\-À-ÿ]", "", name).strip() or "Vault"
-        path = _default_vault_path().parent / safe
+        path = _vaults_root() / safe
     try:
         path.mkdir(parents=True, exist_ok=True)
         _scaffold_vault_structure(path)   # Assets, BD, Wiki… → vault llest per usar
@@ -170,8 +179,10 @@ def delete_vault(vault_id: str,
     if delete_files and vpath:
         # SEGURETAT: només esborrem si la carpeta viu SOTA l'arrel de vaults (…/Gnosi/) i no és
         # l'arrel ni el vault per defecte. Així un `delete_files` no pot esborrar res arbitrari.
+        # Sota Docker l'arrel ha de venir de GNOSI_VAULTS_ROOT: el pare de /vault és `/` i la
+        # comprovació `root in p.parents` es tornaria certa per a QUALSEVOL ruta absoluta.
         try:
-            root = _default_vault_path().parent.resolve()
+            root = _vaults_root().resolve()
             p = vpath.resolve()
             if p.exists() and p != root and str(p) != default and root in p.parents:
                 shutil.rmtree(p)
