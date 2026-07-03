@@ -386,7 +386,12 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
     return notion_clone.clone_workspace(
         rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
         write_table=write_table, write_page=write_page, write_view=write_view,
-        database_ids=database_ids or [d["id"] for d in rest.search_databases()],
+        # [] ≠ None: una llista BUIDA és una tria explícita ("cap BD" — p. ex. clon
+        # incremental només de pàgines soltes); abans `or` la convertia en "TOTES les
+        # BD" i un clon només-soltes clonava el workspace sencer. None (payload sense
+        # camp) sí que vol dir "totes" (compat amb crides per API).
+        database_ids=(database_ids if database_ids is not None
+                      else [d["id"] for d in rest.search_databases()]),
         target_folder=tf,
         schema_overrides=schema_overrides,
         save_asset=(save_asset if download_assets else None),
