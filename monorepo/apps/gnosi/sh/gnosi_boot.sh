@@ -17,7 +17,9 @@
 # Docker quan ja corre és un no-op.
 set -u
 
-VAULT="${GNOSI_VAULT:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi}"
+# Vault ACTIU (no l'arrel …/Gnosi: des del multi-vault és el CONTENIDOR de
+# vaults — Principal/, Notion/, … — i .gnosi/ i BD/ viuen DINS de cada vault).
+VAULT="${GNOSI_VAULT:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal}"
 LOG="$HOME/.gnosi_boot.log"
 DOCKER_APP="/Applications/Docker.app"
 
