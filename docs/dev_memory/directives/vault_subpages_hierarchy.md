@@ -44,12 +44,30 @@ soltes del Wiki (símptoma observat: "Wiki inflat" amb 109 subpàgines aplanades
 
 ## Re-walk (reparació del clon ja fet)
 
-- Script idempotent (sandbox): mateixa traversal que la passada 4 contra Notion (REST, token
-  local) → parells `(fill, pare)` → si `clone_page_id(fill)` existeix al vault del clon,
-  `PATCH /api/vault/pages/{id}` amb `{parent_id: clone_page_id(pare)}` i capçalera `X-Vault-Id`
-  del vault del clon. NOMÉS metadata: cap fitxer es mou (cf. §Model.2). Re-executable.
+- Eina: `pipeline/utils/rewalk_subpage_parents.py` (idempotent; dry-run per defecte):
+
+      .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <ID>          # informe
+      .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <ID> --apply  # repara
+
+  L'`<ID>` del vault del clon surt de `GET /api/vaults`. NO baixa arbres de blocs: el pare de
+  cada pàgina surt del `parent` incrustat a `search_pages()` (block_id → owner memoïtzat).
+  `PATCH /api/vault/pages/{clone_page_id(fill)}` amb `{parent_id}` i capçalera `X-Vault-Id`.
+  NOMÉS metadata: cap fitxer es mou (cf. §Model.2). Re-executable.
 - Verificació: el Wiki root del clon queda amb les soltes reals; les subpàgines pengen de les
   seves files/wikis a la sidebar.
+
+### Restrictions / Edge Cases (re-walk i multi-Mac)
+
+- **Executa'l on el vault del clon estigui HIDRATAT.** En un segon Mac, un subarbre d'OneDrive
+  acabat de sincronitzar pot estar encallat al File Provider: `stat()`/`read()` fallen amb
+  `EDEADLK (Errno 11)` per a TOTS els processos (backend, daemons amb FDA inclosos) i
+  l'indexador troba 0 fitxers. Navegar les carpetes amb el FINDER desencalla l'ENUMERACIÓ
+  (noms visibles), però el CONTINGUT continua EDEADLK fins que OneDrive el baixa ("Manté
+  sempre en aquest Mac" al Finder, o temps). No re-intentar amb força bruta: no és Gnosi.
+- Un PATCH amb el vault a mig hidratar pot fallar per pàgina (el fitxer no és llegible);
+  l'script continua i reporta — re-executar quan acabi la baixada (idempotent).
+- `load_params` tolera un `params.yaml` de vault il·legible (warning + config heretada) des
+  del #690 — abans un sol fitxer `.gnosi` encallat tombava tots els endpoints del vault.
 
 ## Pendent (fora d'abast d'aquesta tanda)
 
