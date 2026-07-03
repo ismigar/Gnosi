@@ -124,10 +124,24 @@ def _table_by_id(table_id: str) -> Optional[dict]:
         return None
     return None
 
+# Resolució de Biblioteca (vault-first + fallback llegat): un sol lloc de veritat,
+# compartit amb media_service i el clon de Notion. Vegeu services/biblioteca_paths.py.
+from backend.services.biblioteca_paths import (  # noqa: E402
+    biblioteca_roots as _biblioteca_roots,
+    resolve_biblioteca as _resolve_biblioteca,
+)
+
+
 # Helper function to get active paths
 def get_p(key: str) -> Path:
     from backend.services.context_vars import get_active_vault_path
     base = get_active_vault_path()
+
+    # BIBLIOTECA es resol a part (vault-first amb fallback llegat) i ABANS del dict:
+    # posar-ho al mapping faria un stat() d'OneDrive a CADA crida de get_p per a
+    # qualsevol clau (el dict s'avalua sencer); així només s'hi paga quan es demana.
+    if key == "BIBLIOTECA":
+        return _resolve_biblioteca(base)
 
     # Local-only data root (Docker volume, never on cloud-synced storage).
     # Resolved from env to match paths_config.py.
@@ -138,24 +152,8 @@ def get_p(key: str) -> Path:
     mapping = {
         "VAULT": base,
         "ASSETS": base / "Assets",
-        # Biblioteca és germana del vault (fora de Gnosi). Dins Docker, `base` és
-        # `/vault` i `base.parent` seria `/` → `/Biblioteca` (un dir efímer del
-        # contenidor, no la Biblioteca real del host). Per això, quan corre en
-        # contenidor (VAULT_HOST_PATH definit), resolem a la ruta del HOST, que
-        # es munta en rw a la mateixa ruta (veure docker-compose). Fora de Docker
-        # mantenim el càlcul relatiu al vault actiu.
-        # Override explícit BIBLIOTECA_HOST_PATH (layouts on Biblioteca no és
-        # germana del vault, o un altre núvol). Si no: germana del vault
-        # derivada de VAULT_HOST_PATH (Docker); fora de Docker, relativa al vault.
-        "BIBLIOTECA": (
-            Path(os.environ["BIBLIOTECA_HOST_PATH"])
-            if os.environ.get("BIBLIOTECA_HOST_PATH")
-            else (
-                Path(os.environ["VAULT_HOST_PATH"]).parent / "Biblioteca"
-                if os.environ.get("VAULT_HOST_PATH")
-                else base.parent / "Biblioteca"
-            )
-        ),
+        # (BIBLIOTECA es resol a get_p, ABANS d'aquest dict: vault-first amb
+        # fallback a la llegada germana — vegeu _biblioteca_roots/_resolve_biblioteca.)
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
         "REGISTRY": base / "BD" / "vault_db_registry.json",
@@ -9164,8 +9162,18 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
 
 @router.get("/biblioteca/{rel_path:path}")
 async def serve_biblioteca_file(rel_path: str):
-    """Serves files from the Biblioteca directory (sibling of the vault)."""
-    return await _serve_file_with_containment(get_p("BIBLIOTECA"), rel_path)
+    """Serveix Biblioteca amb resolució vault-first i fallback a la llegada (germana):
+    els enllaços `/api/vault/biblioteca/<rel>` antics segueixen vius encara que el
+    vault tingui Biblioteca pròpia, i a l'inrevés."""
+    from backend.services.context_vars import get_active_vault_path
+    roots = _biblioteca_roots(get_active_vault_path())
+    for root in roots[:-1]:
+        try:
+            if (root / rel_path).exists():   # el containment real es fa a _serve_*
+                return await _serve_file_with_containment(root, rel_path)
+        except OSError:
+            continue
+    return await _serve_file_with_containment(roots[-1], rel_path)
 
 
 @router.get("/raw/{rel_path:path}")
@@ -9633,11 +9641,17 @@ def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
         # `data.url || data.path` → els NOUS adjunts queden PORTABLES per
         # construcció (cap usuari/núvol al valor desat); el contenidor els serveix
         # via serve_biblioteca_file i open/delete els re-arrelen a la màquina actual.
-        try:
-            rel = str(dest_path.relative_to(get_p("BIBLIOTECA"))).replace("\\", "/")
-            url = f"/api/vault/biblioteca/{rel}"
-        except ValueError:
-            url = None  # fora de Biblioteca (no hauria de passar): cau al path absolut
+        # Es prova contra TOTES les arrels (dins del vault i llegada): la mateixa
+        # forma d'URL se serveix amb fallback, així el valor desat no distingeix layouts.
+        from backend.services.context_vars import get_active_vault_path
+        url = None
+        for root in _biblioteca_roots(get_active_vault_path()):
+            try:
+                rel = str(dest_path.relative_to(root)).replace("\\", "/")
+                url = f"/api/vault/biblioteca/{rel}"
+                break
+            except ValueError:
+                continue
         return {"path": str(dest_path), "url": url, "storage": "absolute"}
 
 
@@ -9764,11 +9778,14 @@ async def link_existing_file(body: dict):
     # re-arrelable, la posem a `url`; si no (fora del HOME), queda la ruta
     # absoluta com a últim recurs.
     portable: Optional[str] = None
-    try:
-        rel = p.relative_to(get_p("BIBLIOTECA"))
-        portable = f"/api/vault/biblioteca/{str(rel).replace(os.sep, '/')}"
-    except Exception:
-        pass
+    from backend.services.context_vars import get_active_vault_path
+    for _broot in _biblioteca_roots(get_active_vault_path()):
+        try:
+            rel = p.relative_to(_broot)
+            portable = f"/api/vault/biblioteca/{str(rel).replace(os.sep, '/')}"
+            break
+        except Exception:
+            continue
     if portable is None:
         vault_roots = [get_p("VAULT")]
         vhp = (os.environ.get("VAULT_HOST_PATH") or "").strip()
@@ -12325,14 +12342,20 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     tal qual; mai reescriu el .md. Vegeu `attachment_link_portability.md`.
     """
     s = (raw or "").strip()
-    # (1) Forma relativa servida (adjunts de biblioteca nous, ja portables).
+    # (1) Forma relativa servida (adjunts de biblioteca nous, ja portables). Es prova
+    # contra TOTES les arrels (dins del vault i llegada), com fa serve_biblioteca_file.
     m_rel = re.match(r"^/api/vault/biblioteca/(.+)$", s)
     if m_rel:
         try:
-            cand = get_p("BIBLIOTECA") / urllib.parse.unquote(m_rel.group(1))
+            from backend.services.context_vars import get_active_vault_path
+            rel = urllib.parse.unquote(m_rel.group(1))
+            for _broot in _biblioteca_roots(get_active_vault_path()):
+                cand = _broot / rel
+                if cand.exists():
+                    return cand
         except Exception:
             return None
-        return cand if cand.exists() else None
+        return None
     if s.lower().startswith("file://"):
         rest = s[7:]
         s = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
@@ -12342,11 +12365,15 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
         cand = Path(_expand_host_tilde(s))
         return cand if cand.exists() else None
     try:
-        biblioteca_root = get_p("BIBLIOTECA")
+        from backend.services.context_vars import get_active_vault_path
+        # L'arrel del núvol es deriva de la Biblioteca LLEGADA (germana del vault):
+        # amb la resolució vault-first, get_p("BIBLIOTECA") pot tornar la de DINS del
+        # vault i el seu parent seria el vault mateix, no `.../OneDrive-UNED`.
+        biblioteca_root = _biblioteca_roots(get_active_vault_path())[-1]
     except Exception:
         return None
     # Arrel del núvol = germana comuna del vault i de Biblioteca (p. ex.
-    # `.../OneDrive-UNED`). Derivada de BIBLIOTECA, que dins Docker ve de
+    # `.../OneDrive-UNED`). Derivada de BIBLIOTECA llegada, que dins Docker ve de
     # VAULT_HOST_PATH (ruta del host, muntada al contenidor) — no de
     # get_active_vault_path(), que dins Docker tornaria `/vault`.
     cloud_root = biblioteca_root.parent

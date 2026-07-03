@@ -354,8 +354,8 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
     def save_asset(url, prop, table):
         """Baixa un adjunt al seu lloc segons la config del camp (com el desat natiu):
-        · camp d'arxiu amb `storage_folder='biblioteca'` → carpeta Biblioteca (germana del vault),
-          valor portable `/api/vault/biblioteca/<fitxer>`.
+        · camp d'arxiu amb `storage_folder='biblioteca'` → carpeta Biblioteca DINS del vault
+          del clon (autocontingut), valor portable `/api/vault/biblioteca/<fitxer>`.
         · resta (Assets per defecte, imatges del cos, icones/portades) → Assets/[subcarpeta/]<Taula>/<Camp|_cos>/."""
         from backend.services.notion_attachments import download_to, download_file
         # `prop` és el NOM del camp (o None per al cos/_icones/_portades). Busca'l a l'esquema per
@@ -368,7 +368,10 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         # però acotat perquè un S3 degradat no encalli el clon per sempre (2026-07-01).
         DL_TIMEOUT = 90.0
         if storage == "biblioteca":
-            biblio = vault_routes.get_p("BIBLIOTECA")
+            # DINS del vault del clon (autocontingut: esborrar el vault s'ho emporta tot).
+            # La resolució vault-first de get_p("BIBLIOTECA") la trobarà a partir d'ara;
+            # els vaults amb Biblioteca llegada (germana) no canvien (fallback de lectura).
+            biblio = vault / "Biblioteca"
             fname = download_file(url, biblio, timeout=DL_TIMEOUT)
             return f"/api/vault/biblioteca/{fname}" if fname else None
         clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731

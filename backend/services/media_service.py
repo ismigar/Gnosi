@@ -104,8 +104,12 @@ class MediaService:
         if root == "assets":
             return base / "Assets"
         if root == "biblioteca":
-            # Biblioteca és germana del vault, no dins.
-            return base.parent / "Biblioteca"
+            # Resolució vault-first amb fallback llegat (mateixa regla que
+            # get_p("BIBLIOTECA")): abans es calculava aquí `base.parent/Biblioteca`
+            # a pèl, i per als vaults fills (p. ex. Principal) apuntava a una
+            # carpeta equivocada → el picker sortia buit.
+            from backend.services.biblioteca_paths import resolve_biblioteca
+            return resolve_biblioteca(base)
         if root == "vault":
             return base
         log.warning(f"Root desconegut: {root!r}")
