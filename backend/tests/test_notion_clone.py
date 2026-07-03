@@ -260,22 +260,38 @@ class FakeRestLooseViews:
                 "properties": {"title": {"type": "title", "title": [{"plain_text": t, "type": "text"}]}}}
 
 
-def test_loose_page_with_embedded_views_is_dashboard():
+def test_loose_page_type_is_explicit_not_inferred_from_views():
+    """Regressió (bug 'BD i Wiki a Taulells'): el tipus d'una pàgina solta ve NOMÉS de
+    `loose_page_types` (tria de l'usuari). Tenir una vista incrustada ja NO la converteix en
+    dashboard — abans sí, i això enviava articles del Wiki (una carta amb un toggle "Notes"
+    que incrusta vistes) i contenidors de BD (només el view de la taula) a Taulells."""
     def fetch_page(pid):
         if pid == "dash-page":
             return ('<content>\nText\n<database url="https://notion.so/p/'
                     + FakeRestLooseViews.DB + '" inline="true"></database>\n</content>')
         return '<content>\nNomés text.\n</content>'
+
+    # 'dash-page' TÉ vista incrustada però l'usuari l'ha marcada 'wiki' → ha de quedar wiki.
     pages = []
     clone_workspace(FakeRestLooseViews(), fetch_page=fetch_page,
                     mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
                     write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
                     database_ids=[], follow_subpages=False,
-                    loose_page_types={"wiki-page": "wiki", "dash-page": "wiki"})  # totes "wiki"
-    dash = next(p for p in pages if p["title"] == "Tauler")["metadata"]
-    wiki = next(p for p in pages if p["title"] == "Wiki")["metadata"]
-    assert dash.get("is_dashboard") is True       # té vista incrustada → dashboard (tot i "wiki")
-    assert "is_dashboard" not in wiki              # sense vista → wiki
+                    loose_page_types={"wiki-page": "wiki", "dash-page": "wiki"})
+    with_views = next(p for p in pages if p["title"] == "Tauler")["metadata"]
+    plain = next(p for p in pages if p["title"] == "Wiki")["metadata"]
+    assert "is_dashboard" not in with_views       # té vista PERÒ marcada 'wiki' → NO dashboard
+    assert "is_dashboard" not in plain            # wiki sense vista → wiki
+
+    # Marcada 'dashboard' explícitament → SÍ va a Taulells.
+    pages2 = []
+    clone_workspace(FakeRestLooseViews(), fetch_page=fetch_page,
+                    mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
+                    write_table=lambda t: None, write_page=pages2.append, write_view=lambda v: None,
+                    database_ids=[], follow_subpages=False,
+                    loose_page_types={"dash-page": "dashboard"})
+    explicit = next(p for p in pages2 if p["title"] == "Tauler")["metadata"]
+    assert explicit.get("is_dashboard") is True   # tria explícita 'dashboard' → Taulells
 
 
 def test_clone_follows_subpages_recursively_cycle_safe():
