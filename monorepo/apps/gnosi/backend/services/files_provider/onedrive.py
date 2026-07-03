@@ -56,9 +56,9 @@ class OneDriveProvider(FilesProvider):
         # Roots muntats IDENTITAT al contenidor (mateixa ruta host ↔
         # contenidor, veure docker-compose): els seus paths no necessiten
         # traducció — es passen tal qual al daemon, que valida contra la
-        # seva pròpia allowlist (multi-root des del 2026-05-18). Biblioteca
-        # és el cas principal (PDFs dels Recursos); HOME cobreix adjunts
-        # `~/...` fora del vault (p. ex. Documents/).
+        # seva pròpia allowlist (multi-root des del 2026-05-18). HOME cobreix
+        # adjunts `~/...` fora del vault (p. ex. Documents/); la Biblioteca
+        # viu DINS del vault (vault-first pur) i va pel mount del vault.
         # Es descarta "/" (un env mal configurat convertiria TOT el sistema
         # de fitxers en identity root; el daemon ho rebutjaria igualment,
         # però no hi deleguem la validació). `resolve()` als roots perquè la
@@ -66,7 +66,6 @@ class OneDriveProvider(FilesProvider):
         # ha symlinks pel camí.
         self.identity_roots = [
             Path(p).resolve() for p in (
-                os.environ.get("BIBLIOTECA_HOST_PATH"),
                 os.environ.get("HOME_HOST_PATH"),
             ) if p and p.rstrip("/")
         ]
