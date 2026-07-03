@@ -44,6 +44,8 @@ export default function NotionImportSettings() {
     const [newVaultName, setNewVaultName] = useState(saved.newVaultName || 'Notion');   // nom del vault nou a crear
     const [usedVaultId, setUsedVaultId] = useState(null);  // vault on s'ha clonat realment (per verificar-lo allà)
     const [usedVaultName, setUsedVaultName] = useState('');  // nom d'aquell vault (per la pista «canvia-hi»)
+    const [destClone, setDestClone] = useState(null);   // {tables} si el vault destí JA té un clon (o null)
+    const [confirmDelClone, setConfirmDelClone] = useState(false);  // modal de confirmació d'esborrar el clon
     const [verify, setVerify] = useState(null);
     const [linkedDbs, setLinkedDbs] = useState(null);   // {linked:[{title,page_title,kind}],scanned,capped} o null
     const [mcpConnected, setMcpConnected] = useState(false);
@@ -90,6 +92,20 @@ export default function NotionImportSettings() {
         }
     }, [vaults, cloneVaultId]);
 
+    // Detecta si el vault destí triat JA té un clon (mira el seu registre). Es re-avalua en canviar
+    // de vault i en obrir el panell → l'estat (verificar/esborrar vs clonar) persisteix encara que
+    // tanquis i reobris, perquè es deriva del vault, no d'estat volàtil de React.
+    useEffect(() => {
+        let alive = true;
+        if (busy === 'clone' || !cloneVaultId || cloneVaultId === '__new__' || !vaults.some(v => v.id === cloneVaultId)) {
+            setDestClone(null); return;
+        }
+        axios.get('/api/vault/registry', { headers: { 'X-Vault-Id': cloneVaultId } })
+            .then(({ data }) => { if (alive) setDestClone((data.tables || []).length ? { tables: data.tables.length } : null); })
+            .catch(() => { if (alive) setDestClone(null); });
+        return () => { alive = false; };
+    }, [cloneVaultId, vaults, busy]);
+
     const loadStatus = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/notion/status');
@@ -106,7 +122,9 @@ export default function NotionImportSettings() {
     // Resol el vault destí del clon: si és '__new__', crea un vault germà a l'arrel (…/Gnosi/<nom>)
     // i retorna el seu id; si no, l'id triat. El clon hi escriu via la capçalera X-Vault-Id.
     const resolveCloneVault = async () => {
-        if (cloneVaultId && cloneVaultId !== '__new__' && (!vaults.length || vaults.some(v => v.id === cloneVaultId))) {
+        // Reusa el vault triat NOMÉS si encara existeix (evita enviar l'id d'un vault esborrat, que
+        // el backend resoldria com a Principal). Si no, o si és '__new__', en crea un de nou.
+        if (cloneVaultId && cloneVaultId !== '__new__' && vaults.some(v => v.id === cloneVaultId)) {
             return cloneVaultId;
         }
         const name = (newVaultName.trim() || 'Notion');
@@ -221,6 +239,7 @@ export default function NotionImportSettings() {
             try {
                 const { data } = await axios.get('/api/notion/clone/progress', { timeout: 8000 });
                 setProgress(data);
+                if (pollResumeRef.current && data?.vault_id) setUsedVaultId(data.vault_id);  // per verificar al vault bo
                 if (pollResumeRef.current && data && data.running === false) {
                     stopProgressPoll(); setBusy(''); setProgress(null);
                     setReport({ status: 'success', tables: data.tables, pages: data.pages,
@@ -236,6 +255,7 @@ export default function NotionImportSettings() {
     useEffect(() => {
         let alive = true;
         axios.get('/api/notion/clone/progress', { timeout: 8000 }).then(({ data }) => {
+            if (alive && data?.vault_id) setUsedVaultId(data.vault_id);  // recorda el vault del clon per verificar-hi
             if (alive && data && data.running) {
                 setBusy('clone'); setProgress(data); startProgressPoll(true);
             }
@@ -285,12 +305,37 @@ export default function NotionImportSettings() {
 
     const runVerify = async () => {
         setBusy('verify'); setError(''); setVerify(null);
+        // Verifica al vault ON S'HA CLONAT: prioritza el vault usat pel clon; si no se sap, el
+        // triat al selector (si és un vault real). MAI sense vault → verificaria el vault ACTIU
+        // (sovint Principal) i donaria un resultat fals ("BD OK 0/16"), l'incident del 2026-07-01.
+        const verifyVault = usedVaultId
+            || (cloneVaultId && cloneVaultId !== '__new__' && vaults.some(v => v.id === cloneVaultId) ? cloneVaultId : null);
+        if (!verifyVault) {
+            setError('No sé a quin vault és el clon. Canvia al vault del clon (selector de vaults) i torna a verificar.');
+            setBusy(''); return;
+        }
         try {
             const { data } = await axios.post('/api/notion/verify-clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
                 target_folder: '',   // arrel del vault destí (sense subcarpeta)
-            }, { timeout: 0, headers: usedVaultId ? { 'X-Vault-Id': usedVaultId } : undefined });  // verifica al vault on s'ha clonat
+            }, { timeout: 0, headers: { 'X-Vault-Id': verifyVault } });
             setVerify(data);
+        } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
+        finally { setBusy(''); }
+    };
+
+    // Esborra el clon: elimina el vault destí sencer (fila + carpeta al disc) i reseteja el panell
+    // a "Crear vault nou" perquè es pugui tornar a clonar net.
+    const doDeleteClone = async () => {
+        setConfirmDelClone(false);
+        const vid = cloneVaultId;
+        if (!vid || vid === '__new__') return;
+        setBusy('delclone'); setError('');
+        try {
+            await axios.delete(`/api/vaults/${vid}?delete_files=true`);
+            setDestClone(null); setReport(null); setVerify(null); setUsedVaultId(null);
+            setCloneVaultId('__new__');
+            await loadVaults();
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
     };
@@ -513,22 +558,46 @@ export default function NotionImportSettings() {
                                         <Link2 size={15} /> Connecta MCP (imprescindible)
                                     </button>
                                 )}
-                                <button className="btn-gnosi-primary" onClick={runClone}
-                                    disabled={busy === 'clone' || selected.size === 0 || !mcpConnected}
-                                    title={mcpConnected
-                                        ? "Clon EXACTE de Notion a una carpeta NOVA. No toca el vault actual."
-                                        : "Connecta primer l'MCP per al clon exacte."}
-                                    style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.6 }}>
-                                    {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
-                                    {busy === 'clone' ? t('notion_cloning') : t('notion_clone')}
-                                </button>
-                                {busy === 'clone' && (
-                                    <button onClick={() => setConfirmAbort(true)}
-                                        disabled={progress?.phase === 'cancelled'}
-                                        title="Atura el clon. El que ja s'ha clonat queda al disc (parcial)."
-                                        style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', color: '#e0524e', borderColor: '#e0524e' }}>
-                                        <X size={15} /> {progress?.phase === 'cancelled' ? 'Avortant…' : 'Avortar'}
-                                    </button>
+                                {/* Si el vault destí JA té un clon: no deixem tornar-hi a clonar (duplicats);
+                                    en lloc del botó Clonar mostrem Verifica + Esborra. Persisteix en reobrir. */}
+                                {destClone && busy !== 'clone' ? (
+                                    <>
+                                        <span style={{ fontSize: '0.82rem', color: '#e0a52e', fontWeight: 700 }}>
+                                            ⚠️ Aquest vault ja té un clon ({destClone.tables} BD)
+                                        </span>
+                                        <button className="btn-gnosi-primary" onClick={runVerify} disabled={busy === 'verify'}
+                                            title="Compara Notion ↔ clon d'aquest vault."
+                                            style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
+                                            {busy === 'verify' ? <Loader size={15} className="animate-spin" /> : <Check size={15} />}
+                                            {busy === 'verify' ? 'Verificant…' : 'Verifica el clon'}
+                                        </button>
+                                        <button onClick={() => setConfirmDelClone(true)} disabled={busy === 'delclone'}
+                                            title="Esborra aquest vault clonat (fila + carpeta) per poder tornar a clonar net."
+                                            style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', color: '#e0524e', borderColor: '#e0524e' }}>
+                                            {busy === 'delclone' ? <Loader size={15} className="animate-spin" /> : <X size={15} />}
+                                            {busy === 'delclone' ? 'Esborrant…' : 'Esborra el clon'}
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <button className="btn-gnosi-primary" onClick={runClone}
+                                            disabled={busy === 'clone' || selected.size === 0 || !mcpConnected}
+                                            title={mcpConnected
+                                                ? "Clon EXACTE de Notion a una carpeta NOVA. No toca el vault actual."
+                                                : "Connecta primer l'MCP per al clon exacte."}
+                                            style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.6 }}>
+                                            {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
+                                            {busy === 'clone' ? t('notion_cloning') : t('notion_clone')}
+                                        </button>
+                                        {busy === 'clone' && (
+                                            <button onClick={() => setConfirmAbort(true)}
+                                                disabled={progress?.phase === 'cancelled'}
+                                                title="Atura el clon. El que ja s'ha clonat queda al disc (parcial)."
+                                                style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', color: '#e0524e', borderColor: '#e0524e' }}>
+                                                <X size={15} /> {progress?.phase === 'cancelled' ? 'Avortant…' : 'Avortar'}
+                                            </button>
+                                        )}
+                                    </>
                                 )}
                             </div>
 
@@ -564,8 +633,10 @@ export default function NotionImportSettings() {
 
                     {report && (
                         <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: `1px solid ${report.status === 'cancelled' ? '#e0a52e' : 'var(--settings-border)'}`, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                            {report.status === 'cancelled' ? '⏹️ Clon avortat (parcial): ' : '✓ Clonat: '}<b>{report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
-                            {report.attachments > 0 && <span> · <b>{report.attachments}</b> adjunts</span>}
+                            <div>
+                                {report.status === 'cancelled' ? '⏹️ Clon avortat (parcial): ' : '✓ Clonat: '}<b>{report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
+                                {report.attachments > 0 && <span> · <b>{report.attachments}</b> adjunts</span>}
+                            </div>
                             {usedVaultName && (
                                 <div style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
                                     📁 Al vault <b>«{usedVaultName}»</b> (a l'arrel). Canvia-hi des del selector de vaults per veure'l i validar-lo.
@@ -591,11 +662,19 @@ export default function NotionImportSettings() {
                         </div>
                     )}
 
-                    {verify && (
+                    {verify && (() => {
+                        // Les BD completes (tables_ok == total) ja és un bon clon: els cossos buits i
+                        // relacions òrfenes són detalls menors, no "incidències". Només si FALTEN BD
+                        // ho marquem com a incomplet (àmbar).
+                        const tablesComplete = verify.summary?.tables_ok === verify.summary?.tables_total;
+                        const ok = verify.summary?.healthy || tablesComplete;
+                        return (
                         <div style={{ marginTop: 14, padding: 14, borderRadius: 12, fontSize: '0.85rem', color: 'var(--text-primary)',
-                            background: 'var(--bg-primary)', border: `1px solid ${verify.summary?.healthy ? 'var(--gnosi-primary)' : '#e0a52e'}` }}>
+                            background: 'var(--bg-primary)', border: `1px solid ${ok ? 'var(--gnosi-primary)' : '#e0a52e'}` }}>
                             <div style={{ fontWeight: 800, marginBottom: 8 }}>
-                                {verify.summary?.healthy ? '✅ Clon saludable' : '⚠️ Clon amb incidències'}
+                                {verify.summary?.healthy ? '✅ Clon saludable'
+                                    : tablesComplete ? '✅ Clon complet (detalls menors)'
+                                    : '⚠️ Clon incomplet: falten pàgines'}
                             </div>
                             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
                                 <span>BD OK: <b>{verify.summary?.tables_ok}/{verify.summary?.tables_total}</b></span>
@@ -605,6 +684,11 @@ export default function NotionImportSettings() {
                                 <span style={{ color: verify.summary?.orphan_relations ? '#e0a52e' : 'inherit' }}>Relacions òrfenes: <b>{verify.summary?.orphan_relations}</b></span>
                                 <span style={{ color: verify.summary?.missing_assets ? '#e0a52e' : 'inherit' }}>Adjunts que falten: <b>{verify.summary?.missing_assets}</b></span>
                             </div>
+                            {tablesComplete && !verify.summary?.healthy && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                    Totes les BD estan completes. Els <b>cossos buits</b> són files sense text a Notion i les <b>relacions òrfenes</b> apunten a pàgines fora del clon (esborrades o filtrades) — detalls menors, no falta contingut de BD.
+                                </div>
+                            )}
                             {(verify.tables || []).filter(t => !t.ok).length > 0 && (
                                 <div style={{ display: 'grid', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
                                     {verify.tables.filter(t => !t.ok).map((t, i) => (
@@ -615,7 +699,8 @@ export default function NotionImportSettings() {
                                 </div>
                             )}
                         </div>
-                    )}
+                        );
+                    })()}
                 </>
             )}
 
@@ -645,6 +730,17 @@ export default function NotionImportSettings() {
                 message="El clon s'aturarà al següent punt de control (entre pàgines). El que ja s'ha clonat quedarà al disc com a clon parcial; pots esborrar la carpeta destí i tornar a començar."
                 confirmText="Avortar el clon"
                 cancelText="Continuar clonant"
+                isDestructive={true}
+            />
+
+            <ConfirmModal
+                isOpen={confirmDelClone}
+                onClose={() => setConfirmDelClone(false)}
+                onConfirm={doDeleteClone}
+                title="Esborrar el clon?"
+                message={`S'eliminarà el vault «${vaults.find(v => v.id === cloneVaultId)?.name || ''}» sencer (fila + carpeta al disc) amb tot el clon. Aquesta acció no es pot desfer. Després podràs tornar a clonar net.`}
+                confirmText="Esborra el clon"
+                cancelText="Cancel·la"
                 isDestructive={true}
             />
         </div>

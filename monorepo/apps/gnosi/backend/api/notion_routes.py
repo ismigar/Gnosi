@@ -228,7 +228,7 @@ class ClonePayload(BaseModel):
 # amb polling a GET /clone/progress. Single-user local → n'hi ha prou amb un estat de mòdul (les
 # escriptures/lectures de dict són atòmiques sota el GIL). Es reinicia a l'inici de cada clon.
 _CLONE_PROGRESS: dict = {"running": False, "phase": "idle", "done": 0, "total": 0,
-                         "pages": 0, "tables": 0, "views": 0, "attachments": 0}
+                         "pages": 0, "tables": 0, "views": 0, "attachments": 0, "vault_id": None}
 # Senyal d'avortament cooperatiu: POST /clone/abort el posa a True; clone_workspace el comprova
 # entre elements (via should_cancel) i atura amb CloneAborted (deixa el clon parcial al disc).
 _CLONE_CANCEL: dict = {"flag": False}
@@ -364,7 +364,9 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         storage = str((vault_routes._property_config_value(prop_dict, "storage_folder") if prop_dict else "") or "").strip().lower()
         # Timeout curt: sota xarxa lenta, un fitxer que no baixa en 15s es salta (millor un clon
         # complet amb algun adjunt de menys que quedar-se encallat 60s per fitxer). Els ràpids sí.
-        DL_TIMEOUT = 15.0
+        # Pressupost TOTAL per fitxer: prou generós per a PDFs grans (20-30 MB a ~400KB/s),
+        # però acotat perquè un S3 degradat no encalli el clon per sempre (2026-07-01).
+        DL_TIMEOUT = 90.0
         if storage == "biblioteca":
             biblio = vault_routes.get_p("BIBLIOTECA")
             fname = download_file(url, biblio, timeout=DL_TIMEOUT)
@@ -432,7 +434,8 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
         raise HTTPException(status_code=400, detail=msg)
     _CLONE_CANCEL["flag"] = False
     _CLONE_PROGRESS.update({"running": True, "phase": "starting", "done": 0, "total": 0,
-                            "pages": 0, "tables": 0, "views": 0, "attachments": 0})
+                            "pages": 0, "tables": 0, "views": 0, "attachments": 0,
+                            "vault_id": x_vault_id})  # perquè el frontend verifiqui al vault correcte
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
                                          payload.target_folder, payload.schema_overrides,
