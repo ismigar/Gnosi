@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { useTranslation, Trans } from 'react-i18next';
 import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
@@ -20,6 +21,8 @@ const SELECT_STYLE = {
  * `date`) i es pot confirmar/canviar. Buidar la BD torna al comportament clàssic.
  */
 function DailyNotesConfig() {
+    const { t } = useTranslation();
+    const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { getPluginSettings, setPluginSettings } = usePlugins();
     const cfg = getPluginSettings('daily-notes');
     const [tables, setTables] = useState([]);
@@ -58,13 +61,12 @@ function DailyNotesConfig() {
             display: 'flex', flexDirection: 'column', gap: 12,
         }}>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                Per defecte la nota del dia es desa a la carpeta <code>Daily Notes/</code>. Tria una base
-                de dades per desar-la com a fila d'aquesta taula (p. ex. «Bitàcora»).
+                <Trans i18nKey="settings.plugins.daily_intro" components={{ code: <code /> }} />
             </div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                    Base de dades font
+                    {tp('source_db')}
                 </span>
                 <select
                     style={SELECT_STYLE}
@@ -72,7 +74,7 @@ function DailyNotesConfig() {
                     disabled={loading}
                     onChange={(e) => onPickTable(e.target.value)}
                 >
-                    <option value="">— Cap (carpeta Daily Notes) —</option>
+                    <option value="">{tp('source_none')}</option>
                     {tables.map((t) => (
                         <option key={t.id} value={t.id}>{t.name || t.id}</option>
                     ))}
@@ -82,12 +84,11 @@ function DailyNotesConfig() {
             {selectedTable && (
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                        Columna de data
+                        {tp('date_column')}
                     </span>
                     {dateProps.length === 0 ? (
                         <span style={{ fontSize: 12, color: '#dc2626' }}>
-                            Aquesta taula no té cap columna de tipus «data». Afegeix-ne una per identificar
-                            la nota de cada dia.
+                            {tp('no_date_column')}
                         </span>
                     ) : (
                         <select
@@ -113,6 +114,8 @@ function DailyNotesConfig() {
  * directiva `plugin_system.md`.
  */
 function ThirdPartyPlugins() {
+    const { t } = useTranslation();
+    const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { isEnabled, setPluginEnabled } = usePlugins();
     const [installed, setInstalled] = useState([]);
     const [catalog, setCatalog] = useState({});
@@ -149,7 +152,7 @@ function ThirdPartyPlugins() {
             await axios.put('/api/vault/plugins/registry-url', { url: registryUrl });
             await refresh();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'No s\'ha pogut desar la URL');
+            setError(err?.response?.data?.detail || tp('error_save_url'));
         } finally { setBusy(''); }
     };
 
@@ -161,7 +164,7 @@ function ThirdPartyPlugins() {
             setNewKey({ name: '', public_key: '' });
             await refresh();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'Clau invàlida');
+            setError(err?.response?.data?.detail || tp('error_invalid_key'));
         } finally { setBusy(''); }
     };
 
@@ -196,7 +199,7 @@ function ThirdPartyPlugins() {
             await axios.post('/api/vault/plugins/install', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
             await refresh(); reloadPlugins();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'No s\'ha pogut instal·lar el plugin');
+            setError(err?.response?.data?.detail || tp('error_install_plugin'));
         } finally { setBusy(''); }
     };
 
@@ -206,7 +209,7 @@ function ThirdPartyPlugins() {
             await axios.post('/api/vault/plugins/catalog/install', { id });
             await refresh(); reloadPlugins();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'No s\'ha pogut instal·lar');
+            setError(err?.response?.data?.detail || tp('error_install'));
         } finally { setBusy(''); }
     };
 
@@ -216,7 +219,7 @@ function ThirdPartyPlugins() {
             await axios.delete(`/api/vault/plugins/${encodeURIComponent(id)}`);
             await refresh(); reloadPlugins();
         } catch (err) {
-            setError(err?.response?.data?.detail || 'No s\'ha pogut desinstal·lar');
+            setError(err?.response?.data?.detail || tp('error_uninstall'));
         } finally { setBusy(''); }
     };
 
@@ -224,11 +227,10 @@ function ThirdPartyPlugins() {
         <div style={{ marginTop: 28 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <Puzzle size={18} />
-                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Plugins de tercers</h3>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{tp('third_party_title')}</h3>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-tertiary, #94a3b8)', marginBottom: 12 }}>
-                Plugins instal·lats a <code>.gnosi/plugins/</code>. Corren aïllats en sandbox i només
-                poden fer el que declaren i tu aprovis.
+                <Trans i18nKey="settings.plugins.third_party_desc" components={{ code: <code /> }} />
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
@@ -243,7 +245,7 @@ function ThirdPartyPlugins() {
                         background: 'var(--bg-primary, #fff)', color: 'var(--text-primary, #0f172a)', fontSize: 13, fontWeight: 600,
                     }}
                 >
-                    <Upload size={15} /> {busy === 'zip' ? 'Instal·lant…' : 'Instal·la des d\'un .zip'}
+                    <Upload size={15} /> {busy === 'zip' ? tp('installing') : tp('install_zip')}
                 </button>
             </div>
             {error && (
@@ -252,14 +254,13 @@ function ThirdPartyPlugins() {
                 </div>
             )}
 
-            {loading && <div style={{ fontSize: 13, color: 'var(--text-tertiary, #94a3b8)' }}>Carregant…</div>}
+            {loading && <div style={{ fontSize: 13, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('loading')}</div>}
             {!loading && installed.length === 0 && (
                 <div style={{
                     fontSize: 13, color: 'var(--text-tertiary, #94a3b8)', padding: '12px 14px',
                     borderRadius: 10, border: '1px dashed var(--border-primary, #e2e8f0)',
                 }}>
-                    Cap plugin de tercers instal·lat. Fes servir «Instal·la des d\'un .zip», tria’n un de la
-                    galeria de sota, o copia una carpeta (amb el seu <code>manifest.json</code>) a <code>.gnosi/plugins/</code>.
+                    <Trans i18nKey="settings.plugins.empty_state" components={{ code: <code /> }} />
                 </div>
             )}
 
@@ -271,7 +272,7 @@ function ThirdPartyPlugins() {
                                 padding: '12px 14px', borderRadius: 10, fontSize: 13, color: '#dc2626',
                                 border: '1px solid #fecaca', background: '#fef2f2',
                             }}>
-                                <strong>{p.id}</strong>: plugin trencat — {p.error}
+                                <Trans i18nKey="settings.plugins.broken_plugin" values={{ id: p.id, error: p.error }} components={{ b: <strong /> }} />
                             </div>
                         );
                     }
@@ -292,7 +293,7 @@ function ThirdPartyPlugins() {
                                         {m.name} <span style={{ fontSize: 11, color: 'var(--text-tertiary, #94a3b8)', fontWeight: 400 }}>v{m.version}</span>
                                     </div>
                                     <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                                        {m.description || 'Sense descripció'}{m.author ? ` · ${m.author}` : ''}
+                                        {m.description || tp('no_description')}{m.author ? ` · ${m.author}` : ''}
                                     </div>
                                 </div>
                                 <button
@@ -303,7 +304,7 @@ function ThirdPartyPlugins() {
                                         border: 'none', cursor: 'pointer', flexShrink: 0,
                                         background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)',
                                     }}
-                                    title={enabled ? 'Desactiva' : 'Activa'}
+                                    title={enabled ? tp('disable') : tp('enable')}
                                 >
                                     <span style={{
                                         position: 'absolute', top: 2, left: enabled ? 20 : 2, width: 20, height: 20,
@@ -314,8 +315,8 @@ function ThirdPartyPlugins() {
                                     type="button"
                                     onClick={() => onUninstall(m.id)}
                                     disabled={busy === `del:${m.id}`}
-                                    aria-label="Desinstal·la"
-                                    title="Desinstal·la"
+                                    aria-label={tp('uninstall')}
+                                    title={tp('uninstall')}
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         width: 30, height: 30, borderRadius: 8, flexShrink: 0,
@@ -330,7 +331,7 @@ function ThirdPartyPlugins() {
                             {declared.length > 0 && (
                                 <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     <span style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-tertiary, #94a3b8)' }}>
-                                        Permisos
+                                        {tp('permissions')}
                                     </span>
                                     {declared.map((perm) => (
                                         <label key={perm} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, cursor: 'pointer' }}>
@@ -354,7 +355,7 @@ function ThirdPartyPlugins() {
                 <div style={{ marginTop: 22 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                         <Download size={16} />
-                        <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Galeria</h4>
+                        <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{tp('gallery')}</h4>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         {gallery.map((g) => (
@@ -367,18 +368,18 @@ function ThirdPartyPlugins() {
                                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary, #0f172a)', display: 'flex', alignItems: 'center', gap: 6 }}>
                                         {g.name}
                                         {g.signed && (
-                                            <span title="Signat i verificable" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: '#16a34a' }}>
-                                                <ShieldCheck size={12} /> signat
+                                            <span title={tp('signed_tip')} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 10, fontWeight: 600, color: '#16a34a' }}>
+                                                <ShieldCheck size={12} /> {tp('signed')}
                                             </span>
                                         )}
                                         {g.source === 'url' && !g.signed && (
-                                            <span title="Sense signatura" style={{ fontSize: 10, fontWeight: 600, color: '#d97706' }}>no verificat</span>
+                                            <span title={tp('unsigned_tip')} style={{ fontSize: 10, fontWeight: 600, color: '#d97706' }}>{tp('not_verified')}</span>
                                         )}
                                     </div>
                                     <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{g.description}</div>
                                 </div>
                                 {g.installed ? (
-                                    <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, flexShrink: 0 }}>Instal·lat</span>
+                                    <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, flexShrink: 0 }}>{tp('installed')}</span>
                                 ) : (
                                     <button
                                         type="button"
@@ -390,7 +391,7 @@ function ThirdPartyPlugins() {
                                             background: 'var(--bg-secondary, #f8fafc)', color: 'var(--text-primary, #0f172a)', fontSize: 12, fontWeight: 600,
                                         }}
                                     >
-                                        <Download size={14} /> {busy === `cat:${g.id}` ? 'Instal·lant…' : 'Instal·la'}
+                                        <Download size={14} /> {busy === `cat:${g.id}` ? tp('installing') : tp('install')}
                                     </button>
                                 )}
                             </div>
@@ -402,12 +403,12 @@ function ThirdPartyPlugins() {
             <div style={{ marginTop: 24 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <Globe size={16} />
-                    <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>Font remota i confiança</h4>
+                    <h4 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{tp('remote_title')}</h4>
                 </div>
 
                 <label style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                        URL de l'índex remot de plugins (opcional)
+                        {tp('registry_url_label')}
                     </span>
                     <div style={{ display: 'flex', gap: 8 }}>
                         <input
@@ -423,19 +424,19 @@ function ThirdPartyPlugins() {
                                 border: '1px solid var(--border-primary, #e2e8f0)', cursor: 'pointer',
                                 background: 'var(--bg-secondary, #f8fafc)', color: 'var(--text-primary, #0f172a)',
                             }}
-                        >Desa</button>
+                        >{tp('save')}</button>
                     </div>
                 </label>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
                     <KeyRound size={14} style={{ color: 'var(--text-tertiary, #94a3b8)' }} />
                     <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                        Claus de confiança (editors signats)
+                        {tp('trust_keys')}
                     </span>
                 </div>
                 {trustKeys.length === 0 && (
                     <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)', marginBottom: 8 }}>
-                        Cap clau de confiança. Afegeix la clau pública d'un editor per verificar-ne els plugins signats.
+                        {tp('no_trust_keys')}
                     </div>
                 )}
                 {trustKeys.map((k) => (
@@ -445,20 +446,20 @@ function ThirdPartyPlugins() {
                         <code style={{ fontSize: 11, color: 'var(--text-tertiary, #94a3b8)' }}>{k.fingerprint}…</code>
                         <button
                             type="button" onClick={() => removeTrustKey(k.name)}
-                            aria-label="Elimina" title="Elimina"
+                            aria-label={tp('remove')} title={tp('remove')}
                             style={{ marginLeft: 'auto', border: 'none', background: 'transparent', color: '#dc2626', cursor: 'pointer' }}
                         ><Trash2 size={13} /></button>
                     </div>
                 ))}
                 <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                     <input
-                        type="text" placeholder="nom de l'editor"
+                        type="text" placeholder={tp('publisher_placeholder')}
                         value={newKey.name}
                         onChange={(e) => setNewKey((k) => ({ ...k, name: e.target.value }))}
                         style={{ ...SELECT_STYLE, width: 160 }}
                     />
                     <input
-                        type="text" placeholder="clau pública (base64)"
+                        type="text" placeholder={tp('pubkey_placeholder')}
                         value={newKey.public_key}
                         onChange={(e) => setNewKey((k) => ({ ...k, public_key: e.target.value }))}
                         style={{ ...SELECT_STYLE, flex: 1 }}
@@ -470,7 +471,7 @@ function ThirdPartyPlugins() {
                             border: '1px solid var(--border-primary, #e2e8f0)', cursor: 'pointer',
                             background: 'var(--bg-secondary, #f8fafc)', color: 'var(--text-primary, #0f172a)',
                         }}
-                    >Afegeix</button>
+                    >{tp('add')}</button>
                 </div>
             </div>
         </div>
@@ -484,6 +485,8 @@ function ThirdPartyPlugins() {
 const CONFIGURABLE = { 'daily-notes': DailyNotesConfig };
 
 export function PluginsSettings() {
+    const { t } = useTranslation();
+    const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { isEnabled, setPluginEnabled } = usePlugins();
     const [openConfig, setOpenConfig] = useState(null);
 
@@ -491,10 +494,10 @@ export function PluginsSettings() {
         <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                 <Puzzle size={18} />
-                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Plugins</h3>
+                <h3 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>{tp('title')}</h3>
             </div>
             <p style={{ fontSize: 13, color: 'var(--text-tertiary, #94a3b8)', marginBottom: 16 }}>
-                Activa o desactiva les funcionalitats opcionals del Vault. Els canvis es desen per vault.
+                {tp('desc')}
             </p>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -527,8 +530,8 @@ export function PluginsSettings() {
                                 <button
                                     type="button"
                                     onClick={() => setOpenConfig((cur) => (cur === plugin.id ? null : plugin.id))}
-                                    aria-label="Configura"
-                                    title="Configura"
+                                    aria-label={tp('configure')}
+                                    title={tp('configure')}
                                     style={{
                                         display: 'flex', alignItems: 'center', justifyContent: 'center',
                                         width: 30, height: 30, borderRadius: 8, flexShrink: 0,
@@ -551,7 +554,7 @@ export function PluginsSettings() {
                                     background: enabled ? '#6366f1' : 'var(--border-primary, #cbd5e1)',
                                     transition: 'background 0.15s',
                                 }}
-                                title={enabled ? 'Desactiva' : 'Activa'}
+                                title={enabled ? tp('disable') : tp('enable')}
                             >
                                 <span
                                     style={{

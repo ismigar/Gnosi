@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
 import { X, Folder, ChevronRight, ArrowLeft, Home, Search, File as FileIcon } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import { useTranslation } from 'react-i18next';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
@@ -28,6 +29,8 @@ const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '
  *     ara l'ha de localitzar al disc perquè el navegador no en dóna la ruta).
  */
 export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath = '', mode = 'folder', initialQuery = '' }) {
+    const { t } = useTranslation();
+    const tn = useCallback((k, opts) => t('fs_picker.' + k, opts), [t]);
     const [currentPath, setCurrentPath] = useState(initialPath || '');
     const [displayPath, setDisplayPath] = useState('');
     const [directories, setDirectories] = useState([]);
@@ -98,14 +101,14 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 setSearchResults(Array.isArray(data.results) ? data.results : []);
                 setSearchTruncated(!!data.truncated);
             } catch {
-                setError('Error de connexió');
+                setError(tn('connection_error'));
                 setSearchResults([]);
             } finally {
                 setLoading(false);
             }
         }, 300);
         return () => clearTimeout(handle);
-    }, [isOpen, searchQuery]);
+    }, [isOpen, searchQuery, tn]);
 
     // En canviar de carpeta o de resultats de cerca, torna a ressaltar el
     // primer element (o cap, si la llista és buida). Així ↑↓ i Enter sempre
@@ -148,7 +151,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 setFiles(data.files || []);
             }
         } catch {
-            setError('Error de connexió');
+            setError(tn('connection_error'));
         } finally {
             setLoading(false);
         }
@@ -166,11 +169,11 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     const visibleFiles = isSearching ? [] : (showFiles ? files : []);
 
     const titleText = mode === 'any'
-        ? 'Seleccionar fitxer o carpeta'
-        : (mode === 'file' ? 'Seleccionar fitxer' : 'Seleccionar carpeta');
+        ? tn('title_any')
+        : (mode === 'file' ? tn('title_file') : tn('title_folder'));
     const searchPlaceholder = mode === 'folder'
-        ? 'Cerca carpetes a tot el Mac (≥2 caràcters)...'
-        : 'Cerca a tot el Mac (≥2 caràcters)...';
+        ? tn('search_folders_placeholder')
+        : tn('search_placeholder');
 
     const handleSelectFile = (filename) => {
         const hostPath = joinPath(displayPath || currentPath, filename);
@@ -322,7 +325,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     </h2>
                     <button
                         onClick={onClose}
-                        aria-label="Tancar"
+                        aria-label={tn('close')}
                         className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
                     >
@@ -337,7 +340,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         style={{ padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}
                     >
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                            <div className="text-[var(--text-tertiary)]" style={{ fontSize: '0.7rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ruta real al Mac:</div>
+                            <div className="text-[var(--text-tertiary)]" style={{ fontSize: '0.7rem', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tn('real_path')}</div>
                             <div
                                 className="bg-[var(--bg-primary)] border border-[var(--border-primary)] text-[var(--gnosi-primary)]"
                                 style={{ fontSize: '0.85em', wordBreak: 'break-all', padding: '8px 10px', borderRadius: '4px', fontFamily: 'monospace', lineHeight: '1.4' }}
@@ -347,12 +350,12 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         </div>
                         <button
                             onClick={goUp}
-                            title="Anar enrere (⌫)"
-                            aria-label="Pujar un nivell"
+                            title={tn('go_up_tip')}
+                            aria-label={tn('go_up_aria')}
                             className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]"
                             style={{ background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', padding: '6px 10px', borderRadius: '6px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
                         >
-                            <ArrowLeft size={15} /> Amunt
+                            <ArrowLeft size={15} /> {tn('up')}
                         </button>
                     </div>
 
@@ -361,27 +364,27 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         className="bg-[var(--bg-primary)] border-b border-[var(--border-primary)]"
                         style={{ padding: '8px 12px', display: 'flex', gap: '12px', alignItems: 'center' }}
                     >
-                        <span className="text-[var(--text-tertiary)]" style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase' }}>Dreceres:</span>
+                        <span className="text-[var(--text-tertiary)]" style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase' }}>{tn('shortcuts')}</span>
                         <button
                             onClick={() => browse('/vault')}
                             className="text-[var(--gnosi-primary)] hover:underline"
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
                         >
-                            <Home size={14} /> Vault
+                            <Home size={14} /> {tn('vault')}
                         </button>
                         <button
                             onClick={() => browse('/Users/ismaelgarciafernandez')}
                             className="hover:underline"
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#a78bfa', fontSize: '0.85rem' }}
                         >
-                            <Folder size={14} /> Home
+                            <Folder size={14} /> {tn('home')}
                         </button>
                         <button
                             onClick={() => browse('/')}
                             className="hover:underline"
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#f43f5e', fontSize: '0.85rem' }}
                         >
-                            <Folder size={14} /> Root (/)
+                            <Folder size={14} /> {tn('root')}
                         </button>
                     </div>
 
@@ -406,7 +409,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         ref={listRef}
                         role="listbox"
                         tabIndex={0}
-                        aria-label="Carpetes i fitxers"
+                        aria-label={tn('list_aria')}
                         aria-activedescendant={highlightedIndex >= 0 ? optionId(highlightedIndex) : undefined}
                         onKeyDown={handleListKeyDown}
                         className="bg-[var(--bg-primary)]"
@@ -414,15 +417,15 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     >
                         {loading ? (
                             <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '40px' }}>
-                                {isSearching ? 'Cercant a tot el Mac...' : 'Carregant...'}
+                                {isSearching ? tn('searching') : tn('loading')}
                             </div>
                         ) : error ? (
                             <div style={{ color: '#ef4444', padding: '20px', textAlign: 'center' }}>{error}</div>
                         ) : itemCount === 0 ? (
                             <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '20px', fontSize: '0.9em' }}>
                                 {isSearching
-                                    ? `Cap resultat per a “${searchQuery}”`
-                                    : (showFiles ? "No s'han trobat fitxers ni carpetes" : "No s'han trobat carpetes")}
+                                    ? tn('no_results', { query: searchQuery })
+                                    : (showFiles ? tn('no_files_folders') : tn('no_folders'))}
                             </div>
                         ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -466,7 +469,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                 })}
                                 {isSearching && searchTruncated && (
                                     <div className="text-[var(--text-tertiary)]" style={{ textAlign: 'center', padding: '10px', fontSize: '0.78rem', fontStyle: 'italic' }}>
-                                        Massa resultats — afina la cerca per veure'n més
+                                        {tn('too_many')}
                                     </div>
                                 )}
                             </div>
@@ -482,7 +485,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                             className="text-[var(--text-tertiary)]"
                             style={{ fontSize: '0.72rem', lineHeight: 1.4 }}
                         >
-                            ↑↓ navega · ↵ obre · ⌫ amunt · ⇥ canvia secció
+                            {tn('keyboard_hints')}
                         </span>
                         <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
                             <button
@@ -490,7 +493,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                 className="text-[var(--text-primary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]"
                                 style={{ padding: '8px 16px', borderRadius: '6px', background: 'transparent', cursor: 'pointer' }}
                             >
-                                Cancel·lar
+                                {t('common.cancel')}
                             </button>
                             {canPickFolder && (
                                 <button
@@ -498,7 +501,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                     className="btn-gnosi btn-gnosi-primary"
                                     style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 500 }}
                                 >
-                                    Seleccionar aquesta carpeta
+                                    {tn('select_this_folder')}
                                 </button>
                             )}
                         </div>
