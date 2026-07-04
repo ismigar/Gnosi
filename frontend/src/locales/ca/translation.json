@@ -500,7 +500,7 @@
     "clipboard": "No s'ha pogut copiar",
     "shares_load": "No s'han pogut carregar els enllaços",
     "share_create": "Error creant l'enllaç",
-    "share_revoke": "Error revocant l'enllaç"
+    "share_revoke": "Error revocant l'enllaç",
     "daily_note": "Error obrint la nota diària",
     "record_create": "Error creant el registre",
     "add_schema_option": "No s'ha pogut desar l'opció al schema",
@@ -2116,6 +2116,7 @@
     "error_no_table": "Cal seleccionar una taula origen",
     "error_no_fields": "Cal almenys un camp visible",
     "error_create": "Error desconegut en crear la vista"
+  },
   "metadata_lookup": {
     "button": "Omplir",
     "button_title": "Omplir metadades des de DOI/ISBN/arXiv/URL"
