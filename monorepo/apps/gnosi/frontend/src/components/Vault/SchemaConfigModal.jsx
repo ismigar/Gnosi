@@ -15,6 +15,7 @@ import {
     seedOptionsForFeature,
 } from './optionCatalogUtils';
 import { ConfirmModal } from '../ConfirmModal';
+import { pushModalLayer } from '../../hooks/useModalKeyboard';
 import PromptModal from '../PromptModal';
 import { useTranslation } from 'react-i18next';
 
@@ -1061,6 +1062,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     // Desat pendent (debounce encara no disparat). El fem flush en desmuntar
     // perquè tancar (Esc/X) just després d'editar no perdi l'últim canvi.
     const pendingSaveRef = useRef(null);
+    // Capa d'aquest modal a la pila global (cf. pushModalLayer): compartida
+    // entre l'effect que la registra i el handler d'Esc amb focus al <body>.
+    const modalLayerRef = useRef(null);
 
     useEffect(() => {
         if (!isOpen) {
@@ -1727,20 +1731,28 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     // capturem directament.
     useEffect(() => {
         if (!isOpen) return;
+        // Capa a la pila global de modals: aquest modal pot estar niat DINS
+        // de Configuració (Importa Notion) i tenir un ConfirmModal a sobre.
+        // Cada Esc només ha de tancar la capa superior (cf. useModalKeyboard).
+        const layer = pushModalLayer();
+        modalLayerRef.current = layer;
         const el = modalRef.current;
-        if (!el) return;
         const handleKeyDown = (e) => {
             if (e.key === 'Escape') {
                 e.stopPropagation();
-                onClose();
+                if (layer.isTop()) onClose();
             }
         };
-        el.addEventListener('keydown', handleKeyDown);
+        el?.addEventListener('keydown', handleKeyDown);
         // Focus al COS scrollable (no a l'arrel): així l'Esc funciona (el keydown
         // hi bombolla cap a `el`) i, a més, es pot fer scroll amb el teclat.
         // Donar focus a l'arrel (no scrollable) trencava el scroll amb teclat.
         scrollRef.current?.focus();
-        return () => el.removeEventListener('keydown', handleKeyDown);
+        return () => {
+            el?.removeEventListener('keydown', handleKeyDown);
+            layer.release();
+            modalLayerRef.current = null;
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
@@ -1791,7 +1803,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             // modalRef no veu aquests events (no hi bombollegen). Pels de dins
             // del modal no passem mai d'aquí: aquell listener fa stopPropagation.
             if (e.key === 'Escape' && focusAlBody) {
-                onClose();
+                if (modalLayerRef.current?.isTop()) onClose();
                 return;
             }
             if (dinsDelModal && t.closest('[aria-roledescription]')) return; // nansa dnd-kit

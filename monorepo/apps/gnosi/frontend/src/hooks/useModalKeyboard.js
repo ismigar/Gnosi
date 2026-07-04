@@ -36,6 +36,29 @@
  */
 import { useEffect, useRef } from 'react';
 
+// ── Pila global de capes de modal ──────────────────────────────────────────
+// Amb modals NIATS (Configuració → Importa Notion → esquema / confirmació),
+// cada Esc ha de tancar només el modal SUPERIOR, no tota la pila alhora: com
+// que aquest hook escolta a `window` en fase de captura, sense la pila el
+// modal de sota veia l'Esc del de sobre i es tancava també (l'usuari queia
+// de cop a la home). Cada modal obert registra una capa en obrir-se i
+// l'allibera en tancar; els handlers d'Esc només actuen si la seva capa és
+// la de dalt. Exportada perquè modals amb gestió de teclat pròpia
+// (SchemaConfigModal) també hi comptin.
+const modalLayerStack = [];
+
+export function pushModalLayer() {
+    const token = {};
+    modalLayerStack.push(token);
+    return {
+        isTop: () => modalLayerStack[modalLayerStack.length - 1] === token,
+        release: () => {
+            const i = modalLayerStack.indexOf(token);
+            if (i !== -1) modalLayerStack.splice(i, 1);
+        },
+    };
+}
+
 export function useModalKeyboard({
     isOpen,
     onClose,
@@ -60,6 +83,9 @@ export function useModalKeyboard({
 
     useEffect(() => {
         if (!isOpen) return undefined;
+
+        // Registra aquest modal a la pila de capes: només el de dalt respon a Esc.
+        const layer = pushModalLayer();
 
         // Recordem qui tenia el focus ABANS d'obrir, per restaurar-lo en tancar
         // (accessibilitat). Funciona perquè els modals ja NO usen autoFocus HTML
@@ -95,6 +121,9 @@ export function useModalKeyboard({
 
         const handleKeyDown = (e) => {
             if (closeOnEscape && e.key === 'Escape') {
+                // Amb un modal niat obert a sobre (capa superior d'un altre),
+                // l'Esc és seu: no tanquem ni consumim l'event.
+                if (!layer.isTop()) return;
                 e.preventDefault();
                 onCloseRef.current?.();
                 return;
@@ -148,6 +177,7 @@ export function useModalKeyboard({
         window.addEventListener('keydown', handleKeyDown, true);
         return () => {
             window.removeEventListener('keydown', handleKeyDown, true);
+            layer.release();
             // Restaura el focus a qui el tenia abans d'obrir (només amb trapFocus).
             if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
                 try { previouslyFocused.focus(); } catch { /* l'element ja no existeix */ }
