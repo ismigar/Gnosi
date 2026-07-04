@@ -126,7 +126,7 @@ import { PageViewModal } from './PageViewModal';
 import { FileAttachmentField } from './FileAttachmentField';
 import { FileFieldValue } from './FileFieldValue';
 import { ImageHoverPreview } from './ImageHoverPreview';
-import { isImageFieldName, toAssetPreviewUrl, servedUrlToVaultPath, parseImageField, buildImageValue } from '../../lib/fileResource';
+import { isImageFieldName, toAssetPreviewUrl, servedUrlToVaultPath, parseImageField, buildImageValue, withActiveVault } from '../../lib/fileResource';
 import { AutoriaEditor, AutoriaDisplay } from './AutoriaField';
 import { dedupeAuthors } from './autoriaUtils';
 import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
@@ -156,17 +156,19 @@ const isVisualMediaFile = (file) => nativeBlockTypeFor(file) !== 'file';
 const normalizeVaultAssetUrl = (value) => {
     if (typeof value !== 'string') return value;
 
+    // Les URLs servides porten el vault actiu (withActiveVault) perquè l'`<img>`
+    // natiu resolgui el vault correcte sense capçalera X-Vault-Id.
     if (value.startsWith('Assets/')) {
-        return `/api/vault/assets/${value.substring(7)}`;
+        return withActiveVault(`/api/vault/assets/${value.substring(7)}`);
     }
 
     if (value.startsWith('/api/vault/assets/')) {
-        return value;
+        return withActiveVault(value);
     }
 
     const absAssetMatch = value.match(/^https?:\/\/[^/]+\/api\/vault\/assets\/(.+)$/i);
     if (absAssetMatch?.[1]) {
-        return `/api/vault/assets/${absAssetMatch[1]}`;
+        return withActiveVault(`/api/vault/assets/${absAssetMatch[1]}`);
     }
 
     return value;

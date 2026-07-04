@@ -1,5 +1,6 @@
 import React from 'react';
 import * as LucideIcons from 'lucide-react';
+import { withActiveVault } from '../../lib/fileResource';
 
 const normalizeVaultAssetUrl = (value) => {
     if (typeof value !== 'string') return value;
@@ -60,7 +61,7 @@ export const IconRenderer = ({ icon, size = 16, className = "" }) => {
 
     // 2. Check if it's a URL or path
     if (typeof icon === 'string' && (icon.startsWith('http') || icon.startsWith('/') || icon.includes('.'))) {
-        const src = normalizeVaultAssetUrl(icon);
+        const src = withActiveVault(normalizeVaultAssetUrl(icon));
 
         return (
             <img
