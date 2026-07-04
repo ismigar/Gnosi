@@ -1085,7 +1085,7 @@ export default function VaultDashboard() {
             loadPage(res.data.id);
         } catch (err) {
             console.error("Error creant el registre:", err);
-            toast.error("Error creant el registre");
+            toast.error(t('errors.record_create'));
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableTemplates, fetchPages, loadPage]);
@@ -1606,7 +1606,7 @@ export default function VaultDashboard() {
 
             const newTab = {
                 id: pageId,
-                title: res.data.title || "Sense Títol",
+                title: res.data.title || t('common.untitled'),
                 content: res.data.content,
                 metadata: {
                     ...(res.data.metadata || {}),
@@ -1894,7 +1894,7 @@ export default function VaultDashboard() {
             await fetchPagesByTable(targetTableId);
             loadPage(res.data.id);
         } catch {
-            toast.error("Error creant el registre");
+            toast.error(t('errors.record_create'));
         }
     };
 
@@ -2135,7 +2135,7 @@ export default function VaultDashboard() {
             }
             closePromptModal();
         } catch {
-            toast.error("Error creant el contingut");
+            toast.error(t('errors.create_content'));
             setPromptModal(prev => ({ ...prev, isLoading: false }));
         }
     };
@@ -2188,10 +2188,10 @@ export default function VaultDashboard() {
             try {
                 await axios.post(`/api/vault/pages/${id}/restore`);
                 refreshAfterDelete();
-                toast.success(t('success.page_restored') || 'Pàgina restaurada');
+                toast.success(t('success.page_restored'));
             } catch (err) {
                 console.error('Error restaurant la pàgina:', err);
-                toast.error(t('errors.restore_page') || 'No s\'ha pogut restaurar');
+                toast.error(t('errors.restore_page'));
             }
         };
 
@@ -2202,7 +2202,7 @@ export default function VaultDashboard() {
             toast((tObj) => (
                 <span className="flex items-center gap-3">
                     <span className="truncate max-w-[16rem]">
-                        "{title}" {t('vault.moved_to_trash') || 'mogut a la paperera'}
+                        "{title}" {t('vault.moved_to_trash')}
                     </span>
                     <button
                         type="button"
@@ -2254,11 +2254,11 @@ export default function VaultDashboard() {
             });
             refreshAfter();
             if (succeeded.length > 0) {
-                toast.success(`Restaurats ${succeeded.length} registre${succeeded.length !== 1 ? 's' : ''}`);
+                toast.success(t('vault.records_restored', { count: succeeded.length }));
             }
             if (failed.length > 0) {
                 const reasons = failed.map(f => f.status || '?').join(', ');
-                toast.error(`No s'han pogut restaurar ${failed.length} registre${failed.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+                toast.error(t('vault.records_restore_failed', { count: failed.length, reasons }));
             }
             return { succeeded, failed };
         };
@@ -2301,7 +2301,7 @@ export default function VaultDashboard() {
 
         if (failedDeletes.length > 0) {
             const reasons = failedDeletes.map(f => f.status || '?').join(', ');
-            toast.error(`No s'han pogut eliminar ${failedDeletes.length} registre${failedDeletes.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+            toast.error(t('vault.records_delete_failed', { count: failedDeletes.length, reasons }));
         }
 
         if (deletedIds.length === 0) return;
@@ -2310,7 +2310,7 @@ export default function VaultDashboard() {
         toast((tObj) => (
             <span className="flex items-center gap-3">
                 <span>
-                    {count} registre{count !== 1 ? 's' : ''} mogut{count !== 1 ? 's' : ''} a la paperera
+                    {t('vault.records_trashed', { count })}
                 </span>
                 <button
                     type="button"
@@ -2320,7 +2320,7 @@ export default function VaultDashboard() {
                     }}
                     className="px-2 py-0.5 rounded text-xs font-semibold bg-[var(--gnosi-primary)] text-white hover:opacity-90"
                 >
-                    Desfer
+                    {t('common.undo')}
                 </button>
             </span>
         ), { duration: 8000 });
@@ -2350,11 +2350,11 @@ export default function VaultDashboard() {
             else void fetchPages();
 
             if (succeeded.length > 0) {
-                toast.success(`Restaurats ${succeeded.length} registre${succeeded.length !== 1 ? 's' : ''}`);
+                toast.success(t('vault.records_restored', { count: succeeded.length }));
             }
             if (failed.length > 0) {
                 const reasons = failed.map(f => f.status || '?').join(', ');
-                toast.error(`No s'han pogut restaurar ${failed.length} registre${failed.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+                toast.error(t('vault.records_restore_failed', { count: failed.length, reasons }));
             }
 
             if (succeeded.length === 0) {
@@ -2396,11 +2396,11 @@ export default function VaultDashboard() {
                 const nextPages = pages.filter(p => !succeeded.includes(p.id));
                 syncPagesState(nextPages);
                 succeeded.forEach(id => handleTabClose(id));
-                toast.success(`Tornat a eliminar ${succeeded.length} registre${succeeded.length !== 1 ? 's' : ''}`);
+                toast.success(t('vault.records_redeleted', { count: succeeded.length }));
             }
             if (failed.length > 0) {
                 const reasons = failed.map(f => f.status || '?').join(', ');
-                toast.error(`No s'han pogut tornar a eliminar ${failed.length} registre${failed.length !== 1 ? 's' : ''} (codis: ${reasons})`);
+                toast.error(t('vault.records_redelete_failed', { count: failed.length, reasons }));
             }
 
             if (activeTableId) void fetchPagesByTable(activeTableId);
@@ -2431,13 +2431,13 @@ export default function VaultDashboard() {
     const handleDuplicatePage = useCallback(async (pageId) => {
         try {
             const res = await axios.post(`/api/vault/pages/${pageId}/duplicate`);
-            toast.success("Pàgina duplicada");
+            toast.success(t('success.page_duplicated'));
             await fetchPages();
             loadPage(res.data.id);
         } catch {
-            toast.error("Error duplicant la pàgina");
+            toast.error(t('errors.duplicate_page'));
         }
-    }, [fetchPages, loadPage]);
+    }, [fetchPages, loadPage, t]);
 
     const handleRenamePage = useCallback(async (pageId, newTitle) => {
         try {
@@ -2464,11 +2464,11 @@ export default function VaultDashboard() {
             // backend tampoc no fa "rewrite" automàtic dels wikilinks
             // existents, això requeriria un job separat).
             void fetchGlobalIndex();
-            toast.success("Títol actualitzat");
+            toast.success(t('success.title_updated'));
         } catch {
-            toast.error("Error renomenant la pàgina");
+            toast.error(t('errors.rename_page'));
         }
-    }, [fetchPages, setTabs]);
+    }, [fetchPages, setTabs, t]);
 
     const handleToggleFavorite = useCallback(async (pageId) => {
         if (!pageId) return;
@@ -2553,9 +2553,8 @@ export default function VaultDashboard() {
             );
             await fetchRegistry();
         } catch (err) {
-            notifyError('add-schema-option', err, t('errors.add_schema_option') || 'No s\'ha pogut desar l\'opció al schema');
+            notifyError('add-schema-option', err, t('errors.add_schema_option'));
         }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchRegistry, t]);
 
     // Filter all notes from all folders to find favorites?
@@ -2677,7 +2676,7 @@ export default function VaultDashboard() {
                 return {
                     type: 'page',
                     id: page.id,
-                    title: page.title || 'Sense títol',
+                    title: page.title || t('common.untitled'),
                     subtitle
                 };
             });
@@ -3141,7 +3140,7 @@ export default function VaultDashboard() {
         return (
             <div className="h-full flex flex-col bg-white border-l border-slate-200 shadow-xl overflow-hidden min-w-[350px]">
                 <VaultViewsHeader
-                    tableName={table?.title || table?.name || "Taula"}
+                    tableName={table?.title || table?.name || t('common.table')}
                     recordCount={paneNotes.length}
                     notes={paneNotes}
                     referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
@@ -3286,7 +3285,7 @@ export default function VaultDashboard() {
             canDeleteCurrentPage={Boolean(currentOpenPage)}
             onDeleteCurrentPage={() => {
                 if (!currentOpenPage) return;
-                handleDeletePage(currentOpenPage.id, currentOpenPage.title || 'Sense títol');
+                handleDeletePage(currentOpenPage.id, currentOpenPage.title || t('common.untitled'));
             }}
             canToggleCodeView={canToggleCodeView}
             isCodeView={isCodeViewActive}
@@ -3381,7 +3380,7 @@ export default function VaultDashboard() {
                     ) : viewMode === 'drawing' ? (
                         <div className="flex-1 flex flex-col overflow-hidden min-w-0 bg-[var(--bg-primary)]">
                             {activeTabId ? (
-                                <Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-[var(--text-secondary)] animate-pulse">Carregant editor de dibuix…</div>}>
+                                <Suspense fallback={<div className="flex-1 flex items-center justify-center text-sm text-[var(--text-secondary)] animate-pulse">{t('editor.loading_drawing_editor')}</div>}>
                                     <TldrawEditor
                                         key={activeTabId}
                                         drawingId={activeTabId}

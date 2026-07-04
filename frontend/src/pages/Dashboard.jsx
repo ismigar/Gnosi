@@ -329,9 +329,9 @@ function Dashboard() {
             setEditorContent(data.content);
             setEditingDirective(directive);
         } catch (e) {
-            toast.error("Error al carregar la directiva");
+            toast.error(t('dashboard.directive_load_error'));
         }
-    }, [apiFetch]);
+    }, [apiFetch, t]);
 
     const handleSaveDirective = useCallback(async () => {
         if (!editingDirective) return;
@@ -344,17 +344,17 @@ function Dashboard() {
                     content: editorContent
                 })
             });
-            toast.success("Directiva desada correctament");
+            toast.success(t('dashboard.directive_saved'));
             setEditingDirective(null);
             fetchDirectives(directivesPage);
             fetchApprovedTools();
             fetchAnalytics();
         } catch (e) {
-            toast.error("Error al desar la directiva");
+            toast.error(t('dashboard.directive_save_error'));
         } finally {
             setIsEditorSaving(false);
         }
-    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, apiFetch]);
+    }, [editingDirective, editorContent, directivesPage, fetchApprovedTools, fetchAnalytics, apiFetch, t]);
 
     const handleDeleteDirective = (directive) => setConfirmDeleteDirective(directive);
 
@@ -362,17 +362,17 @@ function Dashboard() {
         const directive = confirmDeleteDirective;
         setConfirmDeleteDirective(null);
         if (!directive) return;
-        const type = directive.path?.includes("pipeline/skills") ? "skill" : "directiva";
+        const isSkill = directive.path?.includes("pipeline/skills");
         try {
             await apiFetch(`/api/analytics/directives?path=${encodeURIComponent(directive.path)}`, {
                 method: 'DELETE'
             });
-            toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} eliminada`);
+            toast.success(isSkill ? t('dashboard.skill_deleted') : t('dashboard.directive_deleted'));
             fetchDirectives(directivesPage);
             fetchApprovedTools();
             fetchAnalytics();
         } catch (e) {
-            toast.error(`Error al eliminar la ${type}`);
+            toast.error(isSkill ? t('dashboard.skill_delete_error') : t('dashboard.directive_delete_error'));
         }
     };
 
@@ -382,10 +382,10 @@ function Dashboard() {
         setConfirmPurgeHistory(false);
         try {
             await apiFetch('/api/schedulers/history', { method: 'DELETE' });
-            toast.success("Historial purgat");
+            toast.success(t('dashboard.history_purged'));
             fetchTaskHistory(0);
         } catch (e) {
-            toast.error("Error al purgar historial");
+            toast.error(t('dashboard.history_purge_error'));
         }
     };
 
@@ -395,10 +395,10 @@ function Dashboard() {
         setConfirmPurgeLogs(false);
         try {
             await apiFetch('/api/system/notifications', { method: 'DELETE' });
-            toast.success("Logs purgats");
+            toast.success(t('dashboard.logs_purged'));
             fetchNotifications(0);
         } catch (e) {
-            toast.error("Error al purgar logs");
+            toast.error(t('dashboard.logs_purge_error'));
         }
     };
 
@@ -612,7 +612,7 @@ function Dashboard() {
             if (data.success) {
                 toast.success(t('dashboard.task_started', 'Tasca iniciada correctament'), { id: t_id });
             } else {
-                toast.error(data.error || 'Error desconegut', { id: t_id });
+                toast.error(data.error || t('dashboard.unknown_error'), { id: t_id });
             }
             // Refresquem després d'un petit delay perquè el backend hagi processat el canvi d'estat a "running"
             setTimeout(() => refreshSchedulers(true), 500);
@@ -714,7 +714,7 @@ function Dashboard() {
                 >
                     <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between">
                         {t('dashboard.memory_title')}
-                        <span className="text-[10px] text-cyan-500 group-hover:underline">Detalls →</span>
+                        <span className="text-[10px] text-cyan-500 group-hover:underline">{t('dashboard.details_link')}</span>
                     </h3>
                     <div className="flex items-baseline gap-2">
                         <span className="text-4xl font-black text-cyan-400 tracking-tighter group-hover:scale-110 transition-transform origin-left duration-300">{stats.memory_items}</span>
@@ -759,10 +759,10 @@ function Dashboard() {
                     >
                         <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
                             {t('dashboard.directives')}
-                            <span className="text-[10px] text-cyan-500 group-hover:underline">Detalls →</span>
+                            <span className="text-[10px] text-cyan-500 group-hover:underline">{t('dashboard.details_link')}</span>
                         </h3>
                         <div className="text-4xl font-black text-cyan-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics?.directives?.total || 0}</div>
-                        <div className="mt-4 text-[10px] font-bold text-cyan-500/60 uppercase tracking-widest font-bold">Gestionat al Vault</div>
+                        <div className="mt-4 text-[10px] font-bold text-cyan-500/60 uppercase tracking-widest font-bold">{t('dashboard.managed_in_vault')}</div>
                     </div>
 
                     {/* Tools Created (Intelligence) */}
@@ -777,7 +777,7 @@ function Dashboard() {
                     >
                         <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
                             {t('dashboard.tools_title')}
-                            <span className="text-[10px] text-green-500 group-hover:underline">Detalls →</span>
+                            <span className="text-[10px] text-green-500 group-hover:underline">{t('dashboard.details_link')}</span>
                         </h3>
                         <div className="text-4xl font-black text-green-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">
                             {Math.max(analytics?.tools?.total_tools || 0, approvedTools.length + pendingTools.length)}
@@ -799,7 +799,7 @@ function Dashboard() {
                     >
                         <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
                             {t('dashboard.errors_prevented_title')}
-                            <span className="text-[10px] text-red-500 group-hover:underline">Resum →</span>
+                            <span className="text-[10px] text-red-500 group-hover:underline">{t('dashboard.summary_link')}</span>
                         </h3>
                         <div className="text-4xl font-black text-red-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">{analytics?.errors_prevented || 0}</div>
                         <div className="mt-4 text-[10px] font-bold text-[var(--text-secondary)] uppercase tracking-widest">{t('dashboard.documented_pitfalls')}</div>
@@ -817,7 +817,7 @@ function Dashboard() {
                     >
                         <h3 className="text-[var(--text-secondary)] text-[10px] uppercase font-bold tracking-widest mb-4 flex justify-between items-center">
                             {t('dashboard.last_7_days')}
-                            <span className="text-[10px] text-orange-500 group-hover:underline">Historial →</span>
+                            <span className="text-[10px] text-orange-500 group-hover:underline">{t('dashboard.history_link')}</span>
                         </h3>
                         <div className="text-4xl font-black text-orange-400 tracking-tighter group-hover:scale-105 transition-transform origin-left">
                             {Math.max(analytics?.tools?.created_last_7_days || 0, approvedTools.filter(t => {
@@ -1039,7 +1039,7 @@ function Dashboard() {
                                         <button 
                                             onClick={() => fetchNotifications(notifPage)}
                                             className="p-1 hover:bg-blue-500/10 text-blue-400 rounded transition-all"
-                                            title="Actualitzar logs"
+                                            title={t('dashboard.refresh_logs')}
                                         >
                                             <RefreshCw size={14} className={notificationsLoading ? "animate-spin" : ""} />
                                         </button>
@@ -1235,22 +1235,22 @@ function Dashboard() {
                             {isGraphLoading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <RefreshCw className="animate-spin text-cyan-500" size={32} />
-                                    <p className="text-[var(--text-secondary)] font-medium">Carregant memòries...</p>
+                                    <p className="text-[var(--text-secondary)] font-medium">{t('dashboard.loading_memories')}</p>
                                 </div>
                             ) : graphNodes.length === 0 ? (
                                 <div className="text-center py-20 text-[var(--text-secondary)]">
                                     <Database className="mx-auto mb-4 opacity-20" size={48} />
-                                    <p>No s'han trobat records al graf encara.</p>
+                                    <p>{t('dashboard.no_graph_records')}</p>
                                 </div>
                             ) : (
                                 <div className="space-y-4">
                                     <div className="flex items-center justify-between gap-4">
-                                        <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)] tracking-widest">{graphNodes.length} RECORDS TROBATS</div>
+                                        <div className="text-[10px] uppercase font-bold text-[var(--text-secondary)] tracking-widest">{t('dashboard.records_found', { count: graphNodes.length })}</div>
                                         <div className="relative flex-1 max-w-xs">
                                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-secondary)]" size={14} />
                                             <input 
                                                 type="text"
-                                                placeholder="Cerca memòria..."
+                                                placeholder={t('dashboard.search_memory_placeholder')}
                                                 className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-xl py-1.5 pl-9 pr-4 text-xs text-[var(--text-primary)] focus:outline-none focus:border-cyan-500/50 transition-all font-gnosi"
                                                 value={memorySearchTerm}
                                                 onChange={(e) => setMemorySearchTerm(e.target.value)}
@@ -1350,12 +1350,12 @@ function Dashboard() {
                             {isTrapsLoading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <RefreshCw className="animate-spin text-blue-500" size={32} />
-                                    <p className="text-[var(--text-secondary)] font-medium">Carregant detalls...</p>
+                                    <p className="text-[var(--text-secondary)] font-medium">{t('dashboard.loading_details')}</p>
                                 </div>
                             ) : traps.length === 0 ? (
                                 <div className="text-center py-20 text-[var(--text-secondary)]">
                                     <AlertTriangle className="mx-auto mb-4 opacity-20" size={48} />
-                                    <p>No s'han trobat trampes documentades encara.</p>
+                                    <p>{t('dashboard.no_traps')}</p>
                                 </div>
                             ) : (
                                 <>
@@ -1442,7 +1442,7 @@ function Dashboard() {
                             {isDirectivesLoading ? (
                                 <div className="flex flex-col items-center justify-center py-20 gap-4">
                                     <RefreshCw className="animate-spin text-blue-500" size={32} />
-                                    <p className="text-[var(--text-secondary)] font-medium">Carregant detalls...</p>
+                                    <p className="text-[var(--text-secondary)] font-medium">{t('dashboard.loading_details')}</p>
                                 </div>
                             ) : (
                                 <>
@@ -1469,14 +1469,14 @@ function Dashboard() {
                                                         <button 
                                                             onClick={() => handleEditDirective(d)}
                                                             className="p-1.5 hover:bg-cyan-500/10 text-cyan-400 rounded-lg transition-colors"
-                                                            title="Editar directiva"
+                                                            title={t('dashboard.edit_directive')}
                                                         >
                                                             <Edit2 size={16} />
                                                         </button>
                                                         <button 
                                                             onClick={() => handleDeleteDirective(d)}
                                                             className="p-1.5 hover:bg-red-500/10 text-red-400 rounded-lg transition-colors"
-                                                            title="Eliminar directiva"
+                                                            title={t('dashboard.delete_directive')}
                                                         >
                                                             <Trash2 size={16} />
                                                         </button>
@@ -1509,7 +1509,7 @@ function Dashboard() {
                                     <Edit2 size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">Editant: {editingDirective.name}</h3>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.editing')}: {editingDirective.name}</h3>
                                     <p className="text-xs text-[var(--text-secondary)] font-mono opacity-60">{editingDirective.path}</p>
                                 </div>
                             </div>
@@ -1520,7 +1520,7 @@ function Dashboard() {
                                     className="flex items-center gap-2 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white rounded-xl transition-all shadow-lg active:scale-95 text-sm font-bold"
                                 >
                                     {isEditorSaving ? <RefreshCw className="animate-spin" size={16} /> : <Save size={16} />}
-                                    Desar canvis
+                                    {t('common.save_changes')}
                                 </button>
                                 <button 
                                     onClick={() => setEditingDirective(null)}
@@ -1536,13 +1536,13 @@ function Dashboard() {
                                 value={editorContent}
                                 onChange={(e) => setEditorContent(e.target.value)}
                                 className="flex-1 w-full bg-[var(--bg-secondary)] text-[var(--text-primary)] font-mono text-sm p-6 rounded-2xl border border-[var(--border-primary)] focus:border-cyan-500/50 outline-none resize-none shadow-inner"
-                                placeholder="# Títol de la directiva..."
+                                placeholder={t('dashboard.directive_placeholder')}
                                 spellCheck="false"
                             />
                             
                             <div className="flex items-center justify-between text-[10px] text-[var(--text-secondary)] px-2">
-                                <p>Consell: Afegeix files a la taula de Trampes per documentar nous lliçons apresa.</p>
-                                <p>{editorContent.length} caràcters | {editorContent.split('\n').length} línies</p>
+                                <p>{t('dashboard.directive_tip')}</p>
+                                <p>{t('dashboard.chars_lines', { chars: editorContent.length, lines: editorContent.split('\n').length })}</p>
                             </div>
                         </div>
                     </div>
@@ -1602,13 +1602,13 @@ function Dashboard() {
                                     </h4>
                                     <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                                         {pendingTools.length === 0 ? (
-                                            <p className="text-xs text-[var(--text-secondary)] italic py-4">Sense eines pendents.</p>
+                                            <p className="text-xs text-[var(--text-secondary)] italic py-4">{t('dashboard.no_pending_tools')}</p>
                                         ) : (
                                             pendingTools.map(tool => (
                                                 <div key={tool.name} className="p-3 rounded-xl border border-yellow-500/10 bg-[var(--bg-tertiary)]/50">
                                                     <div className="flex items-center justify-between mb-1">
                                                         <span className="text-sm font-bold text-yellow-400 font-gnosi">{tool.name}</span>
-                                                        <span className="text-[8px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">PENDENT</span>
+                                                        <span className="text-[8px] bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full font-bold uppercase tracking-widest">{t('dashboard.status_pending')}</span>
                                                     </div>
                                                     <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1 italic">{tool.description}</p>
                                                 </div>
@@ -1623,14 +1623,14 @@ function Dashboard() {
                                     </h4>
                                     <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                                         {approvedTools.length === 0 ? (
-                                            <p className="text-xs text-[var(--text-secondary)] italic py-4">No hi ha eines aprovades encara.</p>
+                                            <p className="text-xs text-[var(--text-secondary)] italic py-4">{t('dashboard.no_approved_tools')}</p>
                                         ) : (
                                             approvedTools.slice(0, 10).map(tool => (
                                                 <div key={tool.name} className="p-3 rounded-xl border border-blue-500/10 bg-[var(--bg-tertiary)]/50 hover:border-blue-500/30 transition-all flex items-center justify-between group">
                                                     <div className="flex-1">
                                                         <div className="flex items-center justify-between mb-1">
                                                             <span className="text-sm font-bold text-blue-300 font-gnosi">{tool.name}</span>
-                                                            <span className="text-[8px] italic text-[var(--text-secondary)]">{tool.approved_at ? new Date(tool.approved_at).toLocaleDateString() : 'Recent'}</span>
+                                                            <span className="text-[8px] italic text-[var(--text-secondary)]">{tool.approved_at ? new Date(tool.approved_at).toLocaleDateString() : t('dashboard.recent')}</span>
                                                         </div>
                                                         <p className="text-[10px] text-[var(--text-secondary)] line-clamp-1">{tool.description}</p>
                                                     </div>
@@ -1639,14 +1639,14 @@ function Dashboard() {
                                                             <button 
                                                                 onClick={() => handleEditDirective(tool)}
                                                                 className="p-2 hover:bg-blue-500/10 text-blue-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                                title="Editar Skill"
+                                                                title={t('dashboard.edit_skill')}
                                                             >
                                                                 <Edit2 size={16} />
                                                             </button>
                                                             <button 
                                                                 onClick={() => handleDeleteDirective(tool)}
                                                                 className="p-2 hover:bg-red-500/10 text-red-400 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                                title="Eliminar Skill"
+                                                                title={t('dashboard.delete_skill')}
                                                             >
                                                                 <Trash2 size={16} />
                                                             </button>
@@ -1676,7 +1676,7 @@ function Dashboard() {
                                     value={newMemberEmail}
                                     onChange={(e) => setNewMemberEmail(e.target.value)}
                                     className="w-full bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-lg px-4 py-3 text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
-                                    placeholder="exemple@correu.com"
+                                    placeholder={t('dashboard.email_placeholder')}
                                 />
                             </div>
                             <div>
@@ -1758,15 +1758,15 @@ function Dashboard() {
                             </div>
 
                             <div>
-                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">Capacitats del Sistema</h4>
+                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-4">{t('dashboard.system_capabilities')}</h4>
                                 <div className="grid grid-cols-2 gap-4">
                                     {[
-                                        { id: 'read', label: 'Llegir Documents', icon: <FileText size={16} /> },
-                                        { id: 'write', label: 'Editar Documents', icon: <FileText size={16} /> },
-                                        { id: 'delete', label: 'Eliminar Documents', icon: <Bug size={16} /> },
-                                        { id: 'admin', label: 'Administrar Membres', icon: <Users size={16} /> },
-                                        { id: 'analytics', label: 'Veure Analítics', icon: <Database size={16} /> },
-                                        { id: 'tools', label: 'Executar Eines AI', icon: <Layers size={16} /> }
+                                        { id: 'read', label: t('dashboard.cap_read'), icon: <FileText size={16} /> },
+                                        { id: 'write', label: t('dashboard.cap_write'), icon: <FileText size={16} /> },
+                                        { id: 'delete', label: t('dashboard.cap_delete'), icon: <Bug size={16} /> },
+                                        { id: 'admin', label: t('dashboard.cap_admin'), icon: <Users size={16} /> },
+                                        { id: 'analytics', label: t('dashboard.cap_analytics'), icon: <Database size={16} /> },
+                                        { id: 'tools', label: t('dashboard.cap_tools'), icon: <Layers size={16} /> }
                                     ].map(cap => {
                                         const hasCap = selectedMember.permissions?.capabilities?.includes(cap.id);
                                         return (
@@ -1800,13 +1800,13 @@ function Dashboard() {
                             </div>
 
                             <div>
-                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">Accés a Dades Específiques</h4>
-                                <p className="text-xs text-[var(--text-secondary)] mb-4 italic">Limita l'accés a carpetes (Vaults) específiques dins d'aquest workspace.</p>
+                                <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-wider mb-2">{t('dashboard.specific_data_access')}</h4>
+                                <p className="text-xs text-[var(--text-secondary)] mb-4 italic">{t('dashboard.limit_access_desc')}</p>
                                 
                                 {vaultAccessLoading ? (
-                                    <div className="text-[var(--text-secondary)] text-xs animate-pulse">Carregant accessos...</div>
+                                    <div className="text-[var(--text-secondary)] text-xs animate-pulse">{t('dashboard.loading_access')}</div>
                                 ) : allVaults.length === 0 ? (
-                                    <p className="text-xs text-[var(--text-secondary)]">No hi ha vaults configurats en aquest workspace.</p>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.no_vaults')}</p>
                                 ) : (
                                     <div className="space-y-2">
                                         {allVaults.map(v => {
@@ -1825,7 +1825,7 @@ function Dashboard() {
                                                                 : 'bg-[var(--bg-tertiary)] text-[var(--text-secondary)] border border-[var(--border-primary)] hover:bg-[var(--bg-primary)]'
                                                         }`}
                                                     >
-                                                        {hasAccess ? 'Amb Accés' : 'Sense Accés'}
+                                                        {hasAccess ? t('dashboard.with_access') : t('dashboard.without_access')}
                                                     </button>
                                                 </div>
                                             );
@@ -1839,13 +1839,13 @@ function Dashboard() {
                                     onClick={() => setIsPermissionsModalOpen(false)}
                                     className="px-4 py-3 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] text-[var(--text-primary)] border border-[var(--border-primary)] rounded-xl transition-all font-medium flex-1"
                                 >
-                                    Cancel·lar
+                                    {t('common.cancel')}
                                 </button>
                                 <button 
                                     onClick={() => handleUpdatePermissions(selectedMember.user_id, selectedMember.permissions, selectedMember.role)}
                                     className="px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all font-medium flex-1 shadow-lg shadow-blue-900/20"
                                 >
-                                    Guardar Canvis
+                                    {t('common.save_changes')}
                                 </button>
                             </div>
                         </div>
@@ -1857,10 +1857,10 @@ function Dashboard() {
                 isOpen={confirmDeleteDirective != null}
                 onClose={() => setConfirmDeleteDirective(null)}
                 onConfirm={doDeleteDirective}
-                title="Eliminar"
-                message={confirmDeleteDirective ? `Estàs segur que vols eliminar la ${confirmDeleteDirective.path?.includes("pipeline/skills") ? "skill" : "directiva"} "${confirmDeleteDirective.name}"? Aquesta acció no es pot desfer.` : ''}
-                confirmText="Esborrar"
-                cancelText="Cancel·la"
+                title={t('common.delete')}
+                message={confirmDeleteDirective ? t('dashboard.confirm_delete_item_msg', { type: confirmDeleteDirective.path?.includes("pipeline/skills") ? t('dashboard.type_skill') : t('dashboard.type_directive'), name: confirmDeleteDirective.name }) : ''}
+                confirmText={t('common.erase')}
+                cancelText={t('common.cancel')}
                 isDestructive
             />
 
@@ -1868,10 +1868,10 @@ function Dashboard() {
                 isOpen={confirmPurgeHistory}
                 onClose={() => setConfirmPurgeHistory(false)}
                 onConfirm={doPurgeHistory}
-                title="Purgar historial"
+                title={t('dashboard.purge_history_title')}
                 message={t('dashboard.confirm_purge_history')}
-                confirmText="Esborrar"
-                cancelText="Cancel·la"
+                confirmText={t('common.erase')}
+                cancelText={t('common.cancel')}
                 isDestructive
             />
 
@@ -1879,10 +1879,10 @@ function Dashboard() {
                 isOpen={confirmPurgeLogs}
                 onClose={() => setConfirmPurgeLogs(false)}
                 onConfirm={doPurgeLogs}
-                title="Purgar logs"
+                title={t('dashboard.purge_logs_title')}
                 message={t('dashboard.confirm_purge_logs')}
-                confirmText="Esborrar"
-                cancelText="Cancel·la"
+                confirmText={t('common.erase')}
+                cancelText={t('common.cancel')}
                 isDestructive
             />
 
@@ -1890,10 +1890,10 @@ function Dashboard() {
                 isOpen={confirmDeleteMember != null}
                 onClose={() => setConfirmDeleteMember(null)}
                 onConfirm={doDeleteMember}
-                title="Eliminar membre"
+                title={t('dashboard.delete_member_title')}
                 message={t('dashboard.confirm_delete_member')}
-                confirmText="Esborrar"
-                cancelText="Cancel·la"
+                confirmText={t('common.erase')}
+                cancelText={t('common.cancel')}
                 isDestructive
             />
         </div>

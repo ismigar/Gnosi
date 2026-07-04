@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check } from 'lucide-react';
 import { toast } from '../lib/toast';
@@ -18,6 +19,7 @@ import { toast } from '../lib/toast';
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
 export default function MeetingRecorder() {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [phase, setPhase] = useState('idle'); // idle|recording|uploading|processing|done|error
     const [mode, setMode] = useState('presencial'); // presencial|online
@@ -61,12 +63,12 @@ export default function MeetingRecorder() {
                     setPhase('done');
                 } else if (data?.stage === 'error') {
                     clearInterval(pollRef.current); pollRef.current = null;
-                    setErrMsg(data.error || 'Error processant la reunió');
+                    setErrMsg(data.error || t('meeting.error_processing'));
                     setPhase('error');
                 }
             } catch { /* segueix provant */ }
         }, 2000);
-    }, []);
+    }, [t]);
 
     const upload = useCallback(async (blob) => {
         setPhase('uploading');
@@ -94,7 +96,7 @@ export default function MeetingRecorder() {
     const startRecording = useCallback(async () => {
         setErrMsg('');
         if (!navigator.mediaDevices || typeof MediaRecorder === 'undefined') {
-            toast.error('Aquest navegador no suporta gravació d\'àudio.');
+            toast.error(t('meeting.no_audio_support'));
             return;
         }
         try {
@@ -105,12 +107,12 @@ export default function MeetingRecorder() {
                 try {
                     display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                 } catch {
-                    toast.error('Cal compartir una pestanya o pantalla (amb la casella d\'àudio marcada).');
+                    toast.error(t('meeting.share_screen_required'));
                     return;
                 }
                 streamsRef.current.push(display);
                 if (!display.getAudioTracks().length) {
-                    toast.error('No has compartit l\'àudio. En compartir, marca «Compartir àudio de la pestanya».');
+                    toast.error(t('meeting.no_audio_shared'));
                     stopTracks();
                     return;
                 }
@@ -139,7 +141,7 @@ export default function MeetingRecorder() {
                 clearTimers();
                 stopTracks();
                 const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
-                if (blob.size < 1000) { setErrMsg('Gravació massa curta o buida.'); setPhase('error'); return; }
+                if (blob.size < 1000) { setErrMsg(t('meeting.too_short')); setPhase('error'); return; }
                 upload(blob);
             };
             recorderRef.current = rec;
@@ -148,11 +150,11 @@ export default function MeetingRecorder() {
             setPhase('recording');
             timerRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
         } catch (err) {
-            if (err?.name === 'NotAllowedError') toast.error('Permís de micròfon denegat.');
-            else toast.error(`No s'ha pogut iniciar la gravació: ${err?.message || err}`);
+            if (err?.name === 'NotAllowedError') toast.error(t('meeting.mic_denied'));
+            else toast.error(t('meeting.start_error', { message: String(err?.message || err) }));
             stopTracks();
         }
-    }, [mode, upload, stopTracks, clearTimers, stopRecording]);
+    }, [mode, upload, stopTracks, clearTimers, stopRecording, t]);
 
     const reset = useCallback(() => {
         clearTimers(); stopTracks();
@@ -160,15 +162,15 @@ export default function MeetingRecorder() {
     }, [clearTimers, stopTracks]);
 
     const closePanel = useCallback(() => {
-        if (phase === 'recording') { toast.error('Atura la gravació abans de tancar.'); return; }
+        if (phase === 'recording') { toast.error(t('meeting.stop_before_close')); return; }
         if (phase === 'processing' || phase === 'uploading') { setOpen(false); return; } // segueix en segon pla
         reset(); setOpen(false);
-    }, [phase, reset]);
+    }, [phase, reset, t]);
 
-    const stageLabel = stage === 'transcribing' ? 'Transcrivint l\'àudio…'
-        : stage === 'summarizing' ? 'Generant l\'acta amb IA…'
-        : stage === 'saving' ? 'Desant la pàgina…'
-        : 'Processant…';
+    const stageLabel = stage === 'transcribing' ? t('meeting.stage_transcribing')
+        : stage === 'summarizing' ? t('meeting.stage_summarizing')
+        : stage === 'saving' ? t('meeting.stage_saving')
+        : t('meeting.stage_processing');
 
     return (
         <>
@@ -177,7 +179,7 @@ export default function MeetingRecorder() {
                 <button
                     type="button"
                     onClick={() => setOpen(true)}
-                    title="Acta de reunió amb IA"
+                    title={t('meeting.launcher_title')}
                     className="fixed right-6 bottom-[76px] z-[99998] flex h-11 w-11 items-center justify-center rounded-full bg-[var(--gnosi-blue)] text-white shadow-sm transition hover:brightness-95"
                 >
                     {phase === 'recording'
@@ -192,8 +194,8 @@ export default function MeetingRecorder() {
                 <div className="fixed right-6 bottom-6 z-[99998] w-[340px] max-w-[calc(100vw-2rem)] rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl">
                     <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
                         <Mic size={18} className="text-blue-500" />
-                        <span className="font-medium">Acta de reunió</span>
-                        <button type="button" onClick={closePanel} className="ml-auto rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]" aria-label="Tanca">
+                        <span className="font-medium">{t('meeting.panel_title')}</span>
+                        <button type="button" onClick={closePanel} className="ml-auto rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]" aria-label={t('common.close')}>
                             <X size={18} />
                         </button>
                     </div>
@@ -205,13 +207,13 @@ export default function MeetingRecorder() {
                                     type="text"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
-                                    placeholder="Títol de la reunió (opcional)"
+                                    placeholder={t('meeting.title_placeholder')}
                                     className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none focus:border-blue-500"
                                 />
                                 <div className="grid grid-cols-2 gap-2">
                                     {[
-                                        { id: 'presencial', label: 'Presencial' },
-                                        { id: 'online', label: 'Online' },
+                                        { id: 'presencial', label: t('meeting.mode_in_person') },
+                                        { id: 'online', label: t('meeting.mode_online') },
                                     ].map(({ id, label }) => (
                                         <button
                                             key={id}
@@ -226,11 +228,11 @@ export default function MeetingRecorder() {
                                 <p className="flex items-start gap-1.5 text-xs text-[var(--text-secondary)]">
                                     <AlertTriangle size={13} className="mt-0.5 shrink-0" />
                                     {mode === 'online'
-                                        ? 'Hauràs de compartir la pestanya/pantalla amb la casella «Compartir àudio» marcada. Avisa els participants que graves.'
-                                        : 'Es gravarà pel micròfon. Avisa els participants que graves.'}
+                                        ? t('meeting.online_hint')
+                                        : t('meeting.in_person_hint')}
                                 </p>
                                 <button type="button" onClick={startRecording} className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                                    <Mic size={16} /> Comença a gravar
+                                    <Mic size={16} /> {t('meeting.start')}
                                 </button>
                             </>
                         )}
@@ -241,9 +243,9 @@ export default function MeetingRecorder() {
                                     <span className="h-3 w-3 rounded-full bg-red-500 animate-pulse" />
                                     <span className="text-2xl font-mono tabular-nums">{fmt(seconds)}</span>
                                 </div>
-                                <div className="text-xs text-[var(--text-secondary)]">● Gravant {mode === 'online' ? '(pantalla + micro)' : '(micròfon)'}</div>
+                                <div className="text-xs text-[var(--text-secondary)]">● {t('meeting.recording')} {mode === 'online' ? t('meeting.recording_online_suffix') : t('meeting.recording_mic_suffix')}</div>
                                 <button type="button" onClick={stopRecording} className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
-                                    <Square size={15} /> Atura i genera l'acta
+                                    <Square size={15} /> {t('meeting.stop_generate')}
                                 </button>
                             </div>
                         )}
@@ -251,15 +253,15 @@ export default function MeetingRecorder() {
                         {(phase === 'uploading' || phase === 'processing') && (
                             <div className="flex flex-col items-center gap-2 py-4 text-center">
                                 <Loader2 size={22} className="animate-spin text-blue-500" />
-                                <div className="text-sm">{phase === 'uploading' ? 'Pujant l\'àudio…' : stageLabel}</div>
-                                <div className="text-xs text-[var(--text-secondary)]">Pots tancar aquest tauler; continua en segon pla.</div>
+                                <div className="text-sm">{phase === 'uploading' ? t('meeting.uploading') : stageLabel}</div>
+                                <div className="text-xs text-[var(--text-secondary)]">{t('meeting.background_hint')}</div>
                             </div>
                         )}
 
                         {phase === 'done' && (
                             <div className="flex flex-col items-center gap-3 py-3 text-center">
                                 <Check size={22} className="text-green-500" />
-                                <div className="text-sm font-medium">Acta generada</div>
+                                <div className="text-sm font-medium">{t('meeting.done')}</div>
                                 <div className="flex gap-2">
                                     <button
                                         type="button"
@@ -267,10 +269,10 @@ export default function MeetingRecorder() {
                                         disabled={!pageId}
                                         className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
                                     >
-                                        <FileText size={15} /> Obre l'acta
+                                        <FileText size={15} /> {t('meeting.open_minutes')}
                                     </button>
                                     <button type="button" onClick={reset} className="rounded-lg px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]">
-                                        Nova
+                                        {t('meeting.new')}
                                     </button>
                                 </div>
                             </div>
@@ -279,9 +281,9 @@ export default function MeetingRecorder() {
                         {phase === 'error' && (
                             <div className="flex flex-col items-center gap-3 py-3 text-center">
                                 <AlertTriangle size={22} className="text-amber-500" />
-                                <div className="text-sm">{errMsg || 'Hi ha hagut un error.'}</div>
+                                <div className="text-sm">{errMsg || t('meeting.generic_error')}</div>
                                 <button type="button" onClick={reset} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
-                                    Torna-ho a provar
+                                    {t('common.retry')}
                                 </button>
                             </div>
                         )}

@@ -56,6 +56,7 @@ import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
 import { useTranslation, Trans } from 'react-i18next';
+import i18n from '../../i18n';
 import { useApi } from '../../hooks/use-api';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from '../../lib/toast';
@@ -574,7 +575,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                         <input
                             autoFocus
                             className="w-full pl-9 pr-4 py-2 bg-[var(--bg-secondary)] border-none rounded-lg text-sm focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none text-[var(--text-primary)]"
-                            placeholder="Buscar..."
+                            placeholder={t('common.search_placeholder')}
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                             onKeyDown={handleKeyDown}
@@ -845,8 +846,8 @@ class ErrorBoundary extends React.Component {
                 <div className="p-12 border-2 border-dashed border-[var(--status-error)]/30 rounded-xl bg-[var(--status-error)]/5 flex flex-col items-center gap-4 text-center my-10">
                     <div className="p-4 bg-[var(--status-error)]/10 rounded-full text-[var(--status-error)]"><X size={32} /></div>
                     <div className="max-w-md">
-                        <h3 className="text-lg font-bold text-[var(--text-primary)]">S'ha produït un error</h3>
-                        <p className="text-sm text-[var(--text-tertiary)] mt-1">Hi ha blocs no suportats o s'ha produït un error a l'editor.</p>
+                        <h3 className="text-lg font-bold text-[var(--text-primary)]">{i18n.t('editor.error_title')}</h3>
+                        <p className="text-sm text-[var(--text-tertiary)] mt-1">{i18n.t('editor.error_hint')}</p>
                         <div className="bg-[var(--bg-secondary)] p-3 rounded-lg text-left mt-4 overflow-auto max-h-40 border border-[var(--border-primary)] shadow-inner">
                             <code className="text-[10px] text-[var(--text-tertiary)] leading-relaxed whitespace-pre-wrap">
                                 {this.state.error?.toString()}
@@ -3142,10 +3143,10 @@ export function EditorInner({
                                     headingItems.push({
                                         title: `${isBlockRef ? 'B' : `H${level}`} · ${displayTitle}`,
                                         aliases: [note.id, note.title, headingTitle, hierarchy, blockPreview, 'transclusion', 'section', 'block'],
-                                        group: 'Transclusions',
+                                        group: t('editor.transclusions_group'),
                                         icon: <Maximize2 size={18} />,
                                         subtext: isBlockRef
-                                            ? `![[${note.id}#${headingTitle}]] · ${blockPreview || 'Bloc referenciat'}`
+                                            ? `![[${note.id}#${headingTitle}]] · ${blockPreview || t('editor.block_referenced')}`
                                             : `![[${note.id}#${headingTitle}]]`,
                                         onItemClick: () => insertTransclusion(note.id, note.title, headingTitle),
                                     });
@@ -3160,7 +3161,7 @@ export function EditorInner({
                         const transclusionItems = filteredNotes.map((note) => ({
                             title: titleCount.get(note.title) > 1 ? `${note.title} (${formatNoteDisambiguator(note.id)})` : note.title,
                             aliases: [note.id, 'transclusion', 'embed', '![['],
-                            group: 'Transclusions',
+                            group: t('editor.transclusions_group'),
                             icon: <Maximize2 size={18} />,
                             subtext: sectionQuery ? `![[${note.id}#${sectionQuery}]]` : `![[${note.id}]]`,
                             onItemClick: () => insertTransclusion(note.id, note.title, sectionQuery),
@@ -3913,8 +3914,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             // Ignore conflicts for other pages (other tabs etc.)
             if (pageId && pageId !== noteFilename) return;
             toast.error(
-                message ||
-                "El fitxer s'ha modificat fora d'aquesta finestra. Recarrega per veure els canvis.",
+                message || t('editor.file_changed_externally'),
                 {
                     duration: 8000,
                     id: `etag-conflict-${noteFilename}`,
@@ -3923,7 +3923,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         };
         window.addEventListener('pageEtagConflict', handler);
         return () => window.removeEventListener('pageEtagConflict', handler);
-    }, [noteFilename]);
+    }, [noteFilename, t]);
 
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
@@ -4064,7 +4064,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <button
                                     type="button"
                                     onClick={() => setSpellEnabled((v) => !v)}
-                                    title={spellEnabled ? `Corrector ortogràfic actiu (${spellLang.toUpperCase()}) — clica per desactivar` : 'Corrector ortogràfic desactivat'}
+                                    title={spellEnabled ? t('editor.spellcheck_active', { lang: spellLang.toUpperCase() }) : t('editor.spellcheck_disabled')}
                                     className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider transition-colors ${spellEnabled ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]'}`}
                                 >
                                     <SpellCheck2 size={12} /> {spellLang.toUpperCase()}
@@ -4072,7 +4072,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 <button
                                     type="button"
                                     onClick={() => window.dispatchEvent(new CustomEvent('gnosi:ai-correct-page'))}
-                                    title="Corregeix ortografia i gramàtica de tota la pàgina amb IA"
+                                    title={t('editor.ai_correct_page')}
                                     className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)] transition-colors"
                                 >
                                     <Sparkles size={12} /> IA

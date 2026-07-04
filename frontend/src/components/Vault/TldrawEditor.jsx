@@ -8,6 +8,7 @@ import { Tldraw, createTLStore, defaultShapeUtils, getSnapshot, loadSnapshot } f
 import { createShapeId, toRichText } from '@tldraw/tlschema';
 import 'tldraw/tldraw.css';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 import { X, Loader2, Eye, ExternalLink, Copy, AlertTriangle, FilePlus2, Search, ScanText, PenLine } from 'lucide-react';
 import { PageCardShapeUtil, CanvasPageContext } from './canvasPageCardShape';
@@ -19,6 +20,7 @@ const CANVAS_SHAPE_UTILS = [...defaultShapeUtils, PageCardShapeUtil];
 
 // ──────────────── Page Actions Panel ────────────────
 function PageActionsPanel({ pageId, pageTitle, onClose }) {
+    const { t } = useTranslation();
     const [preview, setPreview] = useState(null);
     const [loading, setLoading] = useState(false);
 
@@ -28,9 +30,9 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
         try {
             const res = await axios.get(`/api/vault/pages/${pageId}`);
             const data = res.data;
-            setPreview(data.content || 'Sense contingut');
+            setPreview(data.content || t('editor.no_content'));
         } catch {
-            toast.error('Error carregant contingut');
+            toast.error(t('tldraw.load_content_error'));
         } finally {
             setLoading(false);
         }
@@ -45,9 +47,9 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
         // Sense `await` el toast.success es mostrava abans de saber el resultat.
         try {
             await navigator.clipboard.writeText(pageId);
-            toast.success('ID copiat!');
+            toast.success(t('tldraw.id_copied'));
         } catch {
-            toast.error('No s\'ha pogut copiar l\'ID');
+            toast.error(t('tldraw.id_copy_error'));
         }
     };
 
@@ -69,14 +71,14 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
                 >
                     {loading ? <Loader2 size={14} className="animate-spin" /> : <Eye size={14} />}
-                    Previsualitzar
+                    {t('tldraw.preview')}
                 </button>
                 <button
                     onClick={openInNewTab}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs font-medium text-slate-600 bg-slate-50 rounded-md hover:bg-green-50 hover:text-green-600 transition-colors"
                 >
                     <ExternalLink size={14} />
-                    Obrir
+                    {t('common.open')}
                 </button>
                 <button
                     onClick={copyId}
@@ -90,7 +92,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
             {preview !== null && (
                 <div className="border-t border-slate-200 max-h-[200px] overflow-y-auto p-3">
                     <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
-                        {preview.substring(0, 500) || 'Sense contingut'}
+                        {preview.substring(0, 500) || t('editor.no_content')}
                         {preview.length > 500 && '...'}
                     </p>
                 </div>
@@ -101,6 +103,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
 
 // ──────────────── TldrawEditor Component ────────────────
 export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess, onOpenPage, allNotes = [], tables = [] }) {
+    const { t } = useTranslation();
     const { isEnabled: isPluginEnabled } = usePlugins();
     const cardsEnabled = isPluginEnabled('canvas-cards');
     const [store] = useState(() => createTLStore({ shapeUtils: CANVAS_SHAPE_UTILS }));
@@ -257,7 +260,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 if (shape?.meta?.pageId) {
                     setSelectedPage({
                         id: shape.meta.pageId,
-                        title: shape.meta.pageTitle || 'Pàgina',
+                        title: shape.meta.pageTitle || t('tldraw.page'),
                     });
                     return;
                 }
@@ -274,9 +277,9 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         });
 
         return () => unsub();
-        // Depèn de loadState: quan passa a 'ready' es munta <Tldraw> i onMount
+        // Depèn de loadState (i t per la i18n del fallback): quan passa a 'ready' es munta <Tldraw> i onMount
         // (efecte del fill, s'executa abans que aquest) ja ha omplert editorRef.
-    }, [loadState]);
+    }, [loadState, t]);
 
     // Registrar els handlers de drag & drop amb fase de captura
     useEffect(() => {
@@ -342,10 +345,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 // Seleccionar el shape creat
                 editor.select(shapeId);
 
-                toast.success(`Pàgina "${noteData.title}" afegida al llenç`);
+                toast.success(t('tldraw.page_added', { title: noteData.title }));
             } catch (err) {
                 console.error("Error afegint pàgina al dibuix:", err);
-                toast.error("Error afegint pàgina");
+                toast.error(t('tldraw.add_page_error'));
             }
         };
 
@@ -356,7 +359,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             document.removeEventListener('dragover', dragOver, true);
             document.removeEventListener('drop', drop, true);
         };
-    }, []);
+    }, [t]);
 
     // Incrusta una pàgina existent com a targeta al centre del llenç (mateixa
     // lògica que el drop de drag&drop, però sense punt de destí: el viewport).
@@ -391,8 +394,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const handleSearchSelect = useCallback((pageId) => {
         const note = allNotes.find((n) => n.id === pageId);
         insertPageOnCanvas(pageId, note?.title);
-        toast.success(`Pàgina "${note?.title || 'sense títol'}" afegida al llenç`);
-    }, [allNotes, insertPageOnCanvas]);
+        toast.success(t('tldraw.page_added', { title: note?.title || t('common.untitled') }));
+    }, [allNotes, insertPageOnCanvas, t]);
 
     // Crea una pàgina nova al Vault i la incrusta com a targeta al centre del llenç.
     const handleCreateNoteOnCanvas = useCallback(async () => {
@@ -407,12 +410,12 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             });
             const page = res.data;
             insertPageOnCanvas(page.id, page.title || 'Nova nota');
-            toast.success('Nota creada al llenç');
+            toast.success(t('tldraw.note_created'));
         } catch (err) {
             console.error('Error creant nota al llenç:', err);
-            toast.error('Error creant la nota');
+            toast.error(t('tldraw.create_note_error'));
         }
-    }, [insertPageOnCanvas]);
+    }, [insertPageOnCanvas, t]);
 
     // ── Warmup del model TrOCR ──
     // En obrir el llenç, demana al backend que precarregui el model en segon
@@ -436,7 +439,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             ids = [...editor.getCurrentPageShapeIds()];
         }
         if (ids.length === 0) {
-            toast.error('No hi ha traços per reconèixer');
+            toast.error(t('tldraw.no_strokes'));
             return;
         }
 
@@ -458,7 +461,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             const text = (res.data?.text || '').trim();
 
             if (!text) {
-                toast.error('No s\'ha reconegut cap text');
+                toast.error(t('tldraw.no_text_recognized'));
                 return;
             }
 
@@ -477,20 +480,20 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             });
             editor.select(textId);
             toast.success(res.data?.corrected
-                ? 'Text reconegut (amb correcció IA) i afegit al llenç'
-                : 'Text reconegut i afegit al llenç');
+                ? t('tldraw.recognized_corrected')
+                : t('tldraw.recognized'));
         } catch (err) {
             console.error('Error reconeixent escriptura a mà:', err);
             const status = err?.response?.status;
             if (status === 503) {
-                toast.error('El motor de reconeixement local no està disponible');
+                toast.error(t('tldraw.engine_unavailable'));
             } else {
-                toast.error('Error reconeixent el text');
+                toast.error(t('tldraw.recognize_error'));
             }
         } finally {
             setRecognizing(false);
         }
-    }, [recognizing]);
+    }, [recognizing, t]);
 
     // ── Mode "només llapis" (palm rejection) ──
     // Bloqueja els pointer events de tipus 'touch' abans que arribin a tldraw
@@ -519,7 +522,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             {/* Capçalera */}
             <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
                 <h2 className="text-sm font-semibold text-slate-700 truncate">
-                    {title || 'Dibuix sense títol'}
+                    {title || t('tldraw.untitled_drawing')}
                 </h2>
                 <div className="flex items-center gap-2">
                     {loadState === 'ready' && (
@@ -527,10 +530,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             onClick={handleRecognize}
                             disabled={recognizing}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
-                            title="Reconeix l'escriptura a mà seleccionada (o tot el llenç) i insereix-la com a text"
+                            title={t('tldraw.recognize_title')}
                         >
                             {recognizing ? <Loader2 size={14} className="animate-spin" /> : <ScanText size={14} />}
-                            {recognizing ? 'Reconeixent…' : 'Passar a text'}
+                            {recognizing ? t('tldraw.recognizing') : t('tldraw.to_text')}
                         </button>
                     )}
                     {loadState === 'ready' && (
@@ -540,33 +543,33 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium border rounded-md transition-colors ${penOnly
                                 ? 'text-indigo-700 bg-indigo-50 border-indigo-300'
                                 : 'text-slate-600 bg-slate-50 border-slate-200 hover:bg-indigo-50 hover:text-indigo-600'}`}
-                            title="Mode només llapis: ignora el tacte per no dibuixar amb el palmell (palm rejection)"
+                            title={t('tldraw.pen_only_title')}
                         >
-                            <PenLine size={14} /> Només llapis
+                            <PenLine size={14} /> {t('tldraw.pen_only')}
                         </button>
                     )}
                     {loadState === 'ready' && (
                         <button
                             onClick={() => setIsSearchOpen(true)}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                            title="Cerca una nota del vault (també dins de BDs) i afegeix-la al llenç"
+                            title={t('tldraw.add_note_title')}
                         >
-                            <Search size={14} /> Afegeix nota
+                            <Search size={14} /> {t('tldraw.add_note')}
                         </button>
                     )}
                     {loadState === 'ready' && cardsEnabled && (
                         <button
                             onClick={handleCreateNoteOnCanvas}
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-md hover:bg-indigo-50 hover:text-indigo-600 transition-colors"
-                            title="Crea una nota nova al llenç"
+                            title={t('tldraw.new_note_title')}
                         >
-                            <FilePlus2 size={14} /> Nova nota
+                            <FilePlus2 size={14} /> {t('tldraw.new_note')}
                         </button>
                     )}
                     <button
                         onClick={onClose}
                         className="gnosi-close-btn"
-                        aria-label="Tancar"
+                        aria-label={t('common.close')}
                     >
                         <X />
                     </button>
@@ -602,20 +605,20 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             <AlertTriangle size={28} className="mx-auto mb-3 text-amber-500" />
                             <p className="text-sm font-semibold text-slate-700 mb-1">
                                 {loadState === 'error'
-                                    ? 'No s\'ha pogut carregar el dibuix'
-                                    : 'Format de dibuix no compatible'}
+                                    ? t('tldraw.load_error_title')
+                                    : t('tldraw.incompatible_title')}
                             </p>
                             <p className="text-xs text-slate-500 mb-4">
                                 {loadState === 'error'
-                                    ? 'El desat està desactivat per no sobreescriure el dibuix original amb un llenç buit.'
-                                    : 'Aquest dibuix té un format antic (Excalidraw) o desconegut. El desat està desactivat per protegir el fitxer original.'}
+                                    ? t('tldraw.load_error_desc')
+                                    : t('tldraw.incompatible_desc')}
                             </p>
                             {loadState === 'error' && (
                                 <button
                                     onClick={() => { setLoadState('loading'); setRetryTick(t => t + 1); }}
                                     className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
                                 >
-                                    Torna-ho a provar
+                                    {t('common.retry')}
                                 </button>
                             )}
                         </div>

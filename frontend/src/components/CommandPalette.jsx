@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import {
     Command, Search, FileText, Network, Users, Mail, Calendar, BookOpen,
@@ -25,6 +26,7 @@ const setTheme = (pref) => {
 
 export default function CommandPalette() {
     const navigate = useNavigate();
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [highlighted, setHighlighted] = useState(0);
@@ -61,28 +63,28 @@ export default function CommandPalette() {
     }, [navigate]);
 
     const commands = useMemo(() => [
-        { id: 'nav-home', title: 'Vés a Inici', section: 'Navegació', icon: Command, kw: ['inici', 'home', 'casa'], run: () => navigate('/') },
-        { id: 'nav-vault', title: 'Vés a Coneixement', section: 'Navegació', icon: FileText, kw: ['coneixement', 'vault', 'notes'], run: () => navigate('/vault') },
-        { id: 'nav-graph', title: 'Vés al Graf', section: 'Navegació', icon: Network, kw: ['graf', 'graph'], run: () => navigate('/graph') },
-        { id: 'nav-contacts', title: 'Vés a Contactes', section: 'Navegació', icon: Users, kw: ['contactes', 'contacts', 'persones'], run: () => navigate('/contacts') },
-        { id: 'nav-mail', title: 'Vés a Correu', section: 'Navegació', icon: Mail, kw: ['correu', 'mail', 'email'], run: () => navigate('/mail') },
-        { id: 'nav-calendar', title: 'Vés a Calendari', section: 'Navegació', icon: Calendar, kw: ['calendari', 'calendar', 'cites'], run: () => navigate('/calendar') },
-        { id: 'nav-reader', title: 'Vés al Lector', section: 'Navegació', icon: BookOpen, kw: ['lector', 'reader', 'rss'], run: () => navigate('/reader') },
-        { id: 'nav-social', title: 'Vés a Social', section: 'Navegació', icon: Share2, kw: ['social', 'xarxes'], run: () => navigate('/social-dashboard') },
-        { id: 'nav-media', title: 'Vés a Fotos', section: 'Navegació', icon: ImageIcon, kw: ['fotos', 'media', 'imatges'], run: () => navigate('/media') },
-        { id: 'nav-scheduler', title: 'Vés al Planificador', section: 'Navegació', icon: Clock, kw: ['planificador', 'scheduler', 'tasques'], run: () => navigate('/scheduler') },
-        { id: 'act-newnote', title: 'Nova nota', section: 'Accions', icon: Plus, kw: ['nova', 'nota', 'crear', 'new', 'note'], run: createNote },
-        { id: 'act-search', title: 'Cerca global', section: 'Accions', icon: Search, kw: ['cerca', 'search', 'buscar'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-search')), 60); } },
-        { id: 'act-tags', title: 'Etiquetes', section: 'Accions', icon: Hash, kw: ['etiquetes', 'tags', 'tag', '#'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-tags')), 60); } },
-        { id: 'act-present', title: 'Mode presentació', section: 'Accions', icon: Presentation, kw: ['presentació', 'presentation', 'slides', 'diapositives'], run: () => window.dispatchEvent(new CustomEvent('gnosi:present')) },
-        { id: 'act-import', title: 'Importa notes (Markdown/Obsidian)…', section: 'Accions', icon: Upload, kw: ['importa', 'import', 'markdown', 'obsidian', 'md'], run: importNotes },
-        { id: 'act-comments', title: 'Comentaris de la pàgina', section: 'Accions', icon: MessageSquare, kw: ['comentaris', 'comments', 'comentar'], run: () => window.dispatchEvent(new CustomEvent('gnosi:toggle-comments')) },
-        { id: 'act-workspaces', title: 'Espais de treball…', section: 'Accions', icon: LayoutPanelLeft, kw: ['espais', 'workspace', 'layout', 'disposició', 'pestanyes'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-workspaces')), 60); } },
-        { id: 'theme-light', title: 'Tema: Clar', section: 'Aparença', icon: Sun, kw: ['tema', 'clar', 'light', 'theme'], run: () => setTheme('light') },
-        { id: 'theme-dark', title: 'Tema: Fosc', section: 'Aparença', icon: Moon, kw: ['tema', 'fosc', 'dark', 'theme'], run: () => setTheme('dark') },
-        { id: 'theme-system', title: 'Tema: Sistema', section: 'Aparença', icon: Monitor, kw: ['tema', 'sistema', 'system', 'auto'], run: () => setTheme('system') },
-        { id: 'act-settings', title: 'Obre Configuració', section: 'Accions', icon: Settings, kw: ['configuració', 'settings', 'preferències', 'ajustos'], run: () => window.dispatchEvent(new CustomEvent('gnosi:open-settings')) },
-    ], [navigate, createNote, importNotes]);
+        { id: 'nav-home', title: t('command_palette.nav_home'), section: t('command_palette.section_nav'), icon: Command, kw: ['inici', 'home', 'casa'], run: () => navigate('/') },
+        { id: 'nav-vault', title: t('command_palette.nav_vault'), section: t('command_palette.section_nav'), icon: FileText, kw: ['coneixement', 'vault', 'notes'], run: () => navigate('/vault') },
+        { id: 'nav-graph', title: t('command_palette.nav_graph'), section: t('command_palette.section_nav'), icon: Network, kw: ['graf', 'graph'], run: () => navigate('/graph') },
+        { id: 'nav-contacts', title: t('command_palette.nav_contacts'), section: t('command_palette.section_nav'), icon: Users, kw: ['contactes', 'contacts', 'persones'], run: () => navigate('/contacts') },
+        { id: 'nav-mail', title: t('command_palette.nav_mail'), section: t('command_palette.section_nav'), icon: Mail, kw: ['correu', 'mail', 'email'], run: () => navigate('/mail') },
+        { id: 'nav-calendar', title: t('command_palette.nav_calendar'), section: t('command_palette.section_nav'), icon: Calendar, kw: ['calendari', 'calendar', 'cites'], run: () => navigate('/calendar') },
+        { id: 'nav-reader', title: t('command_palette.nav_reader'), section: t('command_palette.section_nav'), icon: BookOpen, kw: ['lector', 'reader', 'rss'], run: () => navigate('/reader') },
+        { id: 'nav-social', title: t('command_palette.nav_social'), section: t('command_palette.section_nav'), icon: Share2, kw: ['social', 'xarxes'], run: () => navigate('/social-dashboard') },
+        { id: 'nav-media', title: t('command_palette.nav_media'), section: t('command_palette.section_nav'), icon: ImageIcon, kw: ['fotos', 'media', 'imatges'], run: () => navigate('/media') },
+        { id: 'nav-scheduler', title: t('command_palette.nav_scheduler'), section: t('command_palette.section_nav'), icon: Clock, kw: ['planificador', 'scheduler', 'tasques'], run: () => navigate('/scheduler') },
+        { id: 'act-newnote', title: t('command_palette.new_note'), section: t('command_palette.section_actions'), icon: Plus, kw: ['nova', 'nota', 'crear', 'new', 'note'], run: createNote },
+        { id: 'act-search', title: t('command_palette.global_search'), section: t('command_palette.section_actions'), icon: Search, kw: ['cerca', 'search', 'buscar'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-search')), 60); } },
+        { id: 'act-tags', title: t('command_palette.tags'), section: t('command_palette.section_actions'), icon: Hash, kw: ['etiquetes', 'tags', 'tag', '#'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-tags')), 60); } },
+        { id: 'act-present', title: t('command_palette.presentation_mode'), section: t('command_palette.section_actions'), icon: Presentation, kw: ['presentació', 'presentation', 'slides', 'diapositives'], run: () => window.dispatchEvent(new CustomEvent('gnosi:present')) },
+        { id: 'act-import', title: t('command_palette.import_notes'), section: t('command_palette.section_actions'), icon: Upload, kw: ['importa', 'import', 'markdown', 'obsidian', 'md'], run: importNotes },
+        { id: 'act-comments', title: t('command_palette.page_comments'), section: t('command_palette.section_actions'), icon: MessageSquare, kw: ['comentaris', 'comments', 'comentar'], run: () => window.dispatchEvent(new CustomEvent('gnosi:toggle-comments')) },
+        { id: 'act-workspaces', title: t('command_palette.workspaces'), section: t('command_palette.section_actions'), icon: LayoutPanelLeft, kw: ['espais', 'workspace', 'layout', 'disposició', 'pestanyes'], run: () => { navigate('/vault'); setTimeout(() => window.dispatchEvent(new CustomEvent('gnosi:open-workspaces')), 60); } },
+        { id: 'theme-light', title: t('command_palette.theme_light'), section: t('command_palette.section_appearance'), icon: Sun, kw: ['tema', 'clar', 'light', 'theme'], run: () => setTheme('light') },
+        { id: 'theme-dark', title: t('command_palette.theme_dark'), section: t('command_palette.section_appearance'), icon: Moon, kw: ['tema', 'fosc', 'dark', 'theme'], run: () => setTheme('dark') },
+        { id: 'theme-system', title: t('command_palette.theme_system'), section: t('command_palette.section_appearance'), icon: Monitor, kw: ['tema', 'sistema', 'system', 'auto'], run: () => setTheme('system') },
+        { id: 'act-settings', title: t('command_palette.open_settings'), section: t('command_palette.section_actions'), icon: Settings, kw: ['configuració', 'settings', 'preferències', 'ajustos'], run: () => window.dispatchEvent(new CustomEvent('gnosi:open-settings')) },
+    ], [navigate, createNote, importNotes, t]);
 
     // Comandes contribuïdes per plugins de tercers (executades a l'iframe
     // sandbox via runCommand). Es fusionen sota la secció "Plugins".
@@ -159,14 +161,14 @@ export default function CommandPalette() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={onInputKey}
-                        placeholder="Escriu una comanda…"
+                        placeholder={t('command_palette.input_placeholder')}
                         className="flex-1 bg-transparent text-sm text-[var(--text-primary)] outline-none placeholder:text-[var(--text-tertiary)]"
                     />
                     <kbd className="rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[10px] text-[var(--text-tertiary)]">Esc</kbd>
                 </div>
                 <ul ref={listRef} className="max-h-80 overflow-auto py-1">
                     {filtered.length === 0 && (
-                        <li className="px-4 py-6 text-center text-sm text-[var(--text-tertiary)]">Cap comanda</li>
+                        <li className="px-4 py-6 text-center text-sm text-[var(--text-tertiary)]">{t('command_palette.no_commands')}</li>
                     )}
                     {filtered.map((c, i) => {
                         const Icon = c.icon;

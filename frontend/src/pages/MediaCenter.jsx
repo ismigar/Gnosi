@@ -43,6 +43,7 @@ import {
   Pause
 } from 'lucide-react';
 import { toast } from '../lib/toast';
+import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const PERSPECTIVES = [ // Mantenim per referència o inbox, però prioritzem àlbums
@@ -62,6 +63,7 @@ const normalizeUrl = (url) => {
 // expandeix el node. Sense això, indexar els ~33k directoris de l'arxiu
 // faria inviable el muntatge de la sidebar.
 const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSelect, root = 'images' }) {
+  const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const [children, setChildren] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -104,7 +106,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
           className={`shrink-0 w-6 flex items-center justify-center ${
             node.has_children ? 'cursor-pointer' : 'cursor-default'
           }`}
-          aria-label={expanded ? 'Collapse' : 'Expand'}
+          aria-label={expanded ? t('common.collapse') : t('common.expand')}
         >
           {node.has_children ? (
             loading ? (
@@ -151,16 +153,17 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
 // (vídeo, pdf, àudio, altres). Sense això surten com a quadres negres
 // mentre `<img>` falla en bucle.
 const NON_IMAGE_THUMB = {
-  video: { Icon: Video, label: 'Vídeo', accent: 'text-rose-400' },
-  pdf:   { Icon: FileText, label: 'PDF', accent: 'text-orange-400' },
-  audio: { Icon: Music, label: 'Àudio', accent: 'text-cyan-400' },
-  other: { Icon: HardDrive, label: 'Fitxer', accent: 'text-slate-400' },
+  video: { Icon: Video, labelKey: 'media.thumb_video', accent: 'text-rose-400' },
+  pdf:   { Icon: FileText, labelKey: 'media.thumb_pdf', accent: 'text-orange-400' },
+  audio: { Icon: Music, labelKey: 'media.thumb_audio', accent: 'text-cyan-400' },
+  other: { Icon: HardDrive, labelKey: 'media.thumb_other', accent: 'text-slate-400' },
 };
 
 // Thumb gestiona el seu estat de càrrega/error per imatge. Si OneDrive està
 // materialitzant un fitxer en background, el primer GET pot retornar 503;
 // reintentem un parell de cops abans d'ensenyar el placeholder cloud-off.
 const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
+  const { t } = useTranslation();
   const [attempt, setAttempt] = useState(0);
   const [failed, setFailed] = useState(false);
   const MAX_RETRIES = 2;
@@ -178,7 +181,7 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
     return (
       <div className={`${wrapperClass} bg-gradient-to-br from-slate-800 to-slate-900 flex flex-col items-center justify-center gap-1.5 p-2`}>
         <Icon size={viewMode === 'grid' ? 36 : 24} className={`${meta.accent} opacity-90`} />
-        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">{meta.label}</span>
+        <span className="text-[10px] text-slate-300 font-bold uppercase tracking-wider">{t(meta.labelKey)}</span>
         <span className="text-[9px] text-slate-500 truncate w-full text-center" title={alt}>{alt}</span>
       </div>
     );
@@ -191,7 +194,7 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
     return (
       <div className={`${wrapperClass} bg-slate-800 text-slate-400 flex flex-col items-center justify-center gap-1 p-2`}>
         <CloudOff size={28} className="opacity-60" />
-        <span className="text-[9px] text-center leading-tight opacity-70">No descarregat</span>
+        <span className="text-[9px] text-center leading-tight opacity-70">{t('media.not_downloaded')}</span>
       </div>
     );
   }
@@ -219,16 +222,17 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
 // Metadades visuals dels roots disponibles. La llista efectiva ve del backend
 // (/media/roots) i només mostrem els que tenen `available=true`.
 const ROOT_META = {
-  images: { Icon: ImageIcon, label: 'Imatges', allLabel: 'Totes les imatges' },
-  assets: { Icon: Folder, label: 'Assets', allLabel: 'Tots els assets' },
-  biblioteca: { Icon: Library, label: 'Biblioteca', allLabel: 'Tota la biblioteca' },
-  vault: { Icon: Database, label: 'Tot el Vault', allLabel: 'Tot el Vault' },
+  images: { Icon: ImageIcon, labelKey: 'media.root_images', allLabelKey: 'media.all_images' },
+  assets: { Icon: Folder, labelKey: 'media.root_assets', allLabelKey: 'media.all_assets' },
+  biblioteca: { Icon: Library, labelKey: 'media.root_biblioteca', allLabelKey: 'media.all_biblioteca' },
+  vault: { Icon: Database, labelKey: 'media.root_vault', allLabelKey: 'media.all_vault' },
 };
 
 // Modal centrat per demanar el nom d'una vista. Substitueix `window.prompt`
 // (nadiu del navegador, ancorat a dalt-esquerra) per ser consistent amb la
 // resta de modals de l'app.
 function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
+  const { t } = useTranslation();
   const [value, setValue] = useState(defaultValue || '');
   const inputRef = useRef(null);
 
@@ -261,16 +265,16 @@ function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
           <div className="p-2 bg-[var(--gnosi-primary)]/10 rounded-lg text-[var(--gnosi-primary)]">
             <BookmarkPlus size={20} />
           </div>
-          <h3 className="text-lg font-bold text-[var(--text-primary)]">Desa com a vista</h3>
+          <h3 className="text-lg font-bold text-[var(--text-primary)]">{t('media.save_as_view')}</h3>
         </div>
-        <label className="block text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">Nom de la vista</label>
+        <label className="block text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider mb-2">{t('media.view_name_label')}</label>
         <input
           ref={inputRef}
           type="text"
           value={value}
           autoFocus
           onChange={(e) => setValue(e.target.value)}
-          placeholder="Ex: Vídeos del 2026"
+          placeholder={t('media.view_name_placeholder')}
           className="w-full px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/30 mb-5"
         />
         <div className="flex justify-end gap-2">
@@ -279,7 +283,7 @@ function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
             onClick={onCancel}
             className="px-4 py-2 rounded-lg border border-[var(--border-primary)] text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-all"
           >
-            Cancel·la
+            {t('common.cancel')}
           </button>
           <button
             type="button"
@@ -287,7 +291,7 @@ function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
             disabled={!value.trim()}
             className="px-4 py-2 rounded-lg bg-[var(--gnosi-primary)] text-white text-sm font-bold hover:bg-[var(--gnosi-primary)]/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
-            Desa
+            {t('media.save')}
           </button>
         </div>
       </div>
@@ -301,13 +305,14 @@ function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'D\'acord',
-  cancelLabel = 'Cancel·la',
+  confirmLabel = null,
+  cancelLabel = null,
   danger = false,
   Icon = AlertCircle,
   onCancel,
   onConfirm,
 }) {
+  const { t } = useTranslation();
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4">
@@ -335,7 +340,7 @@ function ConfirmDialog({
             onClick={onCancel}
             className="px-4 py-2 rounded-lg border border-[var(--border-primary)] text-sm font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-all"
           >
-            {cancelLabel}
+            {cancelLabel || t('common.cancel')}
           </button>
           <button
             type="button"
@@ -347,7 +352,7 @@ function ConfirmDialog({
                 : 'bg-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/90'
             }`}
           >
-            {confirmLabel}
+            {confirmLabel || t('media.confirm_ok')}
           </button>
         </div>
       </div>
@@ -357,34 +362,34 @@ function ConfirmDialog({
 
 // Pills de tipus al toolbar. L'ordre defineix l'ordre visual.
 const KIND_OPTIONS = [
-  { key: 'image', label: 'Imatges', Icon: ImageIcon },
-  { key: 'video', label: 'Vídeos', Icon: Video },
-  { key: 'audio', label: 'Àudio', Icon: Music },
-  { key: 'pdf', label: 'PDFs', Icon: FileText },
-  { key: 'other', label: 'Altres', Icon: HardDrive },
+  { key: 'image', labelKey: 'media.kind_image', Icon: ImageIcon },
+  { key: 'video', labelKey: 'media.kind_video', Icon: Video },
+  { key: 'audio', labelKey: 'media.kind_audio', Icon: Music },
+  { key: 'pdf', labelKey: 'media.kind_pdf', Icon: FileText },
+  { key: 'other', labelKey: 'media.kind_other', Icon: HardDrive },
 ];
 
 // Presets de rang de mtime. `days=null` = personalitzat (input de dates).
 const DATE_PRESETS = [
-  { key: 'all', label: 'Sempre', days: 0 },
-  { key: '7d', label: '7 dies', days: 7 },
-  { key: '30d', label: '30 dies', days: 30 },
-  { key: '365d', label: 'Aquest any', days: 365 },
-  { key: 'custom', label: 'Personalitzat', days: null },
+  { key: 'all', labelKey: 'media.date_all', days: 0 },
+  { key: '7d', labelKey: 'media.date_7d', days: 7 },
+  { key: '30d', labelKey: 'media.date_30d', days: 30 },
+  { key: '365d', labelKey: 'media.date_year', days: 365 },
+  { key: 'custom', labelKey: 'media.date_custom', days: null },
 ];
 
 const SIZE_PRESETS = [
-  { key: 'all', label: 'Tot', min: null, max: null },
+  { key: 'all', labelKey: 'media.size_all', min: null, max: null },
   { key: 'small', label: '<500 KB', min: null, max: 500 },
   { key: 'medium', label: '500 KB – 5 MB', min: 500, max: 5120 },
   { key: 'large', label: '>5 MB', min: 5120, max: null },
 ];
 
 const SORT_OPTIONS = [
-  { key: 'mtime', label: 'Modificació' },
-  { key: 'filename', label: 'Nom' },
-  { key: 'size', label: 'Mida' },
-  { key: 'kind', label: 'Tipus' },
+  { key: 'mtime', labelKey: 'media.sort_mtime' },
+  { key: 'filename', labelKey: 'media.sort_filename' },
+  { key: 'size', labelKey: 'media.sort_size' },
+  { key: 'kind', labelKey: 'media.sort_kind' },
 ];
 
 const DEFAULT_FILTERS = Object.freeze({
@@ -417,6 +422,7 @@ function MediaToolbar({
   onSaveAsView,
   onUpdateView,
 }) {
+  const { t } = useTranslation();
   const [tagDraft, setTagDraft] = useState('');
 
   // Multi-select OR: clicar afegeix/treu un tipus de la selecció. Cap pill
@@ -464,7 +470,8 @@ function MediaToolbar({
     <div className="px-6 py-3 bg-[var(--bg-primary)] border-b border-[var(--border-primary)] flex flex-wrap items-center gap-3 text-xs">
       {/* Tipus */}
       <div className="flex items-center gap-1">
-        {KIND_OPTIONS.map(({ key, label, Icon }) => {
+        {KIND_OPTIONS.map(({ key, labelKey, Icon }) => {
+          const label = t(labelKey);
           const active = filters.kinds.includes(key);
           return (
             <button
@@ -495,7 +502,7 @@ function MediaToolbar({
           onChange={(e) => setDatePreset(e.target.value)}
           className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
         >
-          {DATE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+          {DATE_PRESETS.map(p => <option key={p.key} value={p.key}>{t(p.labelKey)}</option>)}
         </select>
       </label>
       {filters.datePreset === 'custom' && (
@@ -531,7 +538,7 @@ function MediaToolbar({
         ))}
         <input
           type="text"
-          placeholder="Tag + Enter"
+          placeholder={t('media.tag_placeholder')}
           value={tagDraft}
           onChange={(e) => setTagDraft(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addTag(); } }}
@@ -549,7 +556,7 @@ function MediaToolbar({
           onChange={(e) => setSizePreset(e.target.value)}
           className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
         >
-          {SIZE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.label}</option>)}
+          {SIZE_PRESETS.map(p => <option key={p.key} value={p.key}>{p.labelKey ? t(p.labelKey) : p.label}</option>)}
         </select>
       </label>
 
@@ -561,15 +568,15 @@ function MediaToolbar({
           value={sort.field}
           onChange={(e) => onSortChange({ ...sort, field: e.target.value })}
           className="bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-xs"
-          title="Camp d'ordenació"
+          title={t('media.sort_field_title')}
         >
-          {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+          {SORT_OPTIONS.map(o => <option key={o.key} value={o.key}>{t(o.labelKey)}</option>)}
         </select>
         <button
           type="button"
           onClick={() => onSortChange({ ...sort, dir: sort.dir === 'desc' ? 'asc' : 'desc' })}
           className="p-1 rounded-md bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]"
-          title={sort.dir === 'desc' ? 'Descendent' : 'Ascendent'}
+          title={sort.dir === 'desc' ? t('media.sort_desc') : t('media.sort_asc')}
         >
           {sort.dir === 'desc' ? <ArrowDown size={12} /> : <ArrowUp size={12} />}
         </button>
@@ -583,20 +590,20 @@ function MediaToolbar({
               type="button"
               onClick={onUpdateView}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-all font-medium"
-              title="Sobreescriu la vista activa amb els filtres actuals"
+              title={t('media.update_view_title')}
             >
               <BookmarkCheck size={12} />
-              <span>Actualitzar vista</span>
+              <span>{t('media.update_view')}</span>
             </button>
           ) : hasActiveFilters ? (
             <button
               type="button"
               onClick={onSaveAsView}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 transition-all font-medium"
-              title="Desa els filtres actuals com a vista"
+              title={t('media.save_as_view_title')}
             >
               <BookmarkPlus size={12} />
-              <span>Desa com a vista</span>
+              <span>{t('media.save_as_view')}</span>
             </button>
           ) : null}
           {(hasActiveFilters || activeViewId) && (
@@ -604,10 +611,10 @@ function MediaToolbar({
               type="button"
               onClick={onReset}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-all"
-              title="Netejar filtres, ordenació i vista activa"
+              title={t('media.clear_filters_title')}
             >
               <Eraser size={12} />
-              <span>Netejar</span>
+              <span>{t('media.clear_filters')}</span>
             </button>
           )}
         </div>
@@ -617,6 +624,7 @@ function MediaToolbar({
 }
 
 export default function MediaCenter() {
+  const { t } = useTranslation();
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -728,11 +736,11 @@ export default function MediaCenter() {
       setHasMore(items.length === PAGE_SIZE);
     } catch (err) {
       console.error('Error carregant mitjans:', err);
-      toast.error('No s\'han pogut carregar les fotos');
+      toast.error(t('media.load_error'));
     } finally {
       setLoading(false);
     }
-  }, [activeAlbum, activeRoot, offset, filters, sort]);
+  }, [activeAlbum, activeRoot, offset, filters, sort, t]);
 
   // Carrega els roots disponibles un cop, al muntatge.
   useEffect(() => {
@@ -811,12 +819,12 @@ export default function MediaCenter() {
       });
       setViews(prev => [...prev, r.data]);
       setActiveViewId(r.data.id);
-      toast.success('Vista desada');
+      toast.success(t('media.view_saved'));
     } catch (err) {
       console.error('Error desant vista:', err);
-      toast.error('No s\'ha pogut desar la vista');
+      toast.error(t('media.view_save_error'));
     }
-  }, [activeRoot, activeAlbum, filters, sort]);
+  }, [activeRoot, activeAlbum, filters, sort, t]);
 
   const handleUpdateView = useCallback(async () => {
     if (!activeViewId) return;
@@ -829,12 +837,12 @@ export default function MediaCenter() {
         sort,
       });
       setViews(prev => prev.map(v => v.id === activeViewId ? r.data : v));
-      toast.success('Vista actualitzada');
+      toast.success(t('media.view_updated'));
     } catch (err) {
       console.error('Error actualitzant vista:', err);
-      toast.error('No s\'ha pogut actualitzar la vista');
+      toast.error(t('media.view_update_error'));
     }
-  }, [activeViewId, activeRoot, activeAlbum, filters, sort, views]);
+  }, [activeViewId, activeRoot, activeAlbum, filters, sort, views, t]);
 
   // Confirm dialog genèric: si no és `null`, renderitzem el modal centrat.
   const [confirmDialog, setConfirmDialog] = useState(null);
@@ -842,9 +850,9 @@ export default function MediaCenter() {
   const handleDeleteView = useCallback((id) => {
     const view = views.find(v => v.id === id);
     setConfirmDialog({
-      title: 'Esborrar vista',
-      message: view ? `«${view.label}» s'eliminarà del sidecar. Aquesta acció no es pot desfer.` : 'Aquesta acció no es pot desfer.',
-      confirmLabel: 'Esborra',
+      title: t('media.delete_view_title'),
+      message: view ? t('media.delete_view_msg', { label: view.label }) : t('media.delete_view_msg_generic'),
+      confirmLabel: t('media.confirm_delete'),
       danger: true,
       Icon: Trash2,
       onConfirm: async () => {
@@ -855,11 +863,11 @@ export default function MediaCenter() {
           if (activeViewId === id) setActiveViewId(null);
         } catch (err) {
           console.error('Error esborrant vista:', err);
-          toast.error('No s\'ha pogut esborrar la vista');
+          toast.error(t('media.view_delete_error'));
         }
       },
     });
-  }, [activeViewId, views]);
+  }, [activeViewId, views, t]);
 
   // Reset al canviar d'àlbum, root, filtres o ordenació. Tots disparen una
   // nova petició amb offset=0 perquè el `total` reportat depèn dels filtres.
@@ -877,7 +885,7 @@ export default function MediaCenter() {
 
     try {
       setIsUploading(true);
-      toast.loading('Pujant fitxer...', { id: 'upload' });
+      toast.loading(t('media.uploading'), { id: 'upload' });
       // Per al root "images" mantenim el flux antic (galeria amb àlbums).
       // Per a la resta, derivar a /assets/upload (no hi ha noció d'àlbum).
       let url;
@@ -888,11 +896,11 @@ export default function MediaCenter() {
         url = '/api/vault/assets/upload';
       }
       await axios.post(url, formData);
-      toast.success('Fitxer pujat correctament', { id: 'upload' });
+      toast.success(t('media.upload_success'), { id: 'upload' });
       fetchMedia(true);
     } catch (err) {
       console.error('Error pujant fitxer:', err);
-      toast.error('Error en la càrrega', { id: 'upload' });
+      toast.error(t('media.upload_error'), { id: 'upload' });
     } finally {
       setIsUploading(false);
     }
@@ -1084,9 +1092,9 @@ export default function MediaCenter() {
             <ImageIcon size={24} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">Gestor de Mitjans</h1>
+            <h1 className="text-xl font-bold text-[var(--text-primary)]">{t('media.title')}</h1>
             <p className="text-xs text-[var(--text-tertiary)]">
-              Imatges, vídeos, àudio i PDFs · {ROOT_META[activeRoot]?.label || activeRoot}
+              {t('media.subtitle')} · {ROOT_META[activeRoot]?.labelKey ? t(ROOT_META[activeRoot].labelKey) : activeRoot}
             </p>
           </div>
         </div>
@@ -1096,7 +1104,7 @@ export default function MediaCenter() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)] group-focus-within:text-[var(--gnosi-primary)] transition-colors" size={16} />
             <input 
               type="text" 
-              placeholder="Cerca en l'arxiu..." 
+              placeholder={t('media.search_placeholder')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 w-64 transition-all"
@@ -1121,7 +1129,7 @@ export default function MediaCenter() {
           {(activeRoot === 'images' || activeRoot === 'assets') && (
             <label className={`flex items-center gap-2 px-4 py-2 bg-[var(--gnosi-primary)] text-white rounded-lg transition-all shadow-lg ${isUploading ? 'opacity-70 cursor-wait pointer-events-none' : 'hover:bg-[var(--gnosi-primary)]/90 cursor-pointer active:scale-95'}`}>
               {isUploading ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} />}
-              <span className="text-sm font-medium">{isUploading ? 'Pujant…' : 'Penjar fitxer'}</span>
+              <span className="text-sm font-medium">{isUploading ? t('media.uploading_short') : t('media.upload_button')}</span>
               <input type="file" className="hidden" onChange={handleUpload} disabled={isUploading} />
             </label>
           )}
@@ -1149,10 +1157,11 @@ export default function MediaCenter() {
           {/* Tabs de root: Images, Assets, Biblioteca, Vault */}
           {roots.length > 1 && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1">Origen</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1">{t('media.origin')}</p>
               <div className="grid grid-cols-2 gap-1.5 mb-2">
                 {roots.map((r) => {
-                  const meta = ROOT_META[r.key] || { Icon: Folder, label: r.label };
+                  const meta = ROOT_META[r.key] || { Icon: Folder };
+                  const metaLabel = meta.labelKey ? t(meta.labelKey) : r.label;
                   const Icon = meta.Icon;
                   const active = r.key === activeRoot;
                   return (
@@ -1160,7 +1169,7 @@ export default function MediaCenter() {
                       key={r.key}
                       type="button"
                       onClick={() => setActiveRoot(r.key)}
-                      title={r.label}
+                      title={metaLabel}
                       className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                         active
                           ? 'bg-[var(--gnosi-primary)] text-white border-[var(--gnosi-primary)] shadow-sm'
@@ -1168,7 +1177,7 @@ export default function MediaCenter() {
                       }`}
                     >
                       <Icon size={13} />
-                      <span className="truncate">{meta.label}</span>
+                      <span className="truncate">{metaLabel}</span>
                     </button>
                   );
                 })}
@@ -1181,7 +1190,7 @@ export default function MediaCenter() {
               una vista canvia root, àlbum, filtres i ordenació alhora. */}
           {views.length > 0 && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1 mt-1">Vistes</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1 mt-1">{t('media.views')}</p>
               <div className="flex flex-col gap-1 mb-2">
                 {views.map((v) => {
                   const isActive = activeViewId === v.id;
@@ -1207,7 +1216,7 @@ export default function MediaCenter() {
                         type="button"
                         onClick={(e) => { e.stopPropagation(); handleDeleteView(v.id); }}
                         className="px-2 opacity-0 group-hover:opacity-100 text-[var(--text-tertiary)] hover:text-red-500 transition-all"
-                        title="Esborrar vista"
+                        title={t('media.delete_view')}
                       >
                         <Trash2 size={14} />
                       </button>
@@ -1219,15 +1228,15 @@ export default function MediaCenter() {
             </>
           )}
 
-          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-2 mt-1">Carpetes</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-2 mt-1">{t('media.folders')}</p>
 
           <button
             onClick={() => setActiveAlbum('')}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${activeAlbum === '' ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] shadow-sm' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'}`}
-            title="Indexa recursivament tot el contingut del root actiu. La primera vegada pot trigar minuts."
+            title={t('media.all_root_title')}
           >
             <ImageIcon size={18} />
-            <span className="text-sm font-medium">{ROOT_META[activeRoot]?.allLabel || `Tot ${activeRoot}`}</span>
+            <span className="text-sm font-medium">{ROOT_META[activeRoot]?.allLabelKey ? t(ROOT_META[activeRoot].allLabelKey) : t('media.all_of_root', { root: activeRoot })}</span>
           </button>
 
           <div className="h-px bg-[var(--border-primary)] my-2 mx-2 opacity-50" />
@@ -1249,7 +1258,7 @@ export default function MediaCenter() {
           {activeAlbum === null ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
               <Folder size={64} className="mb-4 opacity-20" />
-              <p className="text-sm font-medium">Selecciona una vista o un àlbum a la barra lateral</p>
+              <p className="text-sm font-medium">{t('media.select_view_or_album')}</p>
             </div>
           ) : loading && media.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]/30 rounded-2xl border-2 border-dashed border-[var(--border-primary)]">
@@ -1260,21 +1269,21 @@ export default function MediaCenter() {
               >
                 <ImageIcon size={48} className="opacity-20" />
               </motion.div>
-              <p className="text-sm font-medium">Indexant fitxers…</p>
+              <p className="text-sm font-medium">{t('media.indexing')}</p>
               <p className="text-xs opacity-60 mt-1 max-w-xs text-center">
                 {activeAlbum
-                  ? `Llegint «${activeAlbum}»`
-                  : 'La primera indexació de tot l\'origen pot trigar uns minuts. Després serà instantània.'}
+                  ? t('media.reading_album', { album: activeAlbum })
+                  : t('media.first_index_hint')}
               </p>
             </div>
           ) : filteredMedia.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)]">
               <ImageIcon size={64} className="mb-4 opacity-10" />
-              <p className="text-lg font-medium">No s'ha trobat cap fitxer</p>
+              <p className="text-lg font-medium">{t('media.no_files')}</p>
               <p className="text-sm">
                 {hasActiveFilters
-                  ? 'Prova amb un altre filtre o neteja\'ls.'
-                  : 'Aquesta carpeta està buida.'}
+                  ? t('media.try_other_filter')
+                  : t('media.folder_empty')}
               </p>
             </div>
           ) : (
@@ -1316,13 +1325,13 @@ export default function MediaCenter() {
                     {loading
                       ? <Loader2 size={16} className="animate-spin" />
                       : <ChevronDown size={16} />}
-                    {loading ? 'Carregant…' : 'Carregar-ne més'}
+                    {loading ? t('media.loading') : t('media.load_more')}
                   </button>
                 </div>
               )}
               {total > 0 && (
                 <p className="text-center text-xs text-[var(--text-tertiary)] mt-4">
-                  {media.length} de {total}
+                  {t('media.count_of', { count: media.length, total })}
                 </p>
               )}
             </>
@@ -1351,7 +1360,7 @@ export default function MediaCenter() {
                 <button
                   onClick={closeViewer}
                   className="p-2 rounded-lg hover:bg-white/10 transition-all"
-                  title="Tancar (Esc)"
+                  title={t('media.close_esc')}
                 >
                   <X size={20} />
                 </button>
@@ -1367,14 +1376,14 @@ export default function MediaCenter() {
                 <button
                   onClick={() => setSlideshowActive(s => !s)}
                   className={`p-2 rounded-lg transition-all ${slideshowActive ? 'bg-[var(--gnosi-primary)] text-white' : 'hover:bg-white/10 text-white'}`}
-                  title={slideshowActive ? 'Aturar presentació (Espai)' : 'Iniciar presentació (Espai)'}
+                  title={slideshowActive ? t('media.stop_slideshow') : t('media.start_slideshow')}
                 >
                   {slideshowActive ? <Pause size={18} /> : <Play size={18} />}
                 </button>
                 <button
                   onClick={toggleFullscreen}
                   className="p-2 rounded-lg hover:bg-white/10 text-white transition-all"
-                  title={isFullscreen ? 'Sortir de pantalla completa (F)' : 'Pantalla completa (F)'}
+                  title={isFullscreen ? t('media.exit_fullscreen') : t('media.fullscreen')}
                 >
                   {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
                 </button>
@@ -1389,7 +1398,7 @@ export default function MediaCenter() {
                   <button
                     onClick={goPrev}
                     className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm"
-                    title="Anterior (←)"
+                    title={t('media.prev')}
                   >
                     <ChevronLeft size={24} />
                   </button>
@@ -1398,7 +1407,7 @@ export default function MediaCenter() {
                   <button
                     onClick={goNext}
                     className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all backdrop-blur-sm"
-                    title="Següent (→)"
+                    title={t('media.next')}
                   >
                     <ChevronRight size={24} />
                   </button>
@@ -1446,7 +1455,7 @@ export default function MediaCenter() {
                     rel="noreferrer"
                     className="text-sky-300 hover:underline text-sm flex items-center gap-2"
                   >
-                    <ExternalLink size={16} /> Obrir fitxer al navegador
+                    <ExternalLink size={16} /> {t('media.open_in_browser')}
                   </a>
                 )}
               </div>
@@ -1457,14 +1466,14 @@ export default function MediaCenter() {
                   <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-2.5 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)]">
-                        <p className="text-[9px] text-[var(--text-tertiary)] uppercase font-bold mb-1">Data presa</p>
+                        <p className="text-[9px] text-[var(--text-tertiary)] uppercase font-bold mb-1">{t('media.date_taken')}</p>
                         <p className="text-xs font-medium text-[var(--text-primary)] flex items-center gap-1.5">
                           <Calendar size={12} className="text-blue-500" />
                           {selectedPhoto.date_taken ? new Date(selectedPhoto.date_taken).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                       <div className="p-2.5 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-primary)]">
-                        <p className="text-[9px] text-[var(--text-tertiary)] uppercase font-bold mb-1">Àlbum</p>
+                        <p className="text-[9px] text-[var(--text-tertiary)] uppercase font-bold mb-1">{t('media.album')}</p>
                         <p className="text-xs font-medium text-[var(--text-primary)] flex items-center gap-1.5">
                           <FolderOpen size={12} className="text-orange-500" />
                           <span className="truncate">{selectedPhoto.album}</span>
@@ -1474,7 +1483,7 @@ export default function MediaCenter() {
 
                     {selectedPhoto.lat != null && selectedPhoto.lng != null && (
                       <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-xl">
-                        <p className="text-[9px] text-emerald-600 uppercase font-bold mb-1.5">Localització</p>
+                        <p className="text-[9px] text-emerald-600 uppercase font-bold mb-1.5">{t('media.location')}</p>
                         <div className="flex items-center justify-between gap-2">
                           <div className="flex items-center gap-2 min-w-0">
                             <MapPin size={14} className="text-emerald-500 shrink-0" />
@@ -1494,7 +1503,7 @@ export default function MediaCenter() {
 
                     <div className="space-y-4">
                       <div>
-                        <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">Etiquetes</label>
+                        <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">{t('media.tags')}</label>
                         <div className="flex flex-wrap gap-1.5 mb-2">
                           {editingMetadata.tags.map(tag => (
                             <span key={tag} className="flex items-center gap-1 px-2 py-0.5 bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] text-[10px] font-bold rounded-full">
@@ -1509,7 +1518,7 @@ export default function MediaCenter() {
                           <Tag className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={12} />
                           <input
                             type="text"
-                            placeholder="Afegir tag i prem Enter…"
+                            placeholder={t('media.add_tag_placeholder')}
                             onKeyDown={(e) => {
                               if (e.key === 'Enter' && e.target.value) {
                                 if (!editingMetadata.tags.includes(e.target.value)) {
@@ -1524,11 +1533,11 @@ export default function MediaCenter() {
                       </div>
 
                       <div>
-                        <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">Descripció</label>
+                        <label className="text-[9px] font-bold text-[var(--text-tertiary)] uppercase block mb-2 px-1">{t('media.description')}</label>
                         <textarea
                           value={editingMetadata.description}
                           onChange={(e) => setEditingMetadata({...editingMetadata, description: e.target.value})}
-                          placeholder="Context del coneixement o record…"
+                          placeholder={t('media.description_placeholder')}
                           className="w-full p-3 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-xs min-h-[100px] focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none resize-none"
                         />
                       </div>
@@ -1538,29 +1547,29 @@ export default function MediaCenter() {
                   <div className="p-3 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] flex items-center gap-3">
                     <button
                       className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[var(--border-primary)] text-[var(--text-primary)] rounded-lg text-[11px] font-bold hover:bg-[var(--bg-primary)] transition-all shadow-sm"
-                      onClick={() => toast.success('Properament: Creació de nota Markdown')}
+                      onClick={() => toast.success(t('media.create_note_soon'))}
                     >
                       <FileText size={14} className="text-purple-500" />
-                      Crear nota
+                      {t('media.create_note')}
                     </button>
                     <div className="flex-1 text-right text-[10px] font-medium" aria-live="polite">
                       {saveStatus === 'saving' && (
                         <span className="text-[var(--text-tertiary)] inline-flex items-center gap-1.5">
-                          <Loader2 size={12} className="animate-spin" /> Desant…
+                          <Loader2 size={12} className="animate-spin" /> {t('media.saving')}
                         </span>
                       )}
                       {saveStatus === 'saved' && (
                         <span className="text-emerald-600 inline-flex items-center gap-1.5">
-                          <Check size={12} /> Desat
+                          <Check size={12} /> {t('media.saved')}
                         </span>
                       )}
                       {saveStatus === 'error' && (
                         <span className="text-red-500 inline-flex items-center gap-1.5">
-                          <AlertCircle size={12} /> Error en desar
+                          <AlertCircle size={12} /> {t('media.save_error')}
                         </span>
                       )}
                       {saveStatus === 'idle' && (
-                        <span className="text-[var(--text-tertiary)]">Auto-desat</span>
+                        <span className="text-[var(--text-tertiary)]">{t('media.autosave')}</span>
                       )}
                     </div>
                   </div>
