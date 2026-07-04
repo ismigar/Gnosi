@@ -691,9 +691,9 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         >
                             <option value="">{t('schema.date_format_global', 'Global (Settings)')}</option>
                             <option value="locale">{t('schema.date_format_locale', "Segons l'idioma")}</option>
-                            <option value="DD/MM/YYYY">DD/MM/AAAA</option>
-                            <option value="MM/DD/YYYY">MM/DD/AAAA</option>
-                            <option value="YYYY-MM-DD">AAAA-MM-DD (ISO)</option>
+                            <option value="DD/MM/YYYY">{t('schema.date_format_dmy', 'DD/MM/AAAA')}</option>
+                            <option value="MM/DD/YYYY">{t('schema.date_format_mdy', 'MM/DD/AAAA')}</option>
+                            <option value="YYYY-MM-DD">{t('schema.date_format_iso', 'AAAA-MM-DD (ISO)')}</option>
                         </select>
                     </div>
                 </div>
@@ -922,7 +922,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                         className="w-full text-xs border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                     >
                                         {ROLLUP_AGGREGATIONS.map((option) => (
-                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                            <option key={option.value} value={option.value}>{t(`schema.rollup_${option.value}`, option.label)}</option>
                                         ))}
                                     </select>
                                 </div>
@@ -1310,9 +1310,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
 
     // --- Sincronització amb Drupal -----------------------------------------
     // Noms de les columnes gestionades pel sistema on el sync desa el NID i
-    // l'URL del node de Drupal. Read-only a la graella (config.system).
-    const DRUPAL_NID_COL = t('schema.drupal_nid_column', 'Drupal NID');
-    const DRUPAL_URL_COL = t('schema.drupal_url_column', 'Drupal URL');
+    // l'URL del node de Drupal. Read-only a la graella (config.system). Són
+    // VALORS desats a l'esquema (el sync els busca pel nom) — mai via i18n.
+    const DRUPAL_NID_COL = 'Drupal NID';
+    const DRUPAL_URL_COL = 'Drupal URL';
 
     // Afegeix les dues columnes de sortida (NID/URL) si encara no hi són. Es
     // gestionen com a part de l'esquema (com el botó de traduir): així es
@@ -1357,8 +1358,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
 
     // Columna `system` que marca la taula com a publicable a XXSS. La seva
     // presència és el senyal que fa aparèixer el botó "Publicar a XXSS" (com les
-    // columnes de Drupal). Es persisteix amb l'esquema via l'autosave de `fields`.
-    const SOCIAL_PUBLISH_COL = t('schema.social_column', 'XXSS');
+    // columnes de Drupal). Es persisteix amb l'esquema via l'autosave de `fields`:
+    // és un VALOR desat/comparat per lògica, no una etiqueta — mai via i18n
+    // (traduir-la trencaria la detecció en taules creades en un altre idioma).
+    const SOCIAL_PUBLISH_COL = 'XXSS';
     const addSocialPublishColumns = () => {
         setFields((prev) => {
             const have = new Set(prev.map((f) => (f.name || '').trim().toLowerCase()));
@@ -1877,7 +1880,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                         <Settings size={20} className="text-[var(--gnosi-primary)]" />
                         {t('schema.manage_properties_of')} {folder}{tableName ? ` · ${tableName}` : ''}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar">
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')}>
                         <X />
                     </button>
                 </div>

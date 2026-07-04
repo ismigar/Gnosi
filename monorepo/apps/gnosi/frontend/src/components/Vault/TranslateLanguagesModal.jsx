@@ -89,7 +89,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
             onClose();
         } catch (err) {
             console.error('Error sol·licitant traducció:', err);
-            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('translate.error', 'Error iniciant la traducció')}: ${msg}`);
         } finally {
             setSubmitting(false);
@@ -126,7 +126,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                                 ? t('translate.title_page', 'Tradueix la pàgina')
                                 : t('translate.title', 'Traduir fila')}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar" disabled={submitting}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={submitting}>
                         <X />
                     </button>
                 </div>
@@ -159,7 +159,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                                         disabled={submitting}
                                         className="w-3.5 h-3.5 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)]"
                                     />
-                                    <span className="flex-1">{lang.label}</span>
+                                    <span className="flex-1">{t(`translate.lang_${lang.code}`, lang.label)}</span>
                                     <span className="text-[10px] uppercase text-[var(--text-tertiary)]">{lang.code}</span>
                                 </label>
                             );
@@ -169,7 +169,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                     {sourceLang && (
                         <p className="text-[10px] text-[var(--text-secondary)]/60">
                             {t('translate.source_hidden', {
-                                lang: (DEFAULT_LANGUAGES.find(l => l.code === sourceLang)?.label || sourceLang.toUpperCase()),
+                                lang: t(`translate.lang_${sourceLang}`, DEFAULT_LANGUAGES.find(l => l.code === sourceLang)?.label || sourceLang.toUpperCase()),
                                 defaultValue: "L'idioma original ({{lang}}) no apareix: és l'origen de la traducció.",
                             })}
                         </p>

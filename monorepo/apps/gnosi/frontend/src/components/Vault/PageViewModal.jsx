@@ -62,6 +62,7 @@ const TABS = [
  *  amb un cercador per filtrar i navegació amb teclat (↑↓/Enter/Esc).
  */
 function RelationValuePicker({ value, onChange, options, loading, thisLabel, placeholder }) {
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [highlighted, setHighlighted] = useState(0);
@@ -123,7 +124,7 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
                 className="w-full text-left truncate text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--gnosi-primary)]"
                 title={display}
             >
-                {display || <span className="text-[var(--text-tertiary)]">{placeholder || 'Tria…'}</span>}
+                {display || <span className="text-[var(--text-tertiary)]">{placeholder || t('view.filter_pick', 'Tria…')}</span>}
             </button>
             {open && rect && createPortal(
                 <div
@@ -141,10 +142,10 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
                             else if (e.key === 'Enter') { e.preventDefault(); if (filtered[highlighted]) pick(filtered[highlighted]); }
                             else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
                         }}
-                        placeholder="Cerca…"
+                        placeholder={t('view.search_placeholder', 'Cerca…')}
                         className="w-full text-xs border-b border-[var(--border-primary)] px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] sticky top-0"
                     />
-                    {loading && <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">Carregant…</div>}
+                    {loading && <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">{t('common.loading', 'Carregant…')}</div>}
                     {!loading && filtered.map((o, i) => (
                         <div
                             key={o.value}
@@ -157,7 +158,7 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
                         </div>
                     ))}
                     {!loading && filtered.length === 0 && (
-                        <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">Cap resultat</div>
+                        <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">{t('view.no_results', 'Cap resultat')}</div>
                     )}
                 </div>,
                 document.body
@@ -284,14 +285,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 const rows = await apiFetch(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
                 const opts = (Array.isArray(rows) ? rows : [])
                     .filter(r => !r.metadata?.is_template)
-                    .map(r => ({ value: r.id, label: r.title || '(sense títol)' }))
+                    .map(r => ({ value: r.id, label: r.title || t('view.untitled', '(sense títol)') }))
                     .sort((a, b) => a.label.localeCompare(b.label));
                 setRelationCache(prev => ({ ...prev, [tid]: opts }));
             } catch {
                 setRelationCache(prev => ({ ...prev, [tid]: [] }));
             }
         });
-    }, [isOpen, filters, fieldMeta, apiFetch, relationCache]);
+    }, [isOpen, filters, fieldMeta, apiFetch, relationCache, t]);
 
     // Llegeix les opcions per-tipus d'una vista (registry o secció inline) als
     // estats del modal, tolerant les dues convencions de nom (camelCase del
@@ -727,12 +728,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
     const handleSave = async () => {
         if (!sourceTableId) {
-            setError('Cal seleccionar una taula origen');
+            setError(t('view.error_no_table', 'Cal seleccionar una taula origen'));
             setActiveTab('general');
             return;
         }
         if (visibleProperties.length === 0) {
-            setError('Cal almenys un camp visible');
+            setError(t('view.error_no_fields', 'Cal almenys un camp visible'));
             setActiveTab('properties');
             return;
         }
@@ -936,7 +937,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 visible_properties: visibleProperties,
             });
         } catch (e) {
-            setError(e?.message || 'Error desconegut en crear la vista');
+            setError(e?.message || t('view.error_create', 'Error desconegut en crear la vista'));
         } finally {
             setSaving(false);
         }
@@ -969,7 +970,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Eye size={16} className="text-[var(--gnosi-primary)]" />
                         {isTableMode
-                            ? (editingView?.id ? 'Configurar vista' : 'Nova vista')
+                            ? (editingView?.id ? t('view.config_title', 'Configurar vista') : t('view.new_view', 'Nova vista'))
                             : (editingBlock
                                 ? t('page_view.title_edit', 'Edita la vista de BD')
                                 : t('page_view.title', 'Afegir vista de BD'))}
@@ -995,7 +996,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 }`}
                             >
                                 <Icon size={13} />
-                                {tab.label}
+                                {t(`view.tab_${tab.id}`, tab.label)}
                             </button>
                         );
                     })}
@@ -1007,13 +1008,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         <>
                             {!isTableMode && (
                                 <div>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Taula origen</label>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.source_table', 'Taula origen')}</label>
                                     <select
                                         className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                         value={sourceTableId}
                                         onChange={e => setSourceTableId(e.target.value)}
                                     >
-                                        <option value="">— Selecciona taula —</option>
+                                        <option value="">{t('view.pick_table', '— Selecciona taula —')}</option>
                                         {allTables.map(tbl => (
                                             <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
                                         ))}
@@ -1022,7 +1023,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             )}
 
                             <div>
-                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">Tipus de vista</label>
+                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">{t('view.type_label', 'Tipus de vista')}</label>
                                 <div className="grid grid-cols-4 gap-2">
                                     {VIEW_TYPES.map(vt => {
                                         const Icon = vt.icon;
@@ -1037,10 +1038,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
                                                         : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
                                                 }`}
-                                                title={vt.label}
+                                                title={t(`view.type_${vt.id}`, vt.label)}
                                             >
                                                 <Icon size={18} />
-                                                <span className="text-[10px] font-semibold">{vt.label}</span>
+                                                <span className="text-[10px] font-semibold">{t(`view.type_${vt.id}`, vt.label)}</span>
                                             </button>
                                         );
                                     })}
@@ -1051,10 +1052,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 contextualment just sota el selector de tipus. */}
                             {(viewType === 'table' || viewType === 'list') && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions de la taula</p>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Alçada de fila</label>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.table_options', 'Opcions de la taula')}</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.row_height', 'Alçada de fila')}</label>
                                     <div className="grid grid-cols-3 gap-2">
-                                        {[{ value: 'compact', label: 'Compacta' }, { value: 'normal', label: 'Normal' }, { value: 'tall', label: 'Alta' }].map(opt => (
+                                        {[{ value: 'compact', label: t('view.row_compact', 'Compacta') }, { value: 'normal', label: t('view.row_normal', 'Normal') }, { value: 'tall', label: t('view.row_tall', 'Alta') }].map(opt => (
                                             <button
                                                 key={opt.value}
                                                 type="button"
@@ -1073,9 +1074,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             )}
                             {viewType === 'gallery' && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions de la galeria</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.gallery_options', 'Opcions de la galeria')}</p>
                                     <div>
-                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Mida de la targeta</label>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.card_size', 'Mida de la targeta')}</label>
                                         <div className="grid grid-cols-3 gap-2">
                                             {CARD_SIZES.map(cs => (
                                                 <button
@@ -1088,50 +1089,50 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                             : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
                                                     }`}
                                                 >
-                                                    {cs.label}
+                                                    {t(`view.card_${cs.value}`, cs.label)}
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Previsualització de la targeta</label>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.card_preview', 'Previsualització de la targeta')}</label>
                                         <div className="grid grid-cols-2 gap-2">
                                             {GALLERY_PREVIEWS.map(gp => (
                                                 <button
                                                     key={gp.value}
                                                     type="button"
                                                     onClick={() => setGalleryPreview(gp.value)}
-                                                    title={gp.hint}
+                                                    title={t(`view.gp_${gp.value}_hint`, gp.hint)}
                                                     className={`text-left px-2.5 py-2 rounded-lg border transition-all ${
                                                         galleryPreview === gp.value
                                                             ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10'
                                                             : 'border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
                                                     }`}
                                                 >
-                                                    <span className={`block text-xs font-semibold ${galleryPreview === gp.value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>{gp.label}</span>
-                                                    <span className="block text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{gp.hint}</span>
+                                                    <span className={`block text-xs font-semibold ${galleryPreview === gp.value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>{t(`view.gp_${gp.value}`, gp.label)}</span>
+                                                    <span className="block text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{t(`view.gp_${gp.value}_hint`, gp.hint)}</span>
                                                 </button>
                                             ))}
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Camp de portada</label>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.cover_field', 'Camp de portada')}</label>
                                         <select
                                             value={coverField}
                                             onChange={e => setCoverField(e.target.value)}
                                             className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                         >
-                                            <option value="">Portada de la pàgina (per defecte)</option>
+                                            <option value="">{t('view.cover_default', 'Portada de la pàgina (per defecte)')}</option>
                                             {coverFieldOptions.map(f => (
                                                 <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                             ))}
                                         </select>
-                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">D'on treure la imatge de cada targeta (només si la previsualització és "Portada").</p>
+                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.cover_hint', "D'on treure la imatge de cada targeta (només si la previsualització és «Portada»).")}</p>
                                     </div>
                                     <div>
-                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">Ajust de la imatge</label>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.image_fit', 'Ajust de la imatge')}</label>
                                         <div className="grid grid-cols-2 gap-2">
-                                            {[{ value: 'contain', label: 'Sencera' }, { value: 'cover', label: 'Omple' }].map(opt => (
+                                            {[{ value: 'contain', label: t('view.fit_contain', 'Sencera') }, { value: 'cover', label: t('view.fit_cover', 'Omple') }].map(opt => (
                                                 <button
                                                     key={opt.value}
                                                     type="button"
@@ -1152,10 +1153,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                             {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Agrupació</p>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">Agrupa per</label>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.grouping', 'Agrupació')}</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
                                     {!selectedTable ? (
-                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
                                     ) : (
                                         <>
                                             <select
@@ -1163,13 +1164,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 onChange={e => setGroupBy(e.target.value)}
                                                 className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                             >
-                                                <option value="">Sense agrupar</option>
+                                                <option value="">{t('view.no_grouping', 'Sense agrupar')}</option>
                                                 {groupFieldOptions.map(f => (
                                                     <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                 ))}
                                             </select>
                                             {groupFieldOptions.length === 0 && (
-                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Cap camp de selecció/estat a la taula per agrupar.</p>
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields', 'Cap camp de selecció/estat a la taula per agrupar.')}</p>
                                             )}
                                         </>
                                     )}
@@ -1178,10 +1179,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                             {viewType === 'board' && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions del kanban</p>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">Agrupa per</label>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.board_options', 'Opcions del kanban')}</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
                                     {!selectedTable ? (
-                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
                                     ) : (
                                         <>
                                             <select
@@ -1189,13 +1190,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 onChange={e => setGroupBy(e.target.value)}
                                                 className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                             >
-                                                <option value="">Automàtic (estat)</option>
+                                                <option value="">{t('view.group_auto', 'Automàtic (estat)')}</option>
                                                 {groupFieldOptions.map(f => (
                                                     <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                 ))}
                                             </select>
                                             {groupFieldOptions.length === 0 && (
-                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">Cap camp de selecció/estat a la taula; s'agruparà automàticament.</p>
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields_auto', "Cap camp de selecció/estat a la taula; s'agruparà automàticament.")}</p>
                                             )}
                                         </>
                                     )}
@@ -1204,19 +1205,19 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                             {(viewType === 'calendar' || viewType === 'timeline') && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{viewType === 'calendar' ? 'Opcions del calendari' : 'Opcions del timeline'}</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{viewType === 'calendar' ? t('view.calendar_options', 'Opcions del calendari') : t('view.timeline_options', 'Opcions del timeline')}</p>
                                     {!selectedTable ? (
-                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
                                     ) : (
                                         <>
                                             <div>
-                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{viewType === 'timeline' ? "Data d'inici" : 'Camp de data'}</label>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{viewType === 'timeline' ? t('view.start_date', "Data d'inici") : t('view.date_field', 'Camp de data')}</label>
                                                 <select
                                                     value={dateField}
                                                     onChange={e => setDateField(e.target.value)}
                                                     className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                 >
-                                                    <option value="">Automàtic (primer camp de data)</option>
+                                                    <option value="">{t('view.date_auto', 'Automàtic (primer camp de data)')}</option>
                                                     {dateFieldOptions.map(f => (
                                                         <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                     ))}
@@ -1224,31 +1225,31 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             </div>
                                             {viewType === 'calendar' && (
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Vista inicial</label>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.initial_view', 'Vista inicial')}</label>
                                                     <select
                                                         value={calendarView}
                                                         onChange={e => setCalendarView(e.target.value)}
                                                         className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                     >
-                                                        <option value="dayGridMonth">Mes</option>
-                                                        <option value="timeGridWeek">Setmana</option>
-                                                        <option value="timeGridDay">Dia</option>
-                                                        <option value="multiMonthYear">Any</option>
+                                                        <option value="dayGridMonth">{t('view.cal_month', 'Mes')}</option>
+                                                        <option value="timeGridWeek">{t('view.cal_week', 'Setmana')}</option>
+                                                        <option value="timeGridDay">{t('view.cal_day', 'Dia')}</option>
+                                                        <option value="multiMonthYear">{t('view.cal_year', 'Any')}</option>
                                                     </select>
                                                 </div>
                                             )}
                                             {viewType === 'timeline' && (
                                                 fieldMeta[dateField]?.type === 'period' ? (
-                                                    <p className="text-[11px] text-[var(--text-tertiary)]">El camp de període ja defineix l'inici i el fi de cada barra.</p>
+                                                    <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.period_hint', "El camp de període ja defineix l'inici i el fi de cada barra.")}</p>
                                                 ) : (
                                                     <div>
-                                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Data de fi (opcional)</label>
+                                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.end_date', 'Data de fi (opcional)')}</label>
                                                         <select
                                                             value={endDateField}
                                                             onChange={e => setEndDateField(e.target.value)}
                                                             className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                         >
-                                                            <option value="">Cap (durada d'un dia)</option>
+                                                            <option value="">{t('view.end_none', "Cap (durada d'un dia)")}</option>
                                                             {dateFieldOptions.map(f => (
                                                                 <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                             ))}
@@ -1258,22 +1259,22 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             )}
                                             {viewType === 'timeline' && (
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Color per</label>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.color_by', 'Color per')}</label>
                                                     <select
                                                         value={colorField}
                                                         onChange={e => setColorField(e.target.value)}
                                                         className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                     >
-                                                        <option value="">Color únic (per defecte)</option>
+                                                        <option value="">{t('view.color_single', 'Color únic (per defecte)')}</option>
                                                         {groupFieldOptions.map(f => (
                                                             <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                         ))}
                                                     </select>
-                                                    <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Acoloreix cada barra segons el valor d'aquest camp (usa els colors de les seves opcions).</p>
+                                                    <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.color_hint', "Acoloreix cada barra segons el valor d'aquest camp (usa els colors de les seves opcions).")}</p>
                                                 </div>
                                             )}
                                             {dateFieldOptions.length === 0 && (
-                                                <p className="text-[11px] text-[var(--text-tertiary)]">Cap camp de data a la taula; s'usarà la data de modificació.</p>
+                                                <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.no_date_fields', "Cap camp de data a la taula; s'usarà la data de modificació.")}</p>
                                             )}
                                         </>
                                     )}
@@ -1282,72 +1283,72 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                             {viewType === 'chart' && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">Opcions del gràfic</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.chart_options', 'Opcions del gràfic')}</p>
                                     {!selectedTable ? (
-                                        <p className="text-xs text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
                                     ) : (
                                         <>
                                             <div>
-                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Tipus de gràfic</label>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.chart_type', 'Tipus de gràfic')}</label>
                                                 <select
                                                     value={chartType}
                                                     onChange={e => setChartType(e.target.value)}
                                                     className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                 >
-                                                    <option value="bar">Barres</option>
-                                                    <option value="hbar">Barres horitzontals</option>
-                                                    <option value="line">Línia</option>
-                                                    <option value="pie">Pastís</option>
-                                                    <option value="donut">Donut</option>
+                                                    <option value="bar">{t('view.chart_bar', 'Barres')}</option>
+                                                    <option value="hbar">{t('view.chart_hbar', 'Barres horitzontals')}</option>
+                                                    <option value="line">{t('view.chart_line', 'Línia')}</option>
+                                                    <option value="pie">{t('view.chart_pie', 'Pastís')}</option>
+                                                    <option value="donut">{t('view.chart_donut', 'Donut')}</option>
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Agrupar per (eix X)</label>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.chart_x', 'Agrupar per (eix X)')}</label>
                                                 <select
                                                     value={xField}
                                                     onChange={e => setXField(e.target.value)}
                                                     className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                 >
-                                                    <option value="">— Tria un camp —</option>
+                                                    <option value="">{t('view.pick_field', '— Tria un camp —')}</option>
                                                     {tableFields.map(f => (
                                                         <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                     ))}
                                                 </select>
                                             </div>
                                             <div>
-                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Funció d'agregació</label>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.aggregation', "Funció d'agregació")}</label>
                                                 <select
                                                     value={aggregation}
                                                     onChange={e => setAggregation(e.target.value)}
                                                     className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                 >
-                                                    <option value="count">Recompte (nombre de files)</option>
-                                                    <option value="sum">Suma</option>
-                                                    <option value="avg">Mitjana</option>
-                                                    <option value="min">Mínim</option>
-                                                    <option value="max">Màxim</option>
+                                                    <option value="count">{t('view.agg_count', 'Recompte (nombre de files)')}</option>
+                                                    <option value="sum">{t('view.agg_sum', 'Suma')}</option>
+                                                    <option value="avg">{t('view.agg_avg', 'Mitjana')}</option>
+                                                    <option value="min">{t('view.agg_min', 'Mínim')}</option>
+                                                    <option value="max">{t('view.agg_max', 'Màxim')}</option>
                                                 </select>
                                             </div>
                                             {aggregation !== 'count' && (
                                                 <div>
-                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">Camp de valor (eix Y)</label>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.chart_y', 'Camp de valor (eix Y)')}</label>
                                                     <select
                                                         value={yField}
                                                         onChange={e => setYField(e.target.value)}
                                                         className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                     >
-                                                        <option value="">— Tria un camp numèric —</option>
+                                                        <option value="">{t('view.pick_numeric', '— Tria un camp numèric —')}</option>
                                                         {numericFieldOptions.map(f => (
                                                             <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                         ))}
                                                     </select>
                                                     {numericFieldOptions.length === 0 && (
-                                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">Cap camp numèric a la taula; usa el «Recompte».</p>
+                                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.no_numeric', 'Cap camp numèric a la taula; usa el «Recompte».')}</p>
                                                     )}
                                                 </div>
                                             )}
                                             {!xField && (
-                                                <p className="text-[11px] text-[var(--text-tertiary)]">Tria el camp d'agrupació per veure el gràfic.</p>
+                                                <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.chart_pick_x', "Tria el camp d'agrupació per veure el gràfic.")}</p>
                                             )}
                                         </>
                                     )}
@@ -1357,7 +1358,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             {!isTableMode && sourceTableId && (
                                 <div>
                                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                                        Vista existent
+                                        {t('view.existing_view', 'Vista existent')}
                                     </label>
                                     <select
                                         className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
@@ -1367,18 +1368,18 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     >
                                         <option value="">
                                             {loadingExistingViews
-                                                ? 'Carregant vistes…'
-                                                : '— Crear nova vista —'}
+                                                ? t('view.loading_views', 'Carregant vistes…')
+                                                : t('view.create_new_view', '— Crear nova vista —')}
                                         </option>
                                         {existingViews.map(v => (
                                             <option key={v.id} value={v.id}>
-                                                {v.name || '(sense nom)'} {v.type ? `· ${v.type}` : ''}
+                                                {v.name || t('view.unnamed', '(sense nom)')} {v.type ? `· ${v.type}` : ''}
                                             </option>
                                         ))}
                                     </select>
                                     {selectedExistingViewId && (
                                         <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
-                                            Pots revisar / sobreescriure els camps a les pestanyes Camps, Filtres i Ordenació.
+                                            {t('view.existing_hint', 'Pots revisar / sobreescriure els camps a les pestanyes Camps, Filtres i Ordenació.')}
                                         </p>
                                     )}
                                 </div>
@@ -1387,7 +1388,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             {!isTableMode && sourceTableId && existingViews.length > 0 && (
                                 <div className="border-t border-[var(--border-primary)] pt-4">
                                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">
-                                        Mostrar pestanyes (vistes fixades a aquest bloc)
+                                        {t('view.pinned_tabs', 'Mostrar pestanyes (vistes fixades a aquest bloc)')}
                                     </label>
                                     <div className="space-y-1.5 max-h-36 overflow-y-auto border border-[var(--border-primary)] rounded-lg p-2.5 bg-[var(--bg-secondary)]">
                                         {existingViews.map(v => {
@@ -1413,9 +1414,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         }}
                                                         className="rounded text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)]"
                                                     />
-                                                    <span>{v.name || '(sense nom)'}</span>
+                                                    <span>{v.name || t('view.unnamed', '(sense nom)')}</span>
                                                     {isAnchor && (
-                                                        <span className="text-[10px] text-[var(--text-tertiary)] italic">(vista àncora)</span>
+                                                        <span className="text-[10px] text-[var(--text-tertiary)] italic">{t('view.anchor_view', '(vista àncora)')}</span>
                                                     )}
                                                 </label>
                                             );
@@ -1427,10 +1428,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             {selectedExistingViewId && viewUsage.count > 0 && (
                                 <div className="border-t border-[var(--border-primary)] pt-4">
                                     <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
-                                        Aquesta vista ja s'usa a {viewUsage.count} pàgina{viewUsage.count > 1 ? 's' : ''}.
+                                        {t('view.usage_count', { count: viewUsage.count, defaultValue: "Aquesta vista ja s'usa a {{count}} pàgines." })}
                                     </p>
                                     <p className="text-[11px] text-[var(--text-tertiary)] mb-3">
-                                        Si modifiques els camps, tria com aplicar-ho:
+                                        {t('view.edit_scope_prompt', 'Si modifiques els camps, tria com aplicar-ho:')}
                                     </p>
                                     <div className="space-y-2">
                                         <label className="flex items-start gap-2 cursor-pointer">
@@ -1444,10 +1445,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             />
                                             <div>
                                                 <span className="text-sm text-[var(--text-primary)] block">
-                                                    Aplicar canvis a totes les pàgines
+                                                    {t('view.scope_shared', 'Aplicar canvis a totes les pàgines')}
                                                 </span>
                                                 <span className="text-[11px] text-[var(--text-tertiary)]">
-                                                    La vista compartida s'actualitza i tots els embeds reflecteixen els canvis.
+                                                    {t('view.scope_shared_hint', "La vista compartida s'actualitza i tots els embeds reflecteixen els canvis.")}
                                                 </span>
                                             </div>
                                         </label>
@@ -1462,10 +1463,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             />
                                             <div>
                                                 <span className="text-sm text-[var(--text-primary)] block">
-                                                    Aplicar només a aquesta pàgina
+                                                    {t('view.scope_fork', 'Aplicar només a aquesta pàgina')}
                                                 </span>
                                                 <span className="text-[11px] text-[var(--text-tertiary)]">
-                                                    Desconnecta aquest embed de la vista compartida i guarda una còpia local. Les altres pàgines no canvien.
+                                                    {t('view.scope_fork_hint', 'Desconnecta aquest embed de la vista compartida i guarda una còpia local. Les altres pàgines no canvien.')}
                                                 </span>
                                             </div>
                                         </label>
@@ -1476,13 +1477,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                             {isTableMode && (
                                 <div>
                                     <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                                        Nom de la vista
+                                        {t('view.view_name', 'Nom de la vista')}
                                     </label>
                                     <input
                                         className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
                                         value={viewName}
                                         onChange={e => setViewName(e.target.value)}
-                                        placeholder="ex: Per àrea"
+                                        placeholder={t('view.view_name_ph', 'ex: Per àrea')}
                                     />
                                 </div>
                             )}
@@ -1497,19 +1498,19 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             className="rounded border-[var(--border-primary)]"
                                         />
                                         <span className="text-sm text-[var(--text-primary)]">
-                                            Desa també a les vistes de la taula
+                                            {t('view.save_to_table', 'Desa també a les vistes de la taula')}
                                         </span>
                                     </label>
                                     {saveToTableViews && (
                                         <div className="ml-6">
                                             <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
-                                                Nom de la vista
+                                                {t('view.view_name', 'Nom de la vista')}
                                             </label>
                                             <input
                                                 className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
                                                 value={viewName}
                                                 onChange={e => setViewName(e.target.value)}
-                                                placeholder="ex: Contactes clau"
+                                                placeholder={t('view.view_name_ph2', 'ex: Contactes clau')}
                                             />
                                         </div>
                                     )}
@@ -1529,17 +1530,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     />
                                     <div>
                                         <span className="text-sm text-[var(--text-primary)] block">
-                                            Desa els enllaços de resultats al markdown
+                                            {t('view.snapshot_label', 'Desa els enllaços de resultats al markdown')}
                                         </span>
                                         <span className="text-[11px] text-[var(--text-tertiary)]">
-                                            Escriu una llista [[Títol|id]] de les pàgines que la vista retorna, perquè Obsidian i altres lectors hi puguin navegar.
+                                            {t('view.snapshot_hint', 'Escriu una llista [[Títol|id]] de les pàgines que la vista retorna, perquè Obsidian i altres lectors hi puguin navegar.')}
                                         </span>
                                     </div>
                                 </label>
                                 {resultSnapshot && (
                                     <div className="ml-6 flex items-center gap-2">
                                         <label htmlFor="pvm-result-snapshot-limit" className="text-xs font-semibold text-[var(--text-secondary)]">
-                                            Màxim d'enllaços
+                                            {t('view.snapshot_limit', "Màxim d'enllaços")}
                                         </label>
                                         <input
                                             id="pvm-result-snapshot-limit"
@@ -1553,7 +1554,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             }}
                                             className="w-24 text-sm border border-[var(--border-primary)] rounded-lg px-2 py-1 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none text-right"
                                         />
-                                        <span className="text-[11px] text-[var(--text-tertiary)]">0 = sense límit</span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">{t('view.snapshot_unlimited', '0 = sense límit')}</span>
                                     </div>
                                 )}
                             </div>
@@ -1563,11 +1564,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     {activeTab === 'properties' && (
                         <div>
                             <p className="text-xs text-[var(--text-secondary)] mb-3">
-                                Selecciona els camps a mostrar com a columnes.
+                                {t('view.fields_intro', 'Selecciona els camps a mostrar com a columnes.')}
                             </p>
                             {!selectedTable ? (
                                 <p className="text-sm text-[var(--text-tertiary)] italic">
-                                    Selecciona primer una taula a la pestanya General.
+                                    {t('view.pick_table_general', 'Selecciona primer una taula a la pestanya General.')}
                                 </p>
                             ) : (
                                 <div className="space-y-3 max-h-[44vh] overflow-y-auto">
@@ -1580,10 +1581,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             <>
                                                 <div>
                                                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
-                                                        Columnes visibles (ordre)
+                                                        {t('view.visible_columns', 'Columnes visibles (ordre)')}
                                                     </p>
                                                     {selected.length === 0 ? (
-                                                        <p className="text-xs text-[var(--text-tertiary)] italic px-2 py-1">Cap columna. Tria'n una a sota.</p>
+                                                        <p className="text-xs text-[var(--text-tertiary)] italic px-2 py-1">{t('view.no_columns', "Cap columna. Tria'n una a sota.")}</p>
                                                     ) : selected.map((f, idx) => (
                                                         <div
                                                             key={f.name}
@@ -1595,7 +1596,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                                     onClick={() => moveProperty(idx, -1)}
                                                                     disabled={idx === 0}
                                                                     className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] disabled:opacity-25 leading-none"
-                                                                    title="Amunt"
+                                                                    title={t('view.move_up', 'Amunt')}
                                                                 >
                                                                     <ArrowUp size={12} />
                                                                 </button>
@@ -1604,7 +1605,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                                     onClick={() => moveProperty(idx, 1)}
                                                                     disabled={idx === selected.length - 1}
                                                                     className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] disabled:opacity-25 leading-none"
-                                                                    title="Avall"
+                                                                    title={t('view.move_down', 'Avall')}
                                                                 >
                                                                     <ArrowDown size={12} />
                                                                 </button>
@@ -1615,7 +1616,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                                 type="button"
                                                                 onClick={() => toggleProperty(f.name)}
                                                                 className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
-                                                                title="Treure"
+                                                                title={t('view.remove', 'Treure')}
                                                             >
                                                                 <Trash2 size={13} />
                                                             </button>
@@ -1625,7 +1626,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 {available.length > 0 && (
                                                     <div>
                                                         <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
-                                                            Disponibles
+                                                            {t('view.available', 'Disponibles')}
                                                         </p>
                                                         {available.map(f => (
                                                             <label
@@ -1656,7 +1657,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         <div>
                             <div className="flex justify-between items-center mb-3">
                                 <p className="text-xs text-[var(--text-secondary)]">
-                                    Tots els filtres es combinen amb AND. Valor "this" = ID d'aquesta pàgina.
+                                    {t('view.filters_intro', 'Tots els filtres es combinen amb AND. Valor "this" = ID d\'aquesta pàgina.')}
                                 </p>
                                 <button
                                     onClick={addFilter}
@@ -1664,13 +1665,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20 disabled:opacity-40"
                                 >
                                     <Plus size={12} />
-                                    Afegir filtre
+                                    {t('view.add_filter', 'Afegir filtre')}
                                 </button>
                             </div>
                             {!selectedTable ? (
-                                <p className="text-sm text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
                             ) : filters.length === 0 ? (
-                                <p className="text-sm text-[var(--text-tertiary)] italic">Cap filtre. Es mostraran totes les files.</p>
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_filters', 'Cap filtre. Es mostraran totes les files.')}</p>
                             ) : (
                                 <div className="space-y-2">
                                     {filters.map((f, idx) => {
@@ -1695,7 +1696,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     onChange={e => updateFilter(idx, { operator: e.target.value })}
                                                 >
                                                     {FILTER_OPERATORS.map(op => (
-                                                        <option key={op.value} value={op.value}>{op.label}</option>
+                                                        <option key={op.value} value={op.value}>{t(`view.op_${op.value}`, op.label)}</option>
                                                     ))}
                                                 </select>
                                                 {(() => {
@@ -1734,7 +1735,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                                     checked={checked}
                                                                     onChange={e => updateFilter(idx, { value: e.target.checked ? 'true' : 'false' })}
                                                                 />
-                                                                <span className="text-[var(--text-secondary)]">{checked ? 'Marcat' : 'Sense marcar'}</span>
+                                                                <span className="text-[var(--text-secondary)]">{checked ? t('view.checked', 'Marcat') : t('view.unchecked', 'Sense marcar')}</span>
                                                             </label>
                                                         );
                                                     }
@@ -1745,7 +1746,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                                 className={inputCls}
                                                                 value={f.value || ''}
                                                                 onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                                placeholder="Valor"
+                                                                placeholder={t('view.value_ph', 'Valor')}
                                                             />
                                                         );
                                                     }
@@ -1764,14 +1765,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                             className={inputCls}
                                                             value={f.value || ''}
                                                             onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                            placeholder="this o valor"
+                                                            placeholder={t('view.value_this_ph', 'this o valor')}
                                                         />
                                                     );
                                                 })()}
                                                 <button
                                                     onClick={() => removeFilter(idx)}
                                                     className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
-                                                    title="Eliminar"
+                                                    title={t('view.delete', 'Eliminar')}
                                                 >
                                                     <Trash2 size={14} />
                                                 </button>
@@ -1787,7 +1788,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         <div>
                             <div className="flex justify-between items-center mb-3">
                                 <p className="text-xs text-[var(--text-secondary)]">
-                                    Ordenació amb prioritat: el primer criteri mana, els següents desempaten. Sense criteris, s'ordena per títol ascendent.
+                                    {t('view.sort_intro', "Ordenació amb prioritat: el primer criteri mana, els següents desempaten. Sense criteris, s'ordena per títol ascendent.")}
                                 </p>
                                 <button
                                     onClick={addSort}
@@ -1795,13 +1796,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20 disabled:opacity-40"
                                 >
                                     <Plus size={12} />
-                                    Afegir criteri
+                                    {t('view.add_sort', 'Afegir criteri')}
                                 </button>
                             </div>
                             {!selectedTable ? (
-                                <p className="text-sm text-[var(--text-tertiary)] italic">Selecciona primer una taula.</p>
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
                             ) : sorts.length === 0 ? (
-                                <p className="text-sm text-[var(--text-tertiary)] italic">Cap criteri. Per defecte: títol ascendent.</p>
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_sorts', 'Cap criteri. Per defecte: títol ascendent.')}</p>
                             ) : (
                                 <div className="space-y-2">
                                     {sorts.map((s, idx) => (
@@ -1823,15 +1824,15 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                 value={s.direction}
                                                 onChange={e => updateSort(idx, { direction: e.target.value })}
                                             >
-                                                <option value="asc">Ascendent</option>
-                                                <option value="desc">Descendent</option>
+                                                <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                                <option value="desc">{t('view.desc', 'Descendent')}</option>
                                             </select>
                                             <div className="flex">
                                                 <button
                                                     onClick={() => moveSort(idx, -1)}
                                                     disabled={idx === 0}
                                                     className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 disabled:opacity-30"
-                                                    title="Pujar prioritat"
+                                                    title={t('view.priority_up', 'Pujar prioritat')}
                                                 >
                                                     <ArrowUp size={14} />
                                                 </button>
@@ -1839,7 +1840,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     onClick={() => moveSort(idx, 1)}
                                                     disabled={idx === sorts.length - 1}
                                                     className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 disabled:opacity-30"
-                                                    title="Baixar prioritat"
+                                                    title={t('view.priority_down', 'Baixar prioritat')}
                                                 >
                                                     <ArrowDown size={14} />
                                                 </button>
@@ -1847,7 +1848,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             <button
                                                 onClick={() => removeSort(idx)}
                                                 className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
-                                                title="Eliminar"
+                                                title={t('view.delete', 'Eliminar')}
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -1872,14 +1873,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         disabled={saving}
                         className="px-4 py-2 border border-[var(--border-primary)] rounded-lg text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] transition-colors"
                     >
-                        Cancel·lar
+                        {t('common.cancel', 'Cancel·lar')}
                     </button>
                     <button
                         onClick={handleSave}
                         disabled={saving}
                         className="btn-gnosi btn-gnosi-primary px-6"
                     >
-                        {saving ? 'Desant...' : (isTableMode ? (editingView?.id ? 'Desar canvis' : 'Crear vista') : (editingBlock ? 'Desar canvis' : 'Crear vista'))}
+                        {saving ? t('view.saving', 'Desant...') : ((isTableMode ? editingView?.id : editingBlock) ? t('view.save_changes', 'Desar canvis') : t('view.create_view', 'Crear vista'))}
                     </button>
                 </div>
             </div>

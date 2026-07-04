@@ -17,7 +17,7 @@ const PERMISSIONS = [
  * pàgina. L'enllaç apunta a `/s/{token}`, accessible sense sessió.
  */
 export function ShareModal({ pageId, pageTitle, open, onClose }) {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const modalRef = useRef(null);
     const [shares, setShares] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -187,7 +187,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                                     <p className="text-xs text-[var(--text-primary)] truncate font-mono">{publicUrl(s.token)}</p>
                                     <p className="text-[10px] text-[var(--text-tertiary)]">
                                         {t(`share.perm_${s.permission}`, s.permission)}
-                                        {s.expires_at ? ` · ${t('share.until', 'fins')} ${new Date(s.expires_at).toLocaleDateString('ca-ES')}` : ''}
+                                        {s.expires_at ? ` · ${t('share.until', 'fins')} ${new Date(s.expires_at).toLocaleDateString(i18n.language)}` : ''}
                                     </p>
                                 </div>
                                 <button
