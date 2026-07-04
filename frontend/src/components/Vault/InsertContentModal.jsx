@@ -306,11 +306,11 @@ export const InsertContentModal = ({
                 const u = await performUpload(f);
                 if (u) urls.push(u);
             }
-            if (!urls.length) throw new Error("No s'ha pogut pujar cap fitxer");
+            if (!urls.length) throw new Error(t('insert.error_no_upload', "No s'ha pogut pujar cap fitxer"));
             onInsert?.({ urls, kind: 'file' });
             onClose?.();
         } catch (e) {
-            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || 'Error desconegut';
+            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', 'Error desconegut');
             toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
         } finally {
             setBusy(false);
@@ -368,12 +368,12 @@ export const InsertContentModal = ({
                 finalUrl = fileUrlToSentinel(`file://${selected.path}`);
             }
             if (!finalUrl) {
-                throw new Error("No s'ha pogut obtenir la URL final");
+                throw new Error(t('insert.error_no_url', "No s'ha pogut obtenir la URL final"));
             }
             onInsert?.({ url: finalUrl, mode, kind: selected.kind, name: selected.name, imageMeta: imageField ? imgMeta : undefined });
             onClose?.();
         } catch (e) {
-            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || 'Error desconegut';
+            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', 'Error desconegut');
             toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
         } finally {
             setBusy(false);
@@ -410,7 +410,7 @@ export const InsertContentModal = ({
                             <Frame size={18} />
                             {t('insert.title', { defaultValue: 'Insereix contingut' })}
                         </h2>
-                        <button onClick={onClose} className="p-1.5 rounded hover:bg-[var(--bg-secondary)]" aria-label="Close">
+                        <button onClick={onClose} className="p-1.5 rounded hover:bg-[var(--bg-secondary)]" aria-label={t('common.close', 'Tanca')}>
                             <X size={16} />
                         </button>
                     </div>
@@ -558,7 +558,7 @@ export const InsertContentModal = ({
                                             {SelectedKindMeta && (
                                                 <div className="flex items-center justify-center gap-2 text-[var(--text-primary)]">
                                                     <SelectedKindMeta.Icon size={20} />
-                                                    <span className="font-medium">{SelectedKindMeta.label}</span>
+                                                    <span className="font-medium">{t(`insert.kind_${selected.kind}`, SelectedKindMeta.label)}</span>
                                                 </div>
                                             )}
                                             <div className="text-xs break-all opacity-70">{selected.url}</div>
