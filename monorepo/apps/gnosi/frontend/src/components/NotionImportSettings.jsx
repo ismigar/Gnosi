@@ -679,7 +679,9 @@ export default function NotionImportSettings() {
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
                                             {/* Durant «collect» les pàgines encara són 0 (s'escriuen a la fase
                                                 següent): mostrem les files recollides perquè es vegi vida. */}
-                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}{progress.phase === 'collect' ? ` (${progress.collected || 0} files)` : ''}</span>
+                                            {/* Durant «subpages» el BFS pot escanejar milers de pares sense trobar
+                                                fills nous: el comptador escanejats/coneguts és l'únic senyal de vida. */}
+                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}{progress.phase === 'collect' ? ` (${progress.collected || 0} files)` : ''}{progress.phase === 'subpages' && progress.scan_total ? ` — escanejant ${progress.scan_done || 0}/${progress.scan_total} pàgines` : ''}</span>
                                             {/* Cada mètrica com a «fetes/total» quan el total es coneix (pàgines
                                                 després de recollir; BD des de l'inici). Vistes i adjunts es
                                                 descobreixen sobre la marxa → sense denominador. */}

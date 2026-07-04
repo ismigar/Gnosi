@@ -320,6 +320,7 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
         "views": report.get("views", 0), "attachments": report.get("attachments", 0),
         "collected": report.get("collected", 0),
         "tables_total": report.get("tables_total", 0), "pages_total": report.get("pages_total", 0),
+        "scan_done": report.get("scan_done", 0), "scan_total": report.get("scan_total", 0),
     })
     # Notifica els plugins de dades quan el clon acaba (bus d'esdeveniments v2).
     if phase == "done":
