@@ -79,7 +79,25 @@ if probe; then
   exit 0
 fi
 
-# 3) Segueix mort. Anti-flapping: hem reiniciat fa poc?
+# 3) Segueix mort… però ¿hi ha un CLON DE NOTION treballant a dins? El clon corre
+#    en un thread i toca un heartbeat a cada element processat, així que el fitxer
+#    fresc = el procés FA FEINA encara que l'event loop vagi tan carregat que no
+#    respongui al sondeig (vist 2026-07-04: respostes 2s → 4s → timeout mentre el
+#    clon escrivia 1500 pàgines; el kickstart va matar un clon sa dues vegades).
+#    Amb heartbeat fresc NO reiniciem: perdre el clon és pitjor que una estona
+#    d'API lenta. Si el heartbeat envelleix (clon acabat o mort de veritat), el
+#    watchdog torna a actuar amb normalitat a la passada següent.
+HEARTBEAT="${GNOSI_CLONE_HEARTBEAT:-$HOME/.gnosi_clone_heartbeat}"
+HEARTBEAT_MAX_AGE="${GNOSI_CLONE_HEARTBEAT_MAX_AGE:-180}"  # s
+if [ -f "$HEARTBEAT" ]; then
+  hb_age=$(( $(date +%s) - $(stat -f %m "$HEARTBEAT" 2>/dev/null || echo 0) ))
+  if [ "$hb_age" -lt "$HEARTBEAT_MAX_AGE" ]; then
+    log "backend no respon PERÒ hi ha un clon actiu (heartbeat fa ${hb_age}s); NO reinicio."
+    exit 0
+  fi
+fi
+
+# 4) Segueix mort. Anti-flapping: hem reiniciat fa poc?
 now=$(date +%s)
 if [ -f "$STAMP" ]; then
   last=$(cat "$STAMP" 2>/dev/null || echo 0)
@@ -92,13 +110,13 @@ fi
 
 log "BACKEND PENJAT (sense resposta a $HEALTH_URL després de ${GRACE}s) → kickstart -k $LABEL."
 
-# 3a) Mata TOTS els workers `--multiprocessing-fork` (el penjat + orfes): el
+# 4a) Mata TOTS els workers `--multiprocessing-fork` (el penjat + orfes): el
 #     servei es reiniciarà i en crearà un de net.
 for cpid in $(pgrep -f "multiprocessing.*--multiprocessing-fork" 2>/dev/null); do
   kill -9 "$cpid" 2>/dev/null && log "worker $cpid eliminat abans del reinici."
 done
 
-# 3b) Reinici dur del servei (SIGKILL + relaunch via launchd).
+# 4b) Reinici dur del servei (SIGKILL + relaunch via launchd).
 echo "$now" > "$STAMP"
 if launchctl kickstart -k "gui/$(id -u)/$LABEL" >/dev/null 2>&1; then
   log "$LABEL reiniciat (kickstart -k). Reindex del vault ~uns segons fins respondre."

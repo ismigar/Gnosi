@@ -195,7 +195,12 @@ def clone_workspace(
     `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} de pàgines FORA de BD a clonar amb
     l'etiqueta is_dashboard corresponent.
     """
+    # `tables_total`/`pages_total`: denominadors per al panell («processades/total»).
+    # Es fixen quan es CONEIXEN de veritat: taules en arrencar (BDs seleccionades),
+    # pàgines en acabar la recollida (+ soltes + subpàgines a mesura que el BFS les
+    # descobreix). Vistes i adjunts no tenen total conegut per endavant → sense denominador.
     report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0, "collected": 0,
+              "tables_total": len(database_ids), "pages_total": 0,
               "errors": [], "warnings": [], "truncated": False}
 
     def _emit(phase: str, done: int, total: int) -> None:
@@ -377,6 +382,7 @@ def clone_workspace(
                 inverse_adds.setdefault(tgt, {}).setdefault(inv_field, set()).add(src)
 
     # PASSADA 2b: escriure (cos + vistes via MCP, adjunts, relacions decorades a `[[Títol|id]]`)
+    report["pages_total"] = len(collected)
     for pi, (table, row, values, title, rel_keys) in enumerate(collected):
         _emit("pages", pi, len(collected))
         try:
@@ -459,6 +465,7 @@ def clone_workspace(
 
     # PASSADA 3: pàgines FORA de BD (wiki/dashboard segons tria de l'usuari)
     _loose = list((loose_page_types or {}).items())
+    report["pages_total"] += len(_loose)
     for li, (pid, ptype) in enumerate(_loose):
         _emit("loose", li, len(_loose))
         if report["pages"] >= max_pages:
@@ -492,6 +499,8 @@ def clone_workspace(
                     report["truncated"] = True
                     break
                 # Total desconegut (es descobreix amb el BFS): total=0 → barra indeterminada.
+                # El denominador global de pàgines sí que creix amb cada descoberta.
+                report["pages_total"] += 1
                 _emit("subpages", sub_done, 0)
                 try:
                     page = rest_client.get_page(cid)

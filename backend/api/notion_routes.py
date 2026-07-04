@@ -9,9 +9,12 @@ cf. directives `notion_exact_clone.md` i `notion_import_configurable_schema.md`.
 """
 import asyncio
 import json
+import os
 import re
 import threading
+import time
 import uuid
+from pathlib import Path
 from typing import List, Optional
 
 import yaml
@@ -274,18 +277,49 @@ class ClonePayload(BaseModel):
 # escriptures/lectures de dict són atòmiques sota el GIL). Es reinicia a l'inici de cada clon.
 _CLONE_PROGRESS: dict = {"running": False, "phase": "idle", "done": 0, "total": 0,
                          "pages": 0, "tables": 0, "views": 0, "attachments": 0,
-                         "collected": 0, "vault_id": None}
+                         "collected": 0, "tables_total": 0, "pages_total": 0,
+                         "vault_id": None}
 # Senyal d'avortament cooperatiu: POST /clone/abort el posa a True; clone_workspace el comprova
 # entre elements (via should_cancel) i atura amb CloneAborted (deixa el clon parcial al disc).
 _CLONE_CANCEL: dict = {"flag": False}
 
 
+# Heartbeat del clon per al watchdog natiu (sh/native_watchdog.sh): el clon corre en un
+# thread i pot deixar l'event loop tan carregat que el sondeig HTTP del watchdog falli
+# (incident 2026-07-04: kickstart -k va matar DOS clons sans). El thread toca aquest
+# fitxer a cada element processat; el watchdog, si el veu fresc, no reinicia el servei.
+_CLONE_HEARTBEAT_PATH = Path(os.environ.get("GNOSI_CLONE_HEARTBEAT",
+                                            str(Path.home() / ".gnosi_clone_heartbeat")))
+_CLONE_HEARTBEAT_MIN_INTERVAL = 5.0  # s; throttle (l'emissió ara és per fila)
+_clone_heartbeat_last: list = [0.0]
+
+
+def _touch_clone_heartbeat() -> None:
+    now = time.monotonic()
+    if now - _clone_heartbeat_last[0] < _CLONE_HEARTBEAT_MIN_INTERVAL:
+        return
+    _clone_heartbeat_last[0] = now
+    try:
+        _CLONE_HEARTBEAT_PATH.touch()
+    except Exception:  # noqa: BLE001
+        pass
+
+
+def _clear_clone_heartbeat() -> None:
+    try:
+        _CLONE_HEARTBEAT_PATH.unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
+    _touch_clone_heartbeat()
     _CLONE_PROGRESS.update({
         "running": phase != "done", "phase": phase, "done": done, "total": total,
         "pages": report.get("pages", 0), "tables": report.get("tables", 0),
         "views": report.get("views", 0), "attachments": report.get("attachments", 0),
         "collected": report.get("collected", 0),
+        "tables_total": report.get("tables_total", 0), "pages_total": report.get("pages_total", 0),
     })
     # Notifica els plugins de dades quan el clon acaba (bus d'esdeveniments v2).
     if phase == "done":
@@ -490,6 +524,7 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
     _CLONE_CANCEL["flag"] = False
     _CLONE_PROGRESS.update({"running": True, "phase": "starting", "done": 0, "total": 0,
                             "pages": 0, "tables": 0, "views": 0, "attachments": 0, "collected": 0,
+                            "tables_total": 0, "pages_total": 0,
                             "vault_id": x_vault_id})  # perquè el frontend verifiqui al vault correcte
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
@@ -510,6 +545,8 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
     finally:
         _CLONE_PROGRESS["running"] = False
         _CLONE_CANCEL["flag"] = False
+        # Sense clon en marxa, el watchdog ha de recuperar la seva autoritat normal.
+        _clear_clone_heartbeat()
     return {"status": "success", **report}
 
 
