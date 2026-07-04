@@ -680,7 +680,15 @@ export default function NotionImportSettings() {
                                             {/* Durant «collect» les pàgines encara són 0 (s'escriuen a la fase
                                                 següent): mostrem les files recollides perquè es vegi vida. */}
                                             <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}{progress.phase === 'collect' ? ` (${progress.collected || 0} files)` : ''}</span>
-                                            <span>{progress.pages || 0} pàgines · {progress.tables || 0} BD · {progress.views || 0} vistes · {progress.attachments || 0} adjunts</span>
+                                            {/* Cada mètrica com a «fetes/total» quan el total es coneix (pàgines
+                                                després de recollir; BD des de l'inici). Vistes i adjunts es
+                                                descobreixen sobre la marxa → sense denominador. */}
+                                            <span>
+                                                {progress.pages || 0}{progress.pages_total ? `/${progress.pages_total}` : ''} pàgines
+                                                {' · '}{progress.tables || 0}{progress.tables_total ? `/${progress.tables_total}` : ''} BD
+                                                {' · '}{progress.views || 0} vistes
+                                                {' · '}{progress.attachments || 0} adjunts
+                                            </span>
                                         </div>
                                         <div style={{ height: 8, borderRadius: 99, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
                                             <div style={{
