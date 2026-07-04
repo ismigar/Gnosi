@@ -485,8 +485,18 @@ def clone_workspace(
         seen = {str(x).replace("-", "") for x in seed}
         to_scan = deque(seed)
         sub_done = 0
+        # Comptadors d'ESCANEIG (pares consultats / pares coneguts): el total creix a mesura que
+        # el BFS descobreix subpàgines. Van al report perquè el panell mostri «escanejant X/Y».
+        report["scan_done"] = 0
+        report["scan_total"] = len(to_scan)
         while to_scan and report["pages"] < max_pages:
             parent = to_scan.popleft()
+            # Emissió PER PARE (no només per subpàgina descoberta): escanejar milers de pares
+            # sense fills nous (una crida REST per pare) trigava 30-60 min amb el progrés i el
+            # heartbeat congelats — l'usuari i el watchdog el creien penjat (incident 2026-07-04).
+            # També fa que «Avortar» respongui durant l'escaneig (el punt de control és _emit).
+            report["scan_done"] += 1
+            _emit("subpages", sub_done, 0)
             try:
                 blocks = rest_client.get_block_children(parent)
             except Exception:  # noqa: BLE001
@@ -511,6 +521,7 @@ def clone_workspace(
                     _clone_standalone(cid, page, {"parent_id": clone_page_id(parent)})
                     sub_done += 1
                     to_scan.append(cid)   # recursa: sub-pàgines de la sub-pàgina
+                    report["scan_total"] += 1
                 except Exception as e:  # noqa: BLE001
                     report["errors"].append({"page": cid, "stage": "subpage", "error": str(e)})
 

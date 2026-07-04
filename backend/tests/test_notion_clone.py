@@ -358,6 +358,52 @@ def test_subpages_inside_toggles_and_child_page_boundary():
     assert neta["metadata"]["parent_id"] == clone_page_id(FakeRestToggleSub.C)
 
 
+class FakeRestManyBarrenParents:
+    """Moltes files sense CAP subpàgina: reprodueix l'escaneig llarg del BFS (una crida
+    get_block_children per pare) que congelava progrés i heartbeat (incident 2026-07-04)."""
+    N = 40
+    def list_users(self): return {}
+    def get_database(self, i):
+        return {"id": "areas", "title": [{"plain_text": "Àrees"}],
+                "properties": {"Nom": {"id": "t", "type": "title", "title": {}}}}
+    def query_database(self, i):
+        return [{"id": f"a{n:07d}-0000-0000-0000-000000000000", "icon": None, "properties": {
+            "Nom": {"type": "title", "title": [{"plain_text": f"Fila {n}", "type": "text"}]}}}
+            for n in range(self.N)]
+    def get_block_children(self, pid):
+        return []   # cap fill: abans, cap emissió durant tot l'escaneig
+
+
+def test_subpages_scan_emits_progress_per_parent():
+    events = []
+    def cb(phase, done, total, report):
+        events.append((phase, report.get("scan_done"), report.get("scan_total")))
+    clone_workspace(FakeRestManyBarrenParents(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                    write_table=lambda t: None, write_page=lambda p: None, write_view=lambda v: None,
+                    database_ids=["areas"], progress_cb=cb)
+    scans = [e for e in events if e[0] == "subpages"]
+    # Una emissió PER PARE escanejat encara que no es descobreixi res: senyal de vida per al
+    # panell/heartbeat i punt de control perquè «Avortar» respongui durant l'escaneig.
+    n = FakeRestManyBarrenParents.N
+    assert len(scans) == n
+    assert [s[1] for s in scans] == list(range(1, n + 1))   # scan_done avança 1,2,…,N
+    assert all(s[2] == n for s in scans)                     # total = pares coneguts (cap descoberta)
+
+
+def test_subpages_scan_total_grows_with_discoveries():
+    events = []
+    def cb(phase, done, total, report):
+        events.append((phase, report.get("scan_done"), report.get("scan_total")))
+    clone_workspace(FakeRestSub(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
+                    write_table=lambda t: None, write_page=lambda p: None, write_view=lambda v: None,
+                    database_ids=["areas"], progress_cb=cb)
+    scans = [e for e in events if e[0] == "subpages"]
+    # Llavor = 1 fila (Mare); es descobreixen Filla i Néta → s'escanegen 3 pares en total.
+    assert scans[0][2] == 1        # total inicial = llavor
+    assert scans[-1][1] == 3       # els 3 pares (Mare, Filla, Néta) escanejats
+    assert scans[-1][2] == 3       # total final creix amb les descobertes
+
+
 if __name__ == "__main__":
     import traceback
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
