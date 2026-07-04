@@ -33,6 +33,7 @@
     "add_author": "Añadir autor"
   },
   "common": {
+    "knowledge": "Conocimiento",
     "yes": "Sí",
     "untitled": "Sin título",
     "new": "Nuevo",
@@ -98,7 +99,6 @@
     },
     "open": "Abrir",
     "loading": "Cargando…",
-    "add": "Añadir",
     "add": "Añadir",
     "dismiss": "Descartar",
     "close": "Cerrar",
@@ -490,8 +490,8 @@
     "clipboard": "No se ha podido copiar",
     "shares_load": "No se han podido cargar los enlaces",
     "share_create": "Error al crear el enlace",
-    "share_revoke": "Error al revocar el enlace",
-    "daily_note": "Error abriendo la nota diaria",
+    "share_revoke": "Error al revocar el enlace"
+    ,"daily_note": "Error abriendo la nota diaria",
     "record_create": "Error creando el registro",
     "add_schema_option": "No se ha podido guardar la opción en el esquema",
     "load_registry": "Error cargando el registro de bases de datos",
@@ -792,14 +792,14 @@
       "delete_title": "Eliminar Cuenta",
       "delete_msg": "¿Estás seguro de que quieres eliminar esta cuenta? Dejará de sincronizarse inmediatamente.",
       "add_account": "Añadir Cuenta",
-      "vault_table": "Tabla del Vault",
+      "vault_table": "Tabla de Conocimiento",
       "external_account": "Cuenta Externa",
       "default_account": "Cuenta por defecto",
       "default_contacts_hint": "Se usará para sincronizar y crear nuevos contactos.",
       "default_mail_hint": "Se usará para enviar correos y como remitente por defecto.",
       "default_calendar": "Calendario por defecto",
       "default_calendar_hint": "Se asignará automáticamente a las nuevas citas creadas en el calendario.",
-      "select_vault_table": "Selecciona una tabla del Vault",
+      "select_vault_table": "Selecciona una tabla de Conocimiento",
       "account_config": "Configuración de la Cuenta",
       "email_address": "Dirección de Correo",
       "email_placeholder": "ejemplo@pangea.org",
@@ -854,7 +854,7 @@
       "add_alias": "+ Añadir alias"
     },
     "references": {
-      "intro": "Elige una tabla del Vault como <b>tabla de referencias</b> (estilo Zotero). El sistema le prepara los campos necesarios automáticamente — no necesitas saber nada de \"Citation Key\". Importar/exportar BibTeX, generar claves de cita y \"Crear desde una fuente\" pasan a vivir en esta tabla. Si la cambias, toda la funcionalidad la sigue.",
+      "intro": "Elige una tabla de Conocimiento como <b>tabla de referencias</b> (estilo Zotero). El sistema le prepara los campos necesarios automáticamente — no necesitas saber nada de \"Citation Key\". Importar/exportar BibTeX, generar claves de cita y \"Crear desde una fuente\" pasan a vivir en esta tabla. Si la cambias, toda la funcionalidad la sigue.",
       "table_label": "Tabla de referencias",
       "none_option": "— Ninguna (referencias desactivadas) —",
       "create_table": "+ Crear tabla nueva",

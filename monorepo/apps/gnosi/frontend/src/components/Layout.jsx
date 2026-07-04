@@ -1,14 +1,29 @@
 import React from 'react';
 import { RefreshCw, Menu } from 'lucide-react';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {}, onSync, isSyncing }) {
   const [isPanelOpen, setIsPanelOpen] = React.useState(true);
   const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
+  const activeVaultName = useActiveVaultName();
 
   return (
     <div id="app" className={!isPanelOpen ? 'panel-hidden' : ''}>
       <header id="top-bar">
-        <h1>Gnosi</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ margin: 0 }}>Gnosi</h1>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            color: 'var(--text-tertiary)',
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            border: '1px solid var(--border-primary)'
+          }}>
+            Vault: {activeVaultName || '…'}
+          </span>
+        </div>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
           {onSync && (
             <button

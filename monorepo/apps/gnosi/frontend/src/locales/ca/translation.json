@@ -33,6 +33,7 @@
     "add_author": "Afegir autor"
   },
   "common": {
+    "knowledge": "Coneixement",
     "yes": "Sí",
     "loading": "Carregant...",
     "untitled": "Sense títol",
@@ -500,8 +501,8 @@
     "clipboard": "No s'ha pogut copiar",
     "shares_load": "No s'han pogut carregar els enllaços",
     "share_create": "Error creant l'enllaç",
-    "share_revoke": "Error revocant l'enllaç",
-    "daily_note": "Error obrint la nota diària",
+    "share_revoke": "Error revocant l'enllaç"
+    ,"daily_note": "Error obrint la nota diària",
     "record_create": "Error creant el registre",
     "add_schema_option": "No s'ha pogut desar l'opció al schema",
     "load_registry": "Error carregant el registre de bases de dades",
@@ -847,14 +848,14 @@
       "delete_title": "Eliminar Compte",
       "delete_msg": "Estàs segur que vols eliminar aquest compte? Es deixarà de sincronitzar immediatament.",
       "add_account": "Afegir Compte",
-      "vault_table": "Taula del Vault",
+      "vault_table": "Taula de Coneixement",
       "external_account": "Compte Extern",
       "default_account": "Compte per defecte",
       "default_contacts_hint": "S'usarà per sincronitzar i crear nous contactes.",
       "default_mail_hint": "S'usarà per enviar correus i com a remitent per defecte.",
       "default_calendar": "Calendari per defecte",
       "default_calendar_hint": "S'assignarà automàticament a les noves cites creades al calendari.",
-      "select_vault_table": "Selecciona una taula del Vault",
+      "select_vault_table": "Selecciona una taula de Coneixement",
       "account_config": "Configuració del Compte",
       "email_address": "Adreça de Correu",
       "email_placeholder": "exemple@pangea.org",
@@ -909,7 +910,7 @@
       "add_alias": "+ Afegir àlies"
     },
     "references": {
-      "intro": "Tria una taula del Vault com a <b>taula de referències</b> (estil Zotero). El sistema li prepara els camps necessaris automàticament — no cal que sàpigues res de \"Citation Key\". Importar/exportar BibTeX, generar claus de cita i \"Crear des d'una font\" passen a viure en aquesta taula. Si la canvies, tota la funcionalitat la segueix.",
+      "intro": "Tria una taula de Coneixement com a <b>taula de referències</b> (estil Zotero). El sistema li prepara els camps necessaris automàticament — no cal que sàpigues res de \"Citation Key\". Importar/exportar BibTeX, generar claus de cita i \"Crear des d'una font\" passen a viure en aquesta taula. Si la canvies, tota la funcionalitat la segueix.",
       "table_label": "Taula de referències",
       "none_option": "— Cap (referències desactivades) —",
       "create_table": "+ Crear taula nova",

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, LayoutDashboard, Calendar, History, Sparkles } from 'lucide-react';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
 import Column from '../components/social/Column';
 import Composer from '../components/social/Composer';
 import AddStreamModal from '../components/social/AddStreamModal';
@@ -20,6 +21,7 @@ const TABS = [
 ];
 
 const SocialDashboard = () => {
+    const activeVaultName = useActiveVaultName();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [showComposer, setShowComposer] = useState(false);
     const [showAIComposer, setShowAIComposer] = useState(false);
@@ -111,6 +113,10 @@ const SocialDashboard = () => {
                             <span>{label}</span>
                         </button>
                     ))}
+                    <div className="h-4 w-px bg-[var(--border-primary)] mx-2" />
+                    <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2.5 py-1 rounded-md border border-[var(--border-primary)]">
+                        Vault: {activeVaultName || '…'}
+                    </span>
                 </div>
 
                 {activeTab === 'dashboard' && (

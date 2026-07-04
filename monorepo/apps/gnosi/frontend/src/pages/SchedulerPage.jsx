@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, RefreshCw, AlertCircle, Edit2, Check, X } from 'lucide-react';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 const formatInterval = (minutes) => {
     if (!minutes && minutes !== 0) return null;
@@ -31,6 +32,7 @@ const hoursToMinutes = (hours) => {
 };
 
 const SchedulerPage = () => {
+    const activeVaultName = useActiveVaultName();
     const [schedulers, setSchedulers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [editingInterval, setEditingInterval] = useState({});
@@ -115,6 +117,9 @@ const SchedulerPage = () => {
                     <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
                         Task Scheduler
                     </h1>
+                    <span className="text-xs font-medium text-gray-400 bg-white/5 px-2.5 py-1 rounded-md border border-white/10 ml-2">
+                        Vault: {activeVaultName || '…'}
+                    </span>
                 </div>
                 <p className="text-gray-400">Gestiona les automatitzacions i tasques de fons de Gnosi.</p>
             </header>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useActiveVaultName } from '../../hooks/useActiveVaultName';
 import {
     Inbox, Send, FileText, Trash2,
     ChevronDown, Plus, Star,
@@ -27,6 +28,7 @@ export default function MailSidebar({
     counts = {},
 }) {
     const { t } = useTranslation();
+    const activeVaultName = useActiveVaultName();
     const [showAccountSelector, setShowAccountSelector] = useState(false);
     const [searchValue, setSearchValue] = useState('');
     const [showEditor, setShowEditor] = useState(false);
@@ -158,9 +160,16 @@ export default function MailSidebar({
     return (
         <>
             <div className="flex flex-col h-full w-64 bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] shrink-0">
+                {/* Vault badge */}
+                <div className="px-3 pt-3 pb-0">
+                    <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-[var(--bg-secondary)] border border-[var(--border-primary)] text-xs font-medium text-[var(--text-secondary)]">
+                        <span className="text-[var(--gnosi-blue)] font-bold">G</span>
+                        <span className="truncate">Vault: {activeVaultName || '…'}</span>
+                    </div>
+                </div>
 
                 {/* Account selector + compose */}
-                <div className="px-3 pt-4 pb-2 flex items-center justify-between gap-2 relative">
+                <div className="px-3 pt-2 pb-2 flex items-center justify-between gap-2 relative">
                     <button
                         onClick={() => setShowAccountSelector(v => !v)}
                         className="flex items-center gap-2 flex-1 min-w-0 px-2 py-1.5 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
