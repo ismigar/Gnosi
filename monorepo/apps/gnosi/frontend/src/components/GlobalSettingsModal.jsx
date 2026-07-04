@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
     Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
@@ -6,7 +6,7 @@ import {
     ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
     PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
 } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
@@ -35,10 +35,10 @@ const LANGUAGES = [
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
 const DECIMAL_SYMBOLS = [',', '.'];
 const DATE_FORMATS = [
-    { value: 'locale', label: "Segons l'idioma" },
-    { value: 'DD/MM/YYYY', label: 'DD/MM/AAAA' },
-    { value: 'MM/DD/YYYY', label: 'MM/DD/AAAA' },
-    { value: 'YYYY-MM-DD', label: 'AAAA-MM-DD (ISO)' },
+    { value: 'locale', labelKey: 'settings.language.date_format_locale' },
+    { value: 'DD/MM/YYYY', labelKey: 'settings.language.date_format_dmy' },
+    { value: 'MM/DD/YYYY', labelKey: 'settings.language.date_format_mdy' },
+    { value: 'YYYY-MM-DD', labelKey: 'settings.language.date_format_iso' },
 ];
 
 const NOTION_COLORS = [
@@ -168,6 +168,7 @@ const PasswordInput = ({
 };
 
 const AliasEditor = ({ aliases, onChange }) => {
+    const { t } = useTranslation();
     const [expandedIdx, setExpandedIdx] = React.useState(null);
     const update = (i, patch) => {
         const updated = [...aliases];
@@ -184,7 +185,7 @@ const AliasEditor = ({ aliases, onChange }) => {
                             className="gnosi-input"
                             style={{ flex: 2 }}
                             value={alias.email}
-                            placeholder="alias@domini.org"
+                            placeholder={t('settings.accounts.alias_email_placeholder')}
                             onChange={e => update(i, { email: e.target.value })}
                         />
                         <input
@@ -192,16 +193,16 @@ const AliasEditor = ({ aliases, onChange }) => {
                             className="gnosi-input"
                             style={{ flex: 2 }}
                             value={alias.display_name || ''}
-                            placeholder="Nom (opcional)"
+                            placeholder={t('settings.accounts.alias_name_placeholder')}
                             onChange={e => update(i, { display_name: e.target.value })}
                         />
                         <button
                             type="button"
-                            title="Signatura"
+                            title={t('settings.accounts.signature')}
                             onClick={() => setExpandedIdx(expandedIdx === i ? null : i)}
                             style={{ padding: '6px 8px', border: '1px solid var(--settings-border)', borderRadius: '6px', background: expandedIdx === i ? 'var(--gnosi-blue)' : 'transparent', color: expandedIdx === i ? '#fff' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '0.75rem', fontWeight: '700' }}
                         >
-                            Sig
+                            {t('settings.accounts.sig_abbr')}
                         </button>
                         <button
                             type="button"
@@ -212,7 +213,7 @@ const AliasEditor = ({ aliases, onChange }) => {
                     {expandedIdx === i && (
                         <div style={{ padding: '8px', borderTop: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' }}>
                             <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: '6px' }}>
-                                Signatura de l'àlies
+                                {t('settings.accounts.alias_signature')}
                             </label>
                             <MailBlockEditor
                                 initialContent={alias.signature || ''}
@@ -228,13 +229,16 @@ const AliasEditor = ({ aliases, onChange }) => {
                 onClick={() => onChange([...aliases, { email: '', display_name: '', signature: '' }])}
                 style={{ alignSelf: 'flex-start', padding: '4px 12px', fontSize: '0.78rem', border: '1px dashed var(--settings-border)', borderRadius: '8px', background: 'transparent', color: 'var(--gnosi-blue)', cursor: 'pointer', fontWeight: '700' }}
             >
-                + Afegir àlies
+                {t('settings.accounts.add_alias')}
             </button>
         </div>
     );
 };
 
-const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => (
+const AccountRow = ({ name, description, status, type, provider, onSync, onEdit, onDelete, onToggleEnabled, enabled = true, color = '#3b82f6', isSyncing = false }) => {
+    const { t } = useTranslation();
+    const ta = (k, opts) => t('settings.accounts.' + k, opts);
+    return (
     <div className="account-row hover-scale" style={{
         padding: '18px 24px', borderRadius: '20px', border: '1px solid var(--settings-border)',
         background: 'var(--settings-sidebar-bg)', display: 'flex', justifyContent: 'space-between',
@@ -249,7 +253,7 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <div style={{ fontWeight: '800', fontSize: '1.05rem', color: 'var(--text-primary)' }}>{name || description}</div>
                 </div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8 }}>{(name && name !== description) ? description : (provider === 'manual' ? 'Configuració manual' : 'Compte connectat')}</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', opacity: 0.8 }}>{(name && name !== description) ? description : (provider === 'manual' ? ta('manual_config') : ta('connected_account'))}</div>
             </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
@@ -260,7 +264,7 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
                         background: status === 'connected' ? 'rgba(16, 185, 129, 0.12)' : status === 'error' ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
                         color: status === 'connected' ? 'var(--status-success)' : status === 'error' ? 'var(--status-error)' : 'var(--status-warning)', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.04em'
                     }}>
-                        {status === 'connected' ? 'Connectat' : status === 'error' ? 'Error' : 'Pendent'}
+                        {status === 'connected' ? ta('status_connected') : status === 'error' ? ta('status_error') : ta('status_pending')}
                     </span>
                 )}
                 {enabled && (
@@ -268,7 +272,7 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
                         onClick={(e) => { e.stopPropagation(); onSync && onSync(); }}
                         disabled={isSyncing}
                         className="icon-btn hover-bg"
-                        title="Sincronitzar aquest compte"
+                        title={ta('sync_tip')}
                         style={{ padding: '8px', borderRadius: '10px', color: 'var(--gnosi-blue)' }}
                     >
                         <RefreshCw size={16} className={isSyncing ? 'animate-spin' : ''} />
@@ -278,16 +282,17 @@ const AccountRow = ({ name, description, status, type, provider, onSync, onEdit,
             <button
                 onClick={(e) => { e.stopPropagation(); onToggleEnabled && onToggleEnabled(!enabled); }}
                 className="icon-btn hover-bg"
-                title={enabled ? 'Desactivar compte' : 'Activar compte'}
+                title={enabled ? ta('disable_account') : ta('enable_account')}
                 style={{ padding: '8px', borderRadius: '10px', color: enabled ? 'var(--text-secondary)' : 'var(--gnosi-blue)' }}
             >
                 {enabled ? <EyeOff size={16} /> : <Eye size={16} />}
             </button>
-            <button onClick={onEdit} aria-label="Editar compte" title="Editar compte" className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
-            <button onClick={onDelete} aria-label="Eliminar compte" title="Eliminar compte" className="icon-btn hover-bg-danger" style={{ color: 'var(--status-error)', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
+            <button onClick={onEdit} aria-label={ta('edit_account')} title={ta('edit_account')} className="icon-btn hover-bg" style={{ padding: '8px', borderRadius: '10px' }}><SettingsIcon size={18} /></button>
+            <button onClick={onDelete} aria-label={ta('delete_account')} title={ta('delete_account')} className="icon-btn hover-bg-danger" style={{ color: 'var(--status-error)', padding: '8px', borderRadius: '10px' }}><Trash2 size={18} /></button>
         </div>
     </div>
-);
+    );
+};
 
 const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
     <button 
@@ -302,6 +307,7 @@ const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
 
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
     const { t, i18n } = useTranslation();
+    const tn = useCallback((k, opts) => t('settings.' + k, opts), [t]);
     
     // -- UNIFIED DRAFT STATE --
     const [draft, setDraft] = useState({
@@ -354,30 +360,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         saving_softcatala: false,
     });
 
-    const language = draft.settings.language || 'ca';
-
-    const translations = useMemo(() => ({
-        ca: {
-            databases: "Bases de dades",
-            systemEntities: "Entitats del Sistema",
-            filter_exposed: "Filtre exposat"
-        },
-        es: {
-            databases: "Bases de datos",
-            systemEntities: "Entidades del Sistema",
-            filter_exposed: "Filtro expuesto"
-        },
-        en: {
-            databases: "Databases",
-            systemEntities: "System Entities",
-            filter_exposed: "Exposed Filter"
-        }
-    }), []);
-
     const systemEntities = useMemo(() => [
         { 
             id: 'attachments', 
-            name: 'Adjunts', 
+            name: tn('graph.entity_attachments'), 
             icon: Paperclip, 
             color: '#6366f1', 
             fields: [
@@ -387,7 +373,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         },
         { 
             id: 'calendars', 
-            name: 'Calendaris', 
+            name: tn('graph.entity_calendars'), 
             icon: LucideIcons.Calendar, 
             color: '#ef4444', 
             subItems: (integrations.calendars || []).map(c => ({ id: c.id, name: c.name })), 
@@ -398,7 +384,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         },
         { 
             id: 'contacts', 
-            name: 'Contactes', 
+            name: tn('graph.entity_contacts'), 
             icon: LucideIcons.Users, 
             color: '#10b981', 
             subItems: (integrations.contacts || []).map(c => ({ id: c.id, name: c.name })), 
@@ -409,21 +395,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         },
         { 
             id: 'drawings', 
-            name: 'Dibuixos', 
+            name: tn('graph.entity_drawings'), 
             icon: PenTool, 
             color: '#f59e0b', 
             fields: [{ name: 'tool', type: 'select' }] 
         },
         { 
             id: 'images', 
-            name: 'Imatges', 
+            name: tn('graph.entity_images'), 
             icon: Image, 
             color: '#ec4899', 
             fields: [{ name: 'dimensions', type: 'text' }] 
         },
         { 
             id: 'mails', 
-            name: 'Mails', 
+            name: tn('graph.entity_mails'), 
             icon: LucideIcons.Mail, 
             color: '#3b82f6', 
             subItems: (integrations.mail_accounts || []).map(m => ({ id: m.id, name: m.email })), 
@@ -434,7 +420,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         },
         { 
             id: 'wiki', 
-            name: 'Wiki', 
+            name: tn('graph.entity_wiki'), 
             icon: FileText, 
             color: '#8b5cf6', 
             fields: [
@@ -442,7 +428,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 { name: 'priority', type: 'number' }
             ] 
         }
-    ], [integrations]);
+    ], [integrations, tn]);
 
     // Carrega els nodes del graf un sol cop en entrar a la pestanya del graf, per
     // poblar els desplegables de "Valor fix / defecte" dels camps de tipus llista.
@@ -681,7 +667,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             // Sense aquesta restauració, l'UI mostrava els canvis com si
             // s'haguessin desat tot i que el backend tenia l'estat antic.
             setSocialNetworks(previous);
-            toast.error('Error desant xarxes');
+            toast.error(tn('social.save_networks_error'));
             console.error('[social] saveSocialNetworks failed', err);
         }
     };
@@ -698,7 +684,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
         } catch (err) {
             setSocialStreams(previous);
-            toast.error('Error desant streams');
+            toast.error(tn('social.save_streams_error'));
             console.error('[social] saveSocialStreams failed', err);
         }
     };
@@ -1552,8 +1538,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const handleDeleteAccount = (category, accountId) => {
         setConfirmConfig({
             isOpen: true,
-            title: 'Eliminar Compte',
-            message: 'Estàs segur que vols eliminar aquest compte? Es deixarà de sincronitzar immediatament.',
+            title: tn('accounts.delete_title'),
+            message: tn('accounts.delete_msg'),
             onConfirm: async () => {
                 const updatedIntegrations = { ...integrations };
                 let changed = false;
@@ -1655,19 +1641,19 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 setSavingStatus(partial ? 'error' : 'saved');
                 loadIntegrations();
                 if (partial && failedEmails.length) {
-                    toast.error(`Alguns comptes no s'han pogut sincronitzar: ${failedEmails.join(', ')}. Comprova les credencials IMAP a Configuració.`);
+                    toast.error(tn('accounts.sync_partial_error', { emails: failedEmails.join(', ') }));
                 }
             } else {
                 setSavingStatus('error');
                 if (email) markError(prev => new Set(prev).add(email));
-                toast.error(`Error en la sincronització: ${res.data.error || res.data.detail || 'Error desconegut'}`);
+                toast.error(tn('accounts.sync_error', { detail: res.data.error || res.data.detail || tn('accounts.unknown_error') }));
             }
         } catch (e) {
             console.error("Sync error:", e);
             setSavingStatus('error');
             if (email) markError(prev => new Set(prev).add(email));
-            const detail = e?.response?.data?.detail || e?.message || 'Error desconegut';
-            toast.error(`Error en la sincronització: ${detail}`);
+            const detail = e?.response?.data?.detail || e?.message || tn('accounts.unknown_error');
+            toast.error(tn('accounts.sync_error', { detail }));
         } finally {
             setSyncingAccounts(prev => ({ ...prev, [accountId]: false }));
             setTimeout(() => setSavingStatus('idle'), 3000);
@@ -1713,8 +1699,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const handleDeleteAIProvider = async (pId) => {
         setConfirmConfig({
             isOpen: true,
-            title: "Eliminar Proveïdor",
-            message: `Estàs segur que vols eliminar la configuració de ${pId.toUpperCase()}? Aquesta acció no es pot desfer.`,
+            title: tn('ai.delete_provider_title'),
+            message: tn('ai.delete_provider_msg', { name: pId.toUpperCase() }),
             onConfirm: async () => {
                 try {
                     await axios.delete(`/api/ai/providers/${pId}`);
@@ -1844,7 +1830,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             <div ref={panelRef} className={`settings-modal ${isOpen ? 'active' : ''}`}>
                 {/* Botó X fora de .settings-main perquè s'ancori al modal i no
                     desaparegui amb el scroll del contingut. */}
-                <button onClick={handleClose} className="gnosi-close-btn settings-close-btn" aria-label="Tancar configuració">
+                <button onClick={handleClose} className="gnosi-close-btn settings-close-btn" aria-label={tn('close_settings')}>
                     <X />
                 </button>
                 {!draft.settings ? (
@@ -1861,7 +1847,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <div className="settings-section-icon-wrap">
                                     <SettingsIcon size={20} strokeWidth={2} />
                                 </div>
-                                <h2 className="settings-sidebar-title">Configuració</h2>
+                                <h2 className="settings-sidebar-title">{t('settings.title')}</h2>
                             </div>
                             
                         </div>
@@ -1886,7 +1872,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <div className="settings-sidebar-hr" />
 
                             <SidebarItem id="newsletters" icon={Rss} label={t('settings.tabs.newsletters') || 'Subscripcions'} active={activeTab === 'newsletters'} onClick={() => { setActiveTab('newsletters'); setAddAccountType(null); }} />
-                            <SidebarItem id="social" icon={Share2} label="Social" active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
+                            <SidebarItem id="social" icon={Share2} label={t('settings.tabs.social') || 'Social'} active={activeTab === 'social'} onClick={() => { setActiveTab('social'); setAddAccountType(null); }} />
                             <SidebarItem id="graph" icon={Share2} label={t('settings.tabs.graph') || 'Grafe'} active={activeTab === 'graph'} onClick={() => { setActiveTab('graph'); setAddAccountType(null); }} />
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
                             <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
@@ -1922,14 +1908,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                              {/* GENERAL */}
                             {activeTab === 'general' && (
-                                <Section title="Configuració del Sistema" icon={SettingsIcon}>
+                                <Section title={tn('general.system_title')} icon={SettingsIcon}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
-                                        <FormGroup label="Nom del Workspace" description="Identificador del teu cervell digital.">
-                                            <input type="text" className="gnosi-input" value={draft.settings.workspace_name} onChange={e => setDraft({...draft, settings: {...draft.settings, workspace_name: e.target.value}})} placeholder="Meu Cervell Digital" />
+                                        <FormGroup label={tn('general.workspace_name')} description={tn('general.workspace_name_desc')}>
+                                            <input type="text" className="gnosi-input" value={draft.settings.workspace_name} onChange={e => setDraft({...draft, settings: {...draft.settings, workspace_name: e.target.value}})} placeholder={tn('general.workspace_name_placeholder')} />
                                         </FormGroup>
                                     </div>
 
-                                    <FormGroup label="Tipus de Workspace" description="El mode organització permet configurar múltiples usuaris i polítiques de dades.">
+                                    <FormGroup label={tn('general.workspace_type')} description={tn('general.workspace_type_desc')}>
                                         <div className="segmented-control" style={{ display: 'flex', background: 'var(--settings-sidebar-bg)', padding: '6px', borderRadius: '18px', border: '1px solid var(--settings-border)' }}>
                                             {['personal', 'org'].map(m => (
                                                 <button key={m} onClick={() => setDraft({...draft, settings: {...draft.settings, gnosi_mode: m}})} style={{
@@ -1937,7 +1923,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     background: draft.settings.gnosi_mode === m ? 'var(--gnosi-blue)' : 'transparent',
                                                     color: draft.settings.gnosi_mode === m ? 'white' : 'var(--text-secondary)',
                                                     fontWeight: '800', fontSize: '0.95rem', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-                                                }}>{m === 'personal' ? 'Ús Personal' : 'Organització'}</button>
+                                                }}>{m === 'personal' ? tn('general.personal_use') : tn('general.organization')}</button>
                                             ))}
                                         </div>
                                     </FormGroup>
@@ -1945,15 +1931,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     {draft.settings.gnosi_mode === 'org' && (
                                         <div className="animate-in" style={{ marginTop: '30px', padding: '30px', borderRadius: '24px', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
-                                                <FormGroup label="Usuari Admin Org"><input type="text" className="gnosi-input" value={draft.settings.org_user} onChange={e => setDraft({...draft, settings: {...draft.settings, org_user: e.target.value}})} /></FormGroup>
-                                                <FormGroup label="Password Admin"><PasswordInput value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} name="org-admin-password" autoComplete="new-password" /></FormGroup>
+                                                <FormGroup label={tn('general.org_admin_user')}><input type="text" className="gnosi-input" value={draft.settings.org_user} onChange={e => setDraft({...draft, settings: {...draft.settings, org_user: e.target.value}})} /></FormGroup>
+                                                <FormGroup label={tn('general.org_admin_password')}><PasswordInput value={draft.settings.org_password} onChange={e => setDraft({...draft, settings: {...draft.settings, org_password: e.target.value}})} name="org-admin-password" autoComplete="new-password" /></FormGroup>
                                             </div>
                                         </div>
                                     )}
 
                                     <div style={{ marginTop: '50px' }}>
-                                        <Section title="Estructura de Fitxers" icon={FolderOpen}>
-                                            <FormGroup label="Carpeta arrel" description="Carpeta principal on s'emmagatzemen tots els vaults i les dades del sistema.">
+                                        <Section title={tn('general.files_structure')} icon={FolderOpen}>
+                                            <FormGroup label={tn('general.root_folder')} description={tn('general.root_folder_desc')}>
                                                 <div style={{ display: 'flex', gap: '14px' }}>
                                                     {/* Mostra la carpeta CONTENIDORA (pare del vault actiu), no el vault: els vaults viuen dins d'aquesta arrel. */}
                                                     <input type="text" className="gnosi-input" value={(draft.paths.vault || '').replace(/[/\\][^/\\]+[/\\]?$/, '') || draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
@@ -1963,7 +1949,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 </div>
                                             </FormGroup>
                                             {draft.settings.gnosi_mode === 'personal' && (
-                                                <FormGroup label="Vaults" description="Diversos vaults dins la carpeta arrel: crea'n, canvia l'actiu o esborra'ls. L'actiu és el que fan servir Coneixement, Graf, etc.">
+                                                <FormGroup label={tn('general.vaults_label')} description={tn('general.vaults_desc')}>
                                                     <VaultSwitcher />
                                                 </FormGroup>
                                             )}
@@ -1995,11 +1981,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'references' && (
                                 <Section title={t('settings.tabs.references') || 'Referències'} icon={BookOpen}>
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
-                                        Tria una taula del Vault com a <strong>taula de referències</strong> (estil Zotero). El sistema li prepara els camps necessaris automàticament — no cal que sàpigues res de "Citation Key". Importar/exportar BibTeX, generar claus de cita i "Crear des d'una font" passen a viure en aquesta taula. Si la canvies, tota la funcionalitat la segueix.
+                                        <Trans i18nKey="settings.references.intro" components={{ b: <strong /> }} />
                                     </p>
                                     <div style={{ marginBottom: '16px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
                                         <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
-                                            Taula de referències
+                                            {tn('references.table_label')}
                                         </label>
                                         <select
                                             value={referenceTable?.table_id || ''}
@@ -2008,7 +1994,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             className="gnosi-input"
                                             style={{ width: '100%' }}
                                         >
-                                            <option value="">— Cap (referències desactivades) —</option>
+                                            <option value="">{tn('references.none_option')}</option>
                                             {tables.map(tbl => (
                                                 <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
                                             ))}
@@ -2020,14 +2006,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 disabled={refBusy}
                                                 style={{ padding: '8px 14px', border: '1px solid var(--settings-border)', borderRadius: '12px', background: 'var(--settings-bg)', cursor: refBusy ? 'default' : 'pointer', fontWeight: '700', color: 'var(--text-primary)', fontSize: '0.8rem', opacity: refBusy ? 0.6 : 1 }}
                                             >
-                                                + Crear taula nova
+                                                {tn('references.create_table')}
                                             </button>
-                                            {refBusy && <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>Desant…</span>}
+                                            {refBusy && <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>{tn('references.saving')}</span>}
                                         </div>
                                         <p style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '10px', marginBottom: 0 }}>
                                             {referenceTable?.configured
-                                                ? `Activa a: ${referenceTable.name}. Canviar-la mou tota la funcionalitat de referències a la nova taula.`
-                                                : 'Cap taula designada. Tria\'n una o crea\'n una de nova per activar les referències.'}
+                                                ? tn('references.active_at', { name: referenceTable.name })
+                                                : tn('references.none_hint')}
                                         </p>
                                     </div>
                                 </Section>
@@ -2035,8 +2021,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* IDIOMA I REGIÓ */}
                             {activeTab === 'language' && (
-                                <Section title="Idioma i Localització" icon={Globe}>
-                                    <FormGroup label="Seleccionar Idioma" description="L'idioma general de la interfície i dels agents d'IA.">
+                                <Section title={tn('language.section_title')} icon={Globe}>
+                                    <FormGroup label={tn('language.select_language')} description={tn('language.select_language_desc')}>
                                         <select className="gnosi-select" value={draft.settings.language} onChange={e => {
                                             const code = e.target.value;
                                             setDraft({...draft, settings: {...draft.settings, language: code}});
@@ -2049,25 +2035,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     </FormGroup>
 
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '40px', borderTop: '1px solid var(--settings-border)', paddingTop: '44px' }}>
-                                        <FormGroup label="Primer dia de la setmana">
+                                        <FormGroup label={tn('language.first_day')}>
                                             <select className="gnosi-select" value={draft.settings.week_start} onChange={e => setDraft({...draft, settings: {...draft.settings, week_start: parseInt(e.target.value)}})}>
-                                                <option value={1}>Dilluns (ISO)</option>
-                                                <option value={0}>Diumenge (US)</option>
+                                                <option value={1}>{tn('language.monday_iso')}</option>
+                                                <option value={0}>{tn('language.sunday_us')}</option>
                                             </select>
                                         </FormGroup>
-                                        <FormGroup label="Moneda de referència">
+                                        <FormGroup label={tn('language.currency_ref')}>
                                             <select className="gnosi-select" value={draft.settings.currency} onChange={e => setDraft({...draft, settings: {...draft.settings, currency: e.target.value}})}>
                                                 {CURRENCIES.map(c => <option key={c} value={c}>{c}</option>)}
                                             </select>
                                         </FormGroup>
-                                        <FormGroup label="Símbol decimal">
+                                        <FormGroup label={tn('language.decimal_symbol_label')}>
                                             <select className="gnosi-select" value={draft.settings.decimal_symbol} onChange={e => setDraft({...draft, settings: {...draft.settings, decimal_symbol: e.target.value}})}>
-                                                {DECIMAL_SYMBOLS.map(s => <option key={s} value={s}>{s === ',' ? 'Coma (,)' : 'Punt (.)'}</option>)}
+                                                {DECIMAL_SYMBOLS.map(s => <option key={s} value={s}>{s === ',' ? tn('language.decimal_comma') : tn('language.decimal_point')}</option>)}
                                             </select>
                                         </FormGroup>
-                                        <FormGroup label="Format de data" description="Com es mostren les dates als camps. Pots sobreescriure-ho a cada camp.">
+                                        <FormGroup label={tn('language.date_format_label')} description={tn('language.date_format_desc')}>
                                             <select className="gnosi-select" value={draft.settings.date_format || 'locale'} onChange={e => setDraft({...draft, settings: {...draft.settings, date_format: e.target.value}})}>
-                                                {DATE_FORMATS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+                                                {DATE_FORMATS.map(f => <option key={f.value} value={f.value}>{t(f.labelKey)}</option>)}
                                             </select>
                                         </FormGroup>
                                     </div>
@@ -2076,12 +2062,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* APARENÇA */}
                             {activeTab === 'appearance' && (
-                                <Section title="Aparença i Estil" icon={Palette}>
+                                <Section title={tn('appearance.section_title')} icon={Palette}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '56px' }}>
                                         {[
-                                            { id: 'light', label: 'Clar', icon: Monitor, bg: '#ffffff' },
-                                            { id: 'dark', label: 'Fosc', icon: Monitor, bg: '#000000' },
-                                            { id: 'system', label: 'Sistema', icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
+                                            { id: 'light', label: tn('appearance.theme_light'), icon: Monitor, bg: '#ffffff' },
+                                            { id: 'dark', label: tn('appearance.theme_dark'), icon: Monitor, bg: '#000000' },
+                                            { id: 'system', label: tn('appearance.theme_system'), icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
                                         ].map(opt => (
                                             <button key={opt.id} onClick={() => setDraft({...draft, settings: {...draft.settings, theme: opt.id}})} style={{
                                                 padding: '12px', borderRadius: '24px', border: `2px solid ${draft.settings.theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`,
@@ -2097,12 +2083,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)' }}>
                                         <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Efectes i Animacions Neutres</div>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>Redueix la càrrega visual eliminant transicions innecessàries i optimitzant el rendiment.</div>
+                                            <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.reduce_fx_title')}</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '420px' }}>{tn('appearance.reduce_fx_desc')}</div>
                                         </div>
                                         <GnosiToggle
                                             active={draft.settings.reduce_animations}
-                                            label="Efectes i animacions neutres"
+                                            label={tn('appearance.reduce_fx_title')}
                                             scale={1.2}
                                             onChange={() => setDraft({...draft, settings: {...draft.settings, reduce_animations: !draft.settings.reduce_animations}})}
                                         />
@@ -2110,12 +2096,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     <div style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 10px 30px rgba(0,0,0,0.03)', marginTop: '20px' }}>
                                         <div style={{ flex: 1 }}>
-                                            <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>Llegir correus en mode fosc</div>
-                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>Aplica una paleta fosca al cos del correu en lloc del fons blanc. Per defecte els correus es mostren amb fons clar (com Gmail/Apple Mail/Outlook) per assegurar la llegibilitat de newsletters i correus amb estils inline; activa-ho si prefereixes contrast amb el tema fosc, sabent que alguns correus poden quedar amb baix contrast.</div>
+                                            <div style={{ fontWeight: '900', color: 'var(--text-primary)', fontSize: '1.15rem' }}>{tn('appearance.mail_dark_title')}</div>
+                                            <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8, maxWidth: '480px' }}>{tn('appearance.mail_dark_desc')}</div>
                                         </div>
                                         <GnosiToggle
                                             active={mailDarkBody}
-                                            label="Llegir correus en mode fosc"
+                                            label={tn('appearance.mail_dark_title')}
                                             scale={1.2}
                                             onChange={() => {
                                                 const next = !mailDarkBody;
@@ -2146,7 +2132,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* CALENDAR, CONTACTS, MAIL */}
                             {(activeTab === 'calendar' || activeTab === 'contacts' || activeTab === 'mail') && (
                                 <Section 
-                                    title={activeTab === 'calendar' ? 'Gestió de Calendaris' : (activeTab === 'contacts' ? 'Sincronització de Contactes' : 'Comptes de Correu')} 
+                                    title={activeTab === 'calendar' ? tn('calendar.manage_title') : (activeTab === 'contacts' ? tn('contacts.sync_section_title') : tn('mail_accounts.title'))} 
                                     icon={activeTab === 'calendar' ? Calendar : (activeTab === 'contacts' ? Users : Mail)}
                                     extra={
                                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -2169,7 +2155,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '10px 20px', fontSize: '0.85rem', borderRadius: '12px', whiteSpace: 'nowrap', flexShrink: 0 }}
                                                 >
                                                     {(addAccountType || isAddingTable) ? <X size={16} /> : <Plus size={16} />}
-                                                    {(addAccountType || isAddingTable) ? 'Cancel·lar' : 'Afegir Compte'}
+                                                    {(addAccountType || isAddingTable) ? t('common.cancel') : tn('accounts.add_account')}
                                                 </button>
                                                 
                                                 {addAccountType === 'menu' && (
@@ -2184,14 +2170,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             className="hover-bg"
                                                             style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontWeight: '700' }}
                                                         >
-                                                            <Database size={16} color="var(--gnosi-blue)" /> Taula del Vault
+                                                            <Database size={16} color="var(--gnosi-blue)" /> {tn('accounts.vault_table')}
                                                         </button>
                                                         <button 
                                                             onClick={(e) => { e.stopPropagation(); setAddAccountType('calendar'); }}
                                                             className="hover-bg"
                                                             style={{ width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', textAlign: 'left', cursor: 'pointer', borderRadius: '10px', display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-primary)', fontWeight: '700' }}
                                                         >
-                                                            <Globe size={16} color="var(--gnosi-blue)" /> Compte Extern
+                                                            <Globe size={16} color="var(--gnosi-blue)" /> {tn('accounts.external_account')}
                                                         </button>
                                                     </div>
                                                 )}
@@ -2215,7 +2201,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             return (
                                                 <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
                                                     <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
-                                                        Compte per defecte
+                                                        {tn('accounts.default_account')}
                                                     </label>
                                                     <select
                                                         value={integrations.default_contacts || ''}
@@ -2233,7 +2219,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         ))}
                                                     </select>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
-                                                        S'usarà per sincronitzar i crear nous contactes.
+                                                        {tn('accounts.default_contacts_hint')}
                                                     </p>
                                                 </div>
                                             );
@@ -2248,7 +2234,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             return (
                                                 <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
                                                     <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
-                                                        Compte per defecte
+                                                        {tn('accounts.default_account')}
                                                     </label>
                                                     <select
                                                         value={integrations.default_mail || ''}
@@ -2266,7 +2252,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         ))}
                                                     </select>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
-                                                        S'usarà per enviar correus i com a remitent per defecte.
+                                                        {tn('accounts.default_mail_hint')}
                                                     </p>
                                                 </div>
                                             );
@@ -2291,7 +2277,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             return (
                                                 <div style={{ marginBottom: '24px', padding: '18px 20px', background: 'var(--settings-sidebar-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
                                                     <label style={{ fontSize: '0.72rem', fontWeight: '800', color: 'var(--text-tertiary)', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: '10px' }}>
-                                                        Calendari per defecte
+                                                        {tn('accounts.default_calendar')}
                                                     </label>
                                                     <select
                                                         value={integrations.default_calendar || ''}
@@ -2309,7 +2295,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         ))}
                                                     </select>
                                                     <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', marginBottom: 0 }}>
-                                                        S'assignarà automàticament a les noves cites creades al calendari.
+                                                        {tn('accounts.default_calendar_hint')}
                                                     </p>
                                                 </div>
                                             );
@@ -2321,8 +2307,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Selecciona una taula del Vault</span>
-                                                    <button onClick={() => setIsAddingTable(false)} aria-label="Tancar" title="Tancar" className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.select_vault_table')}</span>
+                                                    <button onClick={() => setIsAddingTable(false)} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
                                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '12px', maxHeight: '400px', overflowY: 'auto', padding: '4px' }}>
                                                     {tables.filter(t => !integrations.vault_calendar?.enabled_tables?.includes(t.id)).map(tbl => (
@@ -2359,12 +2345,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 boxShadow: '0 15px 40px rgba(59, 130, 246, 0.12)'
                                             }}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Configuració del Compte</span>
-                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} aria-label="Tancar" title="Tancar" className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
+                                                    <span style={{ fontSize: '0.85rem', fontWeight: '1000', color: 'var(--gnosi-blue)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('accounts.account_config')}</span>
+                                                    <button onClick={() => { setAddAccountType(null); setAddAccountEmail(''); setAddAccountEmailBlurred(false); setIsManualGoogle(false); setManualServer(''); setManualPassword(''); setEditingAccountId(null); }} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg-strong" style={{ padding: '8px', borderRadius: '12px' }}><X size={18} /></button>
                                                 </div>
                                                 
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                    <FormGroup label="Adreça de Correu">
+                                                    <FormGroup label={tn('accounts.email_address')}>
                                                         <input
                                                             type="email"
                                                             className="gnosi-input"
@@ -2377,7 +2363,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 setIsManualGoogle(false);
                                                             }}
                                                             onBlur={() => setAddAccountEmailBlurred(true)}
-                                                            placeholder="exemple@pangea.org"
+                                                            placeholder={tn('accounts.email_placeholder')}
                                                             data-autofocus="true"
                                                         />
                                                     </FormGroup>
@@ -2411,31 +2397,31 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         const GoogleBtn = () => (
                                                             <button onClick={() => window.location.href = `/api/auth/google/login?type=${activeTab}`} style={btnStyle('#4285f4', '0 8px 16px rgba(66,133,244,0.25)')}>
                                                                 <div style={iconBox()}><img src="https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png" style={{ width: '18px', height: '18px' }} alt="" /></div>
-                                                                Continuar amb Google
+                                                                {tn('accounts.continue_with', { provider: 'Google' })}
                                                             </button>
                                                         );
                                                         const MicrosoftBtn = () => (
                                                             <button onClick={() => window.location.href = '/api/auth/microsoft/login'} style={btnStyle('#0078d4', '0 8px 16px rgba(0,120,212,0.25)')}>
                                                                 <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 21 21"><rect x="1" y="1" width="9" height="9" fill="#f25022"/><rect x="11" y="1" width="9" height="9" fill="#7fba00"/><rect x="1" y="11" width="9" height="9" fill="#00a4ef"/><rect x="11" y="11" width="9" height="9" fill="#ffb900"/></svg></div>
-                                                                Continuar amb Microsoft
+                                                                {tn('accounts.continue_with', { provider: 'Microsoft' })}
                                                             </button>
                                                         );
                                                         const ICloudBtn = () => (
                                                             <button onClick={() => fillImap({ host: 'imap.mail.me.com', port: '993', enc: 'ssl' }, { host: 'smtp.mail.me.com', port: '587', enc: 'starttls' })} style={btnStyle('#555', '0 8px 16px rgba(0,0,0,0.15)')}>
                                                                 <div style={iconBox('8px')}><svg width="18" height="18" viewBox="0 0 24 24" fill="#555"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg></div>
-                                                                Continuar amb iCloud
+                                                                {tn('accounts.continue_with', { provider: 'iCloud' })}
                                                             </button>
                                                         );
                                                         const YahooBtn = () => (
                                                             <button onClick={() => fillImap({ host: 'imap.mail.yahoo.com', port: '993', enc: 'ssl' }, { host: 'smtp.mail.yahoo.com', port: '465', enc: 'ssl' })} style={btnStyle('#6001d2', '0 8px 16px rgba(96,1,210,0.2)')}>
                                                                 <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 24 24" fill="#6001d2"><path d="M14.2 2.9L12 9.3 9.8 2.9H6L10.6 14v7.1h2.8V14L18 2.9zM19.6 9.5l-2 5.7-2.1-5.7h-2.8l3.5 9-.1.2c-.4.9-.8 1.2-1.6 1.2-.3 0-.7-.1-1-.2l-.3 2.2c.5.2 1.1.3 1.7.3 2 0 3-.9 3.9-3.4l3.3-9.3h-2.5z"/></svg></div>
-                                                                Continuar amb Yahoo
+                                                                {tn('accounts.continue_with', { provider: 'Yahoo' })}
                                                             </button>
                                                         );
                                                         const AolBtn = () => (
                                                             <button onClick={() => fillImap({ host: 'imap.aol.com', port: '993', enc: 'ssl' }, { host: 'smtp.aol.com', port: '465', enc: 'ssl' })} style={btnStyle('#ff0b00', '0 8px 16px rgba(255,11,0,0.2)')}>
                                                                 <div style={iconBox()}><svg width="18" height="18" viewBox="0 0 24 24" fill="#ff0b00"><text x="0" y="16" fontSize="14" fontWeight="bold">AOL</text></svg></div>
-                                                                Continuar amb AOL
+                                                                {tn('accounts.continue_with', { provider: 'AOL' })}
                                                             </button>
                                                         );
 
@@ -2449,14 +2435,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         // Unknown domain → show all options
                                                         return (
                                                             <div className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                                                                <p style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', margin: '0 0 4px', textAlign: 'center' }}>Selecciona el proveïdor</p>
+                                                                <p style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', margin: '0 0 4px', textAlign: 'center' }}>{tn('accounts.select_provider')}</p>
                                                                 <GoogleBtn />
                                                                 <MicrosoftBtn />
                                                                 <ICloudBtn />
                                                                 <YahooBtn />
                                                                 <AolBtn />
                                                                 <p style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', textAlign: 'center', margin: '4px 0 0' }}>
-                                                                    O configura manualment amb el formulari de sota
+                                                                    {tn('accounts.manual_below')}
                                                                 </p>
                                                             </div>
                                                         );
@@ -2510,11 +2496,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     });
                                                                     const ok = res.data?.success;
                                                                     setMailTestStatus(ok ? 'ok' : 'error');
-                                                                    toast[ok ? 'success' : 'error'](ok ? 'Connexió IMAP/SMTP correcta' : `Error: ${res.data?.error || 'No s\'ha pogut connectar'}`);
+                                                                    toast[ok ? 'success' : 'error'](ok ? tn('accounts.test_ok') : tn('accounts.test_error', { error: res.data?.error || tn('accounts.could_not_connect') }));
                                                                     if (ok) loadIntegrations();
                                                                 } catch (err) {
                                                                     setMailTestStatus('error');
-                                                                    toast.error(`Error provant connexió: ${err?.response?.data?.detail || err.message || 'Error desconegut'}`);
+                                                                    toast.error(tn('accounts.test_conn_error', { detail: err?.response?.data?.detail || err.message || tn('accounts.unknown_error') }));
                                                                 }
                                                             } else {
                                                                 // Mode nou compte: guarda i tanca
@@ -2533,36 +2519,36 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     setTimeout(() => setSavingStatus('idle'), 2000);
                                                                 } catch (err) {
                                                                     setSavingStatus('error');
-                                                                    toast.error(`Error guardant: ${err?.response?.data?.detail || err.message || 'Error desconegut'}`);
+                                                                    toast.error(tn('accounts.save_error', { detail: err?.response?.data?.detail || err.message || tn('accounts.unknown_error') }));
                                                                 }
                                                             }
                                                         }} className="animate-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                                             {/* NOM REMITENT + ÀLIES */}
                                                             <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 20px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
                                                                 <div>
-                                                                    <FormGroup label="Nom del remitent" description="Com apareixerà al camp 'De' dels correus enviats.">
+                                                                    <FormGroup label={tn('accounts.sender_name')} description={tn('accounts.sender_name_desc')}>
                                                                         <input
                                                                             type="text"
                                                                             className="gnosi-input"
                                                                             value={mailDisplayName}
                                                                             onChange={e => setMailDisplayName(e.target.value)}
-                                                                            placeholder="Ismael García"
+                                                                            placeholder={tn('accounts.sender_name_placeholder')}
                                                                         />
                                                                     </FormGroup>
                                                                 </div>
                                                                 <div>
-                                                                    <FormGroup label="Àlies (adreces addicionals)" description="Cada àlies envia via el mateix SMTP i pot tenir la seva pròpia signatura.">
+                                                                    <FormGroup label={tn('accounts.aliases_label')} description={tn('accounts.aliases_desc')}>
                                                                         <AliasEditor aliases={mailAliases} onChange={setMailAliases} />
                                                                     </FormGroup>
                                                                 </div>
                                                                 <div style={{ gridColumn: 'span 2' }}>
-                                                                    <FormGroup label="Assignatura per defecte" description="S'afegirà automàticament al camp 'Assumpte' en crear un correu nou.">
+                                                                    <FormGroup label={tn('accounts.subject_prefix')} description={tn('accounts.subject_prefix_desc')}>
                                                                         <input
                                                                             type="text"
                                                                             className="gnosi-input"
                                                                             value={mailSubjectPrefix}
                                                                             onChange={e => setMailSubjectPrefix(e.target.value)}
-                                                                            placeholder="Ex: [Departament TIC] "
+                                                                            placeholder={tn('accounts.subject_prefix_placeholder')}
                                                                         />
                                                                     </FormGroup>
                                                                 </div>
@@ -2570,42 +2556,42 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                                             {/* SECCIÓ IMAP */}
                                                             <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
-                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor IMAP (Recepció)</h4>
+                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.imap_section')}</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
-                                                                    <FormGroup label="Servidor"><input type="text" className="gnosi-input" value={mailImapHost} onChange={e => setMailImapHost(e.target.value)} placeholder="imap.pangea.org" /></FormGroup>
-                                                                    <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailImapPort} onChange={e => setMailImapPort(e.target.value)} placeholder="993" /></FormGroup>
+                                                                    <FormGroup label={tn('accounts.server')}><input type="text" className="gnosi-input" value={mailImapHost} onChange={e => setMailImapHost(e.target.value)} placeholder="imap.pangea.org" /></FormGroup>
+                                                                    <FormGroup label={tn('accounts.port')}><input type="text" className="gnosi-input" value={mailImapPort} onChange={e => setMailImapPort(e.target.value)} placeholder="993" /></FormGroup>
                                                                 </div>
-                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailImapUser} onChange={e => setMailImapUser(e.target.value)} name="imap-username" autoComplete="username" /></FormGroup>
-                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} name="imap-password" autoComplete="current-password" /></FormGroup>
-                                                                <FormGroup label="Seguretat">
+                                                                <FormGroup label={tn('accounts.user')}><input type="text" className="gnosi-input" value={mailImapUser} onChange={e => setMailImapUser(e.target.value)} name="imap-username" autoComplete="username" /></FormGroup>
+                                                                <FormGroup label={tn('accounts.password')}><PasswordInput value={mailImapPass} onChange={e => setMailImapPass(e.target.value)} name="imap-password" autoComplete="current-password" /></FormGroup>
+                                                                <FormGroup label={tn('accounts.security')}>
                                                                     <select className="gnosi-select" value={mailImapEnc} onChange={e => setMailImapEnc(e.target.value)}>
                                                                         <option value="ssl">SSL/TLS</option>
                                                                         <option value="starttls">STARTTLS</option>
-                                                                        <option value="none">Cap</option>
+                                                                        <option value="none">{tn('accounts.security_none')}</option>
                                                                     </select>
                                                                 </FormGroup>
                                                             </form>
 
                                                             {/* SECCIÓ SMTP */}
                                                             <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
-                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>Servidor SMTP (Enviament)</h4>
+                                                                <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.smtp_section')}</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
-                                                                    <FormGroup label="Servidor"><input type="text" className="gnosi-input" value={mailSmtpHost} onChange={e => setMailSmtpHost(e.target.value)} placeholder="smtp.pangea.org" /></FormGroup>
-                                                                    <FormGroup label="Port"><input type="text" className="gnosi-input" value={mailSmtpPort} onChange={e => setMailSmtpPort(e.target.value)} placeholder="465" /></FormGroup>
+                                                                    <FormGroup label={tn('accounts.server')}><input type="text" className="gnosi-input" value={mailSmtpHost} onChange={e => setMailSmtpHost(e.target.value)} placeholder="smtp.pangea.org" /></FormGroup>
+                                                                    <FormGroup label={tn('accounts.port')}><input type="text" className="gnosi-input" value={mailSmtpPort} onChange={e => setMailSmtpPort(e.target.value)} placeholder="465" /></FormGroup>
                                                                 </div>
-                                                                <FormGroup label="Usuari"><input type="text" className="gnosi-input" value={mailSmtpUser} onChange={e => setMailSmtpUser(e.target.value)} name="smtp-username" autoComplete="username" /></FormGroup>
-                                                                <FormGroup label="Contrasenya"><PasswordInput value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} name="smtp-password" autoComplete="current-password" /></FormGroup>
-                                                                <FormGroup label="Seguretat">
+                                                                <FormGroup label={tn('accounts.user')}><input type="text" className="gnosi-input" value={mailSmtpUser} onChange={e => setMailSmtpUser(e.target.value)} name="smtp-username" autoComplete="username" /></FormGroup>
+                                                                <FormGroup label={tn('accounts.password')}><PasswordInput value={mailSmtpPass} onChange={e => setMailSmtpPass(e.target.value)} name="smtp-password" autoComplete="current-password" /></FormGroup>
+                                                                <FormGroup label={tn('accounts.security')}>
                                                                     <select className="gnosi-select" value={mailSmtpEnc} onChange={e => setMailSmtpEnc(e.target.value)}>
                                                                         <option value="ssl">SSL/TLS</option>
                                                                         <option value="starttls">STARTTLS</option>
-                                                                        <option value="none">Cap</option>
+                                                                        <option value="none">{tn('accounts.security_none')}</option>
                                                                     </select>
                                                                 </FormGroup>
                                                             </form>
 
                                                             <div style={{ gridColumn: 'span 2' }}>
-                                                                <FormGroup label="Signatura HTML (Opcional)" description="Aquesta signatura s'afegirà automàticament als correus que enviïs.">
+                                                                <FormGroup label={tn('accounts.signature_label')} description={tn('accounts.signature_desc')}>
                                                                     <div style={{ marginTop: '8px' }}>
                                                                         <MailBlockEditor
                                                                             key={editingAccountId || 'new'}
@@ -2617,7 +2603,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 </FormGroup>
                                                             </div>
                                                             <div style={{ gridColumn: 'span 2' }}>
-                                                                <FormGroup label="Certificat / Ruta Clau (Opcional)">
+                                                                <FormGroup label={tn('accounts.certificate_label')}>
                                                                     <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder="/ruta/al/certificat.crt" />
                                                                 </FormGroup>
                                                             </div>
@@ -2625,8 +2611,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <div style={{ gridColumn: 'span 2', marginTop: '10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
                                                                 <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>
                                                                     {editingAccountId
-                                                                        ? '✓ Els canvis de signatura, nom i àlies es guarden automàticament.'
-                                                                        : 'Omple el servidor IMAP/SMTP i clica per connectar.'}
+                                                                        ? tn('accounts.identity_autosave_hint')
+                                                                        : tn('accounts.fill_and_connect')}
                                                                 </div>
                                                                 <button
                                                                     type="submit"
@@ -2637,8 +2623,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     {mailTestStatus === 'testing' && <RefreshCw size={15} style={{ animation: 'spin 1s linear infinite' }} />}
                                                                     {mailTestStatus === 'ok' && <Check size={15} />}
                                                                     {editingAccountId
-                                                                        ? (mailTestStatus === 'ok' ? 'Connexió OK' : mailTestStatus === 'error' ? 'Error connexió' : 'Provar connexió')
-                                                                        : 'Connectar Compte'}
+                                                                        ? (mailTestStatus === 'ok' ? tn('accounts.connection_ok') : mailTestStatus === 'error' ? tn('accounts.connection_error') : tn('accounts.test_connection'))
+                                                                        : tn('accounts.connect_account')}
                                                                 </button>
                                                             </div>
                                                         </form>
@@ -2688,7 +2674,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 setSavingStatus('error');
                                                             }
                                                         }} className="animate-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                                            <FormGroup label="Servidor URL" description="Ex: caldav.pangea.org o imap.pangea.org">
+                                                            <FormGroup label={tn('accounts.server_url')} description={tn('accounts.server_url_desc')}>
                                                                 <input 
                                                                     type="text" 
                                                                     className="gnosi-input" 
@@ -2697,14 +2683,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     placeholder="https://..." 
                                                                 />
                                                             </FormGroup>
-                                                            <FormGroup label="Contrasenya">
+                                                            <FormGroup label={tn('accounts.password')}>
                                                                 <PasswordInput value={manualPassword} onChange={e => setManualPassword(e.target.value)} name="mail-account-password" autoComplete="current-password" />
                                                             </FormGroup>
                                                             
                                                             <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
                                                                 <button type="submit" className="btn-gnosi-primary" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '14px 24px', flex: 1, fontWeight: '900', border: 'none', borderRadius: '16px', cursor: 'pointer', transition: 'all 0.2s', boxShadow: '0 10px 20px rgba(59, 130, 246, 0.2)' }}>
                                                                     <Check size={18} />
-                                                                    {editingAccountId ? 'Actualitzar Compte' : 'Connectar Compte'}
+                                                                    {editingAccountId ? tn('accounts.update_account') : tn('accounts.connect_account')}
                                                                 </button>
 
                                                                 {addAccountEmail.includes('@') && (
@@ -2713,7 +2699,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         className="btn-gnosi-secondary"
                                                                         style={{ padding: '14px', borderRadius: '14px', fontSize: '0.8rem' }}
                                                                     >
-                                                                        És de Google?
+                                                                        {tn('accounts.is_google')}
                                                                     </button>
                                                                 )}
                                                             </div>
@@ -2789,7 +2775,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 <AccountRow 
                                                                     key={`vault-${idx}`} 
                                                                     name={tbl.name} 
-                                                                    description="Taula del Vault" 
+                                                                    description={tn('accounts.vault_table')} 
                                                                     status="connected" 
                                                                     type="calendar" 
                                                                     provider="vault"
@@ -2812,7 +2798,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000
                                                             }}>
                                                                 <div style={{ background: 'var(--settings-bg)', padding: '30px', borderRadius: '24px', width: '400px', boxShadow: '0 20px 50px rgba(0,0,0,0.2)' }}>
-                                                                    <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>Color de {editingTableColor.name}</h3>
+                                                                    <h3 style={{ margin: '0 0 20px 0', fontSize: '1.2rem', fontWeight: 800 }}>{tn('accounts.table_color_title', { name: editingTableColor.name })}</h3>
                                                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px', marginBottom: '25px' }}>
                                                                         {['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#6366f1', '#ec4899', '#8b5cf6', '#06b6d4', '#f97316', '#71717a'].map(c => (
                                                                             <button 
@@ -2835,8 +2821,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                 setEditingTableColor(null);
                                                                             }}
                                                                             className="btn-gnosi-primary" style={{ flex: 1, padding: '12px' }}
-                                                                        >Guardar</button>
-                                                                        <button onClick={() => setEditingTableColor(null)} className="btn-gnosi-secondary" style={{ flex: 1, padding: '12px' }}>Cancel·lar</button>
+                                                                        >{t('common.save')}</button>
+                                                                        <button onClick={() => setEditingTableColor(null)} className="btn-gnosi-secondary" style={{ flex: 1, padding: '12px' }}>{t('common.cancel')}</button>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -2849,8 +2835,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <div style={{ width: '80px', height: '80px', background: 'var(--settings-bg)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 28px auto', boxShadow: '0 10px 25px rgba(0,0,0,0.05)' }}>
                                                             {activeTab === 'calendar' ? <Calendar size={40} strokeWidth={1.5} /> : (activeTab === 'contacts' ? <Users size={40} strokeWidth={1.5} /> : <Mail size={40} strokeWidth={1.5} />)}
                                                         </div>
-                                                        <div style={{ fontWeight: '900', fontSize: '1.3rem', color: 'var(--text-primary)' }}>No hi ha comptes connectats</div>
-                                                        <p style={{ fontSize: '0.95rem', marginTop: '12px', maxWidth: '300px', margin: '12px auto 0' }}>Connecta un servei per automatitzar el teu flux d'informació.</p>
+                                                        <div style={{ fontWeight: '900', fontSize: '1.3rem', color: 'var(--text-primary)' }}>{tn('accounts.no_accounts')}</div>
+                                                        <p style={{ fontSize: '0.95rem', marginTop: '12px', maxWidth: '300px', margin: '12px auto 0' }}>{tn('accounts.no_accounts_hint')}</p>
                                                     </div>
                                                 );
                                             }
@@ -2861,9 +2847,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* MAIL SNIPPETS */}
                             {activeTab === 'mail' && (
-                                <Section title="Fragments de text" icon={FileText}>
+                                <Section title={tn('snippets.title')} icon={FileText}>
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '20px' }}>
-                                        Textos predefinits que pots insertar ràpidament quan redactes o respons correus.
+                                        {tn('snippets.intro')}
                                     </p>
 
                                     {/* Llista de fragments existents */}
@@ -2884,7 +2870,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             onClick={() => handleEditSnippet(s)}
                                                             style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--gnosi-blue)', fontSize: '0.75rem', fontWeight: '700', cursor: 'pointer' }}
                                                         >
-                                                            Editar
+                                                            {t('common.edit')}
                                                         </button>
                                                         <button
                                                             onClick={() => handleDeleteSnippet(s.id)}
@@ -2905,23 +2891,23 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         display: 'flex', flexDirection: 'column', gap: '14px'
                                     }}>
                                         <h4 style={{ margin: 0, fontSize: '0.82rem', fontWeight: '900', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-                                            {editingSnippetId ? 'Editar fragment' : 'Nou fragment'}
+                                            {editingSnippetId ? tn('snippets.edit_snippet') : tn('snippets.new_snippet')}
                                         </h4>
-                                        <FormGroup label="Títol" description="Nom curt per identificar el fragment al menú.">
+                                        <FormGroup label={tn('snippets.title_label')} description={tn('snippets.title_desc')}>
                                             <input
                                                 type="text"
                                                 className="gnosi-input"
-                                                placeholder="Ex: Salutació formal"
+                                                placeholder={tn('snippets.title_placeholder')}
                                                 value={snippetDraft.title}
                                                 onChange={e => setSnippetDraft(d => ({ ...d, title: e.target.value }))}
                                                 onKeyDown={e => { if (e.key === 'Enter') e.preventDefault(); }}
                                             />
                                         </FormGroup>
-                                        <FormGroup label="Contingut" description="Text que s'inserirà al correu.">
+                                        <FormGroup label={tn('snippets.content_label')} description={tn('snippets.content_desc')}>
                                             <textarea
                                                 className="gnosi-input"
                                                 rows={4}
-                                                placeholder="Escriu el text del fragment..."
+                                                placeholder={tn('snippets.content_placeholder')}
                                                 value={snippetDraft.content}
                                                 onChange={e => setSnippetDraft(d => ({ ...d, content: e.target.value }))}
                                                 style={{ resize: 'vertical', fontFamily: 'inherit', lineHeight: '1.5' }}
@@ -2933,7 +2919,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     onClick={() => { setEditingSnippetId(null); setSnippetDraft({ title: '', content: '' }); }}
                                                     style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid var(--settings-border)', background: 'transparent', color: 'var(--text-secondary)', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}
                                                 >
-                                                    Cancel·lar
+                                                    {t('common.cancel')}
                                                 </button>
                                             )}
                                             <button
@@ -2942,7 +2928,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 style={{ padding: '10px 24px', borderRadius: '12px', border: 'none', background: 'var(--gnosi-blue)', color: 'white', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', opacity: (!snippetDraft.title.trim() || !snippetDraft.content.trim()) ? 0.5 : 1 }}
                                             >
                                                 <Plus size={16} />
-                                                {editingSnippetId ? 'Actualitzar' : 'Afegir fragment'}
+                                                {editingSnippetId ? tn('snippets.update') : tn('snippets.add')}
                                             </button>
                                         </div>
                                     </div>
@@ -2952,7 +2938,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* SOCIAL */}
                             {activeTab === 'social' && (
                                 <>
-                                    <Section title="Xarxes Socials" icon={Share2}>
+                                    <Section title={tn('social.networks_title')} icon={Share2}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {socialNetworks.map(net => (
                                                 <div key={net.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 18px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)' }}>
@@ -2962,7 +2948,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     </div>
                                                     <GnosiToggle
                                                         active={net.enabled}
-                                                        label={`Activar ${net.name}`}
+                                                        label={tn('social.enable_network', { name: net.name })}
                                                         onChange={() => {
                                                             const updated = socialNetworks.map(n => n.id === net.id ? { ...n, enabled: !n.enabled } : n);
                                                             saveSocialNetworks(updated);
@@ -2973,44 +2959,44 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </Section>
 
-                                    <Section title="Streams del Dashboard" icon={Rss} extra={
+                                    <Section title={tn('social.streams_title')} icon={Rss} extra={
                                         <button onClick={() => setShowAddStream(v => !v)} className="btn-gnosi-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '8px 16px', fontSize: '0.85rem', borderRadius: '10px' }}>
                                             {showAddStream ? <X size={15} /> : <Plus size={15} />}
-                                            {showAddStream ? 'Cancel·lar' : 'Afegir stream'}
+                                            {showAddStream ? t('common.cancel') : tn('social.add_stream')}
                                         </button>
                                     }>
                                         {showAddStream && (
                                             <div style={{ padding: '16px', background: 'var(--settings-sidebar-bg)', borderRadius: '14px', border: '1px solid var(--settings-border)', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
                                                     <div>
-                                                        <label className="settings-label">ID intern</label>
-                                                        <input className="gnosi-input" placeholder="ex: mastodon-hashtag" value={newStreamForm.id} onChange={e => setNewStreamForm(f => ({ ...f, id: e.target.value }))} />
+                                                        <label className="settings-label">{tn('social.internal_id')}</label>
+                                                        <input className="gnosi-input" placeholder={tn('social.internal_id_placeholder')} value={newStreamForm.id} onChange={e => setNewStreamForm(f => ({ ...f, id: e.target.value }))} />
                                                     </div>
                                                     <div>
-                                                        <label className="settings-label">Títol</label>
-                                                        <input className="gnosi-input" placeholder="ex: #tech" value={newStreamForm.title} onChange={e => setNewStreamForm(f => ({ ...f, title: e.target.value }))} />
+                                                        <label className="settings-label">{tn('social.title_label')}</label>
+                                                        <input className="gnosi-input" placeholder={tn('social.title_placeholder')} value={newStreamForm.title} onChange={e => setNewStreamForm(f => ({ ...f, title: e.target.value }))} />
                                                     </div>
                                                     <div>
-                                                        <label className="settings-label">Icona (emoji)</label>
+                                                        <label className="settings-label">{tn('social.icon_label')}</label>
                                                         <input className="gnosi-input" placeholder="📡" value={newStreamForm.icon} onChange={e => setNewStreamForm(f => ({ ...f, icon: e.target.value }))} />
                                                     </div>
                                                     <div>
-                                                        <label className="settings-label">Xarxa</label>
+                                                        <label className="settings-label">{tn('social.network_label')}</label>
                                                         <select className="gnosi-input" value={newStreamForm.network} onChange={e => setNewStreamForm(f => ({ ...f, network: e.target.value }))}>
                                                             {socialNetworks.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-                                                            <option value="scheduled">Programats</option>
+                                                            <option value="scheduled">{tn('social.scheduled')}</option>
                                                         </select>
                                                     </div>
                                                 </div>
                                                 <button onClick={handleAddSocialStream} className="btn-gnosi-primary" style={{ alignSelf: 'flex-end', padding: '8px 20px', borderRadius: '10px', fontSize: '0.85rem' }}>
-                                                    Afegir
+                                                    {tn('social.add')}
                                                 </button>
                                             </div>
                                         )}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                             {socialStreams.length === 0 && (
                                                 <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', padding: '20px', textAlign: 'center' }}>
-                                                    No hi ha streams configurats.
+                                                    {tn('social.no_streams')}
                                                 </div>
                                             )}
                                             {socialStreams.map(stream => (
@@ -3029,7 +3015,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         }}
                                                         style={{ padding: '6px', borderRadius: '8px', background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)' }}
                                                         className="hover-bg"
-                                                        title="Eliminar"
+                                                        title={t('common.delete')}
                                                     >
                                                         <Trash2 size={15} />
                                                     </button>
@@ -3220,24 +3206,24 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                             {/* GRAF */}
                             {activeTab === 'graph' && (
-                                <Section title="Motor Visual del Grafe" icon={Share2}>
+                                <Section title={tn('graph.section_title')} icon={Share2}>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '50px', marginBottom: '50px' }}>
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
                                                 <Palette size={18} color="var(--gnosi-blue)" />
-                                                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Estètica</h4>
+                                                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('graph.aesthetics')}</h4>
                                             </div>
-                                            <FormGroup label={`Mida del Node: ${draft.graph.node_size.toFixed(1)}`}>
+                                            <FormGroup label={tn('graph.node_size_value', { value: draft.graph.node_size.toFixed(1) })}>
                                                 <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.node_size} onChange={e => setDraft({...draft, graph: {...draft.graph, node_size: parseFloat(e.target.value)}})} />
                                             </FormGroup>
-                                            <FormGroup label={`Gruix de l'Arc: ${draft.graph.edge_thickness.toFixed(1)}`}>
+                                            <FormGroup label={tn('graph.edge_thickness_value', { value: draft.graph.edge_thickness.toFixed(1) })}>
                                                 <input type="range" className="gnosi-range" min="0.1" max="5" step="0.1" value={draft.graph.edge_thickness} onChange={e => setDraft({...draft, graph: {...draft.graph, edge_thickness: parseFloat(e.target.value)}})} />
                                             </FormGroup>
                                             <div style={{ marginTop: '20px', padding: '20px', background: 'var(--settings-sidebar-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
-                                                <FormGroup label="Direccionalitat" description="Mostra fletxes per indicar relacions pare-fill." horizontal>
+                                                <FormGroup label={tn('graph.directionality')} description={tn('graph.directionality_desc')} horizontal>
                                                     <GnosiToggle
                                                         active={draft.graph.show_arrows}
-                                                        label="Direccionalitat"
+                                                        label={tn('graph.directionality')}
                                                         onChange={() => setDraft({...draft, graph: {...draft.graph, show_arrows: !draft.graph.show_arrows}})}
                                                     />
                                                 </FormGroup>
@@ -3246,21 +3232,21 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
                                                 <Zap size={18} color="var(--gnosi-blue)" />
-                                                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Física Real-Time</h4>
+                                                <h4 style={{ margin: 0, fontSize: '0.9rem', color: 'var(--gnosi-blue)', fontWeight: '1000', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{tn('graph.physics_realtime')}</h4>
                                             </div>
-                                            <FormGroup label={`Gravetat: ${draft.graph.physics.gravity}`}>
+                                            <FormGroup label={tn('graph.gravity_value', { value: draft.graph.physics.gravity })}>
                                                 <input type="range" className="gnosi-range" min="0" max="2" step="0.05" value={draft.graph.physics.gravity} onChange={e => setDraft({...draft, graph: {...draft.graph, physics: {...draft.graph.physics, gravity: parseFloat(e.target.value)}}})} />
                                             </FormGroup>
-                                            <FormGroup label={`Repulsió: ${draft.graph.physics.repulsion}`}>
+                                            <FormGroup label={tn('graph.repulsion_value', { value: draft.graph.physics.repulsion })}>
                                                 <input type="range" className="gnosi-range" min="0" max="10000" step="100" value={draft.graph.physics.repulsion} onChange={e => setDraft({...draft, graph: {...draft.graph, physics: {...draft.graph.physics, repulsion: parseInt(e.target.value)}}})} />
                                             </FormGroup>
-                                            <FormGroup label={`Fricció: ${draft.graph.physics.friction}`}>
+                                            <FormGroup label={tn('graph.friction_value', { value: draft.graph.physics.friction })}>
                                                 <input type="range" className="gnosi-range" min="1" max="20" step="1" value={draft.graph.physics.friction} onChange={e => setDraft({...draft, graph: {...draft.graph, physics: {...draft.graph.physics, friction: parseInt(e.target.value)}}})} />
                                             </FormGroup>
                                         </div>
                                     </div>
 
-                                    <Section title="Estructures Visibles" icon={Database}>
+                                    <Section title={tn('graph.visible_structures')} icon={Database}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
                                             {/* Bases de dades i Taules */}
                                             <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
@@ -3281,7 +3267,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         <Database size={18} color="var(--gnosi-blue)" />
                                                         <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
-                                                            {translations[language].databases || "Bases de dades"}
+                                                            {tn('graph.databases')}
                                                         </h5>
                                                     </div>
                                                     <ChevronRight 
@@ -3308,7 +3294,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
                                                                         <GnosiToggle
                                                                             active={isDbVisible}
-                                                                            label={`Mostrar ${db.name} al graf`}
+                                                                            label={tn('graph.show_in_graph', { name: db.name })}
                                                                             scale={0.8}
                                                                             onChange={(e) => {
                                                                                 e.stopPropagation();
@@ -3336,7 +3322,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                         <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
                                                                                             <GnosiToggle
                                                                                                 active={isTableVisible}
-                                                                                                label={`Mostrar ${table.name} al graf`}
+                                                                                                label={tn('graph.show_in_graph', { name: table.name })}
                                                                                                 scale={0.7}
                                                                                                 onChange={(e) => {
                                                                                                     e.stopPropagation();
@@ -3365,13 +3351,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                                         setDraft(p => ({ ...p, graph: { ...p.graph, visible_fields: checked ? [...(p.graph.visible_fields||[]), fieldKey] : (p.graph.visible_fields||[]).filter(f => f !== fieldKey) } }));
                                                                                                                     };
                                                                                                                     return (
-                                                                                                                    <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
+                                                                                                                    <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={tn('graph.exposed_filter_field', { name: field.name })} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
                                                                                                                         <GnosiToggle display active={isExposed} scale={0.6} />
-                                                                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                        <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{tn('graph.exposed_filter')}</span>
                                                                                                                     </div>
                                                                                                                     );
                                                                                                                 })()}
-                                                                                                                {renderFieldDefaultInput(field, fieldKey, "Valor fix / defecte")}
+                                                                                                                {renderFieldDefaultInput(field, fieldKey, tn('graph.default_value_placeholder'))}
                                                                                                             </div>
                                                                                                         </div>
                                                                                                     );
@@ -3395,7 +3381,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 return (
                                                                     <div style={{ marginTop: '24px', borderTop: '1px dashed var(--settings-border)', paddingTop: '24px' }}>
                                                                         <h6 style={{ fontSize: '0.75rem', fontWeight: '800', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '16px' }}>
-                                                                            {translations[language].other_structures || "Altres Taules i Estructures"}
+                                                                            {tn('graph.other_structures')}
                                                                         </h6>
                                                                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
                                                                             {orphanTables.map(table => {
@@ -3406,7 +3392,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                         <div className="hover-scale" style={{ padding: '14px 18px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                                                             <GnosiToggle
                                                                                                 active={isTableVisible}
-                                                                                                label={`Mostrar ${table.name} al graf`}
+                                                                                                label={tn('graph.show_in_graph', { name: table.name })}
                                                                                                 scale={0.75}
                                                                                                 onChange={() => {
                                                                                                     const checked = !isTableVisible;
@@ -3431,7 +3417,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                             <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{field.name}</span>
                                                                                                             <GnosiToggle
                                                                                                                 active={exposed}
-                                                                                                                label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`}
+                                                                                                                label={tn('graph.exposed_filter_field', { name: field.name })}
                                                                                                                 scale={0.5}
                                                                                                                 onChange={() => {
                                                                                                                     const chk = !exposed;
@@ -3474,7 +3460,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                         <PenTool size={18} color="var(--gnosi-blue)" />
                                                         <h5 style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800' }}>
-                                                            {translations[language].systemEntities || "Entitats del Sistema"}
+                                                            {tn('graph.system_entities')}
                                                         </h5>
                                                     </div>
                                                     <ChevronRight 
@@ -3501,7 +3487,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <div className="hover-scale" style={{ padding: '16px 20px', borderRadius: '18px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '16px', transition: 'all 0.2s' }}>
                                                                             <GnosiToggle
                                                                                 active={isEntityVisible}
-                                                                                label={`Mostrar ${entity.name} al graf`}
+                                                                                label={tn('graph.show_in_graph', { name: entity.name })}
                                                                                 scale={0.8}
                                                                                 onChange={(e) => {
                                                                                     e.stopPropagation();
@@ -3529,7 +3515,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                             <div className="hover-scale" style={{ padding: '12px 16px', borderRadius: '14px', background: 'var(--settings-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px', transition: 'all 0.2s' }}>
                                                                                                 <GnosiToggle
                                                                                                     active={isItemVisible}
-                                                                                                    label={`Mostrar ${item.name} al graf`}
+                                                                                                    label={tn('graph.show_in_graph', { name: item.name })}
                                                                                                     scale={0.7}
                                                                                                     onChange={(e) => {
                                                                                                         e.stopPropagation();
@@ -3562,13 +3548,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                                             }));
                                                                                                                         };
                                                                                                                         return (
-                                                                                                                        <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
+                                                                                                                        <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={tn('graph.exposed_filter_field', { name: field.name })} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
                                                                                                                             <GnosiToggle display active={isExposed} scale={0.6} />
-                                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{tn('graph.exposed_filter')}</span>
                                                                                                                         </div>
                                                                                                                         );
                                                                                                                     })()}
-                                                                                                                    {renderFieldDefaultInput(field, fieldKey, "Valor defecte")}
+                                                                                                                    {renderFieldDefaultInput(field, fieldKey, tn('graph.default_value_short'))}
                                                                                                                 </div>
                                                                                                             </div>
                                                                                                         );
@@ -3598,13 +3584,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                                                                 }));
                                                                                                             };
                                                                                                             return (
-                                                                                                            <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={`${translations[language]?.filter_exposed || "Filtre exposat"}: ${field.name}`} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
+                                                                                                            <div role="switch" tabIndex={0} aria-checked={!!isExposed} aria-label={tn('graph.exposed_filter_field', { name: field.name })} className="gnosi-switch-row" style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }} onClick={toggleExposed} onKeyDown={(e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleExposed(); } }}>
                                                                                                                 <GnosiToggle display active={isExposed} scale={0.6} />
-                                                                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{translations[language]?.filter_exposed || "Filtre exposat"}</span>
+                                                                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-primary)' }}>{tn('graph.exposed_filter')}</span>
                                                                                                             </div>
                                                                                                             );
                                                                                                         })()}
-                                                                                                        {renderFieldDefaultInput(field, fieldKey, "Valor defecte")}
+                                                                                                        {renderFieldDefaultInput(field, fieldKey, tn('graph.default_value_short'))}
                                                                                                     </div>
                                                                                                 </div>
                                                                                             );
@@ -3629,7 +3615,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'ai' && (
                                 <>
                                     <Section 
-                                        title="Proveïdors de Models" 
+                                        title={tn('ai.providers_section')} 
                                         icon={Database} 
                                         extra={
                                             <button 
@@ -3640,7 +3626,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     display: 'flex', alignItems: 'center', gap: '10px'
                                                 }}
                                             >
-                                                <Plus size={18} /> Connectar Model
+                                                <Plus size={18} /> {tn('ai.connect_model')}
                                             </button>
                                         }
                                     >
@@ -3659,7 +3645,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
                                                             <GnosiToggle
                                                                 active={p.enabled !== false}
-                                                                label={`Activar proveïdor ${pName}`}
+                                                                label={tn('ai.enable_provider', { name: pName })}
                                                                 scale={1.1}
                                                                 style={{ marginRight: '10px' }}
                                                                 onChange={() => handleToggleAIProvider(pId, p.enabled === false)}
@@ -3670,10 +3656,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <div>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                                     <div style={{ fontWeight: '900', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{pName}</div>
-                                                                    {p.enabled === false && <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '800' }}>INACTIU</span>}
+                                                                    {p.enabled === false && <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '800' }}>{tn('ai.inactive')}</span>}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.8 }}>
-                                                                    {p.has_api_key ? '✓ Credencials configurades' : '⚠ Falta clau API'} 
+                                                                    {p.has_api_key ? tn('ai.credentials_ok') : tn('ai.missing_api_key')} 
                                                                     {p.base_url && ` • ${p.base_url}`}
                                                                 </div>
                                                             </div>
@@ -3692,7 +3678,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     whiteSpace: 'nowrap'
                                                                 }}
                                                             >
-                                                                {aiValidationStatus[pId] === 'validating' ? <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)' }} /> : (aiValidationStatus[pId] === 'success' ? 'Vàlid!' : (aiValidationStatus[pId] === 'error' ? 'Error' : 'Test Ping'))}
+                                                                {aiValidationStatus[pId] === 'validating' ? <div className="spinner-small" style={{ borderTopColor: 'var(--gnosi-blue)' }} /> : (aiValidationStatus[pId] === 'success' ? tn('ai.valid') : (aiValidationStatus[pId] === 'error' ? tn('ai.error') : tn('ai.test_ping')))}
                                                             </button>
                                                             <button 
                                                                 onClick={(e) => {
@@ -3700,8 +3686,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     setProviderToEdit(catalogItem);
                                                                     setIsConnectModalOpen(true);
                                                                 }}
-                                                                aria-label={`Configurar ${pName}`}
-                                                                title={`Configurar ${pName}`}
+                                                                aria-label={tn('ai.configure_name', { name: pName })}
+                                                                title={tn('ai.configure_name', { name: pName })}
                                                                 className="icon-btn hover-bg-strong"
                                                                 style={{ padding: '14px', borderRadius: '16px' }}
                                                             >
@@ -3712,8 +3698,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     e.stopPropagation();
                                                                     handleDeleteAIProvider(pId);
                                                                 }}
-                                                                aria-label={`Eliminar ${pName}`}
-                                                                title={`Eliminar ${pName}`}
+                                                                aria-label={tn('ai.delete_name', { name: pName })}
+                                                                title={tn('ai.delete_name', { name: pName })}
                                                                 className="icon-btn hover-bg-strong"
                                                                 style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}
                                                             >
@@ -3729,7 +3715,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     <div style={{ height: '30px' }} />
 
                                     <Section 
-                                        title="Agents de Cognició" 
+                                        title={tn('ai.agents_section')} 
                                         icon={Bot} 
                                         extra={
                                             <button 
@@ -3740,7 +3726,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     display: 'flex', alignItems: 'center', gap: '10px'
                                                 }}
                                             >
-                                                <Plus size={16} /> Crear Agent
+                                                <Plus size={16} /> {tn('ai.create_agent_btn')}
                                             </button>
                                         }
                                     >
@@ -3754,7 +3740,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     </div>
                                                     <GnosiToggle
                                                         active={agent.enabled}
-                                                        label={`Activar agent ${agent.name}`}
+                                                        label={tn('ai.enable_agent', { name: agent.name })}
                                                         scale={1.1}
                                                         onChange={() => {
                                                             const newList = draft.ai.agents.map(a => a.id === agent.id ? {...a, enabled: !a.enabled} : a);
@@ -3794,7 +3780,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     {/* DeepL */}
                                     <FormGroup
-                                        label="DeepL — API key"
+                                        label={t('translate_settings.deepl_label')}
                                         description={t('translate_settings.deepl_desc') || "Es desa al Keychain de macOS, no al fitxer .env_shared. Aconsegueix-ne una a deepl.com/pro-api."}
                                     >
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -3858,7 +3844,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     {/* Softcatalà */}
                                     <FormGroup
-                                        label="Softcatalà — URL del traductor"
+                                        label={t('translate_settings.softcatala_label')}
                                         description={t('translate_settings.softcatala_desc') || "Endpoint del servei de traducció de Softcatalà (català). Es desa a .env_shared. Buida = usa el default."}
                                     >
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
@@ -3988,6 +3974,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 // --- SUB-COMPONENTS FOR AI ---
 
 function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate, aiValidationStatus, editingProvider = null }) {
+    const { t } = useTranslation();
     const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
@@ -4024,7 +4011,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                 borderRadius: '32px', boxShadow: '0 30px 80px rgba(0,0,0,0.15)', border: '1px solid var(--settings-border)',
                 background: 'var(--settings-bg)', overflow: 'hidden', position: 'relative'
             }}>
-                <button onClick={onClose} aria-label="Tancar" title="Tancar" className="icon-btn hover-bg" style={{
+                <button onClick={onClose} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg" style={{
                     position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%',
                     color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
                     width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
@@ -4032,18 +4019,18 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
 
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
                     <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>
-                        {editingProvider ? `Configurar ${editingProvider.name}` : 'Connectar Proveïdor d\'IA'}
+                        {editingProvider ? t('settings.ai.configure_name', { name: editingProvider.name }) : t('settings.ai.connect_provider_title')}
                     </h3>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                        <FormGroup label="Proveïdor d'IA" description="Selecciona el servei que vols utilitzar.">
+                        <FormGroup label={t('settings.ai.provider_ai_label')} description={t('settings.ai.provider_select_desc')}>
                             <select 
                                 className="gnosi-select" 
                                 value={selectedId} 
                                 onChange={e => setSelectedId(e.target.value)}
                                 disabled={!!editingProvider}
                             >
-                                <option value="">Tria un proveïdor...</option>
+                                <option value="">{t('settings.ai.choose_provider')}</option>
                                 {Object.values(aiCatalog).map(p => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
@@ -4058,15 +4045,15 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: '800', fontSize: '1rem' }}>{provider.name}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{provider.models?.length || 0} models disponibles</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('settings.ai.models_available', { count: provider.models?.length || 0 })}</div>
                                     </div>
                                 </div>
 
-                                <FormGroup label="API Key / Token" description="La teva clau secreta d'accés.">
+                                <FormGroup label={t('settings.ai.api_key_label')} description={t('settings.ai.api_key_desc')}>
                                     <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." name="ai-api-key" autoComplete="off" />
                                 </FormGroup>
 
-                                <FormGroup label="Base URL (Opcional)" description="Només si cal sobrescriure l'endpoint per defecte.">
+                                <FormGroup label={t('settings.ai.base_url_label')} description={t('settings.ai.base_url_desc')}>
                                     <input type="text" className="gnosi-input" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder={provider.base_url || "https://api.openai.com/v1"} />
                                 </FormGroup>
                             </div>
@@ -4081,14 +4068,14 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                         disabled={isValidating || !selectedId}
                         style={{ flex: 1, padding: '14px', borderRadius: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}
                     >
-                        {isValidating ? <div className="spinner-small" /> : <Activity size={18} />} Test Ping
+                        {isValidating ? <div className="spinner-small" /> : <Activity size={18} />} {t('settings.ai.test_ping')}
                     </button>
                     <button 
                         className="btn-gnosi-primary" 
                         disabled={!selectedId || (!apiKey && !editingProvider)}
                         onClick={() => onSave(selectedId, { api_key: apiKey, base_url: baseUrl })} 
                         style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
-                    >Desar</button>
+                    >{t('common.save')}</button>
                 </div>
             </div>
         </div>
@@ -4096,6 +4083,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
 }
 
 function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
+    const { t } = useTranslation();
     const [name, setName] = useState(agent.name || '');
     const [provider, setProvider] = useState(agent.provider || '');
     const [model, setModel] = useState(agent.model || '');
@@ -4156,34 +4144,34 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
                     <X size={18} />
                 </button>
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
-                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? 'Editar Agent' : 'Nou Agent de Cognició'}</h3>
+                    <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? t('settings.ai.edit_agent_title') : t('settings.ai.new_agent_title')}</h3>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
                             <div style={{ flex: 1 }}>
-                                <FormGroup label="Nom de l'Agent">
-                                    <input type="text" className="gnosi-input" value={name} onChange={e => setName(e.target.value)} placeholder="Ex: Analista de Dades" />
+                                <FormGroup label={t('settings.ai.agent_name')}>
+                                    <input type="text" className="gnosi-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.ai.agent_name_placeholder')} />
                                 </FormGroup>
                             </div>
                             <div style={{ width: '80px' }}>
-                                <FormGroup label="Icona">
+                                <FormGroup label={t('settings.ai.icon_label')}>
                                     <input type="text" className="gnosi-input" value={icon} onChange={e => setIcon(e.target.value)} style={{ textAlign: 'center', fontSize: '1.5rem' }} />
                                 </FormGroup>
                             </div>
                         </div>
 
-                        <FormGroup label="Proveïdor d'IA">
+                        <FormGroup label={t('settings.ai.provider_ai_label')}>
                             <select className="gnosi-select" value={provider} onChange={e => { setProvider(e.target.value); setModel(''); }}>
-                                <option value="">Selecciona un proveïdor...</option>
+                                <option value="">{t('settings.ai.select_provider_option')}</option>
                                 {Object.values(aiCatalog).map(p => (
                                     <option key={p.id} value={p.id}>{p.name}</option>
                                 ))}
                             </select>
                         </FormGroup>
 
-                        <FormGroup label="Model Específic">
+                        <FormGroup label={t('settings.ai.model_specific')}>
                             <select className="gnosi-select" value={model} onChange={e => setModel(e.target.value)} disabled={!provider}>
-                                <option value="">Selecciona un model...</option>
+                                <option value="">{t('settings.ai.select_model_option')}</option>
                                 {availableModels.map(m => (
                                     <option key={m} value={m}>{m}</option>
                                 ))}
@@ -4193,7 +4181,7 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
                 </div>
 
                 <div style={{ marginTop: '40px', display: 'flex', gap: '14px' }}>
-                    <button className="btn-gnosi-secondary" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '18px' }}>Cancel·lar</button>
+                    <button className="btn-gnosi-secondary" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '18px' }}>{t('common.cancel')}</button>
                     <button 
                         className="btn-gnosi-primary" 
                         disabled={!name || !provider || !model}
@@ -4202,7 +4190,7 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
                             onClose();
                         }} 
                         style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
-                    >Desar Agent</button>
+                    >{t('settings.ai.save_agent')}</button>
                 </div>
             </div>
         </div>
