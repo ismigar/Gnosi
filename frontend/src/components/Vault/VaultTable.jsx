@@ -6,7 +6,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
-import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey } from '../../lib/fileResource';
+import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
 
@@ -1720,19 +1720,21 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const isDataImage = lower.startsWith('data:image/');
         if (!isDataImage && !hasImageExtension) return '';
 
-        if (value.startsWith('/api/vault/assets/')) return value;
+        // Les URLs servides porten el vault actiu (withActiveVault) perquè la
+        // miniatura `<img>` nativa resolgui el vault correcte sense capçalera.
+        if (value.startsWith('/api/vault/assets/')) return withActiveVault(value);
         if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image/')) return value;
 
-        if (value.startsWith('Assets/')) return `/api/vault/assets/${value.slice('Assets/'.length)}`;
-        if (value.startsWith('../Assets/')) return `/api/vault/assets/${value.slice('../Assets/'.length)}`;
-        if (value.startsWith('./Assets/')) return `/api/vault/assets/${value.slice('./Assets/'.length)}`;
+        if (value.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('Assets/'.length)}`);
+        if (value.startsWith('../Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('../Assets/'.length)}`);
+        if (value.startsWith('./Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('./Assets/'.length)}`);
 
         const assetsIdx = value.indexOf('/Assets/');
-        if (assetsIdx >= 0) return `/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`;
+        if (assetsIdx >= 0) return withActiveVault(`/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`);
 
         // Fallback: path relatiu dins del vault (ex: "Articles/foo.png") → servir des de /api/vault/assets/
         if (!value.startsWith('/') && !value.includes('://')) {
-            return `/api/vault/assets/${value.replace(/^\.\//, '')}`;
+            return withActiveVault(`/api/vault/assets/${value.replace(/^\.\//, '')}`);
         }
 
         return '';
@@ -1756,7 +1758,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const urlToVaultPath = useCallback((url) => {
         if (!url) return '';
         const prefix = '/api/vault/assets/';
-        if (url.startsWith(prefix)) return url.slice(prefix.length);
+        // Treu el query-param de vault (`?vault=…`) perquè el valor DESAT quedi net.
+        if (url.startsWith(prefix)) return url.slice(prefix.length).split('?')[0];
         return url;
     }, []);
 

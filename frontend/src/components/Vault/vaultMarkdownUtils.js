@@ -1,4 +1,5 @@
 import { defaultUrlTransform } from 'react-markdown';
+import { withActiveVault } from '../../lib/fileResource';
 
 /* -------------------------------------------------------------------------- */
 /*  Wikilinks: sentinel + conversió a markdown clicable (compartit Vault)      */
@@ -54,7 +55,11 @@ export function normalizeAssetUrl(url) {
     if (typeof url !== 'string') return '';
     const v = url.trim();
     if (!v) return '';
-    if (v.startsWith('http') || v.startsWith('/')) return v;
-    if (v.startsWith('Assets/')) return `/api/vault/assets/${v.substring(7)}`;
-    return `/api/vault/assets/${v}`;
+    // Les URLs servides del vault porten el vault actiu (withActiveVault) perquè
+    // l'`<img>` natiu resolgui el vault correcte sense capçalera X-Vault-Id;
+    // les remotes (http) es deixen intactes.
+    if (v.startsWith('http')) return v;
+    if (v.startsWith('/')) return withActiveVault(v);
+    if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`);
+    return withActiveVault(`/api/vault/assets/${v}`);
 }

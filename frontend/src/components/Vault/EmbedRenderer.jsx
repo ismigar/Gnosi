@@ -2,15 +2,18 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Frame, ExternalLink, Edit3, FolderOpen, AlertTriangle, RefreshCw } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from './VaultEditorContext';
+import { withActiveVault } from '../../lib/fileResource';
 
 const normalizeUrl = (value) => {
     if (typeof value !== 'string') return '';
     const v = value.trim();
     if (!v) return '';
-    if (v.startsWith('Assets/')) return `/api/vault/assets/${v.substring(7)}`;
-    if (v.startsWith('/api/vault/assets/')) return v;
+    // Les URLs servides porten el vault actiu perquè l'`<img>`/iframe natiu
+    // resolgui el vault correcte sense capçalera X-Vault-Id.
+    if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`);
+    if (v.startsWith('/api/vault/assets/')) return withActiveVault(v);
     const absAssetMatch = v.match(/^https?:\/\/[^/]+\/api\/vault\/assets\/(.+)$/i);
-    if (absAssetMatch?.[1]) return `/api/vault/assets/${absAssetMatch[1]}`;
+    if (absAssetMatch?.[1]) return withActiveVault(`/api/vault/assets/${absAssetMatch[1]}`);
     return v;
 };
 

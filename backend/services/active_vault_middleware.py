@@ -67,6 +67,18 @@ class ActiveVaultMiddleware:
             if k == b"x-vault-id" and v:
                 vid = v.decode("latin-1").strip() or None
                 break
+        # Fallback: query-param `vault`. Les peticions natives d'`<img>` (icones,
+        # covers, imatges inline) NO passen per axios i per tant NO porten la
+        # capçalera X-Vault-Id → sense això cauen al vault per defecte i els
+        # assets d'un vault no-default tornen 404. El frontend hi afegeix
+        # `?vault=<id>` (withActiveVault). La capçalera, si hi és, MANA.
+        if not vid:
+            qs = scope.get("query_string") or b""
+            if b"vault=" in qs:
+                from urllib.parse import parse_qs
+                vals = parse_qs(qs.decode("latin-1")).get("vault")
+                if vals:
+                    vid = (vals[0] or "").strip() or None
         token = None
         if vid:
             p = _resolve_vault_path(vid)

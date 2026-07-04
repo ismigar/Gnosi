@@ -45,29 +45,64 @@ export function fileKindFromValue(value) {
 }
 
 /**
+ * Id del vault actiu triat per l'usuari (mode multi-vault); null si cap.
+ * Font única: localStorage `gnosi_active_vault` (el mateix que l'interceptor
+ * d'axios propaga com a capçalera `X-Vault-Id`).
+ */
+export function getActiveVaultId() {
+    try {
+        return (typeof localStorage !== 'undefined' && localStorage.getItem('gnosi_active_vault')) || null;
+    } catch {
+        return null;
+    }
+}
+
+/**
+ * Afegeix el vault actiu com a query-param a una URL d'asset SERVIDA
+ * (`/api/vault/…`).
+ *
+ * Per què cal: les peticions natives d'`<img>` (i `background-image`, etc.) NO
+ * passen per axios, així que NO porten la capçalera `X-Vault-Id`. Sense cap
+ * senyal de vault el backend cau al vault per defecte (Principal) i les
+ * icones/imatges d'un vault no-default (p. ex. Notion) tornen 404 → imatge
+ * trencada. El param `vault` és el fallback que el middleware llegeix quan no hi
+ * ha capçalera. Idempotent; deixa intactes URLs remotes/`data:`/no-servides i,
+ * si no hi ha cap vault triat, no toca res (compatibilitat enrere single-vault).
+ */
+export function withActiveVault(url) {
+    if (typeof url !== 'string' || !url.startsWith('/api/vault/')) return url;
+    if (/[?&]vault=/.test(url)) return url;
+    const vid = getActiveVaultId();
+    if (!vid) return url;
+    return `${url}${url.includes('?') ? '&' : '?'}vault=${encodeURIComponent(vid)}`;
+}
+
+/**
  * Converteix un valor emmagatzemat en una URL servible pel backend
  * (`/api/vault/assets/…`) si és un path relatiu al vault o ja és servit/remot.
  * Retorna '' per a paths locals absoluts o `file://` (que el navegador no pot
- * carregar directament — s'obren via visor/SO).
+ * carregar directament — s'obren via visor/SO). Les URLs servides porten el
+ * vault actiu ([[withActiveVault]]) perquè l'`<img>` natiu resolgui el vault
+ * correcte sense capçalera.
  */
 export function toServedAssetUrl(rawValue) {
     if (!rawValue || typeof rawValue !== 'string') return '';
     const value = rawValue.trim();
     if (!value) return '';
-    if (value.startsWith('/api/')) return value;
+    if (value.startsWith('/api/')) return withActiveVault(value);
     if (/^https?:\/\//i.test(value) || value.startsWith('data:')) return value;
-    if (value.startsWith('Assets/')) return `/api/vault/assets/${value.slice('Assets/'.length)}`;
-    if (value.startsWith('../Assets/')) return `/api/vault/assets/${value.slice('../Assets/'.length)}`;
-    if (value.startsWith('./Assets/')) return `/api/vault/assets/${value.slice('./Assets/'.length)}`;
+    if (value.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('Assets/'.length)}`);
+    if (value.startsWith('../Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('../Assets/'.length)}`);
+    if (value.startsWith('./Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('./Assets/'.length)}`);
     const assetsIdx = value.indexOf('/Assets/');
-    if (assetsIdx >= 0) return `/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`;
+    if (assetsIdx >= 0) return withActiveVault(`/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`);
     // Path relatiu dins del vault (ex: "Articles/foo.pdf") → servit des d'assets.
     // Excloem rutes amb `..`: l'endpoint d'assets bloqueja el path-traversal i
     // un `../Recursos/x.pdf` produiria una URL malformada. Aquestes (sovint
     // referències legacy) cauen a '' i s'obren com a fitxer local (o fallen
     // honestament si ja no existeixen) en comptes de navegar a una URL trencada.
     if (!value.startsWith('/') && !value.includes('://') && !value.includes('..')) {
-        return `/api/vault/assets/${value.replace(/^\.\//, '')}`;
+        return withActiveVault(`/api/vault/assets/${value.replace(/^\.\//, '')}`);
     }
     return '';
 }
@@ -153,7 +188,9 @@ export function buildImageValue(src, extras = {}) {
 export function servedUrlToVaultPath(url) {
     const v = String(url || '');
     const prefix = '/api/vault/assets/';
-    return v.startsWith(prefix) ? v.slice(prefix.length) : v;
+    // Treu el query-param de vault (`?vault=…`, afegit per [[withActiveVault]] a
+    // temps de render) perquè el valor DESAT quedi net i vault-agnòstic.
+    return v.startsWith(prefix) ? v.slice(prefix.length).split('?')[0] : v;
 }
 
 /**

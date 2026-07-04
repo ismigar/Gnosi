@@ -4,7 +4,7 @@ import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { FileFieldValue } from './FileFieldValue';
-import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
+import { getImageSrc, toAssetPreviewUrl, withActiveVault } from '../../lib/fileResource';
 import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
@@ -127,7 +127,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
         const c = note.metadata?.cover;
         if (typeof c === 'string' && c) {
-            return c.startsWith('Assets/') ? `/api/vault/assets/${c.substring(7)}` : c;
+            return c.startsWith('Assets/') ? withActiveVault(`/api/vault/assets/${c.substring(7)}`) : withActiveVault(c);
         }
         return '';
     };

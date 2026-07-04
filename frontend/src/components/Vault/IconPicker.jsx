@@ -9,6 +9,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { toast } from '../../lib/toast';
 import { logError } from '../../lib/notifyError';
+import { withActiveVault } from '../../lib/fileResource';
 
 export const VAULT_COLORS = [
     { name: 'default', color: '#37352f', label: 'Default' },
@@ -363,7 +364,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
                                                 className="relative group aspect-square border border-[var(--border-primary)] rounded-md overflow-hidden bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)] transition-colors"
                                                 title={iconValue}
                                             >
-                                                <img src={iconValue} alt={t('icon_picker.custom_icon_alt')} className="w-full h-full object-cover" loading="lazy" />
+                                                <img src={withActiveVault(iconValue)} alt={t('icon_picker.custom_icon_alt')} className="w-full h-full object-cover" loading="lazy" />
                                                 <span
                                                     onClick={(e) => {
                                                         e.stopPropagation();
