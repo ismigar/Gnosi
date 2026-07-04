@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon } from 'lucide-react';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 const modules = [
     {
@@ -66,6 +67,7 @@ const modules = [
 ];
 
 function HomePage() {
+    const activeVaultName = useActiveVaultName();
     const handleSettingsClick = (e) => {
         if (e) e.preventDefault();
         window.dispatchEvent(new CustomEvent('open-settings'));
@@ -79,8 +81,21 @@ function HomePage() {
 
             {/* Hero */}
             <header className="home-page__hero">
-                <h1 className="home-page__title">Gnosi</h1>
-                <p className="home-page__subtitle">
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', justifyContent: 'center' }}>
+                    <h1 className="home-page__title" style={{ margin: 0 }}>Gnosi</h1>
+                    <span style={{
+                        fontSize: '0.85rem',
+                        fontWeight: 500,
+                        color: 'var(--text-tertiary)',
+                        backgroundColor: 'var(--bg-secondary)',
+                        padding: '4px 10px',
+                        borderRadius: '8px',
+                        border: '1px solid var(--border-primary)'
+                    }}>
+                        Vault: {activeVaultName || '…'}
+                    </span>
+                </div>
+                <p className="home-page__subtitle" style={{ marginTop: '8px' }}>
                     El teu ecosistema de coneixement personal
                 </p>
             </header>

@@ -2627,7 +2627,7 @@ export default function VaultDashboard() {
     };
 
     const breadcrumbs = [
-        { label: 'Vault', onClick: () => { setActiveTabId(null); setViewMode('editor'); } }
+        { label: t('common.knowledge'), onClick: () => { setActiveTabId(null); setViewMode('editor'); } }
     ];
     if (activeTabId) {
         const activePage = pages.find(p => p.id === activeTabId);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
 import {
   Image as ImageIcon,
   Upload,
@@ -625,6 +626,7 @@ function MediaToolbar({
 
 export default function MediaCenter() {
   const { t } = useTranslation();
+  const activeVaultName = useActiveVaultName();
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1092,7 +1094,12 @@ export default function MediaCenter() {
             <ImageIcon size={24} />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-[var(--text-primary)]">{t('media.title')}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-[var(--text-primary)]">{t('media.title')}</h1>
+              <span className="text-xs font-medium text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-primary)]">
+                Vault: {activeVaultName || '…'}
+              </span>
+            </div>
             <p className="text-xs text-[var(--text-tertiary)]">
               {t('media.subtitle')} · {ROOT_META[activeRoot]?.labelKey ? t(ROOT_META[activeRoot].labelKey) : activeRoot}
             </p>

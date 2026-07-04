@@ -75,6 +75,7 @@
     "add_author": "Add author"
   },
   "common": {
+    "knowledge": "Knowledge",
     "yes": "Yes",
     "status": {
       "saving": "Saving...",
@@ -576,8 +577,8 @@
     "clipboard": "Could not copy",
     "shares_load": "Could not load the links",
     "share_create": "Error creating the link",
-    "share_revoke": "Error revoking the link",
-    "daily_note": "Error opening the daily note",
+    "share_revoke": "Error revoking the link"
+    ,"daily_note": "Error opening the daily note",
     "record_create": "Error creating the record",
     "add_schema_option": "Could not save the option to the schema",
     "load_registry": "Error loading the database registry",
@@ -871,14 +872,14 @@
       "delete_title": "Delete Account",
       "delete_msg": "Are you sure you want to delete this account? It will stop syncing immediately.",
       "add_account": "Add Account",
-      "vault_table": "Vault table",
+      "vault_table": "Knowledge table",
       "external_account": "External Account",
       "default_account": "Default account",
       "default_contacts_hint": "It will be used to sync and create new contacts.",
       "default_mail_hint": "It will be used to send emails and as the default sender.",
       "default_calendar": "Default calendar",
       "default_calendar_hint": "It will be automatically assigned to new events created in the calendar.",
-      "select_vault_table": "Select a Vault table",
+      "select_vault_table": "Select a Knowledge table",
       "account_config": "Account Settings",
       "email_address": "Email Address",
       "email_placeholder": "example@pangea.org",
@@ -933,7 +934,7 @@
       "add_alias": "+ Add alias"
     },
     "references": {
-      "intro": "Choose a Vault table as the <b>reference table</b> (Zotero style). The system prepares the required fields automatically — you don't need to know anything about \"Citation Key\". Importing/exporting BibTeX, generating citation keys and \"Create from a source\" all live in this table. If you change it, all the functionality follows.",
+      "intro": "Choose a Knowledge table as the <b>reference table</b> (Zotero style). The system prepares the required fields automatically — you don't need to know anything about \"Citation Key\". Importing/exporting BibTeX, generating citation keys and \"Create from a source\" all live in this table. If you change it, all the functionality follows.",
       "table_label": "Reference table",
       "none_option": "— None (references disabled) —",
       "create_table": "+ Create new table",

@@ -6,6 +6,7 @@
     "add_author": "Ajouter un auteur"
   },
   "common": {
+    "knowledge": "Connaissance",
     "yes": "Oui",
     "undo": "Annuler",
     "new_dashboard": "Nouveau tableau de bord",
@@ -15,8 +16,8 @@
     "close": "Fermer",
     "loading": "Chargement…",
     "add": "Ajouter",
-    "create": "Créer",
-    "add": "Ajouter",
+    "create": "Créer"
+    ,"add": "Ajouter",
     "dismiss": "Ignorer",
     "close": "Fermer",
     "retry": "Réessayer",
@@ -218,14 +219,14 @@
       "delete_title": "Supprimer le compte",
       "delete_msg": "Voulez-vous vraiment supprimer ce compte ? Il cessera immédiatement de se synchroniser.",
       "add_account": "Ajouter un compte",
-      "vault_table": "Table du coffre",
+      "vault_table": "Table de connaissance",
       "external_account": "Compte externe",
       "default_account": "Compte par défaut",
       "default_contacts_hint": "Il sera utilisé pour synchroniser et créer de nouveaux contacts.",
       "default_mail_hint": "Il sera utilisé pour envoyer des courriels et comme expéditeur par défaut.",
       "default_calendar": "Calendrier par défaut",
       "default_calendar_hint": "Il sera automatiquement affecté aux nouveaux rendez-vous créés dans le calendrier.",
-      "select_vault_table": "Sélectionnez une table du coffre",
+      "select_vault_table": "Sélectionnez une table de connaissance",
       "account_config": "Configuration du compte",
       "email_address": "Adresse e-mail",
       "email_placeholder": "exemple@pangea.org",
@@ -280,7 +281,7 @@
       "add_alias": "+ Ajouter un alias"
     },
     "references": {
-      "intro": "Choisissez une table du coffre comme <b>table de références</b> (style Zotero). Le système prépare automatiquement les champs nécessaires — pas besoin de connaître la « Citation Key ». Importer/exporter BibTeX, générer des clés de citation et « Créer depuis une source » vivent dans cette table. Si vous la changez, toute la fonctionnalité suit.",
+      "intro": "Choisissez une table de connaissance comme <b>table de références</b> (style Zotero). Le système prépare automatiquement les champs nécessaires — pas besoin de connaître la « Citation Key ». Importer/exporter BibTeX, générer des clés de citation et « Créer depuis une source » vivent dans cette table. Si vous la changez, toute la fonctionnalité suit.",
       "table_label": "Table de références",
       "none_option": "— Aucune (références désactivées) —",
       "create_table": "+ Créer une nouvelle table",
@@ -1180,8 +1181,8 @@
     "create_view": "Créer la vue",
     "error_no_table": "Il faut sélectionner une table source",
     "error_no_fields": "Au moins un champ visible est requis",
-    "error_create": "Erreur inconnue lors de la création de la vue",
-    "daily_note": "Erreur à l'ouverture de la note quotidienne",
+    "error_create": "Erreur inconnue lors de la création de la vue"
+    ,"daily_note": "Erreur à l'ouverture de la note quotidienne",
     "record_create": "Erreur lors de la création de l'enregistrement",
     "add_schema_option": "Impossible d'enregistrer l'option dans le schéma",
     "load_registry": "Erreur de chargement du registre des bases de données",

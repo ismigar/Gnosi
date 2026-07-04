@@ -19,7 +19,15 @@ export default function VaultMenu() {
     const btnRef = useRef(null);
 
     const load = async () => {
-        try { const { data } = await axios.get('/api/vaults'); setVaults(data.vaults || []); } catch { /* */ }
+        try {
+            const { data } = await axios.get('/api/vaults');
+            const list = data.vaults || [];
+            setVaults(list);
+            const active = list.find(v => v.active);
+            if (active?.name) {
+                try { localStorage.setItem('gnosi_active_vault_name', active.name); } catch {}
+            }
+        } catch { /* */ }
     };
     useEffect(() => { load(); }, []);
 
@@ -33,7 +41,11 @@ export default function VaultMenu() {
     };
 
     const switchTo = (id) => {
-        try { localStorage.setItem('gnosi_active_vault', id); } catch { /* */ }
+        try {
+            localStorage.setItem('gnosi_active_vault', id);
+            const target = vaults.find(v => v.id === id);
+            if (target?.name) localStorage.setItem('gnosi_active_vault_name', target.name);
+        } catch { /* */ }
         window.location.reload();
     };
 

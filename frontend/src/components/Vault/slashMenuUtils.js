@@ -19,7 +19,7 @@ export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}
         title: table.name || table.id,
         description: 'Afegir vista d\'aquesta taula a la pàgina',
         aliases: ['vault', 'vista', 'view', table.name].filter(Boolean),
-        group: 'Vault',
+        group: 'Coneixement',
         onItemClick: () => onOpenPageView(table.id),
     }));
 
@@ -28,7 +28,7 @@ export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}
         title: 'Vista',
         description: 'Afegir una vista filtrada d\'una taula a aquesta pàgina',
         aliases: ['vista', 'view', 'db', 'filtre'],
-        group: 'Vault',
+        group: 'Coneixement',
         onItemClick: () => onOpenPageView(),
     }];
 

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import { useApi } from '../../hooks/use-api';
+import { useActiveVaultName } from '../../hooks/useActiveVaultName';
 import { toast } from '../../lib/toast';
 import { createPortal } from 'react-dom';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock, CalendarDays } from 'lucide-react';
@@ -538,7 +540,8 @@ export const VaultSidebar = ({
     onOpenTableParallel
 }) => {
     const { t } = useTranslation();
-    const [openMenus, setOpenMenus] = useState({});
+    const activeVaultName = useActiveVaultName();
+
     const { role } = useApi();
     const isViewer = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
@@ -919,7 +922,7 @@ export const VaultSidebar = ({
             <div className="px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
                 <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">{t('sidebar.my_vault')}</span>
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{activeVaultName ? `Vault: ${activeVaultName}` : 'Vault: …'}</span>
                 </div>
 
             </div>

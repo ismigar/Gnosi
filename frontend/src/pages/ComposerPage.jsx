@@ -1,8 +1,10 @@
 import React from 'react';
 import Composer from '../components/social/Composer';
 import { PenTool, Share2 } from 'lucide-react';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 const ComposerPage = () => {
+    const activeVaultName = useActiveVaultName();
     return (
         <div className="p-8 bg-[#0a0a0c] min-h-screen text-white relative overflow-hidden">
             <div className="home-page__glow home-page__glow--1" style={{ opacity: 0.1 }} />
@@ -14,6 +16,9 @@ const ComposerPage = () => {
                     <h1 className="text-4xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
                         Composer
                     </h1>
+                    <span className="text-xs font-medium text-gray-400 bg-white/5 px-2.5 py-1 rounded-md border border-white/10 ml-2">
+                        Vault: {activeVaultName || '…'}
+                    </span>
                 </div>
                 <p className="text-gray-400">Crea i programa contingut per a les teves xarxes socials.</p>
             </header>
