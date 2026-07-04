@@ -576,7 +576,7 @@
     "clipboard": "Could not copy",
     "shares_load": "Could not load the links",
     "share_create": "Error creating the link",
-    "share_revoke": "Error revoking the link"
+    "share_revoke": "Error revoking the link",
     "daily_note": "Error opening the daily note",
     "record_create": "Error creating the record",
     "add_schema_option": "Could not save the option to the schema",
@@ -2130,6 +2130,7 @@
     "error_no_table": "You must select a source table",
     "error_no_fields": "At least one visible field is required",
     "error_create": "Unknown error creating the view"
+  },
   "metadata_lookup": {
     "button": "Fill",
     "button_title": "Fill metadata from DOI/ISBN/arXiv/URL"

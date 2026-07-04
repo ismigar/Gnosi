@@ -98,7 +98,7 @@
     },
     "open": "Abrir",
     "loading": "Cargando…",
-    "add": "Añadir"
+    "add": "Añadir",
     "add": "Añadir",
     "dismiss": "Descartar",
     "close": "Cerrar",
@@ -490,7 +490,7 @@
     "clipboard": "No se ha podido copiar",
     "shares_load": "No se han podido cargar los enlaces",
     "share_create": "Error al crear el enlace",
-    "share_revoke": "Error al revocar el enlace"
+    "share_revoke": "Error al revocar el enlace",
     "daily_note": "Error abriendo la nota diaria",
     "record_create": "Error creando el registro",
     "add_schema_option": "No se ha podido guardar la opción en el esquema",
@@ -2011,6 +2011,7 @@
     "error_no_table": "Hay que seleccionar una tabla origen",
     "error_no_fields": "Hace falta al menos un campo visible",
     "error_create": "Error desconocido al crear la vista"
+  },
   "metadata_lookup": {
     "button": "Rellenar",
     "button_title": "Rellenar metadatos desde DOI/ISBN/arXiv/URL"
