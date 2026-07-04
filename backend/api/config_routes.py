@@ -4,7 +4,6 @@ from backend.security.ai_credentials import migrate_ai_provider_secrets, sanitiz
 from backend.services.workspace_service import require_role
 from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
-from pathlib import Path
 import yaml
 import logging
 import os
@@ -132,12 +131,14 @@ async def update_config(request: Request):
         )
         safe_write_text(params_path, yaml_text)
 
-        # Force environment restart (uvicorn --reload) to apply critical route changes
-        server_file = Path(__file__).resolve().parents[1] / "server.py"
-        if server_file.exists():
-            server_file.touch()
-            log.info("Server restart forced to apply new parameters.")
-
+        # NO forcem cap reinici del servidor. Abans es feia `touch backend/server.py`
+        # perquè uvicorn --reload reencarregués el procés a CADA desat de config, però:
+        #   - load_params() rellegeix params.yaml fresc a cada petició → els canvis ja
+        #     s'apliquen sense reiniciar;
+        #   - el reinici tomba el backend 30-60s (reindexos), mata qualsevol feina en
+        #     curs (p. ex. un CLON de Notion sencer, incident 2026-07-04) i encadena
+        #     el watchdog natiu (kickstart -k) quan l'arrencada triga més del grace;
+        #   - amb l'autosave del panell de Configuració, això passava a cada edició.
         log.info("File params.yaml updated successfully.")
         return {"status": "success", "message": "Configuration updated"}
 

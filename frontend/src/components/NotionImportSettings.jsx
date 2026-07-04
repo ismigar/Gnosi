@@ -677,8 +677,10 @@ export default function NotionImportSettings() {
                                     <div style={{ marginTop: 14 }}>
                                         <style>{'@keyframes gnosi-indeterminate{0%{margin-left:-40%}100%{margin-left:100%}}'}</style>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
-                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}</span>
-                                            <span>{progress.pages || 0} pàgines · {progress.tables || 0} BD · {progress.views || 0} vistes</span>
+                                            {/* Durant «collect» les pàgines encara són 0 (s'escriuen a la fase
+                                                següent): mostrem les files recollides perquè es vegi vida. */}
+                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}{progress.phase === 'collect' ? ` (${progress.collected || 0} files)` : ''}</span>
+                                            <span>{progress.pages || 0} pàgines · {progress.tables || 0} BD · {progress.views || 0} vistes · {progress.attachments || 0} adjunts</span>
                                         </div>
                                         <div style={{ height: 8, borderRadius: 99, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
                                             <div style={{
