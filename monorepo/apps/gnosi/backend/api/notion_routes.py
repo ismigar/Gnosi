@@ -273,7 +273,8 @@ class ClonePayload(BaseModel):
 # amb polling a GET /clone/progress. Single-user local → n'hi ha prou amb un estat de mòdul (les
 # escriptures/lectures de dict són atòmiques sota el GIL). Es reinicia a l'inici de cada clon.
 _CLONE_PROGRESS: dict = {"running": False, "phase": "idle", "done": 0, "total": 0,
-                         "pages": 0, "tables": 0, "views": 0, "attachments": 0, "vault_id": None}
+                         "pages": 0, "tables": 0, "views": 0, "attachments": 0,
+                         "collected": 0, "vault_id": None}
 # Senyal d'avortament cooperatiu: POST /clone/abort el posa a True; clone_workspace el comprova
 # entre elements (via should_cancel) i atura amb CloneAborted (deixa el clon parcial al disc).
 _CLONE_CANCEL: dict = {"flag": False}
@@ -284,6 +285,7 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
         "running": phase != "done", "phase": phase, "done": done, "total": total,
         "pages": report.get("pages", 0), "tables": report.get("tables", 0),
         "views": report.get("views", 0), "attachments": report.get("attachments", 0),
+        "collected": report.get("collected", 0),
     })
     # Notifica els plugins de dades quan el clon acaba (bus d'esdeveniments v2).
     if phase == "done":
@@ -487,7 +489,7 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
         raise HTTPException(status_code=400, detail=msg)
     _CLONE_CANCEL["flag"] = False
     _CLONE_PROGRESS.update({"running": True, "phase": "starting", "done": 0, "total": 0,
-                            "pages": 0, "tables": 0, "views": 0, "attachments": 0,
+                            "pages": 0, "tables": 0, "views": 0, "attachments": 0, "collected": 0,
                             "vault_id": x_vault_id})  # perquè el frontend verifiqui al vault correcte
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,

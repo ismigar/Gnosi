@@ -195,7 +195,7 @@ def clone_workspace(
     `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} de pàgines FORA de BD a clonar amb
     l'etiqueta is_dashboard corresponent.
     """
-    report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0,
+    report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0, "collected": 0,
               "errors": [], "warnings": [], "truncated": False}
 
     def _emit(phase: str, done: int, total: int) -> None:
@@ -287,6 +287,11 @@ def clone_workspace(
                 if len(collected) >= max_pages:
                     report["truncated"] = True
                     break
+                # Emissió PER FILA (no només per BD): la recollida baixa els adjunts i és la
+                # fase llarga del clon (fins a 90s per adjunt lent). Sense això el panell es
+                # quedava a «collect 0/N, 0 pàgines» minuts sencers (semblava penjat) i
+                # «Avortar» no responia fins a canviar de BD (el punt de control és _emit).
+                _emit("collect", di, len(db_by_id))
                 try:
                     values = clone_values(page_to_values(row, users), table.get("properties", []))
                     # Baixa els adjunts dels camps d'arxiu ARA que la URL signada de Notion és
@@ -300,6 +305,7 @@ def clone_workspace(
                     title = _page_title(row) or "Sense títol"
                     clone_titles[clone_page_id(row["id"])] = title
                     collected.append((table, row, values, title, rel_keys))
+                    report["collected"] = len(collected)
                 except Exception as e:  # noqa: BLE001
                     report["errors"].append({"page": row.get("id"), "error": str(e)})
         except Exception as e:  # noqa: BLE001
