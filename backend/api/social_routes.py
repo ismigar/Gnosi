@@ -7,6 +7,7 @@ import html
 import re
 import json
 import asyncio
+import copy
 
 from backend.services.social_clients import (
     mastodon_client, bluesky_client, SOCIAL_PUBLISHERS,
@@ -139,7 +140,9 @@ async def update_streams(payload: List[dict] = Body(...)):
 async def get_networks():
     """Returns the user-configured social networks, with live config status."""
     config = integration_manager._load()
-    networks = config.get("social_networks", DEFAULT_NETWORKS)
+    # deepcopy: `_load()` cacheja i retorna l'objecte compartit (i DEFAULT_NETWORKS és
+    # una constant de mòdul). Enriquir in place mutaria estat compartit entre peticions.
+    networks = copy.deepcopy(config.get("social_networks", DEFAULT_NETWORKS))
     # Enriqueix amb l'estat real del client (configurat o no) i el límit de chars.
     for n in networks:
         client = SOCIAL_PUBLISHERS.get(n.get("id"))

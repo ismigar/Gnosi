@@ -254,7 +254,12 @@ export const DigitalBrainCalendar = ({
         });
 
         setEvents(calendarEvents);
-    }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, theme]);
+        // dateField/endDateField/ignoreCalendarFilter SÍ entren a deps: a la vista de
+        // BD en mode calendari, canviar el «camp de data» de la vista ha de reposicionar
+        // els events (abans quedaven amb el camp antic fins que canviava una altra dep).
+        // colorMap s'OMET a posta: VaultViewBody no el passa i pren el default `{}` (nova
+        // referència cada render) → incloure'l provocaria un bucle infinit efecte→render→efecte.
+    }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, theme, dateField, endDateField, ignoreCalendarFilter]);
 
     const handleEventMouseEnter = useCallback((info) => {
         const { event, jsEvent } = info;

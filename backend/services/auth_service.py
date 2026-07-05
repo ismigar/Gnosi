@@ -20,7 +20,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Cookie, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 
@@ -122,7 +122,7 @@ def get_current_user_id(
     return None
 
 
-def require_authenticated(uid: Optional[str] = None) -> str:
+def require_authenticated(uid: Optional[str] = Depends(get_current_user_id)) -> str:
     """Dependency que **força** autenticació. Helper per a endpoints
     protegits que no accepten fallback legacy.
 
@@ -131,8 +131,10 @@ def require_authenticated(uid: Optional[str] = None) -> str:
         def me(uid: str = Depends(require_authenticated)):
             ...
     """
-    # Aquest helper l'invoquen els endpoints; el seu Depends() és
-    # `get_current_user_id`. Aquí només validem el resultat.
+    # `uid` es resol via Depends(get_current_user_id) (cookie/Bearer). SENSE aquest
+    # Depends al paràmetre, FastAPI el tractava com un query param `uid`: l'endpoint
+    # quedava o bé sempre 401 (sense ?uid) o bé BYPASSABLE (?uid=qualsevol valor).
+    # Aquí només validem que hi hagi identitat resolta.
     if not uid:
         raise HTTPException(status_code=401, detail="Cal autenticació")
     return uid

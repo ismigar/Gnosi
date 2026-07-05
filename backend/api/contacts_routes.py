@@ -77,8 +77,8 @@ def contacts_response(contact) -> dict:
         "emails": parse_json(contact.emails),
         "phones": parse_json(contact.phones),
         "addresses": parse_json(contact.addresses),
-        "created_at": contact.created_at.isoformat(),
-        "updated_at": contact.updated_at.isoformat(),
+        "created_at": contact.created_at.isoformat() if contact.created_at else None,
+        "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
     }
 
 @router.get("/contacts")

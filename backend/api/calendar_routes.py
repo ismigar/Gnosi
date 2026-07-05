@@ -518,16 +518,18 @@ async def search_attendees(q: str = Query(..., min_length=1)):
             for c in contacts:
                 parsed = parse_google_contact_to_dict(c)
                 name = parsed.get("name", "")
-                for ce in parsed.get("emails", []):
-                    addr = ce.get("email", "")
-                    if not addr or addr in seen:
-                        continue
-                    if q_lower not in addr.lower() and q_lower not in name.lower():
-                        continue
-                    seen.add(addr)
-                    results.append({"email": addr, "name": name})
-                    if len(results) >= 8:
-                        break
+                # `parse_google_contact_to_dict` exposa l'email com a `email` (singular
+                # string), no `emails` (llista): iterar `parsed.get("emails", [])` sempre
+                # donava [] → l'autocompletar d'assistents quedava BUIT per a tota query.
+                addr = parsed.get("email", "")
+                if not addr or addr in seen:
+                    continue
+                if q_lower not in addr.lower() and q_lower not in name.lower():
+                    continue
+                seen.add(addr)
+                results.append({"email": addr, "name": name})
+                if len(results) >= 8:
+                    break
             if len(results) >= 8:
                 break
         except Exception as ex:

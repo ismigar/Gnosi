@@ -637,7 +637,13 @@ class ImapMailSyncService:
         m = _re.search(r"^---\s*\r?\n(.*?)\r?\n---", content, _re.DOTALL)
         if m:
             try:
-                return yaml.safe_load(m.group(1)) or {}
+                data = yaml.safe_load(m.group(1))
+                # Un frontmatter escalar (p. ex. text solt) fa que safe_load torni un str/int
+                # truthy, no un dict, i `... or {}` el deixava passar: després `meta.update(...)`
+                # / `meta.get(...)` als callers (p. ex. _update_vault_file) petava amb
+                # AttributeError durant el sync. Garantim SEMPRE un dict.
+                if isinstance(data, dict):
+                    return data
             except Exception:
                 pass
         return {}

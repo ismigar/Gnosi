@@ -259,7 +259,13 @@ def caldav_list_calendars(email: str) -> list[dict]:
             is_cal = restype is not None and restype.find("{urn:ietf:params:xml:ns:caldav}calendar") is not None
             if not is_cal:
                 continue
-            name = resp.findtext(".//{DAV:}displayname") or href.split("/")[-2] or href
+            # Últim segment NO buit de l'href (id del calendari): robust a href sense barra
+            # final o sense barres. Abans `href.split("/")[-2]` llançava IndexError amb un href
+            # sense prou barres i, com que l'except de sota es menja la resta, avortava TOTA la
+            # llista de calendaris; a més `[-2]` (assumint barra final) agafava el segment pare
+            # si no n'hi havia.
+            _segs = [s for s in href.split("/") if s]
+            name = resp.findtext(".//{DAV:}displayname") or (_segs[-1] if _segs else "") or href
             calendars.append({
                 "id":       href,
                 "name":     name,
