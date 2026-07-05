@@ -73,3 +73,18 @@ A syntax based on simplified Python or a safe expression library will be used.
 - **Recursion**: Limit automation depth to avoid infinite loops (e.g., A updates B, B updates A).
 - **Security**: Arbitrary Python code execution must not be allowed (danger of `eval`). Use a controlled environment.
 - **Performance**: Heavy lookups must be cached or optimized.
+
+## 6. Unified derived-field evaluation order (formulas + rollups)
+
+Formulas AND rollups are both derived fields evaluated at save (`RuleEngine._evaluate_derived`). They MUST share a **single topological order**, never two separate passes.
+
+- **Do NOT** evaluate formulas fully before rollups (or vice-versa) → causes silent data corruption: a formula reading a rollup (e.g. `estat = "actiu" if total_tasques > 0 else "buit"`) sees the STALE on-disk / `None` rollup value and lags one save behind. Inverting the order only moves the bug to the rollup→formula case.
+- **Do** build one combined dependency graph in `_order_definitions` via `_definition_dependencies`:
+  - a **formula** depends on any derived field named in its expression (other formulas *and* rollups), detected by `_extract_dependencies` (placeholders `{Camp}`, `prop("camp")`, bare identifiers);
+  - a **rollup** depends on the derived field it uses as its `relationField` (the local field holding the related-record ids). Its `targetProperty`/`filterExpression` resolve against the RELATED rows, so they are NOT local dependencies.
+- After each field is applied, refresh BOTH `updated_metadata` and `self.evaluator.names` so the next field reads fresh values.
+- **Cycles** (formula ↔ rollup) are detected (Kahn leftover) → logged as a `derived-field cycle` warning and evaluated in ONE bounded pass, never looped.
+- Formula syntax is `simpleeval` (safe subset): use the Python ternary `a if cond else b`, NOT `if(cond,a,b)` (unsupported → `SyntaxError`).
+- Tests: `backend/tests/test_rule_engine_derived_order.py` (formula→rollup, rollup→formula, mixed cycle, no-regression formula-only). Run: `cd monorepo/apps/gnosi && GNOSI_LOCAL_DATA=<scratch> .venv/bin/python -m pytest backend/tests/test_rule_engine_derived_order.py`.
+
+> Nota: `rule_engine` evalua i **materialitza** els derivats al frontmatter en desar; `virtual_fields.py` en calcula d'altres **en llegir**. Són dos mecanismes vius i complementaris (la directiva `vault_derived_progress_field.md` va triar virtual fields per al camp Progrés; no vol dir que els rollups de rule_engine siguin codi mort — `process_updates` es crida a cada save des de `vault_routes.py`).
