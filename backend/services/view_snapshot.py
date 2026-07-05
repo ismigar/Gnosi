@@ -459,7 +459,10 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
                     continue
                 if (n > t) if gt else (n < t):
                     return True
-            else:
+            elif not target_num:
+                # String comparison only if filter is NOT numeric. Si target_num=True
+                # pero x no és numèric, skip (no és un match vàlid per a numeric filter).
+                # Sense això, "foo" > "5" (string) retornava True incorrectament.
                 xl = x.lower()
                 if (xl > target_l) if gt else (xl < target_l):
                     return True
