@@ -262,6 +262,26 @@ class RuleEngine:
             for token in token_names:
                 self.evaluator.names.pop(token, None)
 
+    def _definition_dependencies(self, definition: Dict[str, Any], known_fields: Set[str]) -> Set[str]:
+        """Derived-field dependencies for the unified evaluation graph.
+
+        A **formula** depends on any derived field referenced in its expression
+        (other formulas *and* rollups). A **rollup** depends on the derived
+        field it reads as its `relation_field` (the local field holding the
+        related record ids); this is the rollup→formula edge that lets a formula
+        feed a rollup. Rollups aggregate *related* rows, so their
+        `target_property`/`filter_expression` resolve against those rows, not the
+        current record, and never introduce a local dependency.
+        """
+        name = definition.get("name")
+        if definition.get("kind") == "rollup":
+            deps: Set[str] = set()
+            relation_field = definition.get("relation_field")
+            if relation_field and relation_field != name and relation_field in known_fields:
+                deps.add(relation_field)
+            return deps
+        return self._extract_dependencies(definition.get("expression", ""), known_fields, name)
+
     def _order_definitions(self, definitions: List[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         if not definitions:
             return [], []
@@ -270,7 +290,7 @@ class RuleEngine:
         known = set(by_name.keys())
 
         deps_by_name: Dict[str, Set[str]] = {
-            name: self._extract_dependencies(defn.get("expression", ""), known, name)
+            name: self._definition_dependencies(defn, known)
             for name, defn in by_name.items()
         }
 
@@ -293,7 +313,7 @@ class RuleEngine:
 
         cycle_names = [name for name in by_name.keys() if name not in ordered_names]
         if cycle_names:
-            log.warning(f"RuleEngine detected formula cycle for fields: {cycle_names}")
+            log.warning(f"RuleEngine detected derived-field cycle (formula/rollup) for fields: {cycle_names}")
 
         ordered = [by_name[name] for name in ordered_names]
         cycle_defs = [by_name[name] for name in cycle_names]
@@ -303,65 +323,76 @@ class RuleEngine:
     def _is_missing(value: Any) -> bool:
         return value is None or value == ""
 
-    def _evaluate_formulas(self, updated_metadata: Dict[str, Any], table: Dict[str, Any]) -> Dict[str, Any]:
-        definitions = self._extract_formula_definitions(table)
+    def _evaluate_derived(self, updated_metadata: Dict[str, Any], table: Dict[str, Any]) -> Dict[str, Any]:
+        """Evaluate formulas **and** rollups in one unified dependency order.
+
+        Previously formulas ran fully before rollups, so a formula that read a
+        rollup saw the stale on-disk (or `None`) rollup value — the formula
+        lagged one save behind the rollup, silently persisting wrong data. Here
+        both kinds share a single topological sort (`_order_definitions` via
+        `_definition_dependencies`): a formula that depends on a rollup is
+        computed *after* it, and a rollup whose `relation_field` is a formula is
+        computed *after* that formula. Cycles are detected and evaluated in one
+        bounded pass instead of looping forever.
+        """
+        formula_defs = self._extract_formula_definitions(table)
+        rollup_defs = self._extract_rollup_definitions(table)
+        for defn in formula_defs:
+            defn["kind"] = "formula"
+        for defn in rollup_defs:
+            defn["kind"] = "rollup"
+
+        definitions = formula_defs + rollup_defs
         if not definitions:
             return updated_metadata
 
         ordered, cycle_defs = self._order_definitions(definitions)
 
+        # Seed the evaluation scope with the latest user edit before we start;
+        # each applied definition then refreshes it so the next one reads fresh.
         self.evaluator.names = dict(updated_metadata)
 
         for definition in ordered:
-            prop_name = definition["name"]
-            mode = definition["mode"]
-            expression = definition.get("expression")
-            if not expression:
-                continue
+            self._apply_definition(definition, updated_metadata)
 
-            is_manual = bool(updated_metadata.get(f"{prop_name}_manual"))
-            # Always formulas ignore manual flags (calculated source of truth)
-            if mode == "missing":
-                if is_manual:
-                    continue
-                if not self._is_missing(updated_metadata.get(prop_name)):
-                    continue
-
-            try:
-                result = self._evaluate_expression(expression)
-                updated_metadata[prop_name] = result
-                self.evaluator.names[prop_name] = result
-            except Exception as e:
-                log.error(f"Error evaluating formula '{expression}' for field '{prop_name}': {e}")
-                updated_metadata.setdefault(prop_name, None)
-                self.evaluator.names[prop_name] = updated_metadata.get(prop_name)
-
-        # For cyclic dependencies, do one bounded pass without guaranteeing order.
-        # This avoids hard failures while preserving deterministic persistence.
+        # Cyclic dependencies: one bounded pass, order not guaranteed, but no
+        # hard failure and deterministic persistence.
         for definition in cycle_defs:
-            prop_name = definition["name"]
-            mode = definition["mode"]
-            expression = definition.get("expression")
-            if not expression:
-                continue
-
-            is_manual = bool(updated_metadata.get(f"{prop_name}_manual"))
-            if mode == "missing":
-                if is_manual:
-                    continue
-                if not self._is_missing(updated_metadata.get(prop_name)):
-                    continue
-
-            try:
-                result = self._evaluate_expression(expression)
-                updated_metadata[prop_name] = result
-                self.evaluator.names[prop_name] = result
-            except Exception as e:
-                log.error(f"Error evaluating cyclic formula '{expression}' for field '{prop_name}': {e}")
-                updated_metadata.setdefault(prop_name, None)
-                self.evaluator.names[prop_name] = updated_metadata.get(prop_name)
+            self._apply_definition(definition, updated_metadata)
 
         return updated_metadata
+
+    def _apply_definition(self, definition: Dict[str, Any], updated_metadata: Dict[str, Any]) -> None:
+        """Evaluate a single derived field in place, dispatching by kind."""
+        if definition.get("kind") == "rollup":
+            self._apply_rollup_definition(definition, updated_metadata)
+        else:
+            self._apply_formula_definition(definition, updated_metadata)
+
+    def _apply_formula_definition(self, definition: Dict[str, Any], updated_metadata: Dict[str, Any]) -> None:
+        prop_name = definition["name"]
+        mode = definition.get("mode")
+        expression = definition.get("expression")
+        if not expression:
+            return
+
+        is_manual = bool(updated_metadata.get(f"{prop_name}_manual"))
+        # `always` formulas ignore manual flags (calculated source of truth);
+        # `missing` (defaultFormula) only fills an empty, non-manual value.
+        if mode == "missing":
+            if is_manual:
+                return
+            if not self._is_missing(updated_metadata.get(prop_name)):
+                return
+
+        try:
+            result = self._evaluate_expression(expression)
+            updated_metadata[prop_name] = result
+            self.evaluator.names[prop_name] = result
+        except Exception as e:
+            log.error(f"Error evaluating formula '{expression}' for field '{prop_name}': {e}")
+            updated_metadata.setdefault(prop_name, None)
+            self.evaluator.names[prop_name] = updated_metadata.get(prop_name)
 
     @staticmethod
     def _normalize_record_ids(record_ids: Any) -> List[str]:
@@ -533,25 +564,18 @@ class RuleEngine:
 
         return with_fallback(None)
 
-    def _evaluate_rollups(self, updated_metadata: Dict[str, Any], table: Dict[str, Any]) -> Dict[str, Any]:
-        definitions = self._extract_rollup_definitions(table)
-        if not definitions:
-            return updated_metadata
-
-        for definition in definitions:
-            prop_name = definition.get("name")
-            if not prop_name:
-                continue
-            try:
-                result = self._evaluate_rollup_definition(definition, updated_metadata)
-                updated_metadata[prop_name] = result
-                self.evaluator.names[prop_name] = result
-            except Exception as e:
-                log.warning(f"Error evaluating rollup for field '{prop_name}': {e}")
-                updated_metadata[prop_name] = definition.get("fallback_value")
-                self.evaluator.names[prop_name] = updated_metadata.get(prop_name)
-
-        return updated_metadata
+    def _apply_rollup_definition(self, definition: Dict[str, Any], updated_metadata: Dict[str, Any]) -> None:
+        prop_name = definition.get("name")
+        if not prop_name:
+            return
+        try:
+            result = self._evaluate_rollup_definition(definition, updated_metadata)
+            updated_metadata[prop_name] = result
+            self.evaluator.names[prop_name] = result
+        except Exception as e:
+            log.warning(f"Error evaluating rollup for field '{prop_name}': {e}")
+            updated_metadata[prop_name] = definition.get("fallback_value")
+            self.evaluator.names[prop_name] = updated_metadata.get(prop_name)
 
     def _get_prop(self, name: str) -> Any:
         """Helper to get property value from current context."""
@@ -800,16 +824,13 @@ class RuleEngine:
         if not table:
             return updated_metadata
 
-        # 2. Evaluate Formulas / Default Formulas
-        updated_metadata = self._evaluate_formulas(updated_metadata, table)
+        # 2. Evaluate derived fields (formulas + rollups) in a single unified
+        # dependency order, so a formula can read a freshly-recomputed rollup
+        # and a rollup can read a freshly-computed formula. Both are persisted
+        # to the frontmatter with read-only semantics.
+        updated_metadata = self._evaluate_derived(updated_metadata, table)
 
-        # Keep evaluation scope synchronized after formula pass
-        self.evaluator.names = dict(updated_metadata)
-
-        # 2.5 Evaluate Rollups (always recalculated, read-only semantics)
-        updated_metadata = self._evaluate_rollups(updated_metadata, table)
-
-        # Keep evaluation scope synchronized after rollup pass
+        # Keep evaluation scope synchronized before automations run.
         self.evaluator.names = dict(updated_metadata)
 
         # 3. Process Automations (Only if target is not manual)
