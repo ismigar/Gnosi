@@ -79,6 +79,23 @@ class ActiveVaultMiddleware:
                 vals = parse_qs(qs.decode("latin-1")).get("vault")
                 if vals:
                     vid = (vals[0] or "").strip() or None
+        # Fallback final: cookie `gnosi_active_vault`. Moltes peticions no porten
+        # ni capçalera ni `?vault=` perquè no passen per axios ni per un generador
+        # d'URL que hi afegeixi el param: `fetch()` cru (edició de cel·les, agent,
+        # pujades, anotacions), mèdia natiu (`<video>/<audio>/<iframe>`),
+        # `background-image`, `EventSource`/SSE i `/api/chat`. Totes SÍ envien les
+        # cookies same-origin, que el frontend manté sincronitzades amb el vault
+        # actiu (setActiveVaultCookie). Prioritat: capçalera > `?vault=` > cookie.
+        if not vid:
+            for k, v in scope.get("headers", []):
+                if k == b"cookie" and v:
+                    for part in v.decode("latin-1").split(";"):
+                        name, _, val = part.strip().partition("=")
+                        if name == "gnosi_active_vault":
+                            from urllib.parse import unquote
+                            vid = unquote(val).strip() or None
+                            break
+                    break
         token = None
         if vid:
             p = _resolve_vault_path(vid)
