@@ -1,5 +1,5 @@
-import React, { useCallback } from 'react';
-import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2 } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
@@ -11,25 +11,233 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
+// Quants registres es pinten per lot; l'scroll infinit n'afegeix més a mesura
+// que el sentinella entra a la vista. Mantenir-ho baix estalvia DOM inicial.
+const FEED_BATCH = 12;
+
+// Ancestre que realment fa scroll. Cal buscar-lo perquè el `root` de
+// l'IntersectionObserver pot ser el scroller de la pàgina (feed complet) O la
+// caixa de 70vh de la vista incrustada (DbViewEmbed): dins d'aquesta, el propi
+// contenidor del feed (`h-full overflow-auto`) creix a l'alçada del contingut i
+// NO fa scroll —qui el fa és la caixa pare—, així que fixar el root al feed
+// mateix trencava la càrrega. `null` = viewport si no en troba cap.
+function getScrollParent(node) {
+    let el = node?.parentElement;
+    while (el) {
+        const oy = getComputedStyle(el).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && el.scrollHeight > el.clientHeight) return el;
+        el = el.parentElement;
+    }
+    return null;
+}
+
+// Neteja el text de la previsualització (`metadata.description`, l'excerpt que
+// Notion importa) perquè es vegi com a text pla: treu embeds de fitxer/imatge,
+// etiquetes HTML, marcadors de Markdown i entitats/nbsp. Si queda buit (p. ex.
+// una description que només era un `<file …>`), no es pinta cap previsualització.
+function cleanExcerpt(raw) {
+    if (!raw) return '';
+    let s = String(raw);
+    s = s.replace(/<(file|img|iframe)\b[^>]*>/gi, ' ');   // embeds sencers
+    s = s.replace(/<[^>]+>/g, ' ');                        // qualsevol altra etiqueta
+    s = s.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ');           // imatges Markdown
+    s = s.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');         // enllaços Markdown → text
+    s = s.replace(/[*_`#>~|]+/g, ' ');                     // marcadors d'èmfasi/estructura
+    s = s.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&')
+         .replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"');
+    s = s.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();   // nbsp + col·lapsa espais
+    return s;
+}
+
+/**
+ * Targeta individual del feed. Component propi perquè cada targeta gestioni el
+ * seu estat d'expansió ("Veure més") sense un Set compartit al pare.
+ */
+function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleSelect, onOpen }) {
+    const [expanded, setExpanded] = useState(false);
+    const hasCover = !!note.metadata?.cover;
+    // El clamp es fa amb estil en línia (no depèn del plugin line-clamp de
+    // Tailwind): 4 línies plegat, sencer expandit.
+    const clampStyle = expanded
+        ? undefined
+        : { display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' };
+    // El botó "Veure més" només té sentit si el text és prou llarg per plegar-se.
+    const isLong = excerpt.length > 220;
+
+    return (
+        <div
+            onClick={() => { if (selectionActive) onToggleSelect(note.id, {}); else onOpen(note.id); }}
+            className={`relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+        >
+            <label
+                className={`absolute top-3 left-3 z-20 cursor-pointer ${isSelected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                onClick={(e) => { e.stopPropagation(); onToggleSelect(note.id, e); }}
+            >
+                <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={(e) => onToggleSelect(note.id, e)}
+                    className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
+                />
+            </label>
+
+            {/* Portada: només si el registre en té. Sense portada no reservem el
+                degradat buit (192-256px) que abans inflava cada targeta. */}
+            {hasCover && (
+                <div className="w-full h-48 sm:h-64 relative bg-[var(--bg-tertiary)] flex-shrink-0">
+                    <div
+                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
+                        style={{ backgroundImage: `url("${note.metadata.cover}")` }}
+                    />
+                </div>
+            )}
+
+            <div className="p-6 relative bg-[var(--bg-primary)]">
+                {/* Icona solapada sobre la portada quan n'hi ha */}
+                {hasCover && (
+                    <div className="absolute -top-8 left-6 w-16 h-16 bg-[var(--bg-secondary)] rounded-xl shadow-sm border border-[var(--border-primary)] flex items-center justify-center text-3xl z-10 transition-transform group-hover:scale-110 overflow-hidden">
+                        {note.metadata?.icon
+                            ? <IconRenderer icon={note.metadata.icon} size={32} />
+                            : <FileText size={24} className="text-[var(--text-tertiary)]" />}
+                    </div>
+                )}
+
+                <div className={`${hasCover ? 'mt-8' : ''} flex flex-col gap-3`}>
+                    {/* Capçalera: icona (en línia si no hi ha portada) + títol + data */}
+                    <div className={hasCover ? '' : 'flex items-start gap-3'}>
+                        {!hasCover && (
+                            <div className="w-10 h-10 shrink-0 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-primary)] flex items-center justify-center overflow-hidden">
+                                {note.metadata?.icon
+                                    ? <IconRenderer icon={note.metadata.icon} size={22} />
+                                    : <FileText size={18} className="text-[var(--text-tertiary)]" />}
+                            </div>
+                        )}
+                        <div className="min-w-0">
+                            <h2 className={`${hasCover ? 'text-2xl' : 'text-lg'} font-bold text-[var(--text-primary)] mb-1 leading-tight group-hover:text-[var(--gnosi-primary)] transition-colors`}>
+                                {note.title || "Sense Títol"}
+                            </h2>
+                            <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-tertiary)]">
+                                <Clock size={12} />
+                                <span>
+                                    Actualitzat el {new Date(note.last_modified).toLocaleDateString('ca-ES', {
+                                        day: 'numeric', month: 'long', year: 'numeric',
+                                        hour: '2-digit', minute: '2-digit'
+                                    })}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Propietats com a píndoles EN LÍNIA (estil Notion): sense
+                        etiqueta de camp, només el valor. Només si n'hi ha alguna. */}
+                    {pills.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            {pills.map(({ key, node }) => (
+                                <React.Fragment key={key}>{node}</React.Fragment>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Previsualització del contingut + "Veure més" */}
+                    {excerpt && (
+                        <div>
+                            <p
+                                className="text-sm text-[var(--text-secondary)] leading-relaxed whitespace-pre-line"
+                                style={clampStyle}
+                            >
+                                {excerpt}
+                            </p>
+                            {isLong && (
+                                <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
+                                    className="mt-1 text-xs font-semibold text-[var(--gnosi-primary)] hover:underline"
+                                >
+                                    {expanded ? 'Veure menys' : 'Veure més'}
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Indicador d'obrir la nota sencera (hover) */}
+                <div className="absolute bottom-2 right-4 pointer-events-none">
+                    <span className="text-sm font-semibold text-[var(--gnosi-primary)] opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 bg-[var(--bg-primary)]/80 rounded px-1">
+                        Llegir sencer &rarr;
+                    </span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * Llista de targetes amb scroll infinit. Es pinten `visibleCount` registres i
+ * un sentinella al final n'afegeix un lot més quan entra a la vista. Component
+ * propi perquè el pare el pugui remuntar (via `key`) i reiniciar el recompte en
+ * canviar el conjunt, sense `setState` dins d'un effect ni mutar refs en render.
+ */
+function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen }) {
+    const sentinelRef = useRef(null);
+    const [visibleCount, setVisibleCount] = useState(FEED_BATCH);
+    const hasMore = visibleCount < notes.length;
+
+    useEffect(() => {
+        if (!hasMore) return undefined;
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return undefined;
+        // setState va dins del callback de l'observer (asíncron), no al cos de
+        // l'effect: és el patró "subscriu-te i actualitza en el callback".
+        const io = new IntersectionObserver((entries) => {
+            if (entries.some(e => e.isIntersecting)) {
+                setVisibleCount(c => Math.min(c + FEED_BATCH, notes.length));
+            }
+        }, { root: getScrollParent(sentinel), rootMargin: '600px 0px' });
+        io.observe(sentinel);
+        return () => io.disconnect();
+    }, [hasMore, notes.length]);
+
+    const visibleNotes = useMemo(() => notes.slice(0, visibleCount), [notes, visibleCount]);
+
+    return (
+        <div className="w-full max-w-2xl flex flex-col gap-8 pb-16">
+            {visibleNotes.map(note => (
+                <FeedCard
+                    key={note.id}
+                    note={note}
+                    pills={buildPills(note)}
+                    excerpt={cleanExcerpt(note.metadata?.description || '')}
+                    isSelected={isSelected(note.id)}
+                    selectionActive={selectionActive}
+                    onToggleSelect={onToggleSelect}
+                    onOpen={onOpen}
+                />
+            ))}
+
+            {/* Sentinella d'scroll infinit + indicador de càrrega */}
+            {hasMore && (
+                <div ref={sentinelRef} className="flex items-center justify-center py-4 text-[var(--text-tertiary)]">
+                    <Loader2 size={18} className="animate-spin" />
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
     const localeSettings = useLocaleSettings();
 
     // Propietats visibles (respecta la vista, com la galeria): la vista principal
     // mostra tots els camps; una vista personalitzada, els seus `visibleProperties`.
-    // Cridem `isMainView` SENSE llista de vistes (cas degenerat): amb
-    // `[activeView]` el fallback per ordre la considerava SEMPRE principal i
-    // s'ignoraven els visibleProperties de les vistes custom.
     const visibleProperties = isMainView(activeView)
         ? getSchemaFieldNames(schema)
         : (activeView?.visibleProperties || getSchemaFieldNames(schema));
-    // S'exclou `title` (per tipus I per clau): el títol ja és l'encapçalament de
-    // la targeta; si `visibleProperties` inclou "title" sortia duplicat com a
-    // propietat "TITLE" al cos.
+    // S'exclou `title` (per tipus I per clau): ja és l'encapçalament de la targeta.
     const dynamicColumns = visibleProperties
         .map(prop => [prop, getFieldType(schema, prop)])
         .filter(([key, type]) => type && type !== 'title' && String(key).toLowerCase() !== 'title');
 
-    const getRelationDisplayMap = (field) => {
+    const getRelationDisplayMap = useCallback((field) => {
         const config = getFieldConfig(schema, field);
         const relatedTableId = config?.relation_database_id;
         const relatedNotes = relatedTableId
@@ -42,9 +250,9 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             ...idToTitle,
             ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])),
         };
-    };
+    }, [schema, allNotes, idToTitle]);
 
-    const renderPropertyValue = (value, type, field) => {
+    const renderPropertyValue = useCallback((value, type, field) => {
         if (value === undefined || value === null || value === '') return null;
 
         switch (type) {
@@ -61,7 +269,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             }
             case 'number': {
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-                return <span className="tabular-nums text-[var(--text-secondary)]">{formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
+                return <span className="tabular-nums text-[var(--text-secondary)] text-sm">{formatNumber(value, { kind: fmt.kind, decimals: fmt.decimals, currencyCode: fmt.currencyCode, locale: fmt.numberLocale })}</span>;
             }
             case 'status':
             case 'select':
@@ -75,13 +283,13 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
                 const displayMap = type === 'relation' ? getRelationDisplayMap(field) : idToTitle;
                 return (
-                    <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex flex-wrap gap-1.5">
                         {items.map((it, idx) => (
                             <span key={idx} className="px-2 py-0.5 rounded text-xs font-medium bg-indigo-500/10 text-indigo-400">
                                 {displayMap[it] || (it.length > 20 ? it.substring(0, 8) + '…' : it)}
                             </span>
                         ))}
-                    </div>
+                    </span>
                 );
             }
             case 'url':
@@ -116,10 +324,22 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             default:
                 return <span className="text-sm text-[var(--text-primary)]">{value}</span>;
         }
-    };
+    }, [schema, localeSettings, getRelationDisplayMap, idToTitle]);
 
-    // Filtres, ordre i cerca de la vista (mateix motor que taula/galeria). Abans
-    // el feed ignorava `activeView` i ordenava sempre per última modificació.
+    // Píndoles de propietat d'una nota (valors sense etiqueta, ordre de la vista).
+    const buildPills = useCallback((note) => {
+        const aliasMap = { "date added": "created_time", "date modified": "last_edited_time" };
+        const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
+        return dynamicColumns.map(([key, type]) => {
+            const schemaKeyNorm = normalizeKey(key);
+            const targetKeyNorm = aliasMap[schemaKeyNorm] ? normalizeKey(aliasMap[schemaKeyNorm]) : schemaKeyNorm;
+            const originalMetaKey = note.metadata ? (Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || key) : key;
+            const node = renderPropertyValue(note.metadata?.[originalMetaKey], type, key);
+            return node ? { key, node } : null;
+        }).filter(Boolean);
+    }, [dynamicColumns, renderPropertyValue]);
+
+    // Filtres, ordre i cerca de la vista (mateix motor que taula/galeria).
     const viewConfig = {
         filters: activeView?.filters || [],
         sorts: activeView?.sort || { field: 'last_modified', direction: 'desc' },
@@ -128,6 +348,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
+
+    // Clau del conjunt visible: en canviar (cerca, filtres, canvi de vista) es
+    // remunta `FeedList` i el seu recompte d'scroll infinit es reinicia sol,
+    // sense `setState` dins d'un effect ni mutació de refs en render.
+    const resetKey = `${searchTerm}|${activeView?.id ?? ''}|${sortedNotes.length}`;
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;
@@ -171,124 +396,15 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     className="w-full max-w-2xl mb-4 shrink-0 bg-[var(--gnosi-primary)]/10 border border-[var(--gnosi-primary)]/20 rounded-lg px-4 py-2 flex items-center gap-3 text-sm z-30"
                 />
             )}
-            <div className="w-full max-w-2xl flex flex-col gap-8 pb-16">
-
-                {sortedNotes.map(note => {
-                    const hasCover = !!note.metadata?.cover;
-
-                    return (
-                        <div
-                            key={note.id}
-                            onClick={() => { if (selectedIds.size > 0) toggleSelect(note.id, {}); else onNoteSelect(note.id); }}
-                            className={`relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer group flex flex-col ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
-                        >
-                            <label
-                                className={`absolute top-3 left-3 z-20 cursor-pointer ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                onClick={(e) => { e.stopPropagation(); toggleSelect(note.id, e); }}
-                            >
-                                <input
-                                    type="checkbox"
-                                    checked={isSelected(note.id)}
-                                    onChange={(e) => toggleSelect(note.id, e)}
-                                    className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
-                                />
-                            </label>
-                            {/* Feed Item Header / Cover: només si el registre TÉ portada.
-                                Abans es reservaven 192-256px de degradat buit per a cada
-                                targeta sense cover i cada entrada ocupava ~550px: dins d'una
-                                vista incrustada (caixa de 70vh) mai es veia més d'un registre. */}
-                            {hasCover && (
-                                <div className="w-full h-48 sm:h-64 relative bg-[var(--bg-tertiary)] flex-shrink-0">
-                                    <div
-                                        className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                                        style={{ backgroundImage: `url("${note.metadata.cover}")` }}
-                                    />
-                                </div>
-                            )}
-
-                            {/* Feed Item Body */}
-                            <div className="p-6 relative bg-[var(--bg-primary)]">
-                                {/* Icona: solapada sobre la portada si n'hi ha; en línia si no */}
-                                {hasCover && (
-                                    <div className="absolute -top-8 left-6 w-16 h-16 bg-[var(--bg-secondary)] rounded-xl shadow-sm border border-[var(--border-primary)] flex items-center justify-center text-3xl z-10 transition-transform group-hover:scale-110 overflow-hidden">
-                                        {note.metadata?.icon
-                                            ? <IconRenderer icon={note.metadata.icon} size={32} />
-                                            : <FileText size={24} className="text-[var(--text-tertiary)]" />}
-                                    </div>
-                                )}
-
-                                <div className={`${hasCover ? 'mt-8' : ''} flex flex-col gap-4`}>
-                                    <div className={hasCover ? '' : 'flex items-start gap-3'}>
-                                        {!hasCover && (
-                                            <div className="w-10 h-10 shrink-0 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-primary)] flex items-center justify-center overflow-hidden">
-                                                {note.metadata?.icon
-                                                    ? <IconRenderer icon={note.metadata.icon} size={22} />
-                                                    : <FileText size={18} className="text-[var(--text-tertiary)]" />}
-                                            </div>
-                                        )}
-                                        <div className="min-w-0">
-                                            <h2 className={`${hasCover ? 'text-2xl' : 'text-lg'} font-bold text-[var(--text-primary)] mb-1 leading-tight group-hover:text-[var(--gnosi-primary)] transition-colors`}>
-                                                {note.title || "Sense Títol"}
-                                            </h2>
-                                            <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-tertiary)]">
-                                                <Clock size={12} />
-                                                <span>
-                                                    Actualitzat el {new Date(note.last_modified).toLocaleDateString('ca-ES', {
-                                                        day: 'numeric', month: 'long', year: 'numeric',
-                                                        hour: '2-digit', minute: '2-digit'
-                                                    })}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Properties Grid: només si hi ha algun valor a pintar
-                                        (si no, el separador + parrilla buida deixaven una
-                                        franja morta a cada targeta) */}
-                                    {(() => {
-                                        const aliasMap = {
-                                            "date added": "created_time",
-                                            "date modified": "last_edited_time"
-                                        };
-                                        const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
-                                        const entries = dynamicColumns.map(([key, type]) => {
-                                            const schemaKeyNorm = normalizeKey(key);
-                                            const targetKeyNorm = aliasMap[schemaKeyNorm] ? normalizeKey(aliasMap[schemaKeyNorm]) : schemaKeyNorm;
-                                            const originalMetaKey = note.metadata ? (Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || key) : key;
-                                            const val = note.metadata?.[originalMetaKey];
-                                            const renderedVal = renderPropertyValue(val, type, key);
-                                            return renderedVal ? { key, renderedVal } : null;
-                                        }).filter(Boolean);
-                                        if (entries.length === 0) return null;
-                                        return (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 mt-2 pt-4 border-t border-[var(--border-primary)]">
-                                                {entries.map(({ key, renderedVal }) => (
-                                                    <div key={key} className="flex flex-col gap-1">
-                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                                                            {key}
-                                                        </span>
-                                                        <div>
-                                                            {renderedVal}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Action footer: superposat (absolute) perquè no reservi
-                                        ~50px buits per targeta quan no es fa hover */}
-                                    <div className="absolute bottom-2 right-4 pointer-events-none">
-                                        <span className="text-sm font-semibold text-[var(--gnosi-primary)] opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 bg-[var(--bg-primary)]/80 rounded px-1">
-                                            Llegir sencer &rarr;
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    );
-                })}
-            </div>
+            <FeedList
+                key={resetKey}
+                notes={sortedNotes}
+                buildPills={buildPills}
+                isSelected={isSelected}
+                selectionActive={selectedIds.size > 0}
+                onToggleSelect={toggleSelect}
+                onOpen={onNoteSelect}
+            />
         </div>
     );
 }
