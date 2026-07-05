@@ -111,13 +111,15 @@ class CollabManager:
     def peers(self, page_id: str) -> List[_Peer]:
         return list(self._rooms.get(page_id, set()))
 
-    def presence_payload(self, page_id: str) -> dict:
-        """Llista d'usuaris únics presents (un usuari pot tenir 2 pestanyes)."""
+    def presence_payload(self, room: str, page_id: Optional[str] = None) -> dict:
+        """Llista d'usuaris únics presents (un usuari pot tenir 2 pestanyes).
+        `room` és la clau interna (vault+page_id); `page_id` és el valor real que
+        es mostra al missatge (sense el prefix de vault)."""
         seen: Dict[str, str] = {}
-        for p in self.peers(page_id):
+        for p in self.peers(room):
             seen.setdefault(p.user_id, p.name)
         users = [{"id": uid, "name": nm} for uid, nm in seen.items()]
-        return {"type": "presence", "page_id": page_id, "users": users, "count": len(users)}
+        return {"type": "presence", "page_id": page_id or room, "users": users, "count": len(users)}
 
     async def broadcast(self, page_id: str, message: dict, exclude: Optional[_Peer] = None) -> None:
         """Envia un missatge JSON a tots els peers de la pàgina.
@@ -154,6 +156,18 @@ def _resolve_user_id(websocket: WebSocket, query_user_id: str) -> str:
     return query_user_id or "anon"
 
 
+def _room_key(websocket: WebSocket, page_id: str) -> str:
+    """Clau de sala = (vault, page_id). El vault ve de la cookie
+    `gnosi_active_vault`, que el navegador envia al handshake del WebSocket.
+
+    Sense això, dos vaults amb una pàgina del MATEIX id compartien sala → la
+    presència i els updates CRDT es barrejaven entre vaults (mode org, o dos
+    vaults amb pàgines clonades del mateix id). Sense cookie (single-vault) el
+    namespace queda buit → mateix comportament d'abans."""
+    vault_id = (websocket.cookies.get("gnosi_active_vault") or "").strip()
+    return f"{vault_id}\x1f{page_id}" if vault_id else page_id
+
+
 @router.websocket("/collab/{page_id}")
 async def collab_ws(
     websocket: WebSocket,
@@ -163,16 +177,17 @@ async def collab_ws(
 ):
     await websocket.accept()
     effective_uid = _resolve_user_id(websocket, user_id)
+    room = _room_key(websocket, page_id)   # sala aïllada per vault (vault+page_id)
     peer = _Peer(websocket, effective_uid, name or "Anònim")
-    await manager.join(page_id, peer)
+    await manager.join(room, peer)
     try:
         # Anuncia la presència actual a tothom (inclòs el nou peer).
-        await manager.broadcast(page_id, manager.presence_payload(page_id))
+        await manager.broadcast(room, manager.presence_payload(room, page_id))
 
         # Replay de l'estat CRDT al nou peer (late-joiner): li reenviem els
         # updates Yjs acumulats de la sessió perquè vegi el document actual sense
         # esperar que algú torni a teclejar.
-        for data in manager.buffered_updates(page_id):
+        for data in manager.buffered_updates(room):
             try:
                 await websocket.send_json({"type": "yjs-update", "data": data, "replay": True})
             except Exception:
@@ -189,17 +204,17 @@ async def collab_ws(
                 continue
             # Updates Yjs: a més de reenviar-los, els guardem per a late-joiners.
             if mtype == "yjs-update" and isinstance(msg.get("data"), str):
-                manager.record_update(page_id, msg["data"])
+                manager.record_update(room, msg["data"])
             # Relay genèric (cursor, selecció, updates Yjs, awareness).
             # Segellem qui l'envia perquè el receptor no s'hagi de refiar del
             # camp arbitrari del client.
             msg["from"] = effective_uid
-            await manager.broadcast(page_id, msg, exclude=peer)
+            await manager.broadcast(room, msg, exclude=peer)
     except WebSocketDisconnect:
         pass
     except Exception as e:
         log.warning(f"collab_ws error a page={page_id}: {e}")
     finally:
-        await manager.leave(page_id, peer)
+        await manager.leave(room, peer)
         # Actualitza la presència per a la resta després de marxar.
-        await manager.broadcast(page_id, manager.presence_payload(page_id))
+        await manager.broadcast(room, manager.presence_payload(room, page_id))

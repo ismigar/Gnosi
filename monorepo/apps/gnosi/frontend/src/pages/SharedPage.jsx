@@ -66,7 +66,7 @@ export default function SharedPage() {
                     {page.title || 'Sense títol'}
                 </h1>
                 <div className="prose prose-sm max-w-none text-[var(--text-primary)]">
-                    <VaultMarkdown md={page.content || ''} />
+                    <VaultMarkdown md={page.content || ''} vaultId={page.vault_id} />
                 </div>
             </div>
             <p className="text-center text-[10px] text-[var(--text-tertiary)] mt-6">Gnosi</p>

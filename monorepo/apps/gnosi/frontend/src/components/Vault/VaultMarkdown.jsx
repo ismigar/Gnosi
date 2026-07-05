@@ -63,7 +63,7 @@ export function RetryableImage({ src, title, onClick }) {
  *  - onActivate: callback opcional en clicar una imatge (típicament obrir la pàgina).
  *  - imageTitle: títol/alt de reserva per a les imatges.
  */
-export function VaultMarkdown({ md, onActivate, imageTitle = '' }) {
+export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
     return (
         <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -73,8 +73,10 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '' }) {
                 // Imatges inline: normalitzem la URL (Assets/... →
                 // /api/vault/assets/...) i fem servir RetryableImage perquè
                 // OneDrive a vegades retorna 503 fins que té el fitxer descarregat.
+                // `vaultId` força el vault dels assets a la pàgina compartida
+                // pública (el visitant anònim no té vault a localStorage).
                 img: ({ src = '', alt = '' }) => {
-                    const norm = normalizeAssetUrl(String(src || ''));
+                    const norm = normalizeAssetUrl(String(src || ''), vaultId);
                     if (!norm) return null;
                     return <RetryableImage src={norm} title={alt || imageTitle || ''} onClick={onActivate} />;
                 },

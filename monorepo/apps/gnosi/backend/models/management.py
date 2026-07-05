@@ -111,6 +111,12 @@ class ShareLink(Base):
     id = Column(String, primary_key=True, default=lambda: uuid.uuid4().hex)
     page_id = Column(String, nullable=False, index=True)
     workspace_id = Column(String, nullable=False)
+    # Vault on viu la pàgina (mode multi-vault), capturat en crear l'enllaç. El
+    # lector anònim (/s/{token}) no té cap senyal de vault (ni cookie ni
+    # capçalera), així que sense això la lectura queia SEMPRE al Principal i
+    # compartir una pàgina d'un vault no-default fallava (contingut) o mostrava
+    # imatges trencades. NULL = Principal (compat enrere / single-vault).
+    vault_id = Column(String, nullable=True)
     created_by = Column(String)  # user_id of the sharer
     permission = Column(String, default="view")  # view | comment | edit
     expires_at = Column(DateTime(timezone=True), nullable=True)

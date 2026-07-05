@@ -71,6 +71,9 @@ def _apply_lightweight_migrations(engine):
         "users": {
             "password_hash": "VARCHAR",
         },
+        "share_links": {
+            "vault_id": "VARCHAR",
+        },
     }
     try:
         inspector = inspect(engine)

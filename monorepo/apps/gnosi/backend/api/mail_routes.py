@@ -44,7 +44,7 @@ from backend.services.mail_inline_images import (
 )
 from backend.services.vault_mail_sync_service import sync_service
 from backend.services.workspace_service import get_workspace_context
-from backend.services.context_vars import get_active_vault_path
+from backend.services.context_vars import get_active_vault_path, get_primary_vault_path
 from backend.services.contacts_service import ContactsService
 from backend.data.management_db import get_mgmt_db
 from backend.models.mail import (
@@ -93,13 +93,19 @@ def _invalidate_mail_cache():
     _COUNTS_CACHE.clear()
 
 
-# Els paths s'han de resoldre dinàmicament per cada petició
+# Correu = integració GLOBAL (comptes globals via integration_manager, un sol
+# `Mail/`). El sync en background escriu SEMPRE al Mail/ del vault PRINCIPAL (les
+# seves classes resolen el vault a l'arrencada, sense context de vault). La
+# lectura ha d'apuntar a la MATEIXA carpeta i no al vault actiu, o en un vault
+# no-default el correu apareixeria buit (el sync hi escriu però la lectura
+# miraria un altre vault). Per això usem el vault PRINCIPAL, no l'actiu.
 def get_mail_vault_path() -> Path:
-    return get_active_vault_path() / "Mail"
+    base = get_primary_vault_path()
+    return (base / "Mail") if base else (get_active_vault_path() / "Mail")
 
 
 def get_vault_path() -> Path:
-    return get_active_vault_path()
+    return get_primary_vault_path() or get_active_vault_path()
 
 
 # Allow-list characters that are safe inside a Mail/ filename stem. Real

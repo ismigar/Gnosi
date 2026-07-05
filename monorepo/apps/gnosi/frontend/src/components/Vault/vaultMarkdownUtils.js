@@ -51,15 +51,16 @@ export const wikilinkUrlTransform = (url) => (
 /* -------------------------------------------------------------------------- */
 /*  Normalització d'URLs d'assets del Vault                                    */
 /* -------------------------------------------------------------------------- */
-export function normalizeAssetUrl(url) {
+export function normalizeAssetUrl(url, vaultOverride) {
     if (typeof url !== 'string') return '';
     const v = url.trim();
     if (!v) return '';
     // Les URLs servides del vault porten el vault actiu (withActiveVault) perquè
     // l'`<img>` natiu resolgui el vault correcte sense capçalera X-Vault-Id;
-    // les remotes (http) es deixen intactes.
+    // les remotes (http) es deixen intactes. `vaultOverride` força un vault
+    // concret (pàgina compartida pública: el visitant no té el vault a localStorage).
     if (v.startsWith('http')) return v;
-    if (v.startsWith('/')) return withActiveVault(v);
-    if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`);
-    return withActiveVault(`/api/vault/assets/${v}`);
+    if (v.startsWith('/')) return withActiveVault(v, vaultOverride);
+    if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`, vaultOverride);
+    return withActiveVault(`/api/vault/assets/${v}`, vaultOverride);
 }
