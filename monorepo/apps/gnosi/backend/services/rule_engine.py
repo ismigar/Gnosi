@@ -610,7 +610,9 @@ class RuleEngine:
                 metadata = self._parse_metadata(record_path)
                 val = metadata.get(property_name)
                 self._lookup_cache[cache_key] = val
-                if val:
+                # Sempre append el resultat cacheado (incl. falsy: 0, "", False). Solo skip None.
+                # Sense això, 1a crida omitia falsy vals; 2a crida (cache hit) els incloïa → non-deterministic.
+                if val is not None:
                     if isinstance(val, list):
                         results.extend(val)
                     else:
@@ -886,10 +888,20 @@ class RuleEngine:
             changed = old_val != new_val
             if not changed:
                 return False
-            if "to" in trigger and str(new_val) != str(trigger.get("to")):
-                return False
-            if "from" in trigger and str(old_val) != str(trigger.get("from")):
-                return False
+            # Comparar valores reals, no strings: None i "" són equivalents (value era buit).
+            # Sense això, `str(None)="None"` vs `str("")=""` no casava → automation no disparava.
+            if "to" in trigger:
+                expected_new = trigger.get("to")
+                # None i "" considerades equivalents per "empty".
+                if not ((new_val is None or new_val == "") and (expected_new is None or expected_new == "")):
+                    if str(new_val) != str(expected_new):
+                        return False
+            if "from" in trigger:
+                expected_old = trigger.get("from")
+                # None i "" considerades equivalents per "empty".
+                if not ((old_val is None or old_val == "") and (expected_old is None or expected_old == "")):
+                    if str(old_val) != str(expected_old):
+                        return False
             return True
         return False
 
