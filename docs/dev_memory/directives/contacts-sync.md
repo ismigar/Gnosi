@@ -85,6 +85,33 @@
 - **Google OAuth no integrado:** El código existe en `google_auth_routes.py` pero NO se importa en `app.py`. Esta PR debe integrar el flujo OAuth real.
 - **User hardcoded:** El frontend usa `userId = 'ismael-legacy'`. contacts_routes debe usar workspace del header `X-Workspace-ID`.
 - **Contactos duplicados:** Si el mismo email existe en Google y Gnosi, usar `google_resource_name` como clave de merge.
+- **MERGE, NO mirror — el pull NUNCA debe vaciar un campo local (CRÍTICO, data loss):**
+  El pull (`sync_remote_to_gnosi`) es un MERGE, no un espejo. Un campo remoto
+  vacío/ausente NO puede sobreescribir un valor que el usuario introdujo en Gnosi.
+  Razón: el sync es bidireccional y `sync_gnosi_to_remote` empuja local→remoto; si
+  el pull vaciara el campo a `""`, el push posterior propagaría el `""` al remoto y
+  el dato se perdería en ambos lados (pérdida silenciosa).
+  - **Trampa (verificada 2026-07-05):** los DOS parsers (`parse_google_contact_to_dict`
+    y `CardDAVContactsProvider.parse_to_internal`) devuelven los campos ausentes como
+    cadena vacía `""` (clave PRESENTE), no ausente. Por eso `parsed.get(k, existing.X)`
+    (default por clave ausente) NO sirve: la clave está presente con `""` y el default
+    nunca se activa. Único caso realmente ausente: `photo_url` en CardDAV (el parser ni
+    incluye la clave → `None`).
+  - **Fix correcto:** `parsed.get(k) or existing.X` en TODOS los campos escalares
+    (name, email, phone, company, job_title, address, notes, photo_url). Agnóstico al
+    parser: preserva el local tanto si el remoto viene `""` como `None`. Cuando el
+    remoto SÍ trae valor, gana el remoto (mantiene el last-write-wins de facto).
+  - **Contrapartida conocida:** con `or existing.X` no se puede BORRAR un campo desde
+    el remoto (resucita del local en el siguiente sync). Es el mal menor frente a la
+    pérdida de datos. Para distinguir "borrado" de "ausente" haría falta un baseline
+    por contacto (snapshot del último sync) → three-way merge. Pendiente si se necesita
+    propagar borrados.
+  - **NO implementado aún:** la §3 dice "actualizar si `updated_at` Google > `last_synced_at`",
+    pero el código actualiza en cada sync sin comparar timestamps (y CardDAV no expone
+    `updated_at` en el dict). El gating por timestamp reduciría escrituras pero NO basta
+    por sí solo para evitar el data loss (si el remoto es más nuevo pero trae el campo
+    vacío, seguiría machacando) → el fix a nivel de campo (`or existing.X`) es el que
+    corrige el bug. Tests de regresión: `backend/tests/test_contacts_sync_merge.py`.
 
 ## 6. Error Protocol and Learning (Live Memory)
 
@@ -92,6 +119,7 @@
 |------|----------------|------------|----------|
 | 10/04 | Google OAuth routes not imported | `google_auth_routes.py` no se importa en `app.py` | Añadir import al final de `app.py` |
 | 10/04 | User hardcoded in frontend | `use-api.js` usa `'ismael-legacy'` | Contacts debe usar header `X-Workspace-ID` del contexto |
+| 05/07 | El pull vaciaba phone/company/address/notes locales a `""` en cada sync (data loss) | `updated_data[k] = parsed.get(k)` + ambos parsers devuelven `""` para campos ausentes (clave presente) → machaca el valor local. El fallback `parsed.get(k, existing.X)` no basta (default por clave ausente, nunca se activa) | `parsed.get(k) or existing.X` en los 8 campos escalares (Google + CardDAV). Regresión reproducida E2E y cubierta por `test_contacts_sync_merge.py` (6 tests) |
 
 ## 7. Pre-Execution Checklist
 

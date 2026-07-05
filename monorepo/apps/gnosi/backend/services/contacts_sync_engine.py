@@ -506,18 +506,36 @@ class ContactsSyncEngine:
                         existing.google_resource_name = remote_id
 
                 if existing:
+                    # POLÍTICA DE MERGE (pull = MERGE, no mirror): un camp remot
+                    # buit/absent MAI ha de sobreescriure un valor que l'usuari ha
+                    # introduït localment. La directiva contacts-sync.md defineix el
+                    # sistema com a BIDIRECCIONAL (last-write-wins) i sync_gnosi_to_remote
+                    # empeny local→remot: si aquí buidéssim el camp a "", el push
+                    # posterior propagaria el "" al remot i es perdria a banda i banda.
+                    #
+                    # No podem usar `parsed.get(k, existing.X)` (default per clau ABSENT):
+                    # tots dos parsers retornen "" per als camps absents (clau PRESENT),
+                    # així que el default no s'activa mai i el "" continua machacant.
+                    # Cal `or existing.X`, que preserva el local tant si el remot ve
+                    # buit ("") com absent (None, p. ex. photo_url a CardDAV). Funciona
+                    # igual per a Google i CardDAV perquè és agnòstic al parser.
+                    #
+                    # Contrapartida coneguda: no es pot BUIDAR un camp des del remot
+                    # (ressuscita del local). És el mal menor davant la pèrdua silenciosa
+                    # de dades; per distingir "esborrat" d'"absent" caldria un baseline
+                    # per contacte (three-way merge) — vegeu contacts-sync.md §Restrictions.
                     updated_data = {
-                        "name": parsed.get("name", existing.name),
-                        "email": parsed.get("email", existing.email),
-                        # Fallback a l'existent si el remot OMET la clau (paritat amb
-                        # name/email de dalt): un pull CardDAV mai inclou `photo_url`, així
-                        # que sense això la foto local es perdia a CADA sincronització.
-                        "phone": parsed.get("phone", existing.phone),
-                        "company": parsed.get("company", existing.company),
-                        "job_title": parsed.get("job_title", existing.job_title),
-                        "address": parsed.get("address", existing.address),
-                        "notes": parsed.get("notes", existing.notes),
-                        "photo_url": parsed.get("photo_url", existing.photo_url),
+                        # (Aquest bloc completa el fallback parcial del #714, que va
+                        # posar `parsed.get(k, existing.X)` i va deixar el cas "" com a
+                        # tasca de disseny a part: `or existing.X` cobreix també aquell cas.)
+                        "name": parsed.get("name") or existing.name,
+                        "email": parsed.get("email") or existing.email,
+                        "phone": parsed.get("phone") or existing.phone,
+                        "company": parsed.get("company") or existing.company,
+                        "job_title": parsed.get("job_title") or existing.job_title,
+                        "address": parsed.get("address") or existing.address,
+                        "notes": parsed.get("notes") or existing.notes,
+                        "photo_url": parsed.get("photo_url") or existing.photo_url,
                     }
                     self.contacts_service.update_contact(existing.id, updated_data)
                     existing.last_synced_at = datetime.now(timezone.utc)
