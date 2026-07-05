@@ -104,7 +104,11 @@ def get_mail_vault_path() -> Path:
     return (base / "Mail") if base else (get_active_vault_path() / "Mail")
 
 
-def get_vault_path() -> Path:
+def get_vault_path() -> Optional[Path]:
+    # Retorna `Optional[Path]` perquè `get_primary_vault_path()` i
+    # `get_active_vault_path()` ambdós retornen `Optional[Path]`: si cap config
+    # ni context no defineixen "VAULT", ambdós fan `None`. Callers han de
+    # guardar el retorn o usar `get_mail_vault_path()` (té fallback integrat).
     return get_primary_vault_path() or get_active_vault_path()
 
 

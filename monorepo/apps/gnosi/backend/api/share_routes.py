@@ -22,7 +22,7 @@ from backend.services.workspace_service import (
     get_workspace_context,
     require_role,
 )
-from backend.services.context_vars import active_vault_path
+from backend.services.context_vars import active_vault_path, get_active_vault_path
 
 log = logging.getLogger(__name__)
 
@@ -170,6 +170,10 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
     if not vault:
         from backend.config.app_config import load_params
         vault = load_params(strict_env=False).paths.get("VAULT")
+    # Fallback a vault actiu si el principal no existeix (config incompleta).
+    # Sense això, `Path(None)` llançava TypeError en l'endpoint public.
+    if not vault:
+        vault = get_active_vault_path()
     tok = active_vault_path.set(Path(vault))
     try:
         # Reuse the canonical page reader (it uses the active vault context).
