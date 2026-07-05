@@ -54,23 +54,26 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
     target_model = payload.model or default_models.get(provider)
 
     try:
+        # timeout=10 s'aplica en construir el client (timeout REAL de xarxa). NO es pot
+        # passar a .invoke() via config={"timeout":...}: langchain l'ignora i el «validar»
+        # es penjaria si el proveïdor no respon. cf. directiva ai_error_handling.md.
         llm = get_llm(
             provider=provider,
             model=target_model,
             api_key=api_key,
-            base_url=payload.base_url
+            base_url=payload.base_url,
+            timeout=10,
         )
-        
+
         if not llm:
             return {"success": False, "error": f"No s'ha pogut instanciar el proveïdor {provider}. Revisa que la dependència o la clau API siguin correctos. Model: {target_model}"}
-            
+
         # Intent d'invocació mínima — to_thread evita bloquejar l'event loop
         # (alguns LLMs no exposen `ainvoke` o el seu sync n'és el primary path).
         from langchain_core.messages import HumanMessage
         response = await asyncio.to_thread(
             llm.invoke,
             [HumanMessage(content="Digues 'ok'")],
-            config={"timeout": 10},
         )
 
         return {"success": True, "response": response.content}
@@ -372,6 +375,11 @@ async def generate_content(payload: GeneratePayload):
     except Exception as e:
         # Clau invàlida/caducada, rate-limit o permisos → missatge accionable.
         msg = str(e).lower()
+        if any(k in msg for k in ("timeout", "timed out", "timed_out")):
+            raise HTTPException(
+                status_code=504,
+                detail="El proveïdor d'IA no ha respost a temps. Torna-ho a provar.",
+            ) from e
         if any(k in msg for k in (
             "authentication", "api key", "api_key", "invalid_api_key",
             "unauthor", "permission", "401", "403",
@@ -441,6 +449,11 @@ async def correct_text(payload: CorrectPayload):
         ) from e
     except Exception as e:
         msg = str(e).lower()
+        if any(k in msg for k in ("timeout", "timed out", "timed_out")):
+            raise HTTPException(
+                status_code=504,
+                detail="El proveïdor d'IA no ha respost a temps. Torna-ho a provar.",
+            ) from e
         if any(k in msg for k in (
             "authentication", "api key", "api_key", "invalid_api_key",
             "unauthor", "permission", "401", "403",
