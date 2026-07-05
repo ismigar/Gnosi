@@ -85,7 +85,12 @@ def parse_mcp_view(view_md: str) -> Dict[str, Any]:
                 meta["filters_raw"].append(flt)
                 if meta["filter_property"] is None:
                     meta["filter_property"] = flt.get("property")
-                    val = ((flt.get("value") or {}).get("value")) or ""
+                    # `value` pot venir com a dict {"value":X}, llista o escalar: usem
+                    # _filter_value (mateixa desambiguació que la resta del mòdul). Abans
+                    # es feia `.get("value")` cru i petava amb AttributeError si era llista
+                    # (p. ex. filtre de relació ["<page-id>"]) → l'except se l'empassava i
+                    # la vista perdia filtres/ordre/grup silenciosament.
+                    val = _filter_value(flt) or ""
                     pid = _PAGE_ID_RE.search(str(val))
                     meta["filter_value_page_id"] = pid.group(1) if pid else None
             # Ordre i agrupació (si la vista en porta; formats defensius)

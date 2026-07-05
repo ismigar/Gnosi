@@ -13,12 +13,19 @@ def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> S
     
     # Build dynamic Pydantic model for arguments
     fields = {}
+    # `required` del JSON Schema de l'MCP: els camps que NO hi són han de ser OPCIONALS.
+    # Abans es marcaven TOTS com a obligatoris (`...`), de manera que una tool MCP amb
+    # paràmetres opcionals (p. ex. `limit`, `encoding`) feia fallar la validació Pydantic
+    # de l'args_schema quan l'LLM els ometia → la crida a la tool es rebutjava.
+    required = set(schema_def.get("required", []) or [])
     if "properties" in schema_def:
         for prop_name, prop_schema in schema_def["properties"].items():
-            # Simplification: All fields are string by default if no type is detected
-            # For a robust implementation, standard mapping from JSON Schema to Pydantic is needed.
-            # For Phase 2, we assume basic strings/ints.
-            fields[prop_name] = (Any, ...) # Required by default for simplicity
+            # Simplification: el tipus es queda com a Any (el mapatge complet JSON
+            # Schema→Pydantic per tipus queda pendent). Però SÍ respectem `required`.
+            if prop_name in required:
+                fields[prop_name] = (Any, ...)   # obligatori
+            else:
+                fields[prop_name] = (Any, None)  # opcional (default None)
     
     # If no schema, use empty model
     ArgsModel = create_model(f"{name}_args", **fields)

@@ -832,6 +832,7 @@ class SchedulerManager:
             return {"error": "Pipeline skills not found"}
         except Exception as e:
             return {"success": False, "error": str(e)}
+        return {"success": True, "message": "Anàlisi de connexions completada."}
 
 
 

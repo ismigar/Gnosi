@@ -68,9 +68,15 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             db.rollback()
             raise
 
-    # 2. Cercar membresia 'Personal'
+    # 2. Cercar membresia 'Personal'.
+    # Scope a workspace_id == "personal": el workspace personal SEMPRE té aquest id
+    # (hardcoded a la branca de creació de sota). Sense aquest filtre, si l'usuari
+    # també és `owner` d'un workspace d'organització, el `.first()` (sense order_by)
+    # podia retornar aquella membresia i _resolve_personal_vault acabava resolent el
+    # vault d'un ALTRE workspace en mode personal (fuita de dades entre workspaces).
     membership = db.query(Membership).filter(
         Membership.user_id == user_id,
+        Membership.workspace_id == "personal",
         Membership.role == "owner"
     ).first()
 

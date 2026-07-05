@@ -10,6 +10,24 @@ INSTRUCTIONS_DIR = Path(__file__).resolve().parent / "instructions"
 # Ensure instructions directory exists
 INSTRUCTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
+
+def _safe_directive_path(topic: str):
+    """Resol `topic` a un `.md` DINS d'INSTRUCTIONS_DIR, o None si s'escaparia.
+
+    `topic` ve de l'LLM (potencialment influït per contingut no confiable que
+    l'agent llegeix: pàgines del vault, correus, PDFs). Sense contenció, un `../`
+    o una ruta absoluta permetria llegir/ESCRIURE fitxers arbitraris fora del
+    directori de directives (path traversal). Mateix patró de contenció que
+    `run_tests` a system_tools.py.
+    """
+    topic = topic if topic.endswith(".md") else f"{topic}.md"
+    base = INSTRUCTIONS_DIR.resolve()
+    fp = (INSTRUCTIONS_DIR / topic).resolve()
+    if fp != base and base not in fp.parents:
+        return None
+    return fp
+
+
 @tool
 def list_directives() -> str:
     """
@@ -33,17 +51,16 @@ def read_directive(topic: str) -> str:
         topic: The filename (e.g., 'scraping_twitter.md') or topic name ('scraping_twitter').
     """
     try:
-        if not topic.endswith(".md"):
-            topic += ".md"
-            
-        file_path = INSTRUCTIONS_DIR / topic
-        
+        file_path = _safe_directive_path(topic)
+        if file_path is None:
+            return "Error: nom de directiva no vàlid (fora del directori de directives)."
+
         if not file_path.exists():
             return f"Directive '{topic}' not found."
-            
+
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read()
-            
+
     except Exception as e:
         return f"Error reading directive: {str(e)}"
 
@@ -57,10 +74,9 @@ def update_directive(topic: str, content: str) -> str:
         content: The full markdown content of the directive.
     """
     try:
-        if not topic.endswith(".md"):
-            topic += ".md"
-            
-        file_path = INSTRUCTIONS_DIR / topic
+        file_path = _safe_directive_path(topic)
+        if file_path is None:
+            return "Error: nom de directiva no vàlid (fora del directori de directives)."
 
         # Atomic write — un crash a meitat de write deixaria una directiva
         # truncada. L'agent pot estar editant una directiva crítica i un
@@ -68,6 +84,6 @@ def update_directive(topic: str, content: str) -> str:
         safe_write_text(file_path, content)
 
         return f"Successfully updated directive: {topic}"
-            
+
     except Exception as e:
         return f"Error updating directive: {str(e)}"

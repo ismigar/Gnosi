@@ -1582,7 +1582,7 @@ const AvailabilityTool = ({ calendars }) => {
     const [freeSlots, setFreeSlots] = useState([]);
 
     const checkAvailability = async () => {
-        const email = calendars.find(c => c.type === 'external')?.name;
+        const email = calendars.find(c => c.kind === 'external')?.account;
         if (!email) {
             toast.error("No hi ha cap compte de correu configurat.");
             return;

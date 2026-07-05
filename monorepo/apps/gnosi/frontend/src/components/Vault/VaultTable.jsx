@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';

@@ -621,8 +621,20 @@ class RuleEngine:
         
         # Return list if multiple, else single value
         if not results: return None
-        # Remove duplicates while preserving order
-        unique_results = list(dict.fromkeys(results) if not isinstance(results[0], dict) else results)
+        # Remove duplicates while preserving order. Els camps imatge compostos són dicts
+        # (no-hashables): si el primer valor és un dict, mantenim la llista tal qual; si és
+        # escalar però n'hi ha un de dict més enrere, `dict.fromkeys` petaria amb TypeError,
+        # així que fem dedup manual per igualtat com a fallback.
+        if isinstance(results[0], dict):
+            unique_results = list(results)
+        else:
+            try:
+                unique_results = list(dict.fromkeys(results))
+            except TypeError:
+                unique_results = []
+                for r in results:
+                    if r not in unique_results:
+                        unique_results.append(r)
         return unique_results if len(ids) > 1 or len(unique_results) > 1 else (unique_results[0] if unique_results else None)
 
     def _query(self, table_id: str, filter_expr: str, property_name: Optional[str] = None) -> Any:

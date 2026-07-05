@@ -1531,21 +1531,36 @@ async def _gmail_get_attachment_bytes(email: str, message_id: str, attachment_id
 
 async def _imap_fetch_raw(email: str, message_id: str, folder: str):
     """Returns (raw_bytes, imap_conn) for an IMAP message. Caller must release the pool."""
-    from backend.services.hybrid_mail_service import _get_imap_account, _imap_pool_acquire, _imap_folder_name
+    from backend.services.hybrid_mail_service import (
+        _get_imap_account, _imap_pool_acquire, _imap_folder_name,
+        _imap_pool_invalidate, _imap_pool_release,
+    )
     acc = _get_imap_account(email)
     if not acc:
         return None, None
     imap = _imap_pool_acquire(acc)
     if not imap:
         return None, None
-    uid = message_id[5:] if message_id.startswith("imap_") else message_id
-    folder_name = _imap_folder_name(imap, folder)
-    imap.select(f'"{folder_name}"', readonly=True)
-    status, data = imap.uid("fetch", uid, "(BODY[])")
-    if status != "OK" or not data:
-        return None, imap
-    raw_bytes = next((p[1] for p in data if isinstance(p, tuple)), None)
-    return raw_bytes, imap
+    try:
+        uid = message_id[5:] if message_id.startswith("imap_") else message_id
+        folder_name = _imap_folder_name(imap, folder)
+        imap.select(f'"{folder_name}"', readonly=True)
+        status, data = imap.uid("fetch", uid, "(BODY[])")
+        if status != "OK" or not data:
+            return None, imap
+        raw_bytes = next((p[1] for p in data if isinstance(p, tuple)), None)
+        return raw_bytes, imap
+    except Exception:
+        # select()/uid() poden llançar (imaplib.abort/OSError) si la connexió cau
+        # DESPRÉS del noop de validació de _imap_pool_acquire, amb el lock del pool ja
+        # pres. Com que els callers assignen aquesta crida FORA del seu try/finally, sense
+        # aquest rescat el lock quedava retingut per sempre → deadlock de TOTES les
+        # operacions IMAP del compte (adjunts, imatges CID, reply amb imatges citades).
+        # Invalidem la connexió trencada i alliberem el lock (release és idempotent);
+        # retornem (None, None) perquè els callers ho tractin com a "no trobat".
+        _imap_pool_invalidate(email)
+        _imap_pool_release(email)
+        return None, None
 
 
 @router.get("/messages/{message_id}/attachments/{att_id:path}")
