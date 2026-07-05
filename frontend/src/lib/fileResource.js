@@ -107,11 +107,17 @@ export function syncActiveVaultCookie() {
  * trencada. El param `vault` és el fallback que el middleware llegeix quan no hi
  * ha capçalera. Idempotent; deixa intactes URLs remotes/`data:`/no-servides i,
  * si no hi ha cap vault triat, no toca res (compatibilitat enrere single-vault).
+ *
+ * `explicitVid` força un vault concret en comptes del vault actiu del
+ * localStorage. Ho fa servir la pàgina compartida pública (`/s/token`): el
+ * visitant anònim no té `gnosi_active_vault`, així que el vault del share ve del
+ * backend i s'ha d'aplicar explícitament (i, si el visitant té el SEU propi
+ * vault actiu, no s'ha d'usar el seu per als assets del share).
  */
-export function withActiveVault(url) {
+export function withActiveVault(url, explicitVid) {
     if (typeof url !== 'string' || !url.startsWith('/api/vault/')) return url;
     if (/[?&]vault=/.test(url)) return url;
-    const vid = getActiveVaultId();
+    const vid = explicitVid || getActiveVaultId();
     if (!vid) return url;
     return `${url}${url.includes('?') ? '&' : '?'}vault=${encodeURIComponent(vid)}`;
 }

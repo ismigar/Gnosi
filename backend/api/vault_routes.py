@@ -6003,12 +6003,30 @@ def _set_reference_table_id(table_id: Optional[str]) -> None:
     save_json(CONFIG_PATH, cfg)
 
 
+def _reference_table_by_id_primary(table_id: str) -> Optional[dict]:
+    """Resol una taula pel seu id al registre del vault PRINCIPAL.
+
+    La designació de taula de referències (Zotero) és GLOBAL i la taula viu al
+    vault Principal; sense això, en un vault no-default `_table_by_id` la
+    buscaria al registre equivocat i no la trobaria."""
+    from backend.services.context_vars import active_vault_path, get_primary_vault_path
+    base = get_primary_vault_path()
+    if not base:
+        return _table_by_id(table_id)
+    token = active_vault_path.set(base)
+    try:
+        return _table_by_id(table_id)
+    finally:
+        active_vault_path.reset(token)
+
+
 @router.get("/reference-table")
 async def get_reference_table():
     """Estat de la taula de referències designada (per a Settings i el gating
-    del frontend)."""
+    del frontend). Designació GLOBAL + taula al Principal → resolem el nom al
+    registre del Principal perquè Settings sigui consistent des de qualsevol vault."""
     tid = get_reference_table_id()
-    t = _table_by_id(tid) if tid else None
+    t = _reference_table_by_id_primary(tid) if tid else None
     return {"table_id": tid, "configured": bool(tid),
             "name": t.get("name") if t else None}
 
@@ -11400,12 +11418,19 @@ async def delete_inline_comment(page_id: str, comment_id: str):
 # Pub/sub en memòria per a la sincronització EN TEMPS REAL dels synced blocks
 # entre dispositius/clients: cada client obre un SSE a /synced-events i, en
 # desar-se un bloc (PUT /synced), tots reben l'avís i recarreguen la font.
-_synced_subscribers: set = set()
+# Multi-vault: cada subscriptor porta el seu vault (v_str) i el broadcast
+# NOMÉS notifica els del MATEIX vault. Sense això, desar un bloc a un vault
+# despertava els clients de TOTS els vaults (soroll cross-vault i relectures
+# innecessàries; els sync_id poden col·lidir entre vaults). El vault del client
+# arriba per la cookie `gnosi_active_vault` que ara viatja també amb l'SSE.
+_synced_subscribers: dict = {}   # asyncio.Queue -> v_str
 
 
-def _broadcast_synced(sync_id: str) -> None:
-    """Notifica tots els subscriptors SSE que un synced block ha canviat."""
-    for q in list(_synced_subscribers):
+def _broadcast_synced(sync_id: str, v_str: str) -> None:
+    """Notifica els subscriptors SSE DEL VAULT `v_str` que un synced block ha canviat."""
+    for q, qv in list(_synced_subscribers.items()):
+        if qv != v_str:
+            continue
         try:
             q.put_nowait(sync_id)
         except Exception:
@@ -11431,7 +11456,9 @@ async def synced_events():
     i recarrega la font del bloc afectat."""
     from fastapi.responses import StreamingResponse
     queue: asyncio.Queue = asyncio.Queue()
-    _synced_subscribers.add(queue)
+    # Vault del subscriptor (fixat pel middleware des de la cookie/capçalera);
+    # el broadcast només notifica els del mateix vault.
+    _synced_subscribers[queue] = _current_vault_key()
 
     async def gen():
         try:
@@ -11445,7 +11472,7 @@ async def synced_events():
         except asyncio.CancelledError:
             raise
         finally:
-            _synced_subscribers.discard(queue)
+            _synced_subscribers.pop(queue, None)
 
     return StreamingResponse(
         gen(),
@@ -11472,7 +11499,7 @@ async def save_synced_block(sync_id: str, body: SyncedBlockSave):
     pàgina) que referencien aquest `sync_id` en reflecteixen el canvi."""
     p = _synced_block_path(sync_id)
     p.write_text(body.content or "", encoding="utf-8")
-    _broadcast_synced(sync_id)  # push en temps real a tots els clients (SSE)
+    _broadcast_synced(sync_id, _current_vault_key())  # push SSE als clients del mateix vault
     return {"sync_id": sync_id, "content": body.content or "", "saved": True}
 
 

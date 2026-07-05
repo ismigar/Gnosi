@@ -14,3 +14,20 @@ def get_active_vault_path() -> Path:
         cfg = load_params(strict_env=False)
         return cfg.paths.get("VAULT")
     return path
+
+
+def get_primary_vault_path() -> Optional[Path]:
+    """Ruta del vault PRINCIPAL/base, IGNORANT l'override de vault actiu.
+
+    Per a integracions GLOBALS (correu, referències Zotero, shares v1) que viuen
+    SEMPRE al vault Principal, independentment del vault que l'usuari tingui
+    actiu. Sense això, la lectura seguia el vault actiu mentre l'escriptura (sync
+    en background, sense context) anava al Principal → en un vault no-default les
+    dades apareixien buides. Neutralitza el contextvar temporalment perquè
+    `load_params` retorni la config base."""
+    token = active_vault_path.set(None)
+    try:
+        from backend.config.app_config import load_params
+        return load_params(strict_env=False).paths.get("VAULT")
+    finally:
+        active_vault_path.reset(token)

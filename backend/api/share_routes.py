@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -29,6 +29,20 @@ log = logging.getLogger(__name__)
 router = APIRouter()
 
 _VALID_PERMISSIONS = {"view", "comment", "edit"}
+
+
+def _request_vault_id(request: Request) -> Optional[str]:
+    """Id del vault actiu de la petició (capçalera > `?vault=` > cookie), o None
+    en single-vault. Es desa a l'enllaç per poder resoldre'l després sense cap
+    senyal de vault del visitant anònim."""
+    for candidate in (
+        request.headers.get("x-vault-id"),
+        request.query_params.get("vault"),
+        request.cookies.get("gnosi_active_vault"),
+    ):
+        if candidate and candidate.strip():
+            return candidate.strip()
+    return None
 
 
 class ShareCreateRequest(BaseModel):
@@ -69,6 +83,7 @@ def _is_active(link: ShareLink) -> bool:
 async def create_share_link(
     page_id: str,
     request: ShareCreateRequest,
+    http_request: Request,
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
 ):
@@ -87,6 +102,7 @@ async def create_share_link(
     link = ShareLink(
         page_id=page_id,
         workspace_id=getattr(context, "workspace_id", "personal"),
+        vault_id=_request_vault_id(http_request),   # vault d'origen (multi-vault)
         created_by=getattr(context, "user_id", None),
         permission=permission,
         expires_at=expires_at,
@@ -138,13 +154,23 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
     if not link or not _is_active(link):
         raise HTTPException(status_code=404, detail="not found")
 
-    # Resolve the vault path for this share. v1 targets the single configured
-    # vault (personal / single-vault deployments). Multi-vault org routing is a
-    # follow-up: would map workspace_id → Vault.path_override.
-    from backend.config.app_config import load_params
-    cfg = load_params(strict_env=False)
-    vault = cfg.paths.get("VAULT")
-    tok = active_vault_path.set(vault)
+    # Resolveix el vault d'aquest share: el vault propi de l'enllaç (capturat en
+    # crear-lo, multi-vault) si hi és i es pot resoldre; si no, el vault Principal
+    # (compat enrere / single-vault / enllaços antics sense vault_id). El visitant
+    # anònim no aporta cap senyal de vault, per això el treiem de l'enllaç.
+    from pathlib import Path
+    vault = None
+    link_vault_id = getattr(link, "vault_id", None)
+    if link_vault_id:
+        try:
+            from backend.services.active_vault_middleware import _resolve_vault_path
+            vault = _resolve_vault_path(link_vault_id)
+        except Exception:
+            vault = None
+    if not vault:
+        from backend.config.app_config import load_params
+        vault = load_params(strict_env=False).paths.get("VAULT")
+    tok = active_vault_path.set(Path(vault))
     try:
         # Reuse the canonical page reader (it uses the active vault context).
         from backend.api.vault_routes import get_page
@@ -165,5 +191,7 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
             "title": page.get("title"),
             "content": page.get("content"),
             "metadata": page.get("metadata", {}),
+            # El frontend l'usa per resoldre els assets (`?vault=`) sense cookie.
+            "vault_id": link_vault_id,
         },
     }
