@@ -44,6 +44,9 @@ export function fileKindFromValue(value) {
     return 'file';
 }
 
+/** Clau (localStorage + cookie) on viu l'id del vault actiu. */
+export const ACTIVE_VAULT_KEY = 'gnosi_active_vault';
+
 /**
  * Id del vault actiu triat per l'usuari (mode multi-vault); null si cap.
  * Font única: localStorage `gnosi_active_vault` (el mateix que l'interceptor
@@ -51,10 +54,46 @@ export function fileKindFromValue(value) {
  */
 export function getActiveVaultId() {
     try {
-        return (typeof localStorage !== 'undefined' && localStorage.getItem('gnosi_active_vault')) || null;
+        return (typeof localStorage !== 'undefined' && localStorage.getItem(ACTIVE_VAULT_KEY)) || null;
     } catch {
         return null;
     }
+}
+
+/**
+ * Escriu (o esborra) el vault actiu com a COOKIE same-origin.
+ *
+ * Per què cal a MÉS de la capçalera `X-Vault-Id`: la capçalera només l'afegeix
+ * l'interceptor d'axios, així que TOTES les peticions que no passen per axios
+ * queden sense senyal de vault i cauen al vault per defecte (Principal) al
+ * backend: `fetch()` cru, mèdia natiu (`<img>/<video>/<audio>/<iframe>`),
+ * `background-image` CSS, `EventSource`/SSE, `/api/chat` i fins i tot el
+ * handshake del WebSocket. Una cookie same-origin viatja AUTOMÀTICAMENT a cada
+ * petició al mateix origin → tanca tota aquesta classe sense tocar cada punt de
+ * crida. El middleware la llegeix com a ÚLTIM fallback (capçalera > `?vault=` >
+ * cookie), així un `X-Vault-Id` explícit (clonar Notion a un vault separat)
+ * continua manant. `SameSite=Lax` i sense `Secure` perquè funcioni també en
+ * HTTP local; l'app és same-origin (el proxy de Vite serveix `/api`).
+ */
+export function setActiveVaultCookie(id) {
+    try {
+        if (typeof document === 'undefined') return;
+        if (id) {
+            document.cookie = `${ACTIVE_VAULT_KEY}=${encodeURIComponent(id)}; path=/; SameSite=Lax; max-age=31536000`;
+        } else {
+            document.cookie = `${ACTIVE_VAULT_KEY}=; path=/; SameSite=Lax; max-age=0`;
+        }
+    } catch { /* document/cookie no disponible */ }
+}
+
+/**
+ * Sincronitza la cookie del vault actiu amb el valor de localStorage (font de
+ * veritat). Cal cridar-ho a l'ARRENCADA, abans del primer render, perquè els
+ * `<img>` natius del primer pintat ja portin el vault. També és idempotent i
+ * el pot cridar l'interceptor d'axios per mantenir la cookie fresca.
+ */
+export function syncActiveVaultCookie() {
+    setActiveVaultCookie(getActiveVaultId());
 }
 
 /**

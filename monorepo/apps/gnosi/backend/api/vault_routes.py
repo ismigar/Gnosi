@@ -645,8 +645,8 @@ def kickoff_index_warmup(v_path: Path) -> None:
         # càrrega de pàgina): carrega de disc i refresca en background. Evita
         # els ~15s en fred del primer /global-index després d'un reinici.
         try:
-            _load_id_title_from_disk()
-            _refresh_id_title_index()
+            _load_id_title_from_disk(v_str)
+            _refresh_id_title_index(v_str)
         except Exception as e:
             log.warning(f"id-title warmup skipped: {e}")
         try:
@@ -7995,7 +7995,8 @@ async def patch_page(
             # (~138 s observat). Aquí substituïm l'entry concreta in-place
             # amb el contingut nou que ja tenim en memòria.
             with _iter_docs_lock:
-                docs = _iter_docs_cache.get("docs")
+                _dc_entry = _iter_docs_cache.get(v_str)
+                docs = _dc_entry.get("docs") if _dc_entry else None
                 if docs is not None:
                     path_str = str(file_path)
                     new_doc = (
@@ -10110,22 +10111,42 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
 # del qual aquest índex deriva — per això no cal invalidació explícita als
 # endpoints d'escriptura: _iter_docs_cache ja s'actualitza surgical).
 _ID_TITLE_TTL = 60.0
-_id_title_cache: dict = {"index": None, "ts": 0.0}
+# Per-vault (v_str -> {"index": {...}, "ts": float}). Multi-vault: com
+# `_page_index_entries`, aquest cache HA d'estar indexat per vault. Amb un sol
+# dict global, un vault servia l'índex d'un altre (i just després de canviar de
+# vault, /global-index i /backlinks tornaven dades del vault anterior fins que
+# expirava el TTL). Mateixa correcció a `_iter_docs_cache`, del qual deriva.
+_id_title_cache: dict = {}
 _id_title_lock = threading.Lock()
-_id_title_refreshing = False
+_id_title_refreshing: set = set()   # v_str dels refrescos en curs (un per vault)
 
 
-def _get_id_title_cache_path() -> Optional[Path]:
-    """Path local on persistir l'índex id→títol. Mateix patró que page-index."""
-    base = get_p("PAGE_INDEX_CACHE")
-    if base:
-        return base.parent / "vault_id_title_index.json"
-    return Path("/app/data/cache/vault_id_title_index.json")
-
-
-def _save_id_title_to_disk(index: Dict[str, str]) -> None:
+def _current_vault_key() -> str:
+    """Clau per als caches per-vault d'aquest mòdul: str de la ruta del vault
+    ACTIU (via contextvar). Buida fora de petició (o si no hi ha vault) → cau al
+    comportament d'abans (una sola entrada amb clau "")."""
     try:
-        cache_path = _get_id_title_cache_path()
+        from backend.services.context_vars import get_active_vault_path
+        v = get_active_vault_path()
+        return str(v) if v else ""
+    except Exception:
+        return ""
+
+
+def _get_id_title_cache_path(v_str: Optional[str] = None) -> Optional[Path]:
+    """Path local on persistir l'índex id→títol, PER VAULT (mateix patró que
+    `get_page_index_cache_path`: un fitxer per vault via hash de la ruta)."""
+    base = get_p("PAGE_INDEX_CACHE")
+    p = base.parent / "vault_id_title_index.json" if base else Path("/app/data/cache/vault_id_title_index.json")
+    if v_str:
+        digest = hashlib.sha256(v_str.encode("utf-8")).hexdigest()[:16]
+        return p.with_name(f"{p.stem}_{digest}{p.suffix}")
+    return p
+
+
+def _save_id_title_to_disk(v_str: str, index: Dict[str, str]) -> None:
+    try:
+        cache_path = _get_id_title_cache_path(v_str)
         if not cache_path:
             return
         cache_path.parent.mkdir(parents=True, exist_ok=True)
@@ -10134,19 +10155,21 @@ def _save_id_title_to_disk(index: Dict[str, str]) -> None:
         log.warning(f"id-title persist failed: {e}")
 
 
-def _load_id_title_from_disk() -> bool:
-    """Carrega l'índex persistit i el marca STALE (ts=0) perquè el primer ús
-    dispari un refresh en background contra l'estat real del vault."""
+def _load_id_title_from_disk(v_str: str) -> bool:
+    """Carrega l'índex persistit del vault `v_str` i el marca STALE (ts=0) perquè
+    el primer ús dispari un refresh en background contra l'estat real del vault."""
     try:
-        cache_path = _get_id_title_cache_path()
+        cache_path = _get_id_title_cache_path(v_str)
         if not cache_path or not cache_path.exists():
             return False
         data = json.loads(cache_path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             return False
         with _id_title_lock:
-            _id_title_cache["index"] = {str(k): str(v) for k, v in data.items()}
-            _id_title_cache["ts"] = 0.0
+            _id_title_cache[v_str] = {
+                "index": {str(k): str(v) for k, v in data.items()},
+                "ts": 0.0,
+            }
         log.info(f"📂 id-title index loaded from disk ({len(data)} entries)")
         return True
     except Exception as e:
@@ -10173,27 +10196,33 @@ def _compute_id_title_index() -> Dict[str, str]:
     return index
 
 
-def _refresh_id_title_index() -> None:
-    """Recalcula i persisteix en background. Un sol refresh concurrent."""
-    global _id_title_refreshing
+def _refresh_id_title_index(v_str: str) -> None:
+    """Recalcula i persisteix en background PER AL VAULT `v_str`. Un sol refresh
+    concurrent per vault. El thread FIXA el contextvar del vault: els threads NO
+    hereten contextvars, així que sense això `_compute_id_title_index` iteraria
+    el vault per defecte i escriuríem dades equivocades sota la clau `v_str`."""
     with _id_title_lock:
-        if _id_title_refreshing:
+        if v_str in _id_title_refreshing:
             return
-        _id_title_refreshing = True
+        _id_title_refreshing.add(v_str)
 
     def _run():
-        global _id_title_refreshing
+        from backend.services.context_vars import active_vault_path
+        token = None
         try:
+            if v_str:
+                token = active_vault_path.set(Path(v_str))
             idx = _compute_id_title_index()
             with _id_title_lock:
-                _id_title_cache["index"] = idx
-                _id_title_cache["ts"] = time.time()
-            _save_id_title_to_disk(idx)
+                _id_title_cache[v_str] = {"index": idx, "ts": time.time()}
+            _save_id_title_to_disk(v_str, idx)
         except Exception as e:
             log.warning(f"id-title refresh failed: {e}")
         finally:
+            if token is not None:
+                active_vault_path.reset(token)
             with _id_title_lock:
-                _id_title_refreshing = False
+                _id_title_refreshing.discard(v_str)
 
     threading.Thread(target=_run, daemon=True, name="id-title-refresh").start()
 
@@ -10207,27 +10236,29 @@ def build_id_title_index() -> Dict[str, str]:
     Torna una còpia per evitar que un consumidor muti la caché compartida.
     """
     now = time.time()
+    vkey = _current_vault_key()
     with _id_title_lock:
-        idx = _id_title_cache.get("index")
-        ts = _id_title_cache.get("ts", 0.0)
+        entry = _id_title_cache.get(vkey)
+        idx = entry.get("index") if entry else None
+        ts = entry.get("ts", 0.0) if entry else 0.0
     if idx is not None:
         if (now - ts) >= _ID_TITLE_TTL:
-            _refresh_id_title_index()
+            _refresh_id_title_index(vkey)
         return dict(idx)
 
     # Sense caché en memòria → prova disc (instantani després d'un reinici).
-    if _load_id_title_from_disk():
-        _refresh_id_title_index()
+    if _load_id_title_from_disk(vkey):
+        _refresh_id_title_index(vkey)
         with _id_title_lock:
-            cur = _id_title_cache.get("index")
+            entry = _id_title_cache.get(vkey)
+            cur = entry.get("index") if entry else None
         return dict(cur) if cur else {}
 
     # Ni memòria ni disc → càlcul síncron (només el primer cop absolut).
     idx = _compute_id_title_index()
     with _id_title_lock:
-        _id_title_cache["index"] = idx
-        _id_title_cache["ts"] = time.time()
-    _save_id_title_to_disk(idx)
+        _id_title_cache[vkey] = {"index": idx, "ts": time.time()}
+    _save_id_title_to_disk(vkey, idx)
     return dict(idx)
 
 
@@ -10238,7 +10269,7 @@ def build_id_title_index() -> Dict[str, str]:
 # al frontend (axios.defaults.timeout = 30s). Amb un TTL de 60s reusem la
 # llista entre crides consecutives. Els backlinks queden lleugerament
 # desactualitzats (60s) — acceptable pel cas d'ús.
-_iter_docs_cache: dict = {"docs": None, "ts": 0.0}
+_iter_docs_cache: dict = {}   # v_str -> {"docs": [...], "ts": float} (per-vault)
 _iter_docs_lock = threading.Lock()
 _ITER_DOCS_TTL = 60.0
 
@@ -10398,15 +10429,18 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
     fitxer en lloc d'O(read).
     """
     now = time.time()
-    cached = _iter_docs_cache.get("docs")
-    cached_ts = _iter_docs_cache.get("ts", 0.0)
+    vkey = _current_vault_key()
+    entry = _iter_docs_cache.get(vkey)
+    cached = entry.get("docs") if entry else None
+    cached_ts = entry.get("ts", 0.0) if entry else 0.0
     if cached is not None and (now - cached_ts) < _ITER_DOCS_TTL:
         return cached
 
     with _iter_docs_lock:
         # Re-check sota lock per evitar dues construccions concurrents
-        cached = _iter_docs_cache.get("docs")
-        cached_ts = _iter_docs_cache.get("ts", 0.0)
+        entry = _iter_docs_cache.get(vkey)
+        cached = entry.get("docs") if entry else None
+        cached_ts = entry.get("ts", 0.0) if entry else 0.0
         if cached is not None and (time.time() - cached_ts) < _ITER_DOCS_TTL:
             return cached
 
@@ -10443,8 +10477,7 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
                 except Exception as e:
                     log.warning(f"Error parsing dashboard page {file_path.name}: {e}")
 
-        _iter_docs_cache["docs"] = docs
-        _iter_docs_cache["ts"] = time.time()
+        _iter_docs_cache[vkey] = {"docs": docs, "ts": time.time()}
         return docs
 
 

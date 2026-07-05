@@ -23,6 +23,7 @@
  * (useful for "overwrite anyway" buttons in conflict toasts).
  */
 import axios from 'axios';
+import { setActiveVaultCookie } from './fileResource.js';
 
 // Global axios timeout: prevents requests to slow IMAP / external APIs from
 // hanging forever. Without a client-side cap a stuck server-side socket can
@@ -69,6 +70,13 @@ export function installPageEtagInterceptor() {
                 const explicit = config.headers && config.headers['X-Vault-Id'];
                 const vid = typeof localStorage !== 'undefined' ? localStorage.getItem('gnosi_active_vault') : null;
                 if (!explicit && vid) config.headers = { ...(config.headers || {}), 'X-Vault-Id': vid };
+                // Manté la cookie same-origin sincronitzada amb localStorage (font
+                // de veritat) perquè les peticions NO-axios (fetch cru, <img>, SSE,
+                // /api/chat, WebSocket) portin també el vault. Auto-repara la cookie
+                // si ha expirat o l'ha esborrat el navegador. No la posem si un
+                // X-Vault-Id explícit mana (deixem que la cookie reflecteixi el
+                // vault global, no el destí puntual d'un clon).
+                if (!explicit) setActiveVaultCookie(vid);
             } catch { /* localStorage no disponible */ }
             const method = (config.method || 'get').toLowerCase();
             if (method !== 'patch' && method !== 'put') return config;
