@@ -138,9 +138,18 @@ def get_llm(
     model: Optional[str] = None,
     api_key: Optional[str] = None,
     base_url: Optional[str] = None,
+    timeout: Optional[float] = None,
 ):
     """
     Instancia un LLM segons el proveïdor i la configuració.
+
+    `timeout` (segons): límit REAL de xarxa aplicat en construir el client. langchain
+    IGNORA `config={"timeout": ...}` a `.invoke()` (no és clau de RunnableConfig), així que
+    el límit HA d'anar aquí. Per als proveïdors OpenAI-compatible es tradueix a
+    `request_timeout` (timeout del client httpx) i desactivem els reintents de l'SDK
+    (`max_retries=0`) perquè el `timeout` sigui un sostre real i no per-intent. `timeout=None`
+    manté el comportament clàssic (camí de l'agent: sense límit dur, reintents per defecte).
+    Vegeu directiva `ai_error_handling.md`.
     """
     # Tractar cadenes buides com a None per forçar el fallback a env vars
     if not api_key:
@@ -148,14 +157,22 @@ def get_llm(
     if not base_url:
         base_url = None
 
+    # kwargs de timeout per als wrappers OpenAI/Anthropic-compatible (àlies de
+    # request_timeout / default_request_timeout). Ollama NO els accepta → client_kwargs.
+    req_timeout_kwargs = (
+        {"timeout": timeout, "max_retries": 0} if timeout is not None else {}
+    )
+
     try:
         if provider == "ollama":
             from langchain_ollama import ChatOllama
             log.debug(f"Instantiating ChatOllama with model {model or 'llama3.2'}")
+            # ChatOllama IGNORA `timeout=` directe (model_config extra="ignore"); el
+            # timeout de xarxa s'ha de passar via client_kwargs → client httpx d'ollama.
             return ChatOllama(
                 model=model or "llama3.2",
                 base_url=base_url or "http://host.docker.internal:11434",
-                timeout=60,
+                client_kwargs={"timeout": timeout if timeout is not None else 60},
             )
 
         if provider in {"openai", "deepseek", "mistral", "openrouter"}:
@@ -182,6 +199,7 @@ def get_llm(
                 ),
                 api_key=key or "no-key",
                 base_url=base_url or default_urls.get(provider),
+                **req_timeout_kwargs,
             )
 
         if provider == "groq":
@@ -196,6 +214,7 @@ def get_llm(
                 model=model or "llama-3.3-70b-versatile",
                 api_key=key,
                 base_url=base_url or "https://api.groq.com/openai/v1",
+                **req_timeout_kwargs,
             )
 
         if provider == "anthropic":
@@ -208,6 +227,7 @@ def get_llm(
             return ChatAnthropic(
                 model=model or "claude-3-5-sonnet-latest",
                 api_key=key,
+                **req_timeout_kwargs,
             )
 
         # Generic OpenAI compatible (Local, LM Studio, etc.) or unknown provider with base_url
@@ -218,6 +238,7 @@ def get_llm(
                 model=model or "local-model",
                 api_key=api_key or "no-key",
                 base_url=base_url or "http://localhost:8000/v1",
+                **req_timeout_kwargs,
             )
 
     except Exception as e:
@@ -228,7 +249,7 @@ def get_llm(
     return None
 
 
-def _get_hybrid_llm():
+def _get_hybrid_llm(timeout: Optional[float] = None):
     """Fallback logic looking for any available provider beyond the primary choice."""
     # List of fallback providers to check in order of quality/availability
     fallbacks = [
@@ -253,15 +274,19 @@ def _get_hybrid_llm():
                 provider=p_name,
                 model=m_name,
                 api_key=key,
-                base_url=p_cfg.get(p_name, {}).get("base_url")
+                base_url=p_cfg.get(p_name, {}).get("base_url"),
+                timeout=timeout,
             )
 
     return None
 
 
-def get_default_llm(user_message: str = ""):
+def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
     """Retorna un LLM llest per a crides one-shot (generació de contingut,
     resums, ordre del dia de reunions…).
+
+    `timeout` (segons) es propaga al constructor del client (timeout REAL de xarxa,
+    cf. `get_llm`). None → sense límit dur.
 
     Resol el proveïdor/model com ho fa l'agent: agent actiu → selecció `auto`
     segons el missatge → fallback híbrid (qualsevol proveïdor amb clau). Usa la
@@ -302,10 +327,11 @@ def get_default_llm(user_message: str = ""):
             model=model_name,
             api_key=key,
             base_url=p_cfg.get("base_url"),
+            timeout=timeout,
         )
 
     if not llm:
-        llm = _get_hybrid_llm()
+        llm = _get_hybrid_llm(timeout=timeout)
     return llm
 
 
@@ -317,10 +343,12 @@ def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tup
     """
     from langchain_core.messages import HumanMessage
 
-    llm = get_default_llm(user_message=user_message or prompt[:200])
+    llm = get_default_llm(user_message=user_message or prompt[:200], timeout=timeout)
     if not llm:
         raise RuntimeError("No AI provider available")
-    resp = llm.invoke([HumanMessage(content=prompt)], config={"timeout": timeout})
+    # El timeout ja viu al client (get_default_llm→get_llm). NO passar
+    # config={"timeout": ...}: langchain l'ignora (no és clau de RunnableConfig).
+    resp = llm.invoke([HumanMessage(content=prompt)])
     text = getattr(resp, "content", "") or ""
     if not isinstance(text, str):
         text = str(text)
