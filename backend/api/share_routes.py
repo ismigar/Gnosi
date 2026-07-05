@@ -174,6 +174,8 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
     # Sense això, `Path(None)` llançava TypeError en l'endpoint public.
     if not vault:
         vault = get_active_vault_path()
+    if not vault:
+        raise HTTPException(status_code=503, detail="No vault available to serve shared page")
     tok = active_vault_path.set(Path(vault))
     try:
         # Reuse the canonical page reader (it uses the active vault context).
