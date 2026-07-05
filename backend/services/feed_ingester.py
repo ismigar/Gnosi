@@ -99,10 +99,17 @@ def fetch_and_store_feeds():
                             # structure — see directive
                             # reader_minimalist_redesign.md for the iframe
                             # XSS mitigation.
-                            content_raw = entry.get(
-                                'content',
-                                [{'value': entry.get('summary', '')}],
-                            )[0]['value']
+                            # `content` pot faltar, ser una llista BUIDA (alguns feeds
+                            # Atom) o portar ítems sense `value`: el llegim de forma
+                            # robusta i caiem a `summary`. Abans `[0]['value']` cru petava
+                            # amb IndexError/KeyError i l'article se saltava en silenci
+                            # (via el try/except de sota) tot i tenir un `summary` usable.
+                            _content = entry.get('content') or []
+                            content_raw = ''
+                            if _content and isinstance(_content[0], dict):
+                                content_raw = _content[0].get('value', '')
+                            if not content_raw:
+                                content_raw = entry.get('summary', '')
 
                             # When the feed only ships a teaser, fetch the
                             # canonical URL and extract the full body. We do

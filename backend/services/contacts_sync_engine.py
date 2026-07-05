@@ -509,12 +509,15 @@ class ContactsSyncEngine:
                     updated_data = {
                         "name": parsed.get("name", existing.name),
                         "email": parsed.get("email", existing.email),
-                        "phone": parsed.get("phone"),
-                        "company": parsed.get("company"),
-                        "job_title": parsed.get("job_title"),
-                        "address": parsed.get("address"),
-                        "notes": parsed.get("notes"),
-                        "photo_url": parsed.get("photo_url"),
+                        # Fallback a l'existent si el remot OMET la clau (paritat amb
+                        # name/email de dalt): un pull CardDAV mai inclou `photo_url`, així
+                        # que sense això la foto local es perdia a CADA sincronització.
+                        "phone": parsed.get("phone", existing.phone),
+                        "company": parsed.get("company", existing.company),
+                        "job_title": parsed.get("job_title", existing.job_title),
+                        "address": parsed.get("address", existing.address),
+                        "notes": parsed.get("notes", existing.notes),
+                        "photo_url": parsed.get("photo_url", existing.photo_url),
                     }
                     self.contacts_service.update_contact(existing.id, updated_data)
                     existing.last_synced_at = datetime.now(timezone.utc)
