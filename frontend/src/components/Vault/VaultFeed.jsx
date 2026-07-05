@@ -22,9 +22,12 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const visibleProperties = isMainView(activeView)
         ? getSchemaFieldNames(schema)
         : (activeView?.visibleProperties || getSchemaFieldNames(schema));
+    // S'exclou `title` (per tipus I per clau): el títol ja és l'encapçalament de
+    // la targeta; si `visibleProperties` inclou "title" sortia duplicat com a
+    // propietat "TITLE" al cos.
     const dynamicColumns = visibleProperties
         .map(prop => [prop, getFieldType(schema, prop)])
-        .filter(([key, type]) => type && type !== 'title');
+        .filter(([key, type]) => type && type !== 'title' && String(key).toLowerCase() !== 'title');
 
     const getRelationDisplayMap = (field) => {
         const config = getFieldConfig(schema, field);
@@ -190,79 +193,93 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                                     className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
                                 />
                             </label>
-                            {/* Feed Item Header / Cover */}
-                            <div className="w-full h-48 sm:h-64 relative bg-[var(--bg-tertiary)] flex-shrink-0">
-                                {hasCover ? (
+                            {/* Feed Item Header / Cover: només si el registre TÉ portada.
+                                Abans es reservaven 192-256px de degradat buit per a cada
+                                targeta sense cover i cada entrada ocupava ~550px: dins d'una
+                                vista incrustada (caixa de 70vh) mai es veia més d'un registre. */}
+                            {hasCover && (
+                                <div className="w-full h-48 sm:h-64 relative bg-[var(--bg-tertiary)] flex-shrink-0">
                                     <div
                                         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
                                         style={{ backgroundImage: `url("${note.metadata.cover}")` }}
                                     />
-                                ) : (
-                                    <div className="absolute inset-0 bg-gradient-to-br from-[var(--gnosi-primary)]/10 to-[var(--bg-tertiary)]" />
-                                )}
-
-                                {/* Gradient overlay for text legibility if we wanted to overlay the title, 
-                                    but we're placing it below like a standard feed card */}
-                            </div>
+                                </div>
+                            )}
 
                             {/* Feed Item Body */}
                             <div className="p-6 relative bg-[var(--bg-primary)]">
-                                {/* Profile / Icon Overlap */}
-                                <div className="absolute -top-8 left-6 w-16 h-16 bg-[var(--bg-secondary)] rounded-xl shadow-sm border border-[var(--border-primary)] flex items-center justify-center text-3xl z-10 transition-transform group-hover:scale-110 overflow-hidden">
-                                    {note.metadata?.icon
-                                        ? <IconRenderer icon={note.metadata.icon} size={32} />
-                                        : <FileText size={24} className="text-[var(--text-tertiary)]" />}
-                                </div>
+                                {/* Icona: solapada sobre la portada si n'hi ha; en línia si no */}
+                                {hasCover && (
+                                    <div className="absolute -top-8 left-6 w-16 h-16 bg-[var(--bg-secondary)] rounded-xl shadow-sm border border-[var(--border-primary)] flex items-center justify-center text-3xl z-10 transition-transform group-hover:scale-110 overflow-hidden">
+                                        {note.metadata?.icon
+                                            ? <IconRenderer icon={note.metadata.icon} size={32} />
+                                            : <FileText size={24} className="text-[var(--text-tertiary)]" />}
+                                    </div>
+                                )}
 
-                                <div className="mt-8 flex flex-col gap-4">
-                                    <div>
-                                        <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-1 leading-tight group-hover:text-[var(--gnosi-primary)] transition-colors">
-                                            {note.title || "Sense Títol"}
-                                        </h2>
-                                        <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-tertiary)]">
-                                            <Clock size={12} />
-                                            <span>
-                                                Actualitzat el {new Date(note.last_modified).toLocaleDateString('ca-ES', {
-                                                    day: 'numeric', month: 'long', year: 'numeric',
-                                                    hour: '2-digit', minute: '2-digit'
-                                                })}
-                                            </span>
+                                <div className={`${hasCover ? 'mt-8' : ''} flex flex-col gap-4`}>
+                                    <div className={hasCover ? '' : 'flex items-start gap-3'}>
+                                        {!hasCover && (
+                                            <div className="w-10 h-10 shrink-0 bg-[var(--bg-secondary)] rounded-lg border border-[var(--border-primary)] flex items-center justify-center overflow-hidden">
+                                                {note.metadata?.icon
+                                                    ? <IconRenderer icon={note.metadata.icon} size={22} />
+                                                    : <FileText size={18} className="text-[var(--text-tertiary)]" />}
+                                            </div>
+                                        )}
+                                        <div className="min-w-0">
+                                            <h2 className={`${hasCover ? 'text-2xl' : 'text-lg'} font-bold text-[var(--text-primary)] mb-1 leading-tight group-hover:text-[var(--gnosi-primary)] transition-colors`}>
+                                                {note.title || "Sense Títol"}
+                                            </h2>
+                                            <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-tertiary)]">
+                                                <Clock size={12} />
+                                                <span>
+                                                    Actualitzat el {new Date(note.last_modified).toLocaleDateString('ca-ES', {
+                                                        day: 'numeric', month: 'long', year: 'numeric',
+                                                        hour: '2-digit', minute: '2-digit'
+                                                    })}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Properties Grid */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 mt-2 pt-4 border-t border-[var(--border-primary)]">
-                                        {dynamicColumns.map(([key, type]) => {
-                                            const aliasMap = {
-                                                "date added": "created_time",
-                                                "date modified": "last_edited_time"
-                                            };
-                                            const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
+                                    {/* Properties Grid: només si hi ha algun valor a pintar
+                                        (si no, el separador + parrilla buida deixaven una
+                                        franja morta a cada targeta) */}
+                                    {(() => {
+                                        const aliasMap = {
+                                            "date added": "created_time",
+                                            "date modified": "last_edited_time"
+                                        };
+                                        const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
+                                        const entries = dynamicColumns.map(([key, type]) => {
                                             const schemaKeyNorm = normalizeKey(key);
                                             const targetKeyNorm = aliasMap[schemaKeyNorm] ? normalizeKey(aliasMap[schemaKeyNorm]) : schemaKeyNorm;
-
                                             const originalMetaKey = note.metadata ? (Object.keys(note.metadata).find(k => normalizeKey(k) === targetKeyNorm) || key) : key;
                                             const val = note.metadata?.[originalMetaKey];
-
                                             const renderedVal = renderPropertyValue(val, type, key);
-                                            if (!renderedVal) return null;
-
-                                            return (
-                                                <div key={key} className="flex flex-col gap-1">
-                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
-                                                        {key}
-                                                    </span>
-                                                    <div>
-                                                        {renderedVal}
+                                            return renderedVal ? { key, renderedVal } : null;
+                                        }).filter(Boolean);
+                                        if (entries.length === 0) return null;
+                                        return (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-6 mt-2 pt-4 border-t border-[var(--border-primary)]">
+                                                {entries.map(({ key, renderedVal }) => (
+                                                    <div key={key} className="flex flex-col gap-1">
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">
+                                                            {key}
+                                                        </span>
+                                                        <div>
+                                                            {renderedVal}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
+                                                ))}
+                                            </div>
+                                        );
+                                    })()}
 
-                                    {/* Action footer */}
-                                    <div className="mt-2 pt-4 flex justify-end">
-                                        <span className="text-sm font-semibold text-[var(--gnosi-primary)] opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1">
+                                    {/* Action footer: superposat (absolute) perquè no reservi
+                                        ~50px buits per targeta quan no es fa hover */}
+                                    <div className="absolute bottom-2 right-4 pointer-events-none">
+                                        <span className="text-sm font-semibold text-[var(--gnosi-primary)] opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 bg-[var(--bg-primary)]/80 rounded px-1">
                                             Llegir sencer &rarr;
                                         </span>
                                     </div>
