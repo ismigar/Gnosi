@@ -16,6 +16,36 @@ from typing import Any, Dict, Optional
 log = logging.getLogger(__name__)
 
 
+def _retry_after_seconds(value: Optional[str], attempt: int) -> float:
+    """Segons a esperar davant un 429, tolerant amb el format de `Retry-After`.
+
+    Per RFC 7231 el header pot ser un enter de segons O una data HTTP
+    (`"Wed, 21 Oct 2025 07:28:00 GMT"`). Abans es feia `float(value)` directe:
+    amb el format de data llançava `ValueError` NO capturat i tombava la crida
+    a la tool en lloc de reintentar. Fallback al backoff per defecte si no es
+    pot interpretar. Sempre acotat a 10s.
+    """
+    default = 1.5 * (attempt + 1)
+    if not value:
+        return min(default, 10.0)
+    try:
+        return min(float(value), 10.0)  # forma "segons"
+    except (ValueError, TypeError):
+        pass
+    try:  # forma data HTTP
+        from email.utils import parsedate_to_datetime
+        from datetime import datetime, timezone
+        dt = parsedate_to_datetime(value)
+        if dt is not None:
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            delta = (dt - datetime.now(timezone.utc)).total_seconds()
+            return min(max(delta, 0.0), 10.0)
+    except Exception:
+        pass
+    return min(default, 10.0)
+
+
 def _parse_sse(text: str) -> Dict[str, Any]:
     """Extreu el primer payload JSON-RPC d'un cos SSE (línies `data: {...}`)."""
     for line in text.splitlines():
@@ -67,8 +97,7 @@ class HttpMCPClient:
             if sid:
                 self._session_id = sid
             if resp.status_code == 429:  # rate limit → espera i reintenta
-                wait = resp.headers.get("Retry-After")
-                time.sleep(min(float(wait) if wait else 1.5 * (attempt + 1), 10.0))
+                time.sleep(_retry_after_seconds(resp.headers.get("Retry-After"), attempt))
                 last = resp
                 continue
             if resp.status_code == 401:  # token caducat → el caller (notion_mcp) el renova
