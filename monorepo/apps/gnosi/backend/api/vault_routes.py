@@ -10186,6 +10186,14 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
             new_metadata = _ensure_recursos_citation_key(new_metadata, regenerate=True)
             save_page_md(new_file_path, new_metadata, body)
 
+        # Registra la còpia a l'índex de pàgines EN MEMÒRIA (mateix helper que
+        # el restore de la paperera). Sense això la còpia quedava INVISIBLE:
+        # `find_page_path` no la trobava al cache i, amb l'índex inicialitzat,
+        # salta el rglob de fallback ("probablement esborrada") → GET/PATCH/
+        # DELETE de la còpia feien 404 fins a un rebuild complet de l'índex
+        # (reproduït: el fitxer existia a disc però l'API el negava).
+        _add_page_to_index_cache(new_file_path)
+
         background_tasks.add_task(update_link_index_for_page, new_file_path)
 
         return {
