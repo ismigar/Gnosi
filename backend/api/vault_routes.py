@@ -4233,6 +4233,15 @@ async def list_vault_tags():
 # ---------------------------------------------------------------------------
 _comments_lock = threading.Lock()
 
+# El threading.Lock de dalt fa atòmics CADA load i CADA save per separat, però
+# el cicle load→modify→save dels handlers no ho era: dos POST simultanis
+# carregaven el mateix snapshot, tots dos hi afegien el seu comentari i el segon
+# save trepitjava el primer (reproduït contra el backend real: dels dos
+# comentaris concurrents només en sobrevivia un). Aquest candau d'asyncio
+# serialitza el cicle sencer a les tres mutacions (add/update/delete) — un sol
+# procés d'uvicorn, així que amb el candau del loop n'hi ha prou.
+_comments_mutation_lock = asyncio.Lock()
+
 
 def _get_comments_path() -> Path:
     return get_p("GNOSI_CONFIG") / "page_comments.json"
@@ -4285,9 +4294,10 @@ async def add_page_comment(
         "resolved": False,
     }
 
-    data = await asyncio.to_thread(_load_comments)
-    data.setdefault(page_id, []).append(comment)
-    await asyncio.to_thread(_save_comments, data)
+    async with _comments_mutation_lock:
+        data = await asyncio.to_thread(_load_comments)
+        data.setdefault(page_id, []).append(comment)
+        await asyncio.to_thread(_save_comments, data)
     return comment
 
 
@@ -4299,22 +4309,23 @@ async def update_page_comment(
     page_id: str, comment_id: str, request: CommentUpdateRequest
 ):
     """Edits a comment's body and/or toggles its resolved flag."""
-    data = await asyncio.to_thread(_load_comments)
-    thread = data.get(page_id) or []
-    target = next((c for c in thread if c.get("id") == comment_id), None)
-    if not target:
-        raise HTTPException(status_code=404, detail="Comment not found")
+    async with _comments_mutation_lock:
+        data = await asyncio.to_thread(_load_comments)
+        thread = data.get(page_id) or []
+        target = next((c for c in thread if c.get("id") == comment_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="Comment not found")
 
-    if request.body is not None:
-        new_body = request.body.strip()
-        if not new_body:
-            raise HTTPException(status_code=422, detail="Comment body cannot be empty")
-        target["body"] = new_body
-    if request.resolved is not None:
-        target["resolved"] = bool(request.resolved)
-    target["updated_at"] = datetime.now(timezone.utc).isoformat()
+        if request.body is not None:
+            new_body = request.body.strip()
+            if not new_body:
+                raise HTTPException(status_code=422, detail="Comment body cannot be empty")
+            target["body"] = new_body
+        if request.resolved is not None:
+            target["resolved"] = bool(request.resolved)
+        target["updated_at"] = datetime.now(timezone.utc).isoformat()
 
-    await asyncio.to_thread(_save_comments, data)
+        await asyncio.to_thread(_save_comments, data)
     return target
 
 
@@ -4324,16 +4335,17 @@ async def update_page_comment(
 )
 async def delete_page_comment(page_id: str, comment_id: str):
     """Removes a comment from a page's thread."""
-    data = await asyncio.to_thread(_load_comments)
-    thread = data.get(page_id) or []
-    new_thread = [c for c in thread if c.get("id") != comment_id]
-    if len(new_thread) == len(thread):
-        raise HTTPException(status_code=404, detail="Comment not found")
-    if new_thread:
-        data[page_id] = new_thread
-    else:
-        data.pop(page_id, None)
-    await asyncio.to_thread(_save_comments, data)
+    async with _comments_mutation_lock:
+        data = await asyncio.to_thread(_load_comments)
+        thread = data.get(page_id) or []
+        new_thread = [c for c in thread if c.get("id") != comment_id]
+        if len(new_thread) == len(thread):
+            raise HTTPException(status_code=404, detail="Comment not found")
+        if new_thread:
+            data[page_id] = new_thread
+        else:
+            data.pop(page_id, None)
+        await asyncio.to_thread(_save_comments, data)
     return {"status": "deleted", "id": comment_id}
 
 
@@ -11390,6 +11402,14 @@ class InlineCommentPatch(BaseModel):
     resolved: Optional[bool] = None
 
 
+# Serialitza el cicle load→modify→save dels inline-comments: sense candau, dos
+# POST simultanis sobre la mateixa pàgina carregaven el mateix snapshot i el
+# segon save trepitjava el primer (mateixa cursa que els comentaris de pàgina,
+# reproduïda contra el backend real). Candau global: un fitxer per pàgina però
+# la mutació és poc freqüent i el cost de serialitzar és negligible.
+_inline_comments_mutation_lock = asyncio.Lock()
+
+
 @router.get("/pages/{page_id}/inline-comments")
 async def list_inline_comments(page_id: str):
     return _load_inline_comments(page_id)
@@ -11404,7 +11424,6 @@ async def create_inline_comment(
     body: InlineCommentRequest,
     context: WorkspaceContext = Depends(get_workspace_context),
 ):
-    comments = _load_inline_comments(page_id)
     item = {
         "id": str(uuid.uuid4()),
         "quote": (body.quote or "")[:500],
@@ -11414,8 +11433,10 @@ async def create_inline_comment(
         "created_at": datetime.now(timezone.utc).isoformat(),
         "resolved": False,
     }
-    comments.append(item)
-    safe_write_json(_inline_comments_path(page_id), comments)
+    async with _inline_comments_mutation_lock:
+        comments = _load_inline_comments(page_id)
+        comments.append(item)
+        safe_write_json(_inline_comments_path(page_id), comments)
     return item
 
 
@@ -11424,19 +11445,20 @@ async def create_inline_comment(
     dependencies=[Depends(require_role("editor"))],
 )
 async def update_inline_comment(page_id: str, comment_id: str, body: InlineCommentPatch):
-    comments = _load_inline_comments(page_id)
-    found = None
-    for c in comments:
-        if c.get("id") == comment_id:
-            if body.comment is not None:
-                c["comment"] = body.comment
-            if body.resolved is not None:
-                c["resolved"] = bool(body.resolved)
-            found = c
-            break
-    if not found:
-        raise HTTPException(status_code=404, detail="Comentari no trobat")
-    safe_write_json(_inline_comments_path(page_id), comments)
+    async with _inline_comments_mutation_lock:
+        comments = _load_inline_comments(page_id)
+        found = None
+        for c in comments:
+            if c.get("id") == comment_id:
+                if body.comment is not None:
+                    c["comment"] = body.comment
+                if body.resolved is not None:
+                    c["resolved"] = bool(body.resolved)
+                found = c
+                break
+        if not found:
+            raise HTTPException(status_code=404, detail="Comentari no trobat")
+        safe_write_json(_inline_comments_path(page_id), comments)
     return found
 
 
@@ -11445,11 +11467,12 @@ async def update_inline_comment(page_id: str, comment_id: str, body: InlineComme
     dependencies=[Depends(require_role("editor"))],
 )
 async def delete_inline_comment(page_id: str, comment_id: str):
-    comments = _load_inline_comments(page_id)
-    new = [c for c in comments if c.get("id") != comment_id]
-    if len(new) == len(comments):
-        raise HTTPException(status_code=404, detail="Comentari no trobat")
-    safe_write_json(_inline_comments_path(page_id), new)
+    async with _inline_comments_mutation_lock:
+        comments = _load_inline_comments(page_id)
+        new = [c for c in comments if c.get("id") != comment_id]
+        if len(new) == len(comments):
+            raise HTTPException(status_code=404, detail="Comentari no trobat")
+        safe_write_json(_inline_comments_path(page_id), new)
     return {"status": "deleted", "id": comment_id}
 
 
