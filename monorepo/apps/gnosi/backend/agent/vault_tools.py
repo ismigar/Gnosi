@@ -159,7 +159,15 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
     page_id = page_id.group(2) if page_id else ""
     safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", title).strip()[:120] or "Sense títol"
     folder_safe = re.sub(r"[^\w\s\-/À-ÿ]", "", folder).strip() or "Importades"
-    target_dir = vault / folder_safe
+    # `folder` ve de l'LLM (prompt-injectable). El sanejat treu els punts però
+    # CONSERVA les barres: un "../../etc" queda "///etc", i `vault / "///etc"`
+    # esdevé ABSOLUT (/etc) descartant el prefix del vault → escriptura del .md
+    # FORA del vault. Contenció: si el destí resolt s'escapa del vault, cau a la
+    # carpeta per defecte (mateix patró que read_pdf/_safe_directive_path).
+    vault_root = vault.resolve()
+    target_dir = (vault / folder_safe).resolve()
+    if target_dir != vault_root and vault_root not in target_dir.parents:
+        target_dir = vault_root / "Importades"
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / f"{safe}.md"
     if path.exists():
