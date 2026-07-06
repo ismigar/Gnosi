@@ -13695,7 +13695,18 @@ async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
 
 @router.delete("/drawings/{drawing_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_drawing(drawing_id: str):
-    """Deletes a drawing."""
+    """Soft-delete: mou el dibuix a la paperera, com les pàgines.
+
+    Abans feia `unlink()` directe: esborrat instantani i IRREVERSIBLE —
+    l'única cosa de l'app sense els 90 dies de recuperació. I el backup
+    d'`.history` no salvava el cas: només existeix si el dibuix s'havia
+    sobreescrit algun cop (el primer desat no en crea), així que un dibuix
+    nou esborrat es perdia del tot. La mecànica de la paperera és agnòstica
+    del format (guarda el fitxer + sidecar amb `original_path` i restaura
+    allà), així que reutilitzem `_move_page_to_trash`: Restaurar/Purgar i el
+    cron dels 90 dies funcionen de franc.
+    """
+    drawing_id = _validate_safe_page_id(drawing_id)
     dib_path = get_p('DIBUIXOS')
     file_path = dib_path / f"{drawing_id}.tldraw.json"
     if not file_path.exists():
@@ -13703,8 +13714,28 @@ async def delete_drawing(drawing_id: str):
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Drawing not found")
 
-    file_path.unlink()
-    return {"status": "success"}
+    # Títol per a la paperera: del payload JSON del dibuix (el helper llegeix
+    # frontmatter de .md; en un JSON queda buit i la paperera mostraria l'id).
+    title = ""
+    try:
+        title = str((json.loads(file_path.read_text(encoding="utf-8")) or {}).get("title") or "")
+    except Exception:
+        pass
+
+    def _move() -> Dict[str, Any]:
+        sidecar = _move_page_to_trash(drawing_id, file_path)
+        if title and not sidecar.get("title"):
+            sidecar["title"] = title
+            safe_write_json(_trash_entry_dir(drawing_id) / "_trash.json", sidecar, indent=2)
+        return sidecar
+
+    sidecar = await asyncio.to_thread(_move)
+    return {
+        "status": "soft_deleted",
+        "id": drawing_id,
+        "deleted_at": sidecar.get("deleted_at"),
+        "title": sidecar.get("title") or title,
+    }
 
 
 def _create_page_version(page_id: str, file_path: Path, force: bool = False):
