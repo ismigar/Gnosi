@@ -4088,6 +4088,15 @@ async def list_daily_notes():
     return notes
 
 
+# Serialitza el get-or-create de la nota diària: dues peticions SIMULTÀNIES per
+# la mateixa data passaven totes dues el "find" (cap resultat) i es creaven DUES
+# notes (reproduït amb dos POST concurrents: dues files a la BD per al mateix
+# dia; p. ex. doble clic a "Nota diària" o dues finestres alhora). Un candau
+# global n'hi ha prou: la creació és poc freqüent i el backend natiu corre en un
+# sol procés (el fallback Docker també és un sol worker).
+_daily_note_lock = asyncio.Lock()
+
+
 @router.post("/daily", dependencies=[Depends(require_role("editor"))])
 async def get_or_create_daily_note(
     request: DailyNoteRequest, background_tasks: BackgroundTasks
@@ -4098,7 +4107,9 @@ async def get_or_create_daily_note(
     If a note already exists it's returned as-is; otherwise a new one is
     created in the `Daily Notes` folder, seeded with the daily template (if
     configured). This single round-trip avoids the find→create race that two
-    separate calls would expose.
+    separate calls would expose, and `_daily_note_lock` serializes concurrent
+    requests so two simultaneous POSTs can't both miss the find and create
+    duplicates.
     """
     date_str = (request.date or "").strip()
     if not _DAILY_DATE_RE.match(date_str):
@@ -4106,43 +4117,44 @@ async def get_or_create_daily_note(
             status_code=422, detail="date must be in YYYY-MM-DD format"
         )
 
-    # BD-backed mode: when a source table is configured, the daily note IS a row
-    # of that table (e.g. "Bitàcora"), found/created by its date column. The
-    # `Daily Notes/` folder is bypassed entirely while this is configured.
-    table, date_prop = await asyncio.to_thread(_daily_source_config)
-    if table and date_prop:
-        existing_id = await asyncio.to_thread(
-            _find_daily_note_in_table, table, date_prop, date_str
-        )
+    async with _daily_note_lock:
+        # BD-backed mode: when a source table is configured, the daily note IS a
+        # row of that table (e.g. "Bitàcora"), found/created by its date column.
+        # The `Daily Notes/` folder is bypassed entirely while this is configured.
+        table, date_prop = await asyncio.to_thread(_daily_source_config)
+        if table and date_prop:
+            existing_id = await asyncio.to_thread(
+                _find_daily_note_in_table, table, date_prop, date_str
+            )
+            if existing_id:
+                return await get_page(existing_id)
+            content = await asyncio.to_thread(_load_daily_template_content)
+            write_key = (
+                action_rules_service.effect_write_key({}, date_prop)
+                or date_prop.get("name")
+                or date_prop.get("id")
+            )
+            save_req = PageSaveRequest(
+                title=date_str,
+                content=content,
+                metadata={
+                    "database_table_id": table.get("id"),
+                    write_key: date_str,
+                },
+            )
+            return await create_page(save_req, background_tasks)
+
+        existing_id = await asyncio.to_thread(_find_daily_note_id, date_str)
         if existing_id:
             return await get_page(existing_id)
+
         content = await asyncio.to_thread(_load_daily_template_content)
-        write_key = (
-            action_rules_service.effect_write_key({}, date_prop)
-            or date_prop.get("name")
-            or date_prop.get("id")
-        )
         save_req = PageSaveRequest(
             title=date_str,
             content=content,
-            metadata={
-                "database_table_id": table.get("id"),
-                write_key: date_str,
-            },
+            metadata={"note_type": "daily", "date": date_str},
         )
         return await create_page(save_req, background_tasks)
-
-    existing_id = await asyncio.to_thread(_find_daily_note_id, date_str)
-    if existing_id:
-        return await get_page(existing_id)
-
-    content = await asyncio.to_thread(_load_daily_template_content)
-    save_req = PageSaveRequest(
-        title=date_str,
-        content=content,
-        metadata={"note_type": "daily", "date": date_str},
-    )
-    return await create_page(save_req, background_tasks)
 
 
 def _extract_tags(raw) -> list:
