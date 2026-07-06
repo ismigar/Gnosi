@@ -157,23 +157,27 @@ async def lifespan(app: FastAPI):
         from backend.api.vault_routes import (
             load_registry,
             save_registry,
+            registry_mutation,
             _ensure_main_view,
         )
-        registry = load_registry()
-        repaired = []
-        for tbl in registry.get("tables", []):
-            tid = tbl.get("id")
-            if not tid:
-                continue
-            created = _ensure_main_view(registry, tid)
-            if created:
-                repaired.append(tbl.get("name") or tid)
-        if repaired:
-            save_registry(registry)
-            log.info(
-                f"🛠️ Repaired {len(repaired)} table(s) without a main view: "
-                f"{', '.join(repaired)}"
-            )
+        # Cicle load→modify→save sencer sota candau: encara que corre a l'arrencada,
+        # els workers IMAP IDLE / indexadors que segueixen ja poden tocar el registre.
+        with registry_mutation():
+            registry = load_registry()
+            repaired = []
+            for tbl in registry.get("tables", []):
+                tid = tbl.get("id")
+                if not tid:
+                    continue
+                created = _ensure_main_view(registry, tid)
+                if created:
+                    repaired.append(tbl.get("name") or tid)
+            if repaired:
+                save_registry(registry)
+                log.info(
+                    f"🛠️ Repaired {len(repaired)} table(s) without a main view: "
+                    f"{', '.join(repaired)}"
+                )
     except Exception as e:
         log.warning(f"⚠️ Could not run main-view repair pass: {e}")
 
