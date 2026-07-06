@@ -13763,8 +13763,16 @@ async def delete_drawing(drawing_id: str):
     return {"status": "success"}
 
 
-def _create_page_version(page_id: str, file_path: Path):
-    """Saves a version of the current file to .history/{page_id}/{timestamp}.md if cooldown passed."""
+def _create_page_version(page_id: str, file_path: Path, force: bool = False):
+    """Saves a version of the current file to .history/{page_id}/{timestamp}.md if cooldown passed.
+
+    `force=True` salta el cooldown: és per als snapshots de SEGURETAT
+    d'accions explícites (p. ex. el "estat just abans del restore"). El
+    cooldown està pensat per no saturar amb autosaves; aplicar-lo també al
+    snapshot pre-restore feia que, si havies editat feia <10 min, l'estat
+    actual es descartés EN SILENCI i quedés irrecuperable després del
+    restore (reproduït: restaurar v1 amb v3 al disc perdia v3 per sempre).
+    """
     if not file_path or not file_path.exists():
         return
 
@@ -13776,7 +13784,7 @@ def _create_page_version(page_id: str, file_path: Path):
 
     # Check the last saved version to respect cooldown
     versions = sorted(history_base.glob("*.md"))
-    if versions:
+    if versions and not force:
         last_version = versions[-1]
         try:
             if time.time() - last_version.stat().st_mtime < COOLDOWN:
@@ -13784,8 +13792,14 @@ def _create_page_version(page_id: str, file_path: Path):
         except Exception:
             pass
 
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    version_path = history_base / f"{timestamp}.md"
+    # Nom = timestamp a segons. Amb `force` es pot coincidir amb un snapshot
+    # existent del mateix segon: avancem el timestamp fins a un nom lliure
+    # per no sobreescriure mai una versió prèvia.
+    ts_dt = datetime.now()
+    version_path = history_base / f"{ts_dt.strftime('%Y%m%d_%H%M%S')}.md"
+    while version_path.exists():
+        ts_dt += timedelta(seconds=1)
+        version_path = history_base / f"{ts_dt.strftime('%Y%m%d_%H%M%S')}.md"
     try:
         shutil.copy2(file_path, version_path)
         log.info(f"Page version created: {version_path}")
@@ -13892,8 +13906,11 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
     if not file_path:
          raise HTTPException(status_code=404, detail="Current page not found")
 
-    # Save current version (state just before restoration) just in case
-    _create_page_version(page_id, file_path)
+    # Save current version (state just before restoration) just in case.
+    # `force=True`: aquest snapshot és la XARXA DE SEGURETAT d'una acció
+    # destructiva explícita; amb el cooldown normal es descartava en silenci
+    # si hi havia hagut una edició fa <10 min i l'estat actual es perdia.
+    _create_page_version(page_id, file_path, force=True)
     
     try:
         shutil.copy2(version_path, file_path)
