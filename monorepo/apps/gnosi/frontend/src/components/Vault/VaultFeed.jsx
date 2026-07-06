@@ -69,9 +69,14 @@ function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleS
             onClick={() => { if (selectionActive) onToggleSelect(note.id, {}); else onOpen(note.id); }}
             className={`relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer group flex flex-col ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
         >
+            {/* El label només atura la propagació (no obrir la targeta): el
+                toggle el fa l'onChange de l'input. Si el label també cridés
+                onToggleSelect, un clic directe al checkbox dispararia els dos
+                handlers (bubbling) i el toggle doble deixaria la selecció
+                com estava. */}
             <label
                 className={`absolute top-3 left-3 z-20 cursor-pointer ${isSelected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                onClick={(e) => { e.stopPropagation(); onToggleSelect(note.id, e); }}
+                onClick={(e) => e.stopPropagation()}
             >
                 <input
                     type="checkbox"
