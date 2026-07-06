@@ -11366,7 +11366,10 @@ async def list_inline_comments(page_id: str):
     return _load_inline_comments(page_id)
 
 
-@router.post("/pages/{page_id}/inline-comments")
+@router.post(
+    "/pages/{page_id}/inline-comments",
+    dependencies=[Depends(require_role("editor"))],
+)
 async def create_inline_comment(
     page_id: str,
     body: InlineCommentRequest,
@@ -11387,7 +11390,10 @@ async def create_inline_comment(
     return item
 
 
-@router.patch("/pages/{page_id}/inline-comments/{comment_id}")
+@router.patch(
+    "/pages/{page_id}/inline-comments/{comment_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
 async def update_inline_comment(page_id: str, comment_id: str, body: InlineCommentPatch):
     comments = _load_inline_comments(page_id)
     found = None
@@ -11405,7 +11411,10 @@ async def update_inline_comment(page_id: str, comment_id: str, body: InlineComme
     return found
 
 
-@router.delete("/pages/{page_id}/inline-comments/{comment_id}")
+@router.delete(
+    "/pages/{page_id}/inline-comments/{comment_id}",
+    dependencies=[Depends(require_role("editor"))],
+)
 async def delete_inline_comment(page_id: str, comment_id: str):
     comments = _load_inline_comments(page_id)
     new = [c for c in comments if c.get("id") != comment_id]
