@@ -423,19 +423,12 @@ _last_vault_sync_time = 0.0
 
 # Version counter bumped at every mutation of `_page_index_entries[v_str]`
 # (load-from-disk, full replace, partial update, stale prune, page
-# create/delete/save). Derived caches like `_table_index_cache` snapshot
-# this number; when their snapshot diverges from the live version, they
-# rebuild lazily on the next read. Cheaper than tracking field-level diffs.
+# create/delete/save). Perquè les caches DERIVADES en puguin dependre:
+# snapshot del número i rebuild mandrós quan divergeix. (L'antiga
+# `_table_index_cache`, superseded per `_get_pages_for_table`, era l'única
+# consumidora; el comptador es conserva com a mecanisme per a futures
+# caches derivades i com a senyal barat de "l'índex ha canviat".)
 _page_index_version: Dict[str, int] = {}
-
-# Secondary index: table_id → list of PageInfo entries, derived from
-# `_page_index_entries[v_str]`. Rebuilt lazily when `_page_index_version`
-# advances past the snapshot. Without this, `GET /pages/by-table/{id}` had
-# to scan all 4000+ entries every call to filter by resolved_table_id —
-# fine for a small vault but linear in total page count for the rest.
-# TTL is a safety net in case a mutation path forgot to bump version.
-_table_index_cache: Dict[str, Dict[str, Any]] = {}
-_TABLE_INDEX_TTL = 60.0
 # ── Micro-cache de PageInfo (TTL ~1.5s) ──────────────────────────────────
 # Els endpoints `/pages`, `/by-table`, `/sidebar/summary`, `/global-index`
 # es disparen alhora a cada navegació del frontend. Sense aquest cache,
@@ -3053,96 +3046,11 @@ def _get_cached_page_entries(
 
 def _bump_page_index_version(v_str: str) -> None:
     """Marks `_page_index_entries[v_str]` as changed so derived caches
-    (currently `_table_index_cache`) know to rebuild on the next read.
+    know to rebuild on the next read.
     Must be called with `_page_index_lock` held (every mutation site of
     `_page_index_entries` is already under that lock).
     """
     _page_index_version[v_str] = _page_index_version.get(v_str, 0) + 1
-
-
-def _build_pages_by_table_index(v_str: str) -> Dict[str, List["PageInfo"]]:
-    """One-shot rebuild of the table_id → [PageInfo] map for a vault.
-    Iterates `_page_index_entries[v_str]` once, resolves each entry to a
-    table_id, and groups. Returns a dict ready to be served directly by
-    `list_pages_by_table` without filtering 4000+ entries on every call.
-    """
-    registry = load_registry()
-    folder_to_table = _build_table_folder_index(registry)
-    sorted_folders = sorted(folder_to_table.keys(), key=len, reverse=True)
-
-    from backend.api.calendar_routes import _get_hidden_event_ids
-    hidden_ids = _get_hidden_event_ids()
-
-    with _page_index_lock:
-        entries = list(_page_index_entries.get(v_str, {}).values())
-
-    out: Dict[str, List["PageInfo"]] = {}
-    seen_pages: Dict[str, "PageInfo"] = {}
-    for entry in entries:
-        if entry.get("id") in hidden_ids:
-            continue
-        metadata = entry.get("metadata", {}) or {}
-        resolved_table_id = _resolve_table_id_from_context(
-            metadata, entry.get("folder", ""), folder_to_table,
-            sorted_folders=sorted_folders,
-        )
-        if not resolved_table_id:
-            continue
-
-        page_info = PageInfo(
-            id=entry["id"],
-            title=entry["title"],
-            parent_id=entry.get("parent_id"),
-            is_database=entry.get("is_database", False),
-            metadata=metadata,
-            last_modified=datetime.fromtimestamp(entry["mtime"]).isoformat(),
-            created_time=datetime.fromtimestamp(entry.get("created_mtime") or entry["mtime"]).isoformat(),
-            size=entry.get("size", 0),
-            folder=entry.get("folder", ""),
-            path=entry.get("path"),
-            resolved_table_id=resolved_table_id,
-        )
-
-        # Deduplicate by id, keep the newest. Same logic as _get_pages_snapshot.
-        existing = seen_pages.get(page_info.id)
-        if existing is not None and existing.last_modified >= page_info.last_modified:
-            continue
-        seen_pages[page_info.id] = page_info
-
-    # Group only after dedup, otherwise the older copy would still leak in.
-    for page in seen_pages.values():
-        out.setdefault(page.resolved_table_id, []).append(page)
-    return out
-
-
-def _get_pages_by_table_id(v_str: str, table_id: str) -> List["PageInfo"]:
-    """O(1) lookup of pages by table_id after the first build per vault.
-    Rebuilds when `_page_index_version[v_str]` has advanced or the TTL has
-    elapsed since the last build. Fallback to a full scan via
-    `_get_pages_snapshot` only on registry errors during build.
-    """
-    cur_version = _page_index_version.get(v_str, 0)
-    cached = _table_index_cache.get(v_str)
-    now = time.monotonic()
-    if (
-        cached is not None
-        and cached.get("version") == cur_version
-        and now - cached.get("built_at", 0.0) <= _TABLE_INDEX_TTL
-    ):
-        return list(cached["by_table_id"].get(table_id, []))
-
-    try:
-        by_table = _build_pages_by_table_index(v_str)
-    except Exception as e:
-        log.warning(f"_build_pages_by_table_index failed for {v_str}: {e}")
-        return []
-
-    _table_index_cache[v_str] = {
-        "version": cur_version,
-        "built_at": now,
-        "by_table_id": by_table,
-    }
-    return list(by_table.get(table_id, []))
 
 
 def _get_pages_snapshot(
@@ -3568,19 +3476,14 @@ async def list_pages(
 async def list_pages_by_table(table_id: str, include_templates: bool = Query(True)):
     """Returns only pages from a specific table to avoid loading the entire Vault.
 
-    Uses the table-id index cache (`_get_pages_by_table_id`): after the
-    first build per vault, lookups are O(1) in the table's page count
-    instead of O(total vault pages). Critical for vaults with tens of
-    thousands of pages — without it, this endpoint scales linearly with
-    the whole vault size on every call.
+    Fast-path via `_get_pages_for_table`: només es construeix `PageInfo` per a
+    les entries de la taula demanada, no per a les ~4200 del vault sencer
+    (estalvi ~1s/crida). Abans, a més, hi havia una crida RESIDUAL a
+    `_get_pages_by_table_id` (el mecanisme d'índex per-taula anterior) el
+    resultat de la qual es descartava a la línia següent: com que la seva
+    cache s'invalidava a cada bump de versió (cada PATCH/create), la primera
+    crida post-edició reconstruïa l'índex de TOTES les taules per llençar-lo.
     """
-    from backend.services.context_vars import get_active_vault_path
-    v_path = get_active_vault_path()
-    v_str = str(v_path) if v_path else ""
-    filtered = await asyncio.to_thread(_get_pages_by_table_id, v_str, table_id) if v_str else []
-    """Returns only pages from a specific table to avoid loading the entire Vault."""
-    # Fast-path: només construïm `PageInfo` per a les entries de la taula
-    # demanada, no per a les ~4200 del vault sencer. Estalvi ~1s/crida.
     filtered = await asyncio.to_thread(_get_pages_for_table, table_id)
     if not include_templates:
         filtered = [p for p in filtered if not p.metadata.get("is_template")]
