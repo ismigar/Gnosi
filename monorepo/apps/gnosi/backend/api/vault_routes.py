@@ -9024,6 +9024,25 @@ def _image_error(status: int, detail: str) -> HTTPException:
     return HTTPException(status_code=status, detail=detail, headers=_NO_STORE_HEADERS)
 
 
+def _onedrive_read_failure_hint(err: OSError) -> str:
+    """Pista accionable per al log quan una lectura on-access d'OneDrive falla.
+
+    errno 1 (Operation not permitted) en llegir un placeholder dataless vol dir
+    que el PROCÉS no té Full Disk Access — en natiu, cal concedir-lo al binari
+    Python real del venv (el que corre uvicorn) i reiniciar el backend. Sense
+    aquesta pista, el genèric "Lectura fallida" feia buscar cap a OneDrive
+    (errno 35/11) quan la causa era de permisos de macOS (diagnosticat
+    2026-07-06: Fotos en 503 permanent amb el warmup 'direct' ben configurat).
+    """
+    if getattr(err, "errno", None) == 1:
+        return (
+            " — errno 1 = el procés NO té Full Disk Access; concedeix-lo al "
+            "binari Python del venv del backend (Configuració del Sistema → "
+            "Privadesa i seguretat → Accés total al disc) i reinicia el backend"
+        )
+    return ""
+
+
 @router.get("/images/{image_path:path}")
 async def serve_vault_image(image_path: str):
     """Serveix imatges directament des de VAULT/Images."""
@@ -9102,7 +9121,10 @@ async def serve_vault_image(image_path: str):
                 break
 
         if last_error is not None:
-            log.warning(f"☁️ Lectura fallida després de retries per {requested}: {last_error}")
+            log.warning(
+                f"☁️ Lectura fallida després de retries per {requested}: "
+                f"{last_error}{_onedrive_read_failure_hint(last_error)}"
+            )
             raise _image_error(503, "Image temporarily unavailable")
 
         media_type, _ = mimetypes.guess_type(str(requested))
@@ -9198,7 +9220,10 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
                 break
 
         if last_error is not None:
-            log.warning(f"☁️ Lectura fallida després de retries per {requested}: {last_error}")
+            log.warning(
+                f"☁️ Lectura fallida després de retries per {requested}: "
+                f"{last_error}{_onedrive_read_failure_hint(last_error)}"
+            )
             raise HTTPException(status_code=503, detail="File temporarily unavailable")
 
         media_type, _ = mimetypes.guess_type(str(requested))
