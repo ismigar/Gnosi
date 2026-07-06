@@ -192,6 +192,10 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
         "name": heading or target_table.get("name") or "Vista",
         "type": view_meta.get("view_type", "table"),
         "visibleProperties": view_meta.get("display_properties") or [],
+        # Vista contextual d'una secció de pàgina: el tauler no la mostra com a
+        # pestanya (frontend isPageEmbedView); els embeds la segueixen llegint
+        # del registry amb normalitat.
+        "embedded": True,
     }
     # TOTS els filtres de la vista: el de relació a la pàgina amfitriona → {value:"this"}
     # (format històric, el motor el resol al host); la resta → operadors de Gnosi.

@@ -930,6 +930,9 @@ export function DbViewEmbed({ block }) {
                 filters: v.filters || [],
                 sorts: v.sorts || (v.sort ? [v.sort] : []),
                 visibleProperties: v.visibleProperties || columns || ['title'],
+                // Neix per ser pestanya d'aquest bloc, no del tauler
+                // (isPageEmbedView la filtra de les pestanyes de taula).
+                embedded: true,
             });
             await refetchTableViews();
             if (res.data?.id) { pinView(res.data.id); setActiveViewId(res.data.id); }

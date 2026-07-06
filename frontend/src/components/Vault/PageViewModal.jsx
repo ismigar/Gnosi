@@ -878,6 +878,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     resultSnapshot,
                     resultSnapshotLimit,
                     ...buildViewExtras(),
+                    // Si filtra pel context de la pàgina ("this"), com a
+                    // pestanya del tauler no resoldria res: es marca embedded
+                    // i només viu dins dels embeds (isPageEmbedView). Sense
+                    // "this", es respecta el checkbox "desa també a les vistes
+                    // de la taula" i queda com a pestanya normal.
+                    ...(cleanFilters.some(f => f?.value === 'this') ? { embedded: true } : {}),
                 };
                 const created = await apiFetch('/api/vault/views', {
                     method: 'POST',

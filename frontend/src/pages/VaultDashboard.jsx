@@ -32,7 +32,7 @@ import { VaultTagsView } from '../components/Vault/VaultTagsView';
 import { PageComments } from '../components/Vault/PageComments';
 import { ShareModal } from '../components/Vault/ShareModal';
 import { usePlugins } from '../plugins/usePlugins';
-import { MAIN_VIEW_NAME, isMainView } from '../components/Vault/viewConstants';
+import { MAIN_VIEW_NAME, isMainView, isPageEmbedView } from '../components/Vault/viewConstants';
 import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSchemaFieldNames, isCalendarPage } from '../components/Vault/schemaUtils';
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
@@ -857,7 +857,16 @@ export default function VaultDashboard() {
     const getTableViews = useCallback((tableId) => {
         const persisted = registry.views?.filter(v => v.table_id === tableId) || [];
         const localOnly = views.filter(v => v.table_id === tableId && !persisted.find(pv => pv.id === v.id));
-        return ensureMainViewForTable([...persisted, ...localOnly], tableId);
+        const allViews = [...persisted, ...localOnly];
+        // Les vistes contextuals dels embeds de pàgina (una per secció
+        // incrustada; "Cervell digital" n'acumulava ~600) no són pestanyes del
+        // tauler: DbViewEmbed les segueix llegint del registry pel seu compte.
+        // La vista principal EFECTIVA es determina ABANS de filtrar i no
+        // s'exclou mai, perquè també pot dur el filtre "this" (p. ex. la
+        // principal de Tasques).
+        const mainView = allViews.find(v => isMainView(v, allViews));
+        const tabViews = allViews.filter(v => v === mainView || !isPageEmbedView(v));
+        return ensureMainViewForTable(tabViews, tableId);
     }, [registry.views, views, ensureMainViewForTable]);
 
     const getPreferredInitialViewId = useCallback((tableViews = []) => {
@@ -926,6 +935,10 @@ export default function VaultDashboard() {
             order: (view.order !== undefined ? view.order : 0) + 0.5,
             table_id: view.table_id || activeTableId,
             is_main: false,
+            // Un duplicat fet des del tauler és una pestanya de ple dret,
+            // encara que l'original fos la principal d'origen embed (amb
+            // filtre "this"): sense això, la còpia naixeria invisible.
+            embedded: false,
         };
         try {
             await axios.post('/api/vault/views', newView);

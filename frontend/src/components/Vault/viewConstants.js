@@ -53,3 +53,36 @@ export const getViewIcon = (typeId) => {
 // accessible, i és l'àncora de la taula.
 export const isViewHidden = (view, tableViews = []) =>
     !!view?.hidden && !isMainView(view, tableViews);
+
+// UUID versió 5 (determinista, `uuid5`) vs 4 (aleatori, `uuid4`): el 13è dígit
+// hex del format canònic. Gnosi crea TOTES les vistes de taula amb `uuid4`
+// (uuidv4 al frontend, uuid.uuid4() al backend); només l'import de Notion
+// (notion_view_recreator / notion_clone, namespaces uuid5) en genera amb
+// `uuid5`. Per tant, per a una vista sense flag, `uuid5` ⟹ prové de l'import.
+const isUuidV5 = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-/i.test(String(id || ''));
+
+// Vista contextual d'un embed de pàgina (creada per PageViewModal/DbViewEmbed
+// o pel clonador de Notion): només té sentit renderitzada dins de la seva
+// pàgina amfitriona, on el motor resol el filtre pel context del host. El
+// tauler NO l'ha de mostrar com a pestanya de la taula (DbViewEmbed la
+// segueix llegint del registry pel seu compte). Senyals, en ordre:
+//   1) `embedded` booleà explícit → mana en els dos sentits (un duplicat fet
+//      des del tauler el posa a `false` per quedar-se com a pestanya encara
+//      que arrossegui el filtre "this"; els creadors d'embed el posen a `true`).
+//   2) Fallback per a vistes preexistents SENSE flag:
+//      a) el format històric del clonador — filtre {field, value:"this"} SENSE
+//         operator (els filtres desats des de la UI sempre porten operator); o
+//      b) `uuid5` — signatura de l'import de Notion. Cal perquè molts embeds
+//         antics NO porten filtre "this" (quan la relació a la pàgina no es va
+//         resoldre, el recreador la va mapejar a `Font contains <url Notion>` o
+//         va quedar sense filtre): amb "this" sol, "Cervell digital" encara
+//         mostrava ~118 pestanyes. La vista principal EFECTIVA (isMainView) mai
+//         passa per aquí — el tauler la reserva abans de filtrar—, així que la
+//         principal d'una taula importada (també uuid5) no desapareix.
+export const isPageEmbedView = (view) => {
+    if (!view) return false;
+    if (typeof view.embedded === 'boolean') return view.embedded;
+    const filters = Array.isArray(view.filters) ? view.filters : [];
+    if (filters.some(f => f && f.value === 'this' && !f.operator)) return true;
+    return isUuidV5(view.id);
+};
