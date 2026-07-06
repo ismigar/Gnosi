@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
-import { compareFieldValues, NUM_RE } from '../../utils/vaultFilters';
+import { compareFieldValues, NUM_RE, parseNumericValue } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
@@ -111,16 +111,18 @@ function applyFilter(meta, pageId, f) {
     if (op === 'contains') return arrLower.some(x => x.includes(targetLower));
     if (op === 'not_contains') return !arrLower.some(x => x.includes(targetLower));
     // major/menor que: si TOTS DOS (valor i filtre) són números purs, comparació
-    // numèrica (parseFloat, paritat amb matchesFilters i _parse_float_js); si no,
-    // comparació de CADENA en minúscules. Per a dates ISO l'ordre lexicogràfic és
-    // cronològic i coincideix entre JS i Python (ASCII), així que el filtre per
-    // rang de dates funciona i és consistent amb la vista principal i el backend.
+    // numèrica (parseNumericValue, paritat amb matchesFilters: '12,5' → 12.5,
+    // decimal de coma; abans parseFloat pelat hi divergia i fins i tot del
+    // multiKeySort d'aquí mateix); si no, comparació de CADENA en minúscules.
+    // Per a dates ISO l'ordre lexicogràfic és cronològic i coincideix entre JS
+    // i Python (ASCII), així que el filtre per rang de dates funciona i és
+    // consistent amb la vista principal i el backend.
     if (op === 'greater_than' || op === 'less_than') {
         const gt = op === 'greater_than';
         const targetNum = NUM_RE.test(target.trim());
         return arr.some((x, i) => {
             if (targetNum && NUM_RE.test(x.trim())) {
-                const n = parseFloat(x), t = parseFloat(target);
+                const n = parseNumericValue(x), t = parseNumericValue(target);
                 return gt ? n > t : n < t;
             }
             const xl = arrLower[i];

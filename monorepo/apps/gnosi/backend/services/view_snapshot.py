@@ -444,17 +444,18 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     if op == "not_contains":
         return not any(target_l in x for x in arr_l)
     # major/menor que: si TOTS DOS (valor i filtre) són números purs, comparació
-    # numèrica (_parse_float_js, paritat amb el parseFloat del front); si no,
-    # comparació de CADENA en minúscules. Per a dates ISO l'ordre lexicogràfic és
-    # cronològic i coincideix amb JS (ASCII), de manera que filtrar una columna de
-    # data per rang funciona i és consistent amb matchesFilters / applyFilter.
+    # numèrica (_parse_numeric_value, paritat amb parseNumericValue del front:
+    # '12,5' → 12.5, decimal de coma); si no, comparació de CADENA en minúscules.
+    # Per a dates ISO l'ordre lexicogràfic és cronològic i coincideix amb JS
+    # (ASCII), de manera que filtrar una columna de data per rang funciona i és
+    # consistent amb matchesFilters / applyFilter.
     if op in ("greater_than", "less_than"):
         gt = op == "greater_than"
         target_num = bool(_FULL_NUMERIC_RE.match(target.strip()))
         for x in arr:
             if target_num and _FULL_NUMERIC_RE.match(x.strip()):
-                n = _parse_float_js(x)
-                t = _parse_float_js(target)
+                n = _parse_numeric_value(x)
+                t = _parse_numeric_value(target)
                 if n is None or t is None:
                     continue
                 if (n > t) if gt else (n < t):
@@ -497,6 +498,23 @@ def _parse_float_js(text: str) -> Optional[float]:
         return None
 
 
+# Cas inequívoc de decimal amb COMA ("12,5", sense punt de milers): una sola
+# coma entre dígits. Paritat amb `parseNumericValue` del front (vaultFilters.js).
+_COMMA_DECIMAL_RE = re.compile(r"^-?\d+,\d+$")
+
+
+def _parse_numeric_value(text: str) -> Optional[float]:
+    """Port de ``parseNumericValue`` (vaultFilters.js): tolera el decimal LOCAL
+    amb coma ("0,25" → 0.25, cas inequívoc d'una sola coma sense punt de
+    milers); la resta cau a ``_parse_float_js`` (que, com parseFloat, s'atura a
+    la coma: "0,25" → 0). Sense això el snapshot filtrava i ordenava els camps
+    number en format català/castellà diferent de la vista principal."""
+    t = text.strip()
+    if _COMMA_DECIMAL_RE.match(t):
+        return float(t.replace(",", "."))
+    return _parse_float_js(t)
+
+
 def _js_str(value: Any) -> str:
     """Coerció EQUIVALENT a JS ``String(value)`` (el front fa ``String(raw ?? '')``):
     ``None``→'', ``bool``→'true'/'false', llista→elements units per ',' (com
@@ -537,8 +555,8 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
         if a_empty and b_empty:
             return 0
         return 1 if a_empty else -1  # buits sempre al final
-    a_num = _parse_float_js(a_val) if _FULL_NUMERIC_RE.match(a_val.strip()) else None
-    b_num = _parse_float_js(b_val) if _FULL_NUMERIC_RE.match(b_val.strip()) else None
+    a_num = _parse_numeric_value(a_val) if _FULL_NUMERIC_RE.match(a_val.strip()) else None
+    b_num = _parse_numeric_value(b_val) if _FULL_NUMERIC_RE.match(b_val.strip()) else None
     if a_num is not None and b_num is not None:
         cmp = (a_num > b_num) - (a_num < b_num)  # signe (evita nan amb inf-inf)
     else:

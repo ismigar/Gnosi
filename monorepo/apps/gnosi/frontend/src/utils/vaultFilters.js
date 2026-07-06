@@ -31,7 +31,9 @@ export function asBool(x) {
 // valors en format català/castellà s'ordenava i es filtrava malament (tots els
 // "0,xx" empataven a 0). Només el cas INEQUÍVOC (una sola coma, sense punt de
 // milers); la resta cau a parseFloat (compatible amb "0.25", "5", "12.5"…).
-function parseNumericValue(s) {
+// Exportada perquè DbViewEmbed.applyFilter compari els números amb la MATEIXA
+// semàntica (paritat entre el filtre de la vista principal i l'incrustada).
+export function parseNumericValue(s) {
     const t = String(s).trim();
     return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
 }

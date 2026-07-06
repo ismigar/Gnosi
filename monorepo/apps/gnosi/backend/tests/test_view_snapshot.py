@@ -5,6 +5,7 @@ strip (wikilinks → cos net), idempotència i fidelitat del filtre/ordre respec
 el frontend (DbViewEmbed).
 """
 from backend.services.view_snapshot import (
+    _parse_numeric_value,
     apply_filter,
     compact_view_fences,
     inject_view_snapshots,
@@ -70,6 +71,27 @@ def test_filter_no_field_is_passthrough():
     assert apply_filter({}, PAGE, {"operator": "equals", "value": "x"}) is True
 
 
+# --- decimal amb coma (paritat amb parseNumericValue del front) --------------
+def test_parse_numeric_value_comma_decimal():
+    assert _parse_numeric_value("12,5") == 12.5
+    assert _parse_numeric_value("-0,25") == -0.25
+    assert _parse_numeric_value("12.5") == 12.5
+    assert _parse_numeric_value("5") == 5.0
+    # Ambigu (punt de milers + coma): cau a parseFloat, com al front.
+    assert _parse_numeric_value("1.234,56") == 1.234
+    assert _parse_numeric_value("abc") is None
+
+
+def test_filter_numeric_comma_decimal():
+    # '12,5' > '12,4' — abans parseFloat s'aturava a la coma (12 > 12 → False).
+    f = {"field": "n", "operator": "greater_than", "value": "12,4"}
+    assert apply_filter({"n": "12,5"}, PAGE, f) is True
+    assert apply_filter({"n": "12,3"}, PAGE, f) is False
+    f2 = {"field": "n", "operator": "less_than", "value": "0,5"}
+    assert apply_filter({"n": "0,25"}, PAGE, f2) is True
+    assert apply_filter({"n": "0,75"}, PAGE, f2) is False
+
+
 # --- multi_key_sort ---------------------------------------------------------
 def test_sort_by_field_desc_and_default_title():
     rows = [
@@ -82,6 +104,18 @@ def test_sort_by_field_desc_and_default_title():
     assert desc == ["2", "1"]
     by_title = [r["id"] for r in multi_key_sort(rows, [])]
     assert by_title == ["2", "1"]  # A abans de B
+
+
+def test_sort_comma_decimal_numeric_order():
+    # '0,5' < '0,75' < '2,25' — abans tots els "0,xx" empataven a 0 (parseFloat)
+    # i l'ordre quedava a mercè de l'estabilitat del sort.
+    rows = [
+        {"id": "1", "title": "x", "metadata": {"Preu": "2,25"}},
+        {"id": "2", "title": "y", "metadata": {"Preu": "0,75"}},
+        {"id": "3", "title": "z", "metadata": {"Preu": "0,5"}},
+    ]
+    asc = [r["id"] for r in multi_key_sort(rows, [{"field": "Preu", "direction": "asc"}])]
+    assert asc == ["3", "2", "1"]
 
 
 # --- resolve_row_ids --------------------------------------------------------
