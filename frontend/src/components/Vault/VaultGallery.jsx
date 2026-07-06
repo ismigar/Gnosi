@@ -299,7 +299,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                     {/* Checkbox de selecció (cantonada superior esquerra) */}
                                     <label
                                         className={`absolute top-2 left-2 z-20 cursor-pointer ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                        onClick={(e) => { e.stopPropagation(); toggleSelect(note.id, e); }}
+                                        onClick={(e) => e.stopPropagation()}
                                     >
                                         <input
                                             type="checkbox"

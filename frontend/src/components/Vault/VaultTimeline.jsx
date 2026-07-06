@@ -458,7 +458,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         >
                                             <label
                                                 className="cursor-pointer inline-flex items-center"
-                                                onClick={(e) => { e.stopPropagation(); toggleSelect(note.id, e); }}
+                                                onClick={(e) => e.stopPropagation()}
                                             >
                                                 <input
                                                     type="checkbox"
