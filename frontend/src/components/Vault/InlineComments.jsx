@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { MessageSquarePlus, Check, Trash2, X, MessageSquare } from 'lucide-react';
+import { toast } from '../../lib/toast';
+import { useApi } from '../../hooks/use-api';
 
 /**
  * InlineComments
@@ -13,8 +16,13 @@ import { MessageSquarePlus, Check, Trash2, X, MessageSquare } from 'lucide-react
  *
  * Backend: `/api/vault/pages/{id}/inline-comments` (sidecar vault-first).
  * Es munta amb `pageId`; el panell s'obre/tanca amb l'event `gnosi:toggle-comments`.
+ * Els viewers només poden llegir el fil: el backend retorna 403 a les
+ * mutacions (PR #742) i aquí no se'ls mostra cap acció d'escriptura.
  */
 export default function InlineComments({ pageId }) {
+    const { t } = useTranslation();
+    const { role } = useApi();
+    const canComment = role !== 'viewer';
     const [comments, setComments] = useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
     const [btn, setBtn] = useState(null);     // {top,left} del botó flotant
@@ -38,8 +46,9 @@ export default function InlineComments({ pageId }) {
     }, []);
 
     // Detecta selecció de text dins l'editor i mostra el botó flotant.
+    // Els viewers no poden crear comentaris: ni listener ni botó.
     useEffect(() => {
-        if (!pageId) return undefined;
+        if (!pageId || !canComment) return undefined;
         const onUp = () => {
             setTimeout(() => {
                 const sel = window.getSelection();
@@ -55,7 +64,16 @@ export default function InlineComments({ pageId }) {
         document.addEventListener('mouseup', onUp);
         document.addEventListener('keyup', onUp);
         return () => { document.removeEventListener('mouseup', onUp); document.removeEventListener('keyup', onUp); };
-    }, [pageId]);
+    }, [pageId, canComment]);
+
+    // Notifica errors de mutació: 403 → missatge de permisos; resta → genèric.
+    const notifyMutationError = useCallback((err, key, fallback) => {
+        if (err?.response?.status === 403) {
+            toast.error(t('errors.comment_forbidden', { defaultValue: 'El teu rol no permet modificar comentaris' }));
+        } else {
+            toast.error(t(key, { defaultValue: fallback }));
+        }
+    }, [t]);
 
     const startCompose = (e) => {
         e.preventDefault();
@@ -79,14 +97,18 @@ export default function InlineComments({ pageId }) {
                 quote: compose.quote, comment: draft.trim(), block_id: compose.blockId,
             });
             setCompose(null); setDraft(''); setPanelOpen(true); load();
-        } catch { /* noop */ }
+        } catch (err) {
+            notifyMutationError(err, 'errors.comment_add', 'Error afegint el comentari');
+        }
     };
 
     const resolve = async (c) => {
-        try { await axios.patch(`/api/vault/pages/${pageId}/inline-comments/${c.id}`, { resolved: !c.resolved }); load(); } catch { /* noop */ }
+        try { await axios.patch(`/api/vault/pages/${pageId}/inline-comments/${c.id}`, { resolved: !c.resolved }); load(); }
+        catch (err) { notifyMutationError(err, 'errors.comment_resolve', 'Error actualitzant el comentari'); }
     };
     const remove = async (c) => {
-        try { await axios.delete(`/api/vault/pages/${pageId}/inline-comments/${c.id}`); load(); } catch { /* noop */ }
+        try { await axios.delete(`/api/vault/pages/${pageId}/inline-comments/${c.id}`); load(); }
+        catch (err) { notifyMutationError(err, 'errors.comment_delete', 'Error eliminant el comentari'); }
     };
     const goTo = (c) => {
         if (!c.block_id) return;
@@ -104,8 +126,8 @@ export default function InlineComments({ pageId }) {
 
     return (
         <>
-            {/* Botó flotant a la selecció */}
-            {btn && createPortal(
+            {/* Botó flotant a la selecció (només rols amb escriptura) */}
+            {canComment && btn && createPortal(
                 <button
                     data-gnosi-portal="comment-btn"
                     onMouseDown={startCompose}
@@ -115,8 +137,8 @@ export default function InlineComments({ pageId }) {
                     <MessageSquarePlus size={14} /> Comenta
                 </button>, document.body)}
 
-            {/* Popover de redacció */}
-            {compose && createPortal(
+            {/* Popover de redacció (només rols amb escriptura) */}
+            {canComment && compose && createPortal(
                 <div
                     data-gnosi-portal="comment-compose"
                     style={{ position: 'fixed', top: compose.top, left: compose.left, width: 300, zIndex: 9999 }}
@@ -146,15 +168,21 @@ export default function InlineComments({ pageId }) {
                     </div>
                     <div className="flex-1 overflow-auto p-3">
                         {comments.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-[var(--text-tertiary)]">Selecciona text i clica «Comenta» per afegir-ne.</div>
+                            <div className="py-8 text-center text-sm text-[var(--text-tertiary)]">
+                                {canComment
+                                    ? t('comments.inline_empty', { defaultValue: 'Selecciona text i clica «Comenta» per afegir-ne.' })
+                                    : t('comments.empty', { defaultValue: 'Encara no hi ha comentaris' })}
+                            </div>
                         ) : comments.map((c) => (
                             <div key={c.id} className={`mb-2 rounded-lg border p-2.5 ${c.resolved ? 'border-[var(--border-primary)] opacity-60' : 'border-[var(--border-primary)]'}`}>
                                 {c.quote && <button onClick={() => goTo(c)} className="mb-1 block w-full border-l-2 border-[var(--gnosi-primary)] pl-2 text-left text-xs italic text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]">«{c.quote}»</button>}
                                 <div className={`text-sm text-[var(--text-primary)] ${c.resolved ? 'line-through' : ''}`}>{c.comment}</div>
-                                <div className="mt-1.5 flex items-center gap-2">
-                                    <button onClick={() => resolve(c)} title={c.resolved ? 'Reobre' : 'Resol'} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)]"><Check size={12} /> {c.resolved ? 'Reobre' : 'Resol'}</button>
-                                    <button onClick={() => remove(c)} title="Esborra" className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]"><Trash2 size={12} /></button>
-                                </div>
+                                {canComment && (
+                                    <div className="mt-1.5 flex items-center gap-2">
+                                        <button onClick={() => resolve(c)} title={c.resolved ? 'Reobre' : 'Resol'} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)]"><Check size={12} /> {c.resolved ? 'Reobre' : 'Resol'}</button>
+                                        <button onClick={() => remove(c)} title="Esborra" className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]"><Trash2 size={12} /></button>
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>

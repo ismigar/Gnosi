@@ -3,6 +3,7 @@ import axios from 'axios';
 import { MessageSquare, X, Send, Trash2, Check, RotateCcw, Loader2, Pencil } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
+import { useApi } from '../../hooks/use-api';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { ConfirmModal } from '../ConfirmModal';
 
@@ -28,9 +29,13 @@ function currentAuthor() {
 /**
  * Panell lliscant de comentaris d'una pàgina (estil Notion). Fil pla amb
  * afegir / editar / resoldre / eliminar. Persistit a `.gnosi/page_comments.json`.
+ * Els viewers només llegeixen: el backend retorna 403 a les mutacions (PR #742)
+ * i aquí se'ls amaga el compositor i les accions d'escriptura.
  */
 export function PageComments({ pageId, pageTitle, open, onClose }) {
     const { t } = useTranslation();
+    const { role } = useApi();
+    const canComment = role !== 'viewer';
     const panelRef = useRef(null);
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -58,6 +63,15 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
         if (open && pageId) fetchComments();
     }, [open, pageId, fetchComments]);
 
+    // 403 (rol viewer, PR #742) → missatge de permisos; resta → clau genèrica.
+    const notifyMutationError = useCallback((err, key, fallback) => {
+        if (err?.response?.status === 403) {
+            toast.error(t('errors.comment_forbidden', { defaultValue: 'El teu rol no permet modificar comentaris' }));
+        } else {
+            toast.error(t(key, { defaultValue: fallback }));
+        }
+    }, [t]);
+
     useModalKeyboard({
         isOpen: open,
         onClose,
@@ -79,7 +93,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setDraft('');
         } catch (err) {
             console.error('Error afegint comentari:', err);
-            toast.error(t('errors.comment_add', { defaultValue: 'Error afegint el comentari' }));
+            notifyMutationError(err, 'errors.comment_add', 'Error afegint el comentari');
         } finally {
             setSubmitting(false);
         }
@@ -95,7 +109,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setEditDraft('');
         } catch (err) {
             console.error('Error editant comentari:', err);
-            toast.error(t('errors.comment_edit', { defaultValue: 'Error editant el comentari' }));
+            notifyMutationError(err, 'errors.comment_edit', 'Error editant el comentari');
         }
     };
 
@@ -107,7 +121,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setComments(prev => prev.map(c => (c.id === comment.id ? res.data : c)));
         } catch (err) {
             console.error('Error canviant estat del comentari:', err);
-            toast.error(t('errors.comment_resolve', { defaultValue: 'Error actualitzant el comentari' }));
+            notifyMutationError(err, 'errors.comment_resolve', 'Error actualitzant el comentari');
         }
     };
 
@@ -119,7 +133,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setComments(prev => prev.filter(c => c.id !== target.id));
         } catch (err) {
             console.error('Error eliminant comentari:', err);
-            toast.error(t('errors.comment_delete', { defaultValue: 'Error eliminant el comentari' }));
+            notifyMutationError(err, 'errors.comment_delete', 'Error eliminant el comentari');
         } finally {
             setDeleteTarget(null);
         }
@@ -182,6 +196,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                                             </span>
                                         )}
                                     </div>
+                                    {canComment && (
                                     <div className="flex items-center gap-1 shrink-0">
                                         <button
                                             onClick={() => toggleResolved(c)}
@@ -205,6 +220,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                                             <Trash2 size={13} />
                                         </button>
                                     </div>
+                                    )}
                                 </div>
                                 {editingId === c.id ? (
                                     <div className="mt-2">
@@ -239,6 +255,11 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                 </div>
 
                 <div className="border-t border-[var(--border-primary)] p-3 bg-[var(--bg-secondary)]/50">
+                    {!canComment ? (
+                        <p className="text-xs text-[var(--text-tertiary)] italic text-center py-1">
+                            {t('comments.read_only', 'El teu rol només permet llegir els comentaris')}
+                        </p>
+                    ) : (
                     <div className="flex items-end gap-2">
                         <textarea
                             value={draft}
@@ -262,6 +283,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                         </button>
                     </div>
+                    )}
                 </div>
             </div>
 
