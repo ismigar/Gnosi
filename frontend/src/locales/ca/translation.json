@@ -263,7 +263,8 @@
     "show_sidebar": "Mostrar barra lateral",
     "lock_edit": "Bloqueja edició (només lectura)",
     "unlock_edit": "Desbloqueja per editar",
-    "translate_record": "Tradueix el registre"
+    "translate_record": "Tradueix el registre",
+    "view_comments": "Comentaris"
   },
   "table": {
     "new_record": "Nou registre",
@@ -501,12 +502,18 @@
     "clipboard": "No s'ha pogut copiar",
     "shares_load": "No s'han pogut carregar els enllaços",
     "share_create": "Error creant l'enllaç",
-    "share_revoke": "Error revocant l'enllaç"
-    ,"daily_note": "Error obrint la nota diària",
+    "share_revoke": "Error revocant l'enllaç",
+    "daily_note": "Error obrint la nota diària",
     "record_create": "Error creant el registre",
     "add_schema_option": "No s'ha pogut desar l'opció al schema",
     "load_registry": "Error carregant el registre de bases de dades",
-    "restore_page": "No s'ha pogut restaurar"
+    "restore_page": "No s'ha pogut restaurar",
+    "comments_load": "No s'han pogut carregar els comentaris",
+    "comment_add": "Error afegint el comentari",
+    "comment_edit": "Error editant el comentari",
+    "comment_resolve": "Error actualitzant el comentari",
+    "comment_delete": "Error eliminant el comentari",
+    "comment_forbidden": "El teu rol no permet modificar comentaris"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -2329,5 +2336,25 @@
     "stage_summarizing": "Generant l'acta amb IA…",
     "stage_saving": "Desant la pàgina…",
     "stage_processing": "Processant…"
+  },
+  "comments": {
+    "empty": "Encara no hi ha comentaris",
+    "resolved": "Resolt",
+    "reopen": "Reobre",
+    "resolve": "Marca com a resolt",
+    "placeholder": "Escriu un comentari… (⌘+Enter per enviar)",
+    "send": "Envia",
+    "delete_title": "Eliminar comentari",
+    "delete_msg": "Segur que vols eliminar aquest comentari?",
+    "read_only": "El teu rol només permet llegir els comentaris"
+  },
+  "inline_comments": {
+    "add": "Comenta",
+    "placeholder": "Escriu un comentari…",
+    "title": "Comentaris ({{count}})",
+    "resolve": "Resol",
+    "reopen": "Reobre",
+    "delete": "Esborra",
+    "empty": "Selecciona text i clica «Comenta» per afegir-ne."
   }
 }

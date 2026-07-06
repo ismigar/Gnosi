@@ -16,10 +16,8 @@
     "close": "Fermer",
     "loading": "Chargement…",
     "add": "Ajouter",
-    "create": "Créer"
-    ,"add": "Ajouter",
+    "create": "Créer",
     "dismiss": "Ignorer",
-    "close": "Fermer",
     "retry": "Réessayer",
     "save_changes": "Enregistrer les modifications",
     "erase": "Supprimer",
@@ -34,13 +32,11 @@
     "time": "Heure",
     "collapse": "Replier",
     "expand": "Déplier",
-    "cancel": "Annuler",
     "confirm_delete_template": "Supprimer le modèle",
     "confirm_delete_template_msg": "Voulez-vous vraiment supprimer le modèle « {{title}} » ? Il sera déplacé dans la corbeille.",
     "confirm_delete_view": "Supprimer la vue",
     "confirm_delete_view_msg": "Voulez-vous vraiment supprimer la vue « {{name}} » ? Cette action est irréversible.",
     "copy": "Copier",
-    "create": "Créer",
     "drag_resize": "Faites glisser pour redimensionner",
     "empty": "Vide",
     "icon": "Icône",
@@ -67,7 +63,9 @@
     "table": "Table",
     "table_db": "Table • {{db}}",
     "untitled": "Sans titre",
-    "wiki_no_table": "Cette page wiki n'a pas de table globale associée."
+    "wiki_no_table": "Cette page wiki n'a pas de table globale associée.",
+    "edit": "Modifier",
+    "save": "Enregistrer"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
@@ -924,7 +922,8 @@
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement",
-    "translate_page": "Traduire la page"
+    "translate_page": "Traduire la page",
+    "view_comments": "Commentaires"
   },
   "views_header": {
     "manage_views": "Vues",
@@ -939,7 +938,13 @@
     "clipboard": "Impossible de copier",
     "shares_load": "Impossible de charger les liens",
     "share_create": "Erreur lors de la création du lien",
-    "share_revoke": "Erreur lors de la révocation du lien"
+    "share_revoke": "Erreur lors de la révocation du lien",
+    "comments_load": "Impossible de charger les commentaires",
+    "comment_add": "Erreur lors de l'ajout du commentaire",
+    "comment_edit": "Erreur lors de la modification du commentaire",
+    "comment_resolve": "Erreur lors de la mise à jour du commentaire",
+    "comment_delete": "Erreur lors de la suppression du commentaire",
+    "comment_forbidden": "Votre rôle ne permet pas de modifier les commentaires"
   },
   "notion_clone": "Cloner",
   "notion_cloning": "Clonage…",
@@ -1181,8 +1186,8 @@
     "create_view": "Créer la vue",
     "error_no_table": "Il faut sélectionner une table source",
     "error_no_fields": "Au moins un champ visible est requis",
-    "error_create": "Erreur inconnue lors de la création de la vue"
-    ,"daily_note": "Erreur à l'ouverture de la note quotidienne",
+    "error_create": "Erreur inconnue lors de la création de la vue",
+    "daily_note": "Erreur à l'ouverture de la note quotidienne",
     "record_create": "Erreur lors de la création de l'enregistrement",
     "add_schema_option": "Impossible d'enregistrer l'option dans le schéma",
     "load_registry": "Erreur de chargement du registre des bases de données",
@@ -1213,8 +1218,6 @@
     "template_duplicate": "Erreur de duplication du modèle",
     "toggle_favorites": "Erreur de modification des favoris"
   },
-  "notion_clone": "Cloner",
-  "notion_cloning": "Clonage…",
   "editor": {
     "ai_ask": "Demander à l'IA…",
     "ai_ask_subtext": "Écrivez une instruction et insérez le résultat",
@@ -1735,5 +1738,25 @@
     "stage_summarizing": "Génération du compte rendu avec l'IA…",
     "stage_saving": "Enregistrement de la page…",
     "stage_processing": "Traitement…"
+  },
+  "comments": {
+    "empty": "Pas encore de commentaires",
+    "resolved": "Résolu",
+    "reopen": "Rouvrir",
+    "resolve": "Marquer comme résolu",
+    "placeholder": "Écris un commentaire… (⌘+Entrée pour envoyer)",
+    "send": "Envoyer",
+    "delete_title": "Supprimer le commentaire",
+    "delete_msg": "Voulez-vous vraiment supprimer ce commentaire ?",
+    "read_only": "Votre rôle permet uniquement de lire les commentaires"
+  },
+  "inline_comments": {
+    "add": "Commenter",
+    "placeholder": "Écris un commentaire…",
+    "title": "Commentaires ({{count}})",
+    "resolve": "Résoudre",
+    "reopen": "Rouvrir",
+    "delete": "Supprimer",
+    "empty": "Sélectionne du texte et clique sur « Commenter » pour en ajouter."
   }
 }

@@ -134,7 +134,7 @@ export default function InlineComments({ pageId }) {
                     style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 9998 }}
                     className="flex items-center gap-1 rounded-full bg-[var(--gnosi-primary)] px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:opacity-90"
                 >
-                    <MessageSquarePlus size={14} /> Comenta
+                    <MessageSquarePlus size={14} /> {t('inline_comments.add', 'Comenta')}
                 </button>, document.body)}
 
             {/* Popover de redacció (només rols amb escriptura) */}
@@ -150,12 +150,12 @@ export default function InlineComments({ pageId }) {
                         value={draft}
                         onChange={(e) => setDraft(e.target.value)}
                         onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); submitComment(); } if (e.key === 'Escape') setCompose(null); }}
-                        placeholder="Escriu un comentari…"
+                        placeholder={t('inline_comments.placeholder', 'Escriu un comentari…')}
                         className="h-20 w-full resize-y rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                     />
                     <div className="mt-1.5 flex justify-end gap-2">
-                        <button onMouseDown={(e) => { e.preventDefault(); setCompose(null); }} className="rounded px-2 py-1 text-xs text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]">Cancel·la</button>
-                        <button onMouseDown={(e) => { e.preventDefault(); submitComment(); }} className="rounded bg-[var(--gnosi-primary)] px-2.5 py-1 text-xs font-medium text-white">Comenta</button>
+                        <button onMouseDown={(e) => { e.preventDefault(); setCompose(null); }} className="rounded px-2 py-1 text-xs text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]">{t('common.cancel', 'Cancel·la')}</button>
+                        <button onMouseDown={(e) => { e.preventDefault(); submitComment(); }} className="rounded bg-[var(--gnosi-primary)] px-2.5 py-1 text-xs font-medium text-white">{t('inline_comments.add', 'Comenta')}</button>
                     </div>
                 </div>, document.body)}
 
@@ -163,15 +163,15 @@ export default function InlineComments({ pageId }) {
             {panelOpen && createPortal(
                 <div className="fixed right-0 top-0 z-[140] flex h-full w-80 flex-col border-l border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl">
                     <div className="flex items-center justify-between border-b border-[var(--border-primary)] px-4 py-3">
-                        <span className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><MessageSquare size={16} /> Comentaris ({open.length})</span>
+                        <span className="flex items-center gap-2 text-sm font-semibold text-[var(--text-primary)]"><MessageSquare size={16} /> {t('inline_comments.title', 'Comentaris ({{count}})', { count: open.length })}</span>
                         <button onClick={() => setPanelOpen(false)} className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]"><X size={16} /></button>
                     </div>
                     <div className="flex-1 overflow-auto p-3">
                         {comments.length === 0 ? (
                             <div className="py-8 text-center text-sm text-[var(--text-tertiary)]">
                                 {canComment
-                                    ? t('comments.inline_empty', { defaultValue: 'Selecciona text i clica «Comenta» per afegir-ne.' })
-                                    : t('comments.empty', { defaultValue: 'Encara no hi ha comentaris' })}
+                                    ? t('inline_comments.empty', 'Selecciona text i clica «Comenta» per afegir-ne.')
+                                    : t('comments.empty', 'Encara no hi ha comentaris')}
                             </div>
                         ) : comments.map((c) => (
                             <div key={c.id} className={`mb-2 rounded-lg border p-2.5 ${c.resolved ? 'border-[var(--border-primary)] opacity-60' : 'border-[var(--border-primary)]'}`}>
@@ -179,8 +179,8 @@ export default function InlineComments({ pageId }) {
                                 <div className={`text-sm text-[var(--text-primary)] ${c.resolved ? 'line-through' : ''}`}>{c.comment}</div>
                                 {canComment && (
                                     <div className="mt-1.5 flex items-center gap-2">
-                                        <button onClick={() => resolve(c)} title={c.resolved ? 'Reobre' : 'Resol'} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)]"><Check size={12} /> {c.resolved ? 'Reobre' : 'Resol'}</button>
-                                        <button onClick={() => remove(c)} title="Esborra" className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]"><Trash2 size={12} /></button>
+                                        <button onClick={() => resolve(c)} title={c.resolved ? t('inline_comments.reopen', 'Reobre') : t('inline_comments.resolve', 'Resol')} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-primary)]"><Check size={12} /> {c.resolved ? t('inline_comments.reopen', 'Reobre') : t('inline_comments.resolve', 'Resol')}</button>
+                                        <button onClick={() => remove(c)} title={t('inline_comments.delete', 'Esborra')} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]"><Trash2 size={12} /></button>
                                     </div>
                                 )}
                             </div>
