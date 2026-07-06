@@ -25,8 +25,16 @@ defaults seria semànticament fals.
 from __future__ import annotations
 
 import json
+import threading
 from pathlib import Path
 from typing import Any
+
+# Serialitza el cicle SENCER load→modify→save del config. Hi ha dos escriptors
+# independents: la designació des de Settings (`_set_reference_table_id`) i
+# l'auto-migració one-shot de `get_reference_table_id` (adopta una taula amb
+# 'Citation Key' en vaults antics). Sense candau, una auto-migració en curs
+# podia esclafar la designació que l'usuari acabava de desar a Settings.
+cfg_lock = threading.Lock()
 
 _BASE_DIR = Path(__file__).resolve().parents[2]
 CONFIG_PATH = _BASE_DIR / "pipeline/skills/zotero_sync/zotero_db_config.json"

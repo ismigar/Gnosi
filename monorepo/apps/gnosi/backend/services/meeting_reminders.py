@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Optional
@@ -23,6 +24,15 @@ from backend.config.app_config import load_params
 from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
+
+# Serialitza el cicle SENCER load→modify→save de meeting_reminders.json. Hi ha
+# QUATRE mutadors concurrents: `scan_and_notify` (fil de l'scheduler, cada
+# minut), `dismiss` i `update_settings` (handlers de l'API) i el prune de
+# `get_active` (GET del banner). Sense candau, dues mutacions llegien el mateix
+# snapshot i l'última escriptura esclafava l'altra (p.ex. un dismiss perdut
+# perquè l'escaneig desava després amb l'estat vell). És un threading.Lock (no
+# asyncio.Lock) perquè l'scheduler corre en un fil propi, fora de l'event loop.
+_state_lock = threading.Lock()
 
 DEFAULT_SETTINGS = {
     "enabled": False,
@@ -82,17 +92,18 @@ def get_settings() -> dict:
 
 
 def update_settings(patch: dict) -> dict:
-    state = _load_state()
-    s = state["settings"]
-    if "enabled" in patch:
-        s["enabled"] = bool(patch["enabled"])
-    if "lead_minutes" in patch:
-        try:
-            s["lead_minutes"] = max(1, min(120, int(patch["lead_minutes"])))
-        except (TypeError, ValueError):
-            pass
-    _save_state(state)
-    return s
+    with _state_lock:
+        state = _load_state()
+        s = state["settings"]
+        if "enabled" in patch:
+            s["enabled"] = bool(patch["enabled"])
+        if "lead_minutes" in patch:
+            try:
+                s["lead_minutes"] = max(1, min(120, int(patch["lead_minutes"])))
+            except (TypeError, ValueError):
+                pass
+        _save_state(state)
+        return s
 
 
 # ── Helpers de temps ─────────────────────────────────────────────────────────
@@ -206,7 +217,7 @@ def scan_and_notify() -> dict:
         return {"enabled": True, "new": 0, "error": str(e)}
 
     notified = state["notified"]
-    active = {a["id"]: a for a in state.get("active", []) if a.get("id")}
+    new_reminders: list = []
     new_count = 0
 
     for ev in events:
@@ -238,15 +249,27 @@ def scan_and_notify() -> dict:
             "dismissed": False,
             "created_at": now.isoformat(),
         }
-        active[ev.get("id")] = reminder
         notified[key] = now.isoformat()
+        new_reminders.append(reminder)
         new_count += 1
         _dispatch_notification(reminder)
 
-    state["active"] = _prune_active(list(active.values()), now)
-    state["notified"] = _prune_notified(notified, now)
-    _save_state(state)
-    return {"enabled": True, "new": new_count, "active": len(state["active"])}
+    # Fusió sota candau: la generació d'agenda amb IA (a dalt) pot trigar
+    # segons. Si mentrestant l'usuari ha fet un dismiss o ha tocat settings,
+    # desar el snapshot vell ho esclafaria (recordatoris descartats que
+    # "ressusciten"). Recarreguem l'estat FRESC i hi apliquem només els deltes.
+    with _state_lock:
+        fresh = _load_state()
+        fresh_active = {a["id"]: a for a in fresh.get("active", []) if a.get("id")}
+        for reminder in new_reminders:
+            if reminder["key"] in fresh["notified"]:
+                continue  # un altre escaneig ja l'havia registrat
+            fresh_active[reminder["id"]] = reminder
+            fresh["notified"][reminder["key"]] = now.isoformat()
+        fresh["active"] = _prune_active(list(fresh_active.values()), now)
+        fresh["notified"] = _prune_notified(fresh["notified"], now)
+        _save_state(fresh)
+        return {"enabled": True, "new": new_count, "active": len(fresh["active"])}
 
 
 def _prune_active(active: list, now: datetime) -> list:
@@ -275,12 +298,13 @@ def _prune_notified(notified: dict, now: datetime) -> dict:
 
 def get_active(now: Optional[datetime] = None) -> list:
     """Recordatoris actius per al banner, amb `minutes_until` recalculat."""
-    state = _load_state()
     now = now or datetime.now(timezone.utc)
-    pruned = _prune_active(state.get("active", []), now)
-    if len(pruned) != len(state.get("active", [])):
-        state["active"] = pruned
-        _save_state(state)
+    with _state_lock:
+        state = _load_state()
+        pruned = _prune_active(state.get("active", []), now)
+        if len(pruned) != len(state.get("active", [])):
+            state["active"] = pruned
+            _save_state(state)
     result = []
     for a in pruned:
         start = _parse_dt(a.get("start"))
@@ -293,10 +317,11 @@ def get_active(now: Optional[datetime] = None) -> list:
 
 
 def dismiss(reminder_id: str) -> bool:
-    state = _load_state()
-    before = len(state.get("active", []))
-    state["active"] = [a for a in state.get("active", []) if a.get("id") != reminder_id]
-    if len(state["active"]) != before:
-        _save_state(state)
-        return True
-    return False
+    with _state_lock:
+        state = _load_state()
+        before = len(state.get("active", []))
+        state["active"] = [a for a in state.get("active", []) if a.get("id") != reminder_id]
+        if len(state["active"]) != before:
+            _save_state(state)
+            return True
+        return False

@@ -4347,6 +4347,15 @@ async def delete_page_comment(page_id: str, comment_id: str):
 # ---------------------------------------------------------------------------
 _plugins_lock = threading.Lock()
 
+# Serialitza el cicle SENCER load→modify→save de plugins.json (mateix patró que
+# _daily_note_lock i _comments_mutation_lock): `_plugins_lock` fa atòmics cada
+# load i cada save per separat, però dues mutacions concurrents (p.ex. concedir
+# permisos a un plugin mentre un altre tab desa settings) llegien el mateix
+# snapshot i l'última escriptura esclafava l'altra. Els handlers agafen aquest
+# candau abans del seu asyncio.to_thread; les parts lentes (descarregar o
+# extreure un .zip) queden FORA del candau, només la mutació d'estat a dins.
+_plugins_mutation_lock = asyncio.Lock()
+
 
 class PluginsUpdateRequest(BaseModel):
     # List of plugin ids the user has turned OFF. Everything else is on.
@@ -4415,7 +4424,8 @@ async def set_plugins_state(request: PluginsUpdateRequest):
         current["disabled"] = [str(x) for x in (request.disabled or [])]
         current["settings"] = request.settings if isinstance(request.settings, dict) else {}
         return _save_plugins_state(current)
-    return await asyncio.to_thread(_write)
+    async with _plugins_mutation_lock:
+        return await asyncio.to_thread(_write)
 
 
 # ---------------------------------------------------------------------------
@@ -4479,7 +4489,8 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
         return {"id": plugin_id, "granted": clean}
 
     try:
-        return await asyncio.to_thread(_work)
+        async with _plugins_mutation_lock:
+            return await asyncio.to_thread(_work)
     except ps.PluginError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -4509,7 +4520,8 @@ async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
         state["settings"] = settings
         _save_plugins_state(state)
         return {"settings": settings[plugin_id]}
-    return await asyncio.to_thread(_work)
+    async with _plugins_mutation_lock:
+        return await asyncio.to_thread(_work)
 
 
 @router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
@@ -4538,6 +4550,20 @@ async def get_plugin_asset(plugin_id: str, asset_path: str):
     return FileResponse(str(target))
 
 
+def _quarantine_installed_plugin(plugin_id: str) -> None:
+    """Instal·lat de nou → arrenca desactivat (afegit a `disabled`), permisos nets.
+
+    Cicle load→modify→save: cridar-lo SEMPRE amb `_plugins_mutation_lock` agafat.
+    """
+    from backend.services import plugin_system as ps
+    state = _load_plugins_state()
+    disabled = set(state.get("disabled") or [])
+    disabled.add(plugin_id)
+    state["disabled"] = list(disabled)
+    state = ps.set_granted(state, plugin_id, [])
+    _save_plugins_state(state)
+
+
 @router.post("/plugins/install", dependencies=[Depends(require_role("editor"))])
 async def install_plugin(file: UploadFile = File(...)):
     """Instal·la un plugin de tercers des d'un .zip pujat (amb el seu manifest.json).
@@ -4548,22 +4574,17 @@ async def install_plugin(file: UploadFile = File(...)):
     from backend.services import plugin_system as ps
     data = await file.read()
 
-    def _work():
+    def _install():
         config_dir = get_p("GNOSI_CONFIG")
-        manifest = ps.install_from_zip(config_dir, data, overwrite=True)
-        # Instal·lat de nou → arrenca desactivat (afegit a `disabled`), permisos nets.
-        state = _load_plugins_state()
-        disabled = set(state.get("disabled") or [])
-        disabled.add(manifest["id"])
-        state["disabled"] = list(disabled)
-        state = ps.set_granted(state, manifest["id"], [])
-        _save_plugins_state(state)
-        return manifest
+        return ps.install_from_zip(config_dir, data, overwrite=True)
 
     try:
-        manifest = await asyncio.to_thread(_work)
+        # L'extracció del .zip queda fora del candau; només la mutació d'estat a dins.
+        manifest = await asyncio.to_thread(_install)
     except ps.PluginError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    async with _plugins_mutation_lock:
+        await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
     return {"installed": manifest}
 
 
@@ -4583,7 +4604,8 @@ async def uninstall_plugin(plugin_id: str):
         return True
 
     try:
-        await asyncio.to_thread(_work)
+        async with _plugins_mutation_lock:
+            await asyncio.to_thread(_work)
     except ps.PluginError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return {"uninstalled": plugin_id}
@@ -4635,27 +4657,22 @@ async def install_from_catalog(request: CatalogInstallRequest):
     from backend.services import plugin_catalog as pc
     from backend.services import plugin_system as ps
 
-    def _work():
+    def _install():
         config_dir = get_p("GNOSI_CONFIG")
         if request.url:
-            manifest = pc.install_from_url(config_dir, request.url, request.sha256, request.signature)
-        elif request.id:
-            manifest = pc.install_catalog_entry(config_dir, request.id)
-        else:
-            raise ps.PluginError("cal `id` o `url`")
-        # Instal·lat → desactivat + sense permisos (com l'install per zip).
-        state = _load_plugins_state()
-        disabled = set(state.get("disabled") or [])
-        disabled.add(manifest["id"])
-        state["disabled"] = list(disabled)
-        state = ps.set_granted(state, manifest["id"], [])
-        _save_plugins_state(state)
-        return manifest
+            return pc.install_from_url(config_dir, request.url, request.sha256, request.signature)
+        if request.id:
+            return pc.install_catalog_entry(config_dir, request.id)
+        raise ps.PluginError("cal `id` o `url`")
 
     try:
-        manifest = await asyncio.to_thread(_work)
+        # La descàrrega/extracció queda fora del candau (pot trigar segons);
+        # només la mutació d'estat (desactivat + sense permisos) va a dins.
+        manifest = await asyncio.to_thread(_install)
     except ps.PluginError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    async with _plugins_mutation_lock:
+        await asyncio.to_thread(_quarantine_installed_plugin, manifest["id"])
     return {"installed": manifest}
 
 
@@ -4734,7 +4751,8 @@ async def set_registry_url(request: RegistryUrlRequest):
         _save_plugins_state(state)
         return {"url": url}
 
-    return await asyncio.to_thread(_work)
+    async with _plugins_mutation_lock:
+        return await asyncio.to_thread(_work)
 
 
 def get_table_id(metadata: Optional[dict]) -> Optional[str]:
@@ -5913,7 +5931,7 @@ def get_reference_table_id() -> Optional[str]:
     activades encara)."""
     try:
         from backend.services.reference_table_config import (
-            CONFIG_PATH, DEFAULT_CONFIG, load_json, save_json,
+            CONFIG_PATH, DEFAULT_CONFIG, cfg_lock, load_json, save_json,
         )
     except Exception:
         return None
@@ -5934,11 +5952,21 @@ def get_reference_table_id() -> Optional[str]:
             if _citation_key_prop_name(t):
                 adopted = str(t.get("id") or "").strip()
                 if adopted:
-                    cfg["target_table"] = adopted
-                    try:
-                        save_json(CONFIG_PATH, cfg)
-                    except Exception:
-                        pass
+                    with cfg_lock:
+                        # Re-comprova amb l'estat FRESC dins del candau: si
+                        # mentre buscàvem la taula l'usuari ha desat una
+                        # designació a Settings, respecta-la i no l'esclafis.
+                        cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
+                        current = str(cfg.get("target_table") or "").strip()
+                        if current:
+                            return current
+                        if cfg.get("references_configured"):
+                            return None
+                        cfg["target_table"] = adopted
+                        try:
+                            save_json(CONFIG_PATH, cfg)
+                        except Exception:
+                            pass
                     log.info(
                         f"📚 Taula de referències auto-designada: {adopted} "
                         f"({t.get('name')})"
@@ -5994,13 +6022,14 @@ def ensure_reference_table_schema(table_id: str) -> int:
 def _set_reference_table_id(table_id: Optional[str]) -> None:
     """Persisteix la designació de taula de referències (Settings → `target_table`)."""
     from backend.services.reference_table_config import (
-        CONFIG_PATH, DEFAULT_CONFIG, load_json, save_json,
+        CONFIG_PATH, DEFAULT_CONFIG, cfg_lock, load_json, save_json,
     )
-    cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
-    cfg["target_table"] = (table_id or "").strip()
-    # Marca que la designació és deliberada (Settings) → desactiva l'auto-migració.
-    cfg["references_configured"] = True
-    save_json(CONFIG_PATH, cfg)
+    with cfg_lock:
+        cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
+        cfg["target_table"] = (table_id or "").strip()
+        # Marca que la designació és deliberada (Settings) → desactiva l'auto-migració.
+        cfg["references_configured"] = True
+        save_json(CONFIG_PATH, cfg)
 
 
 def _reference_table_by_id_primary(table_id: str) -> Optional[dict]:
