@@ -3,7 +3,7 @@ import { useTitlePreview } from './useTitlePreview';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
-import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig } from './schemaUtils';
+import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig, resolveViewSorts } from './schemaUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
@@ -42,9 +42,11 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
     // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
+    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
+    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
     const viewConfig = {
         filters: activeView?.filters || [],
-        sorts: activeView?.sort || { field: "last_modified", direction: "desc" },
+        sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
         search: searchTerm
     };
 
@@ -344,7 +346,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     onToggleSorts={() => onEditSchema?.('sorts')}
                     onAddNew={onCreateRecord}
                     activeFiltersCount={Array.isArray(activeView?.filters) ? activeView.filters.length : (activeView?.filters?.conditions?.length || 0)}
-                    activeSortsCount={Array.isArray(activeView?.sort) ? activeView.sort.length : (activeView?.sort ? 1 : 0)}
+                    activeSortsCount={resolveViewSorts(activeView).length}
                     isEmbedded={false}
                     extraActions={
                         <div className="flex items-center gap-2 ml-4">

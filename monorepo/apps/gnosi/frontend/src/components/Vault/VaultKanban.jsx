@@ -3,7 +3,7 @@ import { useTitlePreview } from './useTitlePreview';
 import { Columns, FileText, Clock, Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
-import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
+import { getFieldType, getSchemaFieldNames, getFieldConfig, resolveViewSorts } from './schemaUtils';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { isMainView } from './viewConstants';
@@ -21,9 +21,11 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
     // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
+    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
+    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
     const viewConfig = {
         filters: activeView?.filters || [],
-        sorts: activeView?.sort || { field: "last_modified", direction: "desc" },
+        sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
         search: searchTerm
     };
 
@@ -54,16 +56,16 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
     // Definir columna d'agrupament
     const groupBy = activeView?.groupBy || 'status';
 
-    // Propietats visibles a les targetes (mateix criteri que la galeria): la
-    // vista principal mostra tots els camps; una vista amb selecció, els seus
-    // `visibleProperties` (o els 3 primers per defecte). Abans el kanban
-    // ignorava `visibleProperties` i només pintava tags + data de modificació.
-    // `isMainView` SENSE llista de vistes (cas degenerat): amb `[activeView]` el
-    // fallback per ordre la considerava SEMPRE principal i s'ignoraven els
-    // visibleProperties de les vistes custom.
-    const cardProperties = isMainView(activeView)
-        ? getSchemaFieldNames(schema)
-        : (activeView?.visibleProperties || getSchemaFieldNames(schema).slice(0, 3));
+    // Propietats visibles a les targetes (mateix criteri que la galeria): tota
+    // vista amb `visibleProperties` configurats els respecta — TAMBÉ la
+    // principal (abans forçava tots els camps i tapava la config real de les
+    // vistes importades de Notion). Sense config: la principal mostra tots els
+    // camps; una vista custom, els 3 primers per defecte.
+    const cardProperties = activeView?.visibleProperties?.length
+        ? activeView.visibleProperties
+        : (isMainView(activeView)
+            ? getSchemaFieldNames(schema)
+            : getSchemaFieldNames(schema).slice(0, 3));
     const cardColumns = cardProperties
         .map(prop => [prop, getFieldType(schema, prop)])
         .filter(([key, type]) => type && type !== 'title');
@@ -170,7 +172,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                     onToggleSorts={() => onEditSchema?.('sorts')}
                     onAddNew={onCreateRecord}
                     activeFiltersCount={Array.isArray(activeView?.filters) ? activeView.filters.length : (activeView?.filters?.conditions?.length || 0)}
-                    activeSortsCount={Array.isArray(activeView?.sort) ? activeView.sort.length : (activeView?.sort ? 1 : 0)}
+                    activeSortsCount={resolveViewSorts(activeView).length}
                     isEmbedded={isEmbedded}
                 />
             )}
