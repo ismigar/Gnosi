@@ -3849,6 +3849,10 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
                     _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
                     _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
                     _bump_page_index_version(v_str)
+                # PathResolver: sense això la pàgina nova no entrava a la
+                # llista de fitxers fins al rescan complet (cooldown 600s) i
+                # /unlinked-mentions i rule_engine.find_path no la veien.
+                path_resolver.add_file(v_path, page_id, file_path)
         except Exception as e:
             # Si no podem inserir, anem al pla B (rebuild segur) per no servir
             # un cache parcialment incoherent.
@@ -8084,6 +8088,11 @@ async def patch_page(
                         if new_id:
                             _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
                         _bump_page_index_version(v_str)
+                    # PathResolver: en un RENAME (títol) el fitxer canvia de
+                    # path; sense re-registrar-lo, find_path (rule_engine) i
+                    # la llista de fitxers d'/unlinked-mentions apuntaven al
+                    # path antic fins al rescan complet (cooldown 600s).
+                    path_resolver.add_file(v_path, new_id or page_id, file_path)
                 except Exception as e:
                     log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
             with _body_cache_lock:
@@ -8445,6 +8454,9 @@ def _remove_page_from_index_cache(page_id: str, old_path: Optional[Path] = None)
             entries.pop(path_str, None)
         if old_path:
             entries.pop(str(old_path), None)
+    # Mantén el PathResolver en sincronia (rule_engine.find_path i la llista
+    # de fitxers d'/unlinked-mentions llegeixen d'allà, no d'aquest índex).
+    path_resolver.remove_file(v_path, page_id, old_path or (Path(path_str) if path_str else None))
     # Cualquier delete/restore canvia la composició de pàgines visibles;
     # invalida el micro-cache de respostes per evitar `/by-table` stale.
     _pages_cache_invalidate_all()
@@ -8474,6 +8486,10 @@ def _add_page_to_index_cache(file_path: Path) -> None:
         new_id = new_entry.get("id")
         if new_id:
             _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
+    # PathResolver també: sense això la pàgina restaurada/duplicada quedava
+    # fora de la llista de fitxers fins al rescan complet (cooldown 600s) i
+    # /unlinked-mentions i rule_engine.find_path no la veien.
+    path_resolver.add_file(v_path, new_id, file_path)
     _pages_cache_invalidate_all()
 
 

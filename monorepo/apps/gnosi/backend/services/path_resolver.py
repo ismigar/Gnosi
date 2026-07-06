@@ -46,5 +46,39 @@ class PathResolver:
             return list(vault_path.rglob("*.md"))
         return files
 
+    def add_file(self, vault_path: Path, record_id: Optional[str], file_path: Path) -> None:
+        """Registra (o re-ubica) UN fitxer sense esperar el rescan complet.
+
+        `update_index` només corre al rescan de vault (cooldown 600s i només
+        si algú toca GET /pages): sense aquest mètode, una pàgina CREADA no
+        entrava a `_vault_files` fins al següent rescan (invisible per a
+        /unlinked-mentions i per al `find_path` del rule_engine), i una de
+        RENOMBRADA hi quedava amb el path antic (`find_path` → None). Els
+        cridadors són els mateixos punts que registren la pàgina a l'índex
+        de vault_routes (create/PATCH/restore/duplicate).
+        """
+        v_str = str(vault_path)
+        new_str = str(file_path)
+        id_map = self._id_to_path.setdefault(v_str, {})
+        old_str = id_map.get(record_id) if record_id else None
+        if record_id:
+            id_map[record_id] = new_str
+        files = self._vault_files.setdefault(v_str, [])
+        if old_str and old_str != new_str:
+            # Rename/move: fora el path antic de la llista de fitxers.
+            old_path = Path(old_str)
+            self._vault_files[v_str] = files = [p for p in files if p != old_path]
+        if file_path not in files:
+            files.append(file_path)
+
+    def remove_file(self, vault_path: Path, record_id: Optional[str], file_path: Optional[Path]) -> None:
+        """Desregistra UN fitxer (soft-delete/purge), simètric a `add_file`."""
+        v_str = str(vault_path)
+        id_map = self._id_to_path.get(v_str, {})
+        mapped = id_map.pop(record_id, None) if record_id else None
+        targets = {p for p in (file_path, Path(mapped) if mapped else None) if p}
+        if targets and v_str in self._vault_files:
+            self._vault_files[v_str] = [p for p in self._vault_files[v_str] if p not in targets]
+
 # Global singleton
 path_resolver = PathResolver()
