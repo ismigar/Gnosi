@@ -5339,6 +5339,39 @@ def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
     return out
 
 
+# Missatge d'error compartit quan no es troba pandoc. En NATIU (sense Docker)
+# el binari és una dependència del host — la imatge del contenidor el duia,
+# però després de la migració l'error antic ("not available al contenidor")
+# desorientava: la solució és instal·lar-lo al Mac.
+_PANDOC_MISSING_MSG = (
+    "pandoc no disponible al host — instal·la'l (brew install pandoc) "
+    "o defineix PANDOC_PATH amb la ruta del binari"
+)
+
+
+def _pandoc_bin() -> str:
+    """Ruta del binari pandoc, robusta a l'entorn NATIU.
+
+    Els LaunchAgents poden arrencar el backend amb un PATH mínim (sense
+    /opt/homebrew/bin ni /usr/local/bin), i llavors `subprocess.run(['pandoc',…])`
+    peta amb FileNotFoundError encara que pandoc estigui instal·lat. Ordre de
+    resolució: PANDOC_PATH (override explícit) → shutil.which (PATH del procés)
+    → ubicacions Homebrew habituals (ARM i Intel). Es retorna 'pandoc' com a
+    últim recurs perquè el FileNotFoundError dels cridadors segueixi produint
+    el 500 amb _PANDOC_MISSING_MSG.
+    """
+    env_path = os.environ.get("PANDOC_PATH", "").strip()
+    if env_path and Path(env_path).exists():
+        return env_path
+    found = shutil.which("pandoc")
+    if found:
+        return found
+    for cand in ("/opt/homebrew/bin/pandoc", "/usr/local/bin/pandoc"):
+        if Path(cand).exists():
+            return cand
+    return "pandoc"
+
+
 @router.get("/format-citation")
 async def format_citation(
     key: str,
@@ -5376,7 +5409,7 @@ async def format_citation(
         (tmp / 'input.md').write_text(md, encoding='utf-8')
         (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
         cmd = [
-            'pandoc', 'input.md', '-t', 'plain', '--wrap=none',
+            _pandoc_bin(), 'input.md', '-t', 'plain', '--wrap=none',
             '--citeproc', '--bibliography', 'refs.json',
             '--metadata', f'lang={locale}',
         ]
@@ -5385,7 +5418,7 @@ async def format_citation(
         try:
             r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=20)
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="pandoc not available")
+            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
         except _ext_subprocess.TimeoutExpired:
             raise HTTPException(status_code=504, detail="pandoc timeout")
         if r.returncode != 0:
@@ -5458,7 +5491,7 @@ async def format_citations(payload: dict = Body(...)):
         (tmp / 'input.md').write_text(md, encoding='utf-8')
         if csl_items:
             (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        cmd = ['pandoc', 'input.md', '-t', 'plain', '--wrap=none', '--metadata', f'lang={locale}']
+        cmd = [_pandoc_bin(), 'input.md', '-t', 'plain', '--wrap=none', '--metadata', f'lang={locale}']
         if csl_items:
             cmd += ['--citeproc', '--bibliography', 'refs.json']
         if csl_path:
@@ -5466,7 +5499,7 @@ async def format_citations(payload: dict = Body(...)):
         try:
             r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=30)
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="pandoc not available")
+            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
         except _ext_subprocess.TimeoutExpired:
             raise HTTPException(status_code=504, detail="pandoc timeout")
         if r.returncode != 0:
@@ -5524,7 +5557,7 @@ async def format_bibliography(payload: dict = Body(...)):
         # cursiva (<em>/<i> segons el CSL) i URL/DOI com a enllaços
         # (link-bibliography). L'Office Add-in ho insereix amb insertHtml.
         cmd = [
-            'pandoc', 'input.md', '-t', 'html',
+            _pandoc_bin(), 'input.md', '-t', 'html',
             '--citeproc', '--bibliography', 'refs.json',
             '--metadata', f'lang={locale}',
             '--metadata', 'link-bibliography=true',
@@ -5535,7 +5568,7 @@ async def format_bibliography(payload: dict = Body(...)):
         try:
             r = _ext_subprocess.run(cmd, cwd=tmp, capture_output=True, text=True, timeout=30)
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="pandoc not available")
+            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
         except _ext_subprocess.TimeoutExpired:
             raise HTTPException(status_code=504, detail="pandoc timeout")
         if r.returncode != 0:
@@ -5668,7 +5701,7 @@ async def export_page(
             (tmp / 'input.md').write_text(content, encoding='utf-8')
         ext_map = {'docx':'docx','odt':'odt','html':'html','pdf':'pdf','tex':'tex','markdown':'md'}
         out_name = f'output.{ext_map[format]}'
-        cmd = ['pandoc', 'input.md', '-o', out_name]
+        cmd = [_pandoc_bin(), 'input.md', '-o', out_name]
         if csl_items:
             cmd += ['--citeproc', '--bibliography', 'refs.json']
             if csl_path:
@@ -5681,7 +5714,7 @@ async def export_page(
                 cmd, cwd=tmp, capture_output=True, text=True, timeout=60,
             )
         except FileNotFoundError:
-            raise HTTPException(status_code=500, detail="pandoc not available al contenidor")
+            raise HTTPException(status_code=500, detail=_PANDOC_MISSING_MSG)
         except _ext_subprocess.TimeoutExpired:
             raise HTTPException(status_code=504, detail="pandoc timeout after 60s")
         if result.returncode != 0:
