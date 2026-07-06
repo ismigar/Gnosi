@@ -10,6 +10,7 @@ Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 from pathlib import Path
@@ -40,12 +41,21 @@ class OneDriveProvider(FilesProvider):
         # Mode de materialització:
         #   "daemon" (default) → crida el daemon HTTP del host (cas Docker, on
         #                        el backend NO té accés directe al File Provider).
-        #   "direct"           → llegeix el fitxer directament; a macOS, accedir
-        #                        a un placeholder dataless en dispara la baixada
-        #                        on-access. És el mode per al runtime NATIU, on el
-        #                        backend SÍ té accés al vault i el daemon de
-        #                        `host.docker.internal` no és accessible (ni cal).
+        #   "direct"           → llegeix el fitxer directament EN PROCÉS. A macOS
+        #                        això NO funciona des del backend NATIU: uvicorn
+        #                        corre sota launchd i el File Provider d'OneDrive
+        #                        torna EDEADLK (errno 11) instantani a qualsevol
+        #                        procés de launchd. Es manté per compatibilitat/
+        #                        diagnòstic, però en natiu useu "open".
+        #   "open"             → materialitza via LaunchServices (`open -g -j -a
+        #                        <app>`), que llança una app GUI a la sessió Aqua
+        #                        de l'usuari; l'app llegeix el fitxer en el context
+        #                        correcte i OneDrive el baixa. És el mode per al
+        #                        runtime NATIU. Cf. feedback_onedrive_warmup_native.
         self.warmup_mode = os.environ.get("ONEDRIVE_WARMUP_MODE", "daemon").strip().lower()
+        # App GUI que LaunchServices obre per disparar la baixada (mode "open").
+        # Preview llegeix imatges/PDF; qualsevol app que llegeixi el fitxer val.
+        self._warmup_open_app = os.environ.get("ONEDRIVE_WARMUP_OPEN_APP", "Preview").strip()
         self.warmup_timeout_s = (
             warmup_timeout_s
             if warmup_timeout_s is not None
@@ -136,10 +146,108 @@ class OneDriveProvider(FilesProvider):
             log.info("☁️→💾 Materialitzat (directe) %s", container_path.name)
         return ok
 
+    def _blocks(self, container_path: Path) -> int:
+        try:
+            return getattr(container_path.stat(), "st_blocks", 1)
+        except OSError:
+            return 0
+
+    async def _open_and_wait(self, container_path: Path) -> bool:
+        """Dispara `open -g -j -a <app>` i sondeja `st_blocks` fins que el
+        fitxer estigui materialitzat o s'exhaureixi el timeout. `-g` no porta
+        l'app a primer pla i `-j` la llança oculta: no roba el focus."""
+        if self._blocks(container_path) > 0:
+            return True
+        app = self._warmup_open_app
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/open", "-g", "-j", "-a", app, str(container_path),
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            _, err = await proc.communicate()
+        except OSError as e:
+            log.warning("☁️ No s'ha pogut executar `open` per %s: %r", container_path, e)
+            return False
+        if proc.returncode != 0:
+            log.warning(
+                "☁️ `open -a %s` ha fallat per %s: %s",
+                app, container_path, (err or b"").decode(errors="replace").strip(),
+            )
+            return False
+        # LaunchServices retorna immediatament; l'app manté el document obert i
+        # OneDrive baixa en segon pla (pot trigar desenes de segons). Sondegem.
+        waited = 0.0
+        while waited < self.warmup_timeout_s:
+            await asyncio.sleep(1.0)
+            waited += 1.0
+            if self._blocks(container_path) > 0:
+                log.info(
+                    "☁️→💾 Materialitzat (open/%s) %s en %.0fs",
+                    app, container_path.name, waited,
+                )
+                await self._close_helper_doc(container_path)
+                return True
+        log.warning(
+            "☁️ Materialització via open/%s no completada en %.0fs: %s",
+            app, self.warmup_timeout_s, container_path,
+        )
+        await self._close_helper_doc(container_path)
+        return False
+
+    async def _close_helper_doc(self, container_path: Path) -> None:
+        """Tanca NOMÉS el document que hem obert nosaltres a l'app helper
+        (per ruta), alliberant el handle sense tocar les finestres de l'usuari.
+        Best-effort: qualsevol error s'ignora."""
+        app = self._warmup_open_app
+        posix = json.dumps(str(container_path))  # literal AppleScript segur
+        script = (
+            f'tell application "{app}" to if it is running then '
+            f'close (every document whose path is {posix})'
+        )
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "/usr/bin/osascript", "-e", script,
+                stdout=asyncio.subprocess.DEVNULL,
+                stderr=asyncio.subprocess.DEVNULL,
+            )
+            await proc.communicate()
+        except OSError:
+            pass
+
+    async def _materialize_via_open(self, container_path: Path) -> bool:
+        """Mode "open" (natiu): materialitza via LaunchServices. Coalesça
+        peticions concurrents del mateix fitxer i serialitza amb el semàfor
+        (OneDrive baixa més ràpid sense concurrència)."""
+        key = str(container_path)
+        inflight = self._inflight.get(key)
+        if inflight is not None:
+            try:
+                return await inflight
+            except Exception:
+                return False
+        fut: asyncio.Future = asyncio.get_event_loop().create_future()
+        self._inflight[key] = fut
+        try:
+            async with self._get_semaphore():
+                ok = await self._open_and_wait(container_path)
+            if not fut.done():
+                fut.set_result(ok)
+            return ok
+        except Exception as e:
+            if not fut.done():
+                fut.set_exception(e)
+            return False
+        finally:
+            self._inflight.pop(key, None)
+
     async def materialize(self, container_path: Path) -> bool:
-        """Materialitza un fitxer online-only. En mode "direct" (natiu) el
-        llegeix directament; en mode "daemon" (Docker) crida el daemon del host
+        """Materialitza un fitxer online-only. En mode "open" (natiu) el
+        delega a LaunchServices; en "direct" el llegeix en procés (no funciona
+        sota launchd); en "daemon" (Docker) crida el daemon del host
         (`sh/onedrive_warmup_daemon.py`). Retorna True si s'ha materialitzat."""
+        if self.warmup_mode == "open":
+            return await self._materialize_via_open(container_path)
         if self.warmup_mode == "direct":
             return await self._materialize_direct(container_path)
         if not self.vault_host_path:

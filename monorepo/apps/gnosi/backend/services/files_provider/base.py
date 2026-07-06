@@ -10,10 +10,14 @@ Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
+
+log = logging.getLogger(__name__)
 
 
 class FilesProvider(ABC):
@@ -53,3 +57,42 @@ class FilesProvider(ABC):
 
         Per a proveïdors local-only, és un no-op que retorna True.
         """
+
+    def schedule_warmup(self, container_path: Path) -> None:
+        """Engega la materialització en SEGON PLA (fire-and-forget) i retorna a
+        l'instant.
+
+        Els endpoints d'imatge no han de bloquejar la petició HTTP fins que el
+        proveïdor baixa el fitxer (OneDrive pot trigar desenes de segons): amb
+        això responen 503 immediatament i el client reintenta fins que una
+        petició troba el fitxer ja materialitzat. Es coalesça per ruta: múltiples
+        `<img>` del mateix asset disparen UNA sola baixada. Sense event loop en
+        marxa (context síncron) és un no-op silenciós."""
+        key = str(container_path)
+        tasks: Dict[str, asyncio.Task] = getattr(self, "_warmup_tasks", None)
+        if tasks is None:
+            tasks = self._warmup_tasks = {}
+        existing = tasks.get(key)
+        if existing is not None and not existing.done():
+            return
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        task = loop.create_task(self._warmup_bg(container_path))
+        tasks[key] = task
+
+        def _cleanup(t: asyncio.Task) -> None:
+            tasks.pop(key, None)
+            if not t.cancelled():
+                t.exception()  # recupera per silenciar "exception never retrieved"
+
+        task.add_done_callback(_cleanup)
+
+    async def _warmup_bg(self, container_path: Path) -> None:
+        """Embolcall del `materialize` per al warmup en segon pla: engoleix
+        qualsevol excepció (la petició ja ha respost 503; el client reintentarà)."""
+        try:
+            await self.materialize(container_path)
+        except Exception:
+            log.warning("Warmup en segon pla ha fallat per %s", container_path, exc_info=True)
