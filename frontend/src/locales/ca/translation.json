@@ -1888,6 +1888,13 @@
   "reader_podcast_starting": "Iniciant generació…",
   "reader_podcast_in_progress": "Ja en curs…",
   "reader_podcast_error": "Error iniciant la generació del podcast.",
+  "feed": {
+    "updated_at": "Actualitzat el {{date}}",
+    "see_more": "Veure més",
+    "see_less": "Veure menys",
+    "read_full": "Llegir sencer",
+    "empty": "No hi ha publicacions al feed."
+  },
   "files": {
     "delete_title": "Eliminar fitxer",
     "delete_question": "Què vols fer amb «{{name}}»?",

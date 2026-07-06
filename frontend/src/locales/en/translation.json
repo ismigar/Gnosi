@@ -1902,6 +1902,13 @@
   "reader_podcast_starting": "Starting generation…",
   "reader_podcast_in_progress": "Already running…",
   "reader_podcast_error": "Error starting podcast generation.",
+  "feed": {
+    "updated_at": "Updated {{date}}",
+    "see_more": "See more",
+    "see_less": "See less",
+    "read_full": "Read in full",
+    "empty": "No posts in the feed."
+  },
   "files": {
     "delete_title": "Delete file",
     "delete_question": "What do you want to do with “{{name}}”?",
