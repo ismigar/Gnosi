@@ -888,13 +888,16 @@ export default function VaultDashboard() {
         if (!updatedView || !updatedView.id) return;
         try {
             const tableId = updatedView.table_id || activeTableId;
-            const tableSchema = getSchemaFromTableId(tableId);
             const tableViews = getTableViews(tableId);
             const main = isMainView(updatedView, tableViews);
+            // La vista principal ja NO reescriu `visibleProperties` a tot
+            // l'esquema en desar: això destruïa en silenci la config de camps
+            // de les vistes principals (p. ex. les importades de Notion) al
+            // primer canvi d'ordre o d'amplada de columna. Ara tota vista
+            // conserva i respecta els seus camps configurats.
             const normalizedView = {
                 ...updatedView,
                 is_main: main,
-                ...(main ? { visibleProperties: getSchemaFieldNames(tableSchema) } : {}),
             };
 
             await axios.put(`/api/vault/views/${updatedView.id}`, normalizedView);
@@ -3737,7 +3740,7 @@ export default function VaultDashboard() {
                             currentSchema={currentSchemaObj}
                             initialEnableSubitems={cv?.enableSubitems}
                             initialEnableTranslation={!!activeTable?.translation_enabled}
-                            initialVisibleProperties={cv?.is_main ? getSchemaFieldNames(currentSchemaObj) : cv?.visibleProperties}
+                            initialVisibleProperties={cv?.visibleProperties?.length ? cv.visibleProperties : getSchemaFieldNames(currentSchemaObj)}
                             initialEnableDrupalSync={!!activeTable?.drupal_sync_enabled}
                             initialDrupalBundle={activeTable?.drupal_bundle || ''}
                             initialDrupalFieldMapping={activeTable?.drupal_field_mapping || {}}
@@ -3765,12 +3768,16 @@ export default function VaultDashboard() {
                                     });
                                     setSchema(newSchemaObj);
 
-                                    // 2. Update view configuration if it exists
+                                    // 2. Update view configuration if it exists.
+                                    // Es desa la selecció REAL de camps de l'usuari
+                                    // també per a la vista principal (abans es
+                                    // reescrivia a tot l'esquema i la selecció es
+                                    // perdia en silenci).
                                     if (cv?.id) {
                                         await handleUpdateView({
                                             ...cv,
                                             enableSubitems: viewConfig.enableSubitems,
-                                            visibleProperties: cv?.is_main ? getSchemaFieldNames(newSchemaObj) : viewConfig.visibleProperties
+                                            visibleProperties: viewConfig.visibleProperties
                                         });
                                     }
 

@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2 } from 'lucide-react';
-import { getFieldConfig, getFieldType, getSchemaFieldNames } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { IconRenderer } from './IconRenderer';
-import { isMainView } from './viewConstants';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -232,15 +231,20 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
 export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
     const localeSettings = useLocaleSettings();
 
-    // Propietats visibles (respecta la vista, com la galeria): la vista principal
-    // mostra tots els camps; una vista personalitzada, els seus `visibleProperties`.
-    const visibleProperties = isMainView(activeView)
-        ? getSchemaFieldNames(schema)
-        : (activeView?.visibleProperties || getSchemaFieldNames(schema));
+    // Propietats visibles (respecta la vista, com la galeria): tota vista amb
+    // `visibleProperties` configurats els respecta — TAMBÉ la principal (abans
+    // forçava tots els camps i tapava la config real de les vistes importades
+    // de Notion). Sense config es mostren tots els camps. Memoitzat perquè
+    // buildPills en depèn i el React Compiler pugui conservar la memoització.
     // S'exclou `title` (per tipus I per clau): ja és l'encapçalament de la targeta.
-    const dynamicColumns = visibleProperties
-        .map(prop => [prop, getFieldType(schema, prop)])
-        .filter(([key, type]) => type && type !== 'title' && String(key).toLowerCase() !== 'title');
+    const dynamicColumns = useMemo(() => {
+        const visibleProperties = activeView?.visibleProperties?.length
+            ? activeView.visibleProperties
+            : getSchemaFieldNames(schema);
+        return visibleProperties
+            .map(prop => [prop, getFieldType(schema, prop)])
+            .filter(([key, type]) => type && type !== 'title' && String(key).toLowerCase() !== 'title');
+    }, [activeView, schema]);
 
     const getRelationDisplayMap = useCallback((field) => {
         const config = getFieldConfig(schema, field);
@@ -345,9 +349,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     }, [dynamicColumns, renderPropertyValue]);
 
     // Filtres, ordre i cerca de la vista (mateix motor que taula/galeria).
+    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
+    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
     const viewConfig = {
         filters: activeView?.filters || [],
-        sorts: activeView?.sort || { field: 'last_modified', direction: 'desc' },
+        sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
         search: searchTerm,
     };
     const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });

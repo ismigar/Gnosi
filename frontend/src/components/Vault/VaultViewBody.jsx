@@ -8,6 +8,7 @@ import { VaultChart } from './VaultChart';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { VaultViewErrorBoundary } from './VaultViewErrorBoundary';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
+import { resolveViewSorts } from './schemaUtils';
 
 /**
  * VaultViewBody — render compartit del COS d'una vista de BD segons el seu
@@ -72,10 +73,12 @@ export function VaultViewBody({
     // Notes filtrades/ordenades segons la vista. El calendari rep `allNotes` i no
     // aplica ell mateix els filtres de la vista, així que els hi apliquem aquí amb
     // el mateix motor que la resta de vistes (abans els ignorava per complet).
+    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — import de Notion i
+    // modal — amb fallback a la llegada `sort`).
     const { sortedPages: viewFilteredNotes } = useVaultViewData({
         pages: notes,
         schema,
-        view: { filters: activeView?.filters || [], sorts: activeView?.sort || { field: 'last_modified', direction: 'desc' }, search: searchTerm },
+        view: { filters: activeView?.filters || [], sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }), search: searchTerm },
         searchTerm,
     });
 

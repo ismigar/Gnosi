@@ -5,7 +5,8 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { FileFieldValue } from './FileFieldValue';
 import { getImageSrc, toAssetPreviewUrl, withActiveVault } from '../../lib/fileResource';
-import { getFieldType, getSchemaFieldNames, getFieldConfig } from './schemaUtils';
+import { getFieldType, getSchemaFieldNames, getFieldConfig, resolveViewSorts } from './schemaUtils';
+import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -21,9 +22,11 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
     // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
+    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
+    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
     const viewConfig = {
         filters: activeView?.filters || [],
-        sorts: activeView?.sort || { field: "last_modified", direction: "desc" },
+        sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
         search: searchTerm
     };
 
@@ -56,15 +59,68 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         onDeleteSelection: handleBulkDelete,
     });
 
-    // La vista principal mostra totes les propietats; una vista personalitzada,
-    // les seves `visibleProperties`. Cridem `isMainView` SENSE la llista de
-    // vistes (cas degenerat): amb `[activeView]` el fallback per ordre la
-    // considerava SEMPRE principal (ordered[0]===view) i s'ignoraven els
-    // visibleProperties de les vistes custom.
-    const visibleProperties = isMainView(activeView)
-        ? getSchemaFieldNames(schema)
-        : (activeView.visibleProperties || getSchemaFieldNames(schema).slice(0, 3));
+    // Tota vista amb `visibleProperties` configurats els respecta — TAMBÉ la
+    // principal (abans forçava tots els camps i tapava la config real de les
+    // vistes importades de Notion). Sense config: la principal mostra tot
+    // l'esquema; una vista custom, els 3 primers camps.
+    const visibleProperties = activeView?.visibleProperties?.length
+        ? activeView.visibleProperties
+        : (isMainView(activeView)
+            ? getSchemaFieldNames(schema)
+            : getSchemaFieldNames(schema).slice(0, 3));
     const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type);
+
+    // ---- AGRUPACIÓ (activeView.groupBy) ----
+    // Seccions estil Notion: capçalera de grup + graella per a cada valor del
+    // camp. El modal de vista ja oferia `groupBy` per a la galeria (i l'import
+    // de Notion el persisteix), però la galeria l'ignorava. Mateixa semàntica
+    // que el kanban: l'ordre i el color de les seccions segueixen el catàleg
+    // d'opcions del camp (select/status); un valor multi (array) fa aparèixer
+    // el registre a CADA grup; els registres sense valor van a l'últim grup.
+    const groupBy = activeView?.groupBy || '';
+    const normalizeMetaKey = (k) => String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '');
+    const getGroupVal = (note) => {
+        let val = note.metadata?.[groupBy];
+        if (val === undefined || val === null || val === '') {
+            const keyNorm = normalizeMetaKey(groupBy);
+            const metaKey = Object.keys(note.metadata || {}).find(k => normalizeMetaKey(k) === keyNorm);
+            if (metaKey) val = note.metadata[metaKey];
+        }
+        return val;
+    };
+    const groupedSections = (() => {
+        if (!groupBy) return null;
+        const groupConfig = getFieldConfig(schema, groupBy);
+        const groupOptions = Array.isArray(groupConfig?.options) ? normalizeOptions(groupConfig.options) : [];
+        const colorMap = {};
+        groupOptions.forEach(o => { colorMap[o.name] = o.color; });
+
+        const valuesOf = (note) => {
+            const raw = getGroupVal(note);
+            if (Array.isArray(raw)) return raw.map(v => String(v)).filter(Boolean);
+            return (raw === undefined || raw === null || String(raw).trim() === '') ? [] : [String(raw)];
+        };
+        const buckets = new Map();
+        groupOptions.forEach(o => buckets.set(o.name, []));
+        const ungrouped = [];
+        sortedAndFilteredNotes.forEach(note => {
+            const vals = valuesOf(note);
+            if (!vals.length) { ungrouped.push(note); return; }
+            vals.forEach(v => {
+                if (!buckets.has(v)) buckets.set(v, []);
+                buckets.get(v).push(note);
+            });
+        });
+        const sections = [...buckets.entries()]
+            .filter(([, groupNotes]) => groupNotes.length > 0)
+            .map(([name, groupNotes]) => ({
+                name,
+                color: colorMap[name] ? optionColorHex(colorMap[name]) : null,
+                notes: groupNotes,
+            }));
+        if (ungrouped.length) sections.push({ name: 'Sense grup', color: null, notes: ungrouped });
+        return sections;
+    })();
 
     // Apply card size configuration
     const cardSize = activeView.cardSize || 'medium';
@@ -257,6 +313,111 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
+    // Targeta individual (reutilitzada per la graella plana i per cada secció
+    // de grup; l'índex només dóna estabilitat a la key dins de cada graella).
+    const renderCard = (note, noteIndex) => {
+        const coverUrl = getCoverUrl(note);
+        const hasCover = !!coverUrl;
+        const excerpt = showContentPreview ? getExcerpt(note) : '';
+        return (
+            <div
+                key={`${note.id || 'note'}-${noteIndex}`}
+                onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
+                className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+            >
+                {/* Checkbox de selecció (cantonada superior esquerra). El toggle
+                    viu NOMÉS a l'onChange de l'input (#722): amb toggle també a
+                    l'onClick del label, el clic directe al checkbox disparava
+                    tots dos pel bubbling i es quedava com estava (no-op). */}
+                <label
+                    className={`absolute top-2 left-2 z-20 cursor-pointer ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <input
+                        type="checkbox"
+                        checked={isSelected(note.id)}
+                        onChange={(e) => toggleSelect(note.id, e)}
+                        className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
+                    />
+                </label>
+                {/* Àrea superior: només mode 'cover' (portada de la pàgina).
+                    El mode 'content' es renderitza dins el cos, sota el títol. */}
+                {showCoverArea && (
+                    <div className={`${getCoverHeightClass()} relative shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]`}>
+                        {hasCover ? (
+                            <div
+                                className={`absolute inset-0 ${coverFitClass} bg-center bg-no-repeat`}
+                                style={{ backgroundImage: `url("${coverUrl}")` }}
+                            />
+                        ) : (
+                            <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
+                        )}
+
+                        {/* Icona superposada a la portada */}
+                        <div className="absolute -bottom-5 left-4 w-10 h-10 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] flex items-center justify-center z-10 group-hover:scale-110 transition-transform overflow-hidden">
+                            <IconRenderer icon={note.metadata?.icon} size={24} />
+                        </div>
+                    </div>
+                )}
+
+                {/* Content Area */}
+                <div className={`p-4 flex flex-col flex-1 min-h-0 ${showCoverArea ? 'pt-6' : ''}`}>
+                    <h3 className="font-semibold text-[var(--text-primary)] text-sm mb-2 truncate group-hover:text-[var(--gnosi-primary)] transition-colors flex items-center gap-2" title={note.title}>
+                        {!showCoverArea && (
+                            <span className="shrink-0 inline-flex items-center justify-center w-5 h-5">
+                                <IconRenderer icon={note.metadata?.icon} size={18} />
+                            </span>
+                        )}
+                        <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || "Sense Títol"}</span>
+                    </h3>
+
+                    {/* Previsualització del contingut (mode 'content'): el que
+                        càpiga del text de la pàgina, sota el títol, amb fade final. */}
+                    {showContentPreview && (
+                        <div className="relative flex-1 min-h-0 overflow-hidden">
+                            {excerpt ? (
+                                <p className="text-xs leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">{excerpt}</p>
+                            ) : (
+                                <div className="h-full flex items-center justify-center text-[var(--text-tertiary)] opacity-40">
+                                    <FileText size={24} strokeWidth={1.5} />
+                                </div>
+                            )}
+                            {excerpt && (
+                                <div className="pointer-events-none absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
+                            )}
+                        </div>
+                    )}
+
+                    {/* Properties */}
+                    {showProperties && (
+                    <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
+                        {dynamicColumns.map(([key, type], propIndex) => {
+                            const keyNorm = normalizeMetaKey(key);
+
+                            let val = note.metadata?.[key];
+                            if (val === undefined || val === null || val === '') {
+                                const metaKey = Object.keys(note.metadata || {}).find(k => normalizeMetaKey(k) === keyNorm);
+                                if (metaKey) val = note.metadata[metaKey];
+                            }
+
+                            if (val === undefined || val === null || val === '') return null;
+
+                            return (
+                                <div key={`${key}-${propIndex}`} className="flex items-center gap-2 text-[var(--text-secondary)] overflow-hidden min-h-[18px]">
+                                    <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] w-16 shrink-0 truncate">{key}</span>
+                                    <div className="flex-1 min-w-0">
+                                        {renderPropertyValue(val, type, key)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
+
     return (
         <div className="w-full h-full flex flex-col bg-[var(--bg-secondary)] overflow-hidden">
             {externalSearchTerm === undefined && (
@@ -267,7 +428,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     onToggleSorts={() => onEditSchema?.('sorts')}
                     onAddNew={onCreateRecord}
                     activeFiltersCount={Array.isArray(activeView?.filters) ? activeView.filters.length : (activeView?.filters?.conditions?.length || 0)}
-                    activeSortsCount={Array.isArray(activeView?.sort) ? activeView.sort.length : (activeView?.sort ? 1 : 0)}
+                    activeSortsCount={resolveViewSorts(activeView).length}
                     isEmbedded={false}
                 />
             )}
@@ -285,108 +446,26 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
 
             <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-4 md:pb-6 pt-vault-header-top">
                 <div className="max-w-[1400px] mx-auto">
-                    <div className={`grid ${getGridClass()} gap-6`}>
-                        {sortedAndFilteredNotes.map((note, noteIndex) => {
-                            const coverUrl = getCoverUrl(note);
-                            const hasCover = !!coverUrl;
-                            const excerpt = showContentPreview ? getExcerpt(note) : '';
-                            return (
-                                <div
-                                    key={`${note.id || 'note'}-${noteIndex}`}
-                                    onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
-                                    className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
-                                >
-                                    {/* Checkbox de selecció (cantonada superior esquerra) */}
-                                    <label
-                                        className={`absolute top-2 left-2 z-20 cursor-pointer ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected(note.id)}
-                                            onChange={(e) => toggleSelect(note.id, e)}
-                                            className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
-                                        />
-                                    </label>
-                                    {/* Àrea superior: només mode 'cover' (portada de la pàgina).
-                                        El mode 'content' es renderitza dins el cos, sota el títol. */}
-                                    {showCoverArea && (
-                                        <div className={`${getCoverHeightClass()} relative shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]`}>
-                                            {hasCover ? (
-                                                <div
-                                                    className={`absolute inset-0 ${coverFitClass} bg-center bg-no-repeat`}
-                                                    style={{ backgroundImage: `url("${coverUrl}")` }}
-                                                />
-                                            ) : (
-                                                <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
-                                            )}
-
-                                            {/* Icona superposada a la portada */}
-                                            <div className="absolute -bottom-5 left-4 w-10 h-10 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] flex items-center justify-center z-10 group-hover:scale-110 transition-transform overflow-hidden">
-                                                <IconRenderer icon={note.metadata?.icon} size={24} />
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Content Area */}
-                                    <div className={`p-4 flex flex-col flex-1 min-h-0 ${showCoverArea ? 'pt-6' : ''}`}>
-                                        <h3 className="font-semibold text-[var(--text-primary)] text-sm mb-2 truncate group-hover:text-[var(--gnosi-primary)] transition-colors flex items-center gap-2" title={note.title}>
-                                            {!showCoverArea && (
-                                                <span className="shrink-0 inline-flex items-center justify-center w-5 h-5">
-                                                    <IconRenderer icon={note.metadata?.icon} size={18} />
-                                                </span>
-                                            )}
-                                            <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || "Sense Títol"}</span>
-                                        </h3>
-
-                                        {/* Previsualització del contingut (mode 'content'): el que
-                                            càpiga del text de la pàgina, sota el títol, amb fade final. */}
-                                        {showContentPreview && (
-                                            <div className="relative flex-1 min-h-0 overflow-hidden">
-                                                {excerpt ? (
-                                                    <p className="text-xs leading-relaxed text-[var(--text-secondary)] whitespace-pre-line">{excerpt}</p>
-                                                ) : (
-                                                    <div className="h-full flex items-center justify-center text-[var(--text-tertiary)] opacity-40">
-                                                        <FileText size={24} strokeWidth={1.5} />
-                                                    </div>
-                                                )}
-                                                {excerpt && (
-                                                    <div className="pointer-events-none absolute bottom-0 inset-x-0 h-8 bg-gradient-to-t from-[var(--bg-primary)] to-transparent" />
-                                                )}
-                                            </div>
-                                        )}
-
-                                        {/* Properties */}
-                                        {showProperties && (
-                                        <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
-                                            {dynamicColumns.map(([key, type], propIndex) => {
-                                                const normalizeKey = (k) => String(k).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/gi, '');
-                                                const keyNorm = normalizeKey(key);
-
-                                                let val = note.metadata?.[key];
-                                                if (val === undefined || val === null || val === '') {
-                                                    const metaKey = Object.keys(note.metadata || {}).find(k => normalizeKey(k) === keyNorm);
-                                                    if (metaKey) val = note.metadata[metaKey];
-                                                }
-
-                                                if (val === undefined || val === null || val === '') return null;
-
-                                                return (
-                                                    <div key={`${key}-${propIndex}`} className="flex items-center gap-2 text-[var(--text-secondary)] overflow-hidden min-h-[18px]">
-                                                        <span className="text-[10px] font-medium uppercase tracking-wider text-[var(--text-tertiary)] w-16 shrink-0 truncate">{key}</span>
-                                                        <div className="flex-1 min-w-0">
-                                                            {renderPropertyValue(val, type, key)}
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                        )}
-                                    </div>
+                    {groupedSections ? (
+                        // Agrupada: una secció per valor del camp `groupBy`, amb
+                        // capçalera (punt de color del catàleg + nom + recompte).
+                        groupedSections.map(({ name, color, notes: groupNotes }) => (
+                            <div key={name} className="mb-8">
+                                <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
+                                    {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
+                                    <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={name}>{name}</h3>
+                                    <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{groupNotes.length}</span>
                                 </div>
-                            );
-                        })}
-                    </div>
+                                <div className={`grid ${getGridClass()} gap-6`}>
+                                    {groupNotes.map((note, noteIndex) => renderCard(note, noteIndex))}
+                                </div>
+                            </div>
+                        ))
+                    ) : (
+                        <div className={`grid ${getGridClass()} gap-6`}>
+                            {sortedAndFilteredNotes.map((note, noteIndex) => renderCard(note, noteIndex))}
+                        </div>
+                    )}
 
                     {sortedAndFilteredNotes.length === 0 && (
                         <div className="w-full h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">

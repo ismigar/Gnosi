@@ -316,6 +316,35 @@ export function normalizeSorts(raw) {
     return [];
 }
 
+/**
+ * Ordre EFECTIU d'una vista, resolent les DUES claus del registry.
+ *
+ * A més de les dues formes de `normalizeSorts`, el registry té dues CLAUS
+ * històriques: `sorts` (array complet — l'escriuen l'import de Notion, el
+ * PageViewModal i les seccions d'embed) i `sort` (llegat; el modal hi desa
+ * només el PRIMER criteri per compat). Es prefereix `sorts` — paritat amb el
+ * backend (view_snapshot: `view.get("sorts") or [view["sort"]]`) i amb
+ * DbViewEmbed. Llegir només `view.sort`, com feien els renderers del tauler,
+ * IGNORAVA l'ordre configurat de totes les vistes importades (cap no té
+ * `sort` singular).
+ *
+ * Si la vista té config d'ordre explícita però buida (l'usuari ha tret tots
+ * els criteris: el modal desa `sorts: []`), es respecta com a "sense ordre"
+ * i NO s'aplica el fallback.
+ *
+ * @param {Object|null|undefined} view      la vista del registry
+ * @param {{field: string, direction: string}|null} fallback  ordre per defecte
+ *        quan la vista no té CAP config d'ordre (p. ex. last_modified desc)
+ * @returns {Array<{id: string, field: string, direction: string}>}
+ */
+export function resolveViewSorts(view, fallback = null) {
+    const plural = normalizeSorts(view?.sorts);
+    const resolved = plural.length ? plural : normalizeSorts(view?.sort);
+    if (resolved.length) return resolved;
+    if (view?.sort || view?.sorts) return [];
+    return fallback ? normalizeSorts(fallback) : [];
+}
+
 
 /**
  * Determina si una pàgina s'ha de considerar una cita del calendari.

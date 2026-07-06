@@ -297,7 +297,7 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
 import { normalizeOptions, optionChipStyle, optionColorHex, checkActionRequires } from './optionCatalogUtils';
-import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, normalizeSorts } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, resolveViewSorts } from './schemaUtils';
 import {
     isComputedType,
     isPasteableType,
@@ -312,7 +312,6 @@ import { formatNumber, formatDate, resolveFieldFormat } from './formatUtils';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { useAuth } from '../../context/AuthContext';
 import { applyDefaultFormulasToMetadata } from './defaultFormulaUtils';
-import { isMainView } from './viewConstants';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
@@ -604,18 +603,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, [addingSubitemFor]);
 
     // ---- UNIFIED DATA LOGIC (FILTERS, SORT, SEARCH) ----
-    // `sort` pot venir en dues formes històriques: un únic objecte
-    // { field, direction } o un array [{ id, field, direction }] (multi-ordenació
-    // del ViewConfigModal). Normalitzem sempre a array perquè la taula ordeni
-    // igual que Galeria/Kanban/Timeline; sense això, un ordre desat des del modal
-    // (array) es perdia (`activeSort.field` era undefined → sort buit).
-    const normalizedSorts = normalizeSorts(activeView?.sort);
-    // Sense cap ordre configurat (vista nova): per defecte, més recent primer.
-    // Un array buit explícit (l'usuari ha tret tots els ordres) es respecta com
-    // a "sense ordre".
-    const effectiveSorts = normalizedSorts.length > 0
-        ? normalizedSorts
-        : (activeView?.sort ? [] : [{ field: "last_modified", direction: "desc" }]);
+    // `resolveViewSorts` resol les DUES claus del registry (`sorts` array
+    // complet — import de Notion/modal — i `sort` llegat) i les dues formes
+    // (objecte o array). Abans es llegia només `activeView.sort` i l'ordre
+    // configurat de TOTES les vistes importades (que persisteixen `sorts`)
+    // s'ignorava en silenci. Sense cap config: més recent primer; amb config
+    // explícita però buida (l'usuari ha tret tots els ordres): sense ordre.
+    const effectiveSorts = resolveViewSorts(activeView, { field: "last_modified", direction: "desc" });
     // L'ordre primari governa la fletxa asc/desc de la capçalera i el toggle.
     const activeSort = effectiveSorts[0] || {};
     // Signatura estable (multi-camp) per reinicialitzar el cursor quan canvia l'ordre.
@@ -877,34 +871,35 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
     const handleSort = (field) => {
         if (!activeView || !onUpdateView) return;
-        // Llegim l'ordre primari normalitzat (l'`sort` pot ser objecte o array).
-        const primary = normalizeSorts(activeView.sort)[0];
+        // Llegim l'ordre primari EFECTIU (clau `sorts` o `sort`, objecte o array).
+        const primary = resolveViewSorts(activeView)[0];
         const isCurrentField = primary?.field === field;
         let newDirection = 'asc';
         if (isCurrentField) {
             newDirection = primary.direction === 'asc' ? 'desc' : 'asc';
         }
         // Clicar una capçalera estableix aquest camp com a ÚNIC ordre (estil
-        // Notion/Airtable) i el desa en forma d'array, igual que el modal.
-        const updatedView = { ...activeView, sort: [{ field, direction: newDirection }] };
+        // Notion/Airtable). Es desen LES DUES claus en sincronia (com el
+        // PageViewModal): si només s'escrivís `sort`, un `sorts` antic de la
+        // vista guanyaria la resolució i el clic semblaria mort.
+        const newSorts = [{ field, direction: newDirection }];
+        const updatedView = { ...activeView, sort: newSorts, sorts: newSorts };
         onUpdateView(updatedView);
     };
 
     // Strip schema by removing title to put it at the beginning and filtering by visibility
     const dynamicColumns = useMemo(() => {
         const titleFieldName = Object.entries(schema || {}).find(([, t]) => t === 'title')?.[0];
-        // Només la vista PRINCIPAL ignora `visibleProperties` i mostra tot
-        // l'esquema viu (perquè reflecteixi camps nous a l'instant). La resta de
-        // vistes respecten els seus camps configurats. Passem `[]` (no
-        // `[activeView]`): amb una llista d'un sol element, isMainView cau al
-        // fallback "primera vista = principal" i marcaria QUALSEVOL vista com a
-        // principal; amb llista buida usa el senyal propi de la vista
-        // (is_main / id 'default' / nom canònic), que és el correcte aquí.
-        const forceAllProperties = isMainView(activeView, []);
-        const baseFields = (!forceAllProperties && activeView?.visibleProperties)
+        // Tota vista amb `visibleProperties` configurats els respecta — TAMBÉ la
+        // principal. Abans la principal forçava tot l'esquema viu i tapava la
+        // config real (les vistes principals importades de Notion porten un
+        // subconjunt triat per l'usuari). Sense config (vista principal local
+        // 'default' o vista antiga), es mostra tot l'esquema, que segueix fent
+        // aparèixer els camps nous a l'instant.
+        const baseFields = activeView?.visibleProperties?.length
             ? activeView.visibleProperties.map(key => [key, getFieldType(schema, key)]).filter(([key, type]) => key && type)
             : getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
-        
+
         // El títol ja es pinta com a columna fixa: cap entrada de
         // `visibleProperties` ha de tornar-lo a mostrar com a columna de dades.
         // L'excloem pel nom real del camp (titleFieldName), per la referència
@@ -913,24 +908,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title');
     }, [activeView, schema]);
 
-    // Drag-to-reorder de columnes: només a vistes NO principals. La vista
-    // PRINCIPAL mostra deliberadament tots els camps en ordre d'esquema i el seu
-    // ordre no és personalitzable (l'invariant es reforça a VaultDashboard, que
-    // reescriu `visibleProperties` a l'ordre d'esquema en desar la principal); per
-    // això no l'oferim allà (un drag que es revertís en recarregar enganyaria).
-    // Cal `onUpdateView` per persistir; usem el mateix senyal d'isMainView que
-    // dynamicColumns (llista buida → senyal propi de la vista).
-    const canReorderColumns = !!onUpdateView && !!activeView && !isMainView(activeView, []);
+    // Drag-to-reorder de columnes: disponible a QUALSEVOL vista (la principal
+    // inclosa: ara que respecta i persisteix els seus `visibleProperties`, el
+    // drag ja no es reverteix en recarregar). Cal `onUpdateView` per persistir.
+    const canReorderColumns = !!onUpdateView && !!activeView;
 
     // La columna "Modificació" (last_modified) són metadades, no un camp de
-    // l'esquema. Es mostra a la vista PRINCIPAL (que ensenya tot) o si la vista
-    // la configura explícitament a `visibleProperties`; una vista amb camps
-    // configurats que no la inclou NO la mostra. Sense `visibleProperties`
-    // (vista sense config) es conserva el comportament previ: mostrar-la.
+    // l'esquema. Amb `visibleProperties` configurats només es mostra si la
+    // vista la inclou; sense config (vista sense visibleProperties) es
+    // conserva el comportament previ: mostrar-la.
     const showModifiedColumn = useMemo(() => {
-        if (isMainView(activeView, [])) return true;
         const vp = activeView?.visibleProperties;
-        if (!vp) return true;
+        if (!vp || vp.length === 0) return true;
         return vp.some(k => k === 'last_modified' || k === 'modified' || k === 'last_edited_time');
     }, [activeView]);
 
