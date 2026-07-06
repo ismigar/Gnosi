@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { KeyRound, Plus, Trash2, Copy, Check } from 'lucide-react';
+import i18n from '../i18n';
 
 /**
  * ApiTokensSettings
@@ -93,7 +94,7 @@ export default function ApiTokensSettings() {
                             <div className="min-w-0">
                                 <div className="truncate text-sm font-medium text-[var(--text-primary)]">{tk.name}</div>
                                 <div className="text-xs text-[var(--text-tertiary)]">
-                                    {tk.prefix}…  ·  {tk.last_used_at ? `usat ${new Date(tk.last_used_at).toLocaleDateString('ca-ES')}` : 'mai usat'}
+                                    {tk.prefix}…  ·  {tk.last_used_at ? `usat ${new Date(tk.last_used_at).toLocaleDateString(i18n.language)}` : 'mai usat'}
                                 </div>
                             </div>
                             <button onClick={() => revoke(tk.id)} title="Revoca" className="rounded p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]">

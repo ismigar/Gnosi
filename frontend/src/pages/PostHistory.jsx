@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { RefreshCw, CheckCircle, XCircle, Clock, AlertTriangle, Calendar, ExternalLink } from 'lucide-react';
+import i18n from '../i18n';
 
 const PostHistory = () => {
     const [history, setHistory] = useState([]);
@@ -33,7 +34,7 @@ const PostHistory = () => {
         if (!isoString) return '—';
         const d = new Date(isoString);
         if (isNaN(d.getTime())) return '—';
-        return d.toLocaleString('ca-ES', {
+        return d.toLocaleString(i18n.language, {
             day: 'numeric',
             month: 'short',
             year: 'numeric',

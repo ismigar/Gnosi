@@ -6,6 +6,7 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig, resolveViewSorts } from './schemaUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { formatDate, resolveFieldFormat } from './formatUtils';
+import i18n from '../../i18n';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { parsePeriod } from './VaultDateProperty';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
@@ -416,7 +417,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         style={{ left: `${left}%`, width: `${width}%` }}
                                         className="absolute h-full border-r border-[var(--border-primary)] flex items-center px-3 text-[10px] font-bold text-[var(--text-secondary)] truncate bg-[var(--bg-secondary)]"
                                     >
-                                        {month.toLocaleString('ca-ES', { month: 'short', year: 'numeric' }).toUpperCase()}
+                                        {month.toLocaleString(i18n.language, { month: 'short', year: 'numeric' }).toUpperCase()}
                                     </div>
                                 );
                             })}
@@ -478,7 +479,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                 </span>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-[9px] text-[var(--text-tertiary)] font-medium">
-                                                        {note.start.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' })}
+                                                        {note.start.toLocaleDateString(i18n.language, { day: 'numeric', month: 'short' })}
                                                     </span>
                                                 </div>
                                             </div>
