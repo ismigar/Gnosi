@@ -6822,6 +6822,25 @@ async def bulk_update_metadata(payload: dict = Body(...)):
             if md == original_md:
                 return ('skip', None)
             save_page_md(fp, md, body or '')
+            # Refresca l'índex en memòria amb el metadata NOU (com fa el PATCH
+            # d'una sola pàgina). Sense això, `GET /pages` i `/by-table`
+            # servien el metadata VELL des de `_page_index_entries` fins al
+            # pròxim rescan complet (cooldown 600s) → l'edició massiva "no
+            # s'enganxava" a la graella (reproduït: updated=2 però by-table
+            # seguia mostrant el valor previ).
+            try:
+                v_path = get_active_vault_path()
+                if v_path:
+                    v_str = str(v_path)
+                    new_entry = _build_cache_entry_from_memory(fp, fp.stat(), md, body or '')
+                    with _page_index_lock:
+                        _page_index_entries.setdefault(v_str, {})[str(fp)] = new_entry
+                        _page_id_to_path.setdefault(v_str, {})[md.get("id") or pid] = str(fp)
+                        _bump_page_index_version(v_str)
+                with _body_cache_lock:
+                    _body_cache.pop(str(fp), None)
+            except Exception as exc:
+                log.debug(f"bulk-update: refresc d'índex fallit per {pid}: {exc}")
             return ('ok', file_etag(fp))
         except (OSError, ValueError) as e:
             return ('error', str(e))
@@ -6839,6 +6858,10 @@ async def bulk_update_metadata(payload: dict = Body(...)):
 
     if updated:
         _invalidate_cite_key_index()
+        # El micro-cache de resposta (`_pages_resp_cache`, TTL ~1.5s) NO es
+        # refresca en actualitzar `_page_index_entries`; sense invalidar-lo,
+        # un `/pages`/`/by-table` dins del TTL tornaria el snapshot pre-bulk.
+        _pages_cache_invalidate_all()
 
     return {
         "updated": len(updated),
