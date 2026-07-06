@@ -406,12 +406,18 @@ class RuleEngine:
 
     @staticmethod
     def _is_truthy_checkbox(value: Any) -> bool:
+        # Paritat 1:1 amb els altres TRES conjunts de veritat de checkbox —
+        # asBool (vaultFilters.js), FILTER_TRUTHY (DbViewEmbed) i _TRUTHY
+        # (view_snapshot) — que inclouen "sí" ACCENTUAT i en reclamen la
+        # paritat amb aquesta funció. Sense "sí", una casella desada en
+        # català comptava com a marcada a filtres/vistes/snapshot però NO al
+        # rollup percent_checked (percentatge infravalorat en silenci).
         if isinstance(value, bool):
             return value
         if isinstance(value, (int, float)):
             return value != 0
         normalized = str(value or "").strip().lower()
-        return normalized in {"true", "1", "yes", "si", "done", "checked", "completat"}
+        return normalized in {"true", "1", "yes", "si", "sí", "done", "checked", "completat"}
 
     @staticmethod
     def _as_datetime(value: Any) -> Optional[datetime]:
