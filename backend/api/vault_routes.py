@@ -8326,6 +8326,31 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
             delete_sidecar_for_page(vault_root, page_id)
     except Exception as exc:
         log.debug(f"No s'ha pogut purgar el page_meta sidecar de {page_id}: {exc}")
+    # Purga = esborrat PERMANENT: fora també els rastres que abans quedaven
+    # orfes per sempre (auditat al vault real: 158 directoris d'historial de
+    # pàgines ja purgades, amb el CONTINGUT COMPLET dins — l'usuari creu que
+    # la pàgina és fora però .history encara la té). Tot best-effort: la
+    # purga mai falla per la neteja.
+    try:
+        safe_id = _validate_safe_page_id(page_id)
+        history_dir = get_p("VAULT") / ".history" / safe_id
+        if history_dir.exists():
+            shutil.rmtree(history_dir)
+    except Exception as exc:
+        log.debug(f"No s'ha pogut purgar l'historial de {page_id}: {exc}")
+    try:
+        data = _load_comments()
+        if page_id in data:
+            data.pop(page_id, None)
+            _save_comments(data)
+    except Exception as exc:
+        log.debug(f"No s'han pogut purgar els comentaris de {page_id}: {exc}")
+    try:
+        inline_path = _inline_comments_path(page_id)
+        if inline_path.exists():
+            inline_path.unlink()
+    except Exception as exc:
+        log.debug(f"No s'han pogut purgar els inline comments de {page_id}: {exc}")
     return {"id": page_id, "freed_bytes": freed_bytes}
 
 
