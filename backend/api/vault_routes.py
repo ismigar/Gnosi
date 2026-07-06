@@ -8326,7 +8326,39 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
                 freed_bytes += f.stat().st_size
         except Exception:
             pass
+
+    # Llegeix les relacions de la pàgina ABANS de destruir-la: en purgar cal
+    # treure el seu id de les pàgines que hi apuntaven (l'invers). Sense això,
+    # esborrar una pàgina font deixava relacions penjades cap a un id que ja no
+    # existeix enlloc — permanent, perquè la pàgina no es pot restaurar
+    # (auditat al vault real: 4 pàgines amb `Font →` un id purgat). En
+    # soft-delete NO es neteja a posta (preserva la relació per si es restaura);
+    # la purga és el punt final on toca.
+    _purged_meta: Optional[dict] = None
+    _purged_table_id: Optional[str] = None
+    try:
+        _page_md = entry_dir / "page.md"
+        if _page_md.exists():
+            _raw = _page_md.read_text(encoding="utf-8")
+            _purged_meta, _ = parse_frontmatter(_raw, _page_md)
+            _purged_table_id = (
+                _purged_meta.get("table_id")
+                or _purged_meta.get("database_table_id")
+            )
+    except Exception as exc:
+        log.debug(f"purge: no s'han pogut llegir les relacions de {page_id}: {exc}")
+
     shutil.rmtree(entry_dir)
+
+    # Treu l'id d'aquesta pàgina de les relacions inverses de les altres
+    # (best-effort; `_propagate_relation_inverse` és defensiu i no bloqueja).
+    # new_meta buit → totes les relacions de la pàgina compten com a "remove".
+    if _purged_meta and _purged_table_id:
+        try:
+            _propagate_relation_inverse(page_id, _purged_table_id, _purged_meta, {})
+        except Exception as exc:
+            log.debug(f"purge: neteja de relacions inverses fallida per {page_id}: {exc}")
+
     # Net el sidecar de metadata intern: si quedés orfe, no fa mal, però val
     # més purgar-lo per consistència. La pàgina ja no és recuperable.
     try:
