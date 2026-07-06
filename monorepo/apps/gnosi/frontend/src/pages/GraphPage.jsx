@@ -484,6 +484,22 @@ function GraphPage() {
         return m;
     }, [idTitleMap, graphData]);
 
+    // Nom de recanvi per a les taules que NO són al registry (BDs inline de
+    // l'import de Notion, sense pàgina-BD pròpia al vault): l'últim segment de
+    // CARPETA del `path` de les seves files ("BD/Cervell Digital/Titulacions/
+    // x.md" → "Titulacions"). Sense això, el Filtre de Taules i el de Camps
+    // mostraven l'id hexadecimal cru (13 entrades inusables al vault real).
+    const folderNameByTableId = useMemo(() => {
+        const m = new Map();
+        for (const n of (graphData?.nodes || [])) {
+            const tbl = n.table_id || n.metadata?.table_id || n.metadata?.database_table_id;
+            if (!tbl || m.has(tbl)) continue;
+            const segs = String(n.path || '').split('/').filter(Boolean);
+            if (segs.length >= 2) m.set(tbl, segs[segs.length - 2]);
+        }
+        return m;
+    }, [graphData]);
+
     // Etiqueta a mostrar per a un valor de filtre: si és l'id d'una pàgina coneguda
     // → el seu títol; si sembla un id (UUID/Notion) sense resoldre (relació penjada)
     // → forma escurçada en comptes del UUID sencer; si no → el valor tal qual
@@ -615,7 +631,8 @@ function GraphPage() {
                             </div>}
                             {/* Configured table filters */}
                             {graphTableFiltersSettings.map(tableId => {
-                                const table = (availableTables || []).find(t => t?.id === tableId) || { name: tableId };
+                                const table = (availableTables || []).find(t => t?.id === tableId)
+                                    || { name: folderNameByTableId.get(tableId) || tableId };
                                 return (
                                     <div key={tableId} className="filter-item-advanced">
                                         <input
@@ -696,6 +713,7 @@ function GraphPage() {
                                         else if (tableId.startsWith('calendar:')) tableName = 'Calendari';
                                         else if (tableId.startsWith('contact:')) tableName = 'Contacte';
                                         else if (tableId.startsWith('mail:')) tableName = 'Mail';
+                                        else if (folderNameByTableId.get(tableId)) tableName = folderNameByTableId.get(tableId);
                                     }
 
                                     const sortedValues = fieldValuesByKey[fieldKey] || [];
