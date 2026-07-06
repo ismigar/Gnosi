@@ -13,7 +13,7 @@ from pathlib import Path
 
 from backend.utils.safe_io import safe_write_text
 from backend.config.app_config import load_params
-from .validator import validator, RiskLevel
+from .validator import validator
 from .registry import registry, ToolStatus
 from .learning_loop import learning_loop
 
@@ -43,8 +43,10 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     3. Verify against learned lessons
     4. Validate code
     5. Run mandatory tests
-    6. If all pass, auto-approve
-    
+    6. If all pass, save as PENDING — a human admin must approve it in the
+       Dashboard before it becomes available. Generated tools are NEVER
+       auto-approved (security policy: generated_tools_approval_policy.md).
+
     Args:
         name: Tool name (snake_case, ex: 'count_notion_articles')
         description: Clear description of what the tool does
@@ -144,9 +146,18 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     # A more sophisticated version would generate proper test cases
     output_lines.append(f"✓ Tests executed: {test_result.summary()}")
     
-    # === PHASE 6: SAVE AND AUTO-APPROVE ===
-    needs_approval = validation.risk_level == RiskLevel.EXTERNAL_WRITE
-    
+    # === PHASE 6: SAVE — HUMAN APPROVAL REQUIRED (ALWAYS) ===
+    #
+    # Política de seguretat (directiva generated_tools_approval_policy.md,
+    # OPCIÓ A, 2026-07-06): CAP tool generada s'auto-aprova. Un LLM —
+    # potencialment influït per contingut no confiable (prompt-injection) —
+    # escriu aquest codi, que després s'executa amb `exec()` amb `pathlib` i
+    # `__import__` a l'abast (el sandbox del loader NO és un sandbox real).
+    # L'única defensa fiable és que un humà llegeixi el codi abans d'habilitar-lo.
+    #
+    # `validation.risk_level` es desa NOMÉS com a etiqueta informativa per al
+    # revisor al Dashboard; NO és un permís. No el tornis a lligar a
+    # l'auto-aprovació: es deriva del NOM de la tool i és manipulable.
     record = registry.create(
         name=name,
         description=description,
@@ -159,20 +170,13 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     pending_dir.mkdir(parents=True, exist_ok=True)
     safe_write_text(pending_dir / f"{name}.py", code)
 
-    if needs_approval:
-        output_lines.append(f"🔴 Tool '{name}' created but PENDING APPROVAL.")
-        output_lines.append(f"Risk level: {validation.risk_level.value}")
-        output_lines.append("The user must review it in the Dashboard.")
-    else:
-        # Auto-approve (fully automatic)
-        registry.approve(name)
-        approved_dir = tools_base / "approved"
-        approved_dir.mkdir(parents=True, exist_ok=True)
-        (pending_dir / f"{name}.py").rename(approved_dir / f"{name}.py")
-        
-        output_lines.append(f"✅ Tool '{name}' created, tested and auto-approved.")
-        output_lines.append(f"You can now use it: `{name}(...)`")
-    
+    output_lines.append(f"🔴 Tool '{name}' created but PENDING HUMAN APPROVAL.")
+    output_lines.append(f"Risk level (informational): {validation.risk_level.value}")
+    output_lines.append(
+        "An admin must review and approve it in the Dashboard before it can run. "
+        "It will NOT be available until then."
+    )
+
     return "\n".join(output_lines)
 
 
@@ -198,7 +202,9 @@ def list_available_tools() -> str:
 def get_pending_tools() -> str:
     """
     Lists tools pending approval.
-    Only 🔴 risk tools (EXTERNAL_WRITE) require manual approval.
+    ALL generated tools require manual admin approval before they can run
+    (security policy: generated_tools_approval_policy.md). The risk level is
+    only an informational hint for the human reviewer.
     """
     pending = registry.list_pending()
     
