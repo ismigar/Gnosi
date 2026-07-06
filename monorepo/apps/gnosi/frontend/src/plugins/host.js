@@ -166,8 +166,13 @@ const _HOST_METHODS = {
         const limit = Math.max(1, Math.min(Number(args.limit) || 200, 1000));
         const res = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(id)}`);
         const all = Array.isArray(res.data) ? res.data : [];
-        const rows = all.slice(0, limit).map((p) => ({ id: p.id, title: p.title, metadata: p.metadata || {} }));
-        return { tableId: id, rows, total: all.length, truncated: all.length > limit };
+        // Les plantilles (is_template) no són dades: cap altre consumidor de
+        // by-table les mostra com a files (DbViewEmbed, PageViewModal,
+        // dashboard, sidebar). Sense aquest filtre un plugin les rebia
+        // barrejades amb els registres — i `total`/`truncated` les comptaven.
+        const records = all.filter((p) => !(p.metadata || {}).is_template);
+        const rows = records.slice(0, limit).map((p) => ({ id: p.id, title: p.title, metadata: p.metadata || {} }));
+        return { tableId: id, rows, total: records.length, truncated: records.length > limit };
     } },
     'vault.listTables': { perm: 'vault:read', run: async () => {
         const res = await axios.get('/api/vault/tables');
