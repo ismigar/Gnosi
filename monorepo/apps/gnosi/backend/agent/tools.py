@@ -1,7 +1,10 @@
+import logging
 from typing import List, Dict, Any, Callable
 from langchain_core.tools import StructuredTool
 from pydantic import create_model
 from backend.mcp.client import MultiServerMCPClient
+
+log = logging.getLogger(__name__)
 
 def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> StructuredTool:
     """
@@ -43,4 +46,22 @@ def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> S
     )
 
 def get_mcp_tools(tools_list: List[Dict], client: MultiServerMCPClient) -> List[StructuredTool]:
-    return [create_mcp_tool(t, client) for t in tools_list]
+    """Converteix les definicions MCP en tools de LangChain, AÏLLANT els errors.
+
+    Les definicions venen de servidors MCP de TERCERS (Notion, etc.). Una de
+    sola mal formada (sense `name`, schema estrany…) NO ha de tombar la resta
+    ni l'agent sencer: abans la list-comprehension propagava l'excepció i
+    `get_mcp_tools` fallava → l'agent es quedava SENSE CAP tool MCP (o no
+    arrencava). Ara cada tool va en el seu try/except i les dolentes se salten
+    amb un log."""
+    tools: List[StructuredTool] = []
+    for t in tools_list or []:
+        try:
+            tools.append(create_mcp_tool(t, client))
+        except Exception as e:
+            log.warning(
+                "S'omet una tool MCP mal formada %r: %s",
+                (t or {}).get("name", "?") if isinstance(t, dict) else "?",
+                e,
+            )
+    return tools
