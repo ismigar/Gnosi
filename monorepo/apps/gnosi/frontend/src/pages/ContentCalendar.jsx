@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from '../lib/toast';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
+import i18n from '../i18n';
 import ConfirmModal from '../components/ConfirmModal';
 
 const ContentCalendar = () => {
@@ -105,8 +106,8 @@ const ContentCalendar = () => {
                         <ChevronLeft size={18} />
                     </button>
                     <span className="font-semibold text-sm w-36 text-center text-[var(--text-primary)]">
-                        {weekDays[0].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })} –{' '}
-                        {weekDays[6].toLocaleDateString('ca-ES', { month: 'short', day: 'numeric' })}
+                        {weekDays[0].toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })} –{' '}
+                        {weekDays[6].toLocaleDateString(i18n.language, { month: 'short', day: 'numeric' })}
                     </span>
                     <button
                         onClick={() => navigateWeek(1)}
@@ -127,7 +128,7 @@ const ContentCalendar = () => {
                     <div className="grid grid-cols-7 gap-4 flex-1 min-h-0">
                         {weekDays.map((day, idx) => {
                             const dayPosts = getPostsForDay(day);
-                            const dayName = day.toLocaleDateString('ca-ES', { weekday: 'short' });
+                            const dayName = day.toLocaleDateString(i18n.language, { weekday: 'short' });
                             const dayNum = day.getDate();
                             const today = isToday(day);
 

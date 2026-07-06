@@ -2401,7 +2401,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 ? (note?.created_time || note?.metadata?.created_at || note?.metadata?.[field])
                 : (note?.last_modified || note?.metadata?.last_edited_at || note?.metadata?.[field]);
             let label = '';
-            if (iso) { try { label = new Date(iso).toLocaleDateString('ca-ES', { day: 'numeric', month: 'short', year: 'numeric' }); } catch { label = String(iso).slice(0, 10); } }
+            if (iso) { try { label = new Date(iso).toLocaleDateString(i18n.language, { day: 'numeric', month: 'short', year: 'numeric' }); } catch { label = String(iso).slice(0, 10); } }
             return <span className="text-sm text-[var(--text-tertiary)]">{label || '—'}</span>;
         }
         if (type === 'created_by' || type === 'last_edited_by') {

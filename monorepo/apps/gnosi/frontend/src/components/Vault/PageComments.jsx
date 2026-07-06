@@ -6,11 +6,12 @@ import { toast } from '../../lib/toast';
 import { useApi } from '../../hooks/use-api';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { ConfirmModal } from '../ConfirmModal';
+import i18n from '../../i18n';
 
 function fmtWhen(iso) {
     if (!iso) return '';
     try {
-        return new Date(iso).toLocaleString('ca-ES', {
+        return new Date(iso).toLocaleString(i18n.language, {
             day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
         });
     } catch {

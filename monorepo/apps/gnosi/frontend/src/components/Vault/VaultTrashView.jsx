@@ -3,11 +3,12 @@ import axios from 'axios';
 import { Trash2, Undo2, Clock, Search, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { ConfirmModal } from '../ConfirmModal';
+import i18n from '../../i18n';
 
 function fmtDate(iso) {
     if (!iso) return '—';
     try {
-        return new Date(iso).toLocaleString('ca-ES', {
+        return new Date(iso).toLocaleString(i18n.language, {
             day: 'numeric', month: 'short', year: 'numeric',
             hour: '2-digit', minute: '2-digit',
         });

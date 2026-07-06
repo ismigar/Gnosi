@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Calendar, Bell } from 'lucide-react';
+import i18n from '../../i18n';
 
 /**
  * DateMentionInline
@@ -17,7 +18,7 @@ const fmtDate = (iso) => {
     if (!iso) return 'Data';
     try {
         const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''));
-        return new Intl.DateTimeFormat('ca-ES', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+        return new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
     } catch { return iso; }
 };
 
