@@ -9113,13 +9113,20 @@ _VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
 
 
-def _image_error(status: int, detail: str) -> HTTPException:
+def _image_error(status: int, detail: str, retry_after: Optional[int] = None) -> HTTPException:
     """Retorna HTTPException amb headers `no-store` per evitar que el navegador
     persistisi errors transitoris (warmup en curs, timeouts) i deixi de
     redemanar la imatge. Sense això, els 410/503 quedaven al disk cache de
     Chrome i les fotos apareixien com 'No descarregat' indefinidament.
+
+    `retry_after` afegeix la capçalera `Retry-After` (segons) per als 503 de
+    warmup: indica als clients ben educats quan tornar a provar mentre la
+    baixada en segon pla continua.
     """
-    return HTTPException(status_code=status, detail=detail, headers=_NO_STORE_HEADERS)
+    headers = _NO_STORE_HEADERS
+    if retry_after is not None:
+        headers = {**_NO_STORE_HEADERS, "Retry-After": str(retry_after)}
+    return HTTPException(status_code=status, detail=detail, headers=headers)
 
 
 def _onedrive_read_failure_hint(err: OSError) -> str:
@@ -9188,17 +9195,14 @@ async def serve_vault_image(image_path: str):
 
     provider = get_files_provider()
     if provider.is_online_only(requested, st):
-        # Online-only: demanem al proveïdor (típicament OneDrive) que
-        # dispari la baixada. Si funciona, refrequem el stat i continuem.
-        await provider.materialize(requested)
-        try:
-            st = requested.stat()
-        except OSError as e:
-            log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
-            raise _image_error(503, "Image temporarily unavailable")
-        if provider.is_online_only(requested, st):
-            log.warning(f"☁️ Fitxer online-only encara no descarregat: {requested}")
-            raise _image_error(503, "Image temporarily unavailable; warmup pending")
+        # Online-only: NO bloquegem la petició fins que OneDrive baixi el fitxer
+        # (pot trigar desenes de segons i, en natiu, la baixada la fa una app
+        # GUI de la sessió via LaunchServices). Engeguem la materialització en
+        # segon pla i responem 503 a l'instant; el client (RetryableImage)
+        # reintenta amb backoff fins que una petició troba el fitxer ja al disc.
+        provider.schedule_warmup(requested)
+        log.info(f"☁️ Warmup en segon pla engegat per {requested} (503 pending)")
+        raise _image_error(503, "Image warming up; retry shortly", retry_after=3)
 
     async with _VAULT_IMAGE_SEMAPHORE:
         # Warm-up: open(1 byte) per estabilitzar la lectura abans del
@@ -9510,19 +9514,12 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
 
     provider = get_files_provider()
     if provider.is_online_only(requested, st):
-        ok = await provider.materialize(requested)
-        try:
-            st = requested.stat()
-        except OSError as e:
-            log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
-            return _thumb_no_store(503, "File temporarily unavailable")
-        if not ok or provider.is_online_only(requested, st):
-            log.warning(
-                f"☁️ Thumb: fitxer online-only encara no descarregat: {requested}"
-            )
-            return _thumb_no_store(
-                503, "File temporarily unavailable; warmup pending"
-            )
+        # Warmup en segon pla + 503 immediat (mateix patró que `/images/`): no
+        # bloquegem la petició fins que OneDrive baixi el fitxer; el client
+        # (RetryableImage) reintenta fins que una petició el troba materialitzat.
+        provider.schedule_warmup(requested)
+        log.info(f"☁️ Thumb: warmup en segon pla engegat per {requested} (503 pending)")
+        return _thumb_no_store(503, "Thumbnail warming up; retry shortly")
 
     host_path = _container_to_host_path(requested)
     if not host_path:
