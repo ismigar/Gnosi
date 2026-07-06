@@ -50,6 +50,7 @@ export function VaultViewBody({
     registerNavApi,
     onExitTop,
     onExitBottom,
+    onEscape,
 }) {
     const t = String(type || 'table').toLowerCase();
 
@@ -136,6 +137,7 @@ export function VaultViewBody({
                 registerNavApi={registerNavApi}
                 onExitTop={onExitTop}
                 onExitBottom={onExitBottom}
+                onEscape={onEscape}
             />
         );
     }

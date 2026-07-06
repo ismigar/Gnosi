@@ -81,10 +81,11 @@ const toVimeoEmbed = (url) => {
 };
 
 // Imatge incrustada amb reintents. Els assets d'OneDrive poden retornar 503
-// fins que el backend els materialitza (online-only, errno 35). Sense reintent
-// una imatge incrustada d'un asset evacuat quedava trencada fins recarregar la
-// pàgina, a diferència del render de lectura (RetryableImage de VaultMarkdown),
-// que ja reintenta. Mateix backoff exponencial (500ms · 2^intent, fins a 3).
+// fins que el backend els materialitza (online-only). El backend engega la
+// baixada en segon pla i retorna 503 a l'instant, així que reintentem amb
+// backoff exponencial (sostre 4s) fins ~2,5 min: prou per cobrir la latència
+// real de la baixada d'OneDrive abans de rendir-nos. Mateix pressupost que
+// RetryableImage de VaultMarkdown.
 function RetryableEmbedImage({ src, alt }) {
     const [attempt, setAttempt] = useState(0);
     return (
@@ -94,8 +95,8 @@ function RetryableEmbedImage({ src, alt }) {
             alt={alt}
             className="max-w-full rounded-lg border border-[var(--border-primary)]"
             onError={() => {
-                if (attempt < 3) {
-                    const delay = 500 * Math.pow(2, attempt);
+                if (attempt < 40) {
+                    const delay = Math.min(500 * Math.pow(2, attempt), 4000);
                     setTimeout(() => setAttempt((a) => a + 1), delay);
                 }
             }}

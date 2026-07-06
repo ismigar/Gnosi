@@ -369,7 +369,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null }) {
+export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
     const { t, i18n } = useTranslation();
     // Usuari actual (per als camps "Creat per"/"Editat per" en mode personal).
     const { user: currentUser } = useAuth();
@@ -2215,6 +2215,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // comportament és el de sempre (les fletxes claven als extrems).
     const onExitTopRef = useRef(null); onExitTopRef.current = onExitTop;
     const onExitBottomRef = useRef(null); onExitBottomRef.current = onExitBottom;
+    const onEscapeRef = useRef(null); onEscapeRef.current = onEscape;
     const tableEdgeRef = useRef({});
     tableEdgeRef.current = {
         firstRowId: navRows[0]?.id,
@@ -2339,7 +2340,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         }
                     }
                     break;
-                case 'Escape': setActiveCell(null); setAnchorCell(null); break;
+                case 'Escape':
+                    e.preventDefault();
+                    setActiveCell(null);
+                    setAnchorCell(null);
+                    if (onEscapeRef.current) {
+                        onEscapeRef.current();
+                    }
+                    break;
                 case 'Backspace':
                 case 'Delete':
                     if (selectedIdsRef.current.size === 0) { e.preventDefault(); clearActiveCellsRef.current(); }
@@ -3284,7 +3292,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 <div
                     ref={tableContainerRef}
                     style={maxHeight ? { maxHeight } : undefined}
-                    className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? 'rounded border border-[var(--border-primary)] shadow-sm' : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
+                    className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `rounded border ${activeCell ? 'border-[var(--gnosi-primary)]/50 ring-1 ring-[var(--gnosi-primary)]/30' : 'border-[var(--border-primary)]'} shadow-sm transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 
                     <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                         {!isListView && (
