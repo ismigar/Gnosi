@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2 } from 'lucide-react';
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
@@ -53,6 +54,7 @@ function cleanExcerpt(raw) {
  * seu estat d'expansió ("Veure més") sense un Set compartit al pare.
  */
 function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleSelect, onOpen }) {
+    const { t, i18n } = useTranslation();
     const [expanded, setExpanded] = useState(false);
     const hasCover = !!note.metadata?.cover;
     // El clamp es fa amb estil en línia (no depèn del plugin line-clamp de
@@ -118,14 +120,17 @@ function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleS
                         )}
                         <div className="min-w-0">
                             <h2 className={`${hasCover ? 'text-2xl' : 'text-lg'} font-bold text-[var(--text-primary)] mb-1 leading-tight group-hover:text-[var(--gnosi-primary)] transition-colors`}>
-                                {note.title || "Sense Títol"}
+                                {note.title || t('common.untitled', 'Sense títol')}
                             </h2>
                             <div className="flex items-center gap-2 text-xs font-medium text-[var(--text-tertiary)]">
                                 <Clock size={12} />
                                 <span>
-                                    Actualitzat el {new Date(note.last_modified).toLocaleDateString('ca-ES', {
-                                        day: 'numeric', month: 'long', year: 'numeric',
-                                        hour: '2-digit', minute: '2-digit'
+                                    {t('feed.updated_at', {
+                                        defaultValue: 'Actualitzat el {{date}}',
+                                        date: new Date(note.last_modified).toLocaleDateString(i18n.language, {
+                                            day: 'numeric', month: 'long', year: 'numeric',
+                                            hour: '2-digit', minute: '2-digit'
+                                        }),
                                     })}
                                 </span>
                             </div>
@@ -157,7 +162,7 @@ function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleS
                                     onClick={(e) => { e.stopPropagation(); setExpanded(v => !v); }}
                                     className="mt-1 text-xs font-semibold text-[var(--gnosi-primary)] hover:underline"
                                 >
-                                    {expanded ? 'Veure menys' : 'Veure més'}
+                                    {expanded ? t('feed.see_less', 'Veure menys') : t('feed.see_more', 'Veure més')}
                                 </button>
                             )}
                         </div>
@@ -167,7 +172,7 @@ function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleS
                 {/* Indicador d'obrir la nota sencera (hover) */}
                 <div className="absolute bottom-2 right-4 pointer-events-none">
                     <span className="text-sm font-semibold text-[var(--gnosi-primary)] opacity-0 group-hover:opacity-100 transition-all flex items-center gap-1 bg-[var(--bg-primary)]/80 rounded px-1">
-                        Llegir sencer &rarr;
+                        {t('feed.read_full', 'Llegir sencer')} &rarr;
                     </span>
                 </div>
             </div>
@@ -229,6 +234,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
 }
 
 export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onDeleteSelected, onDeletePage, searchTerm = '' }) {
+    const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
 
     // Propietats visibles (respecta la vista, com la galeria): tota vista amb
@@ -327,13 +333,13 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/20"
                         title={String(value)}
                     >
-                        <LinkIcon size={14} /> Obrir Zotero
+                        <LinkIcon size={14} /> {t('table.open_zotero', 'Obrir Zotero')}
                     </button>
                 );
             default:
                 return <span className="text-sm text-[var(--text-primary)]">{value}</span>;
         }
-    }, [schema, localeSettings, getRelationDisplayMap, idToTitle]);
+    }, [schema, localeSettings, getRelationDisplayMap, idToTitle, t]);
 
     // Píndoles de propietat d'una nota (valors sense etiqueta, ordre de la vista).
     const buildPills = useCallback((note) => {
@@ -390,7 +396,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] p-10 bg-[var(--bg-secondary)]">
                 <FileText size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                <p>No hi ha publicacions al feed.</p>
+                <p>{t('feed.empty', 'No hi ha publicacions al feed.')}</p>
             </div>
         );
     }

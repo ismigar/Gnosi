@@ -893,6 +893,13 @@
     "translation_badge": "Traduction",
     "change_image": "Changer l'image"
   },
+  "feed": {
+    "updated_at": "Mis à jour le {{date}}",
+    "see_more": "Voir plus",
+    "see_less": "Voir moins",
+    "read_full": "Lire en entier",
+    "empty": "Aucune publication dans le fil."
+  },
   "files": {
     "delete_title": "Supprimer le fichier",
     "delete_question": "Que veux-tu faire de «{{name}}» ?",
