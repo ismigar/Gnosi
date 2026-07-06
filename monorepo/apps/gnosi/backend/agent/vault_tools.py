@@ -119,11 +119,20 @@ def read_pdf(path: str, max_chars: int = 12000) -> str:
     """Extreu el text d'un PDF (d'Assets/Biblioteca). Materialitza si és online-only."""
     from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
-    target = Path(path)
-    if not target.is_absolute():
-        vault = get_active_vault_path()
-        if vault:
-            target = (vault / path)
+    vault = get_active_vault_path()
+    if not vault:
+        return "Error: no hi ha cap vault actiu."
+    vault_root = Path(vault).resolve()
+    # `path` ve de l'LLM i pot estar influït per contingut NO confiable que
+    # l'agent llegeix (pàgines, correus, altres PDFs) → prompt-injectable.
+    # Contenció OBLIGATÒRIA (mateix patró que `_safe_directive_path`): resol i
+    # comprova que el fitxer cau DINS del vault actiu. Sense això, una ruta
+    # absoluta (`/Users/…/extracte.pdf`) o un `../` llegia qualsevol PDF del
+    # sistema i en tornava el text a la conversa (exfiltració).
+    raw = Path(path)
+    target = (raw if raw.is_absolute() else (vault_root / path)).resolve()
+    if target != vault_root and vault_root not in target.parents:
+        return f"Accés denegat: el PDF ha d'estar dins del vault actiu ({path})."
     if not target.exists():
         return f"No existeix el PDF: {target}"
     try:
