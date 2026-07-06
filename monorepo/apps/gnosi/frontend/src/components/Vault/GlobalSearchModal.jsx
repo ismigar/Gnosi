@@ -20,11 +20,42 @@ const persistSaved = (list) => {
     try { localStorage.setItem(SAVED_KEY, JSON.stringify(list.slice(0, 20))); } catch { /* noop */ }
 };
 
-const noteTags = (note) => {
-    const raw = note?.metadata?.tags;
+const splitTags = (raw) => {
     if (!raw) return [];
     const arr = Array.isArray(raw) ? raw : String(raw).split(',');
-    return arr.map((t) => String(t).replace(/^#/, '').trim().toLowerCase()).filter(Boolean);
+    // normalizeForSearch (minúscules + sense accents) i no toLowerCase pelat:
+    // així `tag:etica` troba "Ètica", coherent amb la resta de la cerca.
+    return arr.map((t) => normalizeForSearch(String(t).replace(/^#/, '').trim())).filter(Boolean);
+};
+
+// Camp semàntic d'etiquetes d'una taula — mirall de option_catalogs.find_role_prop
+// (backend): rol explícit `config.role === 'tags'` o, si no n'hi ha, heurístic de
+// NOM (tags/tag/etiquetes/etiquetas/labels, normalitzat sense accents) restringit
+// a multi_select. És la mateixa font que alimenta la pàgina d'Etiquetes
+// (/api/vault/tags), així el `tag:` de la cerca veu els mateixos tags que ella.
+const TAG_FIELD_NAMES = new Set(['tags', 'tag', 'etiquetes', 'etiquetas', 'labels']);
+const findTagsField = (table) => {
+    const props = table?.properties || [];
+    const explicit = props.find((p) => String(p?.config?.role || '').trim().toLowerCase() === 'tags');
+    if (explicit) return explicit;
+    return props.find((p) => TAG_FIELD_NAMES.has(normalizeForSearch(p?.name)) && p?.type === 'multi_select') || null;
+};
+
+// Tags d'una nota: frontmatter `tags` (estil Obsidian) + el valor del camp
+// semàntic d'etiquetes de la seva taula (les dues fonts que unifica la pàgina
+// d'Etiquetes). Abans només es llegia `metadata.tags` (clau minúscula), així que
+// `tag:` no casava MAI amb les taules importades de Notion (camp "Tags").
+const noteTags = (note, tagFieldsByTable) => {
+    const meta = note?.metadata || {};
+    const tags = splitTags(meta.tags);
+    const tableId = note?.resolved_table_id || meta.table_id || meta.database_table_id;
+    const field = tableId ? tagFieldsByTable?.get(String(tableId)) : null;
+    if (field) {
+        let raw = field.id != null ? meta[field.id] : undefined;
+        if (raw === undefined || raw === null) raw = field.name ? meta[field.name] : undefined;
+        tags.push(...splitTags(raw));
+    }
+    return tags;
 };
 
 // Parseja la consulta en operadors + termes lliures + regex opcional.
@@ -43,16 +74,18 @@ const parseQuery = (query) => {
     return { ops, terms, regex };
 };
 
-const matchNote = (note, parsed) => {
+const matchNote = (note, parsed, tagFieldsByTable) => {
     const { ops, terms, regex } = parsed;
     const title = note.title || '';
     const titleNorm = normalizeForSearch(title);
     const folder = String(note.folder || note.path || '').toLowerCase();
-    const tags = noteTags(note);
+    const tags = noteTags(note, tagFieldsByTable);
 
-    // tag: (jeràrquic — casa el tag exacte o qualsevol descendent a/b/c)
+    // tag: (jeràrquic — casa el tag exacte o qualsevol descendent a/b/c).
+    // Es normalitza també el valor de l'operador (sense accents), com els tags.
     for (const tg of ops.tag) {
-        if (!tags.some((t) => t === tg || t.startsWith(tg + '/'))) return false;
+        const tgn = normalizeForSearch(tg);
+        if (!tags.some((t) => t === tgn || t.startsWith(tgn + '/'))) return false;
     }
     for (const p of ops.path) { if (!folder.includes(p)) return false; }
     for (const tt of ops.title) { if (!normalizeForSearch(title).includes(normalizeForSearch(tt))) return false; }
@@ -61,10 +94,10 @@ const matchNote = (note, parsed) => {
         if (isv === 'page' && note.is_database) return false;
     }
     if (regex && !(regex.test(title) || regex.test(folder))) return false;
-    // Termes lliures: casen amb títol (o tag).
+    // Termes lliures: casen amb títol (o tag; els tags ja venen normalitzats).
     for (const term of terms) {
         const tn = normalizeForSearch(term);
-        if (!titleNorm.includes(tn) && !tags.some((t) => t.includes(term.toLowerCase()))) return false;
+        if (!titleNorm.includes(tn) && !tags.some((t) => t.includes(tn))) return false;
     }
     return true;
 };
@@ -79,14 +112,24 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
 
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
+    // Camp d'etiquetes per taula, resolt un sol cop (O(taules), no O(notes)).
+    const tagFieldsByTable = React.useMemo(() => {
+        const m = new Map();
+        (tables || []).forEach((t) => {
+            const f = findTagsField(t);
+            if (f && t?.id != null) m.set(String(t.id), f);
+        });
+        return m;
+    }, [tables]);
+
     const filteredNotes = React.useMemo(() => {
         if (!query.trim()) return [];
         const parsed = parseQuery(query);
         return allNotes.filter((note) => {
             if (isCalendarPage(note)) return false;
-            return matchNote(note, parsed);
+            return matchNote(note, parsed, tagFieldsByTable);
         }).slice(0, 30);
-    }, [query, allNotes]);
+    }, [query, allNotes, tagFieldsByTable]);
 
     // Títol de la BD d'origen d'una fila. Tres camins, per ordre de fiabilitat:
     // 1) resolved_table_id → nom al registre de taules; 2) avantpassat amb
