@@ -3,6 +3,7 @@ import time
 import logging
 import unicodedata
 import shutil
+from contextlib import contextmanager
 from pathlib import Path
 from fastapi import (
     APIRouter,
@@ -1019,6 +1020,11 @@ def init_vault():
 
 def ensure_default_registry_structure():
     """Ensures the existence of the default DB and an initial table."""
+    with registry_mutation():
+        _ensure_default_registry_structure_locked()
+
+
+def _ensure_default_registry_structure_locked():
     registry = load_registry()
     if "databases" not in registry or not isinstance(registry["databases"], list):
         registry["databases"] = []
@@ -5962,24 +5968,25 @@ def ensure_reference_table_schema(table_id: str) -> int:
     Retorna el nombre de columnes afegides."""
     if not table_id:
         return 0
-    reg = load_registry()
-    table = next(
-        (t for t in reg.get("tables", []) or [] if t.get("id") == table_id), None
-    )
-    if not table:
-        return 0
-    props = table.setdefault("properties", [])
-    existing = {str(p.get("name") or "").lower().replace(" ", "") for p in props}
-    added = 0
-    for name, ptype in _REFERENCE_SCHEMA:
-        norm = name.lower().replace(" ", "")
-        if norm not in existing:
-            props.append({"id": str(uuid.uuid4()), "name": name, "type": ptype})
-            existing.add(norm)
-            added += 1
-    if added:
-        save_registry(reg)
-        log.info(f"📚 Esquema de referències: +{added} columnes a {table_id}")
+    with registry_mutation():
+        reg = load_registry()
+        table = next(
+            (t for t in reg.get("tables", []) or [] if t.get("id") == table_id), None
+        )
+        if not table:
+            return 0
+        props = table.setdefault("properties", [])
+        existing = {str(p.get("name") or "").lower().replace(" ", "") for p in props}
+        added = 0
+        for name, ptype in _REFERENCE_SCHEMA:
+            norm = name.lower().replace(" ", "")
+            if norm not in existing:
+                props.append({"id": str(uuid.uuid4()), "name": name, "type": ptype})
+                existing.add(norm)
+                added += 1
+        if added:
+            save_registry(reg)
+            log.info(f"📚 Esquema de referències: +{added} columnes a {table_id}")
     return added
 
 
@@ -6646,28 +6653,30 @@ async def promote_zotero_extra(payload: dict = Body(...)):
     if not table_id or not zotero_field:
         raise HTTPException(status_code=400, detail="table_id i zotero_field són obligatoris")
 
-    registry = load_registry()
-    table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
-    if not table:
-        raise HTTPException(status_code=404, detail=f"Table {table_id} no trobada")
+    # 1. Crear o reutilitzar la property (cicle de registre sencer sota candau).
+    #    La migració de pàgines (async, més avall) va FORA: no toca el registre.
+    with registry_mutation():
+        registry = load_registry()
+        table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
+        if not table:
+            raise HTTPException(status_code=404, detail=f"Table {table_id} no trobada")
 
-    # 1. Crear o reutilitzar la property.
-    props = table.setdefault('properties', [])
-    existing = next(
-        (p for p in props if (p.get('name') or '').strip() == column_name),
-        None,
-    )
-    column_created = False
-    if existing is None:
-        new_prop = {
-            'id': str(uuid.uuid4()),
-            'name': column_name,
-            'type': column_type,
-        }
-        props.append(new_prop)
-        save_registry(registry)
-        existing = new_prop
-        column_created = True
+        props = table.setdefault('properties', [])
+        existing = next(
+            (p for p in props if (p.get('name') or '').strip() == column_name),
+            None,
+        )
+        column_created = False
+        if existing is None:
+            new_prop = {
+                'id': str(uuid.uuid4()),
+                'name': column_name,
+                'type': column_type,
+            }
+            props.append(new_prop)
+            save_registry(registry)
+            existing = new_prop
+            column_created = True
 
     # 2. Determinar el conjunt de pàgines a migrar.
     if isinstance(page_ids_arg, list) and page_ids_arg:
@@ -12060,6 +12069,45 @@ _registry_cache_ttl_seconds = 30  # serve from cache without stat() if recent
 # during this process lifetime. Avoids redundant FUSE stat() calls on every read.
 _registry_ensured_tables: set = set()
 
+# Serialitza el cicle SENCER load→modify→save del registre central
+# (vault_db_registry.json). Mateix patró sistèmic que #728/#729/#743 (daily
+# note, comentaris, plugins): sense això, dues mutacions concurrents llegien el
+# mateix snapshot i l'última escriptura esclafava l'altra (last-writer-wins).
+# RLock i no Lock perquè `load_registry` crida `save_registry` quan saneja
+# (changed=True) amb el candau ja agafat pel mateix fil.
+_registry_mutation_lock = threading.RLock()
+
+
+@contextmanager
+def registry_mutation():
+    """Embolcalla un cicle sencer load_registry→modificar→save_registry.
+
+    Regles d'ús (si es violen, la protecció desapareix en silenci):
+      - SEMPRE el cicle sencer a dins, mai només el load o el save.
+      - Dins d'un handler `async def`, el bloc no pot contenir cap `await`:
+        l'RLock és reentrant PER FIL i totes les corrutines comparteixen el fil
+        de l'event loop, així que una segona corrutina el reentraria durant la
+        suspensió. Si el cicle necessita I/O lent, mou el cos a una funció
+        síncrona i executa-la amb `asyncio.to_thread` (cf. `rename_table`).
+    """
+    with _registry_mutation_lock:
+        yield
+
+
+def _update_registry_cache(reg_path, data) -> None:
+    """Sincronitza la caché en memòria (per-vault) després d'escriure el fitxer.
+
+    També la crida `vault_views_routes._save_registry`, que escriu el MATEIX
+    fitxer amb el seu propi I/O: sense refresc, els lectors d'aquest mòdul
+    servien fins a 30s (TTL) de dades rancies després d'un upsert de vista.
+    """
+    _sk = str(reg_path)
+    _registry_cache[_sk] = data
+    _registry_cache_ts[_sk] = time.monotonic()
+    try:
+        _registry_cache_mtime[_sk] = reg_path.stat().st_mtime
+    except Exception:
+        pass
 
 
 def load_registry():
@@ -12104,63 +12152,12 @@ def load_registry():
         return empty
 
     try:
-        data = json.loads(registry_path.read_text(encoding="utf-8"))
-
-        changed = False
-        tables = data.get("tables", [])
-        # 1. Cleanup: Delete default taula_1 if it exists
-        if any(t.get("name") == "taula_1" for t in tables):
-            data["tables"] = [t for t in tables if t.get("name") != "taula_1"]
-            changed = True
-            log.info("🗑️ Deleted default taula_1 from registry.")
-
-        # 1.5 Cleanup: legacy wiki table is no longer supported as DB table.
-        if any(str(t.get("id") or "").strip().lower() == "wiki" for t in data.get("tables", [])):
-            data["tables"] = [
-                t
-                for t in data.get("tables", [])
-                if str(t.get("id") or "").strip().lower() != "wiki"
-            ]
-            data["views"] = [
-                v
-                for v in data.get("views", [])
-                if str(v.get("table_id") or "").strip().lower() != "wiki"
-            ]
-            changed = True
-            log.info("🧹 Removed legacy wiki table and its views from registry.")
-
-        # 2. Sanejament i creació de carpetes (només per taules no validades encara)
-        for table in data.get("tables", []):
-            folder_raw = table.get("folder") or table.get("name", "untitled_table")
-            folder_normalized = _normalize_rel_folder(folder_raw)
-
-            if table.get("folder") != folder_normalized:
-                table["folder"] = folder_normalized
-                changed = True
-                log.info(f"🧹 Normalized table path '{table.get('name')}': {folder_normalized}")
-
-            tid = str(table.get("id") or "")
-            if tid and tid in _registry_ensured_tables:
-                continue
-            try:
-                _ensure_table_vault_folder(table, data)
-                if tid:
-                    _registry_ensured_tables.add(tid)
-            except Exception as e:
-                log.error(f"❌ Error ensuring folder for table {table.get('name')}: {e}")
-
-        if changed:
-            save_registry(data)
-
-        # Sync cache (per-vault, clau = ruta del registre)
-        _registry_cache[_ck] = data
-        _registry_cache_ts[_ck] = now
-        try:
-            _registry_cache_mtime[_ck] = registry_path.stat().st_mtime
-        except Exception:
-            _registry_cache_mtime[_ck] = mtime if 'mtime' in locals() else 0
-
-        return data
+        # Candau al tram de disc: el sanejament de sota pot acabar en un
+        # save_registry (changed=True) i no pot interlevar-se amb un cicle de
+        # mutació d'un altre fil. Reentrant: si ja venim d'un registry_mutation()
+        # del mateix fil, no bloqueja.
+        with _registry_mutation_lock:
+            return _load_registry_from_disk(registry_path, _ck, now)
     except Exception as e:
         log.error(f"❌ Error loading registry: {e}")
         if cached is not None:
@@ -12169,26 +12166,84 @@ def load_registry():
         return empty
 
 
+def _load_registry_from_disk(registry_path, _ck: str, now: float):
+    """Lectura de disc + sanejament del registre. Cridar SEMPRE amb
+    `_registry_mutation_lock` agafat (ho fa `load_registry`)."""
+    data = json.loads(registry_path.read_text(encoding="utf-8"))
+
+    changed = False
+    tables = data.get("tables", [])
+    # 1. Cleanup: Delete default taula_1 if it exists
+    if any(t.get("name") == "taula_1" for t in tables):
+        data["tables"] = [t for t in tables if t.get("name") != "taula_1"]
+        changed = True
+        log.info("🗑️ Deleted default taula_1 from registry.")
+
+    # 1.5 Cleanup: legacy wiki table is no longer supported as DB table.
+    if any(str(t.get("id") or "").strip().lower() == "wiki" for t in data.get("tables", [])):
+        data["tables"] = [
+            t
+            for t in data.get("tables", [])
+            if str(t.get("id") or "").strip().lower() != "wiki"
+        ]
+        data["views"] = [
+            v
+            for v in data.get("views", [])
+            if str(v.get("table_id") or "").strip().lower() != "wiki"
+        ]
+        changed = True
+        log.info("🧹 Removed legacy wiki table and its views from registry.")
+
+    # 2. Sanejament i creació de carpetes (només per taules no validades encara)
+    for table in data.get("tables", []):
+        folder_raw = table.get("folder") or table.get("name", "untitled_table")
+        folder_normalized = _normalize_rel_folder(folder_raw)
+
+        if table.get("folder") != folder_normalized:
+            table["folder"] = folder_normalized
+            changed = True
+            log.info(f"🧹 Normalized table path '{table.get('name')}': {folder_normalized}")
+
+        tid = str(table.get("id") or "")
+        if tid and tid in _registry_ensured_tables:
+            continue
+        try:
+            _ensure_table_vault_folder(table, data)
+            if tid:
+                _registry_ensured_tables.add(tid)
+        except Exception as e:
+            log.error(f"❌ Error ensuring folder for table {table.get('name')}: {e}")
+
+    if changed:
+        save_registry(data)
+
+    # Sync cache (per-vault, clau = ruta del registre)
+    _registry_cache[_ck] = data
+    _registry_cache_ts[_ck] = now
+    try:
+        _registry_cache_mtime[_ck] = registry_path.stat().st_mtime
+    except Exception:
+        pass
+
+    return data
+
+
 def save_registry(data):
     """Saves the current state to the registry file and updates cache."""
-    global _registry_cache, _registry_cache_mtime, _registry_cache_ts
     reg_path = get_p('REGISTRY')
     if not reg_path:
         log.warning("⚠️ Registry save attempt without configured path.")
         return
     try:
-        # Atomic write — registry lives on cloud-synced storage, so any
-        # half-flushed write would propagate to other devices and corrupt the
-        # central config. safe_write_json does tmp + fsync + rename.
-        safe_write_json(reg_path, data, indent=2, ensure_ascii=False)
-        # Refresh cache (per-vault) so subsequent reads see new data without re-stat
-        _sk = str(reg_path)
-        _registry_cache[_sk] = data
-        _registry_cache_ts[_sk] = time.monotonic()
-        try:
-            _registry_cache_mtime[_sk] = reg_path.stat().st_mtime
-        except Exception:
-            pass
+        # Candau reentrant: un save solt (fora d'un registry_mutation()) tampoc
+        # no s'ha d'interlevar amb l'escriptura+refresc de caché d'un cicle.
+        with _registry_mutation_lock:
+            # Atomic write — registry lives on cloud-synced storage, so any
+            # half-flushed write would propagate to other devices and corrupt the
+            # central config. safe_write_json does tmp + fsync + rename.
+            safe_write_json(reg_path, data, indent=2, ensure_ascii=False)
+            # Refresh cache (per-vault) so subsequent reads see new data without re-stat
+            _update_registry_cache(reg_path, data)
     except Exception as e:
         log.error(f"❌ Error saving registry: {e}")
 
@@ -12403,6 +12458,9 @@ async def update_registry(data: dict = Body(...)):
     error o un atacant amb un rol més baix podria destruir totes les
     databases/tables/views d'un workspace en una sola crida.
     """
+    # Overwrite sencer per disseny (substitueix TOT el registry). No és un cicle
+    # RMW, però `save_registry` ja pren `_registry_mutation_lock` internament, així
+    # que no es pot interlevar amb l'escriptura d'un altre cicle.
     save_registry(data)
     return {"status": "success"}
 
@@ -12676,40 +12734,45 @@ async def create_database(db: dict = Body(...)):
     # Auth gate: crear/editar databases és una mutació estructural del
     # registry (impacta totes les vistes i taules). Igual que `delete_database`
     # més avall, ha de requerir mínim rol editor.
-    registry = load_registry()
-    if "id" not in db:
-        db["id"] = str(uuid.uuid4())
+    #
+    # Cicle load→modify→save sencer sota candau (bloc síncron sense `await`:
+    # atòmic també respecte altres corrutines de l'event loop).
+    with registry_mutation():
+        registry = load_registry()
+        if "id" not in db:
+            db["id"] = str(uuid.uuid4())
 
-    # Upsert
-    existing_idx = next(
-        (i for i, d in enumerate(registry["databases"]) if d["id"] == db["id"]), None
-    )
-    if existing_idx is not None:
-        registry["databases"][existing_idx] = db
-    else:
-        registry["databases"].append(db)
+        # Upsert
+        existing_idx = next(
+            (i for i, d in enumerate(registry["databases"]) if d["id"] == db["id"]), None
+        )
+        if existing_idx is not None:
+            registry["databases"][existing_idx] = db
+        else:
+            registry["databases"].append(db)
 
-    save_registry(registry)
+        save_registry(registry)
     return db
 
 
 @router.delete("/databases/{database_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_database(database_id: str):
-    registry = load_registry()
-    registry["databases"] = [
-        db for db in registry["databases"] if db.get("id") != database_id
-    ]
-    # Netejar tables i views associades
-    tables_to_remove = [
-        t["id"] for t in registry["tables"] if t.get("database_id") == database_id
-    ]
-    registry["tables"] = [
-        t for t in registry["tables"] if t.get("database_id") != database_id
-    ]
-    registry["views"] = [
-        v for v in registry["views"] if v.get("table_id") not in tables_to_remove
-    ]
-    save_registry(registry)
+    with registry_mutation():
+        registry = load_registry()
+        registry["databases"] = [
+            db for db in registry["databases"] if db.get("id") != database_id
+        ]
+        # Netejar tables i views associades
+        tables_to_remove = [
+            t["id"] for t in registry["tables"] if t.get("database_id") == database_id
+        ]
+        registry["tables"] = [
+            t for t in registry["tables"] if t.get("database_id") != database_id
+        ]
+        registry["views"] = [
+            v for v in registry["views"] if v.get("table_id") not in tables_to_remove
+        ]
+        save_registry(registry)
     return {"status": "success"}
 
 
@@ -12770,6 +12833,17 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
 
 @router.post("/tables", dependencies=[Depends(require_role("editor"))])
 async def create_table(table: dict = Body(...)):
+    # Cicle load→modify→save sencer sota candau. El cos és síncron (cap `await`),
+    # extret a `_create_table_locked` per no reindentar-lo; el candau reentrant el
+    # serialitza també respecte fils worker (to_thread) que carreguen/desen el
+    # registre. Cridable de `social_store.ensure_social_table` i
+    # `create_reference_table` (`await create_table(...)`): cap d'ells manté el
+    # candau durant l'await, així que no hi ha deadlock.
+    with registry_mutation():
+        return _create_table_locked(table)
+
+
+def _create_table_locked(table: dict):
     registry = load_registry()
     if "id" not in table:
         table["id"] = str(uuid.uuid4())
@@ -12859,24 +12933,26 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
       We update the registry synchronously (the user-visible source of
       truth) and queue the disk cleanup as a background task.
     """
-    registry = load_registry()
-    # Get table info BEFORE deleting it from registry
-    table_entry = next((t for t in registry["tables"] if t.get("id") == table_id), None)
-    db_entry = None
-    if table_entry:
-        db_entry = next(
-            (
-                d
-                for d in registry.get("databases", [])
-                if str(d.get("id")) == str(table_entry.get("database_id"))
-            ),
-            None,
-        )
-    # Update registry FIRST so the response is fast and the UI updates immediately
-    registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
-    # Netejar views associades
-    registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
-    save_registry(registry)
+    # Cicle load→modify→save sencer sota candau (bloc síncron, sense `await`).
+    with registry_mutation():
+        registry = load_registry()
+        # Get table info BEFORE deleting it from registry
+        table_entry = next((t for t in registry["tables"] if t.get("id") == table_id), None)
+        db_entry = None
+        if table_entry:
+            db_entry = next(
+                (
+                    d
+                    for d in registry.get("databases", [])
+                    if str(d.get("id")) == str(table_entry.get("database_id"))
+                ),
+                None,
+            )
+        # Update registry FIRST so the response is fast and the UI updates immediately
+        registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
+        # Netejar views associades
+        registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
+        save_registry(registry)
 
     # Schedule the slow filesystem cleanup off the request path
     if table_entry:
@@ -12887,6 +12963,38 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
 
 @router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])
 async def rename_table(table_id: str, data: dict = Body(...)):
+    # El cicle de registre + els moviments SÍNCRONS de carpetes d'assets van sota
+    # candau. L'única part async (reescriure les refs inline dels cossos de pàgina,
+    # via to_thread) es defereix FORA del candau: toca fitxers .md, no el registre,
+    # i era best-effort. Així no mantenim l'RLock durant cap `await`.
+    with registry_mutation():
+        deferred_rewrite = _rename_table_locked(table_id, data)
+
+    if deferred_rewrite:
+        table_dir, old_seg, new_seg = deferred_rewrite
+        try:
+            # rglob + read/write per molts .md: ho descarreguem a un thread per no
+            # bloquejar l'event loop en taules grans o vaults al núvol (lents).
+            n = await asyncio.to_thread(_rewrite_inline_asset_refs, table_dir, old_seg, new_seg)
+            if n:
+                log.info(
+                    f"Rewrote inline asset refs in {n} page(s) for "
+                    f"table rename ({old_seg}→{new_seg})."
+                )
+        except Exception as e:
+            log.warning(f"Could not rewrite inline asset refs: {e}")
+
+    return {"status": "success"}
+
+
+def _rename_table_locked(table_id: str, data: dict):
+    """Cicle load→modify→save del rename de taula + moviments síncrons de
+    carpetes d'assets. Cridar SEMPRE amb `registry_mutation()` agafat.
+
+    Retorna `(table_dir, old_seg, new_seg)` si cal reescriure refs inline dels
+    cossos de pàgina (feina async que el cridador fa FORA del candau), o `None`.
+    """
+    deferred_rewrite = None
     registry = load_registry()
     for t in registry["tables"]:
         if t["id"] == table_id:
@@ -12973,23 +13081,16 @@ async def rename_table(table_id: str, data: dict = Body(...)):
                     log.warning(f"Could not rename flat assets folder: {e}")
 
                 # 1b) Si la carpeta plana ha canviat de segment, els fitxers
-                #     solts viuen ara a <new_seg>: reescriu les refs inline
-                #     dels cossos de pàgina (`/api/vault/assets/<seg>/...`).
+                #     solts viuen ara a <new_seg>: cal reescriure les refs inline
+                #     dels cossos de pàgina (`/api/vault/assets/<seg>/...`). Ho
+                #     DEFERIM fora del candau (feina async sobre .md, no registre).
                 if should_rewrite_refs:
                     try:
                         table_dir = _table_vault_dir(t, registry)
                         if table_dir:
-                            # rglob + read/write per molts .md: ho descarreguem
-                            # a un thread per no bloquejar l'event loop en taules
-                            # grans o vaults sincronitzats al núvol (lents).
-                            n = await asyncio.to_thread(_rewrite_inline_asset_refs, table_dir, old_seg, new_seg)
-                            if n:
-                                log.info(
-                                    f"Rewrote inline asset refs in {n} page(s) for "
-                                    f"table rename ({old_seg}→{new_seg})."
-                                )
+                            deferred_rewrite = (table_dir, old_seg, new_seg)
                     except Exception as e:
-                        log.warning(f"Could not rewrite inline asset refs: {e}")
+                        log.warning(f"Could not resolve table dir for inline ref rewrite: {e}")
 
                 # 2) Estructurada Assets/<DB>/<Taula>/ — sempre segura: va
                 #    niada sota <DB>/, mai col·lisiona amb l'arrel.
@@ -13011,7 +13112,7 @@ async def rename_table(table_id: str, data: dict = Body(...)):
             _ensure_table_vault_folder(t, registry)
             break
     save_registry(registry)
-    return {"status": "success"}
+    return deferred_rewrite
 
 
 @router.patch("/tables/{table_id}/properties/{field_id}",
@@ -13032,6 +13133,14 @@ async def patch_table_property(table_id: str, field_id: str, data: dict = Body(.
       - type: nou type (només si la migració de dades és segura)
       - config: dict que es fa merge amb la config existent
     """
+    # Cicle load→modify→save sencer sota candau. Cos síncron (cap `await`,
+    # només raises d'HTTPException que propaguen bé pel context manager),
+    # extret per no reindentar.
+    with registry_mutation():
+        return _patch_table_property_locked(table_id, field_id, data)
+
+
+def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
     registry = load_registry()
     target_table = None
     target_prop = None
@@ -13263,23 +13372,27 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="field_id, old i new són obligatoris")
     if old == new:
         return {"status": "ok", "files_changed": 0}
-    registry = load_registry()
-    table, prop = _find_table_and_prop(registry, table_id, field_ref)
-    cfg = option_catalogs_service.get_prop_config(prop)
-    if not str(cfg.get("catalog_ref") or "").strip():
-        options = option_catalogs_service.get_prop_options(prop)
-        names = {o["name"] for o in options}
-        renamed = []
-        for o in options:
-            if o["name"] == old:
-                if new in names:
-                    continue  # fusió: l'opció destí ja existeix
-                o = {**o, "name": new}
-            renamed.append(o)
-        option_catalogs_service.set_prop_options(prop, renamed)
-        if str(cfg.get("default_option") or "") == old:
-            cfg["default_option"] = new
-        save_registry(registry)
+    # El cicle de registre (catàleg d'opcions) va sota candau; la reescriptura
+    # eager dels .md (`_rewrite_option_in_rows`, async) queda FORA. `table`/`prop`
+    # segueixen sent vàlids després del `with` (referències als objectes desats).
+    with registry_mutation():
+        registry = load_registry()
+        table, prop = _find_table_and_prop(registry, table_id, field_ref)
+        cfg = option_catalogs_service.get_prop_config(prop)
+        if not str(cfg.get("catalog_ref") or "").strip():
+            options = option_catalogs_service.get_prop_options(prop)
+            names = {o["name"] for o in options}
+            renamed = []
+            for o in options:
+                if o["name"] == old:
+                    if new in names:
+                        continue  # fusió: l'opció destí ja existeix
+                    o = {**o, "name": new}
+                renamed.append(o)
+            option_catalogs_service.set_prop_options(prop, renamed)
+            if str(cfg.get("default_option") or "") == old:
+                cfg["default_option"] = new
+            save_registry(registry)
     files_changed = await _rewrite_option_in_rows(table, prop, old, new)
     return {"status": "ok", "files_changed": files_changed}
 
@@ -13301,19 +13414,21 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="field_id i value són obligatoris")
     if reassign_to == value:
         raise HTTPException(status_code=400, detail="No es pot reassignar a la mateixa opció")
-    registry = load_registry()
-    table, prop = _find_table_and_prop(registry, table_id, field_ref)
-    cfg = option_catalogs_service.get_prop_config(prop)
-    if not str(cfg.get("catalog_ref") or "").strip():
-        options = [
-            o
-            for o in option_catalogs_service.get_prop_options(prop)
-            if o["name"] != value
-        ]
-        option_catalogs_service.set_prop_options(prop, options)
-        if str(cfg.get("default_option") or "") == value:
-            cfg.pop("default_option", None)
-        save_registry(registry)
+    # Cicle de registre sota candau; reescriptura eager dels .md (async) fora.
+    with registry_mutation():
+        registry = load_registry()
+        table, prop = _find_table_and_prop(registry, table_id, field_ref)
+        cfg = option_catalogs_service.get_prop_config(prop)
+        if not str(cfg.get("catalog_ref") or "").strip():
+            options = [
+                o
+                for o in option_catalogs_service.get_prop_options(prop)
+                if o["name"] != value
+            ]
+            option_catalogs_service.set_prop_options(prop, options)
+            if str(cfg.get("default_option") or "") == value:
+                cfg.pop("default_option", None)
+            save_registry(registry)
     files_changed = await _rewrite_option_in_rows(table, prop, value, reassign_to)
     return {"status": "ok", "files_changed": files_changed}
 
@@ -13345,9 +13460,10 @@ async def put_option_catalog(name: str, payload: dict = Body(...)):
     if not clean:
         raise HTTPException(status_code=400, detail="Catalog name is required")
     options = option_catalogs_service.normalize_options(payload.get("options"))
-    registry = load_registry()
-    registry.setdefault("option_catalogs", {})[clean] = options
-    save_registry(registry)
+    with registry_mutation():
+        registry = load_registry()
+        registry.setdefault("option_catalogs", {})[clean] = options
+        save_registry(registry)
     return {"status": "ok", "name": clean, "options": options}
 
 
@@ -13356,23 +13472,24 @@ async def put_option_catalog(name: str, payload: dict = Body(...)):
 )
 async def delete_option_catalog(name: str):
     """Esborra un catàleg compartit. 409 si algun camp encara el referencia."""
-    registry = load_registry()
-    cats = registry.get("option_catalogs") or {}
-    if name not in cats:
-        raise HTTPException(status_code=404, detail="Catalog not found")
-    referenced_by = [
-        f"{t.get('name')}/{p.get('name')}"
-        for t in registry.get("tables", [])
-        for p in t.get("properties") or []
-        if str(option_catalogs_service.get_prop_config(p).get("catalog_ref") or "") == name
-    ]
-    if referenced_by:
-        raise HTTPException(
-            status_code=409,
-            detail=f"El catàleg l'usen: {', '.join(referenced_by)}",
-        )
-    cats.pop(name, None)
-    save_registry(registry)
+    with registry_mutation():
+        registry = load_registry()
+        cats = registry.get("option_catalogs") or {}
+        if name not in cats:
+            raise HTTPException(status_code=404, detail="Catalog not found")
+        referenced_by = [
+            f"{t.get('name')}/{p.get('name')}"
+            for t in registry.get("tables", [])
+            for p in t.get("properties") or []
+            if str(option_catalogs_service.get_prop_config(p).get("catalog_ref") or "") == name
+        ]
+        if referenced_by:
+            raise HTTPException(
+                status_code=409,
+                detail=f"El catàleg l'usen: {', '.join(referenced_by)}",
+            )
+        cats.pop(name, None)
+        save_registry(registry)
     return {"status": "ok"}
 
 
@@ -13398,19 +13515,20 @@ async def list_views(table_id: Optional[str] = None):
 
 @router.post("/views", dependencies=[Depends(require_role("editor"))])
 async def create_view(view: dict = Body(...)):
-    registry = load_registry()
-    if "id" not in view:
-        view["id"] = str(uuid.uuid4())
+    with registry_mutation():
+        registry = load_registry()
+        if "id" not in view:
+            view["id"] = str(uuid.uuid4())
 
-    existing_idx = next(
-        (i for i, v in enumerate(registry["views"]) if v["id"] == view["id"]), None
-    )
-    if existing_idx is not None:
-        registry["views"][existing_idx] = view
-    else:
-        registry["views"].append(view)
+        existing_idx = next(
+            (i for i, v in enumerate(registry["views"]) if v["id"] == view["id"]), None
+        )
+        if existing_idx is not None:
+            registry["views"][existing_idx] = view
+        else:
+            registry["views"].append(view)
 
-    save_registry(registry)
+        save_registry(registry)
     return view
 
 
@@ -13428,26 +13546,27 @@ async def reorder_views(body: dict = Body(...)):
     if not table_id or not isinstance(ordered_ids, list):
         raise HTTPException(status_code=422, detail="Cal table_id i ordered_ids (list).")
 
-    registry = load_registry()
-    views = registry.get("views") or []
-    table_views = {v["id"]: v for v in views if v.get("table_id") == table_id}
-    if not table_views:
-        raise HTTPException(status_code=404, detail=f"No hi ha vistes per a la taula '{table_id}'.")
+    with registry_mutation():
+        registry = load_registry()
+        views = registry.get("views") or []
+        table_views = {v["id"]: v for v in views if v.get("table_id") == table_id}
+        if not table_views:
+            raise HTTPException(status_code=404, detail=f"No hi ha vistes per a la taula '{table_id}'.")
 
-    other_views = [v for v in views if v.get("table_id") != table_id]
-    seen = set()
-    ordered_table_views = []
-    for vid in ordered_ids:
-        v = table_views.get(vid)
-        if v and vid not in seen:
-            ordered_table_views.append(v)
-            seen.add(vid)
-    for v in views:
-        if v.get("table_id") == table_id and v["id"] not in seen:
-            ordered_table_views.append(v)
+        other_views = [v for v in views if v.get("table_id") != table_id]
+        seen = set()
+        ordered_table_views = []
+        for vid in ordered_ids:
+            v = table_views.get(vid)
+            if v and vid not in seen:
+                ordered_table_views.append(v)
+                seen.add(vid)
+        for v in views:
+            if v.get("table_id") == table_id and v["id"] not in seen:
+                ordered_table_views.append(v)
 
-    registry["views"] = other_views + ordered_table_views
-    save_registry(registry)
+        registry["views"] = other_views + ordered_table_views
+        save_registry(registry)
     return {"ok": True, "table_id": table_id, "count": len(ordered_table_views)}
 
 
@@ -13469,71 +13588,73 @@ async def get_view(view_id: str):
 
 @router.delete("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_view(view_id: str):
-    registry = load_registry()
-    views = registry.get("views", [])
-    target = next((v for v in views if v.get("id") == view_id), None)
-    if not target:
-        raise HTTPException(status_code=404, detail="View not found")
+    with registry_mutation():
+        registry = load_registry()
+        views = registry.get("views", [])
+        target = next((v for v in views if v.get("id") == view_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="View not found")
 
-    table_id = target.get("table_id")
-    siblings = [v for v in views if v.get("table_id") == table_id]
-    is_only = len(siblings) <= 1
-    is_main = bool(target.get("is_main"))
-    other_mains = [v for v in siblings if v.get("id") != view_id and v.get("is_main")]
+        table_id = target.get("table_id")
+        siblings = [v for v in views if v.get("table_id") == table_id]
+        is_only = len(siblings) <= 1
+        is_main = bool(target.get("is_main"))
+        other_mains = [v for v in siblings if v.get("id") != view_id and v.get("is_main")]
 
-    # Product invariant: every table must keep at least one main view at
-    # all times. Reject deletes that would leave a table with no views, or
-    # that would strip the last `is_main` flag.
-    if is_only:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "cannot_delete_last_view",
-                "message": (
-                    "No es pot eliminar l'única vista d'una taula. "
-                    "Crea'n una altra primer."
-                ),
-            },
-        )
-    if is_main and not other_mains:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "error": "cannot_delete_main_view",
-                "message": (
-                    "No es pot eliminar la vista principal. Marca una "
-                    "altra vista com a principal abans d'eliminar aquesta."
-                ),
-            },
-        )
+        # Product invariant: every table must keep at least one main view at
+        # all times. Reject deletes that would leave a table with no views, or
+        # that would strip the last `is_main` flag.
+        if is_only:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "cannot_delete_last_view",
+                    "message": (
+                        "No es pot eliminar l'única vista d'una taula. "
+                        "Crea'n una altra primer."
+                    ),
+                },
+            )
+        if is_main and not other_mains:
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "error": "cannot_delete_main_view",
+                    "message": (
+                        "No es pot eliminar la vista principal. Marca una "
+                        "altra vista com a principal abans d'eliminar aquesta."
+                    ),
+                },
+            )
 
-    registry["views"] = [v for v in views if v.get("id") != view_id]
-    save_registry(registry)
+        registry["views"] = [v for v in views if v.get("id") != view_id]
+        save_registry(registry)
     return {"status": "success"}
 
 
 @router.put("/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def update_view(view_id: str, data: dict = Body(...)):
-    registry = load_registry()
-    found = False
-    for v in registry["views"]:
-        if v["id"] == view_id:
-            # Update all sent fields
-            for key, value in data.items():
-                v[key] = value
-            found = True
-            break
+    with registry_mutation():
+        registry = load_registry()
+        found = False
+        for v in registry["views"]:
+            if v["id"] == view_id:
+                # Update all sent fields
+                for key, value in data.items():
+                    v[key] = value
+                found = True
+                break
 
-    if not found:
-        # If it doesn't exist and we have enough data, we could create it,
-        # but the expected behavior of PUT is update.
-        # However, for robustness with the frontend, if they pass the whole object:
-        if "id" in data and data["id"] == view_id:
-            registry["views"].append(data)
-        else:
-            raise HTTPException(status_code=404, detail="View not found")
+        if not found:
+            # If it doesn't exist and we have enough data, we could create it,
+            # but the expected behavior of PUT is update.
+            # However, for robustness with the frontend, if they pass the whole object:
+            if "id" in data and data["id"] == view_id:
+                registry["views"].append(data)
+            else:
+                raise HTTPException(status_code=404, detail="View not found")
 
-    save_registry(registry)
+        save_registry(registry)
     return {"status": "success"}
 
 
@@ -14084,20 +14205,21 @@ def _ensure_status_options_persisted(table_id: str, values: list) -> None:
     opció sobre la còpia en memòria de la taula — torna a aplicar el canvi
     sobre una càrrega fresca i la persisteix."""
     try:
-        reg = load_registry()
-        table = next(
-            (t for t in reg.get("tables", []) if t.get("id") == table_id), None
-        )
-        if not table:
-            return
-        prop = option_catalogs_service.find_role_prop(
-            table, option_catalogs_service.ROLE_STATUS
-        )
-        if not prop:
-            return
-        wanted = [(str(v), "") for v in values if str(v or "").strip()]
-        if wanted and option_catalogs_service.ensure_options_exist(prop, wanted):
-            save_registry(reg)
+        with registry_mutation():
+            reg = load_registry()
+            table = next(
+                (t for t in reg.get("tables", []) if t.get("id") == table_id), None
+            )
+            if not table:
+                return
+            prop = option_catalogs_service.find_role_prop(
+                table, option_catalogs_service.ROLE_STATUS
+            )
+            if not prop:
+                return
+            wanted = [(str(v), "") for v in values if str(v or "").strip()]
+            if wanted and option_catalogs_service.ensure_options_exist(prop, wanted):
+                save_registry(reg)
     except Exception as exc:
         log.warning(
             f"action_rules: no s'ha pogut persistir el catàleg ampliat de {table_id}: {exc}"

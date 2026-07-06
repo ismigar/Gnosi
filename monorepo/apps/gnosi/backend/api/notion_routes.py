@@ -367,49 +367,54 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
     tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
 
     def write_table(table: dict):
-        reg = vault_routes.load_registry()
-        tables = reg.setdefault("tables", [])
-        reg.setdefault("views", [])
-        # La SIDEBAR agrupa les taules per registry.databases (VaultSidebar mostra "No hi ha bases
-        # de dades" si és buit, encara que hi hagi taules): el clon ha de crear l'entrada de BD
-        # agrupadora i vincular-hi cada taula, com les natives. folder="BD" perquè el físic és
-        # VAULT/BD/<table["folder"]> (la subcarpeta, si n'hi ha, viu DINS de table["folder"];
-        # cf. _resolve_table_folder_from_metadata: VAULT/<db_folder>/<folder de la taula>).
-        dbs = reg.setdefault("databases", [])
-        entry = next((d for d in dbs if d.get("id") == "notion_clone_db"), None)
-        if entry is None:
-            dbs.append({"id": "notion_clone_db", "name": "Notion", "folder": "BD"})
-        else:
-            # ASSEGURA els camps (com ensure_default_registry_structure): un registre reparat a
-            # mà o a mig estat amb folder≠"BD" faria que la resolució de carpetes no casés amb
-            # el físic que escriu el clon. El nom només s'omple si falta (es respecta el custom).
-            if not entry.get("name"):
-                entry["name"] = "Notion"
-            if entry.get("folder") != "BD":
-                entry["folder"] = "BD"
-        table["database_id"] = "notion_clone_db"
-        idx = next((i for i, t in enumerate(tables) if t.get("id") == table["id"]), None)
-        if idx is not None:
-            tables[idx] = table
-        else:
-            tables.append(table)
-        # El registre guarda la FULLA (table["folder"], p. ex. "Àrees"); el físic va sota BD/ com
-        # fan les taules natives de Gnosi (cf. _ensure_table_vault_folder / _resolve_table_folder_
-        # from_metadata: VAULT/BD/<folder> quan la taula no té database). Així no es migra després.
-        phys = f"BD/{table['folder']}"
-        folder_by_table[table["id"]] = phys
-        vault_routes.save_registry(reg)
+        # El clon corre en un fil worker (via asyncio.to_thread): sense el candau
+        # compartit, aquests cicles load→modify→save podrien esclafar-se amb els
+        # d'un handler de vault_routes (o amb write_view/write_page del propi clon).
+        with vault_routes.registry_mutation():
+            reg = vault_routes.load_registry()
+            tables = reg.setdefault("tables", [])
+            reg.setdefault("views", [])
+            # La SIDEBAR agrupa les taules per registry.databases (VaultSidebar mostra "No hi ha bases
+            # de dades" si és buit, encara que hi hagi taules): el clon ha de crear l'entrada de BD
+            # agrupadora i vincular-hi cada taula, com les natives. folder="BD" perquè el físic és
+            # VAULT/BD/<table["folder"]> (la subcarpeta, si n'hi ha, viu DINS de table["folder"];
+            # cf. _resolve_table_folder_from_metadata: VAULT/<db_folder>/<folder de la taula>).
+            dbs = reg.setdefault("databases", [])
+            entry = next((d for d in dbs if d.get("id") == "notion_clone_db"), None)
+            if entry is None:
+                dbs.append({"id": "notion_clone_db", "name": "Notion", "folder": "BD"})
+            else:
+                # ASSEGURA els camps (com ensure_default_registry_structure): un registre reparat a
+                # mà o a mig estat amb folder≠"BD" faria que la resolució de carpetes no casés amb
+                # el físic que escriu el clon. El nom només s'omple si falta (es respecta el custom).
+                if not entry.get("name"):
+                    entry["name"] = "Notion"
+                if entry.get("folder") != "BD":
+                    entry["folder"] = "BD"
+            table["database_id"] = "notion_clone_db"
+            idx = next((i for i, t in enumerate(tables) if t.get("id") == table["id"]), None)
+            if idx is not None:
+                tables[idx] = table
+            else:
+                tables.append(table)
+            # El registre guarda la FULLA (table["folder"], p. ex. "Àrees"); el físic va sota BD/ com
+            # fan les taules natives de Gnosi (cf. _ensure_table_vault_folder / _resolve_table_folder_
+            # from_metadata: VAULT/BD/<folder> quan la taula no té database). Així no es migra després.
+            phys = f"BD/{table['folder']}"
+            folder_by_table[table["id"]] = phys
+            vault_routes.save_registry(reg)
         (vault / phys).mkdir(parents=True, exist_ok=True)
 
     def write_view(view: dict):
-        reg = vault_routes.load_registry()
-        views = reg.setdefault("views", [])
-        idx = next((i for i, v in enumerate(views) if v.get("id") == view.get("id")), None)
-        if idx is not None:
-            views[idx] = view
-        else:
-            views.append(view)
-        vault_routes.save_registry(reg)
+        with vault_routes.registry_mutation():
+            reg = vault_routes.load_registry()
+            views = reg.setdefault("views", [])
+            idx = next((i for i, v in enumerate(views) if v.get("id") == view.get("id")), None)
+            if idx is not None:
+                views[idx] = view
+            else:
+                views.append(view)
+            vault_routes.save_registry(reg)
 
     def write_page(page: dict):
         meta = dict(page.get("metadata") or {})

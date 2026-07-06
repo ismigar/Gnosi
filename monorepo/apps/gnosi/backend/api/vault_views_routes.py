@@ -58,6 +58,20 @@ class ViewSection(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _registry_mutation():
+    """Context manager del cicle RMW del registre, COMPARTIT amb vault_routes.
+
+    Aquest mòdul i vault_routes.py fan RMW sobre EL MATEIX fitxer
+    (`vault_db_registry.json`): vault_routes muta `tables`/`views`/... i aquí
+    mutem `pages`, però tots dos carreguen i desen el fitxer SENCER. Sense un
+    candau únic, un `create_table` (vault_routes) i un upsert de vista (aquí)
+    concurrents s'esclafarien (last-writer-wins entre mòduls). Import mandrós per
+    trencar el cicle d'imports (server importa tots dos routers).
+    """
+    from backend.api import vault_routes as _vr
+    return _vr.registry_mutation()
+
+
 def _load_registry(vault_path: Path) -> tuple[dict, Path]:
     registry_path = vault_path / "BD" / "vault_db_registry.json"
     if not registry_path.exists():
@@ -72,6 +86,17 @@ def _save_registry(registry: dict, registry_path: Path) -> None:
     # Atomic write — registry sits on cloud-synced storage; half-flushed
     # writes propagate to other devices and break everyone.
     safe_write_json(registry_path, registry, indent=2, ensure_ascii=False)
+    # Refresca la caché en memòria de vault_routes. CRÍTIC: vault_routes.load_registry
+    # té una fast-path de 30s (TTL) que torna l'objecte en caché SENSE ni stat() del
+    # fitxer. Si no la refresquéssim, un mutador de vault_routes (p. ex. create_table)
+    # dins d'aquesta finestra reprendria el seu snapshot ranci —sense els canvis de
+    # `pages` que acabem d'escriure— i el desaria a sobre, perdent-los. Refrescar-la
+    # amb les dades fresques fa que aquell load vegi ja aquest desat.
+    try:
+        from backend.api import vault_routes as _vr
+        _vr._update_registry_cache(registry_path, registry)
+    except Exception as e:  # best-effort: mai fer fallar el desat per la caché
+        log.debug(f"No s'ha pogut refrescar la caché del registre de vault_routes: {e}")
 
 
 def _page_exists_on_disk(page_id: str) -> bool:
@@ -180,69 +205,74 @@ async def upsert_page_view(page_id: str, view: ViewSection):
         if not vault_path:
             raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
 
-        registry, registry_path = _load_registry(vault_path)
+        # Cicle load→modify→save sencer sota candau COMPARTIT amb vault_routes
+        # (mateix fitxer de registre). Cos síncron, sense `await`: atòmic també
+        # respecte altres corrutines. `_sync_page` (best-effort, toca el .md) va
+        # FORA del candau.
+        with _registry_mutation():
+            registry, registry_path = _load_registry(vault_path)
 
-        # Validació de la taula origen abans de tocar res al registry: així
-        # els errors són clars (422) en lloc d'un 200 silenciós amb
-        # md_synced: False que confonia l'usuari.
-        tables = registry.get("tables") or []
-        target_table = next(
-            (t for t in tables if str(t.get("id")) == str(view.source_table_id)),
-            None,
-        )
-        if target_table is None:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Taula origen '{view.source_table_id}' no existeix al registry.",
+            # Validació de la taula origen abans de tocar res al registry: així
+            # els errors són clars (422) en lloc d'un 200 silenciós amb
+            # md_synced: False que confonia l'usuari.
+            tables = registry.get("tables") or []
+            target_table = next(
+                (t for t in tables if str(t.get("id")) == str(view.source_table_id)),
+                None,
             )
-
-        # Si hi ha filtre, validar que el camp existeixi a la taula.
-        if view.filter and view.filter.field:
-            prop_names = {p.get("name") for p in (target_table.get("properties") or [])}
-            if view.filter.field not in prop_names:
+            if target_table is None:
                 raise HTTPException(
                     status_code=422,
+                    detail=f"Taula origen '{view.source_table_id}' no existeix al registry.",
+                )
+
+            # Si hi ha filtre, validar que el camp existeixi a la taula.
+            if view.filter and view.filter.field:
+                prop_names = {p.get("name") for p in (target_table.get("properties") or [])}
+                if view.filter.field not in prop_names:
+                    raise HTTPException(
+                        status_code=422,
+                        detail=(
+                            f"El camp de filtre '{view.filter.field}' no existeix a la taula "
+                            f"'{target_table.get('name')}'."
+                        ),
+                    )
+
+            # La pàgina ha d'existir al disc abans de tocar el registry. Usem
+            # `find_page_path` (comparació canònica) en lloc d'un scan limitat
+            # a `.Dashboards`: pàgines en qualsevol carpeta del vault (BD/, Arees/,
+            # …) també han de validar-se.
+            if not _page_exists_on_disk(page_id):
+                raise HTTPException(
+                    status_code=404,
                     detail=(
-                        f"El camp de filtre '{view.filter.field}' no existeix a la taula "
-                        f"'{target_table.get('name')}'."
+                        f"Pàgina {page_id} no trobada al disc. La vista no s'ha creat."
                     ),
                 )
 
-        # La pàgina ha d'existir al disc abans de tocar el registry. Usem
-        # `find_page_path` (comparació canònica) en lloc d'un scan limitat
-        # a `.Dashboards`: pàgines en qualsevol carpeta del vault (BD/, Arees/,
-        # …) també han de validar-se.
-        if not _page_exists_on_disk(page_id):
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Pàgina {page_id} no trobada al disc. La vista no s'ha creat."
-                ),
+            # Inicialitza `pages` si no existeix
+            if "pages" not in registry:
+                registry["pages"] = {}
+            if page_id not in registry["pages"]:
+                registry["pages"][page_id] = {"sections": []}
+
+            sections: list = registry["pages"][page_id].setdefault("sections", [])
+
+            # Upsert: identifica la secció pel `view_id` (identitat ESTABLE del
+            # bloc), no pel heading — així múltiples embeds SENSE encapçalament a la
+            # mateixa pàgina NO col·lisionen. Vegeu `_find_section_upsert_index`.
+            new_section = view.model_dump()
+            existing_idx = _find_section_upsert_index(
+                sections, new_section.get("view_id"), view.heading
             )
+            if existing_idx is not None:
+                sections[existing_idx] = new_section
+                action = "updated"
+            else:
+                sections.append(new_section)
+                action = "created"
 
-        # Inicialitza `pages` si no existeix
-        if "pages" not in registry:
-            registry["pages"] = {}
-        if page_id not in registry["pages"]:
-            registry["pages"][page_id] = {"sections": []}
-
-        sections: list = registry["pages"][page_id].setdefault("sections", [])
-
-        # Upsert: identifica la secció pel `view_id` (identitat ESTABLE del
-        # bloc), no pel heading — així múltiples embeds SENSE encapçalament a la
-        # mateixa pàgina NO col·lisionen. Vegeu `_find_section_upsert_index`.
-        new_section = view.model_dump()
-        existing_idx = _find_section_upsert_index(
-            sections, new_section.get("view_id"), view.heading
-        )
-        if existing_idx is not None:
-            sections[existing_idx] = new_section
-            action = "updated"
-        else:
-            sections.append(new_section)
-            action = "created"
-
-        _save_registry(registry, registry_path)
+            _save_registry(registry, registry_path)
 
         # Best-effort: sincronitza la taula plana al .md per a Obsidian.
         # En producció (sense `pipeline/sandbox/`) retorna False — el block
@@ -281,20 +311,22 @@ async def delete_page_view(page_id: str, heading: str):
         if not vault_path:
             raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
 
-        registry, registry_path = _load_registry(vault_path)
+        # Cicle load→modify→save sota candau compartit; `_sync_page` fora.
+        with _registry_mutation():
+            registry, registry_path = _load_registry(vault_path)
 
-        pages = registry.get("pages") or {}
-        page_cfg = pages.get(page_id)
-        if not page_cfg:
-            raise HTTPException(status_code=404, detail=f"Pàgina {page_id} sense vistes")
+            pages = registry.get("pages") or {}
+            page_cfg = pages.get(page_id)
+            if not page_cfg:
+                raise HTTPException(status_code=404, detail=f"Pàgina {page_id} sense vistes")
 
-        sections = page_cfg.get("sections", [])
-        new_sections = [s for s in sections if s.get("heading") != heading]
-        if len(new_sections) == len(sections):
-            raise HTTPException(status_code=404, detail=f"Vista '{heading}' no trobada")
+            sections = page_cfg.get("sections", [])
+            new_sections = [s for s in sections if s.get("heading") != heading]
+            if len(new_sections) == len(sections):
+                raise HTTPException(status_code=404, detail=f"Vista '{heading}' no trobada")
 
-        registry["pages"][page_id]["sections"] = new_sections
-        _save_registry(registry, registry_path)
+            registry["pages"][page_id]["sections"] = new_sections
+            _save_registry(registry, registry_path)
         _sync_page(page_id, registry, vault_path)
 
         return {"ok": True, "page_id": page_id, "heading_deleted": heading}
