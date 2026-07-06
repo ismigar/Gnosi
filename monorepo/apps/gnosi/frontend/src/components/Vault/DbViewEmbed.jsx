@@ -19,7 +19,7 @@ const ScrollBox = ({ children }) => (
     // `w-full max-w-full min-w-0` clava l'amplada a la del contenidor de
     // l'editor (no a la del contingut); `overflow-x-auto` fa que la taula
     // ampla faci scroll DINS de la caixa i no desbordi la pàgina/editor.
-    <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-primary)]">
+    <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 transition-all">
         {children}
     </div>
 );
@@ -45,6 +45,17 @@ const ScrollBox = ({ children }) => (
 // la vora/arrodonit els posa el propi scroller de la taula (mode `isEmbedded`).
 const TableBox = ({ children }) => (
     <div className="my-2 w-full max-w-full min-w-0 isolate">
+        {children}
+    </div>
+);
+
+// Contenidor del FEED incrustat: CREIX amb el contingut (com a Notion) i és la
+// PÀGINA qui fa l'scroll — res de caixa de 70vh amb scroll intern. L'scroll
+// infinit del feed hi juga a favor: comença amb un lot petit i el sentinella
+// (que resol el scroller real via getScrollParent) va carregant la resta a
+// mesura que baixes per la pàgina; "Veure més" també expandeix la pàgina.
+const FeedFlowBox = ({ children }) => (
+    <div className="my-2 w-full max-w-full min-w-0 rounded-xl border border-transparent focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 overflow-hidden transition-all">
         {children}
     </div>
 );
@@ -1096,6 +1107,7 @@ export function DbViewEmbed({ block }) {
         registerNavApi: (api) => { tableNavApiRef.current = api; },
         onExitTop: () => ctx.exitEmbedToEditor?.(block?.id, 'up'),
         onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
+        onEscape: () => ctx.exitEmbedToEditor?.(block?.id, 'escape'),
     };
     const renderBody = () => {
         // El `graph` no té component editable equivalent → render bespoke.
@@ -1104,7 +1116,9 @@ export function DbViewEmbed({ block }) {
         // mateix que fa servir la taula completa. La taula/llista usen un
         // contenidor que la deixa fer l'scroll intern (columna sticky); la
         // resta, una caixa amb scroll propi.
-        const Box = (viewType === 'table' || viewType === 'list') ? TableBox : ScrollBox;
+        const Box = (viewType === 'table' || viewType === 'list') ? TableBox
+            : (viewType === 'feed') ? FeedFlowBox
+            : ScrollBox;
         return (
             <Box>
                 <VaultViewBody
@@ -1127,7 +1141,7 @@ export function DbViewEmbed({ block }) {
         // `min-w-0 w-full`: el contenidor del bloc (.bn-block-content) és flex;
         // sense `min-w-0` aquest div no encongeix sota l'amplada del contingut
         // (taula ampla) i desborda l'editor amb scroll horitzontal a la pàgina.
-        <div className="mt-0 mb-4 min-w-0 w-full">
+        <div className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container">
             <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-baseline gap-2 min-w-0">
                     {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}

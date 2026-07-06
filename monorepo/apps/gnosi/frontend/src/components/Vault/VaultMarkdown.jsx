@@ -36,8 +36,12 @@ export function RetryableImage({ src, title, onClick }) {
                 loading="lazy"
                 className="w-full h-auto rounded-md border border-[var(--border-primary)]/40 bg-[var(--bg-secondary)]"
                 onError={() => {
-                    if (attempt < 3) {
-                        const delay = 500 * Math.pow(2, attempt);
+                    // El backend engega la baixada d'OneDrive en segon pla i
+                    // retorna 503 a l'instant; reintentem amb backoff (sostre
+                    // 4s) fins ~2,5 min per cobrir la latència real de la
+                    // baixada abans de rendir-nos i amagar la imatge.
+                    if (attempt < 40) {
+                        const delay = Math.min(500 * Math.pow(2, attempt), 4000);
                         setTimeout(() => setAttempt(a => a + 1), delay);
                     } else {
                         setHidden(true);

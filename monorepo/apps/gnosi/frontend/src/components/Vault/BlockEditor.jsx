@@ -1680,6 +1680,12 @@ export function EditorInner({
                 try {
                     const first = editor?.document?.[0];
                     if (!first) return false;
+                    if (first.type === 'gnosi_view') {
+                        const api = embedNavRef.current.get(first.id);
+                        if (api?.focusFirstCell) {
+                            if (api.focusFirstCell() !== false) return true;
+                        }
+                    }
                     editor.focus();
                     editor.setTextCursorPosition(first.id || first, 'start');
                     return true;
@@ -1706,12 +1712,26 @@ export function EditorInner({
             if (idx === -1) return;
             if (direction === 'up') {
                 const prev = doc[idx - 1];
-                if (prev) { editor.focus(); editor.setTextCursorPosition(prev.id, 'end'); }
-                else { onNavigateUp?.(); } // la vista és el primer bloc → títol/propietats
+                if (prev) {
+                    if (prev.type === 'gnosi_view') {
+                        const api = embedNavRef.current.get(prev.id);
+                        if (api?.focusLastCell && api.focusLastCell() !== false) return;
+                    }
+                    editor.focus();
+                    editor.setTextCursorPosition(prev.id, 'end');
+                } else {
+                    onNavigateUp?.(); // la vista és el primer bloc → títol/propietats
+                }
             } else {
                 const next = doc[idx + 1];
-                if (next) { editor.focus(); editor.setTextCursorPosition(next.id, 'start'); }
-                else {
+                if (next) {
+                    if (next.type === 'gnosi_view') {
+                        const api = embedNavRef.current.get(next.id);
+                        if (api?.focusFirstCell && api.focusFirstCell() !== false) return;
+                    }
+                    editor.focus();
+                    editor.setTextCursorPosition(next.id, 'start');
+                } else {
                     // La vista és l'últim bloc: afegeix un paràgraf buit i hi va.
                     editor.insertBlocks([{ type: 'paragraph' }], doc[idx].id, 'after');
                     editor.focus();
@@ -1744,6 +1764,7 @@ export function EditorInner({
             node = (node && node.nodeType === 3) ? node.parentElement : node;
             const blockEl = node?.closest?.('.bn-block-content') || node?.closest?.('.bn-block');
             if (!blockEl) return false;
+            if (!blockEl.textContent?.trim()) return true; // bloc buit → 1a línia
             const top = blockEl.getBoundingClientRect().top;
             const lineH = rect.height || 20;
             return (rect.top - top) < lineH * 0.75 + 6;
@@ -1762,17 +1783,56 @@ export function EditorInner({
             node = (node && node.nodeType === 3) ? node.parentElement : node;
             const blockEl = node?.closest?.('.bn-block-content') || node?.closest?.('.bn-block');
             if (!blockEl) return false;
+            if (!blockEl.textContent?.trim()) return true; // bloc buit → última línia
             const bottom = blockEl.getBoundingClientRect().bottom;
             const lineH = rect.height || 20;
             return (bottom - rect.bottom) < lineH * 0.75 + 6;
         };
 
-        const safeCursor = () => { try { return editor.getTextCursorPosition?.(); } catch { return null; } };
         const enterEmbed = (blockId, edge) => {
             const api = embedNavRef.current.get(blockId);
             const fn = edge === 'last' ? api?.focusLastCell : api?.focusFirstCell;
             if (typeof fn !== 'function') return false;
             return fn() !== false;
+        };
+
+        const getAdjacentBlocks = (blockId) => {
+            const doc = editor?.document || [];
+            const idx = doc.findIndex(b => b.id === blockId);
+            if (idx !== -1) {
+                return {
+                    prevBlock: idx > 0 ? doc[idx - 1] : null,
+                    nextBlock: idx < doc.length - 1 ? doc[idx + 1] : null
+                };
+            }
+            let found = { prevBlock: null, nextBlock: null };
+            const walk = (list, parent = null) => {
+                for (let i = 0; i < list.length; i++) {
+                    if (list[i].id === blockId) {
+                        found.prevBlock = i > 0 ? list[i - 1] : parent;
+                        found.nextBlock = i < list.length - 1 ? list[i + 1] : null;
+                        return true;
+                    }
+                    if (list[i].children && list[i].children.length > 0) {
+                        if (walk(list[i].children, list[i])) return true;
+                    }
+                }
+                return false;
+            };
+            walk(doc);
+            return found;
+        };
+
+        const getCurrentBlockId = () => {
+            try {
+                const pos = editor.getTextCursorPosition?.();
+                if (pos?.block?.id) return pos.block.id;
+            } catch { /* noop */ }
+            try {
+                const sel = editor.getSelection?.();
+                if (sel?.blocks?.[0]?.id) return sel.blocks[0].id;
+            } catch { /* noop */ }
+            return null;
         };
 
         const onKeyDown = (e) => {
@@ -1781,26 +1841,28 @@ export function EditorInner({
                 if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); onOpenProperties?.(); }
                 return;
             }
+            if (e.key === ' ' || e.key === 'Enter') {
+                const curId = getCurrentBlockId();
+                if (curId) {
+                    const doc = editor?.document || [];
+                    const block = doc.find(b => b.id === curId);
+                    if (block?.type === 'gnosi_view') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        enterEmbed(block.id, 'first');
+                        return;
+                    }
+                }
+            }
             if (e.key === 'ArrowUp') {
                 if (!caretOnFirstLine()) return; // no és la 1a línia → ProseMirror puja una línia
-                const cur = safeCursor();
-                // Vista incrustada just a sobre → entra-hi (per l'última cel·la).
-                if (cur?.prevBlock?.type === 'gnosi_view') {
-                    if (enterEmbed(cur.prevBlock.id, 'last')) { e.preventDefault(); e.stopPropagation(); }
-                    return; // si no s'hi pot entrar, deixa que ProseMirror ho gestioni
-                }
-                // Primer bloc del cos → puja a propietats/títol.
-                if (!cur?.prevBlock) {
+                const curId = getCurrentBlockId();
+                const { prevBlock } = curId ? getAdjacentBlocks(curId) : { prevBlock: null };
+                // Primer bloc del cos → puja a propietats/títol/enllaços.
+                if (!prevBlock) {
                     e.preventDefault();
                     e.stopPropagation();
                     onNavigateUp?.();
-                }
-            } else if (e.key === 'ArrowDown') {
-                if (!caretOnLastLine()) return; // no és l'última línia → ProseMirror baixa una línia
-                const cur = safeCursor();
-                // Vista incrustada just a sota → entra-hi (per la primera cel·la).
-                if (cur?.nextBlock?.type === 'gnosi_view') {
-                    if (enterEmbed(cur.nextBlock.id, 'first')) { e.preventDefault(); e.stopPropagation(); }
                 }
             }
         };
@@ -2486,6 +2548,19 @@ export function EditorInner({
                    marge superior del seu contenidor (my-4 = 1rem). */
                 .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1) + * .bn-block-content[data-content-type="gnosi_view"] > div {
                     margin-top: 0.25rem !important;
+                }
+
+                .gnosi-view-embed-container {
+                    border: 1px solid transparent;
+                    padding: 8px;
+                    border-radius: 12px;
+                    transition: all 0.2s ease-in-out;
+                }
+                .bn-editor .bn-block:has(> .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode) .gnosi-view-embed-container,
+                .bn-editor .bn-block-content[data-content-type="gnosi_view"].ProseMirror-selectednode .gnosi-view-embed-container {
+                    border-color: var(--gnosi-primary) !important;
+                    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2) !important;
+                    background-color: var(--bg-secondary)/5;
                 }
 
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color]:not([data-background-color="default"])) {
@@ -3371,6 +3446,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // pel DOM (atribut data-prop-row) per dur-hi el focus de teclat.
     const editorApiRef = useRef(null);
     const propertiesPanelRef = useRef(null);
+    const propertiesHeaderRef = useRef(null);
+    const linksHeaderRef = useRef(null);
     const registerEditorApi = useCallback((api) => { editorApiRef.current = api; }, []);
     const [isHeaderHovered, setIsHeaderHovered] = useState(false);
 
@@ -3637,6 +3714,11 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         try { const len = el.value.length; el.setSelectionRange(len, len); } catch { /* noop */ }
     }, []);
 
+    const focusBody = useCallback(() => {
+        setActiveProp(null);
+        editorApiRef.current?.focusFirstBlock?.();
+    }, []);
+
     // Selecciona una propietat I hi porta el focus del DOM (necessari perquè
     // el listener de teclat del panell només actua si l'element actiu no és
     // un camp de text: si el focus es queda al cos contenteditable, les ↑↓
@@ -3661,15 +3743,59 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         }
     }, []);
 
-    // ↑ net a la primera línia del cos: si el panell és OBERT i té propietats
-    // → l'última propietat (la més pròxima al cos); si no → el títol.
+    // ↑ net a la primera línia del cos: si hi ha propietats/enllaços → salta al panell superior.
     const navigateUpFromBody = useCallback(() => {
-        if (isPropertiesOpen && navProps.length > 0) {
-            selectAndFocusProp(navProps[navProps.length - 1].name);
+        if (linksHeaderRef.current) {
+            linksHeaderRef.current.focus();
+        } else if (propertiesHeaderRef.current) {
+            propertiesHeaderRef.current.focus();
         } else {
             focusTitle();
         }
-    }, [isPropertiesOpen, navProps, selectAndFocusProp, focusTitle]);
+    }, [focusTitle]);
+
+    const handlePropertiesHeaderKeyDown = useCallback((e) => {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            focusTitle();
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (linksHeaderRef.current) {
+                linksHeaderRef.current.focus();
+            } else {
+                focusBody();
+            }
+        } else if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            setIsPropertiesOpen(true);
+            if (navProps.length > 0) {
+                selectAndFocusProp(navProps[0].name);
+            }
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsPropertiesOpen(false);
+        }
+    }, [focusTitle, focusBody, selectAndFocusProp, navProps]);
+
+    const handleLinksHeaderKeyDown = useCallback((e) => {
+        if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (propertiesHeaderRef.current) {
+                propertiesHeaderRef.current.focus();
+            } else {
+                focusTitle();
+            }
+        } else if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            focusBody();
+        } else if (e.key === ' ' || e.key === 'Enter') {
+            e.preventDefault();
+            setIsLinksInfoOpen((prev) => !prev);
+        } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsLinksInfoOpen(false);
+        }
+    }, [focusTitle, focusBody]);
 
     // ⌥↑ (drecera dedicada): obre el panell i salta a la primera propietat.
     // Si la pàgina no té cap propietat, cau al títol.
@@ -3680,11 +3806,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             focusTitle();
         }
     }, [navProps, selectAndFocusProp, focusTitle]);
-
-    const focusBody = useCallback(() => {
-        setActiveProp(null);
-        editorApiRef.current?.focusFirstBlock?.();
-    }, []);
 
     // Listener de teclat del panell de propietats (a nivell de finestra).
     useEffect(() => {
@@ -3707,19 +3828,21 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const cur = propIndexByName.has(activeProp) ? propIndexByName.get(activeProp) : -1;
             if (e.key === 'ArrowDown') {
                 e.preventDefault();
-                // A l'última propietat, ↓ surt cap al cos.
-                if (cur >= navProps.length - 1) focusBody();
-                else movePropCursor(1);
+                if (cur < navProps.length - 1) movePropCursor(1);
             } else if (e.key === 'ArrowUp') {
                 e.preventDefault();
-                // A la primera propietat, ↑ puja al títol.
-                if (cur <= 0) { setActiveProp(null); focusTitle(); }
-                else movePropCursor(-1);
-            } else if (e.key === 'Escape') { setActiveProp(null); }
+                if (cur > 0) movePropCursor(-1);
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                e.stopPropagation();
+                setActiveProp(null);
+                setIsPropertiesOpen(false);
+                if (propertiesHeaderRef.current) propertiesHeaderRef.current.focus();
+            }
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [activeProp, isPropertiesOpen, copyPropValue, pastePropValue, movePropCursor, propIndexByName, navProps, focusTitle, focusBody]);
+    }, [activeProp, isPropertiesOpen, setIsPropertiesOpen, copyPropValue, pastePropValue, movePropCursor, propIndexByName, navProps, focusTitle, focusBody]);
 
     const handleAddAdhocProperty = () => {
         if (!newPropName.trim()) { setIsAddingProp(false); return; }
@@ -4015,24 +4138,24 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
                                     // ⌥↑: drecera de zona — saltar al panell de propietats.
                                     if (e.altKey && e.key === 'ArrowUp') { e.preventDefault(); openPropertiesNav(); return; }
-                                    // ⌥↓: baixar de zona (propietats si n'hi ha, si no el cos).
+                                    // ⌥↓: baixar de zona.
                                     if (e.altKey && e.key === 'ArrowDown') {
                                         e.preventDefault();
-                                        if (navProps.length > 0) selectAndFocusProp(navProps[0].name);
+                                        if (propertiesHeaderRef.current) propertiesHeaderRef.current.focus();
+                                        else if (linksHeaderRef.current) linksHeaderRef.current.focus();
                                         else focusBody();
                                         return;
                                     }
                                     if (e.altKey) return;
-                                    // ↓ a l'última línia del títol → baixa cap a propietats (si
-                                    // obertes) o cap al cos. El títol gairebé sempre és una sola
-                                    // línia, així que "última línia" = cap salt de línia per sota.
+                                    // ↓ a l'última línia del títol → baixa cap a propietats o cap al cos.
                                     if (e.key === 'ArrowDown') {
                                         const el = e.currentTarget;
                                         const collapsed = el.selectionStart === el.selectionEnd;
                                         const after = String(el.value || '').slice(el.selectionEnd);
                                         if (collapsed && !after.includes('\n')) {
                                             e.preventDefault();
-                                            if (isPropertiesOpen && navProps.length > 0) selectAndFocusProp(navProps[0].name);
+                                            if (propertiesHeaderRef.current) propertiesHeaderRef.current.focus();
+                                            else if (linksHeaderRef.current) linksHeaderRef.current.focus();
                                             else focusBody();
                                         }
                                     }
@@ -4083,12 +4206,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             </div>
                         </div>
                         <div className="grid grid-cols-[140px_1fr] gap-x-3 gap-y-0.5 items-center px-1 mb-1.5">
-                            <div ref={propertiesPanelRef} className="col-span-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
+                            <div ref={propertiesPanelRef} className="col-span-2 rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
                                 <div className="w-full flex items-center justify-between gap-3 px-3 py-2.5 hover:bg-[var(--bg-secondary)]/60 transition-colors">
                                     <button
+                                        ref={propertiesHeaderRef}
+                                        tabIndex={0}
                                         type="button"
                                         onClick={() => setIsPropertiesOpen((prev) => !prev)}
-                                        className="flex-1 flex items-center gap-2 min-w-0 text-left"
+                                        onKeyDown={handlePropertiesHeaderKeyDown}
+                                        className="flex-1 flex items-center gap-2 min-w-0 text-left focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 rounded px-1.5 py-0.5 transition-all"
                                     >
                                         <Settings size={14} className="text-[var(--text-secondary)]/80" />
                                         <div className="text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/85">
@@ -4404,11 +4530,14 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                             )}
                             </div>
 
-                            <div className="col-span-2 mt-2 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 overflow-hidden">
+                            <div className="col-span-2 mt-2 rounded-xl border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 bg-[var(--bg-secondary)]/40 overflow-hidden transition-all">
                                 <button
+                                    ref={linksHeaderRef}
+                                    tabIndex={0}
                                     type="button"
                                     onClick={() => setIsLinksInfoOpen((prev) => !prev)}
-                                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors"
+                                    onKeyDown={handleLinksHeaderKeyDown}
+                                    className="w-full flex items-center justify-between gap-3 px-3 py-2.5 text-left hover:bg-[var(--bg-secondary)]/60 transition-colors focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 rounded transition-all"
                                 >
                                     <div className="flex items-center gap-2 min-w-0">
                                         <Link2 size={14} className="text-[var(--text-secondary)]/80" />
