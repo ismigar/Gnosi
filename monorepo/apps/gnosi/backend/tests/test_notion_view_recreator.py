@@ -91,6 +91,8 @@ def test_build_gnosi_view_full_fidelity():
     assert "📀 Projecte" in view["visibleProperties"]
     # el filtre "aquesta pàgina" sobre la relació Projecte
     assert view["filters"] == [{"field": "Projecte", "value": "this"}]
+    # marca de vista contextual: el tauler no la mostra com a pestanya
+    assert view["embedded"] is True
 
 
 def test_build_gnosi_view_deterministic_id():
