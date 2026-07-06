@@ -2513,6 +2513,7 @@ def _recompute_cross_record_formulas_for_table(
                 )
                 break
 
+            any_written = False
             for file_path in get_p("VAULT").rglob("*.md"):
                 if any(part.startswith('.') for part in file_path.relative_to(get_p("VAULT")).parts):
                     continue
@@ -2551,8 +2552,17 @@ def _recompute_cross_record_formulas_for_table(
 
                 try:
                     save_page_md(file_path, updated, body)
+                    # Refresc de l'índex amb el rollup recomputat: sense això,
+                    # el nou valor no es veia a `/by-table`/`/pages` fins al
+                    # rescan (mateixa família #732/#735/#758/PUT). Marquem que
+                    # cal invalidar el micro-cache al final del pas.
+                    _refresh_page_index_entry(file_path, updated, body)
+                    any_written = True
                 except Exception as e:
                     log.warning(f"Error saving recomputation for {page_id}: {e}")
+
+            if any_written:
+                _pages_cache_invalidate_all()
 
             with _table_recalc_lock:
                 state = _table_recalc_state.setdefault(
@@ -2781,6 +2791,34 @@ def _build_cache_entry_from_memory(
         },
         "folder": rel_folder,
     }
+
+
+def _refresh_page_index_entry(file_path: Path, metadata: Dict[str, Any], body: str) -> None:
+    """Refresca `_page_index_entries` amb el metadata NOU després d'un
+    `save_page_md`, perquè `GET /pages` i `/by-table` (que serveixen des
+    d'aquest índex) no tornin el metadata VELL fins al pròxim rescan complet
+    (cooldown 600s). Best-effort. El `create` i el `PATCH` fan l'equivalent
+    inline; aquest helper el comparteixen els escriptors que abans NOMÉS
+    actualitzaven el mapa id→path (PUT) o res del cache (promote-zotero),
+    deixant el metadata ranci a la graella."""
+    try:
+        v_path = get_active_vault_path()
+        if not v_path:
+            return
+        v_str = str(v_path)
+        new_entry = _build_cache_entry_from_memory(
+            file_path, file_path.stat(), metadata, body or ""
+        )
+        with _page_index_lock:
+            _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
+            eid = new_entry.get("id") or (metadata or {}).get("id")
+            if eid:
+                _page_id_to_path.setdefault(v_str, {})[eid] = str(file_path)
+            _bump_page_index_version(v_str)
+        with _body_cache_lock:
+            _body_cache.pop(str(file_path), None)
+    except Exception as exc:
+        log.debug(f"refresh index entry failed for {file_path}: {exc}")
 
 
 def _refresh_table_pages_metadata(filtered: List[Any]) -> None:
@@ -6724,6 +6762,9 @@ async def promote_zotero_extra(payload: dict = Body(...)):
                 md['Zotero Extras'] = extras
             md[column_name] = value
             save_page_md(fp, md, body or '')
+            # Refresc de l'índex (com el bulk/PATCH): sense això, el metadata
+            # migrat quedava ranci a la graella fins al rescan.
+            _refresh_page_index_entry(fp, md, body or '')
             return ('ok', file_etag(fp))
         except (OSError, ValueError) as e:
             return ('error', str(e))
@@ -6741,6 +6782,7 @@ async def promote_zotero_extra(payload: dict = Body(...)):
 
     if migrated:
         _invalidate_cite_key_index()
+        _pages_cache_invalidate_all()
 
     return {
         "column_created": column_created,
@@ -7793,20 +7835,12 @@ async def save_page(
     try:
         await asyncio.to_thread(_write_now)
 
-        # CRITICAL: update the page-id → path cache immediately so the next
-        # GET/PATCH for this id can hit the O(1) lookup instead of falling
-        # through to a multi-second `vault.rglob("*.md")`. The indexer warmup
-        # would eventually pick it up on the next periodic refresh, but the
-        # write→read race is tight enough to matter (especially in tests).
-        try:
-            from backend.services.context_vars import get_active_vault_path
-            v_path = get_active_vault_path()
-            if v_path:
-                v_str = str(v_path)
-                with _page_index_lock:
-                    _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
-        except Exception:
-            pass
+        # Refresca l'ÍNDEX en memòria amb el metadata NOU (id→path + l'entrada
+        # sencera). Abans només s'actualitzava el mapa id→path, deixant el
+        # metadata de l'entrada RANCI a `_page_index_entries` → `GET /pages` i
+        # `/by-table` servien el valor VELL fins al rescan (cooldown 600s);
+        # reproduït: PUT de QAField vell→NOU i by-table seguia mostrant "vell".
+        _refresh_page_index_entry(file_path, metadata, request.content)
 
         # Invalida el TTL micro-cache de PageInfo (vegeu PATCH per la justificació).
         _pages_cache_invalidate_all()
