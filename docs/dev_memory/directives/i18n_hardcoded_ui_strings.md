@@ -13,6 +13,13 @@ Fets traduïbles fins ara:
   `RecurrenceChoiceModal.jsx`. ~355 claus noves per idioma (namespaces `view.*`, `insert.*`,
   `share.*`, `schema.*`, `calendar.*` de recurrència, `translate.lang_*`, i `common.*`/`errors.*`
   compartides). Build OK; QA al navegador en ca i en sense claus crues.
+- **Tanda 4 (parcial) — Comentaris del Vault (2026-07-06):** `Vault/InlineComments.jsx`
+  passat a `t()` (namespace nou `inline_comments.*`, reusant `common.cancel`); a més
+  s'han afegit als 4 locales les claus `comments.*`, `errors.comment_*`/`comments_load` i
+  `shell.view_comments` que `PageComments.jsx` i `InlineComments.jsx` ja invocaven amb
+  `defaultValue` però no existien enlloc (21 claus/idioma). Comptador via `inline_comments.title`
+  amb `{{count}}`. Build OK; QA aïllat (createRoot + `changeLanguage` als 4 idiomes) sense claus
+  crues al DOM.
 
 Queden ~740 línies amb text visible en dur repartides en ~110 fitxers (heurística per
 caràcters accentuats dins de literals/JSX, comentaris exclosos; els textos sense accents

@@ -253,7 +253,8 @@
     "delete_current_page": "Eliminar página actual",
     "hide_sidebar": "Ocultar barra lateral",
     "show_sidebar": "Mostrar barra lateral",
-    "translate_record": "Traduce el registro"
+    "translate_record": "Traduce el registro",
+    "view_comments": "Comentarios"
   },
   "table": {
     "new_record": "Nuevo registro",
@@ -490,13 +491,19 @@
     "clipboard": "No se ha podido copiar",
     "shares_load": "No se han podido cargar los enlaces",
     "share_create": "Error al crear el enlace",
-    "share_revoke": "Error al revocar el enlace"
-    ,"daily_note": "Error abriendo la nota diaria",
+    "share_revoke": "Error al revocar el enlace",
+    "daily_note": "Error abriendo la nota diaria",
     "record_create": "Error creando el registro",
     "add_schema_option": "No se ha podido guardar la opción en el esquema",
     "load_registry": "Error cargando el registro de bases de datos",
     "restore_page": "No se ha podido restaurar",
-    "move_page": "Error moviendo página"
+    "move_page": "Error moviendo página",
+    "comments_load": "No se han podido cargar los comentarios",
+    "comment_add": "Error al añadir el comentario",
+    "comment_edit": "Error al editar el comentario",
+    "comment_resolve": "Error al actualizar el comentario",
+    "comment_delete": "Error al eliminar el comentario",
+    "comment_forbidden": "Tu rol no permite modificar comentarios"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -2223,5 +2230,25 @@
     "stage_summarizing": "Generando el acta con IA…",
     "stage_saving": "Guardando la página…",
     "stage_processing": "Procesando…"
+  },
+  "comments": {
+    "empty": "Aún no hay comentarios",
+    "resolved": "Resuelto",
+    "reopen": "Reabrir",
+    "resolve": "Marcar como resuelto",
+    "placeholder": "Escribe un comentario… (⌘+Enter para enviar)",
+    "send": "Enviar",
+    "delete_title": "Eliminar comentario",
+    "delete_msg": "¿Seguro que quieres eliminar este comentario?",
+    "read_only": "Tu rol solo permite leer los comentarios"
+  },
+  "inline_comments": {
+    "add": "Comentar",
+    "placeholder": "Escribe un comentario…",
+    "title": "Comentarios ({{count}})",
+    "resolve": "Resolver",
+    "reopen": "Reabrir",
+    "delete": "Eliminar",
+    "empty": "Selecciona texto y pulsa «Comentar» para añadir uno."
   }
 }

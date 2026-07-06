@@ -340,7 +340,8 @@
     "delete_current_page": "Delete current page",
     "hide_sidebar": "Hide sidebar",
     "show_sidebar": "Show sidebar",
-    "translate_record": "Translate record"
+    "translate_record": "Translate record",
+    "view_comments": "Comments"
   },
   "table": {
     "new_record": "New record",
@@ -577,13 +578,19 @@
     "clipboard": "Could not copy",
     "shares_load": "Could not load the links",
     "share_create": "Error creating the link",
-    "share_revoke": "Error revoking the link"
-    ,"daily_note": "Error opening the daily note",
+    "share_revoke": "Error revoking the link",
+    "daily_note": "Error opening the daily note",
     "record_create": "Error creating the record",
     "add_schema_option": "Could not save the option to the schema",
     "load_registry": "Error loading the database registry",
     "restore_page": "Could not restore",
-    "move_page": "Error moving page"
+    "move_page": "Error moving page",
+    "comments_load": "Could not load comments",
+    "comment_add": "Error adding comment",
+    "comment_edit": "Error editing comment",
+    "comment_resolve": "Error updating comment",
+    "comment_delete": "Error deleting comment",
+    "comment_forbidden": "Your role does not allow modifying comments"
   },
   "success": {
     "view_duplicated": "View duplicated",
@@ -2325,5 +2332,25 @@
     "stage_summarizing": "Generating the minutes with AI…",
     "stage_saving": "Saving the page…",
     "stage_processing": "Processing…"
+  },
+  "comments": {
+    "empty": "No comments yet",
+    "resolved": "Resolved",
+    "reopen": "Reopen",
+    "resolve": "Mark as resolved",
+    "placeholder": "Write a comment… (⌘+Enter to send)",
+    "send": "Send",
+    "delete_title": "Delete comment",
+    "delete_msg": "Are you sure you want to delete this comment?",
+    "read_only": "Your role only allows reading comments"
+  },
+  "inline_comments": {
+    "add": "Comment",
+    "placeholder": "Write a comment…",
+    "title": "Comments ({{count}})",
+    "resolve": "Resolve",
+    "reopen": "Reopen",
+    "delete": "Delete",
+    "empty": "Select text and click “Comment” to add one."
   }
 }
