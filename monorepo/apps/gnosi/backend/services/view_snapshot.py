@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from functools import cmp_to_key
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -358,6 +359,19 @@ def sort_key(value: Any) -> str:
     return _SORTKEY_LEAD_RE.sub("", str("" if value is None else value))
 
 
+def _collation_key(value: str) -> str:
+    """Clau de comparació de cadena que replica ``localeCompare('ca',
+    {sensitivity: 'base'})`` del front: plega els diacrítics (à→a, ç→c, ñ→n, ü→u…)
+    i passa a minúscules, de manera que els accentuats s'ordenen per la seva
+    LLETRA BASE. Sense això, la comparació per codepoint del `.lower()` cru
+    posava TOTS els valors amb inicial accentuada DESPRÉS de la 'z' (à = U+00E0 >
+    z = U+007A), i el snapshot ordenava un vault català/castellà diferent de la
+    vista principal (que sí fa localeCompare)."""
+    decomposed = unicodedata.normalize("NFKD", value)
+    stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return stripped.lower()
+
+
 _TRUTHY = {"true", "1", "yes", "si", "sí", "done", "checked", "completat"}
 
 
@@ -543,8 +557,10 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
       al principi en descendent).
     - si tots dos són NUMÈRICS (segons ``parseFloat`` de JS), ordre numèric real
       (2 < 10, no "10" < "2").
-    - si no, fallback de cadena amb ``sort_key(...).lower()`` (el front fa
-      localeCompare 'ca' base; aquí és l'aproximació que ja existia).
+    - si no, fallback de cadena amb ``_collation_key(sort_key(...))``, que plega
+      els diacrítics a la lletra base per replicar el ``localeCompare('ca',
+      {sensitivity: 'base'})`` del front (à==a): els accentuats s'ordenen amb la
+      seva base, no per codepoint (que els posaria després de la 'z').
 
     Retorna -1/0/1."""
     a_val = _js_str(a_raw)
@@ -560,8 +576,8 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
     if a_num is not None and b_num is not None:
         cmp = (a_num > b_num) - (a_num < b_num)  # signe (evita nan amb inf-inf)
     else:
-        ka = sort_key(a_val).lower()
-        kb = sort_key(b_val).lower()
+        ka = _collation_key(sort_key(a_val))
+        kb = _collation_key(sort_key(b_val))
         cmp = (ka > kb) - (ka < kb)
     return -cmp if direction == "desc" else cmp
 
