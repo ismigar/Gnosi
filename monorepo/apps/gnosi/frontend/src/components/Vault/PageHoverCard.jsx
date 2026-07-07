@@ -122,6 +122,7 @@ export const PageHoverCard = ({
     const [meta, setMeta] = useState(null); // metadata per al preview sense cos (fetch lazy)
     const cardRef = useRef(null);
     const scrollRef = useRef(null);
+    const prevFocusRef = useRef(null); // focus a restaurar en sortir el ratolí del card
 
     useEffect(() => {
         if (!pageId) return undefined;
@@ -204,6 +205,39 @@ export const PageHoverCard = ({
         // ↑↓ / Re Pàg / Av Pàg / Inici / Fi: deixem el scroll natiu del cos enfocat.
     };
 
+    // Hover: quan el ratolí entra al card i el cos desborda, l'enfoquem perquè
+    // les fletxes / Re Pàg / Av Pàg / Inici / Fi facin scroll natiu (igual que el
+    // Quick Look per teclat). El focus queda DINS del portal, fora del contenidor
+    // de la taula, així que el listener de navegació de cel·les ignora les tecles
+    // (no les segresta). En sortir, restaurem el focus previ perquè la navegació
+    // de cel·les es reprengui. Només enfoquem si hi ha res per desplaçar, per no
+    // robar el focus als registres curts (on les fletxes han de seguir navegant).
+    const handleCardMouseEnter = () => {
+        onMouseEnter?.();
+        const el = scrollRef.current;
+        if (el && !el.contains(document.activeElement) && el.scrollHeight > el.clientHeight) {
+            prevFocusRef.current = document.activeElement;
+            el.focus({ preventScroll: true });
+        }
+    };
+    const handleCardMouseLeave = () => {
+        onMouseLeave?.();
+        const el = scrollRef.current;
+        if (el && el.contains(document.activeElement)) {
+            const prev = prevFocusRef.current;
+            prevFocusRef.current = null;
+            // Restaura el focus a l'element previ si és enfocable de debò; si no
+            // (típic: el <body>, on `.focus()` sovint és un no-op), simplement
+            // treu el focus del card perquè la graella reprengui la navegació de
+            // cel·les (el focus cau al <body>, que el seu listener sí que accepta).
+            if (prev && prev !== document.body && prev.isConnected && typeof prev.focus === 'function') {
+                prev.focus({ preventScroll: true });
+            } else {
+                el.blur();
+            }
+        }
+    };
+
     const card = (
         <div
             ref={cardRef}
@@ -214,8 +248,8 @@ export const PageHoverCard = ({
                 ? { top: pos.top, left: pos.left, width: CARD_WIDTH, maxWidth: 'calc(100vw - 16px)', maxHeight: 'min(520px, calc(100vh - 16px))', opacity: 1, pointerEvents: 'auto' }
                 : { top: -9999, left: -9999, width: CARD_WIDTH, opacity: 0, pointerEvents: 'none' }
             }
-            onMouseEnter={onMouseEnter}
-            onMouseLeave={onMouseLeave}
+            onMouseEnter={handleCardMouseEnter}
+            onMouseLeave={handleCardMouseLeave}
             onKeyDown={handleKeyDown}
         >
             {!loading && !error && data?.cover && (
