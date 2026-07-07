@@ -274,7 +274,11 @@ def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
         return f"> {emoji} {rt()}".rstrip()
     if t == "code":
         lang = data.get("language", "")
-        return f"```{lang}\n{rt()}\n```"
+        # El codi és text LITERAL: es concatena el plain_text CRU, sense passar
+        # per `rich_text_to_md` (que aplicaria bold/enllaç/`code`… → un enllaç o
+        # una anotació dins el bloc sortia com a `[**docs**](url)` literal).
+        raw = "".join(r.get("plain_text", "") for r in (data.get("rich_text") or []))
+        return f"```{lang}\n{raw}\n```"
     if t == "divider":
         return "---"
     if t == "equation":
@@ -291,8 +295,15 @@ def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
     if t == "child_database":
         return f"[[{data.get('title', '')}]]"
     if t == "table_row":
+        # Una fila GFM ha de ser UNA sola línia i el `|` separa columnes: cada
+        # cel·la escapa el `|` literal i col·lapsa els salts (un `|` o un `\n`
+        # dins una cel·la de Notion trencava l'estructura de la taula importada).
         cells = data.get("cells") or []
-        return "| " + " | ".join(rich_text_to_md(c) for c in cells) + " |"
+        md_cells = [
+            rich_text_to_md(c).replace("|", "\\|").replace("\n", " ")
+            for c in cells
+        ]
+        return "| " + " | ".join(md_cells) + " |"
     if t == "synced_block":
         return ""  # el contingut ve com a fills
     return rt() or ""
