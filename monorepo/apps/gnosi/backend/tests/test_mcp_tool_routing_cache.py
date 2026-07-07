@@ -1,0 +1,80 @@
+"""MultiServerMCPClient.call_tool ha de resoldre el servidor des d'una cache.
+
+Abans cridava get_all_tools() (un `tools/list` per servidor MCP) a CADA
+invocació només per saber qui té la tool. Ara la cache tool→servidor ho fa
+O(1) i només es refresca en un miss.
+"""
+import asyncio
+
+import pytest
+
+from backend.mcp.client import MultiServerMCPClient
+
+
+class _FakeClient:
+    def __init__(self, name):
+        self.name = name
+        self.calls = []
+
+    async def call_tool(self, name, args):
+        self.calls.append((name, args))
+        return {"ok": name}
+
+
+def _make(list_tools_sequence):
+    mc = MultiServerMCPClient({})
+    mc.clients = {"s1": _FakeClient("s1"), "s2": _FakeClient("s2")}
+    state = {"n": 0}
+
+    async def fake_get_all_tools():
+        i = min(state["n"], len(list_tools_sequence) - 1)
+        state["n"] += 1
+        return list_tools_sequence[i]
+
+    mc.get_all_tools = fake_get_all_tools
+    mc._state = state
+    return mc
+
+
+def test_routing_cached_after_first_call():
+    mc = _make([[{"name": "search", "server": "s1"}]])
+
+    async def run():
+        await mc.call_tool("search", {"q": 1})
+        await mc.call_tool("search", {"q": 2})
+
+    asyncio.run(run())
+    assert mc._state["n"] == 1, "get_all_tools només un cop (2a crida = cache hit)"
+    assert len(mc.clients["s1"].calls) == 2
+
+
+def test_unknown_tool_refreshes_once_then_raises():
+    mc = _make([[{"name": "search", "server": "s1"}]])
+    with pytest.raises(ValueError):
+        asyncio.run(mc.call_tool("missing", {}))
+    assert mc._state["n"] == 1, "un miss refresca exactament un cop"
+
+
+def test_tool_appears_after_refresh():
+    mc = _make([
+        [{"name": "search", "server": "s1"}],
+        [{"name": "search", "server": "s1"}, {"name": "later", "server": "s2"}],
+    ])
+
+    async def run():
+        await mc.call_tool("search", {})        # construeix la cache (n=1)
+        return await mc.call_tool("later", {})  # miss → refresc (n=2) → trobada
+
+    res = asyncio.run(run())
+    assert res == {"ok": "later"}
+    assert mc._state["n"] == 2
+    assert len(mc.clients["s2"].calls) == 1
+
+
+def test_stale_server_in_cache_triggers_refresh():
+    # La cache apunta a un servidor que ja no és a self.clients → refresca.
+    mc = _make([[{"name": "search", "server": "s1"}]])
+    mc._tool_server_cache = {"search": "servidor-mort"}
+    asyncio.run(mc.call_tool("search", {}))
+    assert mc._state["n"] == 1
+    assert len(mc.clients["s1"].calls) == 1

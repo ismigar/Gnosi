@@ -172,6 +172,12 @@ class MultiServerMCPClient:
     def __init__(self, config: Dict[str, Dict]):
         self.clients: Dict[str, DockerMCPClient] = {}
         self.config = config
+        # Cache de routing tool→servidor. Abans `call_tool` cridava
+        # `get_all_tools()` a CADA invocació (una round-trip `tools/list` per
+        # servidor MCP) només per saber qui té la tool → latència multiplicada
+        # per cada crida de l'agent. Ara es resol de la cache; només es refresca
+        # en un MISS (tool nova, servidor arrencat després).
+        self._tool_server_cache: Dict[str, str] = {}
 
     async def start(self):
         # Iniciar tots els servidors en paral·lel per no bloquejar l'arrencada de l'App
@@ -222,23 +228,25 @@ class MultiServerMCPClient:
                 log.error(f"Failed to list tools for {name}: {e}")
         return all_tools
 
-    async def call_tool(self, tool_name: str, tool_args: Dict):
-        # Primer, hem de trobar qui té l'eina.
-        # Això és ineficient si tenim molts servidors, hauríem de fer cache.
-        # Per Fase 2, fem discovery al moment (o cache simple després).
-        
-        # Opció: Provar en tots (poc segur).
-        # Opció: Cachejar tools a l'start.
-        
-        # Fem cache simple ara mateix llistant-ho tot
+    async def _refresh_tool_routing(self):
+        """Reconstrueix la cache tool→servidor llistant totes les tools un cop."""
         tools = await self.get_all_tools()
-        target_server = None
-        for t in tools:
-            if t["name"] == tool_name:
-                target_server = t["server"]
-                break
-        
-        if not target_server:
+        self._tool_server_cache = {
+            t["name"]: t["server"]
+            for t in tools
+            if t.get("name") and t.get("server")
+        }
+
+    async def call_tool(self, tool_name: str, tool_args: Dict):
+        # Ruta ràpida: la cache ja sap quin servidor té la tool (O(1), sense
+        # cap round-trip). Miss (tool desconeguda o servidor ja no present) →
+        # refresca el routing UN cop i reintenta abans de rendir-se.
+        target_server = self._tool_server_cache.get(tool_name)
+        if target_server is None or target_server not in self.clients:
+            await self._refresh_tool_routing()
+            target_server = self._tool_server_cache.get(tool_name)
+
+        if not target_server or target_server not in self.clients:
             raise ValueError(f"Tool {tool_name} not found in any server")
-            
+
         return await self.clients[target_server].call_tool(tool_name, tool_args)
