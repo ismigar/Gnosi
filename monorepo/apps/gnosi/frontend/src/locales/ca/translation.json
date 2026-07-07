@@ -1892,6 +1892,8 @@
     "updated_at": "Actualitzat el {{date}}",
     "see_more": "Veure més",
     "see_less": "Veure menys",
+    "open": "Obrir",
+    "open_page": "Obrir la pàgina",
     "read_full": "Llegir sencer",
     "empty": "No hi ha publicacions al feed."
   },

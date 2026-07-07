@@ -897,6 +897,8 @@
     "updated_at": "Mis à jour le {{date}}",
     "see_more": "Voir plus",
     "see_less": "Voir moins",
+    "open": "Ouvrir",
+    "open_page": "Ouvrir la page",
     "read_full": "Lire en entier",
     "empty": "Aucune publication dans le fil."
   },

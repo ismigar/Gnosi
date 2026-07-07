@@ -1906,6 +1906,8 @@
     "updated_at": "Updated {{date}}",
     "see_more": "See more",
     "see_less": "See less",
+    "open": "Open",
+    "open_page": "Open page",
     "read_full": "Read in full",
     "empty": "No posts in the feed."
   },
