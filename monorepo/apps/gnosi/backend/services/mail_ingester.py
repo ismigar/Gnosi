@@ -310,83 +310,108 @@ def fetch_and_store_newsletters():
             delete_ids = []
 
             for i in range(1, num_messages + 1):
-                # Download message
-                resp, lines, octets = pop.retr(i)
-                raw_email = b"\r\n".join(lines)
-                msg = email.message_from_bytes(raw_email)
-
-                # Decode Subject
-                subject_raw = msg.get("Subject", "(No subject)")
+                # Cada missatge s'aïlla en el seu propi try/except: un únic email
+                # verinós (parseig/decodificació que peta, o error de DB a
+                # db.add/db.query) NO ha de tombar tota la ingesta ni bloquejar
+                # la resta. Si peta, es registra i es fa `continue` SENSE tocar la
+                # transacció global; l'escriptura de l'Article s'embolcalla a més
+                # en un savepoint (begin_nested) perquè un IntegrityError no deixi
+                # la sessió en estat brut. Mateix patró que el fix #771 del
+                # feed_ingester. CRÍTIC: només marquem per esborrar del servidor
+                # els missatges processats amb ÈXIT (delete_ids.append dins el try,
+                # al final); un missatge fallit es queda al servidor per poder-lo
+                # reintentar/inspeccionar.
+                subject = "(No subject)"
                 try:
-                    decoded_parts = decode_header(subject_raw)
-                except Exception:
-                    decoded_parts = [(subject_raw, None)]
-                subject = ""
-                for part, enc in decoded_parts:
-                    if isinstance(part, bytes):
-                        codec = enc
-                        if codec:
-                            codec = codec.strip().strip('"').strip("'").lower()
-                            if codec in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                    # Download message
+                    resp, lines, octets = pop.retr(i)
+                    raw_email = b"\r\n".join(lines)
+                    msg = email.message_from_bytes(raw_email)
+
+                    # Decode Subject
+                    subject_raw = msg.get("Subject", "(No subject)")
+                    try:
+                        decoded_parts = decode_header(subject_raw)
+                    except Exception:
+                        decoded_parts = [(subject_raw, None)]
+                    subject = ""
+                    for part, enc in decoded_parts:
+                        if isinstance(part, bytes):
+                            codec = enc
+                            if codec:
+                                codec = codec.strip().strip('"').strip("'").lower()
+                                if codec in ("unknown-8bit", "unknown", "x-unknown", "attachment"):
+                                    codec = "utf-8"
+                            else:
                                 codec = "utf-8"
+                            try:
+                                subject += part.decode(codec, errors='replace')
+                            except LookupError:
+                                subject += part.decode("latin1", errors='replace')
+                            except Exception:
+                                subject += part.decode("utf-8", errors='replace')
                         else:
-                            codec = "utf-8"
-                        try:
-                            subject += part.decode(codec, errors='replace')
-                        except LookupError:
-                            subject += part.decode("latin1", errors='replace')
-                        except Exception:
-                            subject += part.decode("utf-8", errors='replace')
+                            subject += part
+
+                    # Parse Date
+                    local_date = None
+                    date_tuple = email.utils.parsedate_tz(msg.get('Date', ''))
+                    if date_tuple:
+                        local_date = datetime.fromtimestamp(
+                            email.utils.mktime_tz(date_tuple), tz=timezone.utc
+                        )
                     else:
-                        subject += part
+                        local_date = datetime.now(timezone.utc)
 
-                # Parse Date
-                local_date = None
-                date_tuple = email.utils.parsedate_tz(msg.get('Date', ''))
-                if date_tuple:
-                    local_date = datetime.fromtimestamp(
-                        email.utils.mktime_tz(date_tuple), tz=timezone.utc
+                    # Parse Body – keep HTML if available
+                    raw_body = get_email_body(msg)
+                    if '<' in raw_body and '>' in raw_body:
+                        # Looks like HTML — sanitize it
+                        content = sanitize_html(raw_body)
+                    else:
+                        # Plain text — wrap paragraphs
+                        paragraphs = raw_body.strip().split('\n')
+                        content = '\n'.join(f'<p>{p.strip()}</p>' for p in paragraphs if p.strip())
+
+                    # Unique identifier
+                    message_id = sanitize_filename_component(msg.get('Message-ID', ''))
+                    if not message_id:
+                        # Fallback: use subject + date hash
+                        import hashlib
+                        message_id = hashlib.md5(f"{subject}{local_date}".encode()).hexdigest()
+
+                    unique_url = f"mail://{message_id}"
+                    existing = db.query(Article).filter(Article.url == unique_url).first()
+
+                    if not existing:
+                        sender_source = _get_or_create_sender_source(db, msg)
+                        new_article = Article(
+                            source_id=sender_source.id,
+                            title=subject.strip(),
+                            url=unique_url,
+                            content=content,
+                            published_at=local_date,
+                            is_read=False
+                        )
+                        # Savepoint per missatge: si el flush peta (p. ex.
+                        # IntegrityError), es reverteix NOMÉS aquest INSERT i la
+                        # transacció global segueix viva per als altres missatges.
+                        with db.begin_nested():
+                            db.add(new_article)
+                            db.flush()  # Catch IntegrityError early
+                        new_articles_count += 1
+                        log.info(f"  📩 [{sender_source.name}] {subject.strip()[:60]}")
+
+                    # Mark for deletion NOMÉS si el missatge s'ha processat amb èxit
+                    # (POP3 és "consume & clear"). Un missatge que peta abans d'aquí
+                    # NO s'esborra del servidor.
+                    if cfg["delete_after_ingest"]:
+                        delete_ids.append(i)
+                except Exception as e:
+                    log.warning(
+                        f"  ⚠️ Saltant newsletter #{i} malformat ({subject.strip()[:60]!r}): {e}"
                     )
-                else:
-                    local_date = datetime.now(timezone.utc)
-
-                # Parse Body – keep HTML if available
-                raw_body = get_email_body(msg)
-                if '<' in raw_body and '>' in raw_body:
-                    # Looks like HTML — sanitize it
-                    content = sanitize_html(raw_body)
-                else:
-                    # Plain text — wrap paragraphs
-                    paragraphs = raw_body.strip().split('\n')
-                    content = '\n'.join(f'<p>{p.strip()}</p>' for p in paragraphs if p.strip())
-
-                # Unique identifier
-                message_id = sanitize_filename_component(msg.get('Message-ID', ''))
-                if not message_id:
-                    # Fallback: use subject + date hash
-                    import hashlib
-                    message_id = hashlib.md5(f"{subject}{local_date}".encode()).hexdigest()
-
-                unique_url = f"mail://{message_id}"
-                existing = db.query(Article).filter(Article.url == unique_url).first()
-
-                if not existing:
-                    sender_source = _get_or_create_sender_source(db, msg)
-                    new_article = Article(
-                        source_id=sender_source.id,
-                        title=subject.strip(),
-                        url=unique_url,
-                        content=content,
-                        published_at=local_date,
-                        is_read=False
-                    )
-                    db.add(new_article)
-                    new_articles_count += 1
-                    log.info(f"  📩 [{sender_source.name}] {subject.strip()[:60]}")
-
-                # Mark for deletion (always, since POP3 is "consume & clear")
-                if cfg["delete_after_ingest"]:
-                    delete_ids.append(i)
+                    continue
 
             db.commit()
 
