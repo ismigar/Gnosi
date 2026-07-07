@@ -17,6 +17,12 @@ from backend.services.zotero_schema import (
     ZOTERO_TO_CSL_TYPE,
 )
 
+# MIRALL EXACTE de `LEGACY_TYPE_ALIASES` a `cslEngine.js`. Si divergeixen, una
+# pàgina amb un tipus legacy es cita amb un tipus CSL diferent al frontend (viu,
+# via citeproc-js) i al backend (export de referències). Estava desincronitzat:
+# faltaven 'Vídeo'→motion_picture i 'Entrevista/testimoni'→interview (i els
+# no-op cap a 'document'), de manera que aquests tipus s'exportaven com a
+# 'document' genèric mentre el frontend els citava correctament.
 LEGACY_TYPE_ALIASES: dict[str, str] = {
     'Article científic': 'article-journal',
     'Article de revista': 'article-journal',
@@ -24,6 +30,11 @@ LEGACY_TYPE_ALIASES: dict[str, str] = {
     'Tesis': 'thesis',
     'Manual': 'book',
     'Ponència': 'paper-conference',
+    'Curs': 'document',
+    'Relat': 'document',
+    'Document': 'document',
+    'Vídeo': 'motion_picture',
+    'Entrevista/testimoni': 'interview',
 }
 
 
