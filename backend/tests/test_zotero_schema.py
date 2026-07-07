@@ -124,6 +124,11 @@ def test_py_and_js_have_same_schema_version(js_constants: dict) -> None:
     ("Article científic", "article-journal"),
     ("Manual", "book"),
     ("Ponència", "paper-conference"),
+    # Alies legacy que faltaven i divergien del frontend (cslEngine.js):
+    # abans queien al fallback 'document' en lloc del tipus CSL correcte.
+    ("Vídeo", "motion_picture"),
+    ("Entrevista/testimoni", "interview"),
+    ("Curs", "document"),
     # Fallbacks
     ("unknown_type_xyz", "document"),
     ("", "document"),
