@@ -131,12 +131,25 @@ def fetch_and_store_feeds():
                                 published_at=pub_date,
                                 is_read=False
                             )
-                            db.add(new_article)
-                            db.flush() # Catch IntegrityError early
+                            # Savepoint per article: si el flush peta (col·lisió
+                            # d'URL, valor invàlid…) NOMÉS es descarta AQUEST
+                            # article. Abans el `except` feia `db.rollback()`,
+                            # que revertia TOTA la transacció del run (el commit
+                            # és únic, al final del bucle) i esborrava en silenci
+                            # tots els articles ja inserits del lot, a més de
+                            # deixar `new_articles_count` sobrecomptat. Un error
+                            # habitual és `extract_full_content` (petició HTTP a
+                            # la URL de l'article) llançant — queda FORA del
+                            # savepoint, i el `except` ja no toca la transacció.
+                            with db.begin_nested():
+                                db.add(new_article)
+                                db.flush()  # Catch IntegrityError early
                             new_articles_count += 1
                         except Exception as e:
+                            # Sense `db.rollback()`: si s'havia obert el
+                            # savepoint, ja ha revertit només aquest article; la
+                            # resta del lot es conserva per al commit final.
                             log.warning(f"  ⚠️ Skipping article due to insertion error: {article_link} - {e}")
-                            db.rollback()
                             continue
 
             except Exception as e:
