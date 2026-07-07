@@ -32,9 +32,19 @@ def _decode_latex_accents(s: str) -> str:
         if not comb:
             return m.group(0)
         return unicodedata.normalize('NFC', m.group(2) + comb)
-    s = re.sub(r"\\([`'\"^~=.cvuH])\{(\w)\}", repl, s)   # \'{e}
-    s = re.sub(r"\\([`'\"^~=.])(\w)", repl, s)            # \'e
-    s = re.sub(r"\\([cvuH])\{?(\w)\}?", repl, s)          # \c{c} / \cc
+    # Accents amb clau: `\'{e}`, `\c{c}`, `\v{S}`, `\H{o}`… (les lletres-comanda
+    # c/v/u/H NOMÉS en forma braced).
+    s = re.sub(r"\\([`'\"^~=.cvuH])\{(\w)\}", repl, s)
+    # Accents SÍMBOL sense clau: `\'e`, `\"u`, `\^o`… El signe (`' " ^ ~ = .`)
+    # no pot iniciar una comanda LaTeX de paraula, així que és segur.
+    #
+    # NO s'inclouen aquí les lletres-comanda c/v/u/H sense clau (abans hi havia
+    # `\\([cvuH])\{?(\w)\}?` amb la clau OPCIONAL): casava comandes LaTeX com
+    # `\url{…}`, `\cite{…}` o `\verbatim` i les CORROMPIA (`\url` → `r̆l`,
+    # perquè `\u`+`r` es llegia com a breve). La forma braced ja la cobreix la
+    # línia de dalt; la unbraced (`\cc`) és no estàndard (els exportadors —
+    # Zotero, JabRef… — sempre escriuen `\c{c}`).
+    s = re.sub(r"\\([`'\"^~=.])(\w)", repl, s)
     return s
 
 # ---------------------------------------------------------------------------
