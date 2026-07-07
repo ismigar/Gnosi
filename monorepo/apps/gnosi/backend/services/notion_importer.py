@@ -359,8 +359,13 @@ class NotionClient:
                 time.sleep(min(2 ** attempt, 15))
                 continue
             if resp.status_code == 429:
-                wait = float(resp.headers.get("Retry-After", 1.0))
-                time.sleep(wait)
+                # `Retry-After` pot ser segons O una data HTTP (RFC 7231); el
+                # `float()` directe petava amb el format de data i tombava el
+                # clon. Parseig tolerant + cap de 15s (com el backoff de blip).
+                from backend.utils.http_retry import retry_after_seconds
+                time.sleep(retry_after_seconds(
+                    resp.headers.get("Retry-After"), default=1.0, cap=15.0
+                ))
                 continue
             resp.raise_for_status()
             return resp.json()
