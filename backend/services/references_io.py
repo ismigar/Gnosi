@@ -150,8 +150,9 @@ def _strip_bibtex_value(raw: str) -> str:
     # formar part de `\'{e}`).
     s = _decode_latex_accents(s)
     s = s.replace('{', '').replace('}', '')
-    s = re.sub(r'\\&', '&', s)
-    s = re.sub(r'\\%', '%', s)
+    # Desfà els escapats de LaTeX (simètric amb `_bibtex_escape`) perquè el
+    # round-trip export→import recuperi el text literal.
+    s = re.sub(r'\\([&%$#_])', r'\1', s)
     s = re.sub(r'\s+', ' ', s)
     return s.strip()
 
@@ -293,7 +294,18 @@ def parse_bibtex(text: str) -> List[Dict]:
 # ---------------------------------------------------------------------------
 
 def _bibtex_escape(value: str) -> str:
-    return str(value).replace('&', r'\&').replace('%', r'\%')
+    # Caràcters especials de LaTeX que, sense escapar, fan petar la compilació
+    # d'un BibTeX exportat (molt comuns als títols: "C_max", "F#", "$O(n)$",
+    # "50% & més"). El desescapat simètric és a `_strip_bibtex_value`. No es
+    # toquen `{ } \ ^ ~` (necessiten maneig especial i són molt més rars).
+    return (
+        str(value)
+        .replace('&', r'\&')
+        .replace('%', r'\%')
+        .replace('$', r'\$')
+        .replace('#', r'\#')
+        .replace('_', r'\_')
+    )
 
 
 def entry_to_bibtex(meta: Dict) -> str:
