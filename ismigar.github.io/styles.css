@@ -1199,3 +1199,132 @@ footer {
     padding: 24px;
   }
 }
+
+/* ============================================================
+   v3 — Millores de Landing: Estratègia Financera
+   (GitHub Sponsors + Solucions Cloud/B2B)
+   ============================================================ */
+
+/* Targeta destacada de GitHub Sponsors */
+.support-card.github-sponsor {
+  border-color: #db61a2;
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(219, 97, 162, 0.06) 100%);
+}
+.support-card.github-sponsor:hover {
+  border-color: #db61a2;
+  box-shadow: 0 6px 18px rgba(219, 97, 162, 0.18);
+}
+.btn-github {
+  background: #db61a2;
+  border-color: #db61a2;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(219, 97, 162, 0.25);
+}
+.btn-github:hover {
+  background: #c9528f;
+  border-color: #c9528f;
+}
+
+/* Bloc de solucions Cloud / B2B */
+.saas-box {
+  margin-top: 40px;
+  padding: 32px;
+  background: var(--bg-accent);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  text-align: center;
+}
+.saas-box > h3 {
+  font-size: 24px;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+.saas-box > p {
+  color: var(--muted);
+  max-width: 620px;
+  margin: 0 auto 28px;
+}
+.saas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  text-align: left;
+}
+.saas-card {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+.saas-card h4 {
+  font-size: 17px;
+  margin-bottom: 8px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.saas-card .price {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--gnosi-primary);
+  margin-bottom: 12px;
+}
+.saas-card .price span {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.saas-card > p {
+  font-size: 13.5px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+.saas-card ul {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  flex-grow: 1;
+}
+.saas-card li {
+  position: relative;
+  padding-left: 22px;
+  font-size: 13.5px;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.saas-card li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--gnosi-primary);
+  font-weight: 700;
+}
+.btn-saas {
+  padding: 10px 18px;
+  font-size: 14px;
+  border-radius: var(--radius-sm);
+  margin-top: auto;
+  width: 100%;
+  text-align: center;
+}
+.btn-saas-primary {
+  background: var(--gnosi-primary);
+  border-color: var(--gnosi-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(var(--gnosi-primary-rgb), 0.25);
+}
+.btn-saas-primary:hover {
+  background: var(--gnosi-primary-dark);
+  border-color: var(--gnosi-primary-dark);
+}
+
+/* TEMPORAL (2026-07-06): bloc "Solucions Cloud i per a Equips" amagat fins que
+   el servei SaaS/B2B estigui actiu. Per REACTIVAR-LO: esborra aquestes 3 línies.
+   El markup es conserva a index.html / .ca / .es / .en. */
+.saas-box {
+  display: none;
+}
