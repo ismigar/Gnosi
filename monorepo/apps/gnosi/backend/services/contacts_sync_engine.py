@@ -242,7 +242,13 @@ class CardDAVContactsProvider(BaseContactsProvider):
         """Parse a CardDAV response entry (with vcard string) to internal dict."""
         import re
 
-        vcard = remote_contact.get("vcard", "")
+        # RFC 6350/2426 line UNFOLDING: els servidors CardDAV (Nextcloud,
+        # iCloud, Google…) parteixen les línies llargues (>75 chars) amb un
+        # CRLF seguit d'un espai/tab de continuació. Sense desplegar-les, el
+        # regex per línia de `_get_vcard_field` captura NOMÉS la primera línia
+        # → notes i adreces llargues es TRUNCAVEN (una ADR podia perdre ciutat/
+        # codi postal/país). Desplegar primer ho recupera.
+        vcard = re.sub(r"\r?\n[ \t]", "", remote_contact.get("vcard", ""))
         href = remote_contact.get("href", "")
 
         def _get_vcard_field(field_name: str) -> str:
