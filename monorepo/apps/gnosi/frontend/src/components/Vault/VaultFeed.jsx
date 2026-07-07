@@ -376,10 +376,16 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
 
-    // Clau del conjunt visible: en canviar (cerca, filtres, canvi de vista) es
-    // remunta `FeedList` i el seu recompte d'scroll infinit es reinicia sol,
-    // sense `setState` dins d'un effect ni mutació de refs en render.
-    const resetKey = `${searchTerm}|${activeView?.id ?? ''}|${sortedNotes.length}`;
+    // Clau del conjunt visible: en canviar (cerca, canvi de vista, filtres o
+    // ordre) es remunta `FeedList` i el seu recompte d'scroll infinit es
+    // reinicia sol, sense `setState` dins d'un effect ni mutació de refs en
+    // render. La signatura és ESTABLE respecte del recompte: es basa en la
+    // config lògica (filtres + ordre de la vista), NO en `sortedNotes.length`.
+    // Incloure la longitud remuntava el feed —i el saltava al principi— en
+    // esborrar notes des del feed o en rebre'n de noves per sync/poll, tot i que
+    // el conjunt lògic no havia canviat. El `slice` de FeedList ja gestiona que
+    // la llista encongeixi per sota de `visibleCount` sense remuntar.
+    const resetKey = `${searchTerm}|${activeView?.id ?? ''}|${JSON.stringify(viewConfig.filters)}|${JSON.stringify(viewConfig.sorts)}`;
 
     const handleBulkDelete = useCallback(() => {
         if (selectedIds.size === 0) return;
