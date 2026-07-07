@@ -4,6 +4,7 @@ import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2 } fro
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
+import { asBool } from '../../utils/vaultFilters';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
@@ -281,7 +282,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
 
         switch (type) {
             case 'checkbox':
-                return <CheckSquare size={14} className={value ? "text-indigo-500" : "text-[var(--text-tertiary)]"} />;
+                return <CheckSquare size={14} className={asBool(value) ? "text-indigo-500" : "text-[var(--text-tertiary)]"} />;
             case 'date': {
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (
