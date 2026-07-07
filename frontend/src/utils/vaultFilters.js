@@ -17,6 +17,12 @@ const TRUTHY = new Set(['true', '1', 'yes', 'si', 'sí', 'done', 'checked', 'com
 // del backend (view_snapshot.py).
 export const NUM_RE = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$/;
 
+// Un valor "sembla una data ISO" si comença per YYYY-MM (data, datetime o mes
+// nu). Amb un target numèric (any nu, p. ex. `> 2020`), les dates ISO casen per
+// comparació lexicogràfica (cronològica en ASCII) però el text arbitrari ("foo")
+// NO. Compartida pels 3 motors; paritat amb `_ISO_DATE_RE` del backend.
+export const ISO_DATE_RE = /^\d{4}-\d{2}/;
+
 // Exportada perquè rollupUtils (percent_checked) compti els checkbox amb la
 // MATEIXA lògica de veritat que els filtres.
 export function asBool(x) {
@@ -92,10 +98,16 @@ export function matchesFilters(item, filters = []) {
                 const gt = filter.operator === 'greater_than';
                 const targetNum = NUM_RE.test(filterVal.trim());
                 return arr.some((x, i) => {
-                    if (targetNum && NUM_RE.test(x.trim())) {
+                    const xt = x.trim();
+                    if (targetNum && NUM_RE.test(xt)) {
                         const n1 = parseNumericValue(x), n2 = parseNumericValue(filterVal);
                         return gt ? n1 > n2 : n1 < n2;
                     }
+                    // Target numèric (any nu) amb un valor que NO és numèric: només
+                    // casa si el valor és una data ISO (`> 2020` sobre "2024-01-15",
+                    // lexicogràfic = cronològic). Un text arbitrari ("foo") NO casa
+                    // amb un llindar numèric — abans hi queia i divergia del backend.
+                    if (targetNum && !ISO_DATE_RE.test(xt)) return false;
                     const xl = arrLower[i];
                     return gt ? xl > filterVal : xl < filterVal;
                 });

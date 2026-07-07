@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
-import { compareFieldValues, NUM_RE, parseNumericValue } from '../../utils/vaultFilters';
+import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
@@ -132,10 +132,15 @@ function applyFilter(meta, pageId, f) {
         const gt = op === 'greater_than';
         const targetNum = NUM_RE.test(target.trim());
         return arr.some((x, i) => {
-            if (targetNum && NUM_RE.test(x.trim())) {
+            const xt = x.trim();
+            if (targetNum && NUM_RE.test(xt)) {
                 const n = parseNumericValue(x), t = parseNumericValue(target);
                 return gt ? n > t : n < t;
             }
+            // Target numèric (any nu) amb valor no numèric: només casa si el valor
+            // és una data ISO (lexicogràfic = cronològic); text arbitrari ("foo")
+            // NO casa. Paritat amb vaultFilters (matchesFilters) i backend.
+            if (targetNum && !ISO_DATE_RE.test(xt)) return false;
             const xl = arrLower[i];
             return gt ? xl > targetLower : xl < targetLower;
         });
