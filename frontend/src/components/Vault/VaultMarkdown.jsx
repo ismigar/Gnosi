@@ -5,7 +5,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { WikilinkInline } from './WikilinkInline';
-import { WIKILINK_HREF_SENTINEL, convertWikilinksToMd, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
+import { WIKILINK_HREF_SENTINEL, STYLE_HREF_SENTINEL, convertWikilinksToMd, convertInlineHtmlToMd, decodeStylePayload, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
 
 /* -------------------------------------------------------------------------- */
 /*  Equacions heretades de Notion                                              */
@@ -95,6 +95,11 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                 // en lloc d'un anchor opac. La preconversió de `[[…]]` a
                 // `[text](sentinel:target)` ja s'ha fet sobre `md` abans del parse.
                 a: ({ href = '', children, ...rest }) => {
+                    // Text acolorit heretat (`<span style>` → sentinel `gnosi-style:`):
+                    // el tornem a un `<span>` amb el color, sense estils de link.
+                    if (typeof href === 'string' && href.startsWith(STYLE_HREF_SENTINEL)) {
+                        return <span style={decodeStylePayload(href)}>{children}</span>;
+                    }
                     if (typeof href === 'string' && href.startsWith(WIKILINK_HREF_SENTINEL)) {
                         let target;
                         try { target = decodeURIComponent(href.slice(WIKILINK_HREF_SENTINEL.length)); }
@@ -119,7 +124,7 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                 },
             }}
         >
-            {convertWikilinksToMd(latexFencesToMath(md || ''))}
+            {convertWikilinksToMd(convertInlineHtmlToMd(latexFencesToMath(md || '')))}
         </ReactMarkdown>
     );
 }
