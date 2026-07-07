@@ -94,6 +94,31 @@ function encodeStylePayload(color, bg) {
     return encodeURIComponent(parts.join('&')).replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
+// Converteix un color CSS (hex #rgb/#rrggbb[aa] o rgb()/rgba()) a {r,g,b}. Els
+// colors amb nom no els sabem mesurar → null (deixem el text heretat).
+function parseCssColorToRgb(v) {
+    if (typeof v !== 'string') return null;
+    const s = v.trim();
+    let m = /^#([0-9a-f]{3})$/i.exec(s);
+    if (m) { const h = m[1]; return { r: parseInt(h[0] + h[0], 16), g: parseInt(h[1] + h[1], 16), b: parseInt(h[2] + h[2], 16) }; }
+    m = /^#([0-9a-f]{6})(?:[0-9a-f]{2})?$/i.exec(s);
+    if (m) { const h = m[1]; return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16) }; }
+    m = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i.exec(s);
+    if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+    return null;
+}
+
+// Color de text llegible sobre un fons donat: fosc sobre fons clar, clar sobre
+// fons fosc (brillantor YIQ). Els ressaltats heretats de Notion són tons CLARS
+// pensats per a mode clar; en mode FOSC el text clar del tema quedava il·legible
+// a sobre. Fixem el text segons el FONS (independent del tema), com fa Notion.
+function readableTextForBg(bg) {
+    const rgb = parseCssColorToRgb(bg);
+    if (!rgb) return null;
+    const yiq = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+    return yiq >= 140 ? '#1f2933' : '#f2f2f2';
+}
+
 // Descodifica el payload d'un href `gnosi-style:` a un objecte d'estil de React.
 // Revalida cada color (defensa en profunditat: no confiem que l'href no s'hagi
 // manipulat).
@@ -107,6 +132,13 @@ export function decodeStylePayload(href) {
         if (!v || !SAFE_COLOR_RE.test(v)) continue;
         if (k === 'c') style.color = v;
         else if (k === 'b') style.backgroundColor = v;
+    }
+    // Amb fons però sense color de text explícit, forcem un text que contrasti amb
+    // el fons perquè sigui llegible tant en mode clar com FOSC (si no, el ressaltat
+    // clar de Notion + text clar del tema fosc quedava invisible).
+    if (style.backgroundColor && !style.color) {
+        const fg = readableTextForBg(style.backgroundColor);
+        if (fg) style.color = fg;
     }
     return style;
 }
