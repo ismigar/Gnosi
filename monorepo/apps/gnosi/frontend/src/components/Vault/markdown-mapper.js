@@ -1083,6 +1083,48 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
     }).join("");
 };
 
+// Sanititza les destinacions dels enllaços `[text](dest)` d'un markdown:
+// normalitza els backslashes a slashes i envolta amb `<...>` les destinacions
+// amb espais o caràcters non-ASCII (markdown-it/Tiptap altrament les rebutgen).
+// Escaneja cada destinació respectant els parèntesis balancejats i els
+// caràcters escapats, tal com fa CommonMark, de manera que una URL amb
+// parèntesis interns (adjunts `Article (2020).pdf`, desambiguacions de la
+// Viquipèdia) no es trunca al primer `)`. Les destinacions ja entre `<...>`
+// es deixen intactes; un `](` sense `)` que el tanqui es tracta com a text.
+const sanitizeLinkDestinations = (text) => {
+    let out = "";
+    let i = 0;
+    while (i < text.length) {
+        const idx = text.indexOf("](", i);
+        if (idx === -1) { out += text.slice(i); break; }
+        out += text.slice(i, idx + 2);              // inclou `](`
+        let j = idx + 2;
+        if (text[j] === "<") {                        // destinació ja entre <...>
+            const close = text.indexOf(">", j + 1);
+            if (close === -1) { out += text.slice(j); break; }
+            out += text.slice(j, close + 1);
+            i = close + 1;
+            continue;
+        }
+        let depth = 0, k = j, closed = false;
+        for (; k < text.length; k++) {
+            const ch = text[k];
+            if (ch === "\\") { k++; continue; }       // caràcter escapat: no compta
+            if (ch === "(") depth++;
+            else if (ch === ")") {
+                if (depth === 0) { closed = true; break; }
+                depth--;
+            }
+        }
+        if (!closed) { i = j; continue; }             // `](` sense tancar → text literal
+        const normalized = text.slice(j, k).replace(/\\/g, "/");
+        // eslint-disable-next-line no-control-regex
+        out += /[\s<>]|[^\x00-\x7F]/.test(normalized) ? `<${normalized}>)` : `${normalized})`;
+        i = k + 1;
+    }
+    return out;
+};
+
 // Els enllaços file:// dins el markdown se substitueixen pel sentinel abans
 // del parse perquè BlockNote/Tiptap no els accepta com a href vàlid (no és
 // als seus protocols permesos). Mantenim el sentinel als blocs durant tota
@@ -1123,21 +1165,13 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // amb `<...>` quan la URL té caràcters problemàtics (espais o non-ASCII).
     // CommonMark accepta qualsevol caràcter dins de `<...>` excepte `<`, `>` i
     // line breaks; així el parser respecta la URL literal i no la valida.
-    protectedText = protectedText.replace(
-        /\]\(([^)]*)\)/g,
-        (m, url) => {
-            // Si la URL ja està entre angle brackets, no fem res.
-            if (url.startsWith('<') && url.endsWith('>')) return m;
-            // Backslashes Windows-style → slashes (paths Unix).
-            const normalized = url.replace(/\\/g, '/');
-            // Si conté espais o caràcters non-ASCII, envolta amb <...>.
-            // eslint-disable-next-line no-control-regex
-            if (/[\s<>]|[^\x00-\x7F]/.test(normalized)) {
-                return `](<${normalized}>)`;
-            }
-            return `](${normalized})`;
-        },
-    );
+    // La destinació NO es pot delimitar amb `[^)]*`: un enllaç a un adjunt amb
+    // parèntesis al nom (`Article (2020).pdf`, molt comú) o una URL de la
+    // Viquipèdia amb desambiguació (`…_(desambiguación)`) es truncava al primer
+    // `)`, deixant la meitat de la URL com a text i trencant l'enllaç en el
+    // round-trip. `sanitizeLinkDestinations` escaneja la destinació respectant
+    // parèntesis balancejats i caràcters escapats, com fa CommonMark.
+    protectedText = sanitizeLinkDestinations(protectedText);
 
     // Sanitització de `[[` no aparellats: si la pàgina té un `[[xxx` que
     // no troba el seu `]]`, el regex de wikilinks pot capturar centenars de
