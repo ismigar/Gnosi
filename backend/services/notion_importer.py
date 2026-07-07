@@ -344,6 +344,22 @@ class NotionClient:
             time.sleep(self.min_interval - dt)
         self._last = time.monotonic()
 
+    @staticmethod
+    def _next_cursor(data: Dict[str, Any], current: Optional[str]) -> Optional[str]:
+        """Cursor de la pàgina següent, o None si cal aturar la paginació.
+
+        Defensiu contra respostes malformades: si `has_more` és cert però
+        `next_cursor` ve buit O igual a l'actual, avançar és impossible i el
+        bucle `while True` quedaria GIRANT PER SEMPRE, penjant el fil del clon
+        (l'API de Notion va darrere Cloudflare; una resposta rara no ha de
+        convertir-se en un hang). En aquest cas aturem la paginació."""
+        if not data.get("has_more"):
+            return None
+        nxt = data.get("next_cursor")
+        if not nxt or nxt == current:
+            return None
+        return nxt
+
     def _request(self, method: str, path: str, **kw) -> Dict[str, Any]:
         import httpx
         last_exc = None
@@ -386,9 +402,9 @@ class NotionClient:
             data = self._request("GET", "/users", params=params)
             for u in data.get("results", []):
                 users[u.get("id")] = u.get("name") or u.get("id")
-            if not data.get("has_more"):
+            cursor = self._next_cursor(data, cursor)
+            if cursor is None:
                 break
-            cursor = data.get("next_cursor")
         return users
 
     def search_databases(self) -> List[Dict[str, Any]]:
@@ -399,9 +415,9 @@ class NotionClient:
                 body["start_cursor"] = cursor
             data = self._request("POST", "/search", json=body)
             results.extend(data.get("results", []))
-            if not data.get("has_more"):
+            cursor = self._next_cursor(data, cursor)
+            if cursor is None:
                 break
-            cursor = data.get("next_cursor")
         return results
 
     def search_pages(self) -> List[Dict[str, Any]]:
@@ -413,9 +429,9 @@ class NotionClient:
                 body["start_cursor"] = cursor
             data = self._request("POST", "/search", json=body)
             results.extend(data.get("results", []))
-            if not data.get("has_more"):
+            cursor = self._next_cursor(data, cursor)
+            if cursor is None:
                 break
-            cursor = data.get("next_cursor")
         return results
 
     def get_database(self, db_id: str) -> Dict[str, Any]:
@@ -436,9 +452,9 @@ class NotionClient:
             data = self._request("POST", f"/databases/{db_id}/query", json=body)
             for row in data.get("results", []):
                 yield row
-            if not data.get("has_more"):
+            cursor = self._next_cursor(data, cursor)
+            if cursor is None:
                 break
-            cursor = data.get("next_cursor")
 
     def get_block_children(self, block_id: str) -> List[Dict[str, Any]]:
         """Fills d'un bloc/pàgina, recursiu: omple `_children` quan `has_children`."""
@@ -452,9 +468,9 @@ class NotionClient:
                 if b.get("has_children"):
                     b["_children"] = self.get_block_children(b["id"])
                 results.append(b)
-            if not data.get("has_more"):
+            cursor = self._next_cursor(data, cursor)
+            if cursor is None:
                 break
-            cursor = data.get("next_cursor")
         return results
 
     def get_block_children_shallow(self, block_id: str) -> List[Dict[str, Any]]:
@@ -467,9 +483,9 @@ class NotionClient:
                 params["start_cursor"] = cursor
             data = self._request("GET", f"/blocks/{block_id}/children", params=params)
             results.extend(data.get("results", []))
-            if not data.get("has_more"):
+            cursor = self._next_cursor(data, cursor)
+            if cursor is None:
                 break
-            cursor = data.get("next_cursor")
         return results
 
     def database_kind(self, db_id: str) -> str:
