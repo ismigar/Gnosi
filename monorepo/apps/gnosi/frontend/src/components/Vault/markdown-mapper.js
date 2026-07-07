@@ -331,7 +331,14 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                     const cellContent = cell.content !== undefined ? cell.content : cell; // Custom has .content, native cell IS the inline content array
                     // Les cel·les es re-llegeixen crues (parser GFM propi que talla per `|`),
                     // no per markdown-it → NO s'escapa el text (només el `|` literal).
-                    return inlineContentToMarkdown(cellContent, { escape: false }).replace(/\|/g, "\\|");
+                    // A més, una fila GFM ha de ser UNA sola línia: `inlineContentToMarkdown`
+                    // converteix els salts tous en `<br>\n`, i aquest `\n` literal partiria
+                    // la fila en dues, corrompent TOTA la taula en el re-parse. Mantenim el
+                    // `<br>` (forma GFM per a un salt dins la cel·la) però col·lapsem el salt.
+                    return inlineContentToMarkdown(cellContent, { escape: false })
+                        .replace(/\|/g, "\\|")
+                        .replace(/<br>\n/g, "<br>")
+                        .replace(/\n/g, " ");
                 });
                 return `| ${markdownCells.join(" | ")} |`;
             });
