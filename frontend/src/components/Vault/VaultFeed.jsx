@@ -4,6 +4,7 @@ import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2 } fro
 import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts } from './schemaUtils';
 import { FileFieldValue } from './FileFieldValue';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
+import { normalizeAssetUrl } from './vaultMarkdownUtils';
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
@@ -56,7 +57,15 @@ function cleanExcerpt(raw) {
 function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const { t, i18n } = useTranslation();
     const [expanded, setExpanded] = useState(false);
-    const hasCover = !!note.metadata?.cover;
+    // La portada s'ha de resoldre com a la resta de vistes (VaultGallery):
+    // `Assets/x` → `/api/vault/assets/x` i, sobretot, amb el vault actiu al
+    // query. Un `background-image` (com un `<img>` natiu) NO envia la
+    // capçalera X-Vault-Id, així que sense normalitzar una portada relativa
+    // donava 404 i en multivault apuntava al vault equivocat.
+    const coverUrl = typeof note.metadata?.cover === 'string'
+        ? normalizeAssetUrl(note.metadata.cover)
+        : '';
+    const hasCover = !!coverUrl;
     // El clamp es fa amb estil en línia (no depèn del plugin line-clamp de
     // Tailwind): 4 línies plegat, sencer expandit.
     const clampStyle = expanded
@@ -93,7 +102,7 @@ function FeedCard({ note, pills, excerpt, isSelected, selectionActive, onToggleS
                 <div className="w-full h-48 sm:h-64 relative bg-[var(--bg-tertiary)] flex-shrink-0">
                     <div
                         className="absolute inset-0 bg-cover bg-center transition-transform duration-700 group-hover:scale-105"
-                        style={{ backgroundImage: `url("${note.metadata.cover}")` }}
+                        style={{ backgroundImage: `url("${coverUrl}")` }}
                     />
                 </div>
             )}
