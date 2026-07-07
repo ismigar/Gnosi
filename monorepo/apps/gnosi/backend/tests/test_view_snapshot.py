@@ -92,6 +92,31 @@ def test_filter_numeric_comma_decimal():
     assert apply_filter({"n": "0,75"}, PAGE, f2) is False
 
 
+def test_filter_numeric_target_vs_nonnumeric_value_parity():
+    """Target numèric (any/número nu) contra un valor NO numèric: les dates ISO
+    casen per ordre lexicogràfic (cronològic), però el text arbitrari NO. Paritat
+    amb matchesFilters / DbViewEmbed.applyFilter del front (Opció 3)."""
+    gt2020 = {"field": "d", "operator": "greater_than", "value": "2020"}
+    lt2020 = {"field": "d", "operator": "less_than", "value": "2020"}
+    # Data ISO amb any nu: comparació cronològica.
+    assert apply_filter({"d": "2024-01-15"}, PAGE, gt2020) is True
+    assert apply_filter({"d": "2019-05-01"}, PAGE, gt2020) is False
+    assert apply_filter({"d": "2019-05-01"}, PAGE, lt2020) is True
+    assert apply_filter({"d": "2024-01-15"}, PAGE, lt2020) is False
+    # Text arbitrari contra un llindar numèric: NO casa (abans "foo" > "5" → True).
+    gt5 = {"field": "n", "operator": "greater_than", "value": "5"}
+    lt5 = {"field": "n", "operator": "less_than", "value": "5"}
+    assert apply_filter({"n": "foo"}, PAGE, gt5) is False
+    assert apply_filter({"n": "foo"}, PAGE, lt5) is False
+    # Columna mixta (número + text): només compta la cel·la numèrica vàlida.
+    assert apply_filter({"n": ["foo", "9"]}, PAGE, gt5) is True
+    assert apply_filter({"n": ["foo", "3"]}, PAGE, gt5) is False
+    # Target data completa (NO numèric): comparació de cadena, com abans.
+    gtdate = {"field": "d", "operator": "greater_than", "value": "2020-06-01"}
+    assert apply_filter({"d": "2020-06-02"}, PAGE, gtdate) is True
+    assert apply_filter({"d": "2020-05-31"}, PAGE, gtdate) is False
+
+
 # --- multi_key_sort ---------------------------------------------------------
 def test_sort_by_field_desc_and_default_title():
     rows = [

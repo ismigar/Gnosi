@@ -467,17 +467,24 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         gt = op == "greater_than"
         target_num = bool(_FULL_NUMERIC_RE.match(target.strip()))
         for x in arr:
-            if target_num and _FULL_NUMERIC_RE.match(x.strip()):
+            x_stripped = x.strip()
+            if target_num and _FULL_NUMERIC_RE.match(x_stripped):
                 n = _parse_numeric_value(x)
                 t = _parse_numeric_value(target)
                 if n is None or t is None:
                     continue
                 if (n > t) if gt else (n < t):
                     return True
-            elif not target_num:
-                # String comparison only if filter is NOT numeric. Si target_num=True
-                # pero x no és numèric, skip (no és un match vàlid per a numeric filter).
-                # Sense això, "foo" > "5" (string) retornava True incorrectament.
+            elif not target_num or _ISO_DATE_RE.match(x_stripped):
+                # Comparació de CADENA en minúscules quan:
+                #  - el filtre NO és numèric (p. ex. target és una data completa
+                #    "2024-01-15"), o
+                #  - el valor és una data ISO i el target és un any/número nu
+                #    (p. ex. `> 2020` sobre "2024-01-15"): les dates ISO ordenen
+                #    cronològicament en ASCII, igual en JS i Python.
+                # Un text arbitrari ("foo") amb target numèric NO casa (skip): sense
+                # això, "foo" > "5" (string) retornava True incorrectament. Paritat
+                # amb matchesFilters / DbViewEmbed.applyFilter (front).
                 xl = x.lower()
                 if (xl > target_l) if gt else (xl < target_l):
                     return True
@@ -497,6 +504,12 @@ _JS_PARSEFLOAT_RE = re.compile(r"[+-]?(?:Infinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]
 # ("2024-07-05"→2024), així que sense aquesta comprovació les dates del mateix any
 # es comparaven com a iguals. Paritat amb el front (`numRe` a compareFieldValues).
 _FULL_NUMERIC_RE = re.compile(r"^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$")
+
+# Un valor "sembla una data ISO" si comença per YYYY-MM (data, datetime o mes
+# nu). Serveix perquè `> 2020` (target any nu, numèric) casi les dates ISO per
+# comparació lexicogràfica —cronològica en ASCII— sense casar text arbitrari
+# ("foo"). Paritat amb `ISO_DATE_RE` del front (vaultFilters.js).
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}")
 
 
 def _parse_float_js(text: str) -> Optional[float]:
