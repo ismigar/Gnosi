@@ -549,6 +549,25 @@ export function DbViewEmbed({ block }) {
     // l'editor pugui "entrar" a la taula (focusFirstCell/focusLastCell) en
     // arribar-hi amb les fletxes. Vegeu el pont a VaultEditorContext.
     const tableNavApiRef = useRef(null);
+    // Contenidor exterior de l'embed. Quan la vista NO és taula/llista (feed,
+    // galeria, kanban, timeline…) no hi ha cel·les navegables: fem que la
+    // closca sencera sigui enfocable (tabIndex=-1) i actuï com un widget —
+    // «entrar-hi» amb ↓ li dona un focus visible i se'n surt amb ↑/↓/Esc.
+    const embedContainerRef = useRef(null);
+    const isInEditor = typeof ctx.exitEmbedToEditor === 'function';
+
+    // Teclat quan la CLOSCA té el focus (no un fill: targeta, cerca, cel·la…).
+    // ↑/↓ tornen el cursor a l'editor (bloc adjacent o zona superior); Esc surt.
+    const handleShellKeyDown = useCallback((e) => {
+        if (e.target !== embedContainerRef.current) return;
+        if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Escape') {
+            e.preventDefault();
+            e.stopPropagation();
+            const dir = e.key === 'ArrowUp' ? 'up' : (e.key === 'ArrowDown' ? 'down' : 'escape');
+            ctx.exitEmbedToEditor?.(block?.id, dir);
+        }
+    }, [ctx, block?.id]);
 
     const viewId = String(block?.props?.view_id || '').trim();
     const headingProp = block?.props?.heading || '';
@@ -962,12 +981,29 @@ export function DbViewEmbed({ block }) {
     // la proporciona la VaultTable via `registerNavApi` → tableNavApiRef.
     useEffect(() => {
         if (!ctx.registerEmbedNav || !block?.id) return undefined;
+        // Fallback quan la vista no és una taula/llista navegable (feed,
+        // galeria, kanban, timeline…): enfoquem la closca de l'embed perquè
+        // l'usuari vegi que hi és i pugui sortir-ne amb ↑/↓/Esc. Abans
+        // retornàvem `false` i el cursor queia en un bloc void sense caret
+        // visible ni sortida → semblava que la navegació no hi arribés.
+        const focusShell = () => {
+            const el = embedContainerRef.current;
+            if (!el) return false;
+            try { el.focus({ preventScroll: false }); el.scrollIntoView({ block: 'nearest' }); } catch { /* noop */ }
+            return true;
+        };
         ctx.registerEmbedNav(block.id, {
-            // Retornen `false` si no hi ha taula navegable (vista no-taula o
-            // sense files) perquè l'editor no empassi la fletxa i la deixi
-            // passar a ProseMirror (saltar la vista amb normalitat).
-            focusFirstCell: () => tableNavApiRef.current?.focusFirstCell?.() ?? false,
-            focusLastCell: () => tableNavApiRef.current?.focusLastCell?.() ?? false,
+            // Taula/llista → primera/última cel·la. La resta de vistes →
+            // closca (focusShell). Tornen sempre `true` (l'editor considera
+            // la vista "entrada" i no deixa passar la fletxa a ProseMirror).
+            focusFirstCell: () => {
+                const r = tableNavApiRef.current?.focusFirstCell?.();
+                return (r !== undefined && r !== false) ? true : focusShell();
+            },
+            focusLastCell: () => {
+                const r = tableNavApiRef.current?.focusLastCell?.();
+                return (r !== undefined && r !== false) ? true : focusShell();
+            },
         });
         return () => ctx.registerEmbedNav(block.id, null);
     }, [ctx, block?.id]);
@@ -1146,7 +1182,12 @@ export function DbViewEmbed({ block }) {
         // `min-w-0 w-full`: el contenidor del bloc (.bn-block-content) és flex;
         // sense `min-w-0` aquest div no encongeix sota l'amplada del contingut
         // (taula ampla) i desborda l'editor amb scroll horitzontal a la pàgina.
-        <div className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container">
+        <div
+            ref={embedContainerRef}
+            tabIndex={isInEditor ? -1 : undefined}
+            onKeyDown={isInEditor ? handleShellKeyDown : undefined}
+            className="mt-0 mb-4 min-w-0 w-full gnosi-view-embed-container rounded-lg outline-none focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/40"
+        >
             <div className="flex items-center justify-between gap-3 mb-2">
                 <div className="flex items-baseline gap-2 min-w-0">
                     {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}

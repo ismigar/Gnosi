@@ -1836,6 +1836,12 @@ export function EditorInner({
         };
 
         const onKeyDown = (e) => {
+            // Només gestionem tecles quan el focus és a l'àrea de text de
+            // l'editor (el contenteditable de ProseMirror). Si el focus és a la
+            // closca d'un embed (feed/galeria… → un fill enfocable amb
+            // tabIndex=-1), el seu propi handler ja se n'ocupa; no interferim.
+            const pmDom = editor?.prosemirrorView?.dom;
+            if (pmDom && document.activeElement && document.activeElement !== pmDom) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey) return;
             if (e.altKey) {
                 if (e.key === 'ArrowUp') { e.preventDefault(); e.stopPropagation(); onOpenProperties?.(); }
@@ -1858,11 +1864,29 @@ export function EditorInner({
                 if (!caretOnFirstLine()) return; // no és la 1a línia → ProseMirror puja una línia
                 const curId = getCurrentBlockId();
                 const { prevBlock } = curId ? getAdjacentBlocks(curId) : { prevBlock: null };
-                // Primer bloc del cos → puja a propietats/títol/enllaços.
                 if (!prevBlock) {
+                    // Primer bloc del cos → puja a propietats/títol/enllaços.
                     e.preventDefault();
                     e.stopPropagation();
                     onNavigateUp?.();
+                } else if (prevBlock.type === 'gnosi_view') {
+                    // El bloc anterior és una vista incrustada → hi entrem
+                    // (última cel·la per a taules; closca per a la resta).
+                    if (enterEmbed(prevBlock.id, 'last')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
+                }
+            } else if (e.key === 'ArrowDown') {
+                if (!caretOnLastLine()) return; // no és l'última línia → ProseMirror baixa una línia
+                const curId = getCurrentBlockId();
+                const { nextBlock } = curId ? getAdjacentBlocks(curId) : { nextBlock: null };
+                // El bloc següent és una vista incrustada → hi entrem amb ↓.
+                if (nextBlock && nextBlock.type === 'gnosi_view') {
+                    if (enterEmbed(nextBlock.id, 'first')) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }
                 }
             }
         };
@@ -3718,6 +3742,28 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(null);
         editorApiRef.current?.focusFirstBlock?.();
     }, []);
+
+    // En obrir/carregar una pàgina el cursor arrenca al TÍTOL: és el punt
+    // d'entrada de la navegació per zones amb el teclat (títol → propietats →
+    // mencions → cos). Un cop per muntatge — el component es re-munta amb
+    // `key`=id de la nota, així que canviar de pàgina hi torna. No robem el
+    // focus si l'usuari ja escriu en un altre camp (p. ex. la cerca global) ni
+    // si l'editor està amagat (pestanya de fons / panell dividit).
+    const didAutofocusTitleRef = useRef(false);
+    useEffect(() => {
+        if (didAutofocusTitleRef.current) return undefined;
+        const raf = requestAnimationFrame(() => {
+            const el = titleInputRef.current;
+            if (!el || el.offsetParent === null) return;
+            const ae = document.activeElement;
+            const tag = String(ae?.tagName || '').toLowerCase();
+            const typingElsewhere = (tag === 'input' || tag === 'textarea' || ae?.isContentEditable) && ae !== el;
+            if (typingElsewhere) return;
+            didAutofocusTitleRef.current = true;
+            focusTitle();
+        });
+        return () => cancelAnimationFrame(raf);
+    }, [focusTitle]);
 
     // Selecciona una propietat I hi porta el focus del DOM (necessari perquè
     // el listener de teclat del panell només actua si l'element actiu no és
