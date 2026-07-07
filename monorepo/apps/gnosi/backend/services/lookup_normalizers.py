@@ -385,6 +385,39 @@ def pubmed_to_zotero_item(doc: dict) -> dict[str, Any]:
 
 # ---------- HTML meta tags (Open Graph, Dublin Core, citation_*) ----------
 
+def _parse_meta_tags(html: str) -> tuple[list, list, list]:
+    """Extreu els parells `(clau_sense_prefix, content)` dels `<meta>` de
+    tres famílies: Highwire (`citation_*`), Open Graph (`og:*`) i Dublin
+    Core (`DC.*`).
+
+    Independent de l'ORDRE dels atributs dins del `<meta>`: l'HTML permet
+    tant `<meta name="citation_title" content="…">` com
+    `<meta content="…" name="citation_title">`, i moltes pàgines emeten el
+    `content` primer. El parseig anterior, amb un únic regex que exigia
+    `name=…` ABANS de `content=…`, es perdia silenciosament totes les meta
+    amb l'ordre invertit (títol, autors, DOI…). Aquí escanegem cada tag i
+    llegim `name`/`property` i `content` per separat.
+    """
+    citations: list = []
+    og: list = []
+    dc: list = []
+    for tag in re.findall(r'<meta\b[^>]*>', html, re.IGNORECASE):
+        key_m = re.search(r'\b(?:name|property)\s*=\s*["\']([^"\']+)["\']', tag, re.IGNORECASE)
+        content_m = re.search(r'\bcontent\s*=\s*["\']([^"\']*)["\']', tag, re.IGNORECASE)
+        if not key_m or content_m is None:
+            continue
+        key = key_m.group(1)
+        val = content_m.group(1)
+        low = key.lower()
+        if low.startswith('citation_'):
+            citations.append((key[len('citation_'):], val))
+        elif low.startswith('og:'):
+            og.append((key[len('og:'):], val))
+        elif low.startswith('dc.'):
+            dc.append((key[len('dc.'):], val))
+    return citations, og, dc
+
+
 def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
     """Extreu meta tags d'una pàgina HTML → Zotero item.
 
@@ -405,18 +438,7 @@ def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
     if not isinstance(html, str):
         return {'url': url} if url else {}
 
-    citations = re.findall(
-        r'<meta[^>]+name=["\']citation_([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    )
-    og = re.findall(
-        r'<meta[^>]+property=["\']og:([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    )
-    dc = re.findall(
-        r'<meta[^>]+name=["\']DC\.([^"\']+)["\'][^>]+content=["\']([^"\']*)["\']',
-        html, re.IGNORECASE,
-    )
+    citations, og, dc = _parse_meta_tags(html)
     title_m = re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE)
     fallback_title = title_m.group(1).strip() if title_m else None
 
