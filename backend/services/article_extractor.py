@@ -19,6 +19,7 @@ This module is intentionally narrow:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Optional
 
 import requests
@@ -46,8 +47,12 @@ def looks_like_excerpt(rss_content: Optional[str]) -> bool:
     if not rss_content:
         return True
     # Strip HTML tags for the length comparison so a short body padded
-    # with markup still counts as short.
-    text_only = "".join(c for c in rss_content if c not in "<>")
+    # with markup still counts as short. Removing only the `<`/`>` chars
+    # (the old approach) kept every tag name and attribute — a short teaser
+    # wrapped in verbose markup (nested `<div class="…long…">` from modern
+    # CMS templates) inflated past the threshold and was wrongly treated as
+    # a full article, so its full text was never fetched.
+    text_only = re.sub(r"<[^>]*>", "", rss_content)
     if len(text_only) < EXCERPT_LEN_THRESHOLD:
         return True
     cta_markers = (
