@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from abc import ABC, abstractmethod
@@ -61,6 +62,28 @@ class GoogleContactsProvider(BaseContactsProvider):
         parsed = parse_google_contact_to_dict(remote_contact)
         parsed["remote_id"] = parsed.get("resource_name")
         return parsed
+
+def _vcard_escape(value: Any) -> str:
+    """Escapa un valor de text per a vCard 3.0 (RFC 2426 §5). L'ordre importa:
+    el backslash PRIMER (per no re-escapar els que afegim). Sense això, un
+    valor amb un salt de línia (NOTE multilínia) TRENCA el vCard —la 2a línia
+    es parseja com una propietat bogus— i un `;`/`,` (a `N`, `ORG`, `ADR`…)
+    corromp l'estructura de camps."""
+    return (
+        str(value)
+        .replace("\\", "\\\\")
+        .replace("\r", "")
+        .replace("\n", "\\n")
+        .replace(";", "\\;")
+        .replace(",", "\\,")
+    )
+
+
+def _vcard_unescape(value: str) -> str:
+    """Invers de `_vcard_escape`: `\\n`/`\\N` → salt de línia; `\\;` `\\,` `\\\\`
+    → el caràcter literal. Un sol pas (evita re-processar el backslash)."""
+    return re.sub(r"\\(.)", lambda m: "\n" if m.group(1) in "nN" else m.group(1), value)
+
 
 class CardDAVContactsProvider(BaseContactsProvider):
     """CardDAV provider for Nextcloud, iCloud, and other CardDAV servers."""
@@ -272,9 +295,14 @@ class CardDAVContactsProvider(BaseContactsProvider):
         # Parse TITLE
         title = _get_vcard_field("TITLE")
 
-        # Parse ADR (address)
+        # Parse ADR (address) — es col·lapsen els components no buits i es
+        # desescapa el resultat (els `\;`/`\,`/`\n` dins d'un component tornen
+        # al seu caràcter real).
         adr_raw = _get_vcard_field("ADR")
-        address = ";".join([p.strip() for p in adr_raw.split(";") if p.strip()]) if adr_raw else ""
+        address = (
+            _vcard_unescape(";".join([p.strip() for p in adr_raw.split(";") if p.strip()]))
+            if adr_raw else ""
+        )
 
         # Parse NOTE
         note = _get_vcard_field("NOTE")
@@ -283,13 +311,16 @@ class CardDAVContactsProvider(BaseContactsProvider):
         uid = _get_vcard_field("UID")
 
         return {
-            "name": fn or "Unknown",
-            "email": email or "",
-            "phone": phone or "",
-            "company": org or "",
-            "job_title": title or "",
+            # Desescapem els valors de text (RFC 2426): un servidor que hi ha
+            # desat una nota multilínia o un `;`/`,` els envia com a `\n`/`\;`/
+            # `\,`; sense desescapar, es mostraven amb el backslash literal.
+            "name": _vcard_unescape(fn) or "Unknown",
+            "email": _vcard_unescape(email) or "",
+            "phone": _vcard_unescape(phone) or "",
+            "company": _vcard_unescape(org) or "",
+            "job_title": _vcard_unescape(title) or "",
             "address": address or "",
-            "notes": note or "",
+            "notes": _vcard_unescape(note) or "",
             "remote_id": href,  # Use the href as the remote ID for CardDAV
             "uid": uid,
         }
@@ -308,32 +339,34 @@ class CardDAVContactsProvider(BaseContactsProvider):
             parts = name.split(" ", 1)
             given = parts[0]
             family = parts[1] if len(parts) > 1 else ""
-            lines.append(f"N:{family};{given};;;")
-            lines.append(f"FN:{name}")
+            # N i ADR són camps ESTRUCTURATS (`;` separa components): s'escapen
+            # els components perquè un `;`/`,` dins d'un valor no faci de separador.
+            lines.append(f"N:{_vcard_escape(family)};{_vcard_escape(given)};;;")
+            lines.append(f"FN:{_vcard_escape(name)}")
 
         email = contact_data.get("email")
         if email:
-            lines.append(f"EMAIL;type=INTERNET:{email}")
+            lines.append(f"EMAIL;type=INTERNET:{_vcard_escape(email)}")
 
         phone = contact_data.get("phone")
         if phone:
-            lines.append(f"TEL;type=CELL:{phone}")
+            lines.append(f"TEL;type=CELL:{_vcard_escape(phone)}")
 
         company = contact_data.get("company")
         if company:
-            lines.append(f"ORG:{company}")
+            lines.append(f"ORG:{_vcard_escape(company)}")
 
         job_title = contact_data.get("job_title")
         if job_title:
-            lines.append(f"TITLE:{job_title}")
+            lines.append(f"TITLE:{_vcard_escape(job_title)}")
 
         address = contact_data.get("address")
         if address:
-            lines.append(f"ADR;type=HOME:;;{address};;;;")
+            lines.append(f"ADR;type=HOME:;;{_vcard_escape(address)};;;;")
 
         notes = contact_data.get("notes")
         if notes:
-            lines.append(f"NOTE:{notes}")
+            lines.append(f"NOTE:{_vcard_escape(notes)}")
 
         # datetime/timezone ja importats al top del mòdul.
         lines.append(f"REV:{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
