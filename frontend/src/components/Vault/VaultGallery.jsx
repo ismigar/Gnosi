@@ -14,6 +14,7 @@ import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import { useTitlePreview } from './useTitlePreview';
+import { asBool } from '../../utils/vaultFilters';
 
 export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     const localeSettings = useLocaleSettings();
@@ -228,7 +229,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
 
         switch (type) {
             case 'checkbox':
-                return <CheckSquare size={12} className={value ? "text-[var(--gnosi-primary)]" : "text-[var(--text-tertiary)]"} />;
+                return <CheckSquare size={12} className={asBool(value) ? "text-[var(--gnosi-primary)]" : "text-[var(--text-tertiary)]"} />;
             case 'date': {
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (

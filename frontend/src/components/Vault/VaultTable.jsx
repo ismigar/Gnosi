@@ -322,6 +322,7 @@ import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { asBool } from '../../utils/vaultFilters';
 
 /**
  * Sentinella que dispara `onLoadMore` quan entra al viewport.
@@ -2550,7 +2551,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
         switch (type) {
             case 'checkbox':
-                return (value && value !== 'false') ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
+                return asBool(value) ? <CheckSquare size={16} className="text-indigo-500" /> : <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
             case 'number': {
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (
