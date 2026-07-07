@@ -57,9 +57,16 @@ export function normalizeAssetUrl(url, vaultOverride) {
     if (!v) return '';
     // Les URLs servides del vault porten el vault actiu (withActiveVault) perquè
     // l'`<img>` natiu resolgui el vault correcte sense capçalera X-Vault-Id;
-    // les remotes (http) es deixen intactes. `vaultOverride` força un vault
-    // concret (pàgina compartida pública: el visitant no té el vault a localStorage).
-    if (v.startsWith('http')) return v;
+    // les remotes es deixen intactes. `vaultOverride` força un vault concret
+    // (pàgina compartida pública: el visitant no té el vault a localStorage).
+    //
+    // Una URL «externa» es reconeix pel seu ESQUEMA (`xxx:` — http, https,
+    // data, blob…) o per ser protocol-relative (`//host/…`), NO pel prefix
+    // "http". `startsWith('http')` classificava malament un asset local amb
+    // nom que comença per "http" (`http-headers.png` → es retornava cru →
+    // imatge trencada) i alhora enviava els `data:`/`blob:` (imatges enganxades
+    // inline) al fallback del vault, corrompent-los.
+    if (/^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//')) return v;
     if (v.startsWith('/')) return withActiveVault(v, vaultOverride);
     if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`, vaultOverride);
     return withActiveVault(`/api/vault/assets/${v}`, vaultOverride);
