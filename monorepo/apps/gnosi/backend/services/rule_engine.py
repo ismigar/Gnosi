@@ -531,10 +531,18 @@ class RuleEngine:
             return len(unique_tokens)
 
         if aggregation == "percent_checked":
-            if not non_empty:
+            # Denominador = TOTS els registres relacionats (com Notion i com el
+            # càlcul en viu del frontend `evaluateRollup`, que divideix per
+            # `values.length`), NO només els que tenen la casella amb valor.
+            # Una casella no marcada sovint es desa com a absent/buida; usar
+            # `len(non_empty)` l'excloïa del denominador, inflant el percentatge
+            # i fent-lo divergir del valor mostrat en viu (p. ex. 2 de 4 → 66,67%
+            # persistit vs 50% en viu). Vegeu `_is_truthy_checkbox` per la
+            # paritat de la condició "marcada".
+            if not flat_values:
                 return with_fallback(0)
-            checked = sum(1 for value in non_empty if self._is_truthy_checkbox(value))
-            return round((checked * 100.0) / len(non_empty), 2)
+            checked = sum(1 for value in flat_values if self._is_truthy_checkbox(value))
+            return round((checked * 100.0) / len(flat_values), 2)
 
         if aggregation in {"earliest", "latest"}:
             dates = [self._as_datetime(value) for value in non_empty]
