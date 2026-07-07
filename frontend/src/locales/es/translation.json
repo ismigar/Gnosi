@@ -1786,6 +1786,8 @@
     "updated_at": "Actualizado el {{date}}",
     "see_more": "Ver más",
     "see_less": "Ver menos",
+    "open": "Abrir",
+    "open_page": "Abrir la página",
     "read_full": "Leer completo",
     "empty": "No hay publicaciones en el feed."
   },
