@@ -43,6 +43,7 @@ from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
 
 from backend.services.path_resolver import path_resolver
+from backend.services.frontmatter_fallback import parse_frontmatter_fallback
 from backend.services.page_sidecar import (
     apply_sidecar_to,
     persist_sidecar_from,
@@ -1137,53 +1138,11 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_sna
     return {}, content
 
 
-def _parse_frontmatter_fallback(yaml_content: str) -> dict:
-    """Fallback tolerant parser for simple top-level `key: value` frontmatter.
-
-    It intentionally ignores nested/object/list blocks and only salvages scalar
-    values from top-level keys so listings can still resolve id/title/table_id.
-    """
-    metadata = {}
-    for raw_line in yaml_content.splitlines():
-        line = raw_line.rstrip()
-        if not line:
-            continue
-
-        stripped = line.lstrip()
-        if stripped.startswith("#"):
-            continue
-
-        # Ignore nested YAML blocks and list members to avoid corrupt parsing.
-        if line.startswith((" ", "\t", "- ")):
-            continue
-
-        if ":" not in line:
-            continue
-
-        key, value = line.split(":", 1)
-        key = key.strip()
-        if not key:
-            continue
-
-        parsed_value = value.strip()
-
-        if len(parsed_value) >= 2 and (
-            (parsed_value[0] == '"' and parsed_value[-1] == '"')
-            or (parsed_value[0] == "'" and parsed_value[-1] == "'")
-        ):
-            parsed_value = parsed_value[1:-1]
-
-        lowered = parsed_value.lower()
-        if lowered == "true":
-            metadata[key] = True
-        elif lowered == "false":
-            metadata[key] = False
-        elif re.fullmatch(r"-?\d+", parsed_value):
-            metadata[key] = int(parsed_value)
-        else:
-            metadata[key] = parsed_value
-
-    return metadata
+# Font de veritat ÚNICA a `services/frontmatter_fallback.py`, compartida amb
+# `graph_service.parse_frontmatter` (que abans NO tenia rescat i deixava buides
+# al graf les pàgines amb YAML malformat que aquí sí es recuperaven). Es manté
+# el nom local com a àlies per no tocar els call sites.
+_parse_frontmatter_fallback = parse_frontmatter_fallback
 
 
 def generate_frontmatter(metadata: dict) -> str:

@@ -9,6 +9,7 @@ from pathlib import Path
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from backend.config.app_config import load_params
+from backend.services.frontmatter_fallback import parse_frontmatter_fallback
 from backend.services.relation_links import (
     is_relation_key,
     relation_keys_from_table,
@@ -157,7 +158,14 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
             # al caller amb l'ESQUEMA de la taula: aquí (funció lliure) no es
             # coneix quins camps són de relació.
             return metadata, body
-        except Exception as e:
+        except yaml.YAMLError as e:
+            # Rescat tolerant IGUAL que el Vault (vault_routes.parse_frontmatter):
+            # sense això, una pàgina amb YAML lleugerament malformat (cometa sense
+            # tancar, tab, indicador reservat…) sortia BUIDA al graf (sense títol/
+            # tipus/color) tot i llegir-se bé al Vault.
+            fallback_metadata = parse_frontmatter_fallback(yaml_content)
+            if fallback_metadata:
+                return fallback_metadata, body
             location = f" in {file_path}" if file_path else ""
             # debug level to avoid log spam if some pages have bad frontmatter
             log.debug(f"Error parsing YAML frontmatter{location}: {e}")
