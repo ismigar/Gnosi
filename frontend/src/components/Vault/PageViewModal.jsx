@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, ArrowUp, ArrowDown, Layers } from 'lucide-react';
 import { VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
@@ -51,6 +51,7 @@ const TABS = [
     { id: 'properties', icon: Eye, label: 'Camps' },
     { id: 'filters', icon: Filter, label: 'Filtres' },
     { id: 'sort', icon: ArrowUpDown, label: 'Ordenació' },
+    { id: 'grouping', icon: Layers, label: 'Agrupació' },
     { id: 'general', icon: SlidersHorizontal, label: 'General' },
 ];
 
@@ -335,8 +336,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // Mode TAULA: configurem una vista del registry directament (no un
         // embed). Pre-omplim des de `editingView` (o defaults si en creem una).
         if (isTableMode) {
-            // 'appearance' del modal antic = pestanya 'general' aquí.
-            setActiveTab(initialTab && initialTab !== 'appearance' ? initialTab : 'general');
+            // 'appearance' del modal antic = pestanya 'general' aquí. Només ids coneguts.
+            const validIds = new Set(TABS.map(t => t.id));
+            const norm = initialTab === 'appearance' ? 'general' : initialTab;
+            setActiveTab(norm && validIds.has(norm) ? norm : 'general');
             setError('');
             setSaveToTableViews(false);
             setEditScope('shared');
@@ -1163,58 +1166,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
-                            {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && (
-                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.grouping', 'Agrupació')}</p>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
-                                    {!selectedTable ? (
-                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
-                                    ) : (
-                                        <>
-                                            <select
-                                                value={groupBy}
-                                                onChange={e => setGroupBy(e.target.value)}
-                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                                            >
-                                                <option value="">{t('view.no_grouping', 'Sense agrupar')}</option>
-                                                {groupFieldOptions.map(f => (
-                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
-                                                ))}
-                                            </select>
-                                            {groupFieldOptions.length === 0 && (
-                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields', 'Cap camp de selecció/estat a la taula per agrupar.')}</p>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            )}
-
-                            {viewType === 'board' && (
-                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
-                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.board_options', 'Opcions del kanban')}</p>
-                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
-                                    {!selectedTable ? (
-                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
-                                    ) : (
-                                        <>
-                                            <select
-                                                value={groupBy}
-                                                onChange={e => setGroupBy(e.target.value)}
-                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                                            >
-                                                <option value="">{t('view.group_auto', 'Automàtic (estat)')}</option>
-                                                {groupFieldOptions.map(f => (
-                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
-                                                ))}
-                                            </select>
-                                            {groupFieldOptions.length === 0 && (
-                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields_auto', "Cap camp de selecció/estat a la taula; s'agruparà automàticament.")}</p>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            )}
-
                             {(viewType === 'calendar' || viewType === 'timeline') && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
                                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{viewType === 'calendar' ? t('view.calendar_options', 'Opcions del calendari') : t('view.timeline_options', 'Opcions del timeline')}</p>
@@ -1867,6 +1818,70 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                         </div>
                                     ))}
                                 </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'grouping' && (
+                        <div className="space-y-4">
+                            {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-[var(--text-secondary)]">
+                                        {t('view.grouping_intro', 'Agrupa els registres per un camp de selecció o estat.')}
+                                    </p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={groupBy}
+                                                onChange={e => setGroupBy(e.target.value)}
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                            >
+                                                <option value="">{t('view.no_grouping', 'Sense agrupar')}</option>
+                                                {groupFieldOptions.map(f => (
+                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                ))}
+                                            </select>
+                                            {groupFieldOptions.length === 0 && (
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields', 'Cap camp de selecció/estat a la taula per agrupar.')}</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {viewType === 'board' && (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-[var(--text-secondary)]">
+                                        {t('view.board_options_intro', "Tria com s'agrupen les columnes del kanban.")}
+                                    </p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={groupBy}
+                                                onChange={e => setGroupBy(e.target.value)}
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                            >
+                                                <option value="">{t('view.group_auto', 'Automàtic (estat)')}</option>
+                                                {groupFieldOptions.map(f => (
+                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                ))}
+                                            </select>
+                                            {groupFieldOptions.length === 0 && (
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields_auto', "Cap camp de selecció/estat a la taula; s'agruparà automàticament.")}</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {(viewType !== 'table' && viewType !== 'list' && viewType !== 'gallery' && viewType !== 'board') && (
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_grouping_for_type', 'Aquest tipus de vista no admet agrupació.')}</p>
                             )}
                         </div>
                     )}
