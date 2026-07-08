@@ -556,8 +556,20 @@ export function DbViewEmbed({ block }) {
     const embedContainerRef = useRef(null);
     const isInEditor = typeof ctx.exitEmbedToEditor === 'function';
 
+    // Enfoca la CLOSCA de l'embed (widget). Serveix com a «entrada» per a vistes
+    // sense cel·les navegables i com a destí de l'Esc des dels registres (galeria).
+    const focusShell = useCallback(() => {
+        const el = embedContainerRef.current;
+        if (!el) return false;
+        try { el.focus({ preventScroll: false }); el.scrollIntoView({ block: 'nearest' }); } catch { /* noop */ }
+        return true;
+    }, []);
+
     // Teclat quan la CLOSCA té el focus (no un fill: targeta, cerca, cel·la…).
     // ↑/↓ tornen el cursor a l'editor (bloc adjacent o zona superior); Esc surt.
+    // Espai/Enter hi «baixa»: entra als registres de la vista (primera cel·la o
+    // targeta) si els té navegables (taula/llista/galeria). Feed/kanban/timeline
+    // no registren l'API → no fan res i la tecla es deixa passar.
     const handleShellKeyDown = useCallback((e) => {
         if (e.target !== embedContainerRef.current) return;
         if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -566,6 +578,14 @@ export function DbViewEmbed({ block }) {
             e.stopPropagation();
             const dir = e.key === 'ArrowUp' ? 'up' : (e.key === 'ArrowDown' ? 'down' : 'escape');
             ctx.exitEmbedToEditor?.(block?.id, dir);
+            return;
+        }
+        if (e.key === 'Enter' || e.key === ' ' || e.key === 'Spacebar') {
+            const r = tableNavApiRef.current?.focusFirstCell?.();
+            if (r !== undefined && r !== false) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
         }
     }, [ctx, block?.id]);
 
@@ -981,32 +1001,28 @@ export function DbViewEmbed({ block }) {
     // la proporciona la VaultTable via `registerNavApi` → tableNavApiRef.
     useEffect(() => {
         if (!ctx.registerEmbedNav || !block?.id) return undefined;
-        // Fallback quan la vista no és una taula/llista navegable (feed,
-        // galeria, kanban, timeline…): enfoquem la closca de l'embed perquè
-        // l'usuari vegi que hi és i pugui sortir-ne amb ↑/↓/Esc. Abans
-        // retornàvem `false` i el cursor queia en un bloc void sense caret
-        // visible ni sortida → semblava que la navegació no hi arribés.
-        const focusShell = () => {
-            const el = embedContainerRef.current;
-            if (!el) return false;
-            try { el.focus({ preventScroll: false }); el.scrollIntoView({ block: 'nearest' }); } catch { /* noop */ }
-            return true;
-        };
+        // Entrada amb ↓ des de l'editor:
+        //  - Taula/llista → primera/última CEL·LA (la VaultTable ho registra).
+        //  - Resta de vistes (galeria, feed, kanban, timeline) → la CLOSCA de
+        //    l'embed (widget), perquè l'usuari vegi que hi és i pugui sortir-ne
+        //    amb ↑/↓/Esc o baixar als registres amb Espai/Enter (galeria). Abans,
+        //    per a no-taules, retornàvem `false` i el cursor queia en un bloc void
+        //    sense caret visible ni sortida.
+        const isCellNav = viewType === 'table' || viewType === 'list';
         ctx.registerEmbedNav(block.id, {
-            // Taula/llista → primera/última cel·la. La resta de vistes →
-            // closca (focusShell). Tornen sempre `true` (l'editor considera
-            // la vista "entrada" i no deixa passar la fletxa a ProseMirror).
             focusFirstCell: () => {
+                if (!isCellNav) return focusShell();
                 const r = tableNavApiRef.current?.focusFirstCell?.();
                 return (r !== undefined && r !== false) ? true : focusShell();
             },
             focusLastCell: () => {
+                if (!isCellNav) return focusShell();
                 const r = tableNavApiRef.current?.focusLastCell?.();
                 return (r !== undefined && r !== false) ? true : focusShell();
             },
         });
         return () => ctx.registerEmbedNav(block.id, null);
-    }, [ctx, block?.id]);
+    }, [ctx, block?.id, viewType, focusShell]);
 
     // --- FASE 1: taula completa EDITABLE dins l'embed reutilitzant VaultTable ---
     // DEFINITS ABANS dels returns primerencs (loading/error) per no violar les
@@ -1143,12 +1159,15 @@ export function DbViewEmbed({ block }) {
         onDeleteSelected: onDeleteSelectedAdapter,
         onEditSchema: onEditSchemaAdapter,
         onUpdateView: onUpdateViewAdapter,
-        // Pont de navegació de teclat editor↔taula (només taula/llista el fan
-        // servir; la resta de tipus l'ignoren).
+        // Pont de navegació de teclat editor↔vista. La taula/llista registren la
+        // nav de cel·les; la galeria, la de targetes (l'usa handleShellKeyDown per
+        // baixar-hi amb Espai/Enter). `onFocusShell` torna el focus a la closca
+        // (Esc des dels registres de la galeria).
         registerNavApi: (api) => { tableNavApiRef.current = api; },
         onExitTop: () => ctx.exitEmbedToEditor?.(block?.id, 'up'),
         onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
         onEscape: () => ctx.exitEmbedToEditor?.(block?.id, 'escape'),
+        onFocusShell: focusShell,
     };
     const renderBody = () => {
         // El `graph` no té component editable equivalent → render bespoke.

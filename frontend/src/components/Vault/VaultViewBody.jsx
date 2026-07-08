@@ -51,6 +51,7 @@ export function VaultViewBody({
     onExitTop,
     onExitBottom,
     onEscape,
+    onFocusShell,
 }) {
     const t = String(type || 'table').toLowerCase();
 
@@ -87,7 +88,15 @@ export function VaultViewBody({
     if (t === 'board') {
         body = <VaultKanban {...common} isEmbedded={isEmbedded} />;
     } else if (t === 'gallery') {
-        body = <VaultGallery {...common} />;
+        body = (
+            <VaultGallery
+                {...common}
+                registerNavApi={registerNavApi}
+                onExitTop={onExitTop}
+                onExitBottom={onExitBottom}
+                onFocusShell={onFocusShell}
+            />
+        );
     } else if (t === 'timeline') {
         body = <VaultTimeline {...common} onUpdateNote={onUpdateNote} />;
     } else if (t === 'chart') {
