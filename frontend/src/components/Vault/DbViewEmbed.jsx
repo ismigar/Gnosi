@@ -640,14 +640,25 @@ export function DbViewEmbed({ block }) {
     };
     // Vistes FIXADES com a pestanyes EN AQUEST bloc, a part de la vista de la
     // secció (àncora, sempre present). Per defecte cap: el bloc mostra només la
-    // vista que s'ha inserit/triat, no totes les de la taula. Clau estable per
-    // bloc: pageId + view_id de la secció.
+    // vista que s'ha inserit/triat, no totes les de la taula. Dues fonts:
+    //   · `tabs` de la vista ÀNCORA al registry (persistent i portable entre
+    //     navegadors — és el que escriu l'importador de Notion per replicar
+    //     les pestanyes del bloc)
+    //   · localStorage (fixats locals llegats). Clau: pageId + view_id de la secció.
     const [pinnedViewIds, setPinnedViewIds] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]')); } catch { return new Set(); }
     });
     const persistPinned = (set) => {
         try { localStorage.setItem(`gnosi_embed_pinned_${pageId}_${viewId}`, JSON.stringify([...set])); } catch { /* noop */ }
     };
+    // Persisteix les pestanyes del bloc al camp `tabs` de la vista àncora del
+    // registry (el PUT fa merge per clau, no cal el dict sencer). Si l'àncora
+    // no és al registry (secció llegada sense vista), falla en silenci i
+    // continua manant el localStorage.
+    const persistServerTabs = useCallback((set) => {
+        axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { tabs: [...set] })
+            .catch(() => { /* àncora fora del registry: només localStorage */ });
+    }, [viewId]);
 
     const reload = useCallback(() => {
         _byTableCache.delete(view?.source_table_id || view?.table_id);
@@ -744,10 +755,16 @@ export function DbViewEmbed({ block }) {
                 if (!cancelled) {
                     setRawRecords(records);
                     setTemplates(tpls);
+                    // Pestanyes fixades = `tabs` de la vista àncora al registry
+                    // (portable; escrit per l'importador de Notion o pel propi
+                    // fixat de l'usuari) ∪ localStorage (fixats locals llegats).
+                    let pinned = [];
                     try {
-                        const saved = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]');
-                        setPinnedViewIds(new Set(saved));
+                        pinned = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]');
                     } catch { /* noop */ }
+                    const anchorReg = registryViews.find(v => String(v.id) === String(viewId));
+                    if (Array.isArray(anchorReg?.tabs)) pinned = [...pinned, ...anchorReg.tabs.map(String)];
+                    setPinnedViewIds(new Set(pinned));
                     // Garantim que la vista de la secció hi sigui sempre.
                     const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
                     const sectionAsView = {
@@ -920,8 +937,8 @@ export function DbViewEmbed({ block }) {
 
     const pinView = useCallback((id) => {
         if (!id || id === viewId) return;
-        setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); return next; });
-    }, [viewId, pageId]);
+        setPinnedViewIds(prev => { const next = new Set(prev); next.add(id); persistPinned(next); persistServerTabs(next); return next; });
+    }, [viewId, pageId, persistServerTabs]);
 
     const handleAddView = useCallback((type = 'table') => {
         if (!tableId || !onOpenViewConfig) return;
@@ -962,9 +979,9 @@ export function DbViewEmbed({ block }) {
     // La vista de la secció (àncora) no es pot treure.
     const handleUnpinView = useCallback((v) => {
         if (!v?.id || v.id === viewId) return;
-        setPinnedViewIds(prev => { const next = new Set(prev); next.delete(v.id); persistPinned(next); return next; });
+        setPinnedViewIds(prev => { const next = new Set(prev); next.delete(v.id); persistPinned(next); persistServerTabs(next); return next; });
         if (activeViewId === v.id) setActiveViewId(viewId);
-    }, [viewId, pageId, activeViewId]);
+    }, [viewId, pageId, activeViewId, persistServerTabs]);
 
     const handleRenameView = useCallback((v) => {
         if (!v?.id) return;

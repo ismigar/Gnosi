@@ -129,10 +129,65 @@ def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[s
     return out
 
 
+def _clean_view_fields(gv: Dict[str, Any]) -> Dict[str, Any]:
+    """Camps SENSE emoji (els camps clonats també ho estan) → casen: columnes visibles,
+    filtres, ordre, agrupació i camps de config per-tipus (chart/timeline/calendar)."""
+    gv["visibleProperties"] = [_clean(x) for x in (gv.get("visibleProperties") or [])]
+    for _f in gv.get("filters") or []:
+        if _f.get("field"):
+            _f["field"] = _clean(_f["field"])
+    for _s in gv.get("sorts") or []:
+        if _s.get("field"):
+            _s["field"] = _clean(_s["field"])
+    for key in ("groupBy", "xField", "yField", "dateField", "endDateField"):
+        if gv.get(key):
+            gv[key] = _clean(gv[key])
+    return gv
+
+
+# L'MCP de Notion llista també vistes de GRÀFIC "suggerides" per Notion que l'usuari no
+# veu com a pestanyes reals del bloc (verificat 2026-07-08: «Recursos» retornava 3 charts
+# inexistents a la UI). No hi ha cap flag al JSON per distingir-les → s'ometen per defecte.
+SKIP_VIEW_TYPES = ("chart",)
+
+
+def build_clone_views(notion_host_page_id: str, clone_host_table_id: str, view_block_id: str,
+                      view_md: str,
+                      resolve_clone_table: Callable[[str], Optional[Dict[str, Any]]],
+                      skip_types: tuple = SKIP_VIEW_TYPES) -> List[Dict[str, Any]]:
+    """TOTES les gnosi-views (pestanyes) d'un bloc `<database>` clonat, en ordre de Notion.
+    La PRIMERA és l'àncora del bloc (l'única amb embed al cos) i porta les altres al camp
+    `tabs` — el frontend (DbViewEmbed) les mostra com a pestanyes, com a Notion.
+
+    Ids namespaced al clon: la 1a pestanya conserva l'id llegat
+    `uuid5(view:{host}:{block})` (els embeds de clons previs segueixen resolent);
+    les següents hi afegeixen la `view_url` de Notion. Reutilitzat pel clon
+    (resolve_view_markers) i per l'import INCREMENTAL de vistes que falten."""
+    out: List[Dict[str, Any]] = []
+    for j, meta in enumerate(nvr.parse_mcp_views(view_md or "")):
+        if meta.get("view_type") in (skip_types or ()):
+            continue
+        ct = resolve_clone_table(meta.get("data_source_name"))
+        if not ct:
+            continue  # la taula destí no s'ha clonat → aquesta pestanya no es pot recrear
+        name = meta.get("name") or meta.get("data_source_name") or ct.get("name") or "Vista"
+        gv = nvr.build_gnosi_view(notion_host_page_id, ct, clone_host_table_id, meta, name)
+        seed = f"view:{notion_host_page_id}:{view_block_id}"
+        if j:
+            seed += f":{meta.get('view_url') or j}"
+        gv["id"] = str(uuid.uuid5(_CLONE_NS, seed))
+        out.append(_clean_view_fields(gv))
+    if out:
+        out[0]["tabs"] = [gv["id"] for gv in out[1:]]
+    return out
+
+
 def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_table_id: str,
                          *, fetch_view: Callable[[str], str],
                          resolve_clone_table: Callable[[str], Optional[Dict[str, Any]]]):
-    """Substitueix els `<!-- gnosi-notion-db:id -->` per `gnosi-view` de la taula clonada.
+    """Substitueix cada `<!-- gnosi-notion-db:id -->` per l'embed de la vista ÀNCORA del bloc;
+    la resta de pestanyes es creen al registry i pengen del camp `tabs` de l'àncora (abans
+    només es creava la primera: «Cervell digital» en perdia 9 de 10).
 
     `fetch_view(view_block_id)` → markdown MCP de la vista. `resolve_clone_table(data_source_name)`
     → taula clonada (dict amb id de clon) o None. Retorna (cos_amb_embeds, [vistes_a_crear]).
@@ -142,26 +197,12 @@ def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_tabl
     def repl(m):
         vid = m.group(1)
         try:
-            meta = nvr.parse_mcp_view(fetch_view(vid))
-            ct = resolve_clone_table(meta.get("data_source_name"))
-            if not ct:
-                return ""  # la taula destí no s'ha clonat → treu el marcador
-            gv = nvr.build_gnosi_view(notion_host_page_id, ct, clone_host_table_id, meta,
-                                      meta.get("data_source_name") or ct.get("name") or "Vista")
-            gv["id"] = str(uuid.uuid5(_CLONE_NS, f"view:{notion_host_page_id}:{vid}"))
-            # Camps SENSE emoji (els camps clonats també ho estan) → casen: columnes visibles,
-            # filtres, ordre i agrupació.
-            gv["visibleProperties"] = [_clean(x) for x in (gv.get("visibleProperties") or [])]
-            for _f in gv.get("filters") or []:
-                if _f.get("field"):
-                    _f["field"] = _clean(_f["field"])
-            for _s in gv.get("sorts") or []:
-                if _s.get("field"):
-                    _s["field"] = _clean(_s["field"])
-            if gv.get("groupBy"):
-                gv["groupBy"] = _clean(gv["groupBy"])
-            views.append(gv)
-            return nvr.view_embed(gv["id"])
+            gvs = build_clone_views(notion_host_page_id, clone_host_table_id, vid,
+                                    fetch_view(vid), resolve_clone_table)
+            if not gvs:
+                return ""  # res de resoluble → treu el marcador
+            views.extend(gvs)
+            return nvr.view_embed(gvs[0]["id"])
         except Exception:
             return ""
 

@@ -5,8 +5,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.notion_view_recreator import (  # noqa: E402
-    parse_mcp_page, parse_mcp_view, build_gnosi_view, resolve_filter_field, view_embed,
-    recreate_views_for_page,
+    parse_mcp_page, parse_mcp_view, parse_mcp_views, build_gnosi_view, resolve_filter_field,
+    view_embed, recreate_views_for_page,
 )
 
 HOST_PAGE = "1d3268e52714809ab328fc33d9331454"      # Postgrau de Coaching (fila de Projectes)
@@ -161,3 +161,140 @@ def test_build_gnosi_view_maps_filters_sorts_group():
     assert view["filters"] == [{"field": "Arxivar", "operator": "equals", "value": "true"}]
     assert view["sorts"] == [{"field": "Nom", "direction": "desc"}]
     assert view["groupBy"] == "Estat"
+
+
+# --- bloc multi-pestanya REAL (extracte del fetch MCP de «Vista de Cervell digital»,
+# 2026-07-08: 10 pestanyes en UN bloc; abans només s'importava la primera) ---
+VIEW_MD_MULTI = (
+    '<database url="{{https://app.notion.com/p/eca38afb88a646f68e1ccfa956fc3e00}}" inline="true">\n'
+    'The title of this Database is: Vista de Cervell digital\n'
+    '<data-sources>\n<data-source url="{{collection://afbd0cb6-05a9-4caf-8453-9f48e3feeae1}}">\n'
+    'The title of this Data Source is: 📀 Cervell digital\n</data-source>\n</data-sources>\n'
+    '<views>\n'
+    '<view url="{{view://7f5cd1ff-c38a-4ef9-a8cb-e22e6eeabcd5}}">\n'
+    '{"dataSourceUrl":"{{collection://afbd0cb6-05a9-4caf-8453-9f48e3feeae1}}",'
+    '"displayProperties":["Nota","Tipus de nota"],"name":"Taula",'
+    '"sorts":[{"direction":"descending","property":"Última edició"}],"type":"table"}\n</view>\n'
+    '<view url="{{view://b38dd7ae-8146-4f40-b4bd-a22d916178f9}}">\n'
+    '{"dataSourceUrl":"{{collection://afbd0cb6-05a9-4caf-8453-9f48e3feeae1}}",'
+    '"displayProperties":["Nota"],"groupBy":{"hideEmptyGroups":false,"property":"Tags",'
+    '"propertyType":"multi_select","sort":{"type":"manual"}},"name":"Procesar per tema",'
+    '"simpleFilters":[{"filter":{"operator":"enum_is","property":"Tipus de nota",'
+    '"propertyType":"select","type":"property","value":{"type":"exact","value":"Nota de lectura"}},'
+    '"id":"56de45e3"},{"filter":{"operator":"is_not_empty","property":"Tags",'
+    '"propertyType":"multi_select","type":"property"},"id":"b2a72e8a"},'
+    '{"filter":{"operator":"status_is","property":"Estat","propertyType":"status",'
+    '"type":"property","value":[{"type":"is_group","value":"In progress"},'
+    '{"type":"is_group","value":"To-do"}]},"id":"df42d426"}],'
+    '"sorts":[{"direction":"descending","property":"Data de creació"}],"type":"board"}\n</view>\n'
+    '<view url="{{view://282268e5-2714-8059-a16a-000cb30945ad}}">\n'
+    '{"advancedFilter":{"filters":[{"operator":"every","property":"Centralitat",'
+    '"propertyType":"formula","resultFilter":{"operator":"number_greater_than",'
+    '"property":"Centralitat","propertyType":"number","type":"property",'
+    '"value":{"type":"exact","value":10}},"type":"property"}],"operator":"or","type":"group"},'
+    '"dataSourceUrl":"{{collection://afbd0cb6-05a9-4caf-8453-9f48e3feeae1}}",'
+    '"displayProperties":["Nota"],"name":"Connexions fortes",'
+    '"sorts":[{"direction":"descending","property":"Centralitat"}],"type":"table"}\n</view>\n'
+    '<view url="{{view://282268e5-2714-80c1-a00e-000c5a686fbf}}">\n'
+    '{"dataSourceUrl":"{{collection://afbd0cb6-05a9-4caf-8453-9f48e3feeae1}}",'
+    '"displayProperties":["Nota"],"name":"Notes recents","showTable":false,'
+    '"sorts":[{"direction":"descending","property":"Última edició"}],'
+    '"timelineBy":"Última sincronització","type":"timeline"}\n</view>\n'
+    '</views>\n</database>'
+)
+
+# vista chart REAL (extracte de «Vista de Recursos»: 📊 Recursos per estat)
+VIEW_MD_CHART = (
+    'The title of this Data Source is: 📀 Recursos\n'
+    '<views>\n<view url="{{view://9dce3651-42c0-4614-ab63-d6a1b7afb2bb}}">\n'
+    '{"chartConfig":{"dataConfig":{"aggregationConfig":{"aggregation":{"aggregator":"count"},'
+    '"seriesFormat":{"displayType":"bar"}},"groupBy":{"groupBy":"option","hideEmptyGroups":false,'
+    '"property":"Estat","propertyType":"status","sort":{"type":"manual"}},"type":"groups_reducer"},'
+    '"placeHolderType":"column","type":"bar"},'
+    '"dataSourceUrl":"{{collection://1b8a282a-dd6e-4814-9140-a3014d0e411f}}",'
+    '"name":"📊 Recursos per estat","simpleFilters":[{"filter":{"operator":"checkbox_is",'
+    '"property":"Arxivat","propertyType":"checkbox","type":"property",'
+    '"value":{"type":"exact","value":false}},"id":"@qR}"}],"type":"chart"}\n</view>\n</views>'
+)
+
+
+def test_parse_mcp_views_all_tabs():
+    metas = parse_mcp_views(VIEW_MD_MULTI)
+    assert [m["name"] for m in metas] == ["Taula", "Procesar per tema", "Connexions fortes",
+                                          "Notes recents"]
+    assert [m["view_type"] for m in metas] == ["table", "board", "table", "timeline"]
+    assert all(m["data_source_name"] == "📀 Cervell digital" for m in metas)
+    assert metas[0]["view_url"] == "7f5cd1ff-c38a-4ef9-a8cb-e22e6eeabcd5"
+    # compat: parse_mcp_view = primera pestanya
+    assert parse_mcp_view(VIEW_MD_MULTI)["name"] == "Taula"
+
+
+def test_parse_mcp_views_board_filters_and_group():
+    board = parse_mcp_views(VIEW_MD_MULTI)[1]
+    assert board["group_by"] == "Tags"
+    t = {"id": "t1", "name": "Cervell digital", "properties": []}
+    view = build_gnosi_view("deadbeef" * 4, t, "host-t", board, "Procesar per tema")
+    # enum_is → equals; is_not_empty passa; el status per GRUPS (llista) no és mapejable
+    assert view["filters"] == [
+        {"field": "Tipus de nota", "operator": "equals", "value": "Nota de lectura"},
+        {"field": "Tags", "operator": "is_not_empty"},
+    ]
+    assert view["groupBy"] == "Tags"
+
+
+def test_parse_mcp_views_advanced_filter_formula():
+    fortes = parse_mcp_views(VIEW_MD_MULTI)[2]
+    t = {"id": "t1", "name": "Cervell digital", "properties": []}
+    view = build_gnosi_view("deadbeef" * 4, t, "host-t", fortes, "Connexions fortes")
+    # advancedFilter amb resultFilter (fórmula): Centralitat > 10
+    assert view["filters"] == [{"field": "Centralitat", "operator": "greater_than", "value": "10"}]
+
+
+def test_parse_mcp_views_timeline_datefield():
+    recents = parse_mcp_views(VIEW_MD_MULTI)[3]
+    assert recents["timeline_by"] == "Última sincronització"
+    t = {"id": "t1", "name": "Cervell digital", "properties": []}
+    view = build_gnosi_view("deadbeef" * 4, t, "host-t", recents, "Notes recents")
+    assert view["type"] == "timeline"
+    assert view["dateField"] == "Última sincronització"
+
+
+def test_parse_mcp_views_chart_config():
+    meta = parse_mcp_views(VIEW_MD_CHART)[0]
+    assert meta["view_type"] == "chart"
+    assert meta["chart"] == {"chartType": "bar", "xField": "Estat", "yField": None,
+                             "aggregation": "count"}
+    t = {"id": "t1", "name": "Recursos", "properties": []}
+    view = build_gnosi_view("deadbeef" * 4, t, "host-t", meta, "📊 Recursos per estat")
+    assert view["chartType"] == "bar" and view["xField"] == "Estat"
+    assert view["aggregation"] == "count"
+    assert view["filters"] == [{"field": "Arxivat", "operator": "equals", "value": "false"}]
+
+
+def test_build_gnosi_view_salt_disambiguates_ids():
+    metas = parse_mcp_views(VIEW_MD_MULTI)
+    t = {"id": "t1", "name": "Cervell digital", "properties": []}
+    v0 = build_gnosi_view("deadbeef" * 4, t, "host-t", metas[0], "Secció")
+    v0b = build_gnosi_view("deadbeef" * 4, t, "host-t", metas[0], "Secció")
+    v1 = build_gnosi_view("deadbeef" * 4, t, "host-t", metas[1], "Secció",
+                          salt=metas[1]["view_url"])
+    assert v0["id"] == v0b["id"]          # sense salt: determinista (id llegat)
+    assert v1["id"] != v0["id"]           # pestanyes 2..N: id propi
+
+
+def test_recreate_views_for_page_multi_tab():
+    page_md = ('<content>\n### Cervell\n'
+               '<database url="https://app.notion.com/p/eca38afb88a646f68e1ccfa956fc3e00" '
+               'inline="true"></database>\n</content>')
+    t = {"id": "t1", "name": "Cervell digital", "properties": []}
+    res = recreate_views_for_page(
+        page_md, "deadbeef" * 4, "host-t",
+        fetch_view=lambda db_id: VIEW_MD_MULTI,
+        resolve_table=lambda name: t if "Cervell" in (name or "") else None)
+    assert len(res) == 4                                  # TOTES les pestanyes
+    assert len({r["view"]["id"] for r in res}) == 4       # ids únics
+    assert [r["view"]["name"] for r in res] == ["Taula", "Procesar per tema",
+                                                "Connexions fortes", "Notes recents"]
+    # Només l'ÀNCORA porta embed; la resta hi pengen pel camp `tabs` (pestanyes)
+    assert res[0]["embed"] and all(r["embed"] is None for r in res[1:])
+    assert res[0]["view"]["tabs"] == [r["view"]["id"] for r in res[1:]]
