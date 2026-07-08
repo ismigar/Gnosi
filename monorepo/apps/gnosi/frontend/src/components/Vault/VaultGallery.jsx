@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
@@ -16,7 +16,7 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import { useTitlePreview } from './useTitlePreview';
 import { asBool } from '../../utils/vaultFilters';
 
-export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
+export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
@@ -59,6 +59,100 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         onClearSelection: clearSelection,
         onDeleteSelection: handleBulkDelete,
     });
+
+    // ---- NAVEGACIÓ DE TECLAT PER TARGETES ----
+    // La galeria s'incrusta a l'editor com un bloc-vista: quan el focus és a la
+    // closca de l'embed, Espai/Enter hi «baixa» (via `registerNavApi.focusFirstCell`,
+    // que crida DbViewEmbed). Aquí movem el focus entre targetes amb les fletxes
+    // (geomètric, robust amb la graella responsiva i les seccions agrupades),
+    // obrim amb Enter, previsualitzem amb Espai (Quick Look) i en sortim pels
+    // límits (↑/↓ als extrems → editor) o amb Esc (→ closca). `cardRefs` s'indexa
+    // per l'índex pla de la targeta (comptador continu a través dels grups).
+    const cardRefs = useRef([]);
+
+    const focusCardAt = useCallback((idx) => {
+        const el = cardRefs.current[idx];
+        if (!el) return false;
+        el.focus({ preventScroll: true });
+        el.scrollIntoView({ block: 'nearest' });
+        return true;
+    }, []);
+
+    // Exposa a l'editor l'API per «entrar» als registres (primera/última targeta).
+    useEffect(() => {
+        if (!registerNavApi) return undefined;
+        registerNavApi({
+            focusFirstCell: () => {
+                const i = cardRefs.current.findIndex(Boolean);
+                return i >= 0 ? focusCardAt(i) : false;
+            },
+            focusLastCell: () => {
+                for (let i = cardRefs.current.length - 1; i >= 0; i--) {
+                    if (cardRefs.current[i]) return focusCardAt(i);
+                }
+                return false;
+            },
+        });
+        return () => registerNavApi(null);
+    }, [registerNavApi, focusCardAt]);
+
+    const moveByArrow = (dir, fromIdx) => {
+        const els = cardRefs.current;
+        const from = els[fromIdx];
+        if (!from) return;
+        // Esquerra/dreta: ordre de lectura (salta forats d'índex); als extrems, surt.
+        if (dir === 'left') {
+            let n = fromIdx - 1; while (n >= 0 && !els[n]) n--;
+            if (n >= 0) focusCardAt(n); else onExitTop?.();
+            return;
+        }
+        if (dir === 'right') {
+            let n = fromIdx + 1; while (n < els.length && !els[n]) n++;
+            if (n < els.length) focusCardAt(n); else onExitBottom?.();
+            return;
+        }
+        // Amunt/avall: geomètric — la targeta amb el centre més proper en aquella
+        // direcció vertical (desempat per la distància horitzontal).
+        const fr = from.getBoundingClientRect();
+        const fx = fr.left + fr.width / 2;
+        const fy = fr.top + fr.height / 2;
+        let best = -1, bestScore = Infinity;
+        for (let i = 0; i < els.length; i++) {
+            if (i === fromIdx || !els[i]) continue;
+            const r = els[i].getBoundingClientRect();
+            const dy = (r.top + r.height / 2) - fy;
+            if (dir === 'down' && dy <= 1) continue;
+            if (dir === 'up' && dy >= -1) continue;
+            const dx = (r.left + r.width / 2) - fx;
+            const score = Math.abs(dy) + Math.abs(dx) * 0.5;
+            if (score < bestScore) { bestScore = score; best = i; }
+        }
+        if (best >= 0) focusCardAt(best);
+        else if (dir === 'down') onExitBottom?.();
+        else onExitTop?.();
+    };
+
+    const handleCardKeyDown = (e, flatIdx, noteId) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        switch (e.key) {
+            case 'Enter':
+                e.preventDefault(); onNoteSelect?.(noteId); break;
+            case ' ':
+            case 'Spacebar': {
+                // Quick Look (com a la taula): Espai obre la previsualització.
+                e.preventDefault();
+                const el = cardRefs.current[flatIdx];
+                if (el) titlePreview.openForKeyboard(noteId, el.getBoundingClientRect());
+                break;
+            }
+            case 'ArrowRight': e.preventDefault(); moveByArrow('right', flatIdx); break;
+            case 'ArrowLeft': e.preventDefault(); moveByArrow('left', flatIdx); break;
+            case 'ArrowDown': e.preventDefault(); moveByArrow('down', flatIdx); break;
+            case 'ArrowUp': e.preventDefault(); moveByArrow('up', flatIdx); break;
+            case 'Escape': e.preventDefault(); (onFocusShell || onExitTop)?.(); break;
+            default: break;
+        }
+    };
 
     // Tota vista amb `visibleProperties` configurats els respecta — TAMBÉ la
     // principal (abans forçava tots els camps i tapava la config real de les
@@ -316,15 +410,18 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
 
     // Targeta individual (reutilitzada per la graella plana i per cada secció
     // de grup; l'índex només dóna estabilitat a la key dins de cada graella).
-    const renderCard = (note, noteIndex) => {
+    const renderCard = (note, flatIndex) => {
         const coverUrl = getCoverUrl(note);
         const hasCover = !!coverUrl;
         const excerpt = showContentPreview ? getExcerpt(note) : '';
         return (
             <div
-                key={`${note.id || 'note'}-${noteIndex}`}
+                key={`${note.id || 'note'}-${flatIndex}`}
+                ref={(el) => { cardRefs.current[flatIndex] = el; }}
+                tabIndex={-1}
+                onKeyDown={(e) => handleCardKeyDown(e, flatIndex, note.id)}
                 onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
-                className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
+                className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)] focus:border-[var(--gnosi-primary)] ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             >
                 {/* Checkbox de selecció (cantonada superior esquerra). El toggle
                     viu NOMÉS a l'onChange de l'input (#722): amb toggle també a
@@ -450,21 +547,26 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     {groupedSections ? (
                         // Agrupada: una secció per valor del camp `groupBy`, amb
                         // capçalera (punt de color del catàleg + nom + recompte).
-                        groupedSections.map(({ name, color, notes: groupNotes }) => (
-                            <div key={name} className="mb-8">
-                                <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
-                                    {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
-                                    <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={name}>{name}</h3>
-                                    <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{groupNotes.length}</span>
+                        // `flat` és un comptador continu a través de les seccions
+                        // perquè cada targeta tingui un índex pla únic (nav de teclat).
+                        (() => {
+                            let flat = 0;
+                            return groupedSections.map(({ name, color, notes: groupNotes }) => (
+                                <div key={name} className="mb-8">
+                                    <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
+                                        {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
+                                        <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={name}>{name}</h3>
+                                        <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{groupNotes.length}</span>
+                                    </div>
+                                    <div className={`grid ${getGridClass()} gap-6`}>
+                                        {groupNotes.map((note) => renderCard(note, flat++))}
+                                    </div>
                                 </div>
-                                <div className={`grid ${getGridClass()} gap-6`}>
-                                    {groupNotes.map((note, noteIndex) => renderCard(note, noteIndex))}
-                                </div>
-                            </div>
-                        ))
+                            ));
+                        })()
                     ) : (
                         <div className={`grid ${getGridClass()} gap-6`}>
-                            {sortedAndFilteredNotes.map((note, noteIndex) => renderCard(note, noteIndex))}
+                            {sortedAndFilteredNotes.map((note, i) => renderCard(note, i))}
                         </div>
                     )}
 
