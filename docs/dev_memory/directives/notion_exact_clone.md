@@ -37,11 +37,49 @@ La fidelitat (vistes + columnes + layout) NOMÉS la dóna l'MCP allotjat de Noti
 6. Inclou pàgines soltes.
 UI: mode **"Clon exacte (a carpeta nova)"** (vs "Sync guardat"); requereix MCP connectat.
 
+## Restrictions/Edge Cases (apresos)
+
+### Vistes multi-pestanya (RESOLT 2026-07-08)
+**No llegir només el primer `<view>` d'un bloc → es perden totes les pestanyes menys la
+primera → usar `parse_mcp_views` (finditer) i crear una `gnosi-view` per pestanya.**
+Notion agrupa N vistes com a PESTANYES d'un sol bloc de linked database; el fetch MCP del
+bloc retorna TOTS els `<view url>{json}</view>` («Cervell digital»: 10, «Recursos»: 13).
+El clon v1 feia `.search()` (primera i prou) i les altres es perdien EN SILENCI.
+- Fix: `notion_view_recreator.parse_mcp_views` (totes les pestanyes, amb `name`/`view_url`)
+  i `notion_clone.build_clone_views` (una `gnosi-view` per pestanya).
+- **Model àncora + `tabs`**: al cos de la pàgina només hi va l'embed de la PRIMERA vista
+  (l'àncora); la resta es creen al registry i pengen del camp `tabs` de l'àncora
+  (`out[0]["tabs"] = [id_2, …, id_N]`). El frontend (`DbViewEmbed`) llegeix `anchorReg.tabs`
+  del registry (unit amb localStorage) i les mostra com a pestanyes del bloc, com a Notion.
+  El `tabs` flota pel registry JSON sense tocar el model de dades (`ViewSection` porta
+  `extra='allow'` i `update_view` fa merge per clau). Si una pestanya es fixa/treu des de la
+  UI, `DbViewEmbed.persistServerTabs` fa `PUT /views/{id}` amb `{tabs:[...]}`.
+- Ids: la 1a pestanya conserva l'id llegat `uuid5(view:{host}:{block})` (els embeds de clons
+  previs segueixen resolent); les 2..N hi afegeixen la `view_url` de Notion.
+- Charts "suggerits": l'MCP llista vistes de gràfic que l'usuari NO veu al bloc (verificat
+  a «Recursos»: 3 charts inexistents). Sense flag per distingir-les → `build_clone_views`
+  les omet per defecte (`skip_types=("chart",)`); el backfill les esborra si un run anterior
+  les va crear.
+- També es mapeja ara: `advancedFilter` (grups AND i el cas fórmula amb `resultFilter`,
+  p. ex. Centralitat > 10), `chartConfig` → `{chartType,xField,yField,aggregation}` de
+  VaultChart, `timelineBy`/`calendarBy` → `dateField`, i valors de filtre `is_option`
+  (els `is_group` d'estats NO són mapejables a un select pla → es descarten).
+- **Import incremental** (vault ja clonat, sense refer el clon ni tocar contingut editat):
+  `pipeline/skills/notion_clone/scripts/backfill_notion_views.py` — escaneja els `.md` amb
+  `gnosi-view:def`, re-enumera els ids de Notion (uuid5 és one-way: import-config + files
+  REST + search_pages), upserta les vistes via `POST /api/vault/views`, afegeix `tabs` a
+  l'àncora i insereix els embeds que falten via `PATCH /api/vault/pages/{id}`. Dry-run per
+  defecte, `--apply` per escriure, `--state` per reprendre. (Nota: `pipeline/sandbox/` és
+  gitignored; la còpia tracked viu a `pipeline/skills/.../scripts/`.)
+
 ## Limitacions conegudes v1
 - **Columnes**: Gnosi no té layout de columnes al Markdown → s'aplanen (contingut conservat,
   no la disposició costat a costat). Revisar si BlockNote ho admet més endavant.
 - Fitxers/imatges: URLs de l'MCP poden caducar → baixar a `Assets/` del clon (com l'import REST).
 - Volum: clonar tot el workspace = moltes crides MCP → job amb progrés (timeout client ja a 0).
+- Filtres OR de Notion (llistes "és una de…", grups `advancedFilter` amb `or` de >1 filtre,
+  `is_group` d'estats): els filtres de Gnosi són AND → no es mapegen (la vista es crea sense
+  aquell filtre).
 
 ## QA
 1. Transforms purs (recreator + mcp_md): tests amb markdown REAL de l'MCP (fets).

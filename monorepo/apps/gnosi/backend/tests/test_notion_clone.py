@@ -71,6 +71,66 @@ def test_resolve_view_markers_to_clone_view():
     assert views[0]["filters"] == [{"field": "Projecte", "value": "this"}]
 
 
+# bloc amb DUES pestanyes (la 2a amb groupBy i camp amb emoji): abans només s'importava la 1a
+VIEW_MD_TABS = (
+    'The title of this Data Source is: 📀 Tasques\n'
+    '<views>\n<view url="{{view://11111111-aaaa-5aaa-8aaa-aaaaaaaaaaaa}}">\n'
+    '{"dataSourceUrl":"{{collection://x}}","displayProperties":["Nom","Estat"],'
+    '"name":"Taula","type":"table"}\n</view>\n'
+    '<view url="{{view://22222222-bbbb-5bbb-8bbb-bbbbbbbbbbbb}}">\n'
+    '{"dataSourceUrl":"{{collection://x}}","displayProperties":["Nom"],'
+    '"groupBy":{"property":"📀 Projecte"},"name":"Per projecte","type":"board"}\n</view>\n'
+    '</views>'
+)
+
+
+def test_resolve_view_markers_multi_tab_all_views():
+    import uuid as _uuid
+    from backend.services.notion_clone import _CLONE_NS
+    body = "## Planificació\n<!-- gnosi-notion-db:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->\nfi"
+    new_body, views = resolve_view_markers(
+        body, HOST, clone_table_id("projects"),
+        fetch_view=lambda vid: VIEW_MD_TABS,
+        resolve_clone_table=lambda n: CLONE_TASQUES if "tasques" in (n or "").lower() else None)
+    assert len(views) == 2
+    # UN sol embed per bloc (l'àncora); la resta són pestanyes (camp `tabs`), com a Notion
+    assert new_body.count("<!-- gnosi-view:def") == 1
+    assert [v["name"] for v in views] == ["Taula", "Per projecte"]
+    assert [v["type"] for v in views] == ["table", "board"]
+    # 1a pestanya: id LLEGAT (els embeds de clons previs segueixen resolent-hi)
+    legacy = str(_uuid.uuid5(_CLONE_NS, f"view:{HOST}:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+    assert views[0]["id"] == legacy
+    assert views[0]["tabs"] == [views[1]["id"]]
+    assert views[1]["id"] != legacy
+    assert legacy in new_body and views[1]["id"] not in new_body
+    # camps nets d'emoji també al groupBy de la 2a pestanya
+    assert views[1]["groupBy"] == "Projecte"
+
+
+def test_resolve_view_markers_skips_suggested_charts():
+    """L'MCP retorna vistes chart 'suggerides' que NO són pestanyes reals a Notion:
+    no s'han de clonar (informe de l'usuari 2026-07-08: 'no tinc cap gràfic')."""
+    view_md_chart = (
+        'The title of this Data Source is: 📀 Tasques\n'
+        '<views>\n<view url="{{view://11111111-aaaa-5aaa-8aaa-aaaaaaaaaaaa}}">\n'
+        '{"dataSourceUrl":"{{collection://x}}","displayProperties":["Nom"],'
+        '"name":"Taula","type":"table"}\n</view>\n'
+        '<view url="{{view://33333333-cccc-5ccc-8ccc-cccccccccccc}}">\n'
+        '{"chartConfig":{"dataConfig":{"aggregationConfig":{"aggregation":{"aggregator":"count"}},'
+        '"groupBy":{"property":"Estat"}},"type":"bar"},'
+        '"dataSourceUrl":"{{collection://x}}","name":"📊 Per estat","type":"chart"}\n</view>\n'
+        '</views>'
+    )
+    body = "<!-- gnosi-notion-db:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa -->"
+    new_body, views = resolve_view_markers(
+        body, HOST, clone_table_id("projects"),
+        fetch_view=lambda vid: view_md_chart,
+        resolve_clone_table=lambda n: CLONE_TASQUES if "tasques" in (n or "").lower() else None)
+    assert [v["name"] for v in views] == ["Taula"]        # el gràfic suggerit NO es clona
+    assert views[0]["tabs"] == []
+    assert new_body.count("<!-- gnosi-view:def") == 1
+
+
 class FakeRest:
     def __init__(self):
         self.dbs = {
