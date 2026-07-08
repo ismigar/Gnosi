@@ -939,7 +939,28 @@
     "add_new_view": "Ajouter une nouvelle vue",
     "hide_view": "Masquer la vue",
     "show_view": "Afficher la vue",
-    "drag_to_reorder": "Glisser pour réordonner"
+    "drag_to_reorder": "Glisser pour réordonner",
+    "view_settings": "Paramètres de la vue",
+    "create_in_column": "Créer dans cette colonne",
+    "default_view_name": "Vue",
+    "tab_tooltip": "Cliquer pour changer · double-cliquer pour renommer",
+    "view_options": "Options de la vue",
+    "add_view": "Ajouter une vue",
+    "remove_from_page": "Retirer de cette page",
+    "delete_everywhere": "Supprimer partout…",
+    "delete_view_title": "Supprimer la vue",
+    "delete_view_confirm": "Supprimer la vue « {{name}} » PARTOUT ? Elle disparaîtra de toutes les pages.",
+    "rename_view_title": "Renommer la vue",
+    "new_view_name_label": "Nouveau nom de la vue",
+    "configure": "Configurer",
+    "duplicate": "Dupliquer",
+    "new_action": "Nouveau",
+    "new_empty_record": "Nouvel enregistrement",
+    "rename": "Renommer",
+    "search_title": "Rechercher",
+    "templates_title": "Modèles",
+    "records_count_one": "{{count}} enregistrement",
+    "records_count_other": "{{count}} enregistrements"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -953,7 +974,11 @@
     "comment_edit": "Erreur lors de la modification du commentaire",
     "comment_resolve": "Erreur lors de la mise à jour du commentaire",
     "comment_delete": "Erreur lors de la suppression du commentaire",
-    "comment_forbidden": "Votre rôle ne permet pas de modifier les commentaires"
+    "comment_forbidden": "Votre rôle ne permet pas de modifier les commentaires",
+    "no_active_page": "Aucune page active pour résoudre la vue.",
+    "view_missing_id": "Vue sans view_id.",
+    "load_view": "Erreur lors du chargement de la vue",
+    "delete_only_view": "Impossible de supprimer la seule vue."
   },
   "notion_clone": "Cloner",
   "notion_cloning": "Clonage…",
@@ -1225,7 +1250,12 @@
     "table_not_found": "Table introuvable",
     "template_default": "Erreur de définition du modèle par défaut",
     "template_duplicate": "Erreur de duplication du modèle",
-    "toggle_favorites": "Erreur de modification des favoris"
+    "toggle_favorites": "Erreur de modification des favoris",
+    "graph_title": "Graphe",
+    "graph_via": "via",
+    "graph_no_relations": "(sans relations)",
+    "graph_stats": "{{nodes}} nœuds · {{edges}} arêtes",
+    "no_records_in_view": "Aucun enregistrement dans cette vue."
   },
   "editor": {
     "ai_ask": "Demander à l'IA…",
@@ -1361,7 +1391,8 @@
     "wiki_section_format": "Format [[Note#Section]]",
     "loading_drawing_editor": "Chargement de l'éditeur de dessin…",
     "error_title": "Une erreur s'est produite",
-    "error_hint": "Des blocs ne sont pas pris en charge ou une erreur s'est produite dans l'éditeur."
+    "error_hint": "Des blocs ne sont pas pris en charge ou une erreur s'est produite dans l'éditeur.",
+    "cover_alt": "Couverture"
   },
   "metadata_lookup": {
     "button": "Remplir",

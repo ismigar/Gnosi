@@ -513,7 +513,11 @@
     "comment_edit": "Error editant el comentari",
     "comment_resolve": "Error actualitzant el comentari",
     "comment_delete": "Error eliminant el comentari",
-    "comment_forbidden": "El teu rol no permet modificar comentaris"
+    "comment_forbidden": "El teu rol no permet modificar comentaris",
+    "no_active_page": "Sense pàgina activa per resoldre la vista.",
+    "view_missing_id": "Vista sense view_id.",
+    "load_view": "Error carregant la vista",
+    "delete_only_view": "No es pot eliminar l'única vista."
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -686,7 +690,8 @@
     "ai_correct_page": "Corregeix ortografia i gramàtica de tota la pàgina amb IA",
     "loading_drawing_editor": "Carregant editor de dibuix…",
     "error_title": "S'ha produït un error",
-    "error_hint": "Hi ha blocs no suportats o s'ha produït un error a l'editor."
+    "error_hint": "Hi ha blocs no suportats o s'ha produït un error a l'editor.",
+    "cover_alt": "Portada"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -758,7 +763,19 @@
     "add_new_view": "Afegir vista nova",
     "hide_view": "Amaga la vista",
     "show_view": "Mostra la vista",
-    "drag_to_reorder": "Arrossega per reordenar"
+    "drag_to_reorder": "Arrossega per reordenar",
+    "view_settings": "Configuració de la vista",
+    "create_in_column": "Crear a aquesta columna",
+    "default_view_name": "Vista",
+    "tab_tooltip": "Clic per canviar · doble clic per renombrar",
+    "view_options": "Opcions de la vista",
+    "add_view": "Afegir vista",
+    "remove_from_page": "Treure d'aquesta pàgina",
+    "delete_everywhere": "Eliminar a tot arreu…",
+    "delete_view_title": "Eliminar vista",
+    "delete_view_confirm": "Eliminar la vista \"{{name}}\" a TOT arreu? Desapareixerà de totes les pàgines.",
+    "rename_view_title": "Reanomenar vista",
+    "new_view_name_label": "Nou nom de la vista"
   },
   "icon_picker": {
     "tabs": {
@@ -2132,7 +2149,12 @@
     "create_view": "Crear vista",
     "error_no_table": "Cal seleccionar una taula origen",
     "error_no_fields": "Cal almenys un camp visible",
-    "error_create": "Error desconegut en crear la vista"
+    "error_create": "Error desconegut en crear la vista",
+    "graph_title": "Graf",
+    "graph_via": "via",
+    "graph_no_relations": "(sense relacions)",
+    "graph_stats": "{{nodes}} nodes · {{edges}} arestes",
+    "no_records_in_view": "No hi ha registres en aquesta vista."
   },
   "metadata_lookup": {
     "button": "Omplir",

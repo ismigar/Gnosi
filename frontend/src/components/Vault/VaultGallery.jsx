@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
@@ -17,6 +18,7 @@ import { useTitlePreview } from './useTitlePreview';
 import { asBool } from '../../utils/vaultFilters';
 
 export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm, registerNavApi, onExitTop, onExitBottom, onFocusShell }) {
+    const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
@@ -487,7 +489,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                 <IconRenderer icon={note.metadata?.icon} size={18} />
                             </span>
                         )}
-                        <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || "Sense Títol"}</span>
+                        <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', 'Sense títol')}</span>
                     </h3>
 
                     {/* Previsualització del contingut (mode 'content'): el que
@@ -594,7 +596,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     {sortedAndFilteredNotes.length === 0 && (
                         <div className="w-full h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
                             <FileText size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                            <p>No hi ha registres en aquesta vista.</p>
+                            <p>{t('view.no_records_in_view', 'No hi ha registres en aquesta vista.')}</p>
                         </div>
                     )}
                 </div>

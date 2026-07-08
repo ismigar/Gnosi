@@ -590,7 +590,11 @@
     "comment_edit": "Error editing comment",
     "comment_resolve": "Error updating comment",
     "comment_delete": "Error deleting comment",
-    "comment_forbidden": "Your role does not allow modifying comments"
+    "comment_forbidden": "Your role does not allow modifying comments",
+    "no_active_page": "No active page to resolve the view.",
+    "view_missing_id": "View without view_id.",
+    "load_view": "Error loading the view",
+    "delete_only_view": "Cannot delete the only view."
   },
   "success": {
     "view_duplicated": "View duplicated",
@@ -763,7 +767,8 @@
     "ai_correct_page": "Fix spelling and grammar of the whole page with AI",
     "loading_drawing_editor": "Loading drawing editor…",
     "error_title": "An error occurred",
-    "error_hint": "There are unsupported blocks or an error occurred in the editor."
+    "error_hint": "There are unsupported blocks or an error occurred in the editor.",
+    "cover_alt": "Cover"
   },
   "view_config": {
     "title": "Configure View",
@@ -835,7 +840,19 @@
     "add_new_view": "Add new view",
     "hide_view": "Hide view",
     "show_view": "Show view",
-    "drag_to_reorder": "Drag to reorder"
+    "drag_to_reorder": "Drag to reorder",
+    "view_settings": "View settings",
+    "create_in_column": "Create in this column",
+    "default_view_name": "View",
+    "tab_tooltip": "Click to switch · double-click to rename",
+    "view_options": "View options",
+    "add_view": "Add view",
+    "remove_from_page": "Remove from this page",
+    "delete_everywhere": "Delete everywhere…",
+    "delete_view_title": "Delete view",
+    "delete_view_confirm": "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.",
+    "rename_view_title": "Rename view",
+    "new_view_name_label": "New view name"
   },
   "fs_picker": {
     "title_any": "Select file or folder",
@@ -2146,7 +2163,12 @@
     "create_view": "Create view",
     "error_no_table": "You must select a source table",
     "error_no_fields": "At least one visible field is required",
-    "error_create": "Unknown error creating the view"
+    "error_create": "Unknown error creating the view",
+    "graph_title": "Graph",
+    "graph_via": "via",
+    "graph_no_relations": "(no relations)",
+    "graph_stats": "{{nodes}} nodes · {{edges}} edges",
+    "no_records_in_view": "No records in this view."
   },
   "metadata_lookup": {
     "button": "Fill",

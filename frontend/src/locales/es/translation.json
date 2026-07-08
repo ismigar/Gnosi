@@ -503,7 +503,11 @@
     "comment_edit": "Error al editar el comentario",
     "comment_resolve": "Error al actualizar el comentario",
     "comment_delete": "Error al eliminar el comentario",
-    "comment_forbidden": "Tu rol no permite modificar comentarios"
+    "comment_forbidden": "Tu rol no permite modificar comentarios",
+    "no_active_page": "Sin página activa para resolver la vista.",
+    "view_missing_id": "Vista sin view_id.",
+    "load_view": "Error al cargar la vista",
+    "delete_only_view": "No se puede eliminar la única vista."
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -677,7 +681,8 @@
     "note_section_transclusion_placeholder": "Nombre de nota#Apartado",
     "loading_drawing_editor": "Cargando editor de dibujo…",
     "error_title": "Se ha producido un error",
-    "error_hint": "Hay bloques no soportados o se ha producido un error en el editor."
+    "error_hint": "Hay bloques no soportados o se ha producido un error en el editor.",
+    "cover_alt": "Portada"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -755,7 +760,19 @@
     "add_new_view": "Añadir vista nueva",
     "hide_view": "Ocultar la vista",
     "show_view": "Mostrar la vista",
-    "drag_to_reorder": "Arrastra para reordenar"
+    "drag_to_reorder": "Arrastra para reordenar",
+    "view_settings": "Configuración de la vista",
+    "create_in_column": "Crear en esta columna",
+    "default_view_name": "Vista",
+    "tab_tooltip": "Clic para cambiar · doble clic para renombrar",
+    "view_options": "Opciones de la vista",
+    "add_view": "Añadir vista",
+    "remove_from_page": "Quitar de esta página",
+    "delete_everywhere": "Eliminar en todas partes…",
+    "delete_view_title": "Eliminar vista",
+    "delete_view_confirm": "¿Eliminar la vista \"{{name}}\" en TODAS partes? Desaparecerá de todas las páginas.",
+    "rename_view_title": "Renombrar vista",
+    "new_view_name_label": "Nuevo nombre de la vista"
   },
   "fs_picker": {
     "title_any": "Seleccionar archivo o carpeta",
@@ -2026,7 +2043,12 @@
     "create_view": "Crear vista",
     "error_no_table": "Hay que seleccionar una tabla origen",
     "error_no_fields": "Hace falta al menos un campo visible",
-    "error_create": "Error desconocido al crear la vista"
+    "error_create": "Error desconocido al crear la vista",
+    "graph_title": "Grafo",
+    "graph_via": "vía",
+    "graph_no_relations": "(sin relaciones)",
+    "graph_stats": "{{nodes}} nodos · {{edges}} aristas",
+    "no_records_in_view": "No hay registros en esta vista."
   },
   "metadata_lookup": {
     "button": "Rellenar",
