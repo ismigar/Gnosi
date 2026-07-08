@@ -1,4 +1,5 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
 import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue, normalizeForSearch } from '../../utils/vaultFilters';
@@ -263,6 +264,7 @@ function ViewActionsBar({
     showSearch,
     setShowSearch,
 }) {
+    const { t } = useTranslation();
     const [showNewMenu, setShowNewMenu] = useState(false);
     const menuRef = useRef(null);
     useEffect(() => {
@@ -282,7 +284,7 @@ function ViewActionsBar({
                         type="text"
                         value={searchTerm}
                         onChange={e => setSearchTerm?.(e.target.value)}
-                        placeholder="Cerca..."
+                        placeholder={t('common.search_placeholder', 'Cerca...')}
                         className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                     />
                     <button
@@ -296,7 +298,7 @@ function ViewActionsBar({
                 <button
                     onClick={() => setShowSearch?.(true)}
                     className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                    title="Cerca"
+                    title={t('views_header.search_title', 'Cerca')}
                 >
                     <Search size={14} />
                 </button>
@@ -306,7 +308,7 @@ function ViewActionsBar({
                 <button
                     onClick={onOpenConfig}
                     className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
-                    title="Configuració de la vista"
+                    title={t('views_header.view_settings', 'Configuració de la vista')}
                 >
                     <SlidersHorizontal size={13} />
                 </button>
@@ -320,7 +322,7 @@ function ViewActionsBar({
                         style={{ boxShadow: 'none' }}
                     >
                         <Plus size={14} />
-                        <span>Nou</span>
+                        <span>{t('views_header.new_action', 'Nou')}</span>
                         <span
                             role="button"
                             tabIndex={0}
@@ -338,12 +340,12 @@ function ViewActionsBar({
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
                             >
                                 <Plus size={14} className="text-[var(--text-tertiary)]" />
-                                <span>Nou registre</span>
+                                <span>{t('views_header.new_empty_record', 'Nou registre')}</span>
                             </button>
                             {templates.length > 0 && (
                                 <>
                                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
-                                    <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">Plantilles</div>
+                                    <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title', 'Plantilles')}</div>
                                     {templates.map(tpl => (
                                         <button
                                             key={tpl.id}
@@ -351,7 +353,7 @@ function ViewActionsBar({
                                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left group"
                                         >
                                             <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
-                                            <span className="truncate">{tpl.title || '(sense títol)'}</span>
+                                            <span className="truncate">{tpl.title || t('view.untitled', '(sense títol)')}</span>
                                         </button>
                                     ))}
                                 </>
@@ -365,11 +367,12 @@ function ViewActionsBar({
 }
 
 function ColumnPlusButton({ onClick }) {
+    const { t } = useTranslation();
     return (
         <button
             onClick={onClick}
             className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-            title="Crear a aquesta columna"
+            title={t('views_header.create_in_column', 'Crear a aquesta columna')}
         >
             <Plus size={12} />
         </button>
@@ -425,6 +428,7 @@ function _byTableSet(tableId, value) {
 /* -------------------------------------------------------------------------- */
 
 function GraphRender({ rows, columns, onOpenPage }) {
+    const { t } = useTranslation();
     const idToRow = useMemo(() => Object.fromEntries((rows || []).map(r => [r.id, r])), [rows]);
     const titleToId = useMemo(() => {
         const m = {};
@@ -436,7 +440,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
 
     const { nodes, links } = useMemo(() => {
         const nodeMap = new Map();
-        (rows || []).forEach(r => nodeMap.set(r.id, { id: r.id, title: r.title || '(sense títol)' }));
+        (rows || []).forEach(r => nodeMap.set(r.id, { id: r.id, title: r.title || t('view.untitled', '(sense títol)') }));
         const edges = [];
         if (relationCol) {
             (rows || []).forEach(r => {
@@ -508,7 +512,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
     return (
         <div className="my-2 bg-[var(--bg-secondary)]/30">
             <div className="p-2 border-b border-[var(--border-primary)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                Graf {relationCol ? <>via <code>{relationCol}</code></> : '(sense relacions)'} · {nodes.length} nodes · {links.length} arestes
+                {t('view.graph_title', 'Graf')} {relationCol ? <>{t('view.graph_via', 'via')} <code>{relationCol}</code></> : t('view.graph_no_relations', '(sense relacions)')} · {t('view.graph_stats', '{{nodes}} nodes · {{edges}} arestes', { nodes: nodes.length, edges: links.length })}
             </div>
             <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 400 }}>
                 {links.map((l, i) => {
@@ -551,6 +555,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
 /* -------------------------------------------------------------------------- */
 
 export function DbViewEmbed({ block }) {
+    const { t } = useTranslation();
     const ctx = useContext(VaultEditorContext) || {};
     const pageId = ctx.pageId;
     const onOpenPage = ctx.onOpenPage;
@@ -613,8 +618,8 @@ export function DbViewEmbed({ block }) {
     const [activeViewId, setActiveViewId] = useState('');
     const [loading, setLoading] = useState(() => Boolean(pageId && viewId));
     const [error, setError] = useState(() => {
-        if (!pageId) return 'Sense pàgina activa per resoldre la vista.';
-        if (!viewId) return 'Vista sense view_id.';
+        if (!pageId) return t('errors.no_active_page', 'Sense pàgina activa per resoldre la vista.');
+        if (!viewId) return t('errors.view_missing_id', 'Vista sense view_id.');
         return '';
     });
     const [reloadKey, setReloadKey] = useState(0);
@@ -747,7 +752,7 @@ export function DbViewEmbed({ block }) {
                     const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
                     const sectionAsView = {
                         id: section.view_id,
-                        name: section.heading || 'Vista',
+                        name: section.heading || t('views_header.default_view_name', 'Vista'),
                         type: section.view_type || 'table',
                         table_id: tableId,
                         filters: section.filters || [],
@@ -788,7 +793,7 @@ export function DbViewEmbed({ block }) {
                 }
             } catch (e) {
                 if (!cancelled) {
-                    setError(e?.response?.data?.detail || e?.message || 'Error carregant la vista');
+                    setError(e?.response?.data?.detail || e?.message || t('errors.load_view', 'Error carregant la vista'));
                     setRawRecords([]);
                     setTemplates([]);
                     setLoading(false);
@@ -938,7 +943,7 @@ export function DbViewEmbed({ block }) {
 
     const handleDeleteView = useCallback((v) => {
         if (!v?.id) return;
-        if (tableViews.length <= 1) { toast.error('No es pot eliminar l\'única vista.'); return; }
+        if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "No es pot eliminar l'única vista.")); return; }
         setConfirmDeleteView(v);
     }, [tableViews]);
 
@@ -1067,7 +1072,7 @@ export function DbViewEmbed({ block }) {
     // l'embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
     const embeddedView = useMemo(() => ({
         id: effectiveView?.id || effectiveView?.view_id || 'embedded',
-        name: effectiveView?.name || effectiveView?.heading || 'Vista',
+        name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', 'Vista'),
         type: viewType === 'list' ? 'list' : 'table',
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
@@ -1252,7 +1257,7 @@ export function DbViewEmbed({ block }) {
                 <div className="flex items-baseline gap-2 min-w-0">
                     {displayHeading && <Heading level={displayLevel}>{displayHeading}</Heading>}
                     <span className="text-[11px] text-[var(--text-tertiary)] font-medium whitespace-nowrap">
-                        {rows.length} {rows.length === 1 ? 'registre' : 'registres'}
+                        {t('views_header.records_count', { count: rows.length })}
                     </span>
                 </div>
                 <ViewActionsBar
@@ -1287,13 +1292,13 @@ export function DbViewEmbed({ block }) {
                                     try { localStorage.setItem(`gnosi_embed_view_${pageId}_${viewId}`, v.id); } catch { /* noop */ }
                                 }}
                                 onDoubleClick={() => handleRenameView(v)}
-                                title="Clic per canviar · doble clic per renombrar"
+                                title={t('views_header.tab_tooltip', 'Clic per canviar · doble clic per renombrar')}
                             >
-                                <span>{v.name || v.heading || 'Vista'}</span>
+                                <span>{v.name || v.heading || t('views_header.default_view_name', 'Vista')}</span>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
                                     className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
-                                    title="Opcions de la vista"
+                                    title={t('views_header.view_options', 'Opcions de la vista')}
                                 >
                                     <MoreHorizontal size={13} />
                                 </button>
@@ -1306,21 +1311,21 @@ export function DbViewEmbed({ block }) {
                                                 className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
                                                 <Settings size={13} className="text-[var(--text-tertiary)]" />
-                                                Configurar
+                                                {t('views_header.configure', 'Configurar')}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleRenameView(v); }}
                                                 className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
                                                 <Edit2 size={13} className="text-[var(--text-tertiary)]" />
-                                                Reanomenar
+                                                {t('views_header.rename', 'Reanomenar')}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDuplicateView(v); }}
                                                 className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
                                                 <Copy size={13} className="text-[var(--text-tertiary)]" />
-                                                Duplicar
+                                                {t('views_header.duplicate', 'Duplicar')}
                                             </button>
                                             {!isAnchor && (
                                                 <>
@@ -1330,14 +1335,14 @@ export function DbViewEmbed({ block }) {
                                                         className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                                     >
                                                         <X size={13} className="text-[var(--text-tertiary)]" />
-                                                        Treure d'aquesta pàgina
+                                                        {t('views_header.remove_from_page', "Treure d'aquesta pàgina")}
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
                                                         className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs text-red-500 hover:bg-[var(--bg-tertiary)]"
                                                     >
                                                         <Trash2 size={13} />
-                                                        Eliminar a tot arreu…
+                                                        {t('views_header.delete_everywhere', 'Eliminar a tot arreu…')}
                                                     </button>
                                                 </>
                                             )}
@@ -1350,7 +1355,7 @@ export function DbViewEmbed({ block }) {
                     <button
                         onClick={() => handleAddView('table')}
                         className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-                        title="Afegir vista"
+                        title={t('views_header.add_view', 'Afegir vista')}
                     >
                         <Plus size={13} />
                     </button>
@@ -1362,21 +1367,21 @@ export function DbViewEmbed({ block }) {
                 isOpen={confirmDeleteView != null}
                 onClose={() => setConfirmDeleteView(null)}
                 onConfirm={doDeleteView}
-                title="Eliminar vista"
-                message={confirmDeleteView ? `Eliminar la vista "${confirmDeleteView.name || confirmDeleteView.heading || ''}" a TOT arreu? Desapareixerà de totes les pàgines.` : ''}
-                confirmText="Eliminar"
-                cancelText="Cancel·la"
+                title={t('views_header.delete_view_title', 'Eliminar vista')}
+                message={confirmDeleteView ? t('views_header.delete_view_confirm', 'Eliminar la vista "{{name}}" a TOT arreu? Desapareixerà de totes les pàgines.', { name: confirmDeleteView.name || confirmDeleteView.heading || '' }) : ''}
+                confirmText={t('common.delete', 'Eliminar')}
+                cancelText={t('common.cancel', 'Cancel·la')}
                 isDestructive
             />
             <PromptModal
                 isOpen={renameView != null}
                 onClose={() => setRenameView(null)}
                 onSubmit={doRename}
-                title="Reanomenar vista"
-                label="Nou nom de la vista"
+                title={t('views_header.rename_view_title', 'Reanomenar vista')}
+                label={t('views_header.new_view_name_label', 'Nou nom de la vista')}
                 defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
-                confirmText="Reanomena"
-                cancelText="Cancel·la"
+                confirmText={t('common.rename', 'Reanomenar')}
+                cancelText={t('common.cancel', 'Cancel·la')}
             />
         </div>
     );

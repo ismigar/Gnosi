@@ -4107,9 +4107,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 >
                     <div className={`w-full overflow-hidden transition-all duration-300 bg-[var(--bg-secondary)]/30 ${metadata.cover ? 'h-64' : 'h-12'}`}>
                         {metadata.cover && (
-                            <img 
-                                src={normalizeVaultAssetUrl(metadata.cover)} 
-                                alt="Cover" 
+                            <img
+                                src={normalizeVaultAssetUrl(metadata.cover)}
+                                alt={t('editor.cover_alt', 'Portada')}
                                 className="w-full h-full object-cover animate-in fade-in duration-500"
                                 onError={(e) => { e.target.style.display = 'none'; }}
                             />

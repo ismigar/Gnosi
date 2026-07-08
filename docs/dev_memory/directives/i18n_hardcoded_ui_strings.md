@@ -20,6 +20,17 @@ Fets traduïbles fins ara:
   `defaultValue` però no existien enlloc (21 claus/idioma). Comptador via `inline_comments.title`
   amb `{{count}}`. Build OK; QA aïllat (createRoot + `changeLanguage` als 4 idiomes) sense claus
   crues al DOM.
+- **Tanda 4 (continuació) — Vistes incrustades del Vault (2026-07-08):** `Vault/DbViewEmbed.jsx`
+  (cablejat i18n de zero als 4 subcomponents: `ViewActionsBar`, `ColumnPlusButton`, `GraphRender`
+  i `DbViewEmbed`), `Vault/VaultGallery.jsx` (títol per defecte + estat buit) i el `alt="Cover"`
+  residual de `Vault/BlockEditor.jsx`. La MAJORIA de textos ja tenien clau existent (`views_header.*`,
+  `common.*`, `view.untitled`, plural `views_header.records_count`) → es REUTILITZEN; només 22 claus
+  noves/idioma (`views_header.view_settings|create_in_column|default_view_name|tab_tooltip|
+  view_options|add_view|remove_from_page|delete_everywhere|delete_view_title|delete_view_confirm|
+  rename_view_title|new_view_name_label`, `view.graph_*`/`no_records_in_view`, `errors.no_active_page|
+  view_missing_id|load_view|delete_only_view`, `editor.cover_alt`). Capçalera del graf i confirm
+  d'esborrat amb interpolació (`{{nodes}}/{{edges}}`, `{{name}}`). Build OK (`vite build`, 0 errors)
+  + test runtime i18next real als 4 idiomes (interpolació/plural/fallback, sense `{{}}` ni claus crues).
 
 Queden ~740 línies amb text visible en dur repartides en ~110 fitxers (heurística per
 caràcters accentuats dins de literals/JSX, comentaris exclosos; els textos sense accents
@@ -63,6 +74,17 @@ no hi compten, així que el total real és una mica més alt).
 - **Dates**: `toLocaleDateString(i18n.language)` en lloc de `'ca-ES'` fix (ShareModal).
 - **`markdown-mapper.js`, `formulaUtils.js`, `cslEngine.js` i similars**: molts strings són
   sintaxi de fitxer o dades (fences, noms de camps, CSL), no UI → revisar cas per cas.
+- **Títols per defecte persistits ≠ chrome.** Els valors per defecte de dades que s'ESCRIUEN
+  (p.ex. `createPageInTable({ title = 'Nou registre' })`, `\`Nou (${tpl})\``, o el set
+  `FILTER_TRUTHY = ['sí','done',…]` a `DbViewEmbed`) NO es tradueixen: acaben com a dada al vault
+  (o com a valor comparat), i traduir-los faria divergir registres/comparacions segons l'idioma
+  del creador. Es tradueix l'ETIQUETA visible (el botó «Nou registre»), no el `title` per defecte.
+- **Reutilitzar claus pot destapar buits d'un locale.** En reusar claus existents (`views_header.*`)
+  es va veure que **`fr` no en tenia diverses** que sí eren a ca/en/es (queien a l'anglès via
+  `fallbackLng`, no mostraven la clau crua, però trencaven la paritat). Sempre verifica la paritat
+  dels 4 idiomes de forma **plural-aware** (`clau` o `clau_one`/`clau_other`) i omple el que falti;
+  un check literal marca `records_count` com a absent quan de fet és plural. Vegeu memòria
+  `feedback_i18n_reused_keys_locale_parity_gap`.
 - **QA**: `npm run build` + muntar cada modal aïllat al navegador (dev server del worktree via
   `createRoot` sobre imports Vite: `/@id/react`, `/@id/react-dom/client`, `/src/i18n.js`) i
   comparar el DOM en `ca` i `en` amb `i18n.changeLanguage()`. Comprovar que no es filtra cap clau
@@ -87,7 +109,7 @@ no hi compten, així que el total real és una mica més alt).
 | components/PluginsSettings.jsx | 12 |
 | pages/CalendarPage.jsx | 11 |
 | components/Vault/slashMenuUtils.js | 11 |
-| components/Vault/DbViewEmbed.jsx | 11 |
+| ~~components/Vault/DbViewEmbed.jsx~~ | ~~11~~ **FET (2026-07-08)** |
 | (+ ~95 fitxers més amb <10 línies) | |
 
 **Pla per tandes** (cada tanda = 1 PR amb QA de les seves pantalles):
@@ -96,4 +118,5 @@ no hi compten, així que el total real és una mica més alt).
    TranslateLanguagesModal, RecurrenceChoiceModal.~~ **FET (2026-07-04).**
 3. Editors i pàgines: BlockEditor, TldrawEditor, VaultDashboard, Dashboard, MediaCenter,
    CommandPalette, MeetingRecorder.
-4. Resta del Vault (VaultTable, DbViewEmbed, CalendarSidebarRight, slashMenuUtils…) i cua llarga.
+4. Resta del Vault (VaultTable, ~~DbViewEmbed~~ **FET**, ~~VaultGallery~~ **FET**,
+   CalendarSidebarRight, slashMenuUtils…) i cua llarga.
