@@ -437,7 +437,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
 
     if (sortedNotes.length === 0) {
         return (
-            <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] p-10 bg-[var(--bg-secondary)]">
+            <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] p-10 bg-[var(--bg-primary)]">
                 <FileText size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
                 <p>{t('feed.empty', 'No hi ha publicacions al feed.')}</p>
             </div>
@@ -445,7 +445,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     }
 
     return (
-        <div className="w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-secondary)] flex flex-col items-center">
+        <div className="w-full h-full pt-vault-header-top px-4 md:px-6 pb-4 md:pb-6 overflow-y-auto custom-scrollbar bg-[var(--bg-primary)] flex flex-col items-center">
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
                         selectedIds={selectedIds}

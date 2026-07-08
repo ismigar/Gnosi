@@ -417,9 +417,9 @@ export function VaultViewsHeader({
     // Gestió de l'input de cerca que s'expandeix
 
     return (
-        <div className="relative z-50 flex flex-col w-full bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] shrink-0">
+        <div className="relative z-50 flex flex-col w-full bg-[var(--bg-primary)] shrink-0">
             {/* Row 1: Title and Record Count */}
-            <div className="flex items-start justify-between px-4 pt-vault-header-top pb-1.5 md:px-6 md:pb-2">
+            <div className="flex items-start justify-between px-2 pt-vault-header-top pb-1.5 md:px-4 md:pb-2">
                 <div className="flex items-center gap-3">
                     <h1 className="text-xl md:text-2xl font-bold text-[var(--text-primary)] flex items-center gap-2 md:gap-3 mt-0 leading-none">
                         {tableName}

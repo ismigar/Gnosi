@@ -517,7 +517,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     };
 
     return (
-        <div className="w-full h-full flex flex-col bg-[var(--bg-secondary)] overflow-hidden">
+        <div className="w-full h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden">
             {externalSearchTerm === undefined && (
                 <VaultViewToolbar
                     search={searchTerm}

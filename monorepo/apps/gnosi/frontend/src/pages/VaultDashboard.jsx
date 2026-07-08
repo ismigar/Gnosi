@@ -3039,8 +3039,8 @@ export default function VaultDashboard() {
                                 board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                                 calendar: 'p-6 h-full',
                                 gallery: 'p-0 h-full overflow-hidden w-full',
-                                timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]',
-                                feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                                timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-primary)]',
+                                feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                             }[cv.type];
 
                             return wrapperClass ? <div className={wrapperClass}>{body}</div> : body;
@@ -3061,7 +3061,7 @@ export default function VaultDashboard() {
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         };
         const dailyBar = dailyDate ? (
-            <div className="flex items-center justify-center gap-1 px-4 py-1.5 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] text-sm">
+            <div className="flex items-center justify-center gap-1 px-4 py-1.5 border-b border-[var(--border-primary)] bg-[var(--bg-primary)] text-sm">
                 <button
                     type="button"
                     onClick={() => { const p = shiftDay(dailyDate, -1); if (p) handleOpenDailyNote(p); }}
@@ -3258,8 +3258,8 @@ export default function VaultDashboard() {
                             board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                             calendar: 'p-6 h-full',
                             gallery: 'p-0 h-full overflow-hidden w-full',
-                            timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]',
-                            feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                            timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-primary)]',
+                            feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                         }[cv.type];
 
                         return wrapperClass ? <div className={wrapperClass}>{body}</div> : body;
@@ -3372,7 +3372,7 @@ export default function VaultDashboard() {
                             {openPaneEntries.map((pane, index) => (
                                 <React.Fragment key={`${pane.type}-${pane.id}-${index === 0 ? 'primary' : 'split'}`}>
                                     <div
-                                        className={`flex flex-col overflow-hidden min-w-0 ${index > 0 ? 'bg-[var(--bg-secondary)]' : ''}`}
+                                        className={`flex flex-col overflow-hidden min-w-0 ${index > 0 ? 'bg-[var(--bg-primary)]' : ''}`}
                                         style={{ width: paneSizes[index] != null ? `${paneSizes[index]}%` : `${100 / openPaneEntries.length}%`, flexShrink: 0 }}
                                     >
                                         <div className="flex-1 overflow-y-auto w-full min-w-0 h-full">
@@ -3545,11 +3545,11 @@ export default function VaultDashboard() {
                                     // Embolcalls per-tipus (alçada/scroll/padding/fons);
                                     // table/list no en porta. El cos és sempre VaultViewBody.
                                     const wrapperClass = {
-                                        board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                                        board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                                         calendar: 'p-6 h-full',
                                         gallery: 'p-0 h-full overflow-hidden w-full',
-                                        timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-secondary)]',
-                                        feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-secondary)]',
+                                        timeline: 'p-0 h-full overflow-hidden w-full bg-[var(--bg-primary)]',
+                                        feed: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                                     }[cv.type];
 
                                     return wrapperClass ? <div className={wrapperClass}>{body}</div> : body;
