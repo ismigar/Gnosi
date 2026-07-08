@@ -819,6 +819,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             if (selectedExistingViewId && !isDefaultPick) {
                 const original = existingViews.find(x => x.id === selectedExistingViewId);
                 const newPropsJson = JSON.stringify({
+                    // `type` també compta com a modificació: sense ell, canviar
+                    // NOMÉS el tipus (taula→board/feed/graph, sense extras) no
+                    // s'upsertava mai al registry i DbViewEmbed —que prefereix la
+                    // vista del registry a la secció— seguia pintant el tipus vell.
+                    type: viewType,
                     filters: cleanFilters,
                     sorts: cleanSorts,
                     visibleProperties,
@@ -832,6 +837,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     ...buildViewExtras(),
                 });
                 const oldPropsJson = JSON.stringify({
+                    type: String(original?.view_type || original?.type || 'table').toLowerCase(),
                     filters: original?.filters || [],
                     sorts: original?.sorts || (original?.sort ? [original.sort] : []),
                     visibleProperties: original?.visibleProperties || ['title'],

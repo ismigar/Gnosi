@@ -3494,6 +3494,25 @@ export default function VaultDashboard() {
                                         }
                                     };
 
+                                    // El `graph` no té component editable equivalent → es manté
+                                    // a part (com als panells dividits, que ja ho feien). Sense
+                                    // aquesta branca, VaultViewBody el tractava com a taula.
+                                    // Embolcall flex a alçada completa: l'arrel de VaultGraph és
+                                    // `flex-1` i en un pare no-flex quedava amb alçada 0.
+                                    if (cv.type === 'graph') {
+                                        return (
+                                            <div className="h-full flex flex-col">
+                                                <VaultGraph
+                                                    tableId={activeTableId}
+                                                    view={cv}
+                                                    searchTerm={searchTerm}
+                                                    isDarkMode={document.documentElement.classList.contains('dark')}
+                                                    onNodeClick={(nodeId) => loadPage(nodeId)}
+                                                />
+                                            </div>
+                                        );
+                                    }
+
                                     const body = (
                                         <VaultViewBody
                                             type={cv.type}

@@ -54,8 +54,13 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
                 // SEMPRE al final, ordre numèric per a valors numèrics i
                 // localeCompare normalitzat per la resta. Mateixa lògica per a
                 // la vista principal i les vistes incrustades (paritat 1:1).
-                const aRaw = sort.field === 'title' ? (a.title || '') : (a.metadata || {})[sort.field];
-                const bRaw = sort.field === 'title' ? (b.title || '') : (b.metadata || {})[sort.field];
+                // Fallback al camp TOP-LEVEL de la pàgina (paritat amb
+                // matchesFilters): `last_modified`/`created` no viuen al
+                // metadata, i sense el fallback el sort per aquests camps —
+                // inclòs el d'ordre per defecte "més recent primer" — era un
+                // no-op silenciós (undefined vs undefined → 0).
+                const aRaw = sort.field === 'title' ? (a.title || '') : ((a.metadata || {})[sort.field] ?? a[sort.field]);
+                const bRaw = sort.field === 'title' ? (b.title || '') : ((b.metadata || {})[sort.field] ?? b[sort.field]);
                 const cmp = compareFieldValues(aRaw, bRaw, sort.direction);
                 if (cmp !== 0) return cmp;
             }

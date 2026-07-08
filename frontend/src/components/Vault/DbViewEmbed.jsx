@@ -1,7 +1,7 @@
 import React, { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import axios from 'axios';
 import { Loader2, AlertCircle, Plus, Search, SlidersHorizontal, ChevronDown, ChevronUp, X, LayoutTemplate, MoreHorizontal, Settings, Edit2, Copy, Trash2 } from 'lucide-react';
-import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue } from '../../utils/vaultFilters';
+import { compareFieldValues, NUM_RE, ISO_DATE_RE, parseNumericValue, normalizeForSearch } from '../../utils/vaultFilters';
 import { VaultEditorContext } from './VaultEditorContext';
 import { VaultMarkdown, RetryableImage } from './VaultMarkdown';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
@@ -94,12 +94,17 @@ function asBool(x) {
     return FILTER_TRUTHY.has(String(x).trim().toLowerCase());
 }
 
-function applyFilter(meta, pageId, f) {
+function applyFilter(row, pageId, f) {
     if (!f?.field) return true;
     const op = (f.operator || 'equals').toLowerCase();
     const raw = f.value === 'this' ? pageId : f.value;
     const target = raw == null ? null : String(raw);
-    const v = metaValueForField(meta, f.field);
+    // `title` viu a la FILA, no al metadata (paritat amb matchesFilters):
+    // sense el cas especial, un filtre per títol —el camp per defecte del
+    // modal— buidava la vista incrustada mentre la pestanya de taula filtrava bé.
+    const v = f.field === 'title'
+        ? (row?.title || '')
+        : metaValueForField(row?.metadata || {}, f.field);
     const arr = Array.isArray(v) ? v.map(String) : v == null || v === '' ? [] : [String(v)];
     if (op === 'is_empty') return arr.length === 0;
     if (op === 'is_not_empty') return arr.length > 0;
@@ -157,11 +162,17 @@ function multiKeySort(rows, sorts) {
     if (!sorts || sorts.length === 0) {
         return [...rows].sort((a, b) => compareFieldValues(a.title, b.title, 'asc'));
     }
+    // `title` és a la fila; per a la resta, clau tolerant al metadata amb
+    // fallback al camp top-level (last_modified/created) — paritat amb el
+    // comparador de la vista principal (useVaultViewData).
+    const sortValOf = (r, field) => field === 'title'
+        ? (r?.title || '')
+        : (metaValueForField(r?.metadata, field) ?? r?.[field]);
     const result = [...rows];
     for (let i = sorts.length - 1; i >= 0; i--) {
         const { field, direction = 'asc' } = sorts[i];
         if (!field) continue;
-        result.sort((a, b) => compareFieldValues(a.metadata?.[field], b.metadata?.[field], direction));
+        result.sort((a, b) => compareFieldValues(sortValOf(a, field), sortValOf(b, field), direction));
     }
     return result;
 }
@@ -746,9 +757,16 @@ export function DbViewEmbed({ block }) {
                         // camps extra); les preservem perquè embeddedView les llegeixi.
                         cardSize: section.cardSize,
                         galleryPreview: section.galleryPreview,
+                        coverField: section.coverField || section.cover_field,
+                        imageFit: section.imageFit || section.image_fit,
                         groupBy: section.groupBy || section.group_by,
                         dateField: section.dateField || section.date_field,
                         endDateField: section.endDateField || section.end_date_field,
+                        calendarView: section.calendarView || section.calendar_view,
+                        colorField: section.colorField || section.color_field,
+                        rowHeight: section.rowHeight || section.row_height,
+                        enableSubitems: section.enableSubitems ?? section.enable_subitems,
+                        columnWidths: section.columnWidths || section.column_widths,
                         // Opcions del gràfic (vista 'chart').
                         chartType: section.chartType || section.chart_type,
                         xField: section.xField || section.x_field,
@@ -811,28 +829,29 @@ export function DbViewEmbed({ block }) {
         const filters = (effectiveView?.filters && effectiveView.filters.length > 0)
             ? effectiveView.filters
             : (effectiveView?.filter ? [effectiveView.filter] : []);
-        const filtered = rawRecords.filter(r => filters.every(f => applyFilter(r.metadata || {}, pageId, f)));
+        const filtered = rawRecords.filter(r => filters.every(f => applyFilter(r, pageId, f)));
         const sorts = (effectiveView?.sorts && effectiveView.sorts.length > 0)
             ? effectiveView.sorts
             : (effectiveView?.sort ? [effectiveView.sort] : []);
         return multiKeySort(filtered, sorts);
     }, [rawRecords, effectiveView, pageId]);
 
-    // Cerca local sobre el conjunt de registres. Cerca al títol i a la
-    // representació textual de cada columna visible.
+    // Cerca local sobre el conjunt de registres: títol + TOT el metadata,
+    // insensible a accents (normalizeForSearch) — paritat amb matchesSearch de
+    // la vista principal. Abans era toLowerCase pelat ("merce" no trobava
+    // "Mercè") i només mirava les columnes visibles.
     const rows = useMemo(() => {
-        const q = searchTerm.trim().toLowerCase();
+        const q = normalizeForSearch(searchTerm.trim());
         if (!q) return allRows;
         return allRows.filter(r => {
-            if ((r.title || '').toLowerCase().includes(q)) return true;
-            return (columns || []).some(c => {
-                const v = r.metadata?.[c];
+            if (normalizeForSearch(r.title || '').includes(q)) return true;
+            return Object.values(r.metadata || {}).some(v => {
                 if (v == null) return false;
                 const s = Array.isArray(v) ? v.join(' ') : String(v);
-                return s.toLowerCase().includes(q);
+                return normalizeForSearch(s).includes(q);
             });
         });
-    }, [allRows, searchTerm, columns]);
+    }, [allRows, searchTerm]);
 
     const handleCreate = useCallback(async (extra = {}, template = null) => {
         if (!tableId) return;
@@ -980,12 +999,21 @@ export function DbViewEmbed({ block }) {
     const handleDuplicateView = useCallback(async (v) => {
         if (!v?.id || !tableId) return;
         try {
+            // Còpia SENCERA de la vista (com el duplicat del tauler): copiar
+            // només filtres/ordre/columnes perdia totes les opcions per-tipus
+            // (chartType/xField, groupBy, dateField, cardSize…) i la còpia d'un
+            // gràfic naixia buida. S'esborren els camps d'identitat i es
+            // reescriuen els propis.
+            const { id: _id, is_main: _im, is_default: _idf, ...rest } = v;
+            const sorts = v.sorts || (v.sort ? [v.sort] : []);
             const res = await axios.post('/api/vault/views', {
+                ...rest,
                 table_id: tableId,
                 name: `${v.name || v.heading || 'Vista'} (còpia)`,
                 type: v.type || 'table',
                 filters: v.filters || [],
-                sorts: v.sorts || (v.sort ? [v.sort] : []),
+                sorts,
+                sort: sorts[0] || null,
                 visibleProperties: v.visibleProperties || columns || ['title'],
                 // Neix per ser pestanya d'aquest bloc, no del tauler
                 // (isPageEmbedView la filtra de les pestanyes de taula).
@@ -1052,9 +1080,16 @@ export function DbViewEmbed({ block }) {
         // o secció) perquè el render les honori igual que a la pàgina de taula.
         cardSize: effectiveView?.cardSize,
         galleryPreview: effectiveView?.galleryPreview,
+        coverField: effectiveView?.coverField || effectiveView?.cover_field,
+        imageFit: effectiveView?.imageFit || effectiveView?.image_fit,
         groupBy: effectiveView?.groupBy || effectiveView?.group_by,
         dateField: effectiveView?.dateField || effectiveView?.date_field,
         endDateField: effectiveView?.endDateField || effectiveView?.end_date_field,
+        calendarView: effectiveView?.calendarView || effectiveView?.calendar_view,
+        colorField: effectiveView?.colorField || effectiveView?.color_field,
+        rowHeight: effectiveView?.rowHeight || effectiveView?.row_height,
+        enableSubitems: effectiveView?.enableSubitems ?? effectiveView?.enable_subitems,
+        columnWidths: effectiveView?.columnWidths || effectiveView?.column_widths,
         // Opcions del gràfic (vista 'chart' incrustada).
         chartType: effectiveView?.chartType || effectiveView?.chart_type,
         xField: effectiveView?.xField || effectiveView?.x_field,
@@ -1113,6 +1148,9 @@ export function DbViewEmbed({ block }) {
     const onUpdateViewAdapter = async (nextView) => {
         if (!pageId) return;
         const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
+        // `columnWidths` el mana VaultTable en redimensionar una columna: sense
+        // persistir-lo, les amplades es revertien a cada recàrrega (la vista
+        // principal sí que les desa via VaultDashboard).
         const isSection = !view ? false : (activeViewId === view.view_id);
         if (isSection || !activeViewId) {
             // La pestanya activa és la secció del bloc → patch a la secció.
@@ -1121,6 +1159,7 @@ export function DbViewEmbed({ block }) {
                 sorts,
                 sort: sorts[0] || null,
                 group_by: nextView?.group_by ?? view?.group_by,
+                ...(nextView?.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
             });
             setView(next);
         } else {
@@ -1132,6 +1171,8 @@ export function DbViewEmbed({ block }) {
                     visibleProperties: nextView?.visibleProperties || columns,
                     sorts,
                     sort: sorts[0] || null,
+                    ...(nextView?.group_by !== undefined ? { group_by: nextView.group_by } : {}),
+                    ...(nextView?.columnWidths ? { columnWidths: nextView.columnWidths } : {}),
                 });
                 await refetchTableViews();
             } catch (e) { console.warn('update view failed', e); }

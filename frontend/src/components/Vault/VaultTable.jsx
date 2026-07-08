@@ -297,7 +297,7 @@ import { VaultViewToolbar } from './VaultViewToolbar';
 import { evaluateFormula } from './formulaUtils';
 import { evaluateRollup } from './rollupUtils';
 import { normalizeOptions, optionChipStyle, optionColorHex, checkActionRequires } from './optionCatalogUtils';
-import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, resolveViewSorts } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldEntries, getSchemaFieldNames, getLanguageFieldName, resolveFieldRef, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import {
     isComputedType,
     isPasteableType,
@@ -370,8 +370,26 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
+// ── Propietat del teclat entre INSTÀNCIES de VaultTable ─────────────────────
+// El listener de teclat és global (window) i cada instància en munta un: amb
+// un panell dividit o 2+ taules incrustades a la mateixa pàgina, cada fletxa
+// movia el cursor de TOTES les graelles alhora i ⌫/⌘V editava/buidava cel·les
+// de taules que l'usuari no tocava (PATCHs reals). Una sola instància "posseeix"
+// el teclat: l'última amb què l'usuari ha interactuat (clic, entrada per nav
+// d'editor) o, si cap, la primera que s'inicialitza. La resta ignoren els events.
+let _gridKeyboardOwner = null;
+let _gridInstanceSeq = 0;
+
 export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
     const { t, i18n } = useTranslation();
+    // Identitat estable d'aquesta instància per a la propietat del teclat.
+    const gridInstanceIdRef = useRef(null);
+    if (!gridInstanceIdRef.current) gridInstanceIdRef.current = `vault-grid-${++_gridInstanceSeq}`;
+    const claimKeyboard = useCallback(() => { _gridKeyboardOwner = gridInstanceIdRef.current; }, []);
+    // En desmuntar, allibera la propietat si era nostra.
+    useEffect(() => () => {
+        if (_gridKeyboardOwner === gridInstanceIdRef.current) _gridKeyboardOwner = null;
+    }, []);
     // Usuari actual (per als camps "Creat per"/"Editat per" en mode personal).
     const { user: currentUser } = useAuth();
     // Defaults globals de format (moneda/número/data) — override per camp via config.format.
@@ -431,8 +449,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             for (const [noteId, patch] of next) {
                 const note = rawNotes.find(n => n.id === noteId);
                 if (!note) continue;
+                // `sameCellValue` (no ===): els valors ARRAY (multi_select,
+                // relation, files) mai eren estrictament iguals a la còpia
+                // fresca i l'override quedava viu per sempre, tapant canvis
+                // externs (rule engine, relacions inverses, altres clients).
                 const allMatch = Object.entries(patch).every(
-                    ([k, v]) => (note.metadata || {})[k] === v
+                    ([k, v]) => sameCellValue((note.metadata || {})[k], v)
                 );
                 if (allMatch) {
                     next.delete(noteId);
@@ -610,17 +632,23 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // configurat de TOTES les vistes importades (que persisteixen `sorts`)
     // s'ignorava en silenci. Sense cap config: més recent primer; amb config
     // explícita però buida (l'usuari ha tret tots els ordres): sense ordre.
-    const effectiveSorts = resolveViewSorts(activeView, { field: "last_modified", direction: "desc" });
+    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS a
+    // cada crida i, sense useMemo, el sort/filtrat d'useVaultViewData es
+    // recalculava a cada render de la taula.
+    const effectiveSorts = useMemo(
+        () => resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
+        [activeView]
+    );
     // L'ordre primari governa la fletxa asc/desc de la capçalera i el toggle.
     const activeSort = effectiveSorts[0] || {};
     // Signatura estable (multi-camp) per reinicialitzar el cursor quan canvia l'ordre.
     const sortSignature = effectiveSorts.map(s => `${s.field}:${s.direction}`).join(',');
 
-    const viewConfig = {
-        filters: activeView?.filters || [],
+    const viewConfig = useMemo(() => ({
+        filters: resolveViewFilters(activeView),
         sort: effectiveSorts,
         search: searchTerm
-    };
+    }), [activeView, effectiveSorts, searchTerm]);
 
     const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: safeNotes, schema, view: viewConfig, searchTerm });
 
@@ -636,6 +664,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const childrenMap = {};
     const rootNotes = [];
 
+    // Mapa de fills COMPLET (sobre safeNotes, SENSE els filtres de la vista),
+    // només per a la propagació al pare: decidir "tots els fills fets" o el
+    // min/max de dates amb només els fills VISIBLES marcava el pare com a
+    // Completat encara que tingués fills pendents amagats pel filtre.
+    const allChildrenByParent = {};
+
     if (enableSubitems) {
         sortedAndFilteredNotes.forEach(note => {
             const pid = note.metadata?.parent_id || note.parent_id || note.metadata?.source_parent_id;
@@ -644,6 +678,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 childrenMap[pid].push(note);
             } else {
                 rootNotes.push(note);
+            }
+        });
+        safeNotes.forEach(note => {
+            const pid = note.metadata?.parent_id || note.parent_id || note.metadata?.source_parent_id;
+            if (pid && allNoteIds.has(pid)) {
+                if (!allChildrenByParent[pid]) allChildrenByParent[pid] = [];
+                allChildrenByParent[pid].push(note);
             }
         });
     } else {
@@ -1033,7 +1074,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const viewKey = `${activeView?.id}|${searchTerm}|${sortSignature}`;
         if (initializedViewRef.current === viewKey) return;
         if (navRows.length === 0 || gridColumns.length === 0) return; // espera les dades
+        // Si una ALTRA instància posseeix el teclat (panell dividit, 2+ embeds),
+        // no li prenem el cursor en carregar: només la propietària (o la primera
+        // de totes) s'auto-inicialitza. Un clic de l'usuari reclama la propietat.
+        if (_gridKeyboardOwner && _gridKeyboardOwner !== gridInstanceIdRef.current) return;
         initializedViewRef.current = viewKey;
+        _gridKeyboardOwner = gridInstanceIdRef.current;
         setAnchorCell(null);
         setActiveCell({ rowId: navRows[0].id, field: gridColumns[0].key });
     }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns]);
@@ -1315,7 +1361,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const parent = safeNotes.find(n => n.id === parentId);
         if (!parent) return;
 
-        const children = childrenMap[parentId] || [];
+        // Fills COMPLETS (no els filtrats per la vista): la decisió d'estat/dates
+        // del pare ha de veure tots els fills, també els amagats pel filtre.
+        const children = allChildrenByParent[parentId] || [];
         if (children.length === 0) return;
 
         // 1. Auto-complete/archive: if all children have status "Completed"/"Archived"/"Done"
@@ -1393,7 +1441,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 }
             }
         }
-    }, [safeNotes, childrenMap, schema, handleCellSave]);
+    }, [safeNotes, allChildrenByParent, schema, handleCellSave]);
 
     // ---- CREATE SUBITEM ----
     const handleCreateSubitem = useCallback(async (parentId) => {
@@ -1529,10 +1577,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const catalog = getCatalogOptions(field);
         if (catalog.length > 0) return catalog.map((o) => o.name);
         const values = safeNotes
-            .map(n => {
-                const originalMetaKey = n.metadata ? (Object.keys(n.metadata).find(k => normalizeKey(k) === (aliasMap[normalizeKey(field)] ? normalizeKey(aliasMap[normalizeKey(field)]) : normalizeKey(field))) || field) : field;
-                return n.metadata?.[originalMetaKey];
-            })
+            // `getMetaKey` itera els àlies (poden ser ARRAYS de fallbacks); la
+            // inline anterior coercia l'array a string i mai casava cap clau.
+            .map(n => n.metadata?.[getMetaKey(n, field)])
             .filter(v => v !== undefined && v !== null && v !== '');
         // multi_select desa un array per fila: cal APLANAR a valors individuals,
         // no deduplicar arrays sencers (això mostrava "tag1tag2tag3" com una sola
@@ -1636,8 +1683,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 ? (String(tabRaw).trim() === '' ? '' : (Number.isFinite(Number(tabRaw)) ? Number(tabRaw) : tabRaw))
                 : tabRaw;
             handleCellSave(noteId, field, tabVal, originalMetaKey);
-            const columns = ['title', ...dynamicColumns.map(([k]) => k), 'last_modified'];
+            // Només columnes EDITABLES amb l'input genèric: fora els camps
+            // calculats (formula/rollup/virtuals), `files` (té editor propi) i
+            // `last_modified` (només lectura). Abans, Tab hi obria l'input de
+            // text i desava el valor calculat/serialitzat al frontmatter
+            // (corrupció) o deixava l'estat d'edició penjat sense editor.
+            const columns = ['title', ...dynamicColumns.map(([k]) => k)].filter(c => {
+                if (c === 'title') return true;
+                const tCol = getFieldType(schema, c);
+                return !isComputedType(tCol) && tCol !== 'files';
+            });
             const currentIndex = columns.indexOf(field);
+            if (currentIndex === -1) return;
             let nextIndex = e.shiftKey ? currentIndex - 1 : currentIndex + 1;
             let nextNoteId = noteId;
             if (nextIndex >= columns.length) {
@@ -1651,7 +1708,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             const nextField = columns[nextIndex];
             const nextNote = safeNotes.find(n => n.id === nextNoteId);
-            const nextOriginalMetaKey = nextNote?.metadata ? (Object.keys(nextNote.metadata).find(k => normalizeKey(k) === (aliasMap[normalizeKey(nextField)] ? normalizeKey(aliasMap[normalizeKey(nextField)]) : normalizeKey(nextField))) || nextField) : nextField;
+            // `getMetaKey` itera els àlies (que poden ser ARRAYS de fallbacks);
+            // l'expressió inline anterior coercia l'array a string i mai casava.
+            const nextOriginalMetaKey = nextNote ? getMetaKey(nextNote, nextField) : nextField;
             setEditingCell({ rowId: nextNoteId, field: nextField, originalMetaKey: nextOriginalMetaKey });
         }
     };
@@ -2233,6 +2292,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             const rows = navRowsRef.current;
             const cols = gridColumnsRef.current;
             if (!rows.length || !cols.length) return false;
+            claimKeyboard(); // entrar-hi des de l'editor fa nostra la propietat del teclat
             const row = which === 'last' ? rows[rows.length - 1] : rows[0];
             const col = cols[0];
             setAnchorCell(null);
@@ -2259,6 +2319,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             // editava o buidava cel·les invisiblement (pèrdua de dades).
             if (e.defaultPrevented) return; // ja gestionada aigües amunt (p.ex. scroll del modal)
             if (document.body.classList.contains('gnosi-modal-open')) return;
+            // Només la instància PROPIETÀRIA del teclat processa l'event: amb
+            // diverses taules muntades (panell dividit, embeds), totes rebien
+            // cada tecla i ⌫/⌘V actuava sobre graelles que l'usuari no tocava.
+            if (_gridKeyboardOwner !== gridInstanceIdRef.current) return;
             const t = e.target;
             // Tecles originades fora de la taula (focus dins d'un modal, el
             // sidebar…): no són nostres. El <body> sí (la navegació normal de
@@ -2421,7 +2485,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             return <span className="text-sm text-[var(--text-secondary)]">{who}</span>;
         }
 
-        if (isEditing) {
+        // Xarxa de seguretat: mai obrir l'editor genèric sobre un camp CALCULAT
+        // (formula/rollup/virtual) — desaria el valor derivat al frontmatter.
+        // Es neteja l'estat d'edició fantasma i se segueix amb el render de lectura.
+        if (isEditing && isComputedType(type)) {
+            setTimeout(() => setEditingCell(null), 0);
+        } else if (isEditing) {
             if (type === 'status' || type === 'select') {
                 const options = getAvailableOptions(field, type);
                 // `status` és catàleg ESTRICTE (com Notion): ni crear opcions
@@ -3292,6 +3361,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     s'usa `flex-1` per omplir l'alçada del pare. */}
                 <div
                     ref={tableContainerRef}
+                    onPointerDownCapture={claimKeyboard}
                     style={maxHeight ? { maxHeight } : undefined}
                     className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `${activeCell ? 'ring-1 ring-[var(--gnosi-primary)]/30' : ''} transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 
