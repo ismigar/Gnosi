@@ -357,7 +357,7 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     return (
         <div
             ref={ref}
-            className="px-4 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center justify-between"
+            className="px-4 py-3 border-t border-[var(--border-primary)] bg-[var(--bg-primary)] flex items-center justify-between"
         >
             <span className="text-xs text-[var(--text-tertiary)]">{label}</span>
             <button
@@ -3210,9 +3210,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 key={`group-${d.groupKey}-${virtualItem.index}`}
                 data-index={virtualItem.index}
                 ref={rowVirtualizer.measureElement}
-                className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]"
+                className="border-b border-[var(--border-primary)] bg-[var(--bg-primary)]"
             >
-                <td colSpan={dynamicColumns.length + 3} className="p-0 bg-[var(--bg-secondary)]">
+                <td colSpan={dynamicColumns.length + 3} className="p-0 bg-[var(--bg-primary)]">
                     <div className="sticky left-0 z-10 inline-flex items-center w-max max-w-[calc(100vw-2rem)]">
                         <button
                             type="button"
@@ -3252,7 +3252,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 key={`gfoot-${d.groupKey}-${virtualItem.index}`}
                 data-index={virtualItem.index}
                 ref={rowVirtualizer.measureElement}
-                className="border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/60 text-[11px] text-[var(--text-secondary)]"
+                className="border-b border-[var(--border-primary)] bg-[var(--bg-primary)] text-[11px] text-[var(--text-secondary)]"
             >
                 <td className="w-10 sticky left-0 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)]"></td>
                 <td className="py-1.5 px-4 sticky left-10 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
@@ -3293,13 +3293,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 <div
                     ref={tableContainerRef}
                     style={maxHeight ? { maxHeight } : undefined}
-                    className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `rounded border ${activeCell ? 'border-[var(--gnosi-primary)]/50 ring-1 ring-[var(--gnosi-primary)]/30' : 'border-[var(--border-primary)]'} shadow-sm transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
+                    className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `${activeCell ? 'ring-1 ring-[var(--gnosi-primary)]/30' : ''} transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 
                     <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                         {!isListView && (
-                            <thead className="bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-40">
+                            <thead className="bg-[var(--bg-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-40">
                                 <tr>
-                                    <th className="w-10 px-2 sticky left-0 bg-[var(--bg-secondary)] z-40 border-r border-[var(--border-primary)]">
+                                    <th className="w-10 px-2 sticky left-0 bg-[var(--bg-primary)] z-40 border-r border-[var(--border-primary)]">
                                         <div className="flex items-center justify-center">
                                             <label className="cursor-pointer inline-flex items-center" onClick={(e) => e.stopPropagation()}>
                                                 <input
@@ -3461,9 +3461,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                             )}
                         </tbody>
                         {!isListView && (
-                            <tfoot className="bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] text-[11px] text-[var(--text-secondary)] font-medium">
+                            <tfoot className="bg-[var(--bg-primary)] text-[11px] text-[var(--text-secondary)] font-medium">
                                 <tr>
-                                    <td className="w-10 sticky left-0 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)]"></td>
+                                    <td className="w-10 sticky left-0 bg-[var(--bg-primary)] z-20 border-r border-[var(--border-primary)]"></td>
                                     <td className="py-2 px-4 sticky left-10 bg-[var(--bg-secondary)] z-20 border-r border-[var(--border-primary)] shadow-[2px_0_5px_-2px_rgba(0,0,0,0.02)]">
                                         <div className="flex flex-col">
                                             <select

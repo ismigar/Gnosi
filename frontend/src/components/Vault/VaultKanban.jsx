@@ -163,7 +163,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
     });
 
     return (
-        <div className="w-full h-full flex flex-col bg-[var(--bg-secondary)] overflow-hidden">
+        <div className="w-full h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden">
             {externalSearchTerm === undefined && (
                 <VaultViewToolbar
                     search={searchTerm}

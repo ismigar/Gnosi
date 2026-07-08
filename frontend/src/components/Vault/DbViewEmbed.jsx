@@ -19,7 +19,7 @@ const ScrollBox = ({ children }) => (
     // `w-full max-w-full min-w-0` clava l'amplada a la del contenidor de
     // l'editor (no a la del contingut); `overflow-x-auto` fa que la taula
     // ampla faci scroll DINS de la caixa i no desbordi la pàgina/editor.
-    <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto rounded-lg border border-[var(--border-primary)] focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 transition-all">
+    <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 transition-all">
         {children}
     </div>
 );
@@ -495,7 +495,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
     }, [nodes, links]);
 
     return (
-        <div className="my-2 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)]/30">
+        <div className="my-2 bg-[var(--bg-secondary)]/30">
             <div className="p-2 border-b border-[var(--border-primary)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
                 Graf {relationCol ? <>via <code>{relationCol}</code></> : '(sense relacions)'} · {nodes.length} nodes · {links.length} arestes
             </div>

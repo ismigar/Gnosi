@@ -298,7 +298,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     };
 
     return (
-        <div className="w-full h-full flex flex-col bg-[var(--bg-secondary)] overflow-hidden relative">
+        <div className="w-full h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden relative">
             {/* Selector de Predecessores Overlay */}
             {selectingPredecessorFor && (
                 <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
