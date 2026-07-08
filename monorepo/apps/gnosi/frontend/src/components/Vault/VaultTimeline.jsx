@@ -3,7 +3,7 @@ import { useTitlePreview } from './useTitlePreview';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
-import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig, resolveViewSorts } from './schemaUtils';
+import { getSchemaFieldEntries, getSchemaFieldNames, getFieldType, getFieldConfig, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { formatDate, resolveFieldFormat } from './formatUtils';
 import i18n from '../../i18n';
@@ -12,6 +12,42 @@ import { parsePeriod } from './VaultDateProperty';
 import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
+
+// `new Date('YYYY-MM-DD')` interpreta la data com a mitjanit UTC: en zones
+// UTC− la barra es pinta (i el round-trip de `handleUpdateDates`, que
+// serialitza amb getters LOCALS, re-desa) el dia ANTERIOR. Les dates sense
+// hora es parsegen com a LOCALS afegint-hi 'T00:00:00'.
+const parseLocalDate = (v) => {
+    const s = String(v ?? '').trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00`) : new Date(v);
+};
+
+// ── Jerarquia tasca/subtasca (estil MS Project) ─────────────────────────────
+// Clau plegada (minúscules, sense accents ni símbols) per casar noms de camp.
+const foldKey = (k) => String(k ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+// Noms (plegats) de camps RELACIÓ que apunten al pare del registre. Cobrim el
+// parent_id nadiu del vault i els àlies habituals dels imports de Notion
+// ("ítem principal" a Tasques, "Parent item"…).
+const PARENT_FIELD_ALIASES = new Set([
+    'itemprincipal', 'parentitem', 'parent', 'pare', 'mare',
+    'tascamare', 'tareapadre', 'tascaprincipal', 'tareaprincipal', 'parenttask',
+]);
+
+// Id del pare d'una nota: parent_id/source_parent_id directes o el PRIMER id
+// d'un camp relació amb nom d'àlies de pare.
+const resolveParentId = (note, schema, getEntriesFn) => {
+    const md = note.metadata || {};
+    const direct = md.parent_id || note.parent_id || md.source_parent_id;
+    if (direct) return String(direct);
+    for (const [key, type] of getEntriesFn(schema)) {
+        if (type !== 'relation') continue;
+        if (!PARENT_FIELD_ALIASES.has(foldKey(key))) continue;
+        const v = md[key];
+        const first = Array.isArray(v) ? v[0] : v;
+        if (first) return String(first);
+    }
+    return null;
+};
 
 export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
     // Previsualització del contingut en passar el ratolí pel títol (label) d'una fila.
@@ -45,11 +81,15 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
     // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
     // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    const viewConfig = {
-        filters: activeView?.filters || [],
+    // Memoitzat: `resolveViewSorts` retorna sempre un array NOU i sense el
+    // useMemo els memos aigües avall (sortedPages, chartData) es recalculaven
+    // a CADA render.
+    const hasExplicitSorts = useMemo(() => resolveViewSorts(activeView).length > 0, [activeView]);
+    const viewConfig = useMemo(() => ({
+        filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
         search: searchTerm
-    };
+    }), [activeView, searchTerm]);
 
     const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedAndFilteredNotes);
@@ -74,9 +114,6 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         onClearSelection: clearSelection,
         onDeleteSelection: handleBulkDelete,
     });
-
-    // Filtrem la propietat 'title' de l'esquema
-    const dynamicColumns = getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title').slice(0, 3);
 
     const datePropertyFound = useMemo(() => {
         // Prioritza el camp d'inici triat a la vista (`dateField`); si no n'hi
@@ -126,9 +163,12 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             let endDateStr = null;
 
             if (datePropertyFound) {
+                // Claus normalitzades (sense espais ni símbols) perquè casin amb
+                // `schemaKeyNorm` — amb les claus originals ("date added") el
+                // lookup no casava mai i l'àlies era codi mort.
                 const aliasMap = {
-                    "date added": "created_time",
-                    "date modified": "last_edited_time"
+                    dateadded: "created_time",
+                    datemodified: "last_edited_time"
                 };
                 const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
                 const schemaKeyNorm = normalizeKey(datePropertyFound);
@@ -140,10 +180,10 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     // Un `period` porta inici I fi en un sol valor ("inici/fi"):
                     // el descomponem en comptes de passar-lo cru a new Date().
                     const { start: ps, end: pe } = parsePeriod(rawStart);
-                    if (ps && !isNaN(new Date(ps).getTime())) startDateStr = ps;
-                    if (pe && !isNaN(new Date(pe).getTime())) endDateStr = pe;
+                    if (ps && !isNaN(parseLocalDate(ps).getTime())) startDateStr = ps;
+                    if (pe && !isNaN(parseLocalDate(pe).getTime())) endDateStr = pe;
                 } else {
-                    if (rawStart && !isNaN(new Date(rawStart).getTime())) {
+                    if (rawStart && !isNaN(parseLocalDate(rawStart).getTime())) {
                         startDateStr = rawStart;
                     }
                     if (endPropertyFound && note.metadata?.[endPropertyFound]) {
@@ -156,14 +196,15 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 }
             }
 
-            const start = new Date(startDateStr);
-            const end = endDateStr ? new Date(endDateStr) : new Date(start.getTime() + 24 * 60 * 60 * 1000);
+            const start = parseLocalDate(startDateStr);
+            let end = endDateStr ? parseLocalDate(endDateStr) : new Date(start.getTime() + 24 * 60 * 60 * 1000);
+            // Fi invàlid O invertit (end < start, dada corrupta): barra d'un dia
+            // en lloc de percentatges negatius que trenquen el layout.
+            if (isNaN(end.getTime()) || end < start) {
+                end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+            }
 
-            return {
-                ...note,
-                start,
-                end: isNaN(end.getTime()) ? new Date(start.getTime() + 24 * 60 * 60 * 1000) : end
-            };
+            return { ...note, start, end };
         }).filter(n => !isNaN(n.start.getTime()));
 
         if (processedNotes.length === 0) return { chartData: [], timeScale: null };
@@ -184,11 +225,61 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             curr.setMonth(curr.getMonth() + 1);
         }
 
+        // ── Jerarquia tasca/subtasca (estil MS Project) ──
+        // Les subtasques (parent_id o relació d'àlies "ítem principal"…) es
+        // pinten indentades sota el seu pare, i el pare esdevé una barra RESUM
+        // que envolta les filles (min inici, max fi), com a MS Project.
+        const byId = new Map(processedNotes.map(n => [n.id, n]));
+        const childrenOf = new Map();
+        const roots = [];
+        processedNotes.forEach(n => {
+            const pid = resolveParentId(n, schema, getSchemaFieldEntries);
+            if (pid && pid !== n.id && byId.has(pid)) {
+                if (!childrenOf.has(pid)) childrenOf.set(pid, []);
+                childrenOf.get(pid).push(n);
+            } else {
+                roots.push(n);
+            }
+        });
+
+        // Abast resum de cada node (recursiu, amb guard de cicles).
+        const summarize = (n, seen) => {
+            if (seen.has(n.id)) return { start: n.start, end: n.end };
+            seen.add(n.id);
+            let start = n.start;
+            let end = n.end;
+            for (const kid of childrenOf.get(n.id) || []) {
+                const s = summarize(kid, seen);
+                if (s.start < start) start = s.start;
+                if (s.end > end) end = s.end;
+            }
+            n.summaryStart = start;
+            n.summaryEnd = end;
+            n.isParent = (childrenOf.get(n.id) || []).length > 0;
+            return { start, end };
+        };
+        roots.forEach(r => summarize(r, new Set()));
+
+        // Aplana: pare seguit de les seves filles (les filles, cronològiques).
+        // Ordre d'arrels: el de la vista si és explícit; si no, cronològic pel
+        // seu abast resum.
+        const orderedRoots = hasExplicitSorts ? roots : [...roots].sort((a, b) => (a.summaryStart ?? a.start) - (b.summaryStart ?? b.start));
+        const flat = [];
+        const pushTree = (n, depth, seen) => {
+            if (seen.has(n.id)) return;
+            seen.add(n.id);
+            flat.push({ ...n, depth });
+            const kids = [...(childrenOf.get(n.id) || [])].sort((a, b) => a.start - b.start);
+            kids.forEach(k => pushTree(k, depth + 1, seen));
+        };
+        const seenFlat = new Set();
+        orderedRoots.forEach(r => pushTree(r, 0, seenFlat));
+
         return {
-            chartData: processedNotes.sort((a, b) => a.start - b.start),
+            chartData: flat,
             timeScale: { start: chartStart, end: chartEnd, months }
         };
-    }, [sortedAndFilteredNotes, schema, datePropertyFound, endPropertyFound]);
+    }, [sortedAndFilteredNotes, schema, datePropertyFound, endPropertyFound, hasExplicitSorts]);
 
     const calculatePosition = (date) => {
         if (!timeScale) return 0;
@@ -207,34 +298,49 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         // `toISOString()` (UTC): en una zona UTC+ desplaçaria el DIA (camp
         // `date`: la mitjanit local cau al dia anterior en UTC) o l'HORA
         // (`datetime`), i embrutaria el camp amb un datetime UTC. Mateix arreglat
-        // que al calendari i a l'editor de dates. El `period` es deixa intacte.
-        const fmtForField = (d, field) => {
-            const t = getFieldType(schema, field);
-            if (t === 'period') return d.toISOString();
-            const pad = (n) => String(n).padStart(2, '0');
-            const day = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-            return t === 'datetime'
-                ? `${day}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-                : day;
-        };
+        // que al calendari i a l'editor de dates.
+        const pad = (n) => String(n).padStart(2, '0');
+        const fmtDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        const fmtForField = (d, field) =>
+            getFieldType(schema, field) === 'datetime'
+                ? `${fmtDay(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+                : fmtDay(d);
 
-        const metadata = { ...(note.metadata || {}) };
-        if (datePropertyFound) metadata[datePropertyFound] = fmtForField(newStart, datePropertyFound);
-        if (endPropertyFound) metadata[endPropertyFound] = fmtForField(newEnd, endPropertyFound);
+        // NOMÉS els camps de data de la vista: el PATCH del backend fusiona el
+        // metadata, així no esclafem claus editades entremig (p. ex. el
+        // `predecessor_ids` que handleAddPredecessor acaba de desar i que
+        // chartData encara no reflecteix). Un camp d'inici `period` porta
+        // inici i fi junts i es reserialitza "inici/fi" (abans s'hi escrivia un
+        // toISOString() que destruïa el rang); un camp de FI `period` (config
+        // atípica) es deixa intacte.
+        const buildDateMetadata = (start, end) => {
+            const md = {};
+            if (datePropertyFound) {
+                md[datePropertyFound] = getFieldType(schema, datePropertyFound) === 'period'
+                    ? `${fmtDay(start)}/${fmtDay(end)}`
+                    : fmtForField(start, datePropertyFound);
+            }
+            if (endPropertyFound && getFieldType(schema, endPropertyFound) !== 'period') {
+                md[endPropertyFound] = fmtForField(end, endPropertyFound);
+            }
+            return md;
+        };
 
         // Recursivitat per successores
         const updatedNotes = recalculateSuccessors(noteId, newStart, newEnd, chartData);
 
-        // Desem els canvis de la nota actual i les afectades
+        // Desem la nota ARRELADA (abans es construïa el seu metadata i no
+        // s'enviava mai: només es movien les successores) i després les afectades.
+        await onUpdateNote(noteId, { metadata: buildDateMetadata(newStart, newEnd) });
         for (const updatedNote of updatedNotes) {
-            const upMetadata = { ...(updatedNote.metadata || {}) };
-            if (datePropertyFound) upMetadata[datePropertyFound] = fmtForField(updatedNote.start, datePropertyFound);
-            if (endPropertyFound) upMetadata[endPropertyFound] = fmtForField(updatedNote.end, endPropertyFound);
-            await onUpdateNote(updatedNote.id, { metadata: upMetadata });
+            await onUpdateNote(updatedNote.id, { metadata: buildDateMetadata(updatedNote.start, updatedNote.end) });
         }
     };
 
-    const recalculateSuccessors = (updatedNoteId, newStart, newEnd, allProcessedNotes) => {
+    // `visited` talla els CICLES de dependències (A→B→A): sense el guard, la
+    // recursió empenyia les dates endavant indefinidament fins a rebentar la
+    // pila (RangeError) i tombar la vista.
+    const recalculateSuccessors = (updatedNoteId, newStart, newEnd, allProcessedNotes, visited = new Set([updatedNoteId])) => {
         const affected = [];
         const note = allProcessedNotes.find(n => n.id === updatedNoteId);
         if (!note) return affected;
@@ -244,6 +350,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         );
 
         successors.forEach(succ => {
+            if (visited.has(succ.id)) return;
             const minStart = new Date(newEnd);
             if (succ.start < minStart) {
                 const duration = succ.end - succ.start;
@@ -252,9 +359,10 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
                 const succCopy = { ...succ, start: newSuccStart, end: newSuccEnd };
                 affected.push(succCopy);
+                visited.add(succ.id);
 
                 // Recurrence
-                const subAffected = recalculateSuccessors(succ.id, newSuccStart, newSuccEnd, allProcessedNotes.map(n => n.id === succ.id ? succCopy : n));
+                const subAffected = recalculateSuccessors(succ.id, newSuccStart, newSuccEnd, allProcessedNotes.map(n => n.id === succ.id ? succCopy : n), visited);
                 affected.push(...subAffected);
             }
         });
@@ -262,6 +370,23 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         // Unique by ID (keep latest update)
         const unique = Array.from(new Map(affected.map(item => [item.id, item])).values());
         return unique;
+    };
+
+    // Successores transitives d'una nota: s'exclouen del selector d'antecessores
+    // perquè triar-ne una crearia un cicle de dependències.
+    const collectTransitiveSuccessors = (rootId) => {
+        const out = new Set();
+        const stack = [rootId];
+        while (stack.length) {
+            const cur = stack.pop();
+            chartData.forEach(n => {
+                if (!out.has(n.id) && n.metadata?.predecessor_ids?.includes(cur)) {
+                    out.add(n.id);
+                    stack.push(n.id);
+                }
+            });
+        }
+        return out;
     };
 
     const handleAddPredecessor = async (noteId, predId) => {
@@ -297,6 +422,19 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         }
     };
 
+    // Candidates a antecessora: tothom excepte la nota mateixa i les seves
+    // successores (directes o transitives) — triar-ne una crearia un cicle.
+    const predecessorCandidates = selectingPredecessorFor
+        ? (() => {
+            const excluded = collectTransitiveSuccessors(selectingPredecessorFor);
+            return chartData.filter(n => n.id !== selectingPredecessorFor && !excluded.has(n.id));
+        })()
+        : [];
+
+    // Amplada de l'escala segons el zoom: mateix rang temporal repartit en més
+    // píxels = barres més amples. Abans `zoomLevel` només estilava el botó.
+    const scaleMinWidth = zoomLevel === 'day' ? '12000px' : zoomLevel === 'week' ? '6000px' : '3000px';
+
     return (
         <div className="w-full h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden relative">
             {/* Selector de Predecessores Overlay */}
@@ -311,7 +449,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                             Tria quin registre ha de finalitzar abans que <strong>{idToTitle[selectingPredecessorFor]}</strong> pugui començar.
                         </p>
                         <div className="max-h-64 overflow-y-auto border border-[var(--border-primary)] rounded-lg">
-                            {chartData.filter(n => n.id !== selectingPredecessorFor).map(n => (
+                            {predecessorCandidates.map(n => (
                                 <button
                                     key={n.id}
                                     onClick={() => handleAddPredecessor(selectingPredecessorFor, n.id)}
@@ -346,7 +484,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     onToggleFilters={() => onEditSchema?.('filters')}
                     onToggleSorts={() => onEditSchema?.('sorts')}
                     onAddNew={onCreateRecord}
-                    activeFiltersCount={Array.isArray(activeView?.filters) ? activeView.filters.length : (activeView?.filters?.conditions?.length || 0)}
+                    activeFiltersCount={resolveViewFilters(activeView).length}
                     activeSortsCount={resolveViewSorts(activeView).length}
                     isEmbedded={false}
                     extraActions={
@@ -404,7 +542,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                         <div className="w-64 shrink-0 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center px-4 font-bold text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">
                             Títol del Registre
                         </div>
-                        <div className="flex-1 relative min-w-[3000px]">
+                        <div className="flex-1 relative" style={{ minWidth: scaleMinWidth }}>
                             {timeScale?.months.map((month, idx) => {
                                 const left = calculatePosition(month);
                                 const nextMonth = new Date(month);
@@ -429,7 +567,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                         {/* Vertical Grid Lines */}
                         <div className="absolute inset-0 flex pointer-events-none">
                             <div className="w-64 shrink-0 border-r border-[var(--border-primary)]" />
-                            <div className="flex-1 relative min-w-[3000px]">
+                            <div className="flex-1 relative" style={{ minWidth: scaleMinWidth }}>
                                 {timeScale?.months.map((month, idx) => (
                                     <div
                                         key={idx}
@@ -443,10 +581,14 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                         {/* Rows */}
                         <div className="relative z-0">
                             {chartData.map((note) => {
-                                const startPos = calculatePosition(note.start);
-                                const endPos = calculatePosition(note.end);
+                                // Els pares es pinten com a barra RESUM del seu abast
+                                // (min inici → max fi de les filles), com a MS Project.
+                                const barStart = note.isParent ? (note.summaryStart ?? note.start) : note.start;
+                                const barEnd = note.isParent ? (note.summaryEnd ?? note.end) : note.end;
+                                const startPos = calculatePosition(barStart);
+                                const endPos = calculatePosition(barEnd);
                                 const width = Math.max(endPos - startPos, 0.5);
-                                const icon = note.metadata?.icon || <FileText size={16} className="text-slate-400" />;
+                                const depth = note.depth || 0;
                                 const predecessors = note.metadata?.predecessor_ids || [];
 
                                 return (
@@ -456,9 +598,13 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                     >
                                         {/* Label Area */}
                                         <div
-                                            className={`w-64 shrink-0 border-r border-[var(--border-primary)] px-4 flex items-center gap-2 cursor-pointer overflow-hidden z-10 sticky left-0 ${isSelected(note.id) ? 'bg-[var(--gnosi-primary)]/10' : 'bg-[var(--bg-primary)]'}`}
+                                            className={`w-64 shrink-0 border-r border-[var(--border-primary)] pr-4 flex items-center gap-2 cursor-pointer overflow-hidden z-10 sticky left-0 ${isSelected(note.id) ? 'bg-[var(--gnosi-primary)]/10' : 'bg-[var(--bg-primary)]'}`}
+                                            style={{ paddingLeft: `${16 + depth * 16}px` }}
                                             onClick={() => onNoteSelect(note.id)}
                                         >
+                                            {depth > 0 && (
+                                                <span className="shrink-0 text-[var(--text-tertiary)] text-[10px] font-mono select-none" aria-hidden="true">└</span>
+                                            )}
                                             <label
                                                 className="cursor-pointer inline-flex items-center"
                                                 onClick={(e) => e.stopPropagation()}
@@ -474,7 +620,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                 <FileText size={14} className="text-[var(--text-tertiary)]" />
                                             </div>
                                             <div className="flex flex-col min-w-0 flex-1">
-                                                <span className="font-semibold text-[var(--text-primary)] text-xs truncate group-hover:text-[var(--gnosi-primary)] transition-colors" {...titlePreview.getTitleProps(note.id)}>
+                                                <span className={`${note.isParent ? 'font-bold' : 'font-semibold'} text-[var(--text-primary)] text-xs truncate group-hover:text-[var(--gnosi-primary)] transition-colors`} {...titlePreview.getTitleProps(note.id)}>
                                                     {note.title || "Sense Títol"}
                                                 </span>
                                                 <div className="flex items-center gap-2">
@@ -496,7 +642,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         </div>
 
                                         {/* Timeline Bar Area */}
-                                        <div className="flex-1 relative min-w-[3000px] h-full flex items-center px-0">
+                                        <div className="flex-1 relative h-full flex items-center px-0" style={{ minWidth: scaleMinWidth }}>
                                             {/* Draw Dependency Lines (Simple) */}
                                             {predecessors.map(predId => {
                                                 const pred = chartData.find(n => n.id === predId);
@@ -518,28 +664,53 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                 );
                                             })}
 
-                                            <div
-                                                onClick={() => onNoteSelect(note.id)}
-                                                className="absolute h-6 rounded-md border border-black/10 dark:border-white/10 shadow-sm hover:brightness-110 hover:scale-y-105 transition-all cursor-pointer flex items-center px-2 group/bar overflow-hidden"
-                                                style={{
-                                                    left: `${startPos}%`,
-                                                    width: `${width}%`,
-                                                    minWidth: '60px',
-                                                    backgroundColor: getBarColor(note),
-                                                }}
-                                            >
-                                                <div className="flex items-center gap-1 text-white min-w-0">
-                                                    <span className="text-[10px] font-bold whitespace-nowrap truncate">
-                                                        {note.title || "Note"}
-                                                    </span>
-                                                </div>
+                                            {note.isParent ? (
+                                                // Barra RESUM (estil MS Project): prima i fosca,
+                                                // amb topalls en rombe als extrems; abasta totes
+                                                // les subtasques.
+                                                <div
+                                                    onClick={() => onNoteSelect(note.id)}
+                                                    className="absolute h-2 rounded-[2px] cursor-pointer group/bar"
+                                                    style={{
+                                                        left: `${startPos}%`,
+                                                        width: `${width}%`,
+                                                        minWidth: '24px',
+                                                        backgroundColor: 'var(--text-secondary)',
+                                                    }}
+                                                >
+                                                    <span className="absolute -left-[1px] top-[3px] w-2 h-2 rotate-45 bg-[var(--text-secondary)]" aria-hidden="true" />
+                                                    <span className="absolute -right-[1px] top-[3px] w-2 h-2 rotate-45 bg-[var(--text-secondary)]" aria-hidden="true" />
 
-                                                {/* Tooltip on hover */}
-                                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded shadow-xl text-[10px] opacity-0 group-hover/bar:opacity-100 z-30 pointer-events-none transition-opacity whitespace-nowrap font-medium border border-[var(--border-primary)]">
-                                                    <strong>{note.title}</strong><br />
-                                                    {fmtTLDate(note.start)} - {fmtTLDate(note.end)}
+                                                    {/* Tooltip on hover */}
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 px-3 py-2 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded shadow-xl text-[10px] opacity-0 group-hover/bar:opacity-100 z-30 pointer-events-none transition-opacity whitespace-nowrap font-medium border border-[var(--border-primary)]">
+                                                        <strong>{note.title}</strong><br />
+                                                        {fmtTLDate(barStart)} - {fmtTLDate(barEnd)}
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <div
+                                                    onClick={() => onNoteSelect(note.id)}
+                                                    className="absolute h-6 rounded-md border border-black/10 dark:border-white/10 shadow-sm hover:brightness-110 hover:scale-y-105 transition-all cursor-pointer flex items-center px-2 group/bar overflow-hidden"
+                                                    style={{
+                                                        left: `${startPos}%`,
+                                                        width: `${width}%`,
+                                                        minWidth: '60px',
+                                                        backgroundColor: getBarColor(note),
+                                                    }}
+                                                >
+                                                    <div className="flex items-center gap-1 text-white min-w-0">
+                                                        <span className="text-[10px] font-bold whitespace-nowrap truncate">
+                                                            {note.title || "Note"}
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Tooltip on hover */}
+                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-2 bg-[var(--bg-tertiary)] text-[var(--text-primary)] rounded shadow-xl text-[10px] opacity-0 group-hover/bar:opacity-100 z-30 pointer-events-none transition-opacity whitespace-nowrap font-medium border border-[var(--border-primary)]">
+                                                        <strong>{note.title}</strong><br />
+                                                        {fmtTLDate(note.start)} - {fmtTLDate(note.end)}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                 );

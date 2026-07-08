@@ -2,9 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, Loader2, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
-import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts } from './schemaUtils';
+import { getFieldConfig, getFieldType, getSchemaFieldNames, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionChipStyle, autoColorFor } from './optionCatalogUtils';
 import { FileFieldValue } from './FileFieldValue';
+import { getImageSrc, toAssetPreviewUrl } from '../../lib/fileResource';
+import { parsePeriod } from './VaultDateProperty';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { asBool } from '../../utils/vaultFilters';
 import { normalizeAssetUrl } from './vaultMarkdownUtils';
@@ -289,12 +291,26 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         switch (type) {
             case 'checkbox':
                 return <CheckSquare size={14} className={asBool(value) ? "text-indigo-500" : "text-[var(--text-tertiary)]"} />;
-            case 'date': {
+            case 'date':
+            case 'datetime': {
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 return (
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-sm">
                         <Calendar size={14} className="text-[var(--text-tertiary)]" />
-                        <span className="text-[var(--text-secondary)]">{formatDate(value, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale })}</span>
+                        <span className="text-[var(--text-secondary)]">{formatDate(value, { dateFormat: fmt.dateFormat, type, locale: fmt.dateLocale })}</span>
+                    </div>
+                );
+            }
+            case 'period': {
+                // Rang "inici/fi" en un sol valor: cada meitat amb el format
+                // localitzat (abans queia al default i mostrava l'ISO cru).
+                const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                const { start, end } = parsePeriod(value);
+                const fmtOne = (v) => formatDate(v, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale });
+                return (
+                    <div className="flex items-center gap-1.5 whitespace-nowrap text-sm">
+                        <Calendar size={14} className="text-[var(--text-tertiary)]" />
+                        <span className="text-[var(--text-secondary)]">{end ? `${fmtOne(start)} → ${fmtOne(end)}` : fmtOne(start)}</span>
                     </div>
                 );
             }
@@ -375,14 +391,32 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         <LinkIcon size={14} /> {t('table.open_zotero', 'Obrir Zotero')}
                     </button>
                 );
+            case 'image': {
+                // Miniatura per a valors string (ruta) o compostos {src, alt, …}.
+                const src = getImageSrc(value);
+                const previewUrl = toAssetPreviewUrl(src);
+                if (previewUrl) return <img src={previewUrl} alt={(value && value.alt) || field} className="h-10 w-10 rounded object-cover" />;
+                return src ? <span className="text-sm text-[var(--text-secondary)] truncate max-w-xs inline-block" title={src}>{src}</span> : null;
+            }
             default:
-                return <span className="text-sm text-[var(--text-primary)]">{value}</span>;
+                // Xarxa de seguretat: un OBJECTE (p. ex. camp imatge compost
+                // {src, alt} en un camp no tipat com a image) com a fill de React
+                // llança "Objects are not valid as a React child" i tombava TOT
+                // el feed al boundary. Provem la via d'imatge i, si no, text.
+                if (value && typeof value === 'object' && !Array.isArray(value)) {
+                    const src = getImageSrc(value);
+                    const previewUrl = toAssetPreviewUrl(src);
+                    if (previewUrl) return <img src={previewUrl} alt={value.alt || field} className="h-10 w-10 rounded object-cover" />;
+                    return src ? <span className="text-sm text-[var(--text-secondary)] truncate max-w-xs inline-block" title={src}>{src}</span> : null;
+                }
+                return <span className="text-sm text-[var(--text-primary)]">{Array.isArray(value) ? value.map(v => String(v)).join(', ') : String(value)}</span>;
         }
     }, [schema, localeSettings, getRelationDisplayMap, t]);
 
     // Píndoles de propietat d'una nota (valors sense etiqueta, ordre d'esquema).
     const buildPills = useCallback((note) => {
-        const aliasMap = { "date added": "created_time", "date modified": "last_edited_time" };
+        // Claus normalitzades (sense espais) perquè casin amb `schemaKeyNorm`.
+        const aliasMap = { dateadded: "created_time", datemodified: "last_edited_time" };
         const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
         return dynamicColumns.map(([key, type]) => {
             const schemaKeyNorm = normalizeKey(key);
@@ -396,11 +430,13 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     // Filtres, ordre i cerca de la vista (mateix motor que taula/galeria).
     // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
     // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    const viewConfig = {
-        filters: activeView?.filters || [],
+    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS i
+    // sense useMemo el sort/filtrat es recalculava a cada render.
+    const viewConfig = useMemo(() => ({
+        filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
         search: searchTerm,
-    };
+    }), [activeView, searchTerm]);
     const { sortedPages: sortedNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);

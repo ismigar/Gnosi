@@ -345,6 +345,26 @@ export function resolveViewSorts(view, fallback = null) {
     return fallback ? normalizeSorts(fallback) : [];
 }
 
+/**
+ * Filtres EFECTIUS d'una vista, sempre com a array.
+ *
+ * `view.filters` té dues formes històriques: l'array pla [{field, operator,
+ * value}] (la que desa el modal) i l'objecte embolcallat {conditions: [...]}
+ * (forma que la toolbar ja contempla per al recompte). El motor
+ * (`matchesFilters`) fa `filters.every(...)`: passar-li l'objecte llança
+ * TypeError i tomba la vista al boundary. Únic punt de normalització per a
+ * tots els renderers.
+ *
+ * @param {Object|null|undefined} view  la vista del registry
+ * @returns {Array} llista de filtres (mai null)
+ */
+export function resolveViewFilters(view) {
+    const f = view?.filters;
+    if (Array.isArray(f)) return f.filter(Boolean);
+    if (f && typeof f === 'object' && Array.isArray(f.conditions)) return f.conditions.filter(Boolean);
+    return [];
+}
+
 
 /**
  * Determina si una pàgina s'ha de considerar una cita del calendari.

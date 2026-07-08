@@ -84,10 +84,15 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
             label,
             value: aggregate(yField ? vals : vals, aggregation),
         }));
-        // Ordena descendent per valor (com Notion) excepte si l'eix X és temporal.
+        // Ordena descendent per valor (com Notion) excepte si l'eix X és
+        // temporal (date/datetime/period: l'ordre lexicogràfic ISO és
+        // cronològic; un period "inici/fi" ordena pel seu inici).
         const xType = getFieldType(schema, xField);
-        if (xType === 'date') rows.sort((a, b) => String(a.label).localeCompare(String(b.label)));
-        else rows.sort((a, b) => b.value - a.value);
+        if (xType === 'date' || xType === 'datetime' || xType === 'period') {
+            rows.sort((a, b) => String(a.label).localeCompare(String(b.label)));
+        } else {
+            rows.sort((a, b) => b.value - a.value);
+        }
         return rows;
     }, [notes, schema, xField, yField, aggregation]);
 
@@ -108,7 +113,12 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
     }
 
     const maxVal = Math.max(...data.map((d) => d.value), 0) || 1;
-    const total = data.reduce((a, d) => a + d.value, 0) || 1;
+    // El pastís només pot representar valors POSITIUS: una fracció negativa fa
+    // retrocedir l'angle (arcs solapats) i un total ≤ 0 genera fraccions
+    // desorbitades (arcs de més d'una volta). S'exclouen els ≤ 0 i el total es
+    // recalcula sobre el subconjunt representat.
+    const pieData = data.filter((d) => d.value > 0);
+    const pieTotal = pieData.reduce((a, d) => a + d.value, 0) || 1;
     const yLabel = yField ? `${aggregation}(${yField})` : 'recompte';
 
     return (
@@ -120,7 +130,9 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
             {(chartType === 'hbar') && <HorizontalBars data={data} maxVal={maxVal} />}
             {(chartType === 'line') && <LineChart data={data} maxVal={maxVal} />}
             {(chartType === 'pie' || chartType === 'donut') && (
-                <PieChart data={data} total={total} donut={chartType === 'donut'} />
+                pieData.length > 0
+                    ? <PieChart data={pieData} total={pieTotal} donut={chartType === 'donut'} />
+                    : <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">Cap dada per mostrar.</div>
             )}
         </div>
     );

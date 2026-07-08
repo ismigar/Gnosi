@@ -12471,10 +12471,15 @@ async def get_registry():
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
     try:
         registry = load_registry()
-        registry["databases"] = sorted(
+        # CÒPIA superficial per a la RESPOSTA: `load_registry` retorna l'objecte
+        # de la caché compartida; reassignar-hi claus (ordre alfabètic, filtre
+        # wiki) mutava la caché i un cicle de mutació posterior persistia
+        # aquestes transformacions de presentació al fitxer.
+        response = dict(registry)
+        response["databases"] = sorted(
             registry.get("databases", []), key=_sort_key_name
         )
-        registry["tables"] = sorted(
+        response["tables"] = sorted(
             [
                 t
                 for t in registry.get("tables", [])
@@ -12485,8 +12490,8 @@ async def get_registry():
         # Vistes: respectem l'ordre d'inserció (append) del fitxer per evitar
         # que una vista nova amb nom "AAA…" salti al principi de les pestanyes.
         # PUT /api/vault/views/order persisteix l'ordre triat per l'usuari.
-        registry["views"] = list(registry.get("views", []))
-        return registry
+        response["views"] = list(registry.get("views", []))
+        return response
     except Exception as e:
         logging.exception(f"ERROR in get_registry: {e}")
         raise HTTPException(
@@ -13546,8 +13551,14 @@ async def list_views(table_id: Optional[str] = None):
         views = [v for v in views if v.get("table_id") == table_id]
 
     # ensure new configuration fields have sensible defaults so frontend
-    # can render older views without modifications
+    # can render older views without modifications.
+    # CÒPIA per vista (com get_view): els dicts són referències a la caché
+    # compartida de load_registry — escriure-hi els defaults la mutava i el
+    # següent cicle de mutació els PERSISTIA al fitxer (cardSize="medium" a
+    # totes les vistes, també les no-galeria).
+    out = []
     for v in views:
+        v = dict(v)
         # cardSize is only meaningful for gallery views; default to 'medium'
         if v.get("cardSize") is None:
             v["cardSize"] = "medium"
@@ -13555,7 +13566,8 @@ async def list_views(table_id: Optional[str] = None):
         if v.get("galleryPreview") is None:
             v["galleryPreview"] = "cover"
         # visibleProperties may be missing; frontend treats undefined as show-all
-    return sorted(views, key=_sort_key_name)
+        out.append(v)
+    return sorted(out, key=_sort_key_name)
 
 
 @router.post("/views", dependencies=[Depends(require_role("editor"))])

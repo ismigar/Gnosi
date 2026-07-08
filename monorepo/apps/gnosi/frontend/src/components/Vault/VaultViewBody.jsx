@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { VaultTable } from './VaultTable';
 import { VaultKanban } from './VaultKanban';
 import { VaultGallery } from './VaultGallery';
@@ -8,7 +8,7 @@ import { VaultChart } from './VaultChart';
 import { DigitalBrainCalendar } from './DigitalBrainCalendar';
 import { VaultViewErrorBoundary } from './VaultViewErrorBoundary';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
-import { resolveViewSorts } from './schemaUtils';
+import { resolveViewSorts, resolveViewFilters } from './schemaUtils';
 
 /**
  * VaultViewBody — render compartit del COS d'una vista de BD segons el seu
@@ -76,17 +76,25 @@ export function VaultViewBody({
     // aplica ell mateix els filtres de la vista, així que els hi apliquem aquí amb
     // el mateix motor que la resta de vistes (abans els ignorava per complet).
     // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — import de Notion i
-    // modal — amb fallback a la llegada `sort`).
+    // modal — amb fallback a la llegada `sort`). Memoitzat perquè els resolutors
+    // retornen arrays nous a cada crida.
+    const filteredViewConfig = useMemo(() => ({
+        filters: resolveViewFilters(activeView),
+        sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
+        search: searchTerm,
+    }), [activeView, searchTerm]);
     const { sortedPages: viewFilteredNotes } = useVaultViewData({
         pages: notes,
         schema,
-        view: { filters: activeView?.filters || [], sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }), search: searchTerm },
+        view: filteredViewConfig,
         searchTerm,
     });
 
     let body;
     if (t === 'board') {
-        body = <VaultKanban {...common} isEmbedded={isEmbedded} />;
+        // `onUpdateNote` habilita el drag & drop de targetes entre columnes
+        // (escriu el camp d'agrupació del registre en deixar anar).
+        body = <VaultKanban {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
     } else if (t === 'gallery') {
         body = (
             <VaultGallery
@@ -119,6 +127,10 @@ export function VaultViewBody({
     } else if (t === 'calendar') {
         body = (
             <DigitalBrainCalendar
+                // `key`: FullCalendar només llegeix initialView en muntar; canviar
+                // la "vista inicial" al modal amb el calendari obert no feia res
+                // fins a sortir i tornar. El remuntatge és barat aquí.
+                key={activeView?.calendarView || 'dayGridMonth'}
                 allNotes={viewFilteredNotes}
                 onNoteSelect={onNoteSelect}
                 onDeletePage={onDeletePage}
@@ -127,6 +139,7 @@ export function VaultViewBody({
                 endDateField={activeView?.endDateField || ''}
                 initialView={activeView?.calendarView || 'dayGridMonth'}
                 ignoreCalendarFilter
+                showHeaderToolbar
             />
         );
     } else {

@@ -1,11 +1,11 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
 import { FileFieldValue } from './FileFieldValue';
 import { getImageSrc, toAssetPreviewUrl, withActiveVault } from '../../lib/fileResource';
-import { getFieldType, getSchemaFieldNames, getFieldConfig, resolveViewSorts } from './schemaUtils';
+import { getFieldType, getSchemaFieldNames, getFieldConfig, resolveViewSorts, resolveViewFilters } from './schemaUtils';
 import { normalizeOptions, optionColorHex } from './optionCatalogUtils';
 import { formatDate, formatNumber, resolveFieldFormat } from './formatUtils';
 import { isMainView } from './viewConstants';
@@ -25,11 +25,13 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
     // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
     // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    const viewConfig = {
-        filters: activeView?.filters || [],
+    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS i
+    // sense useMemo el sort/filtrat es recalculava a cada render.
+    const viewConfig = useMemo(() => ({
+        filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
         search: searchTerm
-    };
+    }), [activeView, searchTerm]);
 
     const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
@@ -163,7 +165,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         : (isMainView(activeView)
             ? getSchemaFieldNames(schema)
             : getSchemaFieldNames(schema).slice(0, 3));
-    const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type);
+    // Exclou `title` (com el kanban): la capçalera de la targeta ja el mostra i
+    // el filtre anterior (`type` truthy) era un no-op — getFieldType mai retorna
+    // falsy — així que el títol sortia duplicat com a fila de propietat.
+    const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type && type !== 'title');
 
     // ---- AGRUPACIÓ (activeView.groupBy) ----
     // Seccions estil Notion: capçalera de grup + graella per a cada valor del
@@ -206,14 +211,18 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 buckets.get(v).push(note);
             });
         });
+        // `id` distint del nom mostrat: la secció d'agrupats-buits porta una
+        // clau sentinella perquè un valor real "Sense grup" no col·lisioni amb
+        // ella (keys de React duplicades i reconciliació creuada).
         const sections = [...buckets.entries()]
             .filter(([, groupNotes]) => groupNotes.length > 0)
             .map(([name, groupNotes]) => ({
+                id: `g:${name}`,
                 name,
                 color: colorMap[name] ? optionColorHex(colorMap[name]) : null,
                 notes: groupNotes,
             }));
-        if (ungrouped.length) sections.push({ name: 'Sense grup', color: null, notes: ungrouped });
+        if (ungrouped.length) sections.push({ id: '__gnosi_ungrouped__', name: 'Sense grup', color: null, notes: ungrouped });
         return sections;
     })();
 
@@ -274,7 +283,17 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     const coverField = activeView.coverField || '';
     const getCoverUrl = (note) => {
         if (coverField) {
-            return toAssetPreviewUrl(getImageSrc(note.metadata?.[coverField])) || '';
+            // Resolució TOLERANT de la clau (exacta o normalitzada), com la resta
+            // del component (getGroupVal, fila de propietats): un metadata amb la
+            // clau en una altra caixa/accent deixava la portada en gradient buit
+            // mentre la fila de propietats sí mostrava la miniatura.
+            let raw = note.metadata?.[coverField];
+            if (raw === undefined || raw === null || raw === '') {
+                const keyNorm = normalizeMetaKey(coverField);
+                const metaKey = Object.keys(note.metadata || {}).find(k => normalizeMetaKey(k) === keyNorm);
+                if (metaKey) raw = note.metadata[metaKey];
+            }
+            return toAssetPreviewUrl(getImageSrc(raw)) || '';
         }
         const c = note.metadata?.cover;
         if (typeof c === 'string' && c) {
@@ -346,7 +365,9 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 );
             case 'multi_select':
             case 'relation': {
-                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim());
+                // String() + filter(Boolean) com al kanban: sense això, "a, " o un
+                // array amb buits pintava pills buides i inflava el "+N".
+                const items = (Array.isArray(value) ? value : String(value).split(',')).map(s => String(s).trim()).filter(Boolean);
                 const displayMap = type === 'relation' ? getRelationDisplayMap(field) : idToTitle;
                 return (
                     <div className="flex flex-wrap gap-1 max-w-full overflow-hidden h-4">
@@ -525,7 +546,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     onToggleFilters={() => onEditSchema?.('filters')}
                     onToggleSorts={() => onEditSchema?.('sorts')}
                     onAddNew={onCreateRecord}
-                    activeFiltersCount={Array.isArray(activeView?.filters) ? activeView.filters.length : (activeView?.filters?.conditions?.length || 0)}
+                    activeFiltersCount={resolveViewFilters(activeView).length}
                     activeSortsCount={resolveViewSorts(activeView).length}
                     isEmbedded={false}
                 />
@@ -551,8 +572,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         // perquè cada targeta tingui un índex pla únic (nav de teclat).
                         (() => {
                             let flat = 0;
-                            return groupedSections.map(({ name, color, notes: groupNotes }) => (
-                                <div key={name} className="mb-8">
+                            return groupedSections.map(({ id, name, color, notes: groupNotes }) => (
+                                <div key={id} className="mb-8">
                                     <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
                                         {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
                                         <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={name}>{name}</h3>
