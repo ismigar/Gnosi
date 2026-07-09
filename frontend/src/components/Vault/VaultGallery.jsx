@@ -75,6 +75,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     // límits (↑/↓ als extrems → editor) o amb Esc (→ closca). `cardRefs` s'indexa
     // per l'índex pla de la targeta (comptador continu a través dels grups).
     const cardRefs = useRef([]);
+    // Capçaleres de grup (navegació per teclat): un ref per capçalera, indexat
+    // per ordre de grup. Quan el focus hi és, ↑/↓ mou entre capçaleres i Enter
+    // desplega el grup i baixa al seu primer ítem.
+    const groupHeaderRefs = useRef([]);
 
     const focusCardAt = useCallback((idx) => {
         const el = cardRefs.current[idx];
@@ -84,11 +88,73 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         return true;
     }, []);
 
+    const focusGroupHeaderAt = useCallback((idx) => {
+        const el = groupHeaderRefs.current[idx];
+        if (!el) return false;
+        el.focus({ preventScroll: true });
+        el.scrollIntoView({ block: 'nearest' });
+        return true;
+    }, []);
+
+    // Navegació des de la capçalera d'un grup:
+    //  ↑/↓   → capçalera anterior/següent
+    //  Enter → commuta plegat; si queda desplegat, baixa al primer ítem del grup
+    //  →     → si desplegat, baixa al primer ítem (sense commutar)
+    //  Esc   → surt a la closca/editor
+    // L'entrada als ítems es retarda al pròxim render (effect) perquè les
+    // targetes d'un grup plegat no existeixen a cardRefs fins que es desplega.
+    const pendingEnterGroupRef = useRef(null);
+    const handleGroupHeaderKeyDown = (e, idx, groupId) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        switch (e.key) {
+            case 'ArrowDown': e.preventDefault(); focusGroupHeaderAt(idx + 1); break;
+            case 'ArrowUp': e.preventDefault();
+                if (idx > 0) focusGroupHeaderAt(idx - 1);
+                else onExitTop?.();
+                break;
+            case 'ArrowRight':
+            case 'Enter': {
+                e.preventDefault();
+                const expanded = expandedGroups.has(groupId);
+                const next = new Set(expandedGroups);
+                if (expanded) next.delete(groupId); else next.add(groupId);
+                setExpandedGroups(next);
+                if (!expanded) pendingEnterGroupRef.current = groupId;
+                break;
+            }
+            case 'Escape': e.preventDefault(); (onFocusShell || onExitTop)?.(); break;
+            default: break;
+        }
+    };
+
+    // Després de desplegar un grup (Enter), situa el focus al seu primer ítem.
+    useEffect(() => {
+        const gid = pendingEnterGroupRef.current;
+        if (!gid || !groupedSections) return;
+        // Calcula l'índex real a cardRefs del primer ítem del grup desplegat:
+        // suma les notes dels grups desplegats ANTERIOR a aquest.
+        let idx = 0;
+        for (const sec of groupedSections) {
+            if (sec.id === gid) break;
+            if (expandedGroups.has(sec.id)) idx += sec.notes.length;
+        }
+        pendingEnterGroupRef.current = null;
+        const raf = requestAnimationFrame(() => focusCardAt(idx));
+        return () => cancelAnimationFrame(raf);
+    }, [expandedGroups, groupedSections, focusCardAt]);
+
     // Exposa a l'editor l'API per «entrar» als registres (primera/última targeta).
+    // Si la galeria és agrupada, el primer element a rebre el focus és la
+    // primera CAPÇALERA de grup (es desplega amb Enter per entrar als ítems).
     useEffect(() => {
         if (!registerNavApi) return undefined;
         registerNavApi({
             focusFirstCell: () => {
+                // Agrupada: el focus inicial va a la primera capçalera de grup.
+                if (groupHeaderRefs.current.some(Boolean)) {
+                    const i = groupHeaderRefs.current.findIndex(Boolean);
+                    return i >= 0 ? focusGroupHeaderAt(i) : focusCardAt(cardRefs.current.findIndex(Boolean));
+                }
                 const i = cardRefs.current.findIndex(Boolean);
                 return i >= 0 ? focusCardAt(i) : false;
             },
@@ -100,7 +166,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             },
         });
         return () => registerNavApi(null);
-    }, [registerNavApi, focusCardAt]);
+    }, [registerNavApi, focusCardAt, focusGroupHeaderAt]);
 
     const moveByArrow = (dir, fromIdx) => {
         const els = cardRefs.current;
@@ -228,7 +294,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         // `id` distint del nom mostrat: la secció d'agrupats-buits porta una
         // clau sentinella perquè un valor real "Sense grup" no col·lisioni amb
         // ella (keys de React duplicades i reconciliació creuada).
-        const sections = [...buckets.entries()]
+        let sections = [...buckets.entries()]
             .filter(([, groupNotes]) => groupNotes.length > 0)
             .map(([name, groupNotes]) => ({
                 id: `g:${name}`,
@@ -236,6 +302,18 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 color: colorMap[name] ? optionColorHex(colorMap[name]) : null,
                 notes: groupNotes,
             }));
+        // Ordre dels grups: 'catalog' (defecte, ordre del catàleg d'opcions);
+        // 'alpha' alfabètic pel nom; 'count' per nombre de registres. Direcció
+        // asc/desc. El grup "Sense grup" sempre al final.
+        const gs = activeView?.groupSort || activeView?.group_sort || 'catalog';
+        const gsd = (activeView?.groupSortDir || activeView?.group_sort_dir || 'asc') === 'desc' ? -1 : 1;
+        if (gs === 'alpha') {
+            sections.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { numeric: true }) * gsd);
+        } else if (gs === 'count') {
+            sections.sort((a, b) => (a.notes.length - b.notes.length || String(a.name).localeCompare(String(b.name))) * gsd);
+        } else if (gsd === -1) {
+            sections.reverse();
+        }
         if (ungrouped.length) sections.push({ id: '__gnosi_ungrouped__', name: 'Sense grup', color: null, notes: ungrouped });
         return sections;
     })();
@@ -586,16 +664,23 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         // perquè cada targeta tingui un índex pla únic (nav de teclat).
                         // Grups PLEGBLES: defecte plegat; el chevron desplega/plega.
                         (() => {
-                            let flat = 0;
+                            // Neteja de refs de capçaleres de runs anteriors
+                            // (els grups poden canviar per ordre/filtre).
+                            groupHeaderRefs.current.length = 0;
+                            let flat = 0;            // índex pla de targeta (només desplegades)
                             return groupedSections.map(({ id, name, color, notes: groupNotes }) => {
                                 const expanded = expandedGroups.has(id);
+                                const headerIdx = groupHeaderRefs.current.push(null) - 1;
                                 return (
                                     <div key={id} className="mb-8">
                                         <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
                                             <button
                                                 type="button"
+                                                ref={(el) => { groupHeaderRefs.current[headerIdx] = el; }}
+                                                tabIndex={-1}
                                                 onClick={() => toggleGroup(id)}
-                                                className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
+                                                onKeyDown={(e) => handleGroupHeaderKeyDown(e, headerIdx, id)}
+                                                className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] rounded px-1"
                                                 title={expanded ? t('common.collapse', 'Replega') : t('common.expand', 'Desplega')}
                                             >
                                                 {expanded

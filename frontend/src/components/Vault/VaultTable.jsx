@@ -852,19 +852,40 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             if (!g) { g = { key: gid, label: gid === EMPTY ? 'Sense valor' : (groupMeta.labelMap?.[name] || name), notes: [] }; groups.set(gid, g); }
             g.notes.push(note);
         }
-        // Ordre: opcions de l'esquema (en el seu ordre) → valors no catalogats
-        // (ordre d'aparició, sort estable) → grup buit sempre al final.
+        // Ordre: per defecte el del catàleg d'opcions (→ valors no catalogats
+        // per ordre d'aparició); 'alpha' per nom de grup; 'count' per nombre de
+        // registres. Direcció asc/desc. El grup "Sense valor" (EMPTY) sempre al
+        // final independentment de l'ordre triat.
+        const groupSort = activeView?.groupSort || activeView?.group_sort || 'catalog';
+        const groupSortDir = (activeView?.groupSortDir || activeView?.group_sort_dir || 'asc') === 'desc' ? -1 : 1;
         const order = groupMeta.optionOrder;
-        const ordered = Array.from(groups.values()).sort((a, b) => {
-            if (a.key === EMPTY) return 1;
-            if (b.key === EMPTY) return -1;
+        const byCatalog = (a, b) => {
             const ia = order.indexOf(a.key);
             const ib = order.indexOf(b.key);
             if (ia !== -1 && ib !== -1) return ia - ib;
             if (ia !== -1) return -1;
             if (ib !== -1) return 1;
             return 0;
+        };
+        const ordered = Array.from(groups.values()).sort((a, b) => {
+            if (a.key === EMPTY) return 1;
+            if (b.key === EMPTY) return -1;
+            if (groupSort === 'alpha') {
+                const c = String(a.label || '').localeCompare(String(b.label || ''), undefined, { numeric: true });
+                return c * groupSortDir;
+            }
+            if (groupSort === 'count') {
+                const c = a.notes.length - b.notes.length;
+                return (c || byCatalog(a, b)) * groupSortDir;
+            }
+            return byCatalog(a, b); // 'catalog': asc = ordre catàleg; desc = ordre invers
         });
+        if (groupSort === 'catalog' && groupSortDir === -1) {
+            // Inverteix mantenint el grup buit al final.
+            const empty = ordered.filter(g => g.key === EMPTY);
+            const rest = ordered.filter(g => g.key !== EMPTY).reverse();
+            ordered.splice(0, ordered.length, ...rest, ...empty);
+        }
         for (const g of ordered) {
             const colorName = g.key === EMPTY ? null : groupMeta.colorMap[g.label];
             list.push({
@@ -884,7 +905,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
         }
         return list;
-    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations]);
+    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations, activeView?.groupSort, activeView?.groupSortDir, activeView?.group_sort, activeView?.group_sort_dir]);
 
     const rowVirtualizer = useVirtualizer({
         count: rowDescriptors.length,
@@ -1021,6 +1042,48 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, [gridColumns]);
     const navRowsRef = useRef([]);
     navRowsRef.current = navRows;
+    const rowDescriptorsRef = useRef([]);
+    rowDescriptorsRef.current = rowDescriptors;
+    // Navegació entre capçaleres de grup i entrada a la primera fila (mode
+    // separat: el cursor de cel·la no es veu afectat). Es defineixen aquí perquè
+    // l'effect `pendingEnterGroupDesc` hi tingui accés sense TDZ.
+    const focusGroupHeaderByOffset = (fromDescriptorIndex, delta) => {
+        const list = rowDescriptorsRef.current;
+        for (let i = fromDescriptorIndex + delta; i >= 0 && i < list.length; i += delta) {
+            if (list[i].kind === 'group-header') {
+                rowVirtualizer.scrollToIndex(i);
+                const el = tableContainerRef.current?.querySelector(
+                    `[data-index="${i}"] button`);
+                el?.focus({ preventScroll: true });
+                return true;
+            }
+        }
+        return false;
+    };
+    const focusFirstRowOfGroup = (groupDescriptorIndex) => {
+        const list = rowDescriptorsRef.current;
+        for (let i = groupDescriptorIndex + 1; i < list.length; i++) {
+            const d = list[i];
+            if (d.kind === 'group-header') return false; // grup buit
+            if (d.kind === 'row' && d.note) {
+                setActiveCell({ rowId: d.note.id, field: gridColumnsRef.current[0]?.key || 'title' });
+                rowVirtualizer.scrollToIndex(i);
+                return true;
+            }
+        }
+        return false;
+    };
+    // descriptorIndex d'un grup que s'acaba de desplegar amb Enter des de la seva
+    // capçalera; l'effect de sota hi posa el cursor a la primera fila.
+    const pendingEnterGroupDescRef = useRef(null);
+    useEffect(() => {
+        const di = pendingEnterGroupDescRef.current;
+        if (di === null) return;
+        pendingEnterGroupDescRef.current = null;
+        // Espera que el descriptor de la primera fila existeixi (re-render).
+        const raf = requestAnimationFrame(() => focusFirstRowOfGroup(di));
+        return () => cancelAnimationFrame(raf);
+    }, [rowDescriptors, expandedGroups, focusFirstRowOfGroup]);
     const gridColumnsRef = useRef([]);
     gridColumnsRef.current = gridColumns;
     const navRowIndexByIdRef = useRef(new Map());
@@ -1082,8 +1145,20 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         initializedViewRef.current = viewKey;
         _gridKeyboardOwner = gridInstanceIdRef.current;
         setAnchorCell(null);
+        // Vista agrupada: el focus inicial va a la PRIMERA CAPÇALERA de grup
+        // (Enter la desplega i baixa als ítems). Altrament, a la primera cel·la.
+        if (groupByField) {
+            const firstGroupIdx = rowDescriptors.findIndex(d => d.kind === 'group-header');
+            if (firstGroupIdx >= 0) {
+                rowVirtualizer.scrollToIndex(firstGroupIdx);
+                requestAnimationFrame(() => {
+                    tableContainerRef.current?.querySelector(`[data-index="${firstGroupIdx}"] button`)?.focus({ preventScroll: true });
+                });
+                return;
+            }
+        }
         setActiveCell({ rowId: navRows[0].id, field: gridColumns[0].key });
-    }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns]);
+    }, [activeView?.id, searchTerm, sortSignature, navRows, gridColumns, groupByField, rowDescriptors, rowVirtualizer]);
 
     // Resizing Handlers
     const handleMouseDown = useCallback((e, colKey) => {
@@ -3269,6 +3344,48 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         </tr>
     );
 
+    // Navegació per teclat DES de la capçalera d'un grup (mode separat):
+    //   ↑/↓   → capçalera anterior/següent
+    //   Enter → commuta plegat; si queda desplegat, cursor a la primera fila
+    //   →     → si desplegat, cursor a la primera fila (mode cel·la, sense plegar)
+    //   Esc   → treu el focus (torna al mode cel·la amb cursor buit)
+    // No afecta el listener global de la graella: el botó fa preventDefault +
+    // stopPropagation i el guard `defaultPrevented` del window-keydown surt.
+    const handleGroupHeaderKeyDown = (e, d) => {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        switch (e.key) {
+            case 'ArrowUp':
+                e.preventDefault(); e.stopPropagation();
+                if (!focusGroupHeaderByOffset(d.descriptorIndex ?? e.currentTarget.dataset.di, -1)) {
+                    onExitTopRef.current?.();
+                }
+                break;
+            case 'ArrowDown':
+                e.preventDefault(); e.stopPropagation();
+                focusGroupHeaderByOffset(d.descriptorIndex, 1);
+                break;
+            case 'ArrowRight':
+            case 'Enter': {
+                e.preventDefault(); e.stopPropagation();
+                const wasCollapsed = !expandedGroups.has(d.groupKey);
+                toggleGroup(d.groupKey);
+                if (wasCollapsed) {
+                    // El cursor a la primera fila es retarda al re-render (el
+                    // descriptor de files només existeix quan el grup és obert).
+                    pendingEnterGroupDescRef.current = d.descriptorIndex;
+                } else {
+                    focusFirstRowOfGroup(d.descriptorIndex);
+                }
+                break;
+            }
+            case 'Escape':
+                e.preventDefault(); e.stopPropagation();
+                e.currentTarget.blur();
+                break;
+            default: break;
+        }
+    };
+
     // Capçalera de grup (agrupació de files): un `<tr>` virtual amb una sola
     // cel·la `colSpan` que abasta tota la taula. El contingut (chevron +
     // punt de color + nom + comptador) va dins un `<div sticky left-0>` perquè
@@ -3286,8 +3403,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     <div className="sticky left-0 z-10 inline-flex items-center w-max max-w-[calc(100vw-2rem)]">
                         <button
                             type="button"
+                            tabIndex={0}
                             onClick={() => toggleGroup(d.groupKey)}
-                            className="flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-tertiary)] transition-colors w-full"
+                            onKeyDown={(e) => handleGroupHeaderKeyDown(e, { ...d, descriptorIndex: virtualItem.index })}
+                            className="flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-tertiary)] transition-colors w-full outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)]"
                             title={collapsed ? t('common.expand', 'Desplega') : t('common.collapse', 'Replega')}
                         >
                             {collapsed

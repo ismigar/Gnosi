@@ -407,7 +407,12 @@
       "paths": "Chemins Système",
       "vault": "Connaissance",
       "databases": "Bases de données",
-      "newsletters": "Newsletters"
+      "newsletters": "Newsletters",
+      "vault_name": "Nom du coffre",
+      "vault_name_hint": "Le nom affiché pour ce coffre dans l'en-tête et le sélecteur. Ne change pas le dossier sur le disque.",
+      "vault_name_save": "Renommer",
+      "vault_rename_success": "Coffre renommé avec succès",
+      "vault_rename_error": "Erreur lors du renommage du coffre"
     },
     "mail_accounts": {
       "title": "Comptes de Messagerie",
@@ -1130,6 +1135,10 @@
     "fit_cover": "Remplir",
     "grouping": "Regroupement",
     "grouping_intro": "Regroupez les enregistrements par un champ de sélection ou statut.",
+    "group_order": "Ordre des groupes",
+    "group_order_catalog": "Ordre du catalogue",
+    "group_order_alpha": "Alphabétique",
+    "group_order_count": "Par nombre d'enregistrements",
     "group_by": "Regrouper par",
     "pick_table_first": "Sélectionnez d'abord une table.",
     "no_grouping": "Sans regroupement",

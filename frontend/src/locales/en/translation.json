@@ -1099,7 +1099,12 @@
       "error_creating_ws": "Error creating workspace",
       "vault_path": "Vault Path",
       "select_folder": "Select folder",
-      "vault_path_desc": "Where your local Gnosi data is saved."
+      "vault_path_desc": "Where your local Gnosi data is saved.",
+      "vault_name": "Vault name",
+      "vault_name_hint": "The name shown for this vault in the header and switcher. Does not change the folder on disk.",
+      "vault_name_save": "Rename",
+      "vault_rename_success": "Vault renamed successfully",
+      "vault_rename_error": "Error renaming vault"
     },
     "profile": {
       "title": "User Profile",
@@ -2073,6 +2078,10 @@
     "fit_cover": "Fill",
     "grouping": "Grouping",
     "grouping_intro": "Group records by a select or status field.",
+    "group_order": "Group order",
+    "group_order_catalog": "Catalog order",
+    "group_order_alpha": "Alphabetical",
+    "group_order_count": "By record count",
     "group_by": "Group by",
     "pick_table_first": "Select a table first.",
     "no_grouping": "No grouping",
