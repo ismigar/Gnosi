@@ -517,7 +517,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     if (previewUrl) return <img src={previewUrl} alt={value.alt || field} className="h-9 w-9 rounded object-cover" />;
                     return <span className="truncate text-xs block text-[var(--text-secondary)]" title={src}>{src}</span>;
                 }
-                return <span className="truncate text-xs block text-[var(--text-secondary)]" title={value}>{value}</span>;
+                // Un booleà (camp Notion sense tipar a l'esquema) no és títol vàlid.
+                return <span className="truncate text-xs block text-[var(--text-secondary)]" title={typeof value === 'boolean' ? undefined : value}>{value}</span>;
         }
     };
 
