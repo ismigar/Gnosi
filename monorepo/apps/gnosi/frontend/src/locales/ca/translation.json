@@ -1073,7 +1073,12 @@
       "error_creating_ws": "Error creant el workspace",
       "vault_path": "Ruta del Vault",
       "select_folder": "Seleccionar carpeta",
-      "vault_path_desc": "On es guarden les teves dades locals de Gnosi."
+      "vault_path_desc": "On es guarden les teves dades locals de Gnosi.",
+      "vault_name": "Nom del vault",
+      "vault_name_hint": "El nom amb què es mostra aquest vault a la capçalera i al commutador. No canvia la carpeta del disc.",
+      "vault_name_save": "Renombrar",
+      "vault_rename_success": "Vault reanomenat correctament",
+      "vault_rename_error": "Error reanomenant el vault"
     },
     "profile": {
       "title": "Perfil d'Usuari",
@@ -2059,6 +2064,10 @@
     "fit_cover": "Omple",
     "grouping": "Agrupació",
     "grouping_intro": "Agrupa els registres per un camp de selecció o estat.",
+    "group_order": "Ordre dels grups",
+    "group_order_catalog": "Ordre del catàleg",
+    "group_order_alpha": "Alfabètic",
+    "group_order_count": "Per nombre de registres",
     "group_by": "Agrupa per",
     "pick_table_first": "Selecciona primer una taula.",
     "no_grouping": "Sense agrupar",

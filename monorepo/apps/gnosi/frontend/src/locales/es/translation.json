@@ -1010,7 +1010,12 @@
       "workspace_name": "Nombre del Workspace",
       "vault_path": "Ruta del Vault",
       "select_folder": "Seleccionar carpeta",
-      "vault_path_desc": "Donde se guardan tus datos locales de Gnosi."
+      "vault_path_desc": "Donde se guardan tus datos locales de Gnosi.",
+      "vault_name": "Nombre del vault",
+      "vault_name_hint": "El nombre con el que se muestra este vault en la cabecera y el conmutador. No cambia la carpeta del disco.",
+      "vault_name_save": "Renombrar",
+      "vault_rename_success": "Vault renombrado correctamente",
+      "vault_rename_error": "Error renombrando el vault"
     },
     "profile": {
       "title": "Perfil de Usuario",
@@ -1953,6 +1958,10 @@
     "fit_cover": "Rellena",
     "grouping": "Agrupación",
     "grouping_intro": "Agrupa los registros por un campo de selección o estado.",
+    "group_order": "Orden de los grupos",
+    "group_order_catalog": "Orden del catálogo",
+    "group_order_alpha": "Alfabético",
+    "group_order_count": "Por número de registros",
     "group_by": "Agrupar por",
     "pick_table_first": "Selecciona primero una tabla.",
     "no_grouping": "Sin agrupar",

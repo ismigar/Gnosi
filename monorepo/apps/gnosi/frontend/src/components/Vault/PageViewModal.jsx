@@ -206,6 +206,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [coverField, setCoverField] = useState('');
     const [imageFit, setImageFit] = useState('contain');
     const [groupBy, setGroupBy] = useState('');
+    const [groupSort, setGroupSort] = useState('catalog');   // catalog | alpha | count
+    const [groupSortDir, setGroupSortDir] = useState('asc'); // asc | desc
     const [dateField, setDateField] = useState('');
     const [endDateField, setEndDateField] = useState('');
     const [calendarView, setCalendarView] = useState('dayGridMonth');
@@ -304,6 +306,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setCoverField(v?.coverField || v?.cover_field || '');
         setImageFit(v?.imageFit || v?.image_fit || 'contain');
         setGroupBy(v?.groupBy || v?.group_by || '');
+        setGroupSort(v?.groupSort || v?.group_sort || 'catalog');
+        setGroupSortDir(v?.groupSortDir || v?.group_sort_dir || 'asc');
         setDateField(v?.dateField || v?.date_field || '');
         setEndDateField(v?.endDateField || v?.end_date_field || '');
         setCalendarView(v?.calendarView || v?.calendar_view || 'dayGridMonth');
@@ -320,6 +324,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setCoverField('');
         setImageFit('contain');
         setGroupBy('');
+        setGroupSort('catalog');
+        setGroupSortDir('asc');
         setDateField('');
         setEndDateField('');
         setCalendarView('dayGridMonth');
@@ -700,7 +706,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // existent) n'extreu els mateixos camps amb els mateixos defaults,
         // tolerant camelCase (registry) i snake_case (secció embeguda). Així la
         // detecció de canvis i el desat usen exactament la mateixa forma.
-        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, dateField, endDateField, calendarView, colorField, rowHeight, chartType, xField, yField, aggregation };
+        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, chartType, xField, yField, aggregation };
         const extras = {};
         if (viewType === 'gallery') {
             extras.cardSize = s.cardSize || 'medium';
@@ -708,8 +714,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             extras.coverField = s.coverField || s.cover_field || '';
             extras.imageFit = s.imageFit || s.image_fit || 'contain';
             extras.groupBy = s.groupBy || s.group_by || '';
+            extras.groupSort = s.groupSort || s.group_sort || 'catalog';
+            extras.groupSortDir = s.groupSortDir || s.group_sort_dir || 'asc';
         } else if (viewType === 'board') {
             extras.groupBy = s.groupBy || s.group_by || '';
+            extras.groupSort = s.groupSort || s.group_sort || 'catalog';
+            extras.groupSortDir = s.groupSortDir || s.group_sort_dir || 'asc';
         } else if (viewType === 'calendar') {
             extras.dateField = s.dateField || s.date_field || '';
             extras.calendarView = s.calendarView || s.calendar_view || 'dayGridMonth';
@@ -725,6 +735,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         } else if (viewType === 'table' || viewType === 'list') {
             extras.rowHeight = s.rowHeight || s.row_height || 'normal';
             extras.groupBy = s.groupBy || s.group_by || '';
+            extras.groupSort = s.groupSort || s.group_sort || 'catalog';
+            extras.groupSortDir = s.groupSortDir || s.group_sort_dir || 'asc';
         }
         return extras;
     };
@@ -1852,6 +1864,31 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
+                            {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && groupBy && selectedTable && (
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_order', 'Ordre dels grups')}</label>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={groupSort}
+                                            onChange={e => setGroupSort(e.target.value)}
+                                            className="flex-1 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="catalog">{t('view.group_order_catalog', 'Ordre del catàleg')}</option>
+                                            <option value="alpha">{t('view.group_order_alpha', 'Alfabètic')}</option>
+                                            <option value="count">{t('view.group_order_count', 'Per nombre de registres')}</option>
+                                        </select>
+                                        <select
+                                            value={groupSortDir}
+                                            onChange={e => setGroupSortDir(e.target.value)}
+                                            className="w-32 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                            <option value="desc">{t('view.desc', 'Descendent')}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
                             {viewType === 'board' && (
                                 <div className="space-y-2">
                                     <p className="text-xs text-[var(--text-secondary)]">
@@ -1877,6 +1914,31 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                             )}
                                         </>
                                     )}
+                                </div>
+                            )}
+
+                            {viewType === 'board' && groupBy && selectedTable && (
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_order', 'Ordre dels grups')}</label>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={groupSort}
+                                            onChange={e => setGroupSort(e.target.value)}
+                                            className="flex-1 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="catalog">{t('view.group_order_catalog', 'Ordre del catàleg')}</option>
+                                            <option value="alpha">{t('view.group_order_alpha', 'Alfabètic')}</option>
+                                            <option value="count">{t('view.group_order_count', 'Per nombre de registres')}</option>
+                                        </select>
+                                        <select
+                                            value={groupSortDir}
+                                            onChange={e => setGroupSortDir(e.target.value)}
+                                            className="w-32 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                            <option value="desc">{t('view.desc', 'Descendent')}</option>
+                                        </select>
+                                    </div>
                                 </div>
                             )}
 
