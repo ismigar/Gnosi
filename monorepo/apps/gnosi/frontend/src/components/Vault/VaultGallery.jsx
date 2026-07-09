@@ -127,22 +127,6 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
-    // Després de desplegar un grup (Enter), situa el focus al seu primer ítem.
-    useEffect(() => {
-        const gid = pendingEnterGroupRef.current;
-        if (!gid || !groupedSections) return;
-        // Calcula l'índex real a cardRefs del primer ítem del grup desplegat:
-        // suma les notes dels grups desplegats ANTERIOR a aquest.
-        let idx = 0;
-        for (const sec of groupedSections) {
-            if (sec.id === gid) break;
-            if (expandedGroups.has(sec.id)) idx += sec.notes.length;
-        }
-        pendingEnterGroupRef.current = null;
-        const raf = requestAnimationFrame(() => focusCardAt(idx));
-        return () => cancelAnimationFrame(raf);
-    }, [expandedGroups, groupedSections, focusCardAt]);
-
     // Exposa a l'editor l'API per «entrar» als registres (primera/última targeta).
     // Si la galeria és agrupada, el primer element a rebre el focus és la
     // primera CAPÇALERA de grup (es desplega amb Enter per entrar als ítems).
@@ -317,6 +301,25 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         if (ungrouped.length) sections.push({ id: '__gnosi_ungrouped__', name: 'Sense grup', color: null, notes: ungrouped });
         return sections;
     })();
+
+    // Després de desplegar un grup (Enter), situa el focus al seu primer ítem.
+    // Declarat DESPRÉS de `groupedSections` perquè l'efecte el referencia a les
+    // deps: si es col·loca abans, l'avaluació de l'array de deps durant el render
+    // llança un TDZ (ReferenceError) i salta el VaultViewErrorBoundary.
+    useEffect(() => {
+        const gid = pendingEnterGroupRef.current;
+        if (!gid || !groupedSections) return;
+        // Calcula l'índex real a cardRefs del primer ítem del grup desplegat:
+        // suma les notes dels grups desplegats ANTERIOR a aquest.
+        let idx = 0;
+        for (const sec of groupedSections) {
+            if (sec.id === gid) break;
+            if (expandedGroups.has(sec.id)) idx += sec.notes.length;
+        }
+        pendingEnterGroupRef.current = null;
+        const raf = requestAnimationFrame(() => focusCardAt(idx));
+        return () => cancelAnimationFrame(raf);
+    }, [expandedGroups, groupedSections, focusCardAt]);
 
     // Apply card size configuration
     const cardSize = activeView.cardSize || 'medium';
