@@ -2141,6 +2141,7 @@
     "move_up": "Amunt",
     "move_down": "Avall",
     "remove": "Treure",
+    "title_always_visible": "El títol és sempre visible",
     "available": "Disponibles",
     "filters_intro": "Tots els filtres es combinen amb AND. Valor \"this\" = ID d'aquesta pàgina.",
     "add_filter": "Afegir filtre",

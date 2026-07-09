@@ -2035,6 +2035,7 @@
     "move_up": "Arriba",
     "move_down": "Abajo",
     "remove": "Quitar",
+    "title_always_visible": "El título siempre es visible",
     "available": "Disponibles",
     "filters_intro": "Todos los filtros se combinan con AND. Valor \"this\" = ID de esta página.",
     "add_filter": "Añadir filtro",

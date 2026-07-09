@@ -595,13 +595,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return () => { cancelled = true; };
     }, [selectedExistingViewId, existingViews, apiFetch]);
 
-    // Ajusta visibleProperties quan canvia la taula (treu els camps que ja no existeixen)
+    // Ajusta visibleProperties quan canvia la taula (treu els camps que ja no
+    // existeixen) i garanteix que el `title` canònic hi és sempre: com a Notion,
+    // la columna de títol és la propietat primària, sempre visible i no es pot
+    // treure. Si falta, es posa al davant.
     useEffect(() => {
         if (!selectedTable) return;
         const valid = new Set(tableFields.map(f => f.name));
         setVisibleProperties(prev => {
             const filtered = prev.filter(n => valid.has(n));
-            return filtered.length > 0 ? filtered : ['title'];
+            return filtered.includes('title') ? filtered : ['title', ...filtered];
         });
     }, [sourceTableId, selectedTable, tableFields]);
 
@@ -620,6 +623,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     if (!isOpen) return null;
 
     const toggleProperty = (name) => {
+        // El `title` és la columna primària (com a Notion): sempre visible, no es
+        // pot deseleccionar.
+        if (name === 'title') return;
         setVisibleProperties(prev =>
             prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
         );
@@ -1590,8 +1596,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                             <button
                                                                 type="button"
                                                                 onClick={() => toggleProperty(f.name)}
-                                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
-                                                                title={t('view.remove', 'Treure')}
+                                                                disabled={f.name === 'title'}
+                                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1 disabled:opacity-25 disabled:hover:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
+                                                                title={f.name === 'title' ? t('view.title_always_visible', 'El títol és sempre visible') : t('view.remove', 'Treure')}
                                                             >
                                                                 <Trash2 size={13} />
                                                             </button>

@@ -2155,6 +2155,7 @@
     "move_up": "Up",
     "move_down": "Down",
     "remove": "Remove",
+    "title_always_visible": "The title is always visible",
     "available": "Available",
     "filters_intro": "All filters are combined with AND. Value \"this\" = this page's ID.",
     "add_filter": "Add filter",

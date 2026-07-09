@@ -1212,6 +1212,7 @@
     "move_up": "Monter",
     "move_down": "Descendre",
     "remove": "Retirer",
+    "title_always_visible": "Le titre est toujours visible",
     "available": "Disponibles",
     "filters_intro": "Tous les filtres sont combinés avec AND. Valeur \"this\" = ID de cette page.",
     "add_filter": "Ajouter un filtre",
