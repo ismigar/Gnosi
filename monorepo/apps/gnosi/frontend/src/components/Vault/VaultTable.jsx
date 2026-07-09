@@ -2777,7 +2777,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             case 'multi_select':
             case 'relation': {
-                const items = Array.isArray(value) ? value : String(value).split(',').map(s => s.trim()).filter(Boolean);
+                // String() + filter(Boolean) com al kanban i la galeria: un array
+                // amb booleans/buits pintava pills buides i passava title={false}.
+                const items = (Array.isArray(value) ? value : String(value).split(',')).map(s => String(s).trim()).filter(Boolean);
                 const displayMap = type === 'relation' ? getRelationContext(field).displayMap : idToTitle;
                 const colorMap = type === 'multi_select' ? getOptionColorMap(field) : {};
                 return (
@@ -2862,7 +2864,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     }
                     return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: '+ Imatge' })}</span>;
                 }
-                return <span className="truncate max-w-[200px] block" title={value}>{value}</span>;
+                // Un booleà (camp Notion sense tipar a l'esquema) no és títol vàlid.
+                return <span className="truncate max-w-[200px] block" title={typeof value === 'boolean' ? undefined : value}>{value}</span>;
         }
     };
 
