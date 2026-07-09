@@ -415,3 +415,47 @@ export function isAppContent(page) {
     
     return systemFolders.some(sys => folder === sys || folder.startsWith(sys + '/'));
 }
+
+/**
+ * Claus de metadata internes/de sistema que NO són camps d'usuari i, per tant,
+ * no s'han de mostrar mai al selector de columnes ni al grid. És el mateix
+ * conjunt canònic que fa servir BlockEditor per calcular `adhocProperties`.
+ */
+export const INTERNAL_METADATA_KEYS = new Set([
+    'title', 'table_id', 'database_id', 'database_table_id', 'id',
+    'parent_id', 'source_id', 'resolved_table_id', 'last_modified',
+    'created_time', 'last_edited_time', 'last_edited_at', 'last_edited_by',
+    'source_parent_id', 'is_default_template', 'is_template', 'is_dashboard',
+    'path', 'filename', 'description', 'cover', 'cover_manual', 'icon',
+]);
+
+const TITLE_FIELD_NAMES = new Set(['title', 'títol', 'titulo', 'título', 'titre']);
+
+/**
+ * Descobreix els NOMS de camp d'usuari a partir del `metadata` d'una mostra de
+ * registres. Necessari per a taules sense esquema registrat (p. ex. importades
+ * del clon de Notion, com "Recursos"), on `table.properties` és buit però els
+ * registres sí que porten camps. Replica el filtre de `adhocProperties` de
+ * BlockEditor: exclou claus internes, el títol, i les variants amb prefix
+ * favorite / icon_ / cover_ o sufix _manual, i el dict "Zotero Extras".
+ *
+ * @param {Array} records  llista de registres ({ metadata })
+ * @returns {string[]}     noms de camp únics, ordenats alfabèticament
+ */
+export function discoverFieldNamesFromRecords(records = []) {
+    const byNorm = new Map(); // clau normalitzada → nom original (primer vist)
+    for (const rec of Array.isArray(records) ? records : []) {
+        const md = rec && rec.metadata;
+        if (!md || typeof md !== 'object') continue;
+        for (const key of Object.keys(md)) {
+            const norm = String(key || '').toLowerCase();
+            if (INTERNAL_METADATA_KEYS.has(key) || INTERNAL_METADATA_KEYS.has(norm)) continue;
+            if (TITLE_FIELD_NAMES.has(norm)) continue;
+            if (norm.endsWith('_manual')) continue;
+            if (norm.startsWith('favorite') || norm.startsWith('icon_') || norm.startsWith('cover_')) continue;
+            if (key === 'Zotero Extras') continue;
+            if (!byNorm.has(norm)) byNorm.set(norm, key);
+        }
+    }
+    return [...byNorm.values()].sort((a, b) => a.localeCompare(b));
+}
