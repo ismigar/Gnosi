@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare } from 'lucide-react';
+import { FileText, Tag, Calendar, Link as LinkIcon, Type, CheckSquare, ChevronDown, ChevronRight } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { VaultViewToolbar } from './VaultViewToolbar';
@@ -21,6 +21,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
+    // Grups DESPLEGATS (defecte: plegat — Set buit). Mateix patró que VaultTable.
+    const [expandedGroups, setExpandedGroups] = useState(() => new Set());
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
@@ -180,6 +182,16 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     // d'opcions del camp (select/status); un valor multi (array) fa aparèixer
     // el registre a CADA grup; els registres sense valor van a l'últim grup.
     const groupBy = activeView?.groupBy || '';
+    // Col·lapse/expansió d'un grup (estat local). Defecte: PLEGAT. Es reinicia
+    // en canviar de vista o de camp d'agrupació (claus sense sentit altre cop).
+    const toggleGroup = useCallback((groupKey) => {
+        setExpandedGroups(prev => {
+            const next = new Set(prev);
+            if (next.has(groupKey)) next.delete(groupKey); else next.add(groupKey);
+            return next;
+        });
+    }, []);
+    useEffect(() => { setExpandedGroups(new Set()); }, [activeView?.id, groupBy]);
     const normalizeMetaKey = (k) => String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/gi, '');
     const getGroupVal = (note) => {
         let val = note.metadata?.[groupBy];
@@ -572,20 +584,36 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         // capçalera (punt de color del catàleg + nom + recompte).
                         // `flat` és un comptador continu a través de les seccions
                         // perquè cada targeta tingui un índex pla únic (nav de teclat).
+                        // Grups PLEGBLES: defecte plegat; el chevron desplega/plega.
                         (() => {
                             let flat = 0;
-                            return groupedSections.map(({ id, name, color, notes: groupNotes }) => (
-                                <div key={id} className="mb-8">
-                                    <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
-                                        {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
-                                        <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={name}>{name}</h3>
-                                        <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{groupNotes.length}</span>
+                            return groupedSections.map(({ id, name, color, notes: groupNotes }) => {
+                                const expanded = expandedGroups.has(id);
+                                return (
+                                    <div key={id} className="mb-8">
+                                        <div className="flex items-center gap-2 mb-3 sticky top-0 z-10 bg-[var(--bg-secondary)] py-1">
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleGroup(id)}
+                                                className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity"
+                                                title={expanded ? t('common.collapse', 'Replega') : t('common.expand', 'Desplega')}
+                                            >
+                                                {expanded
+                                                    ? <ChevronDown size={15} className="text-[var(--text-tertiary)] shrink-0" />
+                                                    : <ChevronRight size={15} className="text-[var(--text-tertiary)] shrink-0" />}
+                                                {color && <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />}
+                                                <h3 className="text-sm font-semibold text-[var(--text-primary)] truncate" title={name}>{name}</h3>
+                                                <span className="text-xs text-[var(--text-tertiary)] tabular-nums">{groupNotes.length}</span>
+                                            </button>
+                                        </div>
+                                        {expanded && (
+                                            <div className={`grid ${getGridClass()} gap-6`}>
+                                                {groupNotes.map((note) => renderCard(note, flat++))}
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className={`grid ${getGridClass()} gap-6`}>
-                                        {groupNotes.map((note) => renderCard(note, flat++))}
-                                    </div>
-                                </div>
-                            ));
+                                );
+                            });
                         })()
                     ) : (
                         <div className={`grid ${getGridClass()} gap-6`}>

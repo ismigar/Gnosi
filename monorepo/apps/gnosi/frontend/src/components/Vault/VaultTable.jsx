@@ -550,7 +550,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;
     const setSearchTerm = onSearchChange || setInternalSearchTerm;
     const [expandedRows, setExpandedRows] = useState(new Set()); // IDs of expanded rows
-    const [collapsedGroups, setCollapsedGroups] = useState(() => new Set()); // claus de grup col·lapsades (agrupació)
+    const [expandedGroups, setExpandedGroups] = useState(() => new Set()); // claus de grup DESPLEGADES (agrupació); defecte: plegat
     const [newSubitemTitle, setNewSubitemTitle] = useState(''); // title for the new inline subitem
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
@@ -787,14 +787,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
     // Col·lapse/expansió d'un grup (estat local). Es reinicia en canviar de
     // vista o de camp d'agrupació, on les claus de grup deixen de tenir sentit.
+    // Defecte: PLEGAT (Set buit); l'usuari desplega els grups que vol veure.
     const toggleGroup = useCallback((groupKey) => {
-        setCollapsedGroups(prev => {
+        setExpandedGroups(prev => {
             const next = new Set(prev);
             if (next.has(groupKey)) next.delete(groupKey); else next.add(groupKey);
             return next;
         });
     }, []);
-    useEffect(() => { setCollapsedGroups(new Set()); }, [activeView?.id, groupByField]);
+    useEffect(() => { setExpandedGroups(new Set()); }, [activeView?.id, groupByField]);
 
     // True si l'usuari té alguna agregació de columna activa: aleshores cada
     // grup mostra un peu amb els subtotals (estil Notion).
@@ -873,7 +874,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 count: g.notes.length,
                 colorHex: colorName ? optionColorHex(colorName) : null,
             });
-            if (collapsedGroups.has(g.key)) continue; // grup col·lapsat → no rows
+            if (!expandedGroups.has(g.key)) continue; // grup plegat → no rows (defecte: plegat)
             for (const note of g.notes) pushNoteRows(note);
             // Peu de grup (subtotals estil Notion): només si l'usuari té
             // alguna agregació de columna activa. Es calcula sobre les notes
@@ -883,7 +884,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
         }
         return list;
-    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, collapsedGroups, hasGroupAggregations]);
+    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations]);
 
     const rowVirtualizer = useVirtualizer({
         count: rowDescriptors.length,
@@ -3273,7 +3274,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // punt de color + nom + comptador) va dins un `<div sticky left-0>` perquè
     // es mantingui visible en fer scroll horitzontal, com la columna de títol.
     const renderGroupHeader = (d, virtualItem) => {
-        const collapsed = collapsedGroups.has(d.groupKey);
+        const collapsed = !expandedGroups.has(d.groupKey);
         return (
             <tr
                 key={`group-${d.groupKey}-${virtualItem.index}`}
