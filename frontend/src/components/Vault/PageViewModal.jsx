@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, ArrowUp, ArrowDown, Layers } from 'lucide-react';
 import { VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { discoverFieldNamesFromRecords } from './schemaUtils';
 
 /**
  * Modal per afegir una vista de BD a una pàgina (slash command /vista).
@@ -188,6 +189,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [sourceTableId, setSourceTableId] = useState(preselectedTableId);
     const [viewName, setViewName] = useState('');
     const [visibleProperties, setVisibleProperties] = useState([]);
+    // Camps d'usuari descoberts als registres per a taules SENSE esquema
+    // registrat (p. ex. "Recursos", importada del clon de Notion: `properties`
+    // buit però els registres porten camps). Sense això el selector de columnes
+    // només mostraria el títol. Es fusionen a `tableFields`.
+    const [discoveredFields, setDiscoveredFields] = useState([]);
     const [viewType, setViewType] = useState('table');
     const [filters, setFilters] = useState([]);
     // Llista ordenada de criteris d'ordenació; el primer element té prioritat
@@ -262,8 +268,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             .filter(p => !isTitleField(p))
             .map(p => ({ name: p.name, type: p.type, relation_database_id: p.relation_database_id }));
         props.unshift({ name: 'title', type: 'title' });
+        // Fusiona els camps descoberts als registres que l'esquema registrat NO
+        // conté (taules sense `properties`, com "Recursos"). Es marquen com a
+        // `text` (tipus no conegut) i van al final, després de l'esquema.
+        const known = new Set(props.map(p => String(p.name || '').toLowerCase()));
+        for (const name of discoveredFields) {
+            if (known.has(String(name).toLowerCase())) continue;
+            props.push({ name, type: 'text' });
+            known.add(String(name).toLowerCase());
+        }
         return props;
-    }, [selectedTable]);
+    }, [selectedTable, discoveredFields]);
 
     const fieldMeta = useMemo(() => {
         const m = {};
@@ -541,6 +556,29 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return () => { cancelled = true; };
     }, [sourceTableId, apiFetch]);
 
+    // Taules sense esquema registrat (`properties` buit, p. ex. "Recursos"
+    // importada del clon de Notion) no exposen cap camp al selector de columnes.
+    // Descobrim els camps d'usuari a partir d'una mostra de registres perquè
+    // l'usuari els pugui triar (i perquè l'efecte de sanejat no els esborri de
+    // les vistes que ja els usen). Només ho fem quan cal: si la taula ja té
+    // esquema, no hi ha res a descobrir.
+    useEffect(() => {
+        if (!sourceTableId || !selectedTable) { setDiscoveredFields([]); return; }
+        if (Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0) {
+            setDiscoveredFields([]);
+            return;
+        }
+        let cancelled = false;
+        apiFetch(`/api/vault/pages?table_id=${encodeURIComponent(sourceTableId)}&limit=300`)
+            .then(data => {
+                if (cancelled) return;
+                const recs = Array.isArray(data) ? data : (data?.pages || data?.items || []);
+                setDiscoveredFields(discoverFieldNamesFromRecords(recs));
+            })
+            .catch(() => { if (!cancelled) setDiscoveredFields([]); });
+        return () => { cancelled = true; };
+    }, [sourceTableId, selectedTable, apiFetch]);
+
     // Quan l'usuari selecciona una vista existent, pre-omple els camps amb la
     // seva config i carrega quantes pàgines la comparteixen.
     useEffect(() => {
@@ -601,12 +639,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // treure. Si falta, es posa al davant.
     useEffect(() => {
         if (!selectedTable) return;
+        // Taula sense esquema registrat i descobriment de camps encara pendent:
+        // NO sanegem, o esborraríem columnes vàlides de la vista abans de saber
+        // quins camps existeixen (els camps arriben async via discoveredFields).
+        const hasSchema = Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0;
+        if (!hasSchema && discoveredFields.length === 0) return;
         const valid = new Set(tableFields.map(f => f.name));
         setVisibleProperties(prev => {
             const filtered = prev.filter(n => valid.has(n));
             return filtered.includes('title') ? filtered : ['title', ...filtered];
         });
-    }, [sourceTableId, selectedTable, tableFields]);
+    }, [sourceTableId, selectedTable, tableFields, discoveredFields]);
 
     // Lògica de teclat canònica: Esc tanca, Tab fa focus-trap dins el panell i
     // es restaura el focus en tancar. Sense onConfirm: aquest modal és un
