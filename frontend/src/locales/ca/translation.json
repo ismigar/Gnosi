@@ -2190,7 +2190,34 @@
     "records_redelete_failed_other": "No s'han pogut tornar a eliminar {{count}} registres (codis: {{reasons}})",
     "daily_prev": "Nota diària anterior",
     "daily_next": "Nota diària següent",
-    "daily_today": "Nota diària d'avui"
+    "daily_today": "Nota diària d'avui",
+    "history": {
+      "title": "Historial de versions",
+      "desc": "Consulta i restaura versions anteriors d'aquesta pàgina",
+      "available_versions": "Versions disponibles",
+      "loading": "Carregant historial...",
+      "empty": "No s'ha trobat cap versió desada.",
+      "restore_tooltip": "Restaurar aquesta versió",
+      "preview_loading": "Recuperant contingut...",
+      "version_at": "Versió del {{timestamp}}",
+      "restore_now": "Restaurar ara",
+      "no_selection_title": "Cap versió seleccionada",
+      "no_selection_desc": "Tria una versió de la llista de l'esquerra per veure'n la previsualització i poder-la restaurar.",
+      "purge_btn": "Purgar historial",
+      "restore_selected_btn": "Restaurar la versió seleccionada",
+      "error_restore": "Error restaurant la versió",
+      "error_purge": "Error purgant l'historial",
+      "confirm_restore": "Estàs segur que vols restaurar la versió del {{timestamp}}?",
+      "confirm_purge": "Estàs segur que vols eliminar tot l'historial de versions d'aquesta pàgina? Aquesta acció no es pot desfer.",
+      "confirm_restore_title": "Restaurar versió",
+      "confirm_purge_title": "Purgar historial",
+      "purge_success": "Historial purgat correctament"
+    },
+    "recent": {
+      "title": "Pàgines recents",
+      "empty": "No hi ha pàgines recents per mostrar.",
+      "modified": "Modificat: "
+    }
   },
   "media": {
     "title": "Gestor de Mitjans",

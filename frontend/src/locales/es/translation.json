@@ -238,7 +238,15 @@
     "nav_social": "Social",
     "nav_media": "Fotos",
     "nav_dashboard": "Panel",
-    "nav_settings": "Configuración"
+    "nav_settings": "Configuración",
+    "favorites": "Favoritos",
+    "data": "Datos",
+    "favorites_sort": "Ordenar favoritos",
+    "sort_manual": "Manual (arrastrar)",
+    "sort_alpha_asc": "A → Z",
+    "sort_alpha_desc": "Z → A",
+    "sort_recent": "Más recientes",
+    "sort_oldest": "Más antiguos"
   },
   "shell": {
     "go_back": "Atrás",
@@ -254,7 +262,9 @@
     "hide_sidebar": "Ocultar barra lateral",
     "show_sidebar": "Mostrar barra lateral",
     "translate_record": "Traduce el registro",
-    "view_comments": "Comentarios"
+    "view_comments": "Comentarios",
+    "lock_edit": "Bloquear edición (solo lectura)",
+    "unlock_edit": "Desbloquear para editar"
   },
   "table": {
     "new_record": "Nuevo registro",
@@ -1015,7 +1025,17 @@
       "vault_name_hint": "El nombre con el que se muestra este vault en la cabecera y el conmutador. No cambia la carpeta del disco.",
       "vault_name_save": "Renombrar",
       "vault_rename_success": "Vault renombrado correctamente",
-      "vault_rename_error": "Error renombrando el vault"
+      "vault_rename_error": "Error renombrando el vault",
+      "password": "Contraseña",
+      "password_desc": "Protege el acceso a la configuración.",
+      "operation_mode": "Modo de funcionamiento",
+      "mode_personal": "Personal",
+      "mode_collective": "Colectivo",
+      "workspace_placeholder": "Gnosi, Mi Cerebro...",
+      "workspace_create": "Crear Workspace",
+      "ws_created": "Workspace creado correctamente",
+      "error_ws_name_required": "Se requiere un nombre para el workspace",
+      "error_creating_ws": "Error al crear el workspace"
     },
     "profile": {
       "title": "Perfil de Usuario",
@@ -1102,7 +1122,10 @@
       "google_note": "Evita las configuraciones manuales y conecta con Google OAuth2 de forma segura.",
       "no_credentials": "No se han encontrado credenciales de Google OAuth válidas. Configura CLIENT_ID y CLIENT_SECRET.",
       "google_token_expired": "El token de Google ha caducado o ha sido revocado. Reconecta la cuenta para volver a cargar los calendarios.",
-      "reconnect_google": "Reconectar Google"
+      "reconnect_google": "Reconectar Google",
+      "add_account_btn": "+ Añadir Cuenta / Calendario",
+      "individual_colors_hint": "Los colores se pueden personalizar para cada calendario individualmente desde la barra lateral de la vista de Calendario.",
+      "oauth_managed_desc": "Gestionado vía OAuth2. Los colores individuales se configuran en la barra lateral del calendario."
     },
     "graph": {
       "section_title": "Motor Visual del Grafo",
@@ -1188,8 +1211,15 @@
         "imap_server": "Servidor IMAP",
         "smtp_server": "Servidor SMTP",
         "password_label": "Contraseña / App Password",
-        "error_fill_fields": "Por favor, rellena todos los campos"
-      }
+        "error_fill_fields": "Por favor, rellena todos los campos",
+        "signature_label": "Firma HTML",
+        "add_btn": "Añadir cuenta",
+        "accept_btn": "Aceptar"
+      },
+      "subscriptions_title": "Suscripciones",
+      "subscriptions_desc": "Gestiona canales de YouTube, RSS y newsletters.",
+      "loading_subscriptions": "Cargando suscripciones...",
+      "no_sources": "Aún no hay fuentes configuradas."
     },
     "contacts": {
       "sync_section_title": "Sincronización de Contactos",
@@ -1210,7 +1240,15 @@
       "sync_btn": "Sincronizar",
       "sync_with_account": "Sincronización con",
       "source_local": "Gnosi (Local)",
-      "source_label": "Origen"
+      "source_label": "Origen",
+      "accounts_title": "Cuentas de Contactos",
+      "accounts_desc": "Configura tus cuentas para sincronizar con Google, iCloud o CardDAV.",
+      "editing_account": "Editando cuenta: {{email}}",
+      "add_account": "Añadir Cuenta",
+      "add_btn": "Añadir",
+      "sync_title": "Sincronización",
+      "signin_google": "Iniciar sesión con Google",
+      "link_to_sync": "Vincula una cuenta para sincronizar"
     },
     "ai": {
       "agent_name": "Nombre del Agente",
@@ -1329,7 +1367,29 @@
       "search_placeholder": "Buscar proveedor...",
       "no_results": "Sin resultados para esta búsqueda.",
       "required": "{{label}} requerido",
-      "secure_storage_desc": "Las credenciales se guardan en almacenamiento seguro (keychain/secret store)."
+      "secure_storage_desc": "Las credenciales se guardan en almacenamiento seguro (keychain/secret store).",
+      "add_provider_title": "Añadir Proveedor de IA",
+      "search_provider_placeholder": "Buscar proveedor por nombre o categoría...",
+      "create_agent": "Crear Nuevo Perfil de IA",
+      "edit_agent_profile": "Editar Perfil del Agente",
+      "provider_label": "Proveedor",
+      "model_label": "Modelo",
+      "instructions_persona": "Instrucciones / Persona (System Prompt)",
+      "save_btn": "Guardar",
+      "confirm_delete_agent": "¿Estás seguro de que quieres eliminar este agente?",
+      "confirm_remove_provider": "¿Estás seguro de que quieres eliminar la configuración de este proveedor?",
+      "remove_provider": "Eliminar Proveedor",
+      "new_agent_name": "Nombre del Agente",
+      "new_agent_btn": "+ Nuevo Agente",
+      "categories": {
+        "OpenCode": "OpenCode",
+        "Major LLMs": "Modelos Principales",
+        "Cloud Platforms": "Plataformas Cloud",
+        "Gateways & Routing": "Gateways y Rutas",
+        "Specialized APIs": "APIs Especializadas",
+        "Enterprise": "Empresa",
+        "Local": "Local"
+      }
     },
     "footer": {
       "close": "Cerrar",
@@ -1373,7 +1433,13 @@
     "sync_with_account": "Sincronización con",
     "photo_url_label": "URL de la foto",
     "info_section": "Información de contacto",
-    "details_section": "Detalles adicionales"
+    "details_section": "Detalles adicionales",
+    "add_email": "Añadir email",
+    "add_phone": "Añadir teléfono",
+    "add_address": "Añadir dirección",
+    "emails_section": "Emails",
+    "phones_section": "Teléfonos",
+    "addresses_section": "Direcciones"
   },
   "schema": {
     "manage_properties_of": "Gestionar propiedades de",
@@ -1704,7 +1770,8 @@
     "snippet_thanks": "Muchas gracias por su respuesta.",
     "snippet_best_regards": "Atentamente,\n\n",
     "snippet_meeting": "Le propongo una reunión para tratar este tema.",
-    "snippet_following_up": "Me pongo en contacto para hacer seguimiento del tema anterior."
+    "snippet_following_up": "Me pongo en contacto para hacer seguimiento del tema anterior.",
+    "not_archived": "No archivados"
   },
   "subs_section_title": "Fuentes de información",
   "subs_btn_reload": "Recargar",
@@ -2084,7 +2151,34 @@
     "records_redelete_failed_other": "No se han podido volver a eliminar {{count}} registros (códigos: {{reasons}})",
     "daily_prev": "Nota diaria anterior",
     "daily_next": "Nota diaria siguiente",
-    "daily_today": "Nota diaria de hoy"
+    "daily_today": "Nota diaria de hoy",
+    "history": {
+      "title": "Historial de versiones",
+      "desc": "Consulta y restaura versiones anteriores de esta página",
+      "available_versions": "Versiones disponibles",
+      "loading": "Cargando historial...",
+      "empty": "No se ha encontrado ninguna versión guardada.",
+      "restore_tooltip": "Restaurar esta versión",
+      "preview_loading": "Recuperando contenido...",
+      "version_at": "Versión del {{timestamp}}",
+      "restore_now": "Restaurar ahora",
+      "no_selection_title": "Ninguna versión seleccionada",
+      "no_selection_desc": "Elige una versión de la lista de la izquierda para ver su previsualización y poder restaurarla.",
+      "purge_btn": "Purgar historial",
+      "restore_selected_btn": "Restaurar la versión seleccionada",
+      "error_restore": "Error al restaurar la versión",
+      "error_purge": "Error al purgar el historial",
+      "confirm_restore": "¿Estás seguro de que quieres restaurar la versión del {{timestamp}}?",
+      "confirm_purge": "¿Estás seguro de que quieres eliminar todo el historial de versiones de esta página? Esta acción no se puede deshacer.",
+      "confirm_restore_title": "Restaurar versión",
+      "confirm_purge_title": "Purgar historial",
+      "purge_success": "Historial purgado correctamente"
+    },
+    "recent": {
+      "title": "Páginas recientes",
+      "empty": "No hay páginas recientes para mostrar.",
+      "modified": "Modificado: "
+    }
   },
   "media": {
     "title": "Gestor de Medios",
@@ -2295,5 +2389,58 @@
     "reopen": "Reabrir",
     "delete": "Eliminar",
     "empty": "Selecciona texto y pulsa «Comentar» para añadir uno."
+  },
+  "icon_picker": {
+    "tabs": {
+      "emoji": "Emoji",
+      "icons": "Iconos",
+      "custom": "Personalizado"
+    },
+    "search_placeholder": "Buscar iconos...",
+    "no_icons": "No se han encontrado iconos",
+    "delete_button": "ELIMINAR",
+    "recent_section": "Recientes",
+    "upload_section": "Subir archivo",
+    "upload_instruction": "Haz clic para subir",
+    "uploading": "Subiendo...",
+    "link_section": "Enlace de contenido",
+    "import_button": "Importar",
+    "importing": "Importando...",
+    "custom_icon_alt": "icono personalizado",
+    "remove_recent_title": "Eliminar de recientes",
+    "toast": {
+      "upload_success": "Icono subido correctamente",
+      "upload_error": "Error al subir el icono",
+      "import_success": "Icono importado correctamente",
+      "import_error": "Error al importar el icono desde la URL"
+    }
+  },
+  "cover_picker": {
+    "groups": {
+      "colors": "Colores y Degradados",
+      "nature": "Espacio y Naturaleza",
+      "architecture": "Arquitectura y Texturas"
+    },
+    "tabs": {
+      "gallery": "Galería",
+      "upload": "Subir",
+      "link": "Enlace",
+      "unsplash": "Unsplash"
+    },
+    "search_placeholder": "Buscar en Unsplash...",
+    "no_results": "Sin resultados",
+    "delete_button": "Eliminar",
+    "upload_instruction": "Sube una imagen desde tu ordenador para usarla como portada del archivo. Los archivos se almacenarán localmente en tu Conocimiento.",
+    "uploading": "Subiendo...",
+    "choose_image": "Elegir imagen",
+    "link_instruction": "Pega el enlace de una imagen. Funciona con cualquier imagen de internet.",
+    "apply_button": "Aplicar",
+    "unsplash_instruction": "Busca cualquier término en Unsplash",
+    "unsplash_footer": "Imágenes gratuitas proporcionadas por Unsplash",
+    "toast": {
+      "unsplash_error": "No se ha podido buscar en Unsplash. Verifica tu API Key.",
+      "upload_success": "Portada subida correctamente",
+      "upload_error": "Error al subir la imagen"
+    }
   }
 }
