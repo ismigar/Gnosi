@@ -44,7 +44,10 @@
       "error_restore": "Error restoring version",
       "error_purge": "Error purging history",
       "confirm_restore": "Are you sure you want to restore the version from {{timestamp}}?",
-      "confirm_purge": "Are you sure you want to delete all version history for this page? This action cannot be undone."
+      "confirm_purge": "Are you sure you want to delete all version history for this page? This action cannot be undone.",
+      "confirm_restore_title": "Restore version",
+      "confirm_purge_title": "Purge history",
+      "purge_success": "History purged successfully"
     },
     "recent": {
       "title": "Recent Pages",
@@ -325,7 +328,15 @@
     "nav_social": "Social",
     "nav_media": "Photos",
     "nav_dashboard": "Dashboard",
-    "nav_settings": "Settings"
+    "nav_settings": "Settings",
+    "favorites": "Favorites",
+    "data": "Data",
+    "favorites_sort": "Sort favorites",
+    "sort_manual": "Manual (drag)",
+    "sort_alpha_asc": "A → Z",
+    "sort_alpha_desc": "Z → A",
+    "sort_recent": "Most recent",
+    "sort_oldest": "Oldest"
   },
   "shell": {
     "go_back": "Go back",
@@ -341,7 +352,9 @@
     "hide_sidebar": "Hide sidebar",
     "show_sidebar": "Show sidebar",
     "translate_record": "Translate record",
-    "view_comments": "Comments"
+    "view_comments": "Comments",
+    "lock_edit": "Lock editing (read-only)",
+    "unlock_edit": "Unlock to edit"
   },
   "table": {
     "new_record": "New record",
@@ -1104,7 +1117,8 @@
       "vault_name_hint": "The name shown for this vault in the header and switcher. Does not change the folder on disk.",
       "vault_name_save": "Rename",
       "vault_rename_success": "Vault renamed successfully",
-      "vault_rename_error": "Error renaming vault"
+      "vault_rename_error": "Error renaming vault",
+      "workspace_placeholder": "Gnosi, My Brain..."
     },
     "profile": {
       "title": "User Profile",
@@ -1191,7 +1205,10 @@
       "google_note": "Avoid manual configurations and connect securely via Google OAuth2.",
       "no_credentials": "No valid Google OAuth credentials found. Configure CLIENT_ID and CLIENT_SECRET.",
       "google_token_expired": "Your Google token has expired or been revoked. Reconnect the account to load calendars again.",
-      "reconnect_google": "Reconnect Google"
+      "reconnect_google": "Reconnect Google",
+      "add_account_btn": "+ Add Account / Calendar",
+      "individual_colors_hint": "Colors can be customized for each calendar individually from the Calendar view sidebar.",
+      "oauth_managed_desc": "Managed via OAuth2. Individual colors are configured in the calendar sidebar."
     },
     "graph": {
       "section_title": "Graph Visual Engine",
@@ -1281,8 +1298,15 @@
         "imap_server": "IMAP Server",
         "smtp_server": "SMTP Server",
         "password_label": "Password / App Password",
-        "error_fill_fields": "Please fill in all fields"
-      }
+        "error_fill_fields": "Please fill in all fields",
+        "signature_label": "HTML Signature",
+        "add_btn": "Add account",
+        "accept_btn": "Accept"
+      },
+      "subscriptions_title": "Subscriptions",
+      "subscriptions_desc": "Manage YouTube channels, RSS and newsletters.",
+      "loading_subscriptions": "Loading subscriptions...",
+      "no_sources": "No sources configured yet."
     },
     "contacts": {
       "sync_section_title": "Contacts Sync",
@@ -1303,7 +1327,15 @@
       "sync_btn": "Sync",
       "sync_with_account": "Sync with account",
       "source_local": "Gnosi (Local)",
-      "source_label": "Source"
+      "source_label": "Source",
+      "accounts_title": "Contact Accounts",
+      "accounts_desc": "Configure your accounts to sync with Google, iCloud, or CardDAV.",
+      "editing_account": "Editing account: {{email}}",
+      "add_account": "Add Account",
+      "add_btn": "Add",
+      "sync_title": "Synchronization",
+      "signin_google": "Sign in with Google",
+      "link_to_sync": "Link an account to sync"
     },
     "ai": {
       "agent_name": "Agent Name",
@@ -1447,8 +1479,69 @@
         "specialized_apis": "Specialized APIs",
         "enterprise": "Enterprise",
         "local": "Local",
-        "specialized": "Specialized APIs"
-      }
+        "specialized": "Specialized APIs",
+        "OpenCode": "OpenCode",
+        "Major LLMs": "Major LLMs",
+        "Cloud Platforms": "Cloud Platforms",
+        "Gateways & Routing": "Gateways & Routing",
+        "Specialized APIs": "Specialized APIs",
+        "Enterprise": "Enterprise",
+        "Local": "Local"
+      },
+      "providers": {
+        "opencode_zen": "Models validated by the OpenCode team.",
+        "opencode_go": "Low-cost plan with verified coding models.",
+        "302_ai": "Multi-model access via API.",
+        "amazon-bedrock": "Models via AWS Bedrock.",
+        "groq": "Ultra-fast inference with Llama 3 and Mixtral.",
+        "openai": "Original GPT-4o and GPT-4-turbo models.",
+        "anthropic": "Claude 3.5 Sonnet and Opus models.",
+        "azure-openai": "OpenAI deployed on Azure.",
+        "azure-cognitive-services": "Models served from Cognitive Services.",
+        "baseten": "Model inference and hosting.",
+        "cerebras": "High-speed inference.",
+        "cloudflare-ai-gateway": "Unified multi-provider gateway.",
+        "cloudflare-workers-ai": "Models on Cloudflare's edge.",
+        "cortecs": "Foundational model provider.",
+        "deepseek": "DeepSeek API models.",
+        "deep-infra": "Multi-model inference infrastructure.",
+        "firmware": "OpenAI-compatible provider.",
+        "fireworks": "Accelerated inference.",
+        "gitlab-duo": "Duo Agent Platform / OAuth or PAT.",
+        "github-copilot": "Copilot subscription via OAuth login.",
+        "google-vertex-ai": "Models on Google Cloud Vertex.",
+        "hugging-face": "Hugging Face Inference Providers.",
+        "helicone": "LLM gateway + observability.",
+        "llama-cpp": "Local OpenAI-compatible server.",
+        "io-net": "Model inference platform.",
+        "lmstudio": "Local models via LM Studio.",
+        "moonshot": "Kimi and other Moonshot models.",
+        "minimax": "MiniMax models.",
+        "nebius": "Token Factory for inference.",
+        "ollama": "Local models without compromising privacy.",
+        "ollama-cloud": "Ollama cloud models.",
+        "openrouter": "Access to hundreds of models via a unified API.",
+        "google": "Gemini Pro and Flash models via Google AI Studio.",
+        "sap-ai-core": "Models via SAP JSON service key.",
+        "stackit": "European sovereign model hosting.",
+        "ovhcloud": "OVHcloud AI endpoints.",
+        "scaleway": "Scaleway Generative APIs.",
+        "together": "Open and proprietary models.",
+        "venice": "Models via the Venice API.",
+        "vercel": "Vercel multi-provider gateway.",
+        "xai": "Grok models via xAI.",
+        "z_ai": "GLM models and coding plan.",
+        "zenmux": "Compatible multi-model router.",
+        "custom": "Any OpenAI-compatible endpoint."
+      },
+      "add_provider_title": "Add AI Provider",
+      "create_agent": "Create New AI Profile",
+      "edit_agent_profile": "Edit Agent Profile",
+      "model_label": "Model",
+      "instructions_persona": "Instructions / Persona (System Prompt)",
+      "confirm_delete_agent": "Are you sure you want to delete this agent?",
+      "confirm_remove_provider": "Are you sure you want to delete this provider's configuration?",
+      "remove_provider": "Remove Provider"
     },
     "footer": {
       "close": "Close",
@@ -1492,7 +1585,13 @@
     "sync_with_account": "Sync with account",
     "photo_url_label": "Photo URL",
     "info_section": "Contact Information",
-    "details_section": "Additional details"
+    "details_section": "Additional details",
+    "add_email": "Add email",
+    "add_phone": "Add phone",
+    "add_address": "Add address",
+    "emails_section": "Emails",
+    "phones_section": "Phones",
+    "addresses_section": "Addresses"
   },
   "schema": {
     "manage_properties_of": "Manage properties of",
@@ -2397,5 +2496,58 @@
     "reopen": "Reopen",
     "delete": "Delete",
     "empty": "Select text and click “Comment” to add one."
+  },
+  "icon_picker": {
+    "tabs": {
+      "emoji": "Emoji",
+      "icons": "Icons",
+      "custom": "Custom"
+    },
+    "search_placeholder": "Search icons...",
+    "no_icons": "No icons found",
+    "delete_button": "DELETE",
+    "recent_section": "Recent",
+    "upload_section": "Upload File",
+    "upload_instruction": "Click to upload",
+    "uploading": "Uploading...",
+    "link_section": "Content link",
+    "import_button": "Import",
+    "importing": "Importing...",
+    "custom_icon_alt": "custom icon",
+    "remove_recent_title": "Remove from recent",
+    "toast": {
+      "upload_success": "Icon uploaded successfully",
+      "upload_error": "Error uploading the icon",
+      "import_success": "Icon imported successfully",
+      "import_error": "Error importing the icon from URL"
+    }
+  },
+  "cover_picker": {
+    "groups": {
+      "colors": "Colors and Gradients",
+      "nature": "Space and Nature",
+      "architecture": "Architecture and Textures"
+    },
+    "tabs": {
+      "gallery": "Gallery",
+      "upload": "Upload",
+      "link": "Link",
+      "unsplash": "Unsplash"
+    },
+    "search_placeholder": "Search Unsplash...",
+    "no_results": "No results",
+    "delete_button": "Delete",
+    "upload_instruction": "Upload an image from your computer to use as the file cover. Files will be stored locally in your Knowledge.",
+    "uploading": "Uploading...",
+    "choose_image": "Choose Image",
+    "link_instruction": "Paste an image link. Works with any image from the internet.",
+    "apply_button": "Apply",
+    "unsplash_instruction": "Search any term on Unsplash",
+    "unsplash_footer": "Free images provided by Unsplash",
+    "toast": {
+      "unsplash_error": "Could not search Unsplash. Check your API Key.",
+      "upload_success": "Cover uploaded successfully",
+      "upload_error": "Error uploading the image"
+    }
   }
 }
