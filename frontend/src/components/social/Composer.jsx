@@ -65,7 +65,7 @@ const Composer = () => {
                 ? 'Post published successfully!'
                 : `Post scheduled for ${scheduledTime.toLocaleString()}`;
 
-            toast.error(message);
+            toast.success(message);
             setContent('');
             setScheduledTime(null);
             setShowScheduler(false);
