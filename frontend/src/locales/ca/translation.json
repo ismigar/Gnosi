@@ -129,7 +129,10 @@
     "restore": "Restaurar",
     "document": "document",
     "error": "Error",
-    "unknown": "desconegut"
+    "unknown": "desconegut",
+    "confirm": "Confirmar",
+    "confirm_action": "Confirmar acció",
+    "confirm_action_msg": "N'estàs segur que vols procedir amb aquesta acció?"
   },
   "calendar": {
     "title": "Calendari",

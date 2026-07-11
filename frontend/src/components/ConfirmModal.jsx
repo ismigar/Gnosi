@@ -1,17 +1,26 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { AlertCircle, X, Check } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 export const ConfirmModal = ({
     isOpen,
     onClose,
     onConfirm,
-    title = "Confirmar acció",
-    message = "N'estàs segur que vols procedir amb aquesta acció?",
-    confirmText = "Confirmar",
-    cancelText = "Cancel·lar",
+    title,
+    message,
+    confirmText,
+    cancelText,
     isDestructive = true
 }) => {
+    const { t } = useTranslation();
+    // Localized fallbacks: callers may omit these props; default to i18n instead
+    // of hardcoded Catalan so the dialog is never partially untranslated. `??`
+    // (not `||`) so an explicit empty string from a caller is respected.
+    const resolvedTitle = title ?? t('common.confirm_action', 'Confirmar acció');
+    const resolvedMessage = message ?? t('common.confirm_action_msg', "N'estàs segur que vols procedir amb aquesta acció?");
+    const resolvedConfirmText = confirmText ?? t('common.confirm', 'Confirmar');
+    const resolvedCancelText = cancelText ?? t('common.cancel', 'Cancel·lar');
     const modalRef = useRef(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -76,7 +85,7 @@ export const ConfirmModal = ({
                         onClick={onClose}
                         disabled={isSubmitting}
                         className="gnosi-close-btn"
-                        aria-label="Tancar"
+                        aria-label={t('common.close', 'Tanca')}
                     >
                         <X />
                     </button>
@@ -84,10 +93,10 @@ export const ConfirmModal = ({
 
                 <div>
                     <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
-                        {title}
+                        {resolvedTitle}
                     </h3>
                     <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-6">
-                        {message}
+                        {resolvedMessage}
                     </p>
                 </div>
 
@@ -98,7 +107,7 @@ export const ConfirmModal = ({
                         disabled={isSubmitting}
                         className="px-4 py-2 font-medium text-[var(--text-secondary)] border border-[var(--border-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors focus:ring-2 focus:ring-[var(--border-primary)] outline-none"
                     >
-                        {cancelText}
+                        {resolvedCancelText}
                     </button>
                     <button
                         data-autofocus="true"
@@ -110,7 +119,7 @@ export const ConfirmModal = ({
                             : 'bg-[var(--gnosi-blue)] hover:opacity-90 focus:ring-[var(--gnosi-blue)]/50'
                             }`}
                     >
-                        {isSubmitting ? '...' : confirmText}
+                        {isSubmitting ? '...' : resolvedConfirmText}
                     </button>
                 </div>
             </div>
