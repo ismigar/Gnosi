@@ -1,18 +1,18 @@
-"""Índex local de traduccions per a la idempotència de translate-row.
+"""Local translation index for translate-row idempotency.
 
-Mapa `{ origin_id_canònic: { lang: subitem_id } }` persistit FORA del Vault (a
-`local_data/system/`, mai sincronitzat amb OneDrive). Així la idempotència de
-translate-row no depèn de llegir els subitems del Vault, que poden ser
-online-only (dataless) i fer fallar el lookup → duplicats (bug "re-traduir crea
-subitems nous i mou els vells a .trash").
+Map `{ canonical_origin_id: { lang: subitem_id } }` persisted OUTSIDE the Vault (in
+`local_data/system/`, never synced with OneDrive). This way translate-row idempotency
+does not depend on reading the Vault subitems, which can be
+online-only (dataless) and cause the lookup to fail → duplicates (bug "re-translating creates
+new subitems and moves the old ones to .trash").
 
-És una PISTA primària, NO l'única font: el caller valida cada id contra el disc
-(`find_page_path`) abans de fer-lo servir, de manera que un índex ranci (subitem
-esborrat manualment, o índex perdut) no provoca cap error — només cau a les
-altres vies (snapshot / _recover).
+It's a primary HINT, NOT the only source: the caller validates each id against disk
+(`find_page_path`) before using it, so that a stale index (subitem
+deleted manually, or lost index) doesn't cause any error — it just falls back to the
+other paths (snapshot / _recover).
 
-Sense imports pesats del backend (només `translation_helpers`, que és pur):
-importable en aïllament per als tests.
+No heavy backend imports (only `translation_helpers`, which is pure):
+importable in isolation for tests.
 """
 import json
 import logging
@@ -29,7 +29,7 @@ _lock = threading.Lock()
 
 
 def _index_path() -> Path:
-    """Ruta del JSON de l'índex, a `local_data/system/` (mai a OneDrive)."""
+    """Path to the index JSON, in `local_data/system/` (never in OneDrive)."""
     local_env = os.environ.get("GNOSI_LOCAL_DATA")
     base = Path(local_env) if local_env else Path("/app/data")
     return base / "system" / "translation_index.json"
@@ -55,14 +55,14 @@ def _save(data: Dict[str, Dict[str, str]]) -> None:
         tmp = p.with_suffix(".json.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
-        tmp.replace(p)  # rename atòmic
+        tmp.replace(p)  # atomic rename
     except Exception as exc:
         log.warning(f"translation-index: no s'ha pogut desar {p}: {exc}")
 
 
 def get_known_translations(origin_id: str) -> Dict[str, str]:
-    """`{lang: subitem_id}` registrats per a un origin (pot estar ranci → el
-    caller ha de validar cada id contra el disc)."""
+    """`{lang: subitem_id}` registered for an origin (may be stale → the
+    caller must validate each id against disk)."""
     key = canonicalize_id(origin_id)
     if not key:
         return {}
@@ -78,7 +78,7 @@ def get_known_translations(origin_id: str) -> Dict[str, str]:
 
 
 def record_translation(origin_id: str, lang: str, subitem_id: str) -> None:
-    """Registra (origin, lang) → subitem_id. Idempotent (sobreescriu el lang)."""
+    """Registers (origin, lang) → subitem_id. Idempotent (overwrites the lang)."""
     key = canonicalize_id(origin_id)
     lng = str(lang or "").strip().lower()
     sid = str(subitem_id or "").strip()
@@ -91,7 +91,7 @@ def record_translation(origin_id: str, lang: str, subitem_id: str) -> None:
 
 
 def forget_translation(origin_id: str, lang: str) -> None:
-    """Treu (origin, lang) de l'índex (subitem esborrat o id ranci)."""
+    """Remove (origin, lang) from the index (subitem deleted or stale id)."""
     key = canonicalize_id(origin_id)
     lng = str(lang or "").strip().lower()
     if not key or not lng:

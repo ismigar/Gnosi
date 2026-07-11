@@ -1,7 +1,7 @@
-"""Tests del nucli del sistema de plugins v2 (manifest, permisos, descobriment).
+"""Tests for the plugin system v2 core (manifest, permissions, discovery).
 
-Purs: sense xarxa ni backend. Toquen només `plugin_system` i el filesystem
-(directori temporal).
+Pure: no network, no backend. They only touch `plugin_system` and the filesystem
+(temporary directory).
 """
 import json
 import sys
@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from backend.services import plugin_system as ps  # noqa: E402
 
 
-# --- Validació de manifest ---------------------------------------------------
+# --- Manifest validation ---------------------------------------------------
 def test_validate_manifest_ok():
     m = ps.validate_manifest({
         "id": "my-plugin", "version": "1.2.3", "name": "Meu",
@@ -49,7 +49,7 @@ def test_validate_manifest_entry_traversal():
         ps.validate_manifest({"id": "p", "version": "1.0.0", "main": "../../etc/passwd"})
 
 
-# --- Seguretat de path -------------------------------------------------------
+# --- Path security -------------------------------------------------------
 def test_plugin_dir_rejects_traversal(tmp_path):
     with pytest.raises(ps.PluginError):
         ps.plugin_dir(tmp_path, "../escape")
@@ -103,7 +103,7 @@ def test_discover_plugins(tmp_path):
         key = e.get("manifest", {}).get("id") if e.get("manifest") else e.get("id")
         by_id[key] = e
     assert "good" in by_id and by_id["good"]["manifest"]["name"] == "Good"
-    # El de carpeta "broken" té id que no casa amb la carpeta → error, no manifest.
+    # The one in the "broken" folder has an id that doesn't match the folder → error, not manifest.
     assert "broken" in by_id and by_id["broken"].get("error")
 
 
@@ -111,7 +111,7 @@ def test_discover_empty(tmp_path):
     assert ps.discover_plugins(tmp_path) == []
 
 
-# --- Instal·lació des de zip -------------------------------------------------
+# --- Installation from zip -------------------------------------------------
 def _make_zip(files: dict) -> bytes:
     import io, zipfile
     buf = io.BytesIO()
@@ -166,12 +166,12 @@ def test_uninstall_removes_dir(tmp_path):
     assert not ps.plugin_dir(tmp_path, "gone").exists()
 
 
-# --- Catàleg / galeria -------------------------------------------------------
+# --- Catalog / gallery -------------------------------------------------------
 def test_catalog_loads_and_installs_bundled(tmp_path):
     from backend.services import plugin_catalog as pc
     cat = pc.load_catalog()
     ids = {e.get("id") for e in cat}
-    assert "hello-command" in ids  # exemple empaquetat al repo
+    assert "hello-command" in ids  # example bundled in the repo
     m = pc.install_bundled(tmp_path, "hello-command")
     assert m["id"] == "hello-command"
     assert (ps.plugin_dir(tmp_path, "hello-command") / "manifest.json").exists()
@@ -183,7 +183,7 @@ def test_catalog_install_unknown_raises(tmp_path):
         pc.install_bundled(tmp_path, "no-existeix")
 
 
-# --- Verificació d'integritat (checksum) d'instal·lació remota ---------------
+# --- Integrity verification (checksum) of remote installation ---------------
 def test_install_from_url_checksum_mismatch(tmp_path, monkeypatch):
     import hashlib
     from backend.services import plugin_catalog as pc
@@ -207,7 +207,7 @@ def test_install_from_url_checksum_mismatch(tmp_path, monkeypatch):
     assert not ps.plugin_dir(tmp_path, "remot").exists()
 
 
-# --- Versionat de l'API de plugins ------------------------------------------
+# --- Plugin API versioning ------------------------------------------
 def test_manifest_api_version_default_and_parse():
     assert ps.validate_manifest({"id": "av1", "version": "1.0.0"})["apiVersion"] == 1
     assert ps.validate_manifest({"id": "av2", "version": "1.0.0", "apiVersion": 1})["apiVersion"] == 1
@@ -237,7 +237,7 @@ def test_read_manifest_refuses_future_api_version(tmp_path):
 
 
 def test_bundled_examples_have_valid_manifests():
-    # Els exemples del catàleg s'han d'instal·lar tots (manifest vàlid + compat).
+    # All catalog examples must install successfully (valid manifest + compat).
     from backend.services import plugin_catalog as pc
     import tempfile
     cfg = Path(tempfile.mkdtemp())

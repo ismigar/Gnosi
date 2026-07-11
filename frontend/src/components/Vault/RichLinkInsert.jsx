@@ -1,15 +1,15 @@
 /**
  * RichLinkInsert.jsx
  *
- * Component d'inserció d'enllaços enriquits. Tres modes (URL externa,
- * enllaç local file://, embed). Disseny modal: el component es renderitza
- * sempre i la seva visibilitat es controla via props `open`/`onClose` des
- * del component pare (típicament el BlockEditor amb un state).
+ * Rich link insertion component. Three modes (external URL,
+ * local file:// link, embed). Modal design: the component always renders
+ * and its visibility is controlled via `open`/`onClose` props from
+ * the parent component (typically the BlockEditor with a state).
  *
- * Inserció:
- *   - URL: enllaç inline href=…
- *   - Local: enllaç inline file://…  (sense pujar res; la ruta apunta al disc)
- *   - Embed: bloc image/video/audio/file (URL externa o pujada local)
+ * Insertion:
+ *   - URL: inline link href=…
+ *   - Local: inline file://… link  (nothing is uploaded; the path points to disk)
+ *   - Embed: image/video/audio/file block (external URL or local upload)
  */
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { FolderOpen, Image as ImageIcon, X, Globe, FileText, Upload, Link as LinkIcon } from 'lucide-react';
@@ -49,7 +49,7 @@ function detectEmbedKind(url) {
 }
 
 /**
- * Modal d'inserció d'enllaç ric.
+ * Rich link insertion modal.
  * @param {{ open: boolean, onClose: () => void, editor: any, uploadFile: (file: File) => Promise<string> }} props
  */
 export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
@@ -59,15 +59,15 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
     const [linkText, setLinkText] = useState('');
     const [busy, setBusy] = useState(false);
     const [localPath, setLocalPath] = useState('');
-    // Mode dins la pestanya Local: 'link' (file://) o 'upload' (puja a Assets)
+    // Mode within the Local tab: 'link' (file://) or 'upload' (uploads to Assets)
     const [localMode, setLocalMode] = useState('link');
-    // Picker UI per evitar copy-paste manual de la ruta. null o 'file'/'folder'.
+    // Picker UI to avoid manually copy-pasting the path. null or 'file'/'folder'.
     const [pickerMode, setPickerMode] = useState(null);
     // Drag-and-drop al mode "Pujar a Assets"
     const [dragOver, setDragOver] = useState(false);
     const uploadInputRef = useRef(null);
 
-    // Reset i captura de selecció a l'obrir/tancar
+    // Reset and selection capture on open/close
     useEffect(() => {
         if (open) {
             try {
@@ -83,13 +83,13 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
         }
     }, [open, editor]);
 
-    // Navegació de teclat:
-    //   - Escape: tanca el modal
+    // Keyboard navigation:
+    //   - Escape: closes the modal
     //   - ⌘/Ctrl+1/2/3: salta a URL/Local/Embed
-    //   - ⌘/Ctrl+←/→: tab anterior/següent (cíclic)
-    //   - Dins la pestanya Local: ⌘/Ctrl+L/U commuta entre "Enllaçar" i "Pujar"
-    // Sense `preventDefault` el ⌘+1..9 del navegador canviaria de pestanya;
-    // l'usuari espera que dins el modal els atalls es quedin al modal.
+    //   - ⌘/Ctrl+←/→: previous/next tab (cyclic)
+    //   - Within the Local tab: ⌘/Ctrl+L/U toggles between "Link" and "Upload"
+    // Without `preventDefault` the browser's ⌘+1..9 would switch tabs;
+    // the user expects shortcuts inside the modal to stay within the modal.
     useEffect(() => {
         if (!open) return;
         const onKey = (e) => {
@@ -116,7 +116,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
             }
             const k = String(e.key || '').toLowerCase();
             if (k === 'l' || k === 'u') {
-                // Només té sentit a la pestanya Local
+                // Only makes sense in the Local tab
                 if (tab === 'local') {
                     e.preventDefault();
                     setLocalMode(k === 'l' ? 'link' : 'upload');
@@ -131,16 +131,16 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
         if (!editor) return;
         const text = (label || href).trim() || href;
         try {
-            // BlockNote: el content d'un link ha de ser un array d'inline content
-            // objects (no un string), si no els links file:// poden no persistir
-            // bé al document interno.
+            // BlockNote: the content of a link must be an array of inline content
+            // objects (not a string), otherwise file:// links may not persist
+            // properly in the internal document.
             editor.insertInlineContent([
                 { type: 'link', href, content: [{ type: 'text', text, styles: {} }] },
             ]);
         } catch (err) {
             console.error('insertInlineLink error', err);
-            // Fallback: inserim com a markdown literal i deixem que BlockNote
-            // el reparseji al següent reload del contingut.
+            // Fallback: we insert it as literal markdown and let BlockNote
+            // it gets re-parsed on the next content reload.
             try {
                 editor.insertInlineContent(`[${text}](${href})`);
             } catch (err2) {
@@ -245,7 +245,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                 }}
             >
                 <div style={{ display: 'flex', gap: 4, marginBottom: 12, borderBottom: '1px solid var(--border-primary, #eee)' }}>
-                    {/* eslint-disable-next-line no-unused-vars -- `Icon` s'usa al JSX més avall però alguna versió del plugin react no ho detecta amb destructuring renamed */}
+                    {/* eslint-disable-next-line no-unused-vars -- `Icon` is used in the JSX further down, but some versions of the react plugin do not detect it with renamed destructuring */}
                     {TABS.map(({ key, icon: Icon, labelKey, fallback }) => (
                         <button
                             key={key}
@@ -279,7 +279,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                 {tab === 'url' && (
                     <form onSubmit={handleSubmitUrl} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <input
-                            autoFocus type="url" placeholder="https://exemple.com"
+                            autoFocus type="url" placeholder={t('editor.link_url_placeholder', 'https://exemple.com')}
                             value={url} onChange={(e) => setUrl(e.target.value)} style={inputStyle}
                         />
                         <input
@@ -295,7 +295,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
 
                 {tab === 'local' && (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                        {/* Toggle entre "Enllaçar (file://)" i "Pujar a Assets" */}
+                        {/* Toggle between "Link (file://)" and "Upload to Assets" */}
                         <div
                             role="tablist"
                             style={{
@@ -328,17 +328,17 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                             </button>
                         </div>
 
-                        {/* MODE 1: Enllaç file:// (no es puja res) */}
+                        {/* MODE 1: file:// link (nothing is uploaded) */}
                         {localMode === 'link' && (
                             <form
                                 onSubmit={(e) => {
                                     e.preventDefault();
                                     const fileHref = toFileUrl(localPath);
                                     if (!fileHref) return;
-                                    // El href que va al BlockNote és el sentinel
-                                    // (https://gnosi-file-protocol.local/...) perquè
-                                    // file:// no passa la validació de Tiptap i
-                                    // s'esborra. Es reverteix en serialitzar.
+                                    // The href that goes to BlockNote is the sentinel
+                                    // (https://gnosi-file-protocol.local/...) because
+                                    // file:// doesn't pass Tiptap's validation and
+                                    // gets deleted. It is reverted upon serialization.
                                     const href = fileUrlToSentinel(fileHref);
                                     insertInlineLink(href, linkText || basenameOf(localPath));
                                     onClose?.();
@@ -360,10 +360,10 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                     value={linkText} onChange={(e) => setLinkText(e.target.value)} style={inputStyle}
                                 />
                                 <div style={{ display: 'flex', gap: 6 }}>
-                                    {/* Picker de fitxer: obre un explorador propi servit per
-                                        /api/system/browse (el navegador no exposa la ruta absoluta
-                                        amb <input type="file">; el backend en Docker no pot obrir
-                                        diàlegs natius). El path retornat ja és el del host. */}
+                                    {/* File picker: opens a custom explorer served by
+                                        /api/system/browse (the browser does not expose the absolute path
+                                        with <input type="file">; the backend in Docker cannot open
+                                        native dialogs). The returned path is already the host's. */}
                                     <button
                                         type="button"
                                         onClick={() => setPickerMode('file')}
@@ -391,7 +391,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                             </form>
                         )}
 
-                        {/* MODE 2: Puja el fitxer a Assets i fa enllaç a la URL retornada */}
+                        {/* MODE 2: Uploads the file to Assets and links to the returned URL */}
                         {localMode === 'upload' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 <p style={{ fontSize: 12, color: 'var(--text-secondary, #666)', margin: 0 }}>
@@ -414,10 +414,10 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                         await handleUploadFile(file);
                                     }}
                                 />
-                                {/* Zona de drop: el browser no exposa la ruta absoluta del
-                                    fitxer arrossegat, però sí en dóna el File. Per al mode
-                                    "Pujar a Assets" això n'hi ha prou (es puja directament
-                                    al backend i s'insereix l'enllaç intern). */}
+                                {/* Drop zone: the browser does not expose the absolute path of the
+                                    dragged file, but it does give the File. For the
+                                    "Upload to Assets" mode this is enough (it is uploaded directly
+                                    to the backend and the internal link is inserted). */}
                                 <div
                                     onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; setDragOver(true); }}
                                     onDragLeave={() => setDragOver(false)}
@@ -466,7 +466,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                 {t('editor.embed_url_label', { defaultValue: "Embed des d'una URL" })}
                             </label>
                             <input
-                                type="url" placeholder="https://… (imatge, vídeo, fitxer)"
+                                type="url" placeholder={t('editor.embed_url_placeholder', 'https://… (imatge, vídeo, fitxer)')}
                                 value={url} onChange={(e) => setUrl(e.target.value)} style={inputStyle}
                             />
                             <button type="submit" className="btn btn-gnosi-primary" style={btnStyle}>

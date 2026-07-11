@@ -72,8 +72,8 @@ def fetch_and_store_feeds():
                         pub_date = datetime.now(timezone.utc) # fallback
 
                     # Removed 24h filter to allow full history ingestion.
-                    # `target_time` queda al closure però no s'usa — mantenim
-                    # la variable per si en el futur volem reactivar-lo.
+                    # `target_time` stays in the closure but is unused — we keep it
+                    # the variable in case we want to re-enable it in the future.
                     _ = target_time
                     # Extract URL and check uniqueness
                     article_link = entry.get('link', '')
@@ -99,11 +99,11 @@ def fetch_and_store_feeds():
                             # structure — see directive
                             # reader_minimalist_redesign.md for the iframe
                             # XSS mitigation.
-                            # `content` pot faltar, ser una llista BUIDA (alguns feeds
-                            # Atom) o portar ítems sense `value`: el llegim de forma
-                            # robusta i caiem a `summary`. Abans `[0]['value']` cru petava
-                            # amb IndexError/KeyError i l'article se saltava en silenci
-                            # (via el try/except de sota) tot i tenir un `summary` usable.
+                            # `content` may be missing, be an EMPTY list (some feeds
+                            # Atom) or carry items without a `value`: we read it in a
+                            # robust and we fall back to `summary`. Before, a raw `[0]['value']` would crash
+                            # with IndexError/KeyError and the article was silently skipped
+                            # (via the try/except below) even though it has a usable `summary`.
                             _content = entry.get('content') or []
                             content_raw = ''
                             if _content and isinstance(_content[0], dict):
@@ -131,24 +131,24 @@ def fetch_and_store_feeds():
                                 published_at=pub_date,
                                 is_read=False
                             )
-                            # Savepoint per article: si el flush peta (col·lisió
-                            # d'URL, valor invàlid…) NOMÉS es descarta AQUEST
-                            # article. Abans el `except` feia `db.rollback()`,
-                            # que revertia TOTA la transacció del run (el commit
-                            # és únic, al final del bucle) i esborrava en silenci
-                            # tots els articles ja inserits del lot, a més de
-                            # deixar `new_articles_count` sobrecomptat. Un error
-                            # habitual és `extract_full_content` (petició HTTP a
-                            # la URL de l'article) llançant — queda FORA del
-                            # savepoint, i el `except` ja no toca la transacció.
+                            # Per-article savepoint: if the flush blows up (a
+                            # URL collision, invalid value…) ONLY THIS one gets discarded,
+                            # article. Previously the `except` did `db.rollback()`,
+                            # which used to revert the WHOLE run's transaction (the commit
+                            # is unique, at the end of the loop) and would silently delete
+                            # all the articles already inserted in the batch, in addition to
+                            # leave `new_articles_count` overcounted. An error
+                            # the usual cause: `extract_full_content` (an HTTP request to
+                            # the article's URL) throwing — it stays OUTSIDE the
+                            # savepoint, and the `except` no longer touches the transaction.
                             with db.begin_nested():
                                 db.add(new_article)
                                 db.flush()  # Catch IntegrityError early
                             new_articles_count += 1
                         except Exception as e:
-                            # Sense `db.rollback()`: si s'havia obert el
-                            # savepoint, ja ha revertit només aquest article; la
-                            # resta del lot es conserva per al commit final.
+                            # Without `db.rollback()`: if it had been opened, the
+                            # savepoint, it has already rolled back only this article; the
+                            # rest of the batch is preserved for the final commit.
                             log.warning(f"  ⚠️ Skipping article due to insertion error: {article_link} - {e}")
                             continue
 

@@ -1,21 +1,21 @@
-"""Sistema de plugins v2 de Gnosi — descobriment, manifest i permisos.
+"""Gnosi plugin system v2 — discovery, manifest and permissions.
 
-Estén el registre v1 (features internes, `.gnosi/plugins.json`) cap a plugins de
-TERCERS carregables des de `.gnosi/plugins/<id>/`. Aquest mòdul és la capa de
-DADES pura del nucli (fase 1 de `docs/dev_memory/directives/plugin_system.md`):
+Extends the v1 registry (internal features, `.gnosi/plugins.json`) to
+THIRD-PARTY plugins loadable from `.gnosi/plugins/<id>/`. This module is the
+pure DATA layer of the core (phase 1 of `docs/dev_memory/directives/plugin_system.md`):
 
-  * Descobreix plugins instal·lats llegint-ne el `manifest.json`.
-  * Valida el manifest (id segur, versió, permisos declarats coneguts).
-  * Governa el model de PERMISOS: un plugin només pot fer el que ha declarat al
-    manifest I l'usuari ha aprovat (persistit a `.gnosi/plugins.json` →
+  * Discovers installed plugins by reading their `manifest.json`.
+  * Validates the manifest (safe id, version, known declared permissions).
+  * Governs the PERMISSIONS model: a plugin can only do what it has declared in
+    the manifest AND the user has approved (persisted in `.gnosi/plugins.json` →
     `granted[<id>] = [perms]`).
 
-Frontera de seguretat: aquí NO s'executa codi de tercers. L'execució viu al
-sandbox de UI (iframe, frontend) i al sandbox de dades (`plugin_sandbox.py`,
-subprocés Node capat). Aquest mòdul només decideix QUÈ està permès.
+Security boundary: NO third-party code runs here. Execution lives in the
+UI sandbox (iframe, frontend) and the data sandbox (`plugin_sandbox.py`,
+restricted Node subprocess). This module only decides WHAT is allowed.
 
-Mòdul quasi pur: només I/O de lectura de fitxers del directori de plugins i de
-l'estat. No importa routers ni serveis pesants.
+Almost-pure module: only file-read I/O of the plugins directory and of
+the state. It does not import routers or heavy services.
 """
 from __future__ import annotations
 
@@ -33,9 +33,9 @@ from backend.config.logger_config import get_logger
 logger = get_logger(__name__)
 
 # ---------------------------------------------------------------------------
-# Catàleg de permisos. Un plugin ha de declarar-los al manifest; l'usuari els
-# aprova en instal·lar. Sense el permís, l'API corresponent NO existeix per al
-# plugin (ni al bridge de UI ni al sandbox de dades).
+# Permission catalog. A plugin must declare them in the manifest; the user
+# approves them on install. Without the permission, the corresponding API does NOT exist for the
+# plugin (neither in the UI bridge nor in the data sandbox).
 # ---------------------------------------------------------------------------
 PERMISSIONS: Dict[str, str] = {
     "vault:read": "Llegir pàgines i taules del vault",
@@ -48,18 +48,18 @@ PERMISSIONS: Dict[str, str] = {
     "settings": "Desar la seva pròpia configuració",
 }
 
-# Permisos que impliquen execució al backend (sandbox de dades). La resta són
-# només de UI (frontend). Serveix per decidir si cal arrencar el sandbox Node.
+# Permissions that involve execution on the backend (data sandbox). The rest are
+# UI-only (frontend). Used to decide whether the Node sandbox needs to be started.
 BACKEND_PERMISSIONS = {"vault:read", "vault:write", "vault:delete", "network"}
 
-# Versió MAJOR de l'API de plugins que aquest Gnosi implementa. Un plugin declara
-# `apiVersion` al manifest; si demana una major SUPERIOR, el host la refusa (el
-# plugin necessita un Gnosi més nou). Incrementar-la NOMÉS en canvis d'API
-# incompatibles. Els plugins que no la declaren assumeixen 1 (compat enrere).
+# MAJOR version of the plugin API that this Gnosi implements. A plugin declares
+# `apiVersion` in the manifest; if it asks for a HIGHER major, the host refuses it (the
+# plugin needs a newer Gnosi). Increment it ONLY on API changes
+# that are incompatible. Plugins that don't declare it assume 1 (backward compat).
 PLUGIN_API_VERSION = 1
 
-# id de plugin segur com a segment de path (mateixa política que _PAGE_ID_RE de
-# vault_routes: bloqueja `..`, `/`, `\`, punts inicials → anti path-traversal).
+# safe plugin id as a path segment (same policy as _PAGE_ID_RE from
+# vault_routes: blocks `..`, `/`, `\`, leading dots → anti path-traversal).
 _PLUGIN_ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{1,63}$")
 _SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+([-.+][0-9A-Za-z.-]+)?$")
 
@@ -67,7 +67,7 @@ _state_lock = threading.Lock()
 
 
 class PluginError(Exception):
-    """Manifest invàlid o operació de plugin no permesa."""
+    """Invalid manifest or disallowed plugin operation."""
 
 
 def is_valid_plugin_id(pid: Any) -> bool:
@@ -75,28 +75,29 @@ def is_valid_plugin_id(pid: Any) -> bool:
 
 
 def plugins_dir(config_dir: Path) -> Path:
-    """Directori arrel dels plugins instal·lats: `.gnosi/plugins/`."""
+    """Root directory of installed plugins: `.gnosi/plugins/`."""
     return Path(config_dir) / "plugins"
 
 
 def plugin_dir(config_dir: Path, plugin_id: str) -> Path:
-    """Directori d'un plugin concret, validant l'id contra path-traversal."""
+    """Directory of a specific plugin, validating the id against path traversal."""
     if not is_valid_plugin_id(plugin_id):
         raise PluginError(f"Invalid plugin id: {plugin_id!r}")
     base = plugins_dir(config_dir).resolve()
     target = (base / plugin_id).resolve()
-    # Defensa en profunditat: el resultat ha de quedar DINS de plugins/.
+    # Defense in depth: the result must stay INSIDE plugins/.
     if base not in target.parents and target != base:
         raise PluginError("Plugin path escapes plugins dir")
     return target
 
 
 def validate_manifest(raw: Any) -> Dict[str, Any]:
-    """Valida i normalitza un manifest.json. Llança PluginError si invàlid.
+    """Validates and normalizes a manifest.json. Raises PluginError if invalid.
 
-    Camps: id (obligatori, segur), version (semver), name, description, icon,
-    main (entry frontend, opcional), backend (entry dades, opcional),
-    permissions (subconjunt de PERMISSIONS), author/homepage (opcionals).
+    Fields: id (required, safe), version (semver), name, description, icon,
+    main (frontend entry, optional), backend (data entry, optional),
+    permissions (subset of PERMISSIONS), author/homepage (optional).
+    
     """
     if not isinstance(raw, dict):
         raise PluginError("manifest.json ha de ser un objecte JSON")
@@ -122,7 +123,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
             permissions.append(p)
 
     def _rel(entry: Any) -> Optional[str]:
-        """Normalitza un entry relatiu segur (sense `..`, sense absolut)."""
+        """Normalize a safe relative entry (no `..`, not absolute)."""
         if not entry:
             return None
         s = str(entry).strip().lstrip("/")
@@ -135,7 +136,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         raise PluginError("events ha de ser una llista")
     events = [str(e) for e in events_raw if str(e).strip()]
 
-    # apiVersion: major enter de l'API que el plugin espera. Per defecte 1.
+    # apiVersion: major integer of the API the plugin expects. Defaults to 1.
     try:
         api_version = int(raw.get("apiVersion", 1))
     except (TypeError, ValueError):
@@ -152,9 +153,9 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
         "icon": str(raw.get("icon") or "Puzzle"),
         "main": _rel(raw.get("main")),
         "backend": _rel(raw.get("backend")),
-        # Esdeveniments del bus als quals se subscriu l'entry backend. Sense
-        # aquesta llista, un plugin de dades no rep cap crida (evita arrencar
-        # Node per esdeveniments que no li interessen).
+        # Bus events that the backend entry subscribes to. Without
+        # this list, a data plugin receives no calls at all (avoids starting
+        # Node for events it doesn't care about).
         "events": events,
         "permissions": permissions,
         "author": str(raw.get("author") or ""),
@@ -163,7 +164,7 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
 
 
 def read_manifest(config_dir: Path, plugin_id: str) -> Dict[str, Any]:
-    """Llegeix i valida el manifest d'un plugin instal·lat."""
+    """Read and validate the manifest of an installed plugin."""
     pdir = plugin_dir(config_dir, plugin_id)
     mpath = pdir / "manifest.json"
     if not mpath.exists():
@@ -186,11 +187,12 @@ def read_manifest(config_dir: Path, plugin_id: str) -> Dict[str, Any]:
 
 
 def discover_plugins(config_dir: Path) -> List[Dict[str, Any]]:
-    """Llista els plugins de tercers instal·lats amb el manifest validat.
+    """Lists installed third-party plugins with the validated manifest.
 
-    Els que tenen manifest invàlid s'inclouen amb `error` en lloc de manifest,
-    perquè el panell de gestió pugui mostrar-los com a trencats (no s'amaguen
-    silenciosament).
+    Those with an invalid manifest are included with `error` instead of a
+    manifest, so the management panel can show them as broken (they are not
+    hidden silently).
+    
     """
     base = plugins_dir(config_dir)
     out: List[Dict[str, Any]] = []
@@ -211,26 +213,27 @@ def discover_plugins(config_dir: Path) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Estat de permisos concedits. Es guarda dins de `.gnosi/plugins.json` (mateix
-# fitxer que v1) sota la clau `granted`, per no fragmentar l'estat de plugins.
-# El load/save del fitxer sencer viu a vault_routes (_load/_save_plugins_state);
-# aquí només oferim helpers purs sobre el dict d'estat.
+# State of granted permissions. Stored inside `.gnosi/plugins.json` (same
+# file as v1) under the `granted` key, so as not to fragment the plugin state.
+# The load/save of the whole file lives in vault_routes (_load/_save_plugins_state);
+# here we only offer pure helpers over the state dict.
 # ---------------------------------------------------------------------------
 # ---------------------------------------------------------------------------
-# Instal·lació / desinstal·lació de plugins des d'un .zip.
+# Installing / uninstalling plugins from a .zip.
 # ---------------------------------------------------------------------------
-# Un .zip amb el manifest.json a l'arrel (o dins d'una única carpeta arrel). Es
-# valida el manifest ABANS d'escriure res, i l'extracció és anti zip-slip.
-_MAX_ZIP_BYTES = 20 * 1024 * 1024      # 20 MB de zip comprimit
+# A .zip with manifest.json at the root (or inside a single root folder). The manifest
+# is validated BEFORE writing anything, and the extraction is anti zip-slip.
+_MAX_ZIP_BYTES = 20 * 1024 * 1024      # 20 MB of compressed zip
 _MAX_UNCOMPRESSED = 80 * 1024 * 1024   # 80 MB descomprimits (anti zip-bomb)
 _MAX_ENTRIES = 2000
 
 
 def _find_manifest_root(zf: zipfile.ZipFile) -> str:
-    """Retorna el prefix intern on viu el manifest.json (arrel o subcarpeta única).
+    """Returns the internal prefix where manifest.json lives (root or single subfolder).
 
-    Accepta `manifest.json` a l'arrel del zip o dins d'exactament una carpeta de
-    primer nivell (cas típic quan es comprimeix la carpeta del plugin).
+    Accepts `manifest.json` at the zip root or inside exactly one top-level
+    folder (the typical case when the plugin folder is zipped).
+    
     """
     names = [n for n in zf.namelist() if not n.endswith("/")]
     if "manifest.json" in names:
@@ -244,11 +247,12 @@ def _find_manifest_root(zf: zipfile.ZipFile) -> str:
 
 
 def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -> Dict[str, Any]:
-    """Instal·la un plugin des dels bytes d'un .zip. Retorna el manifest instal·lat.
+    """Installs a plugin from the bytes of a .zip. Returns the installed manifest.
 
-    Passos: mida → obrir zip → localitzar+validar manifest → extreure amb guàrdies
-    anti zip-slip/zip-bomb a `.gnosi/plugins/<id>/`. Fail-closed: si el manifest
-    és invàlid, no s'escriu res.
+    Steps: size → open zip → locate+validate manifest → extract with anti
+    zip-slip/zip-bomb guards into `.gnosi/plugins/<id>/`. Fail-closed: if the
+    manifest is invalid, nothing is written.
+    
     """
     if not data:
         raise PluginError("zip buit")
@@ -279,7 +283,7 @@ def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -
         )
     pid = manifest["id"]
 
-    dest = plugin_dir(config_dir, pid)  # valida l'id contra path-traversal
+    dest = plugin_dir(config_dir, pid)  # validates the id against path-traversal
     if dest.exists():
         if not overwrite:
             raise PluginError(f"el plugin {pid!r} ja està instal·lat")
@@ -294,7 +298,7 @@ def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -
         rel = name[len(prefix):]
         if not rel or rel.endswith("/"):
             continue
-        # Anti zip-slip: la ruta resolta ha de quedar DINS de dest.
+        # Anti zip-slip: the resolved path must stay INSIDE dest.
         out = (dest / rel).resolve()
         if dest_resolved not in out.parents and out != dest_resolved:
             shutil.rmtree(dest, ignore_errors=True)
@@ -307,7 +311,7 @@ def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -
 
 
 def uninstall(config_dir: Path, plugin_id: str) -> None:
-    """Esborra el directori d'un plugin instal·lat. No toca l'estat (granted/disabled)."""
+    """Deletes an installed plugin's directory. Does not touch the state (granted/disabled)."""
     dest = plugin_dir(config_dir, plugin_id)
     if dest.exists():
         shutil.rmtree(dest)
@@ -320,16 +324,17 @@ def granted_permissions(state: Dict[str, Any], plugin_id: str) -> List[str]:
 
 
 def has_permission(state: Dict[str, Any], plugin_id: str, permission: str) -> bool:
-    """True si el plugin està actiu I té el permís concedit per l'usuari."""
+    """True if the plugin is active AND has the permission granted by the user."""
     if plugin_id in set(state.get("disabled") or []):
         return False
     return permission in granted_permissions(state, plugin_id)
 
 
 def set_granted(state: Dict[str, Any], plugin_id: str, permissions: List[str]) -> Dict[str, Any]:
-    """Retorna una còpia de l'estat amb els permisos concedits actualitzats.
+    """Returns a copy of the state with the granted permissions updated.
 
-    Només accepta permisos coneguts; la resta es descarta silenciosament.
+    Only accepts known permissions; the rest are silently discarded.
+    
     """
     clean = [p for p in (permissions or []) if p in PERMISSIONS]
     granted = dict(state.get("granted") or {})

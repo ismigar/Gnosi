@@ -94,20 +94,20 @@ export const InsertContentModal = ({
     initialFile = null,
     initialTab = 'vault',
     tableId = null,
-    // Quan s'obre per a un camp `files` configurat (no per a contingut inline
-    // ni camps d'imatge detectats pel nom), la pujada i l'enllaç han de respectar
-    // la config del camp: destí (`storageFolder`, p.ex. 'biblioteca') i
-    // reanomenat segons `namePattern` interpolat amb les metadades de la fila.
+    // When opened for a configured `files` field (not for inline content
+    // or image fields detected by name), the upload and the link must respect
+    // the field's config: destination (`storageFolder`, e.g. 'biblioteca') and
+    // renamed according to `namePattern` interpolated with the row's metadata.
     fileField = null, // { propertyName, storageFolder, namePattern, fileMode } | null
     rowMetadata = {},
-    imageField = false, // mostra inputs alt/title/caption/credit (camp imatge compost)
-    initialImageMeta = null, // { alt, title, caption, credit } per pre-omplir
+    imageField = false, // shows alt/title/caption/credit inputs (composite image field)
+    initialImageMeta = null, // { alt, title, caption, credit } to pre-fill
 }) => {
     const { t } = useTranslation();
-    // Pestanyes que tenen sentit segons el context: sense camp (contingut inline
-    // o camps d'imatge detectats pel nom) → totes; cridat des d'un camp `files`
-    // → només les coherents amb el seu `file_mode` (link = enllaçar del disc;
-    // upload = pujar, o enllaçar+reanomenar un fitxer existent).
+    // Tabs that make sense depending on context: no field (inline content
+    // or image fields detected by name) → all; called from a `files` field
+    // → only those consistent with its `file_mode` (link = link from disk;
+    // upload = upload, or link+rename an existing file).
     const allowedTabs = useMemo(() => {
         if (!fileField) return TABS.map(tb => tb.id);
         return fileField.fileMode === 'link' ? ['local'] : ['upload', 'local'];
@@ -123,18 +123,18 @@ export const InsertContentModal = ({
     const [uploadFile, setUploadFile] = useState(initialFile);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
-    // Metadades del camp imatge compost (alt/title/caption/credit).
+    // Metadata for the composite image field (alt/title/caption/credit).
     const [imgMeta, setImgMeta] = useState({});
     useEffect(() => {
         if (open) setImgMeta(initialImageMeta || {});
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]);
-    // Src de la imatge ja present al camp (si n'hi ha). Permet mostrar-la i desar
-    // només els metadades (alt/títol/…) sense haver de re-seleccionar-la.
+    // Src of the image already present in the field (if any). Allows showing it and saving
+    // only the metadata (alt/title/…) without having to re-select it.
     const currentSrc = imageField ? (initialImageMeta?.src || '') : '';
     const uploadInputRef = useRef(null);
     const confirmBtnRef = useRef(null);
-    // Ref al panell del modal: delimita el focus-trap i l'àmbit del Enter.
+    // Ref to the modal panel: delimits the focus-trap and the scope of Enter.
     const panelRef = useRef(null);
 
     useEffect(() => {
@@ -154,8 +154,8 @@ export const InsertContentModal = ({
         }
     }, [open, fieldInitialTab]);
 
-    // Si la pestanya activa deixa de tenir sentit (p.ex. arribem amb 'upload'
-    // però el camp és de mode 'link'), saltem a la primera permesa.
+    // If the active tab stops making sense (e.g. we arrive with 'upload'
+    // but the field is in 'link' mode), we jump to the first allowed one.
     useEffect(() => {
         if (open && !allowedTabs.includes(tab)) setTab(allowedTabs[0]);
     }, [open, allowedTabs, tab]);
@@ -169,14 +169,14 @@ export const InsertContentModal = ({
         }
     }, [open, initialFile]);
 
-    // Cada tab gestiona la seva pròpia selecció. En canviar de tab, la
-    // selecció del tab anterior deixa de ser vàlida: sense aquest reset, un
-    // fitxer arrossegat (selected='upload-pending') seguia actiu després de
-    // passar a "Disc local" i el botó Insereix acabava pujant a Assets
-    // igualment. El tab "Puja" recupera la selecció upload-pending mentre hi
-    // hagi un `uploadFile`; els altres tabs queden a null fins que l'usuari
-    // hi triï alguna cosa (handleSelectVault / handleSelectLocal /
-    // handleUrlChange), cosa que també desactiva el botó Insereix.
+    // Each tab manages its own selection. When switching tabs, the
+    // previous tab's selection stops being valid: without this reset, a
+    // dragged file (selected='upload-pending') remained active after
+    // switching to "Local Disk" and the Insert button ended up uploading to Assets
+    // anyway. The "Upload" tab recovers the upload-pending selection as long as there is
+    // an `uploadFile`; the other tabs stay null until the user
+    // picks something there (handleSelectVault / handleSelectLocal /
+    // handleUrlChange), which also disables the Insert button.
     useEffect(() => {
         if (tab === 'upload') {
             if (uploadFile) {
@@ -205,9 +205,9 @@ export const InsertContentModal = ({
         if (!absolutePath) return;
         const name = absolutePath.split('/').pop() || absolutePath;
         if (isDir) {
-            // Una carpeta no es pot servir ni incrustar: només té sentit
-            // enllaçar-la. handleConfirm la converteix al sentinel file://
-            // perquè useFileLinkInterceptor l'obri al Finder en clicar-la.
+            // A folder cannot be served or embedded: it only makes sense to
+            // link it. handleConfirm converts it to the file:// sentinel
+            // so that useFileLinkInterceptor opens it in Finder when clicked.
             setSelected({ source: 'local-folder', path: absolutePath, name, kind: 'folder' });
         } else {
             const kind = detectPathKind(absolutePath);
@@ -241,8 +241,8 @@ export const InsertContentModal = ({
         setSelected({ source: 'upload-pending', name: file.name, kind });
     }, []);
 
-    // Camp `files` configurat: la pujada/enllaç ruten pels endpoints de propietat
-    // (destí + reanomenat segons l'esquema) en comptes del genèric assets/upload.
+    // Configured `files` field: upload/link route through the property's endpoints
+    // (destination + renaming according to the schema) instead of the generic assets/upload.
     const isFieldUpload = Boolean(fileField?.propertyName && tableId);
     const resolvedName = fileField?.namePattern
         ? interpolateNamePattern(fileField.namePattern, rowMetadata)
@@ -268,14 +268,14 @@ export const InsertContentModal = ({
                 if (evt.total) setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
             },
         });
-        // Biblioteca/free retornen un path absolut (url=null); assets retorna URL servida.
+        // Biblioteca/free return an absolute path (url=null); assets returns a served URL.
         return data?.url || data?.path;
     }, [tableId, isFieldUpload, fileField, resolvedName]);
 
     const registerLocalFile = useCallback(async (path) => {
-        // Camp `files` configurat: enllaça reanomenant al disc segons el patró
-        // (estil Zotero), preservant el destí original. Si no, només registra
-        // el fitxer per servir-lo (contingut inline / camps d'imatge).
+        // Configured `files` field: links by renaming on disk according to the pattern
+        // (Zotero style), preserving the original destination. Otherwise, it only records
+        // the file to serve it (inline content / image fields).
         if (isFieldUpload) {
             const { data } = await axios.post('/api/vault/link-existing-file', {
                 file_path: path,
@@ -287,11 +287,11 @@ export const InsertContentModal = ({
         return data?.url;
     }, [isFieldUpload, resolvedName]);
 
-    // Pujada de DIVERSOS fitxers a la vegada — només per a camps `files`. Puja
-    // tots i els insereix directament (sense passar pel preview/mode d'un sol
-    // fitxer). El camí d'UN sol fitxer (handlePickUploadFile) queda intacte; per
-    // a camps imatge/contingut inline `multiple` està desactivat, així que mai
-    // s'arriba aquí amb >1 fitxer.
+    // Upload of MULTIPLE files at once — only for `files` fields. Uploads
+    // all of them and inserts them directly (without going through the preview/single-item
+    // file). The path for a SINGLE file (handlePickUploadFile) remains untouched; for
+    // image/inline-content fields, `multiple` is disabled, so it never
+    // reaches here with >1 file.
     const handlePickUploadFiles = async (fileList) => {
         const files = Array.from(fileList || []).filter(Boolean);
         if (files.length === 0) return;
@@ -324,8 +324,8 @@ export const InsertContentModal = ({
 
     const canInsert = useMemo(() => {
         if (!selected) {
-            // Camp imatge amb imatge actual i sense fitxer nou: es pot desar
-            // igualment (només canvien els metadades, es conserva el src).
+            // Image field with a current image and no new file: it can be saved
+            // anyway (only the metadata changes, the src is kept).
             return Boolean(imageField && currentSrc);
         }
         if (selected.source === 'upload-pending' && !uploadFile) return false;
@@ -333,9 +333,9 @@ export const InsertContentModal = ({
         return modeAvailableFor(selected.kind, mode);
     }, [selected, uploadFile, urlInput, mode, imageField, currentSrc]);
 
-    // En triar/arrossegar un fitxer (o triar-ne un del disc), mou el focus al
-    // botó "Insereix" perquè es pugui confirmar amb Enter directament. No ho fem
-    // per a URL (l'usuari encara hi escriu) ni per a la cerca del vault.
+    // When choosing/dragging a file (or picking one from disk), move focus to the
+    // "Insert" button so it can be confirmed directly with Enter. We don't do this
+    // for URL (the user is still typing) nor for the vault search.
     useEffect(() => {
         if (!open || busy) return;
         const fileSource = selected?.source === 'upload-pending'
@@ -345,8 +345,8 @@ export const InsertContentModal = ({
     }, [open, busy, canInsert, selected?.source]);
 
     const handleConfirm = useCallback(async () => {
-        // Camp imatge sense fitxer nou seleccionat: desa només els metadades
-        // (alt/títol/peu/crèdit), conservant la imatge actual del camp.
+        // Image field with no new file selected: saves only the metadata
+        // (alt/title/caption/credit), keeping the field's current image.
         if (!selected && imageField && currentSrc) {
             onInsert?.({ metadataOnly: true, imageMeta: imgMeta });
             onClose?.();
@@ -361,10 +361,10 @@ export const InsertContentModal = ({
             } else if (selected.source === 'local' && selected.path) {
                 finalUrl = await registerLocalFile(selected.path);
             } else if (selected.source === 'local-folder' && selected.path) {
-                // El sentinel passa la validació de Tiptap (és https://) i
-                // useFileLinkInterceptor el reconverteix a file:// per obrir
-                // la carpeta al Finder. blocksToRichMarkdown el desa com a
-                // file:// al disc.
+                // The sentinel passes Tiptap's validation (it's https://) and
+                // useFileLinkInterceptor converts it back to file:// to open
+                // the folder in Finder. blocksToRichMarkdown stores it as
+                // file:// on disk.
                 finalUrl = fileUrlToSentinel(`file://${selected.path}`);
             }
             if (!finalUrl) {
@@ -380,13 +380,13 @@ export const InsertContentModal = ({
         }
     }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta, currentSrc]);
 
-    // Teclat canònic: Esc tanca, Enter confirma la inserció (mirall del botó
-    // "Insereix": deshabilitat si !canInsert o busy), Tab fa focus-trap dins el
-    // panell. CAPTURA a window per vèncer el stopPropagation de BlockNote
-    // (ProseMirror). Quan el FilesystemPickerModal intern és obert (pickerOpen)
-    // li cedim el teclat: ell té el seu propi Esc + focus-trap (és un germà fora
-    // de panelRef), així que aquí desactivem Esc i el trap per no barallar-nos
-    // amb el seu.
+    // Canonical keyboard: Esc closes, Enter confirms the insertion (mirrors the button
+    // "Insert": disabled if !canInsert or busy), Tab does focus-trap inside the
+    // panel. CAPTURE on window to override BlockNote's stopPropagation
+    // (ProseMirror). When the internal FilesystemPickerModal is open (pickerOpen)
+    // we hand the keyboard over to it: it has its own Esc + focus-trap (it's a sibling outside
+    // of panelRef), so here we disable Esc and the trap to avoid fighting
+    // with its own.
     useModalKeyboard({
         isOpen: open,
         onClose,
@@ -461,10 +461,10 @@ export const InsertContentModal = ({
                             <div className="h-full flex flex-col items-center justify-center gap-4 text-center px-8">
                                 <FolderOpen size={48} className="text-[var(--text-tertiary)]" />
                                 {uploadFile ? (
-                                    // Hi ha un fitxer arrossegat/triat: el navegador NO en
-                                    // dóna la ruta absoluta, així que per enllaçar-lo sense
-                                    // copiar cal localitzar-lo al disc. Ho expliquem perquè
-                                    // no sembli que es demana "tornar a buscar" sense motiu.
+                                    // There is a dragged/chosen file: the browser does NOT
+                                    // gives the absolute path, so to link it without
+                                    // copying, it needs to be located on disk. We explain this so that
+                                    // it doesn't seem like we're asking to "search again" for no reason.
                                     <div>
                                         <div className="text-sm font-semibold">
                                             {t('insert.local_relocate_title', { defaultValue: 'Localitza «{{name}}» al disc', name: uploadFile.name })}

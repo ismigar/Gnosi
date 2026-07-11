@@ -17,15 +17,15 @@ async function uploadFileToVault(file) {
 
 export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px", onAttachFile, autoFocus = false, prependEmptyLines = 0 }) {
     const { effectiveTheme } = useTheme();
-    // Ref perquè l'uploadFile (capturat una sola vegada per useCreateBlockNote)
-    // sempre vegi l'onAttachFile vigent.
+    // Ref so that uploadFile (captured only once by useCreateBlockNote)
+    // always sees the current onAttachFile.
     const onAttachFileRef = useRef(onAttachFile);
     useEffect(() => { onAttachFileRef.current = onAttachFile; }, [onAttachFile]);
     const editor = useCreateBlockNote({
         uploadFile: async (file) => {
-            // Camins interns de BlockNote (menú slash «File», etc.): un
-            // no-imatge pujat al vault acabaria com a enllaç trencat per al
-            // destinatari → desviar-lo als adjunts reals i avortar la inserció.
+            // Internal BlockNote paths (slash menu «File», etc.): a
+            // non-image uploaded to the vault would end up as a broken link for the
+            // recipient → redirect it to the real attachments and abort the insertion.
             if (!file.type.startsWith('image/') && onAttachFileRef.current) {
                 onAttachFileRef.current(file);
                 toast(`Adjuntat: ${file.name}`, { icon: '📎' });
@@ -75,9 +75,9 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
         return () => clearTimeout(t);
     }, [autoFocus, editor]);
 
-    // Imatges → bloc inline (el backend les converteix a cid: en enviar);
-    // qualsevol altre fitxer → adjunt real (mai enllaç al vault, que arriba
-    // trencat al destinatari).
+    // Images → inline block (the backend converts them to cid: on send);
+    // any other file → real attachment (never a link to the vault, which arrives
+    // broken for the recipient).
     const insertFiles = useCallback(async (files) => {
         for (const file of files) {
             if (file.type.startsWith('image/')) {
@@ -106,10 +106,10 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
         insertFiles(Array.from(e.dataTransfer.files));
     }, [insertFiles]);
 
-    // En fase de captura, abans que BlockNote: el seu uploadFile pujaria
-    // qualsevol fitxer enganxat al vault. Si el clipboard porta text/html
-    // (contingut ric de Word/web amb imatge renderitzada), es deixa passar
-    // perquè BlockNote enganxi l'html: les imatges remotes sí que arriben.
+    // In the capture phase, before BlockNote: its uploadFile would upload
+    // any file pasted into the vault. If the clipboard carries text/html
+    // (rich content from Word/web with a rendered image), it is allowed through
+    // because BlockNote pastes the html: remote images do get through.
     const handlePasteCapture = useCallback((e) => {
         if (!onAttachFile) return;
         const cd = e.clipboardData;

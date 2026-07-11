@@ -1,7 +1,7 @@
 /**
  * VaultViewHeader.jsx
- * Capçalera de vistes per a la visualització de taules del Vault dins del BlockEditor.
- * Permet seleccionar vistes i fer cerques de registres.
+ * View header for displaying Vault tables inside the BlockEditor.
+ * Lets you select views and search records.
  */
 import React from 'react';
 import { Search, X } from 'lucide-react';
@@ -14,7 +14,7 @@ export function VaultViewHeader({
     setShowSearch,
     searchTerm,
     setSearchTerm,
-    // Les props següents existeixen per interoperabilitat però es gestionen al Dashboard
+    // The following props exist for interoperability but are handled in the Dashboard
     visibleTabsCount,
     showViewMenu,
     setShowViewMenu,
@@ -47,7 +47,7 @@ export function VaultViewHeader({
 }) {
     return (
         <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]/60 min-h-[40px]">
-            {/* Tabs de vistes */}
+            {/* View tabs */}
             <div className="flex items-center gap-1 flex-1 min-w-0 overflow-x-auto scrollbar-none">
                 {displayViews.map(view => (
                     <button
@@ -64,7 +64,7 @@ export function VaultViewHeader({
                 ))}
             </div>
 
-            {/* Cerca */}
+            {/* Search */}
             <div className="flex items-center gap-1 shrink-0 ml-2">
                 {showSearch ? (
                     <div className="flex items-center gap-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-md px-2 py-1 focus-within:border-indigo-500">

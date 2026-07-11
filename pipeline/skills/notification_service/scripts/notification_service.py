@@ -71,16 +71,16 @@ class MDChannel(BaseNotificationChannel):
 
         try:
             cfg = load_params(strict_env=False)
-            # Local-only: les notificacions són per-instància; escriure-les a
-            # un fitxer al vault sincronitzat (OneDrive) duplicava entries
-            # entre dispositius. LOCAL_DATA viu dins el container Docker i
-            # és per-instància — la ubicació correcta per a logs operatius.
+            # Local-only: notifications are per-instance; writing them to
+            # a file in the synced vault (OneDrive) was duplicating entries
+            # across devices. LOCAL_DATA lives inside the Docker container and
+            # is per-instance — the correct location for operational logs.
             local_data = cfg.paths.get("LOCAL_DATA")
             if not local_data:
-                # Fallback raonable per execucions fora de Docker (host). Derivem el
-                # path del vault de l'entorn en comptes de hardcodejar un usuari macOS
-                # (que trencava en l'altra màquina): VAULT_HOST_PATH si està definida,
-                # si no la ruta canònica dins $HOME (HOME_HOST_PATH o Path.home()).
+                # Reasonable fallback for executions outside Docker (host). We derive the
+                # vault path from the environment instead of hardcoding a macOS user
+                # (which broke on the other machine): VAULT_HOST_PATH if defined,
+                # otherwise the canonical path within $HOME (HOME_HOST_PATH or Path.home()).
                 host_home = os.environ.get("HOME_HOST_PATH") or str(Path.home())
                 default_vault = Path(host_home) / "Library/CloudStorage/OneDrive-UNED/Gnosi"
                 vault_p = cfg.paths.get("VAULT") or Path(

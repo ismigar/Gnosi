@@ -1,38 +1,38 @@
 /**
  * markdown-mapper.js
- * Utilitat per a la conversió bi-direccional entre BlockNote JSON i Markdown Enriquit.
+ * Utility for the bidirectional conversion between BlockNote JSON and Enriched Markdown.
  */
 
-// Sentinella per als enllaços file:// dins l'editor.
+// Sentinel for file:// links inside the editor.
 //
-// BlockNote/Tiptap (extension-link) blanqueja qualsevol href el protocol del
-// qual no és a la seva allowlist (http/https/ftp/mailto/tel/...). `file:` no
-// hi és, així que un anchor amb href="file:///..." es rendireitza com
-// <a href=""> i, en clicar, window.open("") obre una pestanya nova a l'origin
-// de Gnosi. Per evitar-ho, el href intern dels enllaços a fitxer queda com
-// "https://gnosi-file-protocol.local/..." (passa la validació de Tiptap
-// perquè és https) i es converteix de tornada a "file://" només (a) quan se
-// serialitza a markdown per guardar al disc, i (b) quan l'interceptor de
-// clicks crida el backend per obrir la ruta amb el shell del sistema.
-// Sentinel sense slash final perquè la conversió sigui un swap directe del
+// BlockNote/Tiptap (extension-link) blanks out any href whose protocol
+// which is not in its allowlist (http/https/ftp/mailto/tel/...). `file:` is not
+// there, so an anchor with href="file:///..." gets rendered as
+// <a href=""> and, when clicked, window.open("") opens a new tab at the origin
+// of Gnosi. To avoid this, the internal href of file links is kept as
+// "https://gnosi-file-protocol.local/..." (passes Tiptap's validation
+// because it's https) and is converted back to "file://" only (a) when it's
+// serialized to markdown to save to disk, and (b) when the
+// click interceptor calls the backend to open the path with the system shell.
+// Sentinel with no trailing slash so the conversion is a direct swap of the
 // prefix: "file://" (7 chars) ↔ "https://gnosi-file-protocol.local" (33 chars).
-// Així mantenim la barra inicial del path local en totes dues direccions.
+// This way we keep the leading slash of the local path in both directions.
 //
-// IMPORTANT: el sentinel NO pot contenir "__" perquè el parser markdown de
-// BlockNote (markdown-it) interpreta `__...__` com a bold i trenca la URL
-// dins de `](...)`. Per això usem guions normals i un TLD ".local" reservat.
+// IMPORTANT: the sentinel must NOT contain "__" because the markdown parser
+// BlockNote (markdown-it) interprets `__...__` as bold and breaks the URL
+// inside `](...)`. That's why we use regular hyphens and a reserved ".local" TLD.
 export const FILE_PROTOCOL_SENTINEL = "https://gnosi-file-protocol.local";
-// Sentinel legacy (versions anteriors). Mantenim el reconeixement per
-// compatibilitat amb notes ja desades a l'editor abans del canvi.
+// Legacy sentinel (earlier versions). We keep recognizing it for
+// compatibility with notes already saved in the editor before the change.
 const LEGACY_FILE_PROTOCOL_SENTINEL = "https://__gnosi_file_protocol__";
-// Variant corrompuda: si una nota legacy va passar per un re-serialitzador
-// que va aplicar èmfasi (markdown-it interpreta `__...__` com a strong) i
-// va escriure el resultat a disc literal, queda `**gnosi_file_protocol**`.
-// La detectem per recuperar enllaços ja danyats al markdown.
+// Corrupted variant: if a legacy note went through a re-serializer
+// that applied emphasis (markdown-it interprets `__...__` as strong) and
+// wrote the result to disk literally, it stays as `**gnosi_file_protocol**`.
+// We detect it to recover links already damaged in the markdown.
 const CORRUPTED_FILE_PROTOCOL_SENTINEL = "https://**gnosi_file_protocol**";
 
 /**
- * Sentinella → file:// (per a serialització a markdown o per al backend).
+ * Sentinel → file:// (for serialization to markdown or for the backend).
  */
 export const sentinelToFileUrl = (href) => {
     if (typeof href !== "string") return href;
@@ -49,7 +49,7 @@ export const sentinelToFileUrl = (href) => {
 };
 
 /**
- * file:// → sentinella (per a inserció a l'editor).
+ * file:// → sentinel (for insertion into the editor).
  */
 export const fileUrlToSentinel = (href) => {
     if (typeof href !== "string") return href;
@@ -59,37 +59,37 @@ export const fileUrlToSentinel = (href) => {
     return href;
 };
 
-// --- Estat de serialització de notes al peu ---
-// Les footnotes inline (`[^N]`) numeren seqüencialment segons l'ordre del
-// document i acumulen les seves definicions (`[^N]: text`) per afegir-les al
-// final del Markdown. Com que `blocksToRichMarkdown` serialitza els blocs (i
-// els seus fills) EN ORDRE, n'hi ha prou amb un comptador d'estat de mòdul que
-// es reinicia a cada serialització completa.
+// --- Footnote serialization state ---
+// Inline footnotes (`[^N]`) are numbered sequentially according to the order of the
+// document and accumulate their definitions (`[^N]: text`) to append them at the
+// end of the Markdown. Since `blocksToRichMarkdown` serializes the blocks (and
+// their children) IN ORDER, a module-level state counter is enough, which
+// resets on every full serialization.
 let _footnoteDefs = [];
-let _footnoteOrder = new Map(); // id de la footnote → número assignat
+let _footnoteOrder = new Map(); // footnote id → assigned number
 
 /**
- * Converteix una llista de blocs de BlockNote a Markdown enriquit.
+ * Converts a list of BlockNote blocks into rich Markdown.
  */
 export const blocksToRichMarkdown = (blocks, editor) => {
     if (!blocks || !Array.isArray(blocks)) return "";
 
-    // Reinicia l'estat de footnotes per a aquesta serialització.
+    // Resets the footnote state for this serialization.
     _footnoteDefs = [];
     _footnoteOrder = new Map();
 
-    // Separem els blocs top-level amb una línia en blanc (\n\n).
-    // Sense això, dos paràgrafs consecutius serien "Linia1\nLinia2" i el
-    // parser de BlockNote (tryParseMarkdownToBlocks) els interpreta com un sol
-    // paràgraf amb soft-break, perdent els salts en re-parse.
+    // We separate top-level blocks with a blank line (\n\n).
+    // Without this, two consecutive paragraphs would be "Line1\nLine2" and the
+    // BlockNote's parser (tryParseMarkdownToBlocks) interprets them as a single
+    // paragraph with a soft-break, losing the breaks on re-parse.
     const parts = blocks.map(
         (block) => blockToMarkdown(block, editor, 0).replace(/\n+$/, "")
     );
-    // Els ítems de llista CONSECUTIUS del mateix tipus s'uneixen amb un sol salt
-    // de línia (llista "tight"); la resta de blocs amb una línia en blanc (\n\n)
-    // perquè el re-parse de BlockNote no fusioni paràgrafs consecutius. Sense
-    // això, cada ítem de llista quedava separat per una línia en blanc al .md →
-    // llistes "loose" amb espaiat extra (i lletgeses en visors com Obsidian).
+    // CONSECUTIVE list items of the same type are joined with a single
+    // line break (a "tight" list); the rest of the blocks with a blank line (\n\n)
+    // so that BlockNote's re-parse doesn't merge consecutive paragraphs. Without
+    // this, each list item used to end up separated by a blank line in the .md →
+    // "loose" lists with extra spacing (and ugliness in viewers like Obsidian).
     const LIST_ITEM_TYPES = new Set(["bulletListItem", "numberedListItem", "checkListItem"]);
     let result = "";
     blocks.forEach((block, i) => {
@@ -99,9 +99,9 @@ export const blocksToRichMarkdown = (blocks, editor) => {
     });
     result = result.trim();
 
-    // Sentinella defensiva: si trobem "[object Object]" al resultat,
-    // alguna part del converter ha rebut un valor mal format. Llançem error
-    // en lloc d'escriure brossa al disc (i evitem perdre la nota).
+    // Defensive sentinel: if we find "[object Object]" in the result,
+    // some part of the converter received a malformed value. We throw an error
+    // instead of writing garbage to disk (and we avoid losing the note).
     if (result.includes("[object Object]")) {
         throw new Error(
             "blocksToRichMarkdown: detectat '[object Object]' al resultat — " +
@@ -110,8 +110,8 @@ export const blocksToRichMarkdown = (blocks, editor) => {
         );
     }
 
-    // Afegeix les definicions de les notes al peu al final del document
-    // (`[^1]: text`), recollides durant la serialització dels blocs.
+    // Appends the footnote definitions at the end of the document
+    // (`[^1]: text`), collected during block serialization.
     if (_footnoteDefs.length > 0) {
         result = (result ? result + "\n\n" : "") + _footnoteDefs.join("\n");
     }
@@ -119,14 +119,14 @@ export const blocksToRichMarkdown = (blocks, editor) => {
 };
 
 /**
- * Converteix un bloc individual a Markdown recursivament.
- * ESTRATÈGIA: Cada bloc-nivell s'assegura de tenir el seu propi \n.
+ * Converts a single block to Markdown recursively.
+ * STRATEGY: Each top-level block ensures it has its own \n.
  */
 const blockToMarkdown = (block, editor, indentLevel = 0) => {
     const indent = "  ".repeat(indentLevel);
     let content = "";
 
-    // Directives Estructurals (Gnosi)
+    // Structural Directives (Gnosi)
     if (block.type === "columnList") {
         let res = `:::column-list\n`;
         if (block.children) {
@@ -150,15 +150,15 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return res;
     }
 
-    // Inclou el `toggleListItem` BUILT-IN de BlockNote (disponible al slash menu
-    // per defecte), no només el bloc `toggle` custom de Gnosi: sense això, una
-    // "Toggle List" creada des del menú queia al `default` i es desava com a
-    // paràgraf + fills indentats, PERDENT l'estructura de desplegable. Tots dos
-    // tenen la mateixa forma (label inline + fills), així que es normalitzen a la
-    // mateixa fence `:::toggle` (en re-llegir, esdevé el toggle custom canònic).
+    // Includes BlockNote's BUILT-IN `toggleListItem` (available in the slash menu
+    // by default), not just Gnosi's custom `toggle` block: without this, a
+    // "Toggle List" created from the menu fell through to `default` and was saved as
+    // paragraph + indented children, LOSING the collapsible structure. Both
+    // have the same shape (inline label + children), so they are normalized to the
+    // same `:::toggle` fence (on re-reading, it becomes the canonical custom toggle).
     if (block.type === "toggle" || block.type === "toggleListItem") {
-        // El label del toggle es recupera amb un slice cru del parser (no markdown-it):
-        // escapar-lo hi deixaria backslashes literals → escape:false.
+        // The toggle label is recovered with a raw slice from the parser (not markdown-it):
+        // escaping it would leave literal backslashes → escape:false.
         let res = `:::toggle ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
         if (block.children) {
             block.children.forEach(child => {
@@ -169,13 +169,13 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return res;
     }
 
-    // Encapçalament desplegable (heading + isToggleable, creat amb /tur). El
-    // `#` de Markdown no pot codificar ni el `isToggleable` ni el niat dels
-    // fills, així que el serialitzem com a fence pròpia que embolcalla els
-    // fills (mirall de :::toggle), preservant el nivell a {level=N}.
+    // Collapsible heading (heading + isToggleable, created with /tur). The
+    // Markdown's `#` cannot encode either `isToggleable` or the nesting of the
+    // children, so we serialize it as its own fence that wraps the
+    // children (mirroring :::toggle), preserving the level in {level=N}.
     if (block.type === "heading" && block.props?.isToggleable) {
         const lvl = Number(block.props.level) || 1;
-        // Label recuperat amb slice cru del parser de directives (no markdown-it).
+        // Label recovered with a raw slice from the directive parser (not markdown-it).
         let res = `:::toggle-heading{level=${lvl}} ${inlineContentToMarkdown(block.content, { escape: false })}\n`;
         if (block.children) {
             block.children.forEach(child => {
@@ -191,11 +191,11 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     }
 
     if (block.type === "gnosi_view") {
-        // `heading`/`heading_level` són opcionals i no tenen UI per definir-los:
-        // només s'inclouen si hi ha un títol real, per no embrutar la definició
-        // amb un `"heading":""` sense sentit. Els usuaris posen un `#` de
-        // markdown normal (portable) damunt del bloc. En llegir, promoteCustomFences
-        // ja els posa per defecte ('' i 1) quan no hi són.
+        // `heading`/`heading_level` are optional and have no UI to set them:
+        // they are only included if there is an actual title, so as not to clutter the definition
+        // with a meaningless `"heading":""`. Users put a `#` of
+        // regular (portable) markdown on top of the block. When reading, promoteCustomFences
+        // already defaults them ('' and 1) when they aren't present.
         const h = String(block.props?.heading || '').trim();
         const payload = { view_id: String(block.props?.view_id || '') };
         if (h) {
@@ -206,9 +206,9 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     }
 
     if (block.type === "bibliography") {
-        // Serialitza el block bibliografia com a `{{bibliography}}` (style
-        // i locale per defecte) o `{{bibliography:apa}}` / `{{bibliography:
-        // apa:ca-AD}}` si l'usuari ha sobreescrit els defaults.
+        // Serializes the bibliography block as `{{bibliography}}` (style
+        // and default locale) or `{{bibliography:apa}}` / `{{bibliography:
+        // apa:ca-AD}}` if the user has overridden the defaults.
         const style = String(block?.props?.style || '').trim();
         const locale = String(block?.props?.locale || '').trim();
         if (!style || (style === 'apa' && (!locale || locale === 'ca-AD'))) {
@@ -219,24 +219,24 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
     }
 
     if (block.type === "mermaid") {
-        // Diagrama Mermaid → fence ```mermaid (portable a Obsidian/GitHub).
+        // Mermaid diagram → ```mermaid fence (portable to Obsidian/GitHub).
         const code = String(block?.props?.code || "").replace(/\n+$/, "");
         return "```mermaid\n" + code + "\n```\n";
     }
 
     if (block.type === "tableOfContents") {
-        // Índex de continguts → marca `{{toc}}` (mirall de `{{bibliography}}`).
+        // Table of contents → `{{toc}}` marker (mirror of `{{bibliography}}`).
         return "{{toc}}\n";
     }
 
     if (block.type === "linkcard") {
-        // Targeta d'enllaç → `[bookmark: URL](URL)` (simètric a l'embed).
+        // Link card → `[bookmark: URL](URL)` (symmetric to the embed).
         const u = String(block?.props?.url || "").trim();
         return u ? `[bookmark: ${u}](${u})\n` : "";
     }
 
     if (block.type === "synced") {
-        // Bloc sincronitzat → fence ```gnosi-synced amb el sync_id.
+        // Synced block → ```gnosi-synced fence with the sync_id.
         const sid = String(block?.props?.sync_id || "").trim();
         if (!sid) return "";
         return "```gnosi-synced\n" + JSON.stringify({ sync_id: sid }) + "\n```\n";
@@ -252,7 +252,7 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return alias ? `![[${targetWithSection}|${alias}]]\n` : `![[${targetWithSection}]]\n`;
     }
 
-    // Tipus estàndard
+    // Standard type
     switch (block.type) {
         case "heading": {
             const level = "#".repeat(block.props.level || 1);
@@ -271,17 +271,17 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
             break;
         }
         case "codeBlock":
-            // Text VERBATIM: `codeBlockText` uneix els .text sense passar per
-            // `inlineContentToMarkdown` (que escaparia `a ** b`/`arr[0]` I
-            // converteix els salts de línia tous en `<br>\n` — correcte per a
-            // paràgrafs, NO per a codi). Amb el serialitzador inline, un bloc de
-            // codi multilínia injectava un `<br>` a cada `\n` i, com que en
-            // recarregar quedava literal dins el codi, s'ACUMULAVA un `<br>` més
-            // a cada cicle desar/recarregar. `codeBlockText` és RAW i sense `<br>`.
+            // VERBATIM text: `codeBlockText` joins the .text values without going through
+            // `inlineContentToMarkdown` (which would escape `a ** b`/`arr[0]` AND
+            // converts soft line breaks into `<br>\n` — correct for
+            // paragraphs, NOT for code). With the inline serializer, a
+            // multiline code block injected a `<br>` at every `\n` and, since on
+            // reload it stayed literal inside the code, one more `<br>` ACCUMULATED
+            // on every save/reload cycle. `codeBlockText` is RAW and has no `<br>`.
             content = `\`\`\`${block.props.language || ""}\n${codeBlockText(block)}\n\`\`\``;
             break;
-        case "horizontalRule": // nom legacy del bloc de línia horitzontal
-        case "divider":        // nom ACTUAL a BlockNote (defaultBlockSpecs.divider)
+        case "horizontalRule": // legacy name of the horizontal line block
+        case "divider":        // current name in BlockNote (defaultBlockSpecs.divider)
             content = `---`;
             break;
         case "image":
@@ -296,15 +296,15 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         }
         case "alert": { // BlockNote calls callouts 'alert'
             const alertType = block.props?.type || "info";
-            // El cos del callout es re-llegeix cru (parser propi de `> [!type]`), no per
-            // markdown-it, així que NO s'escapa (ja és segur del round-trip per disseny).
+            // The callout body is re-read raw (its own `> [!type]` parser), not via
+            // markdown-it, so it is NOT escaped (it is already round-trip safe by design).
             const alertContent = inlineContentToMarkdown(block.content, { escape: false });
             return `> [!${alertType}]\n> ${alertContent.replace(/\n/g, "\n> ")}`;
         }
         case "quote": {
-            // Cita en bloc → blockquote de Markdown (`> …`). BlockNote suporta el
-            // bloc `quote` de sèrie; sense aquest cas queia al `default` i es
-            // desava com a paràgraf PLA, perdent el format de cita a cada desat.
+            // Block quote → Markdown blockquote (`> …`). BlockNote supports the
+            // series `quote` block; without this case it fell through to `default` and was
+            // saved as a PLAIN paragraph, losing the quote formatting on every save.
             let inner = inlineContentToMarkdown(block.content, { atLineStart: true });
             if (block.children && block.children.length > 0) {
                 block.children.forEach(child => {
@@ -329,12 +329,12 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                 const cellDataRow = row.cells || row.children || [];
                 const markdownCells = cellDataRow.map(cell => {
                     const cellContent = cell.content !== undefined ? cell.content : cell; // Custom has .content, native cell IS the inline content array
-                    // Les cel·les es re-llegeixen crues (parser GFM propi que talla per `|`),
-                    // no per markdown-it → NO s'escapa el text (només el `|` literal).
-                    // A més, una fila GFM ha de ser UNA sola línia: `inlineContentToMarkdown`
-                    // converteix els salts tous en `<br>\n`, i aquest `\n` literal partiria
-                    // la fila en dues, corrompent TOTA la taula en el re-parse. Mantenim el
-                    // `<br>` (forma GFM per a un salt dins la cel·la) però col·lapsem el salt.
+                    // Cells are re-read raw (own GFM parser that splits on `|`),
+                    // not via markdown-it → the text is NOT escaped (only the literal `|`).
+                    // Also, a GFM row must be a SINGLE line: `inlineContentToMarkdown`
+                    // converts soft breaks into `<br>\n`, and this literal `\n` would split
+                    // the row in two, corrupting the ENTIRE table on re-parse. We keep the
+                    // `<br>` (GFM form for a break inside the cell) but we collapse the break.
                     return inlineContentToMarkdown(cellContent, { escape: false })
                         .replace(/\|/g, "\\|")
                         .replace(/<br>\n/g, "<br>")
@@ -404,13 +404,13 @@ const convertToWikilinks = (content) => {
         if (item.type === "text") {
             const text = item.text;
             // Regex for [[Title]] or [[Title#Section]] or [[Title|Alias]].
-            // Excloem `[` dels grups de captura: si no, un `[[` no tancat seguit
-            // d'un wikilink ben format més endavant a la mateixa línia consumeix
-            // tot el text intermedi com a target. Ex.: `[[port. ... [[id|Alias]]`
-            // ha de matchar només el wikilink intern; el `[[port. ` queda com a
-            // text. Sense aquesta exclusió, el target del wikilink resultant
-            // contenia 400+ chars amb `[[` inside, i BlockNote es bloquejava
-            // serialitzant/rendering-lo.
+            // We exclude `[` from the capture groups: otherwise, an unclosed `[[` followed
+            // by a well-formed wikilink later on the same line consumes
+            // all the text in between as the target. E.g.: `[[port. ... [[id|Alias]]`
+            // must match only the inner wikilink; the `[[port. ` is left as
+            // text. Without this exclusion, the resulting wikilink's target
+            // contained 400+ chars with `[[` inside, and BlockNote would freeze
+            // serializing/rendering it.
             const regex = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
             let lastIndex = 0;
             let match;
@@ -449,10 +449,10 @@ const convertToWikilinks = (content) => {
     return next;
 };
 
-// Aplica `convertToWikilinks` a totes les cel·les d'una taula nativa de
-// BlockNote. El contingut d'una taula no és un array inline sinó un objecte
-// `tableContent` amb `rows[].cells[]`, on cada cel·la pot ser directament
-// l'array inline (format natiu) o un objecte `{ content: [...] }`.
+// Applies `convertToWikilinks` to every cell of a native
+// BlockNote table. A table's content is not an inline array but a
+// `tableContent` object with `rows[].cells[]`, where each cell can be directly
+// the inline array (native format) or an object `{ content: [...] }`.
 const convertTableContentWikilinks = (tableContent) => ({
     ...tableContent,
     rows: (tableContent.rows || []).map(row => ({
@@ -474,9 +474,9 @@ const processBlocksForWikilinks = (blocks) => {
     return blocks.map(block => {
         const newBlock = { ...block };
         if (newBlock.content) {
-            // Les taules natives porten el contingut a `content.rows[].cells`;
-            // `convertToWikilinks` només sap tractar arrays inline, així que
-            // sense aquest cas els `[[…]]` dins de cel·les quedaven en cru.
+            // Native tables carry their content in `content.rows[].cells`;
+            // `convertToWikilinks` only knows how to handle inline arrays, so
+            // without this case the `[[…]]` inside cells were left raw.
             if (newBlock.content.type === 'tableContent' && Array.isArray(newBlock.content.rows)) {
                 newBlock.content = convertTableContentWikilinks(newBlock.content);
             } else {
@@ -490,15 +490,15 @@ const processBlocksForWikilinks = (blocks) => {
     });
 };
 
-// --- Citations Pandoc-style: `[@key]` o `[@key1; @key2]` ---
-// Detecta cada token `@<citationkey>` dins de `[ ]` i el converteix en
-// inline content de tipus `cite`. Sintaxi acceptada (subset Pandoc):
+// --- Pandoc-style citations: `[@key]` or `[@key1; @key2]` ---
+// Detects each `@<citationkey>` token inside `[ ]` and converts it into
+// inline content of type `cite`. Accepted syntax (Pandoc subset):
 //   [@smith2020]                      → 1 cite
 //   [@smith2020; @jones2019]          → 2 cites
-//   @smith2020                        → 1 cite "naked" (sense brackets)
-// La meva regex és intencionalment restrictiva per evitar falsos positius:
-// el key ha de començar per lletra ASCII low + permet [a-z0-9_:-]. Si vols
-// keys amb capitals o accents al teu Citation Key, amplia el charset.
+//   @smith2020                        → 1 cite "naked" (no brackets)
+// My regex is intentionally restrictive to avoid false positives:
+// the key must start with a lowercase ASCII letter + allows [a-z0-9_:-]. If you want
+// keys with capitals or accents in your Citation Key, expand the charset.
 const CITATION_KEY_RE = /[a-z][a-z0-9_:-]*/i;
 const CITATION_BRACKET_RE = /\[@([a-z][a-z0-9_:-]*(?:\s*;\s*@[a-z][a-z0-9_:-]*)*)\]/gi;
 const CITATION_NAKED_RE = /(^|[\s(])@([a-z][a-z0-9_:-]*)\b/g;
@@ -507,8 +507,8 @@ const convertToCitations = (content) => {
     if (!Array.isArray(content)) return content;
     const next = [];
     content.forEach(item => {
-        // Sols els nodes de text es processen. Wikilinks ja convertits no
-        // s'han de tocar; els altres tipus es passen tal qual.
+        // Only text nodes are processed. Already-converted wikilinks do not
+        // need to be touched; the other types are passed through as-is.
         if (item.type !== "text") {
             if (item.type === "link" && Array.isArray(item.content)) {
                 next.push({ ...item, content: convertToCitations(item.content) });
@@ -519,10 +519,10 @@ const convertToCitations = (content) => {
         }
         const text = item.text;
         if (!text) { next.push(item); return; }
-        // Estratègia: dos passes. Primer trobem tots els tokens
-        // (bracketed o naked) amb la seva posició, després tallem el text
-        // i intercalem els nodes `cite`. Així evitem regex globals
-        // competint per la mateixa posició.
+        // Strategy: two passes. First we find all the tokens
+        // (bracketed or naked) with their position, then we split the text
+        // and interleave the `cite` nodes. This way we avoid global regexes
+        // competing for the same position.
         const tokens = [];
         CITATION_BRACKET_RE.lastIndex = 0;
         let m;
@@ -533,10 +533,10 @@ const convertToCitations = (content) => {
         }
         CITATION_NAKED_RE.lastIndex = 0;
         while ((m = CITATION_NAKED_RE.exec(text)) !== null) {
-            // L'offset és el del key, no del prefix (capture group 2)
+            // The offset is that of the key, not the prefix (capture group 2)
             const keyStart = m.index + (m[1]?.length || 0);
             const key = m[2];
-            // Evitar superposició amb tokens bracketed ja agafats.
+            // Avoid overlap with bracketed tokens already captured.
             if (tokens.some(t => keyStart >= t.start && keyStart < t.end)) continue;
             tokens.push({ start: keyStart, end: keyStart + 1 + key.length, keys: [key] });
         }
@@ -570,9 +570,9 @@ const processBlocksForCitations = (blocks) => {
     });
 };
 
-// --- Mencions de persones (`@[Nom|id]`) i dates (`@2026-06-25[T09:00]`) ---
-// Tokens segurs: `@[` no col·lisiona amb cites (`@key` exigeix lletra) ni amb
-// wikilinks; `@dígit` tampoc és cita. Es processen DESPRÉS de cites/wikilinks.
+// --- Person mentions (`@[Name|id]`) and dates (`@2026-06-25[T09:00]`) ---
+// Safe tokens: `@[` doesn't collide with citations (`@key` requires a letter) nor with
+// wikilinks; `@digit` isn't a citation either. They are processed AFTER citations/wikilinks.
 const MENTION_RE = /@\[([^\]|]*)\|([^\]]*)\]/g;
 const DATEREF_RE = /@(\d{4}-\d{2}-\d{2})(?:T(\d{2}:\d{2}))?/g;
 
@@ -633,11 +633,11 @@ const codeBlockText = (block) => {
         .join('');
 };
 
-// Converteix paràgrafs que només contenen un link `[embed: URL](URL)` en
-// blocs nadius `embed`. La sintaxi és simètrica a la de `[file: URL](URL)`
-// però aquí volem un bloc dedicat perquè es renderitzi com a iframe/viewer
-// en lloc d'enllaç plain. BlockNote no reconeix la sintaxi per defecte; per
-// això fem aquest post-procés després del parser.
+// Converts paragraphs that contain only an `[embed: URL](URL)` link into
+// native `embed` blocks. The syntax is symmetric to `[file: URL](URL)`
+// but here we want a dedicated block so it renders as an iframe/viewer
+// instead of a plain link. BlockNote doesn't recognize the syntax by default; that's
+// why we do this post-processing after the parser.
 const promoteEmbedBlocks = (blocks) => {
     if (!blocks || !Array.isArray(blocks)) return blocks;
     return blocks.map(block => {
@@ -662,8 +662,8 @@ const promoteEmbedBlocks = (blocks) => {
     });
 };
 
-// Converteix paràgrafs que només contenen `[bookmark: URL](URL)` en blocs
-// `linkcard` (targeta de previsualització). Mirall de `promoteEmbedBlocks`.
+// Converts paragraphs that contain only `[bookmark: URL](URL)` into
+// `linkcard` blocks (preview card). Mirror of `promoteEmbedBlocks`.
 const promoteLinkCards = (blocks) => {
     if (!blocks || !Array.isArray(blocks)) return blocks;
     return blocks.map(block => {
@@ -683,15 +683,15 @@ const promoteLinkCards = (blocks) => {
     });
 };
 
-// Restaura la llegenda d'una imatge des del sentinella `|` de l'alt-text.
-// El serialitzador desa `props.caption` a l'slot d'alt del Markdown amb un
-// prefix `|` (`![|llegenda](url)`). En parsejar, BlockNote posa l'alt-text a
-// `props.name` (NO a `props.caption`), de manera que sense aquesta restauració
-// la llegenda que l'usuari escriu sota una imatge es PERDIA a cada recàrrega
-// (quedava com a `name="|llegenda"`, invisible, i `caption=""`). Només tractem
-// els `name` que comencen amb `|` (el sentinella que escriu el serialitzador);
-// un `name`/alt real mai no hi comença. `slice(1)` treu NOMÉS el sentinella,
-// així una llegenda amb `|` interns (p.ex. "abans | després") es preserva sencera.
+// Restores an image's caption from the `|` sentinel in the alt text.
+// The serializer saves `props.caption` into the Markdown alt slot with a
+// `|` prefix (`![|caption](url)`). When parsing, BlockNote puts the alt-text in
+// `props.name` (NOT in `props.caption`), so without this restoration
+// the caption the user writes under an image was LOST on every reload
+// (it stayed as `name="|caption"`, invisible, and `caption=""`). We only handle
+// `name` values that start with `|` (the sentinel the serializer writes);
+// a real `name`/alt never starts with it. `slice(1)` removes ONLY the sentinel,
+// so a caption with internal `|` characters (e.g. "before | after") is preserved in full.
 const restoreImageCaptions = (blocks) => {
     if (!blocks || !Array.isArray(blocks)) return blocks;
     return blocks.map(block => {
@@ -710,11 +710,11 @@ const restoreImageCaptions = (blocks) => {
     });
 };
 
-// Detecta paràgrafs que només contenen `{{bibliography}}` (opcionalment
-// `{{bibliography:apa}}` o `{{bibliography:chicago-author-date:ca-AD}}`)
-// i els converteix en un block `bibliography`. Patró simètric al
-// `promoteEmbedBlocks`. Sense aquest, el text literal apareixeria a la
-// pàgina i el block real no es renderitzaria.
+// Detects paragraphs that contain only `{{bibliography}}` (optionally
+// `{{bibliography:apa}}` or `{{bibliography:chicago-author-date:ca-AD}}`)
+// and converts them into a `bibliography` block. Pattern symmetric to
+// `promoteEmbedBlocks`. Without this, the literal text would appear in the
+// page and the actual block would not render.
 const promoteBibliographyBlocks = (blocks) => {
     if (!blocks || !Array.isArray(blocks)) return blocks;
     return blocks.map(block => {
@@ -749,11 +749,11 @@ const promoteCustomFences = (blocks) => {
         if (block?.type !== 'codeBlock') return block;
         const lang = String(block.props?.language || '').toLowerCase();
         if (lang === 'mermaid') {
-            // Fence ```mermaid → bloc `mermaid` (renderitza el diagrama).
+            // Fence ```mermaid → `mermaid` block (renders the diagram).
             return { type: 'mermaid', props: { code: codeBlockText(block) } };
         }
         if (lang === 'gnosi-synced') {
-            // Fence ```gnosi-synced → bloc `synced` (contingut de font compartida).
+            // Fence ```gnosi-synced → `synced` block (content from a shared source).
             let sid = '';
             try { sid = String(JSON.parse(codeBlockText(block))?.sync_id || ''); } catch { sid = codeBlockText(block).trim(); }
             return { type: 'synced', props: { sync_id: sid } };
@@ -763,10 +763,10 @@ const promoteCustomFences = (blocks) => {
         try { payload = JSON.parse(codeBlockText(block)); } catch { return block; }
         if (!payload || typeof payload !== 'object') return block;
         if (lang === 'gnosi-database') {
-            // Mirall del serialitzador `gnosi-database`: restaura el bloc
-            // `database` (InlineDatabase). Sense això, una base de dades
-            // incrustada es desava com a fence `gnosi-database` però es tornava a
-            // llegir com un bloc de CODI amb el JSON cru.
+            // Mirrors the `gnosi-database` serializer: restores the block
+            // `database` (InlineDatabase). Without this, an embedded
+            // database was saved as a `gnosi-database` fence but was read back
+            // as a CODE block with raw JSON.
             return {
                 type: 'database',
                 props: {
@@ -791,8 +791,8 @@ const promoteCustomFences = (blocks) => {
     });
 };
 
-// Converteix un paràgraf que només conté `{{toc}}` en un bloc `tableOfContents`.
-// Patró simètric a `promoteBibliographyBlocks`.
+// Converts a paragraph that contains only `{{toc}}` into a `tableOfContents` block.
+// Pattern symmetric to `promoteBibliographyBlocks`.
 const promoteToc = (blocks) => {
     if (!blocks || !Array.isArray(blocks)) return blocks;
     return blocks.map(block => {
@@ -809,11 +809,11 @@ const promoteToc = (blocks) => {
     });
 };
 
-// Reemplaça els marcadors de nota al peu (`[^id]`) dins de nodes de text per
-// contingut inline `footnote`, recuperant el text de la definició de `defs`
-// (mapa id→text extret abans del parser, vegeu richMarkdownToBlocks). El
-// marcador en si NO és un wikilink ni un link (BlockNote el deixa com a text
-// literal), així que aquest post-procés és segseur.
+// Replaces footnote markers (`[^id]`) inside text nodes with
+// inline `footnote` content, recovering the definition text from `defs`
+// (id→text map extracted before the parser, see richMarkdownToBlocks). The
+// the marker itself is NOT a wikilink or a link (BlockNote leaves it as literal
+// text), so this post-processing is safe.
 const FOOTNOTE_MARK_RE = /\[\^([^\]\s]+)\]/g;
 const splitTextForFootnotes = (item, defs) => {
     const text = item.text;
@@ -850,27 +850,27 @@ const promoteFootnotes = (blocks, defs) => {
     });
 };
 
-// --- Escapat contextual de Markdown en text SENSE estil ---
-// Vegeu docs/dev_memory/directives/markdown_roundtrip_escaping.md
+// --- Contextual Markdown escaping in UNSTYLED text ---
+// See docs/dev_memory/directives/markdown_roundtrip_escaping.md
 //
-// `inlineContentToMarkdown` serialitzava el text sense estil literal, així que el text
-// pla amb significat Markdown es corrompia en el round-trip (blocs → md → blocs) perquè
-// markdown-it (tryParseMarkdownToBlocks) el reinterpretava: `the __init__ method` → bold
-// "init", backticks → codi, `*word*` → cursiva, `# foo` a inici de línia → heading.
-// Escapem NOMÉS allò que CommonMark reinterpretaria de debò, per no embrutar el .md.
-// CRÍTIC: només s'aplica al contingut que torna a passar per markdown-it (paràgrafs,
-// headings normals, list items, text d'enllaç). Els blocs amb parser propi (toggle,
-// toggle-heading, callout, cel·les de taula) guarden el text CRU i s'han de serialitzar
-// amb `escape:false` (re-escapar-los hi deixaria backslashes literals).
+// `inlineContentToMarkdown` serialized unstyled text literally, so the text
+// plain text with Markdown meaning got corrupted in the round-trip (blocks → md → blocks) because
+// markdown-it (tryParseMarkdownToBlocks) reinterpreted it: `the __init__ method` → bold
+// "init", backticks → code, `*word*` → italics, `# foo` at the start of a line → heading.
+// We escape ONLY what CommonMark would actually reinterpret, so as not to clutter the .md.
+// CRITICAL: only applies to content that goes back through markdown-it (paragraphs,
+// normal headings, list items, link text). Blocks with their own parser (toggle,
+// toggle-heading, callout, table cells) store the RAW text and need to be serialized
+// with `escape:false` (re-escaping them would leave literal backslashes).
 
-// Puntuació ASCII — les classes que fa servir CommonMark per a la regla de flanking.
+// ASCII punctuation — the classes CommonMark uses for the flanking rule.
 // eslint-disable-next-line no-useless-escape
 const _isMdPunct = (c) => c !== undefined && /[!-\/:-@\[-`{-~]/.test(c);
-// El límit del node de text es tracta com a espai (límit de paraula): segur a la
-// pràctica perquè BlockNote fusiona els nodes de text pla adjacents en un de sol.
+// The text node boundary is treated as a space (word boundary): safe in
+// practice because BlockNote merges adjacent plain text nodes into one.
 const _isMdSpace = (c) => c === undefined || /\s/.test(c);
 
-// Escapa el marcador de bloc inicial d'UNA línia (heading/quote/llista/hr/setext).
+// Escapes the leading block marker of a SINGLE line (heading/quote/list/hr/setext).
 const escapeLeadingBlockMarker = (line) => {
     const m = line.match(/^(\s*)([\s\S]*)$/);
     const ws = m ? m[1] : "";
@@ -892,15 +892,15 @@ const escapeLeadingBlockMarker = (line) => {
     return ws + rest;
 };
 
-// Escapa un node de text SENSE marques. `atLineStart` activa també l'escapat dels
-// marcadors de bloc a l'inici de cada línia (només per a paràgrafs i list items).
+// Escapes a text node with NO styling marks. `atLineStart` also activates escaping of
+// block markers at the start of each line (only for paragraphs and list items).
 const escapeUnstyledMarkdown = (text, atLineStart) => {
     if (!text) return text;
     let out = "";
     for (let i = 0; i < text.length; i++) {
         const c = text[i];
-        if (c === "\\") { out += "\\\\"; continue; }        // backslash PRIMER (idempotència)
-        if (c === "`") { out += "\\`"; continue; }           // backtick → codi inline
+        if (c === "\\") { out += "\\\\"; continue; }        // backslash FIRST (idempotence)
+        if (c === "`") { out += "\\`"; continue; }           // backtick → inline code
         const prev = i > 0 ? text[i - 1] : undefined;
         const next = i < text.length - 1 ? text[i + 1] : undefined;
         if (c === "~") {                                      // strikethrough ~~ (GFM)
@@ -914,29 +914,29 @@ const escapeUnstyledMarkdown = (text, atLineStart) => {
             const rightFlank = !prevSpace && (!prevPunct || nextSpace || nextPunct);
             let dangerous;
             if (c === "*") {
-                dangerous = leftFlank || rightFlank;          // asterisc: intraword permès
+                dangerous = leftFlank || rightFlank;          // asterisk: intraword allowed
             } else {                                           // underscore: NO intraword
                 const canOpen = leftFlank && (!rightFlank || prevPunct);
                 const canClose = rightFlank && (!leftFlank || nextPunct);
-                dangerous = canOpen || canClose;               // `my_var_name` queda net
+                dangerous = canOpen || canClose;               // `my_var_name` stays clean
             }
             out += dangerous ? "\\" + c : c;
             continue;
         }
         out += c;
     }
-    // Links/imatges inline `[...](` o `![...](`: escapa el `[` perquè no es torni enllaç.
-    // Els `[ref]` solts NO es toquen (markdown-it ja els deixa literals) → mínima pol·lució.
+    // Inline links/images `[...](` or `![...](`: escape the `[` so it doesn't become a link.
+    // Loose `[ref]` are NOT touched (markdown-it already leaves them literal) → minimal pollution.
     out = out.replace(/(!?)\[([^[\]\n]*)]\(/g, (mm, bang, label) => `${bang}\\[${label}](`);
-    // Tags HTML inline (`<b>tag</b>`) i autolinks (`<http://…>`): markdown-it
-    // (amb HTML activat) els reinterpretaria, de manera que un text PLA amb
-    // aquesta sintaxi (sovint HTML o una URL enganxats) es perdia/transformava
-    // en el round-trip. Escapem NOMÉS el `<` que inicia un tag o autolink COMPLET
-    // (amb el seu `>`), per no tocar `a < b` ni `a<b` (que CommonMark deixa
-    // literals). El `<br>`/`<u>`/`<span>` que injecta el serialitzador s'afegeixen
-    // DESPRÉS, així que no els afecta.
+    // Inline HTML tags (`<b>tag</b>`) and autolinks (`<http://…>`): markdown-it
+    // (with HTML enabled) would reinterpret them, so PLAIN text with
+    // this syntax (often pasted HTML or a URL) was lost/transformed
+    // in the round-trip. We escape ONLY the `<` that starts a COMPLETE tag or autolink
+    // (with its matching `>`), so as not to touch `a < b` or `a<b` (which CommonMark leaves
+    // literals). The `<br>`/`<u>`/`<span>` that the serializer injects are added
+    // AFTERWARDS, so it doesn't affect them.
     out = out.replace(/<(\/?[A-Za-z][^<>]*>|[A-Za-z][A-Za-z0-9+.-]*:[^<>\s]*>)/g, "\\<$1");
-    // Marcadors de bloc a inici de cada línia.
+    // Block markers at the start of each line.
     if (atLineStart) {
         out = out.split("\n").map(escapeLeadingBlockMarker).join("\n");
     }
@@ -944,12 +944,12 @@ const escapeUnstyledMarkdown = (text, atLineStart) => {
 };
 
 /**
- * Converteix contingut inline.
+ * Converts inline content.
  * @param {object} [opts]
- * @param {boolean} [opts.escape=true] Escapa els caràcters Markdown del text sense estil.
- *   Posar `false` per a contingut que NO torna per markdown-it (toggle/callout/cel·les).
- * @param {boolean} [opts.atLineStart=false] El contingut comença a inici de línia
- *   (paràgrafs i list items) → escapa també els marcadors de bloc inicials.
+ * @param {boolean} [opts.escape=true] Escapes Markdown characters in unstyled text.
+ *   Set to `false` for content that does NOT go back through markdown-it (toggle/callout/cells).
+ * @param {boolean} [opts.atLineStart=false] The content starts at the beginning of a line
+ *   (paragraphs and list items) → also escapes leading block markers.
  */
 const inlineContentToMarkdown = (content, { escape = true, atLineStart = false } = {}) => {
     if (!content) return "";
@@ -959,21 +959,21 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
     let lineStart = atLineStart;
     return content.map(item => {
         const nodeAtLineStart = lineStart;
-        lineStart = false; // els nodes inline no acaben (per defecte) en línia nova
+        lineStart = false; // inline nodes do not (by default) end on a new line
         if (!item || typeof item !== "object") return "";
         if (item.type === "text") {
-            // Defensiva: si item.text no és string, NO el toString-egem
-            // (tornaria "[object Object]" i sobreescriuria la nota al disc).
+            // Defensive: if item.text is not a string, we do NOT toString it
+            // (it would return "[object Object]" and overwrite the note on disk).
             if (typeof item.text !== "string") {
                 console.warn("inlineContentToMarkdown: item.text no és string", item);
                 return "";
             }
             let text = item.text;
-            // El node següent està a inici de línia si AQUEST text acaba en salt.
+            // The next node is at the start of a line if THIS text ends in a line break.
             lineStart = text.endsWith("\n");
 
-            // Escapat contextual NOMÉS en text sense cap marca (ni dins de code spans):
-            // dins de bold/italic/underline/strike/code el text es deixa cru.
+            // Contextual escaping ONLY in unmarked text (not even inside code spans):
+            // inside bold/italic/underline/strike/code the text is left raw.
             const s = item.styles || {};
             const hasMark = !!(s.bold || s.italic || s.underline || s.strike || s.code);
             if (escape && !hasMark) {
@@ -981,22 +981,22 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             }
 
             // Handle soft line breaks inside text nodes. Standard Markdown requires two spaces or <br>.
-            // (Després d'escapar, per no escapar el `<br>` que injectem.)
+            // (After escaping, so as not to escape the `<br>` we inject.)
             if (text.includes('\n')) {
                 text = text.replace(/\n/g, '<br>\n');
             }
 
             if (item.styles) {
-                // CommonMark no reconeix delimitadors d'èmfasi quan tenen
-                // espais immediatament adjacents (p.ex. "** text **" no és bold).
-                // Movem els espais d'inici/final fora dels marcadors.
+                // CommonMark does not recognize emphasis delimiters when they have
+                // immediately adjacent spaces (e.g. "** text **" is not bold).
+                // We move leading/trailing spaces outside the markers.
                 const wrap = (str, open, close = open) => {
                     if (!str) return str;
                     const m = String(str).match(/^(\s*)([\s\S]*?)(\s*)$/);
                     const lead = m ? m[1] : "";
                     const core = m ? m[2] : str;
                     const trail = m ? m[3] : "";
-                    if (!core) return str; // tot espais; no aplicar marca
+                    if (!core) return str; // all spaces; do not apply the mark
                     return `${lead}${open}${core}${close}${trail}`;
                 };
                 if (item.styles.bold) text = wrap(text, "**");
@@ -1004,10 +1004,10 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
                 if (item.styles.underline) text = wrap(text, "<u>", "</u>");
                 if (item.styles.strike) text = wrap(text, "~~");
                 if (item.styles.code) text = wrap(text, "`");
-                // Color de text/fons INLINE → <span style> (mirall del color de
-                // BLOC, que es desa amb <div style>). Sense això, un tros de text
-                // acolorit des de la toolbar es desava sense cap marca i el color
-                // es perdia silenciosament a cada desat.
+                // INLINE text/background color → <span style> (mirroring the color of
+                // BLOCK, which is saved with <div style>). Without this, a piece of text
+                // colored from the toolbar was saved without any marker and the color
+                // was silently lost on every save.
                 const tc = item.styles.textColor;
                 const bgc = item.styles.backgroundColor;
                 if ((tc && tc !== "default") || (bgc && bgc !== "default")) {
@@ -1020,21 +1020,21 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             return text;
         }
         if (item.type === "link") {
-            // Robustesa: el content d'un link pot ser array (esperat),
-            // string (legacy) o un sol objecte (insertion bug). Normalitzem.
+            // Robustness: a link's content can be an array (expected),
+            // a string (legacy), or a single object (insertion bug). We normalize it.
             let linkContent = item.content;
             if (linkContent && !Array.isArray(linkContent) && typeof linkContent !== "string") {
                 linkContent = [linkContent];
             }
             const innerText = inlineContentToMarkdown(linkContent);
             const rawHref = typeof item.href === "string" ? item.href : "";
-            // El sentinel intern es desserialitza a file:// abans d'escriure
-            // al disc, perquè els lectors externs (Obsidian, etc.) entenguin
-            // l'enllaç local original.
+            // The internal sentinel is deserialized to file:// before writing
+            // on disk, so external readers (Obsidian, etc.) understand
+            // the original local link.
             const safeHref = sentinelToFileUrl(rawHref);
-            // CommonMark: si la URL té espais o parèntesis no balancejats, cal
-            // envoltar-la amb <...>. Sense això, [text](file:///foo bar.docx)
-            // es trenca al primer espai i el link queda inservible.
+            // CommonMark: if the URL has spaces or unbalanced parentheses, it must
+            // be wrapped with <...>. Without this, [text](file:///foo bar.docx)
+            // breaks at the first space and the link becomes unusable.
             const needsAngleBrackets = /[\s<>]/.test(safeHref);
             const finalHref = needsAngleBrackets ? `<${safeHref}>` : safeHref;
             return `[${innerText}](${finalHref})`;
@@ -1045,21 +1045,21 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             const title = item.props?.title || "";
             const link = section ? `${target}#${section}` : target;
 
-            // Si el títol és representatiu però diferent del link pur, usem alias [[Link|Title]]
+            // If the title is meaningful but different from the plain link, we use the [[Link|Title]] alias
             if (title && title !== link && title !== target) {
                 return `[[${link}|${title}]]`;
             }
             return `[[${link}]]`;
         }
         if (item.type === "cite") {
-            // Serialitzem com a Pandoc citation `[@key]`. Compatible amb
+            // We serialize it as a Pandoc citation `[@key]`. Compatible with
             // pandoc-citeproc, Quarto, Obsidian Citations Plugin, etc.
             const ck = item.props?.citationKey || "";
             return ck ? `[@${ck}]` : "";
         }
         if (item.type === "footnote") {
-            // Nota al peu inline: assigna un número seqüencial (per ordre del
-            // document) i acumula la definició `[^N]: text` per al final.
+            // Inline footnote: assigns a sequential number (in document
+            // order) and accumulates the `[^N]: text` definition for the end.
             const fid = String(item.props?.id || "");
             const key = fid || `auto-${_footnoteOrder.size + 1}`;
             let num = _footnoteOrder.get(key);
@@ -1072,15 +1072,15 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             return `[^${num}]`;
         }
         if (item.type === "mention") {
-            // Menció de persona → `@[Nom|id]` (token segur: `@[` no és cita ni
-            // wikilink). Es netegen `|` i `]` del nom per no trencar el token.
+            // Person mention → `@[Name|id]` (safe token: `@[` is neither a citation nor a
+            // wikilink). `|` and `]` are stripped from the name so as not to break the token.
             const name = String(item.props?.name || "").replace(/[|\]]/g, " ").trim();
             const id = String(item.props?.id || "").trim();
             if (!name && !id) return "";
             return `@[${name}|${id}]`;
         }
         if (item.type === "dateref") {
-            // Menció de data → `@2026-06-25` o `@2026-06-25T09:00` (amb recordatori).
+            // Date mention → `@2026-06-25` or `@2026-06-25T09:00` (with reminder).
             const date = String(item.props?.date || "").trim();
             const time = String(item.props?.time || "").trim();
             if (!date) return "";
@@ -1090,23 +1090,23 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
     }).join("");
 };
 
-// Sanititza les destinacions dels enllaços `[text](dest)` d'un markdown:
-// normalitza els backslashes a slashes i envolta amb `<...>` les destinacions
-// amb espais o caràcters non-ASCII (markdown-it/Tiptap altrament les rebutgen).
-// Escaneja cada destinació respectant els parèntesis balancejats i els
-// caràcters escapats, tal com fa CommonMark, de manera que una URL amb
-// parèntesis interns (adjunts `Article (2020).pdf`, desambiguacions de la
-// Viquipèdia) no es trunca al primer `)`. Les destinacions ja entre `<...>`
-// es deixen intactes; un `](` sense `)` que el tanqui es tracta com a text.
+// Sanitizes the destinations of `[text](dest)` links in a markdown document:
+// normalizes backslashes to slashes and wraps destinations
+// with spaces or non-ASCII characters in `<...>` (markdown-it/Tiptap would otherwise reject them).
+// Scans each destination respecting balanced parentheses and
+// escaped characters, just like CommonMark does, so that a URL with
+// internal parentheses (attachments like `Article (2020).pdf`, Wikipedia
+// disambiguations) isn't truncated at the first `)`. Destinations already wrapped in `<...>`
+// are left intact; a `](` without a `)` to close it is treated as text.
 const sanitizeLinkDestinations = (text) => {
     let out = "";
     let i = 0;
     while (i < text.length) {
         const idx = text.indexOf("](", i);
         if (idx === -1) { out += text.slice(i); break; }
-        out += text.slice(i, idx + 2);              // inclou `](`
+        out += text.slice(i, idx + 2);              // includes `](`
         let j = idx + 2;
-        if (text[j] === "<") {                        // destinació ja entre <...>
+        if (text[j] === "<") {                        // destination already wrapped in <...>
             const close = text.indexOf(">", j + 1);
             if (close === -1) { out += text.slice(j); break; }
             out += text.slice(j, close + 1);
@@ -1116,14 +1116,14 @@ const sanitizeLinkDestinations = (text) => {
         let depth = 0, k = j, closed = false;
         for (; k < text.length; k++) {
             const ch = text[k];
-            if (ch === "\\") { k++; continue; }       // caràcter escapat: no compta
+            if (ch === "\\") { k++; continue; }       // escaped character: doesn't count
             if (ch === "(") depth++;
             else if (ch === ")") {
                 if (depth === 0) { closed = true; break; }
                 depth--;
             }
         }
-        if (!closed) { i = j; continue; }             // `](` sense tancar → text literal
+        if (!closed) { i = j; continue; }             // `](` left unclosed → literal text
         const normalized = text.slice(j, k).replace(/\\/g, "/");
         // eslint-disable-next-line no-control-regex
         out += /[\s<>]|[^\x00-\x7F]/.test(normalized) ? `<${normalized}>)` : `${normalized})`;
@@ -1132,28 +1132,28 @@ const sanitizeLinkDestinations = (text) => {
     return out;
 };
 
-// Els enllaços file:// dins el markdown se substitueixen pel sentinel abans
-// del parse perquè BlockNote/Tiptap no els accepta com a href vàlid (no és
-// als seus protocols permesos). Mantenim el sentinel als blocs durant tota
-// la vida útil al editor; només es reverteix a file:// al moment de
-// serialitzar a markdown (vegeu inlineContentToMarkdown). El sentinel passa
-// la validació de Tiptap perquè comença amb https://, així que l'<a> al DOM
-// té un href clicable que el nostre useFileLinkInterceptor pot capturar.
+// file:// links inside the markdown are replaced with the sentinel before
+// parsing because BlockNote/Tiptap doesn't accept them as a valid href (it's not
+// in its allowed protocols). We keep the sentinel in the blocks throughout the whole
+// the lifetime in the editor; it is only reverted back to file:// at the moment of
+// serialize to markdown (see inlineContentToMarkdown). The sentinel passes
+// Tiptap's validation because it starts with https://, so the <a> in the DOM
+// has a clickable href that our useFileLinkInterceptor can capture.
 const parsePlainMarkdownBlock = async (text, editor) => {
     if (!text) return [];
 
-    // Reemplaça file:// pel sentinel abans de delegar al parser.
-    // També reemplaça el sentinel legacy (`__gnosi_file_protocol__`) i la
-    // seva variant corrompuda (`**gnosi_file_protocol**`, escrita per un
-    // re-serialitzador que va interpretar els `__` com a bold) pel sentinel
-    // actual. Sense aquesta normalització, el parser veu un href trencat
-    // i renderitza `[text](url)` com a markdown literal.
+    // Replaces file:// with the sentinel before delegating to the parser.
+    // Also replaces the legacy sentinel (`__gnosi_file_protocol__`) and the
+    // its corrupted variant (`**gnosi_file_protocol**`, written by an
+    // re-serializer that interpreted the `__` as bold) with the sentinel
+    // currently in use. Without this normalization, the parser sees a broken href
+    // and renders `[text](url)` as literal markdown.
     const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    // Captura tant `](file://` com `](<file://` (URL envoltada amb angle
-    // brackets per CommonMark quan té espais o non-ASCII). Sense capturar el
-    // `<` opcional, file:// arriba intacte al parser de Tiptap, que el rebutja
-    // per esquema no permès i descarta el link silenciosament; el round-trip
-    // següent escriu el text sense href, perdent l'enllaç.
+    // Captures both `](file://` and `](<file://` (URL wrapped in angle
+    // brackets under CommonMark when it has spaces or non-ASCII characters). Without capturing the
+    // optional `<`, file:// arrives intact at the Tiptap parser, which rejects it
+    // as a disallowed scheme and silently discards the link; the round-trip
+    // that follows writes the text without an href, losing the link.
     let protectedText = text
         .replace(/\]\((<?)file:\/\//g, `]($1${FILE_PROTOCOL_SENTINEL}`)
         .replace(
@@ -1165,27 +1165,27 @@ const parsePlainMarkdownBlock = async (text, editor) => {
             `]($1${FILE_PROTOCOL_SENTINEL}`,
         );
 
-    // Sanititza URLs en markdown links `[text](url)`. Markdown-it només
-    // accepta URLs amb espais si estan envoltades de `<...>`. A més, l'extensió
-    // Link de Tiptap rebutja URLs amb UTF-8 al path (Administració, Pla, etc.)
-    // i descarta el link silenciosament. Solució més robusta: envoltar SEMPRE
-    // amb `<...>` quan la URL té caràcters problemàtics (espais o non-ASCII).
-    // CommonMark accepta qualsevol caràcter dins de `<...>` excepte `<`, `>` i
-    // line breaks; així el parser respecta la URL literal i no la valida.
-    // La destinació NO es pot delimitar amb `[^)]*`: un enllaç a un adjunt amb
-    // parèntesis al nom (`Article (2020).pdf`, molt comú) o una URL de la
-    // Viquipèdia amb desambiguació (`…_(desambiguación)`) es truncava al primer
-    // `)`, deixant la meitat de la URL com a text i trencant l'enllaç en el
-    // round-trip. `sanitizeLinkDestinations` escaneja la destinació respectant
-    // parèntesis balancejats i caràcters escapats, com fa CommonMark.
+    // Sanitizes URLs in markdown links `[text](url)`. Markdown-it only
+    // accepts URLs with spaces if they are wrapped in `<...>`. Moreover, the extension
+    // Tiptap Link rejects URLs with UTF-8 in the path (Administració, Pla, etc.)
+    // and silently discards the link. More robust solution: ALWAYS wrap
+    // with `<...>` when the URL has problematic characters (spaces or non-ASCII).
+    // CommonMark accepts any character inside `<...>` except `<`, `>` and
+    // line breaks; this way the parser respects the literal URL and doesn't validate it.
+    // The destination CANNOT be delimited with `[^)]*`: a link to an attachment with
+    // parentheses in the name (`Article (2020).pdf`, very common) or a URL from
+    // Wikipedia with disambiguation (`…_(desambiguación)`) would get truncated at the first
+    // `)`, leaving half the URL as text and breaking the link in the
+    // round-trip. `sanitizeLinkDestinations` scans the destination while respecting
+    // balanced parentheses and escaped characters, as CommonMark does.
     protectedText = sanitizeLinkDestinations(protectedText);
 
-    // Sanitització de `[[` no aparellats: si la pàgina té un `[[xxx` que
-    // no troba el seu `]]`, el regex de wikilinks pot capturar centenars de
-    // chars de text (incloent un wikilink ben format intern), creant un
-    // wikilink amb target malformat que penja BlockNote al render. Aquí
-    // escapem els `[[` orfes a `\[\[` perquè markdown-it els tracti com a
-    // text literal i només els `[[...]]` ben aparellats arribin a
+    // Sanitization of unpaired `[[`: if the page has a `[[xxx` that
+    // doesn't find its `]]`, the wikilink regex can capture hundreds of
+    // characters of text (including a well-formed wikilink inside), creating a
+    // wikilink with a malformed target that causes BlockNote to hang when rendering. Here
+    // we escape orphan `[[` to `\[\[` so that markdown-it treats them as
+    // literal text and only properly paired `[[...]]` reach
     // `convertToWikilinks`.
     const balancedText = (() => {
         const opens = [];
@@ -1201,13 +1201,13 @@ const parsePlainMarkdownBlock = async (text, editor) => {
             }
         }
         if (opens.length === 0) return protectedText;
-        // opens conté índexs de `[[` SENSE tancament — els escapem.
+        // opens contains indexes of unclosed `[[` — we escape them.
         const openSet = new Set(opens);
         let result = '';
         for (let i = 0; i < protectedText.length; i++) {
             if (openSet.has(i)) {
                 result += '\\[\\[';
-                i++; // Saltem el segon `[`
+                i++; // We skip the second `[`
             } else {
                 result += protectedText[i];
             }
@@ -1218,11 +1218,11 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     let blocks = [];
     if (editor?.tryParseMarkdownToBlocks) {
         try {
-            // Race amb timeout: si el parser de BlockNote/markdown-it entra en
-            // un estat patològic (URLs amb backslash escapats, brackets no
-            // aparellats, etc.), no volem que bloquegi el thread principal
-            // per sempre i pengi el "Carregant editor...". 5s és més que
-            // suficient per qualsevol pàgina raonable.
+            // Race with timeout: if the BlockNote/markdown-it parser enters
+            // a pathological state (URLs with escaped backslashes, unpaired
+            // brackets, etc.), we don't want it to block the main thread
+            // forever and hang on "Loading editor...". 5s is more than
+            // enough for any reasonable page.
             blocks = await Promise.race([
                 editor.tryParseMarkdownToBlocks(balancedText),
                 new Promise((_, reject) =>
@@ -1245,11 +1245,11 @@ const parsePlainMarkdownBlock = async (text, editor) => {
 };
 
 /**
- * Parseja una cadena de markdown a contingut INLINE de BlockNote (negreta,
- * cursiva, codi, enllaços, [[wikilinks]]…) reaprofitant parsePlainMarkdownBlock.
- * Retorna el contingut inline del primer bloc, o un únic node de text pla com a
- * reserva. S'usa per a títols/labels que abans es desaven com a text pla i
- * perdien el format inline en el round-trip (toggle, encapçalament desplegable).
+ * Parses a markdown string into BlockNote INLINE content (bold,
+ * italics, code, links, [[wikilinks]]…) reusing parsePlainMarkdownBlock.
+ * Returns the inline content of the first block, or a single plain-text node as a
+ * fallback. Used for titles/labels that used to be saved as plain text and
+ * lost inline formatting in the round-trip (toggle, collapsible heading).
  */
 const parseInlineFromMarkdown = async (text, editor) => {
     const fallback = [{ type: "text", text: String(text ?? ""), styles: {} }];
@@ -1264,7 +1264,7 @@ const parseInlineFromMarkdown = async (text, editor) => {
 };
 
 /**
- * Converteix Markdown enriquit a blocs.
+ * Converts rich Markdown to blocks.
  */
 export const richMarkdownToBlocks = async (markdown, editor) => {
     if (!markdown || typeof markdown !== 'string') return [];
@@ -1274,12 +1274,12 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
         try { return JSON.parse(markdown); } catch (e) { console.error(e); }
     }
 
-    // Extreu les definicions de notes al peu (`[^id]: text`) ABANS del parser.
-    // markdown-it (tryParseMarkdownToBlocks) interpretaria `[^id]: text` com una
-    // "link reference definition" i l'eliminaria silenciosament; per això les
-    // capturem i traiem aquí, i després `promoteFootnotes` reconstrueix les
-    // marques inline `[^id]` amb el seu text. Els marcadors dins del cos SÍ que
-    // passen pel parser com a text literal (no són links vàlids).
+    // Extracts footnote definitions (`[^id]: text`) BEFORE the parser.
+    // markdown-it (tryParseMarkdownToBlocks) would interpret `[^id]: text` as a
+    // "link reference definition" and would silently remove it; that's why we
+    // capture and strip them out here, and afterward `promoteFootnotes` reconstructs the
+    // inline `[^id]` markers with their text. Markers within the body DO
+    // pass through the parser as literal text (they are not valid links).
     const footnoteDefs = {};
     const _rawLines = markdown.split("\n");
     const _keptLines = [];
@@ -1300,20 +1300,20 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
             const line = inputLines[i];
             const trimmed = line.trim();
 
-            // REGLA ESTRICTA: La directiva ha de ser l'únic que hi ha a la línia trimada
+            // STRICT RULE: The directive must be the only thing on the trimmed line
             const startMatch = trimmed.match(/^(:{3,})(column-list|column|toggle-heading|toggle|gnosi-ignore)(.*)$/);
             
             if (startMatch) {
                 const typeRaw = startMatch[2];
                 const label = startMatch[3].trim();
 
-                // Cas especial: gnosi-ignore (saltem tot el bloc)
+                // Special case: gnosi-ignore (skip the entire block)
                 if (typeRaw === "gnosi-ignore") {
                     let depth = 1;
                     let j = i + 1;
                     while (j < inputLines.length && depth > 0) {
                         const currentTrimmed = inputLines[j].trim();
-                        // Suport per a anidament de gnosi-ignore (opcional però recomanat)
+                        // Support for nesting gnosi-ignore (optional but recommended)
                         if (currentTrimmed.match(/^:{3,}gnosi-ignore/)) depth++;
                         else if (currentTrimmed.match(/^:{3,}$/)) depth--;
                         j++;
@@ -1338,12 +1338,12 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     j++;
                 }
 
-                // Dedenta el contingut intern abans de parsejar-lo: el
-                // serialitzador indenta els fills de :::column/:::column-list/
-                // :::toggle. Sense dedentar, una LLISTA indentada (4 espais) es
-                // parseja com a BLOC DE CODI (regla de CommonMark) i es veu com
-                // una caixa fosca. Treiem la indentació COMUNA (preserva el niat
-                // relatiu intern, p. ex. sub-llistes).
+                // Dedents the inner content before parsing it: the
+                // serializer indents the children of :::column/:::column-list/
+                // :::toggle. Without dedenting, an indented LIST (4 spaces) gets
+                // parsed as a CODE BLOCK (CommonMark rule) and looks like
+                // a dark box. We strip the COMMON indentation (preserves the nesting
+                // internal relative, e.g. sub-lists).
                 const _nonEmpty = innerLines.filter(l => l.trim().length > 0);
                 const _minIndent = _nonEmpty.length
                     ? Math.min(..._nonEmpty.map(l => (l.match(/^ */)[0] || "").length))
@@ -1358,53 +1358,53 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     children: await parseRecursive(_innerDedented)
                 };
 
-                // Per al tipus "column", cal afegir l'amplada segons l'esquema de @blocknote/xl-multi-column
+                // For the "column" type, the width must be added according to the @blocknote/xl-multi-column schema
                 if (type === "column") {
                     const widthMatch = label.match(/\{width=([0-9.]+)\}/);
                     block.props.width = widthMatch ? parseFloat(widthMatch[1]) : 1;
-                    // BlockNote rebutja una columna sense fills ("Invalid content
-                    // for node column: <>") i això fa petar el render de TOTA la
-                    // pàgina. Una columna buida apareix quan el seu únic fill era
-                    // un paràgraf buit (que es serialitza a no-res i no torna a
-                    // parsejar com a bloc). Hi posem un paràgraf buit de reserva.
+                    // BlockNote rejects a column without children ("Invalid content
+                    // for node column: <>") and this crashes the render of the ENTIRE
+                    // page. An empty column appears when its only child was
+                    // an empty paragraph (which serializes to nothing and doesn't get
+                    // parsed back as a block). We put a placeholder empty paragraph there.
                     if (!block.children || block.children.length === 0) {
                         block.children = [{ type: "paragraph", props: { backgroundColor: "default", textColor: "default", textAlignment: "left" }, content: [] }];
                     }
                 }
 
-                // Per als toggles, el contingut és un array d'inlineContent
+                // For toggles, the content is an array of inlineContent
                 if (type === "toggle") {
-                    // Netegem possibles atributs del label si fos necessari
+                    // We clean up possible label attributes if necessary
                     const cleanLabel = label.replace(/\{.*\}/, "").trim();
-                    // El títol del toggle és contingut inline: el parsegem com a
-                    // markdown perquè **negreta**, `codi`, [[wikilinks]]… no es
-                    // perdin (abans es desava com a text pla literal).
+                    // The toggle title is inline content: we parse it as
+                    // markdown so that **bold**, `code`, [[wikilinks]]… don't
+                    // get lost (previously it was saved as literal plain text).
                     block.content = await parseInlineFromMarkdown(cleanLabel || "Toggle", editor);
                     block.props.textColor = "default";
                 }
 
-                // Encapçalament desplegable: recuperem nivell + isToggleable i el
-                // títol (label sense l'atribut {level=N}).
+                // Collapsible heading: we recover level + isToggleable and the
+                // title (label without the {level=N} attribute).
                 if (typeRaw === "toggle-heading") {
                     const levelMatch = label.match(/\{level=([0-9]+)\}/);
                     block.props.level = levelMatch ? parseInt(levelMatch[1], 10) : 1;
                     block.props.isToggleable = true;
                     block.props.textColor = "default";
                     const cleanLabel = label.replace(/\{[^}]*\}/, "").trim();
-                    // Títol inline: parsegem el markdown (negreta/codi/wikilinks…).
+                    // Inline title: we parse the markdown (bold/code/wikilinks…).
                     block.content = cleanLabel ? await parseInlineFromMarkdown(cleanLabel, editor) : [];
                 }
 
-                // El contenidor de columnes (germà del guard de columna buida de
-                // dalt). BlockNote EXIGEIX que un columnList tingui ≥2 fills i que
-                // TOTS siguin "column"; si no, llança "Invalid content for node
-                // columnList" i fa petar el render de TOTA la pàgina. Amb markdown
-                // extern / generat per IA / editat a mà pot arribar un :::column-list
-                // buit, amb una sola columna o amb contingut solt (no encolumnat).
-                // Ho normalitzem perquè el contingut no es perdi ni peti la nota.
+                // The column container (sibling of the empty-column guard from
+                // above). BlockNote REQUIRES a columnList to have ≥2 children and that
+                // ALL of them be "column"; otherwise it throws "Invalid content for node
+                // columnList" and crashes the render of the ENTIRE page. With markdown
+                // from external sources / AI-generated / hand-edited, a :::column-list can arrive
+                // empty, with a single column, or with loose content (not placed in columns).
+                // We normalize it so the content isn't lost and the note doesn't crash.
                 if (type === "columnList") {
-                    // Tot fill que no sigui columna (text solt dins :::column-list)
-                    // l'embolcallem en una columna pròpia per no perdre'l.
+                    // Any child that isn't a column (loose text inside :::column-list)
+                    // we wrap it in its own column so it isn't lost.
                     const columns = (block.children || []).map(child =>
                         child.type === "column"
                             ? child
@@ -1413,8 +1413,8 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     if (columns.length >= 2) {
                         block.children = columns;
                     } else {
-                        // <2 columnes no és un layout vàlid: desempaquetem el
-                        // contingut al nivell actual en lloc de fer petar la pàgina.
+                        // <2 columns is not a valid layout: we unwrap the
+                        // content at the current level instead of crashing the page.
                         const promoted = columns.flatMap(col => col.children || []);
                         if (promoted.length > 0) blocks.push(...promoted);
                         i = j;
@@ -1443,18 +1443,18 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                         i++;
                     }
                     
-                    // Parsegem el contingut del callout com a markdown INLINE
-                    // (mateix camí que el text normal) perquè **negreta**, _cursiva_,
-                    // `codi`, [enllaços](url) i [[wikilinks]] sobrevisquin el
-                    // round-trip. Abans es desava com a text PLA → en recarregar es
-                    // veia el markdown literal ("**negreta**") en lloc del format.
+                    // We parse the callout content as INLINE markdown
+                    // (same path as normal text) so that **bold**, _italics_,
+                    // `code`, [links](url) and [[wikilinks]] survive the
+                    // round-trip. It used to be saved as PLAIN text → on reload it
+                    // saw the literal markdown ("**bold**") instead of the formatting.
                     const innerText = calloutLines.join("\n");
                     let alertContent = [{ type: "text", text: innerText, styles: {} }];
                     try {
                         const innerParsed = await parsePlainMarkdownBlock(innerText, editor);
                         const inline = innerParsed?.[0]?.content;
                         if (Array.isArray(inline) && inline.length > 0) alertContent = inline;
-                    } catch { /* mantenim el text pla com a reserva */ }
+                    } catch { /* we keep the plain text as a fallback */ }
 
                     blocks.push({
                         id: Math.random().toString(36).substring(7),
@@ -1482,17 +1482,17 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                     const richCells = [];
                     for (const cell of cells) {
                         const text = cell.trim();
-                        // Parsegem el contingut de la cel·la com a markdown INLINE
-                        // (bold/cursiva/codi/enllaços/[[wikilinks]]) en lloc de
-                        // desar-lo com a text PLA, que perdia tot el format inline
-                        // en el round-trip (es veia "**negreta**" literal).
+                        // We parse the cell content as INLINE markdown
+                        // (bold/italics/code/links/[[wikilinks]]) instead of
+                        // saving it as PLAIN text, which lost all inline formatting
+                        // in the round-trip (literal "**bold**" would show up).
                         let inline = [{ type: "text", text, styles: {} }];
                         if (text) {
                             try {
                                 const parsed = await parsePlainMarkdownBlock(text, editor);
                                 const c = parsed?.[0]?.content;
                                 if (Array.isArray(c) && c.length > 0) inline = c;
-                            } catch { /* mantenim el text pla com a reserva */ }
+                            } catch { /* we keep the plain text as a fallback */ }
                         }
                         richCells.push(inline);
                     }

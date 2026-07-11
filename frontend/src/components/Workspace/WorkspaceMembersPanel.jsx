@@ -6,13 +6,13 @@ import { toast } from '../../lib/toast';
 import ConfirmModal from '../ConfirmModal';
 
 /**
- * Panell de gestió de membres + accés a vaults d'un workspace.
+ * Member management panel + vault access for a workspace.
  *
- * Extret de Dashboard.jsx perquè pugui ser embebit a múltiples llocs
- * (Dashboard manté la versió per a backward compat; Settings ara
- * l'utilitza com a pestanya "Workspace").
+ * Extracted from Dashboard.jsx so it can be embedded in multiple places
+ * (Dashboard keeps the version for backward compat; Settings now
+ * uses it as the "Workspace" tab).
  *
- * Reutilitza els endpoints existents:
+ * Reuses the existing endpoints:
  *   - GET  /api/workspaces/{id}/members
  *   - POST /api/workspaces/{id}/members  body={email, role}
  *   - PUT  /api/workspaces/{id}/members/{user_id}/role  body={role, permissions}
@@ -23,9 +23,9 @@ import ConfirmModal from '../ConfirmModal';
  *   - DELETE /api/workspaces/{id}/members/{user_id}/vaults/{vault_id}
  *
  * Props:
- *   - workspaceId (string)  — workspace actiu
- *   - isAdmin (bool)        — habilita add/remove/edit; sinó, només llistar
- *   - currentUserId (string?) — protegeix contra esborrar-se a si mateix
+ *   - workspaceId (string)  — active workspace
+ *   - isAdmin (bool)        — enables add/remove/edit; otherwise, list only
+ *   - currentUserId (string?) — protects against deleting yourself
  */
 const ROLE_CAPABILITIES = {
     viewer: ['read'],
@@ -191,11 +191,11 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                         onChange={(e) => setNewRole(e.target.value)}
                         className="px-2 py-1 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)]"
                     >
-                        <option value="viewer">Viewer</option>
-                        <option value="editor">Editor</option>
-                        <option value="admin">Admin</option>
+                        <option value="viewer">{t('dashboard.role_viewer', 'Viewer')}</option>
+                        <option value="editor">{t('dashboard.role_editor', 'Editor')}</option>
+                        <option value="admin">{t('dashboard.role_admin', 'Admin')}</option>
                     </select>
-                    <button onClick={addMember} className="px-3 py-1 text-xs rounded-md bg-[var(--gnosi-primary)] text-white">OK</button>
+                    <button onClick={addMember} className="px-3 py-1 text-xs rounded-md bg-[var(--gnosi-primary)] text-white">{t('workspace.ok', 'OK')}</button>
                     <button onClick={() => { setShowAddForm(false); setNewEmail(''); }} className="text-[var(--text-tertiary)] p-1"><X size={14} /></button>
                 </div>
             )}
@@ -227,9 +227,9 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                                 onChange={(e) => updateRole(m.user_id, e.target.value)}
                                                 className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)]"
                                             >
-                                                <option value="viewer">Viewer</option>
-                                                <option value="editor">Editor</option>
-                                                <option value="admin">Admin</option>
+                                                <option value="viewer">{t('dashboard.role_viewer', 'Viewer')}</option>
+                                                <option value="editor">{t('dashboard.role_editor', 'Editor')}</option>
+                                                <option value="admin">{t('dashboard.role_admin', 'Admin')}</option>
                                             </select>
                                         ) : (
                                             <span className="text-xs px-2 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
@@ -274,7 +274,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                 </div>
             )}
 
-            {/* Mini-panel d'accés a vaults per membre seleccionat */}
+            {/* Mini panel for vault access for the selected member */}
             {selectedMember && (
                 <div className="mt-3 p-4 rounded-md border border-[var(--gnosi-primary)]/30 bg-[var(--gnosi-primary)]/5">
                     <div className="flex items-center justify-between mb-3">

@@ -1,15 +1,15 @@
 /**
  * useLocaleSettings.js
  *
- * Font única dels defaults de format (moneda / número / data) per als
- * components de render (taula del Vault, propietats de pàgina). Llegeix
- * `settings` de `/api/config` (amb cache compartit) i refetcha en silenci
- * quan els settings canvien (event `gnosi:config-changed`).
+ * Single source of truth for format defaults (currency / number / date) for
+ * rendering components (Vault table, page properties). Reads
+ * `settings` from `/api/config` (with shared cache) and silently refetches
+ * when settings change (`gnosi:config-changed` event).
  *
- * Torna les opcions llestes per a formatUtils: el separador decimal es mapeja
- * a un locale de formatació (Intl deriva els separadors del locale), mentre
- * que les dates en mode 'locale' usen l'idioma de la interfície per als noms
- * de mes. Vegeu docs/dev_memory/directives/vault_field_formatting.md
+ * Returns options ready for formatUtils: the decimal separator is mapped
+ * to a formatting locale (Intl derives separators from the locale), while
+ * dates in 'locale' mode use the interface language for month
+ * names. See docs/dev_memory/directives/vault_field_formatting.md
  */
 import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +24,7 @@ export function useLocaleSettings() {
     const load = useCallback(() => {
         cachedJson('/api/config', { ttl: 5000 })
             .then(cfg => setSettings(cfg?.settings || {}))
-            .catch(() => { /* sense config → defaults */ });
+            .catch(() => { /* no config → defaults */ });
     }, []);
 
     useEffect(() => { load(); }, [load]);

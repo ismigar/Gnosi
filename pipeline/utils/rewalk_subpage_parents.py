@@ -1,27 +1,27 @@
-"""Re-walk: reataca les subpàgines del clon de Notion al seu pare via `parent_id`.
+"""Re-walk: reattaches the Notion clone's subpages to their parent via `parent_id`.
 
-Repara un clon fet ABANS del #689 (que ja escriu parent_id en clonar): el Wiki quedava
-inflat amb totes les subpàgines aplanades. Cf. directiva `vault_subpages_hierarchy.md`.
+Fixes a clone made BEFORE #689 (which already writes parent_id when cloning): the Wiki was
+left inflated with all subpages flattened out. Cf. the `vault_subpages_hierarchy.md` directive.
 
-Ús (des de l'arrel de l'app `monorepo/apps/gnosi`, amb el backend natiu engegat):
-    .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <ID-DEL-VAULT-CLON>
+Usage (from the root of the `monorepo/apps/gnosi` app, with the native backend running):
+    .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <CLONE-VAULT-ID>
     .venv/bin/python pipeline/utils/rewalk_subpage_parents.py --vault-id <ID> --apply
 
-Sense `--apply` és DRY-RUN: només informa. L'id del vault surt de GET /api/vaults.
+Without `--apply` it's a DRY-RUN: it only reports. The vault id comes from GET /api/vaults.
 
-Com funciona (eficient, sense baixar arbres de blocs):
-  1. NOTION: `search_pages()` retorna TOTES les pàgines amb el seu `parent` incrustat.
-     Per cada pàgina es resol el PARE-PÀGINA pujant la cadena (page_id directe;
-     block_id → owner del bloc, memoïtzat). Files de BD (parent database_id) i pàgines
-     d'arrel (workspace) no tenen pare-pàgina → no es toquen.
-  2. VAULT DEL CLON: GET /api/vault/pages (X-Vault-Id) → ids existents + parent_id actuals.
-  3. Per cada parell (fill, pare) amb els DOS costats presents al clon (ids deterministes
-     `clone_page_id` = uuid5) i parent_id absent o diferent → PATCH {parent_id}. El PATCH
-     fa merge de metadata. Seqüencial amb pausa breu (el bulk client-side esgota el
-     QueuePool, cf. memòria feedback_bulk_ops_server_side).
+How it works (efficient, without downloading block trees):
+  1. NOTION: `search_pages()` returns ALL pages with their `parent` embedded.
+     For each page, the PARENT PAGE is resolved by walking up the chain (direct page_id;
+     block_id → block owner, memoized). DB rows (parent database_id) and root
+     pages (workspace) have no parent page → they're left untouched.
+  2. CLONE VAULT: GET /api/vault/pages (X-Vault-Id) → existing ids + current parent_id.
+  3. For each (child, parent) pair with BOTH sides present in the clone (deterministic ids
+     `clone_page_id` = uuid5) and parent_id absent or different → PATCH {parent_id}. The PATCH
+     merges metadata. Sequential with a short pause (client-side bulk exhausts the
+     QueuePool, cf. memory feedback_bulk_ops_server_side).
 
-Idempotent i NOMÉS metadata: cap fitxer es mou de carpeta (la pertinença de la graella
-by-table va per carpeta i no s'ha de tocar — cf. directiva).
+Idempotent and metadata-ONLY: no file is moved between folders (the by-table grid's
+folder membership must not be touched — cf. directive).
 """
 import argparse
 import importlib.util
@@ -35,8 +35,8 @@ import httpx
 
 APP = Path(__file__).resolve().parents[2]   # …/monorepo/apps/gnosi
 
-# clone_page_id sense importar el paquet backend (notion_clone arrossega imports pesats):
-# mateix namespace que backend/services/notion_clone.py (_CLONE_NS).
+# clone_page_id without importing the backend package (notion_clone pulls in heavy imports):
+# same namespace as backend/services/notion_clone.py (_CLONE_NS).
 _CLONE_NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000003")
 
 
@@ -66,7 +66,7 @@ def main() -> int:
     block_owner_cache: dict = {}
 
     def parent_page_of(p):
-        """Id de la pàgina-pare (o None si penja de BD/workspace o no es pot resoldre)."""
+        """Id of the parent page (or None if it hangs off a DB/workspace or can't be resolved)."""
         parent = p.get("parent") or {}
         while True:
             t = parent.get("type")
@@ -85,7 +85,7 @@ def main() -> int:
                     parent = blk.get("parent") or {}
                     block_owner_cache[bid] = parent
                 continue
-            return None   # database_id, workspace, desconegut
+            return None   # database_id, workspace, unknown
 
     print("2) Resolent parells (fill → pare)...", flush=True)
     pairs = {}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from '../lib/toast';
 import MailSidebar from '../components/Mail/MailSidebar';
 import MailList from '../components/Mail/MailList';
@@ -16,6 +17,7 @@ export default function MailPage() {
 }
 
 function MailPageInner() {
+    const { t } = useTranslation();
     const [selectedMail, setSelectedMail] = React.useState(null);
     const [selectedAccount, setSelectedAccount] = React.useState(null);
     const [accounts, setAccounts] = useState([]);
@@ -124,11 +126,11 @@ function MailPageInner() {
             );
             if (!res.ok) throw new Error('move_failed');
             setRemovedMailId(null);
-            setListRefreshToken(t => t + 1);
+            setListRefreshToken(n => n + 1);
             fetchCounts(accounts);
-            toast.success('Acció desfeta');
+            toast.success(t('mail.undo_success', 'Acció desfeta'));
         } catch {
-            toast.error("No s'ha pogut desfer");
+            toast.error(t('mail.undo_error', "No s'ha pogut desfer"));
         }
     };
     executeUndoRef.current = executeUndo;
@@ -138,7 +140,7 @@ function MailPageInner() {
         setTimeout(() => {
             if (undoRef.current?.mailId === mailId) undoRef.current = null;
         }, 8000);
-        const label = type === 'trash' ? 'Eliminat' : 'Arxivat';
+        const label = type === 'trash' ? t('mail.undo_label_trashed', 'Eliminat') : t('mail.undo_label_archived', 'Arxivat');
         toast(
             <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span>{label}</span>
@@ -146,7 +148,7 @@ function MailPageInner() {
                     onClick={() => executeUndoRef.current?.()}
                     style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
                 >
-                    Desfer
+                    {t('common.undo', 'Desfer')}
                 </button>
                 <span style={{ opacity: 0.5, fontSize: '11px' }}>⌘Z</span>
             </span>,
@@ -335,7 +337,7 @@ function MailPageInner() {
                                 accounts={identities}
                                 onClose={() => { setIsComposing(false); setComposeData(null); }}
                                 onSent={() => { setIsComposing(false); setComposeData(null); }}
-                                onDraftSaved={() => setListRefreshToken(t => t + 1)}
+                                onDraftSaved={() => setListRefreshToken(n => n + 1)}
                                 {...(composeData || {})}
                             />
                         ) : (

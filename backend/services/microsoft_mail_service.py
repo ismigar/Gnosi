@@ -258,14 +258,15 @@ def microsoft_get_message(email: str, message_id: str) -> Optional[dict]:
 
 
 def microsoft_get_inline_parts(email: str, message_id: str, wanted_cids: set) -> dict:
-    """Recupera per Content-ID els adjunts inline d'un missatge via Graph.
+    """Retrieves a message's inline attachments by Content-ID via Graph.
 
     Args:
-        wanted_cids: Content-IDs buscats (amb o sense ``<>``).
+        wanted_cids: Content-IDs to look up (with or without ``<>``).
 
     Returns:
-        Dict cid (sense ``<>``) → {filename, content_type, data}. Buit si el
-        missatge o els adjunts no es poden recuperar (mai llança).
+        Dict cid (without ``<>``) → {filename, content_type, data}. Empty if the
+        message or attachments can't be retrieved (never raises).
+    
     """
     import base64
 
@@ -313,8 +314,8 @@ def microsoft_get_counts(email: str) -> dict:
 
 
 def _graph_attachments(attachments: list = None, inline_images: list = None) -> list:
-    """Mapeja adjunts {filename, content_type, data} i imatges inline
-    {…, content_id} al format fileAttachment de Microsoft Graph."""
+    """Maps attachments {filename, content_type, data} and inline images
+    {…, content_id} to Microsoft Graph's fileAttachment format."""
     import base64
 
     out = []

@@ -56,15 +56,16 @@ async def status():
 
 @router.get("/health")
 async def health():
-    """Diagnòstic OAuth2 per al UI: estat de la configuració, comptes connectats
-    i heurístiques sobre si l'app és en mode Testing o Production.
+    """OAuth2 diagnostics for the UI: config status, connected accounts,
+    and heuristics about whether the app is in Testing or Production mode.
 
-    Heurística per a "testing":
-      - Si tenim algun compte amb `last_token_refresh_failure` recent (<14 dies)
-        i la causa va ser `invalid_grant`, és probable que estigui en Testing.
-      - Si tots els comptes amb refresh_token tenen tokens recents (<7 dies),
-        l'app pot ser en Production.
-      - Si no hi ha dades suficients, retornem `unknown`.
+    Heuristic for "testing":
+      - If any account has a recent (<14 days) `last_token_refresh_failure`
+        with cause `invalid_grant`, it's likely in Testing.
+      - If all accounts with a refresh_token have recent tokens (<7 days),
+        the app may be in Production.
+      - If there isn't enough data, we return `unknown`.
+    
     """
     from backend.services.integration_manager import integration_manager
     config = get_google_config()
@@ -138,11 +139,11 @@ async def callback(request: Request):
     if not code:
         raise HTTPException(status_code=400, detail="Authorization code not found")
 
-    # Validar `state` contra els pending — prevenció CSRF. Sense aquesta
-    # validació, un atacant podia muntar un callback URL amb un code propi
-    # i fer que la víctima vinculés el seu compte al del atacant. PKCE
-    # mitiga part del risc, però només si tenim el code_verifier — i
-    # aquest només existeix si `state` coincideix.
+    # Validate `state` against the pending ones — CSRF prevention. Without this
+    # validation, an attacker could craft a callback URL with their own code
+    # and get the victim to link their account to the attacker's. PKCE
+    # mitigates part of the risk, but only if we have the code_verifier — and
+    # that only exists if `state` matches.
     if not state or state not in pending_auths:
         log.warning(f"OAuth callback amb state invàlid o expirat: {state!r}")
         raise HTTPException(
@@ -157,7 +158,7 @@ async def callback(request: Request):
         redirect_uri=config["web"]["redirect_uris"][0]
     )
 
-    # Retrieve the code_verifier (state ja validat sobre)
+    # Retrieve the code_verifier (state already validated above)
     auth_info = pending_auths.pop(state)
     auth_type = "calendar"
     if isinstance(auth_info, dict):
@@ -178,7 +179,7 @@ async def callback(request: Request):
         log.info(f"Google OAuth successful for email: {email}")
         
         # Format to be recognized by the frontend in general lists of emails and calendars.
-        # Camps IMAP/SMTP injectats perquè el mail va via IMAP+XOAUTH2 (no Gmail API).
+        # IMAP/SMTP fields injected because mail goes via IMAP+XOAUTH2 (not the Gmail API).
         import time as _time
         account_data = {
             "id": f"google_{email}",
@@ -194,8 +195,8 @@ async def callback(request: Request):
             "token_uri": credentials.token_uri,
             "token_status": "connected",
             "refresh_token_status": "connected",
-            # Marca el moment del callback com a últim refresh exitós perquè
-            # `ensure_fresh_token` sàpiga quan tornar a refrescar.
+            # Marks the callback's timestamp as the last successful refresh so that
+            # `ensure_fresh_token` knows when to refresh again.
             "last_refresh_success_at": int(_time.time()),
             "imap_host": "imap.gmail.com",
             "imap_port": 993,
@@ -218,7 +219,7 @@ async def callback(request: Request):
         })
         log.info(f"Integration data saved for {email}. Redirecting to frontend.")
         
-        # Arquitectura híbrida: no cal sync al vault, es consulta l'API directament
+        # Hybrid architecture: no need to sync to the vault, the API is queried directly
         
         # Redirect back to the frontend with context
         # Tab management: activeTab in frontend should react to this

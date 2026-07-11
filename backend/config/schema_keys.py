@@ -38,7 +38,7 @@ LINKS_PROP_KEYS = [
 # Semantic Mapping (Notion to Internal Types)
 # -----------------------------------
 SELECT_TO_KIND = {
-    # Català
+    # Catalan
     "nota permanent": "permanent",
     "permanent": "permanent",
     "nota de lectura": "lectura",
@@ -50,7 +50,7 @@ SELECT_TO_KIND = {
     "diàleg": "dialogo",
     "dialogo": "dialogo",
 
-    # Español
+    # Spanish
     "nota permanente": "permanent",
     "permanente": "permanent",
     "nota índice": "index",
@@ -62,7 +62,7 @@ SELECT_TO_KIND = {
     "literature note": "lectura",
     "index note": "index",
 
-    # Français
+    # French
     "note permanente": "permanent",
     "note de lecture": "lectura",
     "note d'index": "index",

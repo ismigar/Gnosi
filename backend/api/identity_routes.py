@@ -51,8 +51,8 @@ async def get_identity():
 async def save_identity(profile: IdentityProfile):
     path = get_identity_path()
     try:
-        # Atomic write — un crash a meitat de json.dump deixaria identity.json
-        # truncat i perdria les dades originals.
+        # Atomic write — a crash halfway through json.dump would leave identity.json
+        # truncated and would lose the original data.
         safe_write_json(path, profile.dict(), indent=2, ensure_ascii=False)
         return {"status": "success"}
     except Exception as e:

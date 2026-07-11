@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
-"""Petit servei HTTP que escolta a 127.0.0.1:5099 i obre fitxers/carpetes amb
-l'app per defecte del sistema host.
+"""Small HTTP service that listens on 127.0.0.1:5099 and opens files/folders with
+the host system's default app.
 
-Per què cal:
-    El backend de Gnosi corre dins d'un contenidor Docker Linux i no té
-    accés al Finder/Explorer del Mac. Aquest helper s'executa al host i el
-    backend del contenidor el contacta via host.docker.internal:5099.
+Why it's needed:
+    Gnosi's backend runs inside a Linux Docker container and has no
+    access to the Mac's Finder/Explorer. This helper runs on the host and the
+    container's backend contacts it via host.docker.internal:5099.
 
 Endpoints:
     GET  /healthz           → {"status": "ok"}
-    POST /open              → {"path": "/Users/..."} o {"path": "file:///..."}
-                              Resposta: {"status": "ok", "target": "..."}
+    POST /open              → {"path": "/Users/..."} or {"path": "file:///..."}
+                              Response: {"status": "ok", "target": "..."}
     POST /search            → {"query": "foo", "limit": 100, "roots": [...]}
-                              Cerca per nom amb Spotlight (`mdfind`), ràpida
-                              gràcies a l'índex viu del sistema.
-                              Resposta: {"results": [...], "truncated": bool}
-    POST /trash             → {"path": "/Users/..."} o {"path": "file:///..."}
-                              Mou el fitxer a la Paperera del Mac (RECUPERABLE).
-                              Cal perquè el backend en Docker monta HOME read-only
-                              i no pot esborrar fitxers de OneDrive/Biblioteca.
-                              Resposta: {"status": "ok", "target": "..."}
+                              Search by name with Spotlight (`mdfind`), fast
+                              thanks to the system's live index.
+                              Response: {"results": [...], "truncated": bool}
+    POST /trash             → {"path": "/Users/..."} or {"path": "file:///..."}
+                              Moves the file to the Mac's Trash (RECOVERABLE).
+                              Needed because the Docker backend mounts HOME read-only
+                              and can't delete files from OneDrive/Library.
+                              Response: {"status": "ok", "target": "..."}
 
-Seguretat:
-    - Bind a 127.0.0.1 + port host.docker.internal: només localhost+contenidors.
-    - Comprova que la ruta existeix abans d'obrir.
-    - Usa subprocess sense shell.
-    - Escolta una llista d'arrels permeses (env GNOSI_OPEN_ROOTS, separats per ':').
-      Si està buida, accepta qualsevol ruta dins del HOME de l'usuari.
+Security:
+    - Bind to 127.0.0.1 + host.docker.internal port: only localhost+containers.
+    - Checks that the path exists before opening.
+    - Uses subprocess without a shell.
+    - Listens to a list of allowed roots (env GNOSI_OPEN_ROOTS, ':'-separated).
+      If empty, accepts any path within the user's HOME.
 """
 from __future__ import annotations
 
@@ -45,13 +45,14 @@ HOME = Path.home().resolve()
 
 
 def _allowed_roots() -> list[Path]:
-    """Llista de roots permesos.
+    """List of allowed roots.
 
-    - Si `GNOSI_OPEN_ROOTS` està definit (separats per `:`), s'usa exactament.
-    - Si és buit o no existeix, retornem `[]` que vol dir "qualsevol ruta del
-      sistema". El helper només escolta a 127.0.0.1 i és per a ús personal,
-      així que aquesta restricció relaxada és acceptable. Per limitar-la,
-      defineix `GNOSI_OPEN_ROOTS=/Users/<usuari>:/Volumes` al plist.
+    - If `GNOSI_OPEN_ROOTS` is defined (`:`-separated), it's used exactly as given.
+    - If empty or not set, we return `[]` which means "any path on the
+      system". The helper only listens on 127.0.0.1 and is for personal
+      use, so this relaxed restriction is acceptable. To limit it,
+      define `GNOSI_OPEN_ROOTS=/Users/<usuari>:/Volumes` in the plist.
+    
     """
     raw = os.environ.get("GNOSI_OPEN_ROOTS", "").strip()
     if not raw:
@@ -74,7 +75,7 @@ def _normalize_path(raw: str) -> Path:
 def _is_path_allowed(path: Path) -> bool:
     roots = _allowed_roots()
     if not roots:
-        return True  # cap restricció (vegeu _allowed_roots)
+        return True  # no restriction (see _allowed_roots)
     try:
         resolved = path.resolve()
     except Exception:
@@ -99,12 +100,13 @@ def _open_with_system(path: Path) -> None:
 
 
 def _move_to_trash(path: Path) -> None:
-    """Mou un fitxer a la Paperera del sistema (RECUPERABLE, no esborrat dur).
+    """Moves a file to the system Trash (RECOVERABLE, not a hard delete).
 
-    A macOS ho fa Finder via `osascript`. La ruta es passa com a argv
-    (`on run argv`), sense shell ni interpolació → no és injectable. Si
-    Finder no pot (ex: fitxer ja inexistent), osascript torna codi != 0 i
-    propaguem l'error.
+    On macOS this is done by Finder via `osascript`. The path is passed as argv
+    (`on run argv`), without shell or interpolation → not injectable. If
+    Finder can't (e.g. file no longer exists), osascript returns a code != 0 and
+    we propagate the error.
+    
     """
     if sys.platform == "darwin":
         script = (
@@ -122,8 +124,8 @@ def _move_to_trash(path: Path) -> None:
     raise RuntimeError("trash no suportat en aquesta plataforma")
 
 
-# Components de ruta no-ocults que mai volem als resultats de cerca. Els
-# components ocults (que comencen amb ".") es filtren a part a _is_noise_path.
+# Non-hidden path components that we never want in search results. The
+# hidden components (starting with ".") are filtered separately in _is_noise_path.
 _SEARCH_SKIP_COMPONENTS = {"node_modules", "__pycache__", "Trash"}
 
 
@@ -136,11 +138,12 @@ def _is_within(child: Path, parent: Path) -> bool:
 
 
 def _is_noise_path(path: Path) -> bool:
-    """True si la ruta passa per una carpeta sorollosa o oculta.
+    """True if the path passes through a noisy or hidden folder.
 
-    Manté la cerca neta: dependències, caches/VCS, paperera i qualsevol
-    component ocult (.history, .git, .cache…). És el mateix criteri que el
-    walk de fallback del backend.
+    Keeps the search clean: dependencies, caches/VCS, trash, and any
+    hidden component (.history, .git, .cache…). Same criteria as the
+    backend's fallback walk.
+    
     """
     for part in path.parts:
         if part in _SEARCH_SKIP_COMPONENTS:
@@ -151,10 +154,11 @@ def _is_noise_path(path: Path) -> bool:
 
 
 def _collapse_roots(roots: list[Path]) -> list[Path]:
-    """Elimina roots que ja són dins d'un altre (evita `mdfind` redundants).
+    """Removes roots that are already inside another one (avoids redundant `mdfind` calls).
 
-    Ex.: el Vault sol viure dins de HOME → passar tots dos faria dues
-    passades de Spotlight quan amb HOME ja n'hi ha prou.
+    E.g.: the Vault usually lives inside HOME → passing both would do two
+    Spotlight passes when HOME alone is already enough.
+    
     """
     uniq: list[Path] = []
     for r in sorted(set(roots), key=lambda p: len(p.parts)):
@@ -165,13 +169,14 @@ def _collapse_roots(roots: list[Path]) -> list[Path]:
 
 
 def _run_spotlight_search(query: str, limit: int, roots: list[Path]) -> dict:
-    """Cerca per nom amb Spotlight (`mdfind -name`) dins dels roots donats.
+    """Searches by name with Spotlight (`mdfind -name`) within the given roots.
 
-    Spotlight manté un índex viu del disc, així que això torna en
-    mil·lisegons — a diferència del `os.walk` recursiu del backend, que
-    sobre muntatges lents com OneDrive trigava segons.
+    Spotlight keeps a live index of the disk, so this returns in
+    milliseconds — unlike the backend's recursive `os.walk`, which
+    took seconds on slow mounts like OneDrive.
 
-    `query` es passa com a argv separat (sense shell): no és injectable.
+    `query` is passed as a separate argv (no shell): it's not injectable.
+    
     """
     seen: set[str] = set()
     results: list[dict] = []
@@ -247,7 +252,7 @@ class Handler(BaseHTTPRequestHandler):
         self._send(404, {"detail": "not found"})
 
     def _read_json_body(self) -> dict | None:
-        """Llegeix i parseja el body JSON. Retorna None (i respon 400) si falla."""
+        """Reads and parses the JSON body. Returns None (and responds 400) if it fails."""
         length = int(self.headers.get("Content-Length", "0"))
         try:
             return json.loads(self.rfile.read(length) or b"{}")
@@ -338,9 +343,9 @@ class Handler(BaseHTTPRequestHandler):
             limit = 100
         limit = max(1, min(500, limit))
 
-        # Roots: rutes (HOST) on cercar. Validem que existeixin i estiguin
-        # dins de les arrels permeses (mateixa allowlist que /open); si no
-        # en queda cap de vàlida, fem servir HOME.
+        # Roots: paths (HOST) to search in. We validate that they exist and are
+        # within the allowed roots (same allowlist as /open); if none
+        # remain valid, we use HOME.
         roots: list[Path] = []
         for raw in (payload or {}).get("roots") or []:
             try:
@@ -360,9 +365,9 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"detail": f"search failed: {exc}"})
             return
 
-        # Cap resultat + mdfind ha fallat → 500, perquè el backend faci
-        # fallback al seu os.walk. Si hi ha resultats (encara que parcials),
-        # els tornem amb truncated=True.
+        # No results + mdfind failed → 500, so the backend falls
+        # back to its own os.walk. If there are results (even partial),
+        # we return them with truncated=True.
         if not outcome["results"] and outcome["had_error"]:
             self._send(500, {
                 "detail": "spotlight search failed",

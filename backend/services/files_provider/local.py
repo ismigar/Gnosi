@@ -1,4 +1,4 @@
-"""LocalProvider: vault sobre disc local pur, sense files-on-demand."""
+"""LocalProvider: vault on pure local disk, without files-on-demand."""
 
 from __future__ import annotations
 
@@ -10,8 +10,9 @@ from .base import FilesProvider
 
 
 class LocalProvider(FilesProvider):
-    """Proveïdor per a vaults sobre disc local. Cap fitxer és online-only;
-    `materialize()` és un no-op.
+    """Provider for vaults on local disk. No file is online-only;
+    `materialize()` is a no-op.
+    
     """
 
     name = "local"

@@ -1,7 +1,7 @@
 /**
  * VaultEditorContext.js
- * Context de React per compartir l'estat i les funcions entre
- * el BlockEditor i els blocs enriquits que renderitza.
+ * React context for sharing state and functions between
+ * the BlockEditor and the rich blocks it renders.
  */
 import { createContext } from 'react';
 

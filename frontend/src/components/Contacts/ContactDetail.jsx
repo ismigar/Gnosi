@@ -7,9 +7,9 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
     const { t } = useTranslation();
     if (!contact) return null;
 
-    // contact.name pot ser undefined/null si la BD té contactes incomplets
-    // (sync parcial de Google, contactes sense nom). `null.split` crashejaria
-    // i tota la pàgina pintaria un error genèric en lloc del detall.
+    // contact.name can be undefined/null if the DB has incomplete contacts
+    // (partial Google sync, contacts without a name). `null.split` would crash
+    // and the whole page would render a generic error instead of the detail.
     const initials = (contact.name || '?').split(' ').map(n => n[0] || '').join('').toUpperCase().substring(0, 2) || '?';
     
     // Check if we should try a Gmail avatar fallback

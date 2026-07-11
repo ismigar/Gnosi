@@ -48,18 +48,19 @@ class Config:
 
 def load_params(strict_env: bool = True) -> Config:
     """
-    Carrega params.yaml i retorna un objecte Config.
-    Prioritat:
+        Loads params.yaml and returns a Config object.
+    Priority:
     1. DIGITAL_BRAIN_VAULT_PATH/.gnosi/params.yaml
     2. ~/.gnosi/params.yaml
     3. monorepo/apps/gnosi/config/params.yaml (Base/Default)
+    
     """
     load_env()
     
     local_path = Path(__file__).parents[2] / "config" / "params.yaml"
     home_path = Path.home() / ".gnosi" / "params.yaml"
     
-    # ── 1. Carregar la base (Local) ──
+    # ── 1. Load the base (Local) ──
     params = {}
     if local_path.exists():
         with open(local_path, "r", encoding="utf-8") as f:
@@ -67,12 +68,12 @@ def load_params(strict_env: bool = True) -> Config:
     
     params_path = local_path
     
-    # ── 2. Determinar la font d'usuari (Vault ACTIU > Vault env > Home) ──
+    # ── 2. Determine the user source (ACTIVE Vault > Vault env > Home) ──
     user_params_path = None
 
-    # Multi-vault: si hi ha un vault ACTIU al context, la seva config (graph, colors, ai…)
-    # mana. Llegim el contextvar DIRECTAMENT (no `get_active_vault_path`) per evitar el cicle
-    # load_params ↔ get_active_vault_path. Fora de petició → None → comportament d'abans.
+    # Multi-vault: if there's an ACTIVE vault in the context, its config (graph, colors, ai…)
+    # It governs. We read the contextvar DIRECTLY (not `get_active_vault_path`) to avoid the cycle
+    # load_params ↔ get_active_vault_path. Outside a request → None → previous behavior.
     active_params_path = None
     try:
         from backend.services.context_vars import active_vault_path as _avp_var
@@ -82,11 +83,11 @@ def load_params(strict_env: bool = True) -> Config:
     except Exception:
         active_params_path = None
 
-    # `Path.exists()` tolerant a errors d'E/S d'OneDrive: un params.yaml online-only encara
-    # no hidratat (o amb la sincronització encallada) fa que `stat()` peti amb EDEADLK/EAGAIN
-    # (Errno 11/35). Sense això, UN fitxer .gnosi no disponible tombava TOTS els endpoints
-    # del vault (500 a get_workspace_context). Es tracta com a "no disponible" i se segueix
-    # amb la config heretada; quan OneDrive el materialitzi, es fusionarà amb normalitat.
+    # `Path.exists()` tolerant of OneDrive I/O errors: an online-only params.yaml still
+    # not hydrated (or with sync stuck) causes `stat()` to fail with EDEADLK/EAGAIN
+    # (Errno 11/35). Without this, ONE unavailable .gnosi file brought down ALL the endpoints
+    # of the vault (500 in get_workspace_context). It's treated as "unavailable" and continues
+    # with the inherited config; when OneDrive materializes it, it will merge normally.
     def _exists_tolerant(p):
         if p is None:
             return False
@@ -106,7 +107,7 @@ def load_params(strict_env: bool = True) -> Config:
     elif _exists_tolerant(home_path):
         user_params_path = home_path
 
-    # Si hem carregat el local però aquest defineix un vault que té el seu propi params.yaml, saltem al del vault.
+    # If we loaded the local one but it defines a vault that has its own params.yaml, we jump to the vault's.
     if not user_params_path and "paths" in params:
         vault_raw = params.get("paths", {}).get("vault")
         if vault_raw:
@@ -114,26 +115,26 @@ def load_params(strict_env: bool = True) -> Config:
             if _exists_tolerant(vault_params) and vault_params != local_path:
                 user_params_path = vault_params
 
-    # ── 3. Fusionar si hi ha configuració d'usuari ──
+    # ── 3. Merge if there is user configuration ──
     if user_params_path:
-        # log.info(f"Fusionant configuració d'usuari des de: {user_params_path}")
+        # log.info(f"Merging user configuration from: {user_params_path}")
         try:
             with open(user_params_path, "r", encoding="utf-8") as f:
                 user_params = yaml.safe_load(f) or {}
                 params = deep_merge(params, user_params)
             params_path = user_params_path
         except OSError as e:
-            # El fitxer s'ha tornat il·legible entre l'exists() i l'open() (placeholder
-            # OneDrive): mateixa política que amunt — config heretada i seguim.
+            # The file became unreadable between exists() and open() (placeholder
+            # OneDrive): same policy as above — inherited config and we continue.
             log.warning(f"params.yaml il·legible en obrir (placeholder OneDrive?): {user_params_path} → {e}")
 
-    # Vault ACTIU: l'origen per a DESAR és sempre el seu params.yaml (es crearà si encara no
-    # existeix), encara que els valors s'hagin heretat del per defecte. Així, editar la config
-    # del Graf (o colors, ai…) d'un vault nou escriu al SEU .gnosi/, no al principal.
+    # ACTIVE Vault: the source for SAVING is always its params.yaml (it will be created if it doesn't
+    # exist yet), even if the values were inherited from the default. So, editing the config
+    # of the Graph (or colors, etc…) of a new vault writes to ITS OWN .gnosi/, not the main one.
     if active_params_path:
         params_path = active_params_path
 
-    # --- Manteniment i Migració ---
+    # --- Maintenance and Migration ---
     migrated = False
     env_migration_map = {
         "OPENAI_API_KEY": ("openai", "__keychain__:openai_api_key"),
@@ -160,7 +161,7 @@ def load_params(strict_env: bool = True) -> Config:
                 providers[p_id]["credential_ref"] = credential_ref
                 migrated = True
 
-    # Si hi ha hagut canvis, guardem el YAML actualitzat (atomic write)
+    # If there have been changes, we save the updated YAML (atomic write)
     if migrated:
         try:
             from backend.utils.safe_io import safe_write_text

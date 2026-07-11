@@ -92,11 +92,11 @@ const SocialDashboard = () => {
 
     return (
         <div className="h-full flex flex-col bg-[var(--bg-primary)] relative overflow-hidden">
-            {/* Efectes d'ambience */}
+            {/* Ambience effects */}
             <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-[var(--gnosi-blue)]/10 rounded-full blur-[120px] pointer-events-none" />
             <div className="absolute bottom-[-20%] right-[-10%] w-[40%] h-[40%] bg-[var(--gnosi-primary)]/10 rounded-full blur-[100px] pointer-events-none" />
 
-            {/* Capçalera amb tab bar */}
+            {/* Header with tab bar */}
             <header className="h-14 px-4 flex items-center justify-between border-b border-[var(--border-primary)] shrink-0 relative z-10 bg-[var(--bg-primary)]/80 backdrop-blur-sm">
                 <div className="flex items-center gap-1">
                     {TABS.map(({ id, label, icon: Icon }) => (

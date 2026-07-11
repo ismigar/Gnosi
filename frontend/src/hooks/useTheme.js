@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
 /**
- * Hook per obtenir el tema actiu real (light o dark).
- * Gestiona la preferència de localStorage i el canvi de sistema si està en mode 'system'.
+ * Hook to get the actual active theme (light or dark).
+ * Manages the localStorage preference and the system change if in 'system' mode.
  */
 export function useTheme() {
     const [themePreference, setThemePreference] = useState(() => localStorage.getItem('db-theme') || 'system');

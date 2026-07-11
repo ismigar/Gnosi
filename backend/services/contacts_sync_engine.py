@@ -64,11 +64,11 @@ class GoogleContactsProvider(BaseContactsProvider):
         return parsed
 
 def _vcard_escape(value: Any) -> str:
-    """Escapa un valor de text per a vCard 3.0 (RFC 2426 §5). L'ordre importa:
-    el backslash PRIMER (per no re-escapar els que afegim). Sense això, un
-    valor amb un salt de línia (NOTE multilínia) TRENCA el vCard —la 2a línia
-    es parseja com una propietat bogus— i un `;`/`,` (a `N`, `ORG`, `ADR`…)
-    corromp l'estructura de camps."""
+    """Escapes a text value for vCard 3.0 (RFC 2426 §5). Order matters:
+    backslash FIRST (to avoid re-escaping the ones we add). Without this, a
+    value with a line break (multiline NOTE) BREAKS the vCard —the 2nd line
+    is parsed as a bogus property— and a `;`/`,` (in `N`, `ORG`, `ADR`…)
+    corrupts the field structure."""
     return (
         str(value)
         .replace("\\", "\\\\")
@@ -80,8 +80,8 @@ def _vcard_escape(value: Any) -> str:
 
 
 def _vcard_unescape(value: str) -> str:
-    """Invers de `_vcard_escape`: `\\n`/`\\N` → salt de línia; `\\;` `\\,` `\\\\`
-    → el caràcter literal. Un sol pas (evita re-processar el backslash)."""
+    """Inverse of `_vcard_escape`: `\\n`/`\\N` → line break; `\\;` `\\,` `\\\\`
+    → the literal character. Single pass (avoids re-processing the backslash)."""
     return re.sub(r"\\(.)", lambda m: "\n" if m.group(1) in "nN" else m.group(1), value)
 
 
@@ -265,12 +265,12 @@ class CardDAVContactsProvider(BaseContactsProvider):
         """Parse a CardDAV response entry (with vcard string) to internal dict."""
         import re
 
-        # RFC 6350/2426 line UNFOLDING: els servidors CardDAV (Nextcloud,
-        # iCloud, Google…) parteixen les línies llargues (>75 chars) amb un
-        # CRLF seguit d'un espai/tab de continuació. Sense desplegar-les, el
-        # regex per línia de `_get_vcard_field` captura NOMÉS la primera línia
-        # → notes i adreces llargues es TRUNCAVEN (una ADR podia perdre ciutat/
-        # codi postal/país). Desplegar primer ho recupera.
+        # RFC 6350/2426 line UNFOLDING: CardDAV servers (Nextcloud,
+        # iCloud, Google…) split long lines (>75 chars) with a
+        # CRLF followed by a continuation space/tab. Without unfolding them, the
+        # per-line regex in `_get_vcard_field` captures ONLY the first line
+        # → long notes and addresses were TRUNCATED (an ADR could lose city/
+        # zip code/country). Unfolding first recovers it.
         vcard = re.sub(r"\r?\n[ \t]", "", remote_contact.get("vcard", ""))
         href = remote_contact.get("href", "")
 
@@ -295,9 +295,9 @@ class CardDAVContactsProvider(BaseContactsProvider):
         # Parse TITLE
         title = _get_vcard_field("TITLE")
 
-        # Parse ADR (address) — es col·lapsen els components no buits i es
-        # desescapa el resultat (els `\;`/`\,`/`\n` dins d'un component tornen
-        # al seu caràcter real).
+        # Parse ADR (address) — non-empty components are collapsed and
+        # unescapes the result (the `\;`/`\,`/`\n` inside a component come back
+        # to their actual character).
         adr_raw = _get_vcard_field("ADR")
         address = (
             _vcard_unescape(";".join([p.strip() for p in adr_raw.split(";") if p.strip()]))
@@ -311,9 +311,9 @@ class CardDAVContactsProvider(BaseContactsProvider):
         uid = _get_vcard_field("UID")
 
         return {
-            # Desescapem els valors de text (RFC 2426): un servidor que hi ha
-            # desat una nota multilínia o un `;`/`,` els envia com a `\n`/`\;`/
-            # `\,`; sense desescapar, es mostraven amb el backslash literal.
+            # We unescape the text values (RFC 2426): a server that has
+            # saved a multiline note or a `;`/`,` sends them as `\n`/`\;`/
+            # `\,`; without unescaping, they were shown with the literal backslash.
             "name": _vcard_unescape(fn) or "Unknown",
             "email": _vcard_unescape(email) or "",
             "phone": _vcard_unescape(phone) or "",
@@ -339,8 +339,8 @@ class CardDAVContactsProvider(BaseContactsProvider):
             parts = name.split(" ", 1)
             given = parts[0]
             family = parts[1] if len(parts) > 1 else ""
-            # N i ADR són camps ESTRUCTURATS (`;` separa components): s'escapen
-            # els components perquè un `;`/`,` dins d'un valor no faci de separador.
+            # N and ADR are STRUCTURED fields (`;` separates components): the components are escaped
+            # so that a `;`/`,` inside a value doesn't act as a separator.
             lines.append(f"N:{_vcard_escape(family)};{_vcard_escape(given)};;;")
             lines.append(f"FN:{_vcard_escape(name)}")
 
@@ -368,7 +368,7 @@ class CardDAVContactsProvider(BaseContactsProvider):
         if notes:
             lines.append(f"NOTE:{_vcard_escape(notes)}")
 
-        # datetime/timezone ja importats al top del mòdul.
+        # datetime/timezone already imported at the top of the module.
         lines.append(f"REV:{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}")
         lines.append("END:VCARD")
 
@@ -545,28 +545,28 @@ class ContactsSyncEngine:
                         existing.google_resource_name = remote_id
 
                 if existing:
-                    # POLÍTICA DE MERGE (pull = MERGE, no mirror): un camp remot
-                    # buit/absent MAI ha de sobreescriure un valor que l'usuari ha
-                    # introduït localment. La directiva contacts-sync.md defineix el
+                    # MERGE POLICY (pull = MERGE, not mirror): a remote field
+                    # that is empty/absent must NEVER overwrite a value the user has
+                    # entered locally. The contacts-sync.md directive defines the
                     # sistema com a BIDIRECCIONAL (last-write-wins) i sync_gnosi_to_remote
-                    # empeny local→remot: si aquí buidéssim el camp a "", el push
-                    # posterior propagaria el "" al remot i es perdria a banda i banda.
+                    # local→remote push: if we cleared the field to "" here, the push
+                    # later it would propagate the "" to the remote and it would be lost on both sides.
                     #
-                    # No podem usar `parsed.get(k, existing.X)` (default per clau ABSENT):
-                    # tots dos parsers retornen "" per als camps absents (clau PRESENT),
-                    # així que el default no s'activa mai i el "" continua machacant.
-                    # Cal `or existing.X`, que preserva el local tant si el remot ve
-                    # buit ("") com absent (None, p. ex. photo_url a CardDAV). Funciona
-                    # igual per a Google i CardDAV perquè és agnòstic al parser.
+                    # We can't use `parsed.get(k, existing.X)` (default for an ABSENT key):
+                    # both parsers return "" for absent fields (key PRESENT),
+                    # so the default never kicks in and the "" keeps clobbering it.
+                    # We need `or existing.X`, which preserves the local value whether the remote comes
+                    # empty ("") as absent (None, e.g. photo_url in CardDAV). It works
+                    # the same for Google and CardDAV since it's agnostic to the parser.
                     #
-                    # Contrapartida coneguda: no es pot BUIDAR un camp des del remot
-                    # (ressuscita del local). És el mal menor davant la pèrdua silenciosa
-                    # de dades; per distingir "esborrat" d'"absent" caldria un baseline
-                    # per contacte (three-way merge) — vegeu contacts-sync.md §Restrictions.
+                    # Known trade-off: a field CANNOT be CLEARED from the remote side
+                    # (it gets resurrected from the local value). It's the lesser evil compared to silent loss
+                    # of data; to distinguish "deleted" from "absent" would require a baseline
+                    # per contact (three-way merge) — see contacts-sync.md §Restrictions.
                     updated_data = {
-                        # (Aquest bloc completa el fallback parcial del #714, que va
-                        # posar `parsed.get(k, existing.X)` i va deixar el cas "" com a
-                        # tasca de disseny a part: `or existing.X` cobreix també aquell cas.)
+                        # (This block completes the partial fallback from #714, which
+                        # putting `parsed.get(k, existing.X)` and left the "" case as
+                        # was left as a separate design task: `or existing.X` also covers that case.)
                         "name": parsed.get("name") or existing.name,
                         "email": parsed.get("email") or existing.email,
                         "phone": parsed.get("phone") or existing.phone,

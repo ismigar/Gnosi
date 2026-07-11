@@ -1,10 +1,10 @@
-"""Tests del model de catàlegs d'opcions rics, rols i seeds (option_catalogs)."""
+"""Tests for the rich option catalog model, roles, and seeds (option_catalogs)."""
 import pytest
 
 from backend.services import option_catalogs as oc
 
 
-# --- Normalització d'opcions -------------------------------------------------
+# --- Option normalization -------------------------------------------------
 
 def test_normalize_option_legacy_string():
     out = oc.normalize_option("CA")
@@ -36,12 +36,12 @@ def test_normalize_options_mixed_and_dedupe():
 
 def test_auto_color_stable_and_in_palette():
     assert oc.auto_color("Esborrany") == oc.auto_color("Esborrany")
-    # Insensible a accents/caixa: el mateix nom escrit diferent no canvia de color.
+    # Accent/case-insensitive: the same name written differently doesn't change color.
     assert oc.auto_color("Traduït") == oc.auto_color("traduit")
     assert oc.auto_color("Qualsevol") in oc.OPTION_COLOR_PALETTE
 
 
-# --- Lectura/escriptura del catàleg d'una property ---------------------------
+# --- Reading/writing a property's catalog ---------------------------
 
 def test_get_prop_options_nested_config_wins_over_top_level():
     prop = {
@@ -71,7 +71,7 @@ def test_set_prop_options_canonicalizes_location():
     assert oc.option_names(prop["config"]["options"]) == ["Nou"]
 
 
-# --- Rols semàntics -----------------------------------------------------------
+# --- Semantic roles -----------------------------------------------------------
 
 def _table(props, **kwargs):
     return {"id": "t1", "name": "Taula", "properties": props, **kwargs}
@@ -92,8 +92,8 @@ def test_find_role_prop_name_heuristic_fallback():
 
 
 def test_find_role_prop_heuristic_skips_wrong_types():
-    # L'«Estat» de text de «Publicacions Socials» (cicle de vida propi) no és
-    # un camp d'estat semàntic: ni seeds ni accions. El rol explícit sí mana.
+    # The text "Estat" field of "Publicacions Socials" (its own lifecycle) is not
+    # a semantic status field: neither seeds nor actions. The explicit role always wins.
     t = _table([{"id": "f1", "name": "Estat", "type": "text"}])
     assert oc.find_role_prop(t, "status") is None
     assert oc.ensure_status_seed(t) is False
@@ -113,12 +113,12 @@ def test_assign_roles_by_name_and_type():
     assert t["properties"][1]["config"]["role"] == "status"
     assert t["properties"][2]["config"]["role"] == "tags"
     assert "config" not in t["properties"][3]
-    # Idempotent: segona passada sense canvis.
+    # Idempotent: second pass with no changes.
     assert oc.assign_roles(t) is False
 
 
 def test_assign_roles_skips_wrong_types():
-    # «Tags» com a select (no multi) i «Estat» multi_select: no se'ls assigna rol.
+    # "Tags" as select (not multi) and "Estat" multi_select: no role is assigned to them.
     t = _table([
         {"id": "f1", "name": "Tags", "type": "select"},
         {"id": "f2", "name": "Estat", "type": "multi_select"},
@@ -155,7 +155,7 @@ def test_ensure_status_seed_features_add_their_states():
     assert by_name[oc.STATUS_DRAFT]["group"] == "Inicial"
     assert by_name[oc.STATUS_TRANSLATED]["group"] == "En curs"
     assert by_name[oc.STATUS_PUBLISHED_DRUPAL]["group"] == "Final"
-    # Camps `status` reben els grups per defecte.
+    # `status` fields receive the default groups.
     assert prop["config"]["option_groups"] == oc.DEFAULT_STATUS_GROUPS
 
 
@@ -182,7 +182,7 @@ def test_ensure_options_exist_preserves_existing_colors():
     assert "Revisat" in by_name
 
 
-# --- Normalització de taula ----------------------------------------------------
+# --- Table normalization ----------------------------------------------------
 
 def test_normalize_table_options_moves_and_normalizes():
     t = _table([
@@ -193,7 +193,7 @@ def test_normalize_table_options_moves_and_normalizes():
     p = t["properties"][0]
     assert "options" not in p
     assert oc.option_names(p["config"]["options"]) == ["A"]
-    # Un camp no-opció no es toca.
+    # A non-option field is left untouched.
     assert t["properties"][1]["options"] == ["ignorat"]
     assert oc.normalize_table_options(t) is False
 

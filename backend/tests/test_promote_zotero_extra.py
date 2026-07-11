@@ -1,20 +1,21 @@
-"""Tests de la lògica de migració del `/promote-zotero-extra` endpoint.
+"""Tests for the `/promote-zotero-extra` endpoint's migration logic.
 
-L'endpoint depèn de `load_registry`/`save_registry` (FS) i de
-`find_page_path` (page index). Testem només la lògica de migració
-del frontmatter (mou valor + esborra de Extras + neteja la clau buida)
-en isolation — la creació de columna i el loop FS són trivials i
-covers per E2E.
+The endpoint depends on `load_registry`/`save_registry` (FS) and on
+`find_page_path` (page index). We only test the frontmatter migration
+logic (moves the value + deletes from Extras + cleans up the empty key)
+in isolation — creating the column and the FS loop are trivial and
+covered by E2E.
 """
 from __future__ import annotations
 
 
 def _migrate_frontmatter(md: dict, zotero_field: str, column_name: str) -> dict | None:
-    """Replica la lògica de `_migrate` dins l'endpoint.
+    """Replicates the `_migrate` logic inside the endpoint.
 
-    Retorna el nou dict si hi ha hagut canvi; `None` si la pàgina no porta
-    el camp (es marca com a "skip"). NO simula el read/write del fitxer
-    (això és I/O i no testable sense FS).
+    Returns the new dict if there was a change; `None` if the page doesn't have
+    the field (marked as "skip"). Does NOT simulate the file read/write
+    (that's I/O and not testable without an FS).
+    
     """
     extras = md.get('Zotero Extras')
     if not isinstance(extras, dict) or zotero_field not in extras:
@@ -61,13 +62,13 @@ def test_migrate_no_extras_returns_none():
 
 
 def test_migrate_extras_is_not_dict_returns_none():
-    """Si algú ha posat un string a 'Zotero Extras', no falla."""
+    """If someone has put a string in 'Zotero Extras', it doesn't fail."""
     md = {'Title': 'X', 'Zotero Extras': 'corrupted'}
     assert _migrate_frontmatter(md, 'patentNumber', 'Núm. patent') is None
 
 
 def test_migrate_to_column_with_different_name():
-    """Renomenar al pas: el zotero_field s'anomena 'X' i la columna 'Y'."""
+    """Rename on the step: the zotero_field is called 'X' and the column 'Y'."""
     md = {'Zotero Extras': {'X': 'val'}}
     out = _migrate_frontmatter(md, 'X', 'Y')
     assert out == {'Y': 'val'}

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import * as LucideIcons from 'lucide-react';
 import { Send, X, Paperclip, Minimize2, Maximize2, Bot, Sparkles, Plus, AtSign, Archive } from 'lucide-react';
 import { useConfigChanged } from '../lib/configEvents';
@@ -36,6 +37,7 @@ const parseMentions = (text) => {
 };
 
 const AgentChat = () => {
+    const { t } = useTranslation();
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState([]);
     const [inputValue, setInputValue] = useState('');
@@ -59,7 +61,7 @@ const AgentChat = () => {
     const [attachments, setAttachments] = useState([]);
     const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
-    // Ref per fer scroll al final
+    // Ref to scroll to the bottom
     const messagesEndRef = useRef(null);
     const inputRef = useRef(null);
     const fileInputRef = useRef(null);
@@ -261,7 +263,7 @@ const AgentChat = () => {
         }
     };
 
-    // Re-fetch quan els modals de Settings emeten l'event (sense reload).
+    // Re-fetch when the Settings modals emit the event (without a reload).
     useConfigChanged(loadConfig);
 
     useEffect(() => {
@@ -295,19 +297,19 @@ const AgentChat = () => {
                     id: String(p.id),
                     type: 'page',
                     label: String(label),
-                    subtitle: 'Pagina',
+                    subtitle: t('chat.mention_type_page', 'Pagina'),
                     search: `page ${label} ${p.id}`.toLowerCase(),
                 };
             });
 
-            const tableItems = (Array.isArray(tables) ? tables : []).map((t) => {
-                const label = t.name || t.title || t.id;
+            const tableItems = (Array.isArray(tables) ? tables : []).map((tbl) => {
+                const label = tbl.name || tbl.title || tbl.id;
                 return {
-                    id: String(t.id),
+                    id: String(tbl.id),
                     type: 'table',
                     label: String(label),
-                    subtitle: 'Tabla',
-                    search: `table ${label} ${t.id}`.toLowerCase(),
+                    subtitle: t('chat.mention_type_table', 'Tabla'),
+                    search: `table ${label} ${tbl.id}`.toLowerCase(),
                 };
             });
 
@@ -317,7 +319,7 @@ const AgentChat = () => {
                     id: String(d.id),
                     type: 'database',
                     label: String(label),
-                    subtitle: 'BD',
+                    subtitle: t('chat.mention_type_database', 'BD'),
                     search: `database bd ${label} ${d.id}`.toLowerCase(),
                 };
             });
@@ -423,7 +425,7 @@ const AgentChat = () => {
 
         if (!res.ok) {
             const detail = await res.text();
-            throw new Error(detail || 'No se pudo subir el archivo');
+            throw new Error(detail || t('chat.attachment_upload_failed', 'No se pudo subir el archivo'));
         }
 
         const data = await res.json();
@@ -447,7 +449,7 @@ const AgentChat = () => {
         if (skipped > 0) {
             setMessages((prev) => [
                 ...prev,
-                { role: 'system', content: `Aviso: ${skipped} archivo(s) superan 15MB y no se adjuntaron.` },
+                { role: 'system', content: t('chat.attachments_skipped', 'Aviso: {{count}} archivo(s) superan 15MB y no se adjuntaron.', { count: skipped }) },
             ]);
         }
         if (!validFiles.length) return;
@@ -461,7 +463,7 @@ const AgentChat = () => {
             }
             setAttachments((prev) => [...prev, ...uploaded]);
         } catch (error) {
-            setMessages((prev) => [...prev, { role: 'system', content: `Error subiendo adjunto: ${error.message}` }]);
+            setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', 'Error subiendo adjunto: {{message}}', { message: error.message }) }]);
         } finally {
             setIsUploadingAttachment(false);
         }
@@ -499,7 +501,7 @@ const AgentChat = () => {
 
         const messageToSend = `${inputValue}${attachmentSummary}`;
 
-        const visibleContent = inputValue.trim() ? inputValue : '(Adjuntos)';
+        const visibleContent = inputValue.trim() ? inputValue : t('chat.attachments_only_label', '(Adjuntos)');
 
         const userMsg = {
             role: 'user',
@@ -552,15 +554,15 @@ const AgentChat = () => {
             while (true) {
                 const { done, value } = await reader.read();
 
-                // Acumulem al buffer i només processem línies COMPLETES: una línia
-                // JSON pot quedar partida entre dos chunks de xarxa (perdent el
-                // missatge sencer si es prova de parsejar a trossos). `{ stream: !done }`
-                // evita a més corrompre un caràcter UTF-8 multibyte (à, é, ç…) tallat
-                // a la frontera del chunk.
+                // We accumulate in the buffer and only process COMPLETE lines: a line
+                // JSON can end up split across two network chunks (losing the
+                // entire message if you try to parse it in pieces). `{ stream: !done }`
+                // also avoids corrupting a multibyte UTF-8 character (à, é, ç…) cut
+                // at the chunk boundary.
                 buffer += decoder.decode(value, { stream: !done });
                 const lines = buffer.split('\n');
-                // Mentre el stream continua, l'última línia pot estar incompleta i
-                // la mantenim al buffer; en acabar (done) ja s'ha processat tot.
+                // While the stream continues, the last line may be incomplete and
+                // we keep it in the buffer; by the time it's done everything has already been processed.
                 buffer = done ? '' : lines.pop();
 
                 for (const line of lines) {
@@ -571,7 +573,7 @@ const AgentChat = () => {
                         setMessages(prev => {
                             const newMsgs = [...prev];
                             
-                            // Si encara no hem afegit el missatge de l'IA, l'afegim ara
+                            // If we haven't added the AI message yet, we add it now
                             if (!aiMsgAdded) {
                                 aiMsgAdded = true;
                                 newMsgs.push({ role: 'assistant', content: '' });
@@ -581,9 +583,9 @@ const AgentChat = () => {
                             const lastMsg = { ...newMsgs[lastIdx] };
 
                             if (data.type === 'tool_start') {
-                                lastMsg.content = `🛠️ *Cridant eina: ${data.tool}...*`;
+                                lastMsg.content = t('chat.tool_start', '🛠️ *Cridant eina: {{tool}}...*', { tool: data.tool });
                             } else if (data.type === 'tool_end') {
-                                lastMsg.content = `✅ *Eina ${data.tool} finalitzada.*`;
+                                lastMsg.content = t('chat.tool_end', '✅ *Eina {{tool}} finalitzada.*', { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
                             } else if (data.type === 'llm_selected') {
@@ -595,12 +597,12 @@ const AgentChat = () => {
                                 setLastUsedLlm(llmInfo);
                                 lastMsg.llm = llmInfo;
                             } else if (data.type === 'error') {
-                                // Traducció i millora de missatges comuns
-                                let errorContent = data.content || 'Error desconegut';
+                                // Translation and improvement of common messages
+                                let errorContent = data.content || t('errors.unknown');
                                 if (errorContent.includes('rate_limit_exceeded')) {
-                                    errorContent = "Has superat la quota del model actual. Prova d'utilitzar un altre model (com gpt-4o-mini) o espera uns minuts.";
+                                    errorContent = t('chat.rate_limit_message', "Has superat la quota del model actual. Prova d'utilitzar un altre model (com gpt-4o-mini) o espera uns minuts.");
                                 }
-                                lastMsg.content = `❌ Error: ${errorContent}`;
+                                lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
                             }
 
                             newMsgs[lastIdx] = lastMsg;
@@ -614,7 +616,7 @@ const AgentChat = () => {
                 if (done) break;
             }
         } catch (error) {
-            setMessages(prev => [...prev, { role: 'system', content: `Error: ${error.message}` }]);
+            setMessages(prev => [...prev, { role: 'system', content: `${t('chat.error_prefix', 'Error')}: ${error.message}` }]);
         } finally {
             setIsLoading(false);
             if (inputRef.current) {
@@ -645,8 +647,8 @@ const AgentChat = () => {
                 <button
                     onClick={() => setIsOpen(true)}
                     className="premium-chat-trigger"
-                    aria-label="Abrir chat"
-                    title="Abrir chat"
+                    aria-label={t('chat.open_chat', 'Abrir chat')}
+                    title={t('chat.open_chat', 'Abrir chat')}
                     style={{
                         width: '44px', height: '44px', borderRadius: '50%',
                         background: 'var(--gnosi-blue, #3b82f6)',
@@ -714,15 +716,15 @@ const AgentChat = () => {
                             ))}
                         </select>
                         {!isMinimized && <div style={{ fontSize: '0.7rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span> En línia
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span> {t('chat.online', 'En línia')}
                         </div>}
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} aria-label={isMinimized ? 'Expandir chat' : 'Minimizar chat'} title={isMinimized ? 'Expandir chat' : 'Minimizar chat'} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} aria-label={isMinimized ? t('chat.expand_chat', 'Expandir chat') : t('chat.minimize_chat', 'Minimizar chat')} title={isMinimized ? t('chat.expand_chat', 'Expandir chat') : t('chat.minimize_chat', 'Minimizar chat')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
                         {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); archiveCurrentSession(); setShowSessionsView(false); setIsOpen(false); }} aria-label="Cerrar chat" title="Cerrar chat" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); archiveCurrentSession(); setShowSessionsView(false); setIsOpen(false); }} aria-label={t('chat.close_chat', 'Cerrar chat')} title={t('chat.close_chat', 'Cerrar chat')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
                         <X size={18} />
                     </button>
                 </div>
@@ -735,36 +737,36 @@ const AgentChat = () => {
                         {showSessionsView && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <h4 style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-primary)' }}>Sessions</h4>
+                                    <h4 style={{ margin: 0, fontSize: '0.86rem', color: 'var(--text-primary)' }}>{t('chat.sessions', 'Sessions')}</h4>
                                     <button
                                         onClick={() => setShowSessionsView(false)}
                                         style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', height: '24px', padding: '0 8px', fontSize: '0.68rem', cursor: 'pointer' }}
                                     >
-                                        Tornar
+                                        {t('chat.back', 'Tornar')}
                                     </button>
                                 </div>
 
                                 {sortedSessions.length === 0 && (
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>No hi ha sessions.</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{t('chat.no_sessions', 'No hi ha sessions.')}</div>
                                 )}
 
                                 {sortedSessions.map((s) => (
                                     <div key={s.id} style={{ border: '1px solid var(--settings-border, #e5e7eb)', borderRadius: '12px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                                         <div style={{ minWidth: 0, flex: 1 }}>
-                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || 'Sessio'}</div>
-                                            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{(s.messages || []).length} missatges{s.archived ? ' · arxivada' : ''}</div>
+                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || t('chat.session_fallback_name', 'Sessio')}</div>
+                                            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{t('chat.messages_count', { count: (s.messages || []).length, defaultValue_one: '{{count}} missatge', defaultValue_other: '{{count}} missatges' })}{s.archived ? ` · ${t('chat.archived_suffix', 'arxivada')}` : ''}</div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <button
                                                 onClick={() => selectSession(s.id)}
                                                 style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', height: '24px', padding: '0 8px', fontSize: '0.68rem', cursor: 'pointer' }}
                                             >
-                                                Obrir
+                                                {t('chat.open_session', 'Obrir')}
                                             </button>
                                             <button
                                                 onClick={() => deleteSessionById(s.id)}
-                                                aria-label={`Eliminar sesion ${s.title || 'sin titulo'}`}
-                                                title="Eliminar sesion"
+                                                aria-label={t('chat.delete_session_aria', 'Eliminar sesion {{title}}', { title: s.title || t('common.untitled') })}
+                                                title={t('chat.delete_session_title', 'Eliminar sesion')}
                                                 style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', width: '24px', height: '24px', fontSize: '0.7rem', cursor: 'pointer', lineHeight: 1 }}
                                             >
                                                 x
@@ -780,8 +782,8 @@ const AgentChat = () => {
                                 <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
                                     <LucideIcons.Brain size={64} strokeWidth={1.5} />
                                 </div>
-                                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>Com t'ajudo avui?</h4>
-                                <p style={{ fontSize: '0.85rem', margin: 0 }}>Puc analitzar el teu Vault, gestionar el calendari o escriure codi per a tu.</p>
+                                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('chat.empty_title', "Com t'ajudo avui?")}</h4>
+                                <p style={{ fontSize: '0.85rem', margin: 0 }}>{t('chat.empty_subtitle', 'Puc analitzar el teu Vault, gestionar el calendari o escriure codi per a tu.')}</p>
                             </div>
                         )}
                         {!showSessionsView && messages.map((msg, idx) => (
@@ -811,7 +813,7 @@ const AgentChat = () => {
                                                             {item.name || item.url}
                                                         </a>
                                                     ) : (
-                                                        item.name || 'archivo'
+                                                        item.name || t('chat.attachment_fallback_name', 'archivo')
                                                     )}
                                                 </div>
                                             ))}
@@ -820,14 +822,14 @@ const AgentChat = () => {
                                 </div>
                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
                                     {msg.role === 'user'
-                                        ? 'Tu'
+                                        ? t('chat.you', 'Tu')
                                         : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
                                 </span>
                             </div>
                         ))}
                         {!showSessionsView && isLoading && (
                             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                                <Sparkles size={14} className="spin-slow" /> Processant...
+                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing', 'Processant...')}
                             </div>
                         )}
                         {!showSessionsView && <div ref={messagesEndRef} />}
@@ -848,7 +850,7 @@ const AgentChat = () => {
                                     style={{ display: 'none' }}
                                     onChange={handleAttachmentInputChange}
                                 />
-                                <button type="button" onClick={handlePickAttachment} disabled={isUploadingAttachment} aria-label="Adjuntar archivos" title="Adjuntar archivos" style={{ background: 'none', border: 'none', cursor: isUploadingAttachment ? 'default' : 'pointer', color: 'var(--text-secondary)', padding: '8px', opacity: isUploadingAttachment ? 0.6 : 1 }}>
+                                <button type="button" onClick={handlePickAttachment} disabled={isUploadingAttachment} aria-label={t('chat.attach_files', 'Adjuntar archivos')} title={t('chat.attach_files', 'Adjuntar archivos')} style={{ background: 'none', border: 'none', cursor: isUploadingAttachment ? 'default' : 'pointer', color: 'var(--text-secondary)', padding: '8px', opacity: isUploadingAttachment ? 0.6 : 1 }}>
                                     <Paperclip size={18} />
                                 </button>
                                 <textarea
@@ -870,7 +872,7 @@ const AgentChat = () => {
                                         }
                                     }}
                                     onInput={() => requestAnimationFrame(autoResizeInput)}
-                                    placeholder="Escriu un missatge... (usa @ para mencionar)"
+                                    placeholder={t('chat.input_placeholder', 'Escriu un missatge... (usa @ para mencionar)')}
                                     style={{
                                         flex: 1, padding: '8px', border: 'none', outline: 'none',
                                         background: 'transparent', color: 'var(--text-primary)',
@@ -883,8 +885,8 @@ const AgentChat = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
-                                    aria-label="Enviar mensaje"
-                                    title="Enviar mensaje"
+                                    aria-label={t('chat.send_message', 'Enviar mensaje')}
+                                    title={t('chat.send_message', 'Enviar mensaje')}
                                     style={{
                                         width: '36px', height: '36px', borderRadius: '12px',
                                         backgroundColor: (inputValue.trim() || attachments.length > 0) ? 'var(--gnosi-blue, #2563eb)' : '#e5e7eb',
@@ -902,7 +904,7 @@ const AgentChat = () => {
                                     {attachments.map((item) => (
                                         <span key={item.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '999px', border: '1px solid var(--settings-border, #e5e7eb)', padding: '3px 8px', fontSize: '0.68rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg, #f3f4f6)' }}>
                                             <span style={{ maxWidth: '170px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
-                                            <button type="button" onClick={() => removeAttachment(item.id)} aria-label={`Quitar adjunto ${item.name || ''}`.trim()} title="Quitar adjunto" style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>x</button>
+                                            <button type="button" onClick={() => removeAttachment(item.id)} aria-label={t('chat.remove_attachment_aria', 'Quitar adjunto {{name}}', { name: item.name || '' }).trim()} title={t('chat.remove_attachment_title', 'Quitar adjunto')} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>x</button>
                                         </span>
                                     ))}
                                 </div>
@@ -986,7 +988,7 @@ const AgentChat = () => {
                                             appearance: 'none'
                                         }}
                                     >
-                                        <option value="auto">Auto</option>
+                                        <option value="auto">{t('chat.llm_auto', 'Auto')}</option>
                                         {llmOptions.map((option) => (
                                             <option key={option.value} value={option.value}>{option.label}</option>
                                         ))}
@@ -995,10 +997,10 @@ const AgentChat = () => {
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                <button onClick={createNewSession} title="Nova sessio" aria-label="Nueva sesion" style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={createNewSession} title={t('chat.new_session', 'Nova sessio')} aria-label={t('chat.new_session', 'Nova sessio')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={12} />
                                 </button>
-                                <button onClick={() => setShowSessionsView((v) => !v)} title="Sessions" aria-label="Abrir sesiones" style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: showSessionsView ? 'var(--settings-sidebar-bg, #f3f4f6)' : 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={() => setShowSessionsView((v) => !v)} title={t('chat.sessions', 'Sessions')} aria-label={t('chat.sessions', 'Sessions')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: showSessionsView ? 'var(--settings-sidebar-bg, #f3f4f6)' : 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Archive size={12} />
                                 </button>
                             </div>

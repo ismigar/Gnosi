@@ -1,13 +1,13 @@
-"""Resol el camp "Item Type" del Vault a un tipus CSL.
+"""Resolves the Vault's "Item Type" field to a CSL type.
 
-Aïllat de `vault_routes.py` perquè es pugui importar des de tests sense
-arrossegar tots els routers FastAPI. Mirall exacte de `resolveCslType`
-del frontend ([cslEngine.js]).
+Isolated from `vault_routes.py` so it can be imported from tests without
+dragging in all the FastAPI routers. Exact mirror of `resolveCslType`
+from the frontend ([cslEngine.js]).
 
-Ordre de resolució (primer hit guanya):
-  1. Alies legacy (sinònims catalans històrics que el schema no cobreix)
-  2. Clau Zotero canònica (`journalArticle`, `book`, `preprint`, ...)
-  3. Label traduït a qualsevol locale (`"Article de revista acadèmica"` → ca-AD → journalArticle)
+Resolution order (first hit wins):
+  1. Legacy alias (historical Catalan synonyms not covered by the schema)
+  2. Canonical Zotero key (`journalArticle`, `book`, `preprint`, ...)
+  3. Label translated in any locale (`"Article de revista acadèmica"` → ca-AD → journalArticle)
   4. Fallback `'document'`
 """
 from __future__ import annotations
@@ -17,12 +17,12 @@ from backend.services.zotero_schema import (
     ZOTERO_TO_CSL_TYPE,
 )
 
-# MIRALL EXACTE de `LEGACY_TYPE_ALIASES` a `cslEngine.js`. Si divergeixen, una
-# pàgina amb un tipus legacy es cita amb un tipus CSL diferent al frontend (viu,
-# via citeproc-js) i al backend (export de referències). Estava desincronitzat:
-# faltaven 'Vídeo'→motion_picture i 'Entrevista/testimoni'→interview (i els
-# no-op cap a 'document'), de manera que aquests tipus s'exportaven com a
-# 'document' genèric mentre el frontend els citava correctament.
+# EXACT MIRROR of `LEGACY_TYPE_ALIASES` in `cslEngine.js`. If they diverge, a
+# page with a legacy type gets cited with a different CSL type on the frontend (live,
+# via citeproc-js) and on the backend (reference export). It was out of sync:
+# 'Vídeo'→motion_picture and 'Entrevista/testimoni'→interview were missing (and the
+# no-op to 'document'), so these types were being exported as
+# generic 'document' while the frontend cited them correctly.
 LEGACY_TYPE_ALIASES: dict[str, str] = {
     'Article científic': 'article-journal',
     'Article de revista': 'article-journal',

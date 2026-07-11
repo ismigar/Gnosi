@@ -13,48 +13,48 @@ import ConfirmModal from '../ConfirmModal';
 import PromptModal from '../PromptModal';
 import { toast } from '../../lib/toast';
 
-// Contenidor amb scroll per encabir els components de vista complets (que
-// assumeixen alçada) dins del flux del document de l'embed. A nivell de mòdul
-// per no recrear el tipus de component a cada render (evitaria remounts).
+// Scrollable container to fit the full view components (which
+// assume a height) within the embed's document flow. At module level
+// so as not to recreate the component type on every render (this would avoid remounts).
 const ScrollBox = ({ children }) => (
-    // `w-full max-w-full min-w-0` clava l'amplada a la del contenidor de
-    // l'editor (no a la del contingut); `overflow-x-auto` fa que la taula
-    // ampla faci scroll DINS de la caixa i no desbordi la pàgina/editor.
+    // `w-full max-w-full min-w-0` pins the width to that of the container of
+    // the editor (not the content's); `overflow-x-auto` makes the table
+    // wide scroll INSIDE the box and not overflow the page/editor.
     <div className="my-2 w-full max-w-full min-w-0 max-h-[70vh] min-h-[8rem] overflow-x-auto overflow-y-auto focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 transition-all">
         {children}
     </div>
 );
 
-// Contenidor per a la TAULA/llista: NO fa scroll propi (overflow-hidden) i és
-// flex-col amb alçada acotada perquè la pròpia VaultTable (que té el seu
-// scroller intern + columna `title` sticky) gestioni l'scroll horitzontal i
-// vertical. Si embolcalléssim la taula en una caixa amb `overflow-x-auto`,
-// l'scroll horitzontal el faria la caixa i la columna sticky no quedaria fixa.
+// Container for the TABLE/list: does NOT scroll on its own (overflow-hidden) and is
+// flex-col with bounded height so that VaultTable itself (which has its own
+// internal scroller + sticky `title` column) handles the horizontal scroll and
+// vertical. If we wrapped the table in a box with `overflow-x-auto`,
+// the box would handle the horizontal scroll and the sticky column would not stay fixed.
 //
-// `isolate` (isolation: isolate) crea un context d'apilament que CONFINA els
-// z-index interns de la VaultTable (les cel·les sticky usen z-20/z-30/z-40).
-// Sense això, com que ni la caixa ni el scroller creen context d'apilament,
-// aquests z-index pugen fins a l'arrel de l'embed i tapen els desplegables de
-// la barra de pestanyes (la columna sticky del títol, z-40, pintava per sobre
-// del menú "+"/"…"). Amb `isolate`, la taula participa com un sol bloc i els
-// menús (a la barra, positioned) queden sempre per sobre.
+// `isolate` (isolation: isolate) creates a stacking context that CONFINES the
+// VaultTable's internal z-index values (sticky cells use z-20/z-30/z-40).
+// Without this, since neither the box nor the scroller create a stacking context,
+// these z-index values rise up to the embed's root and cover the dropdowns of
+// the tab bar (the sticky title column, z-40, was painting over
+// the "+"/"…" menu). With `isolate`, the table participates as a single block and the
+// menus (in the bar, positioned) always stay on top.
 //
-// Alçada ADAPTATIVA: ja no forcem `h-[60vh]` (deixava un gran buit amb poques
-// files). La VaultTable rep `maxHeight` i el seu scroller pren l'alçada del
-// contingut, fent scroll intern només si el supera. Per això la caixa no porta
-// alçada fixa ni `overflow-hidden` (que retallaria els menús que s'obrin avall):
-// la vora/arrodonit els posa el propi scroller de la taula (mode `isEmbedded`).
+// ADAPTIVE height: we no longer force `h-[60vh]` (it left a big gap with few
+// rows). VaultTable receives `maxHeight` and its scroller takes the height of the
+// content, scrolling internally only if it exceeds it. That's why the box has no
+// fixed height nor `overflow-hidden` (which would clip menus that open downward):
+// the border/rounding is applied by the table's own scroller (`isEmbedded` mode).
 const TableBox = ({ children }) => (
     <div className="my-2 w-full max-w-full min-w-0 isolate">
         {children}
     </div>
 );
 
-// Contenidor del FEED incrustat: CREIX amb el contingut (com a Notion) i és la
-// PÀGINA qui fa l'scroll — res de caixa de 70vh amb scroll intern. L'scroll
-// infinit del feed hi juga a favor: comença amb un lot petit i el sentinella
-// (que resol el scroller real via getScrollParent) va carregant la resta a
-// mesura que baixes per la pàgina; "Veure més" també expandeix la pàgina.
+// Embedded FEED container: GROWS with the content (like Notion) and it's the
+// PAGE that scrolls — no 70vh box with internal scroll. The
+// feed's infinite scroll plays in our favor: it starts with a small batch and the sentinel
+// (which resolves the real scroller via getScrollParent) keeps loading the rest into
+// as you scroll down the page; "See more" also expands the page.
 const FeedFlowBox = ({ children }) => (
     <div className="my-2 w-full max-w-full min-w-0 rounded-xl border border-transparent focus-within:border-[var(--gnosi-primary)]/50 focus-within:ring-1 focus-within:ring-[var(--gnosi-primary)]/30 overflow-hidden transition-all">
         {children}
@@ -62,13 +62,13 @@ const FeedFlowBox = ({ children }) => (
 );
 
 /* -------------------------------------------------------------------------- */
-/*  Utilitats de filtre / ordenació / format                                  */
+/*  Filter / sort / format utilities                                  */
 /* -------------------------------------------------------------------------- */
 
-// Nom de camp sense prefix decoratiu (símbols/espais), en minúscules: permet que
-// un filtre guardat amb una variant antiga del nom d'una columna casi amb la
-// metadata canonicalitzada al nom NOU (`Àrees`) després de renomenar-la. Mirall
-// de `_normalize_field_key` (backend view_snapshot.py).
+// Field name without decorative prefix (symbols/spaces), lowercase: allows
+// a filter saved with an old variant of a column's name to match the
+// canonicalized metadata under the NEW name (`Àrees`) after renaming it. Mirror
+// of `_normalize_field_key` (backend view_snapshot.py).
 function normFieldKey(name) {
     return String(name ?? '').replace(/^[^\p{L}\p{N}_]+/u, '').trim().toLowerCase();
 }
@@ -83,10 +83,10 @@ function metaValueForField(meta, field) {
     return undefined;
 }
 
-// Valors que un checkbox considera "marcat". Paritat amb `asBool`
-// (vaultFilters.js) i `_as_bool` (view_snapshot.py): camp absent/""/0/"false"
-// = no marcat. Es replica aquí (en lloc d'importar-lo de vaultFilters) per
-// mantenir el canvi acotat als fitxers d'aquesta vista.
+// Values that a checkbox considers "checked". Parity with `asBool`
+// (vaultFilters.js) and `_as_bool` (view_snapshot.py): field absent/""/0/"false"
+// = unchecked. Replicated here (instead of importing it from vaultFilters) to
+// keep the change scoped to this view's files.
 const FILTER_TRUTHY = new Set(['true', '1', 'yes', 'si', 'sí', 'done', 'checked', 'completat']);
 function asBool(x) {
     if (x === true) return true;
@@ -100,9 +100,9 @@ function applyFilter(row, pageId, f) {
     const op = (f.operator || 'equals').toLowerCase();
     const raw = f.value === 'this' ? pageId : f.value;
     const target = raw == null ? null : String(raw);
-    // `title` viu a la FILA, no al metadata (paritat amb matchesFilters):
-    // sense el cas especial, un filtre per títol —el camp per defecte del
-    // modal— buidava la vista incrustada mentre la pestanya de taula filtrava bé.
+    // `title` lives in the ROW, not in metadata (parity with matchesFilters):
+    // without the special case, a filter by title —the default field of the
+    // modal— emptied the embedded view while the table tab filtered correctly.
     const v = f.field === 'title'
         ? (row?.title || '')
         : metaValueForField(row?.metadata || {}, f.field);
@@ -111,29 +111,29 @@ function applyFilter(row, pageId, f) {
     if (op === 'is_not_empty') return arr.length > 0;
     if (target == null) return true;
     const targetLower = target.toLowerCase();
-    // Valor booleà (checkbox: "true"/"false"): comparem per veritat —no per
-    // cadena— perquè un camp absent compti com a "no marcat" i casi amb "false".
-    // Paritat amb matchesFilters (vaultFilters.js) i apply_filter (backend).
+    // Boolean value (checkbox: "true"/"false"): we compare by truthiness —not by
+    // string— so that an absent field counts as "unchecked" and matches "false".
+    // Parity with matchesFilters (vaultFilters.js) and apply_filter (backend).
     if ((op === 'equals' || op === 'not_equals') && (targetLower === 'true' || targetLower === 'false')) {
         const want = targetLower === 'true';
         const cur = asBool(v);
         return op === 'equals' ? cur === want : cur !== want;
     }
-    // Text/select case-INsensitiu (com Notion i com la vista principal): un
-    // valor "Català" emmagatzemat casa amb el filtre "català". Els numèrics
-    // (greater/less) es comparen a part, sense minúscules.
+    // Text/select case-INsensitive (like Notion and like the main view): a
+    // the stored "Català" value matches the "català" filter. Numeric values
+    // (greater/less) are compared separately, without lowercasing.
     const arrLower = arr.map(x => x.toLowerCase());
     if (op === 'equals') return arrLower.includes(targetLower);
     if (op === 'not_equals') return !arrLower.includes(targetLower);
     if (op === 'contains') return arrLower.some(x => x.includes(targetLower));
     if (op === 'not_contains') return !arrLower.some(x => x.includes(targetLower));
-    // major/menor que: si TOTS DOS (valor i filtre) són números purs, comparació
-    // numèrica (parseNumericValue, paritat amb matchesFilters: '12,5' → 12.5,
-    // decimal de coma; abans parseFloat pelat hi divergia i fins i tot del
-    // multiKeySort d'aquí mateix); si no, comparació de CADENA en minúscules.
-    // Per a dates ISO l'ordre lexicogràfic és cronològic i coincideix entre JS
-    // i Python (ASCII), així que el filtre per rang de dates funciona i és
-    // consistent amb la vista principal i el backend.
+    // greater/less than: if BOTH (value and filter) are pure numbers, comparison
+    // is numeric (parseNumericValue, parity with matchesFilters: '12,5' → 12.5,
+    // comma decimal; previously bare parseFloat diverged here and even from
+    // multiKeySort right here); otherwise, lowercase STRING comparison.
+    // For ISO dates, lexicographic order is chronological and matches between JS
+    // and Python (ASCII), so the date-range filter works and is
+    // consistent with the main view and the backend.
     if (op === 'greater_than' || op === 'less_than') {
         const gt = op === 'greater_than';
         const targetNum = NUM_RE.test(target.trim());
@@ -143,9 +143,9 @@ function applyFilter(row, pageId, f) {
                 const n = parseNumericValue(x), t = parseNumericValue(target);
                 return gt ? n > t : n < t;
             }
-            // Target numèric (any nu) amb valor no numèric: només casa si el valor
-            // és una data ISO (lexicogràfic = cronològic); text arbitrari ("foo")
-            // NO casa. Paritat amb vaultFilters (matchesFilters) i backend.
+            // Numeric target (bare year) with a non-numeric value: only matches if the value
+            // is an ISO date (lexicographic = chronological); arbitrary text ("foo")
+            // does NOT match. Parity with vaultFilters (matchesFilters) and the backend.
             if (targetNum && !ISO_DATE_RE.test(xt)) return false;
             const xl = arrLower[i];
             return gt ? xl > targetLower : xl < targetLower;
@@ -155,17 +155,17 @@ function applyFilter(row, pageId, f) {
 }
 
 function multiKeySort(rows, sorts) {
-    // Comparador compartit amb la vista principal (vaultFilters.compareFieldValues):
-    // buits al final, ordre numèric per a números i localeCompare normalitzat per
-    // la resta. Abans ordenava per string pur (`localeCompare`), de manera que els
-    // números sortien lexicogràfics ("10" abans de "2") i els buits suraven al
-    // capdamunt → la vista incrustada divergia de la taula principal.
+    // Comparator shared with the main view (vaultFilters.compareFieldValues):
+    // empties last, numeric order for numbers, and normalized localeCompare for
+    // the rest. It used to sort by pure string (`localeCompare`), so that
+    // numbers came out lexicographic ("10" before "2") and empty values floated to the
+    // top → the embedded view diverged from the main table.
     if (!sorts || sorts.length === 0) {
         return [...rows].sort((a, b) => compareFieldValues(a.title, b.title, 'asc'));
     }
-    // `title` és a la fila; per a la resta, clau tolerant al metadata amb
-    // fallback al camp top-level (last_modified/created) — paritat amb el
-    // comparador de la vista principal (useVaultViewData).
+    // `title` is in the row; for everything else, a tolerant key into metadata with
+    // fallback to the top-level field (last_modified/created) — parity with the
+    // comparator of the main view (useVaultViewData).
     const sortValOf = (r, field) => field === 'title'
         ? (r?.title || '')
         : (metaValueForField(r?.metadata, field) ?? r?.[field]);
@@ -185,13 +185,13 @@ function displayValue(v) {
 }
 
 function pickDateCol(columns, rows) {
-    // Coincidència per paraula sencera (separadors: espai, guió, subratllat o
-    // inici/final) per evitar falsos positius com "metadata" (conté "data"),
+    // Whole-word match (separators: space, hyphen, underscore, or
+    // start/end) to avoid false positives like "metadata" (contains "data"),
     // "Today"/"Sunday"/"Holiday" (contenen "day"), etc.
     const byName = (columns || []).find(c => /(^|[\s_-])(data|date|fecha|created|day)([\s_-]|$)/i.test(String(c || '')));
     if (byName) return byName;
-    // Heurística: primera columna que tingui valors parsejables com a data en
-    // almenys el 50% de les files.
+    // Heuristic: first column whose values are parseable as a date in
+    // at least 50% of the rows.
     for (const c of columns || []) {
         let hits = 0;
         for (const r of rows || []) {
@@ -220,7 +220,7 @@ function Heading({ level, children }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Helpers d'acció (create / update propietat)                               */
+/*  Action helpers (create / update property)                               */
 /* -------------------------------------------------------------------------- */
 
 async function createPageInTable({ tableId, title = 'Nou registre', extraMetadata = {} } = {}) {
@@ -234,11 +234,11 @@ async function createPageInTable({ tableId, title = 'Nou registre', extraMetadat
 }
 
 async function patchPageMetadata(pageId, partialMetadata) {
-    // PATCH partial directe: el backend fa `metadata.update(request.metadata)`
-    // i conserva title/content/altres camps intactes. Abans fèiem GET +
-    // PATCH (2 round-trips serialitzats, 400-700 ms) per construir un
-    // payload complet "per seguretat"; el backend actual accepta partials
-    // així que estalviem el GET i la latència corresponent.
+    // Direct partial PATCH: the backend does `metadata.update(request.metadata)`
+    // and keeps title/content/other fields intact. We used to do GET +
+    // PATCH (2 round-trips serialized, 400-700 ms) to build a
+    // full payload "for safety"; the current backend accepts partials
+    // so we save the GET and its corresponding latency.
     await axios.patch(
         `/api/vault/pages/${encodeURIComponent(pageId)}`,
         { metadata: partialMetadata }
@@ -247,9 +247,9 @@ async function patchPageMetadata(pageId, partialMetadata) {
 }
 
 async function patchSectionConfig(pageId, section, patch) {
-    // El POST /api/pages/{page_id}/views fa upsert per heading. Enviem la
-    // section completa (preservant tots els camps llegacy) amb el patch
-    // aplicat. Requereix ConfigDict(extra='allow') al model ViewSection.
+    // The POST /api/pages/{page_id}/views does an upsert by heading. We send the
+    // the full section (preserving all legacy fields) with the patch
+    // applied. Requires ConfigDict(extra='allow') on the ViewSection model.
     const next = { ...section, ...patch };
     await axios.post(`/api/pages/${encodeURIComponent(pageId)}/views`, next);
     return next;
@@ -380,7 +380,7 @@ function ColumnPlusButton({ onClick }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Cache de previews i de pàgines per taula                                  */
+/*  Preview and per-table page cache                                  */
 /* -------------------------------------------------------------------------- */
 
 const _previewCache = new Map();
@@ -394,17 +394,17 @@ function _cacheSet(id, value) {
 }
 
 const _byTableCache = new Map();
-// 5 min: el cache evita ràfegues de /pages/by-table durant navegacions
-// curtes (canviar de pestanya i tornar, scroll, obrir/tancar el modal de
-// config). El backend serveix la mateixa llista uns 10-15s a OneDrive fred,
-// així que reutilitzar el cache una mica més estona evita una espera
-// equivalent. La cache es buida si l'usuari prem el botó de reload.
+// 5 min: the cache avoids bursts of /pages/by-table calls during navigation
+// short (switching tabs and back, scrolling, opening/closing the modal for
+// config). The backend serves the same list for about 10-15s on cold OneDrive,
+// so reusing the cache a bit longer avoids a wait
+// of the same length. The cache is cleared if the user presses the reload button.
 const BY_TABLE_TTL_MS = 300_000;
-// Cada entrada pot contenir milers de PageInfo (una taula gran), així que a
-// diferència del TTL per-entrada cal un límit dur d'entrades per evitar que
-// una sessió llarga visitant moltes taules acumuli memòria sense fre. 32
-// taules cobreix de sobres qualsevol vista activa; en superar-lo, evicció
-// FIFO de la més antiga (Map preserva l'ordre d'inserció).
+// Each entry can hold thousands of PageInfo (a large table), so
+// unlike the per-entry TTL, a hard limit on entries is needed to prevent
+// a long session visiting many tables from accumulating memory unchecked. 32
+// tables comfortably covers any active view; once exceeded, eviction
+// FIFO of the oldest one (Map preserves insertion order).
 const BY_TABLE_MAX_ENTRIES = 32;
 function _byTableGet(tableId) {
     const e = _byTableCache.get(tableId);
@@ -413,8 +413,8 @@ function _byTableGet(tableId) {
     return e.value;
 }
 function _byTableSet(tableId, value) {
-    // Refresca la posició d'inserció perquè el cap FIFO no expulsi una taula
-    // que s'acaba de rellegir.
+    // Refreshes the insertion position so the FIFO head doesn't evict a table
+    // that was just re-read.
     if (_byTableCache.has(tableId)) _byTableCache.delete(tableId);
     else if (_byTableCache.size >= BY_TABLE_MAX_ENTRIES) {
         const oldest = _byTableCache.keys().next().value;
@@ -424,7 +424,7 @@ function _byTableSet(tableId, value) {
 }
 
 /* -------------------------------------------------------------------------- */
-/*  Graph (força)                                                             */
+/*  Graph (force)                                                             */
 /* -------------------------------------------------------------------------- */
 
 function GraphRender({ rows, columns, onOpenPage }) {
@@ -461,9 +461,9 @@ function GraphRender({ rows, columns, onOpenPage }) {
     const [hover, setHover] = useState(null);
     const W = 600, H = 360;
 
-    // Simulació de força executada com a càlcul derivat (useMemo) per evitar
-    // setState dins useEffect — el cost és amortitzable: ~250 iteracions × N²
-    // és ràpid per a vistes amb menys de 200 nodes (el cas habitual).
+    // Force simulation run as a derived computation (useMemo) to avoid
+    // setState inside useEffect — the cost is amortizable: ~250 iterations × N²
+    // is fast for views with fewer than 200 nodes (the common case).
     const positions = useMemo(() => {
         if (nodes.length === 0) return {};
         const sim = nodes.map((n, i) => ({
@@ -561,19 +561,19 @@ export function DbViewEmbed({ block }) {
     const onOpenPage = ctx.onOpenPage;
     const onOpenPageViewModal = ctx.onOpenPageViewModal;
     const onOpenViewConfig = ctx.onOpenViewConfig;
-    // API de navegació de teclat que la VaultTable embeguda hi registra, perquè
-    // l'editor pugui "entrar" a la taula (focusFirstCell/focusLastCell) en
-    // arribar-hi amb les fletxes. Vegeu el pont a VaultEditorContext.
+    // Keyboard-navigation API that the embedded VaultTable registers with, so that
+    // the editor can "enter" the table (focusFirstCell/focusLastCell) when
+    // you can reach it with the arrow keys. See the bridge in VaultEditorContext.
     const tableNavApiRef = useRef(null);
-    // Contenidor exterior de l'embed. Quan la vista NO és taula/llista (feed,
-    // galeria, kanban, timeline…) no hi ha cel·les navegables: fem que la
-    // closca sencera sigui enfocable (tabIndex=-1) i actuï com un widget —
-    // «entrar-hi» amb ↓ li dona un focus visible i se'n surt amb ↑/↓/Esc.
+    // Outer container of the embed. When the view is NOT table/list (feed,
+    // gallery, kanban, timeline…) there are no navigable cells: we make the
+    // whole shell focusable (tabIndex=-1) and act like a widget —
+    // "entering it" with ↓ gives it a visible focus, and you exit with ↑/↓/Esc.
     const embedContainerRef = useRef(null);
     const isInEditor = typeof ctx.exitEmbedToEditor === 'function';
 
-    // Enfoca la CLOSCA de l'embed (widget). Serveix com a «entrada» per a vistes
-    // sense cel·les navegables i com a destí de l'Esc des dels registres (galeria).
+    // Focuses the SHELL of the embed (widget). Serves as an «entry point» for views
+    // without navigable cells and as the Esc target from records (gallery).
     const focusShell = useCallback(() => {
         const el = embedContainerRef.current;
         if (!el) return false;
@@ -581,11 +581,11 @@ export function DbViewEmbed({ block }) {
         return true;
     }, []);
 
-    // Teclat quan la CLOSCA té el focus (no un fill: targeta, cerca, cel·la…).
-    // ↑/↓ tornen el cursor a l'editor (bloc adjacent o zona superior); Esc surt.
-    // Espai/Enter hi «baixa»: entra als registres de la vista (primera cel·la o
-    // targeta) si els té navegables (taula/llista/galeria). Feed/kanban/timeline
-    // no registren l'API → no fan res i la tecla es deixa passar.
+    // Keyboard handling when the SHELL has focus (not a child: card, search, cell…).
+    // ↑/↓ return the cursor to the editor (adjacent block or upper zone); Esc exits.
+    // Space/Enter "goes down" into it: enters the view's records (first cell or
+    // card) if it has navigable ones (table/list/gallery). Feed/kanban/timeline
+    // don't register the API → they do nothing and the key is left to pass through.
     const handleShellKeyDown = useCallback((e) => {
         if (e.target !== embedContainerRef.current) return;
         if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
@@ -609,11 +609,11 @@ export function DbViewEmbed({ block }) {
     const headingProp = block?.props?.heading || '';
     const headingLevelProp = Number(block?.props?.heading_level) || 0;
 
-    const [view, setView] = useState(null);          // la SECCIÓ embeguda (àncora: taula + `this`)
-    const [rawRecords, setRawRecords] = useState([]); // registres no-template SENSE filtrar
-    const [templates, setTemplates] = useState([]);  // plantilles separades
-    // FASE 3: pestanyes de vistes. Llista de vistes de la taula (registry.views)
-    // i quina és l'activa. Per defecte, la vista de la secció del bloc.
+    const [view, setView] = useState(null);          // the embedded SECTION (anchor: table + `this`)
+    const [rawRecords, setRawRecords] = useState([]); // non-template records WITHOUT filtering
+    const [templates, setTemplates] = useState([]);  // separate templates
+    // PHASE 3: view tabs. List of the table's views (registry.views)
+    // and which one is active. By default, the block's section view.
     const [tableViews, setTableViews] = useState([]);
     const [activeViewId, setActiveViewId] = useState('');
     const [loading, setLoading] = useState(() => Boolean(pageId && viewId));
@@ -623,41 +623,41 @@ export function DbViewEmbed({ block }) {
         return '';
     });
     const [reloadKey, setReloadKey] = useState(0);
-    // Últim `viewSectionNonce` (del context) que ja hem aplicat. Quan canvia vol
-    // dir que s'acaba de desar la config d'una vista: ctx.registry del client
-    // queda ranci i cal rellegir les vistes del backend (veure el `load`).
+    // Last `viewSectionNonce` (from the context) that we have already applied. When it changes, it
+    // means a view's config has just been saved: the client's ctx.registry
+    // goes stale and the views need to be reread from the backend (see `load`).
     const lastSavedNonceRef = useRef(0);
     const [searchTerm, setSearchTerm] = useState('');
     const [showSearch, setShowSearch] = useState(false);
-    const [addMenuOpen, setAddMenuOpen] = useState(false); // menú d'afegir vista (tipus / existents)
-    const [tabMenuFor, setTabMenuFor] = useState(null);     // id de la vista amb el menú (treure/eliminar) obert
-    const [menuUp, setMenuUp] = useState(false);            // obrir el desplegable cap amunt si no cap a sota
-    const [confirmDeleteView, setConfirmDeleteView] = useState(null); // vista pendent d'eliminar a tot arreu (ConfirmModal)
-    const [renameView, setRenameView] = useState(null);     // vista pendent de reanomenar (PromptModal)
-    // Decideix la direcció del desplegable segons l'espai sota el disparador.
+    const [addMenuOpen, setAddMenuOpen] = useState(false); // add-view menu (type / existing)
+    const [tabMenuFor, setTabMenuFor] = useState(null);     // id of the view with its (remove/delete) menu open
+    const [menuUp, setMenuUp] = useState(false);            // open the dropdown upward if it doesn't fit below
+    const [confirmDeleteView, setConfirmDeleteView] = useState(null); // view pending deletion everywhere (ConfirmModal)
+    const [renameView, setRenameView] = useState(null);     // view pending rename (PromptModal)
+    // Decides the dropdown's direction based on the space below the trigger.
     const decideMenuDir = (e) => {
         try { const r = e.currentTarget.getBoundingClientRect(); setMenuUp(window.innerHeight - r.bottom < 300); } catch { setMenuUp(false); }
     };
-    // Vistes FIXADES com a pestanyes EN AQUEST bloc, a part de la vista de la
-    // secció (àncora, sempre present). Per defecte cap: el bloc mostra només la
-    // vista que s'ha inserit/triat, no totes les de la taula. Dues fonts:
-    //   · `tabs` de la vista ÀNCORA al registry (persistent i portable entre
-    //     navegadors — és el que escriu l'importador de Notion per replicar
-    //     les pestanyes del bloc)
-    //   · localStorage (fixats locals llegats). Clau: pageId + view_id de la secció.
+    // Views PINNED as tabs IN THIS block, apart from the view of the
+    // section (anchor, always present). None by default: the block shows only the
+    // view that was inserted/chosen, not all of the table's views. Two sources:
+    //   · `tabs` of the ANCHOR view in the registry (persistent and portable across
+    //     browsers — this is what the Notion importer writes to replicate
+    //     the block's tabs)
+    //   · localStorage (legacy local pins). Key: pageId + view_id of the section.
     const [pinnedViewIds, setPinnedViewIds] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]')); } catch { return new Set(); }
     });
     const persistPinned = (set) => {
         try { localStorage.setItem(`gnosi_embed_pinned_${pageId}_${viewId}`, JSON.stringify([...set])); } catch { /* noop */ }
     };
-    // Persisteix les pestanyes del bloc al camp `tabs` de la vista àncora del
-    // registry (el PUT fa merge per clau, no cal el dict sencer). Si l'àncora
-    // no és al registry (secció llegada sense vista), falla en silenci i
-    // continua manant el localStorage.
+    // Persists the block's tabs in the anchor view's `tabs` field in the
+    // registry (the PUT merges by key, the full dict isn't required). If the anchor
+    // isn't in the registry (a legacy section without a view), it fails silently and
+    // localStorage still calls the shots.
     const persistServerTabs = useCallback((set) => {
         axios.put(`/api/vault/views/${encodeURIComponent(viewId)}`, { tabs: [...set] })
-            .catch(() => { /* àncora fora del registry: només localStorage */ });
+            .catch(() => { /* anchor outside the registry: localStorage only */ });
     }, [viewId]);
 
     const reload = useCallback(() => {
@@ -676,12 +676,12 @@ export function DbViewEmbed({ block }) {
                 const sections = viewsRes.data?.sections || [];
                 let section = sections.find(s => s.view_id === viewId)
                     || (headingProp ? sections.find(s => s.heading === headingProp) : null);
-                // Fallback: si aquest bloc no té secció registrada (p. ex. perquè
-                // l'upsert de seccions PER HEADING ha col·lisionat amb un altre
-                // embed sense heading a la mateixa pàgina), però la vista SÍ que
-                // existeix al registry, construïm la secció a partir de la vista.
-                // El `view_id` del fence és la font de veritat: així el bloc es
-                // renderitza encara que la secció de pàgina s'hagi perdut.
+                // Fallback: if this block has no registered section (e.g. because
+                // the PER HEADING section upsert has collided with another
+                // it's an embed without a heading on the same page), but the view DOES
+                // exist in the registry, we build the section from the view.
+                // The fence's `view_id` is the source of truth: this way the block
+                // renders even if the page section has been lost.
                 if (!section) {
                     let regView = (ctx.registry?.views || []).find(v => String(v.id) === String(viewId));
                     if (!regView) {
@@ -689,7 +689,7 @@ export function DbViewEmbed({ block }) {
                             const vr = await axios.get('/api/vault/views');
                             const allViews = Array.isArray(vr.data) ? vr.data : (vr.data?.views || []);
                             regView = allViews.find(v => String(v.id) === String(viewId));
-                        } catch { /* registry inaccessible: caurà a l'error de sota */ }
+                        } catch { /* registry inaccessible: it will fall to the error below */ }
                     }
                     if (regView) {
                         section = {
@@ -730,18 +730,18 @@ export function DbViewEmbed({ block }) {
                     _byTableSet(tableId, all);
                 }
 
-                // Separar plantilles (per al dropdown del botó "Nou") dels
-                // registres a mostrar. Els templates mai no apareixen al cos
-                // de la vista, fins i tot si passen els filtres.
+                // Separate templates (for the "New" button's dropdown) from the
+                // records to display. Templates never appear in the body
+                // of the view, even if they pass the filters.
                 const tpls = all.filter(p => p.metadata?.is_template === true);
                 const records = all.filter(p => !p.metadata?.is_template);
 
-                // Vistes de la taula (per a les pestanyes i per al cardSize/
-                // galleryPreview que en deriva embeddedView). Solen sortir de
-                // ctx.registry, però just després de desar la config d'una vista
-                // (viewSectionNonce ha canviat) aquest queda ranci —el desat toca
-                // el backend, no ctx.registry—, així que rellegim les vistes
-                // fresques perquè el canvi (mida/preview…) es vegi en viu.
+                // The table's views (for the tabs and for the cardSize/
+                // galleryPreview from which embeddedView derives). They usually come from
+                // ctx.registry, but right after a view's config is saved to
+                // (viewSectionNonce has changed) this one goes stale — saving touches
+                // the backend, not to ctx.registry—, so we reread the views
+                // fresh, so the change (size/preview…) is visible live.
                 let registryViews = ctx.registry?.views || [];
                 if (ctx.viewSectionNonce !== lastSavedNonceRef.current) {
                     lastSavedNonceRef.current = ctx.viewSectionNonce;
@@ -755,9 +755,9 @@ export function DbViewEmbed({ block }) {
                 if (!cancelled) {
                     setRawRecords(records);
                     setTemplates(tpls);
-                    // Pestanyes fixades = `tabs` de la vista àncora al registry
-                    // (portable; escrit per l'importador de Notion o pel propi
-                    // fixat de l'usuari) ∪ localStorage (fixats locals llegats).
+                    // Pinned tabs = anchor view's `tabs` in the registry
+                    // (portable; written by the Notion importer or by its own
+                    // pinned by the user) ∪ localStorage (legacy local pins).
                     let pinned = [];
                     try {
                         pinned = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${viewId}`) || '[]');
@@ -765,7 +765,7 @@ export function DbViewEmbed({ block }) {
                     const anchorReg = registryViews.find(v => String(v.id) === String(viewId));
                     if (Array.isArray(anchorReg?.tabs)) pinned = [...pinned, ...anchorReg.tabs.map(String)];
                     setPinnedViewIds(new Set(pinned));
-                    // Garantim que la vista de la secció hi sigui sempre.
+                    // We guarantee the section's view is always there.
                     const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
                     const sectionAsView = {
                         id: section.view_id,
@@ -775,8 +775,8 @@ export function DbViewEmbed({ block }) {
                         filters: section.filters || [],
                         sorts: section.sorts || (section.sort ? [section.sort] : []),
                         visibleProperties: section.visible_properties || section.columns || ['title'],
-                        // Opcions per tipus desades a la secció (ViewSection accepta
-                        // camps extra); les preservem perquè embeddedView les llegeixi.
+                        // Per-type options saved in the section (ViewSection accepts
+                        // extra fields); we preserve them so embeddedView can read them.
                         cardSize: section.cardSize,
                         galleryPreview: section.galleryPreview,
                         coverField: section.coverField || section.cover_field,
@@ -789,7 +789,7 @@ export function DbViewEmbed({ block }) {
                         rowHeight: section.rowHeight || section.row_height,
                         enableSubitems: section.enableSubitems ?? section.enable_subitems,
                         columnWidths: section.columnWidths || section.column_widths,
-                        // Opcions del gràfic (vista 'chart').
+                        // Chart options (the 'chart' view).
                         chartType: section.chartType || section.chart_type,
                         xField: section.xField || section.x_field,
                         yField: section.yField || section.y_field,
@@ -797,11 +797,11 @@ export function DbViewEmbed({ block }) {
                     };
                     const merged = tv.some(v => v.id === section.view_id) ? tv : [sectionAsView, ...tv];
                     setTableViews(merged);
-                    // Recorda l'última pestanya seleccionada si encara existeix;
-                    // si no, cau a la vista de la secció del bloc. La clau ha de
-                    // ser ESTABLE entre recàrregues: `block.id` el regenera
-                    // BlockNote a cada càrrega, però `pageId`+`view_id` de la
-                    // secció es persisteixen al fence markdown.
+                    // Remembers the last selected tab if it still exists;
+                    // otherwise, it falls back to the block's section view. The key must
+                    // be STABLE across reloads: `block.id` gets regenerated by
+                    // BlockNote on every load, but the section's `pageId`+`view_id`
+                    // are persisted in the markdown fence.
                     let saved = '';
                     try { saved = localStorage.getItem(`gnosi_embed_view_${pageId}_${viewId}`) || ''; } catch { /* noop */ }
                     const def = (saved && merged.some(v => v.id === saved)) ? saved : section.view_id;
@@ -819,16 +819,16 @@ export function DbViewEmbed({ block }) {
         };
         void load();
         return () => { cancelled = true; };
-        // `ctx.viewSectionNonce` s'incrementa quan es desa la config d'una vista
-        // (BlockEditor): re-disparem la càrrega per llegir la secció actualitzada
-        // (cardSize/galleryPreview/…), perquè editar només la mida no canvia
-        // viewId/headingProp i el useEffect no es redispararia altrament.
+        // `ctx.viewSectionNonce` increments when a view's config is saved
+        // (BlockEditor): we re-trigger the load to read the updated section
+        // (cardSize/galleryPreview/…), because editing only the size doesn't change
+        // viewId/headingProp and the useEffect wouldn't re-trigger otherwise.
     }, [viewId, pageId, headingProp, reloadKey, ctx.viewSectionNonce]);
 
     const tableId = view?.source_table_id || view?.table_id;
 
-    // La vista EFECTIVA = la pestanya activa (de la taula) o, en defecte, la
-    // secció del bloc. D'ella surten columnes, tipus, filtres i ordenació.
+    // The EFFECTIVE view = the active tab (of the table) or, by default, the
+    // the block's section. Columns, type, filters, and sorting all come from it.
     const effectiveView = useMemo(() => {
         const fromTab = tableViews.find(v => v.id === activeViewId);
         return fromTab || view || null;
@@ -840,13 +840,13 @@ export function DbViewEmbed({ block }) {
     );
     const rawType = String(effectiveView?.view_type || effectiveView?.type || 'table').toLowerCase();
     const viewType = rawType === 'db_view' ? 'table' : rawType;
-    // El títol/heading el porta la secció del bloc (no canvia amb la pestanya).
+    // The title/heading is carried by the block's section (it doesn't change with the tab).
     const displayHeading = headingProp || view?.heading;
     const displayLevel = headingLevelProp || view?.heading_level || 1;
 
-    // Files derivades: registres en cru filtrats per la vista efectiva (amb el
-    // valor `this` → pageId) i ordenats. Reacciona en canviar de pestanya
-    // sense refetch (mateixa taula).
+    // Derived rows: raw records filtered by the effective view (with the
+    // `this` value → pageId) and sorted. Reacts when switching tabs
+    // without a refetch (same table).
     const allRows = useMemo(() => {
         const filters = (effectiveView?.filters && effectiveView.filters.length > 0)
             ? effectiveView.filters
@@ -858,10 +858,10 @@ export function DbViewEmbed({ block }) {
         return multiKeySort(filtered, sorts);
     }, [rawRecords, effectiveView, pageId]);
 
-    // Cerca local sobre el conjunt de registres: títol + TOT el metadata,
-    // insensible a accents (normalizeForSearch) — paritat amb matchesSearch de
-    // la vista principal. Abans era toLowerCase pelat ("merce" no trobava
-    // "Mercè") i només mirava les columnes visibles.
+    // Local search over the set of records: title + ALL the metadata,
+    // accent-insensitive (normalizeForSearch) — parity with matchesSearch from
+    // the main view. It used to be bare toLowerCase ("merce" would not find
+    // "Mercè") and it only looked at the visible columns.
     const rows = useMemo(() => {
         const q = normalizeForSearch(searchTerm.trim());
         if (!q) return allRows;
@@ -912,13 +912,13 @@ export function DbViewEmbed({ block }) {
         if (!onOpenPageViewModal || !tableId) return;
         const sectionVid = block?.props?.view_id || '';
         if (!activeViewId || activeViewId === sectionVid) {
-            // La pestanya activa és la vista de la secció → config del bloc tal qual.
+            // The active tab is the section's view → the block's config as-is.
             onOpenPageViewModal(tableId, block);
         } else {
-            // Config de la vista de la pestanya ACTIVA: passem un editingBlock
-            // sintètic amb el seu view_id. En desar, PageViewModal actualitza
-            // aquesta vista i re-ancora la secció del bloc a ella (el bloc passa
-            // a mostrar la vista que has configurat).
+            // Config for the ACTIVE tab's view: we pass an editingBlock
+            // synthetic one with its view_id. When saving, PageViewModal updates
+            // this view and re-anchors the block's section to it (the block then
+            // shows the view you configured).
             onOpenPageViewModal(tableId, {
                 id: block?.id,
                 props: { view_id: activeViewId, heading: headingProp || '', heading_level: headingLevelProp || 1 },
@@ -926,13 +926,13 @@ export function DbViewEmbed({ block }) {
         }
     }, [onOpenPageViewModal, tableId, block, activeViewId, headingProp, headingLevelProp]);
 
-    // --- FASE 3: CRUD de les pestanyes de vistes (registry.views) ---
+    // --- PHASE 3: CRUD for the view tabs (registry.views) ---
     const refetchTableViews = useCallback(async () => {
         try {
             const res = await axios.get('/api/vault/views');
             const all = Array.isArray(res.data) ? res.data : (res.data?.views || []);
             setTableViews(all.filter(v => String(v.table_id) === String(tableId)));
-        } catch { /* conserva l'estat actual */ }
+        } catch { /* keep the current state */ }
     }, [tableId]);
 
     const pinView = useCallback((id) => {
@@ -950,8 +950,8 @@ export function DbViewEmbed({ block }) {
         });
     }, [tableId, onOpenViewConfig, pinView]);
 
-    // Afegeix a aquest bloc una vista que JA existeix a la taula (la fixa com a
-    // pestanya). No crea res nou.
+    // Adds a view that ALREADY exists on the table to this block (pins it as
+    // tab). It creates nothing new.
     const handleAddExistingView = useCallback((v) => {
         if (!v?.id) return;
         pinView(v.id);
@@ -975,8 +975,8 @@ export function DbViewEmbed({ block }) {
         } catch (e) { console.warn('delete view failed', e); }
     }, [confirmDeleteView, activeViewId, view, refetchTableViews]);
 
-    // Treu la vista d'aquest bloc (la "desfixa"); NO l'elimina del registry.
-    // La vista de la secció (àncora) no es pot treure.
+    // Removes the view from this block ("unpins" it); does NOT delete it from the registry.
+    // The section's view (anchor) cannot be removed.
     const handleUnpinView = useCallback((v) => {
         if (!v?.id || v.id === viewId) return;
         setPinnedViewIds(prev => { const next = new Set(prev); next.delete(v.id); persistPinned(next); persistServerTabs(next); return next; });
@@ -999,10 +999,10 @@ export function DbViewEmbed({ block }) {
         } catch (e) { console.warn('rename view failed', e); }
     }, [renameView, refetchTableViews]);
 
-    // Configura una vista CONCRETA (la del menú "...", no necessàriament l'activa).
-    // Mateixa lògica que handleOpenConfig però parametritzada per `v`: si és la
-    // vista de la secció, obre el bloc tal qual; si no, passa un editingBlock
-    // sintètic amb el seu view_id (en desar, re-ancora la secció a aquesta vista).
+    // Configures a SPECIFIC view (the one from the "..." menu, not necessarily the active one).
+    // Same logic as handleOpenConfig but parameterized by `v`: if it's the
+    // section's view, it opens the block as-is; if not, it passes a synthetic editingBlock
+    // with its view_id (when saving, it re-anchors the section to this view).
     const handleConfigureView = useCallback((v) => {
         if (!onOpenPageViewModal || !tableId) return;
         const sectionVid = block?.props?.view_id || '';
@@ -1016,16 +1016,16 @@ export function DbViewEmbed({ block }) {
         }
     }, [onOpenPageViewModal, tableId, block, headingProp, headingLevelProp]);
 
-    // Duplica una vista al registry (nova vista amb els mateixos filtres/ordre/
-    // columnes) i la fixa com a pestanya d'aquest bloc.
+    // Duplicates a view in the registry (a new view with the same filters/sort/
+    // columns) and pins it as this block's tab.
     const handleDuplicateView = useCallback(async (v) => {
         if (!v?.id || !tableId) return;
         try {
-            // Còpia SENCERA de la vista (com el duplicat del tauler): copiar
-            // només filtres/ordre/columnes perdia totes les opcions per-tipus
-            // (chartType/xField, groupBy, dateField, cardSize…) i la còpia d'un
-            // gràfic naixia buida. S'esborren els camps d'identitat i es
-            // reescriuen els propis.
+            // FULL copy of the view (like the board's duplicate): copying
+            // only filters/sort/columns used to lose all the per-type options
+            // (chartType/xField, groupBy, dateField, cardSize…) and copying a
+            // chart used to come out empty. The identity fields are removed and
+            // rewrite their own.
             const { id: _id, is_main: _im, is_default: _idf, ...rest } = v;
             const sorts = v.sorts || (v.sort ? [v.sort] : []);
             const res = await axios.post('/api/vault/views', {
@@ -1037,8 +1037,8 @@ export function DbViewEmbed({ block }) {
                 sorts,
                 sort: sorts[0] || null,
                 visibleProperties: v.visibleProperties || columns || ['title'],
-                // Neix per ser pestanya d'aquest bloc, no del tauler
-                // (isPageEmbedView la filtra de les pestanyes de taula).
+                // It originates as a tab of this block, not of the board
+                // (isPageEmbedView filters it out of the table tabs).
                 embedded: true,
             });
             await refetchTableViews();
@@ -1046,18 +1046,18 @@ export function DbViewEmbed({ block }) {
         } catch (e) { console.warn('duplicate view failed', e); }
     }, [tableId, columns, refetchTableViews, pinView]);
 
-    // Pont editor↔vista: registra aquesta vista al context per `block.id` perquè
-    // l'editor hi pugui entrar amb el teclat. L'API real (focusFirstCell/Last)
+    // Editor↔view bridge: registers this view in the context under `block.id` so that
+    // the editor can enter it with the keyboard. The actual API (focusFirstCell/Last)
     // la proporciona la VaultTable via `registerNavApi` → tableNavApiRef.
     useEffect(() => {
         if (!ctx.registerEmbedNav || !block?.id) return undefined;
-        // Entrada amb ↓ des de l'editor:
-        //  - Taula/llista → primera/última CEL·LA (la VaultTable ho registra).
-        //  - Resta de vistes (galeria, feed, kanban, timeline) → la CLOSCA de
-        //    l'embed (widget), perquè l'usuari vegi que hi és i pugui sortir-ne
-        //    amb ↑/↓/Esc o baixar als registres amb Espai/Enter (galeria). Abans,
-        //    per a no-taules, retornàvem `false` i el cursor queia en un bloc void
-        //    sense caret visible ni sortida.
+        // Entry with ↓ from the editor:
+        //  - Table/list → first/last CELL (VaultTable registers it).
+        //  - Rest of the views (gallery, feed, kanban, timeline) → the SHELL of the
+        //    the embed (widget), so the user can see it's there and can leave it
+        //    with ↑/↓/Esc or drop down into the records with Space/Enter (gallery). Before,
+        //    for non-tables, we returned `false` and the cursor fell into a void block
+        //    without a visible caret or exit.
         const isCellNav = viewType === 'table' || viewType === 'list';
         ctx.registerEmbedNav(block.id, {
             focusFirstCell: () => {
@@ -1074,19 +1074,19 @@ export function DbViewEmbed({ block }) {
         return () => ctx.registerEmbedNav(block.id, null);
     }, [ctx, block?.id, viewType, focusShell]);
 
-    // --- FASE 1: taula completa EDITABLE dins l'embed reutilitzant VaultTable ---
-    // DEFINITS ABANS dels returns primerencs (loading/error) per no violar les
-    // Rules of Hooks. La taula i l'esquema surten del registry del context.
+    // --- PHASE 1: full EDITABLE table inside the embed reusing VaultTable ---
+    // DEFINED BEFORE the early returns (loading/error) so as not to violate the
+    // Rules of Hooks. The table and schema come from the context's registry.
     const table = (ctx.registry?.tables || ctx.allTables || []).find(t => String(t.id) === String(tableId)) || null;
     const embeddedSchema = useMemo(
         () => buildSchemaFromTableProperties(table?.properties || []),
         [table],
     );
-    // La secció embeguda → model de "vista" que espera VaultTable. Els filtres
-    // (incloent `this` → pageId) i l'ordenació JA s'apliquen a `rows`, així que
-    // no els tornem a passar com a filtres (VaultTable no sap resoldre `this`);
-    // l'edició de filtres/ordenació es delega al modal de configuració de
-    // l'embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
+    // The embedded section → the "view" model that VaultTable expects. The filters
+    // (including `this` → pageId) and sorting are ALREADY applied to `rows`, so
+    // we don't pass them again as filters (VaultTable doesn't know how to resolve `this`);
+    // editing filters/sorting is delegated to the configuration modal of
+    // the embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
     const embeddedView = useMemo(() => ({
         id: effectiveView?.id || effectiveView?.view_id || 'embedded',
         name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', 'Vista'),
@@ -1094,12 +1094,12 @@ export function DbViewEmbed({ block }) {
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
         visibleProperties: columns,
-        // Reflecteix el senyal real: si la pestanya activa és la vista PRINCIPAL,
-        // la taula mostra tot l'esquema viu; si no, respecta visibleProperties.
+        // Reflects the real signal: if the active tab is the MAIN view,
+        // the table shows the entire live schema; otherwise, it respects visibleProperties.
         is_main: !!(effectiveView?.is_main || effectiveView?.is_default),
-        // Opcions específiques per tipus (galeria/kanban/calendari/timeline). En
-        // incrustar es perdien; les propaguem des de la vista efectiva (registry
-        // o secció) perquè el render les honori igual que a la pàgina de taula.
+        // Type-specific options (gallery/kanban/calendar/timeline). In the
+        // embed props were lost; we propagate them from the effective view (registry
+        // or section) so the render honors them the same as on the table page.
         cardSize: effectiveView?.cardSize,
         galleryPreview: effectiveView?.galleryPreview,
         coverField: effectiveView?.coverField || effectiveView?.cover_field,
@@ -1112,7 +1112,7 @@ export function DbViewEmbed({ block }) {
         rowHeight: effectiveView?.rowHeight || effectiveView?.row_height,
         enableSubitems: effectiveView?.enableSubitems ?? effectiveView?.enable_subitems,
         columnWidths: effectiveView?.columnWidths || effectiveView?.column_widths,
-        // Opcions del gràfic (vista 'chart' incrustada).
+        // Chart options (embedded 'chart' view).
         chartType: effectiveView?.chartType || effectiveView?.chart_type,
         xField: effectiveView?.xField || effectiveView?.x_field,
         yField: effectiveView?.yField || effectiveView?.y_field,
@@ -1139,8 +1139,8 @@ export function DbViewEmbed({ block }) {
 
     const commonProps = { rows, columns, view, onOpenPage, onCreate: tableId ? handleCreate : null, blockId: block?.id };
 
-    // Adaptadors de callbacks compartits per TOTS els components de vista reals
-    // (taula/llista/kanban/galeria/timeline/feed/calendari).
+    // Shared callback adapters for ALL real view components
+    // (table/list/kanban/gallery/timeline/feed/calendar).
     const onEditSchemaAdapter = (type) => {
         if (type === 'filters' || type === 'sorts') handleOpenConfig();
         else if (ctx.onEditSchema && table) ctx.onEditSchema(table);
@@ -1149,9 +1149,9 @@ export function DbViewEmbed({ block }) {
         const tpl = templates.find(t => t.id === templateId) || null;
         handleCreate({}, tpl);
     };
-    // Notifiquem VaultDashboard dels ids esborrats perquè els registri a la
-    // seva pila d'undo (el Cmd+Z global hi viu). El soft-delete de la vista
-    // incrustada va per axios directe i, sense aquest senyal, no era desfàble.
+    // We notify VaultDashboard of the deleted ids so it records them in the
+    // its undo stack (the global Cmd+Z lives there). The soft-delete of the view
+    // embedded one goes through direct axios and, without this signal, it wasn't undoable.
     const announceDeleted = (ids) => {
         const clean = [...(ids || [])].filter(Boolean);
         if (!clean.length) return;
@@ -1170,12 +1170,12 @@ export function DbViewEmbed({ block }) {
     const onUpdateViewAdapter = async (nextView) => {
         if (!pageId) return;
         const sorts = Array.isArray(nextView?.sort) ? nextView.sort : (nextView?.sort ? [nextView.sort] : []);
-        // `columnWidths` el mana VaultTable en redimensionar una columna: sense
-        // persistir-lo, les amplades es revertien a cada recàrrega (la vista
-        // principal sí que les desa via VaultDashboard).
+        // `columnWidths` is sent by VaultTable when resizing a column: without
+        // persist it, the widths would revert on every reload (the
+        // main view does save them via VaultDashboard).
         const isSection = !view ? false : (activeViewId === view.view_id);
         if (isSection || !activeViewId) {
-            // La pestanya activa és la secció del bloc → patch a la secció.
+            // The active tab is the block's section → patch to the section.
             const next = await patchSectionConfig(pageId, view, {
                 visible_properties: nextView?.visibleProperties || columns,
                 sorts,
@@ -1185,7 +1185,7 @@ export function DbViewEmbed({ block }) {
             });
             setView(next);
         } else {
-            // Pestanya d'una vista del registry → PUT directe a /api/vault/views.
+            // Tab of a registry view → direct PUT to /api/vault/views.
             const current = tableViews.find(v => v.id === activeViewId) || {};
             try {
                 await axios.put(`/api/vault/views/${encodeURIComponent(activeViewId)}`, {
@@ -1204,15 +1204,15 @@ export function DbViewEmbed({ block }) {
         await patchPageMetadata(id, patch?.metadata || patch || {});
         reload();
     };
-    // Props comunes als components rics que comparteixen la mateixa signatura.
+    // Common props for rich components that share the same signature.
     const sharedViewProps = {
         notes: rows,
         schema: embeddedSchema,
         idToTitle: ctx.idToTitle || {},
         allNotes: allRows,
         activeView: embeddedView,
-        // Cap màxim de l'alçada de la taula/llista incrustada: per sota creix amb
-        // el contingut (sense buit); per sobre fa scroll intern.
+        // Maximum cap on the embedded table/list height: below that, it grows with
+        // the content (without empty space); above that it scrolls internally.
         maxHeight: '70vh',
         searchTerm,
         onSearchChange: setSearchTerm,
@@ -1222,10 +1222,10 @@ export function DbViewEmbed({ block }) {
         onDeleteSelected: onDeleteSelectedAdapter,
         onEditSchema: onEditSchemaAdapter,
         onUpdateView: onUpdateViewAdapter,
-        // Pont de navegació de teclat editor↔vista. La taula/llista registren la
-        // nav de cel·les; la galeria, la de targetes (l'usa handleShellKeyDown per
-        // baixar-hi amb Espai/Enter). `onFocusShell` torna el focus a la closca
-        // (Esc des dels registres de la galeria).
+        // Editor↔view keyboard navigation bridge. The table/list register the
+        // cell navigation; the gallery, the card one (handleShellKeyDown uses it to
+        // descend into it with Space/Enter). `onFocusShell` returns focus to the shell
+        // (Esc from the gallery records).
         registerNavApi: (api) => { tableNavApiRef.current = api; },
         onExitTop: () => ctx.exitEmbedToEditor?.(block?.id, 'up'),
         onExitBottom: () => ctx.exitEmbedToEditor?.(block?.id, 'down'),
@@ -1233,12 +1233,12 @@ export function DbViewEmbed({ block }) {
         onFocusShell: focusShell,
     };
     const renderBody = () => {
-        // El `graph` no té component editable equivalent → render bespoke.
+        // The `graph` has no equivalent editable component → bespoke render.
         if (viewType === 'graph') return <GraphRender {...commonProps} />;
-        // La resta de tipus es deleguen al cos compartit (VaultViewBody), el
-        // mateix que fa servir la taula completa. La taula/llista usen un
-        // contenidor que la deixa fer l'scroll intern (columna sticky); la
-        // resta, una caixa amb scroll propi.
+        // The rest of the types are delegated to the shared body (VaultViewBody), which
+        // same one used by the full table. The table/list use a
+        // container that lets it do the internal scroll (sticky column); the
+        // for the rest, a box with its own scroll.
         const Box = (viewType === 'table' || viewType === 'list') ? TableBox
             : (viewType === 'feed') ? FeedFlowBox
             : ScrollBox;
@@ -1261,9 +1261,9 @@ export function DbViewEmbed({ block }) {
     };
 
     return (
-        // `min-w-0 w-full`: el contenidor del bloc (.bn-block-content) és flex;
-        // sense `min-w-0` aquest div no encongeix sota l'amplada del contingut
-        // (taula ampla) i desborda l'editor amb scroll horitzontal a la pàgina.
+        // `min-w-0 w-full`: the block's container (.bn-block-content) is flex;
+        // without `min-w-0` this div doesn't shrink below the content's width
+        // (wide table) and overflows the editor with horizontal scroll on the page.
         <div
             ref={embedContainerRef}
             tabIndex={isInEditor ? -1 : undefined}
@@ -1287,10 +1287,10 @@ export function DbViewEmbed({ block }) {
                     setShowSearch={setShowSearch}
                 />
             </div>
-            {/* Pestanyes de vistes D'AQUEST bloc: la vista de la secció (àncora)
-                + les que s'hi han fixat explícitament. No es mostren totes les
-                vistes de la taula. La barra fa `flex-wrap` (no `overflow`) per
-                no retallar els desplegables de la × i del +. */}
+            {/* Tabs of views for THIS block: the section's view (anchor)
+                + those that have been explicitly pinned to it. Not all the
+                table's views are shown. The bar uses `flex-wrap` (not `overflow`) so as
+                not to clip the × and + dropdowns. */}
             {(() => {
                 const visibleTabs = tableViews.filter(v => v.id === viewId || pinnedViewIds.has(v.id));
                 const unpinnedExisting = tableViews.filter(v => v.id !== viewId && !pinnedViewIds.has(v.id));
@@ -1299,7 +1299,7 @@ export function DbViewEmbed({ block }) {
                 <div className="relative z-30 flex flex-wrap items-center gap-0.5 border-b border-[var(--border-primary)] mb-2">
                     {visibleTabs.map(v => {
                         const isActive = v.id === activeViewId;
-                        const isAnchor = v.id === viewId; // vista de la secció (no es pot treure)
+                        const isAnchor = v.id === viewId; // section's view (cannot be removed)
                         return (
                             <div
                                 key={v.id}

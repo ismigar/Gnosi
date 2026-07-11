@@ -35,7 +35,7 @@ log = logging.getLogger(__name__)
 _EVENTS_CACHE: dict = {}
 _EVENTS_CACHE_TTL = 300  # seconds
 _CALS_CACHE: dict = {}
-_CALS_CACHE_TTL = 300  # 5 min (les llistes de calendaris canvien poc)
+_CALS_CACHE_TTL = 300  # 5 min (calendar lists rarely change)
 
 
 def _invalidate_calendar_cache():
@@ -50,7 +50,7 @@ def _get_calendar_storage_path() -> Path:
 
 
 def _get_hidden_event_ids() -> set[str]:
-    """Retorna el conjunt d'IDs d'esdeveniments amagats localment."""
+    """Return the set of locally hidden event IDs."""
     session = get_mgmt_session()
     try:
         hidden = session.query(HiddenEvent.event_id).all()
@@ -84,12 +84,13 @@ def _default_range() -> tuple[str, str]:
 
 @router.get("/calendars")
 async def get_calendars(response: Response, email: Optional[str] = Query(None)):
-    """Retorna la llista de calendaris disponibles per a un compte o per a tots.
+    """Returns the list of available calendars for an account or for all of them.
 
-    Si algun compte té el token de Google caducat/revocat, NO es trenca la
-    resposta (es retornen els calendaris dels comptes vàlids) però s'afegeix la
-    capçalera `X-Calendar-Auth-Error` amb els emails afectats perquè la UI pugui
-    demanar reconnexió en lloc de mostrar una llista buida silenciosament.
+    If any account has an expired/revoked Google token, the response is NOT
+    broken (calendars from valid accounts are still returned), but the
+    `X-Calendar-Auth-Error` header is added with the affected emails so the UI can
+    request reconnection instead of silently showing an empty list.
+    
     """
     from backend.services.hybrid_calendar_service import list_calendars, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
@@ -116,8 +117,8 @@ async def get_calendars(response: Response, email: Optional[str] = Query(None)):
         try:
             cals = list_calendars(em)
         except GoogleAuthExpired:
-            # Token caducat: no caixegem (perquè un retry post-reconnexió funcioni)
-            # i marquem el compte com a afectat.
+            # Expired token: we don't cache it (so a retry after reconnection works)
+            # and we mark the account as affected.
             auth_errors.append(em)
             continue
         _CALS_CACHE[em] = {"data": cals, "expiry": time.time() + _CALS_CACHE_TTL}
@@ -140,8 +141,9 @@ async def get_events(
     include_vault: bool = Query(True),
 ):
     """
-    Retorna events de Google Calendar / CalDAV directament (sense vault).
-    Si include_vault=true, afegeix també les notes del vault amb data.
+        Returns Google Calendar / CalDAV events directly (without the vault).
+    If include_vault=true, also adds vault notes that have a date.
+    
     """
     t_min, t_max = _default_range()
     time_min = time_min or t_min
@@ -160,12 +162,13 @@ def collect_all_events(
     include_vault: bool = True,
     email: Optional[str] = None,
 ) -> list[dict]:
-    """Reuneix events de tots els comptes (Google/CalDAV) + vault en un rang.
+    """Gathers events from all accounts (Google/CalDAV) + vault within a range.
 
-    Versió SÍNCRONA i reutilitzable: l'usa l'endpoint GET /events (via
-    `to_thread`) i també el notificador de reunions
-    (`backend/services/meeting_reminders.py`). Aplica la caché per-compte
-    (`_EVENTS_CACHE`) i el filtre d'esdeveniments amagats.
+    SYNCHRONOUS, reusable version: used by the GET /events endpoint (via
+    `to_thread`) and also by the meeting notifier
+    (`backend/services/meeting_reminders.py`). Applies the per-account cache
+    (`_EVENTS_CACHE`) and the hidden-events filter.
+    
     """
     from backend.services.hybrid_calendar_service import list_events, GoogleAuthExpired
     from backend.services.integration_manager import integration_manager
@@ -189,10 +192,10 @@ def collect_all_events(
         if cached and time.time() < cached["expiry"]:
             all_events.extend(cached["data"])
             continue
-        # Resiliència per-compte: un token de Google caducat (o qualsevol error
-        # d'un compte) NO ha de tombar tota la consulta. S'omet aquest compte i
-        # es continua amb la resta + els events del vault. La UI ja demana
-        # reconnexió via la capçalera de GET /calendars.
+        # Per-account resilience: an expired Google token (or any error
+        # from an account) must NOT bring down the whole query. This account is skipped and
+        # we continue with the rest + the vault events. The UI already requests
+        # reconnection via the GET /calendars header.
         try:
             events = list_events(em, time_min, time_max, search, calendar_id)
         except GoogleAuthExpired:
@@ -209,7 +212,7 @@ def collect_all_events(
     if hidden_ids:
         all_events = [ev for ev in all_events if ev.get("id") not in hidden_ids]
 
-    # Events del vault (notes locals amb camp date)
+    # Vault events (local notes with a date field)
     if include_vault:
         vault_events = _get_vault_events(time_min, time_max, search)
         if hidden_ids:
@@ -220,13 +223,14 @@ def collect_all_events(
 
 
 def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> list[dict]:
-    """Events del vault (notes amb camp 'date') des del page_index de l'app.
+    """Vault events (notes with a 'date' field) from the app's page_index.
 
-    Usa `_get_pages_snapshot()` —l'índex cachejat que també alimenta la sidebar—
-    en lloc de fer `rglob`+`read_text` sobre tot el vault. Abans llegia ~2939
-    fitxers a cada petició (~11s); ara filtra en memòria les ~119 pàgines amb
-    camp `date` sense tocar el disc (l'índex ja porta tota la metadata, inclosa
-    `description`). Vegeu directive async_event_loop_vault_io.
+    Uses `_get_pages_snapshot()` — the cached index that also feeds the sidebar —
+    instead of doing `rglob`+`read_text` over the whole vault. It used to read ~2939
+    files on every request (~11s); now it filters the ~119 pages with a
+    `date` field in memory without touching disk (the index already carries all the metadata, including
+    `description`). See directive async_event_loop_vault_io.
+    
     """
     try:
         from backend.api.vault_routes import _get_pages_snapshot
@@ -239,7 +243,7 @@ def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> li
             if not date_val:
                 continue
             path_str = p.path or ""
-            # Exclou Calendar/External (fitxers de sync antic) i fonts externes.
+            # Excludes Calendar/External (old sync files) and external sources.
             if "Calendar/External" in path_str:
                 continue
             source = meta.get("source", "Gnosi")
@@ -279,12 +283,12 @@ def _get_vault_events(time_min: str, time_max: str, search: Optional[str]) -> li
         return []
 
 
-# ── Recordatoris de reunions (notificador amb IA) ────────────────────────────
+# ── Meeting reminders (AI-powered notifier) ────────────────────────────
 
 @router.get("/reminders")
 async def get_meeting_reminders():
-    """Recordatoris actius per al banner de l'app (amb l'ordre del dia ja
-    generada pel servei; no torna a cridar la IA)."""
+    """Active reminders for the app banner (with the agenda already
+    generated by the service; doesn't call the AI again)."""
     from backend.services.meeting_reminders import get_active
     return {"reminders": get_active()}
 
@@ -304,9 +308,9 @@ async def get_meeting_reminder_settings():
 
 @router.put("/reminders/settings")
 async def update_meeting_reminder_settings(payload: dict = Body(...)):
-    """Actualitza {enabled, lead_minutes} i manté UNA sola font de veritat de
-    l'on/off: activa/desactiva també la tasca `meeting_reminders` de l'scheduler
-    (interval 1 min)."""
+    """Updates {enabled, lead_minutes} and keeps a SINGLE source of truth for
+    on/off: also enables/disables the scheduler's `meeting_reminders` task
+    (1 min interval)."""
     from backend.services.meeting_reminders import update_settings
     s = update_settings(payload)
     try:
@@ -325,7 +329,7 @@ async def get_event(
     email: str = Query(...),
     calendar_id: Optional[str] = Query(None),
 ):
-    """Retorna el detall d'un event (Google Calendar o CalDAV)."""
+    """Return the details of an event (Google Calendar or CalDAV)."""
     from backend.services.hybrid_calendar_service import get_event as _get_event
     ev = _get_event(email, event_id, calendar_id)
     if ev:
@@ -341,7 +345,7 @@ async def post_event(
     calendar_id: str = Query("primary"),
     event_data: dict = Body(...),
 ):
-    """Crea un nou event a Google Calendar."""
+    """Creates a new event in Google Calendar."""
     try:
         event = create_google_calendar_event(email, event_data, calendar_id)
         if event:
@@ -362,7 +366,7 @@ async def patch_event(
     calendar_id: str = Query("primary"),
     patch_data: dict = Body(...),
 ):
-    """Actualitza un event existent (Google Calendar o vault local)."""
+    """Updates an existing event (Google Calendar or local vault)."""
     # Vault local
     if patch_data.get("provider") == "vault" or patch_data.get("vault_path"):
         vault_path = patch_data.get("vault_path")
@@ -380,7 +384,7 @@ async def patch_event(
                 _invalidate_calendar_cache()
                 return {"status": "success"}
 
-    # Google Calendar — passa calendar_id via patch_data perquè update_google_event l'accepti
+    # Google Calendar — pass calendar_id via patch_data so update_google_event accepts it
     patch_data.setdefault("calendar_id", calendar_id)
     ok = update_google_event(email, event_id, patch_data)
     if ok:
@@ -398,15 +402,15 @@ async def delete_event(
     calendar_id: str = Query("primary"),
     vault_path: Optional[str] = Query(None),
 ):
-    """Elimina un event de Google Calendar o del vault."""
+    """Deletes an event from Google Calendar or the vault."""
     if vault_path:
         p = Path(vault_path)
         if p.exists():
-            # No esborrem permanentment: movem a la paperera del Vault
-            # (recuperable), coherent amb DELETE /api/vault/pages. Abans feia
-            # `p.unlink()`, així que un event del Vault esborrat per aquesta via
-            # es perdia per sempre, saltant-se la paperera. `event_id` és l'id
-            # de la pàgina del Vault.
+            # We don't delete permanently: we move to the Vault trash
+            # (recoverable), consistent with DELETE /api/vault/pages. It used to do
+            # `p.unlink()`, so a Vault event deleted through this path
+            # was lost forever, bypassing the trash. `event_id` is the id
+            # of the Vault page.
             from backend.api.vault_routes import _move_page_to_trash
             _move_page_to_trash(event_id, p)
             _invalidate_calendar_cache()
@@ -453,7 +457,7 @@ def get_ics_feed(
     time_min: Optional[str] = Query(None),
     time_max: Optional[str] = Query(None),
 ):
-    """Genera un .ics de tots els events (vault locals + Google Calendar)."""
+    """Generate an .ics of all events (local vault + Google Calendar)."""
     cal = Calendar()
     cal.add("prodid", "-//Gnosi PIM//ismaelgarcia.net//")
     cal.add("version", "2.0")
@@ -483,13 +487,14 @@ def get_ics_feed(
     return Response(content=cal.to_ical(), media_type="text/calendar")
 
 
-# ── POST /sync (no-op — l'arquitectura híbrida no necessita sync) ──────────────
+# ── POST /sync (no-op — the hybrid architecture doesn't need sync) ──────────────
 
 @router.post("/sync", dependencies=[Depends(require_role("editor"))])
 async def sync_calendar_accounts(email: Optional[str] = Query(None)):
     """
-    Amb l'arquitectura híbrida el sync al vault ja no és necessari.
-    Es manté per compatibilitat però no fa res.
+        With the hybrid architecture, syncing to the vault is no longer necessary.
+    Kept for compatibility but does nothing.
+    
     """
     log.info("POST /api/calendar/sync — no-op (arquitectura híbrida activa)")
     return {"status": "success", "synced_count": 0, "message": "Hybrid mode: direct API queries, no vault sync needed"}
@@ -499,7 +504,7 @@ async def sync_calendar_accounts(email: Optional[str] = Query(None)):
 
 @router.get("/attendees/search")
 async def search_attendees(q: str = Query(..., min_length=1)):
-    """Cerca contactes de Google per autocomplete al formulari d'attendees."""
+    """Search Google contacts for autocomplete in the attendees form."""
     from backend.services.integration_manager import integration_manager
     from backend.services.google_contacts_service import list_google_contacts, parse_google_contact_to_dict
 
@@ -518,9 +523,9 @@ async def search_attendees(q: str = Query(..., min_length=1)):
             for c in contacts:
                 parsed = parse_google_contact_to_dict(c)
                 name = parsed.get("name", "")
-                # `parse_google_contact_to_dict` exposa l'email com a `email` (singular
-                # string), no `emails` (llista): iterar `parsed.get("emails", [])` sempre
-                # donava [] → l'autocompletar d'assistents quedava BUIT per a tota query.
+                # `parse_google_contact_to_dict` exposes the email as `email` (singular
+                # string), not `emails` (list): always iterate `parsed.get("emails", [])`
+                # returned [] → the assistant autocomplete remained EMPTY for every query.
                 addr = parsed.get("email", "")
                 if not addr or addr in seen:
                     continue
@@ -541,7 +546,7 @@ async def search_attendees(q: str = Query(..., min_length=1)):
 # ── GET /geocode ──────────────────────────────────────────────────────────────
 
 def _photon_label(props: dict) -> str:
-    """Construeix una etiqueta d'adreça llegible a partir de les propietats de Photon."""
+    """Builds a human-readable address label from Photon properties."""
     name = props.get("name")
     house = props.get("housenumber")
     street = props.get("street")
@@ -570,7 +575,7 @@ def _photon_label(props: dict) -> str:
     if country:
         segments.append(country)
 
-    # Elimina duplicats consecutius (p. ex. ciutat == estat)
+    # Remove consecutive duplicates (e.g. city == state)
     deduped = []
     for seg in segments:
         if seg and (not deduped or deduped[-1] != seg):
@@ -580,10 +585,11 @@ def _photon_label(props: dict) -> str:
 
 @router.get("/geocode")
 async def geocode_location(q: str = Query(..., min_length=3)):
-    """Autocompleta/verifica adreces via Photon (OpenStreetMap). Sense API key.
+    """Autocompletes/verifies addresses via Photon (OpenStreetMap). No API key needed.
 
-    Retorna una llista de suggeriments [{label, lat, lon}] per al camp Ubicació
-    del formulari de cites. No geocodifica si la consulta sembla una URL.
+    Returns a list of suggestions [{label, lat, lon}] for the Location field
+    of the appointments form. Doesn't geocode if the query looks like a URL.
+    
     """
     import httpx
 
@@ -627,7 +633,7 @@ async def geocode_location(q: str = Query(..., min_length=3)):
 
 @router.post("/events/{event_id}/rsvp", dependencies=[Depends(require_role("editor"))])
 async def rsvp_event(event_id: str, body: dict = Body(...)):
-    """Accepta, rebutja o marca com a tentativa una invitació de Google Calendar."""
+    """Accepts, declines, or marks as tentative a Google Calendar invitation."""
     email = body.get("email")
     calendar_id = body.get("calendar_id", "primary")
     rsvp = body.get("rsvp")
@@ -650,9 +656,10 @@ async def rsvp_event(event_id: str, body: dict = Body(...)):
 @router.post("/events/{event_id}/invite")
 async def invite_to_event(event_id: str, body: dict = Body(...)):
     """
-    Afegeix convidats a un event.
-    - Google Calendar: patch + sendUpdates='all' (Google envia les invitacions)
-    - Vault: envia email HTML via Gmail API
+        Adds guests to an event.
+    - Google Calendar: patch + sendUpdates='all' (Google sends the invitations)
+    - Vault: sends an HTML email via Gmail API
+    
     """
     email = body.get("email")
     attendees = body.get("attendees", [])
@@ -702,7 +709,7 @@ async def invite_to_event(event_id: str, body: dict = Body(...)):
 
 @router.post("/events/{event_id}/hide")
 async def hide_event(event_id: str):
-    """Amaga un esdeveniment localment."""
+    """Hides an event locally."""
     session = get_mgmt_session()
     try:
         exists = session.query(HiddenEvent).filter_by(event_id=event_id).first()
@@ -725,7 +732,7 @@ async def hide_event(event_id: str):
 
 @router.post("/events/{event_id}/unhide")
 async def unhide_event(event_id: str):
-    """Torna a mostrar un esdeveniment amagat."""
+    """Show a hidden event again."""
     session = get_mgmt_session()
     try:
         session.query(HiddenEvent).filter_by(event_id=event_id).delete()

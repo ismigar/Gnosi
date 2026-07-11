@@ -1,21 +1,21 @@
 /**
- * useCollaboration — canal WebSocket de col·laboració per pàgina.
+ * useCollaboration — per-page collaboration WebSocket channel.
  *
- * Esquelet (Via B). De moment exposa la **presència** (qui més és a la
- * mateixa pàgina) i un `send()` genèric per a missatges futurs (cursor,
- * updates Yjs). El transport ja hi és; afegir CRDT serà enviar
- * `{type: "update", ...}` per aquest mateix `send`.
+ * Skeleton (Path B). For now it exposes **presence** (who else is on the
+ * same page) and a generic `send()` for future messages (cursor,
+ * Yjs updates). The transport is already in place; adding CRDT will just mean sending
+ * `{type: "update", ...}` through this same `send`.
  *
- * No fa res en mode personal (un sol usuari): si el mode no és 'org' o no hi
- * ha `pageId`, no obre cap connexió i `peers` queda buit. El mode es resol
- * via `/api/health` (mateix patró que AppSidebar), de manera que aquest hook
- * no depèn de la capa d'auth i la col·laboració es pot desplegar de forma
- * independent. Qualsevol error de xarxa deixa el mode a 'personal' →
- * desactivat → zero canvi de comportament per a l'ús d'un sol usuari.
+ * Does nothing in personal mode (a single user): if the mode isn't 'org' or there
+ * is no `pageId`, it opens no connection and `peers` stays empty. The mode is resolved
+ * via `/api/health` (same pattern as AppSidebar), so this hook
+ * doesn't depend on the auth layer and collaboration can be rolled out
+ * independently. Any network error leaves the mode at 'personal' →
+ * disabled → zero behavior change for single-user usage.
  *
- * Identitat: es llegeix de localStorage (`gnosi_user_id`/`gnosi_user_email`),
- * que el flux d'auth manté actualitzat quan hi és. El servidor, si rep una
- * cookie de sessió vàlida, hi confia per sobre d'aquesta identitat.
+ * Identity: read from localStorage (`gnosi_user_id`/`gnosi_user_email`),
+ * which the auth flow keeps up to date when present. The server, if it receives a
+ * valid session cookie, trusts it over this identity.
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 
@@ -30,8 +30,8 @@ function buildWsUrl(pageId) {
 
 export function useCollaboration(pageId) {
     const [peers, setPeers] = useState([]);
-    // El mode (personal/org) es resol via /api/health. Per defecte 'personal'
-    // → desactivat, així un error de xarxa no canvia res per a l'usuari únic.
+    // The mode (personal/org) is resolved via /api/health. Defaults to 'personal'
+    // → disabled, so a network error changes nothing for the single user.
     const [gnosiMode, setGnosiMode] = useState('personal');
     const wsRef = useRef(null);
 
@@ -43,7 +43,7 @@ export function useCollaboration(pageId) {
                 if (!cancelled && data?.gnosi_mode) setGnosiMode(data.gnosi_mode);
             })
             .catch(() => {
-                /* xarxa caiguda → roman 'personal' (col·laboració desactivada) */
+                /* network down → stays 'personal' (collaboration disabled) */
             });
         return () => {
             cancelled = true;
@@ -54,9 +54,9 @@ export function useCollaboration(pageId) {
     const selfId = localStorage.getItem('gnosi_user_id') || 'anon';
 
     useEffect(() => {
-        // Quan està desactivat (mode personal o sense pàgina) no obrim res.
-        // No cal resetar `peers` aquí: comença buit i el cleanup el reseteja
-        // en sortir d'un estat actiu (evita setState síncron dins l'effect).
+        // When disabled (personal mode or no page) we don't open anything.
+        // No need to reset `peers` here: it starts empty and cleanup resets it
+        // when leaving an active state (avoids a synchronous setState inside the effect).
         if (!enabled) {
             return undefined;
         }
@@ -69,7 +69,7 @@ export function useCollaboration(pageId) {
             try {
                 ws = new WebSocket(buildWsUrl(pageId));
             } catch {
-                return; // URL invàlida o WS no disponible
+                return; // Invalid URL or WS unavailable
             }
             wsRef.current = ws;
 
@@ -81,15 +81,15 @@ export function useCollaboration(pageId) {
                     return;
                 }
                 if (msg?.type === 'presence') {
-                    // Excloem el propi usuari: l'indicador mostra "els altres".
+                    // We exclude the user themselves: the indicator shows "the others".
                     setPeers((msg.users || []).filter((u) => u.id !== selfId));
                 }
             };
 
             ws.onclose = () => {
                 if (!closed) {
-                    // Reconnexió simple amb backoff fix (3s). Suficient per a
-                    // l'esquelet; un backoff exponencial seria el pas següent.
+                    // Simple reconnection with a fixed backoff (3s). Enough for
+                    // the skeleton; an exponential backoff would be the next step.
                     retryTimer = setTimeout(connect, 3000);
                 }
             };
@@ -114,10 +114,10 @@ export function useCollaboration(pageId) {
                 /* noop */
             }
             wsRef.current = null;
-            // Reset de presència en desmuntar o canviar de pàgina/identitat.
+            // Reset presence on unmount or when the page/identity changes.
             setPeers([]);
         };
-        // selfId es deriva de localStorage; reconnectem si canvia pàgina o estat.
+        // selfId is derived from localStorage; we reconnect if the page or state changes.
     }, [enabled, pageId, selfId]);
 
     const send = useCallback((message) => {

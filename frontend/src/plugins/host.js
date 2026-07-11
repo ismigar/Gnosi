@@ -1,24 +1,24 @@
 /**
- * host.js — amfitrió de plugins de TERCERS al frontend (fases 1-2 i 4 de
+ * host.js — host for THIRD-PARTY plugins in the frontend (phases 1-2 and 4 of
  * plugin_system.md).
  *
- * Carrega cada plugin de UI dins d'un IFRAME sandbox (`sandbox="allow-scripts"`,
- * SENSE allow-same-origin → origen opac: no pot llegir el DOM del pare, ni les
- * cookies, ni fer peticions same-origin al backend). Tota comunicació passa per
- * `postMessage`. Una CSP dins del srcdoc bloqueja la xarxa tret que el plugin
- * tingui el permís `network`. Així un plugin no pot fer RCE ni exfiltrar dades:
- * només pot fer el que declara al manifest i l'usuari ha aprovat.
+ * Loads each UI plugin inside a sandboxed IFRAME (`sandbox="allow-scripts"`,
+ * WITHOUT allow-same-origin → opaque origin: it cannot read the parent's DOM, nor its
+ * cookies, nor make same-origin requests to the backend). All communication goes through
+ * `postMessage`. A CSP inside the srcdoc blocks the network unless the plugin
+ * has the `network` permission. This way a plugin cannot perform RCE or exfiltrate data:
+ * it can only do what it declares in the manifest and what the user has approved.
  *
- * Punts d'extensió exposats al plugin (objecte global `gnosi` dins l'iframe):
- *   gnosi.registerCommand({id, title, icon?, run})   → paleta de comandes
- *   gnosi.registerView({id, title, icon?, render})    → vista pròpia
- *   gnosi.registerSidebarPanel({id, title, render})   → panell lateral
- *   gnosi.vault.readPage(id) / writePage(id, content) → API de dades (gated)
- *   gnosi.fetch(url, opts)                             → xarxa (gated)
- *   gnosi.log/warn/error(...)                          → consola del host
+ * Extension points exposed to the plugin (global `gnosi` object inside the iframe):
+ *   gnosi.registerCommand({id, title, icon?, run})   → command palette
+ *   gnosi.registerView({id, title, icon?, render})    → own view
+ *   gnosi.registerSidebarPanel({id, title, render})   → sidebar panel
+ *   gnosi.vault.readPage(id) / writePage(id, content) → data API (gated)
+ *   gnosi.fetch(url, opts)                             → network (gated)
+ *   gnosi.log/warn/error(...)                          → host console
  *
- * Store a nivell de mòdul amb subscripció (mateix patró que usePlugins): la
- * paleta, el shell i el panell de config llegeixen les contribucions actives.
+ * Module-level store with subscription (same pattern as usePlugins): the
+ * command palette, the shell, and the config panel read the active contributions.
  */
 import axios from 'axios';
 
@@ -52,9 +52,9 @@ export function getContributions() {
     return { commands: [..._commands], views: [..._views], sidebar: [..._sidebar] };
 }
 
-// --- Runtime injectat DINS de l'iframe --------------------------------------
-// S'executa a l'origen opac del sandbox. Exposa `gnosi` i fa de pont amb el
-// host per postMessage. Es manté petit i sense dependències.
+// --- Runtime injected INSIDE the iframe --------------------------------------
+// Runs in the sandbox's opaque origin. Exposes `gnosi` and acts as a bridge with the
+// host via postMessage. Kept small and without dependencies.
 function _runtimeSource() {
     return `
     (function () {
@@ -123,8 +123,8 @@ function _runtimeSource() {
 
 function _buildSrcdoc(pluginCode, granted) {
     const net = granted.includes('network');
-    // Sense permís de xarxa: connect-src 'none' talla fetch/XHR/WebSocket.
-    // (Les crides al host van per postMessage, que la CSP no afecta.)
+    // Without network permission: connect-src 'none' cuts off fetch/XHR/WebSocket.
+    // (Calls to the host go through postMessage, which the CSP does not affect.)
     const csp = [
         "default-src 'none'",
         "script-src 'unsafe-inline'",
@@ -132,7 +132,7 @@ function _buildSrcdoc(pluginCode, granted) {
         net ? "connect-src https: http:" : "connect-src 'none'",
         net ? "img-src https: http: data:" : "img-src data:",
     ].join('; ');
-    // Evita que un `</script>` dins del codi del plugin trenqui el document.
+    // Prevents a `</script>` inside the plugin's code from breaking the document.
     const safeRuntime = _runtimeSource().replace(/<\/(script)/gi, '<\\/$1');
     const safeCode = String(pluginCode || '').replace(/<\/(script)/gi, '<\\/$1');
     return `<!doctype html><html><head><meta charset="utf-8">`
@@ -143,18 +143,18 @@ function _buildSrcdoc(pluginCode, granted) {
         + `</body></html>`;
 }
 
-// --- Handlers del host per a les crides del plugin (gated per permís) --------
+// --- Host handlers for the plugin's calls (gated by permission) --------
 const _HOST_METHODS = {
     'vault.readPage': { perm: 'vault:read', run: async (args) => {
         const id = String(args.pageId || '');
         const res = await axios.get(`/api/vault/pages/${encodeURIComponent(id)}`);
         const d = res.data || {};
-        // Forma unificada amb el sandbox de dades: {pageId, title, content, metadata}.
+        // Unified shape with the data sandbox: {pageId, title, content, metadata}.
         return { pageId: d.id, title: d.title || '', content: d.content || '', metadata: d.metadata || {} };
     } },
     'vault.writePage': { perm: 'vault:write', run: async (args) => {
         const id = String(args.pageId || '');
-        // Actualització parcial (PATCH preserva el frontmatter): content i/o metadata.
+        // Partial update (PATCH preserves the frontmatter): content and/or metadata.
         const payload = {};
         if (args.content !== undefined) payload.content = args.content;
         if (args.metadata !== undefined) payload.metadata = args.metadata;
@@ -166,10 +166,10 @@ const _HOST_METHODS = {
         const limit = Math.max(1, Math.min(Number(args.limit) || 200, 1000));
         const res = await axios.get(`/api/vault/pages/by-table/${encodeURIComponent(id)}`);
         const all = Array.isArray(res.data) ? res.data : [];
-        // Les plantilles (is_template) no són dades: cap altre consumidor de
-        // by-table les mostra com a files (DbViewEmbed, PageViewModal,
-        // dashboard, sidebar). Sense aquest filtre un plugin les rebia
-        // barrejades amb els registres — i `total`/`truncated` les comptaven.
+        // Templates (is_template) are not data: no other consumer of
+        // by-table shows them as rows (DbViewEmbed, PageViewModal,
+        // dashboard, sidebar). Without this filter a plugin would receive them
+        // mixed in with the records — and `total`/`truncated` counted them.
         const records = all.filter((p) => !(p.metadata || {}).is_template);
         const rows = records.slice(0, limit).map((p) => ({ id: p.id, title: p.title, metadata: p.metadata || {} }));
         return { tableId: id, rows, total: records.length, truncated: records.length > limit };
@@ -205,7 +205,7 @@ const _HOST_METHODS = {
 function _onMessage(entry, ev) {
     const m = ev.data || {};
     if (!m.__gnosi) return;
-    // Assegura que el missatge ve de l'iframe d'AQUEST plugin.
+    // Ensures the message comes from THIS plugin's iframe.
     if (ev.source !== entry.iframe.contentWindow) return;
     const { manifest, granted, iframe } = entry;
     const pid = manifest.id;
@@ -266,7 +266,7 @@ function _unmountPlugin(pid) {
     _notify();
 }
 
-/** Envia una crida d'execució (comanda/vista/panell) a l'iframe del plugin. */
+/** Sends an execution call (command/view/panel) to the plugin's iframe. */
 export function runCommand(pluginId, commandId, arg) {
     const entry = _frames.get(pluginId);
     if (!entry) return;
@@ -274,7 +274,7 @@ export function runCommand(pluginId, commandId, arg) {
         { __gnosi_host: true, type: 'run', kind: 'cmd', id: commandId, arg: arg || null }, '*');
 }
 
-/** Carrega (o recarrega) tots els plugins de tercers instal·lats i actius. */
+/** Loads (or reloads) all installed and active third-party plugins. */
 export async function loadPlugins() {
     let installed = [];
     try {
@@ -298,7 +298,7 @@ export async function loadPlugins() {
             console.warn(`[plugins] no s'ha pogut carregar ${manifest.id}:`, e?.message || e);
         }
     }
-    // Desmunta els que ja no toca (desactivats o desinstal·lats).
+    // Unmounts the ones that no longer apply (disabled or uninstalled).
     for (const pid of [..._frames.keys()]) {
         if (!seen.has(pid)) _unmountPlugin(pid);
     }

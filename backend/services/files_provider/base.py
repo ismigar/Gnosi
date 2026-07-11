@@ -1,11 +1,11 @@
-"""Interfície base per a proveïdors d'emmagatzematge cloud-on-demand.
+"""Base interface for cloud-on-demand storage providers.
 
-Aïlla la lògica de detecció de fitxers "online-only" i materialització
-darrere d'una API uniforme, perquè el codi de producte no hagi de
-conèixer els detalls de cada proveïdor (OneDrive, GDrive File Stream,
-iCloud Drive, NextCloud, vault local, etc.).
+Isolates the logic for detecting "online-only" files and materializing them
+behind a uniform API, so product code doesn't need to
+know the details of each provider (OneDrive, GDrive File Stream,
+iCloud Drive, NextCloud, local vault, etc.).
 
-Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/dev_memory/directives/files_provider_abstraction.md`.
 """
 
 from __future__ import annotations
@@ -21,9 +21,10 @@ log = logging.getLogger(__name__)
 
 
 class FilesProvider(ABC):
-    """Contracte per a un proveïdor d'emmagatzematge.
+    """Contract for a storage provider.
 
-    Implementacions concretes a `local.py`, `onedrive.py`, etc.
+    Concrete implementations in `local.py`, `onedrive.py`, etc.
+    
     """
 
     name: str  # identificador curt: "local", "onedrive", ...
@@ -34,40 +35,42 @@ class FilesProvider(ABC):
         container_path: Path,
         stat_result: Optional[os.stat_result] = None,
     ) -> bool:
-        """Retorna True si el fitxer existeix lògicament però no està
-        descarregat al disc local. Per a proveïdors que no tenen "files
-        on-demand" (vault local) sempre retorna False.
+        """Returns True if the file exists logically but is not
+        downloaded to local disk. For providers that don't have "files
+        on-demand" (local vault) it always returns False.
 
-        El paràmetre `container_path` és el path tal com el veu el
-        backend (típicament dins de `/vault` quan corre a Docker).
+        The `container_path` parameter is the path as seen by the
+        backend (typically inside `/vault` when running in Docker).
 
-        Si `stat_result` ja s'ha calculat al cridador, es pot passar per
-        evitar un stat() addicional. Si no, l'implementador en farà un
-        de nou; en cas d'error retorna False (no podem afirmar que sigui
-        online-only sense el stat).
+        If `stat_result` has already been computed by the caller, it can be passed in to
+        avoid an additional stat() call. If not, the implementer will perform a
+        new one; on error it returns False (we can't assert that it is
+        online-only without the stat).
+        
         """
 
     @abstractmethod
     async def materialize(self, container_path: Path) -> bool:
-        """Demana al proveïdor que baixi el fitxer al disc local.
+        """Asks the provider to download the file to local disk.
 
-        Retorna True si el fitxer està disponible localment després de
-        la crida; False si la materialització ha fallat (timeout, error
-        de xarxa, fitxer fora de l'àmbit, etc.).
+        Returns True if the file is available locally after
+        the call; False if materialization failed (timeout, network
+        error, file out of scope, etc.).
 
-        Per a proveïdors local-only, és un no-op que retorna True.
+        For local-only providers, this is a no-op that returns True.
+        
         """
 
     def schedule_warmup(self, container_path: Path) -> None:
-        """Engega la materialització en SEGON PLA (fire-and-forget) i retorna a
-        l'instant.
+        """Starts materialization in the BACKGROUND (fire-and-forget) and returns
+        instantly.
 
-        Els endpoints d'imatge no han de bloquejar la petició HTTP fins que el
-        proveïdor baixa el fitxer (OneDrive pot trigar desenes de segons): amb
-        això responen 503 immediatament i el client reintenta fins que una
-        petició troba el fitxer ja materialitzat. Es coalesça per ruta: múltiples
-        `<img>` del mateix asset disparen UNA sola baixada. Sense event loop en
-        marxa (context síncron) és un no-op silenciós."""
+        Image endpoints must not block the HTTP request until the
+        provider downloads the file (OneDrive can take tens of seconds): with
+        this, they respond 503 immediately and the client retries until a
+        request finds the file already materialized. It's coalesced by path: multiple
+        `<img>` tags for the same asset trigger a SINGLE download. Without an event loop
+        running (sync context) it's a silent no-op."""
         key = str(container_path)
         tasks: Dict[str, asyncio.Task] = getattr(self, "_warmup_tasks", None)
         if tasks is None:
@@ -85,13 +88,13 @@ class FilesProvider(ABC):
         def _cleanup(t: asyncio.Task) -> None:
             tasks.pop(key, None)
             if not t.cancelled():
-                t.exception()  # recupera per silenciar "exception never retrieved"
+                t.exception()  # retrieves it to silence "exception never retrieved"
 
         task.add_done_callback(_cleanup)
 
     async def _warmup_bg(self, container_path: Path) -> None:
-        """Embolcall del `materialize` per al warmup en segon pla: engoleix
-        qualsevol excepció (la petició ja ha respost 503; el client reintentarà)."""
+        """Wrapper around `materialize` for background warmup: swallows
+        any exception (the request has already responded 503; the client will retry)."""
         try:
             await self.materialize(container_path)
         except Exception:

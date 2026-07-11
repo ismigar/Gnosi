@@ -1,11 +1,11 @@
-"""En purgar una pàgina, cal treure el seu id de les relacions inverses.
+"""When purging a page, its id must be removed from inverse relations.
 
-Esborrar (soft) una pàgina font preserva les relacions per si es restaura, però
-la PURGA és permanent: sense netejar-les, les pàgines que hi apuntaven queden
-amb una relació penjada cap a un id que ja no existeix enlloc (auditat al vault
-real: 4 pàgines amb `Font →` un id purgat). `_purge_trash_entry` llegeix les
-relacions del `page.md` de la paperera ABANS del rmtree i propaga la retirada
-(`_propagate_relation_inverse` amb new_meta buit → tot "remove").
+(Soft) deleting a source page preserves the relations in case it's restored, but
+PURGE is permanent: without cleaning them up, pages that pointed to it are left
+with a dangling relation to an id that no longer exists anywhere (audited against the
+real vault: 4 pages with `Font →` a purged id). `_purge_trash_entry` reads the
+relations from the trash's `page.md` BEFORE the rmtree and propagates the removal
+(`_propagate_relation_inverse` with an empty new_meta → all "remove").
 """
 import json
 
@@ -64,7 +64,7 @@ def test_purge_propagates_relation_removal(vault):
 
 
 def test_purge_without_table_skips_propagation(vault):
-    # Una pàgina wiki sense table_id no té relacions de BD → no propaga.
+    # A wiki page without table_id has no DB relations → doesn't propagate.
     _make_trash_entry(vault["root"], {"id": PID, "title": "Nota solta"})
 
     vr._purge_trash_entry(PID)
@@ -79,6 +79,6 @@ def test_purge_survives_propagation_failure(vault, monkeypatch):
         raise RuntimeError("relation sync en flames")
 
     monkeypatch.setattr(vr, "_propagate_relation_inverse", boom)
-    res = vr._purge_trash_entry(PID)  # no ha de propagar l'excepció
+    res = vr._purge_trash_entry(PID)  # must not propagate the exception
     assert res["id"] == PID
     assert not (vault["root"] / ".trash" / PID).exists()

@@ -1,10 +1,10 @@
 /**
- * usePlugins — estat compartit d'activació i configuració de plugins.
+ * usePlugins — shared plugin activation and configuration state.
  *
- * Store mínim a nivell de mòdul amb subscripció: tots els consumidors (sidebar,
- * menú de pàgina, panell de config) llegeixen el mateix conjunt de "disabled" i
- * els "settings" per-plugin, i es re-renderitzen quan canvien. Es carrega un cop
- * de `GET /api/vault/plugins` i es persisteix amb `PUT /api/vault/plugins`.
+ * Minimal module-level store with subscription: all consumers (sidebar,
+ * page menu, config panel) read the same set of "disabled" flags and
+ * per-plugin "settings", and re-render when they change. It is loaded once
+ * from `GET /api/vault/plugins` and persisted with `PUT /api/vault/plugins`.
  */
 import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';

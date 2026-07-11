@@ -3,13 +3,13 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { AppSidebar } from './components/AppSidebar';
 import HomePage from './pages/HomePage';
 
-// ── Rutes carregades mandrosament (code-splitting) ──────────────────────────
-// Cada pàgina pesada arrossega llibreries grans (BlockEditor→blocknote/tiptap,
+// ── Lazily loaded routes (code-splitting) ──────────────────────────
+// Every heavy page drags in large libraries (BlockEditor→blocknote/tiptap,
 // GraphPage→sigma/graphology, MailPage→react-pdf, CalendarPage→fullcalendar,
-// MediaCenter→framer-motion). Importar-les amb React.lazy les treu del bundle
-// inicial: el navegador només baixa el chunk de la ruta quan s'hi navega.
-// HomePage queda EAGER perquè és l'arrencada més habitual (sense flaix de
-// Suspense a l'inici).
+// MediaCenter→framer-motion). Importing them with React.lazy takes them out of the bundle
+// initial: the browser only downloads the route's chunk when it's navigated to.
+// HomePage stays EAGER because it's the most common startup (without a flash of
+// Suspense at the start).
 const GraphPage = lazy(() => import('./pages/GraphPage'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SocialDashboard = lazy(() => import('./pages/SocialDashboard'));
@@ -37,8 +37,8 @@ import { useFileLinkInterceptor } from './hooks/useFileLinkInterceptor';
 import { useAuth } from './context/AuthContext';
 import { LoginPage } from './components/Auth/LoginPage';
 
-// Fallback mentre es baixa el chunk d'una ruta mandrosa. Discret i centrat,
-// reutilitzant l'estil del bootstrap d'auth perquè no hi hagi salt visual.
+// Fallback while the chunk for a lazy route is downloading. Discreet and centered,
+// reusing the auth bootstrap's style so there's no visual jump.
 function RouteFallback() {
   return (
     <div className="flex h-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
@@ -50,8 +50,8 @@ function RouteFallback() {
 function App() {
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, loading } = useAuth();
-  // Captura clicks a file:// arreu i els redirigeix al shell del sistema
-  // via el backend, en lloc de deixar que Chrome obri pestanyes en blanc.
+  // Captures clicks on file:// everywhere and redirects them to the system shell
+  // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
 
   useEffect(() => {
@@ -63,7 +63,7 @@ function App() {
     }
   }, [effectiveTheme]);
 
-  // Bootstrap: esperem a saber el mode i si hi ha sessió abans de decidir.
+  // Bootstrap: we wait to know the mode and whether there's a session before deciding.
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
@@ -72,8 +72,8 @@ function App() {
     );
   }
 
-  // Pàgines compartides públicament (`/s/:token`): es renderitzen FORA del
-  // gate d'auth i del shell de l'app — qualsevol amb l'enllaç hi accedeix.
+  // Publicly shared pages (`/s/:token`): rendered OUTSIDE the
+  // the auth gate and the app shell — anyone with the link can access them.
   if (window.location.pathname.startsWith('/s/')) {
     return (
       <>
@@ -87,15 +87,15 @@ function App() {
     );
   }
 
-  // Gate només en mode org: en personal l'usuari únic entra directe (el
-  // backend ja resol l'usuari legacy sense token).
+  // Gate only in org mode: in personal mode, the single user goes straight in (the
+  // backend already resolves the legacy user without a token).
   if (gnosiMode === 'org' && !user) {
     return <LoginPage />;
   }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300">
-      {/* Barra lateral global sempre present */}
+      {/* Global sidebar always present */}
       <AppSidebar />
 
       {/* Contingut principal */}
@@ -115,17 +115,17 @@ function App() {
           <Route path="/social-dashboard" element={<SocialDashboard />} />
           <Route path="/media" element={<MediaCenter />} />
           <Route path="/contacts" element={<ContactsPage />} />
-          {/* Catch-all: una URL no existent (typo, enllaç ranci, ruta mal
-              escrita per codi) renderitzava NOMÉS el layout amb el cos en blanc.
-              Redirigim a l'inici (replace per no deixar la URL dolenta a
-              l'historial). */}
+          {/* Catch-all: a non-existent URL (typo, stale link, route wrongly
+              written by code) used to render ONLY the layout with a blank body.
+              We redirect to the home page (replace so as not to leave the bad URL in
+              the history). */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         </Suspense>
       </div>
-      {/* z-index per sobre de tots els overlays modals (GlobalSettingsModal:10000,
-          ZoteroMappingModal i AIAgentModal:100000). Sense això, els toasts
-          quedaven amagats darrere de qualsevol modal oberta. */}
+      {/* z-index above all modal overlays (GlobalSettingsModal:10000,
+          ZoteroMappingModal and AIAgentModal:100000). Without this, toasts
+          stayed hidden behind any open modal. */}
       <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
       <CommandPalette />
       <PageOutline />

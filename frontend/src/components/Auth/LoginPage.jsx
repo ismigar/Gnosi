@@ -1,17 +1,19 @@
 /**
- * LoginPage — pantalla d'entrada per a mode org (equips/cooperatives).
+ * LoginPage — entry screen for org mode (teams/cooperatives).
  *
- * Es mostra quan `gnosiMode === 'org'` i no hi ha usuari autenticat. Alterna
- * entre iniciar sessió i registrar-se. El registre també serveix de "claim"
- * d'un membership pre-creat per email (vegeu auth_routes.register), així una
- * cooperativa pot convidar membres abans que es registrin.
+ * Shown when `gnosiMode === 'org'` and there is no authenticated user. Toggles
+ * between signing in and signing up. Signing up also serves as a "claim"
+ * of a membership pre-created by email (see auth_routes.register), so a
+ * cooperative can invite members before they register.
  */
 import React, { useState } from 'react';
 import { LogIn, UserPlus, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../context/AuthContext';
 import { toast } from '../../lib/toast';
 
 export function LoginPage() {
+    const { t } = useTranslation();
     const { login, register } = useAuth();
     const [mode, setMode] = useState('login'); // 'login' | 'register'
     const [email, setEmail] = useState('');
@@ -26,25 +28,25 @@ export function LoginPage() {
         e.preventDefault();
         setError('');
         if (!email || !password) {
-            setError('Cal indicar email i contrasenya.');
+            setError(t('auth.missing_fields', 'Cal indicar email i contrasenya.'));
             return;
         }
         if (isRegister && password.length < 8) {
-            setError('La contrasenya ha de tenir almenys 8 caràcters.');
+            setError(t('auth.password_too_short', 'La contrasenya ha de tenir almenys 8 caràcters.'));
             return;
         }
         setSubmitting(true);
         try {
             if (isRegister) {
                 await register(email, password, name);
-                toast.success('Compte creat. Benvingut/da a Gnosi!');
+                toast.success(t('auth.register_success', 'Compte creat. Benvingut/da a Gnosi!'));
             } else {
                 await login(email, password);
-                toast.success('Sessió iniciada.');
+                toast.success(t('auth.login_success', 'Sessió iniciada.'));
             }
-            // No cal navegar: AuthProvider actualitza `user` i App rendaritza l'app.
+            // No need to navigate: AuthProvider updates `user` and App renders the app.
         } catch (err) {
-            setError(err.message || "Error d'autenticació.");
+            setError(err.message || t('auth.auth_error', "Error d'autenticació."));
         } finally {
             setSubmitting(false);
         }
@@ -102,10 +104,10 @@ export function LoginPage() {
                         G
                     </div>
                     <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                        {isRegister ? 'Crea el teu compte' : 'Benvingut/da a Gnosi'}
+                        {isRegister ? t('auth.register_title', 'Crea el teu compte') : t('auth.login_title', 'Benvingut/da a Gnosi')}
                     </h1>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        {isRegister ? 'Uneix-te al teu espai de treball' : 'Inicia sessió per continuar'}
+                        {isRegister ? t('auth.register_subtitle', 'Uneix-te al teu espai de treball') : t('auth.login_subtitle', 'Inicia sessió per continuar')}
                     </p>
                 </div>
 
@@ -113,7 +115,7 @@ export function LoginPage() {
                     <input
                         className="gnosi-input"
                         type="text"
-                        placeholder="Nom (opcional)"
+                        placeholder={t('auth.name_placeholder', 'Nom (opcional)')}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         autoComplete="name"
@@ -123,7 +125,7 @@ export function LoginPage() {
                 <input
                     className="gnosi-input"
                     type="email"
-                    placeholder="Email"
+                    placeholder={t('auth.email_placeholder', 'Email')}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     autoComplete="email"
@@ -133,7 +135,7 @@ export function LoginPage() {
                 <input
                     className="gnosi-input"
                     type="password"
-                    placeholder="Contrasenya"
+                    placeholder={t('auth.password_placeholder', 'Contrasenya')}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete={isRegister ? 'new-password' : 'current-password'}
@@ -182,7 +184,7 @@ export function LoginPage() {
                     ) : (
                         <LogIn size={16} />
                     )}
-                    {submitting ? 'Processant…' : isRegister ? 'Crear compte' : 'Entrar'}
+                    {submitting ? t('auth.processing', 'Processant…') : isRegister ? t('auth.create_account_btn', 'Crear compte') : t('auth.enter_btn', 'Entrar')}
                 </button>
 
                 <button
@@ -197,7 +199,7 @@ export function LoginPage() {
                         padding: '4px',
                     }}
                 >
-                    {isRegister ? 'Ja tens compte? Inicia sessió' : 'No tens compte? Registra-t’hi'}
+                    {isRegister ? t('auth.switch_to_login', 'Ja tens compte? Inicia sessió') : t('auth.switch_to_register', 'No tens compte? Registra-t’hi')}
                 </button>
             </form>
         </div>

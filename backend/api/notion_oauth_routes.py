@@ -1,12 +1,12 @@
-"""OAuth 2.1 cap a l'MCP allotjat de Notion (mcp.notion.com) — per a la recreació de vistes.
+"""OAuth 2.1 to Notion's hosted MCP (mcp.notion.com) — for recreating views.
 
-L'MCP de Notion NO usa l'OAuth d'integració estàndard: té el seu propi servidor OAuth 2.1
-amb **registre dinàmic de client (DCR)** + **PKCE** (client públic, sense secret). Flux:
-  /login    → discovery + DCR (client_id) + PKCE → redirigeix a authorize
-  /callback → bescanvia el codi (amb code_verifier) a /token → desa el token a integrations.json
-El token resultant és el Bearer per a `services/notion_mcp` (mcp.notion.com/mcp).
+Notion's MCP does NOT use standard integration OAuth: it has its own OAuth 2.1 server
+with **dynamic client registration (DCR)** + **PKCE** (public client, no secret). Flow:
+  /login    → discovery + DCR (client_id) + PKCE → redirects to authorize
+  /callback → exchanges the code (with code_verifier) at /token → saves the token to integrations.json
+The resulting token is the Bearer for `services/notion_mcp` (mcp.notion.com/mcp).
 
-No cal cap app OAuth manual ni client secret (el registre és dinàmic).
+No manual OAuth app or client secret needed (registration is dynamic).
 """
 import base64
 import hashlib
@@ -29,17 +29,18 @@ _BASE = lambda: get_env("NOTION_MCP_BASE", "https://mcp.notion.com").rstrip("/")
 _REDIRECT = lambda: get_env("NOTION_OAUTH_REDIRECT_URI", "http://localhost:5002/api/notion-oauth/callback")
 _FRONTEND = lambda: get_env("FRONTEND_BASE_URL", "http://localhost:5173")
 
-# Secrets de PRIMERA CLASSE via IntegrationManager (lock + cau compartits): claus
+# FIRST-CLASS secrets via IntegrationManager (shared lock + cache): keys
 # `notion_mcp` (token), `notion_mcp_client` (client_id DCR), `notion_mcp_pending` (PKCE).
 
 
 def _frontend_base(request: Request) -> str:
-    """Origen REAL del frontend (esquema + host) derivat de la petició de /login.
+    """REAL frontend origin (scheme + host) derived from the /login request.
 
-    El dev server serveix HTTPS al 5173 (mkcert), però FRONTEND_BASE_URL per defecte és
-    http:// → redirigir-hi després de l'OAuth dóna "Empty reply". Agafem l'origen de la
-    capçalera Referer/Origin de la navegació (mateix origen, proxied) per tornar al MATEIX
-    esquema/host des d'on s'ha clicat. Fallback a FRONTEND_BASE_URL si no n'hi ha.
+    The dev server serves HTTPS on 5173 (mkcert), but FRONTEND_BASE_URL defaults to
+    http:// → redirecting there after OAuth gives "Empty reply". We take the origin from the
+    navigation's Referer/Origin header (same origin, proxied) to go back to the SAME
+    scheme/host it was clicked from. Falls back to FRONTEND_BASE_URL if there is none.
+    
     """
     ref = request.headers.get("origin") or request.headers.get("referer")
     if ref:
@@ -53,7 +54,7 @@ def _frontend_base(request: Request) -> str:
 
 
 def _discover() -> dict:
-    """Endpoints del servidor OAuth de l'MCP (well-known), amb fallback als coneguts."""
+    """MCP OAuth server endpoints (well-known), with fallback to the known ones."""
     base = _BASE()
     defaults = {"authorization_endpoint": f"{base}/authorize",
                 "token_endpoint": f"{base}/token",
@@ -70,7 +71,7 @@ def _discover() -> dict:
 
 
 def _register_client(registration_endpoint: str) -> str:
-    """Registre dinàmic (cau el client_id a integrations.json per reusar-lo)."""
+    """Dynamic registration (caches the client_id in integrations.json to reuse it)."""
     cached = (integration_manager.get_raw("notion_mcp_client") or {}).get("client_id")
     if cached:
         return cached
@@ -109,8 +110,8 @@ async def login(request: Request):
         client_id = _register_client(endpoints["registration_endpoint"])
         verifier, challenge = _pkce()
         state = secrets.token_urlsafe(24)
-        # desa l'estat pendent (state → verifier + origen del frontend) per al callback;
-        # `update` fa merge atòmic sota lock → afegeix aquest state sense trepitjar altres.
+        # saves the pending state (state → verifier + frontend origin) for the callback;
+        # `update` does an atomic merge under lock → adds this state without stepping on others.
         integration_manager.update("notion_mcp_pending",
                                    {state: {"verifier": verifier, "client_id": client_id, "frontend": front}})
         params = {
@@ -132,7 +133,7 @@ async def callback(request: Request):
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     pend = (integration_manager.get_raw("notion_mcp_pending") or {}).get(state) if state else None
-    # torna al MATEIX origen del frontend des d'on s'ha iniciat (desat a /login); fallback a env.
+    # returns to the SAME frontend origin it was initiated from (saved at /login); fallback to env.
     front = (pend or {}).get("frontend") or _FRONTEND()
     if not code or not pend:
         return RedirectResponse(url=f"{front}/?notion_mcp=error")
@@ -159,10 +160,10 @@ async def callback(request: Request):
     integration_manager.replace_key("notion_mcp", {
         "token": access, "refresh_token": tok.get("refresh_token"),
         "token_type": tok.get("token_type")})
-    integration_manager.replace_key("notion_mcp_pending", {})  # neteja els pendents
+    integration_manager.replace_key("notion_mcp_pending", {})  # cleans up the pending ones
     try:
         from backend.services import notion_mcp
-        notion_mcp.reset_health()   # token nou → reobre el tallafoc
+        notion_mcp.reset_health()   # new token → reopens the firewall
     except Exception:
         pass
     return RedirectResponse(url=f"{front}/?notion_mcp=ok")

@@ -17,13 +17,14 @@ def create_local_note(
     note_type: str = "Nota permanent"
 ) -> Dict[str, Any]:
     """
-    Crea una nova nota Markdown a la Vault local.
+        Creates a new Markdown note in the local Vault.
+    
     """
     vault_path = get_active_vault_path()
     if not vault_path:
         raise ValueError("No s'ha pogut determinar el camí de la Vault.")
 
-    # Determinar la carpeta de destí segons el tipus de nota
+    # Determine the destination folder based on the note type
     tn_lower = note_type.lower()
     if "permanent" in tn_lower or "wiki" in tn_lower:
         target_dir = vault_path / "Wiki"
@@ -34,7 +35,7 @@ def create_local_note(
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # Netejar el títol per al nom del fitxer
+    # Clean up the title for the file name
     safe_title = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", title).strip()
     safe_title = re.sub(r"\s+", " ", safe_title)
     if not safe_title:
@@ -42,7 +43,7 @@ def create_local_note(
 
     file_path = target_dir / f"{safe_title}.md"
     
-    # Evitar sobreescriure si ja existeix (afegir sufix si cal)
+    # Avoid overwriting if it already exists (add a suffix if needed)
     counter = 1
     original_path = file_path
     while file_path.exists():
@@ -56,10 +57,10 @@ def create_local_note(
         "tags": tags or [],
         "type": note_type,
         "created_time": now,
-        "id": os.urandom(8).hex() # Generem un ID local curt o UUID si cal
+        "id": os.urandom(8).hex() # Generate a short local ID or UUID if needed
     }
 
-    # Escriure el fitxer
+    # Write the file
     post = frontmatter.Post(content, **metadata)
     try:
         with open(file_path, "wb") as f:
@@ -78,7 +79,8 @@ def create_local_note(
 
 def update_local_note_relations(file_path: str, new_mentions: List[str]):
     """
-    Actualitza les relacions/mencions d'una nota existent.
+        Updates the relations/mentions of an existing note.
+    
     """
     p = Path(file_path)
     if not p.exists():
@@ -91,7 +93,7 @@ def update_local_note_relations(file_path: str, new_mentions: List[str]):
         if not isinstance(current_mentions, list):
             current_mentions = [current_mentions] if current_mentions else []
         
-        # Unió de mencions
+        # Union of mentions
         updated_mentions = list(set(current_mentions + new_mentions))
         
         if len(updated_mentions) != len(current_mentions):

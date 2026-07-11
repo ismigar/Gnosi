@@ -5,23 +5,23 @@ import { Sparkles, ChevronRight, X, Plus, ArrowUpRight } from 'lucide-react';
 import { toast } from '../../lib/toast';
 
 /**
- * Renderitza i edita la clau `Zotero Extras` del frontmatter (un dict amb
- * camps Zotero rars: patentNumber, conferenceName, meetingName, ...).
+ * Renders and edits the `Zotero Extras` key of the frontmatter (a dict with
+ * rare Zotero fields: patentNumber, conferenceName, meetingName, ...).
  *
- * Edició:
- *   - Cada camp té un input editable. onChange propaga el dict sencer
- *     amb el camp actualitzat al callback `onChange` del caller.
- *   - Cada camp té un botó X per esborrar-lo individualment.
- *   - Al final, un row "afegir camp" amb 2 inputs (clau + valor) i botó +.
+ * Editing:
+ *   - Each field has an editable input. onChange propagates the whole dict
+ *     with the updated field to the caller's `onChange` callback.
+ *   - Each field has an X button to delete it individually.
+ *   - At the end, an "add field" row with 2 inputs (key + value) and a + button.
  *
- * Quan no queden camps:
- *   - Si el caller passa `onRemoveAll`, l'invoquem perquè elimini la
- *     clau `Zotero Extras` sencera del frontmatter (no deixar un dict buit).
- *   - Si no, queda un dict buit i la secció es deixa de renderitzar
- *     per la guarda d'`entries.length === 0`.
+ * When no fields remain:
+ *   - If the caller passes `onRemoveAll`, we invoke it so it removes the
+ *     entire `Zotero Extras` key from the frontmatter (avoid leaving an empty dict).
+ *   - Otherwise, an empty dict remains and the section stops rendering
+ *     due to the `entries.length === 0` guard.
  *
- * Lectura-només via `readOnly` (deshabilita inputs i botons). Útil per a
- * usuaris no-editors o per a renderitzats en visualitzacions read-only.
+ * Read-only via `readOnly` (disables inputs and buttons). Useful for
+ * non-editor users or for rendering in read-only views.
  */
 export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = false, tableId, onPromoted }) {
     const { t } = useTranslation();
@@ -40,7 +40,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
         const next = { ...extras };
         delete next[key];
         if (Object.keys(next).length === 0 && onRemoveAll) {
-            // Notifica al caller que pot eliminar la clau sencera del frontmatter.
+            // Notifies the caller that it can remove the entire key from the frontmatter.
             onRemoveAll();
             return;
         }
@@ -90,10 +90,10 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
         }
     }, [promoting, tableId, onPromoted, t]);
 
-    // Early returns DESPRÉS de tots els hooks (regla dels hooks de React): si es
-    // posaven abans, els `useCallback` de sobre es cridaven condicionalment i,
-    // en canviar `extras` entre renders (p. ex. una pàgina de referència que
-    // carrega o un camp que s'esborra), React petava amb "Rendered more/fewer
+    // Early returns AFTER all hooks (React's rules of hooks): if they were
+    // placed earlier, the `useCallback`s above would be called conditionally, and,
+    // when `extras` changes between renders (e.g. a reference page that
+    // loads, or a field being deleted), React would crash with "Rendered more/fewer
     // hooks than during the previous render".
     if (!extras || typeof extras !== 'object' || Array.isArray(extras)) return null;
     const entries = Object.entries(extras).filter(([, v]) => v !== null && v !== undefined && v !== '');
@@ -118,11 +118,9 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
             </summary>
             <div className="px-3 py-2.5 border-t border-[var(--border-primary)]/50">
                 <p className="text-[11px] text-[var(--text-tertiary)] italic mb-2">
-                    {t('zotero_extras.hint_editable', {
-                        defaultValue: readOnly
-                            ? 'Camps importats des de Zotero que no tenen columna pròpia al Vault.'
-                            : 'Camps importats des de Zotero. Editables a la cel·la; X per esborrar; + per afegir.',
-                    })}
+                    {readOnly
+                        ? t('zotero_extras.hint_readonly', 'Camps importats des de Zotero que no tenen columna pròpia al Vault.')
+                        : t('zotero_extras.hint_editable', 'Camps importats des de Zotero. Editables a la cel·la; X per esborrar; + per afegir.')}
                 </p>
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] gap-x-2 gap-y-1.5 text-xs items-center">
                     {entries.map(([k, v]) => (

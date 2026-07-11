@@ -1,30 +1,30 @@
 /**
  * vaultFilters.js
- * Utilitats compartides de filtratge per al Vault i el Graf.
+ * Shared filtering utilities for the Vault and the Graph.
  */
 
-// Valors que un checkbox considera "marcat" (paritat amb el backend:
-// rule_engine._is_truthy_checkbox i view_snapshot._as_bool). Qualsevol altra
-// cosa —camp absent, "", "false", 0…— és "no marcat".
+// Values that a checkbox considers "checked" (parity with the backend:
+// rule_engine._is_truthy_checkbox and view_snapshot._as_bool). Any other
+// anything else —missing field, "", "false", 0…— is "unchecked".
 const TRUTHY = new Set(['true', '1', 'yes', 'si', 'sí', 'done', 'checked', 'completat']);
 
-// Un valor només compta com a NUMÈRIC si TOTA la cadena és un número (dígits,
+// A value only counts as NUMERIC if the WHOLE string is a number (digits,
 // separadors, exponent). `parseFloat` parseja PREFIXOS ('2024-07-05' → 2024),
-// així que sense aquesta comprovació les dates es tractaven com a números (i el
-// filtre per rang de dates / l'ordenació fallaven). Font de veritat compartida
-// pels 3 motors de filtre (matchesFilters, DbViewEmbed.applyFilter) i pel
-// comparador d'ordenació (compareFieldValues); paritat amb `_FULL_NUMERIC_RE`
-// del backend (view_snapshot.py).
+// so without this check dates were being treated as numbers (and the
+// date-range filter / sorting were failing). Shared source of truth
+// for the 3 filter engines (matchesFilters, DbViewEmbed.applyFilter) and for the
+// sort comparator (compareFieldValues); parity with `_FULL_NUMERIC_RE`
+// from the backend (view_snapshot.py).
 export const NUM_RE = /^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$/;
 
-// Un valor "sembla una data ISO" si comença per YYYY-MM (data, datetime o mes
-// nu). Amb un target numèric (any nu, p. ex. `> 2020`), les dates ISO casen per
-// comparació lexicogràfica (cronològica en ASCII) però el text arbitrari ("foo")
-// NO. Compartida pels 3 motors; paritat amb `_ISO_DATE_RE` del backend.
+// A value "looks like an ISO date" if it starts with YYYY-MM (bare date,
+// datetime, or bare month). With a numeric target (bare year, e.g. `> 2020`), ISO dates match via
+// lexicographic comparison (chronological in ASCII) but arbitrary text ("foo")
+// does NOT. Shared by the 3 engines; parity with the backend's `_ISO_DATE_RE`.
 export const ISO_DATE_RE = /^\d{4}-\d{2}/;
 
-// Exportada perquè rollupUtils (percent_checked) compti els checkbox amb la
-// MATEIXA lògica de veritat que els filtres.
+// Exported so that rollupUtils (percent_checked) counts checkboxes with the
+// SAME truthiness logic as the filters.
 export function asBool(x) {
     if (x === true) return true;
     if (x === false || x === null || x === undefined || x === '') return false;
@@ -32,42 +32,42 @@ export function asBool(x) {
     return TRUTHY.has(String(x).trim().toLowerCase());
 }
 
-// Parseja un valor numèric tolerant amb el decimal LOCAL (coma): "0,25" → 0.25.
-// `parseFloat` s'atura a la coma ("0,25" → 0), de manera que un camp number amb
-// valors en format català/castellà s'ordenava i es filtrava malament (tots els
-// "0,xx" empataven a 0). Només el cas INEQUÍVOC (una sola coma, sense punt de
-// milers); la resta cau a parseFloat (compatible amb "0.25", "5", "12.5"…).
-// Exportada perquè DbViewEmbed.applyFilter compari els números amb la MATEIXA
-// semàntica (paritat entre el filtre de la vista principal i l'incrustada).
+// Parses a numeric value tolerant of the LOCAL decimal (comma): "0,25" → 0.25.
+// `parseFloat` stops at the comma ("0,25" → 0), so a number field with
+// values in Catalan/Castilian format was being sorted and filtered incorrectly (all the
+// "0,xx" values tied at 0). Only the UNAMBIGUOUS case (a single comma, with no
+// thousands); the rest falls back to parseFloat (compatible with "0.25", "5", "12.5"…).
+// Exported so that DbViewEmbed.applyFilter compares numbers with the SAME
+// semantics (parity between the main view's filter and the embedded one's).
 export function parseNumericValue(s) {
     const t = String(s).trim();
     return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
 }
 
 /**
- * Aplica una llista de filtres a una pàgina/node.
+ * Applies a list of filters to a page/node.
  * 
- * @param {Object} item - L'objecte a filtrar (pàgina del vault o node del graf)
- * @param {Array} filters - Llista de filtres [{ field, operator, value }]
- * @returns {boolean} - True si l'objecte compleix TOTS els filtres
+ * @param {Object} item - The object to filter (vault page or graph node)
+ * @param {Array} filters - List of filters [{ field, operator, value }]
+ * @returns {boolean} - True if the object satisfies ALL filters
  */
 export function matchesFilters(item, filters = []) {
     if (!filters || filters.length === 0) return true;
 
     return filters.every(filter => {
-        // Obtenir el valor del camp (suporta 'title' especial o metadata)
+        // Get the field's value (supports special 'title' or metadata)
         const rawVal = filter.field === 'title'
             ? (item.title || item.label || '')
             : ((item.metadata || {})[filter.field] ?? (item[filter.field] ?? ''));
         
-        // Normalitza el valor a un array de strings —paritat 1:1 amb el motor
-        // de snapshot del backend (view_snapshot.apply_filter) i el de les
-        // vistes incrustades (DbViewEmbed.applyFilter)—. Un camp multi_select
-        // (o una relació multivalor) arriba com a ARRAY: tractar-lo com una
-        // sola cadena (`String(['a','b'])` → "a,b") feia que `equals` no casés
-        // MAI (la vista principal amagava files que SÍ contenien el valor) i
-        // que `not_equals` casés SEMPRE. Comparem per pertinença, en minúscules
-        // (case-insensitive, coherent amb la resta del filtre).
+        // Normalizes the value to an array of strings —1:1 parity with the
+        // backend's snapshot engine (view_snapshot.apply_filter) and the one for
+        // embedded views (DbViewEmbed.applyFilter)—. A multi_select field
+        // (or a multi-value relation) arrives as an ARRAY: treating it as a
+        // single string (`String(['a','b'])` → "a,b") made `equals` never
+        // match (the main view was hiding rows that DID contain the value) and
+        // made `not_equals` ALWAYS match. We compare by membership, in lowercase
+        // (case-insensitive, consistent with the rest of the filter).
         const arr = Array.isArray(rawVal)
             ? rawVal.map(x => String(x))
             : (rawVal === null || rawVal === undefined || rawVal === '' ? [] : [String(rawVal)]);
@@ -75,9 +75,9 @@ export function matchesFilters(item, filters = []) {
         const filterVal = String(filter.value || '').toLowerCase();
 
         switch (filter.operator) {
-            // Quan el valor del filtre és booleà (checkbox: "true"/"false"),
-            // comparem per veritat —no per cadena— perquè un camp sense valor
-            // compti com a "no marcat" i casi amb "false".
+            // When the filter value is boolean (checkbox: "true"/"false"),
+            // we compare by truthiness —not by string— so that a field with no value
+            // counts as "unchecked" and matches "false".
             case 'equals':
                 if (filterVal === 'true' || filterVal === 'false') return asBool(rawVal) === (filterVal === 'true');
                 return arrLower.includes(filterVal);
@@ -88,11 +88,11 @@ export function matchesFilters(item, filters = []) {
             case 'not_contains': return !arrLower.some(x => x.includes(filterVal));
             case 'is_empty': return arr.length === 0;
             case 'is_not_empty': return arr.length > 0;
-            // major/menor que: si TOTS DOS (valor i filtre) són números purs
-            // (NUM_RE, que EXCLOU les dates "YYYY-MM-DD"), comparació numèrica
-            // amb `parseNumericValue` ('12,5' → 12.5, decimal de coma); si no,
-            // comparació de CADENA en minúscules. Per a dates ISO l'ordre
-            // lexicogràfic és cronològic (paritat amb DbViewEmbed/backend).
+            // greater/less than: if BOTH (value and filter) are pure numbers
+            // (NUM_RE, which EXCLUDES "YYYY-MM-DD" dates), numeric comparison
+            // with `parseNumericValue` ('12,5' → 12.5, comma decimal); otherwise,
+            // lowercase STRING comparison. For ISO dates the
+            // lexicographic order is chronological (parity with DbViewEmbed/backend).
             case 'greater_than':
             case 'less_than': {
                 const gt = filter.operator === 'greater_than';
@@ -103,10 +103,10 @@ export function matchesFilters(item, filters = []) {
                         const n1 = parseNumericValue(x), n2 = parseNumericValue(filterVal);
                         return gt ? n1 > n2 : n1 < n2;
                     }
-                    // Target numèric (any nu) amb un valor que NO és numèric: només
-                    // casa si el valor és una data ISO (`> 2020` sobre "2024-01-15",
-                    // lexicogràfic = cronològic). Un text arbitrari ("foo") NO casa
-                    // amb un llindar numèric — abans hi queia i divergia del backend.
+                    // Numeric target (bare year) with a value that is NOT numeric: it only
+                    // matches if the value is an ISO date (`> 2020` against "2024-01-15",
+                    // lexicographic = chronological). Arbitrary text ("foo") does NOT match
+                    // a numeric threshold — it used to fall into this and diverge from the backend.
                     if (targetNum && !ISO_DATE_RE.test(xt)) return false;
                     const xl = arrLower[i];
                     return gt ? xl > filterVal : xl < filterVal;
@@ -118,34 +118,34 @@ export function matchesFilters(item, filters = []) {
 }
 
 /**
- * Normalitza un valor per a l'ordenació: descarta la puntuació i els
- * símbols inicials (¿ ? ¡ ! « » " ' - etc.) perquè «¿Què és?» ordeni
- * com «Què és» i no s'agrupi al principi per culpa del signe d'obertura.
+ * Normalizes a value for sorting: strips punctuation and leading
+ * symbols (¿ ? ¡ ! « » " ' - etc.) so that «¿Què és?» sorts
+ * like «Què és» and isn't grouped at the top because of the opening mark.
  *
- * @param {*} value - El valor a normalitzar
- * @returns {string} - El valor sense puntuació/símbols inicials
+ * @param {*} value - The value to normalize
+ * @returns {string} - The value without punctuation/leading symbols
  */
 export function sortKey(value) {
     return String(value ?? '').replace(/^[\p{P}\p{S}\s]+/u, '');
 }
 
 /**
- * Comparador d'un sol camp per a l'ordenació de vistes. ÚNICA font de veritat
- * perquè la vista principal (useVaultViewData), les vistes incrustades
- * (DbViewEmbed.multiKeySort) i —idealment— el snapshot del backend
- * (view_snapshot.multi_key_sort) ordenin EXACTAMENT igual:
- *  - els valors BUITS van SEMPRE al final, independentment de la direcció
- *    (com a Notion); sense això una columna poc poblada feia surar les files
- *    buides al capdamunt en ordre ascendent.
- *  - si tots dos valors són NUMÈRICS, ordre numèric real (2 < 10, no "10" < "2").
- *  - si no, `localeCompare` amb normalització (sortKey), locale 'ca' i
- *    sensibilitat 'base' (insensible a accents/majúscules).
- * La direcció s'aplica NOMÉS a la part no-buida; el cridador no l'ha de negar.
+ * Single-field comparator for view sorting. SINGLE source of truth
+ * so that the main view (useVaultViewData), embedded views
+ * (DbViewEmbed.multiKeySort) and —ideally— the backend snapshot
+ * (view_snapshot.multi_key_sort) sort EXACTLY the same way:
+ *  - EMPTY values ALWAYS go last, regardless of direction
+ *    (like Notion); without this a sparsely populated column made
+ *    empty rows float to the top in ascending order.
+ *  - if both values are NUMERIC, real numeric order (2 < 10, not "10" < "2").
+ *  - otherwise, `localeCompare` with normalization (sortKey), locale 'ca' and
+ *    'base' sensitivity (insensitive to accents/case).
+ * The direction is applied ONLY to the non-empty part; the caller must not negate it.
  *
- * @param {*} aRaw - valor del camp de l'element A (escalar o array)
- * @param {*} bRaw - valor del camp de l'element B
- * @param {string} direction - 'asc' (per defecte) o 'desc'
- * @returns {number} negatiu si A va abans, positiu si després, 0 si empat
+ * @param {*} aRaw - field value of element A (scalar or array)
+ * @param {*} bRaw - field value of element B
+ * @param {string} direction - 'asc' (default) or 'desc'
+ * @returns {number} negative if A goes before, positive if after, 0 if tied
  */
 export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
     const aVal = String(aRaw ?? '');
@@ -154,14 +154,14 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
     const bEmpty = bVal.trim() === '';
     if (aEmpty || bEmpty) {
         if (aEmpty && bEmpty) return 0;
-        return aEmpty ? 1 : -1; // buits sempre al final
+        return aEmpty ? 1 : -1; // empty values always last
     }
-    // Només tractem el valor com a NUMÈRIC si TOTA la cadena és un número
-    // (NUM_RE, que EXCLOU les dates): `parseFloat`/`parseNumericValue` parsegen
-    // PREFIXOS ('2024-07-05' → 2024), i sense aquest filtre les dates del mateix
-    // any es comparaven iguals i l'ordre de DATA fallava. Les dates i el text
-    // passen al fallback de cadena. Per als números usem `parseNumericValue`
-    // ('12,5' → 12.5, decimal de coma; #505).
+    // We only treat the value as NUMERIC if the WHOLE string is a number
+    // (NUM_RE, which EXCLUDES dates): `parseFloat`/`parseNumericValue` parse
+    // PREFIXES ('2024-07-05' → 2024), and without this filter dates from the same
+    // year compared as equal and DATE ordering failed. Dates and text
+    // fall through to the string fallback. For numbers we use `parseNumericValue`
+    // ('12,5' → 12.5, comma decimal; #505).
     const isNumeric = NUM_RE.test(aVal.trim()) && NUM_RE.test(bVal.trim());
     let cmp = isNumeric
         ? parseNumericValue(aVal) - parseNumericValue(bVal)
@@ -171,21 +171,21 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
 }
 
 /**
- * Normalitza un text per a la cerca: minúscules i SENSE diacrítics (NFD +
- * eliminació de les marques combinants). Així cercar "merce"/"informacio"/
- * "franca" troba "Mercè"/"Informació"/"França" —com s'espera en un vault
- * català/castellà, on l'usuari no acostuma a teclejar els accents—. La cedilla
- * (ç→c) i la titlla (ñ→n) també es decomponen i s'eliminen.
+ * Normalizes a text for search: lowercase and WITHOUT diacritics (NFD +
+ * removal of combining marks). This way searching "merce"/"informacio"/
+ * "franca" finds "Mercè"/"Informació"/"França" —as expected in a
+ * Catalan/Castilian vault, where the user doesn't usually type the accents—. The cedilla
+ * (ç→c) and the tilde (ñ→n) are also decomposed and removed.
  */
 export const normalizeForSearch = (s) =>
     String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 /**
- * Aplica una cerca de text al títol i metadata.
+ * Applies a text search to the title and metadata.
  *
- * @param {Object} item - L'objecte a cercar
- * @param {string} searchTerm - El text de cerca
- * @returns {boolean} - True si el text es troba a l'objecte
+ * @param {Object} item - The object to search
+ * @param {string} searchTerm - The search text
+ * @returns {boolean} - True if the text is found in the object
  */
 export function matchesSearch(item, searchTerm = '') {
     if (!searchTerm || !searchTerm.trim()) return true;

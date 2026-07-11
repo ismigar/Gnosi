@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
 """
-OneDrive warmup daemon (executar al **host**, no dins de Docker).
+OneDrive warmup daemon (run on the **host**, not inside Docker).
 
-El backend de Gnosi corre dins de Docker amb un bind-mount al directori
-OneDrive del macOS. Per a fitxers `online-only` (st_blocks==0) la lectura
-dins del contenidor falla amb `OSError [Errno 35] Resource deadlock avoided`
-perquè el File Provider d'OneDrive no rep el "trigger" a través del
-bind-mount grpcfuse.
+Gnosi's backend runs inside Docker with a bind-mount to the macOS
+OneDrive directory. For `online-only` files (st_blocks==0), reading
+inside the container fails with `OSError [Errno 35] Resource deadlock avoided`
+because OneDrive's File Provider doesn't receive the "trigger" through the
+grpcfuse bind-mount.
 
-Aquest daemon, executat al host, materialitza el fitxer obrint-lo (cosa
-que sí dispara el File Provider del Mac) i espera fins que estigui
-descarregat. El backend Docker el crida via `host.docker.internal:5009`.
+This daemon, run on the host, materializes the file by opening it (which
+does trigger the Mac's File Provider) and waits until it's
+downloaded. The Docker backend calls it via `host.docker.internal:5009`.
 
-A més de la materialització, el daemon genera **thumbnails** mitjançant
-`qlmanage` (QuickLook nativa de macOS) per a fitxers no-imatge (vídeos,
-PDFs, etc.) que `<img>` no pot renderitzar al frontend.
+Besides materialization, the daemon generates **thumbnails** via
+`qlmanage` (macOS's native QuickLook) for non-image files (videos,
+PDFs, etc.) that `<img>` can't render on the frontend.
 
 Endpoints:
   GET /warmup?path=<absolute_host_path>
@@ -31,19 +31,19 @@ Endpoints:
   → 408 {"status":"qlmanage_timeout"}
   → 500 {"status":"qlmanage_failed", ...}
 
-Variables d'entorn:
+Environment variables:
   ONEDRIVE_WARMUP_PORT (default: 5009)
-  ONEDRIVE_WARMUP_BIND (default: 0.0.0.0; el contenidor el veu via
-    host.docker.internal, que en macOS resol al host)
-  ONEDRIVE_WARMUP_ALLOWED_ROOTS (recomanat): llista de directoris
-    autoritzats per a la materialització, separats per ':'. Tot path
-    que `resolve()` cau sota qualsevol d'aquests roots és acceptat.
-    Útil quan el Vault té enllaços a PDFs/imatges d'altres carpetes
-    d'OneDrive (Documents, Desktop, etc.) — sense això, el daemon
-    respon `out_of_scope` i el frontend rep un 503.
-  VAULT_HOST_PATH (legacy, fallback): un únic root. Es manté per
-    compatibilitat: si ALLOWED_ROOTS no està definida, només
-    s'autoritza VAULT_HOST_PATH.
+  ONEDRIVE_WARMUP_BIND (default: 0.0.0.0; the container sees it via
+    host.docker.internal, which resolves to the host on macOS)
+  ONEDRIVE_WARMUP_ALLOWED_ROOTS (recommended): list of directories
+    authorized for materialization, ':'-separated. Any path
+    whose `resolve()` falls under any of these roots is accepted.
+    Useful when the Vault has links to PDFs/images in other OneDrive
+    folders (Documents, Desktop, etc.) — without this, the daemon
+    responds `out_of_scope` and the frontend gets a 503.
+  VAULT_HOST_PATH (legacy, fallback): a single root. Kept for
+    backward compatibility: if ALLOWED_ROOTS isn't defined, only
+    VAULT_HOST_PATH is authorized.
   ONEDRIVE_WARMUP_TIMEOUT (default: 90)
   THUMB_CACHE_DIR (default: ~/.cache/gnosi/thumbs)
   THUMB_QLMANAGE_TIMEOUT (default: 30)
@@ -65,26 +65,27 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 PORT = int(os.environ.get("ONEDRIVE_WARMUP_PORT", "5009"))
-# host.docker.internal resol a l'IP del host des del contenidor; bind a totes
-# les interfícies perquè Docker hi pugui accedir. En macOS, escoltar a
-# 0.0.0.0 NO exposa el port a la xarxa externa si la firewall hi és (per
-# defecte ho està); igualment es pot acotar a 127.0.0.1 si el contenidor
-# accedeix via passa per gateway, però llavors `host.docker.internal` no
-# arriba. Per defecte 0.0.0.0 i confiem en la firewall del macOS.
+# host.docker.internal resolves to the host's IP from the container; bind to all
+# interfaces so Docker can access it. On macOS, listening on
+# 0.0.0.0 does NOT expose the port to the external network if the firewall is on (it is
+# on by default); it can equally be restricted to 127.0.0.1 if the container
+# accesses it via the gateway, but then `host.docker.internal` wouldn't
+# arrives. Defaults to 0.0.0.0 and we rely on the macOS firewall.
 BIND = os.environ.get("ONEDRIVE_WARMUP_BIND", "0.0.0.0")
 TIMEOUT_S = float(os.environ.get("ONEDRIVE_WARMUP_TIMEOUT", "90"))
 
 
 def _parse_allowed_roots() -> list[Path]:
-    """Construeix la llista d'arrels permeses des de les env vars.
+    """Builds the list of allowed roots from the env vars.
 
-    Prioritat:
-      1. ONEDRIVE_WARMUP_ALLOWED_ROOTS (':'-separated, com $PATH)
-      2. VAULT_HOST_PATH (legacy, un sol root)
+    Priority:
+      1. ONEDRIVE_WARMUP_ALLOWED_ROOTS (':'-separated, like $PATH)
+      2. VAULT_HOST_PATH (legacy, a single root)
 
-    Cada root es resol a path absolut amb `.resolve()` (segueix
-    symlinks). Filtrem les entrades buides i les que no apunten a un
-    directori existent.
+    Each root is resolved to an absolute path with `.resolve()` (follows
+    symlinks). We filter out empty entries and ones that don't point to an
+    existing directory.
+    
     """
     raw = os.environ.get("ONEDRIVE_WARMUP_ALLOWED_ROOTS", "").strip()
     candidates: list[str] = []
@@ -111,7 +112,7 @@ def _parse_allowed_roots() -> list[Path]:
 
 ALLOWED_ROOTS: list[Path] = []  # poblat a main() — log ja inicialitzat
 
-# Thumbnails (QuickLook). Cache fora d'OneDrive — regla del projecte.
+# Thumbnails (QuickLook). Cache outside OneDrive — project rule.
 THUMB_CACHE_DIR = Path(
     os.environ.get("THUMB_CACHE_DIR", str(Path.home() / ".cache" / "gnosi" / "thumbs"))
 ).resolve()
@@ -122,11 +123,11 @@ THUMB_INFLIGHT = {}  # hash → Event (coalesce concurrent requests)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 log = logging.getLogger("onedrive-warmup")
 
-# Log a fitxer propi, independent del context de llançament. Llançat com a
+# Log to its own file, independent of the launch context. Launched as
 # Login Item (.app AppleScript), stdout/stderr queden capturats pel `do shell
-# script` de l'applet i no arriben a cap fitxer; i no podem afegir redirecció
-# a l'applet sense recompilar-lo (recompilar invalida el seu Full Disk Access
-# a TCC). ONEDRIVE_WARMUP_LOG_FILE="" el desactiva.
+# an applet's `script` and never reach any file; and we can't add redirection
+# to the applet without recompiling it (recompiling invalidates its Full Disk Access
+# to TCC). ONEDRIVE_WARMUP_LOG_FILE="" disables it.
 _LOG_FILE = os.environ.get(
     "ONEDRIVE_WARMUP_LOG_FILE",
     str(Path.home() / "Library" / "Logs" / "Gnosi" / "onedrive-warmup.err"),
@@ -144,21 +145,22 @@ if _LOG_FILE:
 
 
 def _materialize(path: Path) -> dict:
-    """Llegeix el fitxer sencer en un thread aïllat amb deadline TIMEOUT_S.
+    """Reads the entire file in an isolated thread with a TIMEOUT_S deadline.
 
-    En macOS, `read()` sobre un dataless file està sincronitzat amb la
-    baixada del File Provider: el byte només arriba quan ja és local. Si
-    OneDrive no fa progrés (xarxa lenta, sync pausat, fitxer remot
-    inaccessible), `read()` pot quedar bloquejant indefinidament al
-    kernel i la comprovació `time.time() > TIMEOUT_S` entre chunks mai
-    s'avalua.
+    On macOS, `read()` on a dataless file is synchronized with the
+    File Provider's download: the byte only arrives once it's already local. If
+    OneDrive makes no progress (slow network, sync paused, remote file
+    unreachable), `read()` can block indefinitely in the
+    kernel, and the `time.time() > TIMEOUT_S` check between chunks never
+    gets evaluated.
 
-    Per garantir el deadline executem la lectura en un thread daemon i
-    fem join amb timeout. Si el thread no acaba a temps retornem
-    `timeout`; el thread queda corrent en background fins que el read()
-    finalment retorni o el procés daemon mori. Acceptable: així
-    OneDrive té oportunitat d'acabar la baixada i la propera petició
-    pel mateix fitxer ja la trobarà materialitzada.
+    To guarantee the deadline, we run the read in a daemon thread and
+    join it with a timeout. If the thread doesn't finish in time we return
+    `timeout`; the thread keeps running in the background until the read()
+    finally returns or the daemon process dies. Acceptable: this way
+    OneDrive gets a chance to finish the download and the next request
+    for the same file will already find it materialized.
+    
     """
     if not path.exists() or not path.is_file():
         return {"status": "notfound"}
@@ -185,9 +187,9 @@ def _materialize(path: Path) -> dict:
     elapsed = time.time() - t0
 
     if th.is_alive():
-        # Cooperative cancel: si el read() acaba aviat, el thread
-        # surt al següent cicle del while. Si està bloquejat al kernel
-        # ho farà només quan retorni dades, però retornem ja ara.
+        # Cooperative cancel: if the read() finishes early, the thread
+        # exits at the next while cycle. If it's blocked in the kernel
+        # it will only do so once it returns data, but we return right now.
         cancel_event.set()
         log.warning(
             "warmup timeout per %s després de %.1fs (thread continua en bg, bytes_read=%d)",
@@ -207,7 +209,7 @@ def _materialize(path: Path) -> dict:
             "elapsed": elapsed,
         }
 
-    # Re-stat per confirmar que ja està materialitzat.
+    # Re-stat to confirm it's already materialized.
     try:
         blocks = os.stat(str(path)).st_blocks
     except OSError:
@@ -222,8 +224,8 @@ def _materialize(path: Path) -> dict:
 
 
 def _thumb_cache_key(source: Path, size: int) -> str:
-    """SHA-256 de path absolut + mtime + size. Si el fitxer canvia, el hash
-    canvia i regenerem el thumb."""
+    """SHA-256 of the absolute path + mtime + size. If the file changes, the hash
+    changes and we regenerate the thumb."""
     try:
         mtime = source.stat().st_mtime
     except OSError:
@@ -233,9 +235,9 @@ def _thumb_cache_key(source: Path, size: int) -> str:
 
 
 def _generate_thumb(source: Path, size: int) -> dict:
-    """Genera un thumbnail amb `qlmanage -t -s <size>`. Cacha a
-    THUMB_CACHE_DIR/<hash>.png. Coalesce requests concurrents per al
-    mateix hash perquè dos webhooks simultanis no llencin dos qlmanage."""
+    """Generates a thumbnail with `qlmanage -t -s <size>`. Caches to
+    THUMB_CACHE_DIR/<hash>.png. Coalesces concurrent requests for the
+    same hash so that two simultaneous webhooks don't spawn two qlmanage processes."""
     if not source.exists() or not source.is_file():
         return {"status": "notfound"}
 
@@ -246,7 +248,7 @@ def _generate_thumb(source: Path, size: int) -> dict:
     if target.exists() and target.stat().st_size > 0:
         return {"status": "ok", "thumb_path": str(target), "cached": True}
 
-    # Coalesce: si un altre thread ja està generant aquest mateix hash, espera'l.
+    # Coalesce: if another thread is already generating this same hash, wait for it.
     with THUMB_LOCK:
         ev = THUMB_INFLIGHT.get(key)
         if ev is None:
@@ -263,8 +265,8 @@ def _generate_thumb(source: Path, size: int) -> dict:
         return {"status": "qlmanage_failed", "reason": "coalesced_wait_failed"}
 
     try:
-        # qlmanage escriu a <out_dir>/<source_basename>.png. Usem un tmpdir
-        # i després movem al cache amb el nom correcte.
+        # qlmanage writes to <out_dir>/<source_basename>.png. We use a tmpdir
+        # and then move it to the cache with the correct name.
         with tempfile.TemporaryDirectory(prefix="gnosi-thumb-") as tmp:
             t0 = time.time()
             try:
@@ -279,8 +281,8 @@ def _generate_thumb(source: Path, size: int) -> dict:
                 return {"status": "qlmanage_timeout", "elapsed": time.time() - t0}
 
             elapsed = time.time() - t0
-            # qlmanage retorna exit code 0 fins i tot quan falla — cal mirar
-            # si ha generat el fitxer.
+            # qlmanage returns exit code 0 even when it fails — need to check
+            # whether it generated the file.
             produced = list(Path(tmp).glob("*.png"))
             if not produced:
                 log.warning(
@@ -306,7 +308,7 @@ def _generate_thumb(source: Path, size: int) -> dict:
                 "elapsed": elapsed,
             }
     finally:
-        # Despertar threads que esperaven.
+        # Wake up threads that were waiting.
         with THUMB_LOCK:
             THUMB_INFLIGHT.pop(key, None)
         ev.set()
@@ -321,13 +323,13 @@ class WarmupHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def log_message(self, fmt, *args):  # silenciar el log per defecte (sorollós)
+    def log_message(self, fmt, *args):  # silence the log by default (noisy)
         log.info("%s - %s", self.address_string(), fmt % args)
 
     def _parse_and_validate_path(self, parsed):
-        """Extrau ?path=, valida i comprova que està dins d'algun dels
-        ALLOWED_ROOTS. Retorna (Path, None) en èxit, (None, error_response)
-        en error."""
+        """Extract ?path=, validate and check that it is inside one of the
+        ALLOWED_ROOTS. Return (Path, None) on success, (None, error_response)
+        on error."""
         qs = parse_qs(parsed.query)
         raw = (qs.get("path") or [""])[0]
         if not raw:
@@ -376,7 +378,7 @@ class WarmupHandler(BaseHTTPRequestHandler):
                 size = int((qs.get("size") or ["256"])[0])
             except ValueError:
                 size = 256
-            size = max(64, min(size, 1024))  # clampejar a un range raonable
+            size = max(64, min(size, 1024))  # clamp to a reasonable range
             result = _generate_thumb(target, size)
             code = {
                 "ok": 200,

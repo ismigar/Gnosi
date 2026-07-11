@@ -10,9 +10,9 @@ from backend.security.keychain_manager import get_keychain
 from backend.config.env_config import reload_keychain
 from backend.services.workspace_service import require_role
 
-# Auth gate: aquests endpoints gestionen el Keychain (HuggingFace, OpenRouter,
-# Telegram, n8n, OAuth secrets, etc.). En personal mode l'usuari és auto-owner
-# i no es bloqueja; en organitzacio mode només admins poden tocar credentials.
+# Auth gate: these endpoints manage the Keychain (HuggingFace, OpenRouter,
+# Telegram, n8n, OAuth secrets, etc.). In personal mode the user is auto-owner
+# and isn't blocked; in organization mode only admins can touch credentials.
 router = APIRouter(
     prefix="/credentials",
     tags=["Credentials"],
@@ -183,9 +183,9 @@ async def migrate_from_env():
                 key, _, value = line.partition("=")
                 env_vars[key.strip()] = value.strip()
 
-    # Mapping case-insensitive: les env vars són UPPERCASE (NOTION_TOKEN), els
-    # CREDENTIAL_KEYS són lowercase (notion_token). Sense aquesta normalització,
-    # la migració silenciosament no movia res.
+    # Case-insensitive mapping: env vars are UPPERCASE (NOTION_TOKEN), the
+    # CREDENTIAL_KEYS are lowercase (notion_token). Without this normalization,
+    # the migration would silently move nothing.
     cred_keys_lower = {k.lower(): k for k in CREDENTIAL_KEYS}
     for env_key, value in env_vars.items():
         canonical = cred_keys_lower.get(env_key.lower())

@@ -31,8 +31,9 @@ def save_json(data, path):
 
 def validate_legacy(mapping, min_sim=0):
     """
-    Format antic: { "SRC_UUID": [ {"target_id": UUID, "score": 0..1 or 0..100, "similarity": 0..100, ...}, ... ] }
-    Retorna el mateix format, netejat.
+        Old format: { "SRC_UUID": [ {"target_id": UUID, "score": 0..1 or 0..100, "similarity": 0..100, ...}, ... ] }
+    Returns the same format, cleaned.
+    
     """
     out = {}
     stats = dict(
@@ -58,7 +59,7 @@ def validate_legacy(mapping, min_sim=0):
                 stats["removed_selfloops"] += 1
                 continue
 
-            # homogeneïtza similitud
+            # normalizes similarity
             sim = item.get("similarity")
             score = item.get("score")
             if sim is None:
@@ -82,22 +83,22 @@ def validate_legacy(mapping, min_sim=0):
     return out, stats
 
 def merge_edge(a, b):
-    """Fusiona dues arestes (mateixa parella) conservant màxim similarity i unió d'evidències/raons."""
+    """Merges two edges (same pair), keeping the maximum similarity and the union of evidence/reasons."""
     out = dict(a)
-    # similarity → màxim
+    # similarity → maximum
     sa = a.get("similarity"); sb = b.get("similarity")
     if isinstance(sa, (int, float)) or isinstance(sb, (int, float)):
         out["similarity"] = max(sa or 0, sb or 0)
-    # score → màxim si existeix
+    # score → maximum if present
     if isinstance(a.get("score"), (int, float)) or isinstance(b.get("score"), (int, float)):
         out["score"] = max(a.get("score") or 0, b.get("score") or 0)
-    # evidence → unió
+    # evidence → union
     ev = set()
     for e in (a.get("evidence"), b.get("evidence")):
         if isinstance(e, list): ev.update(e)
         elif isinstance(e, str): ev.add(e)
     out["evidence"] = sorted(ev) if ev else out.get("evidence", [])
-    # reasons → úniques
+    # reasons → unique
     rs = []
     for rlist in (a.get("reasons"), b.get("reasons")):
         if isinstance(rlist, list):
@@ -112,8 +113,9 @@ def merge_edge(a, b):
 
 def validate_graph(graph, min_sim=0, dedup=True):
     """
-    Format actual: {"nodes":[...], "edges":[...]}
-    Retorna el mateix format, netejat i, opcionalment, deduplicat.
+        Current format: {"nodes":[...], "edges":[...]}
+    Returns the same format, cleaned and, optionally, deduplicated.
+    
     """
     nodes = graph.get("nodes") or []
     edges = graph.get("edges") or []
@@ -124,7 +126,7 @@ def validate_graph(graph, min_sim=0, dedup=True):
         removed_selfloops=0, removed_invalid_ids=0, removed_low_sim=0, dedup_merged=0
     )
 
-    # Filtra nodes amb UUID vàlid
+    # Filters nodes with a valid UUID
     valid_nodes = []
     node_ids = set()
     for n in nodes:
@@ -150,7 +152,7 @@ def validate_graph(graph, min_sim=0, dedup=True):
 
         sim = e.get("similarity")
         if sim is None:
-            # intenta derivar de score
+            # tries to derive from score
             sc = e.get("score")
             if isinstance(sc, (int, float)):
                 sim = int(round(sc*100)) if sc <= 1 else int(round(sc))
@@ -165,16 +167,16 @@ def validate_graph(graph, min_sim=0, dedup=True):
             stats["removed_low_sim"] += 1
             continue
 
-        # Normalitza camps mínims
+        # Normalizes minimal fields
         ne = dict(e)
         ne["similarity"] = sim
-        # Assegura tipus camps comuns
+        # Ensure common field types
         ne["dashes"] = bool(ne.get("dashes", False))
         if isinstance(ne.get("evidence"), str):
             ne["evidence"] = [ne["evidence"]]
         cleaned.append(ne)
 
-    # Deduplicació (no-dirigida): clau = (min(s,t), max(s,t))
+    # Deduplication (undirected): key = (min(s,t), max(s,t))
     if dedup:
         merged = {}
         for e in cleaned:

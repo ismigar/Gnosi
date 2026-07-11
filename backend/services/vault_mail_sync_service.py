@@ -8,7 +8,7 @@ from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
-# Labels que indiquen el tipus de carpeta a Gmail
+# Labels indicating the folder type in Gmail
 _LABEL_TYPE_MAP = {
     'SENT': 'Sent',
     'DRAFT': 'Draft',
@@ -16,7 +16,7 @@ _LABEL_TYPE_MAP = {
     'TRASH': 'Deleted',
 }
 
-# Queries per carpeta + tipus resultant
+# Queries by folder + resulting type
 _FOLDER_QUERIES = [
     ('label:INBOX', 'Received'),
     ('label:SENT',  'Sent'),

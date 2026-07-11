@@ -1,14 +1,14 @@
-"""Gestió de fitxers CSL al disc — llistat i upload.
+"""Management of CSL files on disk — listing and upload.
 
-Els estils CSL viuen a `monorepo/apps/gnosi/frontend/public/csl/styles/`
-perquè el frontend els pot servir directament via Vite/HTTP estàtic.
-Aquest mòdul exposa funcions pures per:
+CSL styles live at `monorepo/apps/gnosi/frontend/public/csl/styles/`
+so the frontend can serve them directly via static Vite/HTTP.
+This module exposes pure functions to:
 
-  - Llistar els estils detectats (inclou el `<title>` extret del XML).
-  - Validar i desar un fitxer CSL pujat per l'usuari.
+  - List the detected styles (includes the `<title>` extracted from the XML).
+  - Validate and save a CSL file uploaded by the user.
 
-NO renderitza cap cita — això és feina de citeproc-js al frontend (i de
-pandoc al backend per a l'export). Aquí només administrem el catàleg.
+It does NOT render any citation — that's citeproc-js's job on the frontend (and
+pandoc's on the backend for export). Here we only manage the catalog.
 """
 from __future__ import annotations
 
@@ -17,27 +17,28 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Optional
 
-# Aquest fitxer viu a monorepo/apps/gnosi/backend/services/; parents[2]
-# arriba a monorepo/apps/gnosi (gnosi root). Els estils viuen a frontend/.
+# This file lives at monorepo/apps/gnosi/backend/services/; parents[2]
+# reaches monorepo/apps/gnosi (gnosi root). The styles live in frontend/.
 _GNOSI_ROOT = Path(__file__).resolve().parents[2]
 STYLES_DIR = _GNOSI_ROOT / "frontend" / "public" / "csl" / "styles"
 
-# CSL Schema namespace (style fitxers comencen amb `<style xmlns="...1.0">`)
+# CSL Schema namespace (style files start with `<style xmlns="...1.0">`)
 _CSL_NS = "{http://purl.org/net/xbiblio/csl}"
 
 
 def _extract_csl_title(path: Path) -> Optional[str]:
-    """Llegeix l'XML i extreu `<title>` o `<info><title>` del header.
+    """Reads the XML and extracts `<title>` or `<info><title>` from the header.
 
-    `xml.etree` ja gestiona el namespace si el .csl el declara
-    correctament. Si l'XML és malformat o no porta title, retornem None.
+    `xml.etree` already handles the namespace if the .csl declares it
+    correctly. If the XML is malformed or has no title, we return None.
+    
     """
     try:
-        # Llegim només les primeres ~10 KB; el title sempre està al header.
-        # Útil amb fitxers CSL gegants (chicago-author-date.csl > 160 KB).
+        # We only read the first ~10 KB; the title is always in the header.
+        # Useful with huge CSL files (chicago-author-date.csl > 160 KB).
         with open(path, "rb") as f:
             raw = f.read(16384)
-        # Parser tolerant: si l'XML és inacabat (per truncat), busquem el title amb regex.
+        # Tolerant parser: if the XML is unfinished (because it was truncated), we look for the title with a regex.
         try:
             root = ET.fromstring(raw)
             info = root.find(f"{_CSL_NS}info")
@@ -51,8 +52,8 @@ def _extract_csl_title(path: Path) -> Optional[str]:
                     return title_el.text.strip()
         except ET.ParseError:
             pass
-        # Fallback regex (no estricte amb namespaces): busca el primer <title>...</title>
-        # dins del header. Si no troba, retorna None.
+        # Regex fallback (not strict about namespaces): looks for the first <title>...</title>
+        # inside the header. If not found, returns None.
         m = re.search(rb"<title[^>]*>([^<]+)</title>", raw)
         if m:
             return m.group(1).decode("utf-8", errors="replace").strip() or None
@@ -62,12 +63,13 @@ def _extract_csl_title(path: Path) -> Optional[str]:
 
 
 def list_styles() -> list[dict]:
-    """Llista els fitxers .csl detectats al catàleg amb metadata extreta.
+    """Lists the .csl files detected in the catalog with extracted metadata.
 
-    Returns: `[{id, file, title}, ...]` ordenat alfabèticament per id.
-    `id` és el nom del fitxer sense extensió. `title` és el `<title>` del CSL
-    (lo que la comunitat anomena oficialment l'estil, p.ex. \"American Psychological
-    Association 7th edition\"); pot ser None si l'XML no el porta o és malformat.
+    Returns: `[{id, file, title}, ...]` sorted alphabetically by id.
+    `id` is the file name without extension. `title` is the CSL's `<title>`
+    (what the community officially calls the style, e.g. \"American Psychological
+    Association 7th edition\"); it can be None if the XML doesn't have it or is malformed.
+    
     """
     out: list[dict] = []
     if not STYLES_DIR.exists():
@@ -82,34 +84,35 @@ def list_styles() -> list[dict]:
 
 
 def save_uploaded_style(file_bytes: bytes, filename: str) -> dict:
-    """Valida i desa un fitxer CSL pujat.
+    """Validates and saves an uploaded CSL file.
 
-    Validació mínima:
-      - Mida raonable (< 1 MB; el CSL més gran de la comunitat ronda els 200 KB)
-      - Parsing XML correcte
-      - Element root `<style>` (amb o sense namespace CSL)
+    Minimal validation:
+      - Reasonable size (< 1 MB; the largest community CSL is around 200 KB)
+      - Correct XML parsing
+      - Root element `<style>` (with or without the CSL namespace)
 
-    Returns: `{id, file, title}` igual que `list_styles()`, o lança ValueError
-    amb el motiu si no és vàlid.
+    Returns: `{id, file, title}` same as `list_styles()`, or raises ValueError
+    with the reason if it's not valid.
+    
     """
     if len(file_bytes) > 1024 * 1024:
         raise ValueError("Fitxer massa gran (>1 MB). Els CSL solen ser <200 KB.")
     if not filename.lower().endswith(".csl"):
         raise ValueError("L'extensió ha de ser .csl")
     safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", filename)
-    # Validació XML: ha de parseig + element root ha de ser <style>.
+    # XML validation: must parse + root element must be <style>.
     try:
         root = ET.fromstring(file_bytes)
     except ET.ParseError as e:
         raise ValueError(f"XML invàlid: {e}")
     tag = root.tag
-    # Eliminem el namespace si n'hi ha per comparar.
+    # We strip the namespace, if any, to compare.
     local_tag = tag.split("}", 1)[1] if "}" in tag else tag
     if local_tag != "style":
         raise ValueError(f"Root XML esperat <style>, trobat <{local_tag}>")
 
-    # Desa al disc. Sobreescriu si ja existeix amb el mateix nom (l'usuari
-    # vol actualitzar la seva versió, p.ex. una revisió d'un estil custom).
+    # Saves to disk. Overwrites if one already exists with the same name (the user
+    # wants to update their version, e.g. a revision of a custom style).
     STYLES_DIR.mkdir(parents=True, exist_ok=True)
     dest = STYLES_DIR / safe_name
     dest.write_bytes(file_bytes)

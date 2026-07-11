@@ -1,16 +1,16 @@
 /**
  * optionCatalogUtils.js
- * Catàlegs d'opcions rics (select/multi_select/status), rols semàntics i
- * mirall client de les action_rules — directiva vault_option_catalogs_action_rules.
+ * Rich option catalogs (select/multi_select/status), semantic roles, and
+ * a client-side mirror of the action_rules — vault_option_catalogs_action_rules directive.
  *
- * `config.options` admet DOS formats: string llegat ('CA') i objecte ric
- * `{name, color?, group?}`. Aquí es normalitza a la lectura; el backend
- * (services/option_catalogs.py) fa el mateix i és la font de veritat.
+ * `config.options` supports TWO formats: legacy string ('CA') and rich object
+ * `{name, color?, group?}`. It is normalized here on read; the backend
+ * (services/option_catalogs.py) does the same and is the source of truth.
  */
 import { getSchemaFieldNames, getFieldConfig, getFieldType } from './schemaUtils';
 
-// Paleta tancada (mirall de OPTION_COLOR_PALETTE del backend). El hex és el to
-// base; el xip el rebaixa amb alfa perquè funcioni en clar i fosc.
+// Closed palette (mirror of the backend's OPTION_COLOR_PALETTE). The hex is the base
+// tone; the chip tones it down with alpha so it works in light and dark mode.
 export const OPTION_COLOR_PALETTE = [
     'gray', 'blue', 'green', 'yellow', 'orange',
     'red', 'purple', 'pink', 'brown', 'teal',
@@ -29,10 +29,10 @@ const COLOR_HEX = {
     teal: '#14b8a6',
 };
 
-// Grups per defecte d'un camp `status` (estil Notion).
+// Default groups for a `status` field (Notion style).
 export const DEFAULT_STATUS_GROUPS = ['Inicial', 'En curs', 'Final'];
 
-// Estats del catàleg seed (decisió §9.1 de la directiva).
+// Seed catalog statuses (decision §9.1 of the directive).
 export const STATUS_DRAFT = 'Esborrany';
 export const STATUS_REVIEWED = 'Revisat';
 export const STATUS_TRANSLATED = 'Traduït';
@@ -43,9 +43,9 @@ const stripAccents = (s) => String(s ?? '').normalize('NFD').replace(/[\u0300-\u
 const normName = (s) => stripAccents(String(s ?? '').trim().toLowerCase());
 
 /**
- * Color automàtic estable per a una opció sense color explícit. MATEIX
- * algorisme (djb2-xor sobre el nom normalitzat) que el backend, perquè una
- * opció no persistida es pinti igual a tot arreu.
+ * Stable automatic color for an option without an explicit color. SAME
+ * algorithm (djb2-xor over the normalized name) as the backend, so that an
+ * unpersisted option is painted the same everywhere.
  */
 export function autoColorFor(name) {
     const s = normName(name);
@@ -56,7 +56,7 @@ export function autoColorFor(name) {
     return OPTION_COLOR_PALETTE[h % OPTION_COLOR_PALETTE.length];
 }
 
-/** Una opció (string llegat o objecte ric) → objecte ric, o null si invàlida. */
+/** An option (legacy string or rich object) → rich object, or null if invalid. */
 export function normalizeOption(opt) {
     if (opt && typeof opt === 'object' && !Array.isArray(opt)) {
         const name = String(opt.name ?? '').trim();
@@ -74,7 +74,7 @@ export function normalizeOption(opt) {
     return { name, color: autoColorFor(name) };
 }
 
-/** Llista en qualsevol format → llista rica sense duplicats (per nom). */
+/** List in any format → rich list without duplicates (by name). */
 export function normalizeOptions(options) {
     const out = [];
     const seen = new Set();
@@ -93,8 +93,8 @@ export function optionNames(options) {
 }
 
 /**
- * Estils inline d'un xip d'opció amb color de catàleg. Retorna null si no hi
- * ha color (el caller manté l'estil neutre actual del tema).
+ * Inline styles for an option chip with a catalog color. Returns null if there
+ * is no color (the caller keeps the theme's current neutral style).
  */
 export function optionChipStyle(colorName) {
     const hex = COLOR_HEX[colorName];
@@ -106,12 +106,12 @@ export function optionChipStyle(colorName) {
     };
 }
 
-/** Hex base d'un color de la paleta (per a punts/swatches). */
+/** Base hex of a palette color (for dots/swatches). */
 export function optionColorHex(colorName) {
     return COLOR_HEX[colorName] || COLOR_HEX.gray;
 }
 
-// --- Rols semàntics (mirall de option_catalogs.find_role_prop) ---------------
+// --- Semantic roles (mirror of option_catalogs.find_role_prop) ---------------
 
 const ROLE_FIELD_NAMES = {
     language: ['idioma', 'llengua', 'language', 'lang', 'lengua', 'lingua'],
@@ -119,9 +119,9 @@ const ROLE_FIELD_NAMES = {
     tags: ['tags', 'tag', 'etiquetes', 'etiquetas', 'labels'],
 };
 
-// Tipus admissibles per a l'heurístic de NOM (mirall del backend): un camp
-// «Estat» de tipus text no és un camp d'estat semàntic. El rol explícit
-// (config.role) no té aquesta restricció.
+// Types allowed for the NAME heuristic (mirror of the backend): a field
+// A text-type "Estat" field is not a semantic status field. The explicit role
+// (config.role) does not have this restriction.
 const ROLE_ALLOWED_TYPES = {
     language: ['select', 'status'],
     status: ['select', 'status'],
@@ -129,9 +129,9 @@ const ROLE_ALLOWED_TYPES = {
 };
 
 /**
- * Nom del camp d'un rol semàntic a l'esquema: primer per `config.role`
- * explícit, després per l'heurístic de nom (compatibilitat amb taules no
- * migrades). Retorna undefined si no n'hi ha.
+ * Field name for a semantic role in the schema: first by explicit
+ * `config.role`, then by the name heuristic (compatibility with tables that
+ * haven't been migrated). Returns undefined if there is none.
  */
 export function findRoleFieldName(schema = {}, role) {
     const names = getSchemaFieldNames(schema);
@@ -144,9 +144,9 @@ export function findRoleFieldName(schema = {}, role) {
     );
 }
 
-// --- Mirall client de les action_rules ---------------------------------------
-// El backend revalida sempre (409 amb el motiu); això només governa l'estat
-// visual del botó (visible però desactivat + tooltip).
+// --- Client-side mirror of the action_rules ---------------------------------------
+// The backend always revalidates (409 with the reason); this only governs the
+// button's visual state (visible but disabled + tooltip).
 
 export const DEFAULT_ACTION_RULES = {
     translate_row: {
@@ -167,9 +167,9 @@ function valuesOf(raw) {
 }
 
 /**
- * Avalua les `requires` d'una acció sobre un registre. `actionRules` és el
- * bloc `table.action_rules` del registry si està disponible; si no, el mirall
- * per defecte. Condicions no avaluables (camp inexistent, valor buit) passen.
+ * Evaluates an action's `requires` against a record. `actionRules` is the
+ * `table.action_rules` block from the registry if available; otherwise, the
+ * default mirror. Non-evaluable conditions (missing field, empty value) pass.
  *
  * @returns {{ok: boolean, reason: string|null}}
  */
@@ -206,9 +206,9 @@ export function checkActionRequires(schema = {}, metadata = {}, action, actionRu
 }
 
 /**
- * Opcions d'Estat que el seed-on-enable garanteix quan s'activa una
- * funcionalitat (mirall de ensure_status_seed del backend; el servidor ho
- * torna a fer en desar — això és per a la UX immediata del modal).
+ * Status options that seed-on-enable guarantees when a feature is
+ * enabled (mirror of the backend's ensure_status_seed; the server does
+ * this again on save — this is for the modal's immediate UX).
  */
 export function seedOptionsForFeature(feature) {
     if (feature === 'base') {

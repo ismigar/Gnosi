@@ -1,15 +1,16 @@
-"""Despatxador: uneix el bus d'esdeveniments amb el sandbox de dades (fase 3).
+"""Dispatcher: joins the event bus with the data sandbox (phase 3).
 
-Registra un dispatcher a `plugin_events` que, per cada esdeveniment emès, busca
-els plugins de tercers instal·lats que (a) tenen entry `backend`, (b) declaren
-l'esdeveniment a `manifest.events`, (c) estan actius i (d) tenen algun permís
-concedit — i els executa al sandbox Node (`plugin_sandbox.run_event`).
+Registers a dispatcher on `plugin_events` that, for each emitted event, looks up
+installed third-party plugins that (a) have a `backend` entry, (b) declare
+the event in `manifest.events`, (c) are active and (d) have some permission
+granted — and runs them in the Node sandbox (`plugin_sandbox.run_event`).
 
-També implementa els HANDLERS del host (vault.readPage/writePage, network.fetch)
-que el sandbox exposa als plugins, cadascun ja gated per permís al sandbox. Els
-imports de vault són mandrosos per evitar cicles (vault_routes importa serveis).
+It also implements the host HANDLERS (vault.readPage/writePage, network.fetch)
+that the sandbox exposes to plugins, each already gated by permission in the
+sandbox. The vault imports are lazy to avoid cycles (vault_routes imports
+services).
 
-S'activa cridant `wire()` a l'arrencada del backend (server.py).
+It's activated by calling `wire()` at backend startup (server.py).
 """
 from __future__ import annotations
 
@@ -34,11 +35,11 @@ def _load_state() -> Dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Handlers del host (implementacions reals de les crides RPC del sandbox).
+# Host handlers (real implementations of the sandbox's RPC calls).
 # ---------------------------------------------------------------------------
 def _handle_read_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    """Llegeix una pàgina i retorna forma ESTRUCTURADA (igual que la UI):
-    {pageId, title, content (només el cos), metadata}."""
+    """Reads a page and returns it in STRUCTURED form (same as the UI):
+    {pageId, title, content (body only), metadata}."""
     from backend.api.vault_routes import find_page_path, _validate_safe_page_id, parse_frontmatter
     page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
     path = find_page_path(page_id)
@@ -54,11 +55,13 @@ def _handle_read_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
 
 
 def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    """Actualitza una pàgina SENSE trepitjar el frontmatter (com el PATCH de la UI).
+    """Updates a page WITHOUT clobbering the frontmatter (like the UI's PATCH).
 
-    Accepta `content` (nou cos) i/o `metadata` (patch fusionat). Abans això feia
-    un overwrite del fitxer sencer amb `content` cru → es carregava el frontmatter
-    i el sidecar; ara es preserven i es reescriu via `save_page_md`.
+    Accepts `content` (new body) and/or `metadata` (merged patch). Previously
+    this did a full-file overwrite with raw `content` → it wiped out the
+    frontmatter and the sidecar; now they are preserved and it's rewritten
+    via `save_page_md`.
+    
     """
     from backend.api.vault_routes import (
         find_page_path, _validate_safe_page_id, parse_frontmatter, save_page_md,
@@ -80,16 +83,16 @@ def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
         if not isinstance(new_meta, dict):
             raise ValueError("metadata ha de ser un objecte")
         metadata = {**metadata, **new_meta}
-    metadata["id"] = page_id  # l'id no es pot canviar via writePage
+    metadata["id"] = page_id  # the id cannot be changed via writePage
 
     save_page_md(path, metadata, body)
-    # Notifica la resta del sistema que la pàgina ha canviat (i altres plugins).
+    # Notifies the rest of the system that the page has changed (and other plugins).
     plugin_events.emit("page:updated", {"page_id": page_id, "source": "plugin"})
     return {"pageId": page_id, "written": len(body)}
 
 
 def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    """Crea una pàgina nova al vault (opcionalment dins d'una carpeta relativa)."""
+    """Creates a new page in the vault (optionally inside a relative folder)."""
     import uuid
     from backend.api.vault_routes import (
         save_page_md, register_page_in_index, _get_unique_filepath, get_p,
@@ -137,9 +140,10 @@ def _handle_settings_set(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]
 
 
 def _handle_query_db(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    """Retorna les files (pàgines) d'una taula del vault, com a llista de dicts.
+    """Returns the rows (pages) of a vault table, as a list of dicts.
 
-    Limitat per evitar payloads enormes: `limit` (per defecte 200, màx 1000).
+    Limited to avoid huge payloads: `limit` (default 200, max 1000).
+    
     """
     from backend.api.vault_routes import _get_pages_for_table
     table_id = str(args.get("tableId") or "").strip()
@@ -160,7 +164,7 @@ def _handle_query_db(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
 
 
 def _handle_list_tables(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
-    """Retorna les taules (bases de dades) del vault: id, nom i nombre de camps."""
+    """Returns the vault's tables (databases): id, name and number of fields."""
     from backend.api.vault_routes import load_registry
     reg = load_registry() or {}
     tables = []
@@ -202,7 +206,7 @@ _HOST_HANDLERS = {
 
 
 # ---------------------------------------------------------------------------
-# Dispatcher: esdeveniment → plugins de dades subscrits.
+# Dispatcher: event → subscribed data plugins.
 # ---------------------------------------------------------------------------
 def _dispatch(event: str, payload: Dict[str, Any]) -> None:
     try:
@@ -222,7 +226,7 @@ def _dispatch(event: str, payload: Dict[str, Any]) -> None:
         if not ps.has_permission(state, pid, "vault:read") and \
            not ps.has_permission(state, pid, "vault:write") and \
            not ps.has_permission(state, pid, "network"):
-            # Actiu però sense cap permís de backend concedit → res a fer.
+            # Active but with no backend permission granted → nothing to do.
             continue
         granted = ps.granted_permissions(state, pid)
         logger.info("plugin_dispatcher: %s → plugin %s", event, pid)

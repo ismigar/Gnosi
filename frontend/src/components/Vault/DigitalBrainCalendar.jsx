@@ -17,18 +17,18 @@ import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcu
 import './CalendarStyles.css';
 import { useTitlePreview } from './useTitlePreview';
 
-// Serialitza un Date a "YYYY-MM-DDTHH:MM:SS" en hora LOCAL (no UTC). En moure o
-// redimensionar un event amb hora del Vault cal desar l'hora local: `toISOString()`
-// la passaria a UTC i, com que el calendari torna a llegir la string sense zona
-// com a local, l'hora es desplaçaria per l'offset (p. ex. −2h a Madrid l'estiu)
-// cada cop que es mou l'event. (La branca de Google ja usa `startStr` local.)
+// Serializes a Date to "YYYY-MM-DDTHH:MM:SS" in LOCAL time (not UTC). When moving or
+// when resizing a timed Vault event we must save the local time: `toISOString()`
+// would convert it to UTC and, since the calendar reads the string again without a zone
+// as local, the time would shift by the offset (e.g., −2h in Madrid during summer)
+// every time the event is moved. (The Google branch already uses the local `startStr`.)
 const _p2 = (n) => String(n).padStart(2, '0');
 const toLocalDateTimeStr = (d) =>
     `${d.getFullYear()}-${_p2(d.getMonth() + 1)}-${_p2(d.getDate())}T${_p2(d.getHours())}:${_p2(d.getMinutes())}:${_p2(d.getSeconds())}`;
 
-// FullCalendar tracta l'`end` dels events de dia sencer com a EXCLUSIU, però el
-// Vault desa la data de fi INCLUSIVA (estil Notion): sense conversió, un event
-// del 8 al 10 es pintava només fins al 9, i estirar-lo desava un dia de més.
+// FullCalendar treats the `end` of all-day events as EXCLUSIVE, but the
+// Vault stores the INCLUSIVE end date (Notion-style): without conversion, an event
+// from the 8th to the 10th was only rendered up to the 9th, and stretching it saved one extra day.
 const _shiftDay = (dayStr, delta) => {
     const d = new Date(`${String(dayStr).trim()}T00:00:00`);
     if (isNaN(d.getTime())) return dayStr;
@@ -39,30 +39,30 @@ const _DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
 const inclusiveToExclusiveEnd = (end) => (_DAY_RE.test(String(end || '').trim()) ? _shiftDay(end, 1) : end);
 const exclusiveToInclusiveEnd = (end) => (_DAY_RE.test(String(end || '').trim()) ? _shiftDay(end, -1) : end);
 
-// Vistes seleccionables des de la toolbar de la vista de BD. La navegació es fa
-// amb una toolbar PRÒPIA (com la de CalendarPage, via calendarApi): activar el
-// `headerToolbar` natiu de FullCalendar amb el nostre eventContent custom
-// provocava un bucle infinit de re-render (CustomRenderingStore → setState) en
-// navegar ("Maximum update depth exceeded") i la vista queia al boundary.
+// Views selectable from the DB view's toolbar. Navigation is done
+// with its OWN toolbar (like CalendarPage's, via calendarApi): activating the
+// native FullCalendar `headerToolbar` with our custom eventContent
+// caused an infinite re-render loop (CustomRenderingStore → setState) when
+// navigate ("Maximum update depth exceeded") and the view would fall into the boundary.
 const DB_VIEW_SWITCHER = [
     { id: 'dayGridMonth', labelKey: 'calendar.view_month', fallback: 'Mes' },
     { id: 'timeGridWeek', labelKey: 'calendar.view_week', fallback: 'Setmana' },
     { id: 'timeGridDay', labelKey: 'calendar.view_day', fallback: 'Dia' },
 ];
 
-// Defaults ESTABLES per als props col·lecció. Un default inline (`= new Set()`,
-// `= []`) crea una identitat NOVA a cada render; com que són deps de l'efecte
-// que construeix els events (setEvents), qualsevol re-render del component
-// sense aquests props (la vista de BD no els passa) encadenava
-// render→efecte→setState→render fins al "Maximum update depth exceeded".
+// STABLE defaults for the collection props. An inline default (`= new Set()`,
+// `= []`) creates a NEW identity on every render; since they're deps of the effect
+// that builds the events (setEvents), any re-render of the component
+// without these props (the DB view doesn't pass them) would chain
+// render→effect→setState→render until "Maximum update depth exceeded".
 const EMPTY_SET = new Set();
 const EMPTY_ARRAY = [];
 
-// Utilitat per crear colors pastís i manejar variables CSS
+// Utility to create pastel colors and handle CSS variables
 const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
     const finalColor = color || 'var(--gnosi-primary)';
     
-    // Si és una variable CSS
+    // If it's a CSS variable
     if (finalColor.startsWith('var(')) {
         const varName = finalColor.match(/\(([^)]+)\)/)?.[1] || '--gnosi-primary';
         return { 
@@ -72,7 +72,7 @@ const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
         };
     }
     
-    // Si és Hex
+    // If it's Hex
     if (finalColor.startsWith('#')) {
         const r = parseInt(finalColor.slice(1, 3), 16);
         const g = parseInt(finalColor.slice(3, 5), 16);
@@ -93,9 +93,9 @@ const getPastelColor = (color = 'var(--gnosi-primary)', opacity = 0.15) => {
     return { bg: finalColor, border: finalColor, text: finalColor };
 };
 
-// Plega accents per a la cerca insensible a accents ("reunio" troba "Reunió"),
-// com s'espera en un vault català/castellà (NFD + eliminació de les marques
-// combinants U+0300–U+036F: accents, cedilla, titlla).
+// Folds accents for accent-insensitive search ("reunio" finds "Reunió"),
+// as expected in a Catalan/Spanish vault (NFD + removal of the combining
+// marks U+0300–U+036F: accents, cedilla, tilde).
 const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 export const DigitalBrainCalendar = ({
@@ -116,42 +116,42 @@ export const DigitalBrainCalendar = ({
     onSelection,
     onDeleteSelected,
     onDeletePage,
-    // Vista de BD del Vault: camp de data a usar com a inici (i fi opcional), i
-    // bypass del filtre per font — a la vista de taula no hi ha selector de
-    // calendaris, així que sense això el calendari sortiria buit.
+    // Vault DB view: date field to use as start (and optional end), and
+    // bypass the filter by source — the table view has no selector for
+    // calendars, so without this the calendar would come out empty.
     dateField = '',
     endDateField = '',
     ignoreCalendarFilter = false,
-    // Vista inicial de FullCalendar (configurable des de la vista de BD). Valors
-    // suportats pels plugins carregats: dayGridMonth | timeGridWeek |
+    // Initial FullCalendar view (configurable from the DB view). Values
+    // supported by the loaded plugins: dayGridMonth | timeGridWeek |
     // timeGridDay | multiMonthYear.
     initialView = 'dayGridMonth',
-    // La pàgina de calendari té la seva pròpia toolbar externa (via calendarRef)
-    // i el deixa a false; la vista de BD no en té cap i necessita la toolbar
-    // nativa de FullCalendar per poder navegar (prev/next/avui i canvi de vista).
+    // The calendar page has its own external toolbar (via calendarRef)
+    // and leaves it as false; the DB view has none and needs the
+    // native to FullCalendar, to be able to navigate (prev/next/today and view switching).
     showHeaderToolbar = false,
 }) => {
     const { i18n, t } = useTranslation();
     const [events, setEvents] = useState([]);
-    // Toolbar pròpia (vista de BD): ref intern si el caller no en passa cap,
-    // títol viu del mes/setmana i vista activa per marcar el botó.
+    // Own toolbar (DB view): internal ref if the caller doesn't pass one,
+    // live month/week title, and active view to mark the button.
     const internalCalRef = useRef(null);
     const calRef = calendarRef || internalCalRef;
     const [tbTitle, setTbTitle] = useState('');
     const [tbView, setTbView] = useState(initialView);
-    // Últim títol/vista notificats per datesSet. CRÍTIC: datesSet es re-dispara
-    // a cada re-render (les closures inline d'eventContent/eventClassNames
-    // canvien d'identitat i FullCalendar re-processa les opcions); un setState
-    // incondicional aquí encadena updates niats fins al "Maximum update depth".
-    // Només actualitzem si el valor REALMENT canvia, i fora del commit (setTimeout).
+    // Last title/view notified by datesSet. CRITICAL: datesSet re-fires
+    // on every re-render (the inline closures of eventContent/eventClassNames
+    // change identity and FullCalendar reprocesses the options); a setState
+    // unconditional here chains nested updates up to "Maximum update depth".
+    // We only update if the value REALLY changes, and outside the commit (setTimeout).
     const tbStateRef = useRef({ title: '', view: initialView });
     const [hoveredEvent, setHoveredEvent] = useState(null);
     const [theme, setTheme] = useState(localStorage.getItem('db-theme') || 'light');
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(events);
     const lastEventClickTimeRef = useRef(0);
-    // Previsualització del contingut en passar el ratolí per un event que sigui
-    // una pàgina del Vault (les cites externes mantenen el tooltip clàssic).
-    // Ref estable per als handlers de FullCalendar (definits amb deps []).
+    // Content preview on hovering over an event that is
+    // a Vault page (external appointments keep the classic tooltip).
+    // Stable ref for the FullCalendar handlers (defined with deps []).
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const titlePreviewRef = useRef(null);
     titlePreviewRef.current = titlePreview;
@@ -186,18 +186,18 @@ export const DigitalBrainCalendar = ({
     useEffect(() => {
         const calendarEvents = [];
 
-        // El colorMap ja ens ve per prop de forma consolidada.
-        // Només volem assegurar que les notes tinguin accés al color correcte.
+        // The colorMap already comes to us as a prop, in consolidated form.
+        // We just want to make sure notes have access to the correct color.
 
         allNotes.forEach(note => {
             const { metadata, id, title } = note;
             if (!metadata) return;
 
-            // Determinar la font de l'event (taula o calendari extern)
+            // Determine the source of the event (table or external calendar)
             let eventSource = (metadata.table_name || metadata.database_table_name || metadata.source || 'Gnosi').trim();
             if (eventSource === 'Gnosi Vault') eventSource = 'Gnosi';
 
-            // Intentar trobar el source original si tenim un ID (més fiable que el nom)
+            // Try to find the original source if we have an ID (more reliable than the name)
             const tid = note.resolved_table_id || metadata.table_id || metadata.database_table_id;
             if (tid) {
                 const cfg = calendarConfigs.find(c => c.id === tid);
@@ -206,40 +206,40 @@ export const DigitalBrainCalendar = ({
 
             if (!ignoreCalendarFilter && !selectedCalendars.has(eventSource)) return;
 
-            const noteTitle = title || metadata.title || 'Sense Títol';
+            const noteTitle = title || metadata.title || t('common.untitled', 'Sense Títol');
 
             if (searchQuery && !foldAccents(noteTitle).includes(foldAccents(searchQuery))) {
                 return;
             }
 
-            // Amb `dateField` configurat a la vista, NOMÉS aquest camp mana: una
-            // nota sense valor hi desapareix (com Notion), en lloc de caure en
-            // silenci a date/due_date i sortir col·locada per un camp que la
-            // vista no ha demanat.
+            // With `dateField` configured on the view, ONLY this field governs: a
+            // a note with no value disappears from it (like Notion), instead of falling back to
+            // silently onto date/due_date and end up placed by a field that the
+            // view did not request.
             let dateStr = dateField
                 ? ((metadata[dateField] != null && metadata[dateField] !== '') ? metadata[dateField] : null)
                 : (metadata.date || metadata.data || metadata.start_time || metadata.due_date);
-            // Un camp `period` desa "YYYY-MM-DD/YYYY-MM-DD" (inici i fi en un sol
-            // valor): el descomponem perquè FullCalendar no rebi mai el rang cru.
+            // A `period` field stores "YYYY-MM-DD/YYYY-MM-DD" (start and end in a single
+            // value): we break it down so FullCalendar never receives the raw range.
             let periodEnd = null;
             const _pm = String(dateStr || '').match(/^(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})$/);
             if (_pm) { dateStr = _pm[1]; periodEnd = _pm[2]; }
 
             if (dateStr) {
                 const isExternal = metadata.source !== undefined && metadata.source !== 'Gnosi' && metadata.source !== 'Gnosi Vault';
-                // String() defensiu: un frontmatter YAML manual pot donar un
-                // número (p. ex. `Data: 2026`) i `.includes` hi petava.
+                // Defensive String(): a manual YAML frontmatter can give a
+                // number (e.g. `Data: 2026`) and `.includes` would crash on it.
                 const isAllDay = !String(dateStr).includes('T') || metadata.all_day;
 
-                // Busquem el color al colorMap consolidat
+                // We look up the color in the consolidated colorMap
                 const configColor = colorMap[eventSource];
                 const defaultColor = (eventSource === 'Gnosi' ? 'var(--gnosi-primary)' : 'var(--text-tertiary)');
                 const eventColor = configColor || metadata.color || defaultColor;
 
-                // Amb `endDateField` configurat, només aquest camp (amb el final
-                // del període com a únic fallback intern); sense configurar,
-                // cadena llegada. Els finals de dia sencer passen d'INCLUSIU
-                // (Vault) a EXCLUSIU (FullCalendar).
+                // With `endDateField` configured, only this field (with the
+                // period's end as the only internal fallback); when not configured,
+                // string read. All-day ends go from INCLUSIVE
+                // (Vault) to EXCLUSIVE (FullCalendar).
                 let endStr = endDateField
                     ? ((metadata[endDateField] != null && metadata[endDateField] !== '') ? metadata[endDateField] : (periodEnd || null))
                     : (periodEnd || metadata.end_date || metadata.end_time || null);
@@ -299,11 +299,11 @@ export const DigitalBrainCalendar = ({
                     }
                 } else {
                     eventObj.start = dateStr;
-                    // Usem `endStr` (que ja inclou el final del període i el camp
-                    // endDateField), no només metadata.end_date/end_time: sense
-                    // això, un event NO recurrent amb un camp `period` o un
-                    // `endDateField` configurat perdia el final i es renderitzava
-                    // com un sol dia.
+                    // We use `endStr` (which already includes the period's end and the
+                    // endDateField field), not just metadata.end_date/end_time: without
+                    // this, a NON-recurring event with a `period` field or an
+                    // the configured `endDateField` was losing the end and rendering
+                    // as a single day.
                     eventObj.end = endStr;
                     eventObj.allDay = isAllDay;
                 }
@@ -313,20 +313,20 @@ export const DigitalBrainCalendar = ({
         });
 
         setEvents(calendarEvents);
-        // dateField/endDateField/ignoreCalendarFilter SÍ entren a deps: a la vista de
-        // BD en mode calendari, canviar el «camp de data» de la vista ha de reposicionar
-        // els events (abans quedaven amb el camp antic fins que canviava una altra dep).
-        // colorMap s'OMET a posta: VaultViewBody no el passa i pren el default `{}` (nova
-        // referència cada render) → incloure'l provocaria un bucle infinit efecte→render→efecte.
-    }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, theme, dateField, endDateField, ignoreCalendarFilter]);
+        // dateField/endDateField/ignoreCalendarFilter DO go into deps: in the view of
+        // DB in calendar mode, changing the view's «date field» must reposition
+        // the events (before they stayed with the old field until another dep changed).
+        // colorMap is OMITTED on purpose: VaultViewBody does not pass it and it takes the default `{}` (new
+        // reference on every render) → including it would cause an infinite effect→render→effect loop.
+    }, [allNotes, searchQuery, selectedCalendars, calendarConfigs, theme, dateField, endDateField, ignoreCalendarFilter, t]);
 
     const handleEventMouseEnter = useCallback((info) => {
         const { event, jsEvent } = info;
         const { metadata, id, readonly } = event.extendedProps;
 
-        // Pàgines del Vault (amb id i editables): card de contingut amb scroll,
-        // com a la resta de vistes. Les cites externes (Google, readonly) o
-        // sense pàgina mantenen el tooltip informatiu clàssic.
+        // Vault pages (with id, and editable): content card with scroll,
+        // as in the rest of the views. External appointments (Google, readonly) or
+        // without a page keep the classic informational tooltip.
         if (id && !readonly) {
             titlePreviewRef.current?.openHover(id, info.el.getBoundingClientRect());
             return;
@@ -353,7 +353,7 @@ export const DigitalBrainCalendar = ({
         setHoveredEvent(null);
     }, []);
 
-    // Clic sobre un event → obrir modal d'edició
+    // Click on an event → open the edit modal
     const handleEventClick = useCallback((clickInfo) => {
         lastEventClickTimeRef.current = Date.now();
 
@@ -368,7 +368,7 @@ export const DigitalBrainCalendar = ({
         }
 
         if (readonly) {
-            toast.error("Esdeveniment extern (només lectura).");
+            toast.error(t('calendar.external_readonly_error', 'Esdeveniment extern (només lectura).'));
             return;
         }
         if (id && onEventEdit) {
@@ -376,7 +376,7 @@ export const DigitalBrainCalendar = ({
         } else if (id && onNoteSelect) {
             onNoteSelect(id);
         }
-    }, [onEventEdit, onNoteSelect, selectedIds, toggleSelect]);
+    }, [onEventEdit, onNoteSelect, selectedIds, toggleSelect, t]);
 
     useVaultSelectionShortcuts({
         selectedCount: selectedIds.size,
@@ -384,30 +384,30 @@ export const DigitalBrainCalendar = ({
         onDeleteSelection: handleBulkDelete,
     });
 
-    // Arrossegar event (canviar data)
+    // Drag event (change date)
     const handleEventDrop = useCallback(async (dropInfo) => {
         const { event } = dropInfo;
         const { id, readonly, metadata } = event.extendedProps;
 
         if (readonly) {
             dropInfo.revert();
-            toast.error("No pots moure un esdeveniment extern (Read-Only).");
+            toast.error(t('calendar.external_move_error', 'No pots moure un esdeveniment extern (Read-Only).'));
             return;
         }
 
         const newStart = event.allDay
             ? event.startStr
             : toLocalDateTimeStr(event.start);
-        // Fi de dia sencer: FullCalendar el dona EXCLUSIU; el Vault el desa INCLUSIU.
+        // All-day end: FullCalendar gives it as EXCLUSIVE; the Vault stores it as INCLUSIVE.
         const newEnd = event.end
             ? (event.allDay ? exclusiveToInclusiveEnd(event.endStr) : toLocalDateTimeStr(event.end))
             : null;
 
         const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
 
-        // Si és recurrent, deleguem al pare per preguntar
+        // If it's recurring, we delegate to the parent to ask
         if (isRecurrent && onEventEdit) {
-            dropInfo.revert(); // Revertim visualment fins que es confirmi
+            dropInfo.revert(); // We revert visually until it's confirmed
             onEventEdit(id, {
                 date: newStart,
                 end_date: newEnd,
@@ -415,16 +415,16 @@ export const DigitalBrainCalendar = ({
             }, 'move');
             return;
         }
-        // Recurrent SENSE gestor (vista de BD): escriure la data base mouria
-        // TOTA la sèrie sense preguntar. Revertim i avisem.
+        // Recurring WITHOUT a handler (DB view): writing the base date would move
+        // the WHOLE series without asking. We revert and warn.
         if (isRecurrent) {
             dropInfo.revert();
-            toast.error("Els esdeveniments recurrents s'editen des del calendari principal.");
+            toast.error(t('calendar.recurrent_edit_elsewhere', "Els esdeveniments recurrents s'editen des del calendari principal."));
             return;
         }
 
-        // Cita de Google: actualitzar a Google (no al Vault). Usem startStr/endStr (hora
-        // local) perquè el backend hi posi la zona correcta; toISOString() seria UTC.
+        // Google appointment: update in Google (not in the Vault). We use startStr/endStr (time
+        // local) so the backend can set the correct zone on it; toISOString() would be UTC.
         const isGoogle = (metadata?._provider === 'google' || !!metadata?._account) && !metadata?._vault_path;
         try {
             if (isGoogle) {
@@ -435,11 +435,11 @@ export const DigitalBrainCalendar = ({
                     { start: gStart, end: gEnd, calendar_id: metadata._calendar_id || 'primary' }
                 );
             } else {
-                // Escriure als camps DE LA VISTA (dateField/endDateField), no als
-                // fixos date/end_date: amb un camp configurat, escriure `date`
-                // creava un camp fantasma fora d'esquema i l'event tornava al dia
-                // antic en refrescar. Un valor `period` ("inici/fi" en un sol
-                // camp) es reserialitza sencer.
+                // Write to the VIEW fields (dateField/endDateField), not to the
+                // fixed date/end_date: with a configured field, writing `date`
+                // created a ghost field outside the schema and the event would go back to the day
+                // old one when refreshing. A `period` value ("start/end" in a single
+                // field) gets fully re-serialized.
                 const startKey = dateField || 'date';
                 const endKey = endDateField || 'end_date';
                 const isPeriodValue = /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(String(metadata?.[startKey] || '').trim());
@@ -454,34 +454,34 @@ export const DigitalBrainCalendar = ({
                 }
                 await axios.patch(`/api/vault/pages/${id}`, patchData);
             }
-            toast.success("Data actualitzada!");
+            toast.success(t('calendar.date_updated', 'Data actualitzada!'));
             onRefresh?.();
         } catch (error) {
             console.error('Error movent event:', error);
             dropInfo.revert();
-            toast.error("Error movent l'esdeveniment.");
+            toast.error(t('calendar.move_event_error', "Error movent l'esdeveniment."));
         }
-    }, [onRefresh, onEventEdit, dateField, endDateField]);
+    }, [onRefresh, onEventEdit, dateField, endDateField, t]);
 
-    // Estirar event (canviar data fi)
+    // Resize event (change end date)
     const handleEventResize = useCallback(async (resizeInfo) => {
         const { event } = resizeInfo;
         const { id, readonly, metadata } = event.extendedProps;
 
         if (readonly) {
             resizeInfo.revert();
-            toast.error("No pots redimensionar un esdeveniment extern.");
+            toast.error(t('calendar.external_resize_error', 'No pots redimensionar un esdeveniment extern.'));
             return;
         }
 
-        // Fi de dia sencer: FullCalendar el dona EXCLUSIU; el Vault el desa INCLUSIU.
+        // All-day end: FullCalendar gives it as EXCLUSIVE; the Vault stores it as INCLUSIVE.
         const newEnd = event.allDay
             ? exclusiveToInclusiveEnd(event.endStr)
             : toLocalDateTimeStr(event.end);
 
         const isRecurrent = !!(metadata?.rrule || metadata?.recurrence);
 
-        // Si és recurrent, deleguem al pare per preguntar
+        // If it's recurring, we delegate to the parent to ask
         if (isRecurrent && onEventEdit) {
             resizeInfo.revert();
             onEventEdit(id, {
@@ -490,10 +490,10 @@ export const DigitalBrainCalendar = ({
             }, 'resize');
             return;
         }
-        // Recurrent sense gestor (vista de BD): revertim per no tocar la sèrie.
+        // Recurring with no handler (DB view): we revert so as not to touch the series.
         if (isRecurrent) {
             resizeInfo.revert();
-            toast.error("Els esdeveniments recurrents s'editen des del calendari principal.");
+            toast.error(t('calendar.recurrent_edit_elsewhere', "Els esdeveniments recurrents s'editen des del calendari principal."));
             return;
         }
 
@@ -505,8 +505,8 @@ export const DigitalBrainCalendar = ({
                     { start: event.startStr, end: event.endStr || event.startStr, calendar_id: metadata._calendar_id || 'primary' }
                 );
             } else {
-                // Escriure al camp DE LA VISTA; un valor `period` es reserialitza
-                // sencer al camp d'inici (vegeu handleEventDrop).
+                // Write to THE VIEW'S field; a `period` value gets re-serialized
+                // in full into the start field (see handleEventDrop).
                 const startKey = dateField || 'date';
                 const endKey = endDateField || 'end_date';
                 const isPeriodValue = /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(String(metadata?.[startKey] || '').trim());
@@ -520,16 +520,16 @@ export const DigitalBrainCalendar = ({
                 }
                 await axios.patch(`/api/vault/pages/${id}`, patchData);
             }
-            toast.success("Durada actualitzada!");
+            toast.success(t('calendar.duration_updated', 'Durada actualitzada!'));
             onRefresh?.();
         } catch (error) {
             console.error('Error redimensionant event:', error);
             resizeInfo.revert();
-            toast.error("Error redimensionant l'esdeveniment.");
+            toast.error(t('calendar.resize_event_error', "Error redimensionant l'esdeveniment."));
         }
-    }, [onRefresh, onEventEdit, dateField, endDateField]);
+    }, [onRefresh, onEventEdit, dateField, endDateField, t]);
 
-    // Afegir context menu a cada event
+    // Add context menu to each event
     const handleEventDidMount = useCallback((info) => {
         const { el, event } = info;
         el.oncontextmenu = (e) => {
@@ -553,17 +553,17 @@ export const DigitalBrainCalendar = ({
         <div
             className="h-full bg-[var(--bg-primary)] flex flex-col overflow-hidden"
             onContextMenu={(e) => {
-                // Capturem clic dret sobre el calendari (espais buits)
+                // We capture right-click on the calendar (empty spaces)
                 e.preventDefault();
                 
-                // Busquem si hi ha una cel·la de data sota el cursor
+                // We check whether there's a date cell under the cursor
                 const dayEl = e.target.closest('.fc-daygrid-day, .fc-timegrid-slot');
                 let dateStr = '';
                 if (dayEl) {
                     dateStr = dayEl.getAttribute('data-date') || '';
                 }
                 
-                // Només cridem si no és sobre un event (els events tenen el seu propi handler)
+                // We only call it if it's not over an event (events have their own handler)
                 onContextMenu?.({ x: e.clientX, y: e.clientY, date: dateStr, eventId: null });
             }}
         >
@@ -640,7 +640,7 @@ export const DigitalBrainCalendar = ({
                     }}
                     headerToolbar={false}
                     dayMaxEvents={4}
-                    moreLinkContent={(arg) => `+ ${arg.shortText} més`}
+                    moreLinkContent={(arg) => `+ ${arg.shortText} ${t('calendar.more_suffix', 'més')}`}
                     locales={[caLocale, esLocale]}
                     locale={i18n.language || 'en'}
                     events={events}
@@ -713,7 +713,7 @@ export const DigitalBrainCalendar = ({
                         }
 
                         const color = arg.event.backgroundColor || arg.event.borderColor;
-                        // Intensitat doble: 1.0 per a futur (sòlid), 0.45 per a passat (abans 0.15)
+                        // Double intensity: 1.0 for future (solid), 0.45 for past (previously 0.15)
                         const bgOpacity = isPast ? 0.45 : 1.0;
                         const pastel = getPastelColor(color, bgOpacity);
 
@@ -721,9 +721,9 @@ export const DigitalBrainCalendar = ({
                             <div className="fc-event-main-frame flex items-center px-1.5 overflow-hidden h-full rounded border-l-[4px] border-l-current shadow-sm"
                                 style={{
                                     backgroundColor: pastel.bg,
-                                    // Text blanc NOMÉS sobre fons sòlid (futur); en els
-                                    // passats (bg pastel al 45%) el blanc era illegible
-                                    // amb colors clars en mode clar.
+                                    // White text ONLY on solid background (future); in the
+                                    // past ones (pastel bg at 45%) white was illegible
+                                    // with light colors in light mode.
                                     color: (bgOpacity >= 1 ? '#ffffff' : pastel.text),
                                     borderLeftColor: pastel.border,
                                     minHeight: '1.4rem',
@@ -743,9 +743,9 @@ export const DigitalBrainCalendar = ({
                     }}
                     dateClick={(arg) => {
                         if (!onDateClick) return;
-                        // Evitar crear cita si un event acaba de ser clicat (< 300ms)
+                        // Avoid creating an appointment if an event was just clicked (< 300ms)
                         if (Date.now() - lastEventClickTimeRef.current < 300) return;
-                        // Evitar crear cita quan el target és dins d'un element d'event
+                        // Avoid creating an appointment when the target is inside an event element
                         const target = arg.jsEvent?.target;
                         if (target?.closest('.fc-event, .fc-event-harness, .fc-daygrid-event-harness, .fc-timegrid-event-harness')) return;
                         onDateClick(arg.date);
@@ -802,8 +802,8 @@ export const DigitalBrainCalendar = ({
                                 <div className="flex items-center text-[var(--text-secondary)]">
                                     <Clock className="w-4 h-4 mr-3 opacity-70 shrink-0" />
                                     <span>
-                                        {hoveredEvent.allDay 
-                                            ? (i18n.language === 'ca' ? 'Tot el dia' : 'Todo el día')
+                                        {hoveredEvent.allDay
+                                            ? t('calendar.all_day', 'Tot el dia')
                                             : `${new Date(hoveredEvent.start).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}${hoveredEvent.end ? ' - ' + new Date(hoveredEvent.end).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) : ''}`
                                         }
                                     </span>
@@ -819,14 +819,14 @@ export const DigitalBrainCalendar = ({
                                 {hoveredEvent.travelTime ? (
                                     <div className="flex items-center text-[var(--text-secondary)]">
                                         <Navigation className="w-4 h-4 mr-3 opacity-70 shrink-0" />
-                                        <span>{i18n.language === 'es' ? 'Desplazamiento' : 'Desplaçament'}: {hoveredEvent.travelTime} min</span>
+                                        <span>{t('calendar.travel_time', 'Temps de desplaçament')}: {hoveredEvent.travelTime} min</span>
                                     </div>
                                 ) : null}
 
                                 {hoveredEvent.reminder ? (
                                     <div className="flex items-center text-[var(--text-secondary)]">
                                         <Bell className="w-4 h-4 mr-3 opacity-70 shrink-0" />
-                                        <span>{(() => { const n = parseInt(hoveredEvent.reminder); const v = n % 1440 === 0 ? `${n / 1440} d` : n % 60 === 0 ? `${n / 60} h` : `${n} min`; return `${i18n.language === 'es' ? 'Aviso' : 'Avís'} ${v} ${i18n.language === 'es' ? 'antes' : 'abans'}`; })()}</span>
+                                        <span>{(() => { const n = parseInt(hoveredEvent.reminder); const v = n % 1440 === 0 ? `${n / 1440} d` : n % 60 === 0 ? `${n / 60} h` : `${n} min`; return t('calendar.reminder_before', 'Avís {{value}} abans', { value: v }); })()}</span>
                                     </div>
                                 ) : null}
 
@@ -894,7 +894,7 @@ export const DigitalBrainCalendar = ({
                     color: var(--text-primary);
                     text-decoration: none;
                 }
-                /* Forçar estils per a cites amb hora */
+                /* Force styles for timed appointments */
                 .timed-event-colored {
                     background-color: transparent !important;
                     border-color: transparent !important;
@@ -903,7 +903,7 @@ export const DigitalBrainCalendar = ({
                 .timed-event-colored:hover {
                     background-color: var(--bg-secondary) !important;
                 }
-                /* Dies que s'ajusten a l'espai disponible */
+                /* Days that fit to available space */
                 .fc-daygrid-day-frame {
                     height: 100% !important;
                     display: flex !important;
@@ -912,7 +912,7 @@ export const DigitalBrainCalendar = ({
                 .fc-daygrid-day-events {
                     flex-grow: 1;
                 }
-                /* Estil per al botó "+ més" */
+                /* Style for the "+ more" button */
                 .fc-daygrid-more-link {
                     font-size: 0.75rem !important;
                     font-weight: 600 !important;
@@ -928,7 +928,7 @@ export const DigitalBrainCalendar = ({
                     background-color: var(--bg-secondary) !important;
                     text-decoration: none !important;
                 }
-                /* Esdeveniments de tot el dia (blocs) */
+                /* All-day events (blocks) */
                 .fc-daygrid-block-event {
                     background: transparent !important;
                     border: none !important;
@@ -996,7 +996,7 @@ export const DigitalBrainCalendar = ({
                 .fc-list-day-cushion {
                     background-color: var(--bg-secondary) !important;
                 }
-                /* Cursor de resize visible */
+                /* Visible resize cursor */
                 .fc-event-resizer {
                     cursor: ew-resize;
                 }

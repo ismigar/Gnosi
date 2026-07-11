@@ -1,20 +1,20 @@
 /**
  * rollupUtils.js
- * Utilitats per calcular rollups (agregacions) sobre registres relacionats del Vault.
+ * Utilities for computing rollups (aggregations) over related Vault records.
  */
 import { asBool } from '../../utils/vaultFilters';
 
 /**
- * Calcula un rollup sobre una llista de valors.
- * @param {Array} values - Llista de valors sobre els quals agregar
- * @param {string} aggregation - Tipus d'agregació
+ * Computes a rollup over a list of values.
+ * @param {Array} values - List of values to aggregate over
+ * @param {string} aggregation - Aggregation type
  * @returns {string|number}
  */
-// parseFloat no entén els decimals amb coma (locale ca/es): parseFloat("0,25")=0,
-// parseFloat("1,5")=1, així que sum/avg/min/max d'un rollup sobre un camp numèric
-// amb comes sortien mal. Si el valor és un número net amb decimal de coma, el
-// passem a punt; si no, fallback a parseFloat (gestiona "1.5", enters i signe).
-// Mateix criteri que els motors d'ordenació/filtre/agregat de columna del Vault.
+// parseFloat doesn't understand comma decimals (ca/es locale): parseFloat("0,25")=0,
+// parseFloat("1,5")=1, so sum/avg/min/max of a rollup over a numeric field
+// with commas came out wrong. If the value is a clean number with a comma decimal, we
+// convert it to a dot; otherwise, fall back to parseFloat (handles "1.5", integers, and sign).
+// Same criteria as the Vault's column sort/filter/aggregate engines.
 function parseNumericValue(v) {
     const t = String(v).trim();
     return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : parseFloat(t);
@@ -41,9 +41,9 @@ export function evaluateRollup(values = [], aggregation = 'count_all') {
             return new Set(nonEmptyValues.map(v => String(v))).size;
         case 'percent_checked':
             if (!values.length) return '0%';
-            // Paritat amb els 3 motors de filtres (asBool/_as_bool/_is_truthy_checkbox):
-            // un checkbox emmagatzemat com a 'yes'/'sí'/'done'/'checked'/'completat'
-            // també compta com a marcat, no només `true`/'true'/1.
+            // Parity with the 3 filter engines (asBool/_as_bool/_is_truthy_checkbox):
+            // a checkbox stored as 'yes'/'sí'/'done'/'checked'/'completat'
+            // also counts as checked, not just `true`/'true'/1.
             const checked = values.filter(asBool).length;
             return `${Math.round((checked / values.length) * 100)}%`;
         case 'earliest':

@@ -1,9 +1,9 @@
-"""Tests del servei `csl_styles`.
+"""Tests for the `csl_styles` service.
 
-Cobreix:
-  - `_extract_csl_title`: extreu títol del XML amb i sense namespace, regex fallback.
-  - `list_styles`: integració amb el directori real (validació no-buit).
-  - `save_uploaded_style`: validació mida, extensió, XML, root element.
+Covers:
+  - `_extract_csl_title`: extracts title from XML with and without namespace, regex fallback.
+  - `list_styles`: integration with the real directory (non-empty validation).
+  - `save_uploaded_style`: validates size, extension, XML, root element.
 """
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def _make_csl_xml(title: str = "Test Style") -> bytes:
 # ---------- list_styles ----------
 
 def test_list_styles_returns_known_entries():
-    """Han d'estar els 4 estils canònics commit al repo."""
+    """The 4 canonical styles must be committed to the repo."""
     styles = list_styles()
     ids = {s["id"] for s in styles}
     expected_canonical = {"apa", "chicago-author-date", "ieee", "modern-language-association"}
@@ -57,14 +57,14 @@ def test_extract_csl_title_with_namespace(tmp_path):
 
 
 def test_extract_csl_title_regex_fallback(tmp_path):
-    """XML truncat → ParseError → cau al regex (que igualment troba el title)."""
+    """Truncated XML → ParseError → falls back to regex (which still finds the title)."""
     f = tmp_path / "truncated.csl"
     f.write_bytes(b'<?xml version="1.0"?><style><info><title>Truncated Title</title></info>')
     assert _extract_csl_title(f) == "Truncated Title"
 
 
 def test_extract_csl_title_no_title(tmp_path):
-    """CSL sense title → None, no peta."""
+    """CSL without a title → None, doesn't crash."""
     f = tmp_path / "untitled.csl"
     f.write_bytes(
         b'<?xml version="1.0"?>\n'
@@ -90,7 +90,7 @@ def test_save_uploaded_style_happy_path(tmp_path, monkeypatch):
 def test_save_uploaded_style_sanitizes_filename(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.services.csl_styles.STYLES_DIR", tmp_path)
     meta = save_uploaded_style(_make_csl_xml(), "../../../evil name!@#$.csl")
-    # No barres, sense caracters perillosos.
+    # No slashes, no dangerous characters.
     assert "/" not in meta["file"]
     assert "\\" not in meta["file"]
     assert meta["file"].endswith(".csl")

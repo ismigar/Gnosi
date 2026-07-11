@@ -1,30 +1,30 @@
-"""Mapping bidireccional entre columnes de Recursos i camps de Zotero.
+"""Bidirectional mapping between Recursos columns and Zotero fields.
 
-Aquest mòdul **no és generat** — és coneixement de Gnosi (les nostres
-columnes catalanes) lligat a la nomenclatura oficial de Zotero. Manten-lo
-sincronitzat amb `_zotero_item_to_recursos` a `vault_routes.py` (la
-mateixa veritat, dos usos: aquell transforma valors, aquest declara la
-correspondència per a queries de rellevància).
+This module **is not generated** — it is Gnosi domain knowledge (our
+Catalan columns) tied to Zotero's official naming. Keep it in sync
+with `_zotero_item_to_recursos` in `vault_routes.py` (the same source of
+truth, two uses: that one transforms values, this one declares the
+correspondence for relevance queries).
 
-Per què hi ha llistes (no strings) al valor de `RECURSOS_TO_ZOTERO_FIELDS`:
-una columna Recursos pot ser alimentada per diferents camps Zotero segons
-el tipus. P. ex. `Llibre/Revista` és:
-  - `publicationTitle` en un `journalArticle`
-  - `bookTitle`        en un `bookSection`
-  - `proceedingsTitle` en un `conferencePaper`
-  - `encyclopediaTitle` en un `encyclopediaArticle`
+Why there are lists (not strings) as the value of `RECURSOS_TO_ZOTERO_FIELDS`:
+a Recursos column can be fed by different Zotero fields depending on
+the type. E.g. `Llibre/Revista` is:
+  - `publicationTitle` in a `journalArticle`
+  - `bookTitle`        in a `bookSection`
+  - `proceedingsTitle` in a `conferencePaper`
+  - `encyclopediaTitle` in an `encyclopediaArticle`
 
-L'ordre dins de cada llista NO és preferent — només defineix el conjunt
-de camps Zotero que poden marcar aquesta columna com a "rellevant" per
-un tipus donat.
+The order within each list is NOT preferential — it only defines the set
+of Zotero fields that can mark this column as "relevant" for
+a given type.
 """
 from __future__ import annotations
 
 from backend.services.zotero_schema import ITEM_TYPE_FIELDS
 
-# Columnes canòniques de Recursos (frontmatter del Vault) → camps Zotero
-# que poden alimentar-les. Si un camp Recursos no té correspondència
-# Zotero (p. ex. `Citation Key` o `Notes`), no apareix aquí.
+# Canonical Recursos columns (Vault frontmatter) → Zotero fields
+# that can feed them. If a Recursos field has no
+# Zotero correspondence (e.g. `Citation Key` or `Notes`), it doesn't appear here.
 RECURSOS_TO_ZOTERO_FIELDS: dict[str, list[str]] = {
     'Item Type':       ['itemType'],
     'Title':           ['title'],
@@ -46,9 +46,9 @@ RECURSOS_TO_ZOTERO_FIELDS: dict[str, list[str]] = {
     'Idioma':          ['language'],
 }
 
-# Invers: zoteroField → primera columna Recursos que el mencioni.
-# Útil per a alta manual on volem proposar quina columna del Vault
-# omplir per cada camp Zotero del schema.
+# Inverse: zoteroField → first Recursos column that mentions it.
+# Useful for manual entry where we want to suggest which Vault column
+# to fill for each Zotero field in the schema.
 ZOTERO_FIELD_TO_RECURSOS: dict[str, str] = {
     field: col
     for col, fields in RECURSOS_TO_ZOTERO_FIELDS.items()
@@ -57,11 +57,12 @@ ZOTERO_FIELD_TO_RECURSOS: dict[str, str] = {
 
 
 def is_field_relevant_for_type(recursos_field: str, zotero_item_type: str) -> bool:
-    """True si la columna Recursos pot ser alimentada per qualsevol dels
-    camps oficials del `zotero_item_type` donat.
+    """True if the Recursos column can be fed by any of the
+    official fields of the given `zotero_item_type`.
 
-    Si el tipus no existeix al schema o la columna no té correspondència
-    Zotero, retorna False (mostra-la a la secció "Altres camps" al modal).
+    If the type doesn't exist in the schema or the column has no Zotero
+    correspondence, returns False (show it in the "Other fields" section in the modal).
+    
     """
     candidates = RECURSOS_TO_ZOTERO_FIELDS.get(recursos_field)
     if not candidates:

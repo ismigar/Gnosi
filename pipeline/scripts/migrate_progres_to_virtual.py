@@ -1,18 +1,18 @@
 #!/usr/bin/env python3.11
-"""Converteix el camp «Progrés» de la taula Projectes a un camp DERIVAT (virtual).
+"""Converts the "Progrés" field in the Projectes table into a DERIVED (virtual) field.
 
-D'un `number` amb fraccions 0-1 desades a mà → `virtual` amb `compute=task_progress`
-(% de Tasques relacionades amb Estat="Fet", calculat en llegir pel backend).
+From a `number` with hand-saved 0-1 fractions → `virtual` with `compute=task_progress`
+(% of related Tasques with Estat="Fet", calculated on read by the backend).
 
-Idempotent: si ja és virtual amb el compute correcte, no fa res.
-Per defecte fa DRY-RUN (mostra el canvi). Cal `--apply` per escriure (amb backup).
+Idempotent: if it's already virtual with the correct compute, does nothing.
+Defaults to DRY-RUN (shows the change). Requires `--apply` to write (with backup).
 
-Veure: docs/dev_memory/directives/vault_derived_progress_field.md
+See: docs/dev_memory/directives/vault_derived_progress_field.md
 
-ATENCIÓ: el backend que serveix el vault HA DE TENIR el computer `task_progress`
-(backend/api/virtual_fields.py) actiu ABANS d'aplicar; si no, Progrés es veurà
-BUIT fins que el codi es desplegui. Després d'aplicar, reinicia el backend natiu
-i invalida el page-index cache.
+WARNING: the backend serving the vault MUST HAVE the `task_progress` computer
+(backend/api/virtual_fields.py) active BEFORE applying; otherwise, Progrés will show
+EMPTY until the code is deployed. After applying, restart the native backend
+and invalidate the page-index cache.
 """
 from __future__ import annotations
 

@@ -1,23 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { PageHoverCard } from './PageHoverCard';
 
-// Delay d'obertura una mica més curt que el hover de wikilinks (450 ms) perquè
-// el cas d'ús és fer un "cop d'ull ràpid" al registre; prou alt, però, per no
-// disparar-se en passar el ratolí per damunt mentre es navega per la taula.
+// Opening delay a bit shorter than the wikilink hover (450 ms) because
+// the use case is taking a "quick look" at the record; high enough, though, to not
+// trigger just from moving the mouse over it while navigating the table.
 const HOVER_OPEN_DELAY = 350;
 const HOVER_CLOSE_DELAY = 180;
 
 /**
- * Orquestra la previsualització del títol d'un registre (hover + teclat) per a
- * una vista. Manté UN sol `PageHoverCard` per vista i exposa:
- *  - `getTitleProps(pageId)`: props `onMouseEnter`/`onMouseLeave` per a
- *    l'element del títol (passa el ratolí → s'obre amb delay).
- *  - `openForKeyboard(pageId, rect)` / `close()`: control directe (Quick Look).
- *  - `active`: estat actual `{ pageId, rect, viaKeyboard }` o `null` (per a toggle).
- *  - `preview`: el JSX del card (o `null`) que la vista renderitza un sol cop.
+ * Orchestrates the title preview of a record (hover + keyboard) for
+ * a view. Keeps a SINGLE `PageHoverCard` per view and exposes:
+ *  - `getTitleProps(pageId)`: `onMouseEnter`/`onMouseLeave` props for
+ *    the title element (mouse hovers over it → opens with a delay).
+ *  - `openForKeyboard(pageId, rect)` / `close()`: direct control (Quick Look).
+ *  - `active`: current state `{ pageId, rect, viaKeyboard }` or `null` (for toggling).
+ *  - `preview`: the card's JSX (or `null`) that the view renders a single time.
  *
  * @param {object} [opts]
- * @param {(id: string) => void} [opts.onOpenPage] obrir la pàgina sencera.
+ * @param {(id: string) => void} [opts.onOpenPage] open the full page.
  */
 export function useTitlePreview({ onOpenPage } = {}) {
     const [active, setActive] = useState(null); // { pageId, rect, viaKeyboard }
@@ -47,8 +47,8 @@ export function useTitlePreview({ onOpenPage } = {}) {
         closeTimer.current = setTimeout(() => setActive(null), HOVER_CLOSE_DELAY);
     }, [clearTimers]);
 
-    // Obre amb delay de hover (rect explícit). El reusen tant els elements
-    // React (via getTitleProps) com FullCalendar (eventMouseEnter del calendari).
+    // Opens with a hover delay (explicit rect). Reused by both the
+    // React (via getTitleProps) and FullCalendar (the calendar's eventMouseEnter).
     const openHover = useCallback((pageId, rect) => {
         if (!pageId || !rect) return;
         clearTimers();
@@ -60,9 +60,9 @@ export function useTitlePreview({ onOpenPage } = {}) {
     const getTitleProps = useCallback((pageId) => ({
         onMouseEnter: (e) => openHover(pageId, e.currentTarget.getBoundingClientRect()),
         onMouseLeave: () => {
-            // Si encara no s'ha obert, cancel·la l'obertura pendent; si ja és
-            // obert, programa el tancament (el ratolí pot transitar cap al card,
-            // que cancel·larà aquest tancament amb el seu onMouseEnter).
+            // If it hasn't opened yet, cancels the pending opening; if it's already
+            // open, schedules the closing (the mouse might move toward the card,
+            // which will cancel this closing via its own onMouseEnter).
             if (openTimer.current) { clearTimeout(openTimer.current); openTimer.current = null; }
             scheduleClose();
         },

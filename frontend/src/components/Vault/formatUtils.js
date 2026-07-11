@@ -1,16 +1,16 @@
 /**
  * formatUtils.js
  *
- * Helpers purs (sense React) per formatar números (número/moneda/percentatge)
- * i dates segons un format GLOBAL (Settings) amb override PER CAMP. Args
- * explícits → testejables de forma determinista (les sortides d'`Intl`
- * depenen del locale, així que els tests han de passar `locale` explícit).
+ * Pure helpers (no React) to format numbers (number/currency/percentage)
+ * and dates according to a GLOBAL format (Settings) with a PER-FIELD override. Explicit
+ * args → deterministically testable (`Intl` output
+ * depends on locale, so tests must pass an explicit `locale`).
  *
- * El format és NOMÉS de presentació: els números es desen com a Number cru i
- * les dates en ISO. Vegeu docs/dev_memory/directives/vault_field_formatting.md
+ * The format is presentation-ONLY: numbers are stored as raw Number and
+ * dates in ISO. See docs/dev_memory/directives/vault_field_formatting.md
  */
 
-/** `'EUR (€)'` → `'EUR'`. Accepta ja un codi (`'USD'`) o amb símbol. */
+/** `'EUR (€)'` → `'EUR'`. Already accepts a code (`'USD'`) or with a symbol. */
 export function parseCurrencyCode(raw, fallback = 'EUR') {
     if (!raw) return fallback;
     const m = String(raw).trim().match(/[A-Za-z]{3}/);
@@ -18,22 +18,22 @@ export function parseCurrencyCode(raw, fallback = 'EUR') {
 }
 
 /**
- * Mapeja el símbol decimal a un locale de formatació. `Intl` deriva els
- * separadors del locale (no accepta un símbol arbitrari), així que en lloc de
- * fer substitucions fràgils triem un locale que usi el símbol desitjat.
+ * Maps the decimal symbol to a formatting locale. `Intl` derives the
+ * separators from the locale (it doesn't accept an arbitrary symbol), so instead of
+ * doing fragile substitutions we pick a locale that uses the desired symbol.
  */
 export function localeForDecimalSymbol(decimalSymbol) {
     if (decimalSymbol === '.') return 'en-US';
     if (decimalSymbol === ',') return 'de-DE';
-    return undefined; // → el caller usarà el seu locale per defecte
+    return undefined; // → the caller will use its default locale
 }
 
 function isEmpty(value) {
     return value === undefined || value === null
-        // El número `NaN` (p. ex. el resultat d'una fórmula com `{Preu} * 2`
-        // amb un valor no numèric) es tracta com a BUIT: `toNumber` el deixa
-        // passar (`typeof NaN === 'number'`) i acabava mostrant-se com a "NaN%"
-        // a la cel·la, contradint la promesa "mai NaN" de `formatNumber`.
+        // The number `NaN` (e.g. the result of a formula like `{Preu} * 2`
+        // with a non-numeric value) is treated as EMPTY: `toNumber` leaves it
+        // pass (`typeof NaN === 'number'`) and it ended up being displayed as "NaN%"
+        // in the cell, contradicting `formatNumber`'s "never NaN" promise.
         || (typeof value === 'number' && Number.isNaN(value))
         || (typeof value === 'string' && value.trim() === '');
 }
@@ -41,20 +41,20 @@ function isEmpty(value) {
 function toNumber(value) {
     if (typeof value === 'number') return value;
     const t = String(value).trim();
-    // locale ca/es: un número net amb decimal de coma ("1,5", "-2,75") es desa
-    // sovint com a STRING amb coma. `Number("1,5")` és NaN, així que sense això
-    // el valor es mostrava CRU (sense símbol de moneda, decimals ni agrupació).
-    // Mateix criteri que els motors d'ordenació/filtre/rollup del Vault.
+    // ca/es locale: a clean number with a comma decimal ("1,5", "-2,75") is stored
+    // often as a STRING with a comma. `Number("1,5")` is NaN, so without this
+    // the value used to be shown RAW (without currency symbol, decimals, or grouping).
+    // Same criteria as the Vault's sort/filter/rollup engines.
     const n = /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : Number(t);
     return Number.isFinite(n) ? n : null;
 }
 
 /**
- * Formata un número per a la VISUALITZACIÓ.
+ * Formats a number for DISPLAY.
  * opts = { kind: 'number'|'currency'|'percent'|'year', decimals?, currencyCode?, locale? }
- * - Valor buit → ''. Valor no numèric → el valor cru (mai "NaN").
- * - 'percent' mostra el valor TAL QUAL amb sufix '%' (no multiplica ×100).
- * - 'year' mostra l'enter sense separador de milers (2024, no 2.024).
+ * - Empty value → ''. Non-numeric value → the raw value (never "NaN").
+ * - 'percent' shows the value AS-IS with a '%' suffix (does not multiply ×100).
+ * - 'year' shows the integer without a thousands separator (2024, not 2.024).
  */
 export function formatNumber(value, opts = {}) {
     if (isEmpty(value)) return '';
@@ -79,7 +79,7 @@ export function formatNumber(value, opts = {}) {
         }
         return new Intl.NumberFormat(locale, fractionOpts).format(num);
     } catch {
-        // currency code invàlid o locale dolent: no petem, mostrem el cru.
+        // invalid currency code or bad locale: we don't crash, we show the raw value.
         return String(value);
     }
 }
@@ -87,20 +87,20 @@ export function formatNumber(value, opts = {}) {
 const pad2 = (n) => String(n).padStart(2, '0');
 
 /**
- * Formata una data per a la VISUALITZACIÓ.
+ * Formats a date for DISPLAY.
  * opts = { dateFormat: 'locale'|'DD/MM/YYYY'|'MM/DD/YYYY'|'YYYY-MM-DD', type, locale }
- * - Els formats explícits es construeixen amb components LOCALS (no UTC) per no
- *   desplaçar el dia. Data invàlida → el valor cru (mai "Invalid Date").
+ * - Explicit formats are built using LOCAL components (not UTC) to avoid
+ *   shifting the day. Invalid date → the raw value (never "Invalid Date").
  */
 export function formatDate(value, opts = {}) {
     if (isEmpty(value)) return '';
     const { dateFormat = 'locale', type = 'date', locale } = opts;
-    // Una cadena de NOMÉS data ("YYYY-MM-DD") la parseja `new Date()` com a
-    // mitjanit UTC; com que després en llegim els components LOCALS (getDate…) o
-    // la formatem amb la tz local, el dia es desplaça enrere en zones amb offset
-    // negatiu (p. ex. Amèrica): "2024-10-04" hi sortiria com a 03/10. La parsegem
-    // com a mitjanit LOCAL perquè mostri sempre el dia literal. Els valors amb
-    // hora (ISO datetime) es mantenen com abans (conversió de tz correcta).
+    // A DATE-ONLY string ("YYYY-MM-DD") is parsed by `new Date()` as
+    // UTC midnight; since we later read the LOCAL components (getDate…) or
+    // format it with the local tz, the day shifts backward in zones with a
+    // negative offset (e.g. America): "2024-10-04" would show up there as 03/10. We parse it
+    // as LOCAL midnight so it always shows the literal day. Values with
+    // a time (ISO datetime) are kept as before (correct tz conversion).
     const d = (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.trim()))
         ? new Date(value.trim() + 'T00:00:00')
         : new Date(value);
@@ -123,16 +123,16 @@ export function formatDate(value, opts = {}) {
     let datePart;
     if (dateFormat === 'YYYY-MM-DD') datePart = `${y}-${m}-${dd}`;
     else if (dateFormat === 'MM/DD/YYYY') datePart = `${m}/${dd}/${y}`;
-    else datePart = `${dd}/${m}/${y}`; // 'DD/MM/YYYY' (per defecte explícit)
+    else datePart = `${dd}/${m}/${y}`; // 'DD/MM/YYYY' (explicit default)
 
     if (type === 'datetime') return `${datePart} ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
     return datePart;
 }
 
 /**
- * Fusiona el format per camp (`config.format`) sobre els defaults globals.
- * `global` ve de useLocaleSettings: { currencyCode, dateFormat, numberLocale, dateLocale }.
- * Torna les opcions llestes per a formatNumber/formatDate.
+ * Merges the per-field format (`config.format`) over the global defaults.
+ * `global` comes from useLocaleSettings: { currencyCode, dateFormat, numberLocale, dateLocale }.
+ * Returns the options ready for formatNumber/formatDate.
  */
 export function resolveFieldFormat(fieldConfig = {}, global = {}) {
     const f = (fieldConfig && fieldConfig.format) || {};

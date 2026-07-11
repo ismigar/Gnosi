@@ -1,20 +1,20 @@
 /**
- * fileResource — utilitats compartides per a valors de camps de tipus `files`
- * (i per a l'interceptor d'enllaços de fitxer del Vault).
+ * fileResource — shared utilities for values of `files`-type fields
+ * (and for the Vault's file link interceptor).
  *
- * Centralitza COM Gnosi obre un fitxer perquè el comportament sigui idèntic
- * tant si l'usuari clica un enllaç dins d'una pàgina (useFileLinkInterceptor)
- * com si clica el botó "Obrir" d'un camp de fitxers (FileFieldValue):
- *   - PDF / EPUB / HTML  → visor integrat (Zotero reader) via event
- *     `gnosi:open-pdf`; fora del Vault, fallback a la ruta `/vault/pdf`.
- *   - URL remota o servida (/api/…) → pestanya nova del navegador.
- *   - Fitxer local d'un altre tipus → app per defecte del SO
- *     (`/api/vault/open-local-path`), amb còpia al portapapers si el backend
- *     no pot obrir-lo (típic dins Docker sense accés al Finder).
+ * Centralizes HOW Gnosi opens a file so the behavior is identical
+ * whether the user clicks a link inside a page (useFileLinkInterceptor)
+ * or clicks the "Open" button on a file field (FileFieldValue):
+ *   - PDF / EPUB / HTML  → integrated viewer (Zotero reader) via the
+ *     `gnosi:open-pdf` event; outside the Vault, fallback to the `/vault/pdf` route.
+ *   - Remote or served URL (/api/…) → new browser tab.
+ *   - Local file of another type → OS default app
+ *     (`/api/vault/open-local-path`), with clipboard copy if the backend
+ *     can't open it (typical inside Docker without Finder access).
  */
 import { toast } from './toast';
 
-// Tipus de document que el visor integrat (Zotero reader) sap mostrar.
+// Document types that the integrated viewer (Zotero reader) can display.
 const DOCUMENT_KIND_BY_EXT = { pdf: 'pdf', epub: 'epub', html: 'snapshot', htm: 'snapshot' };
 
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?|#|$)/i;
@@ -23,7 +23,7 @@ const AUDIO_EXT = /\.(mp3|wav|m4a|flac|ogg|aac)(\?|#|$)/i;
 
 const isRemoteOrServed = (src) => /^https?:\/\//i.test(src) || src.startsWith('/api/');
 
-/** Retorna el `kind` del visor Zotero per a un href, o null si no és suportat. */
+/** Returns the Zotero viewer `kind` for a given href, or null if not supported. */
 export function documentKindForHref(href) {
     if (!href) return null;
     const clean = String(href).split('?')[0].split('#')[0].toLowerCase();
@@ -32,7 +32,7 @@ export function documentKindForHref(href) {
     return DOCUMENT_KIND_BY_EXT[m[1]] || null;
 }
 
-/** Classificació grollera per triar icona / thumbnail al chip. */
+/** Rough classification to choose icon / thumbnail for the chip. */
 export function fileKindFromValue(value) {
     const v = String(value || '').trim().toLowerCase();
     if (!v) return 'file';
@@ -44,13 +44,13 @@ export function fileKindFromValue(value) {
     return 'file';
 }
 
-/** Clau (localStorage + cookie) on viu l'id del vault actiu. */
+/** Key (localStorage + cookie) where the active vault's id lives. */
 export const ACTIVE_VAULT_KEY = 'gnosi_active_vault';
 
 /**
- * Id del vault actiu triat per l'usuari (mode multi-vault); null si cap.
- * Font única: localStorage `gnosi_active_vault` (el mateix que l'interceptor
- * d'axios propaga com a capçalera `X-Vault-Id`).
+ * Id of the active vault chosen by the user (multi-vault mode); null if none.
+ * Single source of truth: localStorage `gnosi_active_vault` (the same one the axios
+ * interceptor propagates as the `X-Vault-Id` header).
  */
 export function getActiveVaultId() {
     try {
@@ -61,19 +61,19 @@ export function getActiveVaultId() {
 }
 
 /**
- * Escriu (o esborra) el vault actiu com a COOKIE same-origin.
+ * Writes (or deletes) the active vault as a same-origin COOKIE.
  *
- * Per què cal a MÉS de la capçalera `X-Vault-Id`: la capçalera només l'afegeix
- * l'interceptor d'axios, així que TOTES les peticions que no passen per axios
- * queden sense senyal de vault i cauen al vault per defecte (Principal) al
- * backend: `fetch()` cru, mèdia natiu (`<img>/<video>/<audio>/<iframe>`),
- * `background-image` CSS, `EventSource`/SSE, `/api/chat` i fins i tot el
- * handshake del WebSocket. Una cookie same-origin viatja AUTOMÀTICAMENT a cada
- * petició al mateix origin → tanca tota aquesta classe sense tocar cada punt de
- * crida. El middleware la llegeix com a ÚLTIM fallback (capçalera > `?vault=` >
- * cookie), així un `X-Vault-Id` explícit (clonar Notion a un vault separat)
- * continua manant. `SameSite=Lax` i sense `Secure` perquè funcioni també en
- * HTTP local; l'app és same-origin (el proxy de Vite serveix `/api`).
+ * Why this is needed IN ADDITION to the `X-Vault-Id` header: the header is only added
+ * by the axios interceptor, so ALL requests that don't go through axios
+ * are left without a vault signal and fall back to the default vault (Principal) on the
+ * backend: raw `fetch()`, native media (`<img>/<video>/<audio>/<iframe>`),
+ * CSS `background-image`, `EventSource`/SSE, `/api/chat`, and even the
+ * WebSocket handshake. A same-origin cookie AUTOMATICALLY travels with every
+ * request to the same origin → this closes off that whole class without touching every call
+ * site. The middleware reads it as a LAST fallback (header > `?vault=` >
+ * cookie), so an explicit `X-Vault-Id` (cloning Notion into a separate vault)
+ * still takes precedence. `SameSite=Lax` and no `Secure` so it also works on
+ * local HTTP; the app is same-origin (the Vite proxy serves `/api`).
  */
 export function setActiveVaultCookie(id) {
     try {
@@ -83,36 +83,36 @@ export function setActiveVaultCookie(id) {
         } else {
             document.cookie = `${ACTIVE_VAULT_KEY}=; path=/; SameSite=Lax; max-age=0`;
         }
-    } catch { /* document/cookie no disponible */ }
+    } catch { /* document/cookie not available */ }
 }
 
 /**
- * Sincronitza la cookie del vault actiu amb el valor de localStorage (font de
- * veritat). Cal cridar-ho a l'ARRENCADA, abans del primer render, perquè els
- * `<img>` natius del primer pintat ja portin el vault. També és idempotent i
- * el pot cridar l'interceptor d'axios per mantenir la cookie fresca.
+ * Synchronizes the active vault cookie with the localStorage value (source of
+ * truth). Must be called at STARTUP, before the first render, so that
+ * native `<img>` elements in the first paint already carry the vault. It is also idempotent and
+ * the axios interceptor can call it to keep the cookie fresh.
  */
 export function syncActiveVaultCookie() {
     setActiveVaultCookie(getActiveVaultId());
 }
 
 /**
- * Afegeix el vault actiu com a query-param a una URL d'asset SERVIDA
+ * Adds the active vault as a query-param to a SERVED asset URL
  * (`/api/vault/…`).
  *
- * Per què cal: les peticions natives d'`<img>` (i `background-image`, etc.) NO
- * passen per axios, així que NO porten la capçalera `X-Vault-Id`. Sense cap
- * senyal de vault el backend cau al vault per defecte (Principal) i les
- * icones/imatges d'un vault no-default (p. ex. Notion) tornen 404 → imatge
- * trencada. El param `vault` és el fallback que el middleware llegeix quan no hi
- * ha capçalera. Idempotent; deixa intactes URLs remotes/`data:`/no-servides i,
- * si no hi ha cap vault triat, no toca res (compatibilitat enrere single-vault).
+ * Why this is needed: native `<img>` requests (and `background-image`, etc.) do NOT
+ * go through axios, so they do NOT carry the `X-Vault-Id` header. Without any
+ * vault signal the backend falls back to the default vault (Principal) and
+ * icons/images from a non-default vault (e.g. Notion) return 404 → broken
+ * image. The `vault` param is the fallback the middleware reads when there is no
+ * header. Idempotent; leaves remote/`data:`/non-served URLs untouched and,
+ * if no vault is chosen, doesn't touch anything (single-vault backward compatibility).
  *
- * `explicitVid` força un vault concret en comptes del vault actiu del
- * localStorage. Ho fa servir la pàgina compartida pública (`/s/token`): el
- * visitant anònim no té `gnosi_active_vault`, així que el vault del share ve del
- * backend i s'ha d'aplicar explícitament (i, si el visitant té el SEU propi
- * vault actiu, no s'ha d'usar el seu per als assets del share).
+ * `explicitVid` forces a specific vault instead of the active vault from
+ * localStorage. This is used by the public shared page (`/s/token`): the
+ * anonymous visitor has no `gnosi_active_vault`, so the share's vault comes from the
+ * backend and must be applied explicitly (and, if the visitor has THEIR OWN
+ * active vault, it must not be used for the share's assets).
  */
 export function withActiveVault(url, explicitVid) {
     if (typeof url !== 'string' || !url.startsWith('/api/vault/')) return url;
@@ -123,12 +123,12 @@ export function withActiveVault(url, explicitVid) {
 }
 
 /**
- * Converteix un valor emmagatzemat en una URL servible pel backend
- * (`/api/vault/assets/…`) si és un path relatiu al vault o ja és servit/remot.
- * Retorna '' per a paths locals absoluts o `file://` (que el navegador no pot
- * carregar directament — s'obren via visor/SO). Les URLs servides porten el
- * vault actiu ([[withActiveVault]]) perquè l'`<img>` natiu resolgui el vault
- * correcte sense capçalera.
+ * Converts a stored value into a URL servable by the backend
+ * (`/api/vault/assets/…`) if it is a path relative to the vault or is already served/remote.
+ * Returns '' for absolute local paths or `file://` (which the browser cannot
+ * load directly — these are opened via viewer/OS). Served URLs carry the
+ * active vault ([[withActiveVault]]) so the native `<img>` resolves the correct
+ * vault without a header.
  */
 export function toServedAssetUrl(rawValue) {
     if (!rawValue || typeof rawValue !== 'string') return '';
@@ -141,18 +141,18 @@ export function toServedAssetUrl(rawValue) {
     if (value.startsWith('./Assets/')) return withActiveVault(`/api/vault/assets/${value.slice('./Assets/'.length)}`);
     const assetsIdx = value.indexOf('/Assets/');
     if (assetsIdx >= 0) return withActiveVault(`/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`);
-    // Path relatiu dins del vault (ex: "Articles/foo.pdf") → servit des d'assets.
-    // Excloem rutes amb `..`: l'endpoint d'assets bloqueja el path-traversal i
-    // un `../Recursos/x.pdf` produiria una URL malformada. Aquestes (sovint
-    // referències legacy) cauen a '' i s'obren com a fitxer local (o fallen
-    // honestament si ja no existeixen) en comptes de navegar a una URL trencada.
+    // Relative path inside the vault (e.g. "Articles/foo.pdf") → served from assets.
+    // We exclude paths with `..`: the assets endpoint blocks path traversal and
+    // a `../Recursos/x.pdf` would produce a malformed URL. These (often
+    // legacy references) fall back to '' and are opened as a local file (or fail
+    // honestly if they no longer exist) instead of navigating to a broken URL.
     if (!value.startsWith('/') && !value.includes('://') && !value.includes('..')) {
         return withActiveVault(`/api/vault/assets/${value.replace(/^\.\//, '')}`);
     }
     return '';
 }
 
-/** URL d'imatge servible per a thumbnail, o '' si el valor no és una imatge servible. */
+/** Servable image URL for the thumbnail, or '' if the value is not a servable image. */
 export function toAssetPreviewUrl(value) {
     const v = String(value || '').trim().toLowerCase();
     const isImage = v.startsWith('data:image/') || IMAGE_EXT.test(v);
@@ -161,18 +161,18 @@ export function toAssetPreviewUrl(value) {
 }
 
 /**
- * Heurística: el NOM d'un camp suggereix que el seu valor és una imatge (una
- * ruta/URL d'imatge), p. ex. "Imatge", "Cover", "Foto", "Thumbnail".
+ * Heuristic: the NAME of a field suggests its value is an image (an
+ * image path/URL), e.g. "Imatge", "Cover", "Foto", "Thumbnail".
  *
- * Compartida entre la cel·la de taula (`VaultTable`) i el panell de propietats
- * (`BlockEditor`) perquè la detecció sigui IDÈNTICA als dos llocs: un camp de
- * tipus `text` anomenat "Imatge" s'ha de comportar igual a la taula i al detall.
+ * Shared between the table cell (`VaultTable`) and the properties panel
+ * (`BlockEditor`) so detection is IDENTICAL in both places: a field of
+ * type `text` named "Imatge" must behave the same way in the table and in the detail view.
  *
- * Exclou noms que denoten TEXT *sobre* la imatge (alt, peu, descripció,
- * llegenda, caption): p. ex. "Imatge Alt Text" conté prosa, no una ruta, i ha
- * de seguir sent un camp de text. La decisió final de mostrar miniatura la pren
- * qui crida comprovant que el VALOR resol a una imatge servible
- * ([[toAssetPreviewUrl]]); aquesta funció només mira el nom.
+ * Excludes names that denote TEXT *about* the image (alt, footer, description,
+ * legend, caption): e.g. "Imatge Alt Text" contains prose, not a path, and must
+ * remain a text field. The final decision to show a thumbnail is made by
+ * the caller, by checking that the VALUE resolves to a servable image
+ * ([[toAssetPreviewUrl]]); this function only looks at the name.
  */
 export function isImageFieldName(name) {
     const s = String(name || '');
@@ -181,12 +181,12 @@ export function isImageFieldName(name) {
 }
 
 /**
- * Camp imatge COMPOST: el valor pot ser un string (ruta, retrocompatible) o un
- * mapa `{ src, alt, title, caption, credit }`. Aquests helpers normalitzen la
- * lectura perquè tots els consumidors funcionin amb totes dues formes.
+ * COMPOSITE image field: the value can be a string (path, backward-compatible) or a
+ * `{ src, alt, title, caption, credit }` map. These helpers normalize
+ * reading so that all consumers work with both forms.
  */
 
-/** Extreu la RUTA/URL d'un valor de camp imatge (string | {src} | array). */
+/** Extracts the PATH/URL from an image field value (string | {src} | array). */
 export function getImageSrc(value) {
     if (!value) return '';
     if (typeof value === 'string') return value;
@@ -195,7 +195,7 @@ export function getImageSrc(value) {
     return '';
 }
 
-/** Desglossa un valor de camp imatge a `{ src, alt, title, caption, credit }`. */
+/** Breaks down an image field value into `{ src, alt, title, caption, credit }`. */
 export function parseImageField(value) {
     const src = getImageSrc(value);
     if (value && typeof value === 'object' && !Array.isArray(value)) {
@@ -211,9 +211,9 @@ export function parseImageField(value) {
 }
 
 /**
- * Construeix el valor a desar a partir de `src` + extres (alt/title/caption/credit).
- * Si no hi ha cap extra significatiu, retorna un STRING pla (frontmatter net i
- * retrocompatible); altrament un mapa compost.
+ * Builds the value to be saved from `src` + extras (alt/title/caption/credit).
+ * If there is no meaningful extra, returns a plain STRING (clean, backward-compatible
+ * frontmatter); otherwise a composite map.
  */
 export function buildImageValue(src, extras = {}) {
     const out = { src: String(src || '').trim() };
@@ -225,25 +225,25 @@ export function buildImageValue(src, extras = {}) {
 }
 
 /**
- * Inversa de `toServedAssetUrl` per a assets del vault: converteix una URL
- * servida `/api/vault/assets/<path>` de tornada a la ruta relativa del vault
- * (`<path>`) per desar-la al camp. Qualsevol altra URL (remota, data:) o ruta
- * ja relativa es manté tal qual.
+ * Inverse of `toServedAssetUrl` for vault assets: converts a served
+ * `/api/vault/assets/<path>` URL back to the vault-relative path
+ * (`<path>`) so it can be saved in the field. Any other URL (remote, data:) or an
+ * already-relative path is kept as-is.
  */
 export function servedUrlToVaultPath(url) {
     const v = String(url || '');
     const prefix = '/api/vault/assets/';
-    // Treu el query-param de vault (`?vault=…`, afegit per [[withActiveVault]] a
-    // temps de render) perquè el valor DESAT quedi net i vault-agnòstic.
+    // Strips the vault query-param (`?vault=…`, added by [[withActiveVault]] in
+    // render time) so the SAVED value stays clean and vault-agnostic.
     return v.startsWith(prefix) ? v.slice(prefix.length).split('?')[0] : v;
 }
 
 /**
- * Parseja autors llegats en TEXT PLA a objectes {nom, cognom1, cognom2}.
- * Convencions: "Nom Cognom1 Cognom2" (ordre directe) o "Cognoms, Nom"
- * (invertit). Diversos autors separats per ";" o "&" — mai per coma sola
- * (la coma marca l'ordre invertit) ni per " y/i/and " (trencaria cognoms
- * compostos com "Ortega y Gasset").
+ * Parses legacy authors in PLAIN TEXT into {nom, cognom1, cognom2} objects.
+ * Conventions: "Name Surname1 Surname2" (direct order) or "Surnames, Name"
+ * (inverted). Multiple authors separated by ";" or "&" — never by a single comma
+ * (the comma marks inverted order) nor by " y/i/and " (would break compound
+ * surnames like "Ortega y Gasset").
  */
 export function parseAuthorsString(text) {
     return String(text || '')
@@ -263,8 +263,8 @@ export function parseAuthorsString(text) {
         });
 }
 
-// Formata un autor {nom, cognom1, cognom2} segons l'accessor del token del patró:
-//   .cognom → "Cognom1 Cognom2"; .nom → "Nom"; cap/altre → "Nom Cognom1 Cognom2".
+// Formats an author {nom, cognom1, cognom2} according to the pattern token's accessor:
+//   .cognom → "Surname1 Surname2"; .nom → "Name"; none/other → "Name Surname1 Surname2".
 function formatAuthorToken(a, accessor) {
     if (!a || typeof a !== 'object') return '';
     const cognoms = [a.cognom1, a.cognom2].map(s => (s || '').trim()).filter(Boolean).join(' ');
@@ -277,16 +277,16 @@ function formatAuthorToken(a, accessor) {
 }
 
 /**
- * Interpola un patró de nom (ex: "{Authors} - {Any} - {Títol}") amb els valors
- * de la fila. Els camps buits/inexistents s'ometen i es netegen els separadors
- * penjats. La sanitització final del nom la fa el backend.
+ * Interpolates a name pattern (e.g. "{Authors} - {Any} - {Títol}") with the row's
+ * values. Empty/nonexistent fields are omitted and dangling separators are
+ * cleaned up. Final name sanitization is done by the backend.
  */
 export function interpolateNamePattern(pattern, meta = {}) {
     if (!pattern || typeof pattern !== 'string') return '';
-    // Resol un camp del patró contra la metadata. Primer coincidència exacta;
-    // si no, sense distingir majúscules (un camp `title` es persisteix amb la
-    // clau canònica `title` en minúscula tot i que la propietat es digui
-    // "Title", així `{Title}` ha de resoldre igualment).
+    // Resolves a pattern field against the metadata. First an exact match;
+    // otherwise case-insensitively (a `title` field is persisted with the
+    // canonical lowercase `title` key even though the property is called
+    // "Title", so `{Title}` must resolve the same way).
     const lookup = (field) => {
         const key = (field || '').trim();
         if (!key) return undefined;
@@ -298,11 +298,11 @@ export function interpolateNamePattern(pattern, meta = {}) {
         return undefined;
     };
     let out = pattern.replace(/\{([^{}]+)\}/g, (_, token) => {
-        // El NOM d'un camp pot contenir un punt (p. ex. "Núm. pàgines"): provem
-        // primer el token SENCER com a camp i NOMÉS si no existeix interpretem el
-        // que ve després del primer punt com a accessor (p. ex. {Authors.cognom1}).
-        // Abans `split('.')` trencava sempre pel punt i un camp amb punt al nom
-        // no es resolia mai (sortia buit al nom de fitxer).
+        // The NAME of a field can contain a period (e.g. "No. pages"): we try
+        // first the WHOLE token as a field and ONLY if it doesn't exist do we interpret
+        // what comes after the first period as an accessor (e.g. {Authors.cognom1}).
+        // Previously `split('.')` always split on the dot, and a field with a dot in its name
+        // was never resolved (it came out empty in the filename).
         const trimmed = token.trim();
         let rawField = trimmed;
         let accessor = '';
@@ -316,14 +316,14 @@ export function interpolateNamePattern(pattern, meta = {}) {
             }
         }
         if (v === undefined || v === null) return '';
-        // Camp autoria: array d'objectes {nom, cognom1, cognom2} → format per accessor.
+        // Authorship field: array of {nom, cognom1, cognom2} objects → formatted per accessor.
         if (Array.isArray(v) && v.some(a => a && typeof a === 'object' && ('cognom1' in a || 'cognom2' in a || 'nom' in a))) {
             return v.map(a => formatAuthorToken(a, (accessor || '').trim())).filter(Boolean).join(', ');
         }
-        // Autoria llegada en STRING ("Ismael García Fernández"): si el patró
-        // demana un accessor d'autor ({Authors.cognom1}), parseja el text en
-        // lloc d'ignorar l'accessor — abans això produïa fitxers amb el nom
-        // complet, divergint del patró i dels fitxers ja existents.
+        // Legacy authorship as a STRING ("Ismael García Fernández"): if the pattern
+        // requests an author accessor ({Authors.cognom1}), parses the text into
+        // instead of ignoring the accessor — before, this produced files with the
+        // full name, diverging from the pattern and from already-existing files.
         const acc = (accessor || '').trim();
         if (acc && ['nom', 'cognom', 'cognoms', 'cognom1', 'cognom2'].includes(acc)) {
             const chunks = Array.isArray(v) ? v : [v];
@@ -346,7 +346,7 @@ export function interpolateNamePattern(pattern, meta = {}) {
     return out;
 }
 
-/** Nom de fitxer net a partir d'un target (path, file:// o URL). */
+/** Clean filename derived from a target (path, file:// or URL). */
 export function filenameFromTarget(target) {
     if (!target) return '';
     const noProto = String(target).replace(/^file:\/\//i, '');
@@ -356,10 +356,10 @@ export function filenameFromTarget(target) {
 }
 
 /**
- * Divideix el valor d'un camp `files` en entrades individuals.
- * Accepta array (multi-fitxer) o string única; extreu el target d'enllaços
- * markdown `[nom](target)`. No partim per comes per no trencar paths que en
- * continguin: el camp `files` desa una ruta per valor.
+ * Splits the value of a `files` field into individual entries.
+ * Accepts an array (multi-file) or a single string; extracts the target from
+ * markdown links `[name](target)`. We don't split on commas so as not to break paths
+ * that contain them: the `files` field stores one path per value.
  */
 export function parseFileEntries(value) {
     if (value === undefined || value === null) return [];
@@ -380,12 +380,12 @@ export function parseFileEntries(value) {
 }
 
 /**
- * Clau canònica d'una entrada d'un camp `files` per a DEDUPLICACIÓ: el mateix
- * fitxer expressat com `file://` URL-encoded, ruta absoluta (de qualsevol de
- * les dues Macs), `~/<rel>` o URL servida (`/api/vault/biblioteca|raw|assets/`)
- * ha de donar la MATEIXA clau. No toca el disc: només normalitza el text.
- * Fitxers realment diferents (p. ex. noms distints dins Biblioteca) donen
- * claus distintes.
+ * Canonical key for a `files` field entry, for DEDUPLICATION: the same
+ * file expressed as a `file://` URL-encoded, absolute path (from either
+ * of the two Macs), `~/<rel>`, or served URL (`/api/vault/biblioteca|raw|assets/`)
+ * must produce the SAME key. Doesn't touch disk: only normalizes the text.
+ * Genuinely different files (e.g. different names inside Biblioteca) produce
+ * different keys.
  */
 export function fileTargetKey(value) {
     let s = String(value || '').trim();
@@ -394,21 +394,21 @@ export function fileTargetKey(value) {
     if (md) s = md[1].trim();
     if (/^file:\/\//i.test(s)) {
         s = s.replace(/^file:\/\//i, '');
-        try { s = decodeURIComponent(s); } catch { /* es queda tal qual */ }
+        try { s = decodeURIComponent(s); } catch { /* stays as-is */ }
     }
     s = s.split('?')[0].split('#')[0].replace(/\\/g, '/');
     const served = s.match(/^\/api\/vault\/(biblioteca|raw|assets)\/(.+)$/);
     if (served) {
         let rel = served[2];
-        try { rel = decodeURIComponent(rel); } catch { /* es queda tal qual */ }
+        try { rel = decodeURIComponent(rel); } catch { /* stays as-is */ }
         const root = served[1] === 'raw' ? 'vault' : served[1];
         if (served[1] === 'assets') return `assets/${rel.toLowerCase()}`;
         return `${root}/${rel.toLowerCase()}`;
     }
-    // Treu el HOME concret: /Users/<usuari>/x i ~/x → /x (les dues Macs
-    // comparteixen l'estructura sota el home).
+    // Strip the concrete HOME: /Users/<user>/x and ~/x → /x (both Macs
+    // share the same structure under the home).
     s = s.replace(/^~\//, '/').replace(/^\/Users\/[^/]+\//, '/');
-    // Unifica qualsevol referència a Biblioteca amb la forma servida.
+    // Unifies any reference to Biblioteca with the served form.
     const bib = s.match(/(?:^|\/)Biblioteca\/(.+)$/);
     if (bib) return `biblioteca/${bib[1].toLowerCase()}`;
     return s.toLowerCase();
@@ -449,13 +449,13 @@ async function openViaSystem(target, t) {
 }
 
 /**
- * Obre un target de fitxer amb el routing intel·ligent de Gnosi.
+ * Opens a file target using Gnosi's smart routing.
  *
- * @param {string} target  Path absolut, file://, o URL (http/https o /api/…).
+ * @param {string} target  Absolute path, file://, or URL (http/https or /api/…).
  * @param {object} opts
- * @param {string} [opts.title]    Títol per a la pestanya del visor.
- * @param {function} [opts.navigate]  `useNavigate()` (fallback fora del Vault).
- * @param {function} [opts.t]      `t` de i18next (missatges del portapapers).
+ * @param {string} [opts.title]    Title for the viewer tab.
+ * @param {function} [opts.navigate]  `useNavigate()` (fallback outside the Vault).
+ * @param {function} [opts.t]      i18next's `t` (clipboard messages).
  */
 export function openFileResource(target, { title, navigate, t = (k, o) => (o?.defaultValue ?? k) } = {}) {
     if (!target) return;
@@ -481,7 +481,7 @@ export function openFileResource(target, { title, navigate, t = (k, o) => (o?.de
         return;
     }
 
-    // Fitxer local d'un tipus no suportat pel visor → app del SO.
+    // Local file of a type not supported by the viewer → OS app.
     const fileUrl = /^file:\/\//i.test(src) ? src : `file://${src}`;
     openViaSystem(fileUrl, t);
 }

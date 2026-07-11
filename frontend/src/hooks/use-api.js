@@ -11,10 +11,10 @@ export function useApi() {
 
     const apiFetch = useCallback(async (url, options = {}) => {
         const workspaceId = getWorkspaceId();
-        // Usuari resolt al login (AuthContext el desa a localStorage). Fallback
-        // a 'ismael-legacy' per al mode personal sense autenticació, on el
-        // backend ja resol l'usuari únic. Si hi ha cookie JWT, el backend la
-        // prioritza per sobre d'aquest header (get_user_id_or_legacy).
+        // User resolved at login (AuthContext stores it in localStorage). Fallback
+        // to 'ismael-legacy' for personal mode without authentication, where the
+        // backend already resolves the single user. If there's a JWT cookie, the backend
+        // prioritizes it over this header (get_user_id_or_legacy).
         const userId = localStorage.getItem('gnosi_user_id') || 'ismael-legacy';
         const userEmail = getUserEmail();
 
@@ -26,15 +26,15 @@ export function useApi() {
             'Content-Type': options.body instanceof FormData ? undefined : 'application/json',
         };
 
-        // Eliminar Content-Type si és FormData (el navegador ho posa automàticament amb el boundary)
+        // Remove Content-Type if it's FormData (the browser sets it automatically with the boundary)
         if (options.body instanceof FormData) {
             delete headers['Content-Type'];
         }
 
         const response = await fetch(url, {
-            // Envia la cookie de sessió `gnosi_session`. Same-origin ja ho faria
-            // per defecte (Vite proxy en dev, reverse-proxy en prod); explícit
-            // per robustesa i per suportar dev cross-origin amb CORS_ORIGINS.
+            // Sends the `gnosi_session` session cookie. Same-origin would already do this
+            // by default (Vite proxy in dev, reverse-proxy in prod); explicit
+            // for robustness and to support cross-origin dev with CORS_ORIGINS.
             credentials: 'include',
             ...options,
             headers,
@@ -64,9 +64,9 @@ export function useApi() {
         apiGet, 
         apiPost,
         workspaceId: getWorkspaceId(),
-        // En mode personal (sense login → gnosi_user_id null) l'usuari és
-        // l'únic propietari → admin. Si hi ha login però gnosi_role no s'ha
-        // guardat encara (edge-case de timing), anem a 'viewer' per seguretat.
+        // In personal mode (no login → gnosi_user_id null) the user is
+        // the sole owner → admin. If there's a login but gnosi_role hasn't been
+        // saved yet (timing edge case), we default to 'viewer' for safety.
         role: localStorage.getItem('gnosi_role') || (localStorage.getItem('gnosi_user_id') ? 'viewer' : 'admin'),
         userEmail: getUserEmail(),
     };

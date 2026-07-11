@@ -144,7 +144,7 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
         return False
 
     try:
-        # Calendari de destí (subcalendaris inclosos); per defecte el principal
+        # Destination calendar (including subcalendars); defaults to the primary one
         cal_id = patch_data.get("calendar_id") or "primary"
 
         # Fetch existing event
@@ -163,8 +163,8 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
                 for a in patch_data["attendees"] if a.get("email")
             ]
 
-        # Zona horària: Google exigeix `timeZone` quan el dateTime no porta
-        # offset. Preserva la de l'event original i, si no en té, la de l'usuari.
+        # Time zone: Google requires `timeZone` when the dateTime doesn't carry
+        # an offset. Preserves the original event's, and if it doesn't have one, the user's.
         default_tz = (
             (event.get("start") or {}).get("timeZone")
             or (event.get("end") or {}).get("timeZone")
@@ -200,7 +200,7 @@ def update_google_event(email: str, event_uid: str, patch_data: dict) -> bool:
 
 
 def respond_to_invitation(email: str, event_id: str, rsvp: str, calendar_id: str = "primary") -> bool:
-    """Respon a una invitació de Google Calendar (accepted | declined | tentative | needsAction)."""
+    """Responds to a Google Calendar invitation (accepted | declined | tentative | needsAction)."""
     service = get_google_calendar_service(email)
     if not service:
         return False
@@ -227,7 +227,7 @@ def respond_to_invitation(email: str, event_id: str, rsvp: str, calendar_id: str
 
 
 def patch_event_attendees(email: str, event_id: str, new_attendees: list, calendar_id: str = "primary") -> bool:
-    """Afegeix attendees a un event de Google Calendar. Google envia les notificacions automàticament."""
+    """Adds attendees to a Google Calendar event. Google sends the notifications automatically."""
     service = get_google_calendar_service(email)
     if not service:
         return False

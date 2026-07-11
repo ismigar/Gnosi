@@ -11,10 +11,10 @@ import { runCommand } from '../plugins/host';
 
 /**
  * CommandPalette
- * Paleta de comandes global estil Obsidian/VSCode (Cmd/Ctrl+Shift+P). Llista
- * accions cercables: navegació entre seccions, crear nota, canviar de tema i
- * obrir la configuració. Navegable amb teclat (↑↓/Enter/Esc) i amb ratolí,
- * compartint un sol `highlightedIndex` (vegeu feedback_autocomplete_keyboard_nav).
+ * Global command palette, Obsidian/VSCode style (Cmd/Ctrl+Shift+P). Lists
+ * searchable actions: navigation between sections, creating a note, switching theme, and
+ * opening settings. Navigable with keyboard (↑↓/Enter/Esc) and mouse,
+ * sharing a single `highlightedIndex` (see feedback_autocomplete_keyboard_nav).
  */
 
 const setTheme = (pref) => {
@@ -86,20 +86,20 @@ export default function CommandPalette() {
         { id: 'act-settings', title: t('command_palette.open_settings'), section: t('command_palette.section_actions'), icon: Settings, kw: ['configuració', 'settings', 'preferències', 'ajustos'], run: () => window.dispatchEvent(new CustomEvent('gnosi:open-settings')) },
     ], [navigate, createNote, importNotes, t]);
 
-    // Comandes contribuïdes per plugins de tercers (executades a l'iframe
-    // sandbox via runCommand). Es fusionen sota la secció "Plugins".
+    // Commands contributed by third-party plugins (executed in the iframe
+    // sandbox via runCommand). They are merged under the "Plugins" section.
     const { commands: pluginCommands } = usePluginHost();
     const allCommands = useMemo(() => {
         const extra = (pluginCommands || []).map((pc) => ({
             id: `plugin:${pc.pluginId}:${pc.id}`,
             title: pc.title,
-            section: 'Plugins',
+            section: t('command_palette.section_plugins', 'Plugins'),
             icon: Puzzle,
             kw: [pc.title.toLowerCase(), 'plugin'],
             run: () => runCommand(pc.pluginId, pc.id),
         }));
         return [...commands, ...extra];
-    }, [commands, pluginCommands]);
+    }, [commands, pluginCommands, t]);
 
     const filtered = useMemo(() => {
         const q = query.trim().toLowerCase();
@@ -109,7 +109,7 @@ export default function CommandPalette() {
         );
     }, [allCommands, query]);
 
-    // Drecera global d'obertura (Cmd/Ctrl+Shift+P).
+    // Global open shortcut (Cmd/Ctrl+Shift+P).
     useEffect(() => {
         const onKey = (e) => {
             if ((e.metaKey || e.ctrlKey) && e.shiftKey && (e.key === 'p' || e.key === 'P')) {
@@ -138,7 +138,7 @@ export default function CommandPalette() {
         else if (e.key === 'Escape') { e.preventDefault(); close(); }
     };
 
-    // Manté l'element ressaltat visible.
+    // Keeps the highlighted element visible.
     useEffect(() => {
         if (!open || !listRef.current) return;
         const el = listRef.current.querySelector(`[data-idx="${highlighted}"]`);

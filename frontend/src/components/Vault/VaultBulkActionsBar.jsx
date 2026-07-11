@@ -1,26 +1,27 @@
 /**
  * VaultBulkActionsBar.jsx
- * Barra d'accions en massa per als registres seleccionats del Vault.
- * S'amaga si no hi ha cap registre seleccionat.
+ * Bulk actions bar for the selected Vault records.
+ * Hidden if no record is selected.
  *
- * Accions sempre disponibles: eliminar, seleccionar tots, tancar.
- * Accions opcionals (si el caller passa els callbacks): canviar tipus,
- * exportar selecció a BibTeX/RIS.
+ * Always-available actions: delete, select all, close.
+ * Optional actions (if the caller passes the callbacks): change type,
+ * export selection to BibTeX/RIS.
  */
 import React, { useState, useRef, useEffect } from 'react';
 import { Trash2, X, CheckSquare, Tag, Download, ChevronDown, Languages } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * @param {Object} props
- * @param {Set}       props.selectedIds        - IDs dels registres seleccionats
- * @param {Function}  props.onClearSelection   - Esborra la selecció
- * @param {Function}  props.onDeleteSelected   - Elimina els registres seleccionats
- * @param {Function}  props.onSelectAll        - Selecciona tots els registres visibles
- * @param {number}    props.totalCount         - Total de registres visibles
- * @param {Array<{value, label}>=} props.itemTypeOptions - Opcions per a "Canviar tipus"
- * @param {Function=} props.onChangeItemType   - (value) → void; rep el tipus triat
+ * @param {Set}       props.selectedIds        - IDs of the selected records
+ * @param {Function}  props.onClearSelection   - Clears the selection
+ * @param {Function}  props.onDeleteSelected   - Deletes the selected records
+ * @param {Function}  props.onSelectAll        - Selects all visible records
+ * @param {number}    props.totalCount         - Total visible records
+ * @param {Array<{value, label}>=} props.itemTypeOptions - Options for "Change type"
+ * @param {Function=} props.onChangeItemType   - (value) → void; receives the chosen type
  * @param {Function=} props.onExportSelection  - (fmt: 'bibtex'|'ris') → void
- * @param {Function=} props.onTranslateSelection - () → void; obre el modal de traducció massiva
+ * @param {Function=} props.onTranslateSelection - () → void; opens the bulk translation modal
  */
 export function VaultBulkActionsBar({
     selectedIds,
@@ -33,12 +34,13 @@ export function VaultBulkActionsBar({
     onExportSelection,
     onTranslateSelection,
 }) {
+    const { t } = useTranslation();
     const [typeMenuOpen, setTypeMenuOpen] = useState(false);
     const [exportMenuOpen, setExportMenuOpen] = useState(false);
     const typeMenuRef = useRef(null);
     const exportMenuRef = useRef(null);
 
-    // Tanca dropdowns al click fora.
+    // Closes dropdowns on outside click.
     useEffect(() => {
         const handler = (e) => {
             if (typeMenuRef.current && !typeMenuRef.current.contains(e.target)) setTypeMenuOpen(false);
@@ -55,20 +57,20 @@ export function VaultBulkActionsBar({
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 bg-[var(--bg-primary)] text-[var(--text-primary)] px-4 py-2.5 rounded-xl shadow-2xl border border-[var(--border-primary)] animate-in slide-in-from-bottom-4 ring-1 ring-black/5">
             {/* Recompte */}
             <span className="text-sm font-bold text-[var(--text-secondary)]">
-                {count} seleccionat{count !== 1 ? 's' : ''}
+                {t('bulk_actions.selected_count', { count })}
             </span>
 
             <div className="w-px h-5 bg-[var(--border-primary)]" />
 
-            {/* Seleccionar tots */}
+            {/* Select all */}
             {onSelectAll && count < totalCount && (
                 <button
                     onClick={onSelectAll}
                     className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]/70 hover:text-[var(--text-primary)] transition-colors font-medium"
-                    title="Seleccionar tots"
+                    title={t('bulk_actions.select_all_title', 'Seleccionar tots')}
                 >
                     <CheckSquare size={14} />
-                    Tots ({totalCount})
+                    {t('bulk_actions.select_all_count', { count: totalCount, defaultValue: 'Tots ({{count}})' })}
                 </button>
             )}
 
@@ -78,10 +80,10 @@ export function VaultBulkActionsBar({
                     <button
                         onClick={() => setTypeMenuOpen((o) => !o)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                        title="Canviar Item Type"
+                        title={t('bulk_actions.change_type_title', 'Canviar Item Type')}
                     >
                         <Tag size={13} />
-                        Canviar tipus
+                        {t('bulk_actions.change_type', 'Canviar tipus')}
                         <ChevronDown size={11} />
                     </button>
                     {typeMenuOpen && (
@@ -100,16 +102,16 @@ export function VaultBulkActionsBar({
                 </div>
             )}
 
-            {/* Exportar selecció (opcional) */}
+            {/* Export selection (optional) */}
             {onExportSelection && (
                 <div className="relative" ref={exportMenuRef}>
                     <button
                         onClick={() => setExportMenuOpen((o) => !o)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                        title="Exportar selecció"
+                        title={t('bulk_actions.export_title', 'Exportar selecció')}
                     >
                         <Download size={13} />
-                        Exportar
+                        {t('bulk_actions.export', 'Exportar')}
                         <ChevronDown size={11} />
                     </button>
                     {exportMenuOpen && (
@@ -131,33 +133,33 @@ export function VaultBulkActionsBar({
                 </div>
             )}
 
-            {/* Traduir selecció (opcional) */}
+            {/* Translate selection (optional) */}
             {onTranslateSelection && (
                 <button
                     onClick={onTranslateSelection}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                    title="Traduir seleccionats"
+                    title={t('bulk_actions.translate_title', 'Traduir seleccionats')}
                 >
                     <Languages size={13} />
-                    Traduir
+                    {t('translate.submit', 'Traduir')}
                 </button>
             )}
 
-            {/* Eliminar */}
+            {/* Delete */}
             <button
                 onClick={onDeleteSelected}
                 className="btn-gnosi btn-gnosi-danger !px-3 !py-1.5 !rounded-lg"
-                title="Eliminar seleccionats"
+                title={t('bulk_actions.delete_title', 'Eliminar seleccionats')}
             >
                 <Trash2 size={13} />
-                Eliminar
+                {t('common.delete', 'Eliminar')}
             </button>
 
-            {/* Tancar */}
+            {/* Close */}
             <button
                 onClick={onClearSelection}
                 className="p-1.5 text-[var(--text-tertiary)]/60 hover:text-[var(--text-primary)] transition-colors rounded-md hover:bg-[var(--bg-secondary)]"
-                title="Desseleccionar"
+                title={t('bulk_actions.deselect_title', 'Desseleccionar')}
             >
                 <X size={14} />
             </button>

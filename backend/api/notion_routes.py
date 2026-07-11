@@ -1,11 +1,11 @@
-"""Endpoints del CLON de Notion → Vault de Gnosi.
+"""Endpoints for the Notion CLONE → Gnosi Vault.
 
-Connexió (token d'integració REST + MCP OAuth), llistat de BD i pàgines soltes, esquema per
-BD i el CLON EXACTE a una carpeta nova (`services.notion_clone.clone_workspace`): esquema,
-pàgines, relacions, vistes incrustades, colors, columnes, adjunts i portades. Bloquejant (HTTP
-a Notion/MCP) → s'executa en un thread. Token a `integrations.json` (com Google).
+Connection (REST integration token + MCP OAuth), listing DBs and loose pages, schema per
+DB, and the EXACT CLONE into a new folder (`services.notion_clone.clone_workspace`): schema,
+pages, relations, embedded views, colors, columns, attachments, and covers. Blocking (HTTP
+to Notion/MCP) → runs in a thread. Token in `integrations.json` (like Google).
 
-cf. directives `notion_exact_clone.md` i `notion_import_configurable_schema.md`.
+cf. directives `notion_exact_clone.md` and `notion_import_configurable_schema.md`.
 """
 import asyncio
 import json
@@ -34,9 +34,9 @@ router = APIRouter(prefix="/notion", tags=["Notion Import"])
 
 
 # ---------------------------------------------------------------------------
-# Token: integració de PRIMERA CLASSE via IntegrationManager (clau `notion`).
-# El manager fa read-modify-write amb lock i cau compartits → no el clobbera cap
-# altre servei (abans s'escrivia directe a integrations.json i es perdia).
+# Token: FIRST-CLASS integration via IntegrationManager (key `notion`).
+# The manager does read-modify-write with a lock and shared caches → nothing clobbers it
+# another service (it used to be written directly to integrations.json and got lost).
 # ---------------------------------------------------------------------------
 def _get_token() -> Optional[str]:
     return (integration_manager.get_raw("notion") or {}).get("token")
@@ -48,7 +48,7 @@ class TokenPayload(BaseModel):
 
 @router.post("/token", dependencies=[Depends(require_role("admin"))])
 async def set_token(payload: TokenPayload):
-    """Desa i valida el token d'integració de Notion (prova amb /users/me)."""
+    """Saves and validates the Notion integration token (tests it with /users/me)."""
     token = (payload.token or "").strip()
     if not token:
         raise HTTPException(status_code=400, detail="El token és buit")
@@ -73,14 +73,14 @@ async def delete_token():
 
 
 # ---------------------------------------------------------------------------
-# Config del panell d'importació: PER-WORKSPACE al servidor (no només localStorage).
-# El frontend la desava NOMÉS a localStorage i es perdia a cada canvi d'origen
-# (http→https, port de preview, altre Mac, perfil de navegador) — incident 2026-07-03.
-# Es guarda tal qual (mateixa forma JSON que la clau localStorage
-# `gnosi_notion_import_cfg`) a local_data/system/notion_import_config.json amb
-# escriptura atòmica (safe_write_json) i lock de read-modify-write, com integrations.json.
-# NO va a integrations.json: get_all_safe() emmascararia/mostraria la config com si
-# fos una credencial a la resta de consumidors (mail, calendari, settings).
+# Import panel config: PER-WORKSPACE on the server (not just localStorage).
+# The frontend used to save it ONLY to localStorage and it got lost on every origin change
+# (http→https, preview port, different Mac, browser profile) — incident 2026-07-03.
+# It's saved as-is (same JSON shape as the localStorage key
+# `gnosi_notion_import_cfg`) to local_data/system/notion_import_config.json with
+# atomic write (safe_write_json) and read-modify-write lock, like integrations.json.
+# It does NOT go into integrations.json: get_all_safe() would mask/show the config as if
+# were a credential to the rest of the consumers (mail, calendar, settings).
 # ---------------------------------------------------------------------------
 _IMPORT_CFG_LOCK = threading.Lock()
 
@@ -92,22 +92,22 @@ def _import_cfg_path():
 
 @router.get("/import-config", dependencies=[Depends(require_role("editor"))])
 async def get_import_config():
-    """Config desada del panell d'importació (databases, selected, schemaOverrides,
-    cloneVaultId, newVaultName, loosePageTypes…). {config: null} si no n'hi ha."""
+    """Saved config of the import panel (databases, selected, schemaOverrides,
+    cloneVaultId, newVaultName, loosePageTypes…). {config: null} if there is none."""
     path = _import_cfg_path()
     if not path.exists():
         return {"config": None}
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except Exception:  # noqa: BLE001 — fitxer corrupte = com si no existís
+    except Exception:  # noqa: BLE001 — corrupt file = as if it did not exist
         return {"config": None}
     return {"config": data if isinstance(data, dict) else None}
 
 
 @router.put("/import-config", dependencies=[Depends(require_role("editor"))])
 async def put_import_config(payload: dict = Body(...)):
-    """Desa la config del panell d'importació (JSON lliure, mateixa forma que el
-    localStorage del frontend). Sobreescriu sencer (last-write-wins)."""
+    """Saves the import panel config (free-form JSON, same shape as the frontend's
+    localStorage). Overwrites it wholesale (last-write-wins)."""
     from backend.utils.safe_io import safe_write_json
     path = _import_cfg_path()
     with _IMPORT_CFG_LOCK:
@@ -118,7 +118,7 @@ async def put_import_config(payload: dict = Body(...)):
 
 @router.get("/databases", dependencies=[Depends(require_role("editor"))])
 async def list_databases():
-    """Llista les BD de Notion compartides amb la integració."""
+    """Lists the Notion DBs shared with the integration."""
     token = _get_token()
     if not token:
         raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
@@ -133,8 +133,8 @@ async def list_databases():
 
 @router.get("/databases/{db_id}/schema", dependencies=[Depends(require_role("editor"))])
 async def database_schema(db_id: str):
-    """Esquema d'una BD de Notion en format de SchemaConfigModal (per configurar-lo abans
-    d'importar/clonar). {schema: {camp:tipus, camp_config:{...}}, name}."""
+    """Schema of a Notion DB in SchemaConfigModal format (to configure it before
+    importing/cloning it). {schema: {field:type, camp_config:{...}}, name}."""
     from backend.services.notion_importer import map_database_schema
     from backend.services.notion_schema_config import notion_props_to_modal_schema
     token = _get_token()
@@ -149,11 +149,11 @@ async def database_schema(db_id: str):
 
 
 def _collect_loose_pages(token: str) -> list:
-    """Pàgines REALMENT fora de qualsevol BD: pujant per la cadena de `parent` s'arriba a
-    `workspace` sense trobar mai cap `database_id`. No n'hi ha prou amb mirar el pare directe:
-    una subpàgina niada dins d'una fila de BD té `parent.type == "page_id"` (el pare és la
-    pàgina-fila) i s'havia colat a la llista de "soltes". Resolem la cadena amb memoització
-    (cau per id + reús de les pàgines ja carregades) per limitar les crides a Notion."""
+    """Pages that are TRULY outside any DB: walking up the `parent` chain reaches
+    `workspace` without ever finding a `database_id`. Looking only at the direct parent isn't enough:
+    a subpage nested inside a DB row has `parent.type == "page_id"` (the parent is the
+    row-page) and used to slip into the "loose" list. We resolve the chain with memoization
+    (cache by id + reuse of already-loaded pages) to limit calls to Notion."""
     client = NotionClient(token)
     pages = client.search_pages()
     by_id = {p["id"]: p for p in pages}
@@ -173,7 +173,7 @@ def _collect_loose_pages(token: str) -> list:
         key = (kind, node_id)
         if key in cache:
             return cache[key]
-        if key in seen:  # guarda contra cicles (no n'hi hauria d'haver)
+        if key in seen:  # guard against cycles (there shouldn't be any)
             return True
         seen.add(key)
         parent = _parent_of(node_id, client.get_block if kind == "block" else client.get_page)
@@ -186,7 +186,7 @@ def _collect_loose_pages(token: str) -> list:
             res = _is_loose(parent["page_id"], "page", seen)
         elif ptype == "block_id":
             res = _is_loose(parent["block_id"], "block", seen)
-        else:  # desconegut → no amaguem la pàgina (comportament conservador)
+        else:  # unknown → we don't hide the page (conservative behavior)
             res = True
         cache[key] = res
         return res
@@ -196,11 +196,11 @@ def _collect_loose_pages(token: str) -> list:
 
 
 def _find_linked_databases(token: str, max_pages: int = 400) -> dict:
-    """Troba les BD ENLLAÇADES (vistes) visibles a Notion però NO importables: l'API no pot
-    llegir-les i `/search` no les retorna. Viuen com a blocs `child_database` dins de pàgines
-    (taullells/directoris). Escanegem els fills DIRECTES de les pàgines soltes (depth 1, on solen
-    estar, p. ex. una pàgina «BD»); una BD que no és font accessible i dona error 'linked database'
-    / no trobada → és una vista enllaçada (cal compartir-ne la FONT). Acotat per `max_pages`."""
+    """Finds LINKED DBs (views) visible in Notion but NOT importable: the API can't
+    read them and `/search` doesn't return them. They live as `child_database` blocks inside pages
+    (dashboards/directories). We scan the DIRECT children of loose pages (depth 1, where they usually
+    are, e.g. a «DB» page); a DB that isn't an accessible source and returns a 'linked database'
+    error / not found → is a linked view (its SOURCE needs to be shared). Bounded by `max_pages`."""
     client = NotionClient(token)
     accessible = {d["id"] for d in client.search_databases()}
     loose = _collect_loose_pages(token)
@@ -233,7 +233,7 @@ def _find_linked_databases(token: str, max_pages: int = 400) -> dict:
 
 @router.get("/linked-databases", dependencies=[Depends(require_role("editor"))])
 async def list_linked_databases():
-    """BD enllaçades (vistes) que es veuen a Notion però no es poden importar via API."""
+    """Linked DBs (views) that show up in Notion but can't be imported via API."""
     token = _get_token()
     if not token:
         raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
@@ -246,7 +246,7 @@ async def list_linked_databases():
 
 @router.get("/loose-pages", dependencies=[Depends(require_role("editor"))])
 async def list_loose_pages():
-    """Pàgines de Notion FORA de qualsevol BD → per triar wiki/dashboard."""
+    """Notion pages OUTSIDE any DB → for choosing wiki/dashboard."""
     token = _get_token()
     if not token:
         raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
@@ -262,35 +262,35 @@ def _sanitize_folder(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# CLON EXACTE (Notion = font de veritat) → carpeta NOVA, ids namespaced, cos via MCP
+# EXACT CLONE (Notion = source of truth) → NEW folder, namespaced ids, body via MCP
 # ---------------------------------------------------------------------------
 class ClonePayload(BaseModel):
     database_ids: Optional[List[str]] = None
-    target_folder: str = ""   # buit = arrel del vault (clon sense subcarpeta)
-    schema_overrides: Optional[dict] = None  # {db_id: esquema SchemaConfigModal}
+    target_folder: str = ""   # empty = vault root (clone without subfolder)
+    schema_overrides: Optional[dict] = None  # {db_id: SchemaConfigModal schema}
     loose_page_types: Optional[dict] = None  # {notion_page_id: "wiki"|"dashboard"}
-    download_assets: bool = True  # False = no baixa adjunts (deixa les URLs de Notion); clon ràpid
+    download_assets: bool = True  # False = doesn't download attachments (leaves the Notion URLs); fast clone
 
 
-# Progrés del clon en curs: el clon corre en un thread (bloquejant) i el frontend el consulta
-# amb polling a GET /clone/progress. Single-user local → n'hi ha prou amb un estat de mòdul (les
-# escriptures/lectures de dict són atòmiques sota el GIL). Es reinicia a l'inici de cada clon.
+# Progress of the ongoing clone: the clone runs in a (blocking) thread and the frontend polls it
+# via polling on GET /clone/progress. Local single-user → a module-level state is enough (dict
+# reads/writes are atomic under the GIL). It's reset at the start of every clone.
 _CLONE_PROGRESS: dict = {"running": False, "phase": "idle", "done": 0, "total": 0,
                          "pages": 0, "tables": 0, "views": 0, "attachments": 0,
                          "collected": 0, "tables_total": 0, "pages_total": 0,
                          "vault_id": None}
-# Senyal d'avortament cooperatiu: POST /clone/abort el posa a True; clone_workspace el comprova
-# entre elements (via should_cancel) i atura amb CloneAborted (deixa el clon parcial al disc).
+# Cooperative abort signal: POST /clone/abort sets it to True; clone_workspace checks it
+# between items (via should_cancel) and stops with CloneAborted (leaves the partial clone on disk).
 _CLONE_CANCEL: dict = {"flag": False}
 
 
-# Heartbeat del clon per al watchdog natiu (sh/native_watchdog.sh): el clon corre en un
-# thread i pot deixar l'event loop tan carregat que el sondeig HTTP del watchdog falli
-# (incident 2026-07-04: kickstart -k va matar DOS clons sans). El thread toca aquest
-# fitxer a cada element processat; el watchdog, si el veu fresc, no reinicia el servei.
+# Clone heartbeat for the native watchdog (sh/native_watchdog.sh): the clone runs in a
+# thread and can leave the event loop so busy that the watchdog's HTTP polling fails
+# (incident 2026-07-04: kickstart -k killed TWO healthy clones). The thread touches this
+# file on every processed item; the watchdog, if it sees it fresh, doesn't restart the service.
 _CLONE_HEARTBEAT_PATH = Path(os.environ.get("GNOSI_CLONE_HEARTBEAT",
                                             str(Path.home() / ".gnosi_clone_heartbeat")))
-_CLONE_HEARTBEAT_MIN_INTERVAL = 5.0  # s; throttle (l'emissió ara és per fila)
+_CLONE_HEARTBEAT_MIN_INTERVAL = 5.0  # s; throttle (emission is now per row)
 _clone_heartbeat_last: list = [0.0]
 
 
@@ -322,7 +322,7 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
         "tables_total": report.get("tables_total", 0), "pages_total": report.get("pages_total", 0),
         "scan_done": report.get("scan_done", 0), "scan_total": report.get("scan_total", 0),
     })
-    # Notifica els plugins de dades quan el clon acaba (bus d'esdeveniments v2).
+    # Notifies data plugins when the clone finishes (events bus v2).
     if phase == "done":
         try:
             from backend.services import plugin_events
@@ -337,14 +337,14 @@ def _clone_progress_cb(phase: str, done: int, total: int, report: dict) -> None:
 
 @router.get("/clone/progress", dependencies=[Depends(require_role("editor"))])
 async def clone_progress():
-    """Estat del clon en curs (per a la barra de progrés del frontend). No bloca."""
+    """Status of the ongoing clone (for the frontend's progress bar). Non-blocking."""
     return dict(_CLONE_PROGRESS)
 
 
 @router.post("/clone/abort", dependencies=[Depends(require_role("editor"))])
 async def clone_abort():
-    """Demana avortar el clon en curs. Cancel·lació cooperativa: s'atura al següent punt de
-    control (entre pàgines), deixant el que ja s'ha clonat al disc. No bloca."""
+    """Requests to abort the ongoing clone. Cooperative cancellation: it stops at the next
+    checkpoint (between pages), leaving what's already been cloned on disk. Non-blocking."""
     if not _CLONE_PROGRESS.get("running"):
         return {"status": "idle", "detail": "No hi ha cap clon en curs"}
     _CLONE_CANCEL["flag"] = True
@@ -363,30 +363,30 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         raise RuntimeError("No hi ha cap vault actiu")
     rest = NotionClient(token)
     folder_by_table: dict = {}
-    # Subcarpeta opcional: buit ("") = el clon va DIRECTE a l'arrel del vault (sense embolcall).
+    # Optional subfolder: empty ("") = the clone goes DIRECTLY to the vault root (no wrapper).
     tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
 
     def write_table(table: dict):
-        # El clon corre en un fil worker (via asyncio.to_thread): sense el candau
-        # compartit, aquests cicles load→modify→save podrien esclafar-se amb els
-        # d'un handler de vault_routes (o amb write_view/write_page del propi clon).
+        # The clone runs in a worker thread (via asyncio.to_thread): without the shared
+        # shared, these load→modify→save cycles could clobber each other with those
+        # of a vault_routes handler (or with write_view/write_page from the clone itself).
         with vault_routes.registry_mutation():
             reg = vault_routes.load_registry()
             tables = reg.setdefault("tables", [])
             reg.setdefault("views", [])
-            # La SIDEBAR agrupa les taules per registry.databases (VaultSidebar mostra "No hi ha bases
-            # de dades" si és buit, encara que hi hagi taules): el clon ha de crear l'entrada de BD
-            # agrupadora i vincular-hi cada taula, com les natives. folder="BD" perquè el físic és
-            # VAULT/BD/<table["folder"]> (la subcarpeta, si n'hi ha, viu DINS de table["folder"];
-            # cf. _resolve_table_folder_from_metadata: VAULT/<db_folder>/<folder de la taula>).
+            # The SIDEBAR groups tables by registry.databases (VaultSidebar shows "There are no
+            # databases" if it's empty, even when there are tables): the clone must create the DB entry
+            # grouping entry and link each table to it, like the native ones. folder="BD" because the physical location is
+            # VAULT/BD/<table["folder"]> (the subfolder, if any, lives INSIDE table["folder"];
+            # cf. _resolve_table_folder_from_metadata: VAULT/<db_folder>/<table_folder>).
             dbs = reg.setdefault("databases", [])
             entry = next((d for d in dbs if d.get("id") == "notion_clone_db"), None)
             if entry is None:
                 dbs.append({"id": "notion_clone_db", "name": "Notion", "folder": "BD"})
             else:
-                # ASSEGURA els camps (com ensure_default_registry_structure): un registre reparat a
-                # mà o a mig estat amb folder≠"BD" faria que la resolució de carpetes no casés amb
-                # el físic que escriu el clon. El nom només s'omple si falta (es respecta el custom).
+                # ENSURES the fields (like ensure_default_registry_structure): a registry repaired in
+                # set by hand or left mid-state with folder≠"BD" would make the folder resolution not match
+                # the physical path the clone writes to. The name is only filled in when missing (custom values are respected).
                 if not entry.get("name"):
                     entry["name"] = "Notion"
                 if entry.get("folder") != "BD":
@@ -397,9 +397,9 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
                 tables[idx] = table
             else:
                 tables.append(table)
-            # El registre guarda la FULLA (table["folder"], p. ex. "Àrees"); el físic va sota BD/ com
-            # fan les taules natives de Gnosi (cf. _ensure_table_vault_folder / _resolve_table_folder_
-            # from_metadata: VAULT/BD/<folder> quan la taula no té database). Així no es migra després.
+            # The registry stores the LEAF (table["folder"], e.g. "Àrees"); the physical path goes under BD/ as
+            # Gnosi's native tables do (cf. _ensure_table_vault_folder / _resolve_table_folder_
+            # from_metadata: VAULT/BD/<folder> when the table has no database). This way it won't need migrating later.
             phys = f"BD/{table['folder']}"
             folder_by_table[table["id"]] = phys
             vault_routes.save_registry(reg)
@@ -418,10 +418,10 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
     def write_page(page: dict):
         meta = dict(page.get("metadata") or {})
-        # Mateixa col·locació que el desat natiu (cf. vault_routes save_page):
-        #   · fila d'una taula → carpeta de la taula (BD/<Taula>)
-        #   · pàgina solta dashboard (is_dashboard) → .Dashboards/
-        #   · pàgina solta wiki → Wiki/
+        # Same placement as the native save (cf. vault_routes save_page):
+        #   · a table's row → the table's folder (DB/<Table>)
+        #   · loose dashboard page (is_dashboard) → .Dashboards/
+        #   · loose wiki page → Wiki/
         folder = folder_by_table.get(meta.get("table_id"))
         if folder is None:
             folder = ".Dashboards" if meta.get("is_dashboard") else "Wiki"
@@ -440,24 +440,24 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         vault_routes.register_page_in_index(path)
 
     def save_asset(url, prop, table):
-        """Baixa un adjunt al seu lloc segons la config del camp (com el desat natiu):
-        · camp d'arxiu amb `storage_folder='biblioteca'` → carpeta Biblioteca DINS del vault
-          del clon (autocontingut), valor portable `/api/vault/biblioteca/<fitxer>`.
-        · resta (Assets per defecte, imatges del cos, icones/portades) → Assets/[subcarpeta/]<Taula>/<Camp|_cos>/."""
+        """Downloads an attachment to its place according to the field's config (like the native save):
+        · file field with `storage_folder='biblioteca'` → Biblioteca folder INSIDE the
+          clone's vault (self-contained), portable value `/api/vault/biblioteca/<file>`.
+        · everything else (Assets by default, body images, icons/covers) → Assets/[subfolder/]<Table>/<Field|_body>/."""
         from backend.services.notion_attachments import download_to, download_file
-        # `prop` és el NOM del camp (o None per al cos/_icones/_portades). Busca'l a l'esquema per
-        # llegir-ne storage_folder; només els camps d'arxiu reals poden anar a Biblioteca.
+        # `prop` is the field's NAME (or None for cos/_icones/_portades). Look it up in the schema to
+        # read its storage_folder; only real file fields can go to Biblioteca.
         prop_dict = next((p for p in (table.get("properties") or []) if p.get("name") == prop), None) if prop else None
         storage = str((vault_routes._property_config_value(prop_dict, "storage_folder") if prop_dict else "") or "").strip().lower()
-        # Timeout curt: sota xarxa lenta, un fitxer que no baixa en 15s es salta (millor un clon
-        # complet amb algun adjunt de menys que quedar-se encallat 60s per fitxer). Els ràpids sí.
-        # Pressupost TOTAL per fitxer: prou generós per a PDFs grans (20-30 MB a ~400KB/s),
-        # però acotat perquè un S3 degradat no encalli el clon per sempre (2026-07-01).
+        # Short timeout: on a slow network, a file that doesn't download within 15s is skipped (better a
+        # complete clone missing an attachment or two than getting stuck for 60s per file). Fast ones still make it.
+        # TOTAL budget per file: generous enough for large PDFs (20-30 MB at ~400KB/s),
+        # but capped so a degraded S3 doesn't stall the clone forever (2026-07-01).
         DL_TIMEOUT = 90.0
         if storage == "biblioteca":
-            # DINS del vault del clon (autocontingut: esborrar el vault s'ho emporta tot).
-            # La resolució vault-first de get_p("BIBLIOTECA") la trobarà a partir d'ara;
-            # els vaults amb Biblioteca llegada (germana) no canvien (fallback de lectura).
+            # INSIDE the clone's vault (self-contained: deleting the vault takes everything with it).
+            # The vault-first resolution of get_p("BIBLIOTECA") will find it from now on;
+            # vaults with a legacy (sibling) Biblioteca are unaffected (read fallback).
             biblio = vault / "Biblioteca"
             fname = download_file(url, biblio, timeout=DL_TIMEOUT)
             return f"/api/vault/biblioteca/{fname}" if fname else None
@@ -473,10 +473,10 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
     return notion_clone.clone_workspace(
         rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
         write_table=write_table, write_page=write_page, write_view=write_view,
-        # [] ≠ None: una llista BUIDA és una tria explícita ("cap BD" — p. ex. clon
-        # incremental només de pàgines soltes); abans `or` la convertia en "TOTES les
-        # BD" i un clon només-soltes clonava el workspace sencer. None (payload sense
-        # camp) sí que vol dir "totes" (compat amb crides per API).
+        # [] ≠ None: an EMPTY list is an explicit choice ("no DBs" — e.g. an
+        # incremental clone of loose pages only); previously `or` turned it into "ALL
+        # DBs" and a loose-only clone ended up cloning the whole workspace. None (a payload with no
+        # field) does mean "all" (kept for compatibility with API calls).
         database_ids=(database_ids if database_ids is not None
                       else [d["id"] for d in rest.search_databases()]),
         target_folder=tf,
@@ -491,12 +491,12 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
 @router.post("/clone", dependencies=[Depends(require_role("editor"))])
 async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(default=None)):
-    """Clon EXACTE de Notion a una carpeta NOVA (vistes+columnes via MCP). No toca el vault."""
-    # GUARD DE SEGURETAT: si es demana un vault destí concret (X-Vault-Id) però NO resol a cap
-    # vault real (p. ex. s'ha esborrat i el frontend n'envia l'id vell), avortem. Sense això el
-    # middleware cau silenciosament al vault PRINCIPAL i el clon l'embruta (incident real).
+    """EXACT Notion clone into a NEW folder (views+columns via MCP). Doesn't touch the vault."""
+    # SAFETY GUARD: if a specific destination vault is requested (X-Vault-Id) but it does NOT resolve to any
+    # real vault (e.g. it was deleted and the frontend sends the old id), we abort. Without this the
+    # middleware silently falls back to the PRINCIPAL vault and the clone dirties it (real incident).
     if x_vault_id:
-        # Validació directa a BD (sense caché) per evitar falsos positius i no dependre de funcions privades.
+        # Direct DB validation (no cache) to avoid false positives and avoid relying on private functions.
         try:
             from backend.data.management_db import _get_or_init_mgmt_engine
             from backend.models.management import Vault
@@ -518,9 +518,9 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
     if not notion_mcp.is_connected():
         raise HTTPException(status_code=400,
                             detail="Connecta l'MCP de Notion (vistes incrustades) per al clon exacte")
-    # Preflight: una sola comprovació viva de l'MCP. Si el token ha caducat (i no es pot
-    # renovar) avortem JA amb un missatge clar, en comptes de fer un clon llarg que sortiria
-    # buit picant l'MCP mort per cada pàgina (era el "no acaba mai").
+    # Preflight: a single live MCP check. If the token has expired (and can't
+    # be renewed) we abort RIGHT AWAY with a clear message, instead of running a long clone that would come out
+    # empty, hitting the dead MCP for every single page (this was the "never finishes" bug).
     ok, reason = await asyncio.to_thread(notion_mcp.healthcheck)
     if not ok:
         msg = ("L'MCP de Notion ha caducat: reconnecta'l (botó «Connecta MCP») i torna a clonar"
@@ -531,14 +531,14 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
     _CLONE_PROGRESS.update({"running": True, "phase": "starting", "done": 0, "total": 0,
                             "pages": 0, "tables": 0, "views": 0, "attachments": 0, "collected": 0,
                             "tables_total": 0, "pages_total": 0,
-                            "vault_id": x_vault_id})  # perquè el frontend verifiqui al vault correcte
+                            "vault_id": x_vault_id})  # so the frontend checks against the correct vault
     try:
         report = await asyncio.to_thread(_run_clone_sync, payload.database_ids,
                                          payload.target_folder, payload.schema_overrides,
                                          payload.loose_page_types, payload.download_assets)
     except notion_clone.CloneAborted:
-        # Avortat per l'usuari: el que s'ha clonat fins ara queda al disc. Tornem els comptadors
-        # parcials (de _CLONE_PROGRESS) perquè el frontend mostri què s'ha fet abans d'aturar.
+        # Aborted by the user: whatever has been cloned so far stays on disk. We return the
+        # partial counters (from _CLONE_PROGRESS) so the frontend can show what was done before stopping.
         _CLONE_PROGRESS["phase"] = "cancelled"
         return {"status": "cancelled",
                 "tables": _CLONE_PROGRESS.get("tables", 0), "pages": _CLONE_PROGRESS.get("pages", 0),
@@ -551,17 +551,17 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
     finally:
         _CLONE_PROGRESS["running"] = False
         _CLONE_CANCEL["flag"] = False
-        # Sense clon en marxa, el watchdog ha de recuperar la seva autoritat normal.
+        # With no clone running, the watchdog should regain its normal authority.
         _clear_clone_heartbeat()
     return {"status": "success", **report}
 
 
 # ---------------------------------------------------------------------------
-# VERIFICA EL CLON (salut Notion ↔ clon): per donar confiança abans d'abandonar Notion
+# VERIFY THE CLONE (Notion ↔ clone health): to build confidence before abandoning Notion
 # ---------------------------------------------------------------------------
 class VerifyPayload(BaseModel):
     database_ids: Optional[List[str]] = None
-    target_folder: str = ""   # buit = arrel del vault (clon sense subcarpeta)
+    target_folder: str = ""   # empty = vault root (clone without subfolder)
 
 
 def _split_frontmatter(text: str):
@@ -593,7 +593,7 @@ def _run_verify_sync(token: str, database_ids, target_folder="") -> dict:
 
     pages = []
     tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
-    folder = (vault / tf) if tf else vault   # buit = arrel del vault
+    folder = (vault / tf) if tf else vault   # empty = vault root
     for md in folder.rglob("*.md"):
         try:
             meta, body = _split_frontmatter(md.read_text(encoding="utf-8"))
@@ -616,8 +616,8 @@ def _run_verify_sync(token: str, database_ids, target_folder="") -> dict:
 
 @router.post("/verify-clone", dependencies=[Depends(require_role("editor"))])
 async def verify_clone_route(payload: VerifyPayload):
-    """Comprova la salut del clon (Notion ↔ clon): paritat de recompte per BD, cossos buits,
-    relacions òrfenes, vistes recreades i adjunts que falten al disc. No toca res."""
+    """Checks the health of the clone (Notion ↔ clone): count parity per DB, empty bodies,
+    orphaned relations, recreated views, and attachments missing from disk. Doesn't touch anything."""
     token = _get_token()
     if not token:
         raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")

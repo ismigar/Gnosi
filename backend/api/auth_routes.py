@@ -1,19 +1,19 @@
 """Auth endpoints — register / login / logout / me.
 
-Sistema JWT minimal però funcional:
-  - Cookie HttpOnly `gnosi_session` set al login.
-  - `GET /api/auth/me` retorna l'usuari actual (404 si no autenticat).
-  - `POST /api/auth/logout` clear la cookie.
+Minimal but functional JWT system:
+  - HttpOnly `gnosi_session` cookie set on login.
+  - `GET /api/auth/me` returns the current user (404 if not authenticated).
+  - `POST /api/auth/logout` clears the cookie.
 
-Para a producció caldrà afegir:
-  - Rate limiting al login (evitar brute force).
-  - Captcha / 2FA opcional.
-  - Verify-email flow (envia confirmació, marca user.email_verified).
-  - Reset-password flow (email + token temporal).
+For production we'll need to add:
+  - Rate limiting on login (avoid brute force).
+  - Optional Captcha / 2FA.
+  - Verify-email flow (sends confirmation, marks user.email_verified).
+  - Reset-password flow (email + temporary token).
 
-Per a la demo cooperativa, el flux mínim viable és suficient: cada
-cooperativa crea el seu workspace, convida membres per email, els
-membres es registren amb el mateix email i poden entrar.
+For the cooperative demo, the minimum viable flow is enough: each
+cooperative creates its workspace, invites members by email, the
+members register with the same email and can log in.
 """
 from __future__ import annotations
 
@@ -63,11 +63,12 @@ class UserInfo(BaseModel):
 # ---------- Helpers ----------
 
 def _set_session_cookie(response: Response, user_id: str) -> None:
-    """Emet token i el guarda a una cookie HttpOnly + SameSite=Lax.
+    """Issues a token and stores it in an HttpOnly + SameSite=Lax cookie.
 
-    En personal mode (HTTP local), no marquem `secure=True` per defecte
-    perquè trencaria amb localhost. A producció el reverse proxy ha de
-    set `secure=True` explícitament o ho derivem d'una env var.
+    In personal mode (local HTTP), we don't set `secure=True` by default
+    because it would break with localhost. In production the reverse proxy must
+    set `secure=True` explicitly, or we derive it from an env var.
+    
     """
     token = create_access_token(user_id)
     response.set_cookie(
@@ -76,13 +77,13 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
         max_age=DEFAULT_TTL_DAYS * 24 * 3600,
         httponly=True,
         samesite="lax",
-        secure=False,  # cal True a producció amb HTTPS
+        secure=False,  # needs to be True in production with HTTPS
         path="/",
     )
 
 
 def _user_to_info(user: User, db: Session) -> UserInfo:
-    """Carrega els workspaces a què pertany l'usuari."""
+    """Loads the workspaces the user belongs to."""
     memberships = db.query(Membership).filter(Membership.user_id == user.id).all()
     ws_info = []
     for m in memberships:
@@ -110,19 +111,20 @@ def register(
     response: Response,
     db: Session = Depends(get_mgmt_db),
 ):
-    """Crea un nou usuari amb email + password.
+    """Creates a new user with email + password.
 
-    Si ja existeix un usuari amb aquest email **sense password** (legacy
-    o membership pendent), li set el password (claim flow). Així una
-    cooperativa pot crear memberships per email abans que els usuaris
-    s'hagin registrat — quan es registren amb el mateix email, hereten
-    automàticament els workspaces.
+    If a user with this email already exists **without a password** (legacy
+    or pending membership), sets their password (claim flow). This way a
+    cooperative can create memberships by email before users
+    have registered — when they register with the same email, they automatically
+    inherit the workspaces.
+    
     """
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         if existing.password_hash:
             raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
-        # Claim: assignar password a l'usuari pre-existent (memberships seus).
+        # Claim: assign a password to the pre-existing user (their memberships).
         existing.password_hash = hash_password(payload.password)
         if payload.name and not existing.name:
             existing.name = payload.name
@@ -134,7 +136,7 @@ def register(
         _set_session_cookie(response, existing.id)
         return _user_to_info(existing, db)
 
-    # Cas nou: crear usuari
+    # New case: create user
     user = User(
         email=payload.email,
         name=payload.name or payload.email.split("@", 1)[0],
@@ -158,11 +160,11 @@ def login(
     response: Response,
     db: Session = Depends(get_mgmt_db),
 ):
-    """Login per email + password. 401 si credencials incorrectes."""
+    """Login via email + password. 401 if credentials are incorrect."""
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not user.password_hash:
-        # Mateix missatge per "no existeix" i "no té password" per evitar
-        # enumeration attacks (atac: provar emails per saber si existeixen).
+        # Same message for "doesn't exist" and "has no password" to avoid
+        # enumeration attacks (attack: trying emails to find out if they exist).
         raise HTTPException(status_code=401, detail="Email o contrasenya incorrectes")
     if not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Email o contrasenya incorrectes")
@@ -173,7 +175,7 @@ def login(
 
 @router.post("/logout")
 def logout(response: Response):
-    """Esborra la cookie de sessió. Idempotent."""
+    """Deletes the session cookie. Idempotent."""
     response.delete_cookie(COOKIE_NAME, path="/")
     return {"ok": True}
 
@@ -183,15 +185,16 @@ def me(
     uid: Optional[str] = Depends(get_current_user_id),
     db: Session = Depends(get_mgmt_db),
 ):
-    """Usuari autenticat actual. 401 si no hi ha sessió.
+    """Current authenticated user. 401 if there's no session.
 
-    El frontend l'usa al bootstrap per decidir si renderitzar la pantalla
-    de login o la app principal.
+    The frontend uses this at bootstrap to decide whether to render the
+    login screen or the main app.
+    
     """
     if not uid:
         raise HTTPException(status_code=401, detail="No autenticat")
     user = db.query(User).filter(User.id == uid).first()
     if not user:
-        # Token vàlid però usuari esborrat al BD — clear cookie.
+        # Valid token but user deleted from the DB — clear cookie.
         raise HTTPException(status_code=401, detail="Usuari no trobat")
     return _user_to_info(user, db)

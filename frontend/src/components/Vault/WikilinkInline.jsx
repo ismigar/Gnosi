@@ -8,9 +8,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const HOVER_OPEN_DELAY = 450;
 const HOVER_CLOSE_DELAY = 180;
 
-// Cache de resolucions títol → UUID compartit entre instàncies. Evita
-// peticions repetides al backend quan el mateix wikilink apareix moltes
-// vegades a la pàgina (5min TTL).
+// Cache of title → UUID resolutions shared across instances. Avoids
+// repeated requests to the backend when the same wikilink appears many
+// times on the page (5min TTL).
 const TITLE_RESOLVE_CACHE = new Map();
 const TITLE_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -29,10 +29,10 @@ function writeResolveCache(key, value) {
 }
 
 /**
- * Resol un target de wikilink a un page_id usant el lookup local idToTitle.
- *  - Si és UUID, retorna directament (eliminant possible #section).
- *  - Si és un títol, fa lookup invers a idToTitle (case-insensitive).
- *  - Si no troba res, retorna el target original (cal fallback a backend).
+ * Resolves a wikilink target to a page_id using the local idToTitle lookup.
+ *  - If it's a UUID, returns it directly (removing a possible #section).
+ *  - If it's a title, does a reverse lookup in idToTitle (case-insensitive).
+ *  - If nothing is found, returns the original target (requires a backend fallback).
  */
 function resolveTargetLocal(raw, idToTitle) {
     if (!raw) return raw;
@@ -50,10 +50,10 @@ function resolveTargetLocal(raw, idToTitle) {
 }
 
 /**
- * Resol async amb fallback al backend (`/api/vault/resolve-by-title`).
- * Útil quan `idToTitle` està buit o desactualitzat (just després d'un move,
- * navegació directa per URL, etc.). Retorna l'UUID o el target original
- * si tampoc el backend té coincidència.
+ * Resolves asynchronously with a fallback to the backend (`/api/vault/resolve-by-title`).
+ * Useful when `idToTitle` is empty or stale (right after a move,
+ * direct navigation via URL, etc.). Returns the UUID or the original target
+ * if the backend doesn't have a match either.
  */
 async function resolveTargetWithBackend(raw, idToTitle) {
     const local = resolveTargetLocal(raw, idToTitle);
@@ -73,23 +73,23 @@ async function resolveTargetWithBackend(raw, idToTitle) {
 }
 
 /**
- * Renderitzador d'un wikilink inline amb:
- *  - Click → open in current tab (reemplaça)
+ * Renderer for an inline wikilink with:
+ *  - Click → open in current tab (replaces)
  *  - Cmd/Ctrl+Click → open in new tab
  *  - Shift+Click → open in parallel pane
- *  - Hover → preview popup amb extracte (estil Wikipedia)
- *  - Right-click → menú contextual amb les 3 opcions
+ *  - Hover → preview popup with excerpt (Wikipedia style)
+ *  - Right-click → context menu with the 3 options
  *
- *  Fallback: si no es passa onOpenInCurrentTab/onOpenInNewTab, reutilitza
- *  onOpenParallel per mantenir compatibilitat amb instàncies antigues
- *  (PageViewModal, etc.) que només passen onOpenParallel.
+ *  Fallback: if onOpenInCurrentTab/onOpenInNewTab is not passed, reuses
+ *  onOpenParallel to maintain compatibility with older instances
+ *  (PageViewModal, etc.) that only pass onOpenParallel.
  */
 export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpenInCurrentTab: onOpenInCurrentTabProp, onOpenInNewTab: onOpenInNewTabProp, onOpenParallel: onOpenParallelProp }) => {
-    // CRITIC: el schema de BlockNote es congela quan es crea l'editor (no es
-    // refà cada vegada que canvia globalIndex). Si llegim `idToTitle` de
-    // contextValue per closure dins el spec, queda stale (size 0). Per això
-    // llegim del context en VIVA (useContext) i només caiem als props si el
-    // context no està disponible (p.ex. tests aïllats).
+    // CRITICAL: the BlockNote schema freezes when the editor is created (it is not
+    // recreated every time globalIndex changes). If we read `idToTitle` from
+    // contextValue via closure inside the spec, it goes stale (size 0). That's why
+    // we read from the context LIVE (useContext) and only fall back to props if the
+    // context isn't available (e.g. isolated tests).
     const ctx = useContext(VaultEditorContext) || {};
     const idToTitle = idToTitleProp && Object.keys(idToTitleProp).length > 0 ? idToTitleProp : (ctx.idToTitle || {});
     const onOpenInCurrentTab = onOpenInCurrentTabProp || ctx.onOpenInCurrentTab || null;
@@ -103,15 +103,15 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
     const [anchorRect, setAnchorRect] = useState(null);
     const [menuPos, setMenuPos] = useState(null);
 
-    // Resolució síncrona local (per al hover preview, que no pot ser async).
+    // Local synchronous resolution (for the hover preview, which can't be async).
     const resolvedId = resolveTargetLocal(target, idToTitle);
 
     const callOpen = useCallback(async (mode) => {
         if (!target) return;
-        // Per a clicks/menú: si la resolució local ha tornat un títol
-        // (idToTitle no el coneix) fem un fallback ràpid al backend abans
-        // de cridar el handler. Així el wikilink no és "mort" quan globalIndex
-        // està buit o stale (per exemple just després d'un move).
+        // For clicks/menu: if the local resolution returned a title
+        // (idToTitle doesn't recognize it) we do a quick fallback to the backend before
+        // calling the handler. This way the wikilink isn't "dead" when globalIndex
+        // is empty or stale (for example right after a move).
         let id = resolvedId || target;
         if (!UUID_RE.test(id)) {
             id = await resolveTargetWithBackend(target, idToTitle);
@@ -129,8 +129,8 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
             onOpenInCurrentTab(id);
             return;
         }
-        // Fallbacks: si l'embebedor no proporciona el handler específic,
-        // degradem cap als disponibles per no fer un click "mort".
+        // Fallbacks: if the embedder doesn't provide the specific handler,
+        // we fall back to the available ones so as not to leave a "dead" click.
         if (onOpenInCurrentTab) onOpenInCurrentTab(id);
         else if (onOpenInNewTab) onOpenInNewTab(id);
         else if (onOpenParallel) onOpenParallel(id);
@@ -155,7 +155,7 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
 
     const handleMouseEnter = () => {
         cancelTimers();
-        if (menuPos) return; // menú obert: no mostrar hover
+        if (menuPos) return; // menu open: don't show hover
         const rect = spanRef.current?.getBoundingClientRect() || null;
         openTimerRef.current = setTimeout(() => {
             setAnchorRect(rect);
@@ -171,7 +171,7 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
         }, HOVER_CLOSE_DELAY);
     };
 
-    // Quan el cursor entra dins el popup, manté obert.
+    // When the cursor enters the popup, keeps it open.
     const handlePopupEnter = () => {
         cancelTimers();
     };
@@ -184,8 +184,8 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
     };
 
     const handleClick = (e) => {
-        // Ignorar el botó dret: `onAuxClick` també dispara amb el clic dret
-        // i, sense filtre, navegaria a "sameTab" tancant el menú contextual.
+        // Ignore the right button: `onAuxClick` also fires on right-click
+        // and, without filtering, it would navigate to "sameTab", closing the context menu.
         // 0 = esquerre, 1 = mig, 2 = dret.
         if (typeof e.button === 'number' && e.button === 2) return;
         e.preventDefault();
@@ -193,13 +193,13 @@ export const WikilinkInline = ({ title, target, idToTitle: idToTitleProp, onOpen
         if (typeof e.stopImmediatePropagation === 'function') {
             e.stopImmediatePropagation();
         }
-        // Tanca hover/menú abans de navegar
+        // Closes hover/menu before navigating
         cancelTimers();
         setHoverActive(false);
         setAnchorRect(null);
         setMenuPos(null);
         if (!target) return;
-        // Click amb botó del mig → nova tab (com els navegadors).
+        // Middle-click → new tab (like browsers do).
         if (e.button === 1) {
             callOpen('newTab');
             return;

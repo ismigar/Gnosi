@@ -1,36 +1,36 @@
-"""NextCloudProvider: vault sobre NextCloud Virtual Files (EXPERIMENTAL).
+"""NextCloudProvider: vault over NextCloud Virtual Files (EXPERIMENTAL).
 
-A diferència d'OneDrive/iCloud/GoogleDrive a macOS, NextCloud no usa
-el File Provider framework natiu. Cada client (Windows/macOS/Linux)
-té el seu propi mecanisme:
+Unlike OneDrive/iCloud/GoogleDrive on macOS, NextCloud does not use
+the native File Provider framework. Each client (Windows/macOS/Linux)
+has its own mechanism:
 
-- **Windows**: Cloud Filter API (similar a OneDrive Windows). Detecció
-  per atribut `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS` (no exposat
-  directament a Python sense `pywin32`).
-- **macOS / Linux**: el client NextCloud crea fitxers placeholder
-  marcats amb un extended attribute `user.nextcloud.is-virtual-file`,
-  o (segons versió) un fitxer amb extensió `.nc-virt`.
+- **Windows**: Cloud Filter API (similar to OneDrive Windows). Detection
+  via the `FILE_ATTRIBUTE_RECALL_ON_DATA_ACCESS` attribute (not exposed
+  directly in Python without `pywin32`).
+- **macOS / Linux**: the NextCloud client creates placeholder files
+  marked with an extended attribute `user.nextcloud.is-virtual-file`,
+  or (depending on version) a file with the `.nc-virt` extension.
 
-**Detecció** en aquesta implementació:
-1. Si l'extensió del path coincideix amb `PLACEHOLDER_EXT` (default
+**Detection** in this implementation:
+1. If the path extension matches `PLACEHOLDER_EXT` (default
    `.nc-virt`, configurable via env `NEXTCLOUD_PLACEHOLDER_EXT`).
-2. Altrament, mira xattr `user.nextcloud.is-virtual-file`.
+2. Otherwise, check the `user.nextcloud.is-virtual-file` xattr.
 
-Si el filesystem no suporta xattrs (alguns bind-mounts), `is_online_only`
-retornarà False per defecte — comportament prudent que no fa warmups
-innecessaris.
+If the filesystem doesn't support xattrs (some bind-mounts), `is_online_only`
+will return False by default — cautious behavior that avoids unnecessary
+warmups.
 
-**Materialització:** delega al daemon HTTP igual que OneDrive. La crida
-`open()/read()` sobre un placeholder NextCloud dispara la baixada en
-la majoria d'instal·lacions macOS/Linux. Si la teva versió no respon
-a `open()`, configura un daemon dedicat amb `NEXTCLOUD_WARMUP_URL`
-que executi una comanda CLI específica (per exemple
+**Materialization:** delegates to the HTTP daemon just like OneDrive. The
+`open()/read()` call on a NextCloud placeholder triggers the download in
+most macOS/Linux installations. If your version doesn't respond
+to `open()`, configure a dedicated daemon with `NEXTCLOUD_WARMUP_URL`
+that runs a specific CLI command (for example
 `nextcloudcmd --download <path>`).
 
-**Estat:** Esquelet. Validat només amb tests d'unitat (xattr/extensió).
-Cal validació amb una instal·lació real de NextCloud client.
+**Status:** Skeleton. Validated only with unit tests (xattr/extension).
+Needs validation with a real NextCloud client installation.
 
-Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/dev_memory/directives/files_provider_abstraction.md`.
 """
 
 from __future__ import annotations
@@ -48,9 +48,10 @@ log = logging.getLogger(__name__)
 class NextCloudProvider(OneDriveProvider):
     """NextCloud Virtual Files (EXPERIMENTAL).
 
-    Sobreescriu només `is_online_only` per usar xattr / extensió en
-    lloc de `st_blocks==0`. Reutilitza la materialització via daemon
-    HTTP d'`OneDriveProvider`.
+    Overrides only `is_online_only` to use xattr / extension instead
+    of `st_blocks==0`. Reuses materialization via the HTTP daemon
+    from `OneDriveProvider`.
+    
     """
 
     name = "nextcloud"
@@ -88,24 +89,25 @@ class NextCloudProvider(OneDriveProvider):
         container_path: Path,
         stat_result: Optional[os.stat_result] = None,
     ) -> bool:
-        """Detecta placeholder NextCloud per extensió o xattr.
+        """Detects a NextCloud placeholder by extension or xattr.
 
-        El paràmetre `stat_result` és ignorat aquí — no usem `st_blocks`,
-        així que un stat previ no aporta info. L'acceptem per honorar
-        el contracte de la base.
+        The `stat_result` parameter is ignored here — we don't use `st_blocks`,
+        so a previous stat doesn't provide useful info. We accept it to honor
+        the base contract.
+        
         """
-        # Heurística 1: extensió. Configurable via NEXTCLOUD_PLACEHOLDER_EXT.
+        # Heuristic 1: extension. Configurable via NEXTCLOUD_PLACEHOLDER_EXT.
         if container_path.suffix == self.placeholder_ext:
             return True
 
-        # Heurística 2: extended attribute. `os.listxattr` no està
-        # disponible a Windows; fora de macOS/Linux es retorna False.
+        # Heuristic 2: extended attribute. `os.listxattr` is not
+        # available on Windows; outside macOS/Linux it returns False.
         listxattr = getattr(os, "listxattr", None)
         if listxattr is None:
             return False
         try:
             xattrs = listxattr(str(container_path))
         except OSError:
-            # Path no existeix, FS no suporta xattr, etc. — prudent: False.
+            # Path doesn't exist, FS doesn't support xattr, etc. — cautious: False.
             return False
         return self.XATTR_KEY in xattrs

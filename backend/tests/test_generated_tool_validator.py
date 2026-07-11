@@ -1,15 +1,15 @@
-"""El validador de tools auto-generades ha d'enforçar de debò la seva llista de
-prohibicions.
+"""The auto-generated tools validator must genuinely enforce its list of
+prohibitions.
 
-Les tools que passen el validador i no són EXTERNAL_WRITE s'AUTO-APROVEN i
-s'executen (creator.create_new_tool → loader exec), i create_new_tool està
-enllaçat a l'agent coder. El validador era trivialment bypassable (regex sobre
-la sintaxi de crida): reassignar el nom (`f = eval`), àlies (`imp = __import__`),
-`os.environ`, `open(p, "wb")`. Ara la detecció és per AST (mira el nom
-referenciat), tancant els escapes demostrats.
+Tools that pass the validator and are not EXTERNAL_WRITE get AUTO-APPROVED and
+executed (creator.create_new_tool → loader exec), and create_new_tool is
+wired to the coder agent. The validator was trivially bypassable (regex over
+call syntax): reassigning the name (`f = eval`), aliasing (`imp = __import__`),
+`os.environ`, `open(p, "wb")`. Detection is now AST-based (it looks at the
+referenced name), closing the demonstrated escapes.
 
-NOTA: no és un sandbox complet (pathlib i __import__ segueixen amplis); això
-enforça la política declarada del validador.
+NOTE: this is not a complete sandbox (pathlib and __import__ are still broad); this
+enforces the validator's declared policy.
 """
 import pytest
 
@@ -23,7 +23,7 @@ def _wrap(body: str, imports: str = "") -> str:
     return f'{_HDR}{imports}@tool\ndef read_helper(x: str) -> str:\n    """r"""\n{lines}\n'
 
 
-# --- Escapes que ABANS passaven (regex bypassada) → ara BLOQUEJATS ----------
+# --- Escapes that PREVIOUSLY passed (regex bypassed) → now BLOCKED ----------
 BYPASSES = {
     "eval_alias": _wrap("f = eval\n    return str(f(x))"),
     "import_alias_getattr": _wrap('imp = __import__\n    return getattr(imp("os"), "system")(x)'),
@@ -42,7 +42,7 @@ def test_escape_is_blocked(name):
     assert not r.is_valid, f"{name} hauria d'estar bloquejat"
 
 
-# --- Tools legítimes segures → segueixen PASSANT ----------------------------
+# --- Legitimate safe tools → still PASS ----------------------------
 LEGIT = {
     "json_only": _wrap('return json.dumps({"x": x})', imports="import json\n"),
     "read_open": _wrap("return open(x).read()[:100]"),
@@ -58,7 +58,7 @@ def test_legit_tool_passes(name):
 
 
 def test_existing_forbidden_still_blocked():
-    # Els imports prohibits que ja es bloquejaven segueixen bloquejats.
+    # The prohibited imports that were already blocked remain blocked.
     for imp in ("import subprocess\n", "import requests\n"):
         r = validator.validate(_wrap("return x", imp), "read_helper")
         assert not r.is_valid, f"{imp!r} hauria d'estar bloquejat"

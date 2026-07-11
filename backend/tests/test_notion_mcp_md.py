@@ -1,4 +1,4 @@
-"""Tests del conversor MCP-markdown → Gnosi-markdown (clon fidel) amb dades REALS."""
+"""Tests for the MCP-markdown → Gnosi-markdown converter (faithful clone) with REAL data."""
 import re
 import sys
 from pathlib import Path
@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.notion_mcp_md import mcp_to_markdown, extract_db_ids  # noqa: E402
 
-# Fragment REAL del que retorna l'MCP per a la pàgina "📌 Ocio"
+# REAL fragment of what the MCP returns for the page "📌 Ocio"
 OCI_MCP = (
     '<page url="...">\n<content>\n'
     '# Formación {color="blue_bg"}\n'
@@ -46,7 +46,7 @@ def test_databases_become_view_markers():
 
 def test_colors_become_spans():
     out = mcp_to_markdown(OCI_MCP)
-    assert "{color=" not in out                                   # cap anotació crua
+    assert "{color=" not in out                                   # no raw annotation
     assert '# <span style="background-color:#e7f3f8">Formación</span>' in out   # blue_bg
     assert '<span style="background-color:#edf3ec">Desarrolladas</span>' in out  # green_bg
 
@@ -55,7 +55,7 @@ def test_columns_become_fences():
     out = mcp_to_markdown(OCI_MCP)
     assert ":::column-list" in out and ":::column" in out
     assert "<column" not in out and "<columns" not in out
-    # contingut de cada columna conservat sota la seva fence
+    # content of each column preserved under its fence
     assert "- Montar en bici adaptada" in out
     assert "Desarrolladas" in out and "A desarrollar" in out
 
@@ -68,7 +68,7 @@ def test_mentions_become_wikilinks():
 
 def test_no_residual_notion_tags():
     out = mcp_to_markdown(OCI_MCP)
-    # cap etiqueta de Notion; els <span style> de color SÍ són vàlids a Gnosi
+    # no Notion tag; color <span style> tags ARE valid in Gnosi
     for tag in ("<database", "<mention", "<columns", "<column", "<page", "<content"):
         assert tag not in out
 
@@ -95,9 +95,9 @@ def test_toggle_becomes_fence_with_children_inside():
     assert ":::toggle-heading{level=2} Planificació" in lines
     i = lines.index(":::toggle-heading{level=2} Planificació")
     block = lines[i:]
-    assert "- Tasca 1" in block and "- Tasca 2" in block       # fills dins el toggle
-    assert "  - Subtasca" in block                             # nidificació preservada
-    assert ":::" in block                                       # tanca
+    assert "- Tasca 1" in block and "- Tasca 2" in block       # children inside the toggle
+    assert "  - Subtasca" in block                             # nesting preserved
+    assert ":::" in block                                       # closes
     assert "Fora del toggle" in out
 
 
@@ -115,7 +115,7 @@ CODE_MCP = (
 def test_code_block_is_protected():
     out = mcp_to_markdown(CODE_MCP)
     assert "```python" in out
-    assert "\treturn x  # {color=\"red\"} <no-tag>" in out   # contingut del codi intacte
+    assert "\treturn x  # {color=\"red\"} <no-tag>" in out   # code content intact
     assert "Abans" in out and "Després" in out
 
 
@@ -130,9 +130,9 @@ def test_subpage_tags_become_wikilinks():
           '<page url="https://app.notion.com/p/9bde8a165b8b49ef8bcf2afc30a36581"/>\n'
           '</content>')
     out = mcp_to_markdown(md)
-    assert "[[Jesús?]]" in out                                   # amb títol → [[Títol]]
+    assert "[[Jesús?]]" in out                                   # with title → [[Title]]
     assert "[[9bde8a165b8b49ef8bcf2afc30a36581]]" in out         # auto-tancat → [[id]]
-    assert "<page" not in out                                    # cap tag cru
+    assert "<page" not in out                                    # no raw tag
 
 
 if __name__ == "__main__":

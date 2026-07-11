@@ -1,36 +1,36 @@
 /**
  * useVaultSelectionShortcuts.js
- * Hook per registrar dreceres de teclat per a la selecció múltiple del Vault.
+ * Hook to register keyboard shortcuts for multiple selection in the Vault.
  */
 import { useEffect } from 'react';
 
 /**
  * @param {Object} params
- * @param {Function} params.selectAll       - Selecciona tots els registres
- * @param {Function} params.clearSelection  - Esborra la selecció
- * @param {Function} params.onDeleteSelected - Elimina els registres seleccionats
- * @param {boolean}  params.enabled         - Si les dreceres estan actives
+ * @param {Function} params.selectAll       - Selects all records
+ * @param {Function} params.clearSelection  - Clears the selection
+ * @param {Function} params.onDeleteSelected - Deletes the selected records
+ * @param {boolean}  params.enabled         - Whether the shortcuts are active
  */
 export function useVaultSelectionShortcuts({ selectAll, clearSelection, onDeleteSelected, enabled = true }) {
     useEffect(() => {
         if (!enabled) return;
 
         const handleKeyDown = (e) => {
-            // Ctrl/Cmd + A → Seleccionar tots
+            // Ctrl/Cmd + A → Select all
             if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
-                // Evitar interferir amb inputs de text
+                // Avoid interfering with text inputs
                 const tag = document.activeElement?.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
                 e.preventDefault();
                 selectAll?.();
             }
 
-            // Escape → Esborrar selecció
+            // Escape → Clear selection
             if (e.key === 'Escape') {
                 clearSelection?.();
             }
 
-            // Delete / Backspace → Eliminar seleccionats (si no hi ha focus en inputs)
+            // Delete / Backspace → Delete selected (if focus is not in inputs)
             if ((e.key === 'Delete' || e.key === 'Backspace') && onDeleteSelected) {
                 const tag = document.activeElement?.tagName;
                 if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;

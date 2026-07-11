@@ -1,15 +1,15 @@
-"""Deduplicació al `POST /import-references`.
+"""Deduplication in `POST /import-references`.
 
-Funcions pures (sense FastAPI / xarxa / FS). Compara cada entrada del fitxer
-BibTeX/RIS contra el vault per 4 criteris (per ordre de prioritat):
+Pure functions (no FastAPI / network / FS). Compares each entry in the
+BibTeX/RIS file against the vault using 4 criteria (in priority order):
 
-  1. Citation Key idèntic
-  2. DOI normalitzat
-  3. ISBN normalitzat
-  4. Títol normalitzat (minúscules, sense accents/puntuació)
+  1. Identical Citation Key
+  2. Normalized DOI
+  3. Normalized ISBN
+  4. Normalized title (lowercase, no accents/punctuation)
 
-Si una entrada coincideix, el caller la marca com a "skipped" i registra
-el motiu per al feedback de l'usuari.
+If an entry matches, the caller marks it as "skipped" and logs
+the reason for user feedback.
 """
 from __future__ import annotations
 
@@ -18,10 +18,10 @@ import unicodedata
 from typing import Optional
 
 
-# ---------- Normalitzadors d'identificadors (duplicació conscient) ----------
-# Aquestes utilitats també viuen a `vault_routes.py`. Les dupliquem aquí
-# per mantenir el mòdul pur (importat per tests sense FastAPI). Si en una
-# iteració posterior es centralitzen, candidat: `backend/services/identifier_normalizers.py`.
+# ---------- Identifier normalizers (deliberate duplication) ----------
+# These utilities also live in `vault_routes.py`. We duplicate them here
+# to keep the module pure (imported by tests without FastAPI). If in a
+# later iteration they get centralized, candidate: `backend/services/identifier_normalizers.py`.
 
 _DOI_RE = re.compile(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', re.IGNORECASE)
 
@@ -41,15 +41,16 @@ def _normalize_isbn(raw: str) -> Optional[str]:
     return m.group(0) if m else None
 
 
-# ---------- Normalitzador de títol per a deduplicació ----------
+# ---------- Title normalizer for deduplication ----------
 
 def normalize_title_for_dedup(title) -> str:
-    """Equivalence agressiva: minúscules, accents/puntuació fora, espais col·lapsats.
+    """Aggressive equivalence: lowercase, accents/punctuation stripped, spaces collapsed.
 
-    Més tolerant que un equality estricte; pot generar algun fals positiu
-    amb títols genèrics ("Introduction", "Editorial") però el risc d'un
-    import duplicat és més car que un skip ocasional. L'usuari sempre pot
-    revisar `skipped_details` per decidir si forçar la creació manualment.
+    More tolerant than strict equality; it can produce an occasional false positive
+    with generic titles ("Introduction", "Editorial") but the risk of a
+    duplicate import is costlier than an occasional skip. The user can always
+    review `skipped_details` to decide whether to force the creation manually.
+    
     """
     if not title or not isinstance(title, str):
         return ""
@@ -68,16 +69,17 @@ def find_existing_match(
     dedup: dict,
     vault_keys: set,
 ) -> Optional[tuple]:
-    """Retorna `(reason, existing_key)` si l'entrada coincideix amb una
-    pàgina ja existent al vault; `None` si és nova.
+    """Returns `(reason, existing_key)` if the entry matches a
+    page already existing in the vault; `None` if it's new.
 
-    `dedup` és el resultat de `build_indexes_from_records(...)`:
+    `dedup` is the result of `build_indexes_from_records(...)`:
         {'doi': {doi_norm_lower: ck}, 'isbn': {isbn_norm: ck}, 'title': {t_norm: ck}}
 
-    `vault_keys` és el set de citation keys existents.
+    `vault_keys` is the set of existing citation keys.
 
-    Ordre de prioritat: citation_key > DOI > ISBN > títol. Va del més
-    autoritatiu al més tolerant per minimitzar falsos positius.
+    Priority order: citation_key > DOI > ISBN > title. Goes from the most
+    authoritative to the most tolerant to minimize false positives.
+    
     """
     ck = (entry.get('Citation Key') or '').strip()
     if ck and ck in vault_keys:
@@ -110,11 +112,12 @@ def find_existing_match(
 
 
 def add_to_indexes(entry: dict, ck: str, dedup: dict) -> None:
-    """Després de crear una pàgina, afegir els seus identificadors als
-    índexs aux perquè la **mateixa importació** no creï duplicats interns
-    (dues entrades del fitxer amb el mateix DOI/ISBN/títol).
+    """After creating a page, add its identifiers to the
+    auxiliary indexes so the **same import** doesn't create internal duplicates
+    (two entries in the file with the same DOI/ISBN/title).
 
-    Idempotent: `setdefault` no sobreescriu si la clau ja és present.
+    Idempotent: `setdefault` doesn't overwrite if the key is already present.
+    
     """
     doi = (entry.get('DOI') or '').strip()
     if doi:

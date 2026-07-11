@@ -12,7 +12,7 @@ What we cover:
 
 What we deliberately do NOT cover here:
     - Real SMTP/Gmail/Graph sends (need accounts; see directive
-      mail_inline_images_cid.md, test pla #5)
+      mail_inline_images_cid.md, test plan #5)
 
 Run inside the backend container:
     docker exec gnosi_backend python -m pytest backend/tests/test_mail_inline_images.py -v
@@ -48,7 +48,7 @@ def vault(tmp_path):
     files = tmp_path / "Assets" / "Files"
     files.mkdir(parents=True)
     (files / "doc.pdf").write_bytes(b"%PDF-1.4 fake")
-    (tmp_path / "secret.png").write_bytes(PNG_BYTES)  # fora d'Assets
+    (tmp_path / "secret.png").write_bytes(PNG_BYTES)  # outside Assets
 
     token = active_vault_path.set(tmp_path)
     yield tmp_path
@@ -66,7 +66,7 @@ def test_relative_src_becomes_cid(vault):
     assert img["filename"] == "test.png"
     assert "/api/vault/assets/" not in new_body
     assert f'src="cid:{img["content_id"]}"' in new_body
-    # la resta del cos no es toca
+    # the rest of the body is not touched
     assert new_body.startswith("<p>hola</p>")
     assert 'alt="x"' in new_body
 
@@ -199,7 +199,7 @@ def test_content_attachments_only_keeps_mixed_text():
 
 
 def test_extracted_cids_match_mime_headers(vault):
-    """End-to-end intern: extracció + builder → cada cid: del cos té part."""
+    """Internal end-to-end: extraction + builder → every cid: in the body has a part."""
     body = '<p>adjunto la captura</p><img src="/api/vault/assets/Inline/test.png">'
     new_body, images = extract_vault_inline_images(body)
     msg = build_mail_content(new_body, inline_images=images)

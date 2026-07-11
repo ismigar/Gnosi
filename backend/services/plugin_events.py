@@ -1,24 +1,24 @@
-"""Bus d'esdeveniments del vault per a plugins de dades (fase 3).
+"""Vault event bus for data plugins (phase 3).
 
-Punt d'enganxada únic que connecta el codi del backend (imports, clons,
-escriptura de pàgines) amb els plugins de tercers que reaccionen a canvis.
-Tercer consumidor, al costat de `action_rules.py` (accions de botó) i el
-`rule_engine`/automations (`property_change`); NO substitueix cap dels dos:
+Single hook point that connects backend code (imports, clones,
+page writes) with third-party plugins that react to changes.
+Third consumer, alongside `action_rules.py` (button actions) and the
+`rule_engine`/automations (`property_change`); it does NOT replace either:
 
-  * automations  → reaccionen a canvis de dades de fila (property_change).
-  * action_rules → governen accions de botó (guarda prèvia + efectes).
-  * plugin_events → notifiquen plugins EXTERNS d'esdeveniments d'alt nivell.
+  * automations  → react to row data changes (property_change).
+  * action_rules → govern button actions (pre-guard + effects).
+  * plugin_events → notify EXTERNAL plugins of high-level events.
 
-Esdeveniments estàndard (afegir-ne amb moderació):
+Standard events (add new ones sparingly):
   * page:updated   {page_id, title?}
   * page:created   {page_id, title?}
   * page:deleted   {page_id}
   * import:finished {source, count?}
   * clone:finished  {source, count?}
 
-`emit()` és fire-and-forget i MAI ha de fer petar el caller (un plugin trencat
-no pot tombar un import). Corre els plugins al sandbox Node de `plugin_sandbox`
-en un thread separat amb timeout; els errors es registren, no es propaguen.
+`emit()` is fire-and-forget and must NEVER crash the caller (a broken plugin
+cannot take down an import). It runs the plugins in `plugin_sandbox`'s Node
+sandbox on a separate thread with a timeout; errors are logged, not propagated.
 """
 from __future__ import annotations
 
@@ -29,8 +29,8 @@ from backend.config.logger_config import get_logger
 
 logger = get_logger(__name__)
 
-# Esdeveniments coneguts (documentats; emetre'n de nous és lliure però caldria
-# afegir-los aquí per descobribilitat).
+# Known events (documented; emitting new ones is free but they should be
+# added here for discoverability).
 KNOWN_EVENTS = {
     "page:updated",
     "page:created",
@@ -39,15 +39,15 @@ KNOWN_EVENTS = {
     "clone:finished",
 }
 
-# Subscriptors interns (no-plugins): p. ex. tests o serveis del propi backend.
-# Els plugins NO s'hi registren aquí; s'hi arriba via el dispatcher extern.
+# Internal subscribers (non-plugins): e.g. tests or the backend's own services.
+# Plugins do NOT register here; they are reached via the external dispatcher.
 _subscribers: List[Callable[[str, Dict[str, Any]], None]] = []
 _dispatcher: Callable[[str, Dict[str, Any]], None] | None = None
 _lock = threading.Lock()
 
 
 def subscribe(fn: Callable[[str, Dict[str, Any]], None]) -> Callable[[], None]:
-    """Registra un subscriptor intern. Retorna una funció per desubscriure."""
+    """Registers an internal subscriber. Returns a function to unsubscribe."""
     with _lock:
         _subscribers.append(fn)
 
@@ -62,22 +62,24 @@ def subscribe(fn: Callable[[str, Dict[str, Any]], None]) -> Callable[[], None]:
 
 
 def set_plugin_dispatcher(fn: Callable[[str, Dict[str, Any]], None] | None) -> None:
-    """Injecta el despatxador cap als plugins de dades (plugin_sandbox).
+    """Injects the dispatcher toward the data plugins (plugin_sandbox).
 
-    S'injecta des de l'arrencada del backend per evitar un import circular
-    (plugin_sandbox → plugin_system → vault paths). Si és None, els
-    esdeveniments només arriben als subscriptors interns.
+    It's injected at backend startup to avoid a circular import
+    (plugin_sandbox → plugin_system → vault paths). If None, events
+    only reach the internal subscribers.
+    
     """
     global _dispatcher
     _dispatcher = fn
 
 
 def emit(event: str, payload: Dict[str, Any] | None = None) -> None:
-    """Emet un esdeveniment. Fire-and-forget: no llança MAI cap on el caller.
+    """Emits an event. Fire-and-forget: it must NEVER raise toward the caller.
 
-    Corre en un thread perquè el dispatch als plugins (subprocés Node) pot
-    trigar; el codi que ha provocat l'esdeveniment (guardar una pàgina) no ha
-    d'esperar-ho ni fallar per culpa d'un plugin.
+    Runs on a thread because dispatching to plugins (Node subprocess) can
+    take a while; the code that triggered the event (saving a page) should
+    not have to wait for it or fail because of a plugin.
+    
     """
     data = dict(payload or {})
     if event not in KNOWN_EVENTS:

@@ -11,17 +11,17 @@ const STORAGE_LABELS = {
 };
 
 /**
- * FileAttachmentField — camp de tipus `files` (multi-fitxer). El comportament
- * es declara a l'esquema (`file_mode`) i el formulari d'inserció és específic
- * del mode (a diferència del modal genèric "/+"):
- *   - 'link'   → un "+" obre el selector de fitxers local i enllaça (sense còpia).
- *   - 'upload' → un "+" puja el fitxer a `storageFolder` (amb `namePattern`); si
- *                la carpeta és 'free', primer tria la carpeta destí.
+ * FileAttachmentField — a field of type `files` (multi-file). The behavior
+ * is declared in the schema (`file_mode`) and the insertion form is specific
+ * to the mode (unlike the generic "/+" modal):
+ *   - 'link'   → a "+" opens the local file picker and links it (no copy).
+ *   - 'upload' → a "+" uploads the file to `storageFolder` (using `namePattern`); if
+ *                the folder is 'free', it first chooses the destination folder.
  *
- * Cada acció AFEGEIX un fitxer a la llista (no reemplaça); cada fitxer té el seu
- * propi botó per treure'l. `value` pot ser string (1 fitxer) o array (≥2);
- * `onChange` emet '' (buit), el string sol (1) o l'array (≥2) per no canviar el
- * format dels camps d'un sol fitxer.
+ * Each action ADDS a file to the list (it doesn't replace); each file has its
+ * own button to remove it. `value` can be a string (1 file) or an array (≥2);
+ * `onChange` emits '' (empty), the plain string (1), or the array (≥2) so as not to change the
+ * format of single-file fields.
  *
  * Props: tableId, propertyName, fileMode ('link'|'upload'), storageFolder,
  * namePattern, rowMetadata, value (string|array), onChange(newValue), apiFetch.
@@ -31,33 +31,33 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
     const fileInputRef = useRef(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    // Picker del sistema d'arxius (navega el disc via /api/system/browse, que
-    // funciona dins del contenidor Docker).
+    // File-system picker (browses the disk via /api/system/browse, which
+    // works inside the Docker container).
     const [pickerState, setPickerState] = useState(null);
     const openPicker = (mode) => new Promise((resolve) => setPickerState({ mode, resolve }));
 
     const isLink = fileMode === 'link';
     const isFree = storageFolder === 'free';
 
-    // Normalitza el valor a una llista de strings crus (conserva el format
-    // original de cada entrada: path, URL servida o `[nom](target)`).
+    // Normalizes the value into a list of raw strings (preserves the format
+    // original of each entry: path, served URL, or `[nom](target)`).
     const entries = useMemo(() => {
         const list = Array.isArray(value) ? value : (value == null ? [] : [value]);
         return list.map(v => String(v ?? '')).filter(v => v.trim() !== '');
     }, [value]);
 
-    // Valor vigent per a les emissions: una pujada llarga no ha d'aixafar
-    // canvis fets mentrestant (stale closure sobre `entries`).
+    // Current value for emissions: a long upload must not clobber
+    // changes made in the meantime (stale closure over `entries`).
     const entriesRef = useRef(entries);
     entriesRef.current = entries;
 
-    // Emet mantenint compatibilitat: buit → '', un de sol → string, ≥2 → array.
+    // Emits while keeping compatibility: empty → '', a single one → string, ≥2 → array.
     const emit = (next) => {
         const clean = next.map(v => String(v ?? '')).filter(v => v.trim() !== '');
         onChange(clean.length === 0 ? '' : (clean.length === 1 ? clean[0] : clean));
     };
-    // Afegeix DEDUPLICANT amb la clau canònica (unifica file://, ruta absoluta,
-    // ~/ i URL servida del mateix fitxer): repetir un enllaç no duplica entrades.
+    // Adds while DEDUPLICATING using the canonical key (unifies file://, absolute path,
+    // ~/, and the served URL of the same file): repeating a link doesn't duplicate entries.
     const appendValues = (raws) => {
         const current = entriesRef.current;
         const seen = new Set(current.map(fileTargetKey));
@@ -116,9 +116,9 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
         }
     };
 
-    // Pujada de DIVERSOS fitxers a la vegada (input `multiple`). Puja tots i fa
-    // UN sol `emit` amb tots afegits, per evitar la cursa de N emits consecutius
-    // (cadascun llegiria el mateix `entries` ranci i només l'últim sobreviuria).
+    // Upload of MULTIPLE files at once (input `multiple`). Uploads all of them and does
+    // a SINGLE `emit` with all of them added, to avoid the race of N consecutive emits
+    // (each would read the same stale `entries` and only the last one would survive).
     const handleUploadFiles = async (fileList) => {
         const files = Array.from(fileList || []).filter(Boolean);
         if (files.length === 0) return;
@@ -163,8 +163,8 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 body: JSON.stringify({ file_path: path, target_name: resolvedName }),
             });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error enllaçant fitxer');
-            // `url` porta la forma PORTABLE (biblioteca/raw/~) quan existeix;
-            // `path` (ruta absoluta del host) queda com a últim recurs.
+            // `url` carries the PORTABLE form (biblioteca/raw/~) when it exists;
+            // `path` (absolute host path) is used as a last resort.
             const data = await res.json();
             appendValues([data.url || data.path]);
         } catch (e) {
@@ -182,7 +182,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
 
     return (
         <div className="space-y-1.5">
-            {/* Fitxers actuals — cada un amb el seu botó per treure'l */}
+            {/* Current files — each with its own button to remove it */}
             {entries.map((entry, idx) => {
                 const fileName = filenameFromTarget(entry);
                 const isServed = entry.startsWith('/api/') || /^https?:\/\//i.test(entry);
@@ -208,7 +208,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 );
             })}
 
-            {/* Un sol "+" → acció específica del mode configurat a l'esquema */}
+            {/* A single "+" → action specific to the mode configured in the schema */}
             <button
                 type="button"
                 disabled={loading}

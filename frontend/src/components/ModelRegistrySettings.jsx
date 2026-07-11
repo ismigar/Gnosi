@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Cpu, Plus, Trash2, Save, Server, Cloud } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
- * Editor del registry de models del router (data-driven) + política de pressupost.
- * Consumeix GET/PUT /api/ai/models. El router (backend/agent/model_router.py) tria el
- * model per petició segons capacitat + disponibilitat + tokens/cost.
+ * Editor for the router's model registry (data-driven) + budget policy.
+ * Consumes GET/PUT /api/ai/models. The router (backend/agent/model_router.py) selects the
+ * model per request based on capability + availability + tokens/cost.
  */
 const EMPTY_MODEL = {
     provider: '', model_id: '', is_local: false, enabled: true, priority: 100,
@@ -13,9 +14,14 @@ const EMPTY_MODEL = {
 };
 
 const QUALITY_LABELS = { 1: 'Ràpid', 2: 'Equilibrat', 3: 'Alta qualitat' };
+const QUALITY_KEYS = { 1: 'quality_fast', 2: 'quality_balanced', 3: 'quality_high' };
+// Capability tags: stored verbatim in model.tags and matched by the backend router
+// (backend/agent/model_router.py) — never translate these, they are data, not labels.
 const TAG_OPTIONS = ['fast', 'code', 'vision', 'long', 'tools'];
 
 export default function ModelRegistrySettings() {
+    const { t } = useTranslation();
+    const ta = useCallback((k, opts) => t('settings.ai.model_registry.' + k, opts), [t]);
     const [models, setModels] = useState([]);
     const [budget, setBudget] = useState({ prefer_local: false, remaining_tokens: '', prefer_local_below: 0 });
     const [loading, setLoading] = useState(true);
@@ -66,7 +72,7 @@ export default function ModelRegistrySettings() {
         }
     };
 
-    if (loading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>Carregant models…</div>;
+    if (loading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>{ta('loading', 'Carregant models…')}</div>;
 
     const cell = { padding: '6px 8px', verticalAlign: 'middle' };
     const inp = { width: '100%', background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 8, padding: '5px 8px', fontSize: '0.82rem' };
@@ -77,15 +83,15 @@ export default function ModelRegistrySettings() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <Cpu size={20} />
                     <div>
-                        <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Models del router</div>
+                        <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>{ta('title', 'Models del router')}</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                            Registra els models (locals o remots); l'orquestrador tria segons la petició, tokens i cost.
+                            {ta('subtitle', "Registra els models (locals o remots); l'orquestrador tria segons la petició, tokens i cost.")}
                         </div>
                     </div>
                 </div>
                 <button className="btn-gnosi-primary" onClick={addRow}
                     style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Plus size={15} /> Afegir model
+                    <Plus size={15} /> {ta('add_model', 'Afegir model')}
                 </button>
             </div>
 
@@ -93,16 +99,16 @@ export default function ModelRegistrySettings() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
                     <thead>
                         <tr style={{ color: 'var(--text-tertiary)', textAlign: 'left' }}>
-                            <th style={cell}>On</th><th style={cell}>Proveïdor</th><th style={cell}>Model</th>
-                            <th style={cell}>Qualitat</th><th style={cell}>Cost in/out</th><th style={cell}>Context</th>
-                            <th style={cell}>Capacitats</th><th style={cell}>Actiu</th><th style={cell}></th>
+                            <th style={cell}>{ta('col_where', 'On')}</th><th style={cell}>{t('settings.ai.provider_label')}</th><th style={cell}>{t('settings.ai.model_label')}</th>
+                            <th style={cell}>{ta('col_quality', 'Qualitat')}</th><th style={cell}>{ta('col_cost', 'Cost in/out')}</th><th style={cell}>{ta('col_context', 'Context')}</th>
+                            <th style={cell}>{ta('col_capabilities', 'Capacitats')}</th><th style={cell}>{ta('col_active', 'Actiu')}</th><th style={cell}></th>
                         </tr>
                     </thead>
                     <tbody>
                         {models.map((m, i) => (
                             <tr key={i} style={{ borderTop: '1px solid var(--settings-border)' }}>
                                 <td style={cell}>
-                                    <button title={m.is_local ? 'Local' : 'Remot'} onClick={() => update(i, { is_local: !m.is_local })}
+                                    <button title={m.is_local ? ta('local_tooltip', 'Local') : ta('remote_tooltip', 'Remot')} onClick={() => update(i, { is_local: !m.is_local })}
                                         style={{ background: 'none', border: 'none', cursor: 'pointer', color: m.is_local ? 'var(--gnosi-primary)' : 'var(--text-tertiary)' }}>
                                         {m.is_local ? <Server size={18} /> : <Cloud size={18} />}
                                     </button>
@@ -111,7 +117,7 @@ export default function ModelRegistrySettings() {
                                 <td style={cell}><input style={{ ...inp, width: 170 }} value={m.model_id} placeholder="llama3.2" onChange={e => update(i, { model_id: e.target.value })} /></td>
                                 <td style={cell}>
                                     <select style={{ ...inp, width: 130 }} value={m.quality} onChange={e => update(i, { quality: Number(e.target.value) })}>
-                                        {[1, 2, 3].map(q => <option key={q} value={q}>{QUALITY_LABELS[q]}</option>)}
+                                        {[1, 2, 3].map(q => <option key={q} value={q}>{ta(QUALITY_KEYS[q], QUALITY_LABELS[q])}</option>)}
                                     </select>
                                 </td>
                                 <td style={cell}>
@@ -138,7 +144,7 @@ export default function ModelRegistrySettings() {
                                     </div>
                                 </td>
                                 <td style={cell}>
-                                    <button title="Treure" onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
+                                    <button title={ta('remove_model', 'Treure')} onClick={() => removeRow(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-tertiary)' }}>
                                         <Trash2 size={16} />
                                     </button>
                                 </td>
@@ -150,24 +156,24 @@ export default function ModelRegistrySettings() {
 
             {/* Política de pressupost */}
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--settings-border)' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 10 }}>Política de pressupost</div>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 10 }}>{ta('budget_policy_title', 'Política de pressupost')}</div>
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                         <div className={`gnosi-toggle ${budget.prefer_local ? 'active' : ''}`} onClick={() => setBudget(b => ({ ...b, prefer_local: !b.prefer_local }))}>
                             <div className="gnosi-toggle-handle" />
                         </div>
-                        Prioritzar models locals (cost 0)
+                        {ta('prefer_local_label', 'Prioritzar models locals (cost 0)')}
                     </label>
                     <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                        Tokens de pagament restants:&nbsp;
-                        <input style={{ ...inp, width: 120, display: 'inline-block' }} type="number" placeholder="(sense límit)"
+                        {ta('remaining_tokens_label', 'Tokens de pagament restants:')}&nbsp;
+                        <input style={{ ...inp, width: 120, display: 'inline-block' }} type="number" placeholder={ta('remaining_tokens_placeholder', '(sense límit)')}
                             value={budget.remaining_tokens ?? ''} onChange={e => setBudget(b => ({ ...b, remaining_tokens: e.target.value }))} />
                     </label>
                     <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                        Si en queden menys de:&nbsp;
+                        {ta('budget_below_label', 'Si en queden menys de:')}&nbsp;
                         <input style={{ ...inp, width: 110, display: 'inline-block' }} type="number"
                             value={budget.prefer_local_below ?? 0} onChange={e => setBudget(b => ({ ...b, prefer_local_below: e.target.value }))} />
-                        &nbsp;→ local
+                        &nbsp;{ta('budget_below_suffix', '→ local')}
                     </label>
                 </div>
             </div>
@@ -175,9 +181,9 @@ export default function ModelRegistrySettings() {
             <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
                 <button className="btn-gnosi-primary" onClick={save} disabled={saving}
                     style={{ padding: '10px 20px', fontSize: '0.85rem', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Save size={16} /> {saving ? 'Desant…' : 'Desar models'}
+                    <Save size={16} /> {saving ? ta('saving', 'Desant…') : ta('save_models', 'Desar models')}
                 </button>
-                {saved && <span style={{ color: 'var(--gnosi-primary)', fontSize: '0.82rem', fontWeight: 700 }}>✓ Desat</span>}
+                {saved && <span style={{ color: 'var(--gnosi-primary)', fontSize: '0.82rem', fontWeight: 700 }}>{ta('saved', '✓ Desat')}</span>}
                 {error && <span style={{ color: '#e05252', fontSize: '0.82rem' }}>{error}</span>}
             </div>
         </div>

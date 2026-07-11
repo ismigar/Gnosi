@@ -1,15 +1,15 @@
-"""Motor del notificador de reunions amb IA (ordre del dia).
+"""AI-powered meeting reminder engine (agenda).
 
-Escaneja reunions properes, genera una ORDRE DEL DIA amb IA i dispara avisos
-(natiu macOS + BD + Markdown via `notify()`). Manté estat persistent a
-`LOCAL_DATA/system/meeting_reminders.json` perquè:
-  - no avisi dues vegades de la mateixa reunió (dedup per clau `id|start`),
-  - el frontend pugui llegir els recordatoris ACTIUS (banner) amb l'agenda ja
-    generada, sense tornar a cridar la IA.
+Scans upcoming meetings, generates an AGENDA with AI, and fires notifications
+(native macOS + BD + Markdown via `notify()`). Keeps persistent state in
+`LOCAL_DATA/system/meeting_reminders.json` so that:
+  - the same meeting isn't notified twice (dedup by key `id|start`),
+  - the frontend can read the ACTIVE reminders (banner) with the agenda already
+    generated, without calling the AI again.
 
-L'executa la tasca `meeting_reminders` de l'scheduler (cada minut). Tot el camí
-degrada amb elegància: si no hi ha proveïdor d'IA, el recordatori s'envia
-igualment sense agenda; si no es poden recollir events, no peta la tasca.
+Run by the scheduler's `meeting_reminders` task (every minute). The whole path
+degrades gracefully: if there's no AI provider, the reminder is still sent
+without an agenda; if events can't be collected, the task doesn't crash.
 """
 from __future__ import annotations
 
@@ -25,21 +25,21 @@ from backend.utils.safe_io import safe_write_json
 
 log = logging.getLogger(__name__)
 
-# Serialitza el cicle SENCER load→modify→save de meeting_reminders.json. Hi ha
-# QUATRE mutadors concurrents: `scan_and_notify` (fil de l'scheduler, cada
-# minut), `dismiss` i `update_settings` (handlers de l'API) i el prune de
-# `get_active` (GET del banner). Sense candau, dues mutacions llegien el mateix
-# snapshot i l'última escriptura esclafava l'altra (p.ex. un dismiss perdut
-# perquè l'escaneig desava després amb l'estat vell). És un threading.Lock (no
-# asyncio.Lock) perquè l'scheduler corre en un fil propi, fora de l'event loop.
+# Serializes the WHOLE load→modify→save cycle of meeting_reminders.json. There are
+# FOUR concurrent mutators: `scan_and_notify` (scheduler thread, every
+# minute), `dismiss` and `update_settings` (API handlers), and the prune of
+# `get_active` (banner GET). Without a lock, two mutations would read the same
+# snapshot and the last write clobbered the other (e.g. a lost dismiss
+# because the scan saved afterward with the old state). It's a threading.Lock (not
+# asyncio.Lock) because the scheduler runs on its own thread, outside the event loop.
 _state_lock = threading.Lock()
 
 DEFAULT_SETTINGS = {
     "enabled": False,
     "lead_minutes": 10,
 }
-_GRACE_MINUTES = 5            # manté el recordatori actiu fins X min després de l'inici
-_NOTIFIED_TTL_HOURS = 24      # neteja claus de dedup més velles que això
+_GRACE_MINUTES = 5            # keeps the reminder active until X min after the start
+_NOTIFIED_TTL_HOURS = 24      # cleans up dedup keys older than this
 
 
 # ── Estat persistent ─────────────────────────────────────────────────────────
@@ -106,10 +106,10 @@ def update_settings(patch: dict) -> dict:
         return s
 
 
-# ── Helpers de temps ─────────────────────────────────────────────────────────
+# ── Time helpers ─────────────────────────────────────────────────────────
 
 def _parse_dt(value) -> Optional[datetime]:
-    """Parseja una data ISO d'event a datetime aware (UTC si no porta tz)."""
+    """Parses an event's ISO date into an aware datetime (UTC if it has no tz)."""
     if not value:
         return None
     raw = str(value).strip()
@@ -141,11 +141,11 @@ def _attendees_str(attendees) -> str:
     return ", ".join(names)
 
 
-# ── Generació de l'ordre del dia amb IA ──────────────────────────────────────
+# ── AI agenda generation ──────────────────────────────────────
 
 def _generate_agenda(ev: dict) -> str:
-    """Genera una ordre del dia breu (vinyetes Markdown) a partir del títol +
-    descripció de l'event. Torna "" si la IA falla o no hi ha proveïdor."""
+    """Generates a brief agenda (Markdown bullets) from the event's title +
+    description. Returns "" if the AI fails or there's no provider."""
     title = (ev.get("title") or "").strip()
     desc = (ev.get("description") or "").strip()
     location = (ev.get("location") or "").strip()
@@ -170,7 +170,7 @@ def _generate_agenda(ev: dict) -> str:
         return ""
 
 
-# ── Avís (natiu macOS + BD + MD) ─────────────────────────────────────────────
+# ── Notification (native macOS + BD + MD) ─────────────────────────────────────────────
 
 def _dispatch_notification(reminder: dict) -> None:
     mins = reminder.get("minutes_until", 0)
@@ -191,12 +191,13 @@ def _dispatch_notification(reminder: dict) -> None:
         log.warning(f"meeting_reminders: notify ha fallat: {e}")
 
 
-# ── Escaneig principal (cridat per l'scheduler) ──────────────────────────────
+# ── Main scan (called by the scheduler) ──────────────────────────────
 
 def scan_and_notify() -> dict:
-    """Escaneja reunions dins de [ara, ara+lead] i n'avisa (un cop per reunió).
+    """Scans meetings within [now, now+lead] and notifies about them (once per meeting).
 
-    Retorna un resum {enabled, new, active}. Pensada per a córrer cada minut.
+    Returns a summary {enabled, new, active}. Designed to run every minute.
+    
     """
     state = _load_state()
     settings = state["settings"]
@@ -222,7 +223,7 @@ def scan_and_notify() -> dict:
 
     for ev in events:
         if ev.get("all_day"):
-            continue  # els esdeveniments de tot el dia no són reunions puntuals
+            continue  # all-day events are not point-in-time meetings
         start = _parse_dt(ev.get("start"))
         if not start:
             continue
@@ -254,16 +255,16 @@ def scan_and_notify() -> dict:
         new_count += 1
         _dispatch_notification(reminder)
 
-    # Fusió sota candau: la generació d'agenda amb IA (a dalt) pot trigar
-    # segons. Si mentrestant l'usuari ha fet un dismiss o ha tocat settings,
-    # desar el snapshot vell ho esclafaria (recordatoris descartats que
-    # "ressusciten"). Recarreguem l'estat FRESC i hi apliquem només els deltes.
+    # Merge under lock: AI agenda generation (above) can take
+    # seconds. If meanwhile the user has dismissed it or touched settings,
+    # saving the old snapshot would clobber it (dismissed reminders that
+    # "resurrect"). We reload the FRESH state and apply only the deltas to it.
     with _state_lock:
         fresh = _load_state()
         fresh_active = {a["id"]: a for a in fresh.get("active", []) if a.get("id")}
         for reminder in new_reminders:
             if reminder["key"] in fresh["notified"]:
-                continue  # un altre escaneig ja l'havia registrat
+                continue  # another scan had already registered it
             fresh_active[reminder["id"]] = reminder
             fresh["notified"][reminder["key"]] = now.isoformat()
         fresh["active"] = _prune_active(list(fresh_active.values()), now)
@@ -279,7 +280,7 @@ def _prune_active(active: list, now: datetime) -> list:
             continue
         start = _parse_dt(a.get("start"))
         if start and now - start > timedelta(minutes=_GRACE_MINUTES):
-            continue  # reunió començada fa estona → treu el banner
+            continue  # meeting started a while ago → removes the banner
         out.append(a)
     return out
 
@@ -294,10 +295,10 @@ def _prune_notified(notified: dict, now: datetime) -> dict:
     return out
 
 
-# ── Consulta des del frontend (banner) ───────────────────────────────────────
+# ── Query from the frontend (banner) ───────────────────────────────────────
 
 def get_active(now: Optional[datetime] = None) -> list:
-    """Recordatoris actius per al banner, amb `minutes_until` recalculat."""
+    """Active reminders for the banner, with `minutes_until` recalculated."""
     now = now or datetime.now(timezone.utc)
     with _state_lock:
         state = _load_state()

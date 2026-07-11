@@ -1,8 +1,8 @@
-"""Endpoints del prenedor d'actes de reunions amb IA.
+"""Endpoints for the AI meeting notetaker.
 
-`POST /api/meetings/record` rep l'àudio gravat al navegador (webm/opus), el desa i
-llança el job de fons (transcripció local + acta IA + pàgina del Vault). El
-frontend consulta `GET /api/meetings/status` fins que acaba i obre la pàgina.
+`POST /api/meetings/record` receives the audio recorded in the browser (webm/opus), saves it, and
+launches the background job (local transcription + AI minutes + Vault page). The
+frontend polls `GET /api/meetings/status` until it finishes and opens the page.
 """
 import logging
 import uuid
@@ -32,7 +32,7 @@ async def record_meeting(
     title: str = Form("Reunió"),
     mode: str = Form("presencial"),
 ):
-    """Rep l'àudio, el desa i engega el processament en segon pla."""
+    """Receives the audio, saves it, and starts background processing."""
     if meeting_notes.get_status().get("running"):
         raise HTTPException(status_code=409, detail="Ja s'està processant una reunió.")
 
@@ -54,5 +54,5 @@ async def record_meeting(
 
 @router.get("/status")
 async def meeting_status():
-    """Estat del job en vol (poll des del frontend)."""
+    """Status of the in-flight job (polled from the frontend)."""
     return meeting_notes.get_status()

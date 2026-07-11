@@ -1,6 +1,6 @@
-"""Tests del mòdul `translation_index` (índex local d'idempotència de translate-row).
+"""Tests for the `translation_index` module (local idempotency index for translate-row).
 
-`GNOSI_LOCAL_DATA` apunta a un tmp, així que NO toquen el /app/data real.
+`GNOSI_LOCAL_DATA` points to a tmp, so these do NOT touch the real /app/data.
 
     docker exec gnosi_backend python -m pytest backend/tests/test_translation_index.py -v
 """
@@ -22,7 +22,7 @@ def test_record_and_get():
 
 
 def test_canonical_origin_id_match():
-    # Registrat amb guions, consultat sense (forma de Notion) → mateixa entrada.
+    # Registered with dashes, looked up without (Notion's form) → same entry.
     translation_index.record_translation("df361486-5ff3-4a14-9005-5d9b7b456492", "ca", "x")
     assert translation_index.get_known_translations("df3614865ff34a1490055d9b7b456492") == {"ca": "x"}
 
@@ -55,6 +55,6 @@ def test_record_ignores_incomplete_args():
 
 
 def test_persists_across_reloads():
-    # Una segona lectura (que re-llegeix el JSON del disc) veu el que es va escriure.
+    # A second read (which re-reads the JSON from disk) sees what was written.
     translation_index.record_translation("persist", "fr", "sub-fr")
     assert translation_index.get_known_translations("persist") == {"fr": "sub-fr"}

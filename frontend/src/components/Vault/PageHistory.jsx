@@ -24,10 +24,10 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
     }
   }, [open, pageId]);
 
-  // Esc + focus-trap centralitzats al hook canònic. Sense onConfirm: la
-  // restauració/purga es confereix via clics i ConfirmModals interns. Quan un
-  // d'aquests ConfirmModals és obert, l'Esc l'ha de tancar només a ell (que té
-  // el seu propi hook), no aquest modal pare.
+  // Esc + focus-trap centralized in the canonical hook. No onConfirm: the
+  // restore/purge is handled via clicks and internal ConfirmModals. When one
+  // of these ConfirmModals is open, Esc must close only it (which has
+  // its own hook), not this parent modal.
   useModalKeyboard({
     isOpen: open,
     onClose,
@@ -145,10 +145,10 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
               ) : (
                 <div className="divide-y divide-[var(--border-primary)]">
                   {history.map((version) => (
-                    // ATENCIÓ: NO transformar el wrapper en <button>: tindríem
-                    // <button> dins <button> (HTML invàlid → React hydration
-                    // warning + click bubble erràtic). Usem <div role="button"
-                    // tabIndex=0> + handler de teclat per accessibilitat.
+                    // WARNING: do NOT turn the wrapper into a <button>: we would have
+                    // <button> inside <button> (invalid HTML → React hydration
+                    // warning + erratic click bubbling). We use <div role="button"
+                    // tabIndex=0> + keyboard handler for accessibility.
                     <div
                       key={version.id}
                       role="button"

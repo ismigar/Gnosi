@@ -1,4 +1,4 @@
-"""Tests de signatura (Ed25519), magatzem de confiança i índex remot (fase 3)."""
+"""Tests for signing (Ed25519), the trust store, and the remote index (phase 3)."""
 import base64
 import hashlib
 import io
@@ -38,13 +38,13 @@ def test_verify_rejects_tamper_and_wrong_key():
     data = b"dades"
     sig = psign.sign(kp["private"], data)
     assert psign.verify(kp["public"], sig, b"dades alterades") is False   # tamper
-    assert psign.verify(other["public"], sig, data) is False              # clau incorrecta
+    assert psign.verify(other["public"], sig, data) is False              # wrong key
 
 
-# --- Magatzem de confiança ---------------------------------------------------
+# --- Trust store ---------------------------------------------------
 def test_trust_store_roundtrip(tmp_path):
     kp = psign.generate_keypair()
-    # El magatzem d'usuari arrenca sense claus PRÒPIES (la bundled oficial sí hi és).
+    # The user store starts with no keys of ITS OWN (the official bundled one is there).
     assert "editor-a" not in psign.load_trust_store(tmp_path)
     psign.add_trusted_key(tmp_path, "editor-a", kp["public"])
     assert psign.load_trust_store(tmp_path).get("editor-a") == kp["public"]
@@ -61,12 +61,12 @@ def test_verify_against_trust(tmp_path):
     kp = psign.generate_keypair()
     data = b"payload"
     sig = psign.sign(kp["private"], data)
-    assert psign.verify_against_trust(tmp_path, sig, data) is None  # cap clau encara
+    assert psign.verify_against_trust(tmp_path, sig, data) is None  # no key yet
     psign.add_trusted_key(tmp_path, "editor-b", kp["public"])
     assert psign.verify_against_trust(tmp_path, sig, data) == "editor-b"
 
 
-# --- Instal·lació remota amb signatura ---------------------------------------
+# --- Remote installation with signing ---------------------------------------
 def _fake_download(monkeypatch, data: bytes):
     class _Resp:
         def raise_for_status(self): pass
@@ -87,7 +87,7 @@ def test_install_signed_trusted(tmp_path, monkeypatch):
 
 def test_install_signed_untrusted_rejected(tmp_path, monkeypatch):
     data = _zip({"manifest.json": json.dumps({"id": "dolent", "version": "1.0.0"})})
-    kp = psign.generate_keypair()  # clau NO afegida al magatzem
+    kp = psign.generate_keypair()  # key NOT added to the store
     sig = psign.sign(kp["private"], data)
     _fake_download(monkeypatch, data)
     with pytest.raises(ps.PluginError):
@@ -98,10 +98,10 @@ def test_install_signed_untrusted_rejected(tmp_path, monkeypatch):
 def test_install_signed_tampered_rejected(tmp_path, monkeypatch):
     data = _zip({"manifest.json": json.dumps({"id": "alterat", "version": "1.0.0"})})
     kp = psign.generate_keypair()
-    sig = psign.sign(kp["private"], data)  # signa el zip ORIGINAL
+    sig = psign.sign(kp["private"], data)  # signs the ORIGINAL zip
     psign.add_trusted_key(tmp_path, "oficial", kp["public"])
     tampered = _zip({"manifest.json": json.dumps({"id": "alterat", "version": "9.9.9"})})
-    _fake_download(monkeypatch, tampered)  # però es descarrega un zip DIFERENT
+    _fake_download(monkeypatch, tampered)  # but a DIFFERENT zip is downloaded
     with pytest.raises(ps.PluginError):
         pc.install_from_url(tmp_path, "https://x/p.zip", None, sig)
 
@@ -109,12 +109,12 @@ def test_install_signed_tampered_rejected(tmp_path, monkeypatch):
 def test_install_unsigned_allowed_marked(tmp_path, monkeypatch):
     data = _zip({"manifest.json": json.dumps({"id": "sensesig", "version": "1.0.0"})})
     _fake_download(monkeypatch, data)
-    m = pc.install_from_url(tmp_path, "https://x/p.zip")  # sense signatura
+    m = pc.install_from_url(tmp_path, "https://x/p.zip")  # no signature
     assert m["id"] == "sensesig"
     assert m["signedBy"] is None
 
 
-# --- Índex remot -------------------------------------------------------------
+# --- Remote index -------------------------------------------------------------
 def test_fetch_remote_index_merges(monkeypatch):
     remote = [{"id": "remot-1", "name": "Remot", "url": "https://x/r1.zip"}]
 
@@ -133,7 +133,7 @@ def test_fetch_remote_index_merges(monkeypatch):
 
 
 def test_end_to_end_signing_tool_flow(tmp_path, monkeypatch):
-    # Simula el flux de l'eina d'autor: signar un zip i instal·lar-lo verificat.
+    # Simulates the author tool's flow: sign a zip and install it verified.
     plugin = tmp_path / "el-meu"
     plugin.mkdir()
     (plugin / "manifest.json").write_text(json.dumps({"id": "e2e", "version": "1.0.0"}))
@@ -151,12 +151,12 @@ def test_end_to_end_signing_tool_flow(tmp_path, monkeypatch):
     assert m["id"] == "e2e" and m["signedBy"] == "jo"
 
 
-# --- Clau oficial bundled ----------------------------------------------------
+# --- Official bundled key ----------------------------------------------------
 def test_bundled_official_key_valid_and_loaded(tmp_path):
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey
     assert "gnosi-official" in psign.BUNDLED_TRUSTED_KEYS
     pub = psign.BUNDLED_TRUSTED_KEYS["gnosi-official"]
-    # És una clau Ed25519 vàlida (no peta en decodificar-la).
+    # It's a valid Ed25519 key (decoding it doesn't fail).
     Ed25519PublicKey.from_public_bytes(base64.b64decode(pub))
-    # Sense magatzem d'usuari, la bundled ja hi és → verify_against_trust la usa.
+    # Without a user store, the bundled one is already there → verify_against_trust uses it.
     assert psign.load_trust_store(tmp_path).get("gnosi-official") == pub

@@ -1,13 +1,13 @@
-"""Importador de Notion (API REST pública) → Vault de Gnosi.
+"""Notion importer (public REST API) → Gnosi Vault.
 
-Reprodueix bases de dades → taules, pàgines → pàgines, relacions, contingut → Markdown
-i fitxers. Disseny: les funcions de transformació són PURES i NO importen el backend, de
-manera que es poden testejar amb fixtures sintètiques sense token ni servidor (cf.
-directiva `notion_api_importer.md` i memòria `feedback_local_backend_test_verification`).
+Reproduces databases → tables, pages → pages, relations, content → Markdown
+and files. Design: the transformation functions are PURE and do NOT import the backend, so
+they can be tested with synthetic fixtures without a token or server (cf.
+directive `notion_api_importer.md` and memory `feedback_local_backend_test_verification`).
 
-L'escriptura al vault es delega a "writers" injectats (l'endpoint passa funcions que
-reusen `POST /api/vault/{tables,pages,views}`), de manera que aquest mòdul no acobla amb
-els routers ni amb la I/O del vault.
+Writing to the vault is delegated to injected "writers" (the endpoint passes functions that
+reuse `POST /api/vault/{tables,pages,views}`), so that this module doesn't couple with
+the routers or the vault's I/O.
 """
 from __future__ import annotations
 
@@ -15,8 +15,8 @@ import time
 import uuid
 from typing import Any, Callable, Dict, Iterable, List, Optional
 
-# Namespace estable per derivar IDs idempotents de Gnosi a partir dels de Notion
-# (reimportar la mateixa BD/pàgina NO duplica: upsert per `id`).
+# Stable namespace to derive idempotent Gnosi IDs from Notion's
+# (reimporting the same DB/page does NOT duplicate: upsert by `id`).
 _GNOSI_NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000001")
 
 NOTION_VERSION = "2022-06-28"
@@ -24,25 +24,25 @@ NOTION_API = "https://api.notion.com/v1"
 
 
 def gnosi_id_for(notion_id: str, kind: str = "page") -> str:
-    """ID de Gnosi determinista per a un objecte de Notion (idempotència de reimport)."""
+    """Deterministic Gnosi ID for a Notion object (reimport idempotency)."""
     clean = str(notion_id or "").replace("-", "")
     return str(uuid.uuid5(_GNOSI_NS, f"{kind}:{clean}"))
 
 
 def table_id_for(notion_db_id: str) -> str:
-    """ID de taula = id de BD de Notion SENSE guions (el vault de Gnosi els desa així:
-    p.ex. Àrees `90e31c41f815489b99f30086b120cbfa`) → reconcilia per id, no duplica."""
+    """Table ID = Notion DB id WITHOUT dashes (that's how the Gnosi vault stores them:
+    e.g. Areas `90e31c41f815489b99f30086b120cbfa`) → reconciles by id, doesn't duplicate."""
     return str(notion_db_id or "").replace("-", "")
 
 
 def page_id_for(notion_page_id: str) -> str:
-    """ID de pàgina = id de Notion TAL QUAL (amb guions: el vault el conserva al frontmatter
-    `id`, p.ex. `103268e5-2714-8069-...`) → relacions i aparellament casen per id."""
+    """Page ID = Notion id AS-IS (with dashes: the vault keeps it in the frontmatter
+    `id`, e.g. `103268e5-2714-8069-...`) → relations and matching key off the id."""
     return str(notion_page_id or "")
 
 
 # ---------------------------------------------------------------------------
-# Paleta de colors Notion → Gnosi
+# Notion → Gnosi color palette
 # ---------------------------------------------------------------------------
 _COLOR_MAP = {
     "default": "gray", "gray": "gray", "brown": "orange", "orange": "orange",
@@ -57,32 +57,33 @@ def _color(notion_color: Optional[str]) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Mapeig de tipus de propietat (esquema de BD)
+# Property type mapping (DB schema)
 # ---------------------------------------------------------------------------
-# Notion type -> Gnosi field type (per a tipus directes sense lògica especial)
+# Notion type -> Gnosi field type (for direct types with no special logic)
 _PROP_TYPE_MAP = {
     "title": "title", "rich_text": "text", "number": "number",
     "select": "select", "multi_select": "multi_select", "status": "status",
     "checkbox": "checkbox", "url": "url", "email": "email",
-    # Notion "files" (arxius/imatges) → Gnosi "files" (tipus canònic vàlid). NO "file" (singular):
-    # no és cap tipus real de Gnosi (el modal i VaultTable només coneixen "files"/"image"), i
-    # deixar-lo feia que en obrir la config d'esquema el <select> el corrompés (bug 2026-07-02:
-    # Articles/Imatge → "autoria"). Els camps d'imatge, l'usuari els pot passar a "image".
+    # Notion "files" (files/images) → Gnosi "files" (valid canonical type). NOT "file" (singular):
+    # it's not a real Gnosi type (the modal and VaultTable only know "files"/"image"), and
+    # leaving it caused the <select> to get corrupted when opening the schema config (bug 2026-07-02:
+    # Articles/Image → "authorship"). The user can switch image fields to "image".
     "phone_number": "phone", "people": "text", "files": "files",
     "created_time": "created_time", "last_edited_time": "last_edited_time",
     "created_by": "created_by", "last_edited_by": "last_edited_by",
     "formula": "text", "rollup": "text", "unique_id": "text",
 }
 
-# Tipus de Notion que són calculats: desem el valor però NO s'han de reescriure a Notion
+# Notion types that are computed: we save the value but they must NOT be written back to Notion
 READ_ONLY_TYPES = {"formula", "rollup", "created_time", "last_edited_time",
                    "created_by", "last_edited_by"}
 
 
 def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
-    """Una propietat de l'esquema de Notion → una propietat de taula de Gnosi.
+    """A Notion schema property → a Gnosi table property.
 
-    `prop` és el valor del dict `properties` de `GET /v1/databases/{id}`.
+    `prop` is the value of the `properties` dict from `GET /v1/databases/{id}`.
+    
     """
     ntype = prop.get("type", "rich_text")
     field: Dict[str, Any] = {
@@ -91,8 +92,8 @@ def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
     }
 
     if ntype == "date":
-        # Una propietat date pot contenir rang (end) → es decideix per fila; aquí
-        # declarem `date` i el render promociona a període si hi ha end.
+        # A date property may contain a range (end) → it's decided per row; here
+        # we declare `date` and the renderer promotes it to a period if there's an end.
         field["type"] = "date"
     elif ntype == "relation":
         field["type"] = "relation"
@@ -118,7 +119,7 @@ def map_property_schema(name: str, prop: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def map_database_schema(db: Dict[str, Any]) -> Dict[str, Any]:
-    """`GET /v1/databases/{id}` → dict de taula de Gnosi (per `POST /api/vault/tables`)."""
+    """`GET /v1/databases/{id}` → Gnosi table dict (for `POST /api/vault/tables`)."""
     title = _plain_title(db.get("title")) or "Sense títol"
     props = db.get("properties") or {}
     properties = [map_property_schema(name, p) for name, p in props.items()]
@@ -146,7 +147,7 @@ def _emoji_icon(icon: Any) -> Optional[str]:
 # Rich text → Markdown
 # ---------------------------------------------------------------------------
 def rich_text_to_md(rich: Any) -> str:
-    """Array de rich_text de Notion → Markdown inline (bold/italic/code/strike/link)."""
+    """Notion rich_text array → inline Markdown (bold/italic/code/strike/link)."""
     if not isinstance(rich, list):
         return ""
     out = []
@@ -171,10 +172,10 @@ def rich_text_to_md(rich: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Valors de propietats d'una pàgina (fila) → valors de Gnosi (per nom de camp)
+# Property values of a page (row) → Gnosi values (by field name)
 # ---------------------------------------------------------------------------
 def value_to_gnosi(prop: Dict[str, Any], users: Optional[Dict[str, str]] = None) -> Any:
-    """Un valor de propietat de `GET /v1/pages/{id}` → valor pla per a Gnosi."""
+    """A property value from `GET /v1/pages/{id}` → a flat value for Gnosi."""
     users = users or {}
     t = prop.get("type")
     v = prop.get(t)
@@ -201,7 +202,7 @@ def value_to_gnosi(prop: Dict[str, Any], users: Optional[Dict[str, str]] = None)
     if t == "files":
         return [_file_url(f) for f in (v or []) if _file_url(f)]
     if t == "relation":
-        # IDs de Notion; es tradueixen a IDs de Gnosi a la passada B
+        # Notion IDs; translated to Gnosi IDs in pass B
         return [page_id_for(r.get("id")) for r in (v or []) if r.get("id")]
     if t == "formula":
         f = v or {}
@@ -236,7 +237,7 @@ def _file_url(f: Dict[str, Any]) -> Optional[str]:
 
 
 def page_to_values(page: Dict[str, Any], users: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-    """`GET /v1/pages/{id}` → {nom_camp: valor} per a `POST /api/vault/pages`."""
+    """`GET /v1/pages/{id}` → {field_name: value} for `POST /api/vault/pages`."""
     out: Dict[str, Any] = {}
     for name, prop in (page.get("properties") or {}).items():
         out[name] = value_to_gnosi(prop, users)
@@ -247,7 +248,7 @@ def page_to_values(page: Dict[str, Any], users: Optional[Dict[str, str]] = None)
 # Blocs → Markdown
 # ---------------------------------------------------------------------------
 def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
-    """Un sol bloc de Notion → línia(es) Markdown. NO recursiu (els fills es preprocessen)."""
+    """A single Notion block → Markdown line(s). NOT recursive (children are preprocessed)."""
     t = block.get("type", "")
     data = block.get(t) or {}
     rt = lambda: rich_text_to_md(data.get("rich_text"))
@@ -274,9 +275,9 @@ def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
         return f"> {emoji} {rt()}".rstrip()
     if t == "code":
         lang = data.get("language", "")
-        # El codi és text LITERAL: es concatena el plain_text CRU, sense passar
-        # per `rich_text_to_md` (que aplicaria bold/enllaç/`code`… → un enllaç o
-        # una anotació dins el bloc sortia com a `[**docs**](url)` literal).
+        # Code is LITERAL text: the RAW plain_text is concatenated, without going
+        # through `rich_text_to_md` (which would apply bold/link/`code`… → a link or
+        # an annotation inside the block would come out as literal `[**docs**](url)`).
         raw = "".join(r.get("plain_text", "") for r in (data.get("rich_text") or []))
         return f"```{lang}\n{raw}\n```"
     if t == "divider":
@@ -295,9 +296,9 @@ def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
     if t == "child_database":
         return f"[[{data.get('title', '')}]]"
     if t == "table_row":
-        # Una fila GFM ha de ser UNA sola línia i el `|` separa columnes: cada
-        # cel·la escapa el `|` literal i col·lapsa els salts (un `|` o un `\n`
-        # dins una cel·la de Notion trencava l'estructura de la taula importada).
+        # A GFM row must be a SINGLE line and `|` separates columns: each
+        # cell escapes the literal `|` and collapses line breaks (a `|` or a `\n`
+        # inside a Notion cell used to break the imported table's structure).
         cells = data.get("cells") or []
         md_cells = [
             rich_text_to_md(c).replace("|", "\\|").replace("\n", " ")
@@ -305,15 +306,16 @@ def block_to_md(block: Dict[str, Any], depth: int = 0) -> str:
         ]
         return "| " + " | ".join(md_cells) + " |"
     if t == "synced_block":
-        return ""  # el contingut ve com a fills
+        return ""  # the content comes as children
     return rt() or ""
 
 
 def blocks_to_md(blocks: List[Dict[str, Any]], depth: int = 0) -> str:
-    """Llista de blocs (amb `_children` ja resolts) → Markdown.
+    """List of blocks (with `_children` already resolved) → Markdown.
 
-    Cada bloc pot portar `_children` (llista de blocs fills, p.ex. dins toggles/llistes).
-    L'orquestrador omple `_children` baixant-los recursivament.
+    Each block can carry `_children` (list of child blocks, e.g. inside toggles/lists).
+    The orchestrator fills `_children` by fetching them recursively.
+    
     """
     lines: List[str] = []
     for b in blocks:
@@ -327,7 +329,7 @@ def blocks_to_md(blocks: List[Dict[str, Any]], depth: int = 0) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Client HTTP (httpx) — throttle + retry 429 + paginació
+# HTTP client (httpx) — throttle + 429 retry + pagination
 # ---------------------------------------------------------------------------
 class NotionClient:
     def __init__(self, token: str, min_interval: float = 0.34):
@@ -338,7 +340,7 @@ class NotionClient:
 
     def _http(self):
         if self._client is None:
-            import httpx  # lazy: les transforms pures no depenen de httpx
+            import httpx  # lazy: the pure transforms don't depend on httpx
             self._client = httpx.Client(
                 base_url=NOTION_API, timeout=30.0,
                 headers={
@@ -357,13 +359,13 @@ class NotionClient:
 
     @staticmethod
     def _next_cursor(data: Dict[str, Any], current: Optional[str]) -> Optional[str]:
-        """Cursor de la pàgina següent, o None si cal aturar la paginació.
+        """Cursor for the next page, or None if pagination should stop.
 
-        Defensiu contra respostes malformades: si `has_more` és cert però
-        `next_cursor` ve buit O igual a l'actual, avançar és impossible i el
-        bucle `while True` quedaria GIRANT PER SEMPRE, penjant el fil del clon
-        (l'API de Notion va darrere Cloudflare; una resposta rara no ha de
-        convertir-se en un hang). En aquest cas aturem la paginació."""
+        Defensive against malformed responses: if `has_more` is true but
+        `next_cursor` comes back empty OR equal to the current one, advancing is impossible and the
+        `while True` loop would SPIN FOREVER, hanging the clone's thread
+        (Notion's API sits behind Cloudflare; a rare response should not
+        turn into a hang). In this case we stop the pagination."""
         if not data.get("has_more"):
             return None
         nxt = data.get("next_cursor")
@@ -380,15 +382,15 @@ class NotionClient:
                 resp = self._http().request(method, path, **kw)
             except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
                     httpx.ReadError, httpx.RemoteProtocolError, httpx.PoolTimeout) as e:
-                # Blip de xarxa/DNS transitori (p. ex. "[Errno 8] nodename nor servname"):
-                # reintenta amb backoff en comptes de deixar caure la BD sencera del clon.
+                # Transient network/DNS blip (e.g. "[Errno 8] nodename nor servname"):
+                # retries with backoff instead of letting the whole DB drop out of the clone.
                 last_exc = e
                 time.sleep(min(2 ** attempt, 15))
                 continue
             if resp.status_code == 429:
-                # `Retry-After` pot ser segons O una data HTTP (RFC 7231); el
-                # `float()` directe petava amb el format de data i tombava el
-                # clon. Parseig tolerant + cap de 15s (com el backoff de blip).
+                # `Retry-After` can be seconds OR an HTTP date (RFC 7231); the
+                # direct `float()` crashed with the date format and brought down the
+                # clone. Tolerant parsing + 15s cap (like the blip backoff).
                 from backend.utils.http_retry import retry_after_seconds
                 time.sleep(retry_after_seconds(
                     resp.headers.get("Retry-After"), default=1.0, cap=15.0
@@ -432,7 +434,7 @@ class NotionClient:
         return results
 
     def search_pages(self) -> List[Dict[str, Any]]:
-        """Totes les pàgines compartides amb la integració (object=page), paginat."""
+        """All pages shared with the integration (object=page), paginated."""
         results, cursor = [], None
         while True:
             body = {"filter": {"property": "object", "value": "page"}, "page_size": 100}
@@ -468,7 +470,7 @@ class NotionClient:
                 break
 
     def get_block_children(self, block_id: str) -> List[Dict[str, Any]]:
-        """Fills d'un bloc/pàgina, recursiu: omple `_children` quan `has_children`."""
+        """Children of a block/page, recursive: fills `_children` when `has_children`."""
         results, cursor = [], None
         while True:
             params = {"page_size": 100}
@@ -485,8 +487,8 @@ class NotionClient:
         return results
 
     def get_block_children_shallow(self, block_id: str) -> List[Dict[str, Any]]:
-        """Fills DIRECTES d'un bloc/pàgina (un sol nivell, sense recursió) — per escanejar
-        ràpid quins blocs hi ha sense baixar tot l'arbre."""
+        """DIRECT children of a block/page (a single level, no recursion) — to quickly
+        scan which blocks exist without downloading the whole tree."""
         results, cursor = [], None
         while True:
             params = {"page_size": 100}
@@ -500,9 +502,9 @@ class NotionClient:
         return results
 
     def database_kind(self, db_id: str) -> str:
-        """Classifica una BD sense llançar excepció (llegeix el cos de l'error de Notion):
-        'source' (BD font accessible), 'linked' (vista enllaçada: l'API no la pot llegir),
-        'page' (l'id és una pàgina, no una BD), 'inaccessible' (no s'hi té accés) o 'error'."""
+        """Classifies a DB without raising an exception (reads the body of the Notion error):
+        'source' (accessible source DB), 'linked' (linked view: the API can't read it),
+        'page' (the id is a page, not a DB), 'inaccessible' (no access to it), or 'error'."""
         self._throttle()
         resp = self._http().request("GET", f"/databases/{db_id}")
         if resp.status_code == 200:
@@ -523,7 +525,7 @@ class NotionClient:
 
 
 def _page_title(page: Dict[str, Any]) -> str:
-    """Títol d'una pàgina de Notion (valor del camp `title`)."""
+    """Title of a Notion page (value of the `title` field)."""
     for prop in (page.get("properties") or {}).values():
         if prop.get("type") == "title":
             return rich_text_to_md(prop.get("title"))

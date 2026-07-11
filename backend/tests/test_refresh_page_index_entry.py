@@ -1,9 +1,9 @@
-"""_refresh_page_index_entry: refresca l'índex en memòria després d'un write.
+"""_refresh_page_index_entry: refreshes the in-memory index after a write.
 
-El comparteixen els escriptors que abans deixaven el metadata ranci al cache
-(PUT save_page — que només actualitzava el mapa id→path — i promote_zotero_extra
-— que no tocava res del cache). Sense refresc, `GET /pages`/`/by-table` servien
-el valor VELL fins al rescan (cooldown 600s). Reproduït en viu amb PUT.
+Shared by the writers that used to leave stale metadata in the cache
+(PUT save_page — which only updated the id→path map — and promote_zotero_extra
+— which didn't touch the cache at all). Without refreshing, `GET /pages`/`/by-table` served
+the OLD value until the rescan (600s cooldown). Reproduced live with PUT.
 """
 import backend.api.vault_routes as vr
 
@@ -48,5 +48,5 @@ def test_refresh_no_vault_is_noop(monkeypatch, tmp_path):
     fp = tmp_path / "page.md"
     fp.write_text("---\nid: p1\n---\ncos\n", encoding="utf-8")
     monkeypatch.setattr(vr, "get_active_vault_path", lambda: None)
-    # No ha de petar ni tocar res.
+    # It must not crash or touch anything.
     vr._refresh_page_index_entry(fp, {"id": "p1"}, "cos")

@@ -66,10 +66,10 @@ class ContactsService:
         if not email or "@" not in email:
             return None
 
-        # 1. Case-insensitive match on main email. Abans era `Contact.email == email`
-        # estrictament case-sensitive: si l'usuari escrivia "Joan@gmail.com" i la
-        # BD tenia "joan@gmail.com", no es trobava i feia fallback a l'escan
-        # complet O(N) tot i que el contacte ja existia.
+        # 1. Case-insensitive match on main email. It used to be `Contact.email == email`
+        # strictly case-sensitive: if the user typed "Joan@gmail.com" and the
+        # the DB had "joan@gmail.com", it wasn't found and it fell back to scanning
+        # full O(N) even though the contact already existed.
         existing = (
             self.db.query(Contact)
             .filter(

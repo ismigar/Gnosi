@@ -1,16 +1,16 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Reply a un correu amb imatges inline (cid:) del missatge original:
- *  - buildQuotedHtml reescriu src="cid:..." → URL /api/mail/.../cid/...
- *    (BlockNote DESCARTA els src cid: — la imatge desapareixeria del citat;
- *    la URL API en canvi sobreviu el roundtrip i es mostra al composer)
- *  - el POST /reply porta la URL /cid/ al body (el backend la converteix en
- *    part inline pròpia) i la carpeta d'origen (folder=) com a query
+ * Reply to an email with inline images (cid:) from the original message:
+ *  - buildQuotedHtml rewrites src="cid:..." → URL /api/mail/.../cid/...
+ *    (BlockNote DISCARDS cid: srcs — the image would disappear from the quote;
+ *    the API URL instead survives the roundtrip and shows up in the composer)
+ *  - the POST /reply carries the /cid/ URL in the body (the backend converts it into
+ *    its own inline part) and the source folder (folder=) as a query param
  *
- * La conversió backend (URL /cid/ o cid: cru → part inline nova del missatge
- * sortint) es cobreix a backend/tests/test_mail_reply_cid.py. Aquí tot el
- * /api/mail està mockejat: cap compte real ni escriptura al vault.
+ * The backend conversion (raw /cid/ URL or cid: → new inline part of the outgoing
+ * message) is covered in backend/tests/test_mail_reply_cid.py. Here the entire
+ * /api/mail is mocked: no real account or writing to the vault.
  */
 
 const ACCOUNT = 'pw-cid@example.com';
@@ -56,8 +56,8 @@ test.describe('Mail reply amb cid: citat', () => {
       }),
     );
 
-    // Tot /api/mail/** mockejat: el test no depèn de comptes reals ni
-    // escriu drafts al vault (autosave del composer cada 2 s).
+    // All of /api/mail/** mocked: the test doesn't depend on real accounts or
+    // write drafts to the vault (composer autosave every 2 s).
     await page.route('**/api/mail/**', (route) => {
       const url = new URL(route.request().url());
       const path = url.pathname;
@@ -92,7 +92,7 @@ test.describe('Mail reply amb cid: citat', () => {
       if (path === '/api/mail/counts') {
         return route.fulfill({ json: {} });
       }
-      // Col·leccions que el sidebar/viewer mapegen directament
+      // Collections that the sidebar/viewer map directly
       if (path === '/api/mail/views' || path === '/api/mail/tags' || path.endsWith('/tags')) {
         return route.fulfill({ json: [] });
       }
@@ -113,7 +113,7 @@ test.describe('Mail reply amb cid: citat', () => {
 
     await page.goto('/mail', { waitUntil: 'domcontentloaded' });
 
-    // Obrir el missatge mockejat
+    // Open the mocked message
     const listItem = page.getByText(SUBJECT).first();
     await expect(listItem, `pageerrors: ${pageErrors.join(' | ')}`).toBeVisible({ timeout: 15_000 });
     await listItem.click();
@@ -121,8 +121,8 @@ test.describe('Mail reply amb cid: citat', () => {
     await expect(replyBtn).toBeVisible({ timeout: 15_000 });
     await replyBtn.click();
 
-    // Composer obert amb el citat carregat. La imatge citada hi és com a URL
-    // /cid/ de l'API (servida pel mock): BlockNote la conserva i es mostra.
+    // Composer open with the quote loaded. The quoted image is there as a URL
+    // /cid/ from the API (served by the mock): BlockNote keeps it and it's displayed.
     const editor = page.locator('.mail-block-editor [contenteditable="true"]').first();
     await expect(editor).toBeVisible({ timeout: 10_000 });
     await expect(editor.getByText('Hola, aquí teniu el logo:')).toBeVisible({ timeout: 10_000 });
@@ -131,7 +131,7 @@ test.describe('Mail reply amb cid: citat', () => {
     ).first();
     await expect(quotedImg).toBeAttached({ timeout: 10_000 });
 
-    // Escriure la resposta al principi (cursor ja a dalt)
+    // Write the reply at the beginning (cursor already at the top)
     await editor.click();
     await page.keyboard.type('Gràcies pel logo!');
 
@@ -144,10 +144,10 @@ test.describe('Mail reply amb cid: citat', () => {
       sendBtn.click(),
     ]);
 
-    // La carpeta IMAP d'origen viatja al backend (fallback per a cid: crus)
+    // The source IMAP folder travels to the backend (fallback for a raw cid:)
     expect(replyReq.url()).toContain('folder=Clients');
-    // El cos multipart conserva la referència /cid/ del missatge citat
-    // (el backend la converteix en part inline pròpia en enviar)
+    // The multipart body keeps the /cid/ reference from the quoted message
+    // (the backend converts it into its own inline part when sending)
     const postData = replyReq.postData() || '';
     expect(postData).toContain(
       `/api/mail/messages/${MSG_ID}/cid/${encodeURIComponent(ORIG_CID)}`,

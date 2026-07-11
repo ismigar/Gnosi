@@ -16,8 +16,8 @@ class IntegrationManager:
         self._cache = None
         self._cache_mtime = 0
         # Read-modify-write lock: dues operacions concurrents (ex. dos
-        # tabs guardant credencials, sync que toca tokens i UI alhora)
-        # poden perdre updates si llegeixen el mateix snapshot.
+        # tabs saving credentials, sync touching tokens, and UI all at once)
+        # can lose updates if they read the same snapshot.
         self._lock = threading.RLock()
 
     def _load(self) -> dict:
@@ -49,9 +49,9 @@ class IntegrationManager:
 
     def _save(self, data: dict):
         try:
-            # Atomic write: integrations.json conté TOTES les credencials.
-            # Un crash a meitat de json.dump deixaria el fitxer truncat i
-            # totes les integracions deixarien de funcionar al següent restart.
+            # Atomic write: integrations.json contains ALL the credentials.
+            # A crash midway through json.dump would leave the file truncated and
+            # all integrations would stop working on the next restart.
             safe_write_json(self.config_file, data, indent=4)
             # Update cache immediately
             self._cache = data
@@ -61,13 +61,13 @@ class IntegrationManager:
                 self._cache_mtime = 0
         except Exception as e:
             log.error(f"Error saving integrations: {e}")
-            # `raise` (no `raise e`) preserva el traceback original
+            # `raise` (not `raise e`) preserves the original traceback
             raise
 
     def _mask_dict(self, d: dict) -> dict:
         safe_d = {}
         for k, v in d.items():
-            # Camps de tipus _status no son sensibles (son metadades de connexió)
+            # Fields of type _status are not sensitive (they are connection metadata)
             if k.endswith("_status"):
                 safe_d[k] = v
                 continue
@@ -177,12 +177,13 @@ class IntegrationManager:
             self._save(config)
 
     def replace_key(self, key: str, value):
-        """Reemplaça completament el valor de `key` (sense merge per ID).
+        """Completely replaces the value of `key` (no merge by ID).
 
-        A diferència de `update()` que fa merge intel·ligent per llista
-        d'items amb `id`, aquest mètode és útil per coleccions on l'usuari
-        vol reemplaç total (p.ex. social_streams editats a la UI: si un
-        stream s'elimina, el merge per ID el mantindria ressuscitat).
+        Unlike `update()` which does a smart merge for a list
+        of items with `id`, this method is useful for collections where the user
+        wants a total replacement (e.g. social_streams edited in the UI: if a
+        stream is removed, merging by ID would keep it resurrected).
+        
         """
         with self._lock:
             config = self._load()
@@ -273,10 +274,11 @@ class IntegrationManager:
     def is_imap_account(acc: dict) -> bool:
         """True for any account that should be accessed via IMAP.
 
-        Includes manual, Outlook, i — des de la migració XOAUTH2 — Google
-        OAuth2 (que abans anava per Gmail API). Els comptes Google només
-        compten com a IMAP si tenen `refresh_token` (cal per renovar
-        l'access_token automàticament).
+        Includes manual, Outlook, and — since the XOAUTH2 migration — Google
+        OAuth2 (which used to go through the Gmail API). Google accounts only
+        count as IMAP if they have a `refresh_token` (needed to automatically
+        renew the access_token).
+        
         """
         if not acc:
             return False
@@ -287,10 +289,11 @@ class IntegrationManager:
 
     @staticmethod
     def is_imap_oauth_account(acc: dict) -> bool:
-        """True per a comptes que necessiten autenticació SASL XOAUTH2 a IMAP.
+        """True for accounts that need SASL XOAUTH2 authentication in IMAP.
 
-        Ara mateix només Google OAuth2. Microsoft 365 OAuth2 també hi cabria
-        en un futur (mecanisme XOAUTH2 al port 993 d'outlook.office365.com).
+        Right now only Google OAuth2. Microsoft 365 OAuth2 could also fit
+        in here in the future (XOAUTH2 mechanism on port 993 of outlook.office365.com).
+        
         """
         return IntegrationManager.is_google_account(acc) and bool(acc.get("refresh_token"))
 
@@ -298,7 +301,7 @@ class IntegrationManager:
     def resolve_imap_defaults(acc: dict) -> dict:
         """Returns the account dict with default IMAP/SMTP settings filled in
         for known providers (Outlook, Google) when the caller hasn't set them
-        explicitly. No persisteix; només omple en memòria."""
+        explicitly. Does not persist; only fills in memory."""
         if not acc:
             return acc
         provider = acc.get("provider", "")

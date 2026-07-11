@@ -31,7 +31,7 @@ const viewLabels = {
 export function VaultViewsTabs({ views, activeViewId, onSelectView, onAddView, onConfigureView }) {
     const [isAdding, setIsAdding] = useState(false);
 
-    // Esc tanca el menú d'afegir vista (dropdown).
+    // Esc closes the add-view menu (dropdown).
     useModalKeyboard({ isOpen: isAdding, onClose: () => setIsAdding(false) });
 
     const handleAddClick = (type) => {

@@ -1,8 +1,8 @@
-"""retry_after_seconds: parseig tolerant del header Retry-After (RFC 7231).
+"""retry_after_seconds: tolerant parsing of the Retry-After header (RFC 7231).
 
-El header pot ser segons O una data HTTP; `float()` directe petava amb la
-data i tombava el caller (clon de Notion, tools MCP). El helper compartit
-interpreta tots dos formats i cau al default, sense llançar mai.
+The header can be seconds OR an HTTP date; a direct `float()` crashed on the
+date and brought down the caller (Notion clone, MCP tools). The shared helper
+interprets both formats and falls back to the default, never raising.
 """
 from datetime import datetime, timedelta, timezone
 from email.utils import format_datetime
@@ -17,7 +17,7 @@ def test_seconds_form():
 
 def test_cap_applies():
     assert retry_after_seconds("999", default=1.0, cap=15.0) == 15.0
-    assert retry_after_seconds("999", default=1.0) == 999.0  # sense cap, sense límit
+    assert retry_after_seconds("999", default=1.0) == 999.0  # no header, no limit
 
 
 def test_missing_uses_default():

@@ -98,10 +98,10 @@ class SchedulerManager:
         },
         "meeting_reminders": {
             "description": "Avisos de reunions properes amb ordre del dia (IA)",
-            "default_interval": 1,  # cada minut
-            # quiet: NO emetre les notificacions "Tasca Iniciada/Finalitzada"
-            # (correria cada minut i ompliria macOS de bombolles). Els avisos
-            # reals de reunió els envia el propi servei.
+            "default_interval": 1,  # every minute
+            # quiet: do NOT emit the "Task Started/Finished" notifications
+            # (it would run every minute and flood macOS with bubbles). The alerts
+            # for actual meetings are sent by the service itself.
             "quiet": True,
         },
     }
@@ -110,10 +110,10 @@ class SchedulerManager:
         cfg = load_params(strict_env=False)
         self.config_path = cfg.paths.get("SCHEDULER")
 
-        # Mirror local del scheduler_config: SEMPRE llegible, immune a OneDrive
-        # online-only. És la xarxa de seguretat que evita perdre la config quan
-        # el fitxer del vault (.gnosi/) és dataless en arrencar. Viu a
-        # local_data, com management.sqlite (vegeu paths_config.py).
+        # Local mirror of scheduler_config: ALWAYS readable, immune to OneDrive
+        # online-only. This is the safety net that prevents losing the config when
+        # the vault file (.gnosi/) is dataless on startup. It lives at
+        # local_data, like management.sqlite (see paths_config.py).
         local_data = cfg.paths.get("LOCAL_DATA")
         self.local_mirror_path = (
             local_data / "system" / "scheduler_config.local.json"
@@ -131,18 +131,19 @@ class SchedulerManager:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._lock_file = None  # held while scheduler owns the singleton mutex
-        self._degraded = False  # True si arrenquem sense poder llegir cap font
+        self._degraded = False  # True if we start up without being able to read any source
 
         self._load_config()
 
     @staticmethod
     def _try_read_tasks(path) -> Optional[Dict[str, Any]]:
-        """Llegeix i parseja un fitxer de config de tasques.
+        """Reads and parses a task config file.
 
-        Retorna el dict {name: task_data} si el fitxer existeix, és llegible i
-        conté tasques; None en qualsevol altre cas (inexistent, buit,
-        dataless/online-only, JSON corrupte). Reintenta unes quantes vegades
-        perquè OneDrive sovint serveix un fitxer online-only només al 2n intent.
+        Returns the dict {name: task_data} if the file exists, is readable, and
+        contains tasks; None in any other case (nonexistent, empty,
+        dataless/online-only, corrupt JSON). Retries a few times
+        because OneDrive often serves an online-only file only on the 2nd attempt.
+        
         """
         if not path or not path.exists():
             return None
@@ -152,15 +153,15 @@ class SchedulerManager:
                 with open(path) as f:
                     data = json.load(f)
                 tasks = data.get("tasks", {})
-                return tasks or None  # JSON vàlid però sense tasques -> buit
+                return tasks or None  # Valid JSON but no tasks -> empty
             except Exception:
-                _time.sleep(0.5 * (attempt + 1))  # backoff curt per dataless
+                _time.sleep(0.5 * (attempt + 1))  # short backoff for dataless
         return None
 
     def _reconcile_available_tasks(self) -> bool:
-        """Elimina tasques obsoletes i afegeix les noves de AVAILABLE_TASKS.
+        """Removes obsolete tasks and adds new ones from AVAILABLE_TASKS.
 
-        Retorna True si hi ha hagut algun canvi."""
+        Returns True if any change occurred."""
         updated = False
         for task_name in list(self._tasks.keys()):
             if task_name not in self.AVAILABLE_TASKS:
@@ -178,18 +179,19 @@ class SchedulerManager:
         return updated
 
     def _load_config(self):
-        """Carrega la config del planificador de manera resilient.
+        """Loads the scheduler config resiliently.
 
-        Ordre de preferència:
-          1. Fitxer del vault (`.gnosi/`, sincronitzat entre màquines).
-          2. Mirror local (`local_data/`, sempre llegible, immune a OneDrive).
-          3. Defaults EN MEMÒRIA — només si cap font no existeix.
+        Preference order:
+          1. Vault file (`.gnosi/`, synced across machines).
+          2. Local mirror (`local_data/`, always readable, immune to OneDrive).
+          3. IN-MEMORY defaults — only if no source exists.
 
-        CRÍTIC: si el fitxer del vault EXISTEIX però ara mateix no es pot llegir
-        (online-only/dataless/corrupte), MAI l'inicialitzem amb defaults ni el
-        sobreescrivim. Així mai es perd la config de l'usuari per un problema
-        transitori de OneDrive — abans, aquest era el camí que buidava el
-        planificador (vegeu directive scheduler_config_resilience).
+        CRITICAL: if the vault file EXISTS but currently cannot be read
+        (online-only/dataless/corrupt), we NEVER initialize it with defaults or
+        overwrite it. This way the user's config is never lost due to a
+        transient OneDrive issue — previously, this was the path that used to empty the
+        scheduler (see directive scheduler_config_resilience).
+        
         """
         from backend.config.logger_config import get_logger
         log = get_logger(__name__)
@@ -205,24 +207,24 @@ class SchedulerManager:
                 try:
                     self._tasks[name] = ScheduledTask(**task_data)
                 except Exception:
-                    pass  # ignora claus desconegudes / formats antics
+                    pass  # ignores unknown keys / old formats
             self._reconcile_available_tasks()
             log.info(
                 f"⏰ Scheduler: config carregada des de {source} "
                 f"({len(self._tasks)} tasques)"
             )
-            # No reescrivim el vault a l'arrencada (evita churn/conflictes de
-            # OneDrive); només refresquem el mirror local amb el que hem llegit.
+            # We don't rewrite the vault at startup (avoids churn/conflicts from
+            # OneDrive); we only refresh the local mirror with what we read.
             self._save_mirror()
             return
 
-        # Cap font llegible.
+        # No readable source.
         vault_exists = bool(self.config_path and self.config_path.exists())
         mirror_exists = bool(self.local_mirror_path and self.local_mirror_path.exists())
         if vault_exists or mirror_exists:
-            # El fitxer existeix però és il·legible ARA. NO el toquem: arrenquem
-            # en mode degradat amb defaults EN MEMÒRIA (sense persistir), per no
-            # destruir la config bona. Es recuperarà al proper restart llegible.
+            # The file exists but is currently unreadable. We do NOT touch it: we start up
+            # in degraded mode with IN-MEMORY defaults (without persisting), so as not to
+            # destroy the good config. It will recover on the next readable restart.
             log.error(
                 "❌ Scheduler: el fitxer de config existeix però és il·legible "
                 "(online-only/corrupte). Mode degradat: defaults en memòria, "
@@ -237,8 +239,9 @@ class SchedulerManager:
     def _init_default_tasks(self, persist: bool = True):
         """Initialize with default tasks (all disabled).
 
-        `persist=False` deixa els defaults només en memòria — usat en mode
-        degradat per no sobreescriure un fitxer existent però il·legible.
+        `persist=False` leaves the defaults in memory only — used in degraded
+        mode to avoid overwriting an existing but unreadable file.
+        
         """
         for name, config in self.AVAILABLE_TASKS.items():
             self._tasks[name] = ScheduledTask(
@@ -251,11 +254,12 @@ class SchedulerManager:
             self._save_config()
 
     def _save_config(self):
-        """Persisteix la config al vault i SEMPRE al mirror local.
+        """Persists the config to the vault and ALWAYS to the local mirror.
 
-        En mode degradat NO escrivim el vault (preservem el fitxer existent que
-        ara no podem llegir), però sí el mirror local perquè la sessió actual
-        no perdi els canvis.
+        In degraded mode we do NOT write to the vault (we preserve the existing file
+        that we currently cannot read), but we do write the local mirror so the current
+        session doesn't lose the changes.
+        
         """
         from backend.utils.safe_io import safe_write_json
 
@@ -263,8 +267,8 @@ class SchedulerManager:
 
         if self.config_path and not self._degraded:
             try:
-                # Atomic write: el fitxer es modifica desenes de cops per
-                # execució de tasca; un crash a meitat deixaria el JSON corrupte.
+                # Atomic write: the file is modified dozens of times per
+                # task execution; a crash halfway through would leave the JSON corrupted.
                 safe_write_json(self.config_path, data, indent=2)
             except Exception as e:
                 from backend.config.logger_config import get_logger
@@ -275,7 +279,7 @@ class SchedulerManager:
         self._save_mirror(data)
 
     def _save_mirror(self, data: Optional[Dict[str, Any]] = None):
-        """Escriu el mirror local (sempre llegible; immune a OneDrive)."""
+        """Writes the local mirror (always readable; immune to OneDrive)."""
         if not self.local_mirror_path:
             return
         if data is None:
@@ -316,10 +320,10 @@ class SchedulerManager:
         except ImportError:
             fcntl = None  # Non-POSIX; fall back to in-process singleton only.
 
-        # El lock viu a local_data (NO al vault): un flock sobre un fitxer de
-        # OneDrive/virtiofs no s'allibera de manera fiable quan el procés mor,
-        # i cada --reload hi deixava un lock fantasma -> el loop no arrencava
-        # MAI ("Another scheduler already holds..."). En disc local funciona bé.
+        # The lock lives in local_data (NOT in the vault): a flock on a file on
+        # OneDrive/virtiofs is not reliably released when the process dies,
+        # and every --reload left a phantom lock behind -> the loop would
+        # NEVER start ("Another scheduler already holds..."). On local disk it works fine.
         lock_dir = (
             self.local_mirror_path.parent if self.local_mirror_path
             else (self.config_path.parent if self.config_path else None)
@@ -423,9 +427,9 @@ class SchedulerManager:
         task.status = "running"
         task.last_run = datetime.now().isoformat()
 
-        # Tasques "quiet" (p.ex. meeting_reminders, cada minut) NO emeten les
-        # notificacions d'inici/fi: omplirien macOS de bombolles. Els seus avisos
-        # propis (si en tenen) els gestiona el servei.
+        # "quiet" tasks (e.g. meeting_reminders, every minute) do NOT emit the
+        # start/end notifications: they would flood macOS with bubbles. Their alerts
+        # own alerts (if any) are handled by the service itself.
         quiet = bool(self.AVAILABLE_TASKS.get(name, {}).get("quiet"))
 
         # Log task start
@@ -538,11 +542,12 @@ class SchedulerManager:
             return {"success": False, "error": error_msg}
 
     def _task_publish_scheduled_social(self) -> Dict[str, Any]:
-        """Publica les publicacions socials programades que ja han vençut.
+        """Publishes scheduled social posts that are already due.
 
-        Reaprofita l'endpoint async `process_scheduled_posts`. El job corre en un
-        thread del scheduler sense event loop, així que `asyncio.run` és segur; si
-        excepcionalment ja n'hi hagués un, l'executem en un thread propi.
+        Reuses the async endpoint `process_scheduled_posts`. The job runs in a
+        scheduler thread without an event loop, so `asyncio.run` is safe; if
+        one were exceptionally already running, we execute it in its own thread.
+        
         """
         import asyncio
         from fastapi import BackgroundTasks
@@ -594,32 +599,35 @@ class SchedulerManager:
         return {"error": f"Unknown task: {name}"}
 
     def _task_purge_trash(self) -> Dict[str, Any]:
-        """Purga entrades de la paperera del Vault amb antiguitat > 90 dies.
+        """Purges Vault trash entries older than 90 days.
 
-        La lògica viu a `backend/api/vault_routes.py::purge_expired_trash`
-        perquè comparteix helpers amb els endpoints HTTP.
+        The logic lives in `backend/api/vault_routes.py::purge_expired_trash`
+        because it shares helpers with the HTTP endpoints.
+        
         """
         from backend.api.vault_routes import purge_expired_trash
 
         return purge_expired_trash()
 
     def _task_materialize_view_snapshots(self) -> Dict[str, Any]:
-        """Materialitza els snapshots de vistes al markdown de tot el vault
-        perquè la migració sigui real (vistes = taules/llistes navegables sense
-        Gnosi). Reescriu només les pàgines amb snapshot endarrerit.
+        """Materializes view snapshots into the markdown across the whole vault
+        so the migration is real (views = tables/lists navigable without
+        Gnosi). Only rewrites pages with a stale snapshot.
 
-        La lògica viu a `backend/api/vault_routes.py::refresh_view_snapshots`
-        perquè comparteix els helpers del snapshot.
+        The logic lives in `backend/api/vault_routes.py::refresh_view_snapshots`
+        because it shares the snapshot helpers.
+        
         """
         from backend.api.vault_routes import refresh_view_snapshots
 
         return refresh_view_snapshots()
 
     def _task_meeting_reminders(self) -> Dict[str, Any]:
-        """Escaneja reunions properes i n'envia avisos amb ordre del dia (IA).
+        """Scans upcoming meetings and sends alerts with an AI-generated agenda.
 
-        La lògica viu a `backend/services/meeting_reminders.py`. Tasca "quiet":
-        corre cada minut i NO emet notificacions d'inici/fi.
+        The logic lives in `backend/services/meeting_reminders.py`. "quiet" task:
+        runs every minute and does NOT emit start/finish notifications.
+        
         """
         from backend.services.meeting_reminders import scan_and_notify
 
@@ -643,7 +651,7 @@ class SchedulerManager:
                 if integration_manager.is_imap_account(acc):
                     count = imap_sync_service.sync_account(email, limit=50)
                 elif integration_manager.is_microsoft_account(acc):
-                    count = 0  # Microsoft Graph és live — no cal sync al vault
+                    count = 0  # Microsoft Graph is live — no need to sync to the vault
                 else:
                     count = sync_service.sync_emails(email, limit=50)
                 total += count or 0
@@ -719,12 +727,12 @@ class SchedulerManager:
         
         cfg = load_params(strict_env=False)
 
-        # Arrel de l'app Gnosi derivada d'aquest fitxer (backend/scheduler/manager.py):
-        # parents[2] = .../monorepo/apps/gnosi al host i /app dins el contenidor (mateixa
-        # derivació que _task_zotero_sync). Abans s'usava cfg.paths["PROJECT_DIR"] /
-        # "monorepo/apps/gnosi/pipeline", però dins Docker PROJECT_DIR és /app i això
-        # resolia a /app/monorepo/apps/gnosi/pipeline (inexistent; el pipeline real és
-        # /app/pipeline) → les neteges de logs, sandbox i .tmp eren no-ops silencioses.
+        # Gnosi app root derived from this file (backend/scheduler/manager.py):
+        # parents[2] = .../monorepo/apps/gnosi on the host and /app inside the container (same
+        # derivation as _task_zotero_sync). It used to use cfg.paths["PROJECT_DIR"] /
+        # "monorepo/apps/gnosi/pipeline", but inside Docker PROJECT_DIR is /app and this
+        # resolved to /app/monorepo/apps/gnosi/pipeline (nonexistent; the real pipeline is
+        # /app/pipeline) → the logs, sandbox, and .tmp cleanups were silent no-ops.
         gnosi_root = Path(__file__).resolve().parents[2]
         pipeline_base = gnosi_root / "pipeline"
 
@@ -749,11 +757,11 @@ class SchedulerManager:
         details["logs_cleared"] = purged_count
 
         # 2. Clear Agent Mailbox Archive
-        # L'arxiu del mailbox de l'equip viu a `{arrel_repo}/.antigravity/team/mailbox/archive`
-        # (vegeu pipeline/brain/orchestrator.py i monorepo/AGENTS.md). El docker-compose el
-        # munta a la MATEIXA ruta absoluta host↔contenidor via `${REPO_ROOT:-$HOME/Projectes}`,
-        # així que derivem la base de REPO_ROOT (fallback: HOME_HOST_PATH/Projectes) per coincidir
-        # amb el mount. NO usem PROJECT_DIR: dins el contenidor és `/app`, on no hi ha el mount.
+        # The team mailbox archive lives at `{arrel_repo}/.antigravity/team/mailbox/archive`
+        # (see pipeline/brain/orchestrator.py and monorepo/AGENTS.md). The docker-compose
+        # mounts at the SAME absolute host↔container path via `${REPO_ROOT:-$HOME/Projectes}`,
+        # so we derive the base from REPO_ROOT (fallback: HOME_HOST_PATH/Projectes) to match
+        # the mount. We do NOT use PROJECT_DIR: inside the container it's `/app`, where the mount doesn't exist.
         repo_root_env = os.environ.get("REPO_ROOT")
         if repo_root_env:
             repo_root = Path(repo_root_env)
@@ -792,8 +800,8 @@ class SchedulerManager:
                         log.warning(f"Failed to delete {item}: {e}")
         details["temporary_files_deleted"] = sandbox_deleted
 
-        # 4. Cleanup Pycache (només dirs de codi: backend i pipeline; evitem fer walk
-        # sobre /app/data, el volum local de dades amb SQLite/índexs).
+        # 4. Cleanup Pycache (code dirs only: backend and pipeline; we avoid walking
+        # over /app/data, the local data volume with SQLite/indexes).
         pycache_count = 0
         for code_dir in (gnosi_root / "backend", pipeline_base):
             if not code_dir.exists():
@@ -839,7 +847,7 @@ class SchedulerManager:
 
 
     def _task_fetch_calendar(self) -> Dict[str, Any]:
-        """No-op: arquitectura híbrida consulta l'API directament, sense sync al vault."""
+        """No-op: hybrid architecture queries the API directly, without syncing to the vault."""
         return {"new_events": 0, "message": "hybrid mode — no vault sync"}
 
     def _task_update_analytics(self) -> Dict[str, Any]:
@@ -903,9 +911,9 @@ class SchedulerManager:
 
         results = {}
 
-        # Subprocess timeout — sense això, un script penjat (Zotero DB
-        # lock, network hang) bloqueja l'scheduler indefinidament.
-        # 5 min és suficient per syncs grans.
+        # Subprocess timeout — without this, a hung script (Zotero DB
+        # lock, network hang) blocks the scheduler indefinitely.
+        # 5 min is enough for large syncs.
         SUBPROCESS_TIMEOUT = 300
         # Zotero → Vault
         try:
@@ -926,7 +934,7 @@ class SchedulerManager:
                 ["pgrep", "-x", "Zotero"], capture_output=True, timeout=5,
             ).returncode == 0
         except subprocess.TimeoutExpired:
-            zotero_open = False  # pgrep penjat: assumim tancat i procedim
+            zotero_open = False  # pgrep hung: assume closed and proceed
         if zotero_open:
             results["vault_to_zotero"] = "skipped — Zotero is open"
             log.info("⏰ Zotero sync: Vault→Zotero skipped (Zotero is running)")

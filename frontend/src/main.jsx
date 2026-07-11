@@ -8,11 +8,11 @@ import { installPageEtagInterceptor } from './lib/pageEtagInterceptor.js'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
 
-// Multi-vault: reflecteix el vault actiu (localStorage) en una cookie same-origin
-// ABANS del primer render, perquè TOTA petició —fetch cru, <img>/<video>/<iframe>
-// natius, background-image, SSE, /api/chat, WebSocket— porti el vault sense
-// dependre de la capçalera d'axios. Sense això, tots aquests canals cauen al
-// vault per defecte. Veure setActiveVaultCookie a lib/fileResource.js.
+// Multi-vault: reflects the active vault (localStorage) in a same-origin cookie
+// BEFORE the first render, because EVERY request —raw fetch, <img>/<video>/<iframe>
+// native, background-image, SSE, /api/chat, WebSocket— carries the vault without
+// depend on the axios header. Without this, all these channels fall back to the
+// default vault. See setActiveVaultCookie in lib/fileResource.js.
 syncActiveVaultCookie();
 
 // Optimistic concurrency for /api/vault/pages — auto-attaches `expected_etag`

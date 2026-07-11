@@ -126,8 +126,8 @@ def _table_by_id(table_id: str) -> Optional[dict]:
         return None
     return None
 
-# Resolució de Biblioteca (vault-first + fallback llegat): un sol lloc de veritat,
-# compartit amb media_service i el clon de Notion. Vegeu services/biblioteca_paths.py.
+# Library resolution (vault-first + legacy fallback): a single source of truth,
+# shared with media_service and the Notion clone. See services/biblioteca_paths.py.
 from backend.services.biblioteca_paths import (  # noqa: E402
     biblioteca_roots as _biblioteca_roots,
     resolve_biblioteca as _resolve_biblioteca,
@@ -139,9 +139,9 @@ def get_p(key: str) -> Path:
     from backend.services.context_vars import get_active_vault_path
     base = get_active_vault_path()
 
-    # BIBLIOTECA es resol a part (vault-first amb fallback llegat) i ABANS del dict:
-    # posar-ho al mapping faria un stat() d'OneDrive a CADA crida de get_p per a
-    # qualsevol clau (el dict s'avalua sencer); així només s'hi paga quan es demana.
+    # LIBRARY is resolved separately (vault-first with legacy fallback) and BEFORE the dict:
+    # putting it in the mapping would trigger a stat() on OneDrive on EVERY call to get_p for
+    # any key (the whole dict gets evaluated); this way the cost is only paid when it's requested.
     if key == "BIBLIOTECA":
         return _resolve_biblioteca(base)
 
@@ -154,7 +154,7 @@ def get_p(key: str) -> Path:
     mapping = {
         "VAULT": base,
         "ASSETS": base / "Assets",
-        # (BIBLIOTECA es resol a get_p, ABANS d'aquest dict: vault-first amb
+        # (LIBRARY is resolved in get_p, BEFORE this dict: vault-first with
         # fallback a la llegada germana — vegeu _biblioteca_roots/_resolve_biblioteca.)
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
@@ -167,8 +167,8 @@ def get_p(key: str) -> Path:
         "DAILY": base / "Daily Notes",
         "DASHBOARDS": base / ".Dashboards",
         "NEWSLETTERS": base / "Newsletters",
-        # Configs sincronitzats vault-first viuen a `.gnosi/`. La carpeta
-        # llegacy `data/` al vault ja no s'utilitza.
+        # Vault-first synced configs live in `.gnosi/`. The folder
+        # legacy `data/` in the vault is no longer used.
         "GNOSI_CONFIG": base / ".gnosi",
         "CUSTOM_ICONS": base / ".gnosi" / "vault_custom_icons.json",
         # Local-only paths — caches, indices, system DBs. Mirror paths_config.py
@@ -205,11 +205,12 @@ def _clear_page_index_cache():
     """Clears the internal page index cache and unmarks initialization so the
     next access rebuilds it.
 
-    Sense reset del flag `_page_index_initialized`, els callers (`list_pages`,
-    `find_page_path`) creien que el cache estava poblat i no disparaven cap
-    rescan. Símptoma: una pàgina recent-creada apareixia al disc però donava
-    404 a `GET /api/vault/pages/{id}` fins que un altre `force_refresh`
-    repoblava el cache.
+    Without resetting the `_page_index_initialized` flag, callers (`list_pages`,
+    `find_page_path`) believed the cache was populated and wouldn't trigger any
+    rescan. Symptom: a newly created page appeared on disk but returned
+    404 at `GET /api/vault/pages/{id}` until another `force_refresh`
+    repopulated the cache.
+    
     """
     with _page_index_lock:
         affected_vaults = list(_page_index_entries.keys())
@@ -221,11 +222,11 @@ def _clear_page_index_cache():
         global _last_vault_sync_time
         _last_vault_sync_time = 0.0
         log.info("♻️ Page index cache cleared (forçant rebuild al següent accés).")
-        # Sense això, `_page_index_initialized[v_str]` queda True i la propera
-        # crida a `_get_cached_page_entries` retornaria [] silenciosament
-        # (entrava al fast path amb el dict buit). Resetejant la flag, el
-        # següent get torna a carregar del disc cache — que continua sent
-        # vàlid perquè aquí no l'hem tocat.
+        # Without this, `_page_index_initialized[v_str]` stays True and the next
+        # call to `_get_cached_page_entries` would silently return []
+        # (it entered the fast path with the empty dict). By resetting the flag, the
+        # next get loads from the disk cache again — which is still
+        # valid because we haven't touched it here.
         _page_index_initialized.clear()
         log.info("♻️ Page index cache cleared.")
 
@@ -298,7 +299,7 @@ class PageInfo(BaseModel):
     is_database: bool = False
     metadata: dict = {}
     last_modified: str
-    created_time: Optional[str] = None  # data de creació del fitxer (st_birthtime)
+    created_time: Optional[str] = None  # file creation date (st_birthtime)
     size: int
     folder: str = (
         ""  # relative folder path inside the vault (e.g. "Databases/Gnosi/Resources")
@@ -313,9 +314,9 @@ class PagePatchRequest(BaseModel):
     metadata: Optional[dict] = None
     parent_id: Optional[str] = None
     is_database: Optional[bool] = None
-    # Claus de metadata a ELIMINAR del frontmatter. El PATCH fa merge
-    # (`metadata.update`), que no pot treure claus; això permet esborrar
-    # propietats locals (ad-hoc) que no pertanyen a l'esquema de la taula.
+    # Metadata keys to REMOVE from the frontmatter. The PATCH does a merge
+    # (`metadata.update`), which can't remove keys; this allows deleting
+    # local (ad-hoc) properties that don't belong to the table's schema.
     remove_metadata_keys: Optional[list] = None
     # Optimistic concurrency (same semantics as PageSaveRequest)
     expected_etag: Optional[str] = None
@@ -412,51 +413,52 @@ _page_index_lock = threading.Lock()
 _page_index_entries: Dict[str, Dict[str, Dict[str, Any]]] = {}
 _page_index_initialized: Dict[str, bool] = {}
 _page_id_to_path: Dict[str, Dict[str, str]] = {} # Cache for fast ID -> Path lookups per vault
-# Cooldown del rescan automàtic del cache d'índex del vault. Pujat de
-# 60 s a 600 s perquè cada rescan fa stat() de ~4200 fitxers d'OneDrive
-# (5-10 ms cada un = 20-40 s d'I/O total) que satura el File Provider i
-# bloqueja altres operacions del backend. Els canvis fets via PATCH/PUT
-# s'apliquen al cache in-memory directament; aquest rescan només
-# detectaria canvis externs (sync OneDrive d'un altre dispositiu, edicions
-# fora del backend). 10 min és prou per a aquest cas i deixa el backend
-# responsiu la resta del temps.
+# Cooldown for the vault index cache's automatic rescan. Raised from
+# 60s to 600s because every rescan does a stat() on ~4200 OneDrive files
+# (5-10 ms each = 20-40s of total I/O) which saturates the File Provider and
+# blocks other backend operations. Changes made via PATCH/PUT
+# are applied directly to the in-memory cache; this rescan only
+# would detect external changes (OneDrive sync from another device, edits
+# outside the backend). 10 min is enough for this case and leaves the backend
+# responsive the rest of the time.
 _VAULT_SYNC_COOLDOWN_SECONDS = 600
 _last_vault_sync_time = 0.0
 
 # Version counter bumped at every mutation of `_page_index_entries[v_str]`
 # (load-from-disk, full replace, partial update, stale prune, page
-# create/delete/save). Perquè les caches DERIVADES en puguin dependre:
-# snapshot del número i rebuild mandrós quan divergeix. (L'antiga
-# `_table_index_cache`, superseded per `_get_pages_for_table`, era l'única
-# consumidora; el comptador es conserva com a mecanisme per a futures
-# caches derivades i com a senyal barat de "l'índex ha canviat".)
+# create/delete/save). So that DERIVED caches can depend on it:
+# snapshot of the number and lazy rebuild when it diverges. (The old
+# `_table_index_cache`, superseded by `_get_pages_for_table`, was the only
+# consumer; the counter is kept as a mechanism for future
+# derived caches and as a cheap signal that "the index has changed".)
 _page_index_version: Dict[str, int] = {}
-# ── Micro-cache de PageInfo (TTL ~1.5s) ──────────────────────────────────
-# Els endpoints `/pages`, `/by-table`, `/sidebar/summary`, `/global-index`
-# es disparen alhora a cada navegació del frontend. Sense aquest cache,
-# cada un construeix els seus PageInfo Pydantic des de zero (~80-140ms el
-# fast-path o ~600ms+ per al snapshot complet). Cacheging els resultats
-# durant uns segons converteix un burst de 4-6 crides al mateix segon en
-# una de sola que paga el cost real; les altres són hits ~O(1).
+# ── PageInfo micro-cache (TTL ~1.5s) ──────────────────────────────────
+# The endpoints `/pages`, `/by-table`, `/sidebar/summary`, `/global-index`
+# fire at the same time on every frontend navigation. Without this cache,
+# each one builds its Pydantic PageInfo objects from scratch (~80-140ms the
+# fast-path or ~600ms+ for the full snapshot). Caching the results
+# for a few seconds turns a burst of 4-6 calls within the same second into
+# a single one that pays the real cost; the others are ~O(1) hits.
 #
-# Invalidació: per write (PATCH/PUT/DELETE/move) que toca una entry. La
-# invalidació és total (no surgical) perquè una sola edit pot afectar
-# diverses taules (canvis de title, table_id, etc.) i el cost de
-# reconstruir és baixíssim un cop el bucle té cache_hit als bytes
-# subsegüents.
+# Invalidation: on any write (PATCH/PUT/DELETE/move) that touches an entry. The
+# invalidation is total (not surgical) because a single edit can affect
+# several tables (changes to title, table_id, etc.) and the cost of
+# rebuilding is very cheap once the loop has a cache_hit on the bytes
+# that follow.
 _pages_resp_cache_lock = threading.Lock()
 _pages_resp_cache: Dict[str, tuple[float, List[Any]]] = {}
-_PAGES_RESP_CACHE_TTL = 1.5  # segons
+_PAGES_RESP_CACHE_TTL = 1.5  # seconds
 
 
 def _pages_cache_get(key: str) -> Optional[List[Any]]:
-    """Retorna la llista cachejada per `key` si l'entry encara és vàlida.
+    """Return the list cached under `key` if the entry is still valid.
 
-    No copiem la llista per estalviar memòria/CPU: els consumidors han de
-    tractar la sortida com a immutable o fer-ne una còpia abans de mutar.
-    El bucle del cache mateix sí compta amb que ningú substitueixi els
-    PageInfo individuals — només la lectura del `.metadata` per a
-    `expand_metadata_for_response` ho fa al call site (vegeu endpoint).
+    We don't copy the list to save memory/CPU: consumers must
+    treat the output as immutable or make a copy before mutating it.
+    The cache loop itself does rely on nobody replacing the individual
+    PageInfo objects — only the `.metadata` read for
+    `expand_metadata_for_response` does that at the call site (see endpoint).
+    
     """
     now = time.monotonic()
     with _pages_resp_cache_lock:
@@ -465,7 +467,7 @@ def _pages_cache_get(key: str) -> Optional[List[Any]]:
             return None
         ts, val = item
         if (now - ts) > _PAGES_RESP_CACHE_TTL:
-            # Stale — esborra i fes que el caller refagi
+            # Stale — delete it and make the caller redo
             _pages_resp_cache.pop(key, None)
             return None
         return val
@@ -477,14 +479,14 @@ def _pages_cache_set(key: str, value: List[Any]) -> None:
 
 
 def _pages_cache_invalidate_all() -> None:
-    """Crida quan qualsevol PATCH/PUT/DELETE modifica el vault."""
+    """Called whenever any PATCH/PUT/DELETE modifies the vault."""
     with _pages_resp_cache_lock:
         _pages_resp_cache.clear()
 
 
 def _vault_cache_key() -> str:
-    """Prefix de cau lligat al VAULT ACTIU: la cau de respostes de pàgines ha de ser per-vault
-    (sense això, en multi-vault un vault servia les pàgines cachejades d'un altre)."""
+    """Cache prefix tied to the ACTIVE VAULT: the page response cache must be per-vault
+    (without this, in multi-vault setups one vault would serve another one's cached pages)."""
     from backend.services.context_vars import get_active_vault_path
     try:
         return str(get_active_vault_path() or "")
@@ -540,14 +542,14 @@ def get_indexer_status(v_str: str) -> Dict[str, Any]:
 
 
 # ── Preview cache (in-memory) ───────────────────────────────────────────────
-# `get_page_preview` és O(segons) sobre fitxers online-only d'OneDrive: cada
-# crida fa retries amb backoff (~4.55s en el pitjor cas) mentre el File
-# Provider materialitza el fitxer. Un feed de 77 entrades = 77 × ~4.5s = més
-# de 5 minuts serial. Cache memoria per page_id, invalidat per mtime del
-# fitxer: la primera crida fa la feina i deixa la dada calenta; les següents
-# són instantànies fins que el .md es modifica. Mida limitada per no créixer
-# sense control en vaults grans. LRU real (OrderedDict.move_to_end en cada
-# accés), no només FIFO d'inserció.
+# `get_page_preview` is O(seconds) over OneDrive online-only files: each
+# call retries with backoff (~4.55s in the worst case) while the File
+# Provider materializes the file. A feed of 77 entries = 77 × ~4.5s = more
+# of 5 minutes serial. In-memory cache per page_id, invalidated by the mtime of the
+# file: the first call does the work and leaves the data warm; the following ones
+# are instant until the .md is modified. Size limited so it doesn't grow
+# unchecked in large vaults. Real LRU (OrderedDict.move_to_end on every
+# access), not just insertion FIFO.
 from collections import OrderedDict as _OrderedDict
 
 _preview_cache_lock = threading.Lock()
@@ -556,12 +558,13 @@ _PREVIEW_CACHE_MAX = 1000
 
 
 def _preview_cache_get(page_id: str, mtime: float, full: bool) -> Optional[Dict[str, Any]]:
-    """Retorna la resposta cachejada si el mtime coincideix; None si miss o
-    si demanen `full` però només tenim la versió curta cachejada.
+    """Return the cached response if the mtime matches; None on a miss or
+    if `full` is requested but we only have the short version cached.
 
-    En cada hit, mou l'entrada al final de l'OrderedDict (LRU): així
-    `popitem(last=False)` treu sempre la menys recentment accedida, no la
-    més antiga d'inserció.
+    On every hit, move the entry to the end of the OrderedDict (LRU): this way
+    `popitem(last=False)` always evicts the least recently accessed entry, not the
+    oldest by insertion.
+    
     """
     with _preview_cache_lock:
         cached = _preview_cache.get(page_id)
@@ -572,8 +575,8 @@ def _preview_cache_get(page_id: str, mtime: float, full: bool) -> Optional[Dict[
 
 
 def _preview_cache_set(page_id: str, mtime: float, short: Dict[str, Any], full: Dict[str, Any]) -> None:
-    """Guarda la resposta i mou al final (LRU). Si supera la mida màxima,
-    expulsa la menys recentment accedida."""
+    """Save the response and move it to the end (LRU). If it exceeds the maximum size,
+    evict the least recently accessed entry."""
     with _preview_cache_lock:
         if page_id in _preview_cache:
             _preview_cache.move_to_end(page_id)
@@ -587,10 +590,10 @@ def _preview_cache_invalidate(page_id: str) -> None:
         _preview_cache.pop(page_id, None)
 
 
-# In-flight dedup: si dues peticions concurrents demanen la mateixa preview i
-# totes dues cauen al miss, sense aquest mapping farien la feina alhora. Per
-# eficiència i per no estressar OneDrive amb requests duplicades, comparteixen
-# la mateixa Future.
+# In-flight dedup: if two concurrent requests ask for the same preview and
+# both fall into the miss, without this mapping they would do the work at the same time. To
+# efficiency and to avoid stressing OneDrive with duplicate requests, they share
+# the same Future.
 _preview_inflight: Dict[str, "asyncio.Future[Tuple[Dict[str, Any], Dict[str, Any], float]]"] = {}
 _preview_inflight_lock = threading.Lock()
 
@@ -608,17 +611,17 @@ def kickoff_index_warmup(v_path: Path) -> None:
     if not v_path or not v_path.exists():
         return
     v_str = str(v_path)
-    # Inicialitza el timestamp del background sync perquè la propera
-    # crida a `_get_pages_snapshot` no dispari un rescan complet
-    # immediatament (4243 stats OneDrive ≈ 20-40 s competint amb els PATCH
-    # de l'usuari). El warmup d'aquesta funció ja s'encarrega de poblar
-    # el cache; el sync periòdic només cal cada `_VAULT_SYNC_COOLDOWN_SECONDS`.
+    # Initialize the background sync timestamp so that the next
+    # call to `_get_pages_snapshot` doesn't trigger a full rescan
+    # immediately (4243 OneDrive stats ≈ 20-40s competing with the PATCH
+    # requests from the user). This function's warmup already takes care of populating
+    # the cache; the periodic sync is only needed every `_VAULT_SYNC_COOLDOWN_SECONDS`.
     global _last_vault_sync_time
     _last_vault_sync_time = time.monotonic()
-    # Carrega el body cache persistit a disc. Sense això, el primer
-    # `_rebuild_link_index` post-restart havia de llegir ~3500 fitxers
-    # d'OneDrive (~80-140 s observat). Amb el cache disc carregat, només
-    # llegim els fitxers amb mtime canviat des de l'últim flush.
+    # Load the body cache persisted to disk. Without this, the first
+    # `_rebuild_link_index` post-restart had to read ~3500 files
+    # from OneDrive (~80-140s observed). With the disk cache loaded, we only
+    # read the files whose mtime changed since the last flush.
     try:
         _load_body_cache_from_disk()
     except Exception as e:
@@ -636,9 +639,9 @@ def kickoff_index_warmup(v_path: Path) -> None:
         }
 
     def _run():
-        # Precalienta l'índex id→títol (el fa servir /global-index a cada
-        # càrrega de pàgina): carrega de disc i refresca en background. Evita
-        # els ~15s en fred del primer /global-index després d'un reinici.
+        # Warm up the id→title index (used by /global-index on every
+        # page load): loads from disk and refreshes in the background. Avoids
+        # the ~15s cold start of the first /global-index after a restart.
         try:
             _load_id_title_from_disk(v_str)
             _refresh_id_title_index(v_str)
@@ -654,12 +657,12 @@ def kickoff_index_warmup(v_path: Path) -> None:
                     v_str, state="ready", finished_at=time.time(),
                     files_indexed=n,
                 )
-                # Disparem el link-index rebuild ABANS del force_refresh.
-                # Si el deixéssim al final, un rescan lent d'OneDrive (que pot
-                # trigar minuts amb 4000 fitxers) bloquejaria la construcció
-                # de l'índex de wikilinks i la reescriptura automàtica al
-                # rename no s'aplicaria fins després. kickoff_link_index_rebuild
-                # ja allotja la seva pròpia thread, no bloqueja aquest fluxe.
+                # We trigger the link-index rebuild BEFORE the force_refresh.
+                # If we left it for the end, a slow OneDrive rescan (which can
+                # take minutes with 4000 files) would block the construction
+                # of the wikilink index and the automatic rewriting on
+                # rename wouldn't apply until later. kickoff_link_index_rebuild
+                # already hosts its own thread, it doesn't block this flow.
                 kickoff_link_index_rebuild()
                 # Schedule a refresh in the background so the cache stays
                 # warm against external changes — non-blocking.
@@ -712,12 +715,12 @@ def _load_page_index_from_disk(v_str: str):
     """Loads the persistent cache for a specific vault into memory."""
     try:
         cache_path = get_page_index_cache_path(v_str)
-        # Fallback al format llegacy (sense sufix per-vault): abans
-        # `get_page_index_cache_path` no acceptava `v_str` i tots els
-        # vaults compartien `vault_page_index.json`. Sense aquest fallback,
-        # un upgrade en calent que canvia la firma deixava el cache disc
-        # invisible i forçava un full rescan (~12k fitxers amb Errno 35
-        # massiu en OneDrive lent, ~hora de delay i app buida).
+        # Fallback to the legacy format (without per-vault suffix): previously
+        # `get_page_index_cache_path` didn't accept `v_str` and all the
+        # vaults shared `vault_page_index.json`. Without this fallback,
+        # a hot upgrade that changes the signature left the disk cache
+        # invisible and forced a full rescan (~12k files with Errno 35
+        # bulk on slow OneDrive, ~hour of delay and empty app).
         if not cache_path.exists():
             legacy_path = get_page_index_cache_path()
             if legacy_path.exists() and legacy_path != cache_path:
@@ -731,11 +734,11 @@ def _load_page_index_from_disk(v_str: str):
                 _page_index_entries[v_str] = data
                 _page_index_initialized[v_str] = True
                 _bump_page_index_version(v_str)
-                # Reconstruïm el `_page_id_to_path` i actualitzem el
-                # `path_resolver` també a partir del cache. Sense això, el
-                # primer cop que algú cridi `path_resolver.list_all_files()`
-                # (a `_iter_linkable_page_documents`) farà fallback a rglob
-                # lent al OneDrive — perdrem tot el benefici del cache disc.
+                # We rebuild `_page_id_to_path` and update the
+                # `path_resolver` from the cache as well. Without this, the
+                # first time someone calls `path_resolver.list_all_files()`
+                # (in `_iter_linkable_page_documents`) it will fall back to rglob
+                # slow on OneDrive — we would lose the entire benefit of the disk cache.
                 id_map = {}
                 files_ordered = []
                 for p_str, entry in data.items():
@@ -858,9 +861,9 @@ def _store_icon_bytes(
     
     icon_rel = str(icon_path.relative_to(get_p("VAULT"))).replace("\\", "/")
 
-    # La generació del thumbnail s'ha mogut a una tasca en segon pla a la ruta;
-    # aquí la resposta el deixa a None (abans hi havia un bloc que referenciava
-    # `thumbnail_rel`, una variable que ja no existeix → NameError en desar la
+    # Thumbnail generation has been moved to a background task on the route;
+    # here the response leaves it as None (previously there was a block that referenced
+    # `thumbnail_rel`, a variable that no longer exists → NameError when saving the
     # icona).
     response = {
         "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
@@ -1073,10 +1076,10 @@ def _ensure_default_registry_structure_locked():
 
 
 def _relation_keys_for_metadata(metadata: dict) -> Optional[set]:
-    """`relation_keys` de l'esquema de la taula de la pàgina, perquè `strip` /
-    `decorate` reconeguin els camps de relació pel seu nom actual. None si no es
-    pot resoldre la taula (→ `strip` despulla per forma; `decorate` no actua).
-    Barat: `_table_by_id` està cachejat."""
+    """`relation_keys` from the page's table schema, so that `strip` /
+    `decorate` recognize relation fields by their current name. None if the
+    table can't be resolved (→ `strip` strips by shape; `decorate` does nothing).
+    Cheap: `_table_by_id` is cached."""
     try:
         tid = get_table_id(metadata)
         if tid:
@@ -1089,10 +1092,11 @@ def _relation_keys_for_metadata(metadata: dict) -> Optional[set]:
 def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_snapshots: bool = False):
     """Parses a markdown file to extract the YAML frontmatter and body.
 
-    Si `file_path` permet derivar un vault root i la pàgina té `id`, també
-    fusiona el sidecar JSON corresponent (`.gnosi/page_meta/<id>.json`).
-    Així les flags internes (`*_manual`, `is_template`) viuen fora del `.md`
-    però apareixen al dict de metadata com sempre.
+    If `file_path` allows deriving a vault root and the page has an `id`, it also
+    merges the corresponding JSON sidecar (`.gnosi/page_meta/<id>.json`).
+    This way internal flags (`*_manual`, `is_template`) live outside the `.md`
+    but still appear in the metadata dict as always.
+    
     """
     # Regex to capture frontmatter between --- and --- at the start of the file
     match = re.match(r"^---\s*\n(.*?)\n---\s*\n", content, re.DOTALL)
@@ -1100,15 +1104,15 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_sna
         yaml_content = match.group(1)
         body = content[match.end() :]
         if render_snapshots:
-            # Frontera de PREVISUALITZACIÓ: deixa visible el snapshot desat
-            # (taula/llista del `:result`) i aplana les columnes, en lloc
-            # d'amagar-ho per a l'editor. Per al pop-up de preview i el feed.
+            # PREVIEW boundary: leaves the saved snapshot visible
+            # (table/list from `:result`) and flattens the columns, instead of
+            # of hiding it for the editor. For the preview pop-up and the feed.
             body = render_view_snapshots(body)
             body = flatten_view_columns(body)
         else:
-            # Frontera de LECTURA del snapshot de vista: reconverteix la
-            # definició amagada (comentari → fence, perquè l'editor la vegi com
-            # sempre) i treu la llista/taula de resultats derivada. Anàleg a
+            # READ boundary of the view snapshot: converts back the
+            # the hidden definition (comment → fence, so the editor sees it as it
+            # always does) and removes the derived results list/table. Similar to
             # strip_relation_wikilinks.
             body = restore_view_fences(body)
             body = strip_view_snapshots(body)
@@ -1138,21 +1142,22 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None, render_sna
     return {}, content
 
 
-# Font de veritat ÚNICA a `services/frontmatter_fallback.py`, compartida amb
-# `graph_service.parse_frontmatter` (que abans NO tenia rescat i deixava buides
-# al graf les pàgines amb YAML malformat que aquí sí es recuperaven). Es manté
-# el nom local com a àlies per no tocar els call sites.
+# SINGLE source of truth in `services/frontmatter_fallback.py`, shared with
+# `graph_service.parse_frontmatter` (which previously had no recovery and left
+# pages with malformed YAML empty in the graph, which were recovered here). Keeps
+# the local name as an alias so as not to touch call sites.
 _parse_frontmatter_fallback = parse_frontmatter_fallback
 
 
 def generate_frontmatter(metadata: dict) -> str:
     """Generates YAML frontmatter string from a dictionary.
 
-    Les claus internes (`*_manual`, `is_template`, …) es filtren d'aquí: no
-    han d'aparèixer mai al `.md`. Es persisteixen al sidecar JSON via
-    `save_page_md`. Si algú crida `generate_frontmatter` sense després escriure
-    el sidecar (no és el patró recomanat), aquestes flags es perdrien — per
-    això la regla és **usar sempre `save_page_md` per escriure pàgines**.
+    Internal keys (`*_manual`, `is_template`, …) are filtered out here: they
+    must never appear in the `.md`. They are persisted to the JSON sidecar via
+    `save_page_md`. If someone calls `generate_frontmatter` without later writing
+    the sidecar (not the recommended pattern), these flags would be lost — that's
+    why the rule is **always use `save_page_md` to write pages**.
+    
     """
     if not metadata:
         return "---\n---\n"
@@ -1167,11 +1172,12 @@ def generate_frontmatter(metadata: dict) -> str:
 
 
 def _link_index_title_for(page_id: str) -> Optional[str]:
-    """Títol ACTUAL d'una pàgina segons l'índex d'enllaços, si està calent.
+    """CURRENT title of a page according to the link index, if it's warm.
 
-    No construeix mai l'índex (una desada no s'ha de bloquejar per un escaneig
-    del vault): amb l'índex fred retorna None i la decoració de relacions
-    degrada a id nu. Vegeu relation_wikilinks_frontmatter.md.
+    Never builds the index (a save must not be blocked by a vault scan):
+    with a cold index it returns None and relation decoration degrades
+    to a bare id. See relation_wikilinks_frontmatter.md.
+    
     """
     pid = str(page_id or "").strip()
     if not pid or not _link_index_built:
@@ -1183,11 +1189,12 @@ def _link_index_title_for(page_id: str) -> Optional[str]:
 
 
 def _link_index_unique_id_for_title(title: str) -> Optional[str]:
-    """Resol un títol a l'id de pàgina NOMÉS si el match és únic.
+    """Resolves a title to the page id ONLY if the match is unique.
 
-    S'usa per canonicalitzar `[[Títol]]` deixat per una edició manual (p. ex.
-    Obsidian) en un camp de relació. O(n) sobre l'índex en memòria, però
-    només s'invoca per a ítems sense àlies — el camí normal no hi passa.
+    Used to canonicalize a `[[Title]]` left by a manual edit (e.g.
+    Obsidian) in a relation field. O(n) over the in-memory index, but
+    only invoked for items without an alias — the normal path doesn't go through it.
+    
     """
     wanted = str(title or "").strip().lower()
     if not wanted or not _link_index_built:
@@ -1202,11 +1209,11 @@ def _link_index_unique_id_for_title(title: str) -> Optional[str]:
 
 
 def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
-    """(view, files-candidates) de la vista `view_id`: les pàgines NO-template de
-    la seva taula, amb la metadata en noms de RESPOSTA (com `/pages/by-table`,
-    perquè els filtres hi casin). El filtre+ordre els aplica qui crida (via les
-    funcions pures `resolve_row_ids` / `resolve_rows`). Torna `(None, [])` si no
-    es pot resoldre."""
+    """(view, files-candidates) for the `view_id` view: the NON-template pages of
+    its table, with metadata in RESPONSE names (like `/pages/by-table`,
+    so filters match against them). Filter+sort are applied by the caller (via the
+    pure functions `resolve_row_ids` / `resolve_rows`). Returns `(None, [])` if it
+    cannot be resolved."""
     vid = str(view_id or "").strip()
     if not vid:
         return None, []
@@ -1220,8 +1227,8 @@ def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
         return view, []
     pages = _get_pages_for_table(table_id)
     table_obj = _table_by_id(table_id)
-    # Injecta els camps virtual (p. ex. «Progrés») perquè les vistes incrustades
-    # els vegin igual que la taula principal (filtres/ordre hi casen).
+    # Injects virtual fields (e.g. «Progress») so that embedded views
+    # see them the same as the main table (filters/sort match against them).
     try:
         _vf_inject_for_table(
             table_obj, pages,
@@ -1240,8 +1247,8 @@ def _resolve_view_and_candidates(view_id: str, host_page_id: Optional[str]):
 
 
 def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str]:
-    """Ids de pàgina (ordenats) que la vista retorna — per al snapshot en LLISTA
-    de wikilinks (fallback per a vistes no-taula). Defensiu: `[]` si falla."""
+    """Page ids (sorted) that the view returns — for the LIST snapshot
+    of wikilinks (fallback for non-table views). Defensive: `[]` on failure."""
     try:
         view, rows = _resolve_view_and_candidates(view_id, host_page_id)
         if not view:
@@ -1253,8 +1260,8 @@ def _resolve_view_row_ids(view_id: str, host_page_id: Optional[str]) -> List[str
 
 
 def _format_snapshot_cell(value: Any, ftype: Optional[str]) -> str:
-    """Formata el valor d'una cel·la per a la taula markdown del snapshot.
-    Relacions → wikilinks `[[Títol|id]]`; llistes → coma; resta → text (acotat)."""
+    """Formats a cell's value for the snapshot's markdown table.
+    Relations → wikilinks `[[Title|id]]`; lists → comma; everything else → text (truncated)."""
     if value is None or value == "":
         return ""
     if ftype == "relation":
@@ -1272,9 +1279,9 @@ def _format_snapshot_cell(value: Any, ftype: Optional[str]) -> str:
 
 
 def _resolve_view_table(view_id: str, host_page_id: Optional[str]) -> Optional[dict]:
-    """Per a vistes `table`/`list`: `{headers, rows}` amb les dades reals (títol
-    com a wikilink + columnes visibles). Torna `None` per a altres tipus (el
-    caller cau a la llista de wikilinks) o si no es pot resoldre."""
+    """For `table`/`list` views: `{headers, rows}` with the actual data (title
+    as a wikilink + visible columns). Returns `None` for other types (the
+    caller falls back to the wikilink list) or if it cannot be resolved."""
     try:
         view, rows = _resolve_view_and_candidates(view_id, host_page_id)
         if not view:
@@ -1308,10 +1315,10 @@ def _resolve_view_table(view_id: str, host_page_id: Optional[str]) -> Optional[d
 
 
 def _view_snapshot_config(view_id: str) -> dict:
-    """Config PER VISTA del snapshot de wikilinks (camps del registry):
-    `resultSnapshot` (bool, def. True) activa/desactiva la llista; i
-    `resultSnapshotLimit` (int, def. 500; 0 = sense límit) l'acota. Defensiu:
-    davant qualsevol error, valors per defecte (activat, 500)."""
+    """PER-VIEW config for the wikilinks snapshot (registry fields):
+    `resultSnapshot` (bool, def. True) turns the list on/off; and
+    `resultSnapshotLimit` (int, def. 500; 0 = no limit) caps it. Defensive:
+    on any error, default values (enabled, 500)."""
     try:
         registry = load_registry()
         views = registry.get("views", []) if isinstance(registry, dict) else []
@@ -1329,15 +1336,16 @@ def _view_snapshot_config(view_id: str) -> dict:
 
 
 def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
-    """Materialitza el snapshot de TOTES les pàgines amb vista embeguda, perquè
-    el vault a disc estigui sempre a punt per migrar (cada vista = taula/llista
-    de markdown real + wikilinks navegables, llegibles sense Gnosi).
+    """Materializes the snapshot of ALL pages with an embedded view, so
+    the on-disk vault is always ready to migrate (each view = real markdown
+    table/list + navigable wikilinks, readable without Gnosi).
 
-    Recorre el vault, re-resol cada vista amb les dades ACTUALS i reescriu el
-    snapshot NOMÉS si ha canviat (toca exclusivament la regió del snapshot del
-    cos; el frontmatter es deixa byte a byte → cap mtime inútil a OneDrive).
-    `dry_run=True` només compta. Pensada per a la tasca programada
-    `materialize_view_snapshots`; defensiva (cap pàgina bloqueja la resta).
+    Walks the vault, re-resolves each view with the CURRENT data and rewrites the
+    snapshot ONLY if it changed (touches exclusively the body's snapshot region;
+    the frontmatter is left byte-for-byte → no useless mtime on OneDrive).
+    `dry_run=True` only counts. Designed for the scheduled task
+    `materialize_view_snapshots`; defensive (no page blocks the rest).
+    
     """
     scanned = 0
     changed = 0
@@ -1351,7 +1359,7 @@ def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
 
     for file_path, metadata, _body, is_dashboard in docs:
         if is_dashboard:
-            continue  # els dashboards es desen com a JSON; el snapshot és per a .md
+            continue  # dashboards are saved as JSON; the snapshot is for .md
         try:
             raw = file_path.read_text(encoding="utf-8")
         except Exception:
@@ -1399,30 +1407,31 @@ def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
 
 
 def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
-    """Escriu una pàgina .md amb separació frontmatter / sidecar.
+    """Writes an .md page with frontmatter / sidecar separation.
 
-    1. Persisteix les claus internes (`*_manual`, `is_template`, …) al sidecar
-       JSON a `<vault>/.gnosi/page_meta/<id>.json`.
-    2. Escriu el `.md` amb només frontmatter "net" + body.
+    1. Persists internal keys (`*_manual`, `is_template`, …) to the JSON
+       sidecar at `<vault>/.gnosi/page_meta/<id>.json`.
+    2. Writes the `.md` with only "clean" frontmatter + body.
 
-    És el wrapper canònic per escriure pàgines. Substitueix el patró
-    `generate_frontmatter(metadata) + safe_write_text`.
+    This is the canonical wrapper for writing pages. Replaces the
+    `generate_frontmatter(metadata) + safe_write_text` pattern.
 
-    GARANTIA "sense brossa al .md": abans de serialitzar, canonicalitza les
-    claus al **nom actual** de la columna (resol `fld_*` i noms antics/àlies).
-    Així cap camí d'escriptura pot deixar `fld_*` al frontmatter. Vegeu la
-    directiva `vault_persist_by_name.md`.
+    "no junk in the .md" GUARANTEE: before serializing, canonicalizes the
+    keys to the column's **current name** (resolves `fld_*` and old names/aliases).
+    This way no write path can leave `fld_*` in the frontmatter. See the
+    `vault_persist_by_name.md` directive.
+    
     """
-    # GUARDA ANTI-PÈRDUA — regressió "frontmatter mutilat" (vegeu la red flag a
-    # `wikilink_interactions.md`). Una pàgina sense `id` al frontmatter s'indexa
-    # pel nom de fitxer (`metadata.get("id") or file_path.stem`), de manera que
-    # TOTS els wikilinks per UUID que hi apunten passen a fer 404 silenciosament.
-    # Cap caller legítim arriba aquí sense `id` (create_page sempre el posa;
-    # PATCH/PUT el preserven del frontmatter llegit). Si hi arriba —p.ex. perquè
-    # `parse_frontmatter` ha tornat `{}` en llegir un fitxer truncat/online-only
-    # d'OneDrive i el PATCH hi ha afegit només `parent_id`— recuperem l'`id` del
-    # fitxer en disc (frontmatter, o per regex sobre el text cru si el YAML és
-    # corrupte); si tot falla, en generem un de nou. MAI escrivim un `.md` sense `id`.
+    # ANTI-LOSS GUARD — "mutilated frontmatter" regression (see the red flag at
+    # `wikilink_interactions.md`). A page without `id` in the frontmatter gets indexed
+    # by file name (`metadata.get("id") or file_path.stem`), so that
+    # and ALL wikilinks by UUID pointing to it start silently returning 404.
+    # No legitimate caller reaches here without `id` (create_page always sets it;
+    # PATCH/PUT preserve it from the read frontmatter). If it does get here —e.g. because
+    # `parse_frontmatter` has returned `{}` when reading a truncated/online-only file
+    # of OneDrive and the PATCH only added `parent_id`— we recover the `id` from the
+    # file on disk (frontmatter, or via regex over the raw text if the YAML is
+    # corrupted); if everything fails, we generate a new one. We NEVER write an `.md` without `id`.
     if not str((metadata or {}).get("id") or "").strip():
         recovered_id = None
         recovered_title = None
@@ -1439,7 +1448,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
                 except Exception:
                     pass
                 if not recovered_id:
-                    # YAML corrupte: rescat per regex del text cru.
+                    # Corrupted YAML: regex-based rescue from the raw text.
                     _m = re.search(
                         r"(?mi)^\s*id:\s*['\"]?"
                         r"([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})",
@@ -1476,11 +1485,11 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             _table = _table_by_id(_tid)
             if _table:
                 metadata, _ = to_storage_names(metadata, _table)
-                # Mai persistim un camp derivat (`type:'virtual'`): el valor
-                # s'injecta en LLEGIR. Si el frontend reenvia el valor injectat,
-                # el descartem abans d'escriure al .md.
+                # We never persist a derived field (`type:'virtual'`): the value
+                # it's injected on READ. If the frontend resends the injected value,
+                # we discard it before writing to the .md.
                 metadata = _strip_virtual_keys(metadata, _table)
-    except Exception as e:  # defensiu: una fallada de resolució no ha de bloquejar l'escriptura
+    except Exception as e:  # defensive: a resolution failure must not block the write
         log.debug(f"to_storage_names ha fallat per {file_path}: {e}")
     try:
         _relation_keys = relation_keys_from_table(_table) or None
@@ -1490,7 +1499,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             id_to_title=_link_index_title_for,
             title_to_id=_link_index_unique_id_for_title,
         )
-    except Exception as e:  # defensiu: mai bloquejar una desada per la decoració
+    except Exception as e:  # defensive: never block a save because of decoration
         log.debug(f"decoració de relacions ha fallat per {file_path}: {e}")
     fm_meta = persist_sidecar_from(metadata, file_path)
     if not fm_meta:
@@ -1501,11 +1510,11 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             width=4096,
         )
         frontmatter = f"---\n{yaml_str}---\n"
-    # Frontera d'ESCRIPTURA del snapshot de vista: després de cada fence
-    # ```gnosi-view``` escriu la llista [[Títol|id]] de les pàgines que la vista
-    # retorna (portabilitat: Obsidian/Drupal/lectors plans). Autocuratiu i
-    # idempotent; defensiu (mai bloqueja una desada). Mirall de la decoració de
-    # relacions, però al cos en lloc del frontmatter.
+    # WRITE boundary of the view snapshot: after each fence
+    # ```gnosi-view``` writes the [[Title|id]] list of the pages the view
+    # returns (portability: Obsidian/Drupal/plain readers). Self-healing and
+    # idempotent; defensive (never blocks a save). Mirrors the decoration of
+    # relations, but in the body instead of the frontmatter.
     try:
         body = inject_view_snapshots(
             body,
@@ -1515,11 +1524,11 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             config_for=_view_snapshot_config,
             resolve_table=_resolve_view_table,
         )
-        # Amaga la definició de la vista: fence visible → comentari HTML (Obsidian
-        # i lectors plans no el mostren). Després d'injectar el snapshot, que
-        # encara necessita trobar el fence.
+        # Hides the view definition: visible fence → HTML comment (Obsidian
+        # and plain readers don't display it). After injecting the snapshot, which
+        # still needs to find the fence.
         body = compact_view_fences(body)
-    except Exception as e:  # defensiu: mai bloquejar una desada pel snapshot
+    except Exception as e:  # defensive: never block a save because of the snapshot
         log.debug(f"snapshot de vista ha fallat per {file_path}: {e}")
     safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
 
@@ -1585,10 +1594,10 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
             target_dir = get_p("WIKI")
 
     # We don't move notes that are already in user subfolders, except
-    # Templates/Calendar. Comprovem PRIMER si cal relocate; només llavors
-    # paguem el `mkdir(parents=True, exist_ok=True)` que stat'eja cada
-    # nivell del path a OneDrive (~30-100 ms × profunditat = 100-900 ms
-    # observat al PATCH idempotent on no es mou res).
+    # Templates/Calendar. We check FIRST whether a relocate is needed; only then
+    # do we pay for the `mkdir(parents=True, exist_ok=True)` that stats every
+    # level of the path on OneDrive (~30-100 ms × depth = 100-900 ms
+    # observed on the idempotent PATCH where nothing gets moved).
     can_relocate = (
         file_path.parent == get_p("VAULT")
         or file_path.parent == get_p("PLANTILLES")
@@ -1628,9 +1637,9 @@ def _normalize_schema_key(value: str) -> str:
     return re.sub(r"[^a-z0-9]", "", str(value or "").lower())
 
 
-# Mogut a backend/utils/safe_io.py (sanitize_path_segment) perquè
-# media_service també el necessita i no pot importar de la capa api
-# sense crear un cicle. Àlies per mantenir els punts de crida existents.
+# Moved to backend/utils/safe_io.py (sanitize_path_segment) because
+# media_service also needs it and can't import from the api layer
+# without creating a cycle. Alias to keep the existing call sites.
 _sanitize_asset_segment = sanitize_path_segment
 
 
@@ -1733,8 +1742,8 @@ def _read_dashboard_file(file_path: Path) -> tuple[dict, str]:
     elif not isinstance(body, str):
         body = json.dumps(body, ensure_ascii=False, indent=2)
     else:
-        # No-op si el contingut és JSON de BlockNote; reconverteix la definició
-        # i treu el snapshot si el dashboard es desa com a markdown amb fences.
+        # No-op if the content is BlockNote JSON; reconverts the definition
+        # and removes the snapshot if the dashboard is saved as markdown with fences.
         body = restore_view_fences(body)
         body = strip_view_snapshots(body)
 
@@ -1797,10 +1806,10 @@ def _is_asset_property(prop: Dict[str, Any]) -> bool:
     }:
         return True
 
-    # Per camps de tipus `url`, promocionem a asset si el nom suggereix imatge.
-    # Coincidència per paraula sencera per evitar falsos positius com
-    # "Cobertura" (contenia "cover" com a substring) o noms genèrics que
-    # incloguessin els tokens dins d'altres paraules.
+    # For fields of type `url`, we promote to asset if the name suggests an image.
+    # Whole-word match to avoid false positives like
+    # "Coverage" (contained "cover" as a substring) or generic names that
+    # included the tokens inside other words.
     p_name = str((prop or {}).get("name") or "").strip().lower()
     return p_type == "url" and bool(_ASSET_NAME_RE.search(p_name))
 
@@ -1843,7 +1852,7 @@ def _property_assets_dir(
 def _find_table_property(
     table: Optional[Dict[str, Any]], property_name: str
 ) -> Optional[Dict[str, Any]]:
-    """Retorna la property d'una taula pel seu nom (o àlies), o None."""
+    """Returns a table's property by its name (or alias), or None."""
     name = str(property_name or "").strip()
     if not table or not name:
         return None
@@ -1856,7 +1865,7 @@ def _find_table_property(
 
 
 def _property_config_value(prop: Optional[Dict[str, Any]], key: str):
-    """Llegeix un valor de config d'una property, sigui pla o niat sota `config`."""
+    """Reads a config value from a property, whether flat or nested under `config`."""
     if not prop:
         return None
     if prop.get(key) is not None:
@@ -1868,13 +1877,14 @@ def _property_config_value(prop: Optional[Dict[str, Any]], key: str):
 
 
 def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
-    """Crea totes les carpetes d'assets associades a una taula:
-      • `Assets/<TableName>/` — destí pla per fitxers genèrics (drag&drop a
-        notes que no van lligats a cap propietat concreta).
-      • `Assets/<DB>/<Table>/<Property>/` — un sub-dir per cada propietat de
-        tipus asset (files/file/image/...).
+    """Creates all the asset folders associated with a table:
+      • `Assets/<TableName>/` — flat destination for generic files (drag&drop on
+        notes not tied to any specific property).
+      • `Assets/<DB>/<Table>/<Property>/` — a sub-dir for each property of
+        asset type (files/file/image/...).
 
-    Idempotent: `mkdir(parents=True, exist_ok=True)` no falla si ja existeix.
+    Idempotent: `mkdir(parents=True, exist_ok=True)` doesn't fail if it already exists.
+    
     """
     if not table:
         return
@@ -1887,7 +1897,7 @@ def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
         None,
     )
 
-    # 1) Carpeta plana Assets/<TableName>/ — sempre, per a qualsevol taula
+    # 1) Flat folder Assets/<TableName>/ — always, for any table
     table_name = str(table.get("name") or "").strip()
     if table_name:
         try:
@@ -1896,7 +1906,7 @@ def _ensure_asset_dirs_for_table_entry(table: Dict[str, Any], registry: dict):
         except Exception as e:
             log.warning(f"Could not create Assets/{table_name}/: {e}")
 
-    # 2) Sub-dirs per cada propietat de tipus asset
+    # 2) Sub-dirs for each asset-type property
     for prop in table.get("properties", []) or []:
         if not _is_asset_property(prop):
             continue
@@ -2010,14 +2020,14 @@ def _delete_asset_files_for_page(
             rel = raw_path.strip()
             if not rel.startswith("Assets/"):
                 continue
-            # Defensa contra path traversal: si una nota legítima conté
-            # frontmatter manipulat (`Assets/../../etc/passwd`), el
-            # `startswith("Assets/")` passa però `resolve()` apuntaria fora
-            # del Vault. `unlink()` correria com a root al contenidor →
-            # podríem esborrar fitxers arbitraris del filesystem del host.
+            # Defense against path traversal: if a legitimate note contains
+            # tampered frontmatter (`Assets/../../etc/passwd`), the
+            # `startswith("Assets/")` passes but `resolve()` would point outside
+            # of the Vault. `unlink()` would run as root in the container →
+            # we could delete arbitrary files from the host filesystem.
             try:
                 abs_path = (vault_root / rel).resolve()
-                abs_path.relative_to(assets_root)  # raises ValueError si fora
+                abs_path.relative_to(assets_root)  # raises ValueError if outside
             except (ValueError, OSError):
                 log.warning(
                     f"Asset path traversal bloquejat: {rel!r} no és sota Assets/"
@@ -2078,22 +2088,24 @@ def _delete_asset_table_dir(table: Dict[str, Any], database: Optional[Dict[str, 
 
 
 def _asset_segments_collide(a: str, b: str) -> bool:
-    """True si dos segments d'Assets resolen al mateix directori físic.
+    """True if two Assets segments resolve to the same physical directory.
 
-    En macOS/APFS el filesystem és case-insensitive: "Cervell Digital" i
-    "Cervell digital" són la MATEIXA carpeta. Comparem amb casefold per
-    detectar-ho de manera portable (vegeu
+    On macOS/APFS the filesystem is case-insensitive: "Cervell Digital" and
+    "Cervell digital" are the SAME folder. We compare with casefold to
+    detect this portably (see
     `docs/dev_memory/directives/table_rename_flat_folder_collision.md`).
+    
     """
     return str(a or "").strip().casefold() == str(b or "").strip().casefold()
 
 
 def _move_loose_files(src_dir: Path, dst_dir: Path) -> int:
-    """Mou només els FITXERS solts (no subdirectoris) de src_dir a dst_dir.
+    """Moves only loose FILES (not subdirectories) from src_dir to dst_dir.
 
-    S'usa quan la carpeta plana `Assets/<Taula>/` coincideix físicament amb
-    l'arrel de nesting `Assets/<DB>/`: els subdirectoris són arbres
-    estructurats `<Taula>/<Propietat>/` d'altres taules i NO s'han de moure.
+    Used when the flat folder `Assets/<Table>/` physically coincides with
+    the nesting root `Assets/<DB>/`: the subdirectories are structured
+    `<Table>/<Property>/` trees from other tables and must NOT be moved.
+    
     """
     moved = 0
     dst_dir.mkdir(parents=True, exist_ok=True)
@@ -2113,7 +2125,7 @@ def _move_loose_files(src_dir: Path, dst_dir: Path) -> int:
 
 
 def _table_vault_dir(table: Dict[str, Any], registry: dict) -> Optional[Path]:
-    """Retorna el directori físic de la taula dins el Vault (BD/<DB>/<Taula>/)."""
+    """Returns the table's physical directory inside the Vault (BD/<DB>/<Table>/)."""
     folder_rel = _normalize_rel_folder(table.get("folder"))
     if not folder_rel:
         return None
@@ -2127,17 +2139,18 @@ def _table_vault_dir(table: Dict[str, Any], registry: dict) -> Optional[Path]:
 
 
 def _rewrite_inline_asset_refs(pages_dir: Path, old_seg: str, new_seg: str) -> int:
-    """Reescriu les referències inline a la carpeta plana renombrada.
+    """Rewrites inline references to the renamed flat folder.
 
-    Els cossos de pàgina referencien els fitxers solts via
-    `/api/vault/assets/<seg>/fitxer.png` (el segment sol anar URL-encoded,
-    p.ex. `Cervell%20digital`). En renombrar la carpeta plana aquestes URLs
-    queden trencades; les reescrivim de <old_seg> a <new_seg>.
+    Page bodies reference loose files via
+    `/api/vault/assets/<seg>/file.png` (the segment is usually URL-encoded,
+    e.g. `Cervell%20digital`). When the flat folder is renamed these URLs
+    become broken; we rewrite them from <old_seg> to <new_seg>.
 
-    Case-SENSITIVE expressament: en una col·lisió (vegeu
-    `docs/dev_memory/directives/table_rename_flat_folder_collision.md`) les refs estructurades
-    porten el segment de la DB amb una altra capitalització i NO s'han de
-    tocar. La URL nova sempre s'escriu URL-encoded.
+    Deliberately case-SENSITIVE: in a collision (see
+    `docs/dev_memory/directives/table_rename_flat_folder_collision.md`) structured refs
+    carry the DB segment with different capitalization and must NOT be
+    touched. The new URL is always written URL-encoded.
+    
     """
     if not pages_dir or not pages_dir.is_dir() or old_seg == new_seg:
         return 0
@@ -2221,8 +2234,8 @@ def _save_data_url_image_to_assets(value: str, target_dir: Path) -> Optional[str
     target_dir.mkdir(parents=True, exist_ok=True)
     filename = f"image-{uuid.uuid4().hex[:12]}{ext}"
     destination = target_dir / filename
-    # safe_write_bytes (write to .tmp + atomic rename): si el procés crashea
-    # mig camí, l'asset queda complet o no existeix — mai truncat.
+    # safe_write_bytes (write to .tmp + atomic rename): if the process crashes
+    # halfway through, the asset ends up complete or doesn't exist — never truncated.
     safe_write_bytes(destination, decoded)
     return str(destination.relative_to(get_p("VAULT"))).replace("\\", "/")
 
@@ -2294,12 +2307,12 @@ def _persist_metadata_assets(metadata: dict) -> dict:
         if not prop_name:
             continue
 
-        # Camps amb destí fora d'Assets (storage_folder 'biblioteca' o 'free') NO
-        # s'han d'ingerir a Assets: el fitxer ja viu al seu lloc (p.ex. la
-        # Biblioteca) i el valor és una ruta absoluta que cal preservar tal qual.
-        # Sense aquest guard, en desar la pàgina es copiava el fitxer a
-        # Assets/<BD>/<Taula>/<Prop>/ i es reescrivia el valor — anul·lant la
-        # config del camp (per això un camp 'biblioteca' acabava sempre a Assets).
+        # Fields with a destination outside Assets (storage_folder 'biblioteca' or 'free') do NOT
+        # must be ingested into Assets: the file already lives in its place (e.g. the
+        # Biblioteca) and the value is an absolute path that must be preserved as-is.
+        # Without this guard, saving the page would copy the file to
+        # Assets/<DB>/<Table>/<Property>/ and the value was being rewritten — nullifying the
+        # the field's config (which is why a 'biblioteca' field always ended up in Assets).
         configured_storage = str(_property_config_value(prop, "storage_folder") or "").strip()
         if configured_storage and configured_storage != "assets":
             continue
@@ -2357,7 +2370,7 @@ def _build_table_folder_index(registry: dict) -> dict:
         db_id = table.get("database_id")
         db_prefix = db_folders.get(db_id, "") if db_id else ""
         
-        # 1. Carpeta plana (ex: "Arees")
+        # 1. Flat folder (e.g. "Arees")
         plain_folder = _normalize_rel_folder(raw_folder)
         if plain_folder:
             folder_to_table[plain_folder.lower()] = table_id
@@ -2409,7 +2422,7 @@ def _resolve_table_folder_from_metadata(metadata: dict) -> Optional[Path]:
     if not folder_rel:
         return None
 
-    # Trobar la carpeta de la base de dades
+    # Find the database folder
     db_id = table.get("database_id")
     db_folder = "BD"
     for db in registry.get("databases", []):
@@ -2511,10 +2524,10 @@ def _recompute_cross_record_formulas_for_table(
 
                 try:
                     save_page_md(file_path, updated, body)
-                    # Refresc de l'índex amb el rollup recomputat: sense això,
-                    # el nou valor no es veia a `/by-table`/`/pages` fins al
-                    # rescan (mateixa família #732/#735/#758/PUT). Marquem que
-                    # cal invalidar el micro-cache al final del pas.
+                    # Index refresh with the recomputed rollup: without this,
+                    # the new value wasn't visible in `/by-table`/`/pages` until the
+                    # next rescan (same family as #732/#735/#758/PUT). We flag that
+                    # the micro-cache needs to be invalidated at the end of the step.
                     _refresh_page_index_entry(file_path, updated, body)
                     any_written = True
                 except Exception as e:
@@ -2548,9 +2561,9 @@ def _read_frontmatter_partial(file_path: Path):
     frontmatter_started = False
     frontmatter_count = 0
     
-    # OneDrive sync pot bloquejar el fitxer fins a uns segons. Backoff
-    # exponencial fins a 4s — més que el partial read amb 60 línies hauria
-    # de necessitar mai en condicions normals.
+    # OneDrive sync can lock the file for a few seconds. Backoff
+    # exponential up to 4s — more than the partial read with 60 lines should
+    # of ever needing under normal conditions.
     retries = 7
     delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.5]
     last_error = None
@@ -2580,18 +2593,18 @@ def _read_frontmatter_partial(file_path: Path):
                         # If we find non-empty text before ---, it's not a valid frontmatter
                         break
 
-                    # Safety break per a fitxers amb un `---` d'obertura que no
-                    # tanca mai (frontmatter malmès): evitem llegir-los sencers.
-                    # El límit ha de ser prou alt per cobrir frontmatters
-                    # legítimament grans —una pàgina amb moltes relacions Notion
-                    # pot tenir centenars de línies de YAML abans del
-                    # `---` de tancament (p. ex. una Àrea amb 229 línies)—; amb
-                    # un límit massa baix el tancament queda fora de l'abast,
-                    # el frontmatter es llegeix sense tancar i `parse_frontmatter`
-                    # torna {} → l'id cau al nom del fitxer i tots els wikilinks
-                    # per UUID que hi apunten passen a fer 404 silenciosament.
-                    # Fora del frontmatter ja sortim a la primera línia de text,
-                    # així que aquest límit només afecta el cas de frontmatter.
+                    # Safety break for files with an opening `---` that never
+                    # closes (corrupted frontmatter): we avoid reading them whole.
+                    # The limit must be high enough to cover frontmatters
+                    # that are legitimately large —a page with many Notion relations
+                    # can have hundreds of lines of YAML before the
+                    # closing `---` (e.g. an Àrea with 229 lines)—; with
+                    # too low a limit the closing marker falls out of range,
+                    # the frontmatter is read without closing and `parse_frontmatter`
+                    # it returns {} → the id falls back to the filename and all wikilinks
+                    # by UUID pointing to it silently start returning 404.
+                    # Outside the frontmatter we already exit at the first line of text,
+                    # so this limit only affects the frontmatter case.
                     if len(lines) > 2000:
                         break
                         
@@ -2615,10 +2628,11 @@ def _read_frontmatter_partial(file_path: Path):
 
 
 def _is_metadata_stub(metadata: Dict[str, Any]) -> bool:
-    """Heurística: el cache va ser inicialitzat des d'un índex parcial
-    (només id/title/description) i no s'ha rellegit el frontmatter encara.
-    Si la metadata té només claus bàsiques, considerem que cal refrescar-la
-    del fitxer abans de retornar-la al frontend.
+    """Heuristic: the cache was initialized from a partial index
+    (only id/title/description) and the frontmatter hasn't been reread yet.
+    If the metadata has only basic keys, we consider that it needs to be refreshed
+    from the file before returning it to the frontend.
+    
     """
     if not metadata:
         return True
@@ -2628,9 +2642,9 @@ def _is_metadata_stub(metadata: Dict[str, Any]) -> bool:
 
 
 def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
-    # body sempre definit: si la branca dashboard o l'except descarten body,
-    # el return de més avall el referencia → NameError → caller buida tot el
-    # cache i el GET següent retorna 404 (rglob només cerca *.md).
+    # body always defined: if the dashboard branch or the except discards body,
+    # the return further down references it → NameError → caller empties the whole
+    # cache and the next GET returns 404 (rglob only searches *.md).
     body = ""
     parse_failed = False
     try:
@@ -2638,22 +2652,22 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
             metadata, body = _read_dashboard_file(file_path)
         else:
             metadata, body = _read_frontmatter_partial(file_path)
-            # Si _read_frontmatter_partial retorna ({}, "") és que ha fallat
-            # (Errno 35 retries esgotats). Marquem-ho per evitar persistir
-            # una entry amb metadata buida que sobreescriuria una de bona.
+            # If _read_frontmatter_partial returns ({}, "") it means it failed
+            # (Errno 35 retries exhausted). We flag it to avoid persisting
+            # an entry with empty metadata that would overwrite a good one.
             if not metadata and not body:
                 parse_failed = True
-            # ENDURIMENT (anti id→nom): si la lectura parcial NO ha donat un id
-            # vàlid —ja sigui perquè ha tornat buit, o `({}, cos)` amb un
-            # frontmatter que no tanca dins el límit de línies—, reintentem amb
-            # el text SENCER i el parser complet (amb rescat de YAML tolerant)
-            # abans de caure al `file_path.stem`. Sense això, la pàgina
-            # s'indexaria amb un id invàlid (el nom) i tots els wikilinks/
-            # relacions per UUID que hi apunten fallarien en silenci. Per a
-            # fitxers online-only d'OneDrive el read complet també falla
-            # (Errno 35) i conservem el fallback al stem (no empitjora).
-            # Les pàgines legítimes sense `id` (system/readme) tornen sense id
-            # del read complet també → cap canvi, cap cost rellevant.
+            # HARDENING (anti id→name): if the partial read did NOT yield an id
+            # valid —either because it came back empty, or `({}, body)` with a
+            # frontmatter that doesn't close within the line limit—, we retry with
+            # the FULL text and the complete parser (with tolerant YAML rescue)
+            # before falling back to `file_path.stem`. Without this, the page
+            # would get indexed with an invalid id (the name) and all wikilinks/
+            # relations by UUID pointing to them would fail silently. In order to
+            # online-only OneDrive files the full read also fails
+            # (Errno 35) and we keep the fallback to the stem (it doesn't make things worse).
+            # Legitimate pages without `id` (system/readme) come back without an id
+            # from the full read too → no change, no relevant cost.
             if not str((metadata or {}).get("id") or "").strip():
                 try:
                     full_md, full_body = parse_frontmatter(
@@ -2689,7 +2703,7 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         "path": str(file_path),
         "mtime_ns": stat_result.st_mtime_ns,
         "mtime": stat_result.st_mtime,
-        # Data de creació del fitxer (macOS: st_birthtime; fallback st_ctime).
+        # File creation date (macOS: st_birthtime; fallback st_ctime).
         "created_mtime": getattr(stat_result, "st_birthtime", None) or stat_result.st_ctime,
         "size": stat_result.st_size,
         "id": file_id,
@@ -2702,8 +2716,8 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         },
         "folder": rel_folder,
     }
-    # Marca per al caller: si el parse del frontmatter ha fallat, evita
-    # sobreescriure una entry vella amb dades bones (Errno 35 OneDrive).
+    # Flag for the caller: if the frontmatter parse failed, avoid
+    # overwriting an old entry with good data (Errno 35 OneDrive).
     if parse_failed:
         entry["_parse_failed"] = True
     return entry
@@ -2712,17 +2726,18 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
 def _build_cache_entry_from_memory(
     file_path: Path, stat_result, metadata: Dict[str, Any], body: str
 ) -> Dict[str, Any]:
-    """Variant ràpida de `_build_page_cache_entry` per quan el caller ja
-    té el `metadata` i `body` finals en memòria (típicament després d'un
-    PATCH/PUT). Evita la lectura del fitxer recent escrit a OneDrive, que
-    costa 100-300 ms i és el coll dominant del PATCH idempotent.
+    """Fast variant of `_build_page_cache_entry` for when the caller already
+    has the final `metadata` and `body` in memory (typically after a
+    PATCH/PUT). Avoids reading the file just written to OneDrive, which
+    costs 100-300 ms and is the dominant bottleneck of the idempotent PATCH.
 
-    Forma de l'entry idèntica a la de `_build_page_cache_entry`.
+    Entry shape identical to that of `_build_page_cache_entry`.
+    
     """
-    # Aplica el mateix post-processament que la versió disc ho fa via
-    # `_read_frontmatter_partial` + `_process_metadata_paths`. Aquí ja
-    # tenim el metadata post `_persist_metadata_assets`; el `_process_*`
-    # només afecta cover/icon que ja estan tractats al pipeline del PATCH.
+    # Applies the same post-processing that the disk version does via
+    # `_read_frontmatter_partial` + `_process_metadata_paths`. Here it
+    # we have the metadata after `_persist_metadata_assets`; the `_process_*`
+    # only affects cover/icon which are already handled in the PATCH pipeline.
     md = _process_metadata_paths(dict(metadata or {}))
     if "data" in md and "date" not in md:
         md["date"] = md["data"]
@@ -2753,13 +2768,13 @@ def _build_cache_entry_from_memory(
 
 
 def _refresh_page_index_entry(file_path: Path, metadata: Dict[str, Any], body: str) -> None:
-    """Refresca `_page_index_entries` amb el metadata NOU després d'un
-    `save_page_md`, perquè `GET /pages` i `/by-table` (que serveixen des
-    d'aquest índex) no tornin el metadata VELL fins al pròxim rescan complet
-    (cooldown 600s). Best-effort. El `create` i el `PATCH` fan l'equivalent
-    inline; aquest helper el comparteixen els escriptors que abans NOMÉS
-    actualitzaven el mapa id→path (PUT) o res del cache (promote-zotero),
-    deixant el metadata ranci a la graella."""
+    """Refreshes `_page_index_entries` with the NEW metadata after a
+    `save_page_md`, so that `GET /pages` and `/by-table` (which serve from
+    this index) don't return the OLD metadata until the next full rescan
+    (600s cooldown). Best-effort. `create` and `PATCH` do the equivalent
+    inline; this helper is shared by writers that previously ONLY
+    updated the id→path map (PUT) or nothing in the cache (promote-zotero),
+    leaving stale metadata in the grid."""
     try:
         v_path = get_active_vault_path()
         if not v_path:
@@ -2781,10 +2796,10 @@ def _refresh_page_index_entry(file_path: Path, metadata: Dict[str, Any], body: s
 
 
 def _refresh_table_pages_metadata(filtered: List[Any]) -> None:
-    """Per a cada PageInfo amb metadata stub, rellegeix el frontmatter del
-    fitxer i actualitza el cache in-memory. Paralelitzat amb thread pool:
-    sense paralelisme una taula de 270 fitxers triga 35-40s en OneDrive;
-    amb 16 workers, baixa a 3-5s.
+    """For each PageInfo with stub metadata, rereads the file's
+    frontmatter and updates the in-memory cache. Parallelized with a thread pool:
+    without parallelism a 270-file table takes 35-40s on OneDrive;
+    with 16 workers, it drops to 3-5s.
     """
     from backend.services.context_vars import get_active_vault_path
     from concurrent.futures import ThreadPoolExecutor
@@ -2878,20 +2893,20 @@ def _get_cached_page_entries(
         'assets', 'drawings', 'mail',
         '.history', '.trash'
     }
-    # Carpetes ocultes (`.<nom>`) que SÍ indexem com a contingut. .Dashboards
-    # conté els layouts derivats; sense aquesta excepció, l'os.walk filtraria
-    # tots els dirnames que comencen per "." i els dashboards mai entrarien
-    # al cache → desapareixien al recarregar.
+    # Hidden folders (`.<name>`) that we DO index as content. .Dashboards
+    # contains the derived layouts; without this exception, os.walk would filter out
+    # all dirnames starting with "." and the dashboards would never make it in
+    # in the cache → they would disappear on reload.
     HIDDEN_ALLOWED = {'.dashboards'}
 
-    # Subarbres exclosos de la indexació de pàgines, per ruta relativa (POSIX).
-    # `Calendar/External` són els calendaris Google SUBSCRITS (orto/ocàs per
-    # ciutat, fases de la lluna, primary, sunday…): ~2000 fitxers, molts dels
-    # quals queden com a placeholders on-demand d'OneDrive que Docker NO pot
-    # llegir (`OSError: [Errno 35] Resource deadlock avoided`) ni stat-ar sense
-    # bloquejar-se → encallaven l'indexador i deixaven la llista de pàgines
-    # buida. No són contingut propi (events subscrits); els podem del walk
-    # perquè no se'n toqui cap fitxer. Ruta ASCII → sense problema NFC/NFD.
+    # Subtrees excluded from page indexing, by relative path (POSIX).
+    # `Calendar/External` are the SUBSCRIBED Google calendars (sunrise/sunset for
+    # city, moon phases, primary, sunday…): ~2000 files, many of them
+    # which stay as OneDrive on-demand placeholders that Docker can NOT
+    # read (`OSError: [Errno 35] Resource deadlock avoided`) nor stat without
+    # block on → they used to jam the indexer and leave the page list
+    # empty. They're not our own content (subscribed events); we prune them from the walk
+    # so that none of their files get touched. ASCII path → no NFC/NFD issue.
     EXCLUDED_DIRS_REL = {"Calendar/External"}
 
     root_paths = search_paths if search_paths else [v_path]
@@ -2901,9 +2916,9 @@ def _get_cached_page_entries(
         if not root.exists(): continue
         for dirpath, dirnames, filenames in os.walk(root):
             rel_to_vault = Path(dirpath).relative_to(v_path)
-            # Skip hidden and excluded folders, excepte les explícitament
-            # permeses (p.ex. .Dashboards), i poda els subarbres d'EXCLUDED_DIRS_REL
-            # abans de descendir-hi (així no se'n llegeixen els fitxers).
+            # Skip hidden and excluded folders, except those explicitly
+            # allowed (e.g. .Dashboards), and prunes the subtrees under EXCLUDED_DIRS_REL
+            # before descending into them (so their files never get read).
             dirnames[:] = [
                 d for d in dirnames
                 if (not d.startswith('.') or d.lower() in HIDDEN_ALLOWED)
@@ -2944,10 +2959,10 @@ def _get_cached_page_entries(
         try:
             rel_path = file_path.relative_to(v_path)
             parts = rel_path.parts
-            # Ignore hidden folders excepte les permeses explícitament
-            # (p.ex. .Dashboards). Sense aquesta excepció, els dashboards
-            # entrarien als candidate_files (perquè la primera passada del
-            # walk els inclou) però aquí els filtraríem fora.
+            # Ignore hidden folders except those explicitly allowed
+            # (e.g. .Dashboards). Without this exception, the dashboards
+            # would end up in candidate_files (because the first pass of the
+            # walk includes them) but here we'd filter them out.
             if any(part.startswith('.') and part.lower() not in HIDDEN_ALLOWED for part in parts):
                 continue
             
@@ -2996,8 +3011,8 @@ def _get_cached_page_entries(
 
         # Heavy part: parsing frontmatter
         built = _build_page_cache_entry(file_path, stat_result)
-        # Si el parse ha fallat (Errno 35) i tenim una entry vella amb
-        # metadata real, conservem la vella en lloc d'escombrar-la.
+        # If the parse failed (Errno 35) and we have an old entry with
+        # real metadata, we keep the old one instead of sweeping it away.
         if built.pop("_parse_failed", False) and cached and not _is_metadata_stub(cached.get("metadata") or {}):
             new_entries[path_str] = cached
         else:
@@ -3060,9 +3075,9 @@ def _get_pages_snapshot(
     only_calendar: bool = False,
     background_tasks: Optional[BackgroundTasks] = None
 ) -> List[PageInfo]:
-    # TTL micro-cache. Les rutes `/pages`, `/sidebar/summary` i les seves
-    # invocacions paral·leles al primer load del frontend (4-6 alhora) van
-    # poder unir-se a un sol càlcul real.
+    # TTL micro-cache. The `/pages`, `/sidebar/summary` routes and their
+    # parallel invocations on the frontend's first load (4-6 at a time) did
+    # so they can join into a single real computation.
     cache_key = f"snapshot:{_vault_cache_key()}:{'cal' if only_calendar else 'all'}"
     cached = _pages_cache_get(cache_key)
     if cached is not None:
@@ -3115,11 +3130,11 @@ def _get_pages_snapshot(
         return []
 
     # Filter out entries whose files no longer exist (deleted externally).
-    # ATENCIÓ: Path.exists() per cada entry són 3988 stat() al OneDrive cada
-    # cop que es crida /pages — això eleva el temps a 15+ segons. Amb cache
-    # de mtime al `_iter_docs_cache`, només validem stale_paths un cop per
-    # `_STALE_CHECK_TTL` segons. Si un fitxer es borra externament, queda
-    # visible a la sidebar fins el següent stat — acceptable.
+    # WARNING: Path.exists() for each entry is 3988 stat() calls on OneDrive every
+    # time /pages is called — this raises the time to 15+ seconds. With a cache
+    # of mtime in `_iter_docs_cache`, we only validate stale_paths once per
+    # `_STALE_CHECK_TTL` seconds. If a file is deleted externally, it stays
+    # visible in the sidebar until the next stat — acceptable.
     now_mono = time.monotonic()
     do_stale_check = (now_mono - _last_stale_check["ts"]) > _STALE_CHECK_TTL
     entries = []
@@ -3169,9 +3184,9 @@ def _get_pages_snapshot(
                 relevant_entries.append(entry)
         entries = relevant_entries
 
-    # Llista d'IDs amagats. Reaprofitem l'helper de calendar_routes que ja
-    # gestiona correctament el cicle de la sessió (open/try/finally close),
-    # en lloc de duplicar el patró aquí.
+    # List of hidden IDs. We reuse the calendar_routes helper that already
+    # correctly manages the session lifecycle (open/try/finally close),
+    # instead of duplicating the pattern here.
     from backend.api.calendar_routes import _get_hidden_event_ids
     hidden_ids = _get_hidden_event_ids()
 
@@ -3207,9 +3222,9 @@ def _get_pages_snapshot(
             if not is_relevant:
                 continue
 
-        # `model_construct` salta la validació Pydantic; les dades del
-        # cache mtime-validated ja són ben tipades. Estalvi ~80µs × 4200
-        # entries = ~300 ms al snapshot global.
+        # `model_construct` skips Pydantic validation; the data from the
+        # mtime-validated cache is already well-typed. Savings ~80µs × 4200
+        # entries = ~300 ms on the global snapshot.
         page_info = PageInfo.model_construct(
             id=entry["id"],
             title=entry["title"],
@@ -3233,10 +3248,10 @@ def _get_pages_snapshot(
                 pages_by_id[entry["id"]] = page_info
 
     if duplicate_ids:
-        # Soroll cosmètic: la deduplicació in-memory és O(n) i passa cada
-        # crida; els duplicats reals (events Sunrise i similars) són una
-        # constant del filesystem, no un error nou. Mantenim el senyal a
-        # nivell debug per quan calgui inspeccionar incidències.
+        # Cosmetic noise: the in-memory deduplication is O(n) and runs on every
+        # call; the real duplicates (Sunrise events and similar) are a
+        # filesystem constant, not a new error. We keep the signal at
+        # debug level for whenever incidents need inspecting.
         log.debug(
             f"Deduplicated {len(duplicate_ids)} pages with repeated ID in the Vault"
         )
@@ -3244,13 +3259,13 @@ def _get_pages_snapshot(
     pages = list(pages_by_id.values())
     pages.sort(key=lambda x: x.last_modified, reverse=True)
 
-    # Lazy refresh metadata centralitzat: el cache disc pot tenir entries amb
-    # metadata stub (només id/title) si va ser reconstruïda parcialment.
-    # Refresh automàtic per pages que el sidebar wiki renderitza (Wiki/,
-    # .Dashboards/, root). Per BD pages, els endpoints by-table fan el seu
-    # propi refresh perquè és més barat (filtrat pel table_id concret).
-    # Ubicar-ho aquí evita haver de recordar afegir refresh a cada nou
-    # endpoint que faci servir _get_pages_snapshot.
+    # Centralized lazy metadata refresh: the on-disk cache may have entries with
+    # stub metadata (only id/title) if it was partially reconstructed.
+    # Automatic refresh for pages that the wiki sidebar renders (Wiki/,
+    # .Dashboards/, root). For DB pages, the by-table endpoints do their own
+    # own refresh because it's cheaper (filtered by the specific table_id).
+    # Placing it here avoids having to remember to add a refresh to each new
+    # endpoint that uses _get_pages_snapshot.
     INCLUDED_PREFIXES = ("Wiki", ".Dashboards")
     refresh_targets = [
         p for p in pages
@@ -3268,9 +3283,9 @@ def _get_pages_snapshot(
 
 
 def _vf_page_loader(table_id: str) -> List[PageInfo]:
-    """Carrega les pàgines d'una taula amb la metadata en noms CANÒNICS, per als
-    computers de rollup invers (p. ex. `task_progress` llegint Tasques). Refresca
-    els stubs de metadata perquè `Estat`/`Projecte` hi siguin presents."""
+    """Loads a table's pages with metadata in CANONICAL names, for
+    inverse-rollup computers (e.g. `task_progress` reading Tasques). Refreshes
+    the metadata stubs so `Estat`/`Projecte` are present."""
     pages = _get_pages_for_table(table_id)
     try:
         _refresh_table_pages_metadata(pages)
@@ -3287,8 +3302,8 @@ def _vf_page_loader(table_id: str) -> List[PageInfo]:
 
 
 def _strip_virtual_keys(metadata: Dict[str, Any], table: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    """Treu de la metadata les claus de camps `type:'virtual'` (per nom o id)
-    perquè el valor derivat (injectat en LLEGIR) no es persisteixi mai al `.md`."""
+    """Removes field keys with `type:'virtual'` from the metadata (by name or id)
+    so the derived value (injected on READ) is never persisted to the `.md`."""
     if not table or not isinstance(metadata, dict):
         return metadata
     props = table.get("properties") or []
@@ -3300,26 +3315,27 @@ def _strip_virtual_keys(metadata: Dict[str, Any], table: Optional[Dict[str, Any]
 
 
 def _get_pages_for_table(table_id: str) -> List[PageInfo]:
-    """Fast-path per a `/pages/by-table/{table_id}`.
+    """Fast-path for `/pages/by-table/{table_id}`.
 
-    El bucle de `_get_pages_snapshot` construeix ~4200 `PageInfo` Pydantic
-    (~1.2s per crida en aquesta màquina) per després descartar-ne el 95%.
-    Aquesta funció itera el mateix cache però només construeix `PageInfo`
-    per les entries que pertanyen a `table_id`, en dues fases:
+    The `_get_pages_snapshot` loop builds ~4200 Pydantic `PageInfo`
+    (~1.2s per call on this machine) only to then discard 95% of them.
+    This function iterates the same cache but only builds `PageInfo`
+    for the entries that belong to `table_id`, in two phases:
 
-    1. Filtre barat (sense Pydantic): pertanyença folder-based — si el
-       folder de l'entry comença per un prefix registrat com a "nostra
-       taula" l'acceptem; si comença per prefix d'una ALTRA taula la
-       descartem; si no toca cap registry folder, caiem al fallback
-       metadata-based (`table_id` / `database_table_id`).
-    2. Construcció Pydantic només per a les entries que han passat (1).
+    1. Cheap filter (no Pydantic): folder-based membership — if the
+       entry's folder starts with a prefix registered as "our
+       table" we accept it; if it starts with a prefix from ANOTHER table we
+       discard it; if it doesn't touch any registry folder, we fall back to the
+       metadata-based fallback (`table_id` / `database_table_id`).
+    2. Pydantic construction only for the entries that passed (1).
 
-    Resultat: per a una taula de ~300 pàgines en un vault de 4243,
-    estalviem el cost de crear ~3940 `PageInfo` que s'haurien descartat.
+    Result: for a table of ~300 pages in a vault of 4243,
+    we save the cost of creating ~3940 `PageInfo` that would have been discarded.
+    
     """
-    # TTL micro-cache: si una crida idèntica recent ja ha calculat la
-    # llista, retornem-la directament. Burst típic /by-table + /snapshot +
-    # global-index al mateix segon → un sol càlcul real.
+    # TTL micro-cache: if a recent identical call has already computed the
+    # list, we return it directly. Typical burst /by-table + /snapshot +
+    # global-index within the same second → a single real computation.
     cache_key = f"by-table:{_vault_cache_key()}:{table_id}"
     cached = _pages_cache_get(cache_key)
     if cached is not None:
@@ -3331,9 +3347,9 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
 
     registry = load_registry()
     folder_to_table = _build_table_folder_index(registry)
-    # Prefixos canònics que resolen a la taula demanada i a qualsevol
-    # altra taula. Ordenats per llargada decreixent perquè un prefix més
-    # específic guanya el match (mateix criteri que
+    # Canonical prefixes that resolve to the requested table and to any
+    # other table. Sorted by decreasing length so that a more
+    # specific prefix wins the match (same criterion as
     # `_resolve_table_id_from_context`).
     our_prefixes = sorted(
         (f for f, t in folder_to_table.items() if t == table_id),
@@ -3344,7 +3360,7 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
     from backend.api.calendar_routes import _get_hidden_event_ids
     hidden_ids = _get_hidden_event_ids()
 
-    # Fase 1: filtrar entries crues sense construir cap Pydantic.
+    # Phase 1: filter raw entries without building any Pydantic.
     matching: List[Dict[str, Any]] = []
     for entry in raw_entries:
         if entry["id"] in hidden_ids:
@@ -3364,8 +3380,8 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
                     break
 
         if not belongs and not resolved_elsewhere:
-            # Fallback metadata-based per a notes legacy fora de carpeta
-            # registrada (templates, antigues). Mateix criteri que
+            # Metadata-based fallback for legacy notes outside a folder
+            # registered (templates, old ones). Same criteria as
             # `_resolve_table_id_from_context` (descarta "wiki").
             metadata = entry.get("metadata") or {}
             md_tid = metadata.get("table_id") or metadata.get("database_table_id")
@@ -3378,10 +3394,10 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
         if belongs:
             matching.append(entry)
 
-    # Fase 2: construir Pydantic + dedup per ID només pels matchings.
-    # Usem `model_construct` per saltar la validació Pydantic: les dades
-    # vénen del cache mtime-validated, els tipus ja són correctes, i la
-    # validació costa ~80µs/instància × 300 entries = 25-50 ms gratuïts.
+    # Phase 2: build Pydantic + dedup by ID only for the matches.
+    # We use `model_construct` to skip Pydantic validation: the data
+    # comes from the mtime-validated cache, the types are already correct, and the
+    # validation costs ~80µs/instance × 300 entries = 25-50 ms for free.
     pages_by_id: Dict[str, PageInfo] = {}
     duplicate_ids: set = set()
     for entry in matching:
@@ -3447,10 +3463,10 @@ async def list_pages(
         background_tasks=background_tasks,
     )
 
-    # Safety net: si el snapshot és buit però el disc cache existeix amb
-    # entries, vol dir que estem en un moment intermedi (warmup, post-rescan)
-    # on `_page_index_entries` encara no està repoblat. Retornem 503 perquè
-    # el client reintenti amb backoff, en lloc de mostrar la sidebar buida.
+    # Safety net: if the snapshot is empty but the on-disk cache exists with
+    # entries, it means we're in an intermediate moment (warmup, post-rescan)
+    # where `_page_index_entries` is not yet repopulated. We return 503 so that
+    # the client retries with backoff, instead of showing the empty sidebar.
     if not pages and not folder and offset == 0:
         try:
             cache_path = get_page_index_cache_path()
@@ -3479,19 +3495,20 @@ async def list_pages(
 async def list_pages_by_table(table_id: str, include_templates: bool = Query(True)):
     """Returns only pages from a specific table to avoid loading the entire Vault.
 
-    Fast-path via `_get_pages_for_table`: només es construeix `PageInfo` per a
-    les entries de la taula demanada, no per a les ~4200 del vault sencer
-    (estalvi ~1s/crida). Abans, a més, hi havia una crida RESIDUAL a
-    `_get_pages_by_table_id` (el mecanisme d'índex per-taula anterior) el
-    resultat de la qual es descartava a la línia següent: com que la seva
-    cache s'invalidava a cada bump de versió (cada PATCH/create), la primera
-    crida post-edició reconstruïa l'índex de TOTES les taules per llençar-lo.
+    Fast-path via `_get_pages_for_table`: `PageInfo` is only built for
+    the entries of the requested table, not for the ~4200 of the entire vault
+    (saving ~1s/call). Before, moreover, there was a RESIDUAL call to
+    `_get_pages_by_table_id` (the previous per-table index mechanism) whose
+    result was discarded on the following line: since its
+    cache was invalidated on every version bump (every PATCH/create), the first
+    call after an edit would rebuild the index for ALL tables just to throw it away.
+    
     """
     filtered = await asyncio.to_thread(_get_pages_for_table, table_id)
     if not include_templates:
         filtered = [p for p in filtered if not p.metadata.get("is_template")]
-    # Re-fetch metadata lazy per a fitxers amb metadata stub (cache parcial).
-    # Cost: només els fitxers d'aquesta taula, no el vault sencer.
+    # Lazily re-fetch metadata for files with a metadata stub (partial cache).
+    # Cost: only the files of this table, not the entire vault.
     await asyncio.to_thread(_refresh_table_pages_metadata, filtered)
     table_obj = _table_by_id(table_id)
     await asyncio.to_thread(
@@ -3511,12 +3528,12 @@ async def list_pages_by_table_snapshot(table_id: str):
     This route avoids divergences between frontend sessions and establishes
      a single source of truth for the count of visible records.
     """
-    # Fast-path: només pàgines de la taula demanada (veure
+    # Fast-path: only pages from the requested table (see
     # `_get_pages_for_table`).
     raw_pages = await asyncio.to_thread(_get_pages_for_table, table_id)
     visible_pages = _canonical_visible_table_pages(table_id, raw_pages)
 
-    # Lazy re-fetch del frontmatter per fitxers amb metadata stub.
+    # Lazy re-fetch of the frontmatter for files with a metadata stub.
     await asyncio.to_thread(_refresh_table_pages_metadata, visible_pages)
 
     table_obj = _table_by_id(table_id)
@@ -3605,8 +3622,8 @@ _user_label_cache: Dict[str, str] = {}
 
 
 def _resolve_user_label(user_id: Optional[str]) -> str:
-    """Nom visible d'un usuari pel seu id (cau a email o id). Cau en memòria
-    perquè els noms gairebé no canvien. Usat per a l'autoria Creat/Editat per."""
+    """Display name of a user by their id (falls back to email or id). Cached in memory
+    since names rarely change. Used for the Created/Edited by authorship."""
     if not user_id:
         return ""
     if user_id in _user_label_cache:
@@ -3633,10 +3650,10 @@ def _resolve_user_label(user_id: Optional[str]) -> str:
 
 
 def _stamp_author(metadata: dict, user_id: Optional[str], is_create: bool) -> None:
-    """Estampa l'autoria al frontmatter: `created_by`/`created_at` (només en
-    crear, no es trepitja si ja hi són) i `last_edited_by`/`last_edited_at` (a
-    cada desat). Permet als camps Creat/Editat per mostrar l'autor REAL per
-    pàgina (no només el propietari derivat), útil també en mode multiusuari."""
+    """Stamps authorship onto the frontmatter: `created_by`/`created_at` (only on
+    creation, not overwritten if already present) and `last_edited_by`/`last_edited_at` (on
+    every save). Lets the Created/Edited by fields show the REAL author per
+    page (not just the derived owner), also useful in multi-user mode."""
     label = _resolve_user_label(user_id)
     if not label:
         return
@@ -3660,10 +3677,10 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     _table_for_meta = _table_by_id(get_table_id(metadata))
     if _table_for_meta:
         metadata, _ = to_storage_names(metadata, _table_for_meta)
-        # Opció per defecte (config.default_option) dels camps d'opcions: en
-        # crear un registre amb el camp buit, s'aplica el valor per defecte
-        # del catàleg (p. ex. Estat → «Esborrany»). Mai trepitja un valor que
-        # arribi a la petició.
+        # Default option (config.default_option) for option fields: when
+        # creating a record with the field empty, the default value is applied
+        # from the catalog (e.g. Estat → «Esborrany»). Never overwrites a value that
+        # arrives with the request.
         for _prop in _table_for_meta.get("properties") or []:
             if _prop.get("type") not in option_catalogs_service.OPTION_TYPES:
                 continue
@@ -3685,7 +3702,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     if request.is_database:
         metadata["is_database"] = True
     if metadata.get("is_dashboard") is True:
-        # Dashboards són markdown; el flag content_format=json era llegacy.
+        # Dashboards are markdown; the content_format=json flag was legacy.
         metadata.pop("content_format", None)
 
     # Apply automations and formulas during creation as well (old_metadata empty)
@@ -3694,20 +3711,20 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     except Exception as e:
         log.error(f"Error processing automations on create for {page_id}: {e}")
 
-    # Autoria: estampa creador + darrer editor (atribució real per pàgina).
+    # Authorship: stamps creator + last editor (real per-page attribution).
     _stamp_author(metadata, getattr(context, "user_id", None), is_create=True)
 
     metadata = _persist_metadata_assets(metadata)
 
-    # Tota alta d'un recurs (taula amb columna 'Citation Key') ha de quedar
-    # citable, no només la que ve del lookup de metadades.
+    # Every new resource added (a table with a 'Citation Key' column) must remain
+    # citable, not just the one coming from the metadata lookup.
     metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
 
     is_template = metadata.get("is_template") is True
     is_dashboard = metadata.get("is_dashboard") is True
     is_daily = str(metadata.get("note_type") or "").strip().lower() == "daily"
 
-    # Determinar directori destí
+    # Determine destination directory
     if is_template:
         target_dir = get_p("PLANTILLES")
     elif is_daily:
@@ -3722,15 +3739,15 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
     target_dir.mkdir(parents=True, exist_ok=True)
 
-    # Tots els tipus de pàgina (incloses Dashboards) són markdown amb
-    # frontmatter. El JSON era un format llegacy ja eliminat.
+    # All page types (including Dashboards) are markdown with
+    # frontmatter. The JSON was a legacy format that has already been removed.
     file_path = _get_unique_filepath(target_dir, request.title, extension=".md")
 
     log.info(f"Creating new page at: {file_path.absolute()}")
 
     try:
-        # Snapshot dels camps relació ABANS d'escriure (save_page_md decora
-        # in-place) per propagar la sincronització inversa (background, sota).
+        # Snapshot of relation fields BEFORE writing (save_page_md decorates
+        # in-place) to propagate the inverse sync (background, below).
         _rel_new_snapshot = dict(metadata)
         save_page_md(file_path, metadata, request.content)
         table_id = get_table_id(metadata)
@@ -3739,12 +3756,12 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
                 _recompute_cross_record_formulas_for_table, table_id, page_id
             )
         
-        # Insereix la nova pàgina al cache directament en lloc de buidar-lo.
-        # Buidar el cache feia que la següent crida a GET /api/vault/pages
-        # retornés [] fins que un force_refresh acabés (~1-2s sobre OneDrive),
-        # cosa que feia que el frontend creés la pestanya nova i, just després,
-        # l'efecte de neteja `useEffect` la filtrés perquè el seu id encara
-        # no era a `pages` → editor en blanc i la taula mostrava 0 registres.
+        # Inserts the new page directly into the cache instead of clearing it.
+        # Clearing the cache caused the next call to GET /api/vault/pages
+        # to return [] until a force_refresh finished (~1-2s over OneDrive),
+        # which caused the frontend to create the new tab and, right after,
+        # the cleanup `useEffect` effect would filter it out because its id still
+        # was not in `pages` → blank editor and the table showed 0 records.
         try:
             v_path = get_active_vault_path()
             if v_path:
@@ -3755,31 +3772,31 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
                     _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
                     _page_id_to_path.setdefault(v_str, {})[page_id] = str(file_path)
                     _bump_page_index_version(v_str)
-                # PathResolver: sense això la pàgina nova no entrava a la
-                # llista de fitxers fins al rescan complet (cooldown 600s) i
+                # PathResolver: without this the new page wouldn't enter the
+                # file list until the full rescan (600s cooldown) and
                 # /unlinked-mentions i rule_engine.find_path no la veien.
                 path_resolver.add_file(v_path, page_id, file_path)
         except Exception as e:
-            # Si no podem inserir, anem al pla B (rebuild segur) per no servir
-            # un cache parcialment incoherent.
+            # If we can't insert, we go to plan B (safe rebuild) so as not to serve
+            # a partially inconsistent cache.
             log.warning(f"Could not insert new page into index cache, falling back to clear: {e}")
             _clear_page_index_cache()
 
-        # El micro-cache de resposta del snapshot (`_pages_resp_cache`, TTL 1.5s)
-        # NO es refresca en actualitzar `_page_index_entries`. Sense invalidar-lo
-        # aquí, una crida a `_get_pages_snapshot()` dins del TTL retorna un
-        # snapshot SENSE aquesta pàgina nova. Conseqüència real: la idempotència
-        # de `translate-row` cerca les traduccions existents via snapshot; just
-        # després de crear el primer subitem, una re-traducció ràpida del mateix
-        # idioma no el troba i en CREA UN DUPLICAT ("… (2).md") en lloc
-        # d'actualitzar-lo. PATCH/PUT/DELETE ja invaliden el micro-cache; les
-        # altes (`create_page`) també ho han de fer per coherència.
+        # The snapshot response micro-cache (`_pages_resp_cache`, TTL 1.5s)
+        # is NOT refreshed when updating `_page_index_entries`. Without invalidating it
+        # here, a call to `_get_pages_snapshot()` within the TTL returns a
+        # snapshot WITHOUT this new page. Real consequence: the idempotency
+        # of `translate-row` looks up existing translations via snapshot; right
+        # after creating the first subitem, a quick re-translation of the same
+        # language doesn't find it and CREATES A DUPLICATE ("… (2).md") instead
+        # after updating it. PATCH/PUT/DELETE already invalidate the micro-cache; the
+        # creations (`create_page`) must also do so for consistency.
         _pages_cache_invalidate_all()
 
         background_tasks.add_task(update_link_index_for_page, file_path)
 
-        # Sincronització bidireccional: en crear una pàgina amb camps de relació,
-        # poblar el camp INVERS de les pàgines referenciades (old buit → tot són
+        # Bidirectional sync: when creating a page with relation fields,
+        # populate the INVERSE field of the referenced pages (old empty → all are
         # altes). Background i defensiu.
         background_tasks.add_task(
             _propagate_relation_inverse,
@@ -3883,7 +3900,7 @@ def _norm_date(value: Any) -> str:
 
 
 def _daily_source_config() -> Tuple[Optional[dict], Optional[dict]]:
-    """Resolves the BD (table) configured as the backing store for daily notes.
+    """Resolves the DB (table) configured as the backing store for daily notes.
 
     The daily-notes plugin can be pointed at a database table (e.g. "Bitàcora")
     via `plugins.json` → `settings["daily-notes"]`:
@@ -3893,6 +3910,7 @@ def _daily_source_config() -> Tuple[Optional[dict], Optional[dict]]:
     `(None, None)` — in which case the classic `Daily Notes/` folder is used.
     The date column is auto-detected (first `date`-typed property) when the
     stored `date_property` is missing or no longer matches.
+    
     """
     try:
         state = _load_plugins_state()
@@ -3998,12 +4016,12 @@ async def list_daily_notes():
     return notes
 
 
-# Serialitza el get-or-create de la nota diària: dues peticions SIMULTÀNIES per
-# la mateixa data passaven totes dues el "find" (cap resultat) i es creaven DUES
-# notes (reproduït amb dos POST concurrents: dues files a la BD per al mateix
-# dia; p. ex. doble clic a "Nota diària" o dues finestres alhora). Un candau
-# global n'hi ha prou: la creació és poc freqüent i el backend natiu corre en un
-# sol procés (el fallback Docker també és un sol worker).
+# Serializes the get-or-create of the daily note: two SIMULTANEOUS requests for
+# the same date both passed the "find" (no result) and TWO were created
+# notes (reproduced with two concurrent POSTs: two rows in the DB for the same
+# day; e.g. double-clicking "Daily Note" or two windows at once). A lock
+# global is enough: creation is infrequent and the native backend runs in a
+# single process (the Docker fallback is also a single worker).
 _daily_note_lock = asyncio.Lock()
 
 
@@ -4084,19 +4102,20 @@ async def list_vault_tags():
     it so the UI can navigate straight to them. Built from the in-memory page
     snapshot (same source the sidebar uses), so it's O(pages) and cache-warm.
 
-    Dues fonts unificades:
-      * el camp `tags` del frontmatter (estil Obsidian), i
-      * el valor del camp d'etiquetes semàntic de cada taula — un `multi_select`
-        amb `config.role == "tags"` (o anomenat tags/etiquetes/labels), un array
-        de noms d'opció a la metadata de la fila.
-    Una pàgina compta UN sol cop per etiqueta encara que la porti a totes dues
-    bandes (p. ex. mateix tag al frontmatter i a la columna de la taula).
+    Two unified sources:
+      * the `tags` field from the frontmatter (Obsidian style), and
+      * the value of each table's semantic tags field — a `multi_select`
+        with `config.role == "tags"` (or named tags/etiquetes/labels), an array
+        of option names in the row's metadata.
+    A page counts ONCE per tag even if it carries it on both
+    sides (e.g. the same tag in the frontmatter and in the table column).
+    
     """
     pages = await asyncio.to_thread(_get_pages_snapshot)
 
-    # Camp d'etiquetes per taula (id + nom de la property), resolt un sol cop des
-    # del registry perquè el bucle de pàgines segueixi sent O(pàgines). Només hi
-    # participen les taules amb una property de rol ROLE_TAGS.
+    # Tags field per table (id + property name), resolved once from
+    # from the registry so the page loop stays O(pages). Only
+    # tables with a property of role ROLE_TAGS take part.
     tag_fields: dict = {}
     try:
         registry = await asyncio.to_thread(load_registry)
@@ -4107,11 +4126,11 @@ async def list_vault_tags():
             if prop:
                 tag_fields[str(t.get("id"))] = (prop.get("id"), prop.get("name"))
     except Exception:
-        # Si el registry no es pot llegir, degradem a només frontmatter.
+        # If the registry can't be read, we degrade to frontmatter only.
         tag_fields = {}
 
-    # tag -> {page_id: title}, dedup per id perquè el mateix tag a frontmatter i
-    # a la columna de taula no dupliqui la pàgina ni infli el recompte.
+    # tag -> {page_id: title}, dedup by id so the same tag in frontmatter and
+    # in the table column doesn't duplicate the page or inflate the count.
     tag_map: dict = {}
 
     def _add(tag: str, page) -> None:
@@ -4155,13 +4174,13 @@ async def list_vault_tags():
 # ---------------------------------------------------------------------------
 _comments_lock = threading.Lock()
 
-# El threading.Lock de dalt fa atòmics CADA load i CADA save per separat, però
-# el cicle load→modify→save dels handlers no ho era: dos POST simultanis
-# carregaven el mateix snapshot, tots dos hi afegien el seu comentari i el segon
-# save trepitjava el primer (reproduït contra el backend real: dels dos
-# comentaris concurrents només en sobrevivia un). Aquest candau d'asyncio
-# serialitza el cicle sencer a les tres mutacions (add/update/delete) — un sol
-# procés d'uvicorn, així que amb el candau del loop n'hi ha prou.
+# The threading.Lock above makes EACH load and EACH save atomic separately, but
+# the handlers' load→modify→save cycle was not: two simultaneous POSTs
+# loaded the same snapshot, both added their comment to it and the second
+# save would overwrite the first one (reproduced against the real backend: of the two
+# concurrent comments only one would survive). This asyncio lock
+# serializes the entire cycle across the three mutations (add/update/delete) — a single
+# uvicorn process, so the loop's lock is enough.
 _comments_mutation_lock = asyncio.Lock()
 
 
@@ -4281,13 +4300,13 @@ async def delete_page_comment(page_id: str, comment_id: str):
 # ---------------------------------------------------------------------------
 _plugins_lock = threading.Lock()
 
-# Serialitza el cicle SENCER load→modify→save de plugins.json (mateix patró que
-# _daily_note_lock i _comments_mutation_lock): `_plugins_lock` fa atòmics cada
-# load i cada save per separat, però dues mutacions concurrents (p.ex. concedir
-# permisos a un plugin mentre un altre tab desa settings) llegien el mateix
-# snapshot i l'última escriptura esclafava l'altra. Els handlers agafen aquest
-# candau abans del seu asyncio.to_thread; les parts lentes (descarregar o
-# extreure un .zip) queden FORA del candau, només la mutació d'estat a dins.
+# Serializes the WHOLE load→modify→save cycle of plugins.json (same pattern as
+# _daily_note_lock and _comments_mutation_lock): `_plugins_lock` makes each
+# load and each save atomic separately, but two concurrent mutations (e.g. granting
+# permissions on a plugin while another tab saves settings) read the same
+# snapshot and the last write would clobber the other. The handlers take this
+# lock before their asyncio.to_thread; the slow parts (downloading or
+# extracting a .zip) stay OUTSIDE the lock, only the state mutation goes inside.
 _plugins_mutation_lock = asyncio.Lock()
 
 
@@ -4331,7 +4350,7 @@ async def get_plugins_state():
 
 
 def _save_plugins_state(state: dict) -> dict:
-    """Persisteix l'estat sencer de plugins (disabled + settings + granted + registry_url)."""
+    """Persists the entire plugin state (disabled + settings + granted + registry_url)."""
     payload = {
         "disabled": [str(x) for x in (state.get("disabled") or [])],
         "settings": state.get("settings") if isinstance(state.get("settings"), dict) else {},
@@ -4350,8 +4369,9 @@ def _save_plugins_state(state: dict) -> dict:
 async def set_plugins_state(request: PluginsUpdateRequest):
     """Persists which plugins are disabled and their per-plugin settings.
 
-    Preserva `granted` (permisos concedits a plugins de tercers), que es
-    gestiona per un endpoint propi i no viatja en aquest payload.
+    Preserves `granted` (permissions granted to third-party plugins), which is
+    managed by its own endpoint and doesn't travel in this payload.
+    
     """
     def _write():
         current = _load_plugins_state()
@@ -4363,25 +4383,25 @@ async def set_plugins_state(request: PluginsUpdateRequest):
 
 
 # ---------------------------------------------------------------------------
-# Plugins de TERCERS (v2): manifest, permisos i assets. Veure directiva
+# THIRD-PARTY plugins (v2): manifest, permissions, and assets. See directive
 # `plugin_system.md` i serveis `plugin_system` / `plugin_sandbox`.
 # ---------------------------------------------------------------------------
 class PluginPermissionsRequest(BaseModel):
-    # Llista de permisos que l'usuari CONCEDEIX al plugin (subconjunt del
-    # catàleg). Buida = revocar-los tots.
+    # List of permissions the user GRANTS to the plugin (subset of the
+    # catalog). Empty = revoke all of them.
     permissions: list = []
 
 
 @router.get("/plugins/catalog")
 async def get_plugins_catalog():
-    """Catàleg de permisos disponibles (id → descripció) + versió d'API del host."""
+    """Catalog of available permissions (id → description) + host API version."""
     from backend.services import plugin_system as ps
     return {"permissions": ps.PERMISSIONS, "apiVersion": ps.PLUGIN_API_VERSION}
 
 
 @router.get("/plugins/installed")
 async def get_installed_plugins():
-    """Llista els plugins de tercers instal·lats amb manifest + estat + permisos."""
+    """Lists the installed third-party plugins with manifest + status + permissions."""
     from backend.services import plugin_system as ps
 
     def _work():
@@ -4407,12 +4427,12 @@ async def get_installed_plugins():
 
 @router.post("/plugins/{plugin_id}/permissions", dependencies=[Depends(require_role("editor"))])
 async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsRequest):
-    """Concedeix (o revoca) permisos a un plugin de tercers."""
+    """Grants (or revokes) permissions to a third-party plugin."""
     from backend.services import plugin_system as ps
 
     def _work():
         config_dir = get_p("GNOSI_CONFIG")
-        # Valida que el plugin existeix i que només concedim permisos que declara.
+        # Validates that the plugin exists and that we only grant permissions it declares.
         manifest = ps.read_manifest(config_dir, plugin_id)
         requested = [p for p in (request.permissions or []) if p in ps.PERMISSIONS]
         declared = set(manifest.get("permissions") or [])
@@ -4430,13 +4450,13 @@ async def set_plugin_permissions(plugin_id: str, request: PluginPermissionsReque
 
 
 class PluginSettingsRequest(BaseModel):
-    # Patch a fusionar amb la configuració pròpia del plugin (clau `settings`).
+    # Patch to merge with the plugin's own configuration (key `settings`).
     settings: dict = {}
 
 
 @router.get("/plugins/{plugin_id}/settings")
 async def get_plugin_settings(plugin_id: str):
-    """Retorna la configuració pròpia d'un plugin (`settings[plugin_id]`)."""
+    """Returns a plugin's own configuration (`settings[plugin_id]`)."""
     def _work():
         state = _load_plugins_state()
         return {"settings": (state.get("settings") or {}).get(plugin_id) or {}}
@@ -4445,7 +4465,7 @@ async def get_plugin_settings(plugin_id: str):
 
 @router.put("/plugins/{plugin_id}/settings", dependencies=[Depends(require_role("editor"))])
 async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
-    """Fusiona un patch a la configuració pròpia d'un plugin."""
+    """Merges a patch into a plugin's own configuration."""
     def _work():
         state = _load_plugins_state()
         settings = dict(state.get("settings") or {})
@@ -4460,10 +4480,11 @@ async def set_plugin_settings(plugin_id: str, request: PluginSettingsRequest):
 
 @router.get("/plugins/{plugin_id}/asset/{asset_path:path}")
 async def get_plugin_asset(plugin_id: str, asset_path: str):
-    """Serveix un fitxer estàtic del directori del plugin (entry de UI, etc.).
+    """Serves a static file from the plugin's directory (UI entry, etc.).
 
-    Blindat contra path-traversal: l'id es valida i el fitxer resolt ha de
-    quedar DINS del directori del plugin.
+    Hardened against path-traversal: the id is validated and the resolved file must
+    stay INSIDE the plugin's directory.
+    
     """
     from backend.services import plugin_system as ps
 
@@ -4485,9 +4506,10 @@ async def get_plugin_asset(plugin_id: str, asset_path: str):
 
 
 def _quarantine_installed_plugin(plugin_id: str) -> None:
-    """Instal·lat de nou → arrenca desactivat (afegit a `disabled`), permisos nets.
+    """Newly installed → starts disabled (added to `disabled`), clean permissions.
 
-    Cicle load→modify→save: cridar-lo SEMPRE amb `_plugins_mutation_lock` agafat.
+    Load→modify→save cycle: ALWAYS call it while holding `_plugins_mutation_lock`.
+    
     """
     from backend.services import plugin_system as ps
     state = _load_plugins_state()
@@ -4500,10 +4522,11 @@ def _quarantine_installed_plugin(plugin_id: str) -> None:
 
 @router.post("/plugins/install", dependencies=[Depends(require_role("editor"))])
 async def install_plugin(file: UploadFile = File(...)):
-    """Instal·la un plugin de tercers des d'un .zip pujat (amb el seu manifest.json).
+    """Installs a third-party plugin from an uploaded .zip (with its manifest.json).
 
-    Validació del manifest + extracció anti zip-slip. Un cop instal·lat queda
-    DESACTIVAT i sense permisos fins que l'usuari els concedeix.
+    Manifest validation + anti zip-slip extraction. Once installed it stays
+    DISABLED and without permissions until the user grants them.
+    
     """
     from backend.services import plugin_system as ps
     data = await file.read()
@@ -4513,7 +4536,7 @@ async def install_plugin(file: UploadFile = File(...)):
         return ps.install_from_zip(config_dir, data, overwrite=True)
 
     try:
-        # L'extracció del .zip queda fora del candau; només la mutació d'estat a dins.
+        # The .zip extraction stays outside the lock; only the state mutation goes inside.
         manifest = await asyncio.to_thread(_install)
     except ps.PluginError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -4524,13 +4547,13 @@ async def install_plugin(file: UploadFile = File(...)):
 
 @router.delete("/plugins/{plugin_id}", dependencies=[Depends(require_role("editor"))])
 async def uninstall_plugin(plugin_id: str):
-    """Desinstal·la un plugin de tercers: esborra la carpeta i neteja el seu estat."""
+    """Uninstall a third-party plugin: delete its folder and clean up its state."""
     from backend.services import plugin_system as ps
 
     def _work():
         config_dir = get_p("GNOSI_CONFIG")
         ps.uninstall(config_dir, plugin_id)
-        # Neteja l'estat associat (disabled + granted) perquè no quedi orfe.
+        # Cleans up the associated state (disabled + granted) so it doesn't stay orphaned.
         state = _load_plugins_state()
         state["disabled"] = [d for d in (state.get("disabled") or []) if d != plugin_id]
         state = ps.set_granted(state, plugin_id, [])
@@ -4546,22 +4569,23 @@ async def uninstall_plugin(plugin_id: str):
 
 
 class CatalogInstallRequest(BaseModel):
-    # Instal·la un plugin `bundled` del catàleg pel seu id, O des d'un .zip remot.
+    # Installs a `bundled` plugin from the catalog by its id, OR from a remote .zip.
     id: Optional[str] = None
     url: Optional[str] = None
-    # Checksum SHA-256 opcional per verificar la integritat d'un .zip remot.
+    # Optional SHA-256 checksum to verify the integrity of a remote .zip.
     sha256: Optional[str] = None
-    # Signatura Ed25519 (base64) opcional; si es dona, ha de verificar amb una
-    # clau del magatzem de confiança o la instal·lació es rebutja.
+    # Optional Ed25519 (base64) signature; if given, it must verify against a
+    # key from the trust store or the installation is rejected.
     signature: Optional[str] = None
 
 
 @router.get("/plugins/catalog/list")
 async def list_plugin_catalog():
-    """Llista les entrades del catàleg de plugins (galeria), marcant-ne l'estat.
+    """Lists the plugin catalog entries (gallery), marking their status.
 
-    Afegeix `installed: bool` a cada entrada perquè la UI mostri "Instal·la" o
-    "Instal·lat".
+    Adds `installed: bool` to each entry so the UI shows "Install" or
+    "Installed".
+    
     """
     from backend.services import plugin_catalog as pc
     from backend.services import plugin_system as ps
@@ -4577,7 +4601,7 @@ async def list_plugin_catalog():
             out.append({
                 **entry,
                 "installed": entry.get("id") in installed_ids,
-                # La UI pot mostrar un distintiu segons la font i si porta signatura.
+                # The UI can show a badge based on the source and whether it carries a signature.
                 "signed": bool(entry.get("signature")),
             })
         return {"catalog": out}
@@ -4587,7 +4611,7 @@ async def list_plugin_catalog():
 
 @router.post("/plugins/catalog/install", dependencies=[Depends(require_role("editor"))])
 async def install_from_catalog(request: CatalogInstallRequest):
-    """Instal·la un plugin del catàleg (bundled per `id`, o remot per `url`)."""
+    """Installs a plugin from the catalog (bundled by `id`, or remote by `url`)."""
     from backend.services import plugin_catalog as pc
     from backend.services import plugin_system as ps
 
@@ -4600,8 +4624,8 @@ async def install_from_catalog(request: CatalogInstallRequest):
         raise ps.PluginError("cal `id` o `url`")
 
     try:
-        # La descàrrega/extracció queda fora del candau (pot trigar segons);
-        # només la mutació d'estat (desactivat + sense permisos) va a dins.
+        # The download/extraction stays outside the lock (it can take seconds);
+        # only the state mutation (disabled + no permissions) goes inside.
         manifest = await asyncio.to_thread(_install)
     except ps.PluginError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -4611,7 +4635,7 @@ async def install_from_catalog(request: CatalogInstallRequest):
 
 
 # ---------------------------------------------------------------------------
-# Fase 3: magatzem de claus de confiança (signatura de plugins) + índex remot.
+# Phase 3: trust store (plugin signing) + remote index.
 # ---------------------------------------------------------------------------
 class TrustedKeyRequest(BaseModel):
     name: str
@@ -4624,7 +4648,7 @@ class RegistryUrlRequest(BaseModel):
 
 @router.get("/plugins/trust")
 async def list_trusted_keys():
-    """Llista els NOMS de les claus de confiança (no exposa el material sencer)."""
+    """Lists the NAMES of the trusted keys (doesn't expose the full key material)."""
     from backend.services import plugin_signing as psign
 
     def _work():
@@ -4637,7 +4661,7 @@ async def list_trusted_keys():
 
 @router.post("/plugins/trust", dependencies=[Depends(require_role("admin"))])
 async def add_trusted_key(request: TrustedKeyRequest):
-    """Afegeix una clau pública Ed25519 de confiança (base64). Acció d'administrador."""
+    """Adds a trusted Ed25519 public key (base64). Admin action."""
     from backend.services import plugin_signing as psign
 
     def _work():
@@ -4653,7 +4677,7 @@ async def add_trusted_key(request: TrustedKeyRequest):
 
 @router.delete("/plugins/trust/{name}", dependencies=[Depends(require_role("admin"))])
 async def remove_trusted_key(name: str):
-    """Elimina una clau de confiança pel seu nom."""
+    """Removes a trusted key by its name."""
     from backend.services import plugin_signing as psign
 
     def _work():
@@ -4666,7 +4690,7 @@ async def remove_trusted_key(name: str):
 
 @router.get("/plugins/registry-url")
 async def get_registry_url():
-    """URL de l'índex remot de plugins configurat (buit si no n'hi ha)."""
+    """URL of the configured remote plugin index (empty if there isn't one)."""
     def _work():
         return {"url": _load_plugins_state().get("registry_url") or ""}
     return await asyncio.to_thread(_work)
@@ -4674,7 +4698,7 @@ async def get_registry_url():
 
 @router.put("/plugins/registry-url", dependencies=[Depends(require_role("admin"))])
 async def set_registry_url(request: RegistryUrlRequest):
-    """Configura (o esborra) la URL de l'índex remot de plugins."""
+    """Configures (or clears) the URL of the remote plugin index."""
     url = (request.url or "").strip()
     if url and not url.lower().startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="url ha de ser http(s)")
@@ -4717,26 +4741,27 @@ def _canonicalize_id(page_id: Any) -> str:
     return s
 
 
-# Strict allow-list per a IDs que s'utilitzen com a SEGMENT de path al
-# filesystem. Bloqueja path traversal (`..`, `/`, `\`, NUL, leading dot).
-# Raó: rutes com `/pages/{page_id}/history` construeixen `VAULT / .history /
-# {page_id}` i, sense validació, `page_id="..".rmtree()` esborraria tot el
-# Vault. Defensa en profunditat encara que les rutes estiguin gated per role.
+# Strict allow-list for IDs used as a path SEGMENT in the
+# filesystem. Blocks path traversal (`..`, `/`, `\`, NUL, leading dot).
+# Reason: routes like `/pages/{page_id}/history` build `VAULT / .history /
+# {page_id}` and, without validation, `page_id="..".rmtree()` would delete the entire
+# Vault. Defense in depth even though the routes are gated by role.
 _PAGE_ID_RE = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
-# Format de timestamp d'historial: `YYYYMMDD_HHMMSS` (vegeu `_create_page_version`).
+# History timestamp format: `YYYYMMDD_HHMMSS` (see `_create_page_version`).
 _HISTORY_TIMESTAMP_RE = re.compile(r"^\d{8}_\d{6}$")
 
 
 def _validate_safe_page_id(page_id: str) -> str:
-    """Valida que page_id és segur per usar com a segment de path.
+    """Validates that page_id is safe to use as a path segment.
 
-    Rebutja:
-      - Buit / només whitespace.
-      - Conté `..`, `/`, `\\`, NUL byte.
-      - Comença per `.` (fitxers ocults) o és exactament `.` o `..`.
-      - Caràcters fora de `[A-Za-z0-9_-]`.
+    Rejects:
+      - Empty / whitespace only.
+      - Contains `..`, `/`, `\\`, NUL byte.
+      - Starts with `.` (hidden files) or is exactly `.` or `..`.
+      - Characters outside `[A-Za-z0-9_-]`.
 
-    Retorna l'id strippejat. Llança HTTPException(400) si invàlid.
+    Returns the stripped id. Raises HTTPException(400) if invalid.
+    
     """
     pid = str(page_id or "").strip()
     if not pid or not _PAGE_ID_RE.match(pid) or pid.startswith("."):
@@ -4745,10 +4770,11 @@ def _validate_safe_page_id(page_id: str) -> str:
 
 
 def _validate_history_timestamp(timestamp: str) -> str:
-    """Valida que un timestamp d'historial té format `YYYYMMDD_HHMMSS`.
+    """Validates that a history timestamp has the `YYYYMMDD_HHMMSS` format.
 
-    Sense això, `timestamp="../foo"` permetria llegir o sobreescriure
-    fitxers .md fora del directori d'historial de la pàgina.
+    Without this, `timestamp="../foo"` would allow reading or overwriting
+    .md files outside the page's history directory.
+    
     """
     ts = str(timestamp or "").strip()
     if not ts or not _HISTORY_TIMESTAMP_RE.match(ts):
@@ -4778,11 +4804,11 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
 
     # 1. High Performance Cache Lookup (O(1) when ids match exactly).
     # Try the raw id first (covers the 99% case), then a canonical scan.
-    # OPTIM: si el cache d'entries té el path i el stale-check global s'ha
-    # fet recentment (TTL `_STALE_CHECK_TTL`), saltem el `p.exists()` aquí
-    # — fa un stat() a OneDrive de 5-50 ms que es repeteix a cada
-    # `find_page_path`, i el cache global ja s'encarrega de podar entries
-    # esborrades externament al següent stale-check periòdic.
+    # OPTIM: if the entries cache has the path and the global stale-check has
+    # been done recently (TTL `_STALE_CHECK_TTL`), we skip the `p.exists()` here
+    # — it does a 5-50 ms stat() on OneDrive that repeats on every
+    # `find_page_path`, and the global cache already takes care of pruning entries
+    # deleted externally at the next periodic stale-check.
     with _page_index_lock:
         id_map = _page_id_to_path.get(v_str, {})
         path_str = id_map.get(page_id)
@@ -4794,7 +4820,7 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
                     break
         if path_str:
             p = Path(path_str)
-            # Trust the cache si l'stale-check global és prou recent.
+            # Trust the cache if the global stale-check is recent enough.
             try:
                 stale_age = time.monotonic() - _last_stale_check["ts"]
             except Exception:
@@ -4841,12 +4867,12 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
     if dashboard_direct_path and dashboard_direct_path.exists():
         return dashboard_direct_path
 
-    # 4. Title-based lookup (resilient fallback). Si el `page_id` no és un
-    # UUID però coincideix amb el títol d'una pàgina indexada, retornem
-    # aquella. Cobreix el cas de wikilinks amb títol literal (`[[Foo]]`) que
-    # arriben aquí sense ser resolts pel frontend (idToTitle stale o pendent
-    # de refrescar després d'un move). Sense aquesta passada, els wikilinks
-    # per títol fallen amb 404 silenciosament. Cost: scan linear sobre dict
+    # 4. Title-based lookup (resilient fallback). If the `page_id` is not a
+    # UUID but matches the title of an indexed page, we return
+    # that one. Covers the case of wikilinks with a literal title (`[[Foo]]`) that
+    # arrive here without being resolved by the frontend (idToTitle stale or pending
+    # a refresh after a move). Without this pass, wikilinks
+    # by title fail silently with 404. Cost: linear scan over dict
     # in-memory (~3000 entries) → barat.
     title_lower = str(page_id or "").strip().lower()
     is_uuid_like = bool(
@@ -4868,19 +4894,19 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
                             _page_id_to_path.setdefault(v_str, {})[entry_id] = p_str
                         return p
 
-    # 5. Full scan (cache fred o buit — costós però correcte). Canonical
+    # 5. Full scan (cold or empty cache — expensive but correct). Canonical
     # compare so dash/no-dash and case differences don't cause false negatives.
     # Skipped when the caller knows the page can't exist yet (PUT to a fresh
     # id) — saves a multi-second OneDrive rglob.
     if not allow_full_scan:
         return None
-    # Si la cache ja està inicialitzada **i té entrades** i no hem trobat la
-    # pàgina, és un "fantasma": està cachejat al frontend però el fitxer s'ha
-    # eliminat externament. Fer un rglob complet de 3981 fitxers a OneDrive
-    # triga 30s+ i bloqueja DELETE/GET indefinidament. Confiem al cache.
-    # Però si el cache acaba d'estar netejat (entries buides), sí cal fer
-    # rglob — altrament una pàgina recent-creada que ha provocat un clear
-    # quedaria invisible fins que algú forcés un refresh complet.
+    # If the cache is already initialized **and has entries** and we haven't found the
+    # page, it's a "ghost": it's cached in the frontend but the file has been
+    # deleted externally. Doing a full rglob of 3981 files on OneDrive
+    # takes 30s+ and blocks DELETE/GET indefinitely. We rely on the cache.
+    # But if the cache was just cleared (empty entries), we do need to do
+    # an rglob — otherwise a recently created page that triggered a clear
+    # would stay invisible until someone forced a full refresh.
     with _page_index_lock:
         cache_has_entries = bool(_page_index_entries.get(v_str))
     if _page_index_initialized.get(v_str) and cache_has_entries:
@@ -4904,13 +4930,14 @@ def find_page_path(page_id: str, *, allow_full_scan: bool = True) -> Optional[Pa
 
 
 async def _materialize_if_online_only(file_path: Path, label: str = "") -> None:
-    """Materialitza el fitxer si OneDrive el té com a online-only (`dataless`)
-    ABANS de llegir-lo, evitant l'`OSError [Errno 35]` (EDEADLK) que es
-    produeix en llegir-lo des de dins el contenidor.
+    """Materializes the file if OneDrive has it as online-only (`dataless`)
+    BEFORE reading it, avoiding the `OSError [Errno 35]` (EDEADLK) that
+    occurs when reading it from inside the container.
 
-    No-op silenciós si falla (daemon de warmup caigut, fora d'àmbit, etc.): el
-    cridador conserva el seu retry loop com a xarxa de seguretat. És el mateix
-    patró que ja segueix `_compute_preview` per als previews.
+    Silent no-op if it fails (warmup daemon down, out of scope, etc.): the
+    caller keeps its retry loop as a safety net. It's the same
+    pattern already followed by `_compute_preview` for previews.
+    
     """
     try:
         provider = get_files_provider()
@@ -4918,7 +4945,7 @@ async def _materialize_if_online_only(file_path: Path, label: str = "") -> None:
         if provider.is_online_only(file_path, st):
             await provider.materialize(file_path)
     except OSError:
-        pass  # cap mal: el retry loop del cridador ja ho gestiona.
+        pass  # no harm: the caller's retry loop already handles it.
     except Exception as e:
         log.debug(f"Warmup proactiu falla per {label or file_path}: {e}")
 
@@ -4935,20 +4962,20 @@ async def get_page(page_id: str):
             status_code=404, detail=f"Page not found (ID: {page_id})"
         )
 
-    # Warmup proactiu: si el fitxer és online-only, materialitza'l abans de
-    # llegir-lo. Sense això, obrir una pàgina d'un fitxer dataless donava 500
-    # (EDEADLK) tot i tenir el warmup daemon viu, perquè aquest camí —a
-    # diferència del preview— no demanava la materialització.
+    # Proactive warmup: if the file is online-only, materialize it before
+    # reading it. Without this, opening a page for a dataless file gave a 500
+    # (EDEADLK) even with the warmup daemon alive, because this path —unlike
+    # the preview— didn't request materialization.
     await _materialize_if_online_only(file_path, page_id)
 
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
             return _read_dashboard_file(file_path)
-        # OneDrive sync pot retornar Errno 35 (Resource deadlock avoided)
-        # durant fins a 5 segons quan està estabilitzant un fitxer. Reintenta
-        # fins a 8 cops amb backoff exponencial: 0.05, 0.1, 0.2, 0.4, 0.8,
-        # 1.0, 1.0, 1.0 (4.55s total). Si fins i tot així falla, és que
-        # OneDrive té un problema seriós i ho retornem com a 500.
+        # OneDrive sync can return Errno 35 (Resource deadlock avoided)
+        # for up to 5 seconds while it's stabilizing a file. Retries
+        # up to 8 times with exponential backoff: 0.05, 0.1, 0.2, 0.4, 0.8,
+        # 1.0, 1.0, 1.0 (4.55s total). If it still fails even so, then
+        # OneDrive has a serious problem and we return it as a 500.
         last_error = None
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         for attempt in range(len(delays) + 1):
@@ -4979,8 +5006,8 @@ async def get_page(page_id: str):
             get_p("DATABASES") / "vault_graph.json",
             _vf_page_loader,
         )
-        # Compatibilitat enrere: el frontend antic llegeix metadata per nom de
-        # camp; expandim id-keys amb el nom corresponent (sense esborrar id).
+        # Backward compatibility: the old frontend reads metadata by name of
+        # field; expand id-keys with the corresponding name (without deleting id).
         if _table_obj:
             metadata = to_response_names(metadata, _table_obj)
         return {
@@ -5001,7 +5028,7 @@ async def get_page(page_id: str):
 
 
 def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
-    """Extreu el primer paràgraf significatiu del markdown, sanititzat per a tooltips."""
+    """Extracts the first meaningful paragraph from the markdown, sanitized for tooltips."""
     if not body:
         return ""
 
@@ -5053,22 +5080,22 @@ def _build_preview_excerpt(body: str, max_chars: int = 320) -> str:
 
 
 # -----------------------------------------------------------------------------
-# Pandoc export amb cites resoltes
+# Pandoc export with resolved citations
 # -----------------------------------------------------------------------------
 #
-# Workflow acadèmic Fase 5: exporta una pàgina del Vault a .docx/.odt/.html/.pdf
-# amb les cites `[@key]` resoltes contra Recursos i bibliografia generada via
-# CSL. Pandoc 3+ porta citeproc integrat, així que una sola invocació basta:
+# Academic workflow Phase 5: exports a Vault page to .docx/.odt/.html/.pdf
+# with `[@key]` citations resolved against Recursos and a bibliography generated via
+# CSL. Pandoc 3+ ships with citeproc built in, so a single invocation is enough:
 #
 #     pandoc input.md \
 #         --citeproc \
-#         --bibliography refs.json   (CSL-JSON generat per nosaltres)
-#         --csl apa.csl              (style triat per l'usuari)
+#         --bibliography refs.json   (CSL-JSON generated by us)
+#         --csl apa.csl              (style chosen by the user)
 #         -o output.docx
 #
-# refs.json es genera al vol a partir de les pàgines Recursos referenciades
-# al document. Així Pandoc rep només el subset rellevant (no totes 4198
-# entries) i el processament és ràpid.
+# refs.json is generated on the fly from the referenced Recursos pages
+# in the document. This way Pandoc receives only the relevant subset (not all 4198
+# entries) and processing is fast.
 
 import tempfile as _ext_tempfile
 import subprocess as _ext_subprocess
@@ -5077,7 +5104,7 @@ from backend.services.csl_type_resolver import resolve_csl_type as _resolve_csl_
 
 
 def _parse_authors_to_csl(authors_str: str) -> list:
-    """Mateixa heurística que cslEngine.js — parse Authors string a CSL author array."""
+    """Same heuristic as cslEngine.js — parse Authors string into a CSL author array."""
     if not authors_str or not isinstance(authors_str, str):
         return []
     parts = (
@@ -5107,13 +5134,13 @@ def _parse_authors_to_csl(authors_str: str) -> list:
 
 
 def _normalize_authors_field(v):
-    """Normalitza el camp Authors quan ve ESTRUCTURAT a una cadena que
-    `_parse_authors_to_csl` entén ('Cognoms, Nom; ...').
+    """Normalizes the Authors field when it comes STRUCTURED into a string that
+    `_parse_authors_to_csl` understands ('Surname, Name; ...').
 
-    La metadata cachejada del page_index pot guardar Authors com a string,
-    com a dict {nom, cognom1, cognom2}, o com a llista d'aquests. Les
-    strings es deixen tal qual (ja les processa `_parse_authors_to_csl`);
-    només convertim dicts/llistes."""
+    The metadata cached in page_index can store Authors as a string,
+    as a dict {nom, cognom1, cognom2}, or as a list of these. Strings
+    are left as-is (already processed by `_parse_authors_to_csl`);
+    we only convert dicts/lists."""
     if isinstance(v, str):
         return v
 
@@ -5139,8 +5166,8 @@ def _normalize_authors_field(v):
 
 
 def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
-    """Construeix CSL-JSON d'una pàgina de Recursos. Equivalent backend del
-    `recursosPageToCsl` del frontend (mateix mapeig)."""
+    """Builds CSL-JSON for a Recursos page. Backend equivalent of the frontend's
+    `recursosPageToCsl` (same mapping)."""
     ck = m.get('Citation Key')
     if not ck:
         return None
@@ -5173,8 +5200,8 @@ def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
 
 
 def _resolve_csl_path(style: str) -> Optional[Path]:
-    """Localitza el fitxer `.csl` per a un estil donat. Compartit per
-    `/export/`, `/format-citation` i `/format-bibliography`."""
+    """Locates the `.csl` file for a given style. Shared by
+    `/export/`, `/format-citation` and `/format-bibliography`."""
     style_map = {
         'apa': 'apa.csl',
         'chicago-author-date': 'chicago-author-date.csl',
@@ -5194,9 +5221,9 @@ def _resolve_csl_path(style: str) -> Optional[Path]:
 
 
 def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
-    """Construeix la llista de CSL-JSON items per als citation keys donats.
-    Ignora els que no resolen al Vault. Reutilitzable per
-    `/format-citation`, `/format-bibliography` i `/export/`."""
+    """Builds the list of CSL-JSON items for the given citation keys.
+    Ignores the ones that don't resolve in the Vault. Reusable by
+    `/format-citation`, `/format-bibliography` and `/export/`."""
     if not keys:
         return []
     from backend.services.context_vars import get_active_vault_path
@@ -5205,10 +5232,10 @@ def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
         return []
     v_str = str(v_path)
     idx = _ensure_cite_key_index(v_str)
-    # Snapshot de la metadata cachejada per id. Construir el CSL des d'aquí
-    # evita reobrir el .md — imprescindible quan el vault viu en
-    # emmagatzematge al núvol amb fitxers online-only (obrir-los provoca
-    # EDEADLK i la cita quedaria sense resoldre). Vegis environment_integrity.
+    # Snapshot of the cached metadata by id. Building the CSL from here
+    # avoids reopening the .md — essential when the vault lives on
+    # cloud storage with online-only files (opening them causes
+    # EDEADLK and the citation would be left unresolved). See environment_integrity.
     with _page_index_lock:
         meta_by_id = {
             e.get("id"): (e.get("metadata") or {})
@@ -5222,7 +5249,7 @@ def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
             continue
         title = entry.get('title') or ''
         csl_item = None
-        # 1) Metadata cachejada (sense I/O al núvol).
+        # 1) Cached metadata (no cloud I/O).
         meta = meta_by_id.get(entry.get('id'))
         if meta:
             md_copy = dict(meta)
@@ -5233,8 +5260,8 @@ def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
                 csl_item = _recursos_metadata_to_csl(title, md_copy)
             except Exception:
                 csl_item = None
-        # 2) Fallback: llegir el frontmatter del fitxer (cas legacy o cache
-        #    incompleta). Pot fallar amb fitxers online-only; es captura.
+        # 2) Fallback: read the file's frontmatter (legacy case or cache
+        #    incomplete). Can fail with online-only files; it's caught.
         if not csl_item:
             try:
                 page_path = find_page_path(entry['id'])
@@ -5249,10 +5276,10 @@ def _build_csl_items_for_keys(keys: List[str]) -> List[dict]:
     return out
 
 
-# Missatge d'error compartit quan no es troba pandoc. En NATIU (sense Docker)
-# el binari és una dependència del host — la imatge del contenidor el duia,
-# però després de la migració l'error antic ("not available al contenidor")
-# desorientava: la solució és instal·lar-lo al Mac.
+# Shared error message when pandoc is not found. In NATIVE mode (without Docker)
+# the binary is a host dependency — the container image used to bundle it,
+# but after the migration the old error ("not available in the container")
+# was confusing: the fix is to install it on the Mac.
 _PANDOC_MISSING_MSG = (
     "pandoc no disponible al host — instal·la'l (brew install pandoc) "
     "o defineix PANDOC_PATH amb la ruta del binari"
@@ -5260,15 +5287,16 @@ _PANDOC_MISSING_MSG = (
 
 
 def _pandoc_bin() -> str:
-    """Ruta del binari pandoc, robusta a l'entorn NATIU.
+    """Path to the pandoc binary, robust to the NATIVE environment.
 
-    Els LaunchAgents poden arrencar el backend amb un PATH mínim (sense
-    /opt/homebrew/bin ni /usr/local/bin), i llavors `subprocess.run(['pandoc',…])`
-    peta amb FileNotFoundError encara que pandoc estigui instal·lat. Ordre de
-    resolució: PANDOC_PATH (override explícit) → shutil.which (PATH del procés)
-    → ubicacions Homebrew habituals (ARM i Intel). Es retorna 'pandoc' com a
-    últim recurs perquè el FileNotFoundError dels cridadors segueixi produint
-    el 500 amb _PANDOC_MISSING_MSG.
+    LaunchAgents can start the backend with a minimal PATH (without
+    /opt/homebrew/bin or /usr/local/bin), and then `subprocess.run(['pandoc',…])`
+    crashes with FileNotFoundError even though pandoc is installed. Resolution
+    order: PANDOC_PATH (explicit override) → shutil.which (process PATH)
+    → common Homebrew locations (ARM and Intel). 'pandoc' is returned as a
+    last resort so that callers' FileNotFoundError keeps producing
+    the 500 with _PANDOC_MISSING_MSG.
+    
     """
     env_path = os.environ.get("PANDOC_PATH", "").strip()
     if env_path and Path(env_path).exists():
@@ -5288,15 +5316,16 @@ async def format_citation(
     style: str = Query('apa'),
     locale: str = Query('ca-AD'),
 ):
-    """Renderitza una cita inline (un sol citation key) com a text plain.
+    """Renders an inline citation (a single citation key) as plain text.
 
-    Pensat per al Office Add-in (Gnosi Cite): el add-in vol inserir un
-    text formatat al document de Word. El backend invoca pandoc-citeproc
-    amb el subset mínim (un sol element) i retorna el text inline.
+    Designed for the Office Add-in (Gnosi Cite): the add-in wants to insert
+    formatted text into the Word document. The backend invokes pandoc-citeproc
+    with the minimal subset (a single element) and returns the inline text.
 
-    Resposta: `{ formatted: "(Smith, 2020)", key: "smith2020" }`. Si no
-    es resol, retorna el citation key entre parèntesis com a fallback
-    perquè l'usuari pugui veure el problema al document.
+    Response: `{ formatted: "(Smith, 2020)", key: "smith2020" }`. If it can't
+    be resolved, returns the citation key in parentheses as a fallback
+    so the user can see the problem in the document.
+    
     """
     key_norm = str(key or '').strip()
     if not key_norm:
@@ -5307,11 +5336,11 @@ async def format_citation(
         return {"key": key_norm, "formatted": f"(@{key_norm})", "resolved": False}
 
     csl_path = _resolve_csl_path(style)
-    # Una sola cita inline. Pandoc-citeproc emet el cos (la cita) i,
-    # després d'una línia en blanc, la bibliografia; ens quedem amb el
-    # primer paràgraf. NOTA: no fem servir marcadors de text perquè pandoc
-    # en mode `plain` interpreta `<...>` com a HTML i els malmet (sortiria
-    # `<<>>` enganxat a la cita). `--wrap=none` evita salts de línia.
+    # A single inline citation. Pandoc-citeproc emits the body (the citation) and,
+    # after a blank line, the bibliography; we keep the
+    # first paragraph. NOTE: we don't use text markers because pandoc
+    # in `plain` mode interprets `<...>` as HTML and corrupts them (it would come out
+    # `<<>>` stuck to the citation). `--wrap=none` avoids line breaks.
     md = f"[@{key_norm}]\n"
 
     with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmt_') as tmpdir:
@@ -5335,33 +5364,34 @@ async def format_citation(
             raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
         out = r.stdout
 
-    # El cos (cita inline) va abans de la primera línia en blanc; la
-    # bibliografia ve després i la descartem.
+    # The body (inline citation) comes before the first blank line; the
+    # bibliography comes after and we discard it.
     formatted = out.split('\n\n', 1)[0].strip()
     return {"key": key_norm, "formatted": formatted, "resolved": True}
 
 
 @router.post("/format-citations")
 async def format_citations(payload: dict = Body(...)):
-    """Renderitza un conjunt de cites inline EN CONJUNT — necessari per
-    complir APA i altres estils sensibles a context.
+    """Renders a set of inline citations TOGETHER — necessary to
+    comply with APA and other context-sensitive styles.
 
-    Per què cal aquesta variant batch (no `format-citation` singular):
-      - APA desambigua autors homònims dins un document (Smith, J. vs
-        Smith, A.) afegint inicials a la primera aparició
-      - Mateix autor + mateix any → sufixos `2020a`, `2020b` automàtics
-      - Primera aparició d'un grup amb molts autors → noms complets;
-        següents → `et al.`
-      - Citeproc només pot fer aquestes decisions si rep TOT el subset
-        que apareix al document en una sola crida
+    Why this batch variant is needed (not the singular `format-citation`):
+      - APA disambiguates homonymous authors within a document (Smith, J. vs
+        Smith, A.) by adding initials on first appearance
+      - Same author + same year → automatic `2020a`, `2020b` suffixes
+      - First appearance of a group with many authors → full names;
+        subsequent ones → `et al.`
+      - Citeproc can only make these decisions if it receives the ENTIRE subset
+        that appears in the document in a single call
 
-    Cos: `{ keys: ["smith2020", "lee2021", "smith2020"], style, locale }`
-    (els duplicats es permeten — citeproc-js i pandoc-citeproc compten
-    ocurrències per decidir el format apropiat).
+    Body: `{ keys: ["smith2020", "lee2021", "smith2020"], style, locale }`
+    (duplicates are allowed — citeproc-js and pandoc-citeproc count
+    occurrences to decide the appropriate format).
 
-    Resposta: `{ items: [{key, formatted, ordinal}, ...], style, locale }`
-    `ordinal` és l'ordre d'aparició (1, 2, 3…) — útil per saber a quina
-    Content Control del document correspon cada text formatat.
+    Response: `{ items: [{key, formatted, ordinal}, ...], style, locale }`
+    `ordinal` is the order of appearance (1, 2, 3…) — useful for knowing which
+    Content Control in the document each formatted text corresponds to.
+    
     """
     raw_keys = payload.get('keys') or []
     if not isinstance(raw_keys, list):
@@ -5372,27 +5402,27 @@ async def format_citations(payload: dict = Body(...)):
     style = str(payload.get('style') or 'apa').strip()
     locale = str(payload.get('locale') or 'ca-AD').strip()
 
-    # CSL items: deduplicats per key (citeproc rep cada item un cop, però
-    # les cites poden repetir-se al text — vegis més avall).
-    unique_keys = list(dict.fromkeys(keys))  # preserva ordre, elimina dups
+    # CSL items: deduplicated by key (citeproc receives each item once, but
+    # citations can repeat in the text — see below).
+    unique_keys = list(dict.fromkeys(keys))  # preserves order, removes duplicates
     csl_items = await asyncio.to_thread(_build_csl_items_for_keys, unique_keys)
     resolved_keys = {it.get('id') for it in csl_items}
 
     csl_path = _resolve_csl_path(style)
-    # Markdown: una línia per cada cita en l'ordre original (amb duplicats!),
-    # cada una embolcallada amb marcadors únics que identifiquen l'ordinal.
-    # Així el parser sap quin text correspon a quina ocurrència.
-    # Marcadors NOMÉS alfanumèrics (sense `<>` ni `_`): pandoc en mode
-    # `plain` interpretaria `<...>` com a HTML i `_x_` com a èmfasi, i els
-    # malmetria (sortiria `<<>>`). Els espais al voltant de `[@k]`
-    # asseguren que citeproc reconeix la cita; després els retallem.
+    # Markdown: one line per citation in the original order (with duplicates!),
+    # each one wrapped with unique markers that identify the ordinal.
+    # This way the parser knows which text corresponds to which occurrence.
+    # Markers are alphanumeric ONLY (no `<>` or `_`): pandoc in
+    # `plain` mode would interpret `<...>` as HTML and `_x_` as emphasis, and they
+    # would corrupt it (it would come out as `<<>>`). The spaces around `[@k]`
+    # ensure citeproc recognizes the citation; we trim them afterward.
     lines = []
     for idx, k in enumerate(keys, start=1):
         if k in resolved_keys:
             lines.append(f"GCREF{idx}BEG [@{k}] GCREF{idx}FIN")
         else:
-            # Key no resolt: placeholder amb el text cru perquè el client
-            # el detecti i pugui mostrar un error.
+            # Unresolved key: placeholder with the raw text so the client
+            # detects it and can show an error.
             lines.append(f"GCREF{idx}BEG (@{k}) GCREF{idx}FIN")
     md = "\n\n".join(lines) + "\n"
 
@@ -5432,15 +5462,16 @@ async def format_citations(payload: dict = Body(...)):
 
 @router.post("/format-bibliography")
 async def format_bibliography(payload: dict = Body(...)):
-    """Renderitza la bibliografia (llista d'entries) per als citation
-    keys donats. Pensat per al Office Add-in.
+    """Renders the bibliography (list of entries) for the given citation
+    keys. Designed for the Office Add-in.
 
-    Cos: `{ keys: ["smith2020", "lee2021"], style: "apa", locale: "ca-AD" }`
-    Resposta: `{ entries: ["Smith, J. (2020). ...", "Lee, A. (2021). ..."], style, locale }`
+    Body: `{ keys: ["smith2020", "lee2021"], style: "apa", locale: "ca-AD" }`
+    Response: `{ entries: ["Smith, J. (2020). ...", "Lee, A. (2021). ..."], style, locale }`
 
-    Pandoc invocat amb `--nocite` perquè generi la bibliografia sense
-    necessitat de citar al cos. Cada entrada de la llista es separa per
-    una línia buida (output `plain`), que parsegem.
+    Pandoc is invoked with `--nocite` so it generates the bibliography without
+    needing to cite in the body. Each entry in the list is separated by
+    a blank line (`plain` output), which we parse.
+    
     """
     keys = payload.get('keys') or []
     if not isinstance(keys, list):
@@ -5463,9 +5494,9 @@ async def format_bibliography(payload: dict = Body(...)):
         tmp = Path(tmpdir)
         (tmp / 'input.md').write_text(md, encoding='utf-8')
         (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        # `-t html` perquè citeproc emeti el format ric d'APA: títols en
-        # cursiva (<em>/<i> segons el CSL) i URL/DOI com a enllaços
-        # (link-bibliography). L'Office Add-in ho insereix amb insertHtml.
+        # `-t html` so citeproc emits APA's rich format: titles in
+        # italics (<em>/<i> depending on the CSL) and URL/DOI as links
+        # (link-bibliography). The Office Add-in inserts it with insertHtml.
         cmd = [
             _pandoc_bin(), 'input.md', '-t', 'html',
             '--citeproc', '--bibliography', 'refs.json',
@@ -5485,14 +5516,14 @@ async def format_bibliography(payload: dict = Body(...)):
             raise HTTPException(status_code=500, detail=f"pandoc failed: {r.stderr[:300]}")
         out = r.stdout
 
-    # Pandoc emet cada entrada com <div class="csl-entry">…</div> dins d'un
-    # <div id="refs">. Extreu l'HTML de cada entrada (amb cursiva als títols
-    # i URL/DOI enllaçats) i deriva una versió en text pla com a fallback
-    # per a hosts que no acceptin HTML enriquit.
+    # Pandoc emits each entry as <div class="csl-entry">…</div> inside a
+    # <div id="refs">. Extracts the HTML of each entry (with italics on the titles
+    # and linked URL/DOI) and derives a plain-text version as a fallback
+    # for hosts that don't accept rich HTML.
     entries_html = [m.strip() for m in re.findall(
         r'<div[^>]*class="[^"]*csl-entry[^"]*"[^>]*>(.*?)</div>', out, re.DOTALL)]
     if not entries_html:
-        # Alguns CSL no embolcallen en csl-entry: cau a paràgrafs <p>.
+        # Some CSL styles don't wrap in csl-entry: falls back to <p> paragraphs.
         entries_html = [m.strip() for m in re.findall(r'<p>(.*?)</p>', out, re.DOTALL)]
 
     def _strip_tags(s: str) -> str:
@@ -5517,32 +5548,33 @@ async def export_page(
     csl: str = Query('apa'),
     locale: str = Query('ca-AD'),
 ):
-    """Exporta una pàgina del Vault al format demanat amb cites resoltes.
+    """Exports a Vault page to the requested format with resolved citations.
 
     Workflow:
-      1. Carrega el Markdown de la pàgina (frontmatter + body).
-      2. Identifica tots els `[@key]` referenciats al body.
-      3. Resol cada key a una entrada de Recursos. Genera un CSL-JSON
-         només amb el subset usat (no totes 4198 entries).
-      4. Localitza el `.csl` style al frontend/public/csl/styles/.
-      5. Invoca pandoc amb --citeproc --csl --bibliography i retorna
-         el binari resultant com a download.
+      1. Loads the page's Markdown (frontmatter + body).
+      2. Identifies all `[@key]` references in the body.
+      3. Resolves each key to a Recursos entry. Generates a CSL-JSON
+         with only the used subset (not all 4198 entries).
+      4. Locates the `.csl` style in frontend/public/csl/styles/.
+      5. Invokes pandoc with --citeproc --csl --bibliography and returns
+         the resulting binary as a download.
 
-    Si pandoc no és disponible o falla, 500 amb stderr.
+    If pandoc is unavailable or fails, 500 with stderr.
+    
     """
     file_path = await asyncio.to_thread(find_page_path, page_id)
     if not file_path:
         raise HTTPException(status_code=404, detail="Page not found")
     raw = file_path.read_text(encoding='utf-8')
-    # Strip frontmatter; pandoc l'entendria però sol contenir camps que no
-    # volem al docx final.
+    # Strip frontmatter; pandoc would understand it but it usually contains fields that don't
+    # we want in the final docx.
     body = raw
     if body.startswith('---'):
         m = re.match(r'^---\n.*?\n---\n', body, re.DOTALL)
         if m:
             body = body[m.end():]
 
-    # Identifica citation keys al body (tant [@key] bracketed com naked @key)
+    # Identifies citation keys in the body (both [@key] bracketed and naked @key)
     keys = set()
     for m in re.finditer(r'\[@([a-z][a-z0-9_:-]*(?:\s*;\s*@[a-z][a-z0-9_:-]*)*)\]', body, re.IGNORECASE):
         for k in m.group(1).split(';'):
@@ -5550,7 +5582,7 @@ async def export_page(
             if kk:
                 keys.add(kk)
 
-    # Construeix CSL-JSON del subset
+    # Builds CSL-JSON for the subset
     csl_items = []
     if keys:
         v_path = get_active_vault_path()
@@ -5560,7 +5592,7 @@ async def export_page(
                 entry = idx.get(k)
                 if not entry:
                     continue
-                # Llegir la pàgina sencera per agafar la metadata
+                # Read the whole page to get the metadata
                 try:
                     page_path = await asyncio.to_thread(find_page_path, entry['id'])
                     if not page_path:
@@ -5573,8 +5605,8 @@ async def export_page(
                 except OSError:
                     continue
 
-    # Localitza el .csl style. Vivien al public/ del frontend, també accesible
-    # via filesystem si el backend i el frontend comparteixen el repo.
+    # Locates the .csl style. They used to live in the frontend's public/, also accessible
+    # via filesystem if the backend and frontend share the repo.
     csl_path = None
     style_map = {
         'apa': 'apa.csl',
@@ -5592,20 +5624,20 @@ async def export_page(
             csl_path = c
             break
 
-    # Invocar pandoc en un directori temporal
+    # Invoke pandoc in a temporary directory
     with _ext_tempfile.TemporaryDirectory(prefix='gnosi_export_') as tmpdir:
         tmp = Path(tmpdir)
         (tmp / 'input.md').write_text(body, encoding='utf-8')
         if csl_items:
             (tmp / 'refs.json').write_text(json.dumps(csl_items, ensure_ascii=False), encoding='utf-8')
-        # Substituïm el `{{bibliography}}` marcador propi per la sintaxi
-        # nadiua de pandoc-citeproc — que injecta la bibliografia al lloc.
-        # També una secció final si no hi era.
+        # We replace our own `{{bibliography}}` marker with the syntax
+        # native to pandoc-citeproc — which injects the bibliography in place.
+        # Also a final section if it wasn't there.
         content = (tmp / 'input.md').read_text(encoding='utf-8')
         if '{{bibliography}}' in content or re.search(r'\{\{bibliography(?::[a-z-]+)?(?::[a-zA-Z-]+)?\}\}', content):
-            # Pandoc usa `# References` o `:::refs` o el final del document
-            # com a lloc de la bibliografia. Substituïm la nostra sintaxi per
-            # un heading + ref div.
+            # Pandoc uses `# References` or `:::refs` or the end of the document
+            # as the bibliography location. We replace our syntax with
+            # a heading + ref div.
             content = re.sub(r'\{\{bibliography(?::[a-z-]+)?(?::[a-zA-Z-]+)?\}\}',
                              '## Bibliografia\n\n::: {#refs}\n:::', content)
             (tmp / 'input.md').write_text(content, encoding='utf-8')
@@ -5635,10 +5667,10 @@ async def export_page(
         out_path = tmp / out_name
         if not out_path.exists():
             raise HTTPException(status_code=500, detail="pandoc no ha generat sortida")
-        # Llegim els bytes (el TemporaryDirectory s'esborrarà al sortir)
+        # We read the bytes (the TemporaryDirectory will be deleted on exit)
         data = out_path.read_bytes()
 
-    # Genera un nom de download net
+    # Generates a clean download name
     safe_title = re.sub(r'[^A-Za-z0-9._-]+', '_', file_path.stem)[:80] or 'document'
     download_name = f'{safe_title}.{ext_map[format]}'
     media = {
@@ -5658,20 +5690,20 @@ async def export_page(
 
 
 # ---------------------------------------------------------------------------
-# Metadata lookup per identificador (DOI / ISBN / arXiv / URL)
+# Metadata lookup by identifier (DOI / ISBN / arXiv / URL)
 # ---------------------------------------------------------------------------
 #
-# Endpoint per omplir camps de Recursos a partir d'identificadors externs.
-# Cobreix els tres serveis més habituals per a treball acadèmic:
+# Endpoint to fill Recursos fields from external identifiers.
+# Covers the three most common services for academic work:
 #
 #   - CrossRef (DOI)         — ~140M articles, JSON, no requereix API key
 #   - Open Library (ISBN)    — llibres, JSON, no API key
-#   - arXiv (arxiv id)       — preprints científics, XML (parsejat stdlib)
-#   - HTML meta tags (URL)   — fallback per a pàgines web genèriques
+#   - arXiv (arxiv id)       — scientific preprints, XML (parsed via stdlib)
+#   - HTML meta tags (URL)   — fallback for generic web pages
 #                              (Open Graph + Dublin Core + Schema.org)
 #
-# La resposta NO escriu res al Vault: només suggereix valors. El frontend
-# mostra un modal i l'usuari tria explícitament quins camps acceptar.
+# The response does NOT write anything to the Vault: it only suggests values. The frontend
+# shows a modal and the user explicitly chooses which fields to accept.
 # ---------------------------------------------------------------------------
 
 _DOI_RE = re.compile(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', re.IGNORECASE)
@@ -5679,7 +5711,7 @@ _ARXIV_RE = re.compile(r'(?:arxiv:)?(\d{4}\.\d{4,5}(?:v\d+)?|[a-z\-]+/\d{7}(?:v\
 
 
 def _normalize_doi(raw: str) -> Optional[str]:
-    """Extreu un DOI vàlid d'una cadena (pot venir amb prefix `doi:` o `https://doi.org/`)."""
+    """Extracts a valid DOI from a string (may come with a `doi:` or `https://doi.org/` prefix)."""
     if not raw:
         return None
     m = _DOI_RE.search(raw)
@@ -5687,7 +5719,7 @@ def _normalize_doi(raw: str) -> Optional[str]:
 
 
 def _normalize_isbn(raw: str) -> Optional[str]:
-    """Extreu un ISBN-10 o ISBN-13 d'una cadena."""
+    """Extracts an ISBN-10 or ISBN-13 from a string."""
     if not raw:
         return None
     cleaned = re.sub(r'[-\s]', '', raw)
@@ -5696,7 +5728,7 @@ def _normalize_isbn(raw: str) -> Optional[str]:
 
 
 def _normalize_arxiv(raw: str) -> Optional[str]:
-    """Extreu un arXiv id (nou format YYMM.NNNNN o antic categoria/YYMMNNN)."""
+    """Extracts an arXiv id (new format YYMM.NNNNN or old category/YYMMNNN)."""
     if not raw:
         return None
     m = _ARXIV_RE.search(raw)
@@ -5704,12 +5736,13 @@ def _normalize_arxiv(raw: str) -> Optional[str]:
 
 
 def _crossref_to_recursos(work: dict) -> dict:
-    """Mapeig CrossRef → camps de Recursos.
+    """CrossRef → Recursos fields mapping.
 
-    Wrapper prim al voltant del pipeline L3:
+    Thin wrapper around the L3 pipeline:
         crossref_to_zotero_item  →  zotero_item_to_recursos
-    (vegis `backend/services/lookup_normalizers.py` i
+    (see `backend/services/lookup_normalizers.py` and
     `backend/services/zotero_to_recursos_mapper.py`).
+    
     """
     from backend.services.lookup_normalizers import crossref_to_zotero_item
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
@@ -5738,7 +5771,7 @@ def _html_meta_to_recursos(html: str, url: str) -> dict:
 
 
 def _http_get(url: str, headers: Optional[dict] = None, timeout: float = 8.0) -> Optional[str]:
-    """GET HTTP simple amb timeout via urllib stdlib. Retorna text o None en error."""
+    """Simple HTTP GET with timeout via urllib stdlib. Returns text or None on error."""
     import urllib.request
     import urllib.error
     req_headers = headers or {
@@ -5757,14 +5790,14 @@ def _http_get(url: str, headers: Optional[dict] = None, timeout: float = 8.0) ->
 # ---------------------------------------------------------------------------
 # Citation Key generation (P0).
 #
-# Sense `Citation Key` una pàgina de Recursos no és citable
-# (`recursosPageToCsl`/`_recursos_metadata_to_csl` tornen None). Tota via d'alta
-# (lookup, import, PDF, web) ha de generar-ne una. Format estil Better BibTeX:
+# Without a `Citation Key` a Recursos page is not citable
+# (`recursosPageToCsl`/`_recursos_metadata_to_csl` return None). Every registration path
+# (lookup, import, PDF, web) must generate one. Better BibTeX-style format:
 # `<cognom><any>[<sufix>]`, p.ex. `murphy2017`, `murphy2017a` si col·lisiona.
 # ---------------------------------------------------------------------------
 
 def _ck_norm(s: str) -> str:
-    """Lowercase, sense diacrítics, només lletres/dígits ASCII."""
+    """Lowercase, without diacritics, ASCII letters/digits only."""
     if not s:
         return ""
     s = unicodedata.normalize("NFD", str(s))
@@ -5773,8 +5806,8 @@ def _ck_norm(s: str) -> str:
 
 
 def _first_author_family(authors: Any) -> str:
-    """Cognom del primer autor. Accepta llista estructurada
-    (`[{nom,cognom1,cognom2}]`) o string lliure (`"Cognom, Nom; ..."`)."""
+    """Surname of the first author. Accepts a structured list
+    (`[{nom,cognom1,cognom2}]`) or a free-form string (`"Cognom, Nom; ..."`)."""
     if isinstance(authors, list):
         for a in authors:
             if isinstance(a, dict):
@@ -5793,7 +5826,7 @@ def _first_author_family(authors: Any) -> str:
 
 
 def _title_token(title: str) -> str:
-    """Primera paraula significativa del títol (per a refs sense autor)."""
+    """First significant word of the title (for refs without an author)."""
     stop = {"the", "a", "an", "el", "la", "els", "les", "un", "una", "uns",
             "unes", "le", "de", "del", "of", "on", "in", "to", "and", "i", "y"}
     for tok in re.findall(r"[a-zA-ZÀ-ÿ0-9]+", title or ""):
@@ -5803,7 +5836,7 @@ def _title_token(title: str) -> str:
 
 
 def _alpha_suffix(i: int) -> str:
-    """0→a, 1→b, …, 25→z, 26→aa, … (estil columnes Excel)."""
+    """0→a, 1→b, …, 25→z, 26→aa, … (Excel column style)."""
     s = ""
     i += 1
     while i > 0:
@@ -5814,10 +5847,11 @@ def _alpha_suffix(i: int) -> str:
 
 def generate_citation_key(authors: Any, year: Any, title: str = "",
                           existing: Optional[set] = None) -> str:
-    """Genera una Citation Key única estil Better BibTeX.
+    """Generates a unique Citation Key in Better BibTeX style.
 
-    base = <cognom | primera-paraula-títol | 'ref'> + <any | 'nd'>.
-    Col·lisió contra `existing` → sufix alfabètic incremental.
+    base = <surname | first-word-of-title | 'ref'> + <year | 'nd'>.
+    Collision against `existing` → incremental alphabetic suffix.
+    
     """
     fam = _ck_norm(_first_author_family(authors))
     if not fam:
@@ -5840,7 +5874,7 @@ def generate_citation_key(authors: Any, year: Any, title: str = "",
 
 
 def _existing_citation_keys() -> set:
-    """Claus ja usades al vault actiu (per a unicitat). Best-effort."""
+    """Keys already used in the active vault (for uniqueness). Best-effort."""
     try:
         from backend.services.context_vars import get_active_vault_path
         v_path = get_active_vault_path()
@@ -5852,7 +5886,7 @@ def _existing_citation_keys() -> set:
 
 
 def _inject_citation_key(suggested: dict) -> dict:
-    """Afegeix `Citation Key` al dict suggerit si falta, garantint unicitat."""
+    """Adds `Citation Key` to the suggested dict if missing, guaranteeing uniqueness."""
     if not suggested or suggested.get('Citation Key'):
         return suggested
     ck = generate_citation_key(
@@ -5865,13 +5899,13 @@ def _inject_citation_key(suggested: dict) -> dict:
 
 
 def _citation_key_prop_name(table: Optional[dict]) -> Optional[str]:
-    """Nom real de la columna 'Citation Key' d'una taula citable, o None.
+    """Actual name of the 'Citation Key' column of a citable table, or None.
 
-    Mirall backend del `tableHasCitationKey` del frontend (VaultDashboard.jsx):
-    una taula és «de Recursos» (citable) si té una columna el nom de la qual,
-    normalitzat (minúscules, sense espais), és `citationkey`. Tornem el nom
-    real (p.ex. 'Citation Key') per poder-hi escriure amb la clau exacta que
-    llegeixen `_recursos_metadata_to_csl` i l'índex de cites."""
+    Backend mirror of the frontend's `tableHasCitationKey` (VaultDashboard.jsx):
+    a table is "a Recursos table" (citable) if it has a column whose name,
+    normalized (lowercase, no spaces), is `citationkey`. We return the
+    actual name (e.g. 'Citation Key') so we can write to it with the exact key
+    read by `_recursos_metadata_to_csl` and the citation index."""
     for p in (table or {}).get("properties", []) or []:
         if str(p.get("name") or "").lower().replace(" ", "") == "citationkey":
             return p.get("name")
@@ -5879,23 +5913,23 @@ def _citation_key_prop_name(table: Optional[dict]) -> Optional[str]:
 
 
 def get_reference_table_id() -> Optional[str]:
-    """Id de la taula de referències designada — l'ÚNICA font de veritat.
+    """Id of the designated references table — the ONLY source of truth.
 
-    La funcionalitat de referències (Citation Key automàtica, import/export
-    BibTeX, «Crear des d'una font», resolució de cites) no pertany a una taula
-    pel seu nom, sinó a la que l'usuari designa a Settings. Si canvia la
-    designació, tota la funcionalitat es mou amb ella.
+    The references functionality (automatic Citation Key, BibTeX import/export,
+    "Create from a source", citation resolution) doesn't belong to a table
+    by its name, but to whichever one the user designates in Settings. If the
+    designation changes, all the functionality moves with it.
 
-    Prioritat:
-      1. `target_table` del config de referències (Settings; reusa
+    Priority:
+      1. `target_table` from the references config (Settings; reuses
          `zotero_db_config.json`).
-      2. Auto-migració (vaults anteriors a la designació, com els que ja tenien
-         «Recursos»): adopta la primera taula amb columna 'Citation Key' i la
-         persisteix com a `target_table`. A partir d'aleshores la funcionalitat
-         segueix la designació, no cap heurística.
+      2. Auto-migration (vaults predating the designation, like those that already
+         had "Recursos"): adopts the first table with a 'Citation Key' column and
+         persists it as `target_table`. From then on the functionality
+         follows the designation, not any heuristic.
 
-    Retorna None si no hi ha designació ni cap taula citable (Referències no
-    activades encara)."""
+    Returns None if there is no designation and no citable table (References not
+    enabled yet)."""
     try:
         from backend.services.reference_table_config import (
             CONFIG_PATH, DEFAULT_CONFIG, cfg_lock, load_json, save_json,
@@ -5906,13 +5940,13 @@ def get_reference_table_id() -> Optional[str]:
     tid = str(cfg.get("target_table") or "").strip()
     if tid:
         return tid
-    # Si l'usuari ja ha tocat Referències a Settings (encara que sigui per
-    # DESACTIVAR-les, deixant target_table=''), respectem la decisió i NO
-    # auto-migrem. L'auto-adopció és només per a vaults que mai han passat per
-    # Settings (p.ex. els que ja tenien «Recursos» abans d'aquesta feature).
+    # If the user has already touched References in Settings (even if it was to
+    # DISABLE them, leaving target_table=''), we respect the decision and do NOT
+    # auto-migrate. Auto-adoption is only for vaults that have never gone through
+    # Settings (e.g. those that already had "Recursos" before this feature).
     if cfg.get("references_configured"):
         return None
-    # Auto-migració one-shot: adopta una taula citable existent i persisteix.
+    # One-shot auto-migration: adopts an existing citable table and persists it.
     try:
         reg = load_registry()
         for t in reg.get("tables", []) or []:
@@ -5920,9 +5954,9 @@ def get_reference_table_id() -> Optional[str]:
                 adopted = str(t.get("id") or "").strip()
                 if adopted:
                     with cfg_lock:
-                        # Re-comprova amb l'estat FRESC dins del candau: si
-                        # mentre buscàvem la taula l'usuari ha desat una
-                        # designació a Settings, respecta-la i no l'esclafis.
+                        # Re-check with the FRESH state inside the lock: if
+                        # while we were looking for the table the user saved a
+                        # designation in Settings, respect it and don't clobber it.
                         cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
                         current = str(cfg.get("target_table") or "").strip()
                         if current:
@@ -5944,9 +5978,9 @@ def get_reference_table_id() -> Optional[str]:
     return None
 
 
-# Columnes que fan una taula CITABLE — les que llegeixen
+# Columns that make a table CITABLE — the ones read by
 # `_recursos_metadata_to_csl` (backend) i `recursosPageToCsl` (frontend).
-# 'Citation Key' és imprescindible; la resta enriqueixen la cita. (nom, tipus).
+# 'Citation Key' is essential; the rest enrich the citation. (name, type).
 _REFERENCE_SCHEMA: list = [
     ("Citation Key", "text"), ("Title", "text"), ("Authors", "text"),
     ("Any", "text"), ("Item Type", "select"), ("Llibre/Revista", "text"),
@@ -5958,11 +5992,11 @@ _REFERENCE_SCHEMA: list = [
 
 
 def ensure_reference_table_schema(table_id: str) -> int:
-    """Afegeix a la taula les columnes citables que li faltin (idempotent).
+    """Adds to the table whichever citable columns it's missing (idempotent).
 
-    Així l'usuari no ha de saber que «cal un camp Citation Key»: en
-    designar/crear la taula de referències, el sistema li garanteix l'esquema.
-    Retorna el nombre de columnes afegides."""
+    This way the user doesn't need to know that "a Citation Key field is needed":
+    when designating/creating the references table, the system guarantees the
+    schema for them. Returns the number of columns added."""
     if not table_id:
         return 0
     with registry_mutation():
@@ -5988,24 +6022,24 @@ def ensure_reference_table_schema(table_id: str) -> int:
 
 
 def _set_reference_table_id(table_id: Optional[str]) -> None:
-    """Persisteix la designació de taula de referències (Settings → `target_table`)."""
+    """Persists the references table designation (Settings → `target_table`)."""
     from backend.services.reference_table_config import (
         CONFIG_PATH, DEFAULT_CONFIG, cfg_lock, load_json, save_json,
     )
     with cfg_lock:
         cfg = {**DEFAULT_CONFIG, **(load_json(CONFIG_PATH, {}) or {})}
         cfg["target_table"] = (table_id or "").strip()
-        # Marca que la designació és deliberada (Settings) → desactiva l'auto-migració.
+        # Marks that the designation is deliberate (Settings) → disables auto-migration.
         cfg["references_configured"] = True
         save_json(CONFIG_PATH, cfg)
 
 
 def _reference_table_by_id_primary(table_id: str) -> Optional[dict]:
-    """Resol una taula pel seu id al registre del vault PRINCIPAL.
+    """Resolves a table by its id in the PRINCIPAL vault's registry.
 
-    La designació de taula de referències (Zotero) és GLOBAL i la taula viu al
-    vault Principal; sense això, en un vault no-default `_table_by_id` la
-    buscaria al registre equivocat i no la trobaria."""
+    The references table designation (Zotero) is GLOBAL and the table lives in
+    the Principal vault; without this, in a non-default vault `_table_by_id`
+    would look for it in the wrong registry and wouldn't find it."""
     from backend.services.context_vars import active_vault_path, get_primary_vault_path
     base = get_primary_vault_path()
     if not base:
@@ -6019,9 +6053,9 @@ def _reference_table_by_id_primary(table_id: str) -> Optional[dict]:
 
 @router.get("/reference-table")
 async def get_reference_table():
-    """Estat de la taula de referències designada (per a Settings i el gating
-    del frontend). Designació GLOBAL + taula al Principal → resolem el nom al
-    registre del Principal perquè Settings sigui consistent des de qualsevol vault."""
+    """Status of the designated references table (for Settings and the frontend's
+    gating). GLOBAL designation + table in the Principal → we resolve the name in
+    the Principal's registry so that Settings is consistent from any vault."""
     tid = get_reference_table_id()
     t = _reference_table_by_id_primary(tid) if tid else None
     return {"table_id": tid, "configured": bool(tid),
@@ -6030,8 +6064,8 @@ async def get_reference_table():
 
 @router.post("/reference-table", dependencies=[Depends(require_role("editor"))])
 async def set_reference_table(payload: dict = Body(...)):
-    """Designa una taula existent com a taula de referències i li garanteix
-    l'esquema citable. L'usuari no ha de saber res de 'Citation Key'."""
+    """Designates an existing table as the references table and guarantees
+    its citable schema. The user doesn't need to know anything about 'Citation Key'."""
     table_id = str((payload or {}).get("table_id") or "").strip()
     if not table_id:
         raise HTTPException(status_code=400, detail="table_id és obligatori")
@@ -6047,7 +6081,7 @@ async def set_reference_table(payload: dict = Body(...)):
 
 @router.post("/reference-table/create", dependencies=[Depends(require_role("editor"))])
 async def create_reference_table(payload: dict = Body(default=None)):
-    """Crea una taula nova ja citable i la designa com a taula de referències."""
+    """Creates a new, already-citable table and designates it as the references table."""
     name = str((payload or {}).get("name") or "").strip() or "Referències"
     table = {
         "name": name,
@@ -6066,7 +6100,7 @@ async def create_reference_table(payload: dict = Body(default=None)):
 
 @router.delete("/reference-table", dependencies=[Depends(require_role("editor"))])
 async def clear_reference_table():
-    """Desactiva les referències (treu la designació). No esborra cap taula."""
+    """Disables references (removes the designation). Doesn't delete any table."""
     _set_reference_table_id("")
     _invalidate_cite_key_index()
     return {"table_id": None, "configured": False}
@@ -6075,32 +6109,32 @@ async def clear_reference_table():
 def _ensure_recursos_citation_key(
     metadata: dict, table: Optional[dict] = None, *, regenerate: bool = False
 ) -> dict:
-    """Garanteix que una pàgina de la TAULA DE REFERÈNCIES porti `Citation Key`.
+    """Guarantees that a page in the REFERENCES TABLE carries a `Citation Key`.
 
-    Abans la clau només es generava al lookup de metadades; una alta o un
-    desat normal des del navegador deixava el recurs sense clau i, per tant,
-    no citable (`recursosPageToCsl`/`_recursos_metadata_to_csl` tornen None).
-    Cridada des de create/save/patch/duplicate, aquesta funció tanca el forat:
-    qualsevol via de persistència deixa el recurs citable.
+    Previously the key was only generated in the metadata lookup; a new entry
+    or a normal save from the browser left the resource without a key and,
+    therefore, not citable (`recursosPageToCsl`/`_recursos_metadata_to_csl`
+    return None). Called from create/save/patch/duplicate, this function
+    closes that gap: any persistence path leaves the resource citable.
 
-    Gate EXCLUSIU per designació: només actua si la pàgina pertany a la taula
-    de referències designada a Settings (`get_reference_table_id`), no per cap
-    heurística de nom/columna. Si l'usuari canvia la tabla a Settings, la
-    generació segueix la nova.
+    Gate EXCLUSIVE to designation: only acts if the page belongs to the
+    references table designated in Settings (`get_reference_table_id`), not by
+    any name/column heuristic. If the user changes the table in Settings, the
+    generation follows the new one.
 
-    Genera només quan (1) és la taula de referències, (2) la cel·la és buida
-    —o `regenerate=True`, p.ex. en duplicar perquè la còpia no col·lisioni— i
-    (3) hi ha alguna dada bibliogràfica (Authors/Any/Title), per no estampar
-    claus escombraria a files completament buides. La clau és única contra les
-    ja existents al vault. Muta i retorna `metadata`."""
+    Generates only when (1) it's the references table, (2) the cell is empty
+    —or `regenerate=True`, e.g. when duplicating so the copy doesn't collide—
+    and (3) there is some bibliographic data (Authors/Any/Title), so as not to
+    stamp junk keys on completely empty rows. The key is unique against the
+    ones already existing in the vault. Mutates and returns `metadata`."""
     ref_id = get_reference_table_id()
     if not ref_id or get_table_id(metadata) != ref_id:
         return metadata
     if table is None:
         table = _table_by_id(ref_id)
-    # La taula de referències hauria de tenir columna 'Citation Key' (Settings
-    # la garanteix); si encara no, escrivim igualment al camp literal que
-    # llegeixen els lectors de CSL i l'índex de cites.
+    # The references table should have a 'Citation Key' column (Settings
+    # guarantees it); if not yet, we still write to the literal field that
+    # the CSL readers and the citation index read.
     ck_name = _citation_key_prop_name(table) or "Citation Key"
     if not regenerate and str(metadata.get(ck_name) or "").strip():
         return metadata
@@ -6117,12 +6151,12 @@ def _ensure_recursos_citation_key(
 
 
 # ---------------------------------------------------------------------------
-# PubMed / PMID lookup (P3) — NCBI E-utilities (esummary JSON, sense API key).
+# PubMed / PMID lookup (P3) — NCBI E-utilities (esummary JSON, no API key).
 # ---------------------------------------------------------------------------
 
 def _normalize_pmid(raw: str) -> Optional[str]:
-    """Extreu un PMID (1-8 dígits) d'una cadena. Match estricte per no
-    confondre amb ISBN/altres números: el camp arriba ja etiquetat com a PMID."""
+    """Extracts a PMID (1-8 digits) from a string. Strict match to avoid
+    confusing it with ISBN/other numbers: the field arrives already labeled as PMID."""
     if not raw:
         return None
     m = re.match(r'^\s*(?:pmid:?\s*)?(\d{1,8})\s*$', str(raw), re.IGNORECASE)
@@ -6130,8 +6164,8 @@ def _normalize_pmid(raw: str) -> Optional[str]:
 
 
 def _pubmed_author_to_canonical(name: str) -> str:
-    """`"Murphy SA"` (format PubMed: cognom + inicials) → `"Murphy, SA"` perquè
-    el parser tracti el cognom correctament."""
+    """`"Murphy SA"` (PubMed format: surname + initials) → `"Murphy, SA"` so
+    the parser handles the surname correctly."""
     name = (name or '').strip()
     if not name or ',' in name:
         return name
@@ -6150,12 +6184,12 @@ def _pubmed_to_recursos(doc: dict) -> dict:
 
 @router.post("/lookup-metadata")
 async def lookup_metadata(payload: dict = Body(...)):
-    """Resol metadades externes per a un identificador donat.
+    """Resolves external metadata for a given identifier.
 
-    Body (accepta tots i tria el millor; prioritat DOI > arXiv > PMID > ISBN > URL):
+    Body (accepts all and picks the best; priority DOI > arXiv > PMID > ISBN > URL):
       { doi?: str, isbn?: str, arxiv?: str, pmid?: str, url?: str }
 
-    Resposta:
+    Response:
       {
         "source": "crossref" | "arxiv" | "pubmed" | "openlibrary" | "url" | null,
         "identifier": str | null,
@@ -6163,9 +6197,10 @@ async def lookup_metadata(payload: dict = Body(...)):
         "error": null | str
       }
 
-    El `suggested` inclou una `Citation Key` generada automàticament (única al
-    vault) perquè la referència sigui citable des del primer moment. Mai
-    modifica el Vault: només suggereix; el frontend accepta camps individualment.
+    The `suggested` includes a `Citation Key` generated automatically (unique in
+    the vault) so the reference is citable from the very first moment. It never
+    modifies the Vault: it only suggests; the frontend accepts fields individually.
+    
     """
     doi = _normalize_doi(payload.get('doi') or '') or _normalize_doi(payload.get('url') or '')
     arxiv_id = _normalize_arxiv(payload.get('arxiv') or '') or _normalize_arxiv(payload.get('url') or '')
@@ -6259,10 +6294,11 @@ async def lookup_metadata(payload: dict = Body(...)):
 
 @router.post("/generate-citation-key")
 async def generate_citation_key_endpoint(payload: dict = Body(...)):
-    """Genera una Citation Key única per a una alta manual a Recursos.
+    """Generates a unique Citation Key for a manual entry in Recursos.
 
     Body: { authors?: str | list, year?: int | str, title?: str }
-    Resposta: { "citation_key": str }
+    Response: { "citation_key": str }
+    
     """
     ck = generate_citation_key(
         payload.get('authors'), payload.get('year'),
@@ -6272,12 +6308,12 @@ async def generate_citation_key_endpoint(payload: dict = Body(...)):
 
 
 # ---------------------------------------------------------------------------
-# Reconeixement de PDF (P4) — extreu DOI/arXiv del text i reaprofita el lookup.
+# PDF recognition (P4) — extracts DOI/arXiv from the text and reuses the lookup.
 # ---------------------------------------------------------------------------
 
 def _extract_text_from_pdf(data: bytes, max_pages: int = 5) -> str:
-    """Text de les primeres `max_pages` pàgines d'un PDF. Buit si pypdf no està
-    disponible o el PDF és escanejat (sense capa de text)."""
+    """Text of the first `max_pages` pages of a PDF. Empty if pypdf is not
+    available or the PDF is scanned (no text layer)."""
     try:
         from pypdf import PdfReader
     except ImportError:
@@ -6299,13 +6335,13 @@ def _extract_text_from_pdf(data: bytes, max_pages: int = 5) -> str:
 
 
 def _identifiers_from_text(text: str) -> dict:
-    """Primer DOI (i arXiv si hi ha prefix explícit) trobat al text d'un PDF."""
+    """First DOI (and arXiv if there's an explicit prefix) found in a PDF's text."""
     found: dict = {}
     doi = _normalize_doi(text or "")
     if doi:
         found['doi'] = doi
-    # arXiv només si apareix el prefix explícit: el patró YYMM.NNNNN casaria amb
-    # qualsevol número similar del cos del document (falsos positius).
+    # arXiv only if the explicit prefix appears: the YYMM.NNNNN pattern would match
+    # any similar number in the document body (false positives).
     if re.search(r'arxiv\s*[:.]', text or "", re.IGNORECASE):
         arx = _normalize_arxiv(text)
         if arx:
@@ -6315,10 +6351,11 @@ def _identifiers_from_text(text: str) -> dict:
 
 @router.post("/recognize-pdf", dependencies=[Depends(require_role("editor"))])
 async def recognize_pdf(file: UploadFile = File(...)):
-    """Detecta la referència d'un PDF: extreu text → DOI/arXiv → lookup extern.
+    """Detects a PDF's reference: extracts text → DOI/arXiv → external lookup.
 
-    Resposta: { identifiers, source, suggested, error }. El `suggested` ja porta
-    `Citation Key` (via `lookup_metadata`). No escriu res al Vault.
+    Response: { identifiers, source, suggested, error }. The `suggested` already
+    carries a `Citation Key` (via `lookup_metadata`). Doesn't write anything to the Vault.
+    
     """
     data = await file.read()
     text = await asyncio.to_thread(_extract_text_from_pdf, data)
@@ -6343,14 +6380,14 @@ async def recognize_pdf(file: UploadFile = File(...)):
 # ---------------------------------------------------------------------------
 
 def _zotero_creators_to_authors(creators) -> str:
-    """Creators (format Zotero) → string `"Cognom, Nom; …"` de Recursos."""
+    """Creators (Zotero format) → `"Cognom, Nom; …"` string from Recursos."""
     parts = []
     for c in creators or []:
         if not isinstance(c, dict) or (c.get('creatorType') or 'author') != 'author':
             continue
         last = (c.get('lastName') or '').strip()
         first = (c.get('firstName') or '').strip()
-        name = (c.get('name') or '').strip()  # creators d'un sol camp
+        name = (c.get('name') or '').strip()  # creators from a single field
         if last and first:
             parts.append(f"{last}, {first}")
         elif last:
@@ -6361,12 +6398,13 @@ def _zotero_creators_to_authors(creators) -> str:
 
 
 def _zotero_item_to_recursos(item: dict) -> dict:
-    """Ítem Zotero (sortida de translation-server) → camps de Recursos.
+    """Zotero item (translation-server output) → Recursos fields.
 
-    Wrapper prim al voltant del mapper declaratiu central
-    (`zotero_to_recursos_mapper.zotero_item_to_recursos`, L3.1). Es
-    manté com a alias per minimitzar el diff dels callers; en una neteja
-    posterior es pot substituir directament l'import.
+    Thin wrapper around the central declarative mapper
+    (`zotero_to_recursos_mapper.zotero_item_to_recursos`, L3.1). Kept
+    as an alias to minimize the diff for callers; in a later cleanup
+    the import can be substituted directly.
+    
     """
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
     return zotero_item_to_recursos(item)
@@ -6374,10 +6412,11 @@ def _zotero_item_to_recursos(item: dict) -> dict:
 
 @router.post("/translate-url", dependencies=[Depends(require_role("editor"))])
 async def translate_url(payload: dict = Body(...)):
-    """Captura una referència des d'una URL via Zotero translation-server.
+    """Captures a reference from a URL via Zotero translation-server.
 
-    Body: { url }. Resposta amb la mateixa forma que `/lookup-metadata`:
-    { source:'web', identifier, suggested (amb Citation Key), count, error }.
+    Body: { url }. Response with the same shape as `/lookup-metadata`:
+    { source:'web', identifier, suggested (with Citation Key), count, error }.
+    
     """
     url = (payload.get('url') or '').strip()
     if not url.startswith(('http://', 'https://')):
@@ -6405,8 +6444,8 @@ async def translate_url(payload: dict = Body(...)):
         return {'source': 'web', 'identifier': url, 'suggested': {},
                 'error': "El servei de captura web (translation-server) no està disponible"}
 
-    # 300 Multiple Choices: la pàgina conté diverses referències. Selecciona-les
-    # totes (cap a 50) i reenvia per resoldre-les.
+    # 300 Multiple Choices: the page contains multiple references. Select them
+    # all of them (up to 50) and resend to resolve them.
     if status == 300 and body:
         try:
             data = json.loads(body)
@@ -6442,16 +6481,17 @@ async def translate_url(payload: dict = Body(...)):
 # ---------------------------------------------------------------------------
 
 def _build_dedup_indexes(v_str: str) -> dict:
-    """Índexs auxiliars per a deduplicació al moment de l'import.
+    """Auxiliary indexes for deduplication at import time.
 
-    Retorna `{'doi': {doi_normalitzat: citation_key}, 'isbn': {...}, 'title': {...}}`.
-    Recorre el cite_key_index ja existent i, per a cada pàgina amb Citation
-    Key, llegeix les seves metadades i extreu DOI/ISBN/Title. Best-effort:
-    una pàgina inllegible no aborta la construcció (només queda fora dels
-    índexs aux).
+    Returns `{'doi': {normalized_doi: citation_key}, 'isbn': {...}, 'title': {...}}`.
+    Walks the existing cite_key_index and, for each page with a Citation
+    Key, reads its metadata and extracts DOI/ISBN/Title. Best-effort:
+    an unreadable page doesn't abort the build (it just ends up outside the
+    aux indexes).
 
-    No es cacheja: es construeix per cada `/import-references` perquè
-    aquest endpoint és poc freqüent i la cota és O(n) sobre el vault.
+    Not cached: it's built for each `/import-references` call because
+    this endpoint is infrequent and the cost is O(n) over the vault.
+    
     """
     from backend.services.import_dedup import normalize_title_for_dedup
     idx = _ensure_cite_key_index(v_str)
@@ -6490,16 +6530,16 @@ async def import_references(
     table_id: str = Query(...),
     fmt: str = Query('auto'),
 ):
-    """Importa un fitxer .bib/.ris creant pàgines a la taula `table_id`.
+    """Imports a .bib/.ris file, creating pages in the `table_id` table.
 
-    Genera `Citation Key` quan falta. Salta entrades duplicades comparant
-    contra el vault per quatre criteris (per ordre de prioritat):
-      1. Citation Key idèntic
-      2. DOI normalitzat
-      3. ISBN normalitzat
-      4. Títol normalitzat (minúscules, sense accents/puntuació)
+    Generates `Citation Key` when missing. Skips duplicate entries by comparing
+    against the vault using four criteria (in priority order):
+      1. Identical Citation Key
+      2. Normalized DOI
+      3. Normalized ISBN
+      4. Normalized title (lowercase, no accents/punctuation)
 
-    Resposta:
+    Response:
         {
           "created": N, "skipped": M,
           "items": [{id, citation_key, title}, ...],
@@ -6508,13 +6548,14 @@ async def import_references(
               {"key": "...", "reason": "title", "existing_key": "..."},
               ...
           ],
-          "skipped_keys": [...],          # compat: només les keys (deprecated)
+          "skipped_keys": [...],          # compat: keys only (deprecated)
           "skip_summary": {"citation_key": N1, "doi": N2, "isbn": N3, "title": N4},
           "errors": [...],
           "format": "bibtex" | "ris"
         }
 
-    No toca pàgines existents en cap cas.
+    Never touches existing pages under any circumstance.
+    
     """
     from backend.services import references_io
     from backend.services.context_vars import get_active_vault_path
@@ -6568,8 +6609,8 @@ async def import_references(
             req = PageSaveRequest(title=title, content='', metadata=meta)
             res = await create_page(req, background_tasks)
             created.append({"id": res.get('id'), "citation_key": ck, "title": title})
-            # Actualitzar índexs en memòria perquè la mateixa importació no
-            # crei duplicats interns (dues entrades del fitxer amb el mateix DOI).
+            # Update in-memory indexes so the same import doesn't
+            # create internal duplicates (two entries in the file with the same DOI).
             add_to_indexes(e, ck, dedup)
             vault_keys.add(ck)
         except Exception as ex:
@@ -6582,8 +6623,8 @@ async def import_references(
         "skipped": len(skipped_details),
         "items": created,
         "skipped_details": skipped_details,
-        # Compat amb clients antics (la propietat existeix però nomes té
-        # les claus, sense motiu):
+        # Compat with old clients (the property exists but only has
+        # the keys, for no reason):
         "skipped_keys": [d["key"] for d in skipped_details],
         "skip_summary": skip_summary,
         "errors": errors,
@@ -6592,8 +6633,8 @@ async def import_references(
 
 
 def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List[dict]:
-    """Metadata (frontmatter) de les pàgines d'una taula que tenen `Citation
-    Key`. Sync (snapshot + lectura de fitxers) — cridar via `asyncio.to_thread`."""
+    """Metadata (frontmatter) of the pages in a table that have a `Citation
+    Key`. Sync (snapshot + file reading) — call via `asyncio.to_thread`."""
     pages = _get_pages_snapshot()
     out: List[dict] = []
     for p in pages:
@@ -6619,26 +6660,27 @@ def _collect_table_reference_metas(table_id: str, wanted: Optional[set]) -> List
 
 @router.post("/promote-zotero-extra", dependencies=[Depends(require_role("editor"))])
 async def promote_zotero_extra(payload: dict = Body(...)):
-    """Promociona un camp `Zotero Extras` a columna pròpia del registry.
+    """Promotes a `Zotero Extras` field to its own registry column.
 
     Body:
         {
           "table_id": "<uuid>",
           "zotero_field": "patentNumber",
-          "column_name": "Núm. patent",       # opcional; default = zotero_field
-          "column_type": "text",              # opcional; default = "text"
-          "page_ids": ["uuid1", ...],         # opcional; sense això, totes les
-                                              #   pàgines de la taula amb el camp
-          "expected_etags": {"uuid1": "abc", ...}  # opcional (Via A col·laboració)
+          "column_name": "Patent No.",       # optional; default = zotero_field
+          "column_type": "text",              # optional; default = "text"
+          "page_ids": ["uuid1", ...],         # optional; without this, all
+                                              #   pages in the table with the field
+          "expected_etags": {"uuid1": "abc", ...}  # optional (collaboration Path A)
         }
 
-    Per a cada pàgina:
-      1. Si `expected_etags[pid]` és present, validar contra l'etag actual.
-         Mismatch → marcat com a `conflict`, NO escrit.
-      2. Mou `Extras[zotero_field]` a `metadata[column_name]`.
-      3. Esborra `Extras[zotero_field]`. Si Extras queda buit, esborra
-         la clau sencera.
-      4. Re-escriu via `save_page_md`.
+    For each page:
+      1. If `expected_etags[pid]` is present, validate against the current etag.
+         Mismatch → marked as `conflict`, NOT written.
+      2. Moves `Extras[zotero_field]` to `metadata[column_name]`.
+      3. Deletes `Extras[zotero_field]`. If Extras ends up empty, deletes
+         the whole key.
+      4. Rewrites via `save_page_md`.
+    
     """
     table_id = (payload.get('table_id') or '').strip()
     zotero_field = (payload.get('zotero_field') or '').strip()
@@ -6650,8 +6692,8 @@ async def promote_zotero_extra(payload: dict = Body(...)):
     if not table_id or not zotero_field:
         raise HTTPException(status_code=400, detail="table_id i zotero_field són obligatoris")
 
-    # 1. Crear o reutilitzar la property (cicle de registre sencer sota candau).
-    #    La migració de pàgines (async, més avall) va FORA: no toca el registre.
+    # 1. Create or reuse the property (entire registration cycle under lock).
+    #    Page migration (async, further below) goes OUTSIDE: it doesn't touch the registry.
     with registry_mutation():
         registry = load_registry()
         table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
@@ -6675,7 +6717,7 @@ async def promote_zotero_extra(payload: dict = Body(...)):
             existing = new_prop
             column_created = True
 
-    # 2. Determinar el conjunt de pàgines a migrar.
+    # 2. Determine the set of pages to migrate.
     if isinstance(page_ids_arg, list) and page_ids_arg:
         candidate_ids = [str(p) for p in page_ids_arg]
     else:
@@ -6701,8 +6743,8 @@ async def promote_zotero_extra(payload: dict = Body(...)):
         fp = find_page_path(pid)
         if not fp or not fp.exists():
             return ('error', "not_found")
-        # PR ETag (Via A): opcional, no és breaking — un client antic que no
-        # passi expected_etags continua funcionant exactament com abans.
+        # PR ETag (Path A): optional, not breaking — an old client that doesn't
+        # passes expected_etags keeps working exactly as before.
         exp = expected_etags.get(pid)
         if exp:
             current = file_etag(fp)
@@ -6721,8 +6763,8 @@ async def promote_zotero_extra(payload: dict = Body(...)):
                 md['Zotero Extras'] = extras
             md[column_name] = value
             save_page_md(fp, md, body or '')
-            # Refresc de l'índex (com el bulk/PATCH): sense això, el metadata
-            # migrat quedava ranci a la graella fins al rescan.
+            # Index refresh (like the bulk/PATCH): without this, the metadata
+            # migrated stayed stale in the grid until the rescan.
             _refresh_page_index_entry(fp, md, body or '')
             return ('ok', file_etag(fp))
         except (OSError, ValueError) as e:
@@ -6758,25 +6800,25 @@ async def promote_zotero_extra(payload: dict = Body(...)):
 
 @router.post("/bulk-update-metadata", dependencies=[Depends(require_role("editor"))])
 async def bulk_update_metadata(payload: dict = Body(...)):
-    """Aplica el mateix patch de metadata a una col·lecció de pàgines.
+    """Applies the same metadata patch to a collection of pages.
 
     Body:
         {
           "page_ids": ["uuid1", "uuid2", ...],
           "updates": {"Item Type": "preprint", "Idioma": "en"},
-          "remove": ["CampObsolet"],
-          "expected_etags": {"uuid1": "abc", ...}   # opcional (Via A col·laboració)
+          "remove": ["ObsoleteField"],
+          "expected_etags": {"uuid1": "abc", ...}   # optional (collaboration Path A)
         }
 
-    Per a cada pàgina:
-      1. Si `expected_etags[pid]` és present, validar contra l'etag actual.
-         Mismatch → marcat com a `conflict`, NO escrit.
-      2. Llegeix .md, parseja frontmatter.
-      3. Aplica `updates` (None/'' → esborrat) i `remove`.
-      4. Si patch idèntic al state actual → `skip`.
-      5. `save_page_md` i retorna el nou etag al client.
+    For each page:
+      1. If `expected_etags[pid]` is present, validate against the current etag.
+         Mismatch → marked as `conflict`, NOT written.
+      2. Reads .md, parses frontmatter.
+      3. Applies `updates` (None/'' → deleted) and `remove`.
+      4. If the patch is identical to the current state → `skip`.
+      5. `save_page_md` and returns the new etag to the client.
 
-    Resposta:
+    Response:
         {
           "updated": N, "updated_ids": [...],
           "updated_with_etags": [{"page_id": "...", "etag": "..."}],
@@ -6785,9 +6827,10 @@ async def bulk_update_metadata(payload: dict = Body(...)):
           "errors": [{"page_id": "...", "error": "..."}]
         }
 
-    Una error individual NO aborta la resta. Els conflictes són recoverable:
-    el client pot fer GET de la versió nova, repetir la lògica i tornar a
-    enviar amb el nou etag.
+    A single error does NOT abort the rest. Conflicts are recoverable:
+    the client can GET the new version, repeat the logic, and resend
+    with the new etag.
+    
     """
     page_ids = payload.get('page_ids') or []
     updates = payload.get('updates') or {}
@@ -6823,12 +6866,12 @@ async def bulk_update_metadata(payload: dict = Body(...)):
             if md == original_md:
                 return ('skip', None)
             save_page_md(fp, md, body or '')
-            # Refresca l'índex en memòria amb el metadata NOU (com fa el PATCH
-            # d'una sola pàgina). Sense això, `GET /pages` i `/by-table`
-            # servien el metadata VELL des de `_page_index_entries` fins al
-            # pròxim rescan complet (cooldown 600s) → l'edició massiva "no
-            # s'enganxava" a la graella (reproduït: updated=2 però by-table
-            # seguia mostrant el valor previ).
+            # Refreshes the in-memory index with the NEW metadata (as the PATCH
+            # for a single page does). Without this, `GET /pages` and `/by-table`
+            # served the OLD metadata from `_page_index_entries` until the
+            # next full rescan (600s cooldown) → the bulk edit "didn't
+            # stick" in the grid (reproduced: updated=2 but by-table
+            # kept showing the previous value).
             try:
                 v_path = get_active_vault_path()
                 if v_path:
@@ -6859,9 +6902,9 @@ async def bulk_update_metadata(payload: dict = Body(...)):
 
     if updated:
         _invalidate_cite_key_index()
-        # El micro-cache de resposta (`_pages_resp_cache`, TTL ~1.5s) NO es
-        # refresca en actualitzar `_page_index_entries`; sense invalidar-lo,
-        # un `/pages`/`/by-table` dins del TTL tornaria el snapshot pre-bulk.
+        # The response micro-cache (`_pages_resp_cache`, TTL ~1.5s) is NOT
+        # refreshes when updating `_page_index_entries`; without invalidating it,
+        # a `/pages`/`/by-table` within the TTL would return the pre-bulk snapshot.
         _pages_cache_invalidate_all()
 
     return {
@@ -6876,13 +6919,14 @@ async def bulk_update_metadata(payload: dict = Body(...)):
 
 @router.get("/csl/styles")
 async def list_csl_styles():
-    """Llistat dels estils CSL disponibles al catàleg (frontend/public/csl/styles).
+    """List of the CSL styles available in the catalog (frontend/public/csl/styles).
 
-    Cada entrada: `{id, file, title}`. `title` és el `<title>` extret del XML
-    (la denominació oficial CSL, p.ex. "American Psychological Association 7th edition").
+    Each entry: `{id, file, title}`. `title` is the `<title>` extracted from the XML
+    (the official CSL denomination, e.g. "American Psychological Association 7th edition").
 
-    El frontend usa aquest endpoint per omplir el `CslStylePicker`; cau a la
-    llista hardcoded de `cslEngine.AVAILABLE_STYLES` si la crida falla.
+    The frontend uses this endpoint to populate the `CslStylePicker`; falls back to the
+    hardcoded list in `cslEngine.AVAILABLE_STYLES` if the call fails.
+    
     """
     from backend.services.csl_styles import list_styles
     return {"styles": list_styles()}
@@ -6890,12 +6934,13 @@ async def list_csl_styles():
 
 @router.post("/csl/styles", dependencies=[Depends(require_role("editor"))])
 async def upload_csl_style(file: UploadFile = File(...)):
-    """Puja un fitxer CSL (`.csl`) al catàleg.
+    """Uploads a CSL (`.csl`) file to the catalog.
 
-    Valida que sigui XML CSL ben format (root `<style>`, mida raonable),
-    el desa amb el nom (sanititzat) i retorna la metadata extreta. L'usuari
-    pot fer servir l'estil immediatament després de la propera càrrega
-    del frontend (els estils es serveixen via HTTP estàtic de Vite).
+    Validates that it's well-formed CSL XML (root `<style>`, reasonable size),
+    saves it with the (sanitized) name, and returns the extracted metadata. The
+    user can use the style immediately after the frontend's next
+    load (styles are served via Vite's static HTTP).
+    
     """
     from backend.services.csl_styles import save_uploaded_style
     raw = await file.read()
@@ -6912,9 +6957,10 @@ async def export_references(
     fmt: str = Query('bibtex'),
     keys: str = Query(''),
 ):
-    """Exporta les referències d'una taula a BibTeX o RIS (download).
+    """Exports a table's references to BibTeX or RIS (download).
 
-    `keys` opcional: CSV de citation keys per exportar només un subconjunt.
+    `keys` optional: CSV of citation keys to export only a subset.
+    
     """
     from backend.services import references_io
     from backend.services.context_vars import get_active_vault_path
@@ -6935,26 +6981,27 @@ async def export_references(
 
 
 def _fold_accents(s) -> str:
-    """Minúscules SENSE accents (NFKD + treure les marques combinants), perquè la
-    cerca de cites sigui insensible a accents: "liquida" troba "líquida",
-    "academicos" troba "Académicos". Mateix criteri que drupal_sync/import_dedup."""
+    """Lowercase WITHOUT accents (NFKD + stripping combining marks), so that
+    citation search is accent-insensitive: "liquida" finds "líquida",
+    "academicos" finds "Académicos". Same criterion as drupal_sync/import_dedup."""
     norm = unicodedata.normalize("NFKD", str(s or ""))
     return "".join(c for c in norm if not unicodedata.combining(c)).lower()
 
 
 @router.get("/search-citations")
 async def search_citations(q: str = "", limit: int = 30):
-    """Cerca pàgines de Recursos per al CitePicker (Cmd+Shift+I).
+    """Searches Recursos pages for the CitePicker (Cmd+Shift+I).
 
-    Filtre lliure que cerca a TOTS els camps cachejats al page_index:
-    `Citation Key`, `Títol`, `Autor`, `Any`, revista, editorial, DOI, etc.
-    Retorna `limit` (per defecte 30) resultats ordenats per millor
-    coincidència (key > títol > autor > altres camps). No reobre cap
-    fitxer del vault (funciona amb vault al núvol / online-only).
+    Free-text filter that searches ALL fields cached in page_index:
+    `Citation Key`, `Títol`, `Autor`, `Any`, journal, publisher, DOI, etc.
+    Returns `limit` (30 by default) results sorted by best
+    match (key > title > author > other fields). Doesn't reopen any
+    vault file (works with a cloud / online-only vault).
 
-    Resposta: `[{ id, title, citation_key, author, year, folder }, ...]`
-    Pensat per a un picker amb autocompletar — no és un endpoint d'index
-    complet del catàleg.
+    Response: `[{ id, title, citation_key, author, year, folder }, ...]`
+    Designed for an autocomplete picker — it's not a full catalog
+    indexing endpoint.
+    
     """
     from backend.services.context_vars import get_active_vault_path
     v_path = get_active_vault_path()
@@ -6965,18 +7012,18 @@ async def search_citations(q: str = "", limit: int = 30):
 
     query = _fold_accents(str(q or "").strip())
     if not query:
-        # Sense filtre, retornem els primers `limit` per popularitat (per
-        # ara, ordre alfabètic per citation_key).
+        # Without a filter, we return the first `limit` by popularity (for
+        # now, alphabetical order by citation_key).
         items = sorted(idx.values(), key=lambda x: str(x.get("citation_key") or "").lower())[:limit]
-        # Enriquim amb autor/any llegits del frontmatter (cau a I/O però són
-        # només `limit` arxius — acceptable).
+        # We enrich with author/year read from the frontmatter (falls back to I/O but it's
+        # only `limit` files — acceptable).
         return [_enrich_cite_entry(item) for item in items]
 
-    # Cerca a TOTS els camps cachejats: citation_key (prefix > infix),
-    # títol, autor i la resta de camps bibliogràfics (revista, editorial,
-    # any, DOI…) via el blob `search`. Tot des de la metadata cachejada al
-    # page_index — no reobrim cap .md, així funciona amb el vault al núvol
-    # (fitxers online-only). Ranking: key > títol > autor > altres camps.
+    # Search across ALL cached fields: citation_key (prefix > infix),
+    # title, author, and the rest of the bibliographic fields (journal, publisher,
+    # year, DOI…) via the `search` blob. All from the metadata cached in the
+    # page_index — we don't reopen any .md, so it works with the vault in the cloud
+    # (online-only files). Ranking: key > title > author > other fields.
     candidates = []
     for entry in idx.values():
         ck = _fold_accents(entry.get("citation_key"))
@@ -6995,7 +7042,7 @@ async def search_citations(q: str = "", limit: int = 30):
         elif query in author:
             score = 35
         elif query in blob:
-            score = 15  # coincidència en qualsevol altre camp
+            score = 15  # match in any other field
         if score >= 0:
             candidates.append((score, entry))
 
@@ -7005,7 +7052,7 @@ async def search_citations(q: str = "", limit: int = 30):
 
 
 def _format_one_author(a) -> str:
-    """Formata un autor que pot venir com a string o com a dict estructurat
+    """Formats an author that can come as a string or as a structured dict
     ({nom, cognom1, cognom2})."""
     if isinstance(a, dict):
         parts = [str(a.get(k) or "").strip() for k in ("nom", "cognom1", "cognom2")]
@@ -7014,9 +7061,9 @@ def _format_one_author(a) -> str:
 
 
 def _cite_author_from_metadata(md: dict):
-    """Treu l'autor de la metadata cachejada del page_index, provant les
-    claus habituals (ca/en). Accepta strings, llistes i dicts estructurats
-    ({nom, cognom1, cognom2}); uneix múltiples autors amb comes."""
+    """Extracts the author from the metadata cached in page_index, trying the
+    usual keys (ca/en). Accepts strings, lists, and structured dicts
+    ({nom, cognom1, cognom2}); joins multiple authors with commas."""
     for k in ("Authors", "Autor", "Autors", "Author"):
         v = md.get(k)
         if not v:
@@ -7033,7 +7080,7 @@ def _cite_author_from_metadata(md: dict):
 
 
 def _cite_year_from_metadata(md: dict):
-    """Treu l'any (4 dígits) de la metadata cachejada del page_index."""
+    """Extracts the year (4 digits) from the metadata cached in page_index."""
     for k in ("Any", "Year", "Data", "Date"):
         v = md.get(k)
         if v in (None, ""):
@@ -7045,10 +7092,10 @@ def _cite_year_from_metadata(md: dict):
 
 
 def _cite_search_blob(title, ck, author, year, md) -> str:
-    """Cadena cercable (en minúscules) amb tots els camps rellevants d'una
-    cita, perquè `search-citations` pugui filtrar per «tots els camps»
-    sense reobrir el .md (resilient a vault al núvol). Inclou camps
-    bibliogràfics habituals i tags; exclou camps interns sorollosos."""
+    """Searchable string (lowercase) with all the relevant fields of a
+    citation, so `search-citations` can filter by "all fields"
+    without reopening the .md (resilient to a cloud vault). Includes the
+    usual bibliographic fields and tags; excludes noisy internal fields."""
     parts = [str(title or ""), str(ck or ""), str(author or ""), str(year or "")]
     if md:
         for k in ("Llibre/Revista", "Editorial", "Lloc", "DOI", "ISBN",
@@ -7065,13 +7112,13 @@ def _cite_search_blob(title, ck, author, year, md) -> str:
 
 
 def _enrich_cite_entry(entry: dict) -> dict:
-    """Completa autor i any d'una entrada del cite_key_index.
+    """Completes the author and year of a cite_key_index entry.
 
-    Preferim els valors ja resolts a la pròpia entrada (provinents de la
-    metadata cachejada del page_index). Només si falten, fem fallback a
-    llegir el frontmatter del .md — cosa que pot fallar si el vault viu en
-    emmagatzematge al núvol amb fitxers online-only (vegis la directiva
-    environment_integrity); en aquest cas es captura i es deixa buit."""
+    We prefer the values already resolved in the entry itself (coming from
+    the metadata cached in page_index). Only if they're missing do we fall back to
+    reading the .md's frontmatter — which can fail if the vault lives in
+    cloud storage with online-only files (see the
+    environment_integrity directive); in that case it's caught and left empty."""
     out = {
         "id": entry.get("id"),
         "title": entry.get("title"),
@@ -7082,7 +7129,7 @@ def _enrich_cite_entry(entry: dict) -> dict:
     }
     if out["author"] or out["year"]:
         return out
-    # Fallback: llegir el frontmatter del fitxer (cas legacy sense metadata).
+    # Fallback: read the file's frontmatter (legacy case without metadata).
     path = entry.get("path")
     if not path or not Path(path).exists():
         return out
@@ -7104,20 +7151,21 @@ def _enrich_cite_entry(entry: dict) -> dict:
 
 @router.get("/resolve-by-citation-key")
 async def resolve_by_citation_key(key: str):
-    """Resol un citation key (com `smith2020`) a UUID + títol consultant
-    les pàgines de la taula Recursos.
+    """Resolves a citation key (like `smith2020`) to UUID + title by querying
+    the pages of the Recursos table.
 
-    Pensat per al sistema de citations `[@key]` al BlockEditor: el frontend
-    cerca una sola key i rep el dest perquè el chip clicable obri la
-    pàgina de referència. Implementació: itera el `_page_index_entries`
-    i, per a les pàgines de la taula configurada com a "Recursos" (o
-    qualsevol amb un camp `Citation Key`), llegeix el frontmatter per
-    fer match exacte (case-sensitive — els citation keys són ASCII low).
+    Designed for the `[@key]` citation system in the BlockEditor: the frontend
+    looks up a single key and receives the dest so the clickable chip can open the
+    reference page. Implementation: iterates over `_page_index_entries`
+    and, for the pages of the table configured as "Recursos" (or
+    any with a `Citation Key` field), reads the frontmatter to
+    make an exact match (case-sensitive — citation keys are ASCII lowercase).
 
-    Optimització: si l'usuari té milers de pàgines, escanejar és lent.
-    Mantenim un cache `_cite_key_index` al mòdul amb (citation_key →
-    {page_id, title}) que es renova quan canvien els fitxers. Vegis
-    `_invalidate_cite_key_index` per a la invalidació.
+    Optimization: if the user has thousands of pages, scanning is slow.
+    We keep a `_cite_key_index` cache in the module with (citation_key →
+    {page_id, title}) that's renewed when files change. See
+    `_invalidate_cite_key_index` for the invalidation.
+    
     """
     key_norm = str(key or "").strip()
     if not key_norm:
@@ -7135,25 +7183,26 @@ async def resolve_by_citation_key(key: str):
 
 
 # Cache citation_key → {id, title, folder, citation_key}. Es reconstrueix
-# (o invalida) quan canvia el page_index o quan algun PATCH toca el camp
-# `Citation Key`. Per simplicitat, ara fem rebuild perezós al primer ús
-# i quan el `_page_index_entries` ha canviat de mida (heurística — no
-# perfecta però suficient per al cas comú).
+# (or invalidates) when the page_index changes or when some PATCH touches the field
+# `Citation Key`. For simplicity, we now do a lazy rebuild on first use
+# and when `_page_index_entries` has changed size (heuristic — not
+# perfect but sufficient for the common case).
 _cite_key_index: dict[str, dict] = {}  # v_str → { citation_key: entry }
-_cite_key_index_size_at_build: dict[str, int] = {}  # v_str → size del page_index
+_cite_key_index_size_at_build: dict[str, int] = {}  # v_str → size of the page_index
 _cite_key_index_lock = threading.Lock()
 
 
 def _ensure_cite_key_index(v_str: str) -> dict:
-    """Construeix (o reusa) l'índex de citation keys per al vault donat.
+    """Build (or reuse) the citation key index for the given vault.
 
-    Estratègia perezosa: si el page_index ha canviat de mida des de l'últim
-    build, refem. Si no, retornem el cache. Aquesta heurística no detecta
-    edicions del mateix nombre d'entrades (un Citation Key que canvia
-    sense afegir/eliminar pàgines), però el cost de tenir-ho stale durant
-    una sessió de l'usuari és baix — només significa que un canvi de
-    citation key triga 5 minuts a propagar-se als chips inline. Per a
-    canvis crítics, vegis `_invalidate_cite_key_index`.
+    Lazy strategy: if the page_index has changed size since the last
+    build, we rebuild. Otherwise, we return the cache. This heuristic does not detect
+    edits with the same number of entries (a Citation Key that changes
+    without adding/removing pages), but the cost of having it stale during
+    a user session is low — it just means a citation key change
+    takes 5 minutes to propagate to the inline chips. For
+    critical changes, see `_invalidate_cite_key_index`.
+    
     """
     with _cite_key_index_lock:
         with _page_index_lock:
@@ -7164,24 +7213,24 @@ def _ensure_cite_key_index(v_str: str) -> dict:
         # Rebuild
         log.info(f"🔎 Rebuilding cite_key_index for {v_str}")
         idx: dict[str, dict] = {}
-        # Acotem l'índex a la TAULA DE REFERÈNCIES designada (exclusiu): només
-        # les seves pàgines són cites. Si no hi ha designació (Referències no
-        # activades), indexem qualsevol pàgina amb 'Citation Key' (compat.).
+        # We scope the index to the designated REFERENCES TABLE (exclusive): only
+        # its pages are citations. If there is no designation (References not
+        # enabled), we index any page with 'Citation Key' (compat.).
         ref_id = get_reference_table_id()
         ref_canon = _canonicalize_id(ref_id) if ref_id else None
         with _page_index_lock:
             entries = list(_page_index_entries.get(v_str, {}).values())
         for entry in entries:
             md = entry.get("metadata") or {}
-            # Camí ràpid i resilient: el Citation Key i el table_id ja solen
-            # estar a la metadata cachejada del page_index. Usar-la evita
-            # reobrir el .md — fonamental quan el vault viu en emmagatzematge
-            # al núvol (OneDrive/iCloud) amb fitxers "online-only": obrir-los
-            # provoca hidratació costosa o EDEADLK (Errno 35) i l'índex
-            # quedaria buit. Vegis la directiva environment_integrity.
+            # Fast, resilient path: the Citation Key and table_id are usually already
+            # be in the page_index's cached metadata. Using it avoids
+            # reopening the .md — essential when the vault lives in storage
+            # in the cloud (OneDrive/iCloud) with "online-only" files: opening them
+            # causes expensive hydration or EDEADLK (Errno 35) and the index
+            # would be left empty. See the environment_integrity directive.
             ck = str(md.get("Citation Key") or "").strip()
             if ck:
-                # Scope: només pàgines de la taula de referències designada.
+                # Scope: only pages from the designated references table.
                 if ref_canon:
                     tid_raw = md.get("table_id") or md.get("database_table_id")
                     page_tid = _canonicalize_id(str(tid_raw).strip()) if tid_raw else ""
@@ -7201,23 +7250,23 @@ def _ensure_cite_key_index(v_str: str) -> dict:
                         "search": _cite_search_blob(entry.get("title"), ck, author, year, md),
                     }
                 continue
-            # Fallback (metadata sense Citation Key): llegim la capçalera del
-            # .md com abans. Pot fallar amb fitxers online-only; es captura.
+            # Fallback (metadata without Citation Key): we read the header of the
+            # .md as before. Can fail with online-only files; it's caught.
             path = entry.get("path")
             if not path or not Path(path).exists():
                 continue
             try:
-                # Llegim només la capçalera del fitxer per minimitzar I/O:
-                # els frontmatters Markdown solen tenir <2KB.
+                # We read only the file header to minimize I/O:
+                # Markdown frontmatters are usually <2KB.
                 with open(path, "r", encoding="utf-8") as f:
                     head = f.read(4096)
                 if not head.startswith("---"):
                     continue
-                # Cerca "Citation Key:" al frontmatter
+                # Search for "Citation Key:" in the frontmatter
                 m = re.search(r"^Citation Key:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
                 if not m:
                     continue
-                # Scope: només pàgines de la taula de referències designada.
+                # Scope: only pages from the designated references table.
                 if ref_canon:
                     tm = re.search(
                         r"^(?:database_table_id|table_id):\s*['\"]?([^'\"\n\r]+)",
@@ -7247,7 +7296,7 @@ def _ensure_cite_key_index(v_str: str) -> dict:
 
 
 def _invalidate_cite_key_index(v_str: str = None) -> None:
-    """Buida el cache del cite_key_index (tot o per vault)."""
+    """Clears the cite_key_index cache (all or per vault)."""
     with _cite_key_index_lock:
         if v_str is None:
             _cite_key_index.clear()
@@ -7258,10 +7307,11 @@ def _invalidate_cite_key_index(v_str: str = None) -> None:
 
 
 def normalize_aliases(val) -> list[str]:
-    """Normalitza el camp `aliases` del frontmatter a una llista de strings.
+    """Normalize the `aliases` field of the frontmatter into a list of strings.
 
-    Accepta una llista YAML (`aliases: [a, b]`), un escalar, o una cadena
-    separada per comes (`aliases: a, b`). Buida els valors no-text.
+    Accepts a YAML list (`aliases: [a, b]`), a scalar, or a comma-separated
+    string (`aliases: a, b`). Discards non-text values.
+    
     """
     if val is None:
         return []
@@ -7281,17 +7331,18 @@ def normalize_aliases(val) -> list[str]:
 
 @router.get("/resolve-by-title")
 async def resolve_by_title(title: str):
-    """Resol un títol literal (o un àlies de nota) a UUID via _page_index_entries.
+    """Resolve a literal title (or a note alias) to a UUID via _page_index_entries.
 
-    Cas d'ús: el frontend ha rebut un wikilink `[[Foo]]` però el seu
-    `idToTitle` està buit o desactualitzat (just després d'una mutació de
-    parent_id, una neteja de cache, o navegació directa per URL). En lloc
-    de fer GET /pages/<title> i deixar al backend el match (que ara té
-    fallback per títol gràcies a `find_page_path`), el frontend pot
-    consultar aquí i obtenir l'UUID directament — ràpid i sense sorolls.
+    Use case: the frontend has received a wikilink `[[Foo]]` but its
+    `idToTitle` is empty or stale (right after a parent_id mutation,
+    a cache cleanup, or direct URL navigation). Instead of
+    doing GET /pages/<title> and leaving the match to the backend (which now has
+    title fallback thanks to `find_page_path`), the frontend can
+    query here and get the UUID directly — fast and without noise.
 
-    A més del títol, casa amb els àlies de nota declarats al frontmatter
-    (`aliases:`), de manera que `[[Àlies]]` resol a la pàgina (estil Obsidian).
+    Besides the title, it also matches note aliases declared in the frontmatter
+    (`aliases:`), so that `[[Alias]]` resolves to the page (Obsidian-style).
+    
     """
     title_lower = str(title or "").strip().lower()
     if not title_lower:
@@ -7313,7 +7364,7 @@ async def resolve_by_title(title: str):
                     "folder": entry.get("folder"),
                     "matched_alias": None,
                 }
-            # Recordem el primer match per àlies, però el títol té prioritat.
+            # We remember the first alias match, but the title takes priority.
             if alias_match is None:
                 meta = entry.get("metadata") or {}
                 for alias in normalize_aliases(meta.get("aliases")):
@@ -7331,17 +7382,17 @@ async def resolve_by_title(title: str):
 
 
 def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
-    """Extreu les URLs d'imatges referenciades al markdown (sintaxi ![alt](url))."""
+    """Extracts the URLs of images referenced in the markdown (syntax ![alt](url))."""
     if not body:
         return []
     seen = set()
     out: list[str] = []
     for m in re.finditer(r"!\[[^\]]*\]\(([^)]+)\)", body):
         raw = m.group(1).strip()
-        # CommonMark accepta `<url>` per envoltar URLs amb espais.
+        # CommonMark accepts `<url>` to wrap URLs containing spaces.
         if raw.startswith("<") and raw.endswith(">"):
             raw = raw[1:-1]
-        # Algun parser pot deixar `"alt text"` al final: `url "alt"`.
+        # Some parser may leave `"alt text"` at the end: `url "alt"`.
         if " " in raw:
             raw = raw.split(" ", 1)[0]
         if not raw or raw in seen:
@@ -7354,44 +7405,45 @@ def _extract_images_from_body(body: str, max_images: int = 6) -> list[str]:
 
 
 async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any], Dict[str, Any], float]:
-    """Llegeix el fitxer i construeix les dues respostes (short + full) per al
-    preview, juntament amb el mtime per a invalidació de cache.
+    """Read the file and build the two responses (short + full) for the
+    preview, along with the mtime for cache invalidation.
 
-    Aquesta funció és reutilitzable per:
-      - `get_page_preview` (un sol id, possible cache hit).
-      - `bulk_warm_previews` (warmup proactiu d'una llista d'ids).
+    This function is reusable for:
+      - `get_page_preview` (a single id, possible cache hit).
+      - `bulk_warm_previews` (proactive warmup of a list of ids).
 
-    Materialitza el fitxer si està online-only ABANS d'intentar llegir-lo,
-    així evitem la cua de retries de 4.55s; només cauen al retry si el File
-    Provider tarda més del que pensem.
+    Materializes the file if it is online-only BEFORE attempting to read it,
+    thus avoiding the 4.55s retry queue; it only falls back to retry if the File
+    Provider takes longer than expected.
+    
     """
-    # Mtime (cau silenciosament a 0 si st() falla — la cache ja gestiona el cas).
+    # Mtime (silently falls to 0 if st() fails — the cache already handles the case).
     try:
         mtime = file_path.stat().st_mtime
     except OSError:
         mtime = 0.0
 
-    # Warmup proactiu: si el fitxer és online-only, el File Provider d'OneDrive
-    # ha de descarregar-lo abans que `read_text` no peti amb errno 35. Mateix
-    # helper que usa get_page.
+    # Proactive warmup: if the file is online-only, OneDrive's File Provider
+    # must download it before `read_text` fails with errno 35. Same
+    # helper that uses get_page.
     await _materialize_if_online_only(file_path, page_id)
 
     def _read_and_parse():
         if _is_dashboard_file_path(file_path):
             md, body = _read_dashboard_file(file_path)
             return md, body, body
-        # Mateixos reintents que get_page (~4.55s total) com a xarxa de seguretat
-        # per si el warmup proactiu d'amunt no ha estat suficient.
+        # Same retries as get_page (~4.55s total) as a safety net
+        # in case the proactive warmup above wasn't enough.
         last_error = None
         delays = [0.05, 0.1, 0.2, 0.4, 0.8, 1.0, 1.0, 1.0]
         for attempt in range(len(delays) + 1):
             try:
                 raw_content = file_path.read_text(encoding="utf-8")
                 md, body = parse_frontmatter(raw_content, file_path)
-                # `body_full`: igual que `body` però amb els snapshots de vista
-                # renderitzats (taula/llista visible) i les columnes aplanades —
-                # per al `body_md` del preview (pop-up i feed). L'`excerpt` segueix
-                # sortint de `body` (sense snapshots) per al hover de wikilinks.
+                # `body_full`: same as `body` but with the view snapshots
+                # rendered (visible table/list) and the flattened columns —
+                # for the preview's `body_md` (pop-up and feed). The `excerpt` keeps
+                # coming from `body` (without snapshots) for the wikilink hover.
                 _, body_full = parse_frontmatter(raw_content, file_path, render_snapshots=True)
                 return md, body, body_full
             except OSError as e:
@@ -7424,17 +7476,18 @@ async def _compute_preview(file_path: Path, page_id: str) -> Tuple[Dict[str, Any
 async def _fetch_preview_with_cache(
     file_path: Path, page_id: str
 ) -> Tuple[Dict[str, Any], Dict[str, Any], float]:
-    """Wrapper amb cache + dedup d'in-flight sobre `_compute_preview`.
+    """Wrapper with cache + in-flight dedup over `_compute_preview`.
 
-    Lògica robusta única per a `get_page_preview` i `bulk_warm_previews`:
+    Single robust logic for `get_page_preview` and `bulk_warm_previews`:
 
-      1. Llegeix mtime del fitxer.
-      2. Cache hit (mtime coincideix) → retorna immediatament.
-      3. Cache miss però hi ha una future en marxa per aquest id → la
-         comparteix (await; ningú repeteix la feina).
-      4. Cache miss i no hi ha future → crea una nova future, computa,
-         guarda al cache, signala la future. Sempre buida el mapa
-         d'in-flight al final, tant si triomfa com si falla.
+      1. Read the file's mtime.
+      2. Cache hit (mtime matches) → return immediately.
+      3. Cache miss but there's a future already running for this id → share
+         it (await; no one repeats the work).
+      4. Cache miss and no future → create a new future, compute,
+         store in the cache, signal the future. Always clears the
+         in-flight map at the end, whether it succeeds or fails.
+    
     """
     try:
         mtime = await asyncio.to_thread(lambda: file_path.stat().st_mtime)
@@ -7458,8 +7511,8 @@ async def _fetch_preview_with_cache(
             owner = False
 
     if not owner:
-        # Una altra coroutine ja està computant aquest id. Esperem el seu
-        # resultat per no duplicar feina ni estressar OneDrive.
+        # Another coroutine is already computing this id. We wait for its
+        # result to avoid duplicating work or stressing OneDrive.
         return await future
 
     try:
@@ -7479,20 +7532,21 @@ async def _fetch_preview_with_cache(
 
 @router.get("/pages/{page_id}/preview")
 async def get_page_preview(page_id: str, full: bool = False):
-    """Preview d'una pàgina (títol + extracte/cos + icon/cover + imatges).
+    """Preview of a page (title + excerpt/body + icon/cover + images).
 
-    Per defecte retorna només `excerpt` (per a tooltips de wikilinks).
-    Amb `?full=true`, retorna també `body_md` (markdown sencer per render
-    al feed) i `images` (llista d'URLs d'imatges del cos).
+    By default returns only `excerpt` (for wikilink tooltips).
+    With `?full=true`, it also returns `body_md` (full markdown for rendering
+    in the feed) and `images` (list of image URLs from the body).
 
-    Cache en memòria invalidat per mtime + dedup d'in-flight per id:
-      - La primera crida paga el cost real (warmup + read + parse, ~ms si
-        ja és local, ~segons si encara és online-only).
-      - Les següents són instantànies fins que el .md es modifica.
-      - Si dues peticions concurrents demanen el mateix id, comparteixen
-        la mateixa feina (no es duplica).
+    In-memory cache invalidated by mtime + in-flight dedup per id:
+      - The first call pays the real cost (warmup + read + parse, ~ms if
+        already local, ~seconds if still online-only).
+      - Subsequent calls are instantaneous until the .md is modified.
+      - If two concurrent requests ask for the same id, they share
+        the same work (not duplicated).
 
-    Errno 35 d'OneDrive es degrada a buit (preview no és crític).
+    OneDrive's Errno 35 degrades to empty (preview is not critical).
+    
     """
     file_path = await asyncio.to_thread(find_page_path, page_id)
 
@@ -7528,34 +7582,35 @@ class _BulkWarmPayload(BaseModel):
     ids: List[str]
 
 
-# Per-item timeout dins del bulk warmup. Cobreix casos patològics on
+# Per-item timeout inside the bulk warmup. Covers pathological cases where
 # `materialize` o `read_text` es queden penjats (OneDrive lock, FUSE hang,
-# etc.) sense aturar tot el batch. El daemon ja té el seu propi timeout
-# (ONEDRIVE_WARMUP_TIMEOUT, default 90s); aquest n'és el límit superior a
-# nivell de coordinació backend.
+# etc.) without stopping the whole batch. The daemon already has its own timeout
+# (ONEDRIVE_WARMUP_TIMEOUT, default 90s); this is its upper bound at
+# the backend coordination level.
 _PREVIEW_WARM_PER_ITEM_TIMEOUT_S = 30.0
-# Concurrència del bulk: prou alt per paral·lelitzar, prou baix perquè no
-# saturi el File Provider d'OneDrive. Coincideix amb el límit que abans
-# imposava el frontend.
+# Bulk concurrency: high enough to parallelize, low enough that it doesn't
+# saturate OneDrive's File Provider. Matches the limit that was previously
+# the frontend used to impose.
 _PREVIEW_WARM_CONCURRENCY = 8
 
 
 async def _bulk_warm_one(pid: str) -> str:
-    """Warmupeja un sol id i retorna l'estat: 'cached' | 'warmed' | 'failed'.
+    """Warms up a single id and returns the status: 'cached' | 'warmed' | 'failed'.
 
-    Mai propaga excepcions: una fallida individual NO ha de tombar el batch.
+    Never propagates exceptions: an individual failure must NOT bring down the batch.
 
-    Robust contra:
-      - **Ids orfes** (pàgines stale a una vista de base de dades que ja
-        s'han eliminat del disc): `find_page_path(allow_full_scan=False)`
-        evita un `rglob` ple del vault quan l'id no és a l'índex de
-        pàgines.
-      - **Race de cache hit + miss**: tota la lògica de cache i dedup
-        d'in-flight viu a `_fetch_preview_with_cache` — compartida amb
+    Robust against:
+      - **Orphan ids** (stale pages in a database view that have already
+        been removed from disk): `find_page_path(allow_full_scan=False)`
+        avoids a full vault `rglob` when the id is not in the
+        page index.
+      - **Cache hit + miss race**: all the cache and in-flight dedup
+        logic lives in `_fetch_preview_with_cache` — shared with
         `get_page_preview`.
+    
     """
     try:
-        # allow_full_scan=False: ids stale → fail fast sense rglob ple.
+        # allow_full_scan=False: stale ids → fail fast without a full rglob.
         file_path = await asyncio.to_thread(find_page_path, pid, allow_full_scan=False)
         if not file_path or not file_path.exists():
             return "failed"
@@ -7565,8 +7620,8 @@ async def _bulk_warm_one(pid: str) -> str:
         except OSError:
             mtime = 0.0
 
-        # Cache hit ràpid abans d'entrar a `_fetch_preview_with_cache`
-        # (estalvia el cost de configurar la future dedup quan no cal).
+        # Fast cache hit before entering `_fetch_preview_with_cache`
+        # (saves the cost of setting up the dedup future when it's not needed).
         if _preview_cache_get(pid, mtime, full=True) is not None:
             return "cached"
 
@@ -7579,31 +7634,32 @@ async def _bulk_warm_one(pid: str) -> str:
 
 @router.post("/pages/preview/warm")
 async def bulk_warm_previews(payload: _BulkWarmPayload):
-    """Pre-warmup paral·lel de previews per a una llista d'ids.
+    """Parallel pre-warmup of previews for a list of ids.
 
-    Cas d'ús: el frontend, en muntar una vista (feed/taula/galeria) amb
-    desenes d'items, crida aquest endpoint una vegada amb tots els ids. El
-    backend dispara warmup d'OneDrive + read + parse + cache de cada item
-    en paral·lel (concurrència limitada). Les peticions individuals
-    `/preview` que el frontend faci a continuació seran instantànies (cache
-    hit) en lloc d'esperar ~5s cadascuna.
+    Use case: the frontend, when mounting a view (feed/table/gallery) with
+    dozens of items, calls this endpoint once with all the ids. The
+    backend triggers OneDrive warmup + read + parse + cache for each item
+    in parallel (limited concurrency). The individual `/preview`
+    requests the frontend makes afterward will be instantaneous (cache
+    hit) instead of waiting ~5s each.
 
-    Robust contra:
-      - **Ids orfes/stale** (apunten a fitxers ja eliminats):
-        `allow_full_scan=False` evita un rglob de tot el vault per a cada un
-        — un sol id eliminat no bloca el batch sencer.
-      - **Materialitzacions lentes/penjades**: timeout per item
-        (`_PREVIEW_WARM_PER_ITEM_TIMEOUT_S`). El daemon té el seu propi
-        timeout però aquest n'és el límit superior al backend.
-      - **Errors individuals**: cada warmup falla en silenci (`failed += 1`);
-        mai propaga al batch ni canvia l'estat HTTP.
-      - **Crides concurrents**: dedup d'in-flight per id (vegeu
+    Robust against:
+      - **Orphan/stale ids** (pointing to already-deleted files):
+        `allow_full_scan=False` avoids a full vault rglob for each one
+        — a single deleted id doesn't block the whole batch.
+      - **Slow/stuck materializations**: per-item timeout
+        (`_PREVIEW_WARM_PER_ITEM_TIMEOUT_S`). The daemon has its own
+        timeout but this is its upper bound at the backend.
+      - **Individual errors**: each warmup fails silently (`failed += 1`);
+        never propagates to the batch or changes the HTTP status.
+      - **Concurrent calls**: in-flight dedup per id (see
         `_bulk_warm_one`).
 
-    Retorna comptadors: total demanats, en cache (skip), warmupejats amb
-    èxit, fallits.
+    Returns counters: total requested, cached (skip), successfully
+    warmed, failed.
+    
     """
-    ids = list(dict.fromkeys(payload.ids or []))  # dedup mantenint ordre
+    ids = list(dict.fromkeys(payload.ids or []))  # dedup while keeping order
     if not ids:
         return {"requested": 0, "cached": 0, "warmed": 0, "failed": 0}
 
@@ -7692,7 +7748,7 @@ async def save_page(
     if request.is_database:
         metadata["is_database"] = True
     if metadata.get("is_dashboard") is True:
-        # Dashboards són markdown; el flag content_format=json era llegacy.
+        # Dashboards are markdown; the content_format=json flag was legacy.
         metadata.pop("content_format", None)
 
     is_template = metadata.get("is_template") is True
@@ -7710,12 +7766,12 @@ async def save_page(
             target_dir = table_folder if table_folder else get_p("WIKI")
 
         target_dir.mkdir(parents=True, exist_ok=True)
-        # Defensa contra duplicats: si el cache d'index no tenia la pàgina
-        # però el fitxer SÍ existeix al directori target (índex incomplet
-        # per Errno 35 'Resource deadlock' en OneDrive, etc.), reutilitzem
-        # aquell fitxer en lloc de crear "{title} (2).md". Sense això, cada
-        # PUT consecutiu generaria un fitxer nou i la pàgina apareixeria
-        # duplicada al sidebar amb estats incongruents.
+        # Defense against duplicates: if the index cache did not have the page
+        # but the file DOES exist in the target directory (incomplete index
+        # due to Errno 35 'Resource deadlock' on OneDrive, etc.), we reuse
+        # that file instead of creating "{title} (2).md". Without this, every
+        # consecutive PUT would generate a new file and the page would appear
+        # duplicated in the sidebar with inconsistent states.
         canonical = _canonicalize_id(page_id)
         existing_local = None
         try:
@@ -7735,8 +7791,8 @@ async def save_page(
 
         if existing_local is not None:
             file_path = existing_local
-            # Repobla el cache perquè futures crides no tornin a fer
-            # aquesta exploració.
+            # Repopulates the cache so future calls don't redo
+            # this scan.
             with _page_index_lock:
                 from backend.services.context_vars import get_active_vault_path
                 v_root = get_active_vault_path()
@@ -7747,7 +7803,7 @@ async def save_page(
             safe_name = _safe_filename(request.title, target_dir)
             file_path = target_dir / f"{safe_name}.md"
     else:
-        # Ensure it's in the correct folder. Tots els tipus són markdown ara.
+        # Ensure it's in the correct folder. All types are markdown now.
         file_path = ensure_correct_page_location(file_path, metadata)
         file_path = _rename_page_file_to_match_title(file_path, request.title)
 
@@ -7763,30 +7819,30 @@ async def save_page(
         except Exception:
             return {}, ""
     old_metadata, old_body = await asyncio.to_thread(_read_old_meta)
-    # Capturem el títol previ per detectar canvis al final i reescriure
-    # els wikilinks `[[Old Title]]` → `[[New Title]]`. PUT pot rebre tant
-    # `request.title` com `metadata.title` (consolidats en `metadata`).
+    # We capture the previous title to detect changes at the end and rewrite
+    # the wikilinks `[[Old Title]]` → `[[New Title]]`. PUT can receive both
+    # `request.title` as `metadata.title` (consolidated into `metadata`).
     previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
 
-    # Aplicar automatitzacions i fòrmules
+    # Apply automations and formulas
     try:
         metadata = get_rule_engine().process_updates(page_id, old_metadata, metadata)
     except Exception as e:
         log.error(f"Error processing automations for {page_id}: {e}")
 
-    # Autoria: estampa el darrer editor (i creador si la pàgina és nova).
+    # Authorship: stamps the last editor (and creator if the page is new).
     _stamp_author(metadata, getattr(context, "user_id", None), is_create=not bool(old_metadata))
 
     metadata = _persist_metadata_assets(metadata)
 
-    # Desar un recurs des del navegador també ha de garantir-ne la Citation Key.
+    # Saving a resource from the browser must also guarantee its Citation Key.
     metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
 
     def _write_now():
         # Both the version backup and the actual file write are real I/O on
         # OneDrive — pushed onto a worker thread together so the request
-        # path stays unblocked. Tots els tipus de pàgina (incloses Dashboards)
-        # s'escriuen com a markdown amb frontmatter.
+        # path stays unblocked. All page types (including Dashboards)
+        # are written as markdown with frontmatter.
         if file_path and file_path.exists():
             _create_page_version(page_id, file_path)
         save_page_md(file_path, metadata, request.content)
@@ -7794,20 +7850,20 @@ async def save_page(
     try:
         await asyncio.to_thread(_write_now)
 
-        # Refresca l'ÍNDEX en memòria amb el metadata NOU (id→path + l'entrada
-        # sencera). Abans només s'actualitzava el mapa id→path, deixant el
-        # metadata de l'entrada RANCI a `_page_index_entries` → `GET /pages` i
-        # `/by-table` servien el valor VELL fins al rescan (cooldown 600s);
-        # reproduït: PUT de QAField vell→NOU i by-table seguia mostrant "vell".
+        # Refreshes the in-memory INDEX with the NEW metadata (id→path + the entry
+        # in full). Previously only the id→path map was updated, leaving the
+        # metadata of the STALE entry in `_page_index_entries` → `GET /pages` and
+        # `/by-table` served the OLD value until the rescan (cooldown 600s);
+        # reproduced: PUT of QAField old→NEW and by-table kept showing "old".
         _refresh_page_index_entry(file_path, metadata, request.content)
 
-        # Invalida el TTL micro-cache de PageInfo (vegeu PATCH per la justificació).
+        # Invalidates the PageInfo TTL micro-cache (see PATCH for the rationale).
         _pages_cache_invalidate_all()
 
         background_tasks.add_task(update_link_index_for_page, file_path)
 
-        # Si el títol ha canviat, reescriu els wikilinks per títol literal a
-        # les pàgines que referencien aquesta. Veure rewrite_wikilinks_on_title_change.
+        # If the title has changed, rewrites the literal-title wikilinks in
+        # the pages that reference this one. See rewrite_wikilinks_on_title_change.
         new_title = str(metadata.get("title") or request.title or "").strip()
         if previous_title and new_title and previous_title != new_title:
             background_tasks.add_task(
@@ -7854,10 +7910,10 @@ async def patch_page(
     context: WorkspaceContext = Depends(get_workspace_context),
 ):
     """Partial update of a page (e.g., metadata only)."""
-    # Combinem find_page_path + (etag check) + read_file en un sol
-    # `asyncio.to_thread`. Abans en feien 2 (o 3 amb etag), cadascun amb
-    # ~10-30 ms d'overhead de dispatch al pool. Sense canviar la
-    # semàntica, agrupar-los estalvia ~30-60 ms per PATCH.
+    # We combine find_page_path + (etag check) + read_file into a single
+    # `asyncio.to_thread`. Previously there were 2 (or 3 with etag), each with
+    # ~10-30 ms of dispatch overhead to the pool. Without changing the
+    # its own semantics; grouping them saves ~30-60 ms per PATCH.
     expected_etag = request.expected_etag
     force = request.force
 
@@ -7865,12 +7921,12 @@ async def patch_page(
         fp = find_page_path(page_id)
         if not fp:
             return None, None, None, None, None
-        # Concurrency check abans del read (igual que abans).
+        # Concurrency check before the read (same as before).
         current = None
         if expected_etag and not force:
             current = file_etag(fp)
             if current and current != expected_etag:
-                # Retornem el current_etag al caller perquè generi el 409.
+                # We return the current_etag to the caller so it can generate the 409.
                 return fp, None, None, None, current
         if _is_dashboard_file_path(fp):
             md, bd = _read_dashboard_file(fp)
@@ -7904,20 +7960,20 @@ async def patch_page(
 
     try:
 
-        # Snapshot del frontmatter original ABANS de mutar res. El RuleEngine
-        # necessita comparar "què hi havia al fitxer" amb "què s'ha demanat
-        # canviar"; abans aquest snapshot s'aconseguia rellegint el fitxer
-        # per segona vegada (`_read_original`), cosa que pagava un read
-        # extra a OneDrive (~100-300 ms) per cada PATCH. El contingut del
-        # fitxer no canvia entre el primer read i el rule engine — només
-        # potencialment el seu path (rename/move) — així que un `dict()`
-        # és equivalent i molt més barat.
+        # Snapshot of the original frontmatter BEFORE mutating anything. The RuleEngine
+        # needs to compare "what was in the file" with "what was requested
+        # change"; before, this snapshot was obtained by rereading the file
+        # a second time (`_read_original`), which paid for a read
+        # an extra round-trip to OneDrive (~100-300 ms) for each PATCH. The content of the
+        # file doesn't change between the first read and the rule engine — only
+        # potentially its path (rename/move) — so a `dict()`
+        # is equivalent and much cheaper.
         original_metadata_snapshot = dict(metadata)
 
-        # Capturem el títol previ ABANS de mutar `metadata`. Si canvia, al
-        # final del PATCH llançarem un background task que reescriu els
-        # wikilinks `[[Old Title]]` → `[[New Title]]` a totes les pàgines
-        # que la referencien.
+        # We capture the previous title BEFORE mutating `metadata`. If it changes, at the
+        # end of the PATCH we'll launch a background task that rewrites the
+        # wikilinks `[[Old Title]]` → `[[New Title]]` in all the pages
+        # that reference it.
         previous_title = str(metadata.get("title") or "").strip()
 
         if request.title is not None:
@@ -7929,8 +7985,8 @@ async def patch_page(
         if request.metadata is not None:
             # Merge metadata
             metadata.update(request.metadata)
-        # `metadata.update` no pot treure claus: per ELIMINAR propietats
-        # (p.ex. camps locals/ad-hoc des del panell) cal treure-les aquí.
+        # `metadata.update` cannot remove keys: to DELETE properties
+        # (e.g. local/ad-hoc fields from the panel) they must be removed here.
         if request.remove_metadata_keys:
             for _rk in request.remove_metadata_keys:
                 metadata.pop(_rk, None)
@@ -7941,29 +7997,29 @@ async def patch_page(
         metadata = normalize_metadata_ids(metadata)
         metadata = normalize_table_context(metadata)
         if metadata.get("is_dashboard") is True:
-            # Els dashboards són markdown amb frontmatter, com qualsevol altra
-            # pàgina; `content_format=json` era una etiqueta legacy. Si el
-            # frontmatter actual encara la porta, la treiem perquè no s'escrigui
-            # al disc. La inversa que hi havia aquí (posar `content_format=json`
-            # i convertir el fitxer a `.json`) provocava corrupció: el PATCH
-            # renomenava `Bitàcora.md` → `Bitàcora.json`, hi escrivia un body
-            # buit per algun camí d'error, i la pàgina passava a fer 500.
+            # Dashboards are markdown with frontmatter, like any other
+            # page; `content_format=json` was a legacy tag. If the
+            # current frontmatter still carries it, we remove it so it doesn't get written
+            # to disk. The reverse that used to be here (setting `content_format=json`
+            # and converting the file to `.json`) caused corruption: the PATCH
+            # renamed `Bitàcora.md` → `Bitàcora.json`, wrote a body
+            # empty via some error path, and the page ended up returning 500.
             metadata.pop("content_format", None)
 
         # Move if type changes (template / non-template)
         file_path = ensure_correct_page_location(file_path, metadata)
         # NOTA: NO cridem `_ensure_page_extension` per a dashboards. La regla
-        # del projecte és "pàgines (incloses dashboards) sempre són Markdown";
-        # canviar l'extensió a `.json` quan `is_dashboard=True` és el bug que
-        # va trencar Bitàcora. La funció es manté al codi per llegir encara
-        # `.json` legacy, però aquí no es força la renomenació.
+        # of the project is "pages (including dashboards) are always Markdown";
+        # changing the extension to `.json` when `is_dashboard=True` is the bug that
+        # broke Bitàcora. The function is kept in the code to still read
+        # legacy `.json`, but the renaming isn't forced here.
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
 
         # Rule engine + persist assets + escriptura. `original_metadata_snapshot`
-        # capturat al principi ja estalvia un read del fitxer; el
-        # `process_updates` corre al thread pool perquè podria invocar
-        # fórmules CPU-pesades a taules amb regles.
+        # captured at the start already saves a file read; the
+        # `process_updates` runs on the thread pool because it could invoke
+        # CPU-heavy formulas on tables with rules.
         try:
             metadata = await asyncio.to_thread(
                 get_rule_engine().process_updates,
@@ -7972,30 +8028,30 @@ async def patch_page(
         except Exception as e:
             log.error(f"Error processing automations for {page_id}: {e}")
 
-        # Autoria: estampa el darrer editor (created_* es preserva si ja hi és).
+        # Authorship: stamps the last editor (created_* is preserved if already present).
         _stamp_author(metadata, getattr(context, "user_id", None), is_create=False)
 
         metadata = _persist_metadata_assets(metadata)
 
-        # Edicions parcials (p.ex. omplir cel·les a la graella) també han de
-        # deixar el recurs citable si encara no en tenia clau.
+        # Partial edits (e.g. filling in cells in the grid) must also
+        # leave the resource citable if it didn't already have a key.
         metadata = _ensure_recursos_citation_key(metadata)
 
-        # Snapshot dels camps relació (ids nets) ABANS d'escriure: `save_page_md`
-        # decora in-place (id→[[Títol|id]]), així que el capturem ara per propagar
-        # la sincronització inversa a l'altre costat (background task, més avall).
+        # Snapshot of the relation fields (clean ids) BEFORE writing: `save_page_md`
+        # decorates in-place (id→[[Title|id]]), so we capture it now to propagate
+        # the inverse sync to the other side (background task, further below).
         _rel_new_snapshot = dict(metadata)
 
         def _write_now():
             save_page_md(file_path, metadata, content)
         await asyncio.to_thread(_write_now)
 
-        # Actualitza el cache `_page_index_entries` IMMEDIATAMENT amb el nou
-        # metadata. Sense això, el següent GET /api/vault/pages retorna el
-        # metadata cachejat (vell) i el frontend reverteix els canvis recents
-        # — bug visible quan canvies una icona/cover i la sidebar la perd
-        # després d'un fetchPages. També invalidem els bodies cache i els
-        # iter_docs cache perquè /backlinks reflecteixi els canvis.
+        # Updates the `_page_index_entries` cache IMMEDIATELY with the new
+        # metadata. Without this, the next GET /api/vault/pages returns the
+        # cached (old) metadata and the frontend reverts the recent changes
+        # — bug visible when you change an icon/cover and the sidebar loses it
+        # after a fetchPages. We also invalidate the bodies cache and the
+        # iter_docs cache so /backlinks reflects the changes.
         try:
             from backend.services.context_vars import get_active_vault_path
             v_path = get_active_vault_path()
@@ -8003,10 +8059,10 @@ async def patch_page(
                 v_str = str(v_path)
                 try:
                     stat_result = file_path.stat()
-                    # Construïm l'entry des de les dades en memòria sense
-                    # tornar a llegir el fitxer (`_build_page_cache_entry`
-                    # llegia frontmatter del disc — ~100-300 ms a OneDrive
-                    # per cada PATCH).
+                    # We build the entry from the in-memory data without
+                    # re-read the file (`_build_page_cache_entry`
+                    # used to read frontmatter from disk — ~100-300 ms on OneDrive
+                    # for each PATCH).
                     new_entry = _build_cache_entry_from_memory(
                         file_path, stat_result, metadata, content or ""
                     )
@@ -8016,25 +8072,25 @@ async def patch_page(
                         if new_id:
                             _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
                         _bump_page_index_version(v_str)
-                    # PathResolver: en un RENAME (títol) el fitxer canvia de
-                    # path; sense re-registrar-lo, find_path (rule_engine) i
-                    # la llista de fitxers d'/unlinked-mentions apuntaven al
-                    # path antic fins al rescan complet (cooldown 600s).
+                    # PathResolver: in a RENAME (title) the file changes
+                    # path; without re-registering it, find_path (rule_engine) and
+                    # the file list from /unlinked-mentions pointed to the
+                    # old path until the full rescan (600s cooldown).
                     path_resolver.add_file(v_path, new_id or page_id, file_path)
                 except Exception as e:
                     log.debug(f"Cache update after PATCH failed for {page_id}: {e}")
             with _body_cache_lock:
                 _body_cache.pop(str(file_path), None)
-            # Invalida el TTL micro-cache de PageInfo perquè el proper
-            # `/by-table` o `/pages` no torni la versió pre-PATCH (~1.5 s
-            # d'estat obsolet seria visible al frontend en autosave).
+            # Invalidates the PageInfo TTL micro-cache so that the next
+            # `/by-table` or `/pages` doesn't return the pre-PATCH version (~1.5 s
+            # stale state would be visible in the frontend on autosave).
             _pages_cache_invalidate_all()
-            # Actualització surgical de `_iter_docs_cache`: NO invalidem
-            # tota la llista. Invalidar-la (l'antic `docs = None`) feia que
-            # la propera crida a `/backlinks`, `/global-index` o
-            # `_rebuild_link_index` recorregués 3500+ fitxers d'OneDrive
-            # (~138 s observat). Aquí substituïm l'entry concreta in-place
-            # amb el contingut nou que ja tenim en memòria.
+            # Surgical update of `_iter_docs_cache`: we do NOT invalidate
+            # the whole list. Invalidating it (the old `docs = None`) caused
+            # the next call to `/backlinks`, `/global-index` or
+            # `_rebuild_link_index` would traverse 3500+ OneDrive files
+            # (~138 s observed). Here we replace the specific entry in-place
+            # with the new content that we already have in memory.
             with _iter_docs_lock:
                 _dc_entry = _iter_docs_cache.get(v_str)
                 docs = _dc_entry.get("docs") if _dc_entry else None
@@ -8055,11 +8111,11 @@ async def patch_page(
         except Exception as e:
             log.debug(f"Cache invalidation after PATCH failed: {e}")
 
-        # Backup en background: el versionat a `.history/` ja no bloqueja
-        # la resposta. Si tenim el `raw_content` original (cas markdown),
-        # l'escrivim directament amb el helper "from_content"; per
-        # dashboards usem la versió clàssica que fa `shutil.copy2` (ràpid
-        # perquè .json de dashboards són petits).
+        # Background backup: versioning to `.history/` no longer blocks
+        # the response. If we have the original `raw_content` (markdown case),
+        # we write it directly with the "from_content" helper; for
+        # for dashboards we use the classic version that does `shutil.copy2` (fast
+        # because dashboard .json files are small).
         if original_raw_content is not None:
             background_tasks.add_task(
                 _create_page_version_from_content, page_id, original_raw_content
@@ -8069,9 +8125,9 @@ async def patch_page(
 
         background_tasks.add_task(update_link_index_for_page, file_path)
 
-        # Si el títol ha canviat, reescriu els wikilinks per títol literal
-        # a les pàgines que referencien aquesta. update_link_index_for_page
-        # del background task anterior actualitzarà les fonts modificades.
+        # If the title has changed, rewrites the literal-title wikilinks
+        # in the pages that reference this one. update_link_index_for_page
+        # from the previous background task will update the modified sources.
         new_title = str(metadata.get("title") or "").strip()
         if previous_title and new_title and previous_title != new_title:
             background_tasks.add_task(
@@ -8093,9 +8149,9 @@ async def patch_page(
             _propagate_translation_staleness,
             page_id, original_metadata_snapshot, metadata, body, content,
         )
-        # Sincronització bidireccional de relacions: propaga els canvis dels camps
-        # de relació al camp INVERS de les pàgines de l'altre costat (o les vistes
-        # incrustades, que filtren per l'invers, surten buides). Background.
+        # Bidirectional relation sync: propagates changes in the relation
+        # fields to the INVERSE field of the pages on the other side (or the views
+        # embedded ones, which filter by the inverse, come out empty). Background.
         background_tasks.add_task(
             _propagate_relation_inverse,
             page_id, get_table_id(metadata),
@@ -8132,8 +8188,8 @@ TRASH_RETENTION_DAYS = 90
 
 
 def _trash_root() -> Path:
-    """Arrel de la paperera del Vault. Crida-la només des de threads workers
-    (toca el filesystem). Crea el directori si no existeix."""
+    """Root of the Vault trash. Call it only from worker threads
+    (it touches the filesystem). Creates the directory if it doesn't exist."""
     root = get_p("VAULT") / ".trash"
     root.mkdir(parents=True, exist_ok=True)
     return root
@@ -8144,27 +8200,28 @@ def _trash_entry_dir(page_id: str) -> Path:
 
 
 def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
-    """Mou un fitxer .md a `.trash/{page_id}/page.md` i escriu el sidecar.
+    """Moves a .md file to `.trash/{page_id}/page.md` and writes the sidecar.
 
-    Retorna les metadades de la paperera (id, deleted_at, original_path, ...).
-    No invoca cap helper async: està pensat per executar-se dins
-    `asyncio.to_thread` des del handler HTTP.
+    Returns the trash metadata (id, deleted_at, original_path, ...).
+    Does not invoke any async helper: it is meant to run inside
+    `asyncio.to_thread` from the HTTP handler.
+    
     """
     vault_root = get_p("VAULT")
     entry_dir = _trash_entry_dir(page_id)
 
-    # Idempotent: si la carpeta ja existeix amb un sidecar vàlid, retornem-lo.
+    # Idempotent: if the folder already exists with a valid sidecar, we return it.
     existing_sidecar = entry_dir / "_trash.json"
     if existing_sidecar.exists():
         try:
             return json.loads(existing_sidecar.read_text(encoding="utf-8"))
         except Exception:
-            # Sidecar corromput: el sobreescriurem.
+            # Corrupted sidecar: we'll overwrite it.
             pass
 
     entry_dir.mkdir(parents=True, exist_ok=True)
 
-    # Llegir frontmatter abans de moure (per al title i el table_id).
+    # Read the frontmatter before moving (for the title and the table_id).
     title = ""
     table_id: Optional[str] = None
     original_parent_id: Optional[str] = None
@@ -8177,12 +8234,12 @@ def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
     except Exception as meta_exc:
         log.warning(f"No s'ha pogut llegir frontmatter per {page_id}: {meta_exc}")
 
-    # `original_path` és relatiu a l'arrel del Vault perquè el path absolut
-    # canvia entre màquines (OneDrive a /Users/x vs /Users/y).
+    # `original_path` is relative to the Vault root because the absolute path
+    # changes between machines (OneDrive at /Users/x vs /Users/y).
     try:
         relative_original_path = str(file_path.relative_to(vault_root))
     except ValueError:
-        # El fitxer no és dins del Vault; tractem-ho com a 500 al handler.
+        # The file is not inside the Vault; we treat this as a 500 in the handler.
         raise RuntimeError(
             f"Page file {file_path} is outside the Vault root {vault_root}"
         )
@@ -8211,16 +8268,17 @@ def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
 
 
 def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
-    """Inversa de `_move_page_to_trash`. Restaura el fitxer al `original_path`.
+    """Inverse of `_move_page_to_trash`. Restores the file to `original_path`.
 
-    Llança `FileNotFoundError` si la paperera no conté l'entrada,
-    `FileExistsError` si ja hi ha un fitxer al destí, i `PermissionError`
-    si el path del sidecar s'escapa del Vault (defensa anti-path-traversal).
+    Raises `FileNotFoundError` if the trash doesn't contain the entry,
+    `FileExistsError` if there's already a file at the destination, and `PermissionError`
+    if the sidecar path escapes the Vault (anti-path-traversal defense).
+    
     """
     vault_root = get_p("VAULT")
-    # Resoldre el vault_root abans de comparar evita falsos positius en
-    # filesystems amb symlinks (p.ex. macOS /var → /private/var) on
-    # `target.resolve()` torna el path canònic però `vault_root` no.
+    # Resolving the vault_root before comparing avoids false positives on
+    # filesystems with symlinks (e.g. macOS /var → /private/var) where
+    # `target.resolve()` returns the canonical path but `vault_root` doesn't.
     vault_root_resolved = vault_root.resolve()
     entry_dir = _trash_entry_dir(page_id)
     sidecar_path = entry_dir / "_trash.json"
@@ -8230,9 +8288,9 @@ def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
     sidecar = json.loads(sidecar_path.read_text(encoding="utf-8"))
     original_rel = sidecar.get("original_path") or f"{page_id}.md"
     target = (vault_root / original_rel).resolve()
-    # `Path.is_relative_to` (Python 3.9+) evita el bug clàssic del
-    # `startswith` amb prefixos compartits (p.ex. `/vault` és prefix de
-    # `/vault2` però no n'és pare).
+    # `Path.is_relative_to` (Python 3.9+) avoids the classic
+    # `startswith` bug with shared prefixes (e.g. `/vault` is a prefix of
+    # `/vault2` but is not its parent).
     if not target.is_relative_to(vault_root_resolved):
         raise PermissionError(f"original_path escapes Vault: {original_rel}")
     if target.exists():
@@ -8241,8 +8299,8 @@ def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
     target.parent.mkdir(parents=True, exist_ok=True)
     source_md = entry_dir / "page.md"
     if not source_md.exists():
-        # Algunes restauracions antigues podrien haver guardat el fitxer amb
-        # el nom original; busquem qualsevol .md/.json dins l'entry_dir.
+        # Some old restores might have saved the file with
+        # the original name; we look for any .md/.json inside entry_dir.
         candidates = [
             p for p in entry_dir.iterdir()
             if p.is_file() and p.suffix in {".md", ".json"} and p.name != "_trash.json"
@@ -8257,8 +8315,8 @@ def _restore_page_from_trash(page_id: str) -> Dict[str, Any]:
 
 
 def _read_trash_entries() -> List[Dict[str, Any]]:
-    """Llegeix tots els sidecars `.trash/*/_trash.json`. Tolera entrades sense
-    sidecar (es retornen amb `deleted_at=None` i title de fallback)."""
+    """Reads all `.trash/*/_trash.json` sidecars. Tolerates entries without
+    a sidecar (they are returned with `deleted_at=None` and a fallback title)."""
     root = _trash_root()
     entries: List[Dict[str, Any]] = []
     now_utc = datetime.now(tz=timezone.utc)
@@ -8274,7 +8332,7 @@ def _read_trash_entries() -> List[Dict[str, Any]]:
                 data = {"id": entry_dir.name, "title": "(corrupt)", "deleted_at": None}
         else:
             data = {"id": entry_dir.name, "title": "(sense metadades)", "deleted_at": None}
-        # Càlcul de `days_remaining`. Si no hi ha `deleted_at`, queda None.
+        # Calculation of `days_remaining`. If there is no `deleted_at`, it stays None.
         days_remaining = None
         if data.get("deleted_at"):
             try:
@@ -8285,7 +8343,7 @@ def _read_trash_entries() -> List[Dict[str, Any]]:
                 pass
         data["days_remaining"] = days_remaining
         entries.append(data)
-    # Ordre: més recent primer; les corruptes (deleted_at=None) al final.
+    # Order: most recent first; corrupt ones (deleted_at=None) at the end.
     entries.sort(
         key=lambda e: (e.get("deleted_at") or ""),
         reverse=True,
@@ -8294,12 +8352,12 @@ def _read_trash_entries() -> List[Dict[str, Any]]:
 
 
 async def _materialize_trash_sidecar(page_id: str) -> None:
-    """Materialitza NOMÉS el `_trash.json` d'una entrada abans de llegir-lo al
-    thread síncron (restore/purge). Sense això, un sidecar dataless d'OneDrive
-    peta amb [Errno 35] EDEADLK. El càlcul del path —que toca el FS via
-    `_trash_root()` (mkdir)— va a un worker thread per no bloquejar l'event
-    loop; només la materialització async es fa aquí. No es baixa `page.md`
-    (innecessari: el move del restore és un rename i la purga només fa unlink)."""
+    """Materializes ONLY the `_trash.json` of an entry before reading it in the
+    sync thread (restore/purge). Without this, a dataless OneDrive sidecar
+    crashes with [Errno 35] EDEADLK. The path calculation —which touches the FS via
+    `_trash_root()` (mkdir)— goes to a worker thread so as not to block the event
+    loop; only the async materialization happens here. `page.md` is not downloaded
+    (unnecessary: the restore move is a rename and the purge only does unlink)."""
     def _existing_sidecar() -> Optional[Path]:
         sidecar = _trash_entry_dir(page_id) / "_trash.json"
         return sidecar if sidecar.exists() else None
@@ -8312,10 +8370,10 @@ async def _materialize_trash_sidecar(page_id: str) -> None:
 
 
 async def _materialize_all_trash_sidecars() -> None:
-    """Warmup de tots els `_trash.json` abans de llistar la paperera. L'escaneig
-    de `.trash` (mkdir/iterdir, cf. la nota de `_trash_root`) va a un worker
-    thread; només la materialització async es fa a l'event loop. Sense això, els
-    sidecars dataless peten amb EDEADLK i les entrades surten com a "(corrupt)"."""
+    """Warmup of all `_trash.json` files before listing the trash. The scan
+    of `.trash` (mkdir/iterdir, cf. the note in `_trash_root`) goes to a worker
+    thread; only the async materialization happens on the event loop. Without this, the
+    dataless sidecars crash with EDEADLK and the entries show up as "(corrupt)"."""
     def _scan_sidecars() -> List[Path]:
         root = _trash_root()
         if not root.exists():
@@ -8330,11 +8388,11 @@ async def _materialize_all_trash_sidecars() -> None:
 
 
 def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
-    """Elimina permanentment una entrada de la paperera."""
+    """Permanently deletes an entry from the trash."""
     entry_dir = _trash_entry_dir(page_id)
     if not entry_dir.exists():
         raise FileNotFoundError(f"No trash entry for {page_id}")
-    # Mida abans de purgar (telemetria).
+    # Size before purging (telemetry).
     freed_bytes = 0
     for f in entry_dir.rglob("*"):
         try:
@@ -8343,13 +8401,13 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
         except Exception:
             pass
 
-    # Llegeix les relacions de la pàgina ABANS de destruir-la: en purgar cal
-    # treure el seu id de les pàgines que hi apuntaven (l'invers). Sense això,
-    # esborrar una pàgina font deixava relacions penjades cap a un id que ja no
-    # existeix enlloc — permanent, perquè la pàgina no es pot restaurar
-    # (auditat al vault real: 4 pàgines amb `Font →` un id purgat). En
-    # soft-delete NO es neteja a posta (preserva la relació per si es restaura);
-    # la purga és el punt final on toca.
+    # Reads the page's relations BEFORE destroying it: when purging, we need to
+    # remove its id from the pages that pointed to it (the inverse). Without this,
+    # deleting a source page left relations dangling toward an id that no longer
+    # exists anywhere — permanently, because the page cannot be restored
+    # (audited on the real vault: 4 pages with `Font →` a purged id). In a
+    # soft-delete it is intentionally NOT cleaned up (it preserves the relation in case of restore);
+    # the purge is the final point where it's appropriate.
     _purged_meta: Optional[dict] = None
     _purged_table_id: Optional[str] = None
     try:
@@ -8366,28 +8424,28 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
 
     shutil.rmtree(entry_dir)
 
-    # Treu l'id d'aquesta pàgina de les relacions inverses de les altres
-    # (best-effort; `_propagate_relation_inverse` és defensiu i no bloqueja).
-    # new_meta buit → totes les relacions de la pàgina compten com a "remove".
+    # Removes this page's id from the inverse relations of the others
+    # (best-effort; `_propagate_relation_inverse` is defensive and non-blocking).
+    # empty new_meta → all of the page's relations count as "remove".
     if _purged_meta and _purged_table_id:
         try:
             _propagate_relation_inverse(page_id, _purged_table_id, _purged_meta, {})
         except Exception as exc:
             log.debug(f"purge: neteja de relacions inverses fallida per {page_id}: {exc}")
 
-    # Net el sidecar de metadata intern: si quedés orfe, no fa mal, però val
-    # més purgar-lo per consistència. La pàgina ja no és recuperable.
+    # Clean up the internal metadata sidecar: if it were left orphaned, it wouldn't hurt, but it's
+    # better to purge it for consistency. The page is no longer recoverable.
     try:
         vault_root = get_p("VAULT")
         if vault_root:
             delete_sidecar_for_page(vault_root, page_id)
     except Exception as exc:
         log.debug(f"No s'ha pogut purgar el page_meta sidecar de {page_id}: {exc}")
-    # Purga = esborrat PERMANENT: fora també els rastres que abans quedaven
-    # orfes per sempre (auditat al vault real: 158 directoris d'historial de
-    # pàgines ja purgades, amb el CONTINGUT COMPLET dins — l'usuari creu que
-    # la pàgina és fora però .history encara la té). Tot best-effort: la
-    # purga mai falla per la neteja.
+    # Purge = PERMANENT deletion: also remove the traces that used to remain
+    # orphaned forever (audited on the real vault: 158 history directories from
+    # already-purged pages, with the FULL CONTENT inside — the user believes that
+    # the page is gone but .history still has it). All best-effort: the
+    # purge never fails due to the cleanup.
     try:
         safe_id = _validate_safe_page_id(page_id)
         history_dir = get_p("VAULT") / ".history" / safe_id
@@ -8412,19 +8470,20 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
 
 
 def _force_index_rescan() -> None:
-    """Invalida el cache d'índex per forçar un rescan a la pròxima llista."""
+    """Invalidates the index cache to force a rescan on the next listing."""
     global _last_vault_sync_time
     _last_vault_sync_time = 0.0
     _clear_page_index_cache()
 
 
 def _remove_page_from_index_cache(page_id: str, old_path: Optional[Path] = None) -> None:
-    """Treu UNA entrada del cache d'índex sense buidar-lo sencer.
+    """Removes ONE entry from the index cache without clearing it entirely.
 
-    Alternativa surgical a `_force_index_rescan()` per a operacions que
-    només afecten una pàgina (delete/soft-delete). El wipe global feia
-    que `/pages/by-table/{id}` retornés [] fins el següent rescan i
-    deixava la taula parpellejant buida després d'eliminar un registre.
+    A surgical alternative to `_force_index_rescan()` for operations that
+    only affect a single page (delete/soft-delete). The global wipe caused
+    `/pages/by-table/{id}` to return [] until the next rescan and
+    left the table flickering empty after deleting a record.
+    
     """
     from backend.services.context_vars import get_active_vault_path
     v_path = get_active_vault_path()
@@ -8439,21 +8498,22 @@ def _remove_page_from_index_cache(page_id: str, old_path: Optional[Path] = None)
             entries.pop(path_str, None)
         if old_path:
             entries.pop(str(old_path), None)
-    # Mantén el PathResolver en sincronia (rule_engine.find_path i la llista
-    # de fitxers d'/unlinked-mentions llegeixen d'allà, no d'aquest índex).
+    # Keeps the PathResolver in sync (rule_engine.find_path and the listing
+    # of files from /unlinked-mentions read from there, not from this index).
     path_resolver.remove_file(v_path, page_id, old_path or (Path(path_str) if path_str else None))
-    # Cualquier delete/restore canvia la composició de pàgines visibles;
-    # invalida el micro-cache de respostes per evitar `/by-table` stale.
+    # Any delete/restore changes the composition of visible pages;
+    # invalidates the response micro-cache to avoid a stale `/by-table`.
     _pages_cache_invalidate_all()
 
 
 def _add_page_to_index_cache(file_path: Path) -> None:
-    """Insereix UNA entrada al cache d'índex sense rescanejar tot el vault.
+    """Inserts ONE entry into the index cache without rescanning the whole vault.
 
-    Simètric a `_remove_page_from_index_cache`. Útil quan acabem de crear
-    o restaurar un fitxer i volem que aparegui ja al pròxim GET sense
-    haver de buidar i refer tot l'índex (el wipe + repoblat feia
-    parpellejar la taula buida després d'un restore des del toast Desfer).
+    Symmetric to `_remove_page_from_index_cache`. Useful when we've just created
+    or restored a file and want it to already appear on the next GET without
+    having to clear and rebuild the whole index (the wipe + repopulate caused
+    the table to flicker empty after a restore from the Undo toast).
+    
     """
     from backend.services.context_vars import get_active_vault_path
     v_path = get_active_vault_path()
@@ -8471,8 +8531,8 @@ def _add_page_to_index_cache(file_path: Path) -> None:
         new_id = new_entry.get("id")
         if new_id:
             _page_id_to_path.setdefault(v_str, {})[new_id] = str(file_path)
-    # PathResolver també: sense això la pàgina restaurada/duplicada quedava
-    # fora de la llista de fitxers fins al rescan complet (cooldown 600s) i
+    # PathResolver too: without this the restored/duplicated page would remain
+    # out of the file list until the full rescan (600s cooldown) and
     # /unlinked-mentions i rule_engine.find_path no la veien.
     path_resolver.add_file(v_path, new_id, file_path)
     _pages_cache_invalidate_all()
@@ -8480,11 +8540,12 @@ def _add_page_to_index_cache(file_path: Path) -> None:
 
 @router.delete("/pages/{page_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_page(page_id: str):
-    """Soft-delete: mou la pàgina a `.trash/{page_id}/`.
+    """Soft-delete: moves the page to `.trash/{page_id}/`.
 
-    Substitueix l'eliminació destructiva anterior. La purga real només ocorre
-    via `DELETE /trash/{id}` o via el cron `purge_trash` als 90 dies.
-    Vegeu `docs/dev_memory/directives/vault_trash.md`.
+    Replaces the previous destructive deletion. The actual purge only happens
+    via `DELETE /trash/{id}` or via the `purge_trash` cron after 90 days.
+    See `docs/dev_memory/directives/vault_trash.md`.
+    
     """
     file_path = await asyncio.to_thread(find_page_path, page_id)
     if not file_path or not file_path.exists():
@@ -8531,7 +8592,7 @@ async def delete_page(page_id: str):
     dependencies=[Depends(require_role("admin"))],
 )
 async def restore_page(page_id: str):
-    """Restaura una pàgina de la paperera al seu `original_path`."""
+    """Restores a page from the trash to its `original_path`."""
     await _materialize_trash_sidecar(page_id)
     try:
         result = await asyncio.to_thread(_restore_page_from_trash, page_id)
@@ -8551,8 +8612,8 @@ async def restore_page(page_id: str):
             detail=safe_error_detail(e, "POST /pages/{page_id}/restore"),
         )
 
-    # Insereix l'entrada al cache d'índex enlloc de buidar-lo sencer (que
-    # deixava la taula parpellejant buida després del toast "Desfer").
+    # Inserts the entry into the index cache instead of clearing it entirely (which
+    # left the table flickering empty after the "Undo" toast).
     vault_root = get_p("VAULT")
     restored_rel = result.get("restored_path")
     if vault_root and restored_rel:
@@ -8567,14 +8628,15 @@ async def restore_page(page_id: str):
 
 @router.get("/trash", dependencies=[Depends(require_role("admin"))])
 async def list_trash(q: Optional[str] = Query(None)):
-    """Llista les entrades de la paperera, ordenades per `deleted_at` desc.
+    """Lists the trash entries, ordered by `deleted_at` desc.
 
-    Suport opcional de filtre `?q=` sobre el títol (case-insensitive).
+    Optional `?q=` filter support on the title (case-insensitive).
+    
     """
-    # Warmup proactiu: materialitza els sidecars online-only abans de llegir-los
-    # al thread. Sense això, els _trash.json dataless d'OneDrive peten amb
-    # EDEADLK i les entrades surten com a "(corrupt)" (ni es llisten ni es poden
-    # restaurar/purgar). Mateix patró que get_page (#272).
+    # Proactive warmup: materializes the online-only sidecars before reading them
+    # on the thread. Without this, OneDrive's dataless _trash.json files crash with
+    # EDEADLK and the entries come out as "(corrupt)" (they can neither be listed nor
+    # restore/purge). Same pattern as get_page (#272).
     await _materialize_all_trash_sidecars()
     try:
         entries = await asyncio.to_thread(_read_trash_entries)
@@ -8595,16 +8657,17 @@ async def list_trash(q: Optional[str] = Query(None)):
 
 @router.delete("/trash", dependencies=[Depends(require_role("admin"))])
 async def empty_trash():
-    """Buida tota la paperera en UNA sola petició (purga definitiva).
+    """Empties the whole trash in ONE single request (definitive purge).
 
-    Substitueix el patró antic d'N peticions `DELETE /trash/{id}` des del
-    client. Amb ~100 entrades, el client disparava ~100 DELETE concurrents i
-    cadascuna retenia una connexió del pool de BD (via les dependències de
-    workspace/rol) durant tota la petició, esgotant el `QueuePool` (size 20 +
-    overflow 30) → moltes peticions feien timeout als 30s i retornaven 500.
-    `Promise.allSettled` al frontend amagava aquests 500 i la paperera no es
-    buidava («no funciona»). Fer-ho tot al servidor usa UNA connexió i tolera
-    errors per entrada (en reporta el compte real).
+    Replaces the old pattern of N client-side `DELETE /trash/{id}` requests.
+    With ~100 entries, the client fired ~100 concurrent DELETEs and each
+    one held a DB pool connection (via the workspace/role dependencies)
+    for the entire request, exhausting the `QueuePool` (size 20 +
+    overflow 30) → many requests timed out at 30s and returned 500.
+    `Promise.allSettled` on the frontend hid these 500s and the trash wasn't
+    emptied ("doesn't work"). Doing it all server-side uses ONE connection and
+    tolerates per-entry errors (it reports the real count).
+    
     """
     def _empty_all() -> Dict[str, Any]:
         root = _trash_root()
@@ -8612,8 +8675,8 @@ async def empty_trash():
         failed = 0
         freed = 0
         failed_ids: List[str] = []
-        # Materialitzem la llista abans d'iterar: purguem (rmtree) dins el bucle
-        # i no volem mutar el directori mentre el recorre l'iterador peresós.
+        # We materialize the list before iterating: we purge (rmtree) inside the loop
+        # and we don't want to mutate the directory while the lazy iterator is traversing it.
         for entry_dir in list(root.iterdir()):
             if not entry_dir.is_dir():
                 continue
@@ -8649,7 +8712,7 @@ async def empty_trash():
     dependencies=[Depends(require_role("admin"))],
 )
 async def purge_trash_entry(page_id: str):
-    """Purga immediatament una entrada de la paperera (irreversible)."""
+    """Immediately purge a trash entry (irreversible)."""
     await _materialize_trash_sidecar(page_id)
     try:
         result = await asyncio.to_thread(_purge_trash_entry, page_id)
@@ -8665,11 +8728,12 @@ async def purge_trash_entry(page_id: str):
 
 
 def purge_expired_trash(now: Optional[datetime] = None) -> Dict[str, Any]:
-    """Funció pública invocada pel cron `purge_trash` del SchedulerManager.
+    """Public function invoked by the SchedulerManager's `purge_trash` cron.
 
-    Itera totes les entrades de `.trash/` i purga les que tinguin
-    `deleted_at` més antic que `TRASH_RETENTION_DAYS`. Tolera sidecars
-    corruptes (els salta sense purgar — purga manual requerida).
+    Iterates over all `.trash/` entries and purges those with
+    `deleted_at` older than `TRASH_RETENTION_DAYS`. Tolerates corrupt
+    sidecars (skips them without purging — manual purge required).
+    
     """
     now_utc = now or datetime.now(tz=timezone.utc)
     root = _trash_root()
@@ -8845,10 +8909,11 @@ async def upload_asset(
     table_id: Optional[str] = Query(None),
     target_name: Optional[str] = Query(None),
 ):
-    """Puja una imatge o PDF a Assets/Inline o Assets/Files i retorna la URL.
-    Si s'indica table_id, desa a Assets/<DB>/<Taula>/Inline/ o .../Files/.
-    `target_name` (opcional): nom base ja interpolat (p. ex. "{títol} {índex}")
-    amb què reanomenar el fitxer al disc; si falta, s'usa el nom original.
+    """Uploads an image or PDF to Assets/Inline or Assets/Files and returns the URL.
+    If table_id is given, saves to Assets/<DB>/<Table>/Inline/ or .../Files/.
+    `target_name` (optional): already-interpolated base name (e.g. "{title} {index}")
+    to rename the file on disk with; if missing, the original name is used.
+    
     """
     is_image = _is_image_upload(file)
     subdir = "Inline" if is_image else "Files"
@@ -8876,21 +8941,22 @@ async def upload_asset(
 async def get_asset(asset_path: str):
     """Serves files from the Vault Assets directory.
 
-    Delega a `_serve_file_with_containment` per heretar el patró de warmup
-    OneDrive — sense això, els fitxers online-only sota `Assets/` (p.ex. les
-    icones personalitzades a `Assets/Icons/`) es servien amb HTTP 200 i body
-    de 0 bytes la primera vegada que es demanaven, i les `<img>` quedaven
-    trencades al frontend.
+    Delegates to `_serve_file_with_containment` to inherit the OneDrive
+    warmup pattern — without this, online-only files under `Assets/` (e.g. the
+    custom icons in `Assets/Icons/`) were served with HTTP 200 and a 0-byte
+    body the first time they were requested, and the `<img>` tags were left
+    broken on the frontend.
+    
     """
     if not get_p("ASSETS"):
         raise HTTPException(status_code=500, detail="Assets path is not configured")
     return await _serve_file_with_containment(get_p("ASSETS"), asset_path)
 
 
-# --- Media Manager (ARXIU AVANÇAT) ---
+# --- Media Manager (ADVANCED ARCHIVE) ---
 
-# Roots vàlids: la UI envia ?root=images|assets|biblioteca|vault. La
-# resposta de /media/roots indica quins tenen carpeta al disc.
+# Valid roots: the UI sends ?root=images|assets|biblioteca|vault. The
+# response from /media/roots indicates which ones have a folder on disk.
 _VALID_MEDIA_ROOTS = {"images", "assets", "biblioteca", "vault"}
 
 
@@ -8902,9 +8968,9 @@ def _validate_root(root: str) -> str:
 
 @router.get("/media/roots")
 async def get_media_roots():
-    """Retorna els roots disponibles per la cerca de mitjans (Images, Assets,
-    Biblioteca, Vault). Cada element indica `available` segons si la carpeta
-    existeix actualment al disc."""
+    """Returns the roots available for media search (Images, Assets,
+    Biblioteca, Vault). Each element indicates `available` based on whether the folder
+    currently exists on disk."""
     return media_service.get_roots()
 
 
@@ -8914,7 +8980,7 @@ async def get_all_media(
     limit: int = Query(50, ge=1, le=500),
     offset: int = Query(0, ge=0),
     root: str = Query("images"),
-    # Filtres (tots opcionals — sense cap, manté el comportament històric)
+    # Filters (all optional — with none, keeps the historical behavior)
     kinds: Optional[str] = Query(None, description="csv: image,video,audio,pdf,other"),
     extensions: Optional[str] = Query(None, description="csv sense punt: jpg,png,..."),
     q: Optional[str] = Query(None, description="substring sobre filename"),
@@ -8929,12 +8995,13 @@ async def get_all_media(
     sort: str = Query("mtime", description="mtime|filename|size|kind"),
     dir: str = Query("desc", description="asc|desc"),
 ):
-    """Llista mitjans, opcionalment filtrats per àlbum i carpeta arrel.
-    El root per defecte és `images` per back-compat amb la galeria històrica.
+    """Lists media, optionally filtered by album and root folder.
+    The default root is `images` for back-compat with the historical gallery.
 
-    Filtres EXIF (date_taken, has_gps) NO estan disponibles en aquesta fase
-    (F1). Queden per F2 amb un índex EXIF persistit. Sort per `date_taken`
-    tampoc és viable encara — `sort=mtime` és el fallback raonable.
+    EXIF filters (date_taken, has_gps) are NOT available in this phase
+    (F1). They're left for F2 with a persisted EXIF index. Sorting by `date_taken`
+    isn't viable yet either — `sort=mtime` is the reasonable fallback.
+    
     """
     _validate_root(root)
     if sort not in {"mtime", "filename", "size", "kind"}:
@@ -8964,8 +9031,8 @@ async def get_all_media(
 
 @router.get("/media/albums")
 async def get_albums():
-    """Retorna la llista d'àlbums de primer nivell. Compat: el front nou
-    fa servir /media/tree per a la navegació jeràrquica."""
+    """Returns the list of top-level albums. Compat: the new frontend
+    uses /media/tree for hierarchical navigation."""
     return media_service.get_albums()
 
 
@@ -8974,10 +9041,11 @@ async def get_media_tree(
     path: Optional[str] = Query(None),
     root: str = Query("images"),
 ):
-    """Retorna les subcarpetes immediates de `<root>/path` (lazy). Cada node
-    inclou `has_children` perquè la UI dibuixi el chevron sense haver de
-    carregar tot l'arbre (l'arxiu té ~33k directoris).
-    Per al root="vault" exclou carpetes de sistema (.git, BD, .gnosi, etc.).
+    """Returns the immediate subfolders of `<root>/path` (lazy). Each node
+    includes `has_children` so the UI can draw the chevron without having to
+    load the whole tree (the archive has ~33k directories).
+    For root="vault" it excludes system folders (.git, BD, .gnosi, etc.).
+    
     """
     _validate_root(root)
     return media_service.get_tree_node(path, root=root)
@@ -8989,7 +9057,7 @@ async def upload_media(
     album: str = Query("General"),
     background_tasks: BackgroundTasks = BackgroundTasks()
 ):
-    """Puja un fitxer de mitjans a un àlbum."""
+    """Uploads a media file to an album."""
     result = media_service.upload_media(file, album)
     return result
 
@@ -8999,16 +9067,17 @@ async def update_media_metadata(
     metadata: Dict[str, Any] = Body(..., description="{tags?: string[], description?: string}"),
     path_in_root: Optional[str] = Body(None, description="Path relatiu al root (preferent)"),
     root: str = Body("images"),
-    # Compat amb crides antigues (filename + album); reconstrueix el path.
+    # Compat with old calls (filename + album); reconstructs the path.
     filename: Optional[str] = Body(None),
     album: Optional[str] = Body(None),
 ):
-    """Actualitza tags i/o descripció d'un fitxer del MediaCenter.
+    """Updates tags and/or description of a MediaCenter file.
 
-    El payload prefer és `{root, path_in_root, metadata}`. Es manté la forma
-    antiga `{filename, album, metadata}` per compatibilitat amb clients que
-    encara no envien `path_in_root`; en aquest cas el path es reconstrueix
-    com a `{album}/{filename}`.
+    The preferred payload is `{root, path_in_root, metadata}`. The old
+    form `{filename, album, metadata}` is kept for compatibility with clients that
+    don't yet send `path_in_root`; in this case the path is reconstructed
+    as `{album}/{filename}`.
+    
     """
     _validate_root(root)
     resolved = path_in_root
@@ -9022,17 +9091,17 @@ async def update_media_metadata(
     return {"status": "ok"}
 
 
-# --- Vistes desades (filtres + sort + scope amb nom) ---
+# --- Saved views (filters + sort + named scope) ---
 
 @router.get("/media/views")
 async def list_media_views():
-    """Retorna les vistes desades de l'usuari (sidecar JSON al vault)."""
+    """Returns the user's saved views (JSON sidecar in the vault)."""
     return media_service.list_views()
 
 
 @router.post("/media/views", dependencies=[Depends(require_role("editor"))])
 async def create_media_view(payload: Dict[str, Any] = Body(...)):
-    """Crea una vista nova. Payload: {label, scope, filters, sort}."""
+    """Creates a new view. Payload: {label, scope, filters, sort}."""
     try:
         return media_service.create_view(payload)
     except ValueError as e:
@@ -9041,7 +9110,7 @@ async def create_media_view(payload: Dict[str, Any] = Body(...)):
 
 @router.patch("/media/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def update_media_view(view_id: str, payload: Dict[str, Any] = Body(...)):
-    """Actualitza una vista existent."""
+    """Updates an existing view."""
     updated = media_service.update_view(view_id, payload)
     if updated is None:
         raise HTTPException(status_code=404, detail="Vista no trobada")
@@ -9050,37 +9119,38 @@ async def update_media_view(view_id: str, payload: Dict[str, Any] = Body(...)):
 
 @router.delete("/media/views/{view_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_media_view(view_id: str):
-    """Esborra una vista."""
+    """Deletes a view."""
     if not media_service.delete_view(view_id):
         raise HTTPException(status_code=404, detail="Vista no trobada")
     return {"status": "ok"}
 
-# Limita el nombre de lectures concurrents sobre el bind-mount del vault:
-# `grpcfuse` (Docker Desktop) pot retornar Errno 35 (Resource deadlock
-# avoided) sota pressió, especialment quan el filesystem subjacent és
-# cloud-on-demand (OneDrive/iCloud File Provider) i cada fitxer es
-# materialitza per separat. Amb HTTP/1.1 el navegador ja en limita ~6
-# per host, però cal serialitzar més per no encadenar errors.
+# Limits the number of concurrent reads on the vault bind-mount:
+# `grpcfuse` (Docker Desktop) can return Errno 35 (Resource deadlock
+# avoided) under pressure, especially when the underlying filesystem is
+# cloud-on-demand (OneDrive/iCloud File Provider) and each file is
+# materialized separately. With HTTP/1.1 the browser already limits it to ~6
+# per host, but more serialization is needed to avoid chaining errors.
 _VAULT_IMAGE_SEMAPHORE = asyncio.Semaphore(3)
 
-# La detecció + materialització de fitxers cloud-on-demand viu a
-# `backend.services.files_provider`. La instància (OneDriveProvider o
-# LocalProvider) la decideix la factory segons env vars; aquí només la
-# consumim. Vegeu docs/dev_memory/directives/files_provider_abstraction.md.
+# The detection + materialization of cloud-on-demand files lives in
+# `backend.services.files_provider`. The instance (OneDriveProvider or
+# LocalProvider) is decided by the factory based on env vars; here we only
+# we consume. See docs/dev_memory/directives/files_provider_abstraction.md.
 
 
 _NO_STORE_HEADERS = {"Cache-Control": "no-store, must-revalidate"}
 
 
 def _image_error(status: int, detail: str, retry_after: Optional[int] = None) -> HTTPException:
-    """Retorna HTTPException amb headers `no-store` per evitar que el navegador
-    persistisi errors transitoris (warmup en curs, timeouts) i deixi de
-    redemanar la imatge. Sense això, els 410/503 quedaven al disk cache de
-    Chrome i les fotos apareixien com 'No descarregat' indefinidament.
+    """Returns an HTTPException with `no-store` headers to prevent the browser
+    from persisting transient errors (warmup in progress, timeouts) and giving up on
+    re-requesting the image. Without this, the 410/503s stayed in Chrome's
+    disk cache and photos appeared as 'Not downloaded' indefinitely.
 
-    `retry_after` afegeix la capçalera `Retry-After` (segons) per als 503 de
-    warmup: indica als clients ben educats quan tornar a provar mentre la
-    baixada en segon pla continua.
+    `retry_after` adds the `Retry-After` header (seconds) for warmup 503s:
+    it tells well-behaved clients when to retry while the
+    background download continues.
+    
     """
     headers = _NO_STORE_HEADERS
     if retry_after is not None:
@@ -9089,14 +9159,16 @@ def _image_error(status: int, detail: str, retry_after: Optional[int] = None) ->
 
 
 def _onedrive_read_failure_hint(err: OSError) -> str:
-    """Pista accionable per al log quan una lectura on-access d'OneDrive falla.
+    """Actionable hint for the log when an OneDrive on-access read fails.
 
-    errno 1 (Operation not permitted) en llegir un placeholder dataless vol dir
-    que el PROCÉS no té Full Disk Access — en natiu, cal concedir-lo al binari
-    Python real del venv (el que corre uvicorn) i reiniciar el backend. Sense
-    aquesta pista, el genèric "Lectura fallida" feia buscar cap a OneDrive
-    (errno 35/11) quan la causa era de permisos de macOS (diagnosticat
-    2026-07-06: Fotos en 503 permanent amb el warmup 'direct' ben configurat).
+    errno 1 (Operation not permitted) when reading a dataless placeholder means
+    the PROCESS doesn't have Full Disk Access — natively, it must be granted to
+    the actual Python binary in the venv (the one running uvicorn), followed by a
+    backend restart. Without this hint, the generic "Read failed" led to looking
+    toward OneDrive (errno 35/11) when the cause was actually macOS permissions
+    (diagnosed 2026-07-06: Photos stuck at 503 permanently with the 'direct' warmup
+    properly configured).
+    
     """
     if getattr(err, "errno", None) == 1:
         return (
@@ -9109,27 +9181,27 @@ def _onedrive_read_failure_hint(err: OSError) -> str:
 
 @router.get("/images/{image_path:path}")
 async def serve_vault_image(image_path: str):
-    """Serveix imatges directament des de VAULT/Images."""
+    """Serves images directly from VAULT/Images."""
     v_path = get_p("VAULT")
     if not v_path:
         raise _image_error(500, "Vault not configured")
 
     img_root = (v_path / "Images").resolve()
 
-    # Decodificar el path per si ve amb caràcters escapats extra
+    # Decode the path in case it comes with extra escaped characters
     from urllib.parse import unquote
     decoded_path = unquote(image_path)
 
     requested = (img_root / decoded_path).resolve()
 
-    # Validació de seguretat robusta
+    # Robust security validation
     try:
-        # is_relative_to està disponible a Python 3.9+
+        # is_relative_to is available in Python 3.9+
         if not requested.is_relative_to(img_root):
             log.warning(f"⛔ Intent d'accés fora del root de media: {requested} (root: {img_root})")
             raise _image_error(403, "Access denied")
     except (ValueError, AttributeError):
-        # Fallback per a versions anteriors o errors de resolució
+        # Fallback for earlier versions or resolution errors
         if not str(requested).startswith(str(img_root)):
             log.warning(f"⛔ Fallback startswith: Accés denegat per a {requested}")
             raise _image_error(403, "Access denied")
@@ -9138,10 +9210,10 @@ async def serve_vault_image(image_path: str):
         log.error(f"❌ Imatge no trobada al disc: {requested}")
         raise _image_error(404, "Image not found")
 
-    # Detecció de fitxers OneDrive online-only: mida lògica > 0 però st_blocks == 0
-    # → no estan materialitzats al disc local. Llegir-los via bind-mount Docker
-    # provoca Errno 35 (Resource deadlock avoided). No té sentit fer retry: cal
-    # que l'usuari els marqui "Always keep on this device" a OneDrive.
+    # Detection of OneDrive online-only files: logical size > 0 but st_blocks == 0
+    # → they are not materialized on local disk. Reading them via a Docker bind-mount
+    # causes Errno 35 (Resource deadlock avoided). Retrying makes no sense: the
+    # user needs to mark them "Always keep on this device" in OneDrive.
     try:
         st = requested.stat()
     except OSError as e:
@@ -9154,19 +9226,19 @@ async def serve_vault_image(image_path: str):
 
     provider = get_files_provider()
     if provider.is_online_only(requested, st):
-        # Online-only: NO bloquegem la petició fins que OneDrive baixi el fitxer
-        # (pot trigar desenes de segons i, en natiu, la baixada la fa una app
-        # GUI de la sessió via LaunchServices). Engeguem la materialització en
-        # segon pla i responem 503 a l'instant; el client (RetryableImage)
-        # reintenta amb backoff fins que una petició troba el fitxer ja al disc.
+        # Online-only: we do NOT block the request until OneDrive downloads the file
+        # (it can take tens of seconds and, natively, the download is done by a
+        # GUI app in the session via LaunchServices). We kick off materialization in the
+        # background and we respond with 503 immediately; the client (RetryableImage)
+        # retries with backoff until a request finds the file already on disk.
         provider.schedule_warmup(requested)
         log.info(f"☁️ Warmup en segon pla engegat per {requested} (503 pending)")
         raise _image_error(503, "Image warming up; retry shortly", retry_after=3)
 
     async with _VAULT_IMAGE_SEMAPHORE:
-        # Warm-up: open(1 byte) per estabilitzar la lectura abans del
-        # FileResponse. Reintents per Errno 35 (Resource deadlock avoided) amb
-        # backoff exponencial. Patró usat a _read_frontmatter_partial.
+        # Warm-up: open(1 byte) to stabilize the read before the
+        # FileResponse. Retries for Errno 35 (Resource deadlock avoided) with
+        # exponential backoff. Pattern used in _read_frontmatter_partial.
         last_error: Optional[OSError] = None
         for attempt in range(5):
             try:
@@ -9200,9 +9272,9 @@ async def serve_vault_image(image_path: str):
                 ".svg": "image/svg+xml"
             }.get(ext, "application/octet-stream")
 
-        # Cache curt al navegador per a fitxers servits OK; els errors mai es
-        # caché-en (vegeu _image_error) per evitar que un fitxer cloud-only
-        # quedi marcat com 'No descarregat' permanentment.
+        # Short cache in the browser for files served OK; errors are never
+        # cache it (see _image_error) to prevent a cloud-only file
+        # stays marked as 'Not downloaded' permanently.
         return FileResponse(
             path=str(requested),
             media_type=media_type,
@@ -9210,16 +9282,16 @@ async def serve_vault_image(image_path: str):
         )
 
 
-# --- Servidors de fitxers per als roots multi-arrel ---
+# --- File servers for the multi-root roots ---
 #
-# `/images/...` ja existia (galeria històrica amb warmup OneDrive). Per fer que
-# la cerca multi-root pugui retornar URLs servibles per Assets/Biblioteca/Vault,
-# afegim:
-#   - /biblioteca/{path}   → serveix Biblioteca/ (germana del vault)
-#   - /raw/{path}          → serveix qualsevol path dins de VAULT/
-# Validen containment estricte (`is_relative_to`) per evitar escapatòries
-# tipus `../` o noms semblants (ex. `Assets-secret/`). Sense Cache-Control
-# llarg perquè els PDFs i vídeos poden actualitzar-se en lloc.
+# `/images/...` already existed (historical gallery with OneDrive warmup). To make
+# the multi-root search can return servable URLs for Assets/Biblioteca/Vault,
+# we add:
+#   - /biblioteca/{path}   → serves Biblioteca/ (sibling of the vault)
+#   - /raw/{path}          → serves any path inside VAULT/
+# They validate strict containment (`is_relative_to`) to prevent escapes
+# such as `../` or similar names (e.g. `Assets-secret/`). Without Cache-Control
+# long because PDFs and videos can be updated in place.
 
 async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileResponse:
     if not root_dir or not root_dir.exists():
@@ -9240,10 +9312,10 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
     if not requested.exists() or not requested.is_file():
         raise HTTPException(status_code=404, detail="File not found")
 
-    # Mateixa protecció OneDrive online-only que `/images/`: sense això,
-    # FileResponse cau amb Errno 35 (Resource deadlock avoided) per qualsevol
-    # fitxer del vault no materialitzat al disc local. Afecta principalment
-    # `/raw/` (root=vault) on la majoria de fitxers vénen de OneDrive.
+    # Same OneDrive online-only protection as `/images/`: without this,
+    # FileResponse fails with Errno 35 (Resource deadlock avoided) for any
+    # vault file not materialized on local disk. It mainly affects
+    # `/raw/` (root=vault) where most files come from OneDrive.
     try:
         st = requested.stat()
     except OSError as e:
@@ -9297,14 +9369,14 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
 
 @router.get("/biblioteca/{rel_path:path}")
 async def serve_biblioteca_file(rel_path: str):
-    """Serveix Biblioteca amb resolució vault-first i fallback a la llegada (germana):
-    els enllaços `/api/vault/biblioteca/<rel>` antics segueixen vius encara que el
-    vault tingui Biblioteca pròpia, i a l'inrevés."""
+    """Serves Biblioteca with vault-first resolution and fallback to the legacy (sibling) one:
+    old `/api/vault/biblioteca/<rel>` links keep working even if the
+    vault has its own Biblioteca, and vice versa."""
     from backend.services.context_vars import get_active_vault_path
     roots = _biblioteca_roots(get_active_vault_path())
     for root in roots[:-1]:
         try:
-            if (root / rel_path).exists():   # el containment real es fa a _serve_*
+            if (root / rel_path).exists():   # the actual containment is done in _serve_*
                 return await _serve_file_with_containment(root, rel_path)
         except OSError:
             continue
@@ -9325,28 +9397,28 @@ async def serve_vault_raw_file(rel_path: str):
 
 # --- Thumbnails (QuickLook via host daemon) ---
 #
-# Per a fitxers que `<img>` no pot renderitzar (vídeos, PDFs, àudio...),
-# generem un thumbnail usant `qlmanage` a través del daemon host
-# (`sh/onedrive_warmup_daemon.py`, endpoint `/thumb`). El thumb es cacha al
-# host a `${HOME}/.cache/gnosi/thumbs/<sha>.png` i el contenidor pot
-# llegir-lo directament (la home està bind-mountada per OneDrive).
+# For files that `<img>` cannot render (videos, PDFs, audio...),
+# we generate a thumbnail using `qlmanage` through the host daemon
+# (`sh/onedrive_warmup_daemon.py`, endpoint `/thumb`). The thumb is cached on the
+# host at `${HOME}/.cache/gnosi/thumbs/<sha>.png` and the container can
+# read it directly (the home directory is bind-mounted for OneDrive).
 #
-# El frontend transforma `item.url` (p. ex. `/api/vault/raw/foo/bar.mp4`)
-# a `/api/vault/thumb/raw/foo/bar.mp4`. Aquí parsegem el primer segment
-# per resoldre el root correcte i validem containment.
+# The frontend transforms `item.url` (e.g. `/api/vault/raw/foo/bar.mp4`)
+# to `/api/vault/thumb/raw/foo/bar.mp4`. Here we parse the first segment
+# to resolve the correct root and we validate containment.
 
 _THUMB_DAEMON_URL = os.environ.get(
     "THUMB_DAEMON_URL",
     "http://host.docker.internal:5009/thumb",
 )
 _THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
-# Roots exposats a thumbs. Tots viuen dins de /vault; `biblioteca` no hi és
-# perquè cap consumidor del frontend demana thumbs de Biblioteca (els PDFs
-# dels camps `files` es mostren amb icona). Si mai cal, n'hi ha prou amb
-# afegir `"biblioteca": ("BIBLIOTECA", None)` aquí: la resta de la cadena ja
-# ho suporta — el daemon accepta múltiples roots (allowlist OneDrive-UNED,
-# 2026-05-18) i `_container_to_host_path` passa tal qual els mounts
-# identitat com Biblioteca o HOME (2026-06-10).
+# Roots exposed to thumbs. All of them live inside /vault; `biblioteca` isn't there
+# because no frontend consumer requests thumbs for Biblioteca (the PDFs
+# in `files` fields are shown with an icon). If it's ever needed, it's enough to
+# add `"biblioteca": ("BIBLIOTECA", None)` here: the rest of the chain already
+# supports it — the daemon accepts multiple roots (allowlist OneDrive-UNED,
+# 2026-05-18) and `_container_to_host_path` passes the mounts as-is
+# identity like Biblioteca or HOME (2026-06-10).
 _THUMB_ROOTS_MAP = {
     "images": ("IMAGES", "Images"),
     "raw": ("VAULT", None),
@@ -9355,9 +9427,9 @@ _THUMB_ROOTS_MAP = {
 
 
 def _resolve_thumb_source(rel_url: str) -> Path:
-    """Parseja rel_url tipus `raw/foo/bar.mp4` o `images/a/b.jpg`, valida
-    containment dins del root corresponent i retorna el Path absolut dins
-    del contenidor. Llença HTTPException en cas d'error."""
+    """Parses a rel_url like `raw/foo/bar.mp4` or `images/a/b.jpg`, validates
+    containment within the corresponding root, and returns the absolute Path inside
+    the container. Raises HTTPException on error."""
     parts = rel_url.split("/", 1)
     if len(parts) != 2 or not parts[1]:
         raise HTTPException(status_code=400, detail="Invalid thumb URL")
@@ -9401,17 +9473,17 @@ def _resolve_thumb_source(rel_url: str) -> Path:
 
 
 def _container_to_host_path(container_path: Path) -> Optional[str]:
-    """Tradueix /vault/X → VAULT_HOST_PATH/X (i /vaults/X → VAULTS_ROOT_HOST_PATH/X
-    per als vaults germans del multi-vault). Necessari perquè el daemon
-    treballa amb paths del host (qlmanage hi viu). El mount identitat
-    (HOME — mateixa ruta host ↔ contenidor) es passa tal qual."""
+    """Translates /vault/X → VAULT_HOST_PATH/X (and /vaults/X → VAULTS_ROOT_HOST_PATH/X
+    for the sibling multi-vault vaults). Necessary because the daemon
+    works with host paths (qlmanage lives there). The identity mount
+    (HOME — same host ↔ container path) is passed through as-is."""
     vault_host = os.environ.get("VAULT_HOST_PATH")
     if not vault_host:
         return None
     try:
         rel = container_path.relative_to("/vault")
     except ValueError:
-        # Vault germà actiu (multi-vault): viu sota /vaults, no sota /vault.
+        # Active sibling vault (multi-vault): lives under /vaults, not under /vault.
         vaults_root_host = os.environ.get("VAULTS_ROOT_HOST_PATH")
         if vaults_root_host:
             try:
@@ -9431,9 +9503,9 @@ def _container_to_host_path(container_path: Path) -> Optional[str]:
 
 
 def _thumb_no_store(status_code: int, detail: str):
-    """503/error transitori amb `Cache-Control: no-store` perquè el
-    navegador NO cachi l'error (sino, el thumb quedaria trencat fins que
-    el cache del browser caduqui)."""
+    """Transient 503/error with `Cache-Control: no-store` so that the
+    browser does NOT cache the error (otherwise, the thumb would stay broken until
+    the browser's cache expires)."""
     from fastapi.responses import JSONResponse
     return JSONResponse(
         status_code=status_code,
@@ -9444,27 +9516,28 @@ def _thumb_no_store(status_code: int, detail: str):
 
 @router.get("/thumb/{rel_url:path}")
 async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
-    """Serveix un thumbnail PNG generat per QuickLook (macOS) per a
-    fitxers no-imatge (vídeo, PDF, àudio...).
+    """Serves a PNG thumbnail generated by QuickLook (macOS) for
+    non-image files (video, PDF, audio...).
 
-    L'URL `rel_url` segueix el mateix esquema que els endpoints de
-    fitxers per als roots que viuen dins de /vault: `raw/...`,
-    `images/...`, `assets/...`. Mida clampejada a [64, 1024] al daemon.
+    The `rel_url` URL follows the same scheme as the file endpoints
+    for roots that live inside /vault: `raw/...`,
+    `images/...`, `assets/...`. Size clamped to [64, 1024] in the daemon.
 
-    Query param `v` (versió, típicament mtime): si el frontend el passa,
-    cachem amb `immutable` perquè la URL canviarà quan canviï el fitxer
-    origen. Sense `v`, fem cache curt + must-revalidate perquè el
-    navegador no es quedi un thumb obsolet fins l'endemà.
+    Query param `v` (version, typically mtime): if the frontend passes it,
+    we cache with `immutable` since the URL will change when the source
+    file changes. Without `v`, we use a short cache + must-revalidate so the
+    browser doesn't keep a stale thumb until the next day.
+    
     """
-    _ = v  # consumit només per cache-busting a nivell de URL
+    _ = v  # consumed only for URL-level cache-busting
     requested = _resolve_thumb_source(rel_url)
 
-    # OneDrive warmup si el fitxer no està materialitzat: qlmanage no pot
-    # llegir cloud-only des del bind-mount Docker, però sí des del host.
-    # Mateix patró que `_serve_file_with_containment`: cridem materialize,
-    # comprovem el resultat, re-stat per confirmar i si encara és
-    # online-only retornem 503 amb `no-store` perquè el navegador no
-    # cachi l'error transitori.
+    # OneDrive warmup if the file is not materialized: qlmanage cannot
+    # read cloud-only files from the Docker bind-mount, but it can from the host.
+    # Same pattern as `_serve_file_with_containment`: we call materialize,
+    # check the result, re-stat to confirm, and if it's still
+    # online-only we return 503 with `no-store` so the browser doesn't
+    # cache the transient error.
     try:
         st = requested.stat()
     except OSError as e:
@@ -9473,17 +9546,17 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
 
     provider = get_files_provider()
     if provider.is_online_only(requested, st):
-        # Warmup en segon pla + 503 immediat (mateix patró que `/images/`): no
-        # bloquegem la petició fins que OneDrive baixi el fitxer; el client
-        # (RetryableImage) reintenta fins que una petició el troba materialitzat.
+        # Background warmup + immediate 503 (same pattern as `/images/`): we don't
+        # block the request until OneDrive downloads the file; the client
+        # (RetryableImage) retries until a request finds it materialized.
         provider.schedule_warmup(requested)
         log.info(f"☁️ Thumb: warmup en segon pla engegat per {requested} (503 pending)")
         return _thumb_no_store(503, "Thumbnail warming up; retry shortly")
 
     host_path = _container_to_host_path(requested)
     if not host_path:
-        # No hauria de passar amb _THUMB_ROOTS_MAP restringit a /vault, però
-        # ho cobrim defensivament.
+        # This shouldn't happen with _THUMB_ROOTS_MAP restricted to /vault, but
+        # we cover it defensively.
         raise HTTPException(
             status_code=500,
             detail="VAULT_HOST_PATH not configured or file outside /vault",
@@ -9519,10 +9592,10 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
         raise HTTPException(status_code=500, detail="Thumb path missing or not readable")
 
     # Cache:
-    #  - Amb `?v=<mtime>` el frontend canvia la URL quan canvia el fitxer,
-    #    així que podem cachejar agressivament.
-    #  - Sense `v`, fem cache curt + ETag perquè el browser revalidi i
-    #    rebi un 304 si no ha canviat (ETag = mtime).
+    #  - With `?v=<mtime>` the frontend changes the URL when the file changes,
+    #    so we can cache aggressively.
+    #  - Without `v`, we use a short cache + ETag so the browser revalidates and
+    #    gets a 304 if nothing changed (ETag = mtime).
     has_version = v is not None and v != ""
     cache_header = (
         "public, max-age=86400, immutable"
@@ -9539,20 +9612,20 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
     )
 
 
-# --- Enllaços a fitxers locals (Variant C: cap còpia, cap upload) ---
+# --- Links to local files (Variant C: no copy, no upload) ---
 #
-# Quan l'usuari tria "Enllaçar fitxer local" al MediaInsertDialog, el path
-# absolut s'escull via `/pick-file` (osascript) i es registra aquí. Tornem un
-# token opac i una URL `/api/vault/local-file/{token}` que el frontend pot
-# inserir al BlockEditor com src d'imatge/vídeo.
+# When the user selects "Link local file" in the MediaInsertDialog, the
+# absolute path is chosen via `/pick-file` (osascript) and registered here. We return an
+# opaque token and a `/api/vault/local-file/{token}` URL that the frontend can
+# insert into the BlockEditor as an image/video src.
 #
-# Per què tokens i no servir el path directament a la URL?
-#  1) Els paths poden contenir caràcters problemàtics (apostrofs, espais).
-#  2) Sense allowlist explícit, qualsevol GET a /local-file/<path> permetria
-#     llegir tota la home de l'usuari. Amb tokens només servim paths que
-#     l'usuari ha registrat explícitament a través del picker natiu.
-#  3) Si el path original es mou, podem invalidar el token sense canviar la URL
-#     guardada al document.
+# Why tokens instead of serving the path directly in the URL?
+#  1) Paths can contain problematic characters (apostrophes, spaces).
+#  2) Without an explicit allowlist, any GET to /local-file/<path> would allow
+#     reading the user's entire home directory. With tokens we only serve paths that
+#     the user has explicitly registered through the native picker.
+#  3) If the original path moves, we can invalidate the token without changing the URL
+#     saved in the document.
 
 import secrets
 
@@ -9560,15 +9633,15 @@ _LOCAL_LINKS_LOCK = threading.Lock()
 
 
 def _local_links_file() -> Path:
-    """Resol el path del JSON de links de manera lazy. No es pot fer
-    `_LOCAL_LINKS_FILE = get_p("LOCAL_DATA") / ...` a top-level perquè
-    `get_p` requereix el vault context (només existeix dins una request)."""
+    """Resolves the links JSON path lazily. It cannot be done as
+    `_LOCAL_LINKS_FILE = get_p("LOCAL_DATA") / ...` at the top level because
+    `get_p` requires the vault context (it only exists within a request)."""
     base = os.environ.get("GNOSI_LOCAL_DATA")
     return (Path(base) if base else Path("/app/data")) / "local_file_links.json"
 
 
 def _load_local_links() -> Dict[str, str]:
-    """Carrega el mapping {token: absolute_path}. Ràpid (<1KB típic)."""
+    """Loads the {token: absolute_path} mapping. Fast (<1KB typical)."""
     f_path = _local_links_file()
     if not f_path.exists():
         return {}
@@ -9594,22 +9667,23 @@ def _save_local_links(mapping: Dict[str, str]) -> None:
 
 @router.post("/local-file/register", dependencies=[Depends(require_role("editor"))])
 async def register_local_file(body: dict):
-    """Registra un path absolut i retorna un token + URL servible.
+    """Registers an absolute path and returns a token + servable URL.
 
     Body: { "file_path": "/abs/path/to/file" }
-    Resposta: { "token": "...", "url": "/api/vault/local-file/<token>",
+    Response: { "token": "...", "url": "/api/vault/local-file/<token>",
                 "name": "...", "size": N, "kind": "image|video|pdf|..." }
 
-    Si el mateix path ja està registrat, reutilitzem el token: així si
-    l'usuari registra dues vegades el mateix fitxer no acumulem entrades.
+    If the same path is already registered, we reuse the token: this way if
+    the user registers the same file twice we don't accumulate entries.
+    
     """
     file_path = str(body.get("file_path", "")).strip()
     if not file_path:
         raise HTTPException(status_code=400, detail="file_path is mandatory")
 
-    # Accepta tots els formats desats (file://, ~/, ruta de l'altra Mac…) i
-    # re-arrela a la màquina actual: el visor de PDF rep el valor del camp tal
-    # com es va desar, potser en una Mac amb un altre nom d'usuari.
+    # Accepts all saved formats (file://, ~/, path from the other Mac…) and
+    # re-roots to the current machine: the PDF viewer receives the field's value exactly
+    # as it was saved, perhaps on a Mac with a different username.
     p = _resolve_stored_file_target(file_path)
     if p is None or not p.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
@@ -9626,10 +9700,10 @@ async def register_local_file(body: dict):
     ext = p.suffix.lower()
     return {
         "token": token,
-        # URL auto-descriptiva: el segment final (nom real, codificat) no
-        # s'usa per buscar el fitxer (la cerca és pel token), només perquè la
-        # URL porti nom + extensió. Així el frontend mostra el nom real i
-        # detecta el tipus (PDF→lector integrat) sense haver de resoldre res.
+        # Self-descriptive URL: the final segment (real name, encoded) doesn't
+        # is used to look up the file (the lookup is by token), only so that the
+        # URL carries name + extension. This way the frontend shows the real name and
+        # detects the type (PDF→built-in reader) without having to resolve anything.
         "url": f"/api/vault/local-file/{token}/{urllib.parse.quote(p.name, safe='')}",
         "name": p.name,
         "size": p.stat().st_size,
@@ -9642,23 +9716,24 @@ async def register_local_file(body: dict):
 @router.get("/local-file/{token}")
 @router.get("/local-file/{token}/{filename:path}")
 async def serve_local_file(token: str, filename: str | None = None):
-    """Serveix un fitxer registrat via /local-file/register.
+    """Serves a file registered via /local-file/register.
 
-    El segment opcional `{filename}` és decoratiu (la cerca és pel `token`):
-    permet que la URL desada porti nom + extensió reals perquè el frontend
-    mostri el nom i detecti el tipus. S'accepten ambdues formes per
-    compatibilitat amb URLs antigues sense nom.
+    The optional `{filename}` segment is decorative (the lookup is by `token`):
+    it allows the saved URL to carry a real name + extension so the frontend
+    can show the name and detect the type. Both forms are accepted for
+    compatibility with old URLs without a name.
 
-    Si el token no existeix → 404. Si el path ja no és accessible (l'usuari
-    ha mogut/esborrat el fitxer) → 410 Gone perquè la UI ho pugui distingir
-    d'un token mai registrat.
+    If the token doesn't exist → 404. If the path is no longer accessible (the user
+    has moved/deleted the file) → 410 Gone so the UI can distinguish it
+    from a never-registered token.
 
-    Si el fitxer és online-only a OneDrive (típic per a documents enllaçats
-    des de `~/Library/CloudStorage/...`), demanem al provider que el
-    materialitzi abans de fer el `FileResponse`. Sense això, FastAPI envia
-    els headers (200 OK) i quan intenta streamejar el contingut peta amb
-    Errno 35 (Resource deadlock avoided) mid-stream → la UI rep una resposta
-    truncada i el navegador no obre el fitxer.
+    If the file is online-only on OneDrive (typical for documents linked
+    from `~/Library/CloudStorage/...`), we ask the provider to
+    materialize it before doing the `FileResponse`. Without this, FastAPI sends
+    the headers (200 OK) and when it tries to stream the content it crashes with
+    Errno 35 (Resource deadlock avoided) mid-stream → the UI receives a
+    truncated response and the browser doesn't open the file.
+    
     """
     with _LOCAL_LINKS_LOCK:
         mapping = _load_local_links()
@@ -9669,7 +9744,7 @@ async def serve_local_file(token: str, filename: str | None = None):
     if not p.exists() or not p.is_file():
         raise HTTPException(status_code=410, detail=f"Local file no longer available: {p.name}")
 
-    # Warmup proactiu si el fitxer és online-only (mateix patró que
+    # Proactive warmup if the file is online-only (same pattern as
     # _serve_file_with_containment per a Assets/Images).
     try:
         provider = get_files_provider()
@@ -9696,11 +9771,11 @@ async def serve_local_file(token: str, filename: str | None = None):
         raise
     except Exception as e:
         log.debug(f"Warmup proactiu per {p} ha fallat: {e}")
-        # Continuem igualment: el següent step (1-byte probe) gestionarà
-        # qualsevol error de lectura amb backoff.
+        # We continue regardless: the next step (1-byte probe) will handle
+        # any read error with backoff.
 
-    # 1-byte probe amb backoff per estabilitzar la lectura abans del stream.
-    # Mateix patró que _serve_file_with_containment línies ~4584.
+    # 1-byte probe with backoff to stabilize the read before streaming.
+    # Same pattern as _serve_file_with_containment around line ~4584.
     last_error: Optional[OSError] = None
     for attempt in range(5):
         try:
@@ -9729,9 +9804,9 @@ async def serve_local_file(token: str, filename: str | None = None):
 @router.get("/custom-icons")
 async def get_custom_icons():
     """Returns the shared custom icon library for Vault icon picker."""
-    # El JSON de la biblioteca viu al vault (OneDrive). Si està online-only,
-    # `_load_custom_icons` el llegiria amb EDEADLK i el seu `except` silenciós
-    # tornaria una llista buida (icones desaparegudes). Materialitza'l abans.
+    # The library's JSON lives in the vault (OneDrive). If it's online-only,
+    # `_load_custom_icons` would read it with EDEADLK and its silent `except`
+    # would return an empty list (missing icons). Materialize it beforehand.
     icons_path = get_custom_icons_path()
     if icons_path:
         await _materialize_if_online_only(icons_path, "custom-icons")
@@ -9773,13 +9848,13 @@ def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
             url = f"/api/vault/assets/{rel}"
         return {"path": rel, "url": url, "storage": "assets"}
     else:
-        # Biblioteca: a més del path absolut (compat / obrir al Finder), tornem
-        # una URL relativa servida `/api/vault/biblioteca/<rel>`. El frontend desa
-        # `data.url || data.path` → els NOUS adjunts queden PORTABLES per
-        # construcció (cap usuari/núvol al valor desat); el contenidor els serveix
-        # via serve_biblioteca_file i open/delete els re-arrelen a la màquina actual.
-        # Es prova contra TOTES les arrels (dins del vault i llegada): la mateixa
-        # forma d'URL se serveix amb fallback, així el valor desat no distingeix layouts.
+        # Biblioteca: in addition to the absolute path (compat / open in Finder), we return
+        # a served relative URL `/api/vault/biblioteca/<rel>`. The frontend saves
+        # `data.url || data.path` → NEW attachments stay PORTABLE across
+        # construction (no user/cloud in the saved value); the container serves them
+        # via serve_biblioteca_file, and open/delete re-root them to the current machine.
+        # It's tried against ALL roots (inside the vault and the legacy one): the same
+        # URL form is served with fallback, so the saved value doesn't distinguish layouts.
         from backend.services.context_vars import get_active_vault_path
         url = None
         for root in _biblioteca_roots(get_active_vault_path()):
@@ -9803,9 +9878,9 @@ async def upload_property_file(
     """Upload a file for a property. Routes to Assets/, Biblioteca/ or a free path
     depending on the storage_folder parameter (assets | biblioteca | free).
 
-    `target_name` (opcional): nom base ja interpolat des del patró del camp
-    (p. ex. "Autors - Any - Títol"). Si ve informat, el fitxer es desa amb
-    aquest nom (sanititzat) + l'extensió original."""
+    `target_name` (optional): base name already interpolated from the field's pattern
+    (e.g. "Authors - Year - Title"). If provided, the file is saved with
+    this name (sanitized) + the original extension."""
     registry = load_registry()
     table, database = _resolve_table_and_database_for_assets(table_id, registry)
     if not table:
@@ -9815,11 +9890,11 @@ async def upload_property_file(
     if not property_clean:
         raise HTTPException(status_code=400, detail="property_name is mandatory")
 
-    # El destí (storage_folder) és autoritatiu des de la config de la property al
-    # registry, no del query param: el frontend pot enviar-lo desfasat (sessió amb
-    # esquema en memòria antic, camins d'upload divergents...) i això feia que un
-    # camp configurat a 'biblioteca' acabés desant a Assets. Si la property no en
-    # té cap de configurat, caiem al valor del query param.
+    # The destination (storage_folder) is authoritative from the property's config in the
+    # registry, not from the query param: the frontend could send it out of sync (session with
+    # an old in-memory schema, divergent upload paths...) and this caused a
+    # field configured as 'biblioteca' to end up saving to Assets. If the property doesn't have
+    # has none configured, we fall back to the query param value.
     target_prop = _find_table_property(table, property_clean)
     configured_storage = str(_property_config_value(target_prop, "storage_folder") or "").strip()
     effective_storage = configured_storage or storage_folder
@@ -9837,8 +9912,9 @@ async def upload_property_file(
 def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path, target_name: str = "") -> Path:
     """Save an UploadFile to target_dir and return the absolute destination path.
 
-    Si `target_name` (patró de nom ja interpolat) ve informat, s'usa com a
-    base del nom (sanititzada) en comptes del nom original del fitxer.
+    If `target_name` (an already-interpolated name pattern) is provided, it is used as
+    the base of the name (sanitized) instead of the file's original name.
+    
     """
     target_dir.mkdir(parents=True, exist_ok=True)
     original_name = upload.filename or "upload.bin"
@@ -9862,17 +9938,18 @@ async def link_existing_file(body: dict):
     Body: { "file_path": "/absolute/path/to/file.pdf", "target_name": "..." }
     Returns the path and a display name.
 
-    Si `target_name` (patró de nom ja interpolat) ve informat, el fitxer es
-    REANOMENA al disc dins la mateixa carpeta (estil Zotero), preservant
-    l'extensió i evitant col·lisions. Avís: si el fitxer és un linked
-    attachment de Zotero, reanomenar-lo en trencarà l'enllaç a Zotero.
+    If `target_name` (an already-interpolated name pattern) is provided, the file is
+    RENAMED on disk within the same folder (Zotero-style), preserving
+    the extension and avoiding collisions. Warning: if the file is a linked
+    attachment from Zotero, renaming it will break the link to Zotero.
+    
     """
     file_path = str(body.get("file_path", "")).strip()
     if not file_path:
         raise HTTPException(status_code=400, detail="file_path is mandatory")
 
-    # Accepta també formats vells (file://, ~/, ruta de l'ALTRA Mac): un valor
-    # desat antic re-enllaçat ha de resoldre's a la ruta local d'aquesta màquina.
+    # Also accepts old formats (file://, ~/, path from the OTHER Mac): a value
+    # saved previously and re-linked must resolve to this machine's local path.
     p = _resolve_stored_file_target(file_path)
     if p is None:
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
@@ -9898,22 +9975,22 @@ async def link_existing_file(body: dict):
                 p = desired
                 renamed = True
             except OSError as e:
-                # No es pot reanomenar: típicament el fitxer és FORA del Vault,
-                # en un mount read-only (~/Library/CloudStorage via el mount HOME
-                # `ro` → errno 30 EROFS), o és un linked attachment de Zotero. NO
-                # bloquegem la inserció: enllacem el fitxer amb el seu nom
-                # ORIGINAL. A més, reanomenar un fitxer de la OneDrive general de
-                # l'usuari (fora del Vault) seria intrusiu — millor no tocar-lo.
+                # Cannot rename: typically the file is OUTSIDE the Vault,
+                # on a read-only mount (~/Library/CloudStorage via the HOME mount
+                # `ro` → errno 30 EROFS), or it is a Zotero linked attachment. We do NOT
+                # block the insertion: we link the file with its name
+                # ORIGINAL. Moreover, renaming a file from the user's general OneDrive
+                # (outside the Vault) would be intrusive — better not to touch it.
                 log.warning(
                     f"link-existing-file: no s'ha pogut reanomenar "
                     f"{p} → {desired} ({e}); s'enllaça amb el nom original."
                 )
 
-    # Valor PORTABLE per desar al camp (independent del nom d'usuari del Mac;
-    # vegeu attachment_link_portability.md, fase 2). El frontend desa
-    # `data.url || data.path`: si podem expressar el fitxer de forma
-    # re-arrelable, la posem a `url`; si no (fora del HOME), queda la ruta
-    # absoluta com a últim recurs.
+    # PORTABLE value to save in the field (independent of the Mac username;
+    # see attachment_link_portability.md, phase 2). The frontend saves
+    # `data.url || data.path`: if we can express the file in a
+    # re-rootable, we put it in `url`; otherwise (outside HOME), the path remains
+    # absolute as a last resort.
     portable: Optional[str] = None
     from backend.services.context_vars import get_active_vault_path
     for _broot in _biblioteca_roots(get_active_vault_path()):
@@ -9954,17 +10031,18 @@ async def link_existing_file(body: dict):
 
 @router.post("/delete-physical-file", dependencies=[Depends(require_role("editor"))])
 async def delete_physical_file(body: dict):
-    """Elimina el fitxer físic referenciat per `target` (no toca cap pàgina).
+    """Deletes the physical file referenced by `target` (does not touch any page).
 
-    `target` és el valor desat al camp `files`: `file://…`,
-    `/api/vault/local-file/<token>[/nom]`, `/api/vault/assets/<rel>` o `Assets/<rel>`.
+    `target` is the value saved in the `files` field: `file://…`,
+    `/api/vault/local-file/<token>[/nom]`, `/api/vault/assets/<rel>` or `Assets/<rel>`.
 
-    - Fitxers sota HOME (OneDrive/Biblioteca, via file:// o token): es deleguen al
-      host_open_helper, que els mou a la PAPERERA del Mac (recuperable). El mount
-      de HOME al contenidor és read-only, així que el backend no els pot esborrar.
-    - Fitxers d'Assets (dins el vault, rw): s'esborren al contenidor (permanent).
+    - Files under HOME (OneDrive/Library, via file:// or token): delegated to the
+      host_open_helper, which moves them to the Mac's TRASH (recoverable). The HOME
+      mount in the container is read-only, so the backend cannot delete them.
+    - Files under Assets (inside the vault, rw): deleted in the container (permanent).
 
-    Contenció: només sota HOME del host o sota Assets del vault. Mai fora.
+    Containment: only under the host's HOME or under the vault's Assets. Never outside.
+    
     """
     target = str(body.get("target", "")).strip()
     if not target:
@@ -9991,21 +10069,21 @@ async def delete_physical_file(body: dict):
     elif target.startswith("Assets/"):
         vault_path = get_p("VAULT").resolve() / target
     elif target.startswith("/api/vault/biblioteca/"):
-        # Nous adjunts de biblioteca (portables): re-arrelats a l'arrel actual.
-        # Va abans del catch-all "/" perquè aquesta forma també comença per "/".
+        # New library attachments (portable): re-rooted to the current root.
+        # Goes before the catch-all "/" because this form also starts with "/".
         host_path = get_p("BIBLIOTECA") / urllib.parse.unquote(target[len("/api/vault/biblioteca/"):])
     elif target == "~" or target.startswith("~/"):
-        # Valor portable `~/<rel>`: HOME del host, mai del contenidor.
+        # Portable value `~/<rel>`: the host's HOME, never the container's.
         host_path = Path(_expand_host_tilde(target))
     elif target.startswith("/"):
         host_path = Path(target)
     else:
         vault_path = get_p("VAULT").resolve() / target
 
-    # --- Fitxer sota HOME → Paperera del Mac via host helper (recuperable) ---
+    # --- File under HOME → Mac Trash via host helper (recoverable) ---
     if host_path is not None:
-        # Portabilitat: si el valor desat ve de l'altra Mac (HOME aliè) i no
-        # existeix tal qual, re-arrela'l abans del check de contenció.
+        # Portability: if the saved value comes from the other Mac (a foreign HOME) and does not
+        # exist as-is, re-root it before the containment check.
         try:
             if not host_path.exists():
                 rerooted = _reroot_attachment_under_current_host(str(host_path))
@@ -10034,7 +10112,7 @@ async def delete_physical_file(body: dict):
                     _save_local_links(mapping)
         return {"status": "trashed", "method": "macos_trash", "target": str(resolved)}
 
-    # --- Fitxer d'Assets (vault rw) → esborrat al contenidor (permanent) ---
+    # --- Assets file (vault rw) → deleted in the container (permanent) ---
     assets_root = (get_p("VAULT").resolve() / "Assets").resolve()
     try:
         resolved = vault_path.resolve()
@@ -10051,7 +10129,7 @@ async def delete_physical_file(body: dict):
 
 
 def _run_osascript_picker(script: str) -> str:
-    """Helper sync per usar amb asyncio.to_thread."""
+    """Sync helper for use with asyncio.to_thread."""
     import subprocess
     result = subprocess.run(
         ["osascript", "-e", script],
@@ -10073,9 +10151,9 @@ async def pick_folder():
         'return POSIX path of chosen'
     )
     try:
-        # subprocess.run amb timeout=60 dins un endpoint async bloqueja
-        # tot l'event loop fins a 1 minut mentre l'usuari pensa al diàleg
-        # del Finder. Off-thread per servir altres requests en paral·lel.
+        # subprocess.run with timeout=60 inside an async endpoint blocks
+        # the whole event loop for up to 1 minute while the user thinks in the dialog
+        # the Finder. Off-thread to serve other requests in parallel.
         chosen = await _asyncio.to_thread(_run_osascript_picker, script)
         if not chosen:
             raise HTTPException(status_code=204, detail="No folder selected")
@@ -10179,7 +10257,7 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
             raw_content = source_path.read_text(encoding="utf-8")
             metadata, body = parse_frontmatter(raw_content, source_path)
 
-        # Nou UUID i ajustos de metadata
+        # New UUID and metadata adjustments
         new_page_id = str(uuid.uuid4())
         new_metadata = metadata.copy()
         new_metadata["id"] = new_page_id
@@ -10203,18 +10281,18 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
             )
         else:
             new_file_path = source_path.parent / f"{new_page_id}.md"
-            # Una còpia és un recurs nou: regenerem la clau perquè no
-            # col·lisioni amb la de l'original (que l'índex de cites
-            # ombrejaria, deixant un dels dos no resoluble).
+            # A copy is a new resource: we regenerate the key so it doesn't
+            # collide with the original's (which the citation index
+            # would shadow, leaving one of the two unresolvable).
             new_metadata = _ensure_recursos_citation_key(new_metadata, regenerate=True)
             save_page_md(new_file_path, new_metadata, body)
 
-        # Registra la còpia a l'índex de pàgines EN MEMÒRIA (mateix helper que
-        # el restore de la paperera). Sense això la còpia quedava INVISIBLE:
-        # `find_page_path` no la trobava al cache i, amb l'índex inicialitzat,
-        # salta el rglob de fallback ("probablement esborrada") → GET/PATCH/
-        # DELETE de la còpia feien 404 fins a un rebuild complet de l'índex
-        # (reproduït: el fitxer existia a disc però l'API el negava).
+        # Registers the copy in the IN-MEMORY page index (the same helper that
+        # the trash restore uses). Without this, the copy remained INVISIBLE:
+        # `find_page_path` could not find it in the cache and, with the index initialized,
+        # skips the fallback rglob ("probably deleted") → GET/PATCH/
+        # DELETE requests for the copy returned 404 until a full index rebuild
+        # (reproduced: the file existed on disk but the API denied it).
         _add_page_to_index_cache(new_file_path)
 
         background_tasks.add_task(update_link_index_for_page, new_file_path)
@@ -10231,35 +10309,35 @@ async def duplicate_page(page_id: str, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail="Error duplicating target file")
 
 
-# ── Índex global id→títol amb persistència a disc + stale-while-revalidate ───
-# El fan servir /backlinks, /unlinked-mentions i /global-index, tots a la
-# càrrega de QUALSEVOL pàgina. Construir-lo recorre el vault sencer a OneDrive
-# (rglob + parse frontmatter), cost mesurat ~15s EN FRED. Abans no es persistia
-# ni es precalentava al warmup, així que la 1a càrrega de pàgina després de
-# CADA reinici del backend pagava aquests ~15s (símptoma: "la vista incrustada
-# triga a carregar"). Ara, mateix patró que el page-index/body-cache:
-#   • es desa a /app/data/cache/vault_id_title_index.json,
-#   • es carrega de disc al startup (resposta instantània),
-#   • es refresca en background (stale-while-revalidate): la petició torna el
-#     valor cachejat i el rglob d'OneDrive es paga FORA de la petició.
-# Obsolescència màxima: _ID_TITLE_TTL (igual que el TTL de _iter_docs_cache,
-# del qual aquest índex deriva — per això no cal invalidació explícita als
-# endpoints d'escriptura: _iter_docs_cache ja s'actualitza surgical).
+# ── Global id→title index with disk persistence + stale-while-revalidate ───
+# It's used by /backlinks, /unlinked-mentions and /global-index, all in the
+# load of ANY page. Building it walks the entire vault on OneDrive
+# (rglob + parse frontmatter), measured cost ~15s COLD. Previously it wasn't persisted
+# nor was it pre-warmed at warmup, so the 1st page load after
+# EVERY backend restart paid these ~15s (symptom: "the embedded view
+# takes a long time to load"). Now, same pattern as the page-index/body-cache:
+#   • it's saved to /app/data/cache/vault_id_title_index.json,
+#   • it loads from disk at startup (instant response),
+#   • it refreshes in the background (stale-while-revalidate): the request returns the
+#     cached value and the OneDrive rglob is paid OUTSIDE the request.
+# Maximum staleness: _ID_TITLE_TTL (same as the TTL of _iter_docs_cache,
+# which this index derives from — that's why no explicit invalidation is needed on
+# write endpoints: _iter_docs_cache is already updated surgically).
 _ID_TITLE_TTL = 60.0
-# Per-vault (v_str -> {"index": {...}, "ts": float}). Multi-vault: com
-# `_page_index_entries`, aquest cache HA d'estar indexat per vault. Amb un sol
-# dict global, un vault servia l'índex d'un altre (i just després de canviar de
-# vault, /global-index i /backlinks tornaven dades del vault anterior fins que
-# expirava el TTL). Mateixa correcció a `_iter_docs_cache`, del qual deriva.
+# Per-vault (v_str -> {"index": {...}, "ts": float}). Multi-vault: like
+# `_page_index_entries`, this cache MUST be indexed by vault. With a single
+# global dict, one vault would serve another's index (and right after switching
+# vaults, /global-index and /backlinks returned data from the previous vault until
+# the TTL expired). Same fix in `_iter_docs_cache`, which it derives from.
 _id_title_cache: dict = {}
 _id_title_lock = threading.Lock()
-_id_title_refreshing: set = set()   # v_str dels refrescos en curs (un per vault)
+_id_title_refreshing: set = set()   # v_str of the refreshes in progress (one per vault)
 
 
 def _current_vault_key() -> str:
-    """Clau per als caches per-vault d'aquest mòdul: str de la ruta del vault
-    ACTIU (via contextvar). Buida fora de petició (o si no hi ha vault) → cau al
-    comportament d'abans (una sola entrada amb clau "")."""
+    """Key for this module's per-vault caches: str of the ACTIVE vault's path
+    (via contextvar). Empty outside a request (or if there is no vault) → falls back to
+    the previous behavior (a single entry with key "")."""
     try:
         from backend.services.context_vars import get_active_vault_path
         v = get_active_vault_path()
@@ -10269,8 +10347,8 @@ def _current_vault_key() -> str:
 
 
 def _get_id_title_cache_path(v_str: Optional[str] = None) -> Optional[Path]:
-    """Path local on persistir l'índex id→títol, PER VAULT (mateix patró que
-    `get_page_index_cache_path`: un fitxer per vault via hash de la ruta)."""
+    """Local path where the id→title index is persisted, PER VAULT (same pattern as
+    `get_page_index_cache_path`: one file per vault via a hash of the path)."""
     base = get_p("PAGE_INDEX_CACHE")
     p = base.parent / "vault_id_title_index.json" if base else Path("/app/data/cache/vault_id_title_index.json")
     if v_str:
@@ -10291,8 +10369,8 @@ def _save_id_title_to_disk(v_str: str, index: Dict[str, str]) -> None:
 
 
 def _load_id_title_from_disk(v_str: str) -> bool:
-    """Carrega l'índex persistit del vault `v_str` i el marca STALE (ts=0) perquè
-    el primer ús dispari un refresh en background contra l'estat real del vault."""
+    """Loads the persisted index for vault `v_str` and marks it STALE (ts=0) so that
+    the first use triggers a background refresh against the vault's real state."""
     try:
         cache_path = _get_id_title_cache_path(v_str)
         if not cache_path or not cache_path.exists():
@@ -10313,8 +10391,8 @@ def _load_id_title_from_disk(v_str: str) -> bool:
 
 
 def _compute_id_title_index() -> Dict[str, str]:
-    """Càlcul real: id→títol de tot el vault i dashboards. Pot fer rglob a
-    OneDrive en fred (car). Cridar només fora de la petició (background)."""
+    """Actual computation: id→title for the whole vault and dashboards. May run an rglob on
+    OneDrive cold (expensive). Call only outside the request (background)."""
     index: Dict[str, str] = {}
     for file_path, metadata, _body, is_dashboard in _iter_linkable_page_documents():
         try:
@@ -10332,10 +10410,10 @@ def _compute_id_title_index() -> Dict[str, str]:
 
 
 def _refresh_id_title_index(v_str: str) -> None:
-    """Recalcula i persisteix en background PER AL VAULT `v_str`. Un sol refresh
-    concurrent per vault. El thread FIXA el contextvar del vault: els threads NO
-    hereten contextvars, així que sense això `_compute_id_title_index` iteraria
-    el vault per defecte i escriuríem dades equivocades sota la clau `v_str`."""
+    """Recomputes and persists in the background FOR VAULT `v_str`. Only one concurrent
+    refresh per vault. The thread SETS the vault's contextvar: threads do NOT
+    inherit contextvars, so without this `_compute_id_title_index` would iterate
+    the default vault and we would write wrong data under the `v_str` key."""
     with _id_title_lock:
         if v_str in _id_title_refreshing:
             return
@@ -10363,12 +10441,13 @@ def _refresh_id_title_index(v_str: str) -> None:
 
 
 def build_id_title_index() -> Dict[str, str]:
-    """id→títol global amb caché persistent + stale-while-revalidate.
+    """Global id→title with persistent cache + stale-while-revalidate.
 
-    Mai bloqueja la petició si hi ha caché (memòria o disc): torna una còpia
-    del valor cachejat i dispara el recàlcul en background. Només la
-    PRIMERÍSSIMA vegada sense cap caché (ni disc) es paga el cost síncron.
-    Torna una còpia per evitar que un consumidor muti la caché compartida.
+    Never blocks the request if there is a cache (memory or disk): it returns a copy
+    of the cached value and triggers the recomputation in the background. Only the
+    very FIRST time, with no cache at all (not even on disk), is the synchronous cost paid.
+    Returns a copy to prevent a consumer from mutating the shared cache.
+    
     """
     now = time.time()
     vkey = _current_vault_key()
@@ -10381,7 +10460,7 @@ def build_id_title_index() -> Dict[str, str]:
             _refresh_id_title_index(vkey)
         return dict(idx)
 
-    # Sense caché en memòria → prova disc (instantani després d'un reinici).
+    # No in-memory cache → try disk (instant after a restart).
     if _load_id_title_from_disk(vkey):
         _refresh_id_title_index(vkey)
         with _id_title_lock:
@@ -10389,7 +10468,7 @@ def build_id_title_index() -> Dict[str, str]:
             cur = entry.get("index") if entry else None
         return dict(cur) if cur else {}
 
-    # Ni memòria ni disc → càlcul síncron (només el primer cop absolut).
+    # Neither memory nor disk → synchronous computation (only the very first time ever).
     idx = _compute_id_title_index()
     with _id_title_lock:
         _id_title_cache[vkey] = {"index": idx, "ts": time.time()}
@@ -10397,38 +10476,38 @@ def build_id_title_index() -> Dict[str, str]:
     return dict(idx)
 
 
-# Cache amb TTL per `_iter_linkable_page_documents`. Cada crida iterava
-# 3000+ fitxers al OneDrive (rglob + read_text + parse_frontmatter), trigant
-# 30+ segons en muntatges lents. Els endpoints /backlinks i /unlinked-mentions
-# es criden alhora al carregar una pàgina, doblant la càrrega i fent timeout
-# al frontend (axios.defaults.timeout = 30s). Amb un TTL de 60s reusem la
-# llista entre crides consecutives. Els backlinks queden lleugerament
-# desactualitzats (60s) — acceptable pel cas d'ús.
+# TTL cache for `_iter_linkable_page_documents`. Every call used to iterate
+# 3000+ files on OneDrive (rglob + read_text + parse_frontmatter), taking
+# 30+ seconds on slow mounts. The /backlinks and /unlinked-mentions endpoints
+# are called at the same time when loading a page, doubling the load and timing out
+# on the frontend (axios.defaults.timeout = 30s). With a 60s TTL we reuse the
+# list between consecutive calls. The backlinks remain slightly
+# out of date (60s) — acceptable for this use case.
 _iter_docs_cache: dict = {}   # v_str -> {"docs": [...], "ts": float} (per-vault)
 _iter_docs_lock = threading.Lock()
 _ITER_DOCS_TTL = 60.0
 
-# Cache de bodies de markdown indexada per path → (mtime_ns, body). Indep del
-# TTL de la llista: aquest cache només invalida quan el fitxer canvia. Així
-# la primera invocació de /backlinks després del TTL no força rellegir 3988
-# fitxers; només els que han canviat. Els fitxers nous (no cachejats) es
-# llegeixen un cop i s'incorporen.
+# Cache of markdown bodies indexed by path → (mtime_ns, body). Independent of the
+# TTL for the list: this cache only invalidates when the file changes. This way
+# the first invocation of /backlinks after the TTL does not force re-reading 3988
+# files; only the ones that changed. New files (not yet cached) are
+# are read once and incorporated.
 #
-# **Persistència a disc**: aquest cache es desa periòdicament a
-# `/app/data/cache/vault_body_cache.json` perquè al reiniciar el backend
-# (i autoreloads en mode dev) no calgui rellegir ~3500 fitxers d'OneDrive
-# per reconstruir-lo (cost mesurat: 80-140 s la primera vegada). Al
-# startup, es carrega del disc i es validen els mtime per descartar
-# entries obsoletes ràpidament — sense haver de pagar el read.
+# **Disk persistence**: this cache is saved periodically to
+# `/app/data/cache/vault_body_cache.json` so that when the backend restarts
+# (and autoreloads in dev mode) there's no need to reread ~3500 OneDrive files
+# to rebuild it (measured cost: 80-140 s the first time). In the
+# at startup, it loads from disk and mtimes are validated to discard
+# stale entries quickly — without having to pay for the read.
 _body_cache: Dict[str, tuple[int, str]] = {}
 _body_cache_lock = threading.Lock()
 _BODY_CACHE_PERSIST_PENDING = False
-_BODY_CACHE_PERSIST_DEBOUNCE = 10.0  # segons
+_BODY_CACHE_PERSIST_DEBOUNCE = 10.0  # seconds
 _body_cache_persist_lock = threading.Lock()
 
 
 def _get_body_cache_path() -> Optional[Path]:
-    """Path local on persistir el body cache. Mateix patró que page-index."""
+    """Local path where the body cache is persisted. Same pattern as page-index."""
     base = get_p("PAGE_INDEX_CACHE")
     if base:
         return base.parent / "vault_body_cache.json"
@@ -10436,8 +10515,8 @@ def _get_body_cache_path() -> Optional[Path]:
 
 
 def _save_body_cache_to_disk() -> None:
-    """Persisteix el body cache a disc. Crida sota lock per snapshot
-    consistent. Mida típica: 3500 × ~3KB body = ~10MB JSON."""
+    """Persists the body cache to disk. Called under lock for a consistent
+    snapshot. Typical size: 3500 × ~3KB body = ~10MB JSON."""
     try:
         cache_path = _get_body_cache_path()
         if not cache_path:
@@ -10455,8 +10534,8 @@ def _save_body_cache_to_disk() -> None:
 
 
 def _schedule_body_cache_persist() -> None:
-    """Debounce persist: invalidacions puntuals disparen un save al disc
-    com a màxim cada `_BODY_CACHE_PERSIST_DEBOUNCE` segons."""
+    """Debounce persist: individual invalidations trigger a save to disk
+    at most every `_BODY_CACHE_PERSIST_DEBOUNCE` seconds."""
     global _BODY_CACHE_PERSIST_PENDING
     with _body_cache_persist_lock:
         if _BODY_CACHE_PERSIST_PENDING:
@@ -10478,9 +10557,9 @@ def _schedule_body_cache_persist() -> None:
 
 
 def _load_body_cache_from_disk() -> bool:
-    """Carrega el body cache desat. Retorna True si ha estat útil. No
-    valida els mtime aquí — això es fa al `_get_body_for_path` per cada
-    entry consultada (cost amortitzat)."""
+    """Loads the saved body cache. Returns True if it was useful. It does not
+    validate mtimes here — that is done in `_get_body_for_path` for each
+    entry queried (amortized cost)."""
     try:
         cache_path = _get_body_cache_path()
         if not cache_path or not cache_path.exists():
@@ -10502,27 +10581,28 @@ def _load_body_cache_from_disk() -> bool:
         log.warning(f"body-cache load failed: {e}")
         return False
 
-# TTL del check d'stale paths a `_get_pages_snapshot`. Cada `Path.exists()`
-# al OneDrive triga ~10ms — multiplicar per 3988 entries dóna 40s. Limitem a
-# fer aquest cleanup només cada 10 min: amb 30s, les recàrregues consecutives
-# de feeds embebuts disparen 4000 stat() cada vegada que el feed re-renderitza
-# (cada navegació entre vistes). 10 min és més que suficient: els fitxers
-# desapareixen rarament fora del propi flux de l'app, i el codi de
-# `find_page_path` ja invalida entrades stale individualment quan les detecta.
+# TTL for the stale-path check in `_get_pages_snapshot`. Each `Path.exists()`
+# call on OneDrive takes ~10ms — multiplied by 3988 entries that's 40s. We limit
+# this cleanup to run only every 10 min: at 30s, consecutive reloads
+# of embedded feeds would trigger 4000 stat() calls every time the feed re-renders
+# (every navigation between views). 10 min is more than enough: files
+# rarely disappear outside the app's own flow, and the
+# `find_page_path` code already invalidates stale entries individually when it detects them.
 _last_stale_check: dict = {"ts": 0.0}
 _STALE_CHECK_TTL = 600.0
 
 
 def _get_body_for_path(file_path: Path) -> str:
-    """Retorna el body d'un .md aprofitant cache amb invalidació per mtime.
+    """Returns the body of an .md file, taking advantage of a cache with mtime-based invalidation.
 
-    Iterem TOTS els .md del Vault per a /backlinks i /unlinked-mentions.
-    NO fem retry per Errno 35: amb 3988 fitxers, si N retornen deadlock
-    en paral·lel, fer retry × N empitjora dramàticament l'iteració (60+
-    segons enlloc de 5). Saltem el fitxer; la propera invocació de
-    /backlinks (TTL expirat) tornarà a intentar i agafarà els que faltaven.
-    Si un fitxer falla repetidament, els seus backlinks queden fora del
-    resultat — degradació gradual acceptable.
+    We iterate over ALL the Vault's .md files for /backlinks and /unlinked-mentions.
+    We do NOT retry on Errno 35: with 3988 files, if N return a deadlock
+    in parallel, retrying × N dramatically worsens the iteration (60+
+    seconds instead of 5). We skip the file; the next invocation of
+    /backlinks (once the TTL expires) will try again and pick up the ones that were missing.
+    If a file fails repeatedly, its backlinks are left out of the
+    result — acceptable gradual degradation.
+    
     """
     path_str = str(file_path)
     try:
@@ -10539,8 +10619,8 @@ def _get_body_for_path(file_path: Path) -> str:
         raw_content = file_path.read_text(encoding="utf-8")
     except OSError as e:
         if e.errno == 35:
-            # Errno 35 (deadlock) silenciós — log.debug en lloc de warning
-            # per no saturar logs amb 3988 missatges quan OneDrive sync.
+            # Silent Errno 35 (deadlock) — log.debug instead of warning
+            # so as not to flood the logs with 3988 messages during OneDrive sync.
             log.debug(f"Body skip (Errno 35): {file_path.name}")
         else:
             log.warning(f"Error reading body of {file_path.name}: {e}")
@@ -10558,10 +10638,11 @@ def _get_body_for_path(file_path: Path) -> str:
 def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:
     """Yields page documents as (path, metadata, body, is_dashboard).
 
-    Cached per `_ITER_DOCS_TTL` seconds. Quan la cache de la llista expira,
-    els bodies individuals no es rellegeixen si el seu mtime no ha canviat
-    (vegeu `_get_body_for_path`). Així la 2a/3a/Nª invocació és O(stat()) per
-    fitxer en lloc d'O(read).
+    Cached per `_ITER_DOCS_TTL` seconds. When the list cache expires,
+    individual bodies are not re-read if their mtime has not changed
+    (see `_get_body_for_path`). So the 2nd/3rd/Nth invocation is O(stat()) per
+    file instead of O(read).
+    
     """
     now = time.time()
     vkey = _current_vault_key()
@@ -10572,7 +10653,7 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
         return cached
 
     with _iter_docs_lock:
-        # Re-check sota lock per evitar dues construccions concurrents
+        # Re-check under lock to avoid two concurrent builds
         entry = _iter_docs_cache.get(vkey)
         cached = entry.get("docs") if entry else None
         cached_ts = entry.get("ts", 0.0) if entry else 0.0
@@ -10581,9 +10662,9 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
 
         docs: List[tuple[Path, Dict[str, Any], str, bool]] = []
 
-        # Usem PathResolver (cache pre-warmed al startup) per la llista de
-        # fitxers, evitant rglob lent al OneDrive. Si la cache encara no està
-        # llesta, list_all_files fa fallback a rglob.
+        # We use PathResolver (cache pre-warmed at startup) for the list of
+        # files, avoiding a slow rglob on OneDrive. If the cache is not yet
+        # ready, list_all_files falls back to rglob.
         vault_path = get_p("VAULT")
         if vault_path and vault_path.exists():
             try:
@@ -10616,13 +10697,13 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
         return docs
 
 
-# ── Índex invers de wikilinks/backlinks (in-memory) ─────────────────────────
+# ── Inverted wikilinks/backlinks index (in-memory) ─────────────────────────
 # Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
 #
-# Motivació: /backlinks i /unlinked-mentions iteraven 4000 fitxers a cada
-# crida. Encara amb body cache, la regex per source × N fitxers feia que la
-# càrrega d'una pàgina trigués 30-60s la primera vegada. Amb aquest índex,
-# /backlinks és O(lookup) i /unlinked-mentions filtra a ~10-100 candidats.
+# Motivation: /backlinks and /unlinked-mentions used to iterate over 4000 files on every
+# call. Even with the body cache, the regex per source × N files made
+# a page load take 30-60s the first time. With this index,
+# /backlinks is O(lookup) and /unlinked-mentions filters down to ~10-100 candidates.
 _outlinks_by_source: Dict[str, set] = {}
 _backlinks_by_target: Dict[str, List[Dict[str, str]]] = {}
 _backlinks_by_target_title: Dict[str, List[Dict[str, str]]] = {}
@@ -10648,8 +10729,9 @@ def _get_link_index_cache_path() -> Optional[Path]:
 
 
 def _save_link_index_to_disk() -> None:
-    """Persisteix l'índex invers al disc local. Crida sota lock per snapshot
-    consistent. Format: JSON amb schema_version per migracions futures.
+    """Persists the inverted index to local disk. Called under lock for a consistent
+    snapshot. Format: JSON with schema_version for future migrations.
+    
     """
     try:
         cache_path = _get_link_index_cache_path()
@@ -10671,8 +10753,9 @@ def _save_link_index_to_disk() -> None:
 
 
 def _load_link_index_from_disk() -> bool:
-    """Carrega l'índex invers desat al disc. Retorna True si ha tingut èxit.
-    Si el schema_version no coincideix, ignora el cache.
+    """Loads the inverted index saved on disk. Returns True if it succeeded.
+    If the schema_version does not match, the cache is ignored.
+    
     """
     global _link_index_built, _link_index_build_ts, _link_index_source_count
     try:
@@ -10747,8 +10830,8 @@ def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
         text = str(value).strip()
         if not text:
             return
-        # Valors de relació decorats ('[[Títol|id]]'): indexar id i títol,
-        # no la cadena literal (defensa per a callers que no despullen).
+        # Decorated relation values ('[[Title|id]]'): index both id and title,
+        # not the literal string (a safeguard for callers that don't strip it).
         m = RELATION_WIKILINK_RE.match(text)
         if m:
             _add(m.group("rid"))
@@ -10784,8 +10867,9 @@ def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
 
 
 def _tokenize_body_for_mentions(body: str) -> frozenset:
-    """Tokens normalitzats del body sanititzat (sense links existents).
-    Usat com a pre-filtre per /unlinked-mentions.
+    """Normalized tokens of the sanitized body (without existing links).
+    Used as a pre-filter for /unlinked-mentions.
+    
     """
     if not body:
         return frozenset()
@@ -10803,8 +10887,9 @@ def _resolve_page_id_from_metadata(metadata: Dict[str, Any], file_path: Path) ->
 
 
 def _rebuild_backlinks_invertion_locked():
-    """Reconstrueix `_backlinks_by_target` i `_backlinks_by_target_title` a
-    partir de `_outlinks_by_source` i `_page_meta_by_id`. Cal el lock pres.
+    """Rebuilds `_backlinks_by_target` and `_backlinks_by_target_title` from
+    `_outlinks_by_source` and `_page_meta_by_id`. Requires the lock to be held.
+    
     """
     by_target: Dict[str, List[Dict[str, str]]] = {}
     by_title: Dict[str, List[Dict[str, str]]] = {}
@@ -10845,11 +10930,12 @@ def _rebuild_backlinks_invertion_locked():
 
 
 def _rebuild_link_index(persist: bool = True) -> None:
-    """Reconstrueix l'índex invers de zero. Operació O(N) sobre el vault.
+    """Rebuilds the inverted index from scratch. O(N) operation over the vault.
 
-    Idempotent: pot cridar-se múltiples vegades. Pren el lock global per evitar
-    races amb invalidacions parcials concurrents. Si `persist=True`, desa el
-    resultat a disc per accelerar arrencades futures.
+    Idempotent: can be called multiple times. Takes the global lock to avoid
+    races with concurrent partial invalidations. If `persist=True`, saves the
+    result to disk to speed up future startups.
+    
     """
     global _link_index_built, _link_index_build_ts, _link_index_source_count
     started = time.time()
@@ -10897,12 +10983,12 @@ def _rebuild_link_index(persist: bool = True) -> None:
             log.warning(f"link-index persist after rebuild failed: {e}")
 
 
-# Debounced persist: invalidacions puntuals (writes) disparen un save al disc,
-# però fer-ho sincrònicament a cada PUT seria costós. Acumulem i desem com a
-# màxim cada N segons des d'un thread separat.
+# Debounced persist: occasional invalidations (writes) trigger a save to disk,
+# but doing it synchronously on every PUT would be expensive. We accumulate and save at
+# most every N seconds from a separate thread.
 _link_index_persist_pending = False
 _link_index_persist_lock = threading.Lock()
-_LINK_INDEX_PERSIST_DEBOUNCE = 5.0  # segons
+_LINK_INDEX_PERSIST_DEBOUNCE = 5.0  # seconds
 
 
 def _schedule_link_index_persist() -> None:
@@ -10932,17 +11018,18 @@ _link_index_rebuild_state_lock = threading.Lock()
 
 
 def kickoff_link_index_rebuild() -> None:
-    """Llança el rebuild en background. Safe to call multiple times: si
-    n'hi ha un en marxa, no en llança un altre. Sense aquest guard, dues
-    crides simultànies (p.ex. indexer warmup + endpoint que necessita
-    backlinks) feien dos `_rebuild_link_index` concurrents que iteraven
-    cada un 3500+ fitxers d'OneDrive en paral·lel, saturant el File
-    Provider i bloquejant altres operacions del backend (PATCH inclosos)
-    durant minuts.
+    """Launches the rebuild in the background. Safe to call multiple times: if
+    one is already running, it does not launch another. Without this guard, two
+    simultaneous calls (e.g. indexer warmup + an endpoint that needs
+    backlinks) would produce two concurrent `_rebuild_link_index` runs, each iterating
+    3500+ OneDrive files in parallel, saturating the File
+    Provider and blocking other backend operations (PATCH included)
+    for minutes.
 
-    Si hi ha cache a disc vàlid, es carrega de seguida (síncron, milisegons)
-    per servir resultats ràpids des del primer instant; després dispara un
-    rebuild en background per reflectir canvis externs (sync OneDrive, etc.)
+    If there is a valid cache on disk, it is loaded right away (synchronous, milliseconds)
+    to serve fast results from the very first instant; it then triggers a
+    background rebuild to reflect external changes (OneDrive sync, etc.)
+    
     """
     if not _link_index_built:
         try:
@@ -10950,14 +11037,14 @@ def kickoff_link_index_rebuild() -> None:
         except Exception as e:
             log.warning(f"link-index disk load failed: {e}")
 
-    # Skip rebuild si el cache disc és recent (<30 min). Sense aquest
-    # check, cada reload del backend dispara un rebuild O(N reads OneDrive)
-    # que triga 80-140 s i satura el File Provider, encara que el cache que
-    # acabem de carregar de disc ja sigui correcte. Els canvis individuals
-    # de pàgines es propaguen via `update_link_index_for_page` (background
-    # task del PATCH/PUT); el rebuild complet només cal per assolir canvis
-    # externs (sync OneDrive d'un altre dispositiu, edicions fora del
-    # backend). Un cop cada 30 min és més que suficient per a aquest cas.
+    # Skip rebuild if the disk cache is recent (<30 min). Without this
+    # check, every backend reload would trigger an O(N OneDrive reads) rebuild
+    # that takes 80-140 s and saturates the File Provider, even though the cache that
+    # we just loaded from disk is correct. Individual changes
+    # of pages are propagated via `update_link_index_for_page` (a background
+    # task of the PATCH/PUT); the full rebuild is only needed to catch up on changes
+    # external (OneDrive sync from another device, edits outside the
+    # the backend). Once every 30 min is more than enough for this case.
     if _link_index_build_ts and (time.time() - _link_index_build_ts) < 1800:
         log.info(
             f"🔗 link-index rebuild skipped: cache de fa "
@@ -10986,10 +11073,11 @@ def kickoff_link_index_rebuild() -> None:
 
 
 def update_link_index_for_page(file_path: Path) -> None:
-    """Actualitza l'índex per una pàgina concreta (després d'un write).
+    """Updates the index for a specific page (after a write).
 
-    No bloqueja: si l'índex encara no està construït, ignora la crida (el
-    rebuild inicial recollirà la pàgina).
+    Non-blocking: if the index has not been built yet, the call is ignored (the
+    initial rebuild will pick up the page).
+    
     """
     if not _link_index_built:
         return
@@ -11020,32 +11108,32 @@ def update_link_index_for_page(file_path: Path) -> None:
         _outlinks_by_source[pid] = new_refs
         _tokens_by_source[pid] = new_tokens
         _page_meta_by_id[pid] = {"title": new_title, "path": str(file_path)}
-        # Si el títol del source ha canviat, el text mostrat als backlinks
-        # canvia → cal reinvertir totalment. Si no, ho fem igualment perquè és
-        # més simple i correcte; el cost és O(N_refs).
-        _ = old_title  # reservat per optimitzacions futures
+        # If the source's title has changed, the text shown in the backlinks
+        # changes → a full re-inversion is needed. Otherwise, we do it anyway because it's
+        # simpler and correct; the cost is O(N_refs).
+        _ = old_title  # reserved for future optimizations
         _rebuild_backlinks_invertion_locked()
 
-    # Re-link automàtic: si aquesta pàgina té un title que coincideix amb refs
-    # no resoltes d'altres pàgines, els backlinks ja s'han actualitzat per
-    # l'invertion (que mira `_page_meta_by_id`). No cal acció extra perquè el
-    # rebuild_backlinks recorre tots els outlinks i resol per id i per títol.
+    # Automatic re-link: if this page has a title that matches refs
+    # that are unresolved from other pages, the backlinks have already been updated by
+    # the inversion (which looks at `_page_meta_by_id`). No extra action is needed because
+    # rebuild_backlinks walks all the outlinks and resolves by id and by title.
 
     _schedule_link_index_persist()
 
 
 # ---------------------------------------------------------------------------
-# Sincronització bidireccional de relacions (directe ↔ invers)
-# Quan una pàgina canvia un camp de relació, el camp INVERS de l'altre costat
-# s'actualitza, o les vistes incrustades (que filtren per l'invers) surten
-# buides. Vegeu docs/dev_memory/directives/vault_relation_inverse_sync.md
+# Bidirectional synchronization of relations (direct ↔ inverse)
+# When a page changes a relation field, the INVERSE field on the other side
+# is updated, or else embedded views (which filter by the inverse) come out
+# empty. See docs/dev_memory/directives/vault_relation_inverse_sync.md
 # ---------------------------------------------------------------------------
 
 def _inverse_relation_frontmatter_key(md: dict, inverse_name: str) -> str:
-    """Clau REAL del frontmatter per al camp invers: reusa la que ja existeix
-    (per normalització, p.ex. una variant antiga del nom) o, si no n'hi ha cap,
-    el nom del registry. Evita crear una clau duplicada que les vistes no
-    veurien."""
+    """REAL frontmatter key for the inverse field: reuses the one that already exists
+    (for normalization, e.g. an old variant of the name) or, if there is none,
+    the registry name. Avoids creating a duplicate key that views would not
+    see."""
     from backend.services.relation_sync import _norm
     if inverse_name in md:
         return inverse_name
@@ -11059,10 +11147,10 @@ def _inverse_relation_frontmatter_key(md: dict, inverse_name: str) -> str:
 def _apply_inverse_relation_change(
     target_id: str, inverse_name: str, host_id: str, op: str
 ) -> bool:
-    """Afegeix/treu `host_id` al camp invers de la pàgina `target_id`. Escriu via
-    `save_page_md` (decora `id→[[Títol|id]]` i canonicalitza la clau). Idempotent:
-    no escriu si ja és a l'estat desitjat. Escriure directament (no via endpoint)
-    evita re-disparar la propagació → cap recursió. Retorna True si ha escrit."""
+    """Adds/removes `host_id` in the inverse field of page `target_id`. Writes via
+    `save_page_md` (decorates `id→[[Title|id]]` and canonicalizes the key). Idempotent:
+    does not write if it is already in the desired state. Writing directly (not via the endpoint)
+    avoids re-triggering the propagation → no recursion. Returns True if it wrote."""
     from backend.services.relation_sync import to_ids
     fp = find_page_path(target_id)
     if not fp or not fp.exists():
@@ -11106,9 +11194,9 @@ def _apply_inverse_relation_change(
 def _propagate_relation_inverse(
     page_id: str, table_id: Optional[str], old_meta: dict, new_meta: dict
 ) -> None:
-    """Propaga els canvis dels camps de relació d'una pàgina al camp INVERS de
-    les pàgines de l'altre costat. Defensiu: mai bloqueja el caller ni propaga en
-    bucle. Pensat per córrer com a background task de PATCH/POST."""
+    """Propagates a page's relation field changes to the INVERSE field of
+    the pages on the other side. Defensive: never blocks the caller nor propagates in a
+    loop. Meant to run as a background task from PATCH/POST."""
     try:
         if not table_id:
             return
@@ -11122,7 +11210,7 @@ def _propagate_relation_inverse(
         wrote = False
         for target_id, inverse_name, op in changes:
             if not target_id or target_id == page_id:
-                continue  # auto-referència defensiva
+                continue  # defensive self-reference
             try:
                 wrote = _apply_inverse_relation_change(
                     target_id, inverse_name, page_id, op
@@ -11136,7 +11224,7 @@ def _propagate_relation_inverse(
 
 
 def remove_from_link_index(page_id: str) -> None:
-    """Elimina una pàgina de l'índex (després d'un DELETE)."""
+    """Removes a page from the index (after a DELETE)."""
     if not _link_index_built or not page_id:
         return
     pid = str(page_id).strip()
@@ -11151,21 +11239,22 @@ def remove_from_link_index(page_id: str) -> None:
 def rewrite_wikilinks_on_title_change(
     target_id: str, old_title: str, new_title: str
 ) -> int:
-    """Reescriu els wikilinks per títol literal quan el target canvia de títol.
+    """Rewrites wikilinks by literal title when the target's title changes.
 
-    Patrons modificats (match case-insensitive del títol, preservant àlies i secció):
+    Patterns modified (case-insensitive match on the title, preserving alias and section):
       - `[[Old Title]]`               → `[[New Title]]`
       - `[[Old Title|alias]]`         → `[[New Title|alias]]`
       - `[[Old Title#Section]]`       → `[[New Title#Section]]`
       - `[[Old Title#Section|alias]]` → `[[New Title#Section|alias]]`
 
-    No toca wikilinks per UUID (`[[uuid|...]]`) ni transclusions (`![[...]]`)
-    perquè continuen funcionant sense canvis. Només reescriu fitxers que
-    referencien el target via _backlinks_by_target / _backlinks_by_target_title.
+    Does not touch UUID wikilinks (`[[uuid|...]]`) or transclusions (`![[...]]`)
+    because they keep working unchanged. Only rewrites files that
+    reference the target via _backlinks_by_target / _backlinks_by_target_title.
 
-    Retorna el nombre de fitxers efectivament modificats. Crida segura per
-    invocar des d'un BackgroundTask: si l'índex no està construït o no hi ha
-    backlinks, retorna 0 sense fer res.
+    Returns the number of files actually modified. Safe to call
+    from a BackgroundTask: if the index has not been built or there are no
+    backlinks, returns 0 without doing anything.
+    
     """
     old_clean = str(old_title or "").strip()
     new_clean = str(new_title or "").strip()
@@ -11177,8 +11266,8 @@ def rewrite_wikilinks_on_title_change(
     if not tid:
         return 0
 
-    # Recopilar candidats: pàgines que referencien per id resolt o per
-    # títol antic literal. Deduplicate per source id.
+    # Gather candidates: pages that reference by resolved id or by
+    # literal old title. Deduplicate per source id.
     with _link_index_lock:
         by_id = list(_backlinks_by_target.get(tid, []))
         by_title = list(_backlinks_by_target_title.get(old_clean.lower(), []))
@@ -11197,9 +11286,9 @@ def rewrite_wikilinks_on_title_change(
         return 0
 
     # Pattern: [[ TitolAntic (#section)? (|alias)? ]]
-    # Important: el match del cos exclou `|` i `[` i `]` per no creuar
-    # límits de wikilinks; i exclou `#` per separar la secció (capturada
-    # com a grup independent).
+    # Important: the body match excludes `|` and `[` and `]` so as not to cross
+    # wikilink boundaries; and excludes `#` to separate the section (captured
+    # as an independent group).
     escaped = re.escape(old_clean)
     pattern = re.compile(
         r"(?P<open>!?\[\[)\s*"
@@ -11236,9 +11325,9 @@ def rewrite_wikilinks_on_title_change(
         try:
             safe_write_text(path, new_raw)
             modified_count += 1
-            # Actualitza l'índex per aquesta source perquè els outlinks/tokens
-            # reflecteixin el text nou. update_link_index_for_page és segur
-            # de cridar dins el mateix lock RLock (és re-entrant).
+            # Updates the index for this source so that the outlinks/tokens
+            # reflect the new text. update_link_index_for_page is safe
+            # to call within the same RLock lock (it is re-entrant).
             update_link_index_for_page(path)
             log.debug(
                 f"🔁 rewrote {n_subs} wikilink(s) in {path.name}: "
@@ -11271,11 +11360,12 @@ def get_global_index():
 
 @router.get("/alias-index")
 def get_alias_index():
-    """Mapa id → [àlies] de les notes que declaren `aliases:` al frontmatter.
+    """Map of id → [aliases] for notes that declare `aliases:` in the frontmatter.
 
-    El consumeix el frontend per (a) suggerir àlies a l'autocompletat de
-    wikilinks `[[…]]` i (b) resoldre `[[Àlies]]` localment sense un round-trip a
-    /resolve-by-title. Estil Obsidian: una nota pot tenir múltiples àlies.
+    Consumed by the frontend to (a) suggest aliases in the wikilink
+    `[[…]]` autocomplete and (b) resolve `[[Alias]]` locally without a round-trip to
+    /resolve-by-title. Obsidian-style: a note can have multiple aliases.
+    
     """
     from backend.services.context_vars import get_active_vault_path
     v_path = get_active_vault_path()
@@ -11296,12 +11386,13 @@ def get_alias_index():
 
 @router.get("/link-preview")
 async def get_link_preview(url: str):
-    """Extreu metadades Open Graph d'una URL per a una targeta de previsualització.
+    """Extracts Open Graph metadata from a URL for a preview card.
 
-    Retorna `{url, title, description, image, site_name, favicon}`. Pensat per a
-    enllaços enganxats al cos d'una nota (estil Notion bookmark). Seguretat
-    bàsica: només http/https, timeout curt, mida de descàrrega limitada, i no
-    segueix a esquemes interns. No és un proxy SSRF complet — ús personal local.
+    Returns `{url, title, description, image, site_name, favicon}`. Intended for
+    links pasted into the body of a note (Notion bookmark style). Basic
+    security: only http/https, short timeout, limited download size, and it does not
+    follow internal schemes. Not a complete SSRF proxy — for local personal use.
+    
     """
     import html as _html
     import httpx
@@ -11311,7 +11402,7 @@ async def get_link_preview(url: str):
     parsed = urlparse(raw)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
         raise HTTPException(status_code=400, detail="URL http/https invàlida")
-    # Evita destins òbviament interns (defensa lleugera contra SSRF).
+    # Avoids obviously internal destinations (light defense against SSRF).
     host = (parsed.hostname or "").lower()
     if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1") or host.endswith(".local"):
         raise HTTPException(status_code=400, detail="Host no permès")
@@ -11324,17 +11415,17 @@ async def get_link_preview(url: str):
             )
             ctype = resp.headers.get("content-type", "")
             if "html" not in ctype and "xml" not in ctype:
-                # No és HTML (p.ex. PDF/imatge): retorna el mínim útil.
+                # Not HTML (e.g. PDF/image): returns the minimal useful info.
                 return {"url": raw, "title": parsed.path.rsplit("/", 1)[-1] or host,
                         "description": "", "image": "", "site_name": host, "favicon": ""}
-            text = resp.text[:600_000]  # limita el parseig a ~600 KB
+            text = resp.text[:600_000]  # limits parsing to ~600 KB
             final_url = str(resp.url)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"No s'ha pogut obtenir la URL: {e}")
 
     def _meta(*names: str) -> str:
         for name in names:
-            # <meta property="og:title" content="...">  (ordre d'atributs lliure)
+            # <meta property="og:title" content="...">  (attribute order free)
             m = re.search(
                 r'<meta[^>]+(?:property|name)\s*=\s*["\']' + re.escape(name) +
                 r'["\'][^>]*?content\s*=\s*["\']([^"\']*)["\']', text, re.IGNORECASE)
@@ -11367,10 +11458,10 @@ async def get_link_preview(url: str):
 
 
 def register_page_in_index(file_path: Path) -> None:
-    """Insereix/actualitza al page-index en memòria una pàgina acabada d'escriure
-    a disc, perquè aparegui IMMEDIATAMENT a /pages (sense esperar el rebuild) i
-    sigui esborrable per id. La fan servir l'importador, el web clipper i l'API
-    pública, que escriuen fitxers .md directament (no via el flux de /pages)."""
+    """Inserts/updates in the in-memory page-index a page that was just written
+    to disk, so it appears IMMEDIATELY in /pages (without waiting for the rebuild) and
+    is deletable by id. Used by the importer, the web clipper, and the
+    public API, which write .md files directly (not via the /pages flow)."""
     try:
         v = get_active_vault_path()
         if not v:
@@ -11397,12 +11488,12 @@ class ImportRequest(BaseModel):
 
 @router.post("/import", dependencies=[Depends(require_role("editor"))])
 async def import_markdown(body: ImportRequest):
-    """Importa fitxers Markdown/Obsidian al vault (estil importador amb UI).
+    """Imports Markdown/Obsidian files into the vault (importer style with UI).
 
-    Cada fitxer es crea com una pàgina dins `folder`. Es preserva el frontmatter
-    existent (s'hi afegeix un `id` si no en té) i el cos tal qual: els wikilinks
-    `[[…]]`, tags `#…` i frontmatter d'Obsidian ja són compatibles amb Gnosi.
-    Retorna el recompte d'importats i els errors per fitxer.
+    Each file is created as a page inside `folder`. Existing frontmatter is preserved
+    (an `id` is added if it doesn't have one) and the body as-is: wikilinks
+    `[[…]]`, `#…` tags, and Obsidian frontmatter are already compatible with Gnosi.
+    Returns the count of imported files and the errors per file.
     """
     import yaml as _yaml
     from backend.services.context_vars import get_active_vault_path
@@ -11441,10 +11532,10 @@ async def import_markdown(body: ImportRequest):
     return {"imported": imported, "errors": errors, "folder": folder}
 
 
-# ───────────────── Comentaris inline (ancorats a una selecció) ─────────────────
-# Estil Google Docs / Notion: un comentari ancorat a un fragment de text d'una
-# pàgina. S'emmagatzemen vault-first a `.gnosi/inline_comments/<page_id>.json`
-# (separat del cos .md perquè són metadades derivades, no contingut editable).
+# ───────────────── Inline comments (anchored to a selection) ─────────────────
+# Google Docs / Notion style: a comment anchored to a fragment of text from a
+# page. They are stored vault-first in `.gnosi/inline_comments/<page_id>.json`
+# (separate from the .md body because they are derived metadata, not editable content).
 
 def _inline_comments_path(page_id: str) -> Path:
     vault = get_active_vault_path()
@@ -11478,11 +11569,11 @@ class InlineCommentPatch(BaseModel):
     resolved: Optional[bool] = None
 
 
-# Serialitza el cicle load→modify→save dels inline-comments: sense candau, dos
-# POST simultanis sobre la mateixa pàgina carregaven el mateix snapshot i el
-# segon save trepitjava el primer (mateixa cursa que els comentaris de pàgina,
-# reproduïda contra el backend real). Candau global: un fitxer per pàgina però
-# la mutació és poc freqüent i el cost de serialitzar és negligible.
+# Serializes the load→modify→save cycle of inline-comments: without a lock, two
+# Simultaneous POSTs on the same page loaded the same snapshot and the
+# second save overwrote the first (same race as the page comments,
+# reproduced against the real backend). Global lock: one file per page but
+# mutation is infrequent and the serialization cost is negligible.
 _inline_comments_mutation_lock = asyncio.Lock()
 
 
@@ -11552,19 +11643,19 @@ async def delete_inline_comment(page_id: str, comment_id: str):
     return {"status": "deleted", "id": comment_id}
 
 
-# Pub/sub en memòria per a la sincronització EN TEMPS REAL dels synced blocks
-# entre dispositius/clients: cada client obre un SSE a /synced-events i, en
-# desar-se un bloc (PUT /synced), tots reben l'avís i recarreguen la font.
-# Multi-vault: cada subscriptor porta el seu vault (v_str) i el broadcast
-# NOMÉS notifica els del MATEIX vault. Sense això, desar un bloc a un vault
-# despertava els clients de TOTS els vaults (soroll cross-vault i relectures
-# innecessàries; els sync_id poden col·lidir entre vaults). El vault del client
-# arriba per la cookie `gnosi_active_vault` que ara viatja també amb l'SSE.
+# In-memory pub/sub for REAL-TIME synchronization of synced blocks
+# across devices/clients: each client opens an SSE at /synced-events and, when
+# a block is saved (PUT /synced), all receive the notification and reload the source.
+# Multi-vault: each subscriber carries its vault (v_str) and the broadcast
+# ONLY notifies clients of the SAME vault. Without this, saving a block in one vault
+# would wake up clients of ALL vaults (cross-vault noise and unnecessary
+# re-reads; sync_ids can collide across vaults). The client's vault
+# arrives via the `gnosi_active_vault` cookie, which now also travels with the SSE.
 _synced_subscribers: dict = {}   # asyncio.Queue -> v_str
 
 
 def _broadcast_synced(sync_id: str, v_str: str) -> None:
-    """Notifica els subscriptors SSE DEL VAULT `v_str` que un synced block ha canviat."""
+    """Notifies SSE subscribers OF VAULT `v_str` that a synced block has changed."""
     for q, qv in list(_synced_subscribers.items()):
         if qv != v_str:
             continue
@@ -11588,13 +11679,13 @@ def _synced_block_path(sync_id: str) -> Path:
 
 @router.get("/synced-events")
 async def synced_events():
-    """SSE: notifica EN TEMPS REAL els canvis de synced blocks a tots els clients
-    connectats (qualsevol dispositiu). El frontend s'hi subscriu amb EventSource
-    i recarrega la font del bloc afectat."""
+    """SSE: notifies REAL-TIME changes of synced blocks to all connected
+    clients (any device). The frontend subscribes to it with EventSource
+    and reloads the source of the affected block."""
     from fastapi.responses import StreamingResponse
     queue: asyncio.Queue = asyncio.Queue()
-    # Vault del subscriptor (fixat pel middleware des de la cookie/capçalera);
-    # el broadcast només notifica els del mateix vault.
+    # Subscriber's vault (set by the middleware from the cookie/header);
+    # the broadcast only notifies those in the same vault.
     _synced_subscribers[queue] = _current_vault_key()
 
     async def gen():
@@ -11620,7 +11711,7 @@ async def synced_events():
 
 @router.get("/synced/{sync_id}")
 async def get_synced_block(sync_id: str):
-    """Contingut d'un bloc sincronitzat (font compartida entre instàncies)."""
+    """Content of a synced block (source shared across instances)."""
     p = _synced_block_path(sync_id)
     content = p.read_text(encoding="utf-8") if p.exists() else ""
     return {"sync_id": sync_id, "content": content}
@@ -11632,19 +11723,20 @@ class SyncedBlockSave(BaseModel):
 
 @router.put("/synced/{sync_id}", dependencies=[Depends(require_role("editor"))])
 async def save_synced_block(sync_id: str, body: SyncedBlockSave):
-    """Desa la font d'un bloc sincronitzat. Totes les instàncies (a qualsevol
-    pàgina) que referencien aquest `sync_id` en reflecteixen el canvi."""
+    """Saves the source of a synced block. All instances (on any
+    page) that reference this `sync_id` reflect the change."""
     p = _synced_block_path(sync_id)
     p.write_text(body.content or "", encoding="utf-8")
-    _broadcast_synced(sync_id, _current_vault_key())  # push SSE als clients del mateix vault
+    _broadcast_synced(sync_id, _current_vault_key())  # push SSE to clients of the same vault
     return {"sync_id": sync_id, "content": body.content or "", "saved": True}
 
 
 @router.get("/link-index/stats")
 def get_link_index_stats():
-    """Estat de l'índex invers de wikilinks (debug/observability).
+    """Status of the wikilinks reverse index (debug/observability).
 
-    Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
+    See: docs/dev_memory/directives/wiki_inverse_link_index.md
+    
     """
     with _link_index_lock:
         targets_with_backlinks = len(_backlinks_by_target)
@@ -11678,10 +11770,11 @@ def get_link_index_stats():
 
 @router.post("/link-index/rebuild", dependencies=[Depends(require_role("admin"))])
 def post_link_index_rebuild():
-    """Força un rebuild complet de l'índex invers en background.
+    """Forces a full rebuild of the reverse index in the background.
 
-    Útil després d'edicions massives externes (sync OneDrive, scripts
-    d'importació) que no han passat pels endpoints d'escriptura del backend.
+    Useful after massive external edits (OneDrive sync, import
+    scripts) that did not go through the backend's write endpoints.
+    
     """
     kickoff_link_index_rebuild()
     return {"status": "rebuild_scheduled"}
@@ -11691,15 +11784,16 @@ def post_link_index_rebuild():
 def get_backlinks(id: str):
     """Finds all notes linking to a specific ID (both in metadata and body).
 
-    Fast path: lookup directe a l'índex invers in-memory (`_backlinks_by_target`).
-    Fallback: si l'índex encara no està construït (startup), recorre tot el
-    vault com abans. Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
+    Fast path: direct lookup in the in-memory reverse index (`_backlinks_by_target`).
+    Fallback: if the index hasn't been built yet (startup), scans the whole
+    vault as before. See: docs/dev_memory/directives/wiki_inverse_link_index.md
+    
     """
     target_id = str(id or "").strip()
     if not target_id:
         return []
 
-    # Fast path: índex invers in-memory
+    # Fast path: in-memory reverse index
     if _link_index_built:
         with _link_index_lock:
             target_title = str(
@@ -11707,7 +11801,7 @@ def get_backlinks(id: str):
             ).strip().lower()
             results = list(_backlinks_by_target.get(target_id, []))
             if target_title:
-                # També incloem refs no resoltes que apuntaven al títol
+                # Also include unresolved refs that pointed to the title
                 seen_ids = {item["id"] for item in results}
                 for item in _backlinks_by_target_title.get(target_title, []):
                     if item["id"] not in seen_ids and item["id"] != target_id:
@@ -11715,7 +11809,7 @@ def get_backlinks(id: str):
                         results.append(item)
         return sorted(results, key=lambda x: str(x.get("title") or ""))
 
-    # Fallback (índex no construït): codi original
+    # Fallback (index not built): original code
     backlinks = []
     seen_backlink_ids: set[str] = set()
     id_title_index = build_id_title_index()
@@ -11779,7 +11873,7 @@ def get_backlinks(id: str):
     if not documents:
         return backlinks
 
-    # Busquem per tot el Vault/Dashboard notes que referenciïn aquest ID
+    # Search the whole Vault/Dashboard for notes referencing this ID
     for file_path, metadata, body, _is_dashboard_doc in documents:
         try:
             # Do not count ourselves as backlink
@@ -11925,10 +12019,11 @@ def _link_mentions_in_plain_segments(body: str, target_title: str, target_id: st
 def get_unlinked_mentions(id: str):
     """Finds notes mentioning target title in plain text without an actual link.
 
-    Fast path: pre-filtra candidats amb `_tokens_by_source` (set lookup) i
-    només executa regex sobre els documents on TOTS els tokens del títol hi
-    apareixen. Redueix de 4000 → ~10-100 candidats típicament.
-    Veure: docs/dev_memory/directives/wiki_inverse_link_index.md
+    Fast path: pre-filters candidates with `_tokens_by_source` (set lookup) and
+    only runs regex on documents where ALL title tokens
+    appear. Typically reduces from 4000 → ~10-100 candidates.
+    See: docs/dev_memory/directives/wiki_inverse_link_index.md
+    
     """
     target_id = str(id or "").strip()
     if not target_id:
@@ -11961,7 +12056,7 @@ def get_unlinked_mentions(id: str):
         t for t in _TOKEN_SPLIT_RE.split(target_title.lower()) if len(t) >= 2
     )
 
-    # Fast path amb pre-filter
+    # Fast path with pre-filter
     candidate_ids: Optional[set] = None
     if _link_index_built and title_tokens:
         with _link_index_lock:
@@ -11982,7 +12077,7 @@ def get_unlinked_mentions(id: str):
             if current_id == target_id:
                 continue
 
-            # Pre-filter: si tenim candidats i aquest no hi és, saltem regex
+            # Pre-filter: if we have candidates and this one isn't among them, skip regex
             if candidate_ids is not None and current_id not in candidate_ids:
                 continue
 
@@ -12075,8 +12170,8 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
         except Exception as e:
             log.warning(f"Error linking unlinked mentions for {file_path.name}: {e}")
 
-    # Invalidem l'índex per cada source modificat. Si en són molts (>20),
-    # un rebuild complet és més barat que N updates seqüencials.
+    # Invalidate the index for each modified source. If there are many (>20),
+    # a full rebuild is cheaper than N sequential updates.
     if changed_notes:
         if len(changed_notes) > 20:
             kickoff_link_index_rebuild()
@@ -12087,7 +12182,7 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
                 except Exception as e:
                     log.debug(f"link-index update skip: {e}")
 
-    # Treiem el camp intern abans de retornar
+    # Remove the internal field before returning
     for note in changed_notes:
         note.pop("_path", None)
 
@@ -12102,9 +12197,9 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
     }
 
 
-# Caus del registre PER-VAULT (clau = ruta del registre, que depèn del vault actiu via get_p).
-# Abans eren globals → en multi-vault servien el registre d'un altre vault. Ara cada vault té
-# la seva entrada de cau.
+# PER-VAULT registry keys (key = registry path, which depends on the active vault via get_p).
+# They used to be global → in multi-vault they served another vault's registry. Now each vault has
+# its cache entry.
 _registry_cache: dict = {}        # registry_path_str -> data
 _registry_cache_mtime: dict = {}  # registry_path_str -> mtime
 _registry_cache_ts: dict = {}     # registry_path_str -> monotonic ts
@@ -12114,37 +12209,39 @@ _registry_cache_ttl_seconds = 30  # serve from cache without stat() if recent
 # during this process lifetime. Avoids redundant FUSE stat() calls on every read.
 _registry_ensured_tables: set = set()
 
-# Serialitza el cicle SENCER load→modify→save del registre central
-# (vault_db_registry.json). Mateix patró sistèmic que #728/#729/#743 (daily
-# note, comentaris, plugins): sense això, dues mutacions concurrents llegien el
-# mateix snapshot i l'última escriptura esclafava l'altra (last-writer-wins).
-# RLock i no Lock perquè `load_registry` crida `save_registry` quan saneja
-# (changed=True) amb el candau ja agafat pel mateix fil.
+# Serializes the ENTIRE load→modify→save cycle of the central registry
+# (vault_db_registry.json). Same systemic pattern as #728/#729/#743 (daily
+# note, comments, plugins): without this, two concurrent mutations read the
+# same snapshot and the last write clobbered the other (last-writer-wins).
+# RLock and not Lock because `load_registry` calls `save_registry` when it sanitizes
+# (changed=True) with the lock already held by the same thread.
 _registry_mutation_lock = threading.RLock()
 
 
 @contextmanager
 def registry_mutation():
-    """Embolcalla un cicle sencer load_registry→modificar→save_registry.
+    """Wraps an entire load_registry→modify→save_registry cycle.
 
-    Regles d'ús (si es violen, la protecció desapareix en silenci):
-      - SEMPRE el cicle sencer a dins, mai només el load o el save.
-      - Dins d'un handler `async def`, el bloc no pot contenir cap `await`:
-        l'RLock és reentrant PER FIL i totes les corrutines comparteixen el fil
-        de l'event loop, així que una segona corrutina el reentraria durant la
-        suspensió. Si el cicle necessita I/O lent, mou el cos a una funció
-        síncrona i executa-la amb `asyncio.to_thread` (cf. `rename_table`).
+    Usage rules (if violated, the protection silently disappears):
+      - ALWAYS the entire cycle inside, never just the load or the save.
+      - Inside an `async def` handler, the block must not contain any `await`:
+        the RLock is reentrant PER THREAD and all coroutines share the
+        event loop thread, so a second coroutine would re-enter it during the
+        suspension. If the cycle needs slow I/O, move the body to a
+        synchronous function and run it with `asyncio.to_thread` (cf. `rename_table`).
+    
     """
     with _registry_mutation_lock:
         yield
 
 
 def _update_registry_cache(reg_path, data) -> None:
-    """Sincronitza la caché en memòria (per-vault) després d'escriure el fitxer.
+    """Synchronizes the in-memory (per-vault) cache after writing the file.
 
-    També la crida `vault_views_routes._save_registry`, que escriu el MATEIX
-    fitxer amb el seu propi I/O: sense refresc, els lectors d'aquest mòdul
-    servien fins a 30s (TTL) de dades rancies després d'un upsert de vista.
+    `vault_views_routes._save_registry` also calls it, since it writes the SAME
+    file with its own I/O: without this refresh, this module's readers would
+    serve up to 30s (TTL) of stale data after a view upsert.
+    
     """
     _sk = str(reg_path)
     _registry_cache[_sk] = data
@@ -12167,7 +12264,7 @@ def load_registry():
     global _registry_cache, _registry_cache_mtime, _registry_cache_ts
 
     now = time.monotonic()
-    # La clau depèn del VAULT ACTIU (get_p("REGISTRY") = <vault_actiu>/BD/vault_db_registry.json)
+    # The key depends on the ACTIVE VAULT (get_p("REGISTRY") = <active_vault>/BD/vault_db_registry.json)
     registry_path = get_p("REGISTRY")
     empty = {"databases": [], "tables": [], "views": []}
     if not registry_path:
@@ -12175,7 +12272,7 @@ def load_registry():
     _ck = str(registry_path)
     cached = _registry_cache.get(_ck)
 
-    # Fast path: cache d'AQUEST vault fresca (TTL) → cap I/O
+    # Fast path: THIS vault's cache is fresh (TTL) → no I/O
     if cached is not None and (now - _registry_cache_ts.get(_ck, 0.0)) < _registry_cache_ttl_seconds:
         return cached
 
@@ -12197,10 +12294,10 @@ def load_registry():
         return empty
 
     try:
-        # Candau al tram de disc: el sanejament de sota pot acabar en un
-        # save_registry (changed=True) i no pot interlevar-se amb un cicle de
-        # mutació d'un altre fil. Reentrant: si ja venim d'un registry_mutation()
-        # del mateix fil, no bloqueja.
+        # Lock around the disk section: the sanitization below can end up in a
+        # save_registry (changed=True) and cannot interleave with a mutation cycle from
+        # another thread. Reentrant: if we already come from a registry_mutation()
+        # in the same thread, it doesn't block.
         with _registry_mutation_lock:
             return _load_registry_from_disk(registry_path, _ck, now)
     except Exception as e:
@@ -12212,8 +12309,8 @@ def load_registry():
 
 
 def _load_registry_from_disk(registry_path, _ck: str, now: float):
-    """Lectura de disc + sanejament del registre. Cridar SEMPRE amb
-    `_registry_mutation_lock` agafat (ho fa `load_registry`)."""
+    """Reads from disk + sanitizes the registry. ALWAYS call with
+    `_registry_mutation_lock` held (which `load_registry` does)."""
     data = json.loads(registry_path.read_text(encoding="utf-8"))
 
     changed = False
@@ -12239,7 +12336,7 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
         changed = True
         log.info("🧹 Removed legacy wiki table and its views from registry.")
 
-    # 2. Sanejament i creació de carpetes (només per taules no validades encara)
+    # 2. Sanitization and folder creation (only for tables not yet validated)
     for table in data.get("tables", []):
         folder_raw = table.get("folder") or table.get("name", "untitled_table")
         folder_normalized = _normalize_rel_folder(folder_raw)
@@ -12262,7 +12359,7 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
     if changed:
         save_registry(data)
 
-    # Sync cache (per-vault, clau = ruta del registre)
+    # Sync cache (per-vault, key = registry path)
     _registry_cache[_ck] = data
     _registry_cache_ts[_ck] = now
     try:
@@ -12280,8 +12377,8 @@ def save_registry(data):
         log.warning("⚠️ Registry save attempt without configured path.")
         return
     try:
-        # Candau reentrant: un save solt (fora d'un registry_mutation()) tampoc
-        # no s'ha d'interlevar amb l'escriptura+refresc de caché d'un cicle.
+        # Reentrant lock: a standalone save (outside a registry_mutation()) also doesn't
+        # must not interleave with a cycle's write+cache refresh.
         with _registry_mutation_lock:
             # Atomic write — registry lives on cloud-synced storage, so any
             # half-flushed write would propagate to other devices and corrupt the
@@ -12293,7 +12390,7 @@ def save_registry(data):
         log.error(f"❌ Error saving registry: {e}")
 
 
-# ensure_default_registry_structure() # Desactivat: S'inicialitza dinàmicament per workspace
+# ensure_default_registry_structure() # Disabled: initialized dynamically per workspace
 
 
 def _sort_key_name(item):
@@ -12327,10 +12424,11 @@ _HOST_TRASH_HELPER_URL = os.environ.get(
 
 
 def _try_host_trash_helper(target: str, timeout: float = 20.0) -> "tuple[bool, str]":
-    """Demana al host_open_helper que mogui `target` a la Paperera del Mac.
+    """Asks host_open_helper to move `target` to the Mac Trash.
 
-    Cal perquè el contenidor monta HOME read-only i no pot esborrar fitxers de
-    OneDrive/Biblioteca. Retorna (ok, detall_error).
+    Needed because the container mounts HOME read-only and cannot delete files from
+    OneDrive/Biblioteca. Returns (ok, error_detail).
+    
     """
     try:
         import urllib.request
@@ -12356,15 +12454,16 @@ def _try_host_trash_helper(target: str, timeout: float = 20.0) -> "tuple[bool, s
 
 
 def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
-    """Delega l'obertura al helper que corre al host (Mac/Win/Linux real).
+    """Delegates the opening to the helper running on the host (real Mac/Win/Linux).
 
-    El backend de Gnosi sol córrer dins d'un contenidor Docker Linux que NO
-    té accés al sistema gràfic del host (Finder/Explorer). El helper
-    `host_open_helper` (vegeu pipeline/skills/host_open_helper/) escolta a
-    127.0.0.1:5099 al host i el contenidor el contacta via
-    `host.docker.internal:5099`. Si no està disponible, fem fallback al
-    `subprocess` local (que funciona si el backend corre directament al
-    host, no en Docker).
+    Gnosi's backend usually runs inside a Linux Docker container that does NOT
+    have access to the host's graphical system (Finder/Explorer). The helper
+    `host_open_helper` (see pipeline/skills/host_open_helper/) listens on
+    127.0.0.1:5099 on the host and the container contacts it via
+    `host.docker.internal:5099`. If it's not available, we fall back to the
+    local `subprocess` (which works if the backend runs directly on the
+    host, not in Docker).
+    
     """
     try:
         import urllib.request
@@ -12384,10 +12483,11 @@ def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
 def _safe_open_target(target: str) -> None:
     """Open URI/path with the system default app without shell interpolation.
 
-    Primer prova el helper del host (necessari quan el backend corre dins
-    de Docker, perquè el contenidor no pot cridar Finder/Explorer del Mac).
-    Si el helper no està disponible, cau al `subprocess` local — útil quan
-    el backend s'executa directament al host (mode debug/local).
+    First tries the host helper (necessary when the backend runs inside
+    Docker, because the container cannot call the Mac's Finder/Explorer).
+    If the helper is not available, falls back to the local `subprocess` — useful when
+    the backend runs directly on the host (debug/local mode).
+    
     """
     if _try_host_open_helper(target):
         return
@@ -12424,7 +12524,7 @@ def _extract_attachment_paths(attachments: object) -> List[str]:
         if item.startswith("file://"):
             item = urllib.parse.unquote(item[7:])
 
-        # `~` sempre contra el HOME del HOST (dins Docker, expanduser → /root).
+        # `~` always against the HOST's HOME (inside Docker, expanduser → /root).
         expanded = str(Path(_expand_host_tilde(item)).expanduser())
         candidates.append(expanded)
 
@@ -12438,9 +12538,9 @@ def _pick_existing_path(
 
     if isinstance(file_path, str) and file_path.strip():
         fp = file_path.strip()
-        # Mateixa neteja que _extract_attachment_paths: si el valor desat és un
-        # file:// URL-encoded, treu l'esquema i decodifica ABANS de Path-ificar
-        # (Path col·lapsaria "//"→"/" i el re-arrelador ja no el reconeixeria).
+        # Same cleanup as _extract_attachment_paths: if the saved value is a
+        # file:// URL-encoded, strip the scheme and decode BEFORE turning into a Path
+        # (Path would collapse "//"→"/" and the re-rooter would no longer recognize it).
         if fp.lower().startswith("file://"):
             fp = urllib.parse.unquote(fp[7:])
         candidates.append(str(Path(_expand_host_tilde(fp)).expanduser()))
@@ -12455,9 +12555,9 @@ def _pick_existing_path(
         except Exception:
             continue
 
-    # Portabilitat entre màquines: cap candidat existeix tal qual (p. ex.
-    # l'enllaç ve d'una Mac amb un altre usuari macOS). Intenta re-arrelar-los
-    # sota aquesta màquina abans de rendir-nos.
+    # Portability across machines: no candidate exists as-is (e.g.,
+    # the link comes from a Mac with a different macOS user). Tries to re-root them
+    # under this machine before giving up.
     for candidate in candidates:
         rerooted = _reroot_attachment_under_current_host(candidate)
         if rerooted is not None and rerooted.is_file():
@@ -12471,10 +12571,10 @@ async def get_registry():
     """Returns the full registry of databases, tables, and views (sorted alphabetically)."""
     try:
         registry = load_registry()
-        # CÒPIA superficial per a la RESPOSTA: `load_registry` retorna l'objecte
-        # de la caché compartida; reassignar-hi claus (ordre alfabètic, filtre
-        # wiki) mutava la caché i un cicle de mutació posterior persistia
-        # aquestes transformacions de presentació al fitxer.
+        # SHALLOW COPY for the RESPONSE: `load_registry` returns the object
+        # from the shared cache; reassigning keys on it (alphabetical order, filter
+        # wiki) mutated the cache and a later mutation cycle persisted
+        # these presentation transformations to the file.
         response = dict(registry)
         response["databases"] = sorted(
             registry.get("databases", []), key=_sort_key_name
@@ -12487,9 +12587,9 @@ async def get_registry():
             ],
             key=_sort_key_name,
         )
-        # Vistes: respectem l'ordre d'inserció (append) del fitxer per evitar
-        # que una vista nova amb nom "AAA…" salti al principi de les pestanyes.
-        # PUT /api/vault/views/order persisteix l'ordre triat per l'usuari.
+        # Views: we respect the file's insertion (append) order to avoid
+        # a new view named "AAA…" jumping to the front of the tabs.
+        # PUT /api/vault/views/order persists the order chosen by the user.
         response["views"] = list(registry.get("views", []))
         return response
     except Exception as e:
@@ -12504,13 +12604,14 @@ async def get_registry():
 async def update_registry(data: dict = Body(...)):
     """Updates the entire registry (use with care).
 
-    Auth: admin-only. Sobreescriu TOT el registry de cop, així que un
-    error o un atacant amb un rol més baix podria destruir totes les
-    databases/tables/views d'un workspace en una sola crida.
+    Auth: admin-only. Overwrites the ENTIRE registry at once, so an
+    error or an attacker with a lower role could destroy all
+    databases/tables/views of a workspace in a single call.
+    
     """
-    # Overwrite sencer per disseny (substitueix TOT el registry). No és un cicle
-    # RMW, però `save_registry` ja pren `_registry_mutation_lock` internament, així
-    # que no es pot interlevar amb l'escriptura d'un altre cicle.
+    # Full overwrite by design (replaces the ENTIRE registry). It's not an
+    # RMW cycle, but `save_registry` already takes `_registry_mutation_lock` internally, so
+    # it cannot interleave with another cycle's write.
     save_registry(data)
     return {"status": "success"}
 
@@ -12519,10 +12620,11 @@ async def update_registry(data: dict = Body(...)):
 async def open_resource(payload: OpenResourceRequest):
     """Open a Zotero URI or local attachment path with the OS default handler.
 
-    Auth gate: igual que /open-local-path. Aquest endpoint acaba invocant
-    `subprocess.Popen(["open", target])` (macOS) o equivalents — és una
-    superfície d'execució de comandes que no hauria de ser disponible per
-    rols `viewer` en organitzacio mode.
+    Auth gate: same as /open-local-path. This endpoint ends up invoking
+    `subprocess.Popen(["open", target])` (macOS) or equivalents — it's a
+    command-execution surface that should not be available to
+    `viewer` roles in organization mode.
+    
     """
     zotero_uri = (payload.zotero_uri or "").strip()
 
@@ -12553,10 +12655,11 @@ async def open_resource(payload: OpenResourceRequest):
 
 
 def _host_home_path() -> Path:
-    """HOME del HOST (no del contenidor). Dins Docker el HOME del procés és
-    /root, així que `Path.expanduser()` NO serveix per resoldre valors `~/...`.
-    Ordre: HOME_HOST_PATH (docker-compose) → home derivat de BIBLIOTECA
-    (/Users/<actual>/Library/...) → home del procés (entorn local sense Docker).
+    """HOST's HOME (not the container's). Inside Docker the process's HOME is
+    /root, so `Path.expanduser()` does NOT work to resolve `~/...` values.
+    Order: HOME_HOST_PATH (docker-compose) → home derived from BIBLIOTECA
+    (/Users/<actual>/Library/...) → process home (local environment without Docker).
+    
     """
     env_home = (os.environ.get("HOME_HOST_PATH") or "").strip()
     if env_home:
@@ -12571,8 +12674,8 @@ def _host_home_path() -> Path:
 
 
 def _expand_host_tilde(value: str) -> str:
-    """Expandeix un valor `~`/`~/<rel>` contra el HOME del HOST (mai del
-    contenidor). Qualsevol altra forma es retorna intacta."""
+    """Expands a `~`/`~/<rel>` value against the HOST's HOME (never the
+    container's). Any other form is returned intact."""
     s = str(value or "").strip()
     if s == "~":
         return str(_host_home_path())
@@ -12582,28 +12685,29 @@ def _expand_host_tilde(value: str) -> str:
 
 
 def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
-    """Re-arrela un path/URI d'adjunt sota les arrels d'AQUESTA màquina, perquè
-    els enllaços desats en una altra Mac (un altre usuari macOS) segueixin
-    resolent-se aquí.
+    """Re-roots an attachment path/URI under THIS machine's roots, so that
+    links saved on another Mac (a different macOS user) keep
+    resolving here.
 
-    L'usuari treballa des de dues Macs amb noms d'usuari diferents; el prefix
-    `/Users/<usuari>/` dels enllaços `file://` és específic de la màquina on es
-    van inserir. El tram posterior (Library/CloudStorage/<núvol>/<carpeta>/…) és
-    estable entre màquines perquè el vault i les seves germanes se sincronitzen.
+    The user works from two Macs with different usernames; the
+    `/Users/<user>/` prefix of `file://` links is specific to the machine where
+    they were inserted. The later segment (Library/CloudStorage/<cloud>/<folder>/…) is
+    stable across machines because the vault and its siblings are synced.
 
-    Estratègies, en ordre, retornant el primer candidat que EXISTEIXI:
-      1. Forma servida `/api/vault/biblioteca/<rel>` → arrel de Biblioteca.
-      2. Sota l'arrel del núvol (germana del vault): cobreix Biblioteca,
-         Documents i qualsevol carpeta germana sincronitzada.
-      3. Intercanvi del home macOS `/Users/<algú>` pel home del host actual:
-         cobreix fitxers fora del núvol (Desktop, Downloads…).
+    Strategies, in order, returning the first candidate that EXISTS:
+      1. Served form `/api/vault/biblioteca/<rel>` → Biblioteca root.
+      2. Under the cloud root (vault's sibling): covers Biblioteca,
+         Documents and any synced sibling folder.
+      3. Swap of the macOS home `/Users/<someone>` for the current host home:
+         covers files outside the cloud (Desktop, Downloads…).
 
-    NO és destructiu: només s'usa com a fallback quan el path desat no existeix
-    tal qual; mai reescriu el .md. Vegeu `attachment_link_portability.md`.
+    NOT destructive: only used as a fallback when the saved path doesn't exist
+    as-is; never rewrites the .md. See `attachment_link_portability.md`.
+    
     """
     s = (raw or "").strip()
-    # (1) Forma relativa servida (adjunts de biblioteca nous, ja portables). Es prova
-    # contra TOTES les arrels (dins del vault i llegada), com fa serve_biblioteca_file.
+    # (1) Served relative form (new library attachments, already portable). It's tried
+    # against ALL roots (inside the vault and legacy), like serve_biblioteca_file does.
     m_rel = re.match(r"^/api/vault/biblioteca/(.+)$", s)
     if m_rel:
         try:
@@ -12619,17 +12723,17 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     if s.lower().startswith("file://"):
         rest = s[7:]
         s = urllib.parse.unquote(rest if rest.startswith("/") else "//" + rest)
-    # Forma portable `~/<rel>`: determinada completament pel HOME del host
-    # (les altres estratègies no hi aporten res).
+    # Portable form `~/<rel>`: fully determined by the host's HOME
+    # (the other strategies don't help here).
     if s == "~" or s.startswith("~/"):
         cand = Path(_expand_host_tilde(s))
         return cand if cand.exists() else None
     try:
-        # Arrel del núvol (p. ex. `.../OneDrive-UNED`) en ruta de HOST: l'àvia del
-        # vault actiu (…/OneDrive-UNED/Gnosi/<vault>). Derivada de l'env de host —
-        # no de get_active_vault_path(), que dins Docker tornaria /vault(s).
-        # (Abans s'ancorava a la Biblioteca LLEGADA germana; la Biblioteca ara viu
-        # DINS del vault i ja no serveix d'àncora del núvol.)
+        # Cloud root (e.g. `.../OneDrive-UNED`) in HOST path: the grandparent of the
+        # active vault (…/OneDrive-UNED/Gnosi/<vault>). Derived from the host env —
+        # not of get_active_vault_path(), which inside Docker would return /vault(s).
+        # (It used to anchor to the LEGACY sibling Biblioteca; the Biblioteca now lives
+        # INSIDE the vault and no longer serves as a cloud anchor.)
         _vrh = (os.environ.get("VAULTS_ROOT_HOST_PATH") or "").strip()
         if _vrh:
             cloud_root = Path(_vrh).parent          # …/Gnosi → …/OneDrive-UNED
@@ -12645,9 +12749,9 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
 
     candidates: List[Path] = []
 
-    # (2) Re-arrelar sota l'arrel del núvol per la carpeta germana. rfind: ancla
-    # a l'ÚLTIMA aparició (si el nom es repeteix, agafem el segment més proper a
-    # l'arrel real; find calcularia un suffix relatiu incorrecte).
+    # (2) Re-root under the cloud root via the sibling folder. rfind: anchors
+    # at the LAST occurrence (if the name repeats, we take the segment closest to
+    # the real root; find would calculate an incorrect relative suffix).
     cloud_anchor = f"/{cloud_root.name}/"
     idx = s.rfind(cloud_anchor)
     if idx != -1:
@@ -12655,8 +12759,8 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
         if rel:
             candidates.append(cloud_root / rel)
 
-    # (3) Intercanvi del home macOS: /Users/<algú>/<resta> → <home_actual>/<resta>.
-    # El home actual es deriva de cloud_root (/Users/<actual>/Library/...).
+    # (3) macOS home swap: /Users/<user>/<rest> → <current_home>/<rest>.
+    # The current home is derived from cloud_root (/Users/<actual>/Library/...).
     m_home = re.match(r"^/Users/[^/]+/(.+)$", s)
     if (
         m_home
@@ -12680,15 +12784,17 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
 
 
 def _resolve_stored_file_target(raw: str) -> Optional[Path]:
-    """Resol el VALOR DESAT d'un camp de fitxers a una ruta local d'AQUESTA
-    màquina, acceptant tots els formats històrics i nous: `file://`
-    (URL-encoded o no), `~/<rel>` (HOME del host), ruta absoluta (d'aquesta o
-    de l'altra Mac) i `/api/vault/biblioteca/<rel>`.
+    """Resolves the SAVED VALUE of a files field to a local path on THIS
+    machine, accepting all historical and new formats: `file://`
+    (URL-encoded or not), `~/<rel>` (host HOME), absolute path (from this or
+    the other Mac) and `/api/vault/biblioteca/<rel>`.
 
-    Si el valor no existeix tal qual, re-arrela amb
-    `_reroot_attachment_under_current_host`. Retorna None si cap candidat
-    existeix. Mai escriu res (resolució en runtime, vegeu
+    If the value doesn't exist as-is, re-roots with
+    `_reroot_attachment_under_current_host`. Returns None if no candidate
+    exists. Never writes anything (runtime resolution, see
     `attachment_link_portability.md`).
+    
+    
     """
     s = str(raw or "").strip()
     if not s:
@@ -12718,16 +12824,17 @@ def _resolve_stored_file_target(raw: str) -> Optional[Path]:
 @router.post("/open-local-path", dependencies=[Depends(require_role("editor"))])
 async def open_local_path(payload: dict = Body(...)):
     """
-    Obre una ruta local (fitxer o carpeta) amb l'app per defecte del sistema.
-    Accepta path absolut o URL file://. Útil per als enllaços file:// inserits
-    al BlockEditor que els navegadors moderns bloquegen per seguretat.
+        Opens a local path (file or folder) with the system's default app.
+    Accepts an absolute path or file:// URL. Useful for file:// links inserted
+    in the BlockEditor that modern browsers block for security reasons.
+    
     """
     raw = (payload or {}).get("path") or (payload or {}).get("url") or ""
     raw = str(raw).strip()
     if not raw:
         raise HTTPException(status_code=400, detail="Missing 'path'")
 
-    # Normalitza file://… → ruta del sistema
+    # Normalizes file://… → system path
     if raw.lower().startswith("file://"):
         # file:///Users/foo  → /Users/foo  ;  file://host/share → //host/share
         without_scheme = raw[7:]
@@ -12738,30 +12845,30 @@ async def open_local_path(payload: dict = Body(...)):
     else:
         target = raw
 
-    # Expandeix ~ (contra el HOME del HOST, no del contenidor) i resol
+    # Expands ~ (against the HOST's HOME, not the container's) and resolves
     try:
         path = Path(_expand_host_tilde(target)).expanduser()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid path")
 
     if not path.exists():
-        # Portabilitat entre màquines/núvols: l'enllaç pot venir d'un altre Mac
-        # (un altre usuari macOS) o d'un altre proveïdor (Dropbox/iCloud...). Si
-        # el path desat no existeix aquí, re-arrelem el tram sota Biblioteca a
-        # l'arrel d'aquesta màquina abans de rendir-nos.
+        # Portability across machines/clouds: the link can come from another Mac
+        # (a different macOS user) or a different provider (Dropbox/iCloud...). If
+        # the saved path doesn't exist here, we re-root the segment under Biblioteca to
+        # this machine's root before giving up.
         rerooted = _reroot_attachment_under_current_host(raw)
         if rerooted is not None:
             path = rerooted
         else:
             raise HTTPException(status_code=404, detail=f"Path not found: {path}")
 
-    # Warmup proactiu: si el fitxer és online-only (placeholder dataless
-    # d'OneDrive), materialitza'l ABANS d'obrir-lo. Sense això, demanàvem al
-    # sistema que obrís un fitxer de 0 bytes → l'app (Word/Excel/Preview)
-    # s'obre EN BLANC o amb error mentre OneDrive encara el baixa. Els altres
-    # camins de lectura (`get_page`, visor de PDF) ja fan aquest warmup; aquest
-    # no, i per això els enllaços a fitxers no descarregats "no funcionaven".
-    # Només per a fitxers: una carpeta no és materialitzable.
+    # Proactive warmup: if the file is online-only (dataless placeholder
+    # from OneDrive), materialize it BEFORE opening it. Without this, we would ask the
+    # system to open a 0-byte file → the app (Word/Excel/Preview)
+    # opens BLANK or with an error while OneDrive is still downloading it. The other
+    # read paths (`get_page`, PDF viewer) already do this warmup; this
+    # one doesn't, and that's why links to non-downloaded files "didn't work".
+    # Only for files: a folder is not materializable.
     if path.is_file():
         await _materialize_if_online_only(path, "open-local-path")
 
@@ -12781,12 +12888,12 @@ async def list_databases():
 
 @router.post("/databases", dependencies=[Depends(require_role("editor"))])
 async def create_database(db: dict = Body(...)):
-    # Auth gate: crear/editar databases és una mutació estructural del
-    # registry (impacta totes les vistes i taules). Igual que `delete_database`
-    # més avall, ha de requerir mínim rol editor.
+    # Auth gate: creating/editing databases is a structural mutation of the
+    # registry (impacts all views and tables). Same as `delete_database`
+    # further below, it must require at least the editor role.
     #
-    # Cicle load→modify→save sencer sota candau (bloc síncron sense `await`:
-    # atòmic també respecte altres corrutines de l'event loop).
+    # Entire load→modify→save cycle under lock (synchronous block with no `await`:
+    # also atomic with respect to other coroutines of the event loop).
     with registry_mutation():
         registry = load_registry()
         if "id" not in db:
@@ -12883,12 +12990,12 @@ def _ensure_main_view(registry: dict, table_id: str) -> Optional[dict]:
 
 @router.post("/tables", dependencies=[Depends(require_role("editor"))])
 async def create_table(table: dict = Body(...)):
-    # Cicle load→modify→save sencer sota candau. El cos és síncron (cap `await`),
-    # extret a `_create_table_locked` per no reindentar-lo; el candau reentrant el
-    # serialitza també respecte fils worker (to_thread) que carreguen/desen el
-    # registre. Cridable de `social_store.ensure_social_table` i
-    # `create_reference_table` (`await create_table(...)`): cap d'ells manté el
-    # candau durant l'await, així que no hi ha deadlock.
+    # Entire load→modify→save cycle under lock. The body is synchronous (no `await`),
+    # extracted to `_create_table_locked` to avoid reindenting it; the reentrant lock
+    # also serializes with respect to worker threads (to_thread) that load/save the
+    # registry. Callable from `social_store.ensure_social_table` and
+    # `create_reference_table` (`await create_table(...)`): none of them holds the
+    # lock during the await, so there's no deadlock.
     with registry_mutation():
         return _create_table_locked(table)
 
@@ -12908,10 +13015,10 @@ def _create_table_locked(table: dict):
     )
     if existing_idx is not None:
         old_table = registry["tables"][existing_idx]
-        # Preserva els `aliases` per property: el desat del modal reconstrueix
-        # les properties des de l'esquema pla (que no els transporta) i, sense
-        # això, cada desat esborrava els àlies de renoms anteriors — i les
-        # files velles deixaven de resoldre els seus valors.
+        # Preserves the `aliases` per property: the modal's save reconstructs
+        # the properties from the flat schema (which doesn't carry them) and, without
+        # this, every save would erase the aliases from previous renames — and the
+        # old rows would stop resolving their values.
         _old_props_by_id = {
             p.get("id"): p
             for p in (old_table.get("properties") or [])
@@ -12951,12 +13058,12 @@ def _create_table_locked(table: dict):
     _ensure_asset_dirs_for_table_entry(table, registry)
     _ensure_table_vault_folder(table, registry)
 
-    # Seed-on-enable (directiva vault_option_catalogs_action_rules §3.3):
-    # cada desat de taula normalitza els catàlegs d'opcions (format ric,
-    # ubicació única), assigna rols semàntics per nom i garanteix els estats
-    # que les funcionalitats actives requereixen («Esborrany»/«Revisat» base;
-    # «Traduït», «Publicat a Drupal», «Publicat a XXSS» segons toggles) i els
-    # blocs d'action_rules corresponents. Idempotent.
+    # Seed-on-enable (vault_option_catalogs_action_rules directive §3.3):
+    # every table save normalizes the option catalogs (rich format,
+    # single location), assigns semantic roles by name and guarantees the states
+    # that active features require (base «Draft»/«Reviewed»;
+    # «Translated», «Published to Drupal», «Published to XXSS» depending on toggles) and the
+    # corresponding action_rules blocks. Idempotent.
     option_catalogs_service.ensure_table_seeds(table)
     action_rules_service.ensure_action_rules(table)
 
@@ -12983,7 +13090,7 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
       We update the registry synchronously (the user-visible source of
       truth) and queue the disk cleanup as a background task.
     """
-    # Cicle load→modify→save sencer sota candau (bloc síncron, sense `await`).
+    # Entire load→modify→save cycle under lock (synchronous block, no `await`).
     with registry_mutation():
         registry = load_registry()
         # Get table info BEFORE deleting it from registry
@@ -13013,18 +13120,18 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
 
 @router.put("/tables/{table_id}", dependencies=[Depends(require_role("editor"))])
 async def rename_table(table_id: str, data: dict = Body(...)):
-    # El cicle de registre + els moviments SÍNCRONS de carpetes d'assets van sota
-    # candau. L'única part async (reescriure les refs inline dels cossos de pàgina,
-    # via to_thread) es defereix FORA del candau: toca fitxers .md, no el registre,
-    # i era best-effort. Així no mantenim l'RLock durant cap `await`.
+    # The registry cycle + the SYNCHRONOUS asset folder moves go under
+    # lock. The only async part (rewriting inline refs in page bodies,
+    # via to_thread) is deferred OUTSIDE the lock: it touches .md files, not the registry,
+    # and was best-effort. This way we don't hold the RLock during any `await`.
     with registry_mutation():
         deferred_rewrite = _rename_table_locked(table_id, data)
 
     if deferred_rewrite:
         table_dir, old_seg, new_seg = deferred_rewrite
         try:
-            # rglob + read/write per molts .md: ho descarreguem a un thread per no
-            # bloquejar l'event loop en taules grans o vaults al núvol (lents).
+            # rglob + read/write for many .md: we offload it to a thread so as not to
+            # blocking the event loop on large tables or cloud vaults (slow).
             n = await asyncio.to_thread(_rewrite_inline_asset_refs, table_dir, old_seg, new_seg)
             if n:
                 log.info(
@@ -13038,11 +13145,12 @@ async def rename_table(table_id: str, data: dict = Body(...)):
 
 
 def _rename_table_locked(table_id: str, data: dict):
-    """Cicle load→modify→save del rename de taula + moviments síncrons de
-    carpetes d'assets. Cridar SEMPRE amb `registry_mutation()` agafat.
+    """Load→modify→save cycle for the table rename + synchronous asset
+    folder moves. ALWAYS call with `registry_mutation()` held.
 
-    Retorna `(table_dir, old_seg, new_seg)` si cal reescriure refs inline dels
-    cossos de pàgina (feina async que el cridador fa FORA del candau), o `None`.
+    Returns `(table_dir, old_seg, new_seg)` if inline refs in page
+    bodies need to be rewritten (async work that the caller does OUTSIDE the lock), or `None`.
+    
     """
     deferred_rewrite = None
     registry = load_registry()
@@ -13057,16 +13165,16 @@ def _rename_table_locked(table_id: str, data: dict):
                 t["folder"] = data["folder"]
             new_name = str(t.get("name") or "").strip()
 
-            # Si el nom ha canviat, mou ambdues carpetes d'assets perquè els
-            # fitxers existents segueixin l'objecte taula:
-            #   1) Assets/<OldName>/                  (plana, drag&drop genèric)
-            #   2) Assets/<DB>/<OldTable>/            (estructurada per propietats)
-            # Si la destinació ja existeix (col·lisió raríssima), no fem res
-            # i deixem un warning al log per inspeccionar manualment.
+            # If the name has changed, moves both asset folders so the
+            # existing files keep following the table object:
+            #   1) Assets/<OldName>/                  (flat, generic drag&drop)
+            #   2) Assets/<DB>/<OldTable>/            (structured by properties)
+            # If the destination already exists (extremely rare collision), we do nothing
+            # and we leave a warning in the log for manual inspection.
             if old_name and new_name and old_name != new_name:
-                # Resol la DB un sol cop: la necessitem per al nesting
-                # estructurat (pas 2) i per detectar col·lisions entre la
-                # carpeta plana i l'arrel de la DB (pas 1).
+                # Resolve the DB once: we need it for the nesting
+                # structured (step 2) and to detect collisions between the
+                # flat folder and the DB root (step 1).
                 db_entry = next(
                     (
                         d
@@ -13082,16 +13190,16 @@ def _rename_table_locked(table_id: str, data: dict):
                 old_seg = _sanitize_asset_segment(old_name, "Table")
                 new_seg = _sanitize_asset_segment(new_name, "Table")
 
-                # 1) Plana Assets/<Taula>/
+                # 1) Flat Assets/<Table>/
                 #
-                # COL·LISIÓ (vegeu docs/dev_memory/directives/table_rename_flat_folder_collision.md):
-                # quan el segment de la taula coincideix amb el de la DB
-                # (case-insensitive a APFS), `Assets/<Taula>/` és FÍSICAMENT
-                # el mateix directori que l'arrel de nesting `Assets/<DB>/`.
-                # Renombrar-lo en bloc arrossegaria els arbres estructurats
-                # d'altres taules (p.ex. Assets/Cervell Digital/Recursos/...)
-                # i trencaria les seves referències. En aquest cas movem
-                # només els fitxers solts de la taula.
+                # COLLISION (see docs/dev_memory/directives/table_rename_flat_folder_collision.md):
+                # when the table's segment matches the DB's
+                # (case-insensitive on APFS), `Assets/<Taula>/` is PHYSICALLY
+                # the same directory as the nesting root `Assets/<DB>/`.
+                # Renaming it in bulk would drag along the structured trees
+                # of other tables (e.g. Assets/Cervell Digital/Recursos/...)
+                # and would break its references. In this case we move
+                # only the table's loose files.
                 should_rewrite_refs = False
                 try:
                     old_dir = get_p("ASSETS") / old_seg
@@ -13101,15 +13209,15 @@ def _rename_table_locked(table_id: str, data: dict):
 
                     if old_dir.is_dir():
                         if old_collides and new_collides:
-                            # Old i new resolen tots dos a l'arrel de la DB:
-                            # només canvia la capitalització, res a reubicar.
+                            # Old and new both resolve to the DB root:
+                            # only the capitalization changes, nothing to relocate.
                             log.info(
                                 f"Flat assets folder coincides with DB root for "
                                 f"both names ({old_name}→{new_name}); nothing to move."
                             )
                         elif old_collides or new_collides:
-                            # Un dels segments és l'arrel de la DB: mai
-                            # renombrem en bloc; movem només els fitxers solts.
+                            # One of the segments is the DB's root: we never
+                            # rename in bulk; we only move the loose files.
                             moved = _move_loose_files(old_dir, new_dir)
                             should_rewrite_refs = True
                             log.info(
@@ -13130,10 +13238,10 @@ def _rename_table_locked(table_id: str, data: dict):
                 except Exception as e:
                     log.warning(f"Could not rename flat assets folder: {e}")
 
-                # 1b) Si la carpeta plana ha canviat de segment, els fitxers
-                #     solts viuen ara a <new_seg>: cal reescriure les refs inline
-                #     dels cossos de pàgina (`/api/vault/assets/<seg>/...`). Ho
-                #     DEFERIM fora del candau (feina async sobre .md, no registre).
+                # 1b) If the flat folder has changed segment, the
+                #     loose files now live at <new_seg>: inline refs in page bodies
+                #     need rewriting (`/api/vault/assets/<seg>/...`). We
+                #     DEFER this outside the lock (async work on .md, not the registry).
                 if should_rewrite_refs:
                     try:
                         table_dir = _table_vault_dir(t, registry)
@@ -13142,8 +13250,8 @@ def _rename_table_locked(table_id: str, data: dict):
                     except Exception as e:
                         log.warning(f"Could not resolve table dir for inline ref rewrite: {e}")
 
-                # 2) Estructurada Assets/<DB>/<Taula>/ — sempre segura: va
-                #    niada sota <DB>/, mai col·lisiona amb l'arrel.
+                # 2) Structured Assets/<DB>/<Taula>/ — always safe: it goes
+                #    nested under <DB>/, never collides with the root.
                 try:
                     old_struct = get_p("ASSETS") / db_seg / old_seg
                     new_struct = get_p("ASSETS") / db_seg / new_seg
@@ -13169,23 +13277,24 @@ def _rename_table_locked(table_id: str, data: dict):
                dependencies=[Depends(require_role("editor"))])
 async def patch_table_property(table_id: str, field_id: str, data: dict = Body(...)):
     """
-    Renomena o actualitza atributs no estructurals d'una property identificada
-    pel seu 'id' immutable. Mai canvia l'id.
+        Renames or updates non-structural attributes of a property identified
+    by its immutable 'id'. Never changes the id.
 
-    PERSISTÈNCIA PER NOM: com que les pàgines guarden les claus pel nom actual,
-    renomenar registra el nom antic com a `alias` de la property. Les files amb
-    el nom antic segueixen resolent (via àlies) i es migren soles al nom nou en
-    el següent desament — sense reescriure cap fitxer aquí (instantani, robust
-    offline). Vegeu `vault_persist_by_name.md`.
+    PERSISTENCE BY NAME: since pages store keys by the current name,
+    renaming records the old name as an `alias` of the property. Rows with
+    the old name keep resolving (via aliases) and migrate on their own to the new name on
+    the next save — without rewriting any file here (instant, robust
+    offline). See `vault_persist_by_name.md`.
 
-    Body acceptat (tots opcionals):
-      - name: nou nom mostrat
-      - type: nou type (només si la migració de dades és segura)
-      - config: dict que es fa merge amb la config existent
+    Accepted body (all optional):
+      - name: new displayed name
+      - type: new type (only if data migration is safe)
+      - config: dict that gets merged with the existing config
+    
     """
-    # Cicle load→modify→save sencer sota candau. Cos síncron (cap `await`,
-    # només raises d'HTTPException que propaguen bé pel context manager),
-    # extret per no reindentar.
+    # Entire load→modify→save cycle under lock. Synchronous body (no `await`,
+    # only HTTPException raises, which propagate fine through the context manager),
+    # extracted to avoid reindenting.
     with registry_mutation():
         return _patch_table_property_locked(table_id, field_id, data)
 
@@ -13212,7 +13321,7 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
 
     if "name" in data and isinstance(data["name"], str) and data["name"].strip():
         new_name = data["name"].strip()
-        # Validació: no permetre col·lisió amb un altre nom de la mateixa taula
+        # Validation: don't allow collision with another name in the same table
         for p in target_table.get("properties", []) or []:
             if p is target_prop:
                 continue
@@ -13223,12 +13332,12 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
                 )
         old_name = (target_prop.get("name") or "").strip()
         if old_name and old_name != new_name:
-            # Registra el nom antic com a àlies perquè les files existents (que el
-            # guarden com a clau) segueixin resolent fins que es migrin soles.
+            # Records the old name as an alias so existing rows (which the
+            # save as key) keep resolving until they migrate on their own.
             aliases = target_prop.get("aliases") or []
             if old_name not in aliases:
                 aliases.append(old_name)
-            # El nom nou no pot ser alhora àlies (d'aquesta o d'una altra property).
+            # The new name cannot also be an alias (of this or another property).
             aliases = [a for a in aliases if a != new_name]
             target_prop["aliases"] = aliases
             for p in target_table.get("properties", []) or []:
@@ -13248,10 +13357,10 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
         prior_options = option_catalogs_service.get_prop_options(target_prop)
         existing.update(data["config"])
         target_prop["config"] = existing
-        # Catàleg d'opcions: canonicalitza (format ric {name,color,group} i
-        # ubicació única a config.options) també quan l'escriu el PATCH inline
-        # de la cel·la. Si arriben noms plans, es conserven color/grup que
-        # l'opció ja tenia al catàleg (no es re-deriven).
+        # Option catalog: canonicalizes (rich format {name,color,group} and
+        # single location in config.options) also when the inline cell PATCH
+        # writes it. If plain names arrive, the color/group that
+        # the option already had in the catalog is preserved (not re-derived).
         if "options" in data["config"] and target_prop.get("type") in option_catalogs_service.OPTION_TYPES:
             prior_by_name = {o["name"]: o for o in prior_options}
             merged = [
@@ -13270,14 +13379,14 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
     }
 
 
-# --- Catàlegs d'opcions: ús, renombrar i eliminar arreu ---------------------
-# Operacions massives SEMPRE al servidor (1 endpoint, N escriptures atòmiques
-# de fitxer), mai N peticions PATCH des del client (esgoten el pool i amaguen
+# --- Option catalogs: usage, renaming and deletion everywhere ---------------------
+# Bulk operations ALWAYS on the server (1 endpoint, N atomic writes
+# of file), never N PATCH requests from the client (they exhaust the pool and hide
 # errors parcials — vegeu feedback_bulk_ops_server_side).
 
 
 def _find_table_and_prop(registry: dict, table_id: str, field_ref: str) -> tuple:
-    """(taula, property) per id de taula i id o nom de camp; 404 si no hi són."""
+    """(table, property) by table id and field id or name; 404 if not found."""
     table = next(
         (t for t in registry.get("tables", []) if t.get("id") == table_id), None
     )
@@ -13299,7 +13408,7 @@ def _find_table_and_prop(registry: dict, table_id: str, field_ref: str) -> tuple
 
 
 def _option_value_keys(prop: dict) -> list:
-    """Claus candidates del frontmatter per al valor d'aquest camp."""
+    """Candidate frontmatter keys for this field's value."""
     keys = []
     if prop.get("id"):
         keys.append(prop["id"])
@@ -13312,11 +13421,11 @@ def _option_value_keys(prop: dict) -> list:
 async def _rewrite_option_in_rows(
     table: dict, prop: dict, old: str, new: Optional[str]
 ) -> int:
-    """Reescriu el valor `old` d'una opció a TOTES les files de la taula:
-    `new` (renombrar/reassignar) o buidar (None). Escriptura directa amb
-    `save_page_md` (atòmica per fitxer, sense rule engine ni etags, com el
-    flag d'obsolescència) + refresc quirúrgic del cache. Retorna el nombre de
-    fitxers modificats."""
+    """Rewrites the `old` value of an option in ALL rows of the table:
+    `new` (rename/reassign) or clear it (None). Direct write with
+    `save_page_md` (atomic per file, without rule engine or etags, like the
+    staleness flag) + surgical cache refresh. Returns the number of
+    modified files."""
     rows = await asyncio.to_thread(_get_pages_for_table, table.get("id"))
     keys = _option_value_keys(prop)
     is_multi = prop.get("type") == "multi_select"
@@ -13362,7 +13471,7 @@ async def _rewrite_option_in_rows(
         except Exception as exc:
             log.warning(f"option-rewrite: no s'ha pogut escriure {r.id}: {exc}")
             continue
-        # Refresc quirúrgic del cache (mateix patró que el flag stale).
+        # Surgical cache refresh (same pattern as the stale flag).
         try:
             from backend.services.context_vars import get_active_vault_path
             v_path = get_active_vault_path()
@@ -13383,8 +13492,8 @@ async def _rewrite_option_in_rows(
 
 @router.get("/tables/{table_id}/options/usage")
 async def table_option_usage(table_id: str, field_id: str):
-    """Comptador d'ús per opció (quantes files usen cada valor) — alimenta
-    l'editor d'opcions del SchemaConfigModal."""
+    """Usage counter per option (how many rows use each value) — feeds
+    the option editor of the SchemaConfigModal."""
     registry = load_registry()
     table, prop = _find_table_and_prop(registry, table_id, field_id)
     rows = await asyncio.to_thread(_get_pages_for_table, table_id)
@@ -13410,10 +13519,11 @@ async def table_option_usage(table_id: str, field_id: str):
     dependencies=[Depends(require_role("editor"))],
 )
 async def rename_table_option(table_id: str, payload: dict = Body(...)):
-    """Renombra una opció al catàleg I a totes les files que la usen (els
-    valors es persisteixen per nom → reescriptura eager dels .md afectats).
+    """Renames an option in the catalog AND in all rows that use it (the
+    values are persisted by name → eager rewrite of the affected .md files).
 
-    Body: ``{field_id, old, new}``. Retorna el recompte de fitxers tocats.
+    Body: ``{field_id, old, new}``. Returns the count of touched files.
+    
     """
     field_ref = (payload.get("field_id") or payload.get("field") or "").strip()
     old = str(payload.get("old") or "").strip()
@@ -13422,9 +13532,9 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="field_id, old i new són obligatoris")
     if old == new:
         return {"status": "ok", "files_changed": 0}
-    # El cicle de registre (catàleg d'opcions) va sota candau; la reescriptura
-    # eager dels .md (`_rewrite_option_in_rows`, async) queda FORA. `table`/`prop`
-    # segueixen sent vàlids després del `with` (referències als objectes desats).
+    # The registry cycle (option catalog) is under lock; the rewrite
+    # eager rewrite of the .md files (`_rewrite_option_in_rows`, async) stays OUTSIDE. `table`/`prop`
+    # remain valid after the `with` block (references to the saved objects).
     with registry_mutation():
         registry = load_registry()
         table, prop = _find_table_and_prop(registry, table_id, field_ref)
@@ -13436,7 +13546,7 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
             for o in options:
                 if o["name"] == old:
                     if new in names:
-                        continue  # fusió: l'opció destí ja existeix
+                        continue  # merge: the destination option already exists
                     o = {**o, "name": new}
                 renamed.append(o)
             option_catalogs_service.set_prop_options(prop, renamed)
@@ -13452,10 +13562,11 @@ async def rename_table_option(table_id: str, payload: dict = Body(...)):
     dependencies=[Depends(require_role("editor"))],
 )
 async def remove_table_option(table_id: str, payload: dict = Body(...)):
-    """Elimina una opció del catàleg i de TOTES les files que la usen, buidant
-    el valor o REASSIGNANT-lo a una altra opció (estil Notion).
+    """Deletes an option from the catalog and from ALL rows that use it, clearing
+    the value or REASSIGNING it to another option (Notion-style).
 
-    Body: ``{field_id, value, reassign_to?}``. Retorna fitxers tocats.
+    Body: ``{field_id, value, reassign_to?}``. Returns touched files.
+    
     """
     field_ref = (payload.get("field_id") or payload.get("field") or "").strip()
     value = str(payload.get("value") or "").strip()
@@ -13464,7 +13575,7 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="field_id i value són obligatoris")
     if reassign_to == value:
         raise HTTPException(status_code=400, detail="No es pot reassignar a la mateixa opció")
-    # Cicle de registre sota candau; reescriptura eager dels .md (async) fora.
+    # Registry cycle under lock; eager rewrite of the .md files (async) outside.
     with registry_mutation():
         registry = load_registry()
         table, prop = _find_table_and_prop(registry, table_id, field_ref)
@@ -13483,9 +13594,9 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
     return {"status": "ok", "files_changed": files_changed}
 
 
-# --- Catàlegs compartits amb nom (registry arrel `option_catalogs`) ---------
-# Diverses taules comparteixen la mateixa llista (p. ex. tags) referenciant-la
-# amb `config.catalog_ref`; editar el catàleg en un lloc actualitza pertot.
+# --- Named shared catalogs (root registry `option_catalogs`) ---------
+# Several tables share the same list (e.g. tags) by referencing it
+# with `config.catalog_ref`; editing the catalog in one place updates it everywhere.
 
 
 @router.get("/option-catalogs")
@@ -13505,7 +13616,7 @@ async def list_option_catalogs():
     "/option-catalogs/{name}", dependencies=[Depends(require_role("editor"))]
 )
 async def put_option_catalog(name: str, payload: dict = Body(...)):
-    """Crea o substitueix un catàleg compartit. Body: ``{options: [...]}``."""
+    """Creates or replaces a shared catalog. Body: ``{options: [...]}``."""
     clean = (name or "").strip()
     if not clean:
         raise HTTPException(status_code=400, detail="Catalog name is required")
@@ -13521,7 +13632,7 @@ async def put_option_catalog(name: str, payload: dict = Body(...)):
     "/option-catalogs/{name}", dependencies=[Depends(require_role("editor"))]
 )
 async def delete_option_catalog(name: str):
-    """Esborra un catàleg compartit. 409 si algun camp encara el referencia."""
+    """Deletes a shared catalog. 409 if any field still references it."""
     with registry_mutation():
         registry = load_registry()
         cats = registry.get("option_catalogs") or {}
@@ -13552,10 +13663,10 @@ async def list_views(table_id: Optional[str] = None):
 
     # ensure new configuration fields have sensible defaults so frontend
     # can render older views without modifications.
-    # CÒPIA per vista (com get_view): els dicts són referències a la caché
-    # compartida de load_registry — escriure-hi els defaults la mutava i el
-    # següent cicle de mutació els PERSISTIA al fitxer (cardSize="medium" a
-    # totes les vistes, també les no-galeria).
+    # COPY per view (like get_view): the dicts are references to the cache
+    # shared by load_registry — writing the defaults into it mutated it and the
+    # next mutation cycle would PERSIST them to the file (cardSize="medium" in
+    # all views, even non-gallery ones).
     out = []
     for v in views:
         v = dict(v)
@@ -13591,12 +13702,13 @@ async def create_view(view: dict = Body(...)):
 
 @router.put("/views/order", dependencies=[Depends(require_role("editor"))])
 async def reorder_views(body: dict = Body(...)):
-    """Reordena les vistes d'una taula segons l'ordre rebut.
+    """Reorders a table's views according to the received order.
 
     Body: {"table_id": "...", "ordered_ids": ["v1", "v2", "v3"]}.
-    Les vistes d'altres taules mantenen la seva posició relativa. Les vistes
-    de la taula referenciada es col·loquen al final del registry seguint
-    l'ordre indicat.
+    Views from other tables keep their relative position. Views
+    of the referenced table are placed at the end of the registry following
+    the given order.
+    
     """
     table_id = str(body.get("table_id") or "").strip()
     ordered_ids = body.get("ordered_ids") or []
@@ -13718,8 +13830,9 @@ async def update_view(view_id: str, data: dict = Body(...)):
 def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
     """Resolve `VAULT/folder/segments...` and ensure it stays under VAULT.
 
-    Raises HTTPException(400) si el `folder` que arriba per query string
-    intenta sortir del Vault (`../etc`, paths absoluts, símbolic links, etc.).
+    Raises HTTPException(400) if the `folder` arriving via query string
+    tries to escape the Vault (`../etc`, absolute paths, symbolic links, etc.).
+    
     """
     vault_root = get_p("VAULT").resolve()
     rel = str(folder or "").strip()
@@ -13733,7 +13846,7 @@ def _resolve_subpath_within_vault(folder: str, *segments: str) -> Path:
     return target
 
 
-# Ruta per retrocompatibilitat amb el frontend existent (SchemaConfigModal)
+# Route for backward compatibility with the existing frontend (SchemaConfigModal)
 @router.post("/schema", dependencies=[Depends(require_role("editor"))])
 async def save_schema(folder: str, schema: dict = Body(...)):
     """
@@ -13754,9 +13867,9 @@ async def get_schema(folder: str):
     try:
         return json.loads(schema_path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, OSError) as e:
-        # Schema corrupte (write a meitat des d'altres processos / sync OneDrive)
-        # → retornem {} en lloc de 500 perquè la UI pugui obrir la taula
-        # i sobreescriure-la des de SchemaConfigModal.
+        # Corrupt schema (partial write from other processes / OneDrive sync)
+        # → we return {} instead of 500 so the UI can open the table
+        # and overwrite it from SchemaConfigModal.
         log.warning(f"Schema {schema_path} corrupte o no llegible: {e}")
         return {}
 
@@ -13840,11 +13953,12 @@ async def get_drawing(drawing_id: str):
 
 
 def _backup_drawing_version(drawing_id: str, file_path: Path) -> None:
-    """Copia el .tldraw.json actual a .history/{id}/{ts}.tldraw.json abans de
-    sobreescriure'l. Última línia de defensa contra clients que desen un llenç
-    buit després d'una càrrega fallida (directiva tldraw_save_integrity.md).
-    Mateix cooldown de 10 min que `_create_page_version`: també evita que un
-    client trencat que desa en bucle clobberi el backup bo amb versions buides.
+    """Copies the current .tldraw.json to .history/{id}/{ts}.tldraw.json before
+    overwriting it. Last line of defense against clients that save an empty
+    canvas after a failed load (directive tldraw_save_integrity.md).
+    Same 10 min cooldown as `_create_page_version`: also prevents a broken
+    client saving in a loop from clobbering the good backup with empty versions.
+    
     """
     if not file_path.exists():
         return
@@ -13882,8 +13996,8 @@ async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
     }
 
     def _write() -> None:
-        # IO del vault (OneDrive pot haver de materialitzar fitxers
-        # online-only) fora de l'event loop — vegeu async_event_loop_vault_io.md
+        # Vault IO (OneDrive may need to materialize files
+        # online-only) outside the event loop — see async_event_loop_vault_io.md
         get_p("DIBUIXOS").mkdir(parents=True, exist_ok=True)
         _backup_drawing_version(drawing_id, file_path)
         safe_write_json(file_path, payload, indent=2, ensure_ascii=False)
@@ -13898,16 +14012,17 @@ async def save_drawing(drawing_id: str, request: DrawingSaveRequest):
 
 @router.delete("/drawings/{drawing_id}", dependencies=[Depends(require_role("editor"))])
 async def delete_drawing(drawing_id: str):
-    """Soft-delete: mou el dibuix a la paperera, com les pàgines.
+    """Soft-delete: moves the drawing to the trash, like pages.
 
-    Abans feia `unlink()` directe: esborrat instantani i IRREVERSIBLE —
-    l'única cosa de l'app sense els 90 dies de recuperació. I el backup
-    d'`.history` no salvava el cas: només existeix si el dibuix s'havia
-    sobreescrit algun cop (el primer desat no en crea), així que un dibuix
-    nou esborrat es perdia del tot. La mecànica de la paperera és agnòstica
-    del format (guarda el fitxer + sidecar amb `original_path` i restaura
-    allà), així que reutilitzem `_move_page_to_trash`: Restaurar/Purgar i el
-    cron dels 90 dies funcionen de franc.
+    It used to do a direct `unlink()`: instant and IRREVERSIBLE deletion —
+    the only thing in the app without the 90-day recovery window. And the
+    `.history` backup didn't cover this case: it only exists if the drawing
+    had been overwritten at some point (the first save doesn't create one), so
+    a newly created drawing that got deleted was lost entirely. The trash
+    mechanism is format-agnostic (it stores the file + a sidecar with
+    `original_path` and restores there), so we reuse `_move_page_to_trash`:
+    Restore/Purge and the 90-day cron work for free.
+    
     """
     drawing_id = _validate_safe_page_id(drawing_id)
     dib_path = get_p('DIBUIXOS')
@@ -13917,8 +14032,8 @@ async def delete_drawing(drawing_id: str):
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Drawing not found")
 
-    # Títol per a la paperera: del payload JSON del dibuix (el helper llegeix
-    # frontmatter de .md; en un JSON queda buit i la paperera mostraria l'id).
+    # Title for the trash: from the drawing's JSON payload (the helper reads
+    # frontmatter of .md; in a JSON it stays empty and the trash would show the id).
     title = ""
     try:
         title = str((json.loads(file_path.read_text(encoding="utf-8")) or {}).get("title") or "")
@@ -13944,12 +14059,13 @@ async def delete_drawing(drawing_id: str):
 def _create_page_version(page_id: str, file_path: Path, force: bool = False):
     """Saves a version of the current file to .history/{page_id}/{timestamp}.md if cooldown passed.
 
-    `force=True` salta el cooldown: és per als snapshots de SEGURETAT
-    d'accions explícites (p. ex. el "estat just abans del restore"). El
-    cooldown està pensat per no saturar amb autosaves; aplicar-lo també al
-    snapshot pre-restore feia que, si havies editat feia <10 min, l'estat
-    actual es descartés EN SILENCI i quedés irrecuperable després del
-    restore (reproduït: restaurar v1 amb v3 al disc perdia v3 per sempre).
+    `force=True` skips the cooldown: it's for the SAFETY snapshots
+    of explicit actions (e.g. the "state right before the restore"). The
+    cooldown is meant to avoid saturating with autosaves; applying it also to
+    the pre-restore snapshot meant that, if you had edited less than 10 min ago,
+    the current state would be SILENTLY discarded and become unrecoverable after
+    the restore (reproduced: restoring v1 with v3 on disk lost v3 forever).
+    
     """
     if not file_path or not file_path.exists():
         return
@@ -13970,9 +14086,9 @@ def _create_page_version(page_id: str, file_path: Path, force: bool = False):
         except Exception:
             pass
 
-    # Nom = timestamp a segons. Amb `force` es pot coincidir amb un snapshot
-    # existent del mateix segon: avancem el timestamp fins a un nom lliure
-    # per no sobreescriure mai una versió prèvia.
+    # Name = timestamp in seconds. With `force` it can coincide with a snapshot
+    # existing from the same second: we advance the timestamp until a free name
+    # in order to never overwrite a previous version.
     ts_dt = datetime.now()
     version_path = history_base / f"{ts_dt.strftime('%Y%m%d_%H%M%S')}.md"
     while version_path.exists():
@@ -13986,15 +14102,16 @@ def _create_page_version(page_id: str, file_path: Path, force: bool = False):
 
 
 def _create_page_version_from_content(page_id: str, original_content: str):
-    """Variant de `_create_page_version` que escriu directament el contingut
-    original passat com a paràmetre, sense haver de fer `shutil.copy2` del
-    fitxer. Pensat per executar-se com a `background_task` DESPRÉS que la
-    resposta al client ja s'hagi enviat: si esperéssim a copiar el fitxer
-    abans del `save_page_md`, l'usuari pagaria 50-300 ms d'I/O OneDrive
-    extra per cada PATCH; aquí ho fem en background amb el contingut que el
-    handler ja tenia en memòria.
+    """Variant of `_create_page_version` that writes the original content
+    directly as passed in as a parameter, without needing to `shutil.copy2` the
+    file. Meant to run as a `background_task` AFTER the
+    response to the client has already been sent: if we waited to copy the file
+    before `save_page_md`, the user would pay an extra 50-300 ms of OneDrive I/O
+    per PATCH; here we do it in the background with the content the
+    handler already had in memory.
 
-    Manté el cooldown de 10 min original.
+    Keeps the original 10 min cooldown.
+    
     """
     if not original_content:
         return
@@ -14085,9 +14202,9 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
          raise HTTPException(status_code=404, detail="Current page not found")
 
     # Save current version (state just before restoration) just in case.
-    # `force=True`: aquest snapshot és la XARXA DE SEGURETAT d'una acció
-    # destructiva explícita; amb el cooldown normal es descartava en silenci
-    # si hi havia hagut una edició fa <10 min i l'estat actual es perdia.
+    # `force=True`: this snapshot is the SAFETY NET for an
+    # explicit destructive action; with the normal cooldown it was silently discarded
+    # if there had been an edit <10 min ago and the current state was lost.
     _create_page_version(page_id, file_path, force=True)
     
     try:
@@ -14111,9 +14228,10 @@ async def restore_page_version(page_id: str, timestamp: str, background_tasks: B
 async def purge_page_history(page_id: str):
     """Deletes all version history of a page.
 
-    Important: `page_id` ha de passar `_validate_safe_page_id` ABANS de
-    construir el path. Sense això, `page_id=".."` faria
-    `shutil.rmtree(VAULT/.history/..)` = esborrar el Vault sencer.
+    Important: `page_id` must pass `_validate_safe_page_id` BEFORE
+    building the path. Without this, `page_id=".."` would do
+    `shutil.rmtree(VAULT/.history/..)` = deleting the entire Vault.
+    
     """
     page_id = _validate_safe_page_id(page_id)
     history_base = get_p("VAULT") / ".history" / page_id
@@ -14195,22 +14313,23 @@ async def _get_existing_translations(origin_id: str) -> Dict[str, Any]:
 async def _recover_translations_from_disk(
     origin_id: str, table_dir: Path, known_langs
 ) -> Dict[str, Any]:
-    """Xarxa de seguretat per a la idempotència de translate-row sota OneDrive.
+    """Safety net for translate-row idempotency under OneDrive.
 
-    `_get_existing_translations` mira el snapshot de l'índex en memòria. Si una
-    traducció filla existeix al disc però l'indexer NO l'ha pogut indexar —un
-    fitxer online-only (dataless) fa fallar el parse i queda com a entry *stub*
-    sense `translation_origin_id`/`translation_lang`, així que
-    `find_translations_of` no el reconeix— el lookup la dona per inexistent i
-    translate-row en crearia un DUPLICAT («… (2).md»).
+    `_get_existing_translations` looks at the in-memory index snapshot. If a
+    child translation exists on disk but the indexer was NOT able to index it —an
+    online-only (dataless) file makes the parse fail and it stays as a *stub* entry
+    without `translation_origin_id`/`translation_lang`, so
+    `find_translations_of` doesn't recognize it— the lookup treats it as nonexistent and
+    translate-row would create a DUPLICATE ("... (2).md").
 
-    Aquest respaldo escaneja el directori de la taula, materialitza els
-    online-only i reparseja el frontmatter per recuperar les traduccions filles
-    de `origin_id` dels idiomes que falten. Acotat al directori de la taula i
-    cridat NOMÉS quan falta algun idioma al snapshot, així que el cost és
-    marginal comparat amb les pròpies crides de traducció. Retorna
-    `{lang: SimpleNamespace(id, metadata)}` (mateixa forma d'accés `.id` que els
-    `PageInfo` del snapshot) per als idiomes no coneguts.
+    This fallback scans the table's directory, materializes the
+    online-only files and re-parses the frontmatter to recover the child translations
+    for `origin_id` of the missing languages. Scoped to the table's directory and
+    called ONLY when some language is missing from the snapshot, so the cost is
+    marginal compared to the translation calls themselves. Returns
+    `{lang: SimpleNamespace(id, metadata)}` (same `.id` access shape as the
+    `PageInfo` from the snapshot) for the unknown languages.
+    
     """
     from types import SimpleNamespace
 
@@ -14235,10 +14354,10 @@ async def _recover_translations_from_disk(
         lang = str(meta.get("translation_lang") or "").strip().lower()
         if lang and lang not in known and lang not in out:
             pid = meta.get("id")
-            # Reparem l'índex: inserim l'entrada recuperada (mateix patró que
-            # create_page) perquè el patch_page posterior —via find_page_path— la
-            # trobi, i quedi indexada per a futurs lookups. Sense això, l'update
-            # falla amb 404 perquè el fitxer no era a l'índex.
+            # We repair the index: insert the recovered entry (same pattern as
+            # create_page) so that the later patch_page —via find_page_path— can
+            # find it, and it stays indexed for future lookups. Without this, the update
+            # fails with 404 because the file wasn't in the index.
             try:
                 from backend.services.context_vars import get_active_vault_path
                 v_str = str(get_active_vault_path())
@@ -14256,11 +14375,11 @@ async def _recover_translations_from_disk(
 
 
 def _ensure_status_options_persisted(table_id: str, values: list) -> None:
-    """Best-effort: garanteix al registry DE DISC que el camp d'estat té les
-    opcions `values` (directiva §4.1.5: una regla mai falla per catàleg
-    incomplet). Es crida quan un efecte d'action_rules ha hagut de crear una
-    opció sobre la còpia en memòria de la taula — torna a aplicar el canvi
-    sobre una càrrega fresca i la persisteix."""
+    """Best-effort: ensures in the ON-DISK registry that the status field has the
+    `values` options (directive §4.1.5: a rule never fails due to an
+    incomplete catalog). Called when an action_rules effect has had to create an
+    option on the table's in-memory copy — it reapplies the change
+    on a fresh load and persists it."""
     try:
         with registry_mutation():
             reg = load_registry()
@@ -14284,10 +14403,10 @@ def _ensure_status_options_persisted(table_id: str, values: list) -> None:
 
 
 def _write_metadata_key_on_disk(page_id: str, file_path: Path, key: str, value) -> bool:
-    """Escriu UNA clau de metadata directament al fitxer (sense passar pel
-    PATCH: ni rule engine, ni etags, ni re-resolució per id — tenim el path).
-    Idempotent: si el valor ja hi és, no escriu. Refresca el cache com fa el
-    flag d'obsolescència. Usat pels efectes d'action_rules sobre l'original."""
+    """Writes a SINGLE metadata key directly to the file (without going through
+    the PATCH: no rule engine, no etags, no re-resolution by id — we already have the path).
+    Idempotent: if the value is already there, it doesn't write. Refreshes the cache like the
+    staleness flag does. Used by action_rules effects on the original."""
     try:
         raw = file_path.read_text(encoding="utf-8")
         md, body = parse_frontmatter(raw, file_path)
@@ -14332,9 +14451,10 @@ def _set_translation_stale_on_disk(
     "already stale → no write" short-circuit is what keeps autosave from
     triggering a write storm.
 
-    ``stale_status``: `(property, valor)` opcional de la regla `on_stale` de
-    la taula — en marcar stale, l'Estat de la traducció torna (p. ex.) a
-    «Esborrany» en la mateixa escriptura.
+    ``stale_status``: `(property, valor)` optional, from the table's `on_stale`
+    rule — when marking stale, the translation's Status reverts (e.g.) to
+    "Draft" in the same write.
+    
     """
     try:
         raw = file_path.read_text(encoding="utf-8")
@@ -14402,10 +14522,10 @@ def _propagate_translation_staleness(
         table = _table_by_id(get_table_id(new_md))
         if table and table.get("translation_enabled"):
             props = [p for p in (table.get("properties") or []) if p.get("translatable") is True]
-            # Claus per ID i per NOM (i àlies): el frontmatter persisteix per
-            # nom (vault_persist_by_name), però algunes files velles guarden
-            # per id. Comparar només per id no detectava MAI els canvis de les
-            # files per-nom i les traduccions no es marcaven obsoletes.
+            # Keys by ID and by NAME (and aliases): the frontmatter persists by
+            # name (vault_persist_by_name), but some old rows store
+            # by id. Comparing only by id NEVER detected changes in
+            # name-based rows and translations were never marked stale.
             keys = []
             for p in props:
                 for k in (p.get("id"), p.get("name"), *(p.get("aliases") or [])):
@@ -14429,8 +14549,8 @@ def _propagate_translation_staleness(
         translations = find_translations_of(canonical_id, _get_pages_snapshot())
         if not translations:
             return
-        # Regla on_stale (action_rules): a més del flag, l'Estat de cada
-        # traducció obsoleta torna a «Esborrany» (= pendent de revisió).
+        # on_stale rule (action_rules): besides the flag, the Status of each
+        # stale translation reverts to "Draft" (= pending review).
         stale_status = None
         if table:
             _sprop, _svalue, _schanged = action_rules_service.on_stale_effect(table)
@@ -14500,9 +14620,9 @@ async def _do_translate_row(
             detail="No translatable fields configured on this table.",
         )
 
-    # Salvaguarda d'action_rules (p. ex. «no es pot traduir un esborrany»):
-    # el frontend ja mostra el botó desactivat amb el motiu, però el backend
-    # revalida sempre (mai confiar només en el client). 409 amb el motiu.
+    # action_rules safeguard (e.g. «a draft cannot be translated»):
+    # the frontend already shows the button disabled with the reason, but the backend
+    # always revalidates (never trust the client alone). 409 with the reason.
     _ok, _reason = action_rules_service.check_requires(
         table, action_rules_service.ACTION_TRANSLATE, metadata
     )
@@ -14510,11 +14630,11 @@ async def _do_translate_row(
         raise HTTPException(status_code=409, detail=_reason)
 
     def _read_meta(prop: dict):
-        # El camp títol es desa sota la clau canònica `title`. La clau amb el
-        # NOM de la propietat (p. ex. "Títol") pot existir al frontmatter però
-        # BUIDA — per això s'ha de prioritzar `title` per als camps títol; si no,
-        # `_read_meta` retornava "" i el subitem acabava agafant el títol del
-        # primer camp de text ("Imatge Alt Text"). Veure bug "no veo resultados".
+        # The title field is saved under the canonical key `title`. The key with the
+        # property's NAME (e.g. "Title") may exist in the frontmatter but
+        # EMPTY — that's why `title` must be prioritized for title fields; otherwise,
+        # `_read_meta` would return "" and the subitem would end up taking the title from the
+        # first text field ("Imatge Alt Text"). See bug "no veo resultados".
         is_title = prop.get("type") == "title" or prop.get("name") == "title"
         candidate_keys = []
         if is_title:
@@ -14526,8 +14646,8 @@ async def _do_translate_row(
         if prop_name:
             candidate_keys.append(prop_name)
         if is_title:
-            candidate_keys.append("title")  # darrer recurs, ja inclòs abans
-        # Primer valor NO buit entre les claus candidates.
+            candidate_keys.append("title")  # last resort, already included before
+        # First NON-empty value among the candidate keys.
         fallback = None
         for key in candidate_keys:
             if key in metadata:
@@ -14540,13 +14660,13 @@ async def _do_translate_row(
                     fallback = val
         return fallback
 
-    # Source language: el camp "Idioma" del registre mana (si el té); altrament
-    # heurística sobre el text del camp traduïble més llarg. Així respectem la
-    # dada explícita de l'usuari en lloc d'endevinar (p. ex. ES marcat com a CA).
+    # Source language: the record's "Language" field takes precedence (if it has one); otherwise
+    # heuristic based on the text of the longest translatable field. This way we respect the
+    # user's explicit data instead of guessing (e.g. ES marked as CA).
     source_lang = detect_record_source_lang(metadata)
-    # Si l'origen ve del camp "Idioma" és una dada FIABLE (l'usuari l'ha declarat);
-    # si ve de la heurística de text, no tant. Ho recordem per decidir si podem
-    # confiar en la detecció per-camp del salt-traducció més avall.
+    # If the origin comes from the "Language" field, it is RELIABLE data (the user declared it);
+    # if it comes from the text heuristic, less so. We keep track of this to decide whether we can
+    # trust the per-field detection of the translation-skip further below.
     source_is_explicit = bool(source_lang)
     if not source_lang:
         sample = ""
@@ -14559,10 +14679,10 @@ async def _do_translate_row(
         source_lang = detect_fn(sample) if sample else "ca"
 
     def _translate_one(text: str, lang: str):
-        """Tradueix un string origen→`lang` respectant el salt per-camp (#309):
-        amb origen explícit (camp "Idioma") traduïm sempre; sense, si el camp ja
-        sembla en l'idioma destí es manté. Reusat per camps de text i pels
-        subcamps de text dels camps imatge. Retorna (traduït, provider)."""
+        """Translates a source string→`lang` respecting the per-field skip (#309):
+        with explicit origin ("Language" field) we always translate; without it, if the field already
+        looks like it's in the target language it is kept as is. Reused for text fields and for the
+        text subfields of image fields. Returns (translated, provider)."""
         if source_is_explicit:
             field_lang = ""
         else:
@@ -14584,10 +14704,10 @@ async def _do_translate_row(
         for p in translatable_props
     )
 
-    # El cos markdown de l'original també es tradueix (els articles tenen el text
-    # al cos, no només als camps). Reusem el segmentador de `translate_page`, que
-    # preserva codi, wikilinks, cites, etc. Si no és importable, el cos es deixa
-    # buit i només es tradueixen els camps (degradació, no error).
+    # The original's markdown body is also translated (articles have their text
+    # in the body, not just in the fields). We reuse the segmenter from `translate_page`, which
+    # preserves code, wikilinks, citations, etc. If it's not importable, the body is left
+    # empty and only the fields are translated (degradation, not an error).
     _translate_markdown = None
     if body and body.strip():
         try:
@@ -14599,10 +14719,10 @@ async def _do_translate_row(
 
     # Pre-fetch the already-existing translations so re-runs update instead of duplicate.
     existing_translations = await _get_existing_translations(item_id)
-    # Xarxa de seguretat OneDrive: si el snapshot de l'índex no té totes les
-    # traduccions demanades, és possible que existeixin al disc però l'indexer
-    # no les hagi pogut indexar (fitxers online-only/dataless → entry stub). Les
-    # recuperem del disc abans de crear, per no duplicar («… (2).md»).
+    # OneDrive safety net: if the index snapshot doesn't have all the
+    # requested translations, they might exist on disk but the indexer
+    # may not have been able to index them (online-only/dataless files → stub entry). We
+    # recover them from disk before creating, so as not to duplicate ("... (2).md").
     _requested_langs = {
         str(lang).strip().lower()
         for lang in target_languages
@@ -14615,11 +14735,11 @@ async def _do_translate_row(
         for _lang, _page in _recovered.items():
             existing_translations.setdefault(_lang, _page)
 
-    # Font MÉS fiable sota OneDrive: l'índex LOCAL de traduccions, que viu fora
-    # del Vault i mai és online-only (a diferència del snapshot i del disc, que
-    # fallen amb fitxers descarregats → es creaven duplicats). Hi confiem per als
-    # idiomes que les altres vies no han trobat, validant cada id contra el disc;
-    # si el subitem ja no existeix (esborrat), netegem l'entrada rància.
+    # MOST reliable source under OneDrive: the LOCAL translation index, which lives outside
+    # the Vault and is never online-only (unlike the snapshot and the disk, which
+    # fail with downloaded files → duplicates were created). We rely on it for
+    # languages that the other paths haven't found, validating each id against disk;
+    # if the subitem no longer exists (deleted), we clean up the stale entry.
     from types import SimpleNamespace as _SNS
     _local_known = await asyncio.to_thread(translation_index.get_known_translations, item_id)
     for _lang, _sid in _local_known.items():
@@ -14662,11 +14782,11 @@ async def _do_translate_row(
             # Persist by the same key the parent row uses, preferring stable id.
             key = prop.get("id") or prop.get("name")
 
-            # Camp imatge ({src, alt, title…} compost o ruta string): es manté la
-            # imatge (src, sense duplicar el fitxer — el subitem referencia el
-            # mateix) i només es tradueixen els subcamps de TEXT (alt, title,
-            # caption, credit). Una ruta string es copia tal qual (no es tradueix
-            # la ruta com si fos prosa). Detectat pel valor compost o pel nom.
+            # Image field ({src, alt, title…} composite or string path): it stays the
+            # image (src, without duplicating the file — the subitem references the
+            # same) and only the TEXT subfields are translated (alt, title,
+            # caption, credit). A string path is copied as-is (it is not translated
+            # as if the path were prose). Detected by the composite value or by the name.
             if is_composite_image_value(val) or (
                 (prop.get("type") == "image" or is_image_field_name(prop.get("name")))
                 and isinstance(val, (dict, str))
@@ -14695,20 +14815,20 @@ async def _do_translate_row(
             elif not first_text_translation and prop.get("type") in ("text", "rich_text"):
                 first_text_translation = translated
 
-        # Marca el camp "Idioma" del subitem amb l'idioma de la traducció (si la
-        # taula en té un). Abans quedava buit: el subitem heretava els camps
-        # traduïts però no deia en quina llengua estava. Reaprofita l'opció del
-        # catàleg que casi amb el codi; si no, hi posa el codi en majúscules
-        # ("CA", "EN"…). S'escriu DESPRÉS del bucle de camps perquè mani fins i
-        # tot si algú hagués marcat el propi camp idioma com a traduïble.
+        # Marks the subitem's "Language" field with the translation's language (if the
+        # table has one). It used to be left empty: the subitem inherited the
+        # translated fields but didn't say what language it was in. It reuses the
+        # catalog option that matches the code; if not, it puts the code in uppercase
+        # ("CA", "EN"…). It's written AFTER the field loop so that it takes precedence even
+        # if someone had marked the language field itself as translatable.
         lang_key, lang_value = language_field_assignment(properties, lang, metadata)
         if lang_key and lang_value is not None:
             sub_metadata[lang_key] = lang_value
 
-        # Efecte d'action_rules sobre la traducció creada O actualitzada:
-        # Estat «Esborrany» (= pendent de revisió humana; la salvaguarda de
-        # publicar bloqueja així traduccions no revisades). S'escriu com el
-        # camp idioma: via sub_metadata, que el create/patch fusiona.
+        # action_rules effect on the created OR updated translation:
+        # Status "Draft" (= pending human review; the safeguard for
+        # publishing thus blocks unreviewed translations). It's written like the
+        # language field: via sub_metadata, which create/patch merges.
         _eprop, _evalue, _echanged = action_rules_service.status_effect(
             table, action_rules_service.ACTION_TRANSLATE, "created"
         )
@@ -14719,8 +14839,8 @@ async def _do_translate_row(
             if _echanged:
                 _ensure_status_options_persisted(table_id, [_evalue])
 
-        # Traduir el cos markdown de l'original (si n'hi ha i el segmentador
-        # està disponible). El resultat és el `content` del subitem.
+        # Translate the markdown body of the original (if there is one and the segmenter
+        # is available). The result is the subitem's `content`.
         translated_body = ""
         if _translate_markdown is not None:
             try:
@@ -14730,7 +14850,7 @@ async def _do_translate_row(
                 providers_used |= {p for p in body_providers if p != "noop"}
             except Exception as exc:
                 log.warning(f"translate_row: failed translating body → {lang}: {exc}")
-                translated_body = body  # millor el text original que res
+                translated_body = body  # better the original text than nothing
 
         if not any_translated and not (translated_body and translated_body.strip()):
             skipped.append({"lang": lang, "reason": "no translatable content"})
@@ -14749,14 +14869,14 @@ async def _do_translate_row(
         existing = existing_translations.get(lang)
         existing_id = getattr(existing, "id", None) if existing is not None else None
         if existing_id:
-            # Materialitza el subitem si OneDrive l'ha descarregat (online-only)
-            # perquè el patch —que el llegeix per fer merge— no falli amb errno 35.
+            # Materialize the subitem if OneDrive has downloaded it (online-only)
+            # so that the patch —which reads it to merge— doesn't fail with errno 35.
             _existing_path = await asyncio.to_thread(find_page_path, existing_id)
             if _existing_path:
                 await _materialize_if_online_only(_existing_path, f"translate-patch/{existing_id}")
-            # Idempotent update: refresh títol, camps i cos. Només passem `content`
-            # si hem traduït cos; si no, el deixem com estava (None) per no
-            # esborrar un cos que l'usuari hagués pogut editar manualment.
+            # Idempotent update: refresh title, fields and body. We only pass `content`
+            # if we translated the body; if not, we leave it as it was (None) so as not to
+            # erase a body that the user might have edited manually.
             patch_req = PagePatchRequest(
                 title=sub_title,
                 metadata=sub_metadata,
@@ -14797,11 +14917,11 @@ async def _do_translate_row(
             log.error(f"translate_row: failed creating subitem for {lang}: {exc}")
             skipped.append({"lang": lang, "reason": f"create failed: {exc}"})
 
-    # Efecte d'action_rules sobre l'ORIGINAL: Estat «Traduït» quan almenys una
-    # traducció s'ha creat o actualitzat. Escriptura DIRECTA al path que ja
-    # tenim (com el flag d'obsolescència): sense re-resolució per id (l'índex
-    # pot estar a mig refrescar just després de crear la filla) ni rule
-    # engine. No re-marca les filles com a stale (no toca camps traduïbles).
+    # action_rules effect on the ORIGINAL: Status "Translated" when at least one
+    # translation has been created or updated. DIRECT write to the path we already
+    # have (like the staleness flag): without re-resolution by id (the index
+    # might be mid-refresh right after creating the child) nor rule
+    # engine. It does not re-mark the children as stale (it doesn't touch translatable fields).
     if created or updated:
         _sprop, _svalue, _schanged = action_rules_service.status_effect(
             table, action_rules_service.ACTION_TRANSLATE, "source"
@@ -14824,19 +14944,19 @@ async def _do_translate_row(
     }
 
 
-# === Sincronització amb Drupal: escriptura per fila ========================
-# Crea o actualitza un node de Drupal (i les seves traduccions) a partir d'una
-# fila del Vault, segons el mapatge de camps de la taula. Idempotent: ancorat
-# per `drupal_uuid` (metadata oculta). Resistent al WAF (crear=POST JSON:API,
+# === Synchronization with Drupal: per-row write ========================
+# Creates or updates a Drupal node (and its translations) from a
+# Vault row, according to the table's field mapping. Idempotent: anchored
+# by `drupal_uuid` (hidden metadata). Resilient to the WAF (create=POST JSON:API,
 # actualitzar/traduir=endpoints POST custom). Vegeu drupal_sync_service.py.
 
-# Pseudo-referència del mapatge que associa el COS markdown de la pàgina (no un
-# camp) a un camp de text ric de Drupal (p. ex. `body`).
+# Pseudo-reference in the mapping that associates the page's markdown BODY (not a
+# field) into a Drupal rich text field (e.g. `body`).
 DRUPAL_BODY_REF = "__body__"
 
 
 def _drupal_props_by_ref(table: dict) -> dict:
-    """Índex de propietats de la taula per id estable i per nom."""
+    """Index of the table's properties by stable id and by name."""
     out: Dict[str, dict] = {}
     for p in table.get("properties") or []:
         if p.get("id"):
@@ -14847,7 +14967,7 @@ def _drupal_props_by_ref(table: dict) -> dict:
 
 
 def _drupal_find_column(table: dict, name: str) -> Optional[dict]:
-    """Propietat per nom (case-insensitive); per a les columnes NID/URL."""
+    """Property by name (case-insensitive); for the NID/URL columns."""
     target = name.strip().lower()
     for p in table.get("properties") or []:
         if (p.get("name") or "").strip().lower() == target:
@@ -14856,9 +14976,9 @@ def _drupal_find_column(table: dict, name: str) -> Optional[dict]:
 
 
 def _drupal_identity_meta(table: dict, uuid, nid, url) -> Dict[str, Any]:
-    """Metadata d'identitat de Drupal a escriure a la fila: claus ocultes
-    (`drupal_uuid/nid/url`) + les columnes visibles "Drupal NID" / "Drupal URL"
-    si existeixen. Compartit pel sync i pel match per títol."""
+    """Drupal identity metadata to write to the row: hidden keys
+    (`drupal_uuid/nid/url`) + the visible columns "Drupal NID" / "Drupal URL"
+    if they exist. Shared by the sync and by the title match."""
     meta: Dict[str, Any] = {
         "drupal_uuid": uuid or "",
         "drupal_nid": str(nid) if nid is not None else "",
@@ -14874,7 +14994,7 @@ def _drupal_identity_meta(table: dict, uuid, nid, url) -> Dict[str, Any]:
 
 
 def _drupal_read_prop_value(metadata: dict, prop: dict):
-    """Valor d'una propietat al frontmatter, amb prioritat title→id→nom."""
+    """Value of a property in the frontmatter, prioritized title→id→name."""
     is_title = prop.get("type") == "title" or prop.get("name") == "title"
     keys = []
     if is_title:
@@ -14892,7 +15012,7 @@ def _drupal_read_prop_value(metadata: dict, prop: dict):
 
 
 def _drupal_coerce_scalar(value, field_type: Optional[str]):
-    """Adapta un valor escalar de Gnosi al tipus de camp de Drupal."""
+    """Adapts a Gnosi scalar value to the Drupal field type."""
     if value is None:
         return None
     if field_type in ("integer",):
@@ -14911,13 +15031,14 @@ def _drupal_coerce_scalar(value, field_type: Optional[str]):
 
 
 def _drupal_reanchor_home(p: Path) -> Path:
-    """Reancora un path absolut de OneDrive al HOME real si no existeix tal qual.
+    """Re-anchors an absolute OneDrive path to the real HOME if it doesn't exist as-is.
 
-    Els enllaços ``file://`` de la Biblioteca es van desar amb el nom d'usuari del
-    HOME del moment (p. ex. ``/Users/ismaelgarcia/``); si el HOME actual és un altre
-    (``/Users/ismaelgarciafernandez/``) el path no resol. Reancora el tram des de
-    ``/Library/CloudStorage/`` al HOME real (``HOME_HOST_PATH`` dins el contenidor,
-    o ``~``). Retorna el candidat si existeix; si no, el path original sense tocar.
+    The ``file://`` links from the Library were saved with the username of the
+    HOME at the time (e.g. ``/Users/ismaelgarcia/``); if the current HOME is different
+    (``/Users/ismaelgarciafernandez/``) the path doesn't resolve. It re-anchors the segment from
+    ``/Library/CloudStorage/`` to the real HOME (``HOME_HOST_PATH`` inside the container,
+    or ``~``). Returns the candidate if it exists; otherwise, the original path untouched.
+    
     """
     try:
         if p.exists():
@@ -14937,11 +15058,12 @@ def _drupal_reanchor_home(p: Path) -> Path:
 
 
 def _drupal_resolve_local_path(value) -> Optional[Path]:
-    """Resol el valor d'un camp d'imatge/fitxer a una ruta local al disc.
+    """Resolves the value of an image/file field to a local path on disk.
 
-    Cobreix les dues formes en què Gnosi desa els fitxers: rutes relatives al
-    Vault (``Assets/...``) i rutes absolutes / ``file://`` (Biblioteca). Reancora els
-    paths absoluts de OneDrive desats amb un altre nom d'usuari (``_drupal_reanchor_home``).
+    Covers the two ways Gnosi stores files: paths relative to the
+    Vault (``Assets/...``) and absolute paths / ``file://`` (Library). Re-anchors
+    absolute OneDrive paths saved under a different username (``_drupal_reanchor_home``).
+    
     """
     if not value:
         return None
@@ -14956,8 +15078,8 @@ def _drupal_resolve_local_path(value) -> Optional[Path]:
     p = Path(raw)
     if p.is_absolute():
         return _drupal_reanchor_home(p)
-    # Ruta relativa: és relativa a la carpeta Assets del Vault (igual que
-    # toServedAssetUrl al frontend), tant si porta el prefix "Assets/" com si no
+    # Relative path: it's relative to the Vault's Assets folder (same as
+    # toServedAssetUrl in the frontend), whether it carries the "Assets/" prefix or not
     # (p. ex. "Articles/x.jpg" → <Vault>/Assets/Articles/x.jpg).
     idx = raw.find("Assets/")
     rel = raw[idx + len("Assets/"):] if idx >= 0 else raw.lstrip("./")
@@ -14967,26 +15089,26 @@ def _drupal_resolve_local_path(value) -> Optional[Path]:
         return None
 
 
-# Optimització d'imatges per a WEB abans de pujar-les a Drupal. Les imatges del
-# Vault solen ser d'alta resolució (3-6 MB); les reduïm a 1600px i les recomprimim
-# (JPEG per a fotos, PNG per a gràfics plans o amb transparència) per servir-les
-# lleugeres i evitar el límit de 2 MiB de `field_image`. L'original al Vault queda
-# intacte (només es transforma la còpia que va a Drupal).
-_DRUPAL_IMAGE_MAX_BYTES = 1_900_000   # tope dur, sota el límit de 2 MiB de Drupal
-_DRUPAL_IMAGE_WEB_TARGET = 450_000    # objectiu web: optimitza si el pes supera ~450 KB
-_DRUPAL_IMAGE_MAX_DIM = 1600          # amplada/alçada màx (px) recomanada per a web
-_DRUPAL_JPEG_QUALITY = 82             # qualitat mínima recomanada per a web (bon detall, poc pes)
+# Image optimization for WEB before uploading them to Drupal. The
+# Vault's images tend to be high-resolution (3-6 MB); we downscale them to 1600px and recompress them
+# (JPEG for photos, PNG for flat graphics or ones with transparency) to serve them
+# lightweight and avoid the 2 MiB limit of `field_image`. The original in the Vault stays
+# intact (only the copy that goes to Drupal is transformed).
+_DRUPAL_IMAGE_MAX_BYTES = 1_900_000   # hard cap, under Drupal's 2 MiB limit
+_DRUPAL_IMAGE_WEB_TARGET = 450_000    # web target: optimize if the size exceeds ~450 KB
+_DRUPAL_IMAGE_MAX_DIM = 1600          # max width/height (px) recommended for web
+_DRUPAL_JPEG_QUALITY = 82             # minimum quality recommended for web (good detail, low weight)
 
 
 def _drupal_shrink_image(data: bytes, filename: str):
-    """Optimitza una imatge per a web i retorna ``(bytes, filename)``.
+    """Optimizes an image for web and returns ``(bytes, filename)``.
 
-    S'aplica SEMPRE que en millori el pes (no només quan supera el límit de Drupal):
-    redueix a ``_DRUPAL_IMAGE_MAX_DIM`` px i recomprimeix —JPEG q82 per a fotos, PNG
-    per a gràfics de pocs colors o amb transparència (preserva la nitidesa/alfa).
-    L'extensió pot passar a ``.jpg``. És un no-op si Pillow no hi és, si no és una
-    imatge, o si el resultat NO seria més petit que l'original (mai empitjora).
-    CPU-bound: crida-la dins ``asyncio.to_thread``."""
+    It's applied WHENEVER it improves the file size (not only when it exceeds Drupal's limit):
+    downscales to ``_DRUPAL_IMAGE_MAX_DIM`` px and recompresses —JPEG q82 for photos, PNG
+    for graphics with few colors or with transparency (preserves sharpness/alpha).
+    The extension may change to ``.jpg``. It's a no-op if Pillow isn't available, if it's not an
+    image, or if the result would NOT be smaller than the original (never makes it worse).
+    CPU-bound: call it inside ``asyncio.to_thread``."""
     try:
         from io import BytesIO
         from PIL import Image
@@ -14996,12 +15118,12 @@ def _drupal_shrink_image(data: bytes, filename: str):
         img = Image.open(BytesIO(data))
         img.load()
     except Exception:
-        return data, filename  # no és una imatge que Pillow sàpiga obrir
+        return data, filename  # not an image that Pillow knows how to open
     fmt = (img.format or "PNG").upper()
     stem = filename.rsplit(".", 1)[0] if "." in filename else filename
     w, h = img.size
     too_big = max(w, h) > _DRUPAL_IMAGE_MAX_DIM
-    # Si ja és lleugera I de mida web, no la toquem: un re-encode només la degradaria.
+    # If it's already lightweight AND web-sized, we don't touch it: a re-encode would only degrade it.
     if not too_big and len(data) <= _DRUPAL_IMAGE_WEB_TARGET:
         return data, filename
 
@@ -15020,15 +15142,15 @@ def _drupal_shrink_image(data: bytes, filename: str):
         img.convert("RGB").save(buf, format="JPEG", quality=q, optimize=True, progressive=True)
         return buf.getvalue()
 
-    # Transparència real → cal PNG (preserva l'alfa).
+    # Real transparency → PNG is needed (preserves alpha).
     has_alpha = False
     try:
         if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
             has_alpha = img.convert("RGBA").getchannel("A").getextrema()[0] < 255
     except Exception:
         has_alpha = (fmt == "PNG")
-    # Gràfic pla de pocs colors (logo, il·lustració) → PNG es veu millor i pesa poc;
-    # foto (molts colors) → JPEG, molt més lleuger.
+    # Flat graphic with few colors (logo, illustration) → PNG looks better and weighs little;
+    # photo (many colors) → JPEG, much lighter.
     is_graphic = False
     if not has_alpha:
         try:
@@ -15040,7 +15162,7 @@ def _drupal_shrink_image(data: bytes, filename: str):
         out = _png()
         return (out, filename) if len(out) < len(data) else (data, filename)
 
-    # Foto opaca → JPEG a qualitat web; només abaixa la qualitat si cal pel límit dur.
+    # Opaque photo → JPEG at web quality; only lower the quality if needed for the hard limit.
     best = data
     for q in (_DRUPAL_JPEG_QUALITY, 75, 65, 55):
         cand = _jpeg(q)
@@ -15050,18 +15172,18 @@ def _drupal_shrink_image(data: bytes, filename: str):
     return (best, f"{stem}.jpg") if len(best) < len(data) else (data, filename)
 
 
-# Els PDFs del Vault (escanejats, alta resolució) poden pesar desenes de MB i fer
-# fallar la pujada o omplir el servidor. Ghostscript els recomprimeix a un compromís
-# qualitat/pes raonable (/ebook ≈ 150 dpi) abans de pujar-los, mantenint l'original
-# al Vault intacte.
-_DRUPAL_GS_PDF_SETTING = "/ebook"  # ~150 dpi: compromís qualitat/pes per a web
+# The Vault's PDFs (scanned, high-resolution) can weigh dozens of MB and cause
+# the upload to fail or fill up the server. Ghostscript recompresses them to a compromise
+# reasonable quality/weight (/ebook ≈ 150 dpi) before uploading them, keeping the original
+# in the Vault intact.
+_DRUPAL_GS_PDF_SETTING = "/ebook"  # ~150 dpi: quality/size trade-off for web
 
 
 def _drupal_shrink_pdf(data: bytes, filename: str):
-    """Comprimeix un PDF amb Ghostscript (``/ebook``) si en redueix el pes. Retorna
-    ``(bytes, filename)``. És un no-op (retorna l'original) si no és un PDF, si ``gs``
-    no està instal·lat (p. ex. al host de dev), si la compressió peta/excedeix el
-    temps, o si el resultat no és més petit. CPU/IO-bound: crida-la dins
+    """Compresses a PDF with Ghostscript (``/ebook``) if it reduces the size. Returns
+    ``(bytes, filename)``. It's a no-op (returns the original) if it's not a PDF, if ``gs``
+    isn't installed (e.g. on the dev host), if the compression fails/exceeds the
+    timeout, or if the result isn't smaller. CPU/IO-bound: call it inside
     ``asyncio.to_thread``."""
     if data[:5] != b"%PDF-":
         return data, filename
@@ -15074,7 +15196,7 @@ def _drupal_shrink_pdf(data: bytes, filename: str):
             out_path = os.path.join(td, "out.pdf")
             with open(in_path, "wb") as f:
                 f.write(data)
-            # Llista d'arguments (mai shell=True) amb paths controlats → sense injecció.
+            # Argument list (never shell=True) with controlled paths → no injection.
             subprocess.run(
                 [
                     "gs", "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.4",
@@ -15087,7 +15209,7 @@ def _drupal_shrink_pdf(data: bytes, filename: str):
             if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
                 with open(out_path, "rb") as f:
                     out = f.read()
-                # Valida que la sortida és un PDF real i estrictament més petit.
+                # Validates that the output is a real PDF and strictly smaller.
                 if out[:5] == b"%PDF-" and len(out) < len(data):
                     return out, filename
     except Exception as exc:  # gs absent, timeout, sortida corrupta… → original
@@ -15096,15 +15218,16 @@ def _drupal_shrink_pdf(data: bytes, filename: str):
 
 
 async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, image_cache):
-    """Puja un fitxer local a un camp d'imatge/fitxer i retorna la relació JSON:API.
+    """Uploads a local file to an image/file field and returns the JSON:API relationship.
 
-    Materialitza els fitxers online-only de OneDrive abans de llegir-los i
-    reaprofita un fitxer ja pujat dins la mateixa execució (cache per ruta).
-    Retorna ``None`` si no es pot resoldre el fitxer.
+    Materializes OneDrive online-only files before reading them and
+    reuses a file already uploaded within the same run (cache per path).
+    Returns ``None`` if the file can't be resolved.
+    
     """
     from backend.services import drupal_sync_service as drupal
 
-    # Camp imatge COMPOST {src, alt, title} o string (ruta) — retrocompatible.
+    # COMPOSITE image field {src, alt, title} or string (path) — backward-compatible.
     if isinstance(value, dict):
         src = value.get("src") or value.get("url") or value.get("path")
         comp_alt = value.get("alt")
@@ -15121,16 +15244,16 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
     file_uuid = image_cache.get(key)
     if not file_uuid:
         data = await asyncio.to_thread(path.read_bytes)
-        # Redueix el pes abans de pujar (manté l'original al Vault intacte): els
-        # PDFs amb Ghostscript (/ebook), la resta com a imatge amb Pillow. Tots dos
-        # són no-op si ja són prou petits o si l'eina no és disponible.
+        # Reduces the size before uploading (keeps the original in the Vault intact): the
+        # PDFs with Ghostscript (/ebook), everything else as an image with Pillow. Both
+        # are no-ops if they're already small enough or the tool isn't available.
         if data[:5] == b"%PDF-":
             data, upload_name = await asyncio.to_thread(_drupal_shrink_pdf, data, path.name)
         else:
             data, upload_name = await asyncio.to_thread(_drupal_shrink_image, data, path.name)
-        # Reaprofita un fitxer ja pujat a Drupal amb el mateix nom i mida: evita
-        # crear còpies «_0/_1/…» a cada re-sincronització (inflaven sites/default/files
-        # fins a centenars de duplicats de la mateixa imatge — vegeu find_existing_file).
+        # Reuses a file already uploaded to Drupal with the same name and size: avoids
+        # creating «_0/_1/…» copies on every re-sync (they were bloating sites/default/files
+        # up to hundreds of duplicates of the same image — see find_existing_file).
         file_uuid = await drupal.find_existing_file(upload_name, len(data))
         if not file_uuid:
             file_uuid = await drupal.upload_image(bundle, drupal_field, upload_name, data)
@@ -15142,9 +15265,9 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
     return {"data": {"type": "file--file", "id": file_uuid, "meta": meta}}
 
 
-# Preprocessat del markdown de Gnosi abans d'enviar-lo a Drupal: resol els
-# wikilinks `[[...]]` (a enllaç del node si el target ja està sincronitzat, o a
-# text pla) i treu els embeds `![[...]]`. La tipografia i els blocs `:::` els
+# Preprocessing of Gnosi markdown before sending it to Drupal: resolves
+# wikilinks `[[...]]` (into a link to the node if the target is already synced, or into
+# plain text) and strips embeds `![[...]]`. Typography and `:::` blocks are
 # gestiona pandoc (vegeu drupal_sync_service.markdown_to_full_html).
 _DRUPAL_EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
 _DRUPAL_WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
@@ -15152,7 +15275,7 @@ _DRUPAL_UUID_RE = re.compile(r"^[0-9a-fA-F-]{32,36}$")
 
 
 def _drupal_resolve_title_to_id(title: str) -> Optional[str]:
-    """Títol → page_id via l'índex en memòria (com /resolve-by-title)."""
+    """Title → page_id via the in-memory index (like /resolve-by-title)."""
     tl = str(title or "").strip().lower()
     if not tl:
         return None
@@ -15172,7 +15295,7 @@ def _drupal_resolve_title_to_id(title: str) -> Optional[str]:
 
 
 def _drupal_wikilink_url(target: str, cache: dict) -> Optional[str]:
-    """URL de Drupal del node d'un target de wikilink (títol o uuid), o None."""
+    """Drupal URL of a wikilink target's node (title or uuid), or None."""
     base = target.split("#", 1)[0].strip()
     if not base:
         return None
@@ -15193,7 +15316,7 @@ def _drupal_wikilink_url(target: str, cache: dict) -> Optional[str]:
 
 
 def _drupal_preprocess_md(md: str, *, cache: Optional[dict] = None) -> str:
-    """Adapta el markdown de Gnosi per a Drupal: treu embeds i resol wikilinks."""
+    """Adapts Gnosi markdown for Drupal: strips embeds and resolves wikilinks."""
     if not md:
         return md
     cache = cache if cache is not None else {}
@@ -15217,18 +15340,18 @@ def _drupal_preprocess_md(md: str, *, cache: Optional[dict] = None) -> str:
 
 
 def _drupal_md_to_html(text: str, wl_cache: dict) -> str:
-    """Preprocessa (wikilinks/embeds) i converteix a HTML amb pandoc. Bloquejant."""
+    """Preprocesses (wikilinks/embeds) and converts to HTML with pandoc. Blocking."""
     from backend.services import drupal_sync_service as drupal
 
     return drupal.markdown_to_full_html(_drupal_preprocess_md(text or "", cache=wl_cache))
 
 
 def _drupal_media_signatures(mapping, props_by_ref, field_meta, metadata) -> Dict[str, str]:
-    """Signatura per camp NO-text (imatge/fitxer i tags) per detectar canvis entre
-    syncs i evitar re-pujar/reescriure el que no ha canviat. image/file →
-    ``"mida:mtime"`` del fitxer font; entity_reference (tags) → noms normalitzats i
-    ordenats. Els camps sense valor o no resolubles s'ometen. No materialitza fitxers
-    (només llegeix ``stat``), així que és barata."""
+    """Signature for NON-text fields (image/file and tags) to detect changes between
+    syncs and avoid re-uploading/rewriting what hasn't changed. image/file →
+    ``"size:mtime"`` of the source file; entity_reference (tags) → normalized and
+    sorted names. Fields with no value or that can't be resolved are skipped. Doesn't materialize files
+    (only reads ``stat``), so it's cheap."""
     sigs: Dict[str, str] = {}
     for ref, drupal_field in (mapping or {}).items():
         if not drupal_field:
@@ -15261,22 +15384,23 @@ async def _drupal_build_fields(
     *, mapping, props_by_ref, field_meta, metadata, body, bundle,
     term_cache, image_cache, text_only=False, media_only=False,
 ):
-    """Construeix (attributes, relationships, skipped) d'un registre.
+    """Builds (attributes, relationships, skipped) for a record.
 
-    ``field_meta``: ``{field_name: {"type":.., "vocab":..}}``. Amb ``text_only``
-    només es construeixen text/escalars/cos — taxonomia i imatge a Drupal són
-    camps compartits entre traduccions, no es tradueixen. Amb ``media_only``
-    es construeixen els camps NO-text compartits entre traduccions: imatge/fitxer
-    **i taxonomia (tags)** — per re-empènyer-los en actualitzar un node ja existent
-    (el camí de text no els toca). Nota: si una fila es queda sense cap tag, el camp
-    no s'envia i els tags antics NO es buiden a Drupal (només s'afegeixen/reemplacen).
+    ``field_meta``: ``{field_name: {"type":.., "vocab":..}}``. With ``text_only``
+    only text/scalars/body are built — taxonomy and image in Drupal are
+    fields shared between translations, they aren't translated. With ``media_only``
+    the NON-text fields shared between translations are built: image/file
+    **and taxonomy (tags)** — to re-push them when updating an already existing node
+    (the text path doesn't touch them). Note: if a row ends up with no tags, the field
+    isn't sent and old tags are NOT cleared in Drupal (only added/replaced).
+    
     """
     from backend.services import drupal_sync_service as drupal
 
     attributes: Dict[str, Any] = {}
     relationships: Dict[str, Any] = {}
     skipped: list = []
-    wl_cache: Dict[str, Any] = {}  # cache de resolució de wikilinks per a aquesta crida
+    wl_cache: Dict[str, Any] = {}  # wikilink resolution cache for this call
     for ref, drupal_field in (mapping or {}).items():
         if not drupal_field:
             continue
@@ -15286,7 +15410,7 @@ async def _drupal_build_fields(
             if media_only:
                 continue
             if not (body or "").strip():
-                continue  # cos buit: no l'enviïs (evita esborrar el cos a Drupal)
+                continue  # empty body: don't send it (avoids clearing the body in Drupal)
             html = await asyncio.to_thread(_drupal_md_to_html, body, wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
             continue
@@ -15302,8 +15426,8 @@ async def _drupal_build_fields(
             html = await asyncio.to_thread(_drupal_md_to_html, str(value), wl_cache)
             attributes[drupal_field] = {"value": html, "format": "full_html"}
         elif ftype == "entity_reference":
-            # Tags: camp compartit no-text → s'inclou en crear i en re-empènyer
-            # mèdia (media_only), però NO en el camí de només-text (text_only).
+            # Tags: shared non-text field → included on create and on re-push
+            # media (media_only), but NOT in the text-only path (text_only).
             if text_only:
                 continue
             vocab = meta.get("vocab") or "tags"
@@ -15339,9 +15463,9 @@ async def _drupal_build_fields(
 
 
 def _drupal_sibling_rows(table_id, nid, exclude_id):
-    """Files germanes: altres registres de la mateixa taula vinculats al MATEIX
-    node de Drupal (mateix nid), cada un en el seu idioma. Per a taules on les
-    traduccions són files separades (no subitems)."""
+    """Sibling rows: other records in the same table linked to the SAME
+    Drupal node (same nid), each in its own language. For tables where
+    translations are separate rows (not subitems)."""
     if not nid:
         return []
     out = []
@@ -15363,7 +15487,7 @@ _DRUPAL_LANGCODES_CACHE = None
 
 
 async def _drupal_langcodes() -> set:
-    """Langcodes configurats a Drupal (cache de procés). P. ex. {'ca','es','en-gb'}."""
+    """Langcodes configured in Drupal (process cache). E.g. {'ca','es','en-gb'}."""
     global _DRUPAL_LANGCODES_CACHE
     if _DRUPAL_LANGCODES_CACHE is not None:
         return _DRUPAL_LANGCODES_CACHE
@@ -15386,9 +15510,9 @@ async def _drupal_langcodes() -> set:
 
 
 async def _drupal_resolve_langcode(metadata: dict) -> str:
-    """Mapa el camp Idioma de la fila al langcode REAL de Drupal, que pot ser
-    regional (p. ex. 'en-gb', no 'en'). Si no hi ha match, cau a la normalització
-    de 2 lletres."""
+    """Maps the row's Language field to the REAL Drupal langcode, which may be
+    regional (e.g. 'en-gb', not 'en'). If there's no match, falls back to 2-letter
+    normalization."""
     langs = await _drupal_langcodes()
     raw = detect_record_lang_raw(metadata)  # 'en-gb'
     if raw and langs:
@@ -15407,9 +15531,9 @@ _DRUPAL_FIELD_TRANSLATABLE_CACHE: dict = {}
 
 
 async def _drupal_uuid_to_fid(file_uuid):
-    """uuid d'un fitxer de Drupal → el seu fid intern. Cal per posar field_image a
-    les traduccions: el TranslationController fa un set() genèric i el camp imatge
-    espera ``{target_id: fid, alt: ...}`` (no el format relació JSON:API per uuid)."""
+    """uuid of a Drupal file → its internal fid. Needed to set field_image on
+    translations: the TranslationController does a generic set() and the image field
+    expects ``{target_id: fid, alt: ...}`` (not the JSON:API relationship format by uuid)."""
     if not file_uuid:
         return None
     from backend.services import drupal_sync_service as drupal
@@ -15426,8 +15550,8 @@ async def _drupal_uuid_to_fid(file_uuid):
 
 
 async def _drupal_field_translatable(bundle: str, field_name: str) -> bool:
-    """True si el camp del bundle és TRADUÏBLE a Drupal (cache). Si ho és, cada
-    traducció necessita el seu valor (p. ex. field_image amb el seu alt)."""
+    """True if the bundle's field is TRANSLATABLE in Drupal (cache). If so, each
+    translation needs its own value (e.g. field_image with its own alt)."""
     key = f"{bundle}.{field_name}"
     if key in _DRUPAL_FIELD_TRANSLATABLE_CACHE:
         return _DRUPAL_FIELD_TRANSLATABLE_CACHE[key]
@@ -15452,7 +15576,7 @@ async def _drupal_field_translatable(bundle: str, field_name: str) -> bool:
 
 
 def _drupal_image_mapping(mapping, field_meta):
-    """(ref_prop, camp_drupal) del primer camp imatge/fitxer del mapatge, o (None, None)."""
+    """(ref_prop, drupal_field) of the first image/file field in the mapping, or (None, None)."""
     for ref, dfield in (mapping or {}).items():
         if dfield and (field_meta.get(dfield) or {}).get("type") in ("image", "file"):
             return ref, dfield
@@ -15460,8 +15584,8 @@ def _drupal_image_mapping(mapping, field_meta):
 
 
 def _drupal_row_image_alt(metadata, props_by_ref, image_ref) -> str:
-    """Alt de la imatge d'una fila: del compost {src,alt}, o d'un camp 'Alt' orfe
-    (files no migrades), o el títol com a fallback."""
+    """Image alt text for a row: from the {src,alt} composite, or from an orphaned 'Alt'
+    field (unmigrated rows), or the title as a fallback."""
     if image_ref:
         prop = props_by_ref.get(image_ref)
         if prop:
@@ -15475,16 +15599,16 @@ def _drupal_row_image_alt(metadata, props_by_ref, image_ref) -> str:
 
 
 async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta, bundle, term_cache, image_cache):
-    """Llegeix una fila i en construeix els camps de TEXT (per a add_translation).
-    Retorna (fields, langcode) o (None, None) si no es pot llegir."""
+    """Reads a row and builds its TEXT fields (for add_translation).
+    Returns (fields, langcode) or (None, None) if it can't be read."""
     fp = await asyncio.to_thread(find_page_path, page_id)
     if not fp or not fp.exists():
         return None, None, None
     await _materialize_if_online_only(fp, "drupal-sync")
     raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
     meta, bdy = parse_frontmatter(raw, fp)
-    # Camps derivats (`type:'virtual'`, p. ex. «Progrés») no es desen al .md:
-    # s'injecten en llegir perquè el sync els pugui mapejar a Drupal.
+    # Derived fields (`type:'virtual'`, e.g. «Progress») aren't saved to the .md:
+    # they're injected on read so the sync can map them to Drupal.
     _vf_table = _table_by_id(get_table_id(meta))
     if _vf_table:
         await asyncio.to_thread(
@@ -15502,17 +15626,18 @@ async def _drupal_row_text_fields(page_id, *, mapping, props_by_ref, field_meta,
 
 
 async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks, publish: bool = True, scope: str = "all", push_media: bool = False) -> dict:
-    """Crea o actualitza el node de Drupal d'una fila.
+    """Creates or updates a row's Drupal node.
 
     ``scope``:
-      - ``"all"``: l'idioma d'aquesta fila + totes les traduccions (subitems) i
-        les files germanes (mateix node, un registre per idioma).
-      - ``"lang_only"``: només l'idioma d'aquesta fila.
-    Crear un node nou puja imatge/tags; actualitzar només toca el TEXT de
-    l'idioma corresponent (``add_translation``), sense re-pujar la imatge.
-    Amb ``push_media`` també es torna a pujar i re-enllaçar la imatge (i el seu
-    alt) en actualitzar un node ja existent.
-    Amb ``publish=False`` el node nou es crea despublicat.
+      - ``"all"``: this row's language + all translations (subitems) and
+        sibling rows (same node, one record per language).
+      - ``"lang_only"``: only this row's language.
+    Creating a new node uploads image/tags; updating only touches the TEXT of
+    the corresponding language (``add_translation``), without re-uploading the image.
+    With ``push_media`` the image (and its alt) is also re-uploaded and re-linked
+    when updating an already existing node.
+    With ``publish=False`` the new node is created unpublished.
+    
     """
     from backend.services import drupal_sync_service as drupal
 
@@ -15529,13 +15654,13 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
         raise HTTPException(status_code=400, detail="Row is not part of a table")
     if not table.get("drupal_sync_enabled"):
         raise HTTPException(status_code=400, detail="Drupal sync is not enabled on this table")
-    # Injecta camps derivats (p. ex. «Progrés») abans de construir els camps Drupal.
+    # Injects derived fields (e.g. «Progress») before building the Drupal fields.
     await asyncio.to_thread(
         _vf_inject_for_single_page, table, str(metadata.get("id") or item_id),
         metadata, get_p("DATABASES") / "vault_graph.json", _vf_page_loader,
     )
-    # Salvaguarda d'action_rules («no es pot sincronitzar un esborrany»): el
-    # backend revalida sempre el que el frontend ja mostra com a botó desactivat.
+    # action_rules safeguard («a draft cannot be synced»): the
+    # backend always revalidates what the frontend already shows as a disabled button.
     _ok, _reason = action_rules_service.check_requires(
         table, action_rules_service.ACTION_SYNC_DRUPAL, metadata
     )
@@ -15566,8 +15691,8 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     skipped_fields: list = []
     languages: list = []
 
-    # Camps de TEXT d'aquesta fila (per actualitzar el seu idioma sense re-pujar
-    # la imatge). El build complet (imatge/tags) només es fa en CREAR el node.
+    # TEXT fields of this row (to update its language without re-uploading
+    # the image). The full build (image/tags) is only done when CREATING the node.
     text_attrs, _, _ = await _drupal_build_fields(
         mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
         metadata=metadata, body=body, bundle=bundle,
@@ -15576,9 +15701,9 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     if not text_attrs.get("title"):
         text_attrs["title"] = str(metadata.get("title") or "Sense títol")
 
-    # field_image TRADUÏBLE: prepara un fitxer compartit (pujat un cop, del
-    # registre principal) per posar-lo a CADA traducció amb el seu alt propi. Si
-    # el camp no és traduïble, Drupal el comparteix sol i no cal fer-ho per idioma.
+    # TRANSLATABLE field_image: prepares a shared file (uploaded once, from the
+    # main record) to set it on EACH translation with its own alt. If
+    # the field isn't translatable, Drupal shares it automatically and there's no need to do it per language.
     image_ref, image_field = _drupal_image_mapping(mapping, field_meta)
     shared_img_fid = None
     if image_field and await _drupal_field_translatable(bundle, image_field):
@@ -15592,7 +15717,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
                 skipped_fields.append({"field": image_field, "reason": f"image(trad): {exc}"})
 
     def _img_field(meta):
-        """field_image per a una traducció: fitxer compartit + l'alt d'aquesta fila."""
+        """field_image for a translation: shared file + this row's alt."""
         if not (shared_img_fid and image_field):
             return {}
         return {image_field: {"target_id": shared_img_fid, "alt": _drupal_row_image_alt(meta, props_by_ref, image_ref)}}
@@ -15602,10 +15727,10 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     nid = None
     url = None
     created = False
-    # Evita DUPLICATS: si la fila no està enllaçada però ja existeix un node del
-    # mateix títol exacte, enllaça-t'hi (i actualitza) en comptes de crear-ne un
-    # de nou (que Drupal desambiguaria amb un àlies '-0'). Si n'hi ha >1 (ja hi ha
-    # duplicat), no desambiguem automàticament: cau a crear i cal neteja manual.
+    # Avoids DUPLICATES: if the row isn't linked but a node with the
+    # exact same title already exists, link to it (and update) instead of creating a
+    # new one (which Drupal would disambiguate with a '-0' alias). If there's >1 (there's already a
+    # duplicate), we don't auto-disambiguate: it falls back to creating and needs manual cleanup.
     if not drupal_uuid:
         title_txt = str(metadata.get("title") or "").strip()
         try:
@@ -15619,16 +15744,16 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             log.info("sync-drupal: '%s' enllaçat per títol al node %s (evita duplicat)", title_txt[:40], nid)
     try:
         if drupal_uuid:
-            # Actualitza NOMÉS l'idioma d'aquesta fila (text), al langcode correcte.
+            # Updates ONLY this row's language (text), at the correct langcode.
             try:
                 r = await drupal.add_translation(drupal_uuid, source_lang, {**text_attrs, **_img_field(metadata)})
                 nid = r.get("nid")
                 url = prev_url or (f"{drupal.base_url()}/node/{nid}" if nid else prev_url)
                 languages.append(source_lang)
             except drupal.DrupalNotFound:
-                drupal_uuid = None  # uuid ranci → crear de nou
+                drupal_uuid = None  # stale uuid → create anew
         if not drupal_uuid:
-            # Node NOU: build complet (imatge/tags/cos) en l'idioma de la fila.
+            # NEW node: full build (image/tags/body) in the row's language.
             full_attrs, relationships, skipped_fields = await _drupal_build_fields(
                 mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
                 metadata=metadata, body=body, bundle=bundle,
@@ -15645,9 +15770,9 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             languages.append(source_lang)
     except drupal.DrupalSyncError as exc:
         msg = str(exc)
-        # Cas freqüent: l'article exigeix `field_image` però la imatge no s'ha
-        # pogut preparar (massa gran tot i reduir, inexistent o format no vàlid).
-        # Missatge clar en comptes del 422/502 cru de Drupal.
+        # Common case: the article requires `field_image` but the image couldn't
+        # be prepared (too large even after reducing, missing, or invalid format).
+        # Clear message instead of Drupal's raw 422/502.
         if "field_image" in msg:
             img_reason = next(
                 (s.get("reason") for s in (skipped_fields or [])
@@ -15660,12 +15785,12 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             raise HTTPException(status_code=400, detail=detail)
         raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
-    # --- Re-empènyer mèdia (imatge/fitxer) i tags en ACTUALITZAR ---
-    # En crear, mèdia i tags ja s'inclouen; el camí de text d'actualització no els
-    # toca. Amb push_media es re-pugen/reescriuen via update_node (camps compartits
-    # entre traduccions → n'hi ha prou de fer-ho un cop per al node). Detecció de
-    # canvi: només es re-puja si la signatura de mèdia/tags difereix de l'últim sync,
-    # per evitar re-pujar i crear+esborrar fitxers a Drupal a cada toc innecessàriament.
+    # --- Re-push media (image/file) and tags on UPDATE ---
+    # On create, media and tags are already included; the text update path doesn't
+    # touches. With push_media they are re-uploaded/rewritten via update_node (shared fields
+    # between translations → it's enough to do it once for the node). Detection of
+    # change: only re-uploaded if the media/tags signature differs from the last sync,
+    # to avoid needlessly re-uploading and creating+deleting files in Drupal on every touch.
     media_pushed = False
     cur_media_sig = None
     if push_media and drupal_uuid and not created:
@@ -15686,10 +15811,10 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
                 except drupal.DrupalSyncError as exc:
                     skipped_fields.append({"field": "media", "reason": str(exc)})
 
-    # --- Abast "tot el node": traduccions (subitems) + files germanes ---
+    # --- "whole node" scope: translations (subitems) + sibling rows ---
     translations: list = []
     if scope == "all" and drupal_uuid:
-        # 1) Traduccions com a subitems (parent + subitems fills).
+        # 1) Translations as subitems (parent + child subitems).
         existing = await _get_existing_translations(item_id)
         for lang, page in (existing or {}).items():
             sub_id = getattr(page, "id", None)
@@ -15698,7 +15823,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             tfields, tlang, tmeta = await _drupal_row_text_fields(
                 sub_id, mapping=mapping, props_by_ref=props_by_ref, field_meta=field_meta,
                 bundle=bundle, term_cache=term_cache, image_cache=image_cache)
-            tlang = tlang or lang  # langcode REAL de Drupal (p. ex. en-gb, no en)
+            tlang = tlang or lang  # REAL Drupal langcode (e.g. en-gb, not en)
             if not tfields:
                 translations.append({"lang": tlang, "status": "skipped (sense text)"})
                 continue
@@ -15708,7 +15833,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
                 languages.append(tlang)
             except drupal.DrupalSyncError as exc:
                 translations.append({"lang": tlang, "status": f"error: {exc}"})
-        # 2) Files germanes: altres registres del mateix node (un per idioma).
+        # 2) Sibling rows: other records of the same node (one per language).
         siblings = await asyncio.to_thread(_drupal_sibling_rows, table_id, nid, item_id)
         for sib in siblings:
             tfields, sib_lang, smeta = await _drupal_row_text_fields(
@@ -15723,10 +15848,10 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             except drupal.DrupalSyncError as exc:
                 translations.append({"lang": sib_lang, "row": sib.id, "status": f"error: {exc}"})
 
-    # --- Escriu identitat a la fila (columnes visibles + metadata oculta) ---
+    # --- Writes identity to the row (visible columns + hidden metadata) ---
     meta_update = _drupal_identity_meta(table, drupal_uuid, nid, url)
-    # Efecte d'action_rules en èxit: Estat → «Publicat a Drupal» (decisió §9.3
-    # de la directiva). Viatja en el mateix patch que la identitat.
+    # action_rules effect on success: Status → «Published to Drupal» (decision §9.3
+    # from the directive). Travels in the same patch as the identity.
     _eprop, _evalue, _echanged = action_rules_service.status_effect(
         table, action_rules_service.ACTION_SYNC_DRUPAL, "source"
     )
@@ -15734,9 +15859,9 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
         if _echanged:
             _ensure_status_options_persisted(table_id, [_evalue])
         meta_update[action_rules_service.effect_write_key(metadata, _eprop)] = _evalue
-    # Desa la signatura de mèdia/tags per a la detecció de canvi del proper sync,
-    # EXCLOENT els camps que han fallat (skipped) perquè es reintentin i no quedin
-    # marcats com a sincronitzats sense haver-se pujat realment.
+    # Saves the media/tags signature for the next sync's change detection,
+    # EXCLUDING the fields that failed (skipped) so they get retried and don't remain
+    # marked as synced without actually having been uploaded.
     if cur_media_sig is not None:
         _failed = {s.get("field") for s in (skipped_fields or []) if s.get("field")}
         meta_update["drupal_media_sig"] = {k: v for k, v in cur_media_sig.items() if k not in _failed}
@@ -15760,16 +15885,16 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
     }
 
 
-# --- Sincronització amb Drupal --------------------------------------------
-# Descoberta (lectura) de tipus de contingut i camps de Drupal per alimentar el
-# checkbox "Sincronitzar amb Drupal" i l'editor de mapatge de la config de la
-# taula. L'escriptura per fila (sync-drupal-row) va més avall, al costat de
+# --- Sync with Drupal --------------------------------------------
+# Discovery (read) of Drupal content types and fields to feed the
+# the "Sync with Drupal" checkbox and the mapping editor of the config of the
+# table. The per-row write (sync-drupal-row) is further down, next to
 # translate-row. Client: `backend/services/drupal_sync_service.py`.
 
 
 @router.get("/drupal/content-types", dependencies=[Depends(require_role("editor"))])
 async def drupal_content_types():
-    """Tipus de contingut de Drupal per al desplegable de la config de taula."""
+    """Drupal content type for the table config dropdown."""
     from backend.services import drupal_sync_service as drupal
 
     try:
@@ -15783,7 +15908,7 @@ async def drupal_content_types():
     dependencies=[Depends(require_role("editor"))],
 )
 async def drupal_content_type_fields(bundle: str):
-    """Camps d'un tipus de contingut de Drupal per a l'editor de mapatge."""
+    """Fields of a Drupal content type for the mapping editor."""
     from backend.services import drupal_sync_service as drupal
 
     try:
@@ -15794,11 +15919,12 @@ async def drupal_content_type_fields(bundle: str):
 
 @router.post("/skills/sync-drupal-row", dependencies=[Depends(require_role("editor"))])
 async def sync_drupal_row(background_tasks: BackgroundTasks, payload: dict = Body(...)):
-    """Crea o actualitza el node de Drupal d'una fila (i les seves traduccions).
+    """Creates or updates a row's Drupal node (and its translations).
 
     Body: ``{ "item_id": "<uuid>", "button_action": "sync_drupal" }``.
-    Idempotent (ancorat per `drupal_uuid`). Escriu nid/url a les columnes de la
-    fila i l'uuid a la metadata oculta.
+    Idempotent (anchored by `drupal_uuid`). Writes nid/url to the row's
+    columns and the uuid to the hidden metadata.
+    
     """
     item_id = (payload.get("item_id") or "").strip()
     button_action = payload.get("button_action") or "sync_drupal"
@@ -15820,8 +15946,8 @@ async def sync_drupal_row(background_tasks: BackgroundTasks, payload: dict = Bod
 
 @router.post("/skills/sync-drupal-rows", dependencies=[Depends(require_role("editor"))])
 async def sync_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Body(...)):
-    """Variant en bloc de sync-drupal-row. Cada fila és independent; els errors
-    per fila es reporten a `errors` en lloc d'avortar el lot."""
+    """Bulk variant of sync-drupal-row. Each row is independent; per-row errors
+    are reported in `errors` instead of aborting the batch."""
     item_ids = payload.get("item_ids") or []
     if not isinstance(item_ids, list) or not item_ids:
         raise HTTPException(status_code=400, detail="item_ids must be a non-empty list")
@@ -15847,13 +15973,14 @@ async def sync_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Bo
 
 @router.post("/skills/match-drupal-rows", dependencies=[Depends(require_role("editor"))])
 async def match_drupal_rows(background_tasks: BackgroundTasks, payload: dict = Body(...)):
-    """Vincula files amb nodes de Drupal **existents** pel títol, sense crear res.
+    """Links rows to **existing** Drupal nodes by title, without creating anything.
 
-    Cerca cada fila per títol exacte; si en troba exactament un, escriu
-    nid/url/uuid a la fila (no toca Drupal). Salta subitems de traducció i files
-    ja vinculades. Amb ``dry_run`` (per defecte True) només reporta què faria.
+    Searches each row by exact title; if it finds exactly one, writes
+    nid/url/uuid to the row (doesn't touch Drupal). Skips translation subitems and rows
+    already linked. With ``dry_run`` (default True) only reports what it would do.
 
     Body: ``{table_id, bundle?, item_ids?, dry_run?}``.
+    
     """
     from backend.services import drupal_sync_service as drupal
 
@@ -15880,7 +16007,7 @@ async def match_drupal_rows(background_tasks: BackgroundTasks, payload: dict = B
             continue
         md = p.metadata or {}
         if md.get("translation_lang"):
-            continue  # subitem de traducció: el cobreix el node pare
+            continue  # translation subitem: covered by the parent node
         if str(md.get("drupal_uuid") or "").strip():
             continue  # ja vinculada
         title = (p.title or md.get("title") or "").strip()
@@ -16075,8 +16202,8 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
     metadata, body = parse_frontmatter(raw_content, file_path)
     parent_title = str(metadata.get("title") or "")
 
-    # 2. Source language: el camp "Idioma" del registre mana (si la pàgina és un
-    # registre de taula i en té); altrament heurística sobre el cos/títol.
+    # 2. Source language: the record's "Language" field governs (if the page is a
+    # table record and has one); otherwise heuristics on the body/title.
     source_lang = detect_record_source_lang(metadata)
     if not source_lang:
         sample = body.strip() if body and body.strip() else parent_title
@@ -16182,10 +16309,10 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
 # -----------------------------------------------------------------------------
 # PDF annotations
 # -----------------------------------------------------------------------------
-# Anotacions persistents del visor PDF integrat. Vegeu
-# `backend/models/pdf_annotation.py` per al model i camps. La taula viu
-# a la BD del vault actiu (es crea via Base.metadata.create_all al primer
-# get_engine_for_path d'aquest vault).
+# Persistent annotations from the integrated PDF viewer. See
+# `backend/models/pdf_annotation.py` for the model and fields. The table lives
+# in the active vault's DB (created via Base.metadata.create_all on the first
+# get_engine_for_path for this vault).
 
 from sqlalchemy.orm import Session as _AnnSession
 from backend.data.db import get_db as _ann_get_db
@@ -16232,10 +16359,11 @@ def list_pdf_annotations(
     source_uri: str = Query(..., min_length=1),
     db: _AnnSession = Depends(_ann_get_db),
 ):
-    """Llista totes les anotacions associades a un PDF (per `source_uri`).
+    """Lists all annotations associated with a PDF (by `source_uri`).
 
-    Ordenades per pàgina ascendent + data de creació, perquè la sidebar
-    pugui mostrar-les en l'ordre de lectura natural.
+    Sorted by ascending page + creation date, so the sidebar
+    can show them in natural reading order.
+    
     """
     items = (
         db.query(_PdfAnnotation)
@@ -16254,10 +16382,10 @@ def create_pdf_annotation(
     body: _PdfAnnotationCreate,
     db: _AnnSession = Depends(_ann_get_db),
 ):
-    # Tipus suportats: els del visor pdf.js antic (highlight, underline,
-    # strikeout, comment, area) MÉS els que emet el reader Zotero (text,
-    # note, ink, image). Sense aquests últims, els saves provinents del
-    # reader integrat tornarien 400 i el frontend els perdria silenciosament.
+    # Supported types: those from the old pdf.js viewer (highlight, underline,
+    # strikeout, comment, area) PLUS the ones emitted by the Zotero reader (text,
+    # note, ink, image). Without these last ones, saves coming from the
+    # the built-in reader would return 400 and the frontend would silently lose them.
     if body.type not in {
         "highlight", "underline", "strikeout", "comment", "area",
         "text", "note", "ink", "image",

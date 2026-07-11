@@ -1,4 +1,4 @@
-"""Tests del router de models (lògica pura + comptador d'ús). Sense backend ni xarxa."""
+"""Tests for the model router (pure logic + usage counter). No backend or network."""
 import sys
 import tempfile
 from pathlib import Path
@@ -9,7 +9,7 @@ from agent.model_router import (  # noqa: E402
     classify_request, route_model, UsageStore, DEFAULT_REGISTRY,
 )
 
-ALL_UP = lambda provider: True  # tots els proveïdors disponibles
+ALL_UP = lambda provider: True  # all providers available
 ONLY = lambda *names: (lambda p: p in names)
 
 
@@ -25,7 +25,7 @@ def test_classify():
 
 def test_simple_request_picks_cheap_fast():
     d = route_model("hola?", is_available=ALL_UP)
-    # qualitat 1 → ha de triar un model barat/ràpid (quality 1)
+    # quality 1 → should pick a cheap/fast model (quality 1)
     assert d["model_id"] in ("llama-3.1-8b-instant", "llama3.2:latest")
 
 
@@ -43,7 +43,7 @@ def test_code_request_requires_code_capability():
 
 
 def test_availability_filters():
-    # només anthropic viu → ha de triar un model d'anthropic
+    # only anthropic alive → should pick an anthropic model
     d = route_model("Analitza això a fons i compara opcions", is_available=ONLY("anthropic"))
     assert d["provider"] == "anthropic"
 
@@ -80,7 +80,7 @@ def test_manual_override_respected():
 def test_manual_override_ignored_if_provider_down():
     d = route_model("Analitza a fons", is_available=ONLY("groq"),
                     manual={"provider": "openai", "model_id": "gpt-4o"})
-    assert d["provider"] == "groq"  # openai caigut → ignora manual i ruta
+    assert d["provider"] == "groq"  # openai down → ignores manual and route
 
 
 def test_no_provider_available():
@@ -95,7 +95,7 @@ def test_usage_store_roundtrip():
         s.record("groq", "llama-3.1-8b-instant", 100, 50, "2026-06")
         s.record("groq", "llama-3.1-8b-instant", 10, 5, "2026-06")
         assert s.usage_for("2026-06")["groq:llama-3.1-8b-instant"] == 165
-        # persistència: nova instància llegeix del disc
+        # persistence: new instance reads from disk
         assert UsageStore(path).usage_for("2026-06")["groq:llama-3.1-8b-instant"] == 165
 
 

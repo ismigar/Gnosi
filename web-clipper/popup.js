@@ -1,5 +1,5 @@
-/* Gnosi Web Clipper — popup. Desa la pàgina (o la selecció) al vault via
- * POST {backend}/api/public/clip amb Authorization: Bearer <PAT>. */
+/* Gnosi Web Clipper — popup. Save the page (or the selection) to the vault via
+ * POST {backend}/api/public/clip with Authorization: Bearer <PAT>. */
 
 const $ = (id) => document.getElementById(id);
 

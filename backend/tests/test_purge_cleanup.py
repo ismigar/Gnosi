@@ -1,11 +1,11 @@
-"""La purga de paperera ha d'endur-se TOTS els rastres de la pàgina.
+"""Trash purge must take ALL traces of the page with it.
 
-Abans només s'esborrava el directori de .trash (+ sidecar): l'historial de
-versions (.history/{id}/ — amb el CONTINGUT COMPLET de la pàgina a dins),
-el fil de comentaris (page_comments.json) i els inline comments quedaven
-orfes per sempre. Auditat al vault real: 158 directoris d'historial de
-pàgines ja purgades (408 fitxers) — l'usuari creu que la pàgina és fora
-però .history encara la conserva.
+Previously only the .trash directory (+ sidecar) was deleted: the version
+history (.history/{id}/ — with the page's FULL CONTENT inside),
+the comment thread (page_comments.json), and the inline comments were left
+orphaned forever. Audited against the real vault: 158 history directories for
+already-purged pages (408 files) — the user believes the page is gone
+but .history still keeps it.
 """
 import json
 from pathlib import Path
@@ -23,27 +23,27 @@ def vault(monkeypatch, tmp_path):
     root.mkdir()
     monkeypatch.setattr(vr, "get_p", lambda key: root)
 
-    # Entrada de paperera amb un fitxer dins.
+    # Trash entry with a file inside.
     trash = root / ".trash" / PID
     trash.mkdir(parents=True)
     (trash / "page.md").write_text("contingut esborrat", encoding="utf-8")
     monkeypatch.setattr(vr, "_trash_entry_dir", lambda pid: root / ".trash" / pid)
     monkeypatch.setattr(vr, "delete_sidecar_for_page", lambda vroot, pid: None)
 
-    # Historial amb un snapshot.
+    # History with a snapshot.
     hist = root / ".history" / PID
     hist.mkdir(parents=True)
     (hist / "20260706_000000.md").write_text("versió antiga sencera", encoding="utf-8")
 
-    # Comentaris: el fil de la pàgina + un altre que ha de sobreviure.
+    # Comments: the page's thread + another one that must survive.
     comments_path = root / "page_comments.json"
     comments_path.write_text(json.dumps({PID: [{"id": "c1", "body": "hola"}],
                                          "altra-pagina": [{"id": "c2", "body": "resta"}]}),
                              encoding="utf-8")
     monkeypatch.setattr(vr, "_get_comments_path", lambda: comments_path)
 
-    # Inline comments de la pàgina (path via monkeypatch: el helper real depèn
-    # del vault actiu del context).
+    # Inline comments on the page (path via monkeypatch: the real helper depends
+    # on the context's active vault).
     inline_dir = root / ".gnosi" / "inline_comments"
     inline_dir.mkdir(parents=True)
     real_inline = inline_dir / f"{PID}.json"
@@ -67,7 +67,7 @@ def test_purge_removes_all_traces(vault):
 
 
 def test_purge_survives_cleanup_failures(vault, monkeypatch):
-    # Si la neteja extra peta, la purga en si NO ha de fallar.
+    # If the extra cleanup fails, the purge itself must NOT fail.
     def boom():
         raise RuntimeError("disc en flames")
 

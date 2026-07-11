@@ -1,16 +1,16 @@
-"""Tests de contracte per a la skill `zotero_schema`.
+"""Contract tests for the `zotero_schema` skill.
 
-Cobreix:
-  1. **Idempotència del build:** regenerar amb `schema.json` actual produeix
-     EXACTAMENT el mateix output que els fitxers commitats. Si peta, vol
-     dir que el build no és determinista, o que algú ha editat un fitxer
-     generat a mà, o que `schema.json` ha canviat sense regenerar.
-  2. **Coherència Py↔JS:** `ALL_ITEM_TYPES` i `ZOTERO_TO_CSL_TYPE` són
-     idèntics als dos fitxers generats.
-  3. **Resolver:** clau canònica, label traduït (ca-AD), alies legacy,
-     tipus nous (preprint/dataset) i fallback es resolen com cal.
+Covers:
+  1. **Build idempotency:** regenerating with the current `schema.json` produces
+     EXACTLY the same output as the committed files. If it fails, it
+     means the build isn't deterministic, or someone hand-edited a
+     generated file, or `schema.json` changed without regenerating.
+  2. **Py↔JS consistency:** `ALL_ITEM_TYPES` and `ZOTERO_TO_CSL_TYPE` are
+     identical across the two generated files.
+  3. **Resolver:** canonical key, translated label (ca-AD), legacy alias,
+     new types (preprint/dataset), and fallback resolve correctly.
 
-Executar:
+Run:
     docker exec gnosi_backend python -m pytest backend/tests/test_zotero_schema.py -v
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ from pathlib import Path
 
 import pytest
 
-# El test viu a backend/tests/, el repo arrel és quatre nivells amunt:
+# The test lives in backend/tests/, the repo root is four levels up:
 # monorepo/apps/gnosi/backend/tests/test_zotero_schema.py
 GNOSI_ROOT = Path(__file__).resolve().parents[2]
 SKILL_DIR = GNOSI_ROOT / "pipeline/skills/zotero_schema"
@@ -35,11 +35,12 @@ OUT_JS = GNOSI_ROOT / "frontend/src/components/Vault/zoteroSchema.js"
 
 @pytest.fixture(scope="module")
 def js_constants() -> dict:
-    """Extreu les constants principals del fitxer JS generat via regex.
+    """Extracts the main constants from the generated JS file via regex.
 
-    Les constants vénen com a `export const NAME = <json-literal>;`.
-    El build emet ALL_ITEM_TYPES en una línia i ZOTERO_TO_CSL_TYPE
-    multi-línia; capturem fins al `};` final o `];` final.
+    The constants come as `export const NAME = <json-literal>;`.
+    The build emits ALL_ITEM_TYPES on one line and ZOTERO_TO_CSL_TYPE
+    multi-line; we capture up to the final `};` or final `];`.
+    
     """
     js = OUT_JS.read_text(encoding="utf-8")
 
@@ -47,7 +48,7 @@ def js_constants() -> dict:
         m = re.search(rf'export const {name} = (.+?);\s*\n(?:export|$|\Z)', js, re.DOTALL)
         if not m:
             raise AssertionError(f"No s'ha trobat l'export {name} al JS generat")
-        # JS accepta trailing commas, JSON no. Netegem-les abans del parse.
+        # JS accepts trailing commas, JSON doesn't. We strip them before parsing.
         literal = re.sub(r',(\s*[}\]])', r'\1', m.group(1))
         return json.loads(literal)
 
@@ -60,10 +61,10 @@ def js_constants() -> dict:
     }
 
 
-# ---------- 1. Idempotència del build ----------
+# ---------- 1. Build idempotency ----------
 
 def test_build_is_deterministic(tmp_path: Path) -> None:
-    """Regenerar amb el schema actual emet exactament el mateix output."""
+    """Regenerating with the current schema emits exactly the same output."""
     py_before = OUT_PY.read_text(encoding="utf-8")
     js_before = OUT_JS.read_text(encoding="utf-8")
 
@@ -84,7 +85,7 @@ def test_build_is_deterministic(tmp_path: Path) -> None:
     )
 
 
-# ---------- 2. Coherència Py ↔ JS ----------
+# ---------- 2. Py ↔ JS consistency ----------
 
 def test_py_and_js_have_same_item_types(js_constants: dict) -> None:
     from backend.services.zotero_schema import ALL_ITEM_TYPES
@@ -105,27 +106,27 @@ def test_py_and_js_have_same_schema_version(js_constants: dict) -> None:
 # ---------- 3. Resolver ----------
 
 @pytest.mark.parametrize("raw,expected", [
-    # Claus canòniques Zotero
+    # Canonical Zotero keys
     ("journalArticle", "article-journal"),
     ("book", "book"),
     ("bookSection", "chapter"),
     ("thesis", "thesis"),
     ("webpage", "webpage"),
-    # Tipus NOUS que abans queien al fallback 'document'
+    # NEW types that previously fell back to 'document'
     ("preprint", "article"),
     ("dataset", "dataset"),
     ("standard", "standard"),
-    # Labels traduïts (ca-AD oficial del schema)
+    # Translated labels (official ca-AD from the schema)
     ("Llibre", "book"),
     ("Article de revista acadèmica", "article-journal"),
     ("Tesi", "thesis"),
     ("Pàgina web", "webpage"),
-    # Alies legacy (sinònims catalans pre-schema)
+    # Legacy aliases (pre-schema Catalan synonyms)
     ("Article científic", "article-journal"),
     ("Manual", "book"),
     ("Ponència", "paper-conference"),
-    # Alies legacy que faltaven i divergien del frontend (cslEngine.js):
-    # abans queien al fallback 'document' en lloc del tipus CSL correcte.
+    # Legacy aliases that were missing and diverged from the frontend (cslEngine.js):
+    # previously fell back to 'document' instead of the correct CSL type.
     ("Vídeo", "motion_picture"),
     ("Entrevista/testimoni", "interview"),
     ("Curs", "document"),
@@ -142,7 +143,7 @@ def test_resolve_csl_type(raw, expected) -> None:
 # ---------- 4. Sanity checks ----------
 
 def test_schema_pinned_file_matches_recorded_sha() -> None:
-    """El SHA-256 que es desa al fitxer Python correspon al schema.json real."""
+    """The SHA-256 saved in the Python file corresponds to the real schema.json."""
     import hashlib
     from backend.services.zotero_schema import SCHEMA_SOURCE_SHA
     actual = hashlib.sha256(SCHEMA_JSON.read_bytes()).hexdigest()[:16]
@@ -153,7 +154,7 @@ def test_schema_pinned_file_matches_recorded_sha() -> None:
 
 
 def test_all_csl_types_are_strings() -> None:
-    """Cada Zotero key apunta a un únic CSL type (string, no llista)."""
+    """Each Zotero key maps to a single CSL type (string, not a list)."""
     from backend.services.zotero_schema import ZOTERO_TO_CSL_TYPE
     for zot, csl in ZOTERO_TO_CSL_TYPE.items():
         assert isinstance(csl, str), f"{zot} → {csl!r} no és str"
@@ -163,15 +164,15 @@ def test_all_csl_types_are_strings() -> None:
 # ---------- 5. ITEM_TYPE_FIELDS (L2) ----------
 
 def test_item_type_fields_covers_all_types() -> None:
-    """Tots els itemTypes tenen una entrada a ITEM_TYPE_FIELDS (encara que buida)."""
+    """Every itemType has an entry in ITEM_TYPE_FIELDS (even if empty)."""
     from backend.services.zotero_schema import ALL_ITEM_TYPES, ITEM_TYPE_FIELDS
     missing = [t for t in ALL_ITEM_TYPES if t not in ITEM_TYPE_FIELDS]
     assert not missing, f"itemTypes sense entrada a ITEM_TYPE_FIELDS: {missing}"
 
 
 def test_item_type_fields_known_examples() -> None:
-    """Tipus comuns tenen camps esperats. Si Zotero canvia el schema i un
-    d'aquests camps desapareix, ens assabentem aquí."""
+    """Common types have expected fields. If Zotero changes the schema and
+    one of these fields disappears, we find out here."""
     from backend.services.zotero_schema import ITEM_TYPE_FIELDS
     cases = {
         'journalArticle': {'title', 'publicationTitle', 'volume', 'issue', 'pages', 'DOI'},
@@ -179,7 +180,7 @@ def test_item_type_fields_known_examples() -> None:
         'preprint':       {'title', 'repository', 'archiveID', 'DOI'},
         'dataset':        {'title', 'versionNumber', 'identifier'},
         'webpage':        {'title', 'websiteTitle', 'url'},
-        'annotation':     set(),  # explícitament buit segons schema
+        'annotation':     set(),  # explicitly empty per schema
     }
     for itype, expected in cases.items():
         actual = set(ITEM_TYPE_FIELDS[itype])
@@ -207,9 +208,9 @@ def test_py_and_js_have_same_item_type_fields(js_constants: dict) -> None:
     ('ISBN',             'webpage',        False),
     ('Volum',            'webpage',        False),
     ('Llibre/Revista',   'webpage',        False),
-    # Tipus desconegut → mai rellevant
+    # Unknown type → never relevant
     ('DOI',              'nonexistent',    False),
-    # Camp sense correspondència Zotero
+    # Field with no Zotero correspondence
     ('CampPersonal',     'journalArticle', False),
 ])
 def test_is_field_relevant_for_type(recursos_field, item_type, expected) -> None:
@@ -218,8 +219,8 @@ def test_is_field_relevant_for_type(recursos_field, item_type, expected) -> None
 
 
 def test_zotero_field_to_recursos_inverse_is_well_formed() -> None:
-    """Tot camp Zotero del mapping inverse apareix a algun valor de
-    RECURSOS_TO_ZOTERO_FIELDS, i tots els valors apareixen al inverse."""
+    """Every Zotero field in the inverse mapping appears in some value of
+    RECURSOS_TO_ZOTERO_FIELDS, and every value appears in the inverse."""
     from backend.services.recursos_zotero_mapping import (
         RECURSOS_TO_ZOTERO_FIELDS, ZOTERO_FIELD_TO_RECURSOS,
     )

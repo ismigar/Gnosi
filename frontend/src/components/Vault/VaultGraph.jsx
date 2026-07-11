@@ -7,8 +7,8 @@ import { useConfigChanged } from '../../lib/configEvents';
 
 /**
  * VaultGraph.jsx
- * Visualització de graf integrada al Vault Dashboard.
- * Respecta els filtres de la vista activa del Vault.
+ * Graph visualization embedded in the Vault Dashboard.
+ * Respects the active Vault view's filters.
  */
 export function VaultGraph({ 
     tableId, 
@@ -22,7 +22,7 @@ export function VaultGraph({
     const [config, setConfig] = useState(null);
     const viewerRef = useRef(null);
 
-    // Carregar dades del graf i configuració
+    // Load graph data and configuration
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -42,8 +42,8 @@ export function VaultGraph({
         fetchData();
     }, []);
 
-    // Re-fetch només la config quan els modals de Settings emeten l'event
-    // (el graf en si no canvia per canvis de config).
+    // Re-fetch only the config when the Settings modals emit the event
+    // (the graph itself doesn't change due to config changes).
     useConfigChanged(async () => {
         try {
             const res = await axios.get('/api/config');
@@ -53,15 +53,15 @@ export function VaultGraph({
         }
     });
 
-    // Preparar filtres basats en la vista activa del Vault
+    // Prepare filters based on the Vault's active view
     const filters = useMemo(() => {
         const vaultFilters = view.filters || [];
         
         return {
-            // Passem els filtres del vault directament
+            // We pass the vault's filters directly
             vaultFilters,
             searchTerm,
-            // Marquem que estem en mode "Vault View" per a la lògica de graphFilters.js
+            // We mark that we're in "Vault View" mode for the logic in graphFilters.js
             isVaultMode: true,
             activeTableId: tableId
         };
@@ -118,7 +118,7 @@ export function VaultGraph({
                 </button>
             </div>
 
-            {/* Indicador de filtres actius */}
+            {/* Active filters indicator */}
             {(view.filters?.length > 0 || searchTerm) && (
                 <div className="absolute top-4 left-4 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-full flex items-center gap-2 pointer-events-none">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />

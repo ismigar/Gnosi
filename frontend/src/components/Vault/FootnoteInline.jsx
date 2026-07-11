@@ -1,19 +1,20 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 /**
  * FootnoteInline
- * Nota al peu inline estil Obsidian. La marca és un superíndex clicable; el
- * text de la nota es desa a `props.content` i s'edita en un popover. El número
- * visible es calcula segons l'ordre d'aparició dins el document (la
- * serialització a Markdown renumera amb `[^N]` i afegeix les definicions al peu).
+ * Obsidian-style inline footnote. The mark is a clickable superscript; the
+ * note text is stored in `props.content` and edited in a popover. The visible
+ * number is calculated based on the order of appearance within the document (the
+ * Markdown serialization renumbers with `[^N]` and appends the definitions at the bottom).
  *
- * El popover es renderitza amb `createPortal` al `body` per no quedar tallat ni
- * desplaçat per ancestres amb `transform` (vegeu feedback_fixed_portal_animated_ancestor).
+ * The popover is rendered with `createPortal` on `body` to avoid being clipped or
+ * displaced by ancestors with `transform` (see feedback_fixed_portal_animated_ancestor).
  */
 
-// Recull els ids de totes les footnotes del document en ordre per calcular el
-// número d'aquesta. Barat: només es crida al render del propi node.
+// Collects the ids of all footnotes in the document in order to calculate the
+// number for this one. Cheap: it's only called when the node itself renders.
 const footnoteNumber = (editor, id) => {
     const ids = [];
     const walk = (blocks) => {
@@ -32,6 +33,7 @@ const footnoteNumber = (editor, id) => {
 };
 
 export default function FootnoteInline({ inlineContent, updateInlineContent, editor }) {
+    const { t } = useTranslation();
     const id = inlineContent?.props?.id || '';
     const text = String(inlineContent?.props?.content || '');
     const [open, setOpen] = useState(false);
@@ -44,7 +46,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
 
     useEffect(() => { setDraft(text); }, [text]);
 
-    // Posiciona el popover sota la marca (coordenades de viewport: position fixed).
+    // Positions the popover under the mark (viewport coordinates: position fixed).
     useLayoutEffect(() => {
         if (!open || !markRef.current) return;
         const r = markRef.current.getBoundingClientRect();
@@ -56,7 +58,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
         setOpen(false);
     }, [draft, id, updateInlineContent]);
 
-    // Tanca (desant) en clicar fora del popover i de la marca.
+    // Closes (saving) when clicking outside the popover and the mark.
     useEffect(() => {
         if (!open) return undefined;
         const onDown = (e) => {
@@ -73,7 +75,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                 ref={markRef}
                 contentEditable={false}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
-                title={text || 'Nota al peu (clica per editar)'}
+                title={text || t('footnote.tooltip_hint', 'Nota al peu (clica per editar)')}
                 className="mx-0.5 cursor-pointer select-none rounded px-1 text-[0.7em] font-semibold text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
             >
                 [{num}]
@@ -85,7 +87,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: 320, zIndex: 9999 }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 shadow-xl"
                 >
-                    <div className="mb-1 text-xs font-semibold text-[var(--text-tertiary)]">Nota al peu [{num}]</div>
+                    <div className="mb-1 text-xs font-semibold text-[var(--text-tertiary)]">{t('footnote.label_numbered', 'Nota al peu [{{num}}]', { num })}</div>
                     <textarea
                         autoFocus
                         value={draft}
@@ -94,7 +96,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                             if (e.key === 'Escape') { e.preventDefault(); save(); }
                             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
                         }}
-                        placeholder="Escriu el text de la nota…"
+                        placeholder={t('footnote.placeholder', 'Escriu el text de la nota…')}
                         className="h-24 w-full resize-y rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                     />
                     <div className="mt-1 flex justify-end">
@@ -103,7 +105,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                             onMouseDown={(e) => { e.preventDefault(); save(); }}
                             className="rounded px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
                         >
-                            Desa
+                            {t('common.save', 'Desa')}
                         </button>
                     </div>
                 </div>,

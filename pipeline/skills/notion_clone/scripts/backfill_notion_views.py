@@ -1,26 +1,26 @@
 #!/usr/bin/env python3
-"""Backfill de vistes incrustades del clon de Notion (pestanyes 2..N que el clon v1 perdia).
+"""Backfill of embedded views from the Notion clone (tabs 2..N that the v1 clone was losing).
 
-El clon v1 només creava la PRIMERA vista de cada bloc `<database>` de Notion (les altres
-pestanyes es perdien: «Cervell digital» 10→1, «Recursos» 13→1). Amb el fix multi-vista de
-`notion_view_recreator`/`notion_clone`, aquest script fa l'import INCREMENTAL sense refer
-el clon ni tocar el contingut editat:
+The v1 clone only created the FIRST view of each Notion `<database>` block (the other
+tabs were lost: «Cervell digital» 10→1, «Recursos» 13→1). With the multi-view fix in
+`notion_view_recreator`/`notion_clone`, this script does the import INCREMENTALLY without redoing
+the clone or touching edited content:
 
-  1. Escaneja el vault clonat (fitxers .md amb `gnosi-view:def`, fora de .history/.trash).
-  2. Mapa pàgina del vault → pàgina de Notion (uuid5 del clon és one-way, així que re-enumera
-     els ids de Notion: pàgines soltes de l'import-config + files de les BD via REST +
-     search_pages com a fallback) i verifica per `clone_page_id`.
-  3. Per cada pàgina: fetch MCP → blocs `<database>` → `build_clone_views` (TOTES les
-     pestanyes reals, sense els gràfics "suggerits"; ids idèntics als del clon nou).
-  4. RECONCILIA: al cos hi queda NOMÉS l'embed de l'àncora de cada bloc (les pestanyes
-     pengen del camp `tabs` de l'àncora, com a Notion); s'upserten les vistes
-     (POST /api/vault/views), s'esborren les de gràfic creades per error (DELETE) i es
-     treuen del cos els defs apilats (PATCH /api/vault/pages/{id}).
+  1. Scans the cloned vault (.md files with `gnosi-view:def`, outside .history/.trash).
+  2. Maps vault page → Notion page (the clone's uuid5 is one-way, so it re-enumerates
+     the Notion ids: loose pages from the import-config + DB rows via REST +
+     search_pages as a fallback) and verifies by `clone_page_id`.
+  3. For each page: MCP fetch → `<database>` blocks → `build_clone_views` (ALL the
+     real tabs, without the "suggested" charts; ids identical to those of the new clone).
+  4. RECONCILES: only the anchor's embed remains in the body for each block (the tabs
+     hang off the anchor's `tabs` field, as in Notion); views are upserted
+     (POST /api/vault/views), chart views created by mistake are deleted (DELETE), and
+     the stacked defs are removed from the body (PATCH /api/vault/pages/{id}).
 
-Dry-run per defecte (informa, no escriu). `--apply` per escriure. Idempotent: re-executar
-convergeix al mateix estat (ids deterministes).
+Dry-run by default (reports, doesn't write). `--apply` to write. Idempotent: re-running
+converges to the same state (deterministic ids).
 
-Ús (des de l'arrel del checkout que porta el fix):
+Usage (from the root of the checkout carrying the fix):
   .venv/bin/python pipeline/skills/notion_clone/scripts/backfill_notion_views.py \
       --vault-dir ~/Library/CloudStorage/OneDrive-UNED/Gnosi/Notion \
       --vault-id 3d2926f6-adfe-4d00-9c01-bae72978057e [--apply] [--only .Dashboards]
@@ -37,7 +37,7 @@ from pathlib import Path
 
 GNOSI_ROOT = Path(__file__).resolve().parents[4]     # .../monorepo/apps/gnosi
 sys.path.insert(0, str(GNOSI_ROOT))
-# Secrets del backend VIU (tokens REST + MCP de Notion) — el natiu corre amb
+# Secrets from the LIVE backend (Notion REST + MCP tokens) — the native setup runs with
 # GNOSI_LOCAL_DATA=<repo principal>/local_data (cf. sh/run_native_dev.sh).
 os.environ.setdefault(
     "GNOSI_LOCAL_DATA", str(Path.home() / "Projectes/monorepo/apps/gnosi/local_data"))
@@ -60,7 +60,7 @@ def log(msg: str) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Vault: escaneig de pàgines amb embeds
+# Vault: scan of pages with embeds
 # ---------------------------------------------------------------------------
 def parse_frontmatter(text: str):
     m = re.match(r"^---\n(.*?)\n---\n?", text, re.DOTALL)
@@ -98,7 +98,7 @@ def scan_vault(vault_dir: Path, only: str | None):
 
 
 # ---------------------------------------------------------------------------
-# Mapa clone_page_id → notion_id (el uuid5 és one-way: es re-enumeren els ids)
+# Map clone_page_id → notion_id (uuid5 is one-way: ids are re-enumerated)
 # ---------------------------------------------------------------------------
 def build_notion_map(api: str, hdrs: dict, needed: set) -> dict:
     mapping: dict = {}
@@ -138,12 +138,12 @@ def build_notion_map(api: str, hdrs: dict, needed: set) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Reconciliació del contingut: per bloc, NOMÉS l'embed de l'àncora al cos
-# (les altres pestanyes hi pengen pel camp `tabs` de l'àncora, com a Notion)
+# Content reconciliation: per block, ONLY the anchor's embed in the body
+# (the other tabs hang off the anchor's `tabs` field, as in Notion)
 # ---------------------------------------------------------------------------
 def remove_view_defs(content: str, ids: set) -> str:
-    """Treu del contingut els `gnosi-view:def` (i el seu bloc snapshot
-    `gnosi-view:result`, si el segueix) de les vistes indicades."""
+    """Removes the `gnosi-view:def` (and its snapshot block
+    `gnosi-view:result`, if it follows) from the content for the given views."""
     lines = content.split("\n")
     out, i = [], 0
     while i < len(lines):
@@ -203,7 +203,7 @@ def main() -> int:
     if args.ids:
         wanted = {x.strip() for x in args.ids.split(",") if x.strip()}
         pages = [pg for pg in pages if pg["id"] in wanted]
-    # Ordre: primer el que es veu (taulers, wiki), després les files de BD.
+    # Order: visible content first (dashboards, wiki), then DB rows.
     rank = {".Dashboards": 0, "Wiki": 1}
     pages.sort(key=lambda pg: (rank.get(pg["rel"].split("/")[0], 2), pg["rel"]))
     if args.limit:
@@ -263,9 +263,9 @@ def main() -> int:
                 stats["errors"].append({"page": pg["rel"], "block": bid, "error": "fetch vista buit"})
                 continue
             try:
-                # gvs = pestanyes REALS (sense els gràfics "suggerits" de l'MCP);
-                # gvs_all inclou els gràfics per poder esborrar els que un pas
-                # anterior hagués creat.
+                # gvs = REAL tabs (without the MCP's "suggested" charts);
+                # gvs_all includes the charts so we can delete the ones a previous
+                # step may have created.
                 gvs = build_clone_views(host, pg["table_id"], bid, view_md, resolve)
                 gvs_all = build_clone_views(host, pg["table_id"], bid, view_md, resolve,
                                             skip_types=())
@@ -275,8 +275,8 @@ def main() -> int:
             if not gvs:
                 continue
             anchor = gvs[0]
-            # Al COS només hi va l'embed de l'àncora: fora defs de pestanyes
-            # apilades (run anterior) i de gràfics.
+            # Only the anchor's embed goes in the BODY: out with tab defs
+            # stacked from a previous run, and chart defs.
             drop_ids = ({g["id"] for g in gvs_all} | {g["id"] for g in gvs}) - {anchor["id"]}
             before = new_content
             new_content = remove_view_defs(new_content, drop_ids)
@@ -289,11 +289,11 @@ def main() -> int:
                 log(f"[{tag}] {pg['rel']}: bloc {bid[:8]}… 1 embed + {len(tabs)} pestanyes"
                     + (f" ({', '.join(tabs)})" if tabs else ""))
             if args.apply:
-                for gv in gvs:   # upsert totes (l'àncora porta `tabs`)
+                for gv in gvs:   # upsert all of them (the anchor carries `tabs`)
                     r = httpx.post(f"{api}/vault/views", headers=hdrs, json=gv, timeout=60)
                     r.raise_for_status()
                     stats["views_upserted"] += 1
-                # esborra del registry les vistes de gràfic creades per error
+                # delete chart views created by mistake from the registry
                 for gid in sorted({g["id"] for g in gvs_all} - {g["id"] for g in gvs}):
                     dr = httpx.delete(f"{api}/vault/views/{gid}", headers=hdrs, timeout=60)
                     if dr.status_code < 300:

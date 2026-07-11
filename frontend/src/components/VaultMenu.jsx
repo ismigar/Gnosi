@@ -4,10 +4,10 @@ import axios from 'axios';
 import { Database, Check, Plus, Loader } from 'lucide-react';
 
 /**
- * Selector de vault GLOBAL per a la barra lateral (mode personal multi-vault). Icona + popover
- * amb la llista de vaults: clica per canviar (recarrega l'app des d'aquell vault) o crea'n un de
- * nou. Així pots triar quin vault uses des de Coneixement, Graf, etc. La gestió completa
- * (esborrar) és a Configuració → Clonar de Notion (VaultSwitcher).
+ * GLOBAL vault selector for the sidebar (personal multi-vault mode). Icon + popover
+ * with the list of vaults: click to switch (reloads the app from that vault) or create a
+ * new one. This lets you choose which vault you use from Knowledge, Graph, etc. Full
+ * management (deleting) is in Settings → Clone from Notion (VaultSwitcher).
  */
 export default function VaultMenu() {
     const [open, setOpen] = useState(false);

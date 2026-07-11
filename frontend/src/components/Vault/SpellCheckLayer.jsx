@@ -12,12 +12,12 @@ import {
 
 /**
  * SpellCheckLayer
- * Corrector ortogràfic dins l'editor BlockNote (ProseMirror). Registra un plugin
- * de decoracions que subratlla les faltes segons el diccionari nspell de l'idioma
- * detectat a la pàgina, i mostra un menú de suggeriments en clicar-hi.
+ * Spell checker inside the BlockNote editor (ProseMirror). Registers a
+ * decorations plugin that underlines mistakes according to the nspell dictionary for the
+ * language detected on the page, and shows a suggestions menu on click.
  *
- * Tot client-side; l'idioma es detecta automàticament (auto per pàgina) i es pot
- * forçar amb `forcedLang`.
+ * Fully client-side; the language is detected automatically (auto per page) and can
+ * be forced with `forcedLang`.
  */
 export default function SpellCheckLayer({ editor, enabled = true, pageId, forcedLang, onLangDetected }) {
     const spellerRef = useRef(null);
@@ -25,7 +25,7 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
     const enabledRef = useRef(enabled);
     const [menu, setMenu] = useState(null); // {x,y,from,to,word,suggestions}
 
-    // Context llegit mandrós pel plugin (speller carrega asíncron, idioma canvia en calent).
+    // Context read lazily by the plugin (speller loads asynchronously, language changes on the fly).
     const getContext = useCallback(() => ({
         enabled: enabledRef.current,
         speller: spellerRef.current,
@@ -34,7 +34,7 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
 
     const view = () => editor?.prosemirrorView || null;
 
-    // 1) Registra el plugin una vegada per instància d'editor.
+    // 1) Registers the plugin once per editor instance.
     useEffect(() => {
         if (!editor?._tiptapEditor) return undefined;
         const plugin = createSpellcheckPlugin(getContext);
@@ -44,13 +44,13 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
         };
     }, [editor, getContext]);
 
-    // 2) Sincronitza el flag d'activació i recalcula.
+    // 2) Syncs the activation flag and recalculates.
     useEffect(() => {
         enabledRef.current = enabled;
         requestRecompute(view());
     }, [enabled, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // 3) Detecta l'idioma de la pàgina i carrega el diccionari corresponent.
+    // 3) Detects the page language and loads the corresponding dictionary.
     useEffect(() => {
         if (!editor || !enabled) return undefined;
         let cancelled = false;
@@ -72,7 +72,7 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
         return () => { cancelled = true; };
     }, [editor, enabled, pageId, forcedLang]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // 4) Clic sobre una paraula marcada → obre el menú de suggeriments.
+    // 4) Click on a flagged word → opens the suggestions menu.
     useEffect(() => {
         if (!editor || !enabled) return undefined;
         const dom = editor.prosemirrorView?.dom;
@@ -105,7 +105,7 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
         };
     }, [editor, enabled]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Tanca el menú en clicar fora / Escape / scroll.
+    // Closes the menu on click outside / Escape / scroll.
     useEffect(() => {
         if (!menu) return undefined;
         const close = (e) => {

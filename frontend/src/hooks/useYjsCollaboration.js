@@ -1,11 +1,11 @@
 /**
- * useYjsCollaboration — retorna l'opció `collaboration` per a BlockNote quan
- * estem en mode org (multiusuari). En mode personal retorna `{collaboration:
- * undefined, ready:false}` i NO crea cap Y.Doc ni connexió → comportament
- * idèntic a l'editor d'un sol usuari (zero regressió).
+ * useYjsCollaboration — returns the `collaboration` option for BlockNote when
+ * we're in org mode (multi-user). In personal mode it returns `{collaboration:
+ * undefined, ready:false}` and does NOT create any Y.Doc or connection → behavior
+ * identical to the single-user editor (zero regression).
  *
- * El mode es resol via `/api/health` (mateix patró que useCollaboration) i es
- * memoritza a nivell de mòdul perquè no es repeteixi a cada pàgina.
+ * The mode is resolved via `/api/health` (same pattern as useCollaboration) and is
+ * memoized at the module level so it isn't repeated on every page.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as Y from 'yjs';
@@ -22,7 +22,7 @@ function resolveMode() {
     return _modePromise;
 }
 
-// Colors estables per usuari (cursors), alineats amb CollaborationPresence.
+// Stable per-user colors (cursors), aligned with CollaborationPresence.
 const CURSOR_COLORS = ['#ef4444', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
 function colorFor(id) {
     let h = 0;
@@ -43,9 +43,9 @@ export function useYjsCollaboration(pageId) {
 
     const enabled = isOrg && !!pageId;
 
-    // Crea (o reutilitza) el Y.Doc + provider quan s'activa la col·laboració.
+    // Creates (or reuses) the Y.Doc + provider when collaboration is activated.
     const collaboration = useMemo(() => {
-        // Neteja el provider anterior si canvia la pàgina o es desactiva.
+        // Cleans up the previous provider if the page changes or it's deactivated.
         if (providerRef.current) {
             try { providerRef.current.destroy(); } catch { /* noop */ }
             providerRef.current = null;

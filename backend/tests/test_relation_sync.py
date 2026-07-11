@@ -1,11 +1,11 @@
-"""Sincronització bidireccional de relacions (directe → invers).
+"""Bidirectional relation sync (direct → inverse).
 
-Quan una pàgina canvia un camp de relació, el camp INVERS de l'altre costat
-s'ha d'actualitzar (o les vistes incrustades, que filtren per l'invers, surten
-buides). Tests de la propagació `_propagate_relation_inverse` amb I/O real
-(`save_page_md`/`parse_frontmatter`) i registry + `find_page_path` mockejats.
+When a page changes a relation field, the INVERSE field on the other side
+must be updated (otherwise embedded views that filter by the inverse come out
+empty). Tests for `_propagate_relation_inverse` propagation with real I/O
+(`save_page_md`/`parse_frontmatter`) and registry + `find_page_path` mocked.
 
-Vegeu docs/dev_memory/directives/vault_relation_inverse_sync.md
+See docs/dev_memory/directives/vault_relation_inverse_sync.md
 """
 from __future__ import annotations
 
@@ -21,12 +21,12 @@ from backend.api.vault_routes import (
 )
 from backend.services import relation_sync
 
-# Esquema de prova: Àrees (origen) ←→ Recursos (destí). El camp directe a Àrees
-# es diu "Recursos" i el camp invers a Recursos es diu "Àrees". La detecció dels
-# camps de relació és sempre per ESQUEMA (type=="relation"), no per cap prefix.
+# Test schema: Àrees (source) ←→ Recursos (destination). The direct field on Àrees
+# is called "Recursos" and the inverse field on Recursos is called "Àrees". Detection of
+# relation fields is always by SCHEMA (type=="relation"), never by any prefix.
 ORIGIN = "origin_arees"
 DEST = "dest_recursos"
-HOST = "11111111-1111-4111-8111-111111111111"   # pàgina d'àrea (host)
+HOST = "11111111-1111-4111-8111-111111111111"   # area page (host)
 T1 = "22222222-2222-4222-8222-222222222222"      # recurs target
 OTHER_AREA = "33333333-3333-4333-8333-333333333333"
 
@@ -41,8 +41,8 @@ TABLES = {
     ]},
 }
 
-# Esquema ambigu: l'origen té DOS camps cap a la mateixa taula destí → no es pot
-# saber quin invers toca → NO s'ha de propagar.
+# Ambiguous schema: the source has TWO fields pointing to the same destination table → can't
+# know which inverse applies → must NOT be propagated.
 AMB_ORIGIN = "amb_origin"
 AMB_DEST = "amb_dest"
 TABLES_AMBIG = {
@@ -66,7 +66,7 @@ def vault(tmp_path: Path) -> Path:
 
 
 def _target(vault: Path, inverse_value=None) -> Path:
-    """Crea el recurs target, amb o sense el camp invers ja poblat."""
+    """Creates the target resource, with or without the inverse field already populated."""
     f = vault / "recurs.md"
     md = {"id": T1, "title": "Recurs", "table_id": DEST}
     if inverse_value is not None:
@@ -76,7 +76,7 @@ def _target(vault: Path, inverse_value=None) -> Path:
 
 
 def _wire(monkeypatch, tfile: Path, tables=TABLES):
-    monkeypatch.setattr(vr, "_link_index_built", False)  # índex fred → id nu, net
+    monkeypatch.setattr(vr, "_link_index_built", False)  # cold index → bare, clean id
     monkeypatch.setattr(vr, "_table_by_id", lambda tid: tables.get(tid))
     monkeypatch.setattr(
         vr, "find_page_path", lambda pid, **k: tfile if pid == T1 else None
@@ -84,8 +84,8 @@ def _wire(monkeypatch, tfile: Path, tables=TABLES):
 
 
 def _inv(md, name="Àrees"):
-    """Ids del camp invers, casant la clau del frontmatter amb el nom de
-    l'esquema per normalització (robust davant variacions de format)."""
+    """Ids from the inverse field, matching the frontmatter key against the
+    schema name via normalization (robust to formatting variations)."""
     nk = relation_sync._norm(name)
     for k, v in md.items():
         if relation_sync._norm(k) == nk:
@@ -94,16 +94,16 @@ def _inv(md, name="Àrees"):
 
 
 def _inv_key_count(md, name="Àrees"):
-    """Quantes claus del frontmatter normalitzen al camp invers (ha de ser ≤1:
-    no s'ha de crear una clau duplicada)."""
+    """How many frontmatter keys normalize to the inverse field (must be ≤1:
+    a duplicate key must not be created)."""
     nk = relation_sync._norm(name)
     return sum(1 for k in md if relation_sync._norm(k) == nk)
 
 
 def test_add_inverse_to_target_without_field(vault, monkeypatch):
-    tfile = _target(vault)  # sense camp invers
+    tfile = _target(vault)  # without inverse field
     _wire(monkeypatch, tfile)
-    # L'àrea afegeix el recurs al seu camp directe.
+    # The area adds the resource to its direct field.
     _propagate_relation_inverse(HOST, ORIGIN, {"Recursos": []},
                                 {"Recursos": [T1]})
     md, _ = parse_frontmatter(tfile.read_text(encoding="utf-8"), tfile)
@@ -111,12 +111,12 @@ def test_add_inverse_to_target_without_field(vault, monkeypatch):
 
 
 def test_add_preserves_existing_inverse_many_to_many(vault, monkeypatch):
-    tfile = _target(vault, inverse_value=[OTHER_AREA])  # ja apunta a una altra àrea
+    tfile = _target(vault, inverse_value=[OTHER_AREA])  # already points to another area
     _wire(monkeypatch, tfile)
     _propagate_relation_inverse(HOST, ORIGIN, {"Recursos": []},
                                 {"Recursos": [T1]})
     md, _ = parse_frontmatter(tfile.read_text(encoding="utf-8"), tfile)
-    # No crea clau duplicada; reusa la clau existent i conserva l'existent.
+    # Does not create a duplicate key; reuses the existing key and keeps the existing one.
     assert _inv_key_count(md) == 1
     assert set(_inv(md)) == {OTHER_AREA, HOST}
 
@@ -124,7 +124,7 @@ def test_add_preserves_existing_inverse_many_to_many(vault, monkeypatch):
 def test_remove_inverse(vault, monkeypatch):
     tfile = _target(vault, inverse_value=[OTHER_AREA, HOST])
     _wire(monkeypatch, tfile)
-    # L'àrea treu el recurs del seu camp directe.
+    # The area removes the resource from its direct field.
     _propagate_relation_inverse(HOST, ORIGIN, {"Recursos": [T1]},
                                 {"Recursos": []})
     md, _ = parse_frontmatter(tfile.read_text(encoding="utf-8"), tfile)
@@ -137,25 +137,25 @@ def test_idempotent_add_when_already_present(vault, monkeypatch):
     before = tfile.read_text(encoding="utf-8")
     _propagate_relation_inverse(HOST, ORIGIN, {"Recursos": []},
                                 {"Recursos": [T1]})
-    # Ja hi era → no afegeix duplicat (i no reescriu).
+    # Already there → doesn't add a duplicate (and doesn't rewrite).
     md, _ = parse_frontmatter(tfile.read_text(encoding="utf-8"), tfile)
     assert _inv(md) == [HOST]
     assert tfile.read_text(encoding="utf-8") == before
 
 
 def test_ambiguous_relation_is_not_propagated(vault, monkeypatch):
-    tfile = _target(vault)  # sense camp invers
+    tfile = _target(vault)  # without inverse field
     _wire(monkeypatch, tfile, tables=TABLES_AMBIG)
-    # "Experiència" mapeja a una taula on l'origen té 2 camps → ambigu.
+    # "Experiència" maps to a table where the source has 2 fields → ambiguous.
     _propagate_relation_inverse(HOST, AMB_ORIGIN, {"Experiència": []},
                                 {"Experiència": [T1]})
     md, _ = parse_frontmatter(tfile.read_text(encoding="utf-8"), tfile)
-    assert _inv_key_count(md, "Àrea") == 0  # res propagat
+    assert _inv_key_count(md, "Àrea") == 0  # nothing propagated
 
 
 def test_detects_direct_field_via_schema(vault, monkeypatch):
-    """El camp DIRECTE es detecta per l'esquema (type==relation), no per cap
-    prefix al nom → la propagació inversa funciona amb noms nets."""
+    """The DIRECT field is detected via the schema (type==relation), not by any
+    prefix in the name → inverse propagation works with clean names."""
     tfile = _target(vault)
     _wire(monkeypatch, tfile)
     _propagate_relation_inverse(HOST, ORIGIN, {"Recursos": []}, {"Recursos": [T1]})
@@ -164,7 +164,7 @@ def test_detects_direct_field_via_schema(vault, monkeypatch):
 
 
 def test_no_self_reference(vault, monkeypatch):
-    """Si el host es llistés a si mateix, no s'escriu (defensiu)."""
+    """If the host were to list itself, it doesn't get written (defensive)."""
     tfile = _target(vault)
     _wire(monkeypatch, tfile)
     monkeypatch.setattr(vr, "find_page_path", lambda pid, **k: tfile)

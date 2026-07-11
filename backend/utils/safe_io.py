@@ -111,7 +111,7 @@ def safe_write_json(path: PathLike, obj: Any, **dumps_kwargs: Any) -> None:
     safe_write_text(path, json.dumps(obj, **dumps_kwargs))
 
 
-# Caràcters/forms prohibits a OneDrive/Windows. Veure
+# Characters/forms forbidden on OneDrive/Windows. See
 # docs/dev_memory/directives/onedrive_filename_safety.md.
 _FILENAME_FORBIDDEN_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
@@ -120,32 +120,34 @@ def sanitize_filename_component(value: str) -> str:
     """Return `value` cleaned for use inside a single path component.
 
     Removes: reserved chars (`<>:"/\\|?*`), control chars, and any whitespace
-    (incloent `\\r\\n` que apareix als headers Message-ID folded). Strip
-    extern de `.` i espais. Adequat per Message-IDs, slugs, títols.
+    (including `\\r\\n` which appears in folded Message-ID headers). Strip
+    external `.` and spaces. Suitable for Message-IDs, slugs, titles.
+    
     """
     if value is None:
         return ""
-    # Treu reserved + control
+    # Remove reserved + control
     cleaned = _FILENAME_FORBIDDEN_RE.sub("", str(value))
-    # Treu qualsevol whitespace (Message-IDs no en duen mai legítim)
+    # Strips any whitespace (Message-IDs never legitimately carry any)
     cleaned = re.sub(r"\s+", "", cleaned)
-    # Strip extern de chars que Windows no accepta a final/inici de nom
+    # External strip of chars that Windows doesn't accept at the start/end of a name
     cleaned = cleaned.strip(" .")
     return cleaned
 
 
 def sanitize_path_segment(value: str, fallback: str) -> str:
-    """Return `value` cleaned for use as ONE path segment (àlbum, fitxer).
+    """Return `value` cleaned for use as ONE path segment (album, file).
 
-    A diferència de `sanitize_filename_component`, conserva els espais
-    interiors (noms humans d'àlbum/fitxer), col·lapsats a un de sol. Els
-    separadors de ruta es converteixen en espai i només sobreviuen lletres,
-    dígits, `_`, `-`, `.` i espai. Si el resultat queda buit O compost només
-    de punts (`.`/`..`, traversal), retorna `fallback`.
+    Unlike `sanitize_filename_component`, it keeps the interior
+    spaces (human album/file names), collapsed into a single one. Path
+    separators are converted to a space and only letters,
+    digits, `_`, `-`, `.` and space survive. If the result ends up empty OR made up only
+    of dots (`.`/`..`, traversal), it returns `fallback`.
 
-    Veure docs/dev_memory/directives/media_upload_path_safety.md: aquest
-    sanejador NO és l'única defensa contra traversal — el caller ha de
-    contenir igualment el destí final dins la seva arrel.
+    See docs/dev_memory/directives/media_upload_path_safety.md: this
+    sanitizer is NOT the only defense against traversal — the caller must
+    still contain the final destination within its own root.
+    
     """
     cleaned = re.sub(r"[\\/]+", " ", str(value or "")).strip()
     cleaned = re.sub(r"\s+", " ", cleaned)

@@ -1,7 +1,7 @@
-// Plugin de DADES d'exemple. Corre dins d'un subprocés Node capat
-// (`node --permission`, sense fs-write ni child_process). Rep esdeveniments del
-// bus del backend i pot tocar el vault només via `api.vault.*` (gated per permís
-// al host). Veure backend/services/plugin_sandbox.py + runner.mjs.
+// Example DATA plugin. Runs inside a sandboxed Node subprocess
+// (`node --permission`, without fs-write or child_process). Receives events from the
+// backend bus and can only touch the vault via `api.vault.*` (gated by permission
+// on the host). See backend/services/plugin_sandbox.py + runner.mjs.
 
 export default {
   async onEvent(event, api) {
@@ -10,7 +10,7 @@ export default {
       const p = event.payload || {};
       api.log(`clon acabat — pàgines=${p.pages || 0}, taules=${p.tables || 0}`);
     }
-    // Exemple d'accés al vault (requereix el permís vault:read concedit):
+    // Example of vault access (requires the vault:read permission to be granted):
     if (event.payload && event.payload.page_id) {
       try {
         const page = await api.vault.readPage(event.payload.page_id);

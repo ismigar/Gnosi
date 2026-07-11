@@ -3,12 +3,12 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 export const spellPluginKey = new PluginKey('gnosiSpellcheck');
 
-// Regex Unicode: seqüències de lletres, incloent el punt volat català (l·l) i
-// els apòstrofs (l'home). Després partim per apòstrof per comprovar cada tros.
+// Unicode regex: sequences of letters, including the Catalan middle dot (l·l) and
+// apostrophes (l'home). Then we split by apostrophe to check each piece.
 const WORD_RE = /[\p{L}·'’]+/gu;
 const APOSTROPHE_RE = /['’]/;
 
-/** Recorre el document i marca les paraules que el corrector no reconeix. */
+/** Walks the document and marks the words the spell checker doesn't recognize. */
 function buildDecorations(doc, ctx) {
     if (!ctx || !ctx.enabled || !ctx.speller) return DecorationSet.empty;
     const { speller, ignored } = ctx;
@@ -25,9 +25,9 @@ function buildDecorations(doc, ctx) {
             let offset = 0;
             for (const part of token.split(APOSTROPHE_RE)) {
                 const partStart = tokenStart + offset;
-                offset += part.length + 1; // +1 = l'apòstrof separador
-                if (part.length < 2) continue;            // «l», «d», sigles d'una lletra
-                if (/\d/.test(part)) continue;            // codis alfanumèrics
+                offset += part.length + 1; // +1 = the separating apostrophe
+                if (part.length < 2) continue;            // «l», «d», single-letter initials
+                if (/\d/.test(part)) continue;            // alphanumeric codes
                 if (part === part.toUpperCase()) continue; // sigles (PDF, HTTP)
                 if (ignored && ignored.has(part.toLowerCase())) continue;
                 let ok = false;
@@ -45,9 +45,9 @@ function buildDecorations(doc, ctx) {
 }
 
 /**
- * Plugin ProseMirror que subratlla les faltes. `getContext()` ha de retornar
- * `{ enabled, speller, ignored:Set }` — es llegeix mandrós perquè el corrector
- * es carrega de forma asíncrona i pot canviar d'idioma en calent.
+ * ProseMirror plugin that underlines misspellings. `getContext()` must return
+ * `{ enabled, speller, ignored:Set }` — read lazily because the spell checker
+ * loads asynchronously and can switch language on the fly.
  */
 export function createSpellcheckPlugin(getContext) {
     return new Plugin({
@@ -68,7 +68,7 @@ export function createSpellcheckPlugin(getContext) {
                 return spellPluginKey.getState(state);
             },
         },
-        // Recàlcul complet amb debounce mentre s'escriu (el `apply` només remapa).
+        // Full recalculation debounced while typing (`apply` only remaps).
         view() {
             let timer = null;
             return {
@@ -87,13 +87,13 @@ export function createSpellcheckPlugin(getContext) {
     });
 }
 
-/** Força un recàlcul immediat (idioma nou, diccionari carregat, paraula ignorada…). */
+/** Forces an immediate recalculation (new language, dictionary loaded, word ignored…). */
 export function requestRecompute(view) {
     if (!view || view.isDestroyed) return;
     view.dispatch(view.state.tr.setMeta(spellPluginKey, { recompute: true }));
 }
 
-/** Retorna { from, to, word } de la falta que cobreix `pos`, o null. */
+/** Returns { from, to, word } of the misspelling covering `pos`, or null. */
 export function spellErrorAt(state, pos) {
     const set = spellPluginKey.getState(state);
     if (!set) return null;

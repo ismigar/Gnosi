@@ -1,15 +1,15 @@
-"""Tests dels normalitzadors de lookup (font cru → Zotero item canònic).
+"""Tests for the lookup normalizers (raw source → canonical Zotero item).
 
-Cada normalitzador es valida amb:
-  1. **Equivalence vs legacy**: el pipeline
-     `normalitzador → zotero_item_to_recursos` produeix EXACTAMENT els
-     mateixos camps Recursos que el mapper hardcoded original. Snapshot
-     literal del legacy a la part superior del fitxer.
-  2. **Behavioral checks**: que el Zotero item intermedi té els camps
-     que el mapper central espera (per detectar drift entre el
-     normalitzador i `RECURSOS_TO_ZOTERO_FIELDS`).
+Each normalizer is validated with:
+  1. **Equivalence vs legacy**: the pipeline
+     `normalitzador → zotero_item_to_recursos` produces EXACTLY the
+     same Recursos fields as the original hardcoded mapper. Literal
+     snapshot of the legacy at the top of the file.
+  2. **Behavioral checks**: that the intermediate Zotero item has the fields
+     the central mapper expects (to detect drift between the
+     normalizer and `RECURSOS_TO_ZOTERO_FIELDS`).
 
-Cada font tindrà la seva pròpia secció. L3.2 cobreix CrossRef.
+Each source will have its own section. L3.2 covers CrossRef.
 """
 from __future__ import annotations
 
@@ -25,10 +25,10 @@ from backend.services.lookup_normalizers import (
 from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 
 
-# ---------- Snapshot literal de _crossref_to_recursos (pre-refactor) ----------
-# Còpia exacta del codi a vault_routes.py:4159 just abans del refactor.
-# Si la sortida del pipeline nou difereix d'aquesta legacy, els tests d'eq
-# ho marquen com a regressió.
+# ---------- Literal snapshot of _crossref_to_recursos (pre-refactor) ----------
+# Exact copy of the code in vault_routes.py:4159 right before the refactor.
+# If the new pipeline's output differs from this legacy one, the eq tests
+# flag it as a regression.
 
 def _legacy_crossref_to_recursos(work: dict) -> dict:
     out: dict = {}
@@ -94,8 +94,8 @@ def _legacy_crossref_to_recursos(work: dict) -> dict:
 
 
 # ---------- Fixtures CrossRef reals ----------
-# Respostes reduïdes (només els camps que el mapper toca) extretes de
-# crides reals a https://api.crossref.org/works/<doi> sota .message.
+# Reduced responses (only the fields the mapper touches) extracted from
+# real calls to https://api.crossref.org/works/<doi> under .message.
 
 CROSSREF_JOURNAL_ARTICLE = {
     'type': 'journal-article',
@@ -146,15 +146,15 @@ CROSSREF_INSTITUTIONAL_AUTHOR = {
 }
 
 CROSSREF_FALLBACK_DATE = {
-    # Sense `published-print` ni `published-online`; cau a `issued`.
+    # Without `published-print` or `published-online`; falls back to `issued`.
     'type': 'journal-article',
     'title': ['Old paper'],
     'issued': {'date-parts': [[2005]]},
 }
 
 CROSSREF_NEW_TYPES = {
-    # Tipus moderns que el mapper legacy NO contemplava (queien al
-    # default sense traduir). Ara els reconeixem.
+    # Modern types the legacy mapper did NOT account for (fell into the
+    # default without translating). Now we recognize them.
     'type': 'posted-content',
     'title': ['Some preprint'],
 }
@@ -162,7 +162,7 @@ CROSSREF_NEW_TYPES = {
 CROSSREF_EMPTY: dict = {}
 
 
-# ---------- Equivalence: pipeline nou == legacy ----------
+# ---------- Equivalence: new pipeline == legacy ----------
 
 @pytest.mark.parametrize("fixture", [
     CROSSREF_JOURNAL_ARTICLE, CROSSREF_BOOK_CHAPTER, CROSSREF_PROCEEDINGS,
@@ -170,9 +170,9 @@ CROSSREF_EMPTY: dict = {}
 ], ids=['journal-article', 'book-chapter', 'proceedings', 'institutional',
         'fallback-date', 'empty'])
 def test_crossref_pipeline_equivalent_to_legacy(fixture):
-    """`crossref_to_zotero_item → zotero_item_to_recursos` produeix el
-    mateix output que el `_crossref_to_recursos` original. Cap regressió
-    abans del refactor a vault_routes.py."""
+    """`crossref_to_zotero_item → zotero_item_to_recursos` produces the
+    same output as the original `_crossref_to_recursos`. No regression
+    before the refactor in vault_routes.py."""
     new = zotero_item_to_recursos(crossref_to_zotero_item(fixture))
     legacy = _legacy_crossref_to_recursos(fixture)
     assert new == legacy
@@ -184,10 +184,10 @@ def test_non_dict_returns_empty():
     assert crossref_to_zotero_item(42) == {}
 
 
-# ---------- Behavioral checks del Zotero item intermedi ----------
+# ---------- Behavioral checks of the intermediate Zotero item ----------
 
 def test_creators_have_proper_zotero_structure():
-    """Els creators han de tenir la forma que el mapper central espera."""
+    """Creators must have the shape the central mapper expects."""
     item = crossref_to_zotero_item(CROSSREF_JOURNAL_ARTICLE)
     assert 'creators' in item
     for c in item['creators']:
@@ -201,13 +201,13 @@ def test_institutional_creator_uses_name_field():
 
 
 def test_container_goes_to_publication_title():
-    """Container ha d'anar a `publicationTitle` (primer del fallback chain)."""
+    """Container must go to `publicationTitle` (first in the fallback chain)."""
     item = crossref_to_zotero_item(CROSSREF_JOURNAL_ARTICLE)
     assert item['publicationTitle'] == 'arXiv preprint'
 
 
 def test_date_priority_print_before_issued():
-    """`published-print` guanya sobre `issued`."""
+    """`published-print` takes precedence over `issued`."""
     work = {
         'published-print': {'date-parts': [[2020]]},
         'issued': {'date-parts': [[1999]]},
@@ -221,19 +221,19 @@ def test_date_fallback_to_issued():
     assert item['date'] == '2005'
 
 
-# ---------- Bonus de L3.2: tipus moderns ----------
+# ---------- L3.2 bonus: modern types ----------
 
 def test_modern_types_now_recognized():
-    """Tipus que el mapper legacy no traduïa (caien al string original)
-    ara són reconeguts com a clau canònica Zotero."""
+    """Types the legacy mapper didn't translate (fell back to the original string)
+    are now recognized as a canonical Zotero key."""
     item = crossref_to_zotero_item(CROSSREF_NEW_TYPES)
     assert item['itemType'] == 'preprint'
-    # Però el legacy ho deixava com a 'posted-content'
+    # But the legacy left it as 'posted-content'
     assert _legacy_crossref_to_recursos(CROSSREF_NEW_TYPES)['Item Type'] == 'posted-content'
 
 
 def test_unknown_type_passes_through():
-    """Un type no llistat queda tal qual (igual que el legacy)."""
+    """An unlisted type is left as is (same as the legacy)."""
     item = crossref_to_zotero_item({'type': 'monograph'})
     assert item['itemType'] == 'monograph'
 
@@ -243,7 +243,7 @@ def test_unknown_type_passes_through():
 # =================================================================
 
 def _legacy_openlibrary_to_recursos(book: dict) -> dict:
-    """Snapshot literal de _openlibrary_to_recursos (vault_routes.py, pre-L3.3)."""
+    """Literal snapshot of _openlibrary_to_recursos (vault_routes.py, pre-L3.3)."""
     import re as _re
     out: dict = {}
     if book.get('title'):
@@ -304,7 +304,7 @@ OPENLIB_MULTI_AUTHOR_DATE_FREEFORM = {
     'title': 'Book of Many',
     'authors': [{'name': 'Jane Doe'}, {'name': 'John Smith'}, {'name': 'Madonna'}],
     'publish_date': 'June 15, 2003',
-    'publishers': ['Penguin'],          # string en lloc de dict
+    'publishers': ['Penguin'],          # string instead of dict
     'publish_places': ['London'],
 }
 
@@ -332,7 +332,7 @@ def test_openlibrary_non_dict_returns_empty():
 # =================================================================
 
 def _legacy_arxiv_to_recursos(entry_xml: str) -> dict:
-    """Snapshot literal de _arxiv_to_recursos (vault_routes.py, pre-L3.3)."""
+    """Literal snapshot of _arxiv_to_recursos (vault_routes.py, pre-L3.3)."""
     import re as _re
     import xml.etree.ElementTree as ET
     out: dict = {}
@@ -495,7 +495,7 @@ PUBMED_EPUBDATE_ONLY = {
     'uid': '12345',
     'title': 'X',
     'epubdate': '2020 Feb',
-    'source': 'Short Source',  # fallback de fulljournalname
+    'source': 'Short Source',  # fulljournalname fallback
 }
 
 PUBMED_AUTHOR_WITH_COMMA = {
@@ -539,7 +539,7 @@ def _legacy_normalize_isbn(raw: str):
 
 
 def _legacy_html_meta_to_recursos(html: str, url: str) -> dict:
-    """Snapshot literal de _html_meta_to_recursos (vault_routes.py, pre-L3.3)."""
+    """Literal snapshot of _html_meta_to_recursos (vault_routes.py, pre-L3.3)."""
     import re as _re
     out: dict = {}
     citations = _re.findall(
@@ -670,9 +670,9 @@ HTML_TITLE_FALLBACK = """
     (HTML_HIGHWIRE, 'highwire'),
     (HTML_OG_FALLBACK, 'og_fallback'),
     (HTML_TITLE_FALLBACK, 'title_fallback'),
-    # NOTA: HTML_PUBLISHER_QUIRK NO és aquí; el quirk legacy (publisher →
-    # Llibre/Revista quan no hi havia journal_title) era incorrecte i s'ha
-    # corregit a html_meta_to_zotero_item. Vegis el test específic a sota.
+    # NOTE: HTML_PUBLISHER_QUIRK is NOT here; the legacy quirk (publisher →
+    # Llibre/Revista when there was no journal_title) was incorrect and has been
+    # fixed in html_meta_to_zotero_item. See the specific test below.
 ])
 def test_html_pipeline_equivalent_to_legacy(html, name):
     url = "https://example.com/article"
@@ -682,11 +682,12 @@ def test_html_pipeline_equivalent_to_legacy(html, name):
 
 
 def test_html_publisher_now_separated_from_journal():
-    """publisher va a Editorial; journal_title va a Llibre/Revista.
+    """publisher goes to Editorial; journal_title goes to Llibre/Revista.
 
-    Abans (legacy): `publisher` queia a Llibre/Revista si no hi havia
-    journal_title. Era incorrecte — sobreescrivia el nom de la revista
-    amb el de l'editor.
+    Before (legacy): `publisher` fell into Llibre/Revista if there was no
+    journal_title. It was incorrect — it overwrote the journal's name
+    with the publisher's.
+    
     """
     url = "https://example.com/x"
     out = zotero_item_to_recursos(html_meta_to_zotero_item(HTML_PUBLISHER_QUIRK, url))
@@ -695,7 +696,7 @@ def test_html_publisher_now_separated_from_journal():
 
 
 def test_html_journal_and_publisher_coexist():
-    """Si hi ha tots dos, cadascun va al seu camp; no es barregen."""
+    """If both are present, each goes to its own field; they are not mixed."""
     html = """
     <html><head>
     <title>X</title>
@@ -709,6 +710,6 @@ def test_html_journal_and_publisher_coexist():
 
 
 def test_html_url_always_present():
-    """L'URL del paràmetre sempre s'inclou, fins i tot si el HTML és buit."""
+    """The URL parameter is always included, even if the HTML is empty."""
     out = zotero_item_to_recursos(html_meta_to_zotero_item("<html></html>", "https://x.com"))
     assert out['URL'] == 'https://x.com'

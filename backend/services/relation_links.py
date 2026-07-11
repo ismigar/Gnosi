@@ -1,49 +1,49 @@
-"""Wikilinks de relació al frontmatter — helpers compartits.
+"""Relation wikilinks in the frontmatter — shared helpers.
 
-Format canònic d'un ítem de camp relació::
+Canonical format of a relation field item::
 
-    "[[Títol|<id>]]"
+    "[[Title|<id>]]"
 
-El valor és EXACTAMENT un wikilink i l'id viu a l'àlies. El títol només
-aporta portabilitat (Obsidian: navegació, graf, backlinks i refresc
-automàtic en renoms); l'id de l'àlies mana SEMPRE. Obsidian no reconeix
-wikilinks barrejats amb text en una propietat — per això el valor és el
-wikilink sencer. Vegeu docs/dev_memory/directives/relation_wikilinks_frontmatter.md.
+The value is EXACTLY a wikilink and the id lives in the alias. The title only
+provides portability (Obsidian: navigation, graph, backlinks, and automatic
+refresh on renames); the alias id ALWAYS wins. Obsidian doesn't recognize
+wikilinks mixed with text in a property — that's why the value is the
+whole wikilink. See docs/dev_memory/directives/relation_wikilinks_frontmatter.md.
 
-Mòdul deliberadament lleuger (només re + typing): l'importen vault_routes,
-graph_service i scripts de pipeline sense arrossegar cap dependència.
+Deliberately lightweight module (only re + typing): imported by vault_routes,
+graph_service, and pipeline scripts without pulling in any dependency.
 """
 from __future__ import annotations
 
 import re
 from typing import Any, Callable, Optional, Set
 
-# Valor sencer = un únic wikilink amb àlies. L'àlies (id) no té forma
-# imposada (hi ha ids llegats que no són uuid); només exclou `|` i `]`.
+# Whole value = a single wikilink with alias. The alias (id) has no imposed
+# form (there are legacy ids that aren't uuids); it only excludes `|` and `]`.
 RELATION_WIKILINK_RE = re.compile(
     r"^\s*\[\[(?P<title>[^\]\|]*?)\s*\|\s*(?P<rid>[^\]\|]+?)\s*\]\]\s*$"
 )
 
-# Wikilink sense àlies ([[Títol]]): típic d'una edició manual a Obsidian.
+# Wikilink without alias ([[Title]]): typical of a manual edit in Obsidian.
 TITLE_ONLY_WIKILINK_RE = re.compile(r"^\s*\[\[\s*(?P<title>[^\]\|]+?)\s*\]\]\s*$")
 
-# Un títol amb aquests caràcters no pot viure dins d'un wikilink (trencaria
-# el parseig del wikilink o la resolució a Obsidian) → es deixa l'id nu.
+# A title with these characters can't live inside a wikilink (it would break
+# the wikilink parsing or resolution in Obsidian) → the id is left bare.
 _UNSAFE_TITLE_RE = re.compile(r"[\[\]\|#^\r\n]")
 
 
 def is_relation_key(key: Any, relation_keys: Optional[Set[str]] = None) -> bool:
-    """Una clau és de relació si és al conjunt ``relation_keys`` de l'esquema
-    (noms + àlies de les properties ``type=="relation"``). La detecció és
-    sempre per esquema; els noms de camp no porten cap prefix decoratiu.
-    Vegeu docs/dev_memory/directives/vault_relation_inverse_sync.md"""
+    """A key is a relation key if it's in the schema's ``relation_keys`` set
+    (names + aliases of the ``type=="relation"`` properties). Detection is
+    always schema-based; field names don't carry any decorative prefix.
+    See docs/dev_memory/directives/vault_relation_inverse_sync.md"""
     return isinstance(key, str) and bool(relation_keys) and key in relation_keys
 
 
 def relation_keys_from_table(table: Optional[dict]) -> Set[str]:
-    """Noms (i àlies) de les properties ``type=="relation"`` d'una taula del
-    registry. És la font de veritat (única) per saber quins camps són de
-    relació, sigui quin sigui el nom que tinguin després d'un rename."""
+    """Names (and aliases) of the ``type=="relation"`` properties of a table in the
+    registry. It's the (single) source of truth for knowing which fields are
+    relation fields, whatever name they have after a rename."""
     keys: Set[str] = set()
     if isinstance(table, dict):
         for p in table.get("properties") or []:
@@ -58,7 +58,7 @@ def relation_keys_from_table(table: Optional[dict]) -> Set[str]:
 
 
 def strip_item(value: Any) -> Any:
-    """``[[Títol|id]]`` → ``id``. Qualsevol altre valor, intacte."""
+    """``[[Title|id]]`` → ``id``. Any other value, unchanged."""
     if isinstance(value, str):
         m = RELATION_WIKILINK_RE.match(value)
         if m:
@@ -67,13 +67,14 @@ def strip_item(value: Any) -> Any:
 
 
 def strip_relation_wikilinks(metadata: Any, relation_keys: Optional[Set[str]] = None) -> Any:
-    """Frontmatter → domini: els camps de relació tornen a ser ids nets.
+    """Frontmatter → domain: relation fields become clean ids again.
 
-    És la frontera única de LECTURA: a partir d'aquí tota l'app (taula,
-    filtres, graf, automatitzacions, syncs) veu ids, mai wikilinks.
-    ``relation_keys`` (de l'esquema) identifica quins camps són de relació; sense
-    esquema NO es despulla res, per no tocar un wikilink que pugui viure en un
-    camp de text. Muta i retorna ``metadata``.
+    This is the single READ boundary: from here on, the whole app (table,
+    filters, graph, automations, syncs) sees ids, never wikilinks.
+    ``relation_keys`` (from the schema) identifies which fields are relation fields; without
+    a schema NOTHING is stripped, so as not to touch a wikilink that might live in a
+    text field. Mutates and returns ``metadata``.
+    
     """
     if not isinstance(metadata, dict):
         return metadata
@@ -102,8 +103,8 @@ def _decorate_item(
     else:
         title_only = TITLE_ONLY_WIKILINK_RE.match(value)
         if title_only:
-            # Edició manual a Obsidian: canonicalitzar només si el títol
-            # resol a UNA única pàgina; si no, conservar (mai inventar ids).
+            # Manual edit in Obsidian: canonicalize only if the title
+            # resolves to EXACTLY ONE page; otherwise, keep it as is (never invent ids).
             rid = title_to_id(title_only.group("title")) if title_to_id else None
             if not rid:
                 return value
@@ -113,8 +114,8 @@ def _decorate_item(
     title = id_to_title(rid) if id_to_title else None
     safe = str(title or "").strip()
     if not safe or _UNSAFE_TITLE_RE.search(safe):
-        # Sense títol fiable: id nu si veníem d'un id; si l'ítem ja era un
-        # wikilink decorat, conservar-lo (no perdre l'últim títol bo).
+        # Without a reliable title: bare id if we came from an id; if the item was already a
+        # decorated wikilink, keep it (don't lose the last good title).
         return value if decorated else rid
     return f"[[{safe}|{rid}]]"
 
@@ -125,13 +126,14 @@ def decorate_relation_wikilinks(
     id_to_title: Optional[Callable[[str], Optional[str]]] = None,
     title_to_id: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Any:
-    """Domini → frontmatter: ``id`` → ``[[Títol|id]]`` als camps relació.
+    """Domain → frontmatter: ``id`` → ``[[Title|id]]`` in relation fields.
 
-    ``relation_keys`` són els noms de camp amb ``type == "relation"`` a
-    l'esquema de la taula: la font única per saber quins camps decorar.
-    Idempotent i autocurativa: cada desada re-resol el títol ACTUAL. Si el
-    títol no resol (índex fred), degrada a id nu i no bloqueja mai
-    l'escriptura. Muta i retorna ``metadata``.
+    ``relation_keys`` are the field names with ``type == "relation"`` in
+    the table's schema: the single source of truth for knowing which fields to decorate.
+    Idempotent and self-healing: every save re-resolves the CURRENT title. If the
+    title doesn't resolve (cold index), it degrades to a bare id and never blocks
+    the write. Mutates and returns ``metadata``.
+    
     """
     if not isinstance(metadata, dict):
         return metadata

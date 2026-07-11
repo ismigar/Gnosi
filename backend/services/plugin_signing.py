@@ -1,20 +1,20 @@
-"""Signatura i confiança de plugins (fase 3 de plugin_system.md).
+"""Plugin signing and trust (phase 3 of plugin_system.md).
 
-Model de confiança per a plugins DISTRIBUÏTS (galeria/índex remot), a l'estil de
-les extensions signades: un editor signa el `.zip` amb una clau privada Ed25519;
-Gnosi verifica la signatura contra el seu MAGATZEM DE CONFIANÇA de claus
-públiques (oficials + afegides per l'usuari). Signatura DETACHED sobre els bytes
-del zip (no viu dins del zip → evita el problema de l'ou i la gallina).
+Trust model for DISTRIBUTED plugins (gallery/remote index), in the style of
+signed extensions: a publisher signs the `.zip` with an Ed25519 private key;
+Gnosi verifies the signature against its TRUST STORE of public keys (official
++ user-added). DETACHED signature over the zip bytes (it doesn't live inside
+the zip → avoids the chicken-and-egg problem).
 
-Política d'instal·lació (aplicada a `plugin_catalog`/`plugin_system`):
-  * entrada amb `signature` que verifica amb una clau de confiança → instal·la.
-  * entrada amb `signature` que NO verifica amb cap clau de confiança → REBUTJA
-    (manipulació o editor desconegut).
-  * entrada SENSE `signature` → s'instal·la però queda marcada com a "no signada"
-    (com els plugins "no verificats" d'Obsidian). La UI ho pot advertir.
+Installation policy (applied in `plugin_catalog`/`plugin_system`):
+  * entry with a `signature` that verifies with a trusted key → install.
+  * entry with a `signature` that does NOT verify with any trusted key → REJECT
+    (tampering or unknown publisher).
+  * entry WITHOUT a `signature` → installs but is marked as "unsigned"
+    (like Obsidian's "unverified" plugins). The UI can warn about it.
 
-Format de clau/sig: base64 de la clau pública/signatura Ed25519 crua (32/64 bytes).
-Magatzem: `.gnosi/plugins_trust.json` = {"keys": {"<nom>": "<pubkey_b64>"}}.
+Key/sig format: base64 of the raw Ed25519 public key/signature (32/64 bytes).
+Store: `.gnosi/plugins_trust.json` = {"keys": {"<name>": "<pubkey_b64>"}}.
 """
 from __future__ import annotations
 
@@ -36,11 +36,11 @@ logger = get_logger(__name__)
 
 _trust_lock = threading.Lock()
 
-# Claus PÚBLIQUES de confiança que viatgen amb Gnosi (editors "oficials"). La
-# clau `gnosi-official` verifica els plugins signats per l'equip de Gnosi; la
-# seva PRIVADA viu fora del repo (a `~/.gnosi-local/plugin_signing_key.json`,
-# permisos 600) i s'usa amb `plugins-examples/sign_plugin.py`. L'usuari pot
-# afegir més editors de confiança al seu magatzem (`.gnosi/plugins_trust.json`).
+# Trusted PUBLIC keys that ship with Gnosi ("official" publishers). The
+# `gnosi-official` key verifies plugins signed by the Gnosi team; the
+# its PRIVATE lives outside the repo (at `~/.gnosi-local/plugin_signing_key.json`,
+# 600 permissions) and is used with `plugins-examples/sign_plugin.py`. The user can
+# add more trusted publishers to their store (`.gnosi/plugins_trust.json`).
 BUNDLED_TRUSTED_KEYS: Dict[str, str] = {
     "gnosi-official": "E2CjszyBQSLgm0D1FejG/1j835WBmGRoghnyiXAOrk0=",
 }
@@ -52,9 +52,10 @@ def _trust_path(config_dir: Path) -> Path:
 
 # --- Primitives Ed25519 ------------------------------------------------------
 def generate_keypair() -> Dict[str, str]:
-    """Genera un parell de claus Ed25519. Retorna {'private','public'} en base64.
+    """Generates an Ed25519 key pair. Returns {'private','public'} in base64.
 
-    Per a eines d'autor/tests. La privada MAI ha de viatjar amb Gnosi.
+    For authoring tools/tests. The private key must NEVER ship with Gnosi.
+    
     """
     priv = Ed25519PrivateKey.generate()
     raw_priv = priv.private_bytes_raw()
@@ -66,27 +67,27 @@ def generate_keypair() -> Dict[str, str]:
 
 
 def sign(private_key_b64: str, data: bytes) -> str:
-    """Signa `data` amb una clau privada Ed25519 (base64 crua). Retorna sig base64."""
+    """Signs `data` with an Ed25519 private key (raw base64). Returns the signature in base64."""
     raw = base64.b64decode(private_key_b64)
     priv = Ed25519PrivateKey.from_private_bytes(raw)
     return base64.b64encode(priv.sign(data)).decode()
 
 
 def verify(public_key_b64: str, signature_b64: str, data: bytes) -> bool:
-    """True si `signature_b64` és una signatura vàlida de `data` per `public_key_b64`."""
+    """True if `signature_b64` is a valid signature of `data` for `public_key_b64`."""
     try:
         pub = Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64))
         pub.verify(base64.b64decode(signature_b64), data)
         return True
     except (InvalidSignature, ValueError):
         return False
-    except Exception:  # noqa: BLE001 — base64/format inesperat → no vàlida
+    except Exception:  # noqa: BLE001 — unexpected base64/format → invalid
         return False
 
 
-# --- Magatzem de confiança ---------------------------------------------------
+# --- Trust store ---------------------------------------------------------------
 def load_trust_store(config_dir: Path) -> Dict[str, str]:
-    """Claus de confiança: bundled (oficials) + les de `.gnosi/plugins_trust.json`."""
+    """Trust keys: bundled (official) + those from `.gnosi/plugins_trust.json`."""
     keys = dict(BUNDLED_TRUSTED_KEYS)
     path = _trust_path(config_dir)
     if path.exists():
@@ -103,8 +104,8 @@ def load_trust_store(config_dir: Path) -> Dict[str, str]:
 
 
 def add_trusted_key(config_dir: Path, name: str, public_key_b64: str) -> None:
-    """Afegeix (o actualitza) una clau pública de confiança al magatzem d'usuari."""
-    # Valida que és una clau Ed25519 vàlida abans de desar-la.
+    """Adds (or updates) a trusted public key in the user's store."""
+    # Validates that it's a valid Ed25519 key before saving it.
     try:
         Ed25519PublicKey.from_public_bytes(base64.b64decode(public_key_b64))
     except Exception as e:  # noqa: BLE001
@@ -138,7 +139,7 @@ def remove_trusted_key(config_dir: Path, name: str) -> None:
 
 
 def verify_against_trust(config_dir: Path, signature_b64: str, data: bytes) -> Optional[str]:
-    """Retorna el NOM de la clau de confiança que verifica la signatura, o None."""
+    """Returns the NAME of the trusted key that verifies the signature, or None."""
     if not signature_b64:
         return None
     for name, pub in load_trust_store(config_dir).items():

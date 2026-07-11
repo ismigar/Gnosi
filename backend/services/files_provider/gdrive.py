@@ -1,24 +1,24 @@
-"""GoogleDriveProvider: vault sobre Google Drive (Drive for Desktop, macOS).
+"""GoogleDriveProvider: vault over Google Drive (Drive for Desktop, macOS).
 
-Des del 2023, Drive for Desktop a macOS utilitza el File Provider
-framework igual que OneDrive i iCloud:
-- Online-only marcat amb `st_blocks == 0`.
-- Materialització disparada per `open()/read()`.
-- Path típic: `~/Library/CloudStorage/GoogleDrive-<account>/...`.
+Since 2023, Drive for Desktop on macOS has used the File Provider
+framework just like OneDrive and iCloud:
+- Online-only marked with `st_blocks == 0`.
+- Materialization triggered by `open()/read()`.
+- Typical path: `~/Library/CloudStorage/GoogleDrive-<account>/...`.
 
-Per tant, el daemon `sh/onedrive_warmup_daemon.py` és reutilizable
-sense canvis. Aquesta classe només existeix per donar al log
-(`FilesProvider actiu: gdrive`) i permetre env vars dedicades.
+Therefore, the `sh/onedrive_warmup_daemon.py` daemon is reusable
+without changes. This class exists only to provide the log entry
+(`FilesProvider actiu: gdrive`) and to allow dedicated env vars.
 
 Notes:
-- El **Drive File Stream antic** (versió < 2021) muntava un FUSE
-  driver propi a `/Volumes/GoogleDrive/`. Google va migrar tots els
-  usuaris al nou sistema; tractar el cas legacy no està suportat.
-- A Windows, Google Drive usa Files-on-Demand del Cloud Filter API,
-  que té una detecció diferent (xattr `OFFLINE`). Aquesta classe
-  només cobreix macOS — Windows quedaria per a una fase posterior.
+- The **old Drive File Stream** (version < 2021) mounted its own FUSE
+  driver at `/Volumes/GoogleDrive/`. Google migrated all
+  users to the new system; handling the legacy case is not supported.
+- On Windows, Google Drive uses Files-on-Demand from the Cloud Filter API,
+  which has a different detection method (xattr `OFFLINE`). This class
+  only covers macOS — Windows would be left for a later phase.
 
-Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/dev_memory/directives/files_provider_abstraction.md`.
 """
 
 from __future__ import annotations
@@ -30,10 +30,11 @@ from .onedrive import OneDriveProvider
 
 
 class GoogleDriveProvider(OneDriveProvider):
-    """Google Drive (Drive for Desktop) a macOS, via File Provider.
+    """Google Drive (Drive for Desktop) on macOS, via File Provider.
 
-    Reutilitza la lògica de `OneDriveProvider`; només canvia el `name`
-    i prioritza env vars `GDRIVE_*` abans de caure a `ONEDRIVE_*`.
+    Reuses the logic of `OneDriveProvider`; it only changes the `name`
+    and prioritizes `GDRIVE_*` env vars before falling back to `ONEDRIVE_*`.
+    
     """
 
     name = "gdrive"

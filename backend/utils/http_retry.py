@@ -1,10 +1,10 @@
-"""Parseig tolerant del header HTTP `Retry-After` (RFC 7231).
+"""Tolerant parsing of the HTTP `Retry-After` header (RFC 7231).
 
-El header pot ser un enter de segons O una data HTTP
-(`"Wed, 21 Oct 2025 07:28:00 GMT"`). Fer `float(value)` directe petava amb
-`ValueError` davant el format de data i tombava el caller (clon de Notion,
-tools MCP…) en lloc de reintentar. Aquest helper interpreta els dos formats i
-CAU al `default` si no es pot interpretar — mai llança.
+The header can be an integer number of seconds OR an HTTP date
+(`"Wed, 21 Oct 2025 07:28:00 GMT"`). Calling `float(value)` directly used to blow up with
+`ValueError` on the date format and take down the caller (Notion clone,
+MCP tools…) instead of retrying. This helper interprets both formats and
+FALLS BACK to `default` if it can't be parsed — it never raises.
 """
 from __future__ import annotations
 
@@ -17,13 +17,14 @@ def retry_after_seconds(
     default: float,
     cap: Optional[float] = None,
 ) -> float:
-    """Segons a esperar davant un 429/503, tolerant amb el format de `Retry-After`.
+    """Seconds to wait before a 429/503, tolerant of the `Retry-After` format.
 
-    - `value`: el valor cru del header (o None si no hi és).
-    - `default`: fallback quan és absent o no interpretable.
-    - `cap`: màxim opcional (evita esperes desmesurades si el servidor n'envia
-      una de gegant).
-    Sempre retorna un float >= 0; mai llança.
+    - `value`: the raw header value (or None if absent).
+    - `default`: fallback when absent or unparsable.
+    - `cap`: optional maximum (avoids excessive waits if the server sends
+      an outrageous one).
+    Always returns a float >= 0; never raises.
+    
     """
     def _cap(x: float) -> float:
         x = max(x, 0.0)
@@ -32,13 +33,13 @@ def retry_after_seconds(
     if not value:
         return _cap(default)
 
-    # Forma "segons" (enter o decimal).
+    # "seconds" form (integer or decimal).
     try:
         return _cap(float(value))
     except (ValueError, TypeError):
         pass
 
-    # Forma data HTTP → delta fins ara.
+    # HTTP date form → delta up to now.
     try:
         from email.utils import parsedate_to_datetime
         from datetime import datetime, timezone

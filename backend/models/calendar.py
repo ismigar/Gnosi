@@ -4,13 +4,14 @@ from backend.data.management_db import Base
 
 class HiddenEvent(Base):
     """
-    Guarda els IDs d'esdeveniments que l'usuari ha decidit amagar de la interfície.
-    Funciona tant per a IDs de Notion (UUID) com per a IDs de Google Calendar.
+        Stores the IDs of events that the user has decided to hide from the interface.
+    Works both for Notion IDs (UUID) and Google Calendar IDs.
+    
     """
     __tablename__ = "hidden_events"
 
     event_id = Column(String, primary_key=True, index=True)
-    user_id = Column(String, index=True, nullable=True) # Per si en el futur hi ha multi-usuari real
+    user_id = Column(String, index=True, nullable=True) # In case there is real multi-user support in the future
     hidden_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     def __repr__(self):

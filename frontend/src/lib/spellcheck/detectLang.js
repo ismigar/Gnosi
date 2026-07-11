@@ -10,12 +10,12 @@ export const LANG_LABELS = {
 const ISO3_TO_LANG = { cat: 'ca', spa: 'es', eng: 'en' };
 
 /**
- * Detecta l'idioma d'un text entre català/castellà/anglès.
- * Retorna un codi de SUPPORTED_LANGS o `null` si no hi ha prou text per decidir
- * (el qui crida decideix el fallback, normalment mantenir l'idioma actual).
+ * Detects the language of a text among Catalan/Spanish/English.
+ * Returns a SUPPORTED_LANGS code, or `null` if there isn't enough text to decide
+ * (the caller decides the fallback, usually keeping the current language).
  *
- * Usa `franc` (complet), no `franc-min`: el model reduït classifica TOT el
- * català com a castellà. Es carrega de forma mandrosa amb el corrector.
+ * Uses `franc` (the full version), not `franc-min`: the reduced model classifies ALL
+ * Catalan as Spanish. It's lazy-loaded together with the spell checker.
  */
 export async function detectLang(text) {
     const clean = (text || '').trim();

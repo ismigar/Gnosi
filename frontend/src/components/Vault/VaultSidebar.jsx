@@ -250,11 +250,11 @@ const PageTreeItem = ({
                 }}
                 draggable={!isRenaming && canReorder}
                 onDragStart={(e) => {
-                    // Doble protocol al dataTransfer:
-                    //   - 'application/gnosi-note': format antic (insertem l'ID
-                    //     com a wikilink dins l'editor en deixar anar a una nota)
-                    //   - 'application/gnosi-page-move': nou, indica que estem
-                    //     reordenant l'arbre de la sidebar (canvi de parent_id)
+                    // Double protocol in the dataTransfer:
+                    //   - 'application/gnosi-note': legacy format (we insert the ID
+                    //     as a wikilink inside the editor when dropped on a note)
+                    //   - 'application/gnosi-page-move': new, indicates that we are
+                    //     reordering the sidebar tree (parent_id change)
                     e.dataTransfer.setData('application/gnosi-note', JSON.stringify({
                         id: page.id,
                         title: page.title
@@ -268,7 +268,7 @@ const PageTreeItem = ({
                     e.dataTransfer.effectAllowed = canReorder ? 'copyMove' : 'copy';
                 }}
                 onDragOver={canReorder ? (e) => {
-                    // Només acceptem drops del mateix sidebar (no de l'editor)
+                    // We only accept drops from the same sidebar (not from the editor)
                     if (!Array.from(e.dataTransfer.types).includes('application/gnosi-page-move')) return;
                     e.preventDefault();
                     e.dataTransfer.dropEffect = 'move';
@@ -287,8 +287,8 @@ const PageTreeItem = ({
                         const payload = JSON.parse(raw);
                         const sourceId = payload?.id;
                         if (!sourceId || sourceId === page.id) return;
-                        // Evitem que una pàgina es converteixi en filla d'una
-                        // pròpia descendent (cicle a l'arbre).
+                        // We prevent a page from becoming a child of one of its
+                        // own descendants (cycle in the tree).
                         const isDescendant = (() => {
                             const queue = [page.id];
                             const seen = new Set();
@@ -388,7 +388,7 @@ const PageTreeItem = ({
                 </div>
             </div>
 
-            {/* Dropdown de context menu (Portal) */}
+            {/* Context menu dropdown (Portal) */}
             {isMenuOpen && typeof document !== 'undefined' && createPortal(
                 <div
                     ref={menuRef}
@@ -554,9 +554,9 @@ export const VaultSidebar = ({
     const [isWorkspaceExpanded, setIsWorkspaceExpanded] = useState(true);
     const [isDashboardExpanded, setIsDashboardExpanded] = useState(true);
     const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(true);
-    // Candau del Wiki: quan està tancat (true), no es poden arrossegar pàgines
-    // per reordenar/anidar. Persistit a localStorage. Per defecte tancat per
-    // evitar moviments accidentals (l'usuari ha de "desbloquejar" abans).
+    // Wiki lock: when it's closed (true), pages cannot be dragged
+    // for reordering/nesting. Persisted in localStorage. Closed by default for
+    // avoid accidental moves (the user has to "unlock" first).
     const [isWikiDragLocked, setIsWikiDragLocked] = useState(() => {
         try {
             const raw = localStorage.getItem('gnosi.sidebar.wikiDragLocked');
@@ -568,8 +568,8 @@ export const VaultSidebar = ({
         try { localStorage.setItem('gnosi.sidebar.wikiDragLocked', String(isWikiDragLocked)); }
         catch (e) { /* noop */ }
     }, [isWikiDragLocked]);
-    // Ordenació de favorits: {mode, manualOrder}. Persistit a localStorage.
-    // mode pot ser 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent' | 'oldest'.
+    // Favorites ordering: {mode, manualOrder}. Persisted in localStorage.
+    // mode can be 'manual' | 'alpha-asc' | 'alpha-desc' | 'recent' | 'oldest'.
     const [favoritesSort, setFavoritesSort] = useState(() => {
         try {
             const raw = localStorage.getItem('gnosi.sidebar.favoritesSort');
@@ -626,7 +626,7 @@ export const VaultSidebar = ({
         setIsFavoritesSortOpen(false);
     };
 
-    // Drag handler per ordre manual
+    // Drag handler for manual ordering
     const [draggingFavoriteId, setDraggingFavoriteId] = useState(null);
     const handleFavoriteDragStart = (id) => (e) => {
         setDraggingFavoriteId(id);
@@ -740,19 +740,19 @@ export const VaultSidebar = ({
             return page.is_database || (!!t && t !== 'wiki') || page.folder?.startsWith('BD/');
         };
 
-        // Secció on viu una pàgina: marcadors propis primer (dashboard / dades) i, si no en
-        // té cap, la del seu PARE (cadena de parent_id, memoïtzada i a prova de cicles). Així
-        // una subpàgina sense table_id que penja d'una fila (el fitxer viu a Wiki/, cf.
-        // directiva vault_subpages_hierarchy.md) s'enganxa a l'arbre de la taula del pare, i
-        // una subpàgina d'un dashboard al del dashboard — abans queien al childrenMap del
-        // wiki sota un pare que no s'hi renderitza mai (invisibles).
+        // Section where a page lives: its own markers first (dashboard / data) and, if it has
+        // none, its PARENT's (parent_id chain, memoized and cycle-proof). This way
+        // a subpage without table_id that hangs off a row (the file lives in Wiki/, cf.
+        // directive vault_subpages_hierarchy.md) attaches to the parent table's tree, and
+        // a subpage of a dashboard goes to the dashboard's — previously they fell into the childrenMap of the
+        // wiki under a parent that never renders there (invisible).
         const sectionCache = {};
         const sectionOf = (page, visiting) => {
             if (!page) return { kind: 'wiki' };
             const hit = sectionCache[page.id];
             if (hit) return hit;
             const seen = visiting || new Set();
-            if (seen.has(page.id)) return { kind: 'wiki' };   // cicle de parent_id: talla
+            if (seen.has(page.id)) return { kind: 'wiki' };   // parent_id cycle: cuts
             seen.add(page.id);
             let sec;
             if (isDashboardPage(page)) {
@@ -763,7 +763,7 @@ export const VaultSidebar = ({
                     const psec = sectionOf(pagesById[page.parent_id], seen);
                     if (psec.kind === 'data') tableId = psec.tableId;
                 }
-                // Sense taula resoluble es manté el comportament previ: no s'ensenya enlloc.
+                // Without a resolvable table, the previous behavior is kept: it's shown nowhere.
                 sec = { kind: 'data', tableId: tableId || null };
             } else if (page.parent_id && pagesById[page.parent_id]) {
                 sec = sectionOf(pagesById[page.parent_id], seen);
@@ -775,11 +775,11 @@ export const VaultSidebar = ({
         };
 
         (pages || []).forEach(p => {
-            // `isAppContent` tracta tota la carpeta BD/ com a contingut d'app: sense
-            // l'excepció de sota, CAP fila entrava mai als mapes i l'arbre de dades
-            // (files sota la taula, chevron d'expandir, subpàgines de fila) era codi
-            // dorment. Les pàgines amb marcadors de dades propis entren al seu arbre;
-            // Mail/Assets/Calendar/… segueixen fora.
+            // `isAppContent` treats the entire BD/ folder as app content: without
+            // the exception below, NO row ever entered the maps and the data tree
+            // (rows under the table, expand chevron, row subpages) was code
+            // dormant. Pages with their own data markers enter their own tree;
+            // Mail/Assets/Calendar/… remain outside.
             if (p.metadata?.is_template || isCalendarPage(p) || (isAppContent(p) && !hasOwnDataMarkers(p))) return;
 
             const parent = p.parent_id ? pagesById[p.parent_id] : null;
@@ -796,7 +796,7 @@ export const VaultSidebar = ({
             }
 
             if (sec.kind === 'data') {
-                if (!sec.tableId) return;   // BD/ sense taula resoluble: com abans, fora
+                if (!sec.tableId) return;   // BD/ with no resolvable table: as before, outside
                 const psec = parent ? sectionOf(parent) : null;
                 if (psec?.kind === 'data' && psec.tableId === sec.tableId) {
                     if (!computedDataChildrenMap[sec.tableId]) {
@@ -811,8 +811,8 @@ export const VaultSidebar = ({
                     }
                     computedDataChildrenMap[sec.tableId].roots.push(p);
                 } else {
-                    // Subpàgina amb el pare desaparegut (fila esborrada): visible al wiki,
-                    // mai com a pseudo-fila arrel de la taula.
+                    // Subpage whose parent has disappeared (row deleted): visible in the wiki,
+                    // never as the table's root pseudo-row.
                     computedRootPages.push(p);
                 }
                 return;
@@ -822,9 +822,9 @@ export const VaultSidebar = ({
                 if (!computedChildrenMap[p.parent_id]) computedChildrenMap[p.parent_id] = [];
                 computedChildrenMap[p.parent_id].push(p);
             } else {
-                // Sense parent_id o amb el pare inexistent: arrel del wiki. Abans, un
-                // parent_id orfe amagava la pàgina per sempre (childrenMap d'un pare que
-                // no es renderitza); ara com a mínim es veu i es pot recol·locar.
+                // Without parent_id or with a nonexistent parent: wiki root. Previously, an
+                // orphaned parent_id hid the page forever (childrenMap of a parent that
+                // doesn't render); now at least it's visible and can be relocated.
                 computedRootPages.push(p);
             }
         });
@@ -1356,10 +1356,10 @@ export const VaultSidebar = ({
                             setWikiScrollTop(e.currentTarget.scrollTop);
                         }
                     }}
-                    // shrink-0: sense això el flex-column del sidebar encongeix
-                    // aquesta secció a height:0 quan DADES està expandit i el
-                    // contingut total supera el viewport del sidebar (que té
-                    // overflow-y-auto). Resultat visible: la WIKI sembla buida.
+                    // shrink-0: without this, the sidebar's flex-column shrinks
+                    // this section to height:0 when DATA is expanded and the
+                    // total content exceeds the sidebar's viewport (which has
+                    // overflow-y-auto). Visible result: the WIKI looks empty.
                     className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar shrink-0"
                 >
                     {isRegistryLoading ? (

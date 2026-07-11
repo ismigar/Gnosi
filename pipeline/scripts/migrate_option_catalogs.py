@@ -1,35 +1,36 @@
-"""Migració idempotent dels catàlegs d'opcions del registry del Vault.
+"""Idempotent migration of the Vault registry's option catalogs.
 
-Aplica el model de la directiva `vault_option_catalogs_action_rules.md` a un
-registry existent:
+Applies the model from the `vault_option_catalogs_action_rules.md` directive to an
+existing registry:
 
-  1. Backup datat del registry al costat de l'original (només amb --apply).
-  2. Incorpora al catàleg de cada camp select/multi_select/status TOTS els
-     valors existents a les files (.md de la carpeta real de la taula, sota
-     BD/<base de dades>/<folder>), ordenats per freqüència — no es perd cap
-     valor; la neteja es fa després des de la UI amb eliminar+reassignar.
-  3. Normalitza els catàlegs existents (strings → format ric, ubicació única
-     a config.options) — via option_catalogs.normalize_table_options.
-  4. Assigna rols semàntics per nom (Idioma → language, Estat → status,
-     Tags → tags); el camp amb rol status passa a `type: status` amb els
-     grups per defecte.
-  5. Seed d'estats segons funcionalitats actives («Esborrany»/«Revisat» base;
-     «Traduït» si traduïble; «Publicat a Drupal»/«Publicat a XXSS» si tenen
-     el sync/publicació actius) i dels blocs `action_rules` corresponents.
-  6. NO toca cap frontmatter (els valors es guarden per nom i no canvien) →
-     reversible restaurant el backup del registry.
+  1. Dated backup of the registry next to the original (only with --apply).
+  2. Incorporates into each select/multi_select/status field's catalog ALL
+     values already present in the rows (.md files in the table's real folder,
+     under BD/<database name>/<folder>), sorted by frequency — no value is
+     lost; cleanup is done afterward from the UI via delete+reassign.
+  3. Normalizes existing catalogs (strings → rich format, single location
+     in config.options) — via option_catalogs.normalize_table_options.
+  4. Assigns semantic roles by name (Idioma → language, Estat → status,
+     Tags → tags); the field with the status role switches to `type: status`
+     with the default groups.
+  5. Seeds statuses based on active features (base "Esborrany"/"Revisat";
+     "Traduït" if translatable; "Publicat a Drupal"/"Publicat a XXSS" if
+     sync/publishing is active for them) and the corresponding `action_rules`
+     blocks.
+  6. Does NOT touch any frontmatter (values are stored by name and don't
+     change) → reversible by restoring the registry backup.
 
-Ús (dry-run per defecte; NOMÉS escriu amb --apply):
+Usage (dry-run by default; ONLY writes with --apply):
 
     cd ~/Projectes/monorepo/apps/gnosi
-    python3 -m pipeline.scripts.migrate_option_catalogs \\
-        --registry "/ruta/al/vault/BD/vault_db_registry.json"
-    python3 -m pipeline.scripts.migrate_option_catalogs \\
-        --registry "/ruta/al/vault/BD/vault_db_registry.json" --apply
+    python3 -m pipeline.scripts.migrate_option_catalogs \
+        --registry "/path/to/vault/BD/vault_db_registry.json"
+    python3 -m pipeline.scripts.migrate_option_catalogs \
+        --registry "/path/to/vault/BD/vault_db_registry.json" --apply
 
-Restriccions (directiva §6): executar-la amb el backend aturat o acabat de
-reiniciar després (el registry es cacheja 30 s en memòria), i MAI el mateix
-dia que altres migracions massives sobre OneDrive.
+Restrictions (directive §6): run it with the backend stopped, or freshly
+restarted afterward (the registry is cached in memory for 30 s), and NEVER on
+the same day as other bulk migrations over OneDrive.
 """
 
 from __future__ import annotations
@@ -45,7 +46,7 @@ from pathlib import Path
 
 import yaml
 
-# Permet executar com a script independent (sense `python -m`).
+# Allows running as a standalone script (without `python -m`).
 _HERE = Path(__file__).resolve()
 _ROOT = _HERE.parents[2]  # .../monorepo/apps/gnosi
 if str(_ROOT) not in sys.path:
@@ -54,13 +55,13 @@ if str(_ROOT) not in sys.path:
 from backend.services import action_rules  # noqa: E402
 from backend.services import option_catalogs as oc  # noqa: E402
 
-# Frontmatter regex (mateixa forma que parse_frontmatter, sense dependre del
+# Frontmatter regex (same form as parse_frontmatter, without depending on the
 # backend complet).
 _FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def read_frontmatter(path: Path) -> dict:
-    """Frontmatter YAML d'un .md, o {} si no es pot llegir (online-only…)."""
+    """YAML frontmatter of a .md file, or {} if it can't be read (online-only…)."""
     try:
         raw = path.read_text(encoding="utf-8")
     except Exception as exc:
@@ -78,7 +79,7 @@ def read_frontmatter(path: Path) -> dict:
 
 
 def collect_field_values(folder: Path, prop: dict) -> Counter:
-    """Recompte de valors d'una property a les files (.md) d'una carpeta."""
+    """Count of values of a property across the rows (.md files) in a folder."""
     keys = [k for k in [prop.get("id"), prop.get("name")] if k]
     keys.extend(a for a in (prop.get("aliases") or []) if a)
     is_multi = prop.get("type") == "multi_select"
@@ -100,18 +101,19 @@ def collect_field_values(folder: Path, prop: dict) -> Counter:
             else:
                 values = [str(value).strip()]
             counts.update(v for v in values if v)
-            break  # primera clau amb valor mana (id > nom > àlies)
+            break  # first key with a value wins (id > name > alias)
     return counts
 
 
 def resolve_table_folder(table: dict, registry: dict, vault_root: Path) -> Path:
-    """Carpeta REAL de les files d'una taula.
+    """REAL folder for a table's rows.
 
-    Les taules viuen sota ``<vault>/BD/<nom de la base de dades>/<folder>``
-    (vegeu _ensure_table_vault_folder al backend), NO a ``<vault>/<folder>``.
-    Es prova per nom de BD, per id de BD i, com a últim recurs llegat,
-    l'arrel del vault. La primera versió d'aquest script mirava només
-    l'arrel → no derivava CAP valor (vegeu §6 bis de la directiva).
+    Tables live under ``<vault>/BD/<database name>/<folder>``
+    (see _ensure_table_vault_folder in the backend), NOT under ``<vault>/<folder>``.
+    It tries by BD name, by BD id, and, as a last legacy resort,
+    the vault root. The first version of this script only looked at
+    the root → it derived NO value at all (see directive §6 bis).
+    
     """
     folder = str(table.get("folder") or "")
     db = next(
@@ -136,10 +138,10 @@ def resolve_table_folder(table: dict, registry: dict, vault_root: Path) -> Path:
 
 
 def merge_values_into_catalogs(table: dict, registry: dict, vault_root: Path) -> list:
-    """Pas 2: incorpora al catàleg TOTS els valors existents a les files
-    (directiva §6: no es perd res; la neteja la fa després l'usuari amb
-    eliminar+reassignar). Idempotent: només afegeix els que falten, al final
-    del catàleg i ordenats per freqüència; mai en treu ni reordena."""
+    """Step 2: incorporates into the catalog ALL values existing in the rows
+    (directive §6: nothing is lost; cleanup is done afterward by the user via
+    delete+reassign). Idempotent: only adds the ones that are missing, at the
+    end of the catalog and sorted by frequency; it never removes or reorders any."""
     merged = []
     folder = resolve_table_folder(table, registry, vault_root)
     for prop in table.get("properties") or []:
@@ -164,7 +166,7 @@ def merge_values_into_catalogs(table: dict, registry: dict, vault_root: Path) ->
 
 
 def promote_status_type(table: dict) -> bool:
-    """Pas 4b: el camp amb rol status (select) passa a `type: status`."""
+    """Step 4b: the field with the status role (select) becomes `type: status`."""
     prop = oc.find_role_prop(table, oc.ROLE_STATUS)
     if not prop or prop.get("type") == "status":
         return False

@@ -3,16 +3,18 @@ import { createPortal } from 'react-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { ConfirmModal } from '../ConfirmModal';
 
 /**
  * AICorrectLayer
- * «Corregeix amb IA»: botó flotant sobre la selecció (corregeix la selecció o el
- * paràgraf actual) i correcció de la pàgina sencera via l'event
- * `gnosi:ai-correct-page`. Reaprofita `POST /api/ai/correct`.
+ * "Correct with AI": a floating button over the selection (corrects the selection or the
+ * current paragraph) and correction of the whole page via the
+ * `gnosi:ai-correct-page` event. Reuses `POST /api/ai/correct`.
  */
 export default function AICorrectLayer({ editor, lang }) {
-    const [btn, setBtn] = useState(null);   // {top,left} del botó de selecció
+    const { t } = useTranslation();
+    const [btn, setBtn] = useState(null);   // {top,left} of the selection button
     const [busy, setBusy] = useState(false);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const busyRef = useRef(false);
@@ -28,7 +30,7 @@ export default function AICorrectLayer({ editor, lang }) {
         return (data?.corrected || '').trim();
     }, [lang]);
 
-    // Corregeix la selecció (o el paràgraf actual si la selecció és buida).
+    // Corrects the selection (or the current paragraph if the selection is empty).
     const correctSelection = useCallback(async () => {
         const v = view();
         if (!v || busyRef.current) return;
@@ -51,18 +53,18 @@ export default function AICorrectLayer({ editor, lang }) {
                 const vv = view();
                 vv.dispatch(vv.state.tr.insertText(corrected, from, to));
                 vv.focus();
-                toast.success('Text corregit');
+                toast.success(t('ai_correct.text_corrected', 'Text corregit'));
             } else {
-                toast('Cap correcció necessària');
+                toast(t('ai_correct.no_correction', 'Cap correcció necessària'));
             }
         } catch (err) {
             toast.error(err?.response?.data?.detail || 'No s\'ha pogut corregir');
         } finally {
             busyRef.current = false; setBusy(false);
         }
-    }, [view, callCorrect]);
+    }, [view, callCorrect, t]);
 
-    // Corregeix tota la pàgina (markdown → IA → blocs).
+    // Corrects the entire page (markdown → AI → blocks).
     const correctPage = useCallback(async () => {
         if (!editor || busyRef.current) return;
         busyRef.current = true; setBusy(true);
@@ -74,23 +76,23 @@ export default function AICorrectLayer({ editor, lang }) {
             if (!corrected) { toast.dismiss(tid); return; }
             const newBlocks = await editor.tryParseMarkdownToBlocks(corrected);
             editor.replaceBlocks(editor.document, newBlocks);
-            toast.success('Pàgina corregida', { id: tid });
+            toast.success(t('ai_correct.page_corrected', 'Pàgina corregida'), { id: tid });
         } catch (err) {
-            toast.error(err?.response?.data?.detail || 'No s\'ha pogut corregir la pàgina', { id: tid });
+            toast.error(err?.response?.data?.detail || t('ai_correct.page_error', 'No s\'ha pogut corregir la pàgina'), { id: tid });
         } finally {
             busyRef.current = false; setBusy(false);
         }
-    }, [editor, callCorrect]);
+    }, [editor, callCorrect, t]);
 
-    // Escolta la petició de correcció de pàgina (des de la capçalera de l'editor):
-    // obre el modal de confirmació (acció que reemplaça tot el contingut).
+    // Listens for the page-correction request (from the editor header):
+    // opens the confirmation modal (an action that replaces all the content).
     useEffect(() => {
         const h = () => setConfirmOpen(true);
         window.addEventListener('gnosi:ai-correct-page', h);
         return () => window.removeEventListener('gnosi:ai-correct-page', h);
     }, []);
 
-    // Mostra el botó flotant quan hi ha selecció dins l'editor.
+    // Shows the floating button when there is a selection within the editor.
     useEffect(() => {
         if (!editor) return undefined;
         const onUp = () => {
@@ -136,10 +138,10 @@ export default function AICorrectLayer({ editor, lang }) {
                 isOpen={confirmOpen}
                 onClose={() => setConfirmOpen(false)}
                 onConfirm={async () => { setConfirmOpen(false); await correctPage(); }}
-                title="Corregir tota la pàgina amb IA"
-                message="Es reemplaçarà el contingut de la pàgina amb la versió corregida. Podràs desfer-ho amb Ctrl/Cmd+Z."
-                confirmText="Corregeix"
-                cancelText="Cancel·la"
+                title={t('ai_correct.confirm_title', 'Corregir tota la pàgina amb IA')}
+                message={t('ai_correct.confirm_message', 'Es reemplaçarà el contingut de la pàgina amb la versió corregida. Podràs desfer-ho amb Ctrl/Cmd+Z.')}
+                confirmText={t('ai_correct.confirm_button', 'Corregeix')}
+                cancelText={t('common.cancel', 'Cancel·la')}
                 isDestructive={false}
             />
         </>

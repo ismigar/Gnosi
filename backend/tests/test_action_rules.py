@@ -1,4 +1,4 @@
-"""Tests del motor d'action_rules (requires/effects/on_stale)."""
+"""Tests for the action_rules engine (requires/effects/on_stale)."""
 import pytest
 
 from backend.services import action_rules as ar
@@ -47,7 +47,7 @@ def test_ensure_action_rules_seeds_only_active_features():
     t = _table(drupal_sync_enabled=True)
     assert ar.ensure_action_rules(t) is True
     assert set(t["action_rules"].keys()) == {ar.ACTION_TRANSLATE, ar.ACTION_SYNC_DRUPAL}
-    # Idempotent i mai sobreescriu un bloc editat a mà.
+    # Idempotent and never overwrites a manually edited block.
     t["action_rules"][ar.ACTION_TRANSLATE]["requires"] = []
     assert ar.ensure_action_rules(t) is False
     assert t["action_rules"][ar.ACTION_TRANSLATE]["requires"] == []
@@ -98,14 +98,14 @@ def test_status_effect_source_and_created():
     t = _table()
     prop, value, changed = ar.status_effect(t, ar.ACTION_TRANSLATE, "source")
     assert (prop["id"], value) == ("fld_estat", oc.STATUS_TRANSLATED)
-    # «Traduït» no era al catàleg → s'hi ha afegit (la regla mai falla).
+    # «Traduït» wasn't in the catalog → it was added (the rule never fails).
     assert changed is True
     names = oc.option_names(t["properties"][0]["config"]["options"])
     assert oc.STATUS_TRANSLATED in names
 
     prop, value, changed = ar.status_effect(t, ar.ACTION_TRANSLATE, "created")
     assert (prop["id"], value) == ("fld_estat", oc.STATUS_DRAFT)
-    assert changed is False  # ja hi era
+    assert changed is False  # was already there
 
 
 def test_status_effect_none_when_no_rules_or_target():

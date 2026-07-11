@@ -1,29 +1,29 @@
-"""Aïllament per-missatge a la ingesta de newsletters (POP3).
+"""Per-message isolation in newsletter ingestion (POP3).
 
-Regressió: el bucle de `fetch_and_store_newsletters` processava TOTS els missatges
-dins d'un únic try/except global amb un `db.commit()` únic al final. Un sol email
-verinós (parseig/decodificació que peta, o error de DB al flush) tombava tota la
-ingesta: es propagava fins a l'except exterior, feia `db.rollback()` i re-llançava
-→ cap article es desava i cap missatge s'esborrava del servidor, deixant la bústia
-bloquejada indefinidament (el mateix email tornava a petar al següent intent).
+Regression: the `fetch_and_store_newsletters` loop processed ALL messages
+inside a single global try/except with one final `db.commit()`. A single
+poisoned email (parsing/decoding that crashes, or a DB error on flush) took down
+the whole ingestion: it propagated to the outer except, did `db.rollback()`, and re-raised
+→ no article was saved and no message was deleted from the server, leaving the mailbox
+stuck indefinitely (the same email would crash again on the next attempt).
 
-Fix (mateix patró que el #771 del feed_ingester): cada missatge en el seu propi
-try/except + un savepoint (`db.begin_nested()`) al voltant del `db.add`/`flush`.
-Un missatge que peta es registra i se salta (`continue`) SENSE tocar la transacció
-global, i — CRÍTIC — NO es marca per esborrar del servidor (`delete_ids`), perquè
-es pugui reintentar/inspeccionar. Els bons es desen al `commit()` únic del final.
+Fix (same pattern as #771 in feed_ingester): each message gets its own
+try/except plus a savepoint (`db.begin_nested()`) around the `db.add`/`flush`.
+A message that crashes is logged and skipped (`continue`) WITHOUT touching the
+global transaction, and — CRITICALLY — is NOT marked for deletion from the server (`delete_ids`), so
+it can be retried/inspected. Good ones are saved in the single final `commit()`.
 
-Test d'integració: SQLite en memòria (StaticPool) + models reals + un POP3 fals
-que retorna N missatges, un parseig-verinós i un DB-verinós entre els bons.
+Integration test: in-memory SQLite (StaticPool) + real models + a fake POP3
+that returns N messages, with one parse-poisoned and one DB-poisoned message among the good ones.
 """
 from __future__ import annotations
 
 import os
 import tempfile
 
-# El backend fa mkdir del directori de dades a l'import; cal apuntar-lo a scratch
-# ABANS d'importar res de `backend.*`. També apuntem el vault a un path inexistent
-# perquè cap codi toqui OneDrive durant el test.
+# The backend does a mkdir of the data directory on import; it must be pointed to scratch
+# BEFORE importing anything from `backend.*`. We also point the vault to a nonexistent path
+# so that no code touches OneDrive during the test.
 os.environ.setdefault("GNOSI_LOCAL_DATA", tempfile.mkdtemp(prefix="gnosi-test-mailingest-"))
 os.environ.setdefault("DIGITAL_BRAIN_VAULT_PATH", "/tmp/nonexistent")
 
@@ -36,7 +36,7 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from backend.data.db import Base  # noqa: E402
-# Importa els models perquè els mappers (feed_sources/articles/...) es registrin.
+# Import the models so the mappers (feed_sources/articles/...) get registered.
 from backend.models.reader import Article, NewsletterAccount  # noqa: E402
 from backend.services import mail_ingester  # noqa: E402
 
@@ -44,7 +44,7 @@ from backend.services import mail_ingester  # noqa: E402
 # ── Helpers ────────────────────────────────────────────────────────────────
 
 def _raw_email(subject: str, sender: str, body: str, msgid: str) -> bytes:
-    """Construeix un email RFC822 mínim amb finals de línia \\r\\n (com POP3)."""
+    """Build a minimal RFC822 email with \\r\\n line endings (like POP3)."""
     return (
         f"From: {sender}\r\n"
         f"Subject: {subject}\r\n"
@@ -57,8 +57,8 @@ def _raw_email(subject: str, sender: str, body: str, msgid: str) -> bytes:
 
 
 class FakePOP3:
-    """POP3 fals. `items` és una llista on cada element és bytes (email cru) o una
-    Exception (que `retr` re-llança per simular un missatge il·legible/verinós)."""
+    """Fake POP3. `items` is a list where each element is bytes (raw email) or an
+    Exception (which `retr` re-raises to simulate an unreadable/poisoned message)."""
 
     def __init__(self, items):
         self._items = items
@@ -84,17 +84,17 @@ class FakePOP3:
 
 @pytest.fixture()
 def db_env(monkeypatch):
-    """Motor SQLite en memòria amb FK activades + monkeypatch de les dependències
-    d'entorn del mail_ingester (engine/vault). Retorna (engine, SessionLocal)."""
+    """In-memory SQLite engine with FK enabled + monkeypatch of the mail_ingester's
+    environment dependencies (engine/vault). Returns (engine, SessionLocal)."""
     engine = create_engine(
         "sqlite://",
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
 
-    # Activa l'enforcement de FK (SQLite el porta OFF per defecte) perquè un
-    # source_id inexistent provoqui un IntegrityError real al flush → exercita
-    # el savepoint begin_nested.
+    # Enables FK enforcement (SQLite has it OFF by default) so that a
+    # nonexistent source_id triggers a real IntegrityError on flush → exercises
+    # the begin_nested savepoint.
     @event.listens_for(engine, "connect")
     def _fk_on(dbapi_conn, _rec):  # noqa: ANN001
         dbapi_conn.execute("PRAGMA foreign_keys=ON")
@@ -102,11 +102,11 @@ def db_env(monkeypatch):
     Base.metadata.create_all(bind=engine)
     SessionLocal = sessionmaker(bind=engine)
 
-    # El mail_ingester importa aquests dos noms al seu namespace.
+    # The mail_ingester imports these two names into its namespace.
     monkeypatch.setattr(mail_ingester, "get_engine_for_path", lambda _p: (engine, SessionLocal))
     monkeypatch.setattr(mail_ingester, "get_active_vault_path", lambda: "/tmp/nonexistent")
 
-    # Configura el compte POP3 al DB perquè cfg sigui vàlid (email/pass/host).
+    # Configure the POP3 account in the DB so cfg is valid (email/pass/host).
     s = SessionLocal()
     s.add(NewsletterAccount(
         mail_server="mail.example.com",
@@ -122,16 +122,16 @@ def db_env(monkeypatch):
     return engine, SessionLocal
 
 
-# ── Test principal: aïllament + savepoint + delete-only-on-success ───────────
+# ── Main test: isolation + savepoint + delete-only-on-success ────────────────
 
 def test_poison_message_does_not_block_others(db_env, monkeypatch):
     _, SessionLocal = db_env
 
-    # Ordre volgut: un parseig-verinós i un DB-verinós ENTRE els bons, amb un bo
-    # DESPRÉS del DB-verinós per demostrar que el savepoint deixa la sessió sana.
+    # Intended order: one parse-poisoned and one DB-poisoned message BETWEEN the good ones, with a good one
+    # AFTER the DB-poisoned one, to demonstrate that the savepoint leaves the session healthy.
     items = [
         _raw_email("Bo 1", "a@example.com", "hola 1", "good-1"),      # 1 ✅
-        RuntimeError("retr: missatge il·legible"),                     # 2 💀 parseig
+        RuntimeError("retr: missatge il·legible"),                     # 2 💀 parsing
         _raw_email("Bo 2", "b@example.com", "hola 2", "good-2"),      # 3 ✅
         _raw_email("Verí DB", "poisondb@bad.com", "x", "poison-db"),  # 4 💀 flush (FK)
         _raw_email("Bo 3", "c@example.com", "hola 3", "good-3"),      # 5 ✅
@@ -139,8 +139,8 @@ def test_poison_message_does_not_block_others(db_env, monkeypatch):
     fake = FakePOP3(items)
     monkeypatch.setattr(mail_ingester, "_connect_pop3", lambda **_kw: fake)
 
-    # Per al missatge DB-verinós, retornem un source amb id inexistent → el flush
-    # dins del savepoint peta amb IntegrityError (FK). La resta usa la funció real.
+    # For the DB-poisoned message, we return a source with a nonexistent id → the flush
+    # inside the savepoint fails with IntegrityError (FK). The rest use the real function.
     real_source = mail_ingester._get_or_create_sender_source
 
     class _BogusSource:
@@ -156,7 +156,7 @@ def test_poison_message_does_not_block_others(db_env, monkeypatch):
 
     count = mail_ingester.fetch_and_store_newsletters()
 
-    # 3 bons ingerits (el de després del verí-DB inclòs → sessió sana post-savepoint).
+    # 3 good ones ingested (including the one after the DB poison → session healthy post-savepoint).
     assert count == 3
 
     verify = SessionLocal()
@@ -166,19 +166,19 @@ def test_poison_message_does_not_block_others(db_env, monkeypatch):
         verify.close()
     assert urls == {"mail://good-1", "mail://good-2", "mail://good-3"}
 
-    # Només els bons s'han marcat per esborrar del servidor (índexs 1, 3, 5).
-    # Els verinosos (2 i 4) es queden a la bústia per reintentar/inspeccionar.
+    # Only the good ones have been marked for deletion from the server (indexes 1, 3, 5).
+    # The poisoned ones (2 and 4) stay in the mailbox to be retried/inspected.
     assert sorted(fake.deleted) == [1, 3, 5]
     assert 2 not in fake.deleted
     assert 4 not in fake.deleted
 
 
-# ── Control negatiu: el flux PRE-fix (un sol try global) bloqueja tot ────────
+# ── Negative control: the PRE-fix flow (a single global try) blocks everything ────────
 
 def test_negative_control_single_flow_blocks_and_loses_batch(db_env):
-    """Reprodueix el flux vulnerable pre-#771 (tot dins d'UN try global, commit
-    únic, rollback+raise a qualsevol error). Demostra que un sol email verinós
-    tomba tota la ingesta: propaga, cap article persisteix i res s'esborra."""
+    """Reproduces the vulnerable pre-#771 flow (everything inside ONE global try, a single
+    commit, rollback+raise on any error). Demonstrates that a single poisoned email
+    brings down the whole ingestion: it propagates, no article persists, and nothing is deleted."""
     _, SessionLocal = db_env
 
     items = [
@@ -194,7 +194,7 @@ def test_negative_control_single_flow_blocks_and_loses_batch(db_env):
             count = 0
             num = len(fake.list()[1])
             for i in range(1, num + 1):
-                _resp, lines, _oct = fake.retr(i)  # el verí (índex 2) peta aquí
+                _resp, lines, _oct = fake.retr(i)  # the poison (index 2) fails here
                 raw = b"\r\n".join(lines)
                 msg = email.message_from_bytes(raw)
                 db.add(Article(
@@ -210,7 +210,7 @@ def test_negative_control_single_flow_blocks_and_loses_batch(db_env):
             db.commit()
             return count
         except Exception:
-            db.rollback()  # ← borra TOT el lot, inclòs "Bo 1" ja afegit
+            db.rollback()  # ← wipes the ENTIRE batch, including "Bo 1" already added
             raise
         finally:
             db.close()
@@ -218,7 +218,7 @@ def test_negative_control_single_flow_blocks_and_loses_batch(db_env):
     with pytest.raises(RuntimeError):
         vulnerable_fetch()
 
-    # El "Bo 1" (afegit abans del verí) s'ha perdut pel rollback global.
+    # The "Bo 1" (added before the poison) is lost due to the global rollback.
     verify = SessionLocal()
     try:
         assert verify.query(Article).count() == 0

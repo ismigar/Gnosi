@@ -9,19 +9,19 @@ import {
 } from '../../lib/fileResource';
 
 /**
- * FileFieldValue — render de LECTURA d'un camp de tipus `files`.
+ * FileFieldValue — READ-only render of a `files`-type field.
  *
- * Mostra cada fitxer com un chip (icona segons tipus o thumbnail amb hover per
- * a imatges) + nom net + botó "Obrir". L'edició no es gestiona aquí: a la
- * taula, el clic a la cel·la obre el MediaPicker; per això el cos del chip
- * deixa propagar el clic i només el botó "Obrir" l'atura.
+ * Shows each file as a chip (icon based on type, or thumbnail with hover for
+ * images) + clean name + "Open" button. Editing is not handled here: in the
+ * table, clicking the cell opens the MediaPicker; that's why the chip body
+ * lets the click propagate and only the "Open" button stops it.
  *
  * Props:
- *   value    — valor del camp (string de path/URL o array)
- *   field    — nom del camp (per a `alt` d'imatges)
- *   variant  — 'table' | 'gallery' | 'feed' | 'detail' (controla mides)
- *   onRemove — opcional `(idx) => void`. Si es passa, cada chip mostra una "X"
- *              per treure aquell fitxer (l'índex correspon a `parseFileEntries`).
+ *   value    — field value (path/URL string or array)
+ *   field    — field name (for image `alt`)
+ *   variant  — 'table' | 'gallery' | 'feed' | 'detail' (controls sizes)
+ *   onRemove — optional `(idx) => void`. If passed, each chip shows an "X"
+ *              to remove that file (the index corresponds to `parseFileEntries`).
  */
 
 const KIND_ICON = {

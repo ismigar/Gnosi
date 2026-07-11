@@ -1,8 +1,8 @@
-"""Endpoint de reconeixement d'escriptura a mà (ink → text) LOCAL amb TrOCR.
+"""LOCAL handwriting recognition endpoint (ink → text) using TrOCR.
 
-`POST /api/vault/handwriting/recognize` rep una imatge PNG dels traços exportats
-pel canvas de Tldraw i retorna el text reconegut. Tot local: la imatge no surt a
-cap núvol (cf. `services/handwriting.py`).
+`POST /api/vault/handwriting/recognize` receives a PNG image of the strokes exported
+by the Tldraw canvas and returns the recognized text. Fully local: the image never goes to
+any cloud (cf. `services/handwriting.py`).
 """
 import asyncio
 import logging
@@ -15,13 +15,13 @@ from backend.services import handwriting
 router = APIRouter(prefix="/api/vault/handwriting", tags=["Handwriting"])
 log = logging.getLogger(__name__)
 
-# Límit de mida per protegir la CPU (el frontend exporta retalls, no llenços 4K).
+# Size limit to protect the CPU (the frontend exports crops, not 4K canvases).
 _MAX_BYTES = 12 * 1024 * 1024  # 12 MB
 
 
 @router.get("/status")
 async def handwriting_status():
-    """Indica si el motor local (transformers + PIL) està disponible."""
+    """Indicates whether the local engine (transformers + PIL) is available."""
     return {
         "available": handwriting.is_available(),
         "loaded": handwriting.is_loaded(),
@@ -31,10 +31,11 @@ async def handwriting_status():
 
 @router.post("/warmup")
 async def handwriting_warmup():
-    """Precarrega el model en segon pla (idempotent, no bloqueja).
+    """Preloads the model in the background (idempotent, non-blocking).
 
-    El frontend el crida en obrir el llenç perquè la 1a crida real de
-    reconeixement no hagi d'esperar la càrrega del model (~1.3 GB el 1r cop).
+    The frontend calls this when opening the canvas so the 1st real
+    recognition call doesn't have to wait for the model to load (~1.3 GB the first time).
+    
     """
     started = handwriting.warmup()
     return {"warming": started, "loaded": handwriting.is_loaded()}
@@ -46,10 +47,11 @@ async def recognize_handwriting(
     correct: Optional[bool] = Form(None),
     language: Optional[str] = Form(None),
 ):
-    """Rep un PNG dels traços i retorna `{text, raw, lines, model, corrected}`.
+    """Receives a PNG of the strokes and returns `{text, raw, lines, model, corrected}`.
 
-    `correct` aplica correcció IA (accents/ortografia) amb l'LLM local; si és
-    `None` s'usa el default de config. `language` és una pista opcional (ca/es/…).
+    `correct` applies AI correction (accents/spelling) with the local LLM; if it's
+    `None`, the config default is used. `language` is an optional hint (ca/es/…).
+    
     """
     if not handwriting.is_available():
         raise HTTPException(
@@ -64,7 +66,7 @@ async def recognize_handwriting(
         raise HTTPException(status_code=413, detail="Imatge massa gran.")
 
     try:
-        # TrOCR en CPU és feixuc i bloqueja: fora de l'event loop.
+        # TrOCR on CPU is heavy and blocking: keep it off the event loop.
         result = await asyncio.to_thread(
             handwriting.recognize, data, True, correct, language
         )

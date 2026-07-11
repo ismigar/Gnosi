@@ -1,4 +1,4 @@
-"""Tests dels helpers de baixada/localització d'adjunts del clon (purs)."""
+"""Tests for the clone's attachment download/location helpers (pure)."""
 import sys
 from pathlib import Path
 
@@ -23,7 +23,7 @@ def test_is_remote():
 def test_filename_for_strips_query_and_hashes():
     f = filename_for(S3)
     assert f.startswith("foto_") and f.endswith(".png") and "?" not in f
-    # estable per a la mateixa URL, diferent per a una altra
+    # stable for the same URL, different for another
     assert f == filename_for(S3)
     assert f != filename_for(S3.replace("foto", "altra"))
 
@@ -40,13 +40,13 @@ def test_localize_values_downloads_file_fields_only():
     out, n = localize_values(values, props, fake_save({S3: "Assets/Clon/Taula/Foto/foto_x.png"}))
     assert n == 1
     assert out["Foto"] == ["Assets/Clon/Taula/Foto/foto_x.png"]
-    assert out["Nom"] == "Hola"                     # no és camp d'arxiu
+    assert out["Nom"] == "Hola"                     # not a file field
     assert out["Web"] == "https://example.com"      # url ≠ asset → intacte
 
 
 def test_localize_values_keeps_url_on_failed_download():
     props = [{"name": "Foto", "type": "image"}]
-    out, n = localize_values({"Foto": [S3]}, props, fake_save({}))  # cap mapeig → falla
+    out, n = localize_values({"Foto": [S3]}, props, fake_save({}))  # no mapping → fails
     assert n == 0 and out["Foto"] == [S3]
 
 

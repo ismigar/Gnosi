@@ -34,9 +34,9 @@ test.describe('Vault', () => {
     const main = page.locator('#root');
     await expect(main).toBeVisible();
 
-    // expect.poll (no one-shot evaluate): amb 2 workers el transform de Vite
-    // dev pot trigar >10s a servir tot el graf de mòduls i el check d'un sol
-    // tret veia encara el «Carregant…» — fals positiu vist el 2026-06-10.
+    // expect.poll (not a one-shot evaluate): with 2 workers, Vite's transform
+    // dev can take >10s to serve the whole module graph, and the single-shot
+    // check still saw «Carregant…» — false positive seen on 2026-06-10.
     await expect
       .poll(async () => ((await main.textContent()) ?? '').length, {
         message: 'vault should render some content (tree or empty state)',

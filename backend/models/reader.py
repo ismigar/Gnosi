@@ -69,7 +69,7 @@ class FeedSourceResponse(FeedSourceBase):
     id: int
     created_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at")
@@ -93,7 +93,7 @@ class ArticleResponse(ArticleBase):
     source_name: Optional[str] = None
     full_content: Optional[str] = None
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at", "published_at")

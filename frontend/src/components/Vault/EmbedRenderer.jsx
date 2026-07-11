@@ -8,8 +8,8 @@ const normalizeUrl = (value) => {
     if (typeof value !== 'string') return '';
     const v = value.trim();
     if (!v) return '';
-    // Les URLs servides porten el vault actiu perquè l'`<img>`/iframe natiu
-    // resolgui el vault correcte sense capçalera X-Vault-Id.
+    // The served URLs carry the active vault so that the native `<img>`/iframe
+    // can resolve the correct vault without the X-Vault-Id header.
     if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`);
     if (v.startsWith('/api/vault/assets/')) return withActiveVault(v);
     const absAssetMatch = v.match(/^https?:\/\/[^/]+\/api\/vault\/assets\/(.+)$/i);
@@ -62,11 +62,11 @@ const toVimeoEmbed = (url) => {
     try {
         const u = new URL(url, window.location.origin);
         if (u.hostname.includes('player.vimeo.com')) return url;
-        // L'ID del vídeo és el segment NUMÈRIC del path, no l'últim: en un vídeo
-        // no llistat (`vimeo.com/123456/abcdef`) l'últim segment és el hash de
-        // privadesa, i agafar-lo amb `.pop()` trencava l'embed. Localitzem l'ID
-        // i, si el segueix un hash, el passem com a `?h=` (necessari per als
-        // no llistats). Els formats de canal/grup ja tenen l'ID al final.
+        // The video ID is the NUMERIC segment of the path, not the last one: in an
+        // unlisted video (`vimeo.com/123456/abcdef`) the last segment is the hash for
+        // privacy, and grabbing it with `.pop()` broke the embed. We locate the ID
+        // and, if followed by a hash, we pass it as `?h=` (necessary for
+        // unlisted ones). Channel/group formats already have the ID at the end.
         const segs = u.pathname.split('/').filter(Boolean);
         const idIdx = segs.findIndex((s) => /^\d+$/.test(s));
         if (idIdx === -1) return url;
@@ -80,12 +80,12 @@ const toVimeoEmbed = (url) => {
     }
 };
 
-// Imatge incrustada amb reintents. Els assets d'OneDrive poden retornar 503
-// fins que el backend els materialitza (online-only). El backend engega la
-// baixada en segon pla i retorna 503 a l'instant, així que reintentem amb
-// backoff exponencial (sostre 4s) fins ~2,5 min: prou per cobrir la latència
-// real de la baixada d'OneDrive abans de rendir-nos. Mateix pressupost que
-// RetryableImage de VaultMarkdown.
+// Embedded image with retries. OneDrive assets can return 503
+// until the backend materializes them (online-only). The backend kicks off the
+// download in the background and returns 503 instantly, so we retry with
+// exponential backoff (4s ceiling) for up to ~2.5 min: enough to cover the
+// actual OneDrive download before giving up. Same budget as
+// RetryableImage from VaultMarkdown.
 function RetryableEmbedImage({ src, alt }) {
     const [attempt, setAttempt] = useState(0);
     return (
@@ -112,10 +112,10 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
     const caption = String(block?.props?.caption || '').trim();
     const url = useMemo(() => normalizeUrl(rawUrl), [rawUrl]);
     const kind = useMemo(() => detectKind(url), [url]);
-    // Disponibilitat de la URL. Només la comprovem per a fitxers locals
-    // servits via /api/vault/local-file/{token}, on l'usuari pot haver mogut
-    // o esborrat el fitxer després d'incrustar-lo. Per a Vault assets o URLs
-    // externes saltem la verificació (cost innecessari).
+    // URL availability. We only check it for local files
+    // served via /api/vault/local-file/{token}, where the user may have moved
+    // or deleted the file after embedding it. For Vault assets or
+    // external URLs we skip the verification (unnecessary cost).
     const isLocalFileUrl = useMemo(() => /^\/api\/vault\/local-file\//.test(url), [url]);
     const [availability, setAvailability] = useState(isLocalFileUrl ? 'checking' : 'ok');
 
@@ -126,9 +126,9 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
         }
         let cancelled = false;
         setAvailability('checking');
-        // HEAD per detectar 404 (token inexistent) o 410 (fitxer esborrat al
-        // disc). El navegador no exposa el codi exacte a `fetch` no-cors per
-        // a tots els casos, però `response.ok` és prou indicador.
+        // HEAD to detect 404 (nonexistent token) or 410 (file deleted from the
+        // disk). The browser doesn't expose the exact status code to a no-cors `fetch` for
+        // all cases, but `response.ok` is indicator enough.
         (async () => {
             try {
                 const res = await fetch(url, { method: 'HEAD' });

@@ -14,7 +14,7 @@ except IndexError:
 SHARED_ENV = PROJECTES_ROOT / ".env_shared"
 
 ENV_LOCATIONS = [
-    SHARED_ENV,  # Primer les compartides
+    SHARED_ENV,  # Shared ones first
     Path.cwd() / ".env",
     Path(__file__).resolve().parents[1] / ".env",
 ]

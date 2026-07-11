@@ -32,9 +32,9 @@ _VALID_PERMISSIONS = {"view", "comment", "edit"}
 
 
 def _request_vault_id(request: Request) -> Optional[str]:
-    """Id del vault actiu de la petició (capçalera > `?vault=` > cookie), o None
-    en single-vault. Es desa a l'enllaç per poder resoldre'l després sense cap
-    senyal de vault del visitant anònim."""
+    """Id of the request's active vault (header > `?vault=` > cookie), or None
+    in single-vault. Saved on the link so it can be resolved later without any
+    vault signal from the anonymous visitor."""
     for candidate in (
         request.headers.get("x-vault-id"),
         request.query_params.get("vault"),
@@ -102,7 +102,7 @@ async def create_share_link(
     link = ShareLink(
         page_id=page_id,
         workspace_id=getattr(context, "workspace_id", "personal"),
-        vault_id=_request_vault_id(http_request),   # vault d'origen (multi-vault)
+        vault_id=_request_vault_id(http_request),   # source vault (multi-vault)
         created_by=getattr(context, "user_id", None),
         permission=permission,
         expires_at=expires_at,
@@ -154,10 +154,10 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
     if not link or not _is_active(link):
         raise HTTPException(status_code=404, detail="not found")
 
-    # Resolveix el vault d'aquest share: el vault propi de l'enllaç (capturat en
-    # crear-lo, multi-vault) si hi és i es pot resoldre; si no, el vault Principal
-    # (compat enrere / single-vault / enllaços antics sense vault_id). El visitant
-    # anònim no aporta cap senyal de vault, per això el treiem de l'enllaç.
+    # Resolves this share's vault: the link's own vault (captured when
+    # it was created, multi-vault) if present and resolvable; otherwise, the Principal vault
+    # (backward compat / single-vault / old links without vault_id). The visitor
+    # anonymous doesn't provide any vault signal, so we remove it from the link.
     from pathlib import Path
     vault = None
     link_vault_id = getattr(link, "vault_id", None)
@@ -170,8 +170,8 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
     if not vault:
         from backend.config.app_config import load_params
         vault = load_params(strict_env=False).paths.get("VAULT")
-    # Fallback a vault actiu si el principal no existeix (config incompleta).
-    # Sense això, `Path(None)` llançava TypeError en l'endpoint public.
+    # Fallback to the active vault if the main one doesn't exist (incomplete config).
+    # Without this, `Path(None)` raised a TypeError in the public endpoint.
     if not vault:
         vault = get_active_vault_path()
     if not vault:
@@ -197,7 +197,7 @@ async def read_shared_page(token: str, db: Session = Depends(get_mgmt_db)):
             "title": page.get("title"),
             "content": page.get("content"),
             "metadata": page.get("metadata", {}),
-            # El frontend l'usa per resoldre els assets (`?vault=`) sense cookie.
+            # The frontend uses it to resolve assets (`?vault=`) without a cookie.
             "vault_id": link_vault_id,
         },
     }

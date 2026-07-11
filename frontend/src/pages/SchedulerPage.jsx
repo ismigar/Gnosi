@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Clock, RefreshCw, AlertCircle, Edit2, Check, X } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 const formatInterval = (minutes) => {
     if (!minutes && minutes !== 0) return null;
     if (minutes < 1) {
-        // Sub-minut: `minutes * 60` són SEGONS, no minuts (abans s'etiquetava
-        // erròniament "min", de manera que un interval de 0,5 min es mostrava
-        // com a "30 min" en lloc de "30 s").
+        // Sub-minute: `minutes * 60` is SECONDS, not minutes (previously it was labeled
+        // incorrectly as "min", so an interval of 0,5 min was displayed
+        // as "30 min" instead of "30 s").
         return `${Math.round(minutes * 60)} s`;
     }
     const hours = minutes / 60;
@@ -32,6 +33,7 @@ const hoursToMinutes = (hours) => {
 };
 
 const SchedulerPage = () => {
+    const { t } = useTranslation();
     const activeVaultName = useActiveVaultName();
     const [schedulers, setSchedulers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -121,14 +123,14 @@ const SchedulerPage = () => {
                         Vault: {activeVaultName || '…'}
                     </span>
                 </div>
-                <p className="text-gray-400">Gestiona les automatitzacions i tasques de fons de Gnosi.</p>
+                <p className="text-gray-400">{t('scheduler.subtitle', 'Gestiona les automatitzacions i tasques de fons de Gnosi.')}</p>
             </header>
 
             <div className="relative z-10 grid grid-cols-1 gap-6 max-w-4xl">
                 {loading ? (
                     <div className="flex items-center gap-3 text-gray-400 p-8 glass-panel rounded-2xl justify-center">
                         <RefreshCw className="animate-spin" size={20} />
-                        <span>Carregant tasques...</span>
+                        <span>{t('dashboard.loading_tasks', 'Carregant tasques...')}</span>
                     </div>
                 ) : schedulers.length > 0 ? (
                     schedulers.map(task => {
@@ -142,7 +144,7 @@ const SchedulerPage = () => {
                                             {task.name.replace(/_/g, ' ')}
                                         </h3>
                                         <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${task.enabled ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                                            {task.enabled ? 'Actiu' : 'Inactiu'}
+                                            {task.enabled ? t('dashboard.active', 'Actiu') : t('dashboard.inactive', 'Inactiu')}
                                         </span>
                                     </div>
                                     <p className="text-gray-400 text-sm max-w-xl">{task.description}</p>
@@ -171,7 +173,7 @@ const SchedulerPage = () => {
                                                 </div>
                                             ) : (
                                                 <div className="flex items-center gap-1">
-                                                    <span>Interval: {intervalDisplay}</span>
+                                                    <span>{t('scheduler.interval_label', 'Interval: {{value}}', { value: intervalDisplay })}</span>
                                                     <button
                                                         onClick={() => startEditingInterval(task)}
                                                         className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-blue-400 ml-1"
@@ -201,7 +203,7 @@ const SchedulerPage = () => {
                 ) : (
                     <div className="text-center p-12 glass-panel rounded-2xl border border-white/5">
                         <AlertCircle className="mx-auto text-gray-600 mb-4" size={48} />
-                        <p className="text-gray-400">No s'han trobat tasques programades.</p>
+                        <p className="text-gray-400">{t('scheduler.no_tasks', "No s'han trobat tasques programades.")}</p>
                     </div>
                 )}
             </div>

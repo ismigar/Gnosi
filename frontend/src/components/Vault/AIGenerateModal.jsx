@@ -5,18 +5,18 @@ import axios from 'axios';
 import { toast } from '../../lib/toast';
 
 /**
- * Modal de generació de contingut amb IA per a l'editor del Vault (estil Notion).
+ * AI content-generation modal for the Vault editor (Notion style).
  *
- * Prompt lliure + presets (continuar, resumir, millorar, traduir). Genera via
- * `POST /api/ai/generate`, mostra el resultat per revisar-lo i, en confirmar,
- * crida `onInsert(markdown, anchor)` perquè el BlockEditor el converteixi a
- * blocs i el desi.
+ * Free-form prompt + presets (continue, summarize, improve, translate). Generates via
+ * `POST /api/ai/generate`, shows the result for review and, on confirmation,
+ * calls `onInsert(markdown, anchor)` so the BlockEditor converts it into
+ * blocks and saves it.
  *
  * Props:
- *   request: { mode, context, anchor } | null  — obre el modal quan no és null
- *   onClose():            tanca (X / Esc / clic fora)
- *   onInsert(md, anchor): insereix el markdown generat a la posició `anchor`
- *   t:                    funció i18n (opcional; cau a defaultValue)
+ *   request: { mode, context, anchor } | null  — opens the modal when not null
+ *   onClose():            closes (X / Esc / click outside)
+ *   onInsert(md, anchor): inserts the generated markdown at the `anchor` position
+ *   t:                    i18n function (optional; falls back to defaultValue)
  */
 export default function AIGenerateModal({ request, onClose, onInsert, t }) {
     const tr = useCallback(
@@ -47,7 +47,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
 
     const open = !!request;
 
-    // Reinicia l'estat cada cop que s'obre amb una petició nova.
+    // Resets the state every time it opens with a new request.
     useEffect(() => {
         if (request) {
             setMode(request.mode || 'free');
@@ -59,11 +59,11 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
     }, [request]);
 
     const handleClose = useCallback(() => {
-        if (loading) return; // no tanquis mentre genera
+        if (loading) return; // don't close while generating
         onClose?.();
     }, [loading, onClose]);
 
-    // Esc per tancar.
+    // Esc to close.
     useEffect(() => {
         if (!open) return undefined;
         const onKey = (e) => {
@@ -100,7 +100,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                 setResult(content);
             }
         } catch (err) {
-            const detail = err?.response?.data?.detail || err?.message || 'Error';
+            const detail = err?.response?.data?.detail || err?.message || tr('common.error', 'Error');
             toast.error(`${tr('editor.ai_error', 'No s\'ha pogut generar')}: ${detail}`);
         } finally {
             setLoading(false);
@@ -132,7 +132,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                 role="dialog"
                 aria-label={tr('editor.ai_title', 'Generar amb IA')}
             >
-                {/* Capçalera */}
+                {/* Header */}
                 <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
                     <Sparkles size={18} className="text-violet-500" />
                     <span className="font-medium">{tr('editor.ai_title', 'Generar amb IA')}</span>
@@ -165,7 +165,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                         ))}
                     </div>
 
-                    {/* Idioma destí (només per traduir) */}
+                    {/* Target language (only for translation) */}
                     {mode === 'translate' && (
                         <input
                             type="text"
@@ -176,7 +176,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                         />
                     )}
 
-                    {/* Instrucció lliure */}
+                    {/* Free-form instruction */}
                     <textarea
                         ref={inputRef}
                         value={prompt}

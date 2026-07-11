@@ -1,9 +1,11 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import Composer from '../components/social/Composer';
 import { PenTool, Share2 } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 const ComposerPage = () => {
+    const { t } = useTranslation();
     const activeVaultName = useActiveVaultName();
     return (
         <div className="p-8 bg-[#0a0a0c] min-h-screen text-white relative overflow-hidden">
@@ -20,7 +22,7 @@ const ComposerPage = () => {
                         Vault: {activeVaultName || '…'}
                     </span>
                 </div>
-                <p className="text-gray-400">Crea i programa contingut per a les teves xarxes socials.</p>
+                <p className="text-gray-400">{t('composer.subtitle', 'Crea i programa contingut per a les teves xarxes socials.')}</p>
             </header>
 
             <div className="relative z-10 max-w-3xl mx-auto">
@@ -32,9 +34,9 @@ const ComposerPage = () => {
                     <a href="/social-dashboard" className="glass-panel p-6 rounded-2xl border border-white/5 hover:border-blue-500/30 transition-all group">
                         <div className="flex items-center gap-3 mb-2">
                             <Share2 className="text-gray-400 group-hover:text-blue-400 transition-colors" size={20} />
-                            <h3 className="font-bold">Social Dashboard</h3>
+                            <h3 className="font-bold">{t('composer.social_dashboard_title', 'Social Dashboard')}</h3>
                         </div>
-                        <p className="text-sm text-gray-500">Gestiona els teus streams i feeds de xarxes socials.</p>
+                        <p className="text-sm text-gray-500">{t('composer.social_dashboard_desc', 'Gestiona els teus streams i feeds de xarxes socials.')}</p>
                     </a>
                     {/* Add more shortcuts if needed */}
                 </div>

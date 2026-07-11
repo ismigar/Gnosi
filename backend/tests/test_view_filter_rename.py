@@ -1,13 +1,13 @@
-"""`apply_filter` ha de tolerar el RENAME d'una columna.
+"""`apply_filter` must tolerate a column RENAME.
 
-Quan es renomena una columna, la metadata de `by-table` es canonicalitza al nom
-NOU (`Àrees`) però els filtres guardats de les vistes poden portar encara una
-variant ANTIGA del nom (amb un prefix decoratiu, espais o majúscules diferents).
-El filtre ha de casar igualment resolent el field per nom NORMALITZAT
-(`_normalize_field_key`: minúscules, sense prefix decoratiu inicial), o TOTES
-les vistes per àrea surten buides.
+When a column is renamed, the `by-table` metadata is canonicalized to the
+NEW name (`Àrees`) but the views' saved filters may still carry an
+OLD variant of the name (with a decorative prefix, different spacing or casing).
+The filter must still match by resolving the field by its NORMALIZED name
+(`_normalize_field_key`: lowercase, no leading decorative prefix), or ALL
+the by-area views come back empty.
 
-Vegeu docs/dev_memory/directives/vault_relation_inverse_sync.md
+See docs/dev_memory/directives/vault_relation_inverse_sync.md
 """
 from __future__ import annotations
 
@@ -31,14 +31,14 @@ def test_meta_value_exact_key_wins():
 
 
 def test_meta_value_falls_back_to_normalized():
-    # metadata canonicalitzada (nom net), filtre amb una variant antiga del nom
+    # canonicalized metadata (clean name), filter with an old variant of the name
     assert _meta_value_for_field({"Àrees": ["x"]}, "» Àrees") == ["x"]
     # i a la inversa
     assert _meta_value_for_field({"» Àrees": ["x"]}, "Àrees") == ["x"]
 
 
 def test_filter_matches_after_rename():
-    """El cas real: una vista filtra per una variant antiga; metadata té `Àrees`."""
+    """The real case: a view filters by an old variant; metadata has `Àrees`."""
     meta = {"Àrees": [HOST, "other-area"]}
     f = {"field": "» Àrees", "operator": "equals", "value": "this"}
     assert apply_filter(meta, HOST, f) is True
@@ -60,4 +60,4 @@ def test_filter_empty_when_no_inverse():
 def test_not_equals_after_rename():
     meta = {"Àrees": ["other-area"]}
     f = {"field": "» Àrees", "operator": "not_equals", "value": "this"}
-    assert apply_filter(meta, HOST, f) is True  # HOST no hi és → not_equals cert
+    assert apply_filter(meta, HOST, f) is True  # HOST is not present → not_equals true

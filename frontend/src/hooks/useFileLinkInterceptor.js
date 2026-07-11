@@ -1,34 +1,34 @@
 /**
  * useFileLinkInterceptor
  *
- * Captura clicks a enllaços que apunten a fitxers locals i els redirigeix
- * al backend perquè els obri amb el shell del sistema (Finder/Explorer).
+ * Captures clicks on links pointing to local files and redirects them
+ * to the backend so it opens them with the system shell (Finder/Explorer).
  *
- * Per què cal: els navegadors moderns bloquegen file:// quan es naveguen
- * des d'una pàgina http(s). A més, BlockNote/Tiptap (extension-link)
- * blanqueja l'href de qualsevol protocol no permès (file: no hi és), pel
- * que als blocs de l'editor el href intern és el sentinel
+ * Why this is needed: modern browsers block file:// when navigating
+ * from an http(s) page. Also, BlockNote/Tiptap (extension-link)
+ * strips the href of any disallowed protocol (file: isn't one of them), so
+ * in the editor blocks the internal href is the sentinel
  *   https://gnosi-file-protocol.local/...
- * (que sí passa la validació). Aquí detectem ambdues formes (file:// i
- * sentinel, incloent el sentinel legacy `__gnosi_file_protocol__`), aturem
- * la propagació, i cridem el backend amb la ruta convertida a file:// real.
+ * (which does pass validation). Here we detect both forms (file:// and
+ * the sentinel, including the legacy sentinel `__gnosi_file_protocol__`), stop
+ * propagation, and call the backend with the path converted to a real file://.
  *
- * Estratègia: Listener delegat a window i document (capture phase) per
- * agafar mousedown/mouseup/click/auxclick abans que cap altre handler.
- * Cal interceptar `mouseup` perquè ProseMirror (BlockNote/Tiptap) dispara
- * el handler del link Tiptap dins del `mouseup` (no del `click`) i fa
- * `window.open(href, target)` allà — abans que arribi l'event `click`. Si
- * només interceptem `click`, ja és tard.
+ * Strategy: Listener delegated on window and document (capture phase) to
+ * catch mousedown/mouseup/click/auxclick before any other handler.
+ * We need to intercept `mouseup` because ProseMirror (BlockNote/Tiptap) fires
+ * the Tiptap link handler inside `mouseup` (not `click`) and does
+ * `window.open(href, target)` there — before the `click` event arrives. If
+ * we only intercepted `click`, it would already be too late.
  *
- * Versió anterior tenia una segona capa amb MutationObserver subtree-wide
- * sobre document.body per normalitzar cada <a> rellevant (target="_self",
- * remove rel) i posar-li listeners directes. Aquesta capa era redundant
- * (capture phase a window és sempre el PRIMER handler, immune a
- * stopPropagation de tercers) i tenia un cost catastròfic: en obrir una
- * pàgina amb molts blocs (60+) i enllaços file://, BlockNote/ProseMirror
- * emetien una allau de mutacions DOM al render inicial que saturaven el
- * thread principal — Chrome marcava la pestanya com a "no respon" abans
- * que el contingut fos visible. Eliminada.
+ * The previous version had a second layer with a subtree-wide MutationObserver
+ * on document.body to normalize every relevant <a> (target="_self",
+ * remove rel) and attach direct listeners to it. This layer was redundant
+ * (capture phase on window is always the FIRST handler, immune to
+ * third-party stopPropagation) and had a catastrophic cost: opening a
+ * page with many blocks (60+) and file:// links, BlockNote/ProseMirror
+ * would emit a flood of DOM mutations on the initial render that saturated the
+ * main thread — Chrome would mark the tab as "not responding" before
+ * the content became visible. Removed.
  */
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -36,11 +36,11 @@ import { useTranslation } from 'react-i18next';
 import { FILE_PROTOCOL_SENTINEL, sentinelToFileUrl } from '../components/Vault/markdown-mapper';
 import { openFileResource } from '../lib/fileResource';
 
-// Interceptem TANT mouse* com pointer* events. Tiptap/ProseMirror pot
-// disparar el handler del link (que crida `window.open(href, target)`)
-// dins d'un `pointerdown`/`pointerup` en navegadors moderns: si només
-// escoltéssim els mouse*, el pointer arribaria abans i obriria una
-// pestanya nova al sentinel `gnosi-file-protocol.local` abans del nostre
+// We intercept BOTH mouse* and pointer* events. Tiptap/ProseMirror can
+// fire the link handler (which calls `window.open(href, target)`)
+// inside a `pointerdown`/`pointerup` in modern browsers: if we only
+// listened for mouse* events, the pointer event would arrive first and open a
+// new tab at the `gnosi-file-protocol.local` sentinel before our
 // `preventDefault`.
 const POINTER_EVENTS = [
     'pointerdown', 'pointerup',
@@ -73,7 +73,7 @@ export function useFileLinkInterceptor() {
     const navigate = useNavigate();
 
     useEffect(() => {
-        // Evita disparar la trucada més d'un cop pel mateix gest
+        // Avoids firing the call more than once for the same gesture
         // (mousedown + mouseup + click es dispararien en cadena).
         let lastOpenedAt = 0;
 
@@ -85,28 +85,28 @@ export function useFileLinkInterceptor() {
             return { a, href };
         };
 
-        // CAPA 1: handlers a window i document en fase de captura
+        // LAYER 1: handlers on window and document in the capture phase
         const winHandler = (e) => {
             const found = findFileAnchor(e);
             if (!found) return;
-            // Cmd/Ctrl-click manté el comportament natiu (per si l'usuari vol forçar)
+            // Cmd/Ctrl-click keeps the native behavior (in case the user wants to force it)
             if (e.metaKey || e.ctrlKey) return;
             e.preventDefault();
             e.stopPropagation();
             if (typeof e.stopImmediatePropagation === 'function') {
                 e.stopImmediatePropagation();
             }
-            // Només dispara l'obertura un cop per gest. Triem el `click`
-            // com a moment definitiu (els mousedown/mouseup només bloquegen
-            // la propagació perquè no l'agafi ProseMirror).
+            // Only trigger the opening once per gesture. We pick `click`
+            // as the definitive moment (mousedown/mouseup only block
+            // propagation so ProseMirror doesn't catch it).
             const now = Date.now();
             if (e.type === 'click' || e.type === 'auxclick') {
                 if (now - lastOpenedAt > 250) {
                     lastOpenedAt = now;
                     const backendPath = toBackendPath(found.href);
-                    // PDF/EPUB/HTML → visor integrat (Zotero reader); altres →
-                    // app del SO. El routing viu a openFileResource perquè el
-                    // botó "Obrir" dels camps de fitxers es comporti igual.
+                    // PDF/EPUB/HTML → embedded viewer (Zotero reader); others →
+                    // OS app. The routing lives in openFileResource so the
+                    // "Open" button on file fields behaves the same way.
                     openFileResource(backendPath, { navigate, t });
                 }
             }

@@ -27,10 +27,10 @@ from typing import Any, Callable, Dict, Iterable, List, Optional
 log = logging.getLogger(__name__)
 
 
-# ── Cache del graf (evita rellegir vault_graph.json a cada request) ──────────
+# ── Graph cache (avoids re-reading vault_graph.json on every request) ──────────
 
-# Caus PER-VAULT (clau = ruta del graf, que depèn del vault actiu). Abans eren globals → en
-# multi-vault un vault servia el graf d'un altre.
+# PER-VAULT caches (key = graph path, which depends on the active vault). They used to be global → in
+# multi-vault, one vault was serving another's graph.
 _graph_cache: Dict[str, Dict[str, Any]] = {}       # graph_path_str -> data
 _graph_cache_mtime: Dict[str, float] = {}          # graph_path_str -> mtime
 _graph_cache_ts: Dict[str, float] = {}             # graph_path_str -> monotonic ts
@@ -42,8 +42,9 @@ _graph_cache_lock = threading.Lock()
 def _load_graph(graph_path: Path) -> Dict[str, Any]:
     """Loads vault_graph.json with TTL cache and stale-cache fallback (PER-VAULT).
 
-    Thread-safe: el lock evita que dos requests concurrents llegeixin el JSON
-    en paral·lel quan el cache expira (estalvia I/O redundant a OneDrive).
+    Thread-safe: the lock prevents two concurrent requests from reading the JSON
+    in parallel when the cache expires (saves redundant I/O on OneDrive).
+    
     """
     global _graph_cache, _graph_cache_mtime, _graph_cache_ts
     empty = {"nodes": [], "edges": []}
@@ -51,7 +52,7 @@ def _load_graph(graph_path: Path) -> Dict[str, Any]:
         return empty
     key = str(graph_path)
 
-    # Fast-path sense lock (lectura atòmica de referències a Python amb GIL)
+    # Fast-path without lock (atomic reference read in Python with the GIL)
     now = time.monotonic()
     cached = _graph_cache.get(key)
     if cached is not None and (now - _graph_cache_ts.get(key, 0.0)) < _GRAPH_TTL_SECONDS:
@@ -125,13 +126,14 @@ _nx_cache_graph_id: int = 0  # id(graph_dict) of the cached graph object
 
 
 def _ensure_nx_cache_fresh(graph: Dict[str, Any]) -> None:
-    """Invalida _nx_cache si el graf de fons ha canviat.
+    """Invalidates _nx_cache if the underlying graph has changed.
 
-    Abans aquesta lògica només s'executava dins _get_nx_graph, però els
-    `_get_*` (betweenness, pagerank, etc.) feien `if 'metric' in _nx_cache`
-    ABANS de cridar `_get_nx_graph` → quan el graf es recarregava (TTL de
-    60s o mtime), retornaven mètriques caducades fins que algú demanava
-    explícitament `_get_nx_graph`. Ara cada `_get_*` invalida primer.
+    Previously this logic only ran inside _get_nx_graph, but the
+    `_get_*` functions (betweenness, pagerank, etc.) did `if 'metric' in _nx_cache`
+    BEFORE calling `_get_nx_graph` → when the graph was reloaded (60s TTL
+    or mtime), they returned stale metrics until someone explicitly called
+    `_get_nx_graph`. Now every `_get_*` invalidates first.
+    
     """
     global _nx_cache, _nx_cache_graph_id
     gid = id(graph)
@@ -308,21 +310,22 @@ def _compute_is_orphan(page_id: str, ctx: Dict[str, Any]) -> bool:
     return ctx["degrees"].get(page_id, {}).get("total", 0) == 0
 
 
-# ── Rollup invers: progrés de tasques ────────────────────────────────────────
-# A diferència dels computers de graf, aquest deriva d'una ALTRA taula (Tasques)
-# i de la seva relació INVERSA cap a aquest registre. L'índex es construeix a
-# `inject_for_*` (que té el `page_loader`) i es deixa al ctx; el computer és O(1).
+# ── Inverse rollup: task progress ────────────────────────────────────────
+# Unlike the graph computers, this one derives from ANOTHER table (Tasks)
+# and its INVERSE relation to this record. The index is built in
+# `inject_for_*` (which has the `page_loader`) and left in the ctx; the computer is O(1).
 
 def _clean_relation_id(token: Any) -> str:
-    """Normalitza un valor de relació a id net. El backend ja despulla els
-    wikilinks (ids nets), però defensem el cas Obsidian manual `[[Títol|uuid]]`.
+    """Normalizes a relation value to a clean id. The backend already strips
+    wikilinks (clean ids), but we guard against the manual Obsidian case `[[Title|uuid]]`.
+    
     """
     if token is None:
         return ""
     s = str(token).strip()
     if s.startswith("[[") and s.endswith("]]"):
         s = s[2:-2]
-    if "|" in s:  # "Títol|uuid" → uuid
+    if "|" in s:  # "Title|uuid" → uuid
         s = s.split("|")[-1]
     return s.strip()
 
@@ -334,12 +337,12 @@ def build_task_progress_index(
     done_value: str,
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Dict[str, Optional[int]]:
-    """Índex {project_id: pct 0-100 | None} a partir de les pàgines de Tasques.
+    """Index {project_id: pct 0-100 | None} built from the Tasks pages.
 
-    Agrupa per cada id del camp `relation_field` (p. ex. "Projecte") i compta
-    `status_field == done_value` sobre el total. `None` si el projecte no té cap
-    tasca (mai apareix a l'índex → la cel·la queda buida). `id_resolver` mapeja
-    un títol → id (defensa per enllaços manuals); si retorna None, s'usa el token.
+    Groups by each id of the `relation_field` field (e.g. "Project") and counts
+    `status_field == done_value` over the total. `None` if the project has no
+    tasks (never appears in the index → the cell stays empty). `id_resolver` maps
+    a title → id (guard for manual links); if it returns None, the token is used.
     """
     totals: Dict[str, int] = defaultdict(int)
     done: Dict[str, int] = defaultdict(int)
@@ -373,13 +376,13 @@ def build_task_progress_index(
 
 
 def _compute_task_progress(page_id: str, ctx: Dict[str, Any]) -> Optional[int]:
-    """% de tasques relacionades completades (0-100) o None si no en té cap."""
+    """% of related tasks completed (0-100) or None if it has none."""
     return (ctx.get("task_progress") or {}).get(page_id)
 
 
-# Cache TTL de l'índex per source_table_id: el `page_loader` ja està cachejat,
-# però `refresh_view_snapshots` crida `inject_for_single_page` per pàgina; sense
-# aquest cache l'índex es reconstruiria N vegades en un mateix burst.
+# TTL cache of the index per source_table_id: the `page_loader` is already cached,
+# but `refresh_view_snapshots` calls `inject_for_single_page` per page; without
+# this cache the index would be rebuilt N times within the same burst.
 _task_progress_cache: Dict[str, "tuple[float, Dict[str, Optional[int]]]"] = {}
 _TASK_PROGRESS_TTL_SECONDS = 2.0
 _task_progress_lock = threading.Lock()
@@ -390,9 +393,9 @@ def _task_progress_index_for(
     page_loader: Optional[Callable[[str], List[Any]]],
     id_resolver: Optional[Callable[[str], Optional[str]]] = None,
 ) -> Dict[str, Optional[int]]:
-    """Construeix (o recupera del cache TTL) l'índex de progrés per a un vprop
-    `task_progress`, llegint la config del camp i carregant les Tasques via
-    `page_loader`. Sense provider o sense `source_table_id` → índex buit."""
+    """Builds (or retrieves from the TTL cache) the progress index for a
+    `task_progress` vprop, reading the field config and loading Tasks via
+    `page_loader`. Without a provider or `source_table_id` → empty index."""
     cfg = prop.get("config") or {}
     src = cfg.get("source_table_id")
     if not src or page_loader is None:
@@ -634,8 +637,9 @@ def inject_for_table(
     for both PageInfo Pydantic models and plain dicts that already exposed metadata.
     Mutates `metadata` directly. Silent on errors per page.
 
-    `page_loader(table_id) -> list[pages]` permet als computers de rollup invers
-    (p. ex. `task_progress`) carregar les pàgines d'una ALTRA taula font.
+    `page_loader(table_id) -> list[pages]` allows reverse rollup computers
+    (e.g. `task_progress`) to load pages from ANOTHER source table.
+    
     """
     if not table:
         return
@@ -683,9 +687,9 @@ def _inject_task_progress_into_ctx(
     page_loader: Optional[Callable[[str], List[Any]]],
     id_resolver: Optional[Callable[[str], Optional[str]]],
 ) -> None:
-    """Si hi ha un vprop `task_progress`, construeix el seu índex (cachejat per
-    source_table_id) i el deixa a `ctx["task_progress"]`. Assumeix un sol camp
-    d'aquest tipus per taula (cas actual: «Progrés»)."""
+    """If there is a `task_progress` vprop, build its index (cached by
+    source_table_id) and store it in `ctx["task_progress"]`. Assumes a single field
+    of this type per table (current case: «Progress»)."""
     for prop in vprops:
         if (prop.get("compute") or "") == "task_progress":
             ctx["task_progress"] = _task_progress_index_for(prop, page_loader, id_resolver)

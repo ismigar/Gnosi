@@ -3,16 +3,16 @@ import { test, expect } from '@playwright/test';
 /**
  * Dashboards E2E (smoke).
  *
- * Cobertura mínima de la creació de pàgines de tipus Dashboard (carpeta oculta
- * `.Dashboards`) via POST /api/vault/pages amb metadata.is_dashboard:
- *  1. La pàgina es crea a `.Dashboards` i el GET la retorna amb
- *     metadata.is_dashboard=true i el contingut.
- *  2. La pàgina queda fora del graf de wikilinks/backlinks (GET /backlinks
- *     NO ha de petar).
+ * Minimal coverage of creating Dashboard-type pages (hidden folder
+ * `.Dashboards`) via POST /api/vault/pages with metadata.is_dashboard:
+ *  1. The page is created in `.Dashboards` and GET returns it with
+ *     metadata.is_dashboard=true and the content.
+ *  2. The page stays out of the wikilinks/backlinks graph (GET /backlinks
+ *     must NOT blow up).
  *
- * Nomenclatura canònica `is_dashboard` / `.Dashboards` (el rename va
- * substituir l'antic `is_dashworks` / `.Dashworks`). El format actual
- * d'emmagatzematge és `.json`; aquest test no afirma res sobre .md vs .json.
+ * Canonical naming `is_dashboard` / `.Dashboards` (the rename
+ * replaced the old `is_dashworks` / `.Dashworks`). The current storage
+ * format is `.json`; this test makes no claims about .md vs .json.
  */
 
 const API_BASE = process.env.GNOSI_API_BASE || 'http://localhost:5002';
@@ -56,8 +56,8 @@ test.describe('Dashboards', () => {
     expect(create.ok()).toBeTruthy();
     const created = await create.json();
 
-    // /backlinks d'aquesta pàgina ha de respondre sense 5xx (l'indexer salta
-    // els Dashboards abans).
+    // /backlinks for this page must respond without a 5xx (the indexer skips
+    // the Dashboards before).
     const bl = await request.get(`${API_BASE}/api/vault/backlinks/${created.id}`);
     expect(bl.status()).toBeLessThan(500);
 

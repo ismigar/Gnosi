@@ -7,9 +7,9 @@ from backend.utils.errors import safe_error_detail
 from backend.utils.safe_io import safe_write_text
 from backend.services.workspace_service import require_role
 
-# Auth gate: en personal mode l'usuari és auto-promogut a "owner" així que
-# require_role("admin") no bloqueja. En organitzacio mode protegeix els
-# endpoints d'env contra usuaris no privilegiats (paths del vault, providers
+# Auth gate: in personal mode the user is auto-promoted to "owner" so
+# require_role("admin") doesn't block. In organization mode it protects the
+# env endpoints against unprivileged users (vault paths, providers
 # AI). Aplicat a router-level.
 router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
@@ -78,9 +78,9 @@ def write_env_file(filepath, env_vars, original_lines):
         if key not in processed_keys:
             new_lines.append(f"{key}={value}\n")
 
-    # Atomic write: .env_shared és la font de tots els secrets — un crash
-    # a meitat de writelines deixaria el fitxer corrupte i l'app es quedaria
-    # sense credencials al següent restart.
+    # Atomic write: .env_shared is the source of all secrets — a crash
+    # halfway through writelines would leave the file corrupt and the app would be left
+    # without credentials on the next restart.
     safe_write_text(filepath, "".join(new_lines))
 
 

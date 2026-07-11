@@ -95,24 +95,24 @@ import SpellCheckLayer from './SpellCheckLayer';
 import AICorrectLayer from './AICorrectLayer';
 
 /**
- * Resol l'URI del PDF associat a una pàgina de Recursos.
+ * Resolves the URI of the PDF associated with a Recursos page.
  *
- * Prioritzem el frontmatter rebut del backend (post-resolució de claus
- * locales/àlies). Acceptem dues fonts:
+ * We prioritize the frontmatter received from the backend (after resolving
+ * local/alias keys). We accept two sources:
  *
- *   1. `attachment_path` (Phase 6 — ruta canonical absoluta).
- *   2. `URL` només si comença per `file://` i acaba en `.pdf` (PDFs locals
- *      heretats de l'època pre-Phase-6 o creats per imports manuals).
+ *   1. `attachment_path` (Phase 6 — canonical absolute path).
+ *   2. `URL` only if it starts with `file://` and ends in `.pdf` (local PDFs
+ *      inherited from the pre-Phase-6 era or created by manual imports).
  *
- * Retorna `null` si no hi ha PDF detectable; aleshores `PdfAnnotationsToCite`
- * tampoc es renderitza i el panell Propietats queda sense soroll.
+ * Returns `null` if no PDF is detectable; in that case `PdfAnnotationsToCite`
+ * is also not rendered, and the Properties panel stays free of noise.
  */
 function getPdfSourceUri(metadata) {
     if (!metadata || typeof metadata !== 'object') return null;
     const attachment = String(metadata['attachment_path'] || '').trim();
     if (attachment) {
         if (/^file:\/\//i.test(attachment)) return attachment;
-        // Camí absolut sense esquema → afegim `file://` codificant els espais.
+        // Absolute path without a scheme → we add `file://` encoding the spaces.
         if (attachment.startsWith('/')) {
             return `file://${encodeURI(attachment)}`;
         }
@@ -135,8 +135,8 @@ import PromptModal from '../PromptModal';
 import { InsertContentModal } from './InsertContentModal';
 import { blocknoteCa } from '../../locales/blocknote/ca';
 
-// Tipus de bloc nadiu de BlockNote per a un fitxer. `image`/`video`/`audio`
-// tenen representació inline òbvia; qualsevol altra cosa és `file`.
+// Native BlockNote block type for a file. `image`/`video`/`audio`
+// have an obvious inline representation; anything else is `file`.
 const nativeBlockTypeFor = (file) => {
     const type = String(file?.type || '').toLowerCase();
     const name = String(file?.name || '').toLowerCase();
@@ -146,18 +146,18 @@ const nativeBlockTypeFor = (file) => {
     return 'file';
 };
 
-// Mèdia "visual": BlockNote la puja i en fa un bloc nadiu directament, sense
-// interrompre amb cap modal (cas dominant: arrossegar captures). La resta de
-// fitxers (PDF, documents, arxius genèrics) passa pel modal d'inserció
-// unificat perquè hi ha una decisió real a prendre (enllaç / frame / bloc,
-// Vault / local / pujada).
+// "Visual" media: BlockNote uploads it and turns it directly into a native block, without
+// interrupt with any modal (dominant case: dragging screenshots). The rest of
+// files (PDF, documents, generic files) goes through the insertion modal
+// unified because there's a real decision to make (link / frame / block,
+// Vault / local / upload).
 const isVisualMediaFile = (file) => nativeBlockTypeFor(file) !== 'file';
 
 const normalizeVaultAssetUrl = (value) => {
     if (typeof value !== 'string') return value;
 
-    // Les URLs servides porten el vault actiu (withActiveVault) perquè l'`<img>`
-    // natiu resolgui el vault correcte sense capçalera X-Vault-Id.
+    // Served URLs carry the active vault (withActiveVault) so that the `<img>`
+    // native resolves the correct vault without an X-Vault-Id header.
     if (value.startsWith('Assets/')) {
         return withActiveVault(`/api/vault/assets/${value.substring(7)}`);
     }
@@ -174,8 +174,8 @@ const normalizeVaultAssetUrl = (value) => {
     return value;
 };
 
-// Avantpassat desplaçable més proper d'un node (o l'element d'scroll del
-// document si no n'hi ha cap).
+// Closest scrollable ancestor of a node (or the document's scroll
+// element if there isn't one).
 const getScrollableAncestor = (node) => {
     let el = node?.parentElement || null;
     while (el) {
@@ -188,13 +188,13 @@ const getScrollableAncestor = (node) => {
     return document.scrollingElement || document.documentElement;
 };
 
-// Auto-grow d'un <textarea>: posar height:auto el col·lapsa un instant per
-// poder mesurar el scrollHeight real del contingut. Si el textarea és enmig
-// d'un document llarg, aquest col·lapse momentani fa que el navegador
-// "persegueixi" el cursor i desplaci el contenidor a cada tecla (la línia
-// editada va caient cap al capdavall de la pantalla). Desem i restaurem el
-// scrollTop de l'avantpassat dins del mateix tick, abans del paint → sense
-// parpelleig.
+// Auto-grow of a <textarea>: setting height:auto collapses it for an instant to
+// to be able to measure the real scrollHeight of the content. If the textarea is in the middle
+// of a long document, this momentary collapse makes the browser
+// "chase" the cursor and scroll the container on every keystroke (the line
+// edited kept sliding toward the bottom of the screen). We save and restore the
+// scrollTop of the ancestor within the same tick, before paint → no
+// flicker.
 const autoGrowTextarea = (el) => {
     if (!el) return;
     const scroller = getScrollableAncestor(el);
@@ -372,10 +372,10 @@ const extractOutgoingPageLinks = (markdown, idToTitle = {}, selfId = '') => {
 
     const mdRegex = /\[[^\]]*\]\(([^)]+)\)/g;
     for (const match of body.matchAll(mdRegex)) {
-        // Excloure imatges Markdown `![alt](src)`: el `!` immediatament abans
-        // del claudàtor marca una IMATGE, no un enllaç a una pàgina. Sense això,
-        // una imatge amb ruta relativa o `file://` (que no passa el filtre
-        // http/`/` de més avall) s'afegia com a enllaç sortint NO resolt.
+        // Exclude Markdown images `![alt](src)`: the `!` immediately before
+        // of the bracket marks an IMAGE, not a link to a page. Without this,
+        // an image with a relative path or `file://` (which doesn't pass the filter
+        // http/`/` further below) was added as an outgoing link that was NOT resolved.
         if (match.index > 0 && body[match.index - 1] === '!') continue;
         const rawRef = String(match?.[1] || '').trim();
         if (!rawRef) continue;
@@ -417,9 +417,9 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
     const [isOpen, setIsOpen] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [highlightedIndex, setHighlightedIndex] = useState(0);
-    // Valors anteriors de searchTerm/isOpen per poder reiniciar
-    // highlightedIndex DURANT el render (vegeu el bloc d'ajust més avall),
-    // en comptes d'un useEffect amb setState (que dispara renders en cascada).
+    // Previous values of searchTerm/isOpen so we can reset
+    // highlightedIndex DURING render (see the adjustment block below),
+    // instead of a useEffect with setState (which triggers cascading renders).
     const [prevSearchTerm, setPrevSearchTerm] = useState(searchTerm);
     const [prevIsOpen, setPrevIsOpen] = useState(isOpen);
     const containerRef = useRef(null);
@@ -435,14 +435,14 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
         }
     }, [value]);
 
-    // Les opcions arriben en formats diferents segons l'ús del component:
-    //  · relacions → ids de pàgina (string), amb el títol a `idToTitle`
-    //  · select/multi_select llegats → noms (string)
-    //  · select/multi_select actuals → objectes rics {name, color}
-    // Normalitzem a una clau-string estable perquè TOTA la lògica interna
-    // (filtre, igualtat, selecció, render) treballi amb strings; el color es
-    // guarda a part per pintar el xip. Sense això, `.toLowerCase()` sobre un
-    // objecte tombava tot l'editor (error boundary).
+    // Options arrive in different formats depending on how the component is used:
+    //  · relations → page ids (string), with the title in `idToTitle`
+    //  · select/multi_select legacy → names (string)
+    //  · select/multi_select current → rich objects {name, color}
+    // We normalize to a stable string key so that ALL the internal logic
+    // (filter, equality, selection, render) works with strings; the color is
+    // stored separately to paint the chip. Without this, `.toLowerCase()` on a
+    // object would crash the whole editor (error boundary).
     const optionKeys = useMemo(() => (
         (options || [])
             .map(opt => (opt && typeof opt === 'object' ? String(opt.name ?? '') : String(opt ?? '')))
@@ -468,13 +468,13 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Mode single: mostrem totes les opcions al dropdown (incloent la
-    // seleccionada) perquè l'usuari pugui substituir-la sense haver de
-    // deseleccionar primer. Mode multi: amaguem les ja seleccionades
-    // perquè ja apareixen com a pills.
-    // Filtre insensible a accents (NFD): "educacio" troba "Educació",
-    // "historia" troba "Història". En un vault català/castellà l'usuari no
-    // acostuma a teclejar els accents i, sense això, l'opció/relació no apareixia.
+    // Single mode: we show all options in the dropdown (including the
+    // selected one) so the user can replace it without having to
+    // deselect first. Multi mode: we hide the ones already selected
+    // because they already appear as pills.
+    // Accent-insensitive filter (NFD): "educacio" finds "Educació",
+    // "historia" finds "Història". In a Catalan/Spanish vault the user
+    // doesn't usually type accents, and without this, the option/relation wouldn't appear.
     const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     const foldedTerm = foldAccents(searchTerm);
     const filteredOptions = optionKeys.filter(opt =>
@@ -486,12 +486,12 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
     );
     const totalItems = filteredOptions.length + (canCreate ? 1 : 0);
 
-    // Reseteja l'índex marcat quan canvia la cerca o s'obre/tanca el dropdown:
-    // mantenir el highlight desactualitzat trauria la fletxa de lloc i,
-    // sobretot, Enter podria seleccionar una opció diferent de la primera
-    // visible. Ho ajustem DURANT el render comparant amb el valor anterior
-    // —patró recomanat de React— en comptes d'un useEffect amb setState, que
-    // dispara renders en cascada (react-hooks/set-state-in-effect).
+    // Resets the marked index when the search changes or the dropdown opens/closes:
+    // keeping the outdated highlight would knock the arrow out of place and,
+    // above all, Enter could select a different option than the first
+    // visible one. We adjust it DURING render by comparing with the previous value
+    // —recommended React pattern— instead of a useEffect with setState, which
+    // triggers cascading renders (react-hooks/set-state-in-effect).
     // https://react.dev/learn/you-might-not-need-an-effect
     if (searchTerm !== prevSearchTerm || isOpen !== prevIsOpen) {
         setPrevSearchTerm(searchTerm);
@@ -499,8 +499,8 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
         setHighlightedIndex(0);
     }
 
-    // Scroll automàtic dins del dropdown perquè l'opció marcada sempre
-    // sigui visible quan es navega amb fletxes en una llista llarga.
+    // Automatic scroll inside the dropdown so the marked option is always
+    // visible when navigating with arrows in a long list.
     useEffect(() => {
         if (!listRef.current) return;
         const el = listRef.current.querySelector(`[data-idx="${highlightedIndex}"]`);
@@ -511,7 +511,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
 
     const toggleValue = (val) => {
         if (single) {
-            // Substituir; si l'opció clicada era la seleccionada, deseleccionar.
+            // Replace; if the clicked option was the selected one, deselect.
             const isCurrent = currentValues[0] === val;
             onChange(isCurrent ? '' : val);
             setIsOpen(false);
@@ -793,9 +793,9 @@ const TransclusionEmbed = React.forwardRef(({ block }, ref) => {
         };
     }, [resolvedId, section, t]);
 
-    // Resol entre obrir al tab actual (click normal) o en paral·lel (cmd-click).
-    // Convenció igual que els wikilinks: la transclusió és un link visual a una
-    // altra nota, així que un click hauria d'obrir-la com un link normal.
+    // Decides between opening in the current tab (normal click) or in parallel (cmd-click).
+    // Same convention as wikilinks: transclusion is a visual link to another
+    // note, so a click should open it like a normal link.
     const openTarget = (e) => {
         if (!resolvedId) return;
         if ((e.metaKey || e.ctrlKey) && onOpenParallel) {
@@ -865,9 +865,9 @@ class ErrorBoundary extends React.Component {
 
 const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, onRefreshNotes }) => {
     const { t } = useTranslation();
-    // Defensiva: si initialContent NO és string (algun update upstream l'ha
-    // emboirat com a objecte) intentem extreure'n una versió raonable abans
-    // que el textarea mostri "[object Object]".
+    // Defensive: if initialContent is NOT a string (some upstream update has
+    // muddled it into an object) we try to extract a reasonable version before
+    // causes the textarea to show "[object Object]".
     const safeInitial = (() => {
         if (typeof initialContent === 'string') return initialContent;
         if (initialContent == null) return '';
@@ -886,16 +886,16 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     // (sync from another device) and produces spurious 409 etag conflicts.
     const hasUserEditedRef = useRef(false);
 
-    // Auto-grow del textarea: la pàgina té un sol scroll vertical (el del
-    // contenidor), no un d'intern. Després de cada canvi de text, ajustem
-    // l'alçada al contingut real preservant la posició d'scroll.
+    // Textarea auto-grow: the page has a single vertical scroll (the
+    // container's), not an internal one. After every text change, we adjust
+    // the height to the real content while preserving the scroll position.
     useEffect(() => {
         autoGrowTextarea(textareaRef.current);
     }, [markdownText]);
 
     useEffect(() => {
         // Switching to a different note: reset content AND clear dirty flag.
-        // Reaprofitem la coerció defensiva (mai escriure "[object Object]").
+        // We reuse the defensive coercion (never write "[object Object]").
         const safe = (() => {
             if (typeof initialContent === 'string') return initialContent;
             if (initialContent == null) return '';
@@ -971,8 +971,8 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
 };
 
 
-// Compta recursivament els blocs multimèdia del document BlockNote (també
-// els niats dins columnes), per numerar les imatges inline noves.
+// Recursively counts the multimedia blocks of the BlockNote document (including
+// those nested inside columns), to number new inline images.
 const MEDIA_BLOCK_TYPES = new Set(['image', 'video', 'audio', 'file']);
 const countMediaBlocks = (blocks) => {
     if (!Array.isArray(blocks)) return 0;
@@ -1029,8 +1029,8 @@ export function EditorInner({
                 propSchema: { url: { default: "" }, caption: { default: "" } },
                 content: "none",
             }, { render: (props) => <EmbedRenderer block={props.block} editor={props.editor} /> }),
-            // Block que renderitza la bibliografia del document segons les
-            // cites `[@key]` que conté. Vegeu BibliographyBlock.jsx.
+            // Block that renders the document's bibliography based on the
+            // `[@key]` citations it contains. See BibliographyBlock.jsx.
             bibliography: createReactBlockSpec({
                 type: "bibliography",
                 propSchema: {
@@ -1073,9 +1073,9 @@ export function EditorInner({
                     />
                 )
             }),
-            // Citation `[@key]`: chip clicable que enllaça amb una entrada
-            // de Recursos pel seu camp `Citation Key`. Vegeu CiteInline.jsx
-            // per al render i resolució async via /api/vault/resolve-by-citation-key.
+            // Citation `[@key]`: clickable chip that links to an entry
+            // from Resources by its `Citation Key` field. See CiteInline.jsx
+            // for the render and async resolution via /api/vault/resolve-by-citation-key.
             cite: createReactInlineContentSpec({
                 type: "cite",
                 propSchema: {
@@ -1100,31 +1100,31 @@ export function EditorInner({
                     </div>
                 )
             }),
-            // Índex de continguts generat dels headings del document (`{{toc}}`).
+            // Table of contents generated from the document's headings (`{{toc}}`).
             tableOfContents: createReactBlockSpec({
                 type: "tableOfContents",
                 propSchema: {},
                 content: "none",
             }, { render: (props) => <TableOfContentsBlock editor={props.editor} /> }),
-            // Diagrama Mermaid; es desa com a fence ```mermaid.
+            // Mermaid diagram; saved as a ```mermaid fence.
             mermaid: createReactBlockSpec({
                 type: "mermaid",
                 propSchema: { code: { default: "" } },
                 content: "none",
             }, { render: (props) => <MermaidBlock block={props.block} editor={props.editor} /> }),
-            // Targeta de previsualització d'enllaç (OG); `[bookmark: URL](URL)`.
+            // Link preview card (OG); `[bookmark: URL](URL)`.
             linkcard: createReactBlockSpec({
                 type: "linkcard",
                 propSchema: { url: { default: "" } },
                 content: "none",
             }, { render: (props) => <LinkCardBlock block={props.block} /> }),
-            // Bloc sincronitzat bidireccional; fence ```gnosi-synced amb sync_id.
+            // Bidirectional synced block; ```gnosi-synced fence with sync_id.
             synced: createReactBlockSpec({
                 type: "synced",
                 propSchema: { sync_id: { default: "" } },
                 content: "none",
             }, { render: (props) => <SyncedBlock block={props.block} /> }),
-            // Nota al peu inline estil Obsidian (`text[^1]` + `[^1]: definició`).
+            // Obsidian-style inline footnote (`text[^1]` + `[^1]: definition`).
             footnote: createReactInlineContentSpec({
                 type: "footnote",
                 propSchema: { id: { default: "" }, content: { default: "" } },
@@ -1138,13 +1138,13 @@ export function EditorInner({
                     />
                 )
             }),
-            // Menció d'una persona (contacte): `@[Nom|id]`.
+            // Mention of a person (contact): `@[Name|id]`.
             mention: createReactInlineContentSpec({
                 type: "mention",
                 propSchema: { id: { default: "" }, name: { default: "" } },
                 content: "none",
             }, { render: (props) => <MentionInline inlineContent={props.inlineContent} /> }),
-            // Menció de data / recordatori inline: `@2026-06-25` o `@2026-06-25T09:00`.
+            // Date mention / inline reminder: `@2026-06-25` or `@2026-06-25T09:00`.
             dateref: createReactInlineContentSpec({
                 type: "dateref",
                 propSchema: { date: { default: "" }, time: { default: "" } },
@@ -1246,8 +1246,8 @@ export function EditorInner({
             .map(([id, title]) => ({
                 id,
                 title: title.trim(),
-                // Àlies de nota (frontmatter `aliases:`), per a suggeriments i
-                // resolució de wikilinks `[[Àlies]]` (estil Obsidian).
+                // Note aliases (frontmatter `aliases:`), for suggestions and
+                // wikilink resolution `[[Àlies]]` (Obsidian style).
                 aliases: Array.isArray(aliasIndex?.[id]) ? aliasIndex[id] : [],
             }));
     }, [idToTitle, aliasIndex, contextValue]);
@@ -1271,29 +1271,29 @@ export function EditorInner({
 
     const tableId = metadata?.table_id || metadata?.database_table_id || '';
 
-    // Ref estable: el valor de tableId pot canviar entre renders però les
-    // callbacks que el llegeixen (uploadFileToAssetsDirect, etc.) han de
-    // mantenir SEMPRE la mateixa referència perquè useCreateBlockNote no
-    // recreï l'editor (cosa que esborraria el contingut en curs d'edició).
+    // Stable ref: the value of tableId can change between renders, but the
+    // callbacks that read it (uploadFileToAssetsDirect, etc.) must
+    // must ALWAYS keep the same reference so that useCreateBlockNote doesn't
+    // recreate the editor (which would erase the content currently being edited).
     const tableIdRef = useRef(tableId);
     useEffect(() => { tableIdRef.current = tableId; }, [tableId]);
 
-    // Ref a l'editor perquè `uploadFileToAssetsDirect` (creat abans que
-    // l'editor) en pugui llegir el document i comptar imatges ja inserides.
+    // Ref to the editor so that `uploadFileToAssetsDirect` (created before
+    // the editor) can read the document and count images already inserted.
     const editorRef = useRef(null);
 
-    // Estat per al modal d'inserció unificat (InsertContentModal). Retorna
-    // { url, mode, kind, name } perquè el caller decideixi com representar-ho
-    // al document (enllaç, bloc nadiu o frame).
+    // State for the unified insertion modal (InsertContentModal). Returns
+    // { url, mode, kind, name } so the caller decides how to represent it
+    // in the document (link, native block, or frame).
     const [pendingInsert, setPendingInsert] = useState(null);
     const pendingInsertRef = useRef(null);
     useEffect(() => { pendingInsertRef.current = pendingInsert; }, [pendingInsert]);
 
-    // Picker de citacions (Cmd+Shift+I). El render es fa al final del
-    // component via <CitePicker /> i la inserció s'enruta a `insertCitation`.
+    // Citation picker (Cmd+Shift+I). The render happens at the end of the
+    // component via <CitePicker /> and the insertion is routed to `insertCitation`.
     const [isCitePickerOpen, setIsCitePickerOpen] = useState(false);
 
-    // Modal de generació amb IA (slash «IA»). Render al final via <AIGenerateModal>.
+    // AI generation modal (slash «AI»). Rendered at the end via <AIGenerateModal>.
     const [aiRequest, setAiRequest] = useState(null);
     const [linkCardCtx, setLinkCardCtx] = useState(null);
     const doLinkCard = async (raw) => {
@@ -1315,20 +1315,20 @@ export function EditorInner({
         });
     }, []);
 
-    // Pujada silenciosa a Assets. La fa servir el `uploadFile` de BlockNote
-    // per al cas dominant (imatge/vídeo/àudio arrossegada o enganxada): es
-    // puja i es converteix en bloc nadiu directament, sense modal. Els
-    // fitxers no-visuals (PDF, documents, arxius) NO arriben aquí perquè els
-    // intercepten abans els handlers onDrop/onPaste del wrapper i els porten
-    // al modal d'inserció unificat.
+    // Silent upload to Assets. BlockNote's `uploadFile` uses it
+    // for the dominant case (image/video/audio dragged or pasted): it
+    // uploads and becomes a native block directly, without a modal. The
+    // non-visual files (PDF, documents, files) do NOT arrive here because the
+    // wrapper's onDrop/onPaste handlers intercept them first and take them
+    // to the unified insertion modal.
     const uploadFileToAssetsDirect = useCallback(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
         const tid = tableIdRef.current;
         const params = new URLSearchParams();
         if (tid) params.set('table_id', tid);
-        // Patró de nom per defecte de les imatges inline: "{títol} {índex}".
-        // L'índex és (#blocs multimèdia ja al cos) + 1; s'omet quan és la 1a.
+        // Default naming pattern for inline images: "{title} {index}".
+        // The index is (#multimedia blocks already in the body) + 1; it's omitted when it's the 1st.
         const title = String(metadataRef.current?.title || '').trim();
         if (title) {
             const index = countMediaBlocks(editorRef.current?.document) + 1;
@@ -1342,14 +1342,14 @@ export function EditorInner({
         return data.url;
     }, [metadataRef]);
 
-    // Col·laboració en temps real (CRDT/Yjs) NOMÉS en mode org. En mode
-    // personal `collaboration` és undefined i `collabReady` sempre false →
-    // l'editor es crea exactament igual que abans (cap regressió).
+    // Real-time collaboration (CRDT/Yjs) ONLY in org mode. In
+    // personal mode, `collaboration` is undefined and `collabReady` is always false →
+    // the editor is created exactly like before (no regression).
     const { collaboration, ready: collabReady } = useYjsCollaboration(noteFilename);
 
     const editor = useCreateBlockNote({
         schema,
-        // Amb col·laboració activa, el contingut prové del Y.Doc (no initialContent).
+        // With active collaboration, the content comes from the Y.Doc (not initialContent).
         ...(collaboration ? { collaboration } : { initialContent: blocks || undefined }),
         dropCursor: multiColumnDropCursor,
         uploadFile: uploadFileToAssetsDirect,
@@ -1360,14 +1360,14 @@ export function EditorInner({
             cellTextColor: true,
             headers: true,
         },
-    // Deps: recrea l'editor NOMÉS quan la col·laboració s'activa (transició a
-    // mode org). En personal `collabReady` no canvia mai → cap recreació.
+    // Deps: recreates the editor ONLY when collaboration activates (transition to
+    // org mode). In personal mode `collabReady` never changes → no recreation.
     }, [collabReady]);
     editorRef.current = editor;
 
-    // Sembra de contingut inicial en col·laboració: si el document Yjs està
-    // buit (primer peer), hi bolquem els blocs de la pàgina. Gated per un flag
-    // compartit al doc perquè només ho faci el primer client.
+    // Seeding initial content in collaboration: if the Yjs document is
+    // empty (first peer), we dump the page's blocks into it. Gated by a flag
+    // shared in the doc so that only the first client does it.
     useEffect(() => {
         if (!collaboration || !editor || !blocks) return;
         const doc = collaboration.provider?.doc;
@@ -1375,7 +1375,7 @@ export function EditorInner({
         const t = setTimeout(() => {
             try {
                 const meta = doc.getMap('meta');
-                if (meta.get('seeded')) return; // un altre peer ja ho ha fet
+                if (meta.get('seeded')) return; // another peer has already done it
                 const docEmpty = editor.document.length <= 1
                     && (!editor.document[0]?.content || editor.document[0]?.content.length === 0);
                 if (docEmpty) {
@@ -1389,22 +1389,22 @@ export function EditorInner({
         return () => clearTimeout(t);
     }, [collaboration, editor, blocks]);
 
-    // Ref a `applyInsertResult` perquè el listener de l'atall `/+` (definit
-    // dins d'un useEffect aïllat) en pugui llegir la versió més recent sense
-    // re-registrar-se a cada render.
+    // Ref to `applyInsertResult` so that the `/+` shortcut listener (defined
+    // inside an isolated useEffect) can read the most recent version without
+    // re-register on every render.
     const applyInsertResultRef = useRef(null);
-    // Flag per evitar entrar en bucle: l'`onChange` es dispara també quan
-    // esborrem el `/+` per obrir el modal.
+    // Flag to avoid entering a loop: the `onChange` also fires when
+    // we delete the `/+` to open the modal.
     const plusShortcutBusyRef = useRef(false);
 
-    // Atall `/+` → modal d'inserció. BlockNote no permet caràcters
-    // no-alfanumèrics al query del slash menu, així que un àlies "+" no
-    // s'arriba a consultar. Tampoc serveix un `onKeyDown` al wrapper de
-    // React perquè ProseMirror ja ha processat el `+` quan l'esdeveniment
-    // arriba (l'insereix al doc abans de bombollejar). Per això ho fem
-    // reactivament: després de cada canvi del document, si el text del
-    // bloc actual acaba en `/+`, esborrem els dos caràcters i obrim el
-    // modal. Hi ha un flicker mínim del `+` però és imperceptible.
+    // `/+` shortcut → insertion modal. BlockNote doesn't allow characters
+    // non-alphanumeric in the slash menu query, so a "+" alias doesn't
+    // gets reached. Nor does an `onKeyDown` on the wrapper of
+    // React because ProseMirror has already processed the `+` by the time the event
+    // arrives (it inserts it into the doc before bubbling). That's why we do it
+    // reactively: after every document change, if the text of the
+    // current block ends in `/+`, we delete the two characters and open the
+    // modal. There's a minimal flicker of the `+` but it's imperceptible.
     useEffect(() => {
         if (!editor || typeof editor.onChange !== 'function') return undefined;
         const textOfBlock = (block) => {
@@ -1443,9 +1443,9 @@ export function EditorInner({
         return editor.onChange(handler);
     }, [editor, requestInsertContent]);
 
-    // Ref al `<div>` que envolta el BlockNoteView. S'hi registren listeners
-    // nadius de drop/paste en capture phase (vegeu el useEffect més avall,
-    // després de la declaració de `editorReady`).
+    // Ref to the `<div>` that wraps the BlockNoteView. Listeners are registered on it
+    // native drop/paste handlers in the capture phase (see the useEffect below,
+    // after the declaration of `editorReady`).
     const editorWrapperRef = useRef(null);
 
     const initializedNoteRef = useRef('');
@@ -1511,10 +1511,10 @@ export function EditorInner({
     const [editorReady, setEditorReady] = useState(false);
     useEffect(() => { if (editor) { const timer = setTimeout(() => setEditorReady(true), 100); return () => clearTimeout(timer); } }, [editor]);
 
-    // Tintat de capçaleres de seccions a les pàgines d'ÀREA (Formació→blau,
-    // Recursos→gris, …). És purament visual: NO toca el contingut de la nota,
-    // així val per a totes les àrees (i noves seccions) sense migrar res.
-    // `isAreaPage` = la pàgina pertany a la taula "Àrees".
+    // Tinting of section headers on AREA pages (Formació→blue,
+    // Recursos→gray, …). It's purely visual: it does NOT touch the note's content,
+    // so it works for all areas (and new sections) without migrating anything.
+    // `isAreaPage` = the page belongs to the "Àrees" table.
     const isAreaPage = useMemo(() => {
         const tid = metadata?.table_id || metadata?.database_table_id;
         if (!tid) return false;
@@ -1522,18 +1522,18 @@ export function EditorInner({
         return normalizeHeadingText(tbl?.name) === 'arees';
     }, [metadata?.table_id, metadata?.database_table_id, contextValue?.allTables]);
 
-    // Color de fons de les capçaleres via un `<style>` INJECTAT, indexat pel
-    // `data-id` de cada bloc. Per què així i no tocant el DOM ni amb decoracions:
-    //  - Mutar `.bn-block-content` a mà entra en bucle: ProseMirror vigila el seu
-    //    DOM, detecta la mutació externa, redibuixa el node i esborra la marca.
-    //  - Les decoracions de PM no s'apliquen: BlockNote renderitza els blocs amb
-    //    node-views de React que ignoren les decoracions externes.
-    // En canvi, el `data-id` (UUID) que PM posa al `.bn-block` és ESTABLE i el
-    // preserva a cada redibuixat. Calculem `id→color` des del MODEL
-    // (`editor.document`, mai del DOM) i emetem regles CSS `[data-id="…"]`. Res
-    // no toca el DOM de PM → cap bucle; i com que el data-id no canvia, el fons
-    // és estable. Els colors són variables CSS (`--area-*`) definides a
-    // index.css amb variant clara/fosca. NO toca el contingut de la nota.
+    // Header background color via an INJECTED `<style>`, indexed by the
+    // `data-id` of each block. Why this way and not by touching the DOM or using decorations:
+    //  - Mutating `.bn-block-content` by hand causes a loop: ProseMirror watches its
+    //    DOM, detects the external mutation, redraws the node, and erases the mark.
+    //  - PM decorations don't apply: BlockNote renders the blocks with
+    //    React node-views that ignore external decorations.
+    // On the other hand, the `data-id` (UUID) that PM puts on `.bn-block` is STABLE and
+    // preserves it on every redraw. We compute `id→color` from the MODEL
+    // (`editor.document`, never the DOM) and we emit CSS rules `[data-id="…"]`. Nothing
+    // doesn't touch PM's DOM → no loop; and since the data-id doesn't change, the background
+    // is stable. The colors are CSS variables (`--area-*`) defined in
+    // index.css with light/dark variant. Does NOT touch the note's content.
     useEffect(() => {
         if (!editor || !editorReady) return undefined;
         const styleEl = document.createElement('style');
@@ -1556,9 +1556,9 @@ export function EditorInner({
                             const key = areaHeadingColorKey(textOf(b));
                             if (key) {
                                 rules.push(`.bn-block[data-id="${esc(b.id)}"] > .bn-block-content{background-color:var(--area-${key});border-radius:6px;padding:0.14em 0.45em 0.14em 0.225em;}`);
-                                // El marge intern de la capçalera (definit amb !important al <style> de sota)
-                                // es pinta DINS de la banda i la inflava de manera asimètrica; el neutralitzem
-                                // (especificitat > la regla base) perquè el color abraci el text amb el padding.
+                                // The header's inner margin (defined with !important in the <style> below)
+                                // is painted INSIDE the band and was inflating it asymmetrically; we neutralize it
+                                // (specificity > the base rule) so the color hugs the text with the padding.
                                 rules.push(`.bn-editor .bn-block[data-id="${esc(b.id)}"] > .bn-block-content[data-content-type="heading"] :is(h1,h2,h3,h4,h5,h6){margin:0 !important;}`);
                             }
                         }
@@ -1576,11 +1576,11 @@ export function EditorInner({
         return () => { if (typeof unsub === 'function') unsub(); styleEl.remove(); };
     }, [editor, editorReady, isAreaPage, noteFilename]);
 
-    // Shortcut global Cmd+Shift+I / Ctrl+Shift+I → obre el CitePicker.
-    // Nota: A Chromium en Windows/Linux aquesta combinació també obre el
-    // DevTools del navegador (el navegador la captura abans que la pàgina).
-    // A Mac (Cmd+Shift+I) sí està lliure perquè DevTools usa Cmd+Opt+I.
-    // Per als usuaris Win/Linux: serveix el slash command `/cite` com a alternativa.
+    // Global shortcut Cmd+Shift+I / Ctrl+Shift+I → opens the CitePicker.
+    // Note: In Chromium on Windows/Linux this combination also opens the
+    // browser's DevTools (the browser captures it before the page does).
+    // On Mac (Cmd+Shift+I) it is free because DevTools uses Cmd+Opt+I.
+    // For Win/Linux users: the `/cite` slash command serves as an alternative.
     useEffect(() => {
         if (!editor) return undefined;
         const onKeyDown = (e) => {
@@ -1588,12 +1588,12 @@ export function EditorInner({
             if (!isMod || !e.shiftKey) return;
             const key = String(e.key || '').toLowerCase();
             if (key !== 'i') return;
-            // No interceptar si l'usuari està a un input/textarea fora de
-            // l'editor (cerca global, modal de propietats…)
+            // Do not intercept if the user is in an input/textarea outside of
+            // the editor (global search, properties modal…)
             const tag = String(document.activeElement?.tagName || '').toLowerCase();
             const isEditableField = tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable;
             if (isEditableField) {
-                // Permetem només si l'element editable forma part del BlockEditor
+                // We only allow it if the editable element is part of the BlockEditor
                 const wrapper = editorWrapperRef.current;
                 const inEditor = wrapper && wrapper.contains(document.activeElement);
                 if (!inEditor) return;
@@ -1602,27 +1602,27 @@ export function EditorInner({
             e.stopPropagation();
             setIsCitePickerOpen(true);
         };
-        // Capture phase per arribar abans que ProseMirror o altres handlers
-        // bloquegin la propagació amb un keydown propi.
+        // Capture phase to arrive before ProseMirror or other handlers
+        // block propagation with their own keydown.
         window.addEventListener('keydown', onKeyDown, true);
         return () => window.removeEventListener('keydown', onKeyDown, true);
     }, [editor]);
 
-    // Intercepció de fitxers arrossegats/enganxats al CAPTURE phase. Un
-    // `onDrop`/`onPaste` de React al wrapper s'executa massa tard: ProseMirror
-    // (dins el wrapper) processa l'event al bubble phase i ja ha creat el
-    // bloc `file` nadiu abans que el handler React pugui interceptar-lo. El
-    // capture phase va de fora cap a dins, així que un listener nadiu al
-    // wrapper s'executa ABANS que ProseMirror i pot aturar l'event amb
-    // stopPropagation. Depèn de `editorReady` perquè el <div> amb el ref
-    // només es munta quan l'editor està a punt.
+    // Interception of dragged/pasted files at the CAPTURE phase. A
+    // React's `onDrop`/`onPaste` on the wrapper fires too late: ProseMirror
+    // (inside the wrapper) processes the event at the bubble phase and has already created the
+    // native `file` block before the React handler can intercept it. The
+    // capture phase goes from outside to inside, so a native listener on the
+    // wrapper runs BEFORE ProseMirror and can stop the event with
+    // stopPropagation. Depends on `editorReady` because the <div> with the ref
+    // is only mounted once the editor is ready.
     useEffect(() => {
         const wrapper = editorWrapperRef.current;
         if (!wrapper || !editor || !editorReady) return undefined;
 
-        // Visuals (imatge/vídeo/àudio) → bloc nadiu directe; la resta (PDF,
-        // document, arxiu) → modal d'inserció unificat amb el fitxer
-        // pre-carregat al tab "Puja".
+        // Visuals (image/video/audio) → direct native block; the rest (PDF,
+        // document, file) → unified insertion modal with the file
+        // preloaded in the "Upload" tab.
         const processFiles = async (files) => {
             for (const file of files) {
                 try {
@@ -1645,9 +1645,9 @@ export function EditorInner({
         const onDropCapture = (e) => {
             const files = Array.from(e.dataTransfer?.files || []);
             if (!files.length) return;
-            // Si TOT són visuals, no interceptem: BlockNote ho gestiona
-            // (bloc nadiu directe, cas dominant). Només capturem si hi ha
-            // almenys un fitxer no-visual.
+            // If ALL are visuals, we don't intercept: BlockNote handles it
+            // (direct native block, the dominant case). We only capture if there is
+            // at least one non-visual file.
             if (files.every(isVisualMediaFile)) return;
             e.preventDefault();
             e.stopPropagation();
@@ -1671,8 +1671,8 @@ export function EditorInner({
         };
     }, [editor, editorReady, requestInsertContent, uploadFileToAssetsDirect]);
 
-    // API imperativa perquè el pare (títol/propietats) pugui dur el focus al
-    // cos. Es registra/desregistra amb el cicle de vida de l'editor.
+    // an imperative API so the parent (title/properties) can move the focus to the
+    // body. It registers/unregisters with the editor's lifecycle.
     useEffect(() => {
         if (!registerEditorApi) return undefined;
         registerEditorApi({
@@ -1695,10 +1695,10 @@ export function EditorInner({
         return () => registerEditorApi(null);
     }, [editor, registerEditorApi]);
 
-    // ── Pont de navegació editor ↔ vistes incrustades (DbViewEmbed) ──────────
-    // Cada vista incrustada registra aquí la seva API de navegació (per
-    // block.id). L'editor la fa servir per "entrar" a la taula amb les fletxes,
-    // i la vista crida `exitEmbedToEditor` per tornar el cursor a l'editor.
+    // ── Editor ↔ embedded views navigation bridge (DbViewEmbed) ──────────
+    // Each embedded view registers its navigation API here (by
+    // block.id). The editor uses it to "enter" the table with the arrow keys,
+    // and the view calls `exitEmbedToEditor` to return the cursor to the editor.
     const embedNavRef = useRef(new Map());
     const registerEmbedNav = useCallback((blockId, api) => {
         if (!blockId) return;
@@ -1720,7 +1720,7 @@ export function EditorInner({
                     editor.focus();
                     editor.setTextCursorPosition(prev.id, 'end');
                 } else {
-                    onNavigateUp?.(); // la vista és el primer bloc → títol/propietats
+                    onNavigateUp?.(); // the view is the first block → title/properties
                 }
             } else {
                 const next = doc[idx + 1];
@@ -1732,7 +1732,7 @@ export function EditorInner({
                     editor.focus();
                     editor.setTextCursorPosition(next.id, 'start');
                 } else {
-                    // La vista és l'últim bloc: afegeix un paràgraf buit i hi va.
+                    // The view is the last block: add an empty paragraph and go to it.
                     editor.insertBlocks([{ type: 'paragraph' }], doc[idx].id, 'after');
                     editor.focus();
                     const after = editor.document[idx + 1];
@@ -1742,17 +1742,17 @@ export function EditorInner({
         } catch (err) { console.warn('exit embed nav failed:', err?.message); }
     }, [editor, onNavigateUp]);
 
-    // Navegació de teclat des del COS cap amunt (cap a propietats/títol):
-    //   ↑ a la primera línia del primer bloc → propietats (si obertes) o títol.
-    //   ⌥↑ → drecera dedicada al panell de propietats.
-    // Capture phase per actuar abans que ProseMirror reculli la fletxa.
+    // Keyboard navigation from the BODY upward (toward properties/title):
+    //   ↑ on the first line of the first block → properties (if open) or title.
+    //   ⌥↑ → dedicated shortcut for the properties panel.
+    // Capture phase to act before ProseMirror picks up the arrow.
     useEffect(() => {
         const wrapper = editorWrapperRef.current;
         if (!wrapper || !editor || !editorReady) return undefined;
 
-        // Caret a la PRIMERA línia visual del bloc actual (relatiu al bloc, no a
-        // tot l'editor: així val tant per al primer bloc —navegar al títol— com
-        // per a un bloc enmig —entrar a una vista anterior amb ↑).
+        // Caret on the FIRST visual line of the current block (relative to the block, not
+        // the whole editor: this way it works both for the first block —navigate to the title— and
+        // for a block in the middle —enter a previous view with ↑).
         const caretOnFirstLine = () => {
             const sel = window.getSelection?.();
             if (!sel || sel.rangeCount === 0) return false;
@@ -1764,14 +1764,14 @@ export function EditorInner({
             node = (node && node.nodeType === 3) ? node.parentElement : node;
             const blockEl = node?.closest?.('.bn-block-content') || node?.closest?.('.bn-block');
             if (!blockEl) return false;
-            if (!blockEl.textContent?.trim()) return true; // bloc buit → 1a línia
+            if (!blockEl.textContent?.trim()) return true; // empty block → 1st line
             const top = blockEl.getBoundingClientRect().top;
             const lineH = rect.height || 20;
             return (rect.top - top) < lineH * 0.75 + 6;
         };
 
-        // Anàleg per a la DARRERA línia del bloc actual (per entrar a una vista
-        // que ve just a sota amb ↓): compara el caret amb la base del bloc.
+        // Analogous for the LAST line of the current block (to enter a view
+        // that comes right below with ↓): compares the caret with the base of the block.
         const caretOnLastLine = () => {
             const sel = window.getSelection?.();
             if (!sel || sel.rangeCount === 0) return false;
@@ -1783,7 +1783,7 @@ export function EditorInner({
             node = (node && node.nodeType === 3) ? node.parentElement : node;
             const blockEl = node?.closest?.('.bn-block-content') || node?.closest?.('.bn-block');
             if (!blockEl) return false;
-            if (!blockEl.textContent?.trim()) return true; // bloc buit → última línia
+            if (!blockEl.textContent?.trim()) return true; // empty block → last line
             const bottom = blockEl.getBoundingClientRect().bottom;
             const lineH = rect.height || 20;
             return (bottom - rect.bottom) < lineH * 0.75 + 6;
@@ -1836,10 +1836,10 @@ export function EditorInner({
         };
 
         const onKeyDown = (e) => {
-            // Només gestionem tecles quan el focus és a l'àrea de text de
-            // l'editor (el contenteditable de ProseMirror). Si el focus és a la
-            // closca d'un embed (feed/galeria… → un fill enfocable amb
-            // tabIndex=-1), el seu propi handler ja se n'ocupa; no interferim.
+            // We only handle keys when the focus is in the text area of
+            // the editor (ProseMirror's contenteditable). If the focus is in the
+            // shell of an embed (feed/gallery… → a focusable child with
+            // tabIndex=-1), its own handler already takes care of it; we don't interfere.
             const pmDom = editor?.prosemirrorView?.dom;
             if (pmDom && document.activeElement && document.activeElement !== pmDom) return;
             if (e.metaKey || e.ctrlKey || e.shiftKey) return;
@@ -1861,27 +1861,27 @@ export function EditorInner({
                 }
             }
             if (e.key === 'ArrowUp') {
-                if (!caretOnFirstLine()) return; // no és la 1a línia → ProseMirror puja una línia
+                if (!caretOnFirstLine()) return; // not the 1st line → ProseMirror moves up one line
                 const curId = getCurrentBlockId();
                 const { prevBlock } = curId ? getAdjacentBlocks(curId) : { prevBlock: null };
                 if (!prevBlock) {
-                    // Primer bloc del cos → puja a propietats/títol/enllaços.
+                    // First block of the body → moves up to properties/title/links.
                     e.preventDefault();
                     e.stopPropagation();
                     onNavigateUp?.();
                 } else if (prevBlock.type === 'gnosi_view') {
-                    // El bloc anterior és una vista incrustada → hi entrem
-                    // (última cel·la per a taules; closca per a la resta).
+                    // The previous block is an embedded view → we enter it
+                    // (last cell for tables; shell for the rest).
                     if (enterEmbed(prevBlock.id, 'last')) {
                         e.preventDefault();
                         e.stopPropagation();
                     }
                 }
             } else if (e.key === 'ArrowDown') {
-                if (!caretOnLastLine()) return; // no és l'última línia → ProseMirror baixa una línia
+                if (!caretOnLastLine()) return; // not the last line → ProseMirror moves down one line
                 const curId = getCurrentBlockId();
                 const { nextBlock } = curId ? getAdjacentBlocks(curId) : { nextBlock: null };
-                // El bloc següent és una vista incrustada → hi entrem amb ↓.
+                // The next block is an embedded view → we enter it with ↓.
                 if (nextBlock && nextBlock.type === 'gnosi_view') {
                     if (enterEmbed(nextBlock.id, 'first')) {
                         e.preventDefault();
@@ -1895,8 +1895,8 @@ export function EditorInner({
         return () => wrapper.removeEventListener('keydown', onKeyDown, true);
     }, [editor, editorReady, onNavigateUp, onOpenProperties]);
 
-    // (interceptor de file:// mogut al wrapper BlockEditor perquè estigui
-    // actiu sempre, independent del mode de visualització)
+    // (file:// interceptor moved to the BlockEditor wrapper so it stays
+    // always active, independent of the display mode)
 
     const headingCacheRef = useRef(new Map());
     const headingInFlightRef = useRef(new Map());
@@ -2027,9 +2027,9 @@ export function EditorInner({
             }
 
             setSaveStatus('saved');
-            // El contracte de handleEditorUpdate al pare és (pageId, content, payload).
-            // Si passem 'data' (objecte) com a content, tab.content esdevé un objecte
-            // i el toggle MD el toString-eja a "[object Object]" + perd la nota.
+            // The contract of handleEditorUpdate on the parent is (pageId, content, payload).
+            // If we pass 'data' (object) as content, tab.content becomes an object
+            // and the MD toggle stringifies it to "[object Object]" + loses the note.
             if (onUpdate) onUpdate(noteFilename, data.content, { title: data.title, metadata: data.metadata });
 
             if (saveTimerRef.current) {
@@ -2185,12 +2185,12 @@ export function EditorInner({
     }, [editor, handleSave]);
 
 
-    // Inserció programàtica d'una cita `[@key]` a la posició actual del
-    // cursor. Es fa servir des del CitePicker (Cmd+Shift+I) i des del slash
-    // menu (`/cite`). Tria entre l'inline-content nadiu `cite` (chip
-    // renderitzat) i el text Markdown `[@key]` (que el parser converteix
-    // al carregar la pàgina): preferim l'inline directe perquè dona
-    // resposta visual immediata.
+    // Programmatic insertion of a `[@key]` citation at the current position of the
+    // cursor. Used from the CitePicker (Cmd+Shift+I) and from the slash
+    // menu (`/cite`). Chooses between the native `cite` inline-content (chip
+    // rendered) and the Markdown `[@key]` text (which the parser converts
+    // when the page loads): we prefer the direct inline because it gives
+    // immediate visual feedback.
     const insertCitation = useCallback((citationKey) => {
         if (!editor) return;
         const safe = String(citationKey || '').trim();
@@ -2202,8 +2202,8 @@ export function EditorInner({
             ]);
             if (typeof handleSave === 'function') setTimeout(() => handleSave(), 100);
         } catch (err) {
-            // Si l'editor no té l'spec `cite` registrat (cas defensiu),
-            // caiem al text Markdown que el parser detectarà al re-load.
+            // If the editor doesn't have the `cite` spec registered (defensive case),
+            // we fall back to Markdown text that the parser will detect on reload.
             console.warn('insertCitation fallback to markdown:', err?.message);
             try {
                 editor.insertInlineContent(`[@${safe}] `);
@@ -2214,7 +2214,7 @@ export function EditorInner({
         }
     }, [editor, handleSave]);
 
-    // ── IA: obre el modal de generació i insereix el resultat ──────────────
+    // ── AI: opens the generation modal and inserts the result ──────────────
     const openAICommand = useCallback((mode = 'free') => {
         let context = '';
         try { context = blocksToRichMarkdown(editor?.document) || ''; } catch { /* noop */ }
@@ -2290,9 +2290,9 @@ export function EditorInner({
                     }
                     return;
                 } catch (error) {
-                    // Si replaceBlocks/updateBlock fallen (per exemple, el bloc
-                    // ja no existeix per cancel·lació), continuem al fallback
-                    // de sota que insereix una transclusion al final del doc.
+                    // If replaceBlocks/updateBlock fail (for example, the block
+                    // no longer exists due to cancellation), we continue to the fallback
+                    // below that inserts a transclusion at the end of the doc.
                     console.debug('transclusion inline replace fallback:', error?.message);
                 }
             }
@@ -2391,11 +2391,11 @@ export function EditorInner({
                     timestamp: Date.now()
                 });
 
-                // Propaga el canvi al pare quan el flush d'unmount té èxit:
-                // si l'usuari edita i tanca la pestanya abans del debounce
-                // (700ms), `handleSave` no s'ha cridat i `pages`/`tabs` del
-                // pare quedarien stale; la vista mostraria el contingut
-                // anterior fins a un refresh manual.
+                // Propagates the change to the parent when the unmount flush succeeds:
+                // if the user edits and closes the tab before the debounce
+                // (700ms), `handleSave` hasn't been called and `pages`/`tabs` of the
+                // parent would go stale; the view would show the content
+                // previous until a manual refresh.
                 savePromise.then(() => {
                     if (onUpdate) onUpdate(noteFilename, markdownContent, { title: data.title, metadata: currentMetadata });
                 }).finally(() => {
@@ -2413,14 +2413,14 @@ export function EditorInner({
         // eslint-disable-next-line react-hooks/exhaustive-deps -- metadataRef is a ref; noteFilename is captured via handleSave closure
     }, [editor, isParsing, handleSave]);
 
-    // Punt d'entrada que el PageViewModal (renderitzat fora d'EditorInner)
-    // crida després de desar la vista. Si `editingBlock` és present, actualitza
-    // el bloc existent (mode editar); altrament insereix un `gnosi_view` nou
-    // després del cursor (mode inserir). Declarat ABANS del return primerenc
-    // per editorReady per no violar les Rules of Hooks.
-    // Bloc on tenia el cursor l'usuari quan ha obert el modal de vista. El
-    // capturem en obrir-lo (el modal roba el focus, així que `getTextCursorPosition`
-    // ja no és fiable quan es desa) per inserir la vista AL CURSOR i no al final.
+    // Entry point that PageViewModal (rendered outside EditorInner)
+    // Called after saving the view. If `editingBlock` is present, update
+    // the existing block (edit mode); otherwise inserts a new `gnosi_view`
+    // after the cursor (insert mode). Declared BEFORE the early return
+    // for editorReady so as not to violate the Rules of Hooks.
+    // Block where the user's cursor was when they opened the view modal. The
+    // we capture it when opening it (the modal steals the focus, so `getTextCursorPosition`
+    // is no longer reliable by the time it's saved) to insert the view AT THE CURSOR and not at the end.
     const pageViewAnchorRef = useRef(null);
     const applyViewSection = useCallback((sectionData, editingBlock) => {
         if (!editor || !sectionData) return;
@@ -2434,8 +2434,8 @@ export function EditorInner({
                 editor.updateBlock(editingBlock.id, { type: 'gnosi_view', props });
                 return;
             }
-            // Anchor capturat en obrir el modal; si ja no existeix (bloc esborrat)
-            // o no n'hi ha, caiem a la posició actual del cursor.
+            // Anchor captured when opening the modal; if it no longer exists (block deleted)
+            // or there isn't one, we fall back to the current cursor position.
             const anchorId = pageViewAnchorRef.current;
             let anchor = (anchorId && editor.getBlock?.(anchorId)) || null;
             if (!anchor) anchor = editor.getTextCursorPosition().block;
@@ -2454,13 +2454,13 @@ export function EditorInner({
 
     if (isParsing || !editorReady) return <div className="flex items-center justify-center h-[500px] text-[var(--text-tertiary)]/60"><Loader2 className="animate-spin mr-2" size={20} /> {t('editor.loading_editor')}</div>;
 
-    // Detecta si una cadena és una URL "encastable": YouTube, Vimeo o PDF
-    // online. Retorna el "kind" detectat o null. Útil per al paste handler
-    // que suggereix convertir un enllaç inline en bloc embed.
+    // Detects whether a string is an "embeddable" URL: YouTube, Vimeo or PDF
+    // online. Returns the detected "kind" or null. Useful for the paste handler
+    // that suggests converting an inline link into an embed block.
     const detectEmbeddableUrl = (text) => {
         const trimmed = String(text || '').trim();
         if (!trimmed) return null;
-        // Acceptem només si l'enganxat és JUST una URL (no text amb URL al mig)
+        // We only accept it if the paste is JUST a URL (not text with a URL in the middle)
         if (/\s/.test(trimmed)) return null;
         try {
             const u = new URL(trimmed);
@@ -2474,10 +2474,10 @@ export function EditorInner({
         return null;
     };
 
-    // Aplica un resultat del modal d'inserció unificat al document.
-    // - mode='link'  → enllaç inline `[name](url)`
-    // - mode='frame' → bloc `embed` (iframe / viewer)
-    // - mode='block' → bloc nadiu BlockNote segons el kind (image/video/audio/file)
+    // Applies a result from the unified insertion modal to the document.
+    // - mode='link'  → inline link `[name](url)`
+    // - mode='frame' → `embed` block (iframe / viewer)
+    // - mode='block' → native BlockNote block according to the kind (image/video/audio/file)
     const applyInsertResult = ({ url, mode, kind, name }, anchor = null) => {
         if (!url) return;
         const safeName = name || url;
@@ -2494,13 +2494,13 @@ export function EditorInner({
             editor.insertBlocks([block], target, 'after');
             return;
         }
-        // mode === 'link' (defecte)
+        // mode === 'link' (default)
         editor.insertInlineContent([
             { type: 'link', href: url, content: [{ type: 'text', text: safeName, styles: {} }] },
         ]);
     };
-    // Mantenim la ref al closure més recent perquè l'`useEffect` de l'atall
-    // `/+` (registrat un sol cop quan es crea l'editor) pugui invocar-lo.
+    // We keep the ref to the most recent closure so the shortcut's `useEffect`
+    // `/+` (registered only once when the editor is created) can invoke it.
     applyInsertResultRef.current = applyInsertResult;
 
     const providerValue = { ...contextValue, requestInsertContent, registerEmbedNav, exitEmbedToEditor };
@@ -2511,18 +2511,18 @@ export function EditorInner({
                     padding-left: 0 !important;
                     padding-right: 0 !important;
                     background: transparent !important;
-                    /* BlockNote/Mantine usa #3F3F3F per defecte (gris). Forcem
-                       el color del text al token primari del tema (--text-primary)
-                       perquè el contingut es vegi negre tant en mode clar com
-                       contrastat blanc en mode fosc. Aplicat amb !important
-                       perquè la cascada del tema Mantine és molt específica. */
+                    /* BlockNote/Mantine uses #3F3F3F by default (gray). We force
+                       the text color to the theme's primary token (--text-primary)
+                       so the content shows as black in light mode and
+                       contrasted white in dark mode. Applied with !important
+                       because the Mantine theme's cascade is very specific. */
                     color: var(--text-primary) !important;
                 }
                 .bn-editor *,
                 .bn-editor [data-content-type] {
-                    /* Heretem el color a tots els blocs (paragraph, heading,
-                       list, table cells, etc.). Excloem nodes amb color propi
-                       gestionats per BlockNote (text colors, link colors). */
+                    /* We inherit the color in all blocks (paragraph, heading,
+                       list, table cells, etc.). We exclude nodes with their own
+                       color managed by BlockNote (text colors, link colors). */
                     color: inherit;
                 }
                 .bn-container,
@@ -2556,20 +2556,21 @@ export function EditorInner({
                     margin: 0.4em 0 0.2em !important;
                 }
 
-                /* Un h1 que va seguit immediatament d'un h2 (subtítol) o d'una
-                   vista incrustada (gnosi_view) no ha de deixar tant d'espai a
-                   sota: el subtítol/contingut és part del mateix grup. El nivell
-                   de l'encapçalament el dona el tag (> h1 / > h2), no cap
-                   data-level; la vista penja sota un wrapper .react-renderer
-                   (per això s'hi arriba per descendència). El germà següent pot
-                   ser un .bn-block-outer normal o un .bn-block-column-list (els
-                   h2 dins columnes), per això el combinador és "+ *". */
+                /* An h1 immediately followed by an h2 (subtitle) or by an
+                   embedded view (gnosi_view) shouldn't leave so much space
+                   below: the subtitle/content is part of the same group. The
+                   heading's level is given by the tag (> h1 / > h2), not any
+                   data-level; the view hangs under a .react-renderer wrapper
+                   (that's why it's reached via descendant selector). The next
+                   sibling can be a regular .bn-block-outer or a
+                   .bn-block-column-list (h2s inside columns), which is why the
+                   combinator is "+ *". */
                 .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1):has(+ * .bn-block-content[data-content-type="heading"] > h2) > .bn-block > .bn-block-content[data-content-type="heading"] > h1,
                 .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1):has(+ * .bn-block-content[data-content-type="gnosi_view"]) > .bn-block > .bn-block-content[data-content-type="heading"] > h1 {
                     margin-bottom: 0 !important;
                 }
-                /* Quan el bloc següent és una vista incrustada, redueix també el
-                   marge superior del seu contenidor (my-4 = 1rem). */
+                /* When the next block is an embedded view, also reduce the top
+                   margin of its container (my-4 = 1rem). */
                 .bn-editor .bn-block-outer:has(> .bn-block > .bn-block-content[data-content-type="heading"] > h1) + * .bn-block-content[data-content-type="gnosi_view"] > div {
                     margin-top: 0.25rem !important;
                 }
@@ -2615,7 +2616,7 @@ export function EditorInner({
                 .bn-editor .bn-block-content[data-background-color="pink"] .bn-inline-content,
                 .bn-editor .bn-block:has(> .bn-block-content[data-background-color="pink"]) .bn-inline-content { background-color: #f4dfeb !important; display: inline !important; padding: 2px 6px !important; border-radius: 4px !important; }
 
-                /* Cel·les de capçalera (<th>) de taules: fons gris i text en negreta per defecte */
+                /* Table header cells (<th>): gray background and bold text by default */
                 .bn-editor [data-content-type="table"] th {
                     background-color: #ebeced !important;
                     font-weight: 700 !important;
@@ -2627,9 +2628,9 @@ export function EditorInner({
                 .bn-editor [data-content-type="table"] th span {
                     font-weight: 700 !important;
                 }
-                /* Quan una cel·la (capçalera o normal) té un color assignat,
-                   pintar-lo directament a la cel·la i mantenir-ne la negreta si és <th>.
-                   Anul·lem també el "highlight" inline per evitar doble fons. */
+                /* When a cell (header or normal) has an assigned color, paint it
+                   directly on the cell and keep it bold if it's a <th>.
+                   We also cancel the inline "highlight" to avoid a double background. */
                 .bn-editor [data-content-type="table"] th[data-background-color="gray"],
                 .bn-editor [data-content-type="table"] td[data-background-color="gray"] { background-color: #ebeced !important; }
                 .bn-editor [data-content-type="table"] th[data-background-color="brown"],
@@ -2740,19 +2741,19 @@ export function EditorInner({
                 ref={editorWrapperRef}
                 onDragOver={(e) => { if (e.dataTransfer.types.includes('Files')) e.preventDefault(); }}
                 onPaste={(e) => {
-                    // NOTA: la intercepció de FITXERS enganxats es fa amb un
-                    // listener nadiu en capture phase (vegeu el useEffect
-                    // `editorWrapperRef`), no aquí — ProseMirror processa el
-                    // paste abans que aquest handler React. Aquest `onPaste`
-                    // només cobreix el cas de TEXT: una URL "encastable".
+                    // NOTE: interception of pasted FILES is done with a
+                    // native listener in the capture phase (see the useEffect
+                    // `editorWrapperRef`), not here — ProseMirror processes the
+                    // paste before this React handler. This `onPaste`
+                    // only covers the TEXT case: an "embeddable" URL.
                     //
-                    // Quan l'usuari enganxa una URL "encastable" (YouTube,
-                    // Vimeo, PDF online), deixem que BlockNote faci el seu
-                    // paste normal (enllaç inline) i, en paral·lel, mostrem
-                    // un toast suggerint convertir-la en frame. NO bloquegem
-                    // el paste perquè el cas "enllaç" segueix sent vàlid;
-                    // només oferim un atall per al cas comú on l'usuari volia
-                    // veure el reproductor.
+                    // When the user pastes an "embeddable" URL (YouTube,
+                    // Vimeo, online PDF), we let BlockNote do its
+                    // normal paste (inline link) and, in parallel, we show
+                    // a toast suggesting converting it into a frame. We do NOT block
+                    // the paste since the "link" case is still valid;
+                    // we only offer a shortcut for the common case where the user wanted
+                    // seeing the player.
                     const text = e.clipboardData?.getData?.('text/plain');
                     const kind = detectEmbeddableUrl(text);
                     if (!kind) return;
@@ -2798,7 +2799,7 @@ export function EditorInner({
                     triggerCharacter="/"
                     getItems={async (query) => {
                         if (!editor) return [];
-                        // El bloc "Fitxer" per defecte és redundant amb "/+" (Insereix contingut).
+                        // The default "File" block is redundant with "/+" (Insert content).
                         const defaultItems = getDefaultReactSlashMenuItems(editor).filter((item) => item.key !== 'file');
                         const vaultItems = buildSlashCommandCatalog({ allTables: contextValue?.allTables || [], onOpenPageView: (tableId = '') => { try { pageViewAnchorRef.current = editor.getTextCursorPosition().block?.id || null; } catch { pageViewAnchorRef.current = null; } onOpenPageViewModal?.(tableId); } }).map(item => ({
                             title: item.title,
@@ -3025,9 +3026,9 @@ export function EditorInner({
                             return noteTitle.includes(search) || noteId.includes(search) || aliasHit;
                         }).slice(0, 20);
 
-                        // Suggeriments per àlies de nota: una entrada per àlies que
-                        // casa amb la cerca. Insereix `[[àlies]]` (resol via backend),
-                        // mostrant l'àlies com a text de l'enllaç (estil Obsidian).
+                        // Suggestions for note aliases: one entry per alias that
+                        // matches the search. Inserts `[[alias]]` (resolved via backend),
+                        // showing the alias as the link text (Obsidian style).
                         const aliasItems = search
                             ? normalizedLinkableNotes.flatMap(note =>
                                 (note.aliases || [])
@@ -3284,7 +3285,7 @@ export function EditorInner({
                         const insertDate = (date) => editor.insertInlineContent([{ type: 'dateref', props: { date, time: '' } }, ' ']);
                         const insertMention = (id, name) => editor.insertInlineContent([{ type: 'mention', props: { id, name } }, ' ']);
 
-                        // Dreceres de data (estil Notion: @avui, @demà, @ahir).
+                        // Date shortcuts (Notion style: @today, @tomorrow, @yesterday).
                         const shortcuts = [
                             { label: t('editor.date_today', { defaultValue: 'Avui' }), offset: 0, kw: ['avui', 'today', 'hoy'] },
                             { label: t('editor.date_tomorrow', { defaultValue: 'Demà' }), offset: 1, kw: ['dema', 'demà', 'tomorrow', 'manana'] },
@@ -3303,7 +3304,7 @@ export function EditorInner({
                                 onItemClick: () => insertDate(iso),
                             });
                         }
-                        // Data explícita escrita (YYYY-MM-DD).
+                        // Explicitly written date (YYYY-MM-DD).
                         if (/^\d{4}-\d{2}-\d{2}$/.test(q)) {
                             items.push({
                                 title: q,
@@ -3314,7 +3315,7 @@ export function EditorInner({
                                 onItemClick: () => insertDate(q),
                             });
                         }
-                        // Contactes (persones).
+                        // Contacts (people).
                         try {
                             const res = await axios.get('/api/contacts', { params: q ? { search: q } : {} });
                             const contacts = Array.isArray(res.data) ? res.data : [];
@@ -3330,7 +3331,7 @@ export function EditorInner({
                                     onItemClick: () => insertMention(String(c.id || ''), name),
                                 });
                             }
-                        } catch { /* contactes opcional: si falla, només dates */ }
+                        } catch { /* optional contacts: if it fails, only dates */ }
                         return items.slice(0, 20);
                     }}
                 />
@@ -3395,26 +3396,26 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
     const isAdmin = role === 'admin' || role === 'owner';
-    // `isViewer`/`isEditor` representen la combinació: rol-viewer O candau de
-    // l'usuari (`isEditLocked` per pàgina). Quan l'usuari tanca el candau,
-    // l'editor es comporta com si fos un viewer per aquesta pàgina concreta.
+    // `isViewer`/`isEditor` represent the combination: viewer role OR lock of
+    // the user (`isEditLocked` per page). When the user closes the lock,
+    // the editor behaves as if it were a viewer for this specific page.
     const isViewer = isViewerRole || isEditLocked;
     const isEditor = !isEditLocked && (role === 'editor' || isAdmin);
     const { effectiveTheme } = useTheme();
 
     const isEditable = !isViewer;
     const [metadata, setMetadata] = useState(initialMetadata);
-    // Defaults globals de format (moneda/número/data) per a la visualització
-    // en mode lectura de les propietats (override per camp via config.format).
+    // Global format defaults (currency/number/date) for the display
+    // in read mode for the properties (per-field override via config.format).
     const localeSettings = useLocaleSettings();
-    // (interceptor de file:// està al hook useFileLinkInterceptor invocat a App.jsx)
+    // (the file:// interceptor is in the useFileLinkInterceptor hook invoked in App.jsx)
     
     const [saveStatus, setSaveStatus] = useState('idle');
 
-    // Corrector ortogràfic (Hunspell-WASM): activat per defecte, persistit a
-    // localStorage. Viu aquí (component extern) perquè els controls de la
-    // capçalera i el cos (EditorInner, on viuen les capes) el comparteixin.
-    // `spellLang` el reporta EditorInner via detecció automàtica d'idioma.
+    // Spell checker (Hunspell-WASM): enabled by default, persisted to
+    // localStorage. Lives here (external component) so the controls of the
+    // header and body (EditorInner, where the layers live) can share it.
+    // `spellLang` is reported by EditorInner via automatic language detection.
     const [spellEnabled, setSpellEnabled] = useState(() => localStorage.getItem('gnosi_spell_enabled') !== '0');
     const [spellLang, setSpellLang] = useState('ca');
     useEffect(() => { localStorage.setItem('gnosi_spell_enabled', spellEnabled ? '1' : '0'); }, [spellEnabled]);
@@ -3428,15 +3429,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [isPageViewModalOpen, setIsPageViewModalOpen] = useState(false);
     const [pageViewPreselectedTable, setPageViewPreselectedTable] = useState('');
     const [pageViewEditingBlock, setPageViewEditingBlock] = useState(null);
-    // S'incrementa cada cop que es desa la config d'una vista de BD. Es propaga
-    // via VaultEditorContext perquè cada DbViewEmbed re-llegeixi la seva secció
-    // (cardSize/galleryPreview/groupBy/…) en viu, sense haver de recarregar:
-    // editar només la mida no canvia el view_id/heading del bloc, així que el
-    // seu useEffect de càrrega no es redisparava i el canvi no es veia (#bug).
+    // It's incremented every time a DB view's config is saved. It propagates
+    // via VaultEditorContext so each DbViewEmbed re-reads its section
+    // (cardSize/galleryPreview/groupBy/…) live, without having to reload:
+    // editing only the size doesn't change the block's view_id/heading, so its
+    // loading useEffect wasn't retriggered and the change wasn't visible (#bug).
     const [viewSectionNonce, setViewSectionNonce] = useState(0);
-    // L'editor BlockNote viu dins d'EditorInner. Aquesta ref permet que el
-    // PageViewModal (renderitzat aquí, fora d'EditorInner) demani inserir o
-    // actualitzar el bloc `gnosi_view` un cop l'usuari ha desat la vista.
+    // The BlockNote editor lives inside EditorInner. This ref allows the
+    // PageViewModal (rendered here, outside EditorInner) to request inserting or
+    // update the `gnosi_view` block once the user has saved the view.
     const applyViewSectionRef = useRef(null);
     const [isAddingProp, setIsAddingProp] = useState(false);
     const [newPropName, setNewPropName] = useState("");
@@ -3446,28 +3447,28 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [unlinkedMentionsLoading, setUnlinkedMentionsLoading] = useState(false);
     const [linkMentionsBusy, setLinkMentionsBusy] = useState(false);
     const [isPropertiesOpen, setIsPropertiesOpen] = useState(false);
-    // Cursor de propietat (estil graella): el nom de la propietat activa.
-    // Clicar el nom selecciona; ↑↓ naveguen; ⌘C/⌘V copien/enganxen el valor.
+    // Property cursor (grid style): the name of the active property.
+    // Clicking the name selects; ↑↓ navigate; ⌘C/⌘V copy/paste the value.
     const [activeProp, setActiveProp] = useState(null);
-    const propClipboardRef = useRef(null); // { value, type } — porta-retalls intern
-    // Modal per omplir metadades (DOI/ISBN/arXiv/URL). Ha de viure aquí, al
-    // mateix component que el botó del panell Propietats i `handleMetaChange`.
+    const propClipboardRef = useRef(null); // { value, type } — internal clipboard
+    // Modal to fill in metadata (DOI/ISBN/arXiv/URL). Must live here, in the
+    // same component as the Properties panel button and `handleMetaChange`.
     const [isMetadataLookupOpen, setIsMetadataLookupOpen] = useState(false);
     const [isLinksInfoOpen, setIsLinksInfoOpen] = useState(false);
     
     const [isIconPickerOpen, setIsIconPickerOpen] = useState(false);
     const [isCoverPickerOpen, setIsCoverPickerOpen] = useState(false);
-    // Propietat (camp d'imatge per nom) per a la qual hi ha obert el selector
-    // d'imatge al panell de propietats. `null` = tancat.
+    // Property (image field by name) for which the image selector is open
+    // in the properties panel. `null` = closed.
     const [imagePickerProp, setImagePickerProp] = useState(null);
     const iconTriggerRef = useRef(null);
     const coverTriggerRef = useRef(null);
     const headerHoverRef = useRef(null);
     const titleInputRef = useRef(null);
-    // Pont per moure el focus entre les tres zones de la pàgina (títol ↔
-    // propietats ↔ cos). El cos (BlockNote) viu dins EditorInner, que hi
-    // registra una API imperativa; el panell de propietats s'inspecciona
-    // pel DOM (atribut data-prop-row) per dur-hi el focus de teclat.
+    // Bridge to move focus between the page's three zones (title ↔
+    // properties ↔ body). The body (BlockNote) lives inside EditorInner, which
+    // registers an imperative API there; the properties panel is inspected
+    // via the DOM (data-prop-row attribute) to bring keyboard focus there.
     const editorApiRef = useRef(null);
     const propertiesPanelRef = useRef(null);
     const propertiesHeaderRef = useRef(null);
@@ -3492,16 +3493,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 title: currentMetadata?.title || t('editor.untitled'),
                 metadata: currentMetadata
             };
-            // El PATCH fa merge al backend; per ELIMINAR claus (propietats
-            // locals/ad-hoc) cal enviar-les explícitament.
+            // The PATCH merges on the backend; to REMOVE keys (properties
+            // local/ad-hoc) they must be sent explicitly.
             if (removeKeys && removeKeys.length) data.remove_metadata_keys = removeKeys;
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
             setSaveStatus('saved');
-            // Notifica el pare perquè el `tabs[i].title` i el breadcrumb
-            // segueixin el rename. Sense això, canvis al títol via panell de
-            // propietats o input del header només es propagaven via
-            // `onRefreshNotes` (lent, fetch sencer); la pestanya quedava
-            // mostrant el títol antic fins al pròxim recàrrec.
+            // Notifies the parent so that `tabs[i].title` and the breadcrumb
+            // follow the rename. Without this, title changes via the
+            // properties panel or header input only propagated via
+            // `onRefreshNotes` (slow, full fetch); the tab would stay
+            // showing the old title until the next reload.
             if (onUpdate) onUpdate(noteFilename, undefined, { title: data.title, metadata: data.metadata });
             if (onRefreshNotes) onRefreshNotes();
             setTimeout(() => setSaveStatus(prev => prev === 'saved' ? 'idle' : prev), 3000);
@@ -3558,9 +3559,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const handleMetaChange = (key, value) => {
         const nextMeta = { ...metadata, [key]: value };
         setMetadata(nextMeta);
-        // Icona i portada són accions discretes (un sol click): salta el
-        // debounce i actualitza el sidebar de seguida amb un patch optimista
-        // perquè la nova icona aparegui immediatament a la barra lateral.
+        // Icon and cover are discrete actions (a single click): skip the
+        // debounce and immediately updates the sidebar with an optimistic patch
+        // so the new icon appears immediately in the sidebar.
         const isDiscrete = key === 'icon' || key === 'cover';
         if (isDiscrete && onUpdatePageMetadata && noteFilename) {
             onUpdatePageMetadata(noteFilename, { [key]: value });
@@ -3574,28 +3575,28 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const rawTableId = metadata.table_id || metadata.database_table_id || metadata.resolved_table_id;
     const currentTableId = String(rawTableId || '').toLowerCase() === 'wiki' ? null : rawTableId;
     const currentTable = (allTables || []).find(t => t.id === currentTableId);
-    // El registre actual és una font bibliogràfica si pertany a la taula de
-    // referències designada a Settings (`referenceTableId`). És la mateixa font
-    // de veritat que governa «Crear des d'una font» i la resta del gating de
-    // referències; així «Omplir des d'una font» segueix la designació de Settings
-    // en comptes d'un heurístic local pel «Citation Key».
+    // The current record is a bibliographic source if it belongs to the
+    // references table designated in Settings (`referenceTableId`). It's the same source
+    // of truth that governs «Create from a source» and the rest of the gating of
+    // references; this way «Fill from a source» follows the Settings designation
+    // instead of a local heuristic for the «Citation Key».
     const isReferenceRecord = Boolean(
         referenceTableId && currentTableId &&
         String(currentTableId) === String(referenceTableId)
     );
-    // Les opcions de `select`/`multi_select` poden viure a `prop.config.options`
-    // (les escriu el PATCH inline) o a `prop.options` de nivell superior (les
-    // escriu el desat del modal). El PATCH no toca el nivell superior, però el
-    // desat del modal substitueix tota la taula i esborra el `config` niat. Així
-    // doncs, si hi ha `config.options` és el valor fresc i té prioritat; si no,
-    // el nivell superior. (Abans es prioritzava el nivell superior i una opció
-    // creada inline no apareixia perquè el nivell superior quedava antic.)
+    // The `select`/`multi_select` options can live in `prop.config.options`
+    // (written by the inline PATCH) or in the top-level `prop.options` (which
+    // the modal save writes). The PATCH doesn't touch the top level, but the
+    // modal save replaces the whole table and deletes the nested `config`. So
+    // if `config.options` exists it's the fresh value and takes priority; if not,
+    // the top level. (Previously the top level was prioritized and an option
+    // created inline wouldn't appear because the top level stayed stale.)
     const getPropOptions = (prop) => {
         if (!prop) return [];
-        // `config.options` mana sempre que EXISTEIXI (sigui un array), encara que
-        // estigui buit: si s'esborra l'última opció inline, config.options queda []
-        // i NO hem de tornar a mostrar el `prop.options` antic del nivell superior.
-        // Només caiem al nivell superior si no hi ha cap config.options.
+        // `config.options` always takes precedence when it EXISTS (i.e., is an array), even if
+        // it's empty: if the last inline option is deleted, config.options remains []
+        // and we must NOT show the old top-level `prop.options` again.
+        // We only fall back to the top level if there's no config.options at all.
         if (prop.config && Array.isArray(prop.config.options)) return prop.config.options;
         if (Array.isArray(prop.options)) return prop.options;
         return [];
@@ -3630,9 +3631,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             const normalizedKey = String(key || '').toLowerCase();
             return (
                 !INTERNAL_METADATA_KEY_SET.has(key) &&
-                // 'Zotero Extras' és un dict; el renderitza ZoteroExtrasSection
-                // com a panell propi fora del grid (vegis més avall). Si el
-                // deixéssim aquí, l'input text mostraria "[object Object]".
+                // 'Zotero Extras' is a dict; ZoteroExtrasSection renders it
+                // as its own panel outside the grid (see below). If it were
+                // left here, the text input would show "[object Object]".
                 key !== 'Zotero Extras' &&
                 !normalizedKey.endsWith('_manual') &&
                 !normalizedKey.startsWith('favorite') &&
@@ -3643,26 +3644,26 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         });
     }, [metadata, properties]);
 
-    // L3.4 / UI: dict amb camps Zotero rars (patentNumber, conferenceName, …)
-    // capturat pel mapper central quan un Zotero item porta info sense
-    // columna canònica. Memo per evitar re-renders inútils del ZoteroExtrasSection.
+    // L3.4 / UI: dict with rare Zotero fields (patentNumber, conferenceName, …)
+    // captured by the central mapper when a Zotero item carries info without
+    // canonical column. Memoized to avoid useless re-renders of ZoteroExtrasSection.
     const zoteroExtras = useMemo(() => {
         const v = metadata?.['Zotero Extras'];
         if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
         return v;
     }, [metadata]);
 
-    // PR #249 wired-up: URI del PDF si la pàgina en porta un (attachment_path
-    // o URL file://). Si null, PdfAnnotationsToCite no es renderitza.
+    // PR #249 wired-up: PDF URI if the page has one (attachment_path
+    // or file:// URL). If null, PdfAnnotationsToCite is not rendered.
     const pdfSourceUri = useMemo(() => getPdfSourceUri(metadata), [metadata]);
     const pdfCitationKey = useMemo(
         () => String(metadata?.['Citation Key'] || '').trim() || null,
         [metadata],
     );
 
-    // ── Cursor de propietats + copiar/enganxar (estil graella) ───────────
-    // Llista ordenada de propietats navegables (schema + adhoc). Les adhoc
-    // són sempre text.
+    // ── Properties cursor + copy/paste (grid style) ───────────
+    // Ordered list of navigable properties (schema + adhoc). The adhoc ones
+    // are always text.
     const navProps = useMemo(() => {
         const out = properties.map(p => ({ name: p.name, type: p.type, prop: p }));
         for (const k of adhocProperties) out.push({ name: k, type: 'text', prop: null });
@@ -3674,7 +3675,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         return m;
     }, [navProps]);
 
-    // Context de coerció (opcions) per a una propietat select/multi/relation.
+    // Coercion context (options) for a select/multi/relation property.
     const propCoercionCtx = useCallback((entry) => {
         const { type, prop } = entry;
         if (type === 'select' || type === 'multi_select') {
@@ -3730,7 +3731,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         setActiveProp(navProps[next].name);
     }, [navProps, activeProp, propIndexByName]);
 
-    // ── Navegació de focus entre zones (títol ↔ propietats ↔ cos) ─────────
+    // ── Focus navigation between zones (title ↔ properties ↔ body) ─────────
     const focusTitle = useCallback(() => {
         const el = titleInputRef.current;
         if (!el) return;
@@ -3743,12 +3744,12 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         editorApiRef.current?.focusFirstBlock?.();
     }, []);
 
-    // En obrir/carregar una pàgina el cursor arrenca al TÍTOL: és el punt
-    // d'entrada de la navegació per zones amb el teclat (títol → propietats →
-    // mencions → cos). Un cop per muntatge — el component es re-munta amb
-    // `key`=id de la nota, així que canviar de pàgina hi torna. No robem el
-    // focus si l'usuari ja escriu en un altre camp (p. ex. la cerca global) ni
-    // si l'editor està amagat (pestanya de fons / panell dividit).
+    // When opening/loading a page, the cursor starts at the TITLE: it's the
+    // entry point for keyboard zone navigation (title → properties →
+    // mentions → body). Once per mount — the component remounts with
+    // `key`=note id, so switching pages returns to it. We don't steal the
+    // focus if the user is already typing in another field (e.g. global search) nor
+    // if the editor is hidden (background tab / split panel).
     const didAutofocusTitleRef = useRef(false);
     useEffect(() => {
         if (didAutofocusTitleRef.current) return undefined;
@@ -3765,10 +3766,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         return () => cancelAnimationFrame(raf);
     }, [focusTitle]);
 
-    // Selecciona una propietat I hi porta el focus del DOM (necessari perquè
-    // el listener de teclat del panell només actua si l'element actiu no és
-    // un camp de text: si el focus es queda al cos contenteditable, les ↑↓
-    // no navegarien). Es fa a la propera frame perquè la fila ja existeix.
+    // Selects a property AND moves DOM focus to it (necessary because
+    // the panel's keyboard listener only acts if the active element is not
+    // a text field: if focus stays on the contenteditable body, the ↑↓ keys
+    // wouldn't navigate). It's done on the next frame because the row already exists.
     const selectAndFocusProp = useCallback((name) => {
         if (!name) return;
         setIsPropertiesOpen(true);
@@ -3780,16 +3781,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (el) { el.focus(); el.scrollIntoView({ block: 'nearest' }); return true; }
             return false;
         };
-        // Si el panell ja és obert, la fila existeix al DOM i l'enfoquem ja.
-        // Si l'hem hagut d'obrir (setIsPropertiesOpen), encara no s'ha
-        // renderitzat: ho reintentem després del commit de React.
+        // If the panel is already open, the row exists in the DOM and we focus it right away.
+        // If we had to open it (setIsPropertiesOpen), it hasn't
+        // rendered yet: we retry it after React's commit.
         if (!tryFocus()) {
             requestAnimationFrame(tryFocus);
             setTimeout(tryFocus, 0);
         }
     }, []);
 
-    // ↑ net a la primera línia del cos: si hi ha propietats/enllaços → salta al panell superior.
+    // Plain ↑ on the first line of the body: if there are properties/links → jumps to the panel above.
     const navigateUpFromBody = useCallback(() => {
         if (linksHeaderRef.current) {
             linksHeaderRef.current.focus();
@@ -3843,8 +3844,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         }
     }, [focusTitle, focusBody]);
 
-    // ⌥↑ (drecera dedicada): obre el panell i salta a la primera propietat.
-    // Si la pàgina no té cap propietat, cau al títol.
+    // ⌥↑ (dedicated shortcut): opens the panel and jumps to the first property.
+    // If the page has no properties, it falls back to the title.
     const openPropertiesNav = useCallback(() => {
         if (navProps.length > 0) {
             selectAndFocusProp(navProps[0].name);
@@ -3853,7 +3854,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         }
     }, [navProps, selectAndFocusProp, focusTitle]);
 
-    // Listener de teclat del panell de propietats (a nivell de finestra).
+    // Keyboard listener for the properties panel (at window level).
     useEffect(() => {
         if (!activeProp || !isPropertiesOpen) return undefined;
         const onKey = (e) => {
@@ -3866,8 +3867,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyPropValue(activeProp); return; }
             if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pastePropValue(activeProp); return; }
             if (meta) return;
-            // ⌥↑ / ⌥↓: saltar de zona (amunt = títol, avall = cos), com a
-            // l'editor i el títol — coherent amb la drecera global de zones.
+            // ⌥↑ / ⌥↓: jump zone (up = title, down = body), like
+            // the editor and the title — consistent with the global zone shortcut.
             if (e.altKey && e.key === 'ArrowUp') { e.preventDefault(); setActiveProp(null); focusTitle(); return; }
             if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); focusBody(); return; }
             if (e.altKey) return;
@@ -4182,9 +4183,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 onKeyDown={(e) => {
                                     if (e.key === 'Enter') { e.preventDefault(); return; }
                                     if (e.metaKey || e.ctrlKey || e.shiftKey) return;
-                                    // ⌥↑: drecera de zona — saltar al panell de propietats.
+                                    // ⌥↑: zone shortcut — jump to the properties panel.
                                     if (e.altKey && e.key === 'ArrowUp') { e.preventDefault(); openPropertiesNav(); return; }
-                                    // ⌥↓: baixar de zona.
+                                    // ⌥↓: move down a zone.
                                     if (e.altKey && e.key === 'ArrowDown') {
                                         e.preventDefault();
                                         if (propertiesHeaderRef.current) propertiesHeaderRef.current.focus();
@@ -4193,7 +4194,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                         return;
                                     }
                                     if (e.altKey) return;
-                                    // ↓ a l'última línia del títol → baixa cap a propietats o cap al cos.
+                                    // ↓ on the last line of the title → moves down to properties or to the body.
                                     if (e.key === 'ArrowDown') {
                                         const el = e.currentTarget;
                                         const collapsed = el.selectionStart === el.selectionEnd;
@@ -4210,10 +4211,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden leading-tight break-words"
                             />
                             <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
-                                {/* El toggle MD/Normal s'ha consolidat al menú "page options"
-                                    del VaultShell (botó MoreHorizontal a la barra superior)
-                                    perquè col·lisionava amb el títol llarg de la pàgina i
-                                    duplicava la mateixa funció al menu dropdown. */}
+                                {/* The MD/Normal toggle has been consolidated into the "page options" menu
+                                    of the VaultShell (MoreHorizontal button in the top bar)
+                                    because it collided with the page's long title and
+                                    duplicated the same function in the dropdown menu. */}
                                 {saveStatus === 'saving' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-primary)]/5 text-[var(--gnosi-primary)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <Loader2 size={12} className="animate-spin" />
@@ -4270,9 +4271,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             {t('common.schema')} {properties.length} · {t('common.local')} {adhocProperties.length}
                                         </div>
                                     </button>
-                                    {/* Botó d'enrichment per identificador (DOI/ISBN/arXiv/URL).
-                                        Només en fonts bibliogràfiques (registres de la taula de
-                                        referències designada), no a totes les pàgines del Vault. */}
+                                    {/* Enrichment button by identifier (DOI/ISBN/arXiv/URL).
+                                        Only on bibliographic sources (records of the designated
+                                        references table), not on all Vault pages. */}
                                     {isEditable && isReferenceRecord && (
                                         <button
                                             type="button"
@@ -4344,9 +4345,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         onCreate={val => {
                                                             if (!isEditor) return;
                                                             const nextOptions = [...getPropOptions(prop), val];
-                                                            // Persisteix l'opció al schema (PATCH a la taula)
-                                                            // i selecciona-la al registre actual. Si el handler
-                                                            // no existeix, el valor només queda al metadata.
+                                                            // Persists the option to the schema (PATCH to the table)
+                                                            // and selects it in the current record. If the handler
+                                                            // doesn't exist, the value only remains in the metadata.
                                                             if (onAddSchemaOption && currentTableId && prop.id) {
                                                                 onAddSchemaOption(currentTableId, prop.id, nextOptions);
                                                             }
@@ -4354,9 +4355,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         }}
                                                         onDeleteOption={val => {
                                                             if (!isEditor) return;
-                                                            // Treu l'opció del catàleg del camp i del valor
-                                                            // d'aquest registre. Altres registres conserven el
-                                                            // seu valor (no es reescriuen aquí).
+                                                            // Removes the option from the field's catalog and from the value
+                                                            // of this record. Other records keep the
+                                                            // their value (they are not rewritten here).
                                                             if (onAddSchemaOption && currentTableId && prop.id) {
                                                                 onAddSchemaOption(currentTableId, prop.id, getPropOptions(prop).filter(o => normalizeOption(o)?.name !== val));
                                                             }
@@ -4428,13 +4429,13 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 ) : (() => {
                                                     const v = metadata[prop.name];
                                                     const hasVal = v !== undefined && v !== null && v !== '';
-                                                    // Camp imatge inferit pel NOM (mateixa detecció que la cel·la de
-                                                    // taula, via isImageFieldName) per a camps de text: si el valor
-                                                    // resol a una imatge servible es mostra com a miniatura amb
-                                                    // previsualització en hover; en edició, clicar obre el selector
-                                                    // (paritat amb la taula) i, si és buit, un afordament "+ Imatge".
-                                                    // "Imatge Alt Text" queda exclòs (és prosa) i segueix sent text.
-                                                    // Tipus `image` explícit: sempre miniatura/selector, sigui quin sigui el nom.
+                                                    // Image field inferred by NAME (same detection as the table
+                                                    // cell, via isImageFieldName) for text fields: if the value
+                                                    // resolves to a servable image, it is shown as a thumbnail with
+                                                    // preview on hover; in edit mode, clicking opens the picker
+                                                    // (parity with the table) and, if empty, a "+ Image" affordance.
+                                                    // "Image Alt Text" is excluded (it's prose) and remains text.
+                                                    // Explicit `image` type: always thumbnail/picker, whatever the name.
                                                     if (prop.type === 'image' || ((!prop.type || prop.type === 'text') && isImageFieldName(prop.name))) {
                                                         const imgMeta = parseImageField(v);
                                                         const previewUrl = toAssetPreviewUrl(imgMeta.src);
@@ -4465,7 +4466,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                         }
                                                         return <span className="text-sm text-[var(--text-tertiary)]">{t('common.empty')}</span>;
                                                     }
-                                                    // Mode lectura: número/data formatats (global o override del camp).
+                                                    // Read mode: formatted number/date (global or field override).
                                                     if (!isEditor && hasVal && (prop.type === 'number' || prop.type === 'date' || prop.type === 'datetime')) {
                                                         const pfmt = resolveFieldFormat({ format: prop.config?.format || prop.format }, localeSettings);
                                                         const text = prop.type === 'number'
@@ -4506,9 +4507,9 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                     placeholder={t('editor.empty_local')} 
                                                     className="w-full bg-transparent border-none rounded-lg px-2 py-1 text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] focus:bg-[var(--bg-secondary)] transition-all placeholder:[var(--text-tertiary)]/20 font-medium h-7 disabled:cursor-not-allowed" 
                                                 />
-                                                {/* Camp LOCAL (ad-hoc): sempre eliminable des de la seva fila,
-                                                    encara que la pàgina pertanyi a una col·lecció — "Gestionar
-                                                    Camps" només toca el schema, no aquestes claus locals. */}
+                                                {/* LOCAL field (ad-hoc): always removable from its row,
+                                                    even if the page belongs to a collection — "Manage
+                                                    Fields" only touches the schema, not these local keys. */}
                                                 {isEditor && (
                                                     <button type="button" onClick={(e) => { e.stopPropagation(); handleRemoveProperty(key); }} className="opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity p-1.5 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] hover:bg-[var(--bg-secondary)] shrink-0" title={t('editor.remove_local_property')} aria-label={t('editor.remove_local_property')}><Trash2 size={14} /></button>
                                                 )}
@@ -4523,15 +4524,15 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             onChange={(nextDict) => handleMetaChange('Zotero Extras', nextDict)}
                                             onRemoveAll={() => handleRemoveProperty('Zotero Extras')}
                                             tableId={currentTableId}
-                                            // Promoure migra pàgines + afegeix columna a l'esquema. L'editor
-                                            // obert no re-sincronitza `metadata` (estat local, `key` estable),
-                                            // així que una recàrrega completa és l'única manera fidel de
-                                            // reflectir-ho — mateix idioma que `onRestore` del PageHistory.
+                                            // Promoting migrates pages + adds a column to the schema. The open
+                                            // editor doesn't re-sync `metadata` (local state, stable `key`),
+                                            // so a full reload is the only faithful way to
+                                            // reflect it — the same convention as `onRestore` in PageHistory.
                                             onPromoted={() => window.location.reload()}
                                         />
                                     )}
 
-                                    {/* PR #249 wired-up: subratllats del PDF → quotes amb cita. */}
+                                    {/* PR #249 wired-up: PDF highlights → citation quotes. */}
                                     {pdfSourceUri && (
                                         <div className="col-span-2 mt-3">
                                             <PdfAnnotationsToCite
@@ -4770,8 +4771,8 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 isOpen={isPageViewModalOpen}
                 onClose={(changed, sectionData) => {
                     setIsPageViewModalOpen(false);
-                    // Captura editingBlock abans de buidar-lo perquè
-                    // applyViewSectionRef pugui distingir insert vs update.
+                    // Captures editingBlock before clearing it so
+                    // applyViewSectionRef can distinguish insert vs update.
                     const editing = pageViewEditingBlock;
                     setPageViewPreselectedTable('');
                     setPageViewEditingBlock(null);
@@ -4779,10 +4780,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                     if (sectionData) {
                         applyViewSectionRef.current?.(sectionData, editing);
                     }
-                    // Demana als DbViewEmbed de la pàgina que re-llegeixin la
-                    // secció acabada de desar (mida de targeta, previsualització,
-                    // agrupació…). Sense això, editar la mida d'una galeria
-                    // incrustada no tenia cap efecte fins a recarregar.
+                    // Asks the page's DbViewEmbed instances to re-read the
+                    // section that was just saved (card size, preview,
+                    // grouping…). Without this, editing the size of a gallery
+                    // embedded had no effect until reloading.
                     setViewSectionNonce(n => n + 1);
                     onRefreshNotes?.();
                 }}
@@ -4813,16 +4814,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 onClose={() => setIsMetadataLookupOpen(false)}
                 currentMetadata={metadata}
                 onApply={(patch) => {
-                    // Aplica camp per camp via handleMetaChange — dispara el
-                    // debounce de save i actualitza la UI alhora.
+                    // Applies field by field via handleMetaChange — triggers the
+                    // save debounce and updates the UI at the same time.
                     Object.entries(patch).forEach(([k, v]) => {
                         handleMetaChange(k, v);
                     });
                 }}
             />
-            {/* Selector d'imatge per als camps d'imatge (per nom) del panell de
-                propietats. Mateix modal i contracte que la cel·la de taula: valor
-                únic (reemplaça) i es desa la ruta relativa al vault. */}
+            {/* Image picker for image fields (by name) in the properties
+                panel. Same modal and contract as the table cell: single
+                value (replaces) and the path relative to the vault is saved. */}
             <InsertContentModal
                 open={Boolean(imagePickerProp)}
                 tableId={rawTableId || ''}
@@ -4833,7 +4834,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 onClose={() => setImagePickerProp(null)}
                 onInsert={(result) => {
                     if (!imagePickerProp) return;
-                    // Només metadades: conserva el src actual del camp.
+                    // Metadata only: keeps the field's current src.
                     if (result?.metadataOnly) {
                         const currentSrc = parseImageField(metadata[imagePickerProp]).src;
                         if (currentSrc) handleMetaChange(imagePickerProp, buildImageValue(currentSrc, result.imageMeta || {}));

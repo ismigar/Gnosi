@@ -5,40 +5,40 @@ import { Highlighter, Quote, Copy, Loader2 } from 'lucide-react';
 import { toast } from '../../lib/toast';
 
 /**
- * Llistat d'anotacions PDF d'un Recurs amb acció "copia com a cita".
+ * List of PDF annotations for a Resource with a "copy as citation" action.
  *
  * UX:
- *   Carrega les anotacions persistides via `GET /api/vault/pdf-annotations?source_uri=...`
- *   (mateix endpoint que el visor zotero-reader integrat — el format ja és
- *   canonical Zotero: highlights amb `text`, pageIndex, color, etc.).
+ *   Loads the persisted annotations via `GET /api/vault/pdf-annotations?source_uri=...`
+ *   (same endpoint as the integrated zotero-reader viewer — the format is already
+ *   canonical Zotero: highlights with `text`, pageIndex, color, etc.).
  *
- *   Per cada highlight/note mostra:
- *     - Color de subratllat (chip)
- *     - Text capturat (truncat amb expansió on hover)
- *     - Número de pàgina
- *     - Botó "Copiar com a quote markdown" que posa al portaretalls:
+ *   For each highlight/note it shows:
+ *     - Highlight color (chip)
+ *     - Captured text (truncated with expansion on hover)
+ *     - Page number
+ *     - "Copy as quote markdown" button that puts on the clipboard:
  *
- *       > [text capturat de l'anotació]
+ *       > [text captured from the annotation]
  *       >
  *       > — [@citation_key], p. {page}
  *
- *       L'usuari el pega al document; al render el `[@key]` es resol a
- *       una cita via CiteInline com qualsevol altra cita Vault.
+ *       The user pastes it into the document; on render the `[@key]` resolves to
+ *       a citation via CiteInline like any other Vault citation.
  *
  * Props:
- *   - sourceUri (string): identificador del PDF (file:// URL canonical).
- *     Sense això, el component no carrega res i avisa.
- *   - citationKey (string): clau del Recurs propietari, per generar la cita.
- *     Si falta, la quote es copia amb un marcador `[@?]` perquè l'usuari
- *     l'ompli després.
- *   - readOnly (bool): amaga els botons d'acció (encara mostra el llistat).
+ *   - sourceUri (string): PDF identifier (canonical file:// URL).
+ *     Without this, the component loads nothing and warns.
+ *   - citationKey (string): key of the owning Resource, to generate the citation.
+ *     If missing, the quote is copied with a `[@?]` marker for the user
+ *     to fill in later.
+ *   - readOnly (bool): hides the action buttons (still shows the list).
  *
- * Integració pendent (vegis `docs/dev_memory/directives/pdf_quote_capture.md`):
- *   - Detectar `sourceUri` a partir de la pàgina Recursos actual (camp
- *     `attachment_path` o `URL` que apunti a un PDF local).
- *   - Cablejar al panell Propietats o a una pestanya nova al BlockEditor.
- *   - Opcional: clic-i-arrossega de la quote al document (drag & drop API)
- *     en lloc de copy/paste.
+ * Pending integration (see `docs/dev_memory/directives/pdf_quote_capture.md`):
+ *   - Detect `sourceUri` from the current Resources page (field
+ *     `attachment_path` or `URL` pointing to a local PDF).
+ *   - Wire it into the Properties panel or a new tab in the BlockEditor.
+ *   - Optional: click-and-drag the quote into the document (drag & drop API)
+ *     instead of copy/paste.
  */
 export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false }) {
     const { t } = useTranslation();

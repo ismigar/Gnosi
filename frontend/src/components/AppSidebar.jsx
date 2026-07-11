@@ -2,9 +2,9 @@ import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-// El modal de Configuració arrossega el BlockEditor (blocknote/tiptap) i altres
-// vistes pesades. Carregant-lo mandrosament evitem que aquestes llibreries
-// entrin al bundle inicial només perquè la barra lateral hi referencia el modal.
+// The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
+// heavy views. By lazy-loading it we avoid these libraries
+// entering the initial bundle just because the sidebar references the modal.
 const GlobalSettingsModal = lazy(() =>
   import('./GlobalSettingsModal').then((m) => ({ default: m.GlobalSettingsModal })),
 );
@@ -50,7 +50,7 @@ export function AppSidebar() {
     const navigate = useNavigate();
     const { user, logout } = useAuth();
 
-    // La paleta de comandes (i altres llocs) poden demanar obrir la configuració.
+    // The command palette (and other places) can request opening settings.
     useEffect(() => {
         const open = () => setSettingsOpen(true);
         window.addEventListener('gnosi:open-settings', open);
@@ -59,7 +59,7 @@ export function AppSidebar() {
 
     const handleLogout = async () => {
         await logout();
-        toast.success('Sessió tancada.');
+        toast.success(t('sidebar.logged_out', 'Sessió tancada.'));
     };
 
     useEffect(() => {
@@ -117,7 +117,7 @@ export function AppSidebar() {
             <button
                 className="app-sidebar-mobile-toggle"
                 onClick={() => setMobileOpen(!mobileOpen)}
-                aria-label="Toggle navigation"
+                aria-label={t('sidebar.toggle_navigation', 'Toggle navigation')}
             >
                 {mobileOpen ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -198,12 +198,12 @@ export function AppSidebar() {
                     {user && (
                         <button
                             className="app-sidebar__item"
-                            title={`${user.name || user.email} — Tancar sessió`}
+                            title={t('sidebar.logout_tooltip_title', '{{user}} — Tancar sessió', { user: user.name || user.email })}
                             onClick={handleLogout}
                         >
                             <LogOut size={16} strokeWidth={1.5} />
                             <span className="app-sidebar__tooltip">
-                                <span>Tancar sessió ({user.name || user.email})</span>
+                                <span>{t('sidebar.logout_tooltip_label', 'Tancar sessió ({{user}})', { user: user.name || user.email })}</span>
                             </span>
                         </button>
                     )}

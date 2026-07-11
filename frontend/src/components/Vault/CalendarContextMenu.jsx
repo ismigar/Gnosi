@@ -3,13 +3,13 @@ import { CalendarPlus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
- * Menú contextual flotant per al calendari (clic dret).
+ * Floating context menu for the calendar (right-click).
  */
 export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onDeleteEvent }) => {
     const { t } = useTranslation();
     const menuRef = useRef(null);
 
-    // Tancar quan es clica fora
+    // Close when clicking outside
     useEffect(() => {
         if (!isOpen) return;
         const handleClick = (e) => {
@@ -20,7 +20,7 @@ export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onD
         const handleKey = (e) => {
             if (e.key === 'Escape') onClose();
         };
-        // Defer per evitar tancar immediatament amb el mateix clic
+        // Defer to avoid closing immediately with the same click
         setTimeout(() => {
             document.addEventListener('mousedown', handleClick);
             document.addEventListener('keydown', handleKey);
@@ -33,7 +33,7 @@ export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onD
 
     if (!isOpen) return null;
 
-    // Assegurar que el menú no surti de la pantalla
+    // Make sure the menu doesn't go off screen
     const style = {
         top: Math.min(position.y, window.innerHeight - 60),
         left: Math.min(position.x, window.innerWidth - 200),

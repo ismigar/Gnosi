@@ -1,10 +1,10 @@
-"""Resolució del binari pandoc en entorn NATIU (_pandoc_bin).
+"""Resolving the pandoc binary in the NATIVE environment (_pandoc_bin).
 
-Els LaunchAgents poden arrencar el backend amb un PATH mínim: encara que
-pandoc estigui instal·lat via Homebrew, `subprocess.run(['pandoc',…])` petava
-amb FileNotFoundError. `_pandoc_bin` resol: PANDOC_PATH → shutil.which →
-ubicacions Homebrew habituals → 'pandoc' (últim recurs, manté el 500
-informatiu dels cridadors).
+LaunchAgents can start the backend with a minimal PATH: even if
+pandoc is installed via Homebrew, `subprocess.run(['pandoc',…])` used to fail
+with FileNotFoundError. `_pandoc_bin` resolves: PANDOC_PATH → shutil.which →
+usual Homebrew locations → 'pandoc' (last resort, keeps the callers'
+informative 500).
 """
 import backend.api.vault_routes as vr
 
@@ -31,7 +31,7 @@ def test_which_fallback(monkeypatch):
 def test_last_resort_is_bare_name(monkeypatch):
     monkeypatch.delenv("PANDOC_PATH", raising=False)
     monkeypatch.setattr(vr.shutil, "which", lambda _: None)
-    # Simula un host sense pandoc enlloc: les rutes Homebrew tampoc existeixen.
+    # Simulates a host without pandoc anywhere: the Homebrew paths don't exist either.
     monkeypatch.setattr(vr, "Path", _NoExistPath)
     assert vr._pandoc_bin() == "pandoc"
 

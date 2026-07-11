@@ -144,12 +144,12 @@ export const GraphViewer = forwardRef(({
         if (rendererRef.current && containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
     }, [filters?.selectedNode]);
 
-    // Aquest efecte només actualitza el color sense matar el servidor
+    // This effect only updates the color without killing the server
     useEffect(() => {
         colorModeRef.current = colorMode;
         if (rendererRef.current) {
-            // Sigma és prou intel·ligent: refresh() torna a cridar al nodeReducer
-            // amb el valor actualitzat de colorModeRef.current
+            // Sigma is smart enough: refresh() calls nodeReducer again
+            // with the updated value of colorModeRef.current
             if (containerRef.current?.offsetWidth > 0) rendererRef.current.refresh();
             
         }
@@ -165,8 +165,8 @@ export const GraphViewer = forwardRef(({
         const connXs = [], connYs = [];
         graph.forEachNode((node, attrs) => {
             if (attrs.hidden || !isFinite(attrs.x) || !isFinite(attrs.y)) return;
-            // Fem zoom sobre el component connectat; els orfes (en anell exterior) no
-            // s'inclouen perquè farien zoom out massa i comprimirien els clústers.
+            // We zoom in on the connected component; orphans (in the outer ring) are not
+            // included because they would zoom out too much and compress the clusters.
             if (graph.degree(node) > 0) {
                 connXs.push(attrs.x);
                 connYs.push(attrs.y);
@@ -195,8 +195,8 @@ export const GraphViewer = forwardRef(({
         );
     };
 
-    // Disposa nodes aïllats VISIBLES en un anell al voltant del clúster connectat.
-    // Evita que FA2 (que corre sobre tots 814 nodes) els escampi fora del viewport.
+    // Arranges VISIBLE isolated nodes in a ring around the connected cluster.
+    // Prevents FA2 (which runs over all 814 nodes) from scattering them outside the viewport.
     const layoutIsolatedNodesInRing = () => {
         const graph = graphRef.current;
         if (!graph) return;
@@ -621,7 +621,7 @@ export const GraphViewer = forwardRef(({
         // We preserve positions if they are in graphData (they are).
         graph.clear();
 
-        // Posicions inicials: distribució uniforme en àrea gran → FA2 convergeix millor
+        // Initial positions: uniform distribution over a large area → FA2 converges better
         const totalNodes = (graphData.nodes || []).length;
         const spreadRadius = Math.max(300, Math.sqrt(totalNodes) * 40);
 
@@ -629,8 +629,8 @@ export const GraphViewer = forwardRef(({
             const key = String(n.key);
             const rawSize = Number(n.size || 8);
             const displaySize = 1.0 + (rawSize - 8) * (2.0 / 10); // map [8,18]→[1,3]
-            // Si el backend ha enviat posicions reals (igraph FR), les respectem.
-            // Fallback: distribució en espiral àuria.
+            // If the backend has sent real positions (igraph FR), we respect them.
+            // Fallback: golden spiral distribution.
             const hasBackendPos = typeof n.x === 'number' && typeof n.y === 'number'
                 && (n.x !== 0 || n.y !== 0);
             let nx, ny;
@@ -651,7 +651,7 @@ export const GraphViewer = forwardRef(({
             });
         });
         graphData.edges.forEach(e => {
-            // Mostrem NOMÉS wikilinks reals [[...]] com fa Obsidian.
+            // We show ONLY real wikilinks [[...]] like Obsidian does.
             // Edges structural (parent_id) i relation distorsionen la topologia.
             if (e.kind !== 'link') return;
             const source = String(e.source);
@@ -674,15 +674,15 @@ export const GraphViewer = forwardRef(({
 
         if (rendererRef.current && containerRef.current?.offsetWidth > 0) {
             rendererRef.current.refresh();
-            // Fit càmera als nodes visibles un cop el graf carrega
+            // Fit camera to visible nodes once the graph loads
             setTimeout(() => fitVisibleNodes(800), 100);
         }
 
     }, [graphData]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Physics Effect - FA2 síncron sobre SUBGRAF de nodes visibles (sense interferència dels ocults)
+    // Physics Effect - synchronous FA2 over the SUBGRAPH of visible nodes (without interference from hidden ones)
     useEffect(() => {
-        // Cancel·la qualsevol loop anterior
+        // Cancel any previous loop
         if (typeof layoutRef.current === 'number') {
             cancelAnimationFrame(layoutRef.current);
         } else if (layoutRef.current?.stop) {
@@ -694,7 +694,7 @@ export const GraphViewer = forwardRef(({
         const renderer = rendererRef.current;
         if (!graph || !renderer || !isPhysicsEnabled || graph.order === 0) return;
 
-        // Construeix subgraf amb NOMÉS nodes visibles i les seves connexions
+        // Builds a subgraph with ONLY visible nodes and their connections
         const subG = new Graph();
         graph.forEachNode((node, attrs) => {
             if (!attrs.hidden) subG.addNode(node, { x: attrs.x || 0, y: attrs.y || 0, size: attrs.size || 5 });
@@ -707,20 +707,20 @@ export const GraphViewer = forwardRef(({
 
         if (subG.order === 0) return;
 
-        // Identifica nodes orfes (degree 0) — es col·locaran en una corona externa post-FA2
+        // Identifies orphan nodes (degree 0) — they'll be placed in an outer ring post-FA2
         const orphans = [];
         subG.forEachNode((node) => { if (subG.degree(node) === 0) orphans.push(node); });
-        // FA2/force corre sobre el component connectat per refinar el layout
-        // que ja ha calculat el backend amb igraph.
+        // FA2/force runs on the connected component to refine the layout
+        // that the backend has already calculated with igraph.
         const connectedG = new Graph();
         subG.forEachNode((node, attrs) => {
             if (subG.degree(node) > 0) connectedG.addNode(node, { ...attrs });
         });
         subG.forEachEdge((_e, attrs, s, t) => connectedG.addEdge(s, t, attrs));
 
-        // Estratègia adaptativa: per a grafs petits (<500) fem servir force (spring-based,
-        // qualitat alta, look més proper a Obsidian); per a grafs grans, FA2 amb Barnes-Hut
-        // per mantenir el rendiment O(N log N).
+        // Adaptive strategy: for small graphs (<500) we use force (spring-based,
+        // high quality, look closer to Obsidian); for large graphs, FA2 with Barnes-Hut
+        // to maintain O(N log N) performance.
         const useForceLayout = connectedG.order < 500;
 
         const fa2Settings = {
@@ -750,7 +750,7 @@ export const GraphViewer = forwardRef(({
         let running = true;
 
         const placeOrphansInRing = () => {
-            // Calcula bbox del component connectat
+            // Calculates the bbox of the connected component
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             connectedG.forEachNode((_n, a) => {
                 if (a.x < minX) minX = a.x;
@@ -765,7 +765,7 @@ export const GraphViewer = forwardRef(({
             const halfH = (maxY - minY) / 2 || 100;
             const baseRadius = Math.max(halfW, halfH) * 1.3 + 50;
             const ringDepth = baseRadius * 0.6;
-            // Distribuïm els orfes en una corona amb angles uniformes + jitter radial
+            // We distribute orphans in a ring with uniform angles + radial jitter
             const n = orphans.length;
             for (let i = 0; i < n; i++) {
                 const angle = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.15;
@@ -791,7 +791,7 @@ export const GraphViewer = forwardRef(({
                 return;
             }
 
-            // Copia posicions del component connectat al subG i al graf principal
+            // Copies positions of the connected component to subG and to the main graph
             connectedG.forEachNode((node, attrs) => {
                 if (subG.hasNode(node)) {
                     subG.setNodeAttribute(node, 'x', attrs.x);

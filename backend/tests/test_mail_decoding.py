@@ -2,7 +2,7 @@ from backend.services.imap_mail_sync_service import _decode_str
 from backend.services.hybrid_mail_service import _decode_mime
 
 def test_decode_str_with_unknown_charset():
-    # RFC 2047 header amb un charset invàlid / desconegut
+    # RFC 2047 header with an invalid / unknown charset
     raw_header = "=?unknown-8bit?Q?Prova_de_titol?="
     res = _decode_str(raw_header)
     assert res == "Prova de titol"

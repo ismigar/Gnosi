@@ -16,9 +16,9 @@ from pipeline.ai_client import call_ai_with_fallback
 from backend.config.logger_config import setup_logging, get_logger
 
 # Configuration
-# Arrel del repo: REPO_ROOT (definit per màquina al .env; també injectat al contenidor) o,
-# com a fallback, derivada de la ubicació d'aquest fitxer. Evitem rutes absolutes amb un nom
-# d'usuari hardcodejat, que trencaven en màquines amb un altre usuari o una altra ruta del repo.
+# Repo root: REPO_ROOT (defined per machine in .env; also injected into the container) or,
+# as a fallback, derived from this file's location. We avoid absolute paths with a
+# hardcoded username, which broke on machines with a different user or a different repo path.
 _repo_root = Path(os.environ["REPO_ROOT"]) if os.environ.get("REPO_ROOT") else gnosi_root.parents[2]
 TEAM_BASE = _repo_root / ".antigravity" / "team"
 TASKS_FILE = TEAM_BASE / "tasks.json"

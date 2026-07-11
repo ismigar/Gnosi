@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { VaultEditorContext } from './VaultEditorContext';
 import { recursosPageToCsl, renderBibliography } from './cslEngine';
 
-// Cache per a tota la sessió: citationKey → page CSL-JSON. Compartit amb
-// CiteInline (els two components miren la mateixa data).
+// Session-wide cache: citationKey → page CSL-JSON. Shared with
+// CiteInline (the two components look at the same data).
 const CSL_ITEM_CACHE = new Map();
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -31,10 +31,10 @@ async function fetchCslItem(citationKey) {
 }
 
 /**
- * Extreu tots els citation keys que apareixen com a inline content `cite`
- * dins del document actual. Recursiu sobre blocks i children. Manté
- * l'ordre d'aparició (alguns estils, com IEEE numeric, depenen d'aquest
- * ordre per numerar [1], [2]…).
+ * Extracts all citation keys that appear as inline content `cite`
+ * within the current document. Recursive over blocks and children. Preserves
+ * the order of appearance (some styles, like IEEE numeric, depend on this
+ * order to number [1], [2]…).
  */
 function collectCitationKeys(blocks, acc = [], seen = new Set()) {
     if (!Array.isArray(blocks)) return acc;
@@ -46,7 +46,7 @@ function collectCitationKeys(blocks, acc = [], seen = new Set()) {
                     const k = item.props.citationKey;
                     if (!seen.has(k)) { seen.add(k); acc.push(k); }
                 } else if (item?.type === 'link' && Array.isArray(item.content)) {
-                    // Cites poden viure dins de [text](url) també
+                    // Citations can also live inside [text](url)
                     for (const sub of item.content) {
                         if (sub?.type === 'cite' && sub.props?.citationKey) {
                             const k = sub.props.citationKey;
@@ -64,12 +64,12 @@ function collectCitationKeys(blocks, acc = [], seen = new Set()) {
 }
 
 /**
- * Block que genera la bibliografia del document actual. S'auto-actualitza
- * quan canvien els cites del doc (via subscripció a `editor.onChange`).
+ * Block that generates the bibliography of the current document. Auto-updates
+ * when the document's citations change (via subscription to `editor.onChange`).
  *
- * Props (del propSchema):
- *  - style: id CSL ('apa', 'chicago-author-date', 'mla', 'ieee')
- *  - locale: codi locale ('ca-AD', 'es-ES', 'en-US', 'en-GB')
+ * Props (from propSchema):
+ *  - style: CSL id ('apa', 'chicago-author-date', 'mla', 'ieee')
+ *  - locale: locale code ('ca-AD', 'es-ES', 'en-US', 'en-GB')
  */
 export function BibliographyBlock({ block, editor }) {
     const { t } = useTranslation();
@@ -77,7 +77,7 @@ export function BibliographyBlock({ block, editor }) {
     const style = block?.props?.style || ctx.cslStyle || 'apa';
     const locale = block?.props?.locale || ctx.cslLocale || 'ca-AD';
 
-    // `version` és un trigger per refresc manual (botó). Quan canvia, force
+    // `version` is a trigger for manual refresh (button). When it changes, force
     // re-collect + re-render.
     const [version, setVersion] = useState(0);
     const [citationKeys, setCitationKeys] = useState([]);
@@ -85,7 +85,7 @@ export function BibliographyBlock({ block, editor }) {
     const [missing, setMissing] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // Subscriu a canvis del document per detectar quan s'afegeix/treu una cita.
+    // Subscribes to document changes to detect when a citation is added/removed.
     useEffect(() => {
         if (!editor) return undefined;
         const recollect = () => {
@@ -98,8 +98,8 @@ export function BibliographyBlock({ block, editor }) {
             }
         };
         recollect();
-        // BlockNote usa `editor.onChange` (callback). El callback retorna un
-        // unsubscribe segons la versió.
+        // BlockNote uses `editor.onChange` (callback). The callback returns a
+        // unsubscribe based on the version.
         let unsub;
         try {
             unsub = editor.onChange ? editor.onChange(recollect) : undefined;
@@ -107,7 +107,7 @@ export function BibliographyBlock({ block, editor }) {
         return () => { try { unsub && unsub(); } catch {} };
     }, [editor, version]);
 
-    // Resoldre + renderitzar. Es dispara quan canvien keys, style o locale.
+    // Resolve + render. Triggered when keys, style, or locale change.
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
@@ -120,7 +120,7 @@ export function BibliographyBlock({ block, editor }) {
         (async () => {
             const items = {};
             const missingKeys = [];
-            // Resol en paral·lel (cache evita refetch del mateix key)
+            // Resolves in parallel (cache avoids refetching the same key)
             const results = await Promise.all(citationKeys.map(fetchCslItem));
             results.forEach((it, i) => {
                 if (it) items[citationKeys[i]] = it;

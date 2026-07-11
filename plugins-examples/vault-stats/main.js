@@ -1,12 +1,12 @@
 /**
- * vault-stats — exemple de plugin de UI que exercita bona part de l'API:
+ * vault-stats — example UI plugin that exercises much of the API:
  * registerCommand + vault.listTables + vault.queryDB + settings.
  *
- * Registra una comanda a la paleta (Cmd/Ctrl+Shift+P → "Estadístiques del
- * vault") que compta les taules i les files de cadascuna, ho escriu a la consola
- * i desa l'últim recompte a la configuració pròpia del plugin.
+ * Registers a command in the palette (Cmd/Ctrl+Shift+P → "Vault
+ * stats") that counts the tables and each one's rows, logs it to the console,
+ * and saves the last count in the plugin's own settings.
  *
- * Permisos: ui:command, vault:read, settings.
+ * Permissions: ui:command, vault:read, settings.
  */
 gnosi.registerCommand({
   id: 'vault-stats',

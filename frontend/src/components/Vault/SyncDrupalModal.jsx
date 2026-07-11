@@ -5,9 +5,9 @@ import { X, Globe, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
-// Modal de confirmació per sincronitzar una fila amb Drupal. A diferència de la
-// traducció, no hi ha res a triar: es crea/actualitza el node i totes les seves
-// traduccions existents. Es confirma perquè l'acció publica a producció.
+// Confirmation modal to sync a row with Drupal. Unlike the
+// translation modal, there is nothing to choose: the node and all its
+// existing translations are created/updated. It's confirmed because the action publishes to production.
 export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, onSynced }) {
     const { t } = useTranslation();
     const [submitting, setSubmitting] = useState(false);
@@ -28,8 +28,8 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                 scope,
                 push_media: pushMedia,
             }, {
-                // La sync fa reducció d'imatge + múltiples escriptures a Drupal
-                // (remot): pot passar dels 30s del timeout global d'axios.
+                // The sync does image resizing + multiple writes to Drupal
+                // (remote): it can exceed the 30s of axios's global timeout.
                 timeout: 180000,
             });
             const d = res.data || {};
@@ -56,7 +56,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
         }
     };
 
-    // Esc cancel·la, Enter confirma (acció positiva). Veure useModalKeyboard.
+    // Esc cancels, Enter confirms (positive action). See useModalKeyboard.
     useModalKeyboard({
         isOpen,
         onClose,

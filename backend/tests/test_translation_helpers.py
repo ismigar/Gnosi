@@ -1,11 +1,11 @@
-"""Tests de les funcions pures de traducció (`backend.services.translation_helpers`).
+"""Tests for the pure translation functions (`backend.services.translation_helpers`).
 
-S'executen sense Docker ni el backend sencer:
+Run without Docker or the full backend:
 
     cd monorepo/apps/gnosi
     python3.11 -m pytest backend/tests/test_translation_helpers.py -q
 
-(python3.11, no 3.9 — veure `feedback_local_backend_test_verification`.)
+(python3.11, not 3.9 — see `feedback_local_backend_test_verification`.)
 """
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
@@ -27,7 +27,7 @@ from backend.services.translation_helpers import (
 
 @dataclass
 class FakePage:
-    """Imita la part de `PageInfo` que fan servir els helpers."""
+    """Mimics the part of `PageInfo` that the helpers use."""
 
     id: str
     metadata: Dict[str, Any] = field(default_factory=dict)
@@ -65,19 +65,19 @@ def test_find_translations_groups_by_lang():
 
 
 def test_find_translations_matches_across_id_forms():
-    """L'origin desat sense guions ha de casar amb la petició amb guions."""
+    """The origin saved without dashes must match the request with dashes."""
     origin_request = "df361486-5ff3-4a14-9005-5d9b7b456492"
     page = FakePage(
         "t",
         {"translation_origin_id": "df3614865ff34a1490055d9b7b456492", "translation_lang": "EN"},
     )
     found = find_translations_of(origin_request, [page])
-    assert "en" in found  # idioma normalitzat a minúscules
+    assert "en" in found  # language normalized to lowercase
 
 
 def test_find_translations_ignores_entries_without_lang():
     origin = "x"
-    pages = [FakePage("t", {"translation_origin_id": origin})]  # sense translation_lang
+    pages = [FakePage("t", {"translation_origin_id": origin})]  # without translation_lang
     assert find_translations_of(origin, pages) == {}
 
 
@@ -105,7 +105,7 @@ def test_row_change_detected_on_translatable_field():
 def test_row_no_change_on_untracked_field():
     keys = ["fld_desc"]
     old = {"fld_desc": "Hola", "fld_color": "red"}
-    new = {"fld_desc": "Hola", "fld_color": "blue"}  # color no és traduïble
+    new = {"fld_desc": "Hola", "fld_color": "blue"}  # color is not translatable
     assert translatable_content_changed(keys, old, new) is False
 
 
@@ -124,7 +124,7 @@ def test_row_title_counts_when_translatable():
 
 
 # --------------------------------------------------------------------------- #
-# translatable_content_changed — pàgines
+# translatable_content_changed — pages
 # --------------------------------------------------------------------------- #
 def test_page_change_detected_on_body():
     assert translatable_content_changed(
@@ -145,7 +145,7 @@ def test_page_no_change_when_body_and_title_stable():
 
 
 def test_none_bodies_treated_as_empty_equal():
-    # Cap body passat → no es compara cos; títol igual → sense canvi.
+    # No body passed → body isn't compared; title equal → no change.
     assert translatable_content_changed([], {"title": "A"}, {"title": "A"}) is False
 
 
@@ -169,7 +169,7 @@ def test_normalize_lang_code_regional_variants():
 def test_normalize_lang_code_unknown_and_blank():
     assert normalize_lang_code("") == ""
     assert normalize_lang_code(None) == ""
-    assert normalize_lang_code("xx") == "xx"   # codi 2 lletres desconegut → tal qual
+    assert normalize_lang_code("xx") == "xx"   # unknown 2-letter code → as-is
     assert normalize_lang_code("Klingon") == ""
 
 
@@ -218,17 +218,17 @@ def test_find_language_property_absent_returns_none():
 # language_field_value
 # --------------------------------------------------------------------------- #
 def test_language_value_falls_back_to_uppercase_code():
-    # Select sense catàleg d'opcions (s'autogeneren) → codi en majúscules,
-    # el format dels registres ja existents ("Idioma: CA").
+    # Select with no option catalog (auto-generated) → uppercase code,
+    # the format of the already-existing records ("Idioma: CA").
     prop = {"name": "Idioma", "type": "select", "id": "f2"}
     assert language_field_value(prop, "ca") == "CA"
     assert language_field_value(prop, "en") == "EN"
-    assert language_field_value(prop, "Català") == "CA"  # accepta etiqueta com a entrada
+    assert language_field_value(prop, "Català") == "CA"  # accepts a label as input
 
 
 def test_language_value_reuses_existing_catalog_option():
-    # Estil Notion: si el catàleg ja té l'opció que casa amb el codi, reaprofita-la
-    # (no duplica "EN" al costat de "Anglès").
+    # Notion style: if the catalog already has the option matching the code, reuse it
+    # (doesn't duplicate "EN" next to "Anglès").
     prop = {"name": "Llengua", "type": "select", "id": "f2",
             "options": ["Català", "Castellà", "Anglès"]}
     assert language_field_value(prop, "ca") == "Català"
@@ -249,9 +249,9 @@ def test_language_value_blank_target_returns_blank():
 # --------------------------------------------------------------------------- #
 # language_field_assignment
 # --------------------------------------------------------------------------- #
-# Cas real de la taula "Articles": Idioma és un select sense options i l'original
-# es desa amb codi en majúscules ("Idioma: ES"). La traducció ha de quedar marcada
-# amb el seu propi idioma destí.
+# Real case from the "Articles" table: Idioma is a select with no options and the original
+# is saved with an uppercase code ("Idioma: ES"). The translation must end up marked
+# with its own target language.
 ARTICLES_PROPS = [
     {"name": "Títol", "type": "title", "id": "fld_f7f2aa14", "translatable": True},
     {"name": "Idioma", "type": "select", "id": "fld_31e396dc"},
@@ -260,7 +260,7 @@ ARTICLES_PROPS = [
 
 
 def test_assignment_real_articles_table():
-    # Clau = id estable (to_storage_names la reescriu a "Idioma" en desar); valor = codi majúscules.
+    # Key = stable id (to_storage_names rewrites it to "Idioma" when saving); value = uppercase code.
     assert language_field_assignment(ARTICLES_PROPS, "ca", {"Idioma": "ES"}) == ("fld_31e396dc", "CA")
     assert language_field_assignment(ARTICLES_PROPS, "en", {"Idioma": "ES"}) == ("fld_31e396dc", "EN")
 
@@ -283,20 +283,20 @@ def test_assignment_multi_select_wraps_in_list():
 
 
 def test_assignment_replicates_parent_list_format():
-    # Si el pare desava l'idioma com a llista, la traducció també (encara que el
-    # tipus sigui un select simple).
+    # If the parent saved the language as a list, so does the translation (even though the
+    # type is a simple select).
     props = [{"name": "Idioma", "type": "select", "id": "f5"}]
     assert language_field_assignment(props, "de", {"Idioma": ["ES"]}) == ("f5", ["DE"])
 
 
 # --------------------------------------------------------------------------- #
-# Camps imatge compostos
+# Composite image fields
 # --------------------------------------------------------------------------- #
 def test_is_image_field_name_accepts_image_excludes_text():
     assert is_image_field_name("Imatge") is True
     assert is_image_field_name("Cover") is True
     assert is_image_field_name("Foto portada") is True
-    # Noms que denoten text SOBRE la imatge → no són camps imatge:
+    # Names that denote text ABOUT the image → they are not image fields:
     assert is_image_field_name("Imatge Alt Text") is False
     assert is_image_field_name("Caption") is False
     assert is_image_field_name("Peu de foto") is False
@@ -306,15 +306,15 @@ def test_is_image_field_name_accepts_image_excludes_text():
 def test_is_composite_image_value():
     assert is_composite_image_value({"src": "Articles/x.png", "alt": "y"}) is True
     assert is_composite_image_value({"url": "http://x/y.png"}) is True
-    assert is_composite_image_value({"alt": "y"}) is False   # sense src/url/path
-    assert is_composite_image_value("Articles/x.png") is False  # ruta string
+    assert is_composite_image_value({"alt": "y"}) is False   # without src/url/path
+    assert is_composite_image_value("Articles/x.png") is False  # string path
     assert is_composite_image_value(None) is False
 
 
 def test_translate_image_field_keeps_src_translates_text_subfields():
     val = {"src": "Articles/x.png", "alt": "hola", "title": "títol", "credit": "autor"}
     out, provs, any_tr = translate_image_field(val, lambda s: (s.upper(), "p"))
-    assert out["src"] == "Articles/x.png"      # imatge intacta (no es duplica)
+    assert out["src"] == "Articles/x.png"      # image intact (not duplicated)
     assert out["alt"] == "HOLA"
     assert out["title"] == "TÍTOL"
     assert out["credit"] == "AUTOR"
@@ -323,7 +323,7 @@ def test_translate_image_field_keeps_src_translates_text_subfields():
 
 
 def test_translate_image_field_string_path_unchanged():
-    # Una ruta string es manté tal qual: no es tradueix la ruta com si fos prosa.
+    # A string path is kept as-is: the path is not translated as if it were prose.
     out, provs, any_tr = translate_image_field("Articles/x.png", lambda s: (s.upper(), "p"))
     assert out == "Articles/x.png"
     assert any_tr is False
@@ -334,5 +334,5 @@ def test_translate_image_field_noop_provider_not_collected():
     val = {"src": "x.png", "alt": "ja en destí"}
     out, provs, any_tr = translate_image_field(val, lambda s: (s, "noop"))
     assert out["alt"] == "ja en destí"
-    assert any_tr is True           # s'ha processat el subcamp...
-    assert provs == set()           # ...però el provider "noop" no es comptabilitza
+    assert any_tr is True           # the subfield has been processed...
+    assert provs == set()           # ...but the "noop" provider is not counted

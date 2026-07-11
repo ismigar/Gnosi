@@ -1,15 +1,17 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Calendar, Clock, X, Check } from 'lucide-react';
 
-// Data en format YYYY-MM-DD a partir dels components LOCALS (no UTC). Cal perquè
-// l'hora del formulari (`toTimeString`) també és local: barrejar una data UTC
-// (`toISOString`) amb una hora local desfasava el dia a prop de mitjanit.
+// Date in YYYY-MM-DD format built from LOCAL components (not UTC). Needed because
+// the form's time (`toTimeString`) is also local: mixing a UTC date
+// (`toISOString`) with a local time would shift the day near midnight.
 const toLocalDateStr = (d) => {
     const pad = (n) => String(n).padStart(2, '0');
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 const Scheduler = ({ onSchedule, onCancel }) => {
+    const { t } = useTranslation();
     const [date, setDate] = useState('');
     const [time, setTime] = useState('');
 
@@ -51,7 +53,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
         <div className="bg-black/80 backdrop-blur-xl p-5 rounded-xl border border-white/10 mt-3 shadow-2xl">
             <h4 className="text-sm font-semibold mb-3 text-zinc-200 flex items-center gap-2">
                 <Calendar size={16} className="text-primary" />
-                <span>Programar Post</span>
+                <span>{t('social.scheduler_title', 'Programar Post')}</span>
             </h4>
 
             {/* Quick Options */}
@@ -70,7 +72,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
             {/* Date & Time Inputs */}
             <div className="flex gap-3 mb-4">
                 <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">Data</label>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">{t('common.date', 'Data')}</label>
                     <div className="relative">
                         <input
                             type="date"
@@ -82,7 +84,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
                     </div>
                 </div>
                 <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">Hora</label>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">{t('common.time', 'Hora')}</label>
                     <div className="relative">
                         <input
                             type="time"
@@ -98,7 +100,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
             {date && time && (
                 <div className="text-xs text-zinc-400 mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-2">
                     <Clock size={14} className="text-primary" />
-                    <span>Es publicarà el: <strong className="text-zinc-200">{new Date(`${date}T${time}`).toLocaleString()}</strong></span>
+                    <span>{t('social.scheduler_will_publish', 'Es publicarà el:')} <strong className="text-zinc-200">{new Date(`${date}T${time}`).toLocaleString()}</strong></span>
                 </div>
             )}
 
@@ -108,7 +110,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
                     onClick={onCancel}
                     className="px-4 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors flex items-center gap-1"
                 >
-                    Cancel·la
+                    {t('common.cancel', 'Cancel·la')}
                 </button>
                 <button
                     onClick={handleSchedule}
@@ -116,7 +118,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
                     className="px-4 py-2 bg-primary hover:bg-blue-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-primary/20 flex items-center gap-1.5 transform active:scale-95"
                 >
                     <Check size={16} />
-                    Confirmar
+                    {t('social.scheduler_confirm', 'Confirmar')}
                 </button>
             </div>
         </div>

@@ -93,22 +93,22 @@ def _invalidate_mail_cache():
     _COUNTS_CACHE.clear()
 
 
-# Correu = integració GLOBAL (comptes globals via integration_manager, un sol
-# `Mail/`). El sync en background escriu SEMPRE al Mail/ del vault PRINCIPAL (les
-# seves classes resolen el vault a l'arrencada, sense context de vault). La
-# lectura ha d'apuntar a la MATEIXA carpeta i no al vault actiu, o en un vault
-# no-default el correu apareixeria buit (el sync hi escriu però la lectura
-# miraria un altre vault). Per això usem el vault PRINCIPAL, no l'actiu.
+# Mail = GLOBAL integration (global accounts via integration_manager, a single
+# `Mail/`). The background sync ALWAYS writes to the Mail/ folder of the PRIMARY vault (the
+# their classes resolve the vault at startup, without vault context). The
+# read must point to the SAME folder and not the active vault, or in a vault
+# non-default one, mail would appear empty (the sync writes there but the read
+# would look at a different vault). That's why we use the PRIMARY vault, not the active one.
 def get_mail_vault_path() -> Path:
     base = get_primary_vault_path()
     return (base / "Mail") if base else (get_active_vault_path() / "Mail")
 
 
 def get_vault_path() -> Optional[Path]:
-    # Retorna `Optional[Path]` perquè `get_primary_vault_path()` i
-    # `get_active_vault_path()` ambdós retornen `Optional[Path]`: si cap config
-    # ni context no defineixen "VAULT", ambdós fan `None`. Callers han de
-    # guardar el retorn o usar `get_mail_vault_path()` (té fallback integrat).
+    # Returns `Optional[Path]` because `get_primary_vault_path()` and
+    # `get_active_vault_path()` both return `Optional[Path]`: if no config
+    # or context defines "VAULT", both yield `None`. Callers must
+    # save the return value or use `get_mail_vault_path()` (it has a built-in fallback).
     return get_primary_vault_path() or get_active_vault_path()
 
 
@@ -244,8 +244,9 @@ def get_unix_timestamp(date_str):
 async def get_mail_counts(email: str = Query(...)):
     """Returns unread and total counts per folder/category via IMAP or Microsoft Graph.
 
-    Migració XOAUTH2: els comptes Google passen pel camí IMAP (és_imap_account
-    inclou Google amb refresh_token). Microsoft 365 segueix per Graph API.
+    XOAUTH2 migration: Google accounts go through the IMAP path (is_imap_account
+    includes Google with refresh_token). Microsoft 365 still uses the Graph API.
+    
     """
     cached = _COUNTS_CACHE.get(email)
     if cached is not None:
@@ -268,7 +269,7 @@ async def get_mail_counts(email: str = Query(...)):
 
 
 def _load_vault_drafts(account_email: str) -> list:
-    """Retorna els esborranys guardats localment al vault per un compte IMAP."""
+    """Returns the drafts saved locally in the vault for an IMAP account."""
     mail_path = get_mail_vault_path()
     if not mail_path.exists():
         return []
@@ -382,7 +383,7 @@ async def get_messages(
     if error:
         data["error"] = error
     else:
-        # Només caché si no hi ha error
+        # Only cache if there's no error
         _MAIL_CACHE.set(cache_key, data)
     return data
 
@@ -393,11 +394,12 @@ async def get_message(
     email: Optional[str] = Query(None),
     folder: Optional[str] = Query(None),
 ):
-    """Hybrid: obté el detall d'un missatge via IMAP o Microsoft Graph.
+    """Hybrid: gets the detail of a message via IMAP or Microsoft Graph.
 
-    Tots els missatges porten prefix `imap_` excepte els de Microsoft. Per
-    compatibilitat retro, si arriba un id sense prefix però el compte és
-    IMAP, s'interpreta com a UID nu.
+    All messages carry the `imap_` prefix except Microsoft ones. For
+    backward compatibility, if an id arrives without a prefix but the account is
+    IMAP, it's interpreted as a bare UID.
+    
     """
     from backend.services.hybrid_mail_service import imap_get_message
     from backend.services.integration_manager import integration_manager
@@ -416,7 +418,7 @@ async def get_message(
         if result:
             return result
 
-    # Fallback: cerca al vault (missatges guardats manualment)
+    # Fallback: search the vault (manually saved messages)
     mail_path = get_mail_vault_path()
     files = _find_message_files(mail_path, message_id)
     if not files:
@@ -453,13 +455,14 @@ async def get_message(
 
 @router.get("/threads/{thread_id}")
 async def get_thread(thread_id: str, email: str = Query(...)):
-    """Retorna tots els missatges d'un thread.
+    """Returns all messages in a thread.
 
-    Per a comptes IMAP-OAuth (Gmail via XOAUTH2): usa `X-GM-THRID` cercant
-    a "All Mail" per agrupar INBOX + SENT del mateix thread.
-    Per a comptes Microsoft: per ara retorna el missatge sol (no implementat).
-    Comptes Google sense IMAP-OAuth (refresh_token absent): fallback a la
-    Gmail API tradicional.
+    For IMAP-OAuth accounts (Gmail via XOAUTH2): uses `X-GM-THRID` searching
+    in "All Mail" to group INBOX + SENT from the same thread.
+    For Microsoft accounts: for now returns just the single message (not implemented).
+    Google accounts without IMAP-OAuth (no refresh_token): falls back to the
+    traditional Gmail API.
+    
     """
     from backend.services.integration_manager import integration_manager
 
@@ -467,21 +470,21 @@ async def get_thread(thread_id: str, email: str = Query(...)):
     if not acc:
         return {"messages": []}
 
-    # Camí IMAP-XOAUTH2 amb X-GM-THRID
+    # IMAP-XOAUTH2 path with X-GM-THRID
     if integration_manager.is_imap_oauth_account(acc):
         from backend.services.imap_mail_sync_service import imap_sync_service
-        # Si el thread_id ve d'imap_get_message és el gm_thrid (numèric)
-        # Si ve d'una vista antiga pot ser un Message-ID, busquem-lo primer
+        # If thread_id comes from imap_get_message it's the gm_thrid (numeric)
+        # If it comes from an old view it may be a Message-ID, look it up first
         gm_thrid = thread_id
         if not thread_id.isdigit():
-            # No és un X-GM-THRID, mirem si és un UID actual
+            # Not an X-GM-THRID, check whether it's a current UID
             uid_only = thread_id[5:] if thread_id.startswith("imap_") else thread_id
             from backend.services.hybrid_mail_service import imap_get_message
             mail = await asyncio.to_thread(imap_get_message, email, uid_only, "INBOX")
             if mail and mail.get("gm_thrid"):
                 gm_thrid = mail["gm_thrid"]
             else:
-                # No es pot resoldre el thread; retornem sol el missatge actual.
+                # Can't resolve the thread; return only the current message.
                 return {"messages": [mail] if mail else []}
 
         messages = await asyncio.to_thread(
@@ -489,7 +492,7 @@ async def get_thread(thread_id: str, email: str = Query(...)):
         )
         return {"messages": messages}
 
-    # Fallback: Gmail API (només si encara queda algun compte sense refresh_token)
+    # Fallback: Gmail API (only if some account still has no refresh_token)
     if integration_manager.is_google_account(acc):
         from backend.services.hybrid_mail_service import _parse_gmail_meta
         thread = await asyncio.to_thread(get_thread_details, email, thread_id)
@@ -511,15 +514,16 @@ async def get_thread(thread_id: str, email: str = Query(...)):
 
 @router.get("/events")
 async def mail_events(email: Optional[str] = Query(None)):
-    """Server-Sent Events stream amb notificacions push d'IMAP IDLE.
+    """Server-Sent Events stream with IMAP IDLE push notifications.
 
-    El client (frontend) s'hi pot subscriure amb `EventSource` i rebrà:
-      - `event: new_message` quan EXISTS s'incrementa al servidor
-      - `event: message_removed` quan EXPUNGE
-      - `event: flags_changed` quan FETCH (FLAGS ...)
-      - `event: ping` cada 25s per mantenir la connexió viva
+    The client (frontend) can subscribe via `EventSource` and will receive:
+      - `event: new_message` when EXISTS increments on the server
+      - `event: message_removed` on EXPUNGE
+      - `event: flags_changed` on FETCH (FLAGS ...)
+      - `event: ping` every 25s to keep the connection alive
 
-    Si `email` és present, el stream filtra a només aquell compte.
+    If `email` is present, the stream filters to only that account.
+    
     """
     from fastapi.responses import StreamingResponse
     from backend.services.imap_idle_service import idle_manager
@@ -531,7 +535,7 @@ async def mail_events(email: Optional[str] = Query(None)):
         try:
             yield "event: ready\ndata: {}\n\n"
             while True:
-                # pop_blocking és síncron; fer-lo a un thread per no bloquejar el loop.
+                # pop_blocking is synchronous; run it in a thread so it doesn't block the loop.
                 evt = await asyncio.to_thread(sub.pop_blocking, 5.0)
                 if evt:
                     name = evt.get("type", "event")
@@ -543,7 +547,7 @@ async def mail_events(email: Optional[str] = Query(None)):
                     })
                     yield f"event: {name}\ndata: {payload}\n\n"
 
-                # Ping de heartbeat cada ~25s perquè proxies no tallin la connexió.
+                # Heartbeat ping every ~25s so proxies don't cut the connection.
                 now = time.monotonic()
                 if now - last_ping > 25:
                     yield "event: ping\ndata: {}\n\n"
@@ -742,10 +746,10 @@ async def star_msg(
 
 @router.post("/messages/{message_id}/spam", dependencies=[Depends(require_role("editor"))])
 async def spam_msg(message_id: str, email: str = Query(...), spam: bool = Body(..., embed=True)):
-    """Marca o desmarca un missatge com a spam (correu brossa)."""
+    """Marks or unmarks a message as spam (junk mail)."""
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
-        # IMAP: Movem a la carpeta de spam o a INBOX
+        # IMAP: Move to the spam folder or to INBOX
         folders = imap_sync_service.list_folders(email)
         spam_folder = next((f["name"] for f in folders if f["type"] == "Spam"), "Junk")
         target = spam_folder if spam else "INBOX"
@@ -753,7 +757,7 @@ async def spam_msg(message_id: str, email: str = Query(...), spam: bool = Body(.
             _invalidate_mail_cache()
             return {"status": "success"}
     else:
-        # Gmail: Afegim/treiem l'etiqueta SPAM
+        # Gmail: Add/remove the SPAM label
         gmail_id = _resolve_gmail_id(message_id)
         if spam:
             success = update_thread_labels(email, gmail_id, add_labels=["SPAM"], remove_labels=["INBOX"])
@@ -768,7 +772,7 @@ async def spam_msg(message_id: str, email: str = Query(...), spam: bool = Body(.
 
 @router.post("/empty_folder", dependencies=[Depends(require_role("admin"))])
 async def empty_folder(email: str = Query(...), folder: str = Query(...)):
-    """Buida una carpeta (Paperera o Spam)."""
+    """Empty a folder (Trash or Spam)."""
     log.info(f"[Mail] Peticion buidat carpeta {folder} per a {email}")
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
@@ -784,7 +788,7 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
             if target_type:
                 folder_info = next((f for f in folders if f["type"] == target_type), None)
         
-        # Fallback: busca per paraula clau en TOTES les carpetes IMAP (sense filtratge de tipus)
+        # Fallback: search by keyword across ALL IMAP folders (without type filtering)
         real_name = None
         if not folder_info and folder.upper() in ("TRASH", "SPAM"):
             keywords = ["trash", "paperera", "papelera", "deleted", "bin", "wastebasket"] if folder.upper() == "TRASH" else ["spam", "junk", "brossa"]
@@ -797,7 +801,7 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
                     break
 
         if not folder_info and not real_name:
-            # Si list_folders retorna buit probablement és error de connexió/autenticació
+            # If list_folders returns empty it's probably a connection/authentication error
             if not folders:
                 log.warning(f"[IMAP] No s'ha pogut connectar al compte {email} — credencials incorrectes?")
                 raise HTTPException(status_code=503, detail=f"No s'ha pogut connectar al compte {email}. Comprova les credencials IMAP a Configuració.")
@@ -844,7 +848,7 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
             except Exception as e:
                 log.error(f"[Gmail] Error buidant carpeta {folder}: {e}")
                 if "insufficientPermissions" in str(e) or "403" in str(e):
-                    # Forcem un missatge més clar de "Reconnectar"
+                    # Force a clearer "Reconnect" message
                     raise HTTPException(
                         status_code=403, 
                         detail="L'aplicació necessita nous permisos per buidar carpetes. Si us plau, ves a Configuració i torna a connectar el teu compte de Gmail."
@@ -861,14 +865,15 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
 async def save_draft(payload: dict = Body(...)):
     """Auto-saves a draft.
 
-    Per a comptes IMAP (inclou Google via XOAUTH2), fa `IMAP APPEND` a la
-    carpeta de Drafts del servidor (p.ex. `[Gmail]/Drafts`) amb la flag
-    `\\Draft`, així apareix al Gmail/Outlook web. El vault local es manté
-    com a cache per a visibilitat immediata i com a fallback si APPEND
-    falla (p.ex. token caducat o ofline).
+    For IMAP accounts (including Google via XOAUTH2), performs `IMAP APPEND` to the
+    server's Drafts folder (e.g. `[Gmail]/Drafts`) with the
+    `\\Draft` flag, so it shows up in Gmail/Outlook web. The local vault is kept
+    as a cache for immediate visibility and as a fallback if APPEND
+    fails (e.g. expired token or offline).
 
-    Per als comptes sense IMAP (mai no hauria d'arribar després de la
-    migració, però per seguretat), només es guarda al vault.
+    For accounts without IMAP (should never happen after the
+    migration, but just in case), it's only saved to the vault.
+    
     """
     from backend.services.integration_manager import integration_manager
 
@@ -883,7 +888,7 @@ async def save_draft(payload: dict = Body(...)):
 
     acc = integration_manager.get_mail_account(email_account) if email_account else None
 
-    # APPEND a IMAP/Drafts si el compte ho permet
+    # APPEND to IMAP/Drafts if the account allows it
     new_imap_uid = None
     if acc and integration_manager.is_imap_account(acc):
         from backend.services.imap_mail_sync_service import imap_sync_service
@@ -1101,12 +1106,12 @@ async def send_mail(
             }
         )
 
-    # Les imatges enganxades al compositor apunten a /api/vault/assets/ (URL
-    # que només resol dins del Gnosi local): es converteixen a adjunts inline
-    # amb Content-ID perquè el destinatari les vegi.
+    # Images pasted into the composer point to /api/vault/assets/ (URL
+    # that only resolves within local Gnosi): they get converted into inline attachments
+    # with a Content-ID so the recipient can see them.
     body, inline_images = extract_vault_inline_images(body)
-    # Drafts represos d'un reply/forward porten les imatges citades com a
-    # URL /api/mail/.../cid/ (autocontinguda) — també es tornen parts inline.
+    # Drafts resumed from a reply/forward carry the quoted images as
+    # URL /api/mail/.../cid/ (self-contained) — these are also turned into inline parts.
     body = await _embed_quoted_cid_images(email, body, inline_images)
 
     # Resolve the SMTP account (handles aliases: email may be the alias, smtp_email is the parent)
@@ -1272,13 +1277,14 @@ async def mark_as_read(
     email: str = Query(...),
     folder: Optional[str] = Query(None),
 ):
-    """Marca un missatge com a llegit (treu UNREAD a Gmail o posa \\Seen a IMAP).
+    """Marks a message as read (removes UNREAD in Gmail or sets \\Seen in IMAP).
 
-    `folder` és opcional. Si es proporciona, es passa a `mark_read` perquè
-    pugui aplicar `\\Seen` al servidor encara que no hi hagi vault file
-    (típic de correus encara no sincronitzats al vault). Sense això,
-    `mark_read` retornava False i el cache de counts no s'invalidava → el
-    sidebar continuava mostrant el comptador antic.
+    `folder` is optional. If provided, it's passed to `mark_read` so it
+    can apply `\\Seen` on the server even when there's no vault file
+    (typical for emails not yet synced to the vault). Without this,
+    `mark_read` used to return False and the counts cache wasn't invalidated → the
+    sidebar kept showing the old counter.
+    
     """
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_mark_read
@@ -1298,7 +1304,7 @@ async def mark_as_read(
     if update_thread_labels(email, gmail_id, remove_labels=["UNREAD"]):
         _invalidate_mail_cache()
         return {"status": "success"}
-    return {"status": "success"}  # no error si no hi ha vault file
+    return {"status": "success"}  # not an error if there's no vault file
 
 
 @router.post("/messages/{message_id}/snooze")
@@ -1341,11 +1347,11 @@ async def reply_message(
         data = await att.read()
         att_list.append({"filename": att.filename, "data": data, "content_type": att.content_type})
 
-    # Mateixa conversió que a /send: imatges del vault → adjunts inline CID.
+    # Same conversion as in /send: vault images → inline CID attachments.
     body, inline_images = extract_vault_inline_images(body)
-    # El citat d'un reply/forward referencia les imatges inline del missatge
-    # original (URL /cid/ o cid: cru); cal incrustar-les com a parts pròpies
-    # perquè el destinatari no les rebi trencades.
+    # The quoted content of a reply/forward references the inline images of the message
+    # original (URL /cid/ or raw cid:); they need to be embedded as their own parts
+    # so the recipient doesn't get them broken.
     body = await _embed_quoted_cid_images(
         email, body, inline_images,
         source_message_id=message_id, source_folder=folder,
@@ -1561,13 +1567,13 @@ async def _imap_fetch_raw(email: str, message_id: str, folder: str):
         raw_bytes = next((p[1] for p in data if isinstance(p, tuple)), None)
         return raw_bytes, imap
     except Exception:
-        # select()/uid() poden llançar (imaplib.abort/OSError) si la connexió cau
-        # DESPRÉS del noop de validació de _imap_pool_acquire, amb el lock del pool ja
-        # pres. Com que els callers assignen aquesta crida FORA del seu try/finally, sense
-        # aquest rescat el lock quedava retingut per sempre → deadlock de TOTES les
-        # operacions IMAP del compte (adjunts, imatges CID, reply amb imatges citades).
-        # Invalidem la connexió trencada i alliberem el lock (release és idempotent);
-        # retornem (None, None) perquè els callers ho tractin com a "no trobat".
+        # select()/uid() can raise (imaplib.abort/OSError) if the connection drops
+        # AFTER the validation noop in _imap_pool_acquire, with the pool lock already
+        # held. Since callers place this call OUTSIDE their try/finally, without
+        # this rescue the lock would stay held forever → deadlock of ALL
+        # the account's IMAP operations (attachments, CID images, reply with quoted images).
+        # We invalidate the broken connection and release the lock (release is idempotent);
+        # we return (None, None) so callers treat it as "not found".
         _imap_pool_invalidate(email)
         _imap_pool_release(email)
         return None, None
@@ -1590,9 +1596,9 @@ async def get_attachment(
     disposition = "inline" if inline else "attachment"
     acc = integration_manager.get_mail_account(email)
 
-    # Tots els proveïdors IMAP (inclou Google amb refresh_token) usen part_index.
-    # Microsoft Graph manté l'API original; Gmail API només queda com a fallback
-    # per comptes Google sense refresh_token (cas degradat).
+    # All IMAP providers (including Google with refresh_token) use part_index.
+    # Microsoft Graph keeps the original API; Gmail API remains only as a fallback
+    # for Google accounts without refresh_token (degraded case).
     if integration_manager.is_imap_account(acc):
         pass  # cau a IMAP path
     elif integration_manager.is_google_account(acc):
@@ -1641,16 +1647,17 @@ async def get_attachment(
 async def _collect_original_inline_parts(
     email: str, message_id: str, wanted_cids: set, folder: str = "INBOX"
 ):
-    """Recupera per Content-ID les parts inline d'un missatge existent.
+    """Retrieves the inline parts of an existing message by Content-ID.
 
-    Mateixa selecció de proveïdor que get_attachment: IMAP-eligible (inclou
-    Google amb refresh_token) → fetch RAW + walk; Google sense refresh_token →
-    Gmail API; Microsoft → Graph; desconegut → IMAP (comportament històric).
+    Same provider selection as get_attachment: IMAP-eligible (including
+    Google with refresh_token) → fetch RAW + walk; Google without refresh_token →
+    Gmail API; Microsoft → Graph; unknown → IMAP (historical behavior).
 
     Returns:
-        Dict cid (sense ``<>``) → {filename, content_type, data}; ``None`` si
-        el missatge no s'ha pogut recuperar. Les excepcions del transport
-        pugen al caller (el pool IMAP queda invalidat i alliberat).
+        Dict cid (without ``<>``) → {filename, content_type, data}; ``None`` if
+        the message couldn't be retrieved. Transport exceptions
+        propagate to the caller (the IMAP pool is invalidated and released).
+    
     """
     from backend.services.integration_manager import integration_manager
 
@@ -1661,7 +1668,7 @@ async def _collect_original_inline_parts(
 
     if not integration_manager.is_imap_account(acc):
         if integration_manager.is_google_account(acc):
-            # Gmail API: missatge sencer per al mapping CID → attachmentId.
+            # Gmail API: full message for the CID → attachmentId mapping.
             from backend.services.hybrid_mail_service import gmail_get_message
             mail = await asyncio.to_thread(gmail_get_message, email, message_id)
             if not mail:
@@ -1706,18 +1713,19 @@ async def _embed_quoted_cid_images(
     source_message_id: Optional[str] = None,
     source_folder: str = "INBOX",
 ) -> str:
-    """Incrusta com a parts pròpies les imatges citades d'un missatge rebut.
+    """Embeds the quoted images of a received message as parts of its own.
 
-    El quotedHtml d'un reply/forward referencia les imatges inline del correu
-    citat com a ``src="/api/mail/messages/{id}/cid/{cid}?email=..&folder=.."``
-    (URL autocontinguda que el composer pot mostrar; també arriba així des
-    d'un draft reprès via /send) o, en cossos generats fora del viewer, com a
-    ``src="cid:..."`` cru — aquest fallback necessita ``source_message_id``.
-    Al missatge sortint cap de les dues formes té part MIME ni resol fora de
-    Gnosi: es recuperen els bytes de l'original, s'afegeixen a
-    ``inline_images`` (in place) amb un Content-ID nou i es reescriu el cos.
-    Les referències irrecuperables es deixen intactes i mai es bloqueja
-    l'enviament.
+    The quotedHtml of a reply/forward references the inline images of the
+    quoted email as ``src="/api/mail/messages/{id}/cid/{cid}?email=..&folder=.."``
+    (self-contained URL that the composer can display; it also arrives this way
+    from a draft resumed via /send) or, in bodies generated outside the viewer, as
+    raw ``src="cid:..."`` — this fallback needs ``source_message_id``.
+    In the outgoing message neither form has a MIME part nor resolves outside
+    Gnosi: the original's bytes are retrieved, added to
+    ``inline_images`` (in place) with a new Content-ID, and the body is rewritten.
+    Unrecoverable references are left untouched and sending is never
+    blocked.
+    
     """
     api_refs = find_mail_cid_refs(body)
     own_cids = {img["content_id"].strip("<>") for img in inline_images}
@@ -1728,8 +1736,8 @@ async def _embed_quoted_cid_images(
     if not api_refs and not residual:
         return body
 
-    # Un sol fetch per missatge d'origen (l'email/folder de la URL manen:
-    # el missatge citat pot ser d'un altre compte/carpeta que el d'enviament).
+    # A single fetch per source message (the email/folder from the URL dictate:
+    # the quoted message may be from a different account/folder than the sending one).
     groups: dict = {}
     for ref in api_refs:
         key = (ref["email"] or email, ref["message_id"], ref["folder"] or source_folder)

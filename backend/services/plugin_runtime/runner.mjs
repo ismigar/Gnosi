@@ -1,28 +1,28 @@
 /**
- * runner.mjs — arnès d'execució d'un plugin de DADES de Gnosi dins d'un
- * subprocés Node capat (fase 3 de plugin_system.md).
+ * runner.mjs — execution harness for a Gnosi DATA plugin inside a
+ * restricted Node subprocess (phase 3 of plugin_system.md).
  *
- * El backend Python (plugin_sandbox.py) arrenca aquest script amb:
+ * The Python backend (plugin_sandbox.py) launches this script with:
  *   node --permission --allow-fs-read=<pluginDir> runner.mjs
- * i li passa, via stdin, l'esdeveniment a processar. El plugin NOMÉS pot tocar
- * el vault a través de l'objecte `api`, que reenvia cada crida al host per
- * JSON-RPC sobre stdio; el host valida cada crida contra els permisos concedits.
+ * and passes it, via stdin, the event to process. The plugin can ONLY touch
+ * the vault through the `api` object, which forwards each call to the host via
+ * JSON-RPC over stdio; the host validates each call against the granted permissions.
  *
- * Protocol (línies JSON acabades en \n):
+ * Protocol (JSON lines ending in \n):
  *   host → runner:  {"type":"event","event":{"name","payload"}}
  *   host → runner:  {"type":"rpc-result","id","ok",("result"|"error")}
  *   runner → host:  {"type":"rpc","id","method","args"}
  *   runner → host:  {"type":"log","level","message"}
  *   runner → host:  {"type":"done"}  |  {"type":"error","message"}
  *
- * Sandbox: --permission (host Node) bloqueja fs-write, child_process, worker i
- * native addons. Si el plugin NO té permís `network`, aquí el bloqueig de xarxa
- * és DUR: un hook de resolució ESM (`module.registerHooks`, síncron, sense
- * worker → compatible amb --permission) fa petar tot `import` de mòduls de
- * xarxa (node:net/http/https/tls/dgram/http2 + node:module per tancar l'escapada
- * via createRequire), i es neutralitzen els globals de xarxa (fetch, WebSocket,
- * XMLHttpRequest, EventSource). Combinat amb child_process/worker/addons ja
- * bloquejats per Node, un plugin ESM no pot obrir cap connexió de xarxa.
+ * Sandbox: --permission (host Node) blocks fs-write, child_process, worker and
+ * native addons. If the plugin does NOT have the `network` permission, the network block
+ * here is HARD: a synchronous ESM resolution hook (`module.registerHooks`,
+ * without a worker → compatible with --permission) makes every `import` of
+ * network modules throw (node:net/http/https/tls/dgram/http2 + node:module to close
+ * the escape hatch via createRequire), and the network globals are neutralized (fetch,
+ * WebSocket, XMLHttpRequest, EventSource). Combined with child_process/worker/addons
+ * already blocked by Node, an ESM plugin cannot open any network connection.
  */
 import { registerHooks } from 'node:module';
 
@@ -33,12 +33,12 @@ function send(obj) {
   process.stdout.write(JSON.stringify(obj) + '\n');
 }
 
-// --- Bloqueig DUR de xarxa si no s'ha concedit el permís `network` -----------
+// --- HARD network block if the `network` permission has not been granted -----------
 if (!NET_ALLOWED) {
   const BLOCKED = new Set([
     'net', 'node:net', 'http', 'node:http', 'https', 'node:https',
     'tls', 'node:tls', 'dgram', 'node:dgram', 'http2', 'node:http2',
-    'module', 'node:module', // tanca createRequire → require('net')
+    'module', 'node:module', // closes over createRequire → require('net')
   ]);
   registerHooks({
     resolve(spec, ctx, next) {
@@ -53,7 +53,7 @@ if (!NET_ALLOWED) {
   try { globalThis.EventSource = undefined; } catch { /* noop */ }
 }
 
-// --- Bridge RPC cap al host --------------------------------------------------
+// --- Bridge RPC to the host --------------------------------------------------
 let _rpcSeq = 0;
 const _pending = new Map();
 
@@ -90,7 +90,7 @@ function makeApi(event) {
   };
 }
 
-// --- Lectura de línies de stdin ----------------------------------------------
+// --- Reading lines from stdin ----------------------------------------------
 let _buf = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', (chunk) => {

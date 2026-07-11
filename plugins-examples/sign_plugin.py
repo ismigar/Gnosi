@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Eina d'autor per signar un plugin de Gnosi (fase 3 de plugin_system.md).
+"""Author tool for signing a Gnosi plugin (phase 3 of plugin_system.md).
 
-Comprimeix una carpeta de plugin en un .zip, en calcula el SHA-256 i el signa
-amb una clau privada Ed25519, i imprimeix una entrada de catàleg/índex a punt
-per publicar (amb `sha256` i `signature`). L'usuari final afegeix la clau PÚBLICA
-al seu magatzem de confiança (`POST /api/vault/plugins/trust`) i, en instal·lar
-des de la galeria/índex, Gnosi verifica la signatura.
+Compresses a plugin folder into a .zip, computes its SHA-256, and signs it
+with an Ed25519 private key, then prints a catalog/index entry ready
+to publish (with `sha256` and `signature`). The end user adds the PUBLIC key
+to their trust store (`POST /api/vault/plugins/trust`) and, when installing
+from the gallery/index, Gnosi verifies the signature.
 
-Ús:
-  # genera un parell de claus (guarda la privada en un lloc segur!)
+Usage:
+  # generate a key pair (keep the private one somewhere safe!)
   python sign_plugin.py keygen
 
-  # signa una carpeta de plugin i escriu el .zip + entrada de catàleg
-  python sign_plugin.py sign <carpeta_plugin> <clau_privada_b64> \
+  # sign a plugin folder and write the .zip + catalog entry
+  python sign_plugin.py sign <plugin_folder> <private_key_b64> \
       --url https://exemple.org/plugins/el-meu.zip --out el-meu.zip
 
-Aquest script depèn NOMÉS de `cryptography` (no importa el backend de Gnosi), per
-poder-lo distribuir tal qual als autors de plugins.
+This script depends ONLY on `cryptography` (does not import Gnosi's backend), so
+it can be distributed as-is to plugin authors.
 """
 import argparse
 import base64

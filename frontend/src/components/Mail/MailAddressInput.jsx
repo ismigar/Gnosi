@@ -21,12 +21,12 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
     }, [accountEmail, apiFetch]);
 
     const handleChange = (e) => {
-        // Normalitza el separador d'Outlook (";" → ",") perquè uns destinataris
-        // enganxats com "a@x.com; b@y.com" es parteixin bé. RFC 5322 i tots dos
-        // backends (Gmail posa el header "To" cru = llista per coma; Microsoft
-        // fa `split(",")`) separen per COMA; un ";" feia que tot el text fos un
-        // únic destinatari malformat i el correu només arribava al primer (o cap).
-        // Cap adreça d'email conté ";", així que la substitució és segura.
+        // Normalizes the Outlook separator (";" → ",") so that recipients
+        // pasted like "a@x.com; b@y.com" split correctly. RFC 5322 and both
+        // backends (Gmail puts the raw "To" header = comma-separated list; Microsoft
+        // does `split(",")`) they separate by COMMA; a ";" made the whole text become a
+        // single malformed recipient and the email only reached the first one (or none).
+        // No email address contains ";", so the substitution is safe.
         const raw = e.target.value.replace(/;/g, ',');
         onChange(raw);
         const token = raw.split(',').pop().trim();

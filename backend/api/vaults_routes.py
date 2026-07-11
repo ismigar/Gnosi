@@ -1,8 +1,8 @@
-"""API de vaults (mode personal multi-vault): llistar, crear i triar vaults.
+"""Vaults API (personal multi-vault mode): list, create and choose vaults.
 
-El frontend tria el vault actiu amb la capçalera `X-Vault-Id` (vegeu `workspace_service.
-_resolve_personal_vault`). Sense capçalera → el vault principal (compatibilitat enrere). Útil per
-clonar Notion a un vault SEPARAT, validar-lo aïllat i adoptar-lo o descartar-lo.
+The frontend picks the active vault with the `X-Vault-Id` header (see `workspace_service.
+_resolve_personal_vault`). Without a header → the main vault (backward compatibility). Useful for
+cloning Notion into a SEPARATE vault, validating it in isolation, and adopting or discarding it.
 """
 import os
 import re
@@ -25,14 +25,14 @@ from backend.config.app_config import load_params
 
 router = APIRouter(prefix="/vaults", tags=["Vaults"])
 
-# Estructura estàndard d'un vault (mirall del mapping de get_p a vault_routes): es crea en crear
-# un vault nou perquè quedi llest per usar (registre a BD/, adjunts a Assets/, etc.).
+# Standard structure of a vault (mirrors the get_p mapping in vault_routes): created when creating
+# a new vault so it's ready to use (registry in BD/, attachments in Assets/, etc.).
 _VAULT_SUBFOLDERS = ["Assets", "BD", "Wiki", "Calendar", "Mail", "Templates", "Drawings",
                      "Daily Notes", "Newsletters", ".Dashboards", ".gnosi"]
 
 
 def _scaffold_vault_structure(base: Path) -> None:
-    """Crea les subcarpetes estàndard d'un vault sota `base` (idempotent)."""
+    """Creates a vault's standard subfolders under `base` (idempotent)."""
     for sub in _VAULT_SUBFOLDERS:
         try:
             (base / sub).mkdir(parents=True, exist_ok=True)
@@ -42,7 +42,7 @@ def _scaffold_vault_structure(base: Path) -> None:
 
 class CreateVaultPayload(BaseModel):
     name: str
-    path: Optional[str] = None   # ruta explícita; per defecte, germana del vault principal
+    path: Optional[str] = None   # explicit path; defaults to a sibling of the main vault
 
 
 def _default_vault_path() -> Path:
@@ -50,22 +50,23 @@ def _default_vault_path() -> Path:
 
 
 def _vaults_root() -> Path:
-    """Arrel on viuen els vaults (…/Gnosi al host). En natiu és el pare del vault per
-    defecte; sota Docker el pare de /vault és `/` (arrel del container!), així que el
-    compose munta el contenidor de vaults a /vaults i ho declara via GNOSI_VAULTS_ROOT."""
+    """Root where vaults live (…/Gnosi on the host). In native mode it's the parent of the
+    default vault; under Docker the parent of /vault is `/` (the container's root!), so
+    compose mounts the vaults container at /vaults and declares it via GNOSI_VAULTS_ROOT."""
     env = os.environ.get("GNOSI_VAULTS_ROOT")
     return Path(env) if env else _default_vault_path().parent
 
 
 def _prune_container_rows(db: Session, ws_id: str, default_path: Path) -> None:
-    """Elimina files ràncies que apunten al CONTENIDOR de vaults (…/Gnosi), no a un vault.
+    """Removes stale rows that point to the vaults CONTAINER (…/Gnosi), not to a vault.
 
-    De l'època pre-multi-vault (o d'un env mal apuntat) pot quedar una fila el path de la
-    qual és ANCESTRE del path d'un altre vault registrat (…/Gnosi vs …/Gnosi/Principal).
-    Seleccionar-la re-crea tota l'estructura (BD/, Mail/, Assets/…) a l'arrel de vaults.
-    Els vaults registrats són sempre germans: un path que conté un altre vault és per
-    definició el contenidor. Comparació lexical (`is_relative_to`), sense tocar el FS
-    (OneDrive). Mai s'esborra la fila del vault per defecte.
+    From the pre-multi-vault era (or a misconfigured env) a row may remain whose path
+    is an ANCESTOR of another registered vault's path (…/Gnosi vs …/Gnosi/Principal).
+    Selecting it re-creates the whole structure (BD/, Mail/, Assets/…) at the vaults root.
+    Registered vaults are always siblings: a path that contains another vault is by
+    definition the container. Lexical comparison (`is_relative_to`), without touching the FS
+    (OneDrive). The default vault's row is never deleted.
+    
     """
     rows = db.query(Vault).filter(Vault.workspace_id == ws_id).all()
     paths = {r.id: Path(r.path_override) for r in rows if r.path_override}
@@ -93,7 +94,7 @@ def _prune_container_rows(db: Session, ws_id: str, default_path: Path) -> None:
 
 
 def _ensure_main_vault(db: Session, ws_id: str, default_path: Path):
-    """Garanteix una fila 'Main Vault' apuntant al vault per defecte (usuaris antics sense fila)."""
+    """Ensures a 'Main Vault' row pointing to the default vault (for legacy users without a row)."""
     dp = str(default_path)
     exists = db.query(Vault).filter(Vault.workspace_id == ws_id, Vault.path_override == dp).first()
     if exists:
@@ -111,7 +112,7 @@ def _ensure_main_vault(db: Session, ws_id: str, default_path: Path):
 @router.get("")
 def list_vaults(ctx: WorkspaceContext = Depends(get_workspace_context),
                 db: Session = Depends(get_mgmt_db)):
-    """Vaults del workspace + quin és l'actiu (el resolt per X-Vault-Id o el principal)."""
+    """Workspace vaults + which one is active (the one resolved by X-Vault-Id or the main one)."""
     _ensure_main_vault(db, ctx.workspace_id, _default_vault_path())
     _prune_container_rows(db, ctx.workspace_id, _default_vault_path())
     active = str(get_active_vault_path() or "")
@@ -125,7 +126,7 @@ def list_vaults(ctx: WorkspaceContext = Depends(get_workspace_context),
 def create_vault(payload: CreateVaultPayload,
                  ctx: WorkspaceContext = Depends(get_workspace_context),
                  db: Session = Depends(get_mgmt_db)):
-    """Crea un vault nou (carpeta + fila). Per defecte, germà del vault principal."""
+    """Creates a new vault (folder + row). Defaults to a sibling of the main vault."""
     name = (payload.name or "").strip()
     if not name:
         raise HTTPException(status_code=400, detail="El nom del vault és buit")
@@ -136,7 +137,7 @@ def create_vault(payload: CreateVaultPayload,
         path = _vaults_root() / safe
     try:
         path.mkdir(parents=True, exist_ok=True)
-        _scaffold_vault_structure(path)   # Assets, BD, Wiki… → vault llest per usar
+        _scaffold_vault_structure(path)   # Assets, DB, Wiki… → vault ready to use
     except Exception as e:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"No s'ha pogut crear la carpeta del vault: {e}")
     v = Vault(id=str(uuid.uuid4()), workspace_id=ctx.workspace_id, name=name, path_override=str(path))
@@ -159,8 +160,8 @@ def delete_vault(vault_id: str,
                  delete_files: bool = Query(default=False),
                  ctx: WorkspaceContext = Depends(get_workspace_context),
                  db: Session = Depends(get_mgmt_db)):
-    """Esborra la FILA d'un vault del registre. Amb `delete_files=true` també ESBORRA la carpeta
-    del disc (per descartar un clon sencer). No es pot esborrar el vault actiu ni el principal."""
+    """Deletes a vault's ROW from the registry. With `delete_files=true` it also DELETES the
+    folder from disk (to discard a whole clone). The active vault and the main vault can't be deleted."""
     v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
     if not v:
         raise HTTPException(status_code=404, detail="Vault no trobat")
@@ -177,10 +178,10 @@ def delete_vault(vault_id: str,
         db.rollback()
         raise HTTPException(status_code=500, detail="Error esborrant el vault")
     if delete_files and vpath:
-        # SEGURETAT: només esborrem si la carpeta viu SOTA l'arrel de vaults (…/Gnosi/) i no és
-        # l'arrel ni el vault per defecte. Així un `delete_files` no pot esborrar res arbitrari.
-        # Sota Docker l'arrel ha de venir de GNOSI_VAULTS_ROOT: el pare de /vault és `/` i la
-        # comprovació `root in p.parents` es tornaria certa per a QUALSEVOL ruta absoluta.
+        # SECURITY: we only delete if the folder lives UNDER the vaults root (…/Gnosi/) and isn't
+        # the root or the default vault. This way a `delete_files` can't delete anything arbitrary.
+        # Under Docker the root must come from GNOSI_VAULTS_ROOT: the parent of /vault is `/` and the
+        # `root in p.parents` check would become true for ANY absolute path.
         try:
             root = _vaults_root().resolve()
             p = vpath.resolve()

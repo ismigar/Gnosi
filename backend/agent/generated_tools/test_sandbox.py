@@ -140,9 +140,9 @@ class TestSandbox:
         except Exception as e:
             raise RuntimeError(f"Error executant codi: {e}")
         
-        # Find the tool function — mateix criteri que loader: BaseTool real
-        # o callable amb marker explícit `__tool__ = True`. Evita capturar
-        # callables amb `.name` casuals.
+        # Find the tool function — same criteria as the loader: real BaseTool
+        # or callable with explicit `__tool__ = True` marker. Avoids capturing
+        # callables that happen to have a `.name`.
         from langchain_core.tools import BaseTool
         for attr_name in dir(module):
             attr = getattr(module, attr_name)
@@ -178,9 +178,9 @@ class TestSandbox:
             except Exception as e:
                 error = f"{type(e).__name__}: {str(e)}"
         
-        # Run with timeout. daemon=True garanteix que un tool penjat no
-        # impedeixi el shutdown del procés (Python no té API segura per
-        # matar threads → el millor és marcar-los com a daemon).
+        # Run with timeout. daemon=True guarantees that a hung tool doesn't
+        # prevent the process shutdown (Python has no safe API to
+        # kill threads → the best approach is to mark them as daemon).
         thread = threading.Thread(target=run_test, daemon=True)
         thread.start()
         thread.join(timeout=self.timeout)

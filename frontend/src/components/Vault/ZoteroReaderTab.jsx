@@ -16,34 +16,34 @@ const toFilesystemPath = (src) => {
 };
 
 /**
- * Embed del visor Zotero (zotero/reader) dins una pestanya del Vault.
+ * Embed of the Zotero viewer (zotero/reader) inside a Vault tab.
  *
- * Arquitectura:
- *   - L'iframe carrega `public/zotero-reader/host.html`, un thin shell que
- *     embeda el bundle web del reader (AGPL-3.0) i exposa un protocol
- *     postMessage minimal cap aquest component React.
- *   - El PDF es serveix via `/api/vault/local-file/{token}` (mateix endpoint
- *     que el visor pdf.js propi). Així reaprofitem el warmup d'OneDrive,
- *     materialització i caché del backend.
- *   - Les anotacions es persisteixen via `/api/vault/pdf-annotations` igual
- *     que abans, però el format ara és el natiu de Zotero (rects en
- *     coords PDF + pageIndex 0-based). Hi ha un adaptador transparent.
+ * Architecture:
+ *   - The iframe loads `public/zotero-reader/host.html`, a thin shell that
+ *     embeds the reader's web bundle (AGPL-3.0) and exposes a minimal
+ *     postMessage protocol to this React component.
+ *   - The PDF is served via `/api/vault/local-file/{token}` (the same endpoint
+ *     as our own pdf.js viewer). This way we reuse the OneDrive warmup,
+ *     materialization, and backend cache.
+ *   - Annotations are persisted via `/api/vault/pdf-annotations` just
+ *     as before, but the format is now Zotero's native one (rects in
+ *     PDF coords + 0-based pageIndex). There's a transparent adapter.
  *
- * Per què iframe i no muntatge directe del bundle:
- *   - El bundle del reader pesa ~3MB minified + 800KB de vendors. Posar-lo
- *     a la SPA de Gnosi penalitza l'arrencada per a tots els usuaris,
- *     fins i tot els que mai obren un PDF.
- *   - El bundle defineix globals (`window.createReader`, `window._reader`)
- *     i utilitza React i ReactDOM en mode global — col·lidiria amb el
- *     React 18 del Vault. Iframe els aïlla.
+ * Why iframe and not mounting the bundle directly:
+ *   - The reader's bundle weighs ~3MB minified + 800KB of vendors. Adding it
+ *     to Gnosi's SPA penalizes startup for all users,
+ *     even those who never open a PDF.
+ *   - The bundle defines globals (`window.createReader`, `window._reader`)
+ *     and uses React and ReactDOM in global mode — it would collide with
+ *     the Vault's React 18. The iframe isolates them.
  */
 /**
- * Tipus de document que el reader Zotero pot mostrar:
+ * Document types the Zotero reader can display:
  *  - 'pdf'      : PDF (default)
  *  - 'epub'     : EPUB
- *  - 'snapshot' : pàgina HTML guardada localment (.html / .htm)
+ *  - 'snapshot' : locally saved HTML page (.html / .htm)
  *
- * El bundle web carregat porta els tres rendering paths integrats.
+ * The loaded web bundle includes all three rendering paths built in.
  */
 const KIND_BY_EXTENSION = {
     pdf: 'pdf',
@@ -60,8 +60,8 @@ export function detectKindFromSrc(src) {
     return (m && KIND_BY_EXTENSION[m[1]]) || 'pdf';
 }
 
-// Mapeig de la language del react-i18next (ca / es / en / ...) al codi de
-// locale que Zotero fa servir (ca-AD / es-ES / en-US). Si no hi és al
+// Mapping from react-i18next's language (ca / es / en / ...) to the
+// locale code Zotero uses (ca-AD / es-ES / en-US). If it isn't in the
 // mapeig, fallback a en-US.
 const GNOSI_TO_ZOTERO_LOCALE = {
     ca: 'ca-AD',
@@ -72,9 +72,9 @@ const GNOSI_TO_ZOTERO_LOCALE = {
 export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp }) {
     const { t, i18n } = useTranslation();
     const iframeRef = useRef(null);
-    // Idioma per al visor Zotero. El recalculem quan l'usuari canvia la
-    // language a Gnosi (re-mount del component via key és típic, però
-    // detectem-ho aquí per si la app no fa un re-mount complet).
+    // Language for the Zotero viewer. We recalculate it when the user changes the
+    // language in Gnosi (re-mounting the component via key is typical, but
+    // we detect it here in case the app doesn't do a full re-mount).
     const zoteroLanguage = useMemo(() => {
         const base = (i18n?.language || 'ca').split('-')[0];
         return GNOSI_TO_ZOTERO_LOCALE[base] || 'en-US';
@@ -92,26 +92,26 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     const [error, setError] = useState(null);
     const [annotationsLoaded, setAnnotationsLoaded] = useState(false);
     const [readerReady, setReaderReady] = useState(false);
-    // Tots aquests signals han de coincidir abans d'enviar UN únic
-    // missatge `init`. El reader Zotero rebutja `createReader` cridada
-    // dues vegades ("Reader is already initialized"), així que cal
-    // garantir idempotència via initSentRef.
+    // All these signals must match before sending a SINGLE
+    // message `init`. The Zotero reader rejects `createReader` called
+    // twice ("Reader is already initialized"), so we need to
+    // guarantee idempotency via initSentRef.
     const hostReadyRef = useRef(false);
     const initSentRef = useRef(false);
-    // Anotacions vives durant la sessió. Les guardem com a ref (no state)
-    // perquè ja no les renderitzem nosaltres — el reader Zotero ho fa
-    // tot, nosaltres només persistim. ESLint no es queixa de variables
+    // Live annotations during the session. We store them as a ref (not state)
+    // because we no longer render them ourselves — the Zotero reader does
+    // all of it, we only persist. ESLint doesn't complain about unused variables
     // no llegides.
     const annotationsRef = useRef([]);
-    // Mapeig zoteroId → dbId (numèric). Necessari perquè:
-    //  - Quan rebem `delete-annotations` amb un id de Zotero (anotació
-    //    creada en aquesta sessió), poguem trobar el dbId del POST recent.
-    //  - Evitar duplicats: si el reader envia `save-annotations` amb la
-    //    mateixa anotació (id Zotero) dues vegades, la segona ha de ser
+    // Mapping zoteroId → dbId (numeric). Necessary because:
+    //  - When we receive `delete-annotations` with a Zotero id (an annotation
+    //    created in this session), we can find the dbId from the recent POST.
+    //  - Avoid duplicates: if the reader sends `save-annotations` with the
+    //    same annotation (Zotero id) twice, the second one must be
     //    PATCH no POST.
     const zoteroToDbIdRef = useRef(new Map());
 
-    // --- Registrar el PDF al backend per obtenir la URL servible ---
+    // --- Register the PDF with the backend to get the servable URL ---
     useEffect(() => {
         let cancelled = false;
         setError(null); setPdfUrl(null);
@@ -145,11 +145,11 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         return () => { cancelled = true; };
     }, [rawSrc, t]);
 
-    // --- Carregar anotacions existents al mount ---
-    // Reset complet quan rawSrc canvia: si el mateix component es reutilitza
-    // a la ruta `/vault/pdf?src=...` per a un document diferent, no ens
-    // hem de quedar amb anotacions del document anterior. També tornem
-    // `initSentRef` a false perquè s'enviï un init nou al iframe.
+    // --- Load existing annotations on mount ---
+    // Full reset when rawSrc changes: if the same component is reused
+    // on the `/vault/pdf?src=...` route for a different document, we don't
+    // we must end up with annotations from the previous document. We also reset
+    // `initSentRef` to false so a new init is sent to the iframe.
     useEffect(() => {
         annotationsRef.current = [];
         zoteroToDbIdRef.current = new Map();
@@ -166,8 +166,8 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                     if (!cancelled && Array.isArray(data)) {
                         const mapped = data.map(pdfAnnotationToZotero);
                         annotationsRef.current = mapped;
-                        // Populem el mapeig: les anotacions persistides ja
-                        // tenen el seu dbId implícit a l'id Zotero (`gnosi:N`).
+                        // We populate the mapping: the persisted annotations already
+                        // have their dbId implicit in the Zotero id (`gnosi:N`).
                         for (const a of mapped) {
                             if (typeof a.id === 'string' && a.id.startsWith('gnosi:')) {
                                 zoteroToDbIdRef.current.set(a.id, Number(a.id.slice(6)));
@@ -184,9 +184,9 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         return () => { cancelled = true; };
     }, [rawSrc]);
 
-    // --- Enviar init al iframe (UN ÚNIC cop) quan tot estigui llest ---
-    // Tres signals han de coincidir: host-ready, pdfUrl carregat,
-    // annotations carregades (GET resolt). initSentRef evita re-envios.
+    // --- Send init to the iframe (ONLY ONCE) when everything is ready ---
+    // Three signals must coincide: host-ready, pdfUrl loaded,
+    // annotations loaded (GET resolved). initSentRef prevents re-sends.
     const sendInitIfReady = useCallback(() => {
         if (initSentRef.current) return;
         if (!hostReadyRef.current) return;
@@ -215,20 +215,20 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         sendInitIfReady();
     }, [sendInitIfReady]);
 
-    // --- Listener de postMessage del iframe ---
-    // Guarda d'origen: el handler només ha d'acceptar missatges que venen
-    // del NOSTRE iframe (mateixa origin que la finestra principal). Sense
-    // això, qualsevol altre window/iframe del navegador podria emetre un
+    // --- Listener for the iframe's postMessage ---
+    // Origin guard: the handler must only accept messages that come
+    // from OUR iframe (same origin as the main window). Without
+    // this, any other window/iframe in the browser could emit a
     // `save-annotations` i triggerar escriptures a la BD.
     useEffect(() => {
         const onMsg = (ev) => {
-            // Origin del missatge ha de ser el mateix domain. El bundle
-            // viu a /zotero-reader/host.html, mateixa origin que el
+            // The message origin must be the same domain. The bundle
+            // lives at /zotero-reader/host.html, same origin as the
             // frontend principal.
             if (ev.origin !== window.location.origin) return;
-            // I el window emissor ha de ser el nostre iframe. Així cap
-            // altre frame del navegador (popup, devtools, extension) pot
-            // suplantar missatges.
+            // And the sending window must be our iframe. This way no
+            // another browser frame (popup, devtools, extension) can
+            // impersonate messages.
             if (!iframeRef.current || ev.source !== iframeRef.current.contentWindow) return;
             const data = ev.data || {};
             if (data.source !== 'zotero-reader') return;
@@ -261,16 +261,16 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [sendInitIfReady]);
 
-    // --- Persistència bidireccional ---
-    // Zotero envia LLISTES d'anotacions a cada save (no diffs). Per a cada
-    // anotació:
-    //   - Si el seu id és `gnosi:N` o existeix al `zoteroToDbIdRef`,
-    //     l'anotació ja viu a la BD → PATCH amb el dbId.
-    //   - Altrament, és nova → POST. Després enviem `update-annotations`
-    //     al iframe per substituir l'id de Zotero pel `gnosi:N`. Així
-    //     els saves següents (en la mateixa sessió) la reconeixeran com
-    //     a existent i no crearan duplicats; i un delete posterior amb
-    //     l'id Zotero original també hi pot trobar el dbId al mapeig.
+    // --- Bidirectional persistence ---
+    // Zotero sends LISTS of annotations on every save (not diffs). For each
+    // annotation:
+    //   - If its id is `gnosi:N` or it exists in `zoteroToDbIdRef`,
+    //     the annotation already lives in the DB → PATCH with the dbId.
+    //   - Otherwise, it's new → POST. Then we send `update-annotations`
+    //     to the iframe to replace the Zotero id with `gnosi:N`. This way
+    //     subsequent saves (in the same session) will recognize it as
+    //     existing and won't create duplicates; and a later delete with
+    //     the original Zotero id can also find the dbId in the mapping.
     const persistSaveAnnotations = useCallback(async (zoteroAnnotations) => {
         const idUpdates = [];   // { oldId: zoteroId, newId: 'gnosi:N' }
         for (const ann of zoteroAnnotations) {
@@ -294,9 +294,9 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                         }),
                     });
                     if (!res.ok) {
-                        // fetch no llença per a non-2xx. Sense això un 403/500
-                        // es passava per alt; ara veiem detall si el backend
-                        // l'inclou al cos.
+                        // fetch doesn't throw for non-2xx. Without this a 403/500
+                        // was being overlooked; now we see detail if the backend
+                        // includes it in the body.
                         const detail = await res.text().catch(() => '');
                         console.warn('zotero-reader: PATCH failed', res.status, detail.slice(0, 200));
                     }
@@ -310,8 +310,8 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                         const created = await res.json();
                         const newId = `gnosi:${created.id}`;
                         zoteroToDbIdRef.current.set(ann.id, created.id);
-                        // També guardem el `newId` al mapeig per si arriba
-                        // un save posterior amb l'id ja convertit.
+                        // We also store the `newId` in the mapping in case a
+                        // a later save with the id already converted.
                         zoteroToDbIdRef.current.set(newId, created.id);
                         idUpdates.push({ oldId: ann.id, newId });
                     }
@@ -320,9 +320,9 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                 console.warn('zotero-reader: persist save failed', err);
             }
         }
-        // Si hem creat noves anotacions, notifiquem el iframe perquè
-        // actualitzi els id en memòria. Així `delete-annotations` i futurs
-        // `save-annotations` portaran ja l'id `gnosi:N`.
+        // If we've created new annotations, we notify the iframe so it
+        // updates the ids in memory. This way `delete-annotations` and future
+        // `save-annotations` will already carry the `gnosi:N` id.
         if (idUpdates.length > 0) {
             const iframeWin = iframeRef.current?.contentWindow;
             iframeWin?.postMessage({
@@ -336,8 +336,8 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     const persistDeleteAnnotations = useCallback(async (ids) => {
         for (const id of ids) {
             if (typeof id !== 'string') continue;
-            // Resolem el dbId: explícit (`gnosi:N`), del mapeig (anotació
-            // creada en aquesta sessió i encara amb id Zotero), o saltem.
+            // We resolve the dbId: explicit (`gnosi:N`), from the mapping (an annotation
+            // created in this session and still with a Zotero id), or we skip it.
             let dbId = null;
             if (id.startsWith('gnosi:')) {
                 dbId = Number(id.slice('gnosi:'.length));
@@ -347,10 +347,10 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             if (dbId == null) continue;
             try {
                 const res = await fetch(`/api/vault/pdf-annotations/${dbId}`, { method: 'DELETE' });
-                // 404 és acceptable (race amb un altre client que ja l'ha
-                // esborrat) — netegem igualment el mapeig perquè no quedi
-                // un id orfe. Altres status d'error: loguem i NO toquem el
-                // mapeig, així el proper save pot intentar re-sincronitzar.
+                // 404 is acceptable (a race with another client that has already
+                // deleted it) — we clean up the mapping anyway so that no
+                // an orphan id. Other error statuses: we log and DO NOT touch the
+                // mapping is left behind, so the next save can try to re-sync.
                 if (res.ok || res.status === 404) {
                     zoteroToDbIdRef.current.delete(id);
                     zoteroToDbIdRef.current.delete(`gnosi:${dbId}`);
@@ -415,9 +415,9 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                     src={HOST_URL}
                     title={filename}
                     className="flex-1 border-0 w-full"
-                    // Permisos necessaris perquè el reader treballi: clipboard
-                    // (copy d'extractes), downloads (export PDF imprès),
-                    // fullscreen (per al control fullscreen propi del reader).
+                    // Permissions needed for the reader to work: clipboard
+                    // (copying excerpts), downloads (printed PDF export),
+                    // fullscreen (for the reader's own fullscreen control).
                     allow="clipboard-write; clipboard-read; fullscreen"
                 />
             )}
@@ -426,12 +426,12 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
 }
 
 // =============================================================================
-// Adaptadors d'anotació entre el format Zotero (que el reader fa servir) i
-// el format que persistim a la BD (`pdf_annotations`).
+// Annotation adapters between the Zotero format (used by the reader) and
+// the format we persist in the DB (`pdf_annotations`).
 //
 // Format BD:    { id, source_uri, page, type, color, rects: [{x,y,w,h}],
 //                 text, comment, tags, created_at, updated_at }
-//                 - rects en coords NORMALITZADES 0-1 amb origen top-left
+//                 - rects in NORMALIZED 0-1 coords with top-left origin
 //                 - page 1-indexed
 //
 // Format Zotero: { id, type, color, sortIndex, pageLabel, dateCreated,
@@ -441,29 +441,29 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
 //                  - rects en coords PDF (origen bottom-left, en punts)
 //                  - pageIndex 0-indexed
 //
-// La conversió de coordenades requereix conèixer les dimensions de la
-// pàgina, que NO tenim quan només persistim a la BD. Solució: emmagatzemar
-// el JSON Zotero sencer al camp `comment` (com a JSON serialitzat amb
-// prefix __ZOTERO__), i mantenir `text`, `page`, `color`, `type` per a
-// filtres ràpids. La conversió de coords es deixa al reader Zotero.
+// Coordinate conversion requires knowing the dimensions of the
+// page, which we do NOT have when we only persist to the DB. Solution: store
+// the entire Zotero JSON in the `comment` field (as serialized JSON with
+// prefix __ZOTERO__), and keep `text`, `page`, `color`, `type` for
+// quick filters. Coordinate conversion is left to the Zotero reader.
 // =============================================================================
 
 const ZOTERO_BLOB_PREFIX = '__ZOTERO_JSON__';
 
 function pdfAnnotationToZotero(dbAnn) {
-    // Si el comment porta el blob Zotero, l'aprofitem (ple de detalls que
-    // no replicàvem a la BD).
+    // If the comment carries the Zotero blob, we make use of it (full of details that
+    // we didn't replicate in the DB).
     if (dbAnn.comment && dbAnn.comment.startsWith(ZOTERO_BLOB_PREFIX)) {
         try {
             const parsed = JSON.parse(dbAnn.comment.slice(ZOTERO_BLOB_PREFIX.length));
             return { ...parsed, id: `gnosi:${dbAnn.id}` };
         } catch { /* fall through to reconstruction */ }
     }
-    // Reconstrucció lossy per a anotacions creades amb el visor pdf.js antic.
+    // Lossy reconstruction for annotations created with the old pdf.js viewer.
     // Coords normalitzades (origen TL) → coords Zotero (origen BL) requereix
-    // dimensions reals de la pàgina que no tenim aquí. Sense això el reader
-    // no podrà mostrar-les visualment, però sí surten al sidebar. Es millorarà
-    // a la propera obertura quan l'usuari les desa de nou.
+    // the actual page dimensions that we don't have here. Without this the reader
+    // won't be able to show them visually, but they do appear in the sidebar. This will improve
+    // the next time it's opened when the user saves them again.
     return {
         id: `gnosi:${dbAnn.id}`,
         type: dbAnn.type || 'highlight',
@@ -479,7 +479,7 @@ function pdfAnnotationToZotero(dbAnn) {
         tags: [],
         position: {
             pageIndex: Math.max(0, (dbAnn.page || 1) - 1),
-            rects: [], // pèrdua acceptable: Zotero les recalcularà al re-highlight
+            rects: [], // acceptable loss: Zotero will recalculate them on re-highlight
         },
     };
 }
@@ -490,12 +490,12 @@ function zoteroToPdfAnnotation(zAnn, sourceUri) {
         page: (zAnn.position?.pageIndex ?? 0) + 1,
         type: zAnn.type || 'highlight',
         color: zAnn.color || '#ffeb3b',
-        // Rects buit perquè conservem-les dins el blob (vegeu comment).
-        // La BD només les volia per al overlay del visor antic.
+        // Empty rects because we keep them inside the blob (see comment).
+        // The DB only needed them for the old viewer's overlay.
         rects: [],
         text: zAnn.text || null,
-        // Serialitzem TOT el JSON Zotero per a fidelitat completa.
-        // En recuperar-la, l'extraurem amb el prefix.
+        // We serialize the ENTIRE Zotero JSON for full fidelity.
+        // When retrieving it, we'll extract it using the prefix.
         comment: ZOTERO_BLOB_PREFIX + JSON.stringify(zAnn),
         tags: Array.isArray(zAnn.tags) && zAnn.tags.length > 0
             ? zAnn.tags.map(t => (typeof t === 'string' ? t : t.name)).join(',')
@@ -504,11 +504,11 @@ function zoteroToPdfAnnotation(zAnn, sourceUri) {
 }
 
 /**
- * Wrapper de pàgina autònoma per al deep-link `/vault/pdf?src=...`. S'usa
- * quan algú entra al reader des de fora del VaultDashboard (link directe,
- * navegador en una nova pestanya, etc.). Dins el VaultDashboard, el
- * ZoteroReaderTab es renderitza com a pestanya integrada via
- * `gnosi:open-pdf` capturat.
+ * Standalone page wrapper for the `/vault/pdf?src=...` deep link. Used
+ * when someone enters the reader from outside the VaultDashboard (direct link,
+ * browser in a new tab, etc.). Inside the VaultDashboard,
+ * ZoteroReaderTab renders as an integrated tab via
+ * a captured `gnosi:open-pdf`.
  */
 export function ZoteroReaderPage() {
     const navigate = useNavigate();

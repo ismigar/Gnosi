@@ -29,10 +29,10 @@ generation_status = {
     "result_filename": None,
 }
 
-# Lock per evitar que dos clients arrenquin dues generacions simultànies (cada
-# generació triga ~5 min i fa crides Groq de pagament). Sense lock, dos
-# requests molt seguits passaven el check `running:False` abans que el primer
-# tingués temps de marcar-ho.
+# Lock to prevent two clients from starting two simultaneous generations (each
+# generation takes ~5 min and makes paid Groq calls). Without a lock, two
+# very rapid requests passed the `running:False` check before the first
+# had time to mark it.
 _generation_lock = threading.Lock()
 
 # --- Batch configuration for Groq free tier ---
@@ -50,7 +50,7 @@ SYSTEM_PROMPT = (
 
 
 def _build_batches(articles):
-    """Divideix els articles en lots que respecten el límit de tokens de Groq."""
+    """Splits the articles into batches that respect Groq's token limit."""
     batches = []
     current_batch_texts = []
     current_size = 0
@@ -78,7 +78,7 @@ def _build_batches(articles):
 
 
 def _summarize_batch(client, batch_texts, batch_num, total_batches):
-    """Envia un lot d'articles a Groq i retorna el text del resum."""
+    """Sends a batch of articles to Groq and returns the summary text."""
     joined = "\n".join(batch_texts)
     num_articles = len(batch_texts)
 
@@ -156,21 +156,22 @@ def _generate_tts_by_sentences(text, output_path):
 
 def generate_daily_podcast():
     """
-    Recull els articles «no llegits» de les últimes 24h, genera un resum per lots
-    via Groq (respectant el rate limit del free tier) i els converteix a àudio MP3.
+        Collects the «unread» articles from the last 24h, generates a batched summary
+    via Groq (respecting the free tier's rate limit), and converts them to MP3 audio.
+    
     """
     global generation_status
     generation_status["running"] = True
     generation_status["error"] = None
     generation_status["result_filename"] = None
 
-    # Obtenir sessió de BD dinàmicament
+    # Get DB session dynamically
     from backend.data.db import get_db
     db_gen = get_db()
     db: Session = next(db_gen)
 
     try:
-        # 1. Articles no llegits de les últimes 24h
+        # 1. Unread articles from the last 24h
         target_time = datetime.now(timezone.utc) - timedelta(hours=24)
         articles = (
             db.query(Article)
@@ -220,9 +221,9 @@ def generate_daily_podcast():
             except Exception as e:
                 log.error(f"Error in batch {batch_num}: {e}")
                 generation_status["progress"] = f"Error in batch {batch_num}: {e}"
-                # Continuem amb els lots restants si n'hi ha
+                # Continue with the remaining batches if there are any
 
-            # Esperar entre lots per respectar el rate limit
+            # Wait between batches to respect the rate limit
             if batch_num < total_batches:
                 generation_status["progress"] = (
                     f"Batch {batch_num}/{total_batches} completed. Waiting {RATE_LIMIT_WAIT_SECS}s for rate limit..."
@@ -235,7 +236,7 @@ def generate_daily_podcast():
             generation_status["error"] = "No summaries generated."
             return None
 
-        # 4. Unir tots els resums
+        # 4. Merge all the summaries
         full_script = "\n\n".join(all_summaries)
         log.info(
             f"Full script: {len(full_script)} chars ({len(full_script.split())} words)."
@@ -264,21 +265,21 @@ def generate_daily_podcast():
         generation_status["error"] = str(e)
         return None
     finally:
-        # Tancar la sessió obtinguda del generador
+        # Close the session obtained from the generator
         try:
-            next(db_gen) # Això trigerearà el 'finally' del generator
+            next(db_gen) # This will trigger the generator's 'finally'
         except StopIteration:
             pass
         generation_status["running"] = False
 
 
 def start_generation_async():
-    """Llança la generació en un thread de fons. Retorna immediatament."""
+    """Launches the generation in a background thread. Returns immediately."""
     with _generation_lock:
         if generation_status["running"]:
-            return False  # Ja hi ha una generació en curs
-        # Marca el flag DINS el lock per que ningú més passi el check abans
-        # que el thread comenci. El thread mateix sobreescriurà el progrés.
+            return False  # A generation is already in progress
+        # Sets the flag INSIDE the lock so no one else passes the check before
+        # the thread starts. The thread itself will overwrite the progress.
         generation_status["running"] = True
     thread = threading.Thread(target=generate_daily_podcast, daemon=True)
     thread.start()

@@ -1,43 +1,43 @@
-"""Catàlegs d'opcions rics, rols semàntics de camp i seeds per taula.
+"""Rich option catalogs, semantic field roles, and per-table seeds.
 
-Implementa el model de dades de la directiva
+Implements the data model from the directive
 `vault_option_catalogs_action_rules.md`:
 
-  * `config.options` admet DOS formats — string llegat ("CA") i objecte ric
-    `{name, color?, group?}`. La lectura normalitza; l'escriptura sempre desa
-    el format ric. Un registry vell carrega sense migrar.
-  * `config.role` (`language` | `status` | `tags`) identifica el camp que les
-    accions han d'usar, amb fallback als heurístics de nom existents.
-  * Seeds: en desar una taula (upsert del registry) es garanteix el catàleg
-    base del camp d'estat i s'hi afegeixen els estats que les funcionalitats
-    actives requereixen («Traduït», «Publicat a Drupal», «Publicat a XXSS»).
-  * Catàlegs compartits amb nom: bloc `option_catalogs` a l'arrel del registry;
-    un camp hi enllaça amb `config.catalog_ref` (mai conviu amb `options`).
+  * `config.options` accepts TWO formats — legacy string ("CA") and rich object
+    `{name, color?, group?}`. Reading normalizes it; writing always saves
+    the rich format. An old registry loads without migrating.
+  * `config.role` (`language` | `status` | `tags`) identifies the field that
+    actions should use, falling back to the existing name heuristics.
+  * Seeds: when saving a table (registry upsert), the base catalog of the
+    status field is guaranteed, and the states required by active features
+    are added to it («Translated», «Published to Drupal», «Published to Social Media»).
+  * Named shared catalogs: `option_catalogs` block at the root of the registry;
+    a field links to it with `config.catalog_ref` (never coexists with `options`).
 
-Com `translation_helpers`: sense I/O, sense FastAPI, sense imports del backend
-— dades entren, dades surten (testejable amb pytest sense arrossegar l'app).
+Like `translation_helpers`: no I/O, no FastAPI, no backend imports
+— data goes in, data comes out (testable with pytest without dragging in the app).
 """
 import re
 import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
-# Tipus de camp amb catàleg d'opcions triables (mirall de OPTION_FIELD_TYPES
-# del SchemaConfigModal).
+# Field types with a selectable option catalog (mirror of OPTION_FIELD_TYPES
+# of the SchemaConfigModal).
 OPTION_TYPES = {"select", "multi_select", "status"}
 
-# Paleta tancada de colors per opció (els noms són estables: la UI els mapeja
-# a CSS). El color automàtic es tria per hash del nom — estable entre Macs i
-# entre execucions, sense estat compartit.
+# Closed color palette per option (the names are stable: the UI maps them
+# to CSS). The automatic color is chosen by hashing the name — stable across Macs and
+# between runs, with no shared state.
 OPTION_COLOR_PALETTE = [
     "gray", "blue", "green", "yellow", "orange",
     "red", "purple", "pink", "brown", "teal",
 ]
 
-# Grups per defecte d'un camp `status` (estil Notion: Inicial · En curs · Final).
+# Default groups for a `status` field (Notion style: Initial · In progress · Final).
 DEFAULT_STATUS_GROUPS = ["Inicial", "En curs", "Final"]
 
-# Catàleg seed d'Estat (decisió d'Ismael, directiva §9.1). «Esborrany» i
-# «Revisat» sempre; la resta s'afegeix segons les funcionalitats actives.
+# Status seed catalog (Ismael's decision, directive §9.1). "Draft" and
+# "Reviewed" always; the rest are added according to the active features.
 STATUS_DRAFT = "Esborrany"
 STATUS_REVIEWED = "Revisat"
 STATUS_TRANSLATED = "Traduït"
@@ -53,26 +53,26 @@ ROLE_LANGUAGE = "language"
 ROLE_STATUS = "status"
 ROLE_TAGS = "tags"
 
-# Heurístics de nom per assignar rols (mateixos sinònims que
-# translation_helpers._LANGUAGE_FIELD_NAMES per al camp idioma).
+# Name heuristics for assigning roles (same synonyms as
+# translation_helpers._LANGUAGE_FIELD_NAMES for the language field).
 _ROLE_FIELD_NAMES = {
     ROLE_LANGUAGE: {"idioma", "llengua", "language", "lang", "lengua", "lingua"},
     ROLE_STATUS: {"estat", "estado", "status", "state"},
     ROLE_TAGS: {"tags", "tag", "etiquetes", "etiquetas", "labels"},
 }
 
-# Tipus admissibles per a l'heurístic de NOM de cada rol. Un camp «Estat» de
-# tipus text (p. ex. el cicle de vida propi de «Publicacions Socials») NO és
-# un camp d'estat semàntic: ni se li fan seeds ni les accions l'usen. El rol
-# EXPLÍCIT (config.role) no té aquesta restricció — mana la intenció.
+# Allowed types for the NAME heuristic of each role. A "Status" field of
+# text type (e.g. the lifecycle specific to "Social Posts") is NOT
+# a semantic status field: it's neither seeded nor used by the actions. The role
+# EXPLICIT (config.role) has no such restriction — intent takes precedence.
 _ROLE_ALLOWED_TYPES = {
     ROLE_LANGUAGE: {"select", "status"},
     ROLE_STATUS: {"select", "status"},
     ROLE_TAGS: {"multi_select"},
 }
 
-# Senyal de publicació a XXSS: columna `system` amb nom xxss/social (mateix
-# regex que el frontend — isSocialPublishTable a VaultTable).
+# Signal for publishing to XXSS: `system` column named xxss/social (same
+# regex as the frontend — isSocialPublishTable in VaultTable).
 _SOCIAL_COLUMN_RE = re.compile(r"xxss|social", re.IGNORECASE)
 
 
@@ -88,11 +88,12 @@ def _norm_name(name: Any) -> str:
 
 
 def auto_color(name: str) -> str:
-    """Color estable per a una opció sense color explícit.
+    """Stable color for an option without an explicit color.
 
-    Hash djb2-xor sobre el nom normalitzat: trivialment replicable a JS
-    (optionCatalogUtils.js fa servir el MATEIX algorisme) perquè una opció
-    encara no persistida es pinti igual al client que al servidor.
+    djb2-xor hash over the normalized name: trivially replicable in JS
+    (optionCatalogUtils.js uses the SAME algorithm) so that an option
+    not yet persisted is painted the same on the client as on the server.
+    
     """
     h = 5381
     for ch in _norm_name(name):
@@ -101,7 +102,7 @@ def auto_color(name: str) -> str:
 
 
 def normalize_option(opt: Any) -> Optional[Dict[str, Any]]:
-    """Una opció (string llegat o dict ric) → dict ric, o None si invàlida."""
+    """An option (legacy string or rich dict) → rich dict, or None if invalid."""
     if isinstance(opt, dict):
         name = str(opt.get("name") or "").strip()
         if not name:
@@ -122,8 +123,8 @@ def normalize_option(opt: Any) -> Optional[Dict[str, Any]]:
 
 
 def normalize_options(options: Any) -> List[Dict[str, Any]]:
-    """Llista d'opcions en qualsevol format → llista rica sense duplicats
-    (primera aparició mana, comparació exacta per nom)."""
+    """List of options in any format → rich list without duplicates
+    (first occurrence wins, exact comparison by name)."""
     out: List[Dict[str, Any]] = []
     seen = set()
     for opt in options if isinstance(options, list) else []:
@@ -144,12 +145,13 @@ def get_prop_config(prop: dict) -> dict:
 
 
 def get_prop_options(prop: dict, option_catalogs: Optional[dict] = None) -> List[Dict[str, Any]]:
-    """Opcions efectives d'una property, normalitzades.
+    """Effective options of a property, normalized.
 
-    Prioritat (mateixa que buildSchemaFromTableProperties al frontend):
-    `config.catalog_ref` (catàleg compartit) → `config.options` (niat, l'escriu
-    el PATCH inline) → `options` al nivell superior (l'escriu el desat del
-    modal).
+    Priority (same as buildSchemaFromTableProperties on the frontend):
+    `config.catalog_ref` (shared catalog) → `config.options` (nested, written
+    by the inline PATCH) → top-level `options` (written by the modal's
+    save).
+    
     """
     cfg = get_prop_config(prop)
     ref = str(cfg.get("catalog_ref") or "").strip()
@@ -163,24 +165,25 @@ def get_prop_options(prop: dict, option_catalogs: Optional[dict] = None) -> List
 
 
 def set_prop_options(prop: dict, options: List[Dict[str, Any]]) -> None:
-    """Escriu el catàleg (normalitzat) a la ubicació canònica `config.options`
-    i retira el duplicat llegat del nivell superior perquè no divergeixin."""
+    """Writes the (normalized) catalog to the canonical location `config.options`
+    and removes the legacy top-level duplicate so they don't diverge."""
     cfg = prop.setdefault("config", {})
     cfg["options"] = normalize_options(options)
     prop.pop("options", None)
 
 
 def prop_role(prop: dict) -> str:
-    """Rol explícit (`config.role`) o '' si no en té."""
+    """Explicit role (`config.role`), or '' if it has none."""
     role = str(get_prop_config(prop).get("role") or "").strip().lower()
     return role if role in (ROLE_LANGUAGE, ROLE_STATUS, ROLE_TAGS) else ""
 
 
 def find_role_prop(table: dict, role: str) -> Optional[dict]:
-    """Property d'una taula per rol semàntic, amb fallback a l'heurístic de nom.
+    """Table property by semantic role, with fallback to the name heuristic.
 
-    El fallback garanteix compatibilitat amb taules no migrades: les accions
-    troben el camp «Estat»/«Idioma»/«Tags» encara que ningú hagi assignat rols.
+    The fallback guarantees compatibility with non-migrated tables: actions
+    find the "Status"/"Language"/"Tags" field even if no one has assigned roles.
+    
     """
     props = table.get("properties") or []
     for p in props:
@@ -204,10 +207,11 @@ def table_has_social_column(table: dict) -> bool:
 
 
 def assign_roles(table: dict) -> bool:
-    """Assigna `config.role` per nom als camps que no en tinguin (idempotent).
+    """Assigns `config.role` by name to fields that don't have one (idempotent).
 
-    Només camps de tipus opció (per a status/tags) o select (per a idioma):
-    un camp de text lliure anomenat «Estat» no es toca.
+    Only option-type fields (for status/tags) or select (for language):
+    a free-text field named "Status" is left untouched.
+    
     """
     changed = False
     taken = {prop_role(p) for p in table.get("properties") or [] if prop_role(p)}
@@ -231,11 +235,13 @@ def assign_roles(table: dict) -> bool:
 
 
 def ensure_options_exist(prop: dict, wanted: List[Tuple[str, str]]) -> bool:
-    """Garanteix que les opcions `(nom, grup)` són al catàleg del camp.
+    """Ensures the `(name, group)` options are in the field's catalog.
 
-    Normalitza el catàleg existent (strings → format ric) i hi afegeix les que
-    faltin. No toca ni reordena les existents. Retorna True si ha modificat.
-    Camps amb `catalog_ref` no es toquen (el catàleg compartit és de l'usuari).
+    Normalizes the existing catalog (strings → rich format) and adds any that
+    are missing. Does not touch or reorder existing ones. Returns True if it
+    modified anything. Fields with `catalog_ref` are left untouched (the shared
+    catalog belongs to the user).
+    
     """
     cfg = get_prop_config(prop)
     if str(cfg.get("catalog_ref") or "").strip():
@@ -259,12 +265,13 @@ def ensure_options_exist(prop: dict, wanted: List[Tuple[str, str]]) -> bool:
 
 
 def ensure_status_seed(table: dict) -> bool:
-    """Seed-on-enable del camp d'estat (directiva §3.3, decisió §9.1).
+    """Seed-on-enable for the status field (directive §3.3, decision §9.1).
 
-    Catàleg base «Esborrany»/«Revisat» sempre; «Traduït» si la taula és
-    traduïble; «Publicat a Drupal» / «Publicat a XXSS» si tenen la
-    funcionalitat activa. També garanteix `option_groups` per a camps status.
-    No fa res si la taula no té camp d'estat.
+    Base catalog "Draft"/"Reviewed" always; "Translated" if the table is
+    translatable; "Published to Drupal" / "Published to XXSS" if they have
+    the feature active. Also ensures `option_groups` for status fields.
+    Does nothing if the table has no status field.
+    
     """
     prop = find_role_prop(table, ROLE_STATUS)
     if not prop:
@@ -286,16 +293,16 @@ def ensure_status_seed(table: dict) -> bool:
 
 
 def normalize_table_options(table: dict) -> bool:
-    """Canonicalitza els catàlegs de tots els camps d'opcions d'una taula:
-    format ric + ubicació única (`config.options`). Idempotent."""
+    """Canonicalizes the catalogs of all option fields in a table:
+    rich format + single location (`config.options`). Idempotent."""
     changed = False
     for p in table.get("properties") or []:
         if p.get("type") not in OPTION_TYPES:
             continue
         cfg = get_prop_config(p)
         if str(cfg.get("catalog_ref") or "").strip():
-            # Amb catàleg compartit no hi ha opcions locals: si en queden de
-            # llegades, es retiren (mai conviuen, directiva §3.1).
+            # With a shared catalog there are no local options: if any are left over from
+            # once read, they're withdrawn (they never coexist, directive §3.1).
             if cfg.get("options") is not None or p.get("options") is not None:
                 cfg.pop("options", None)
                 p.pop("options", None)
@@ -312,8 +319,8 @@ def normalize_table_options(table: dict) -> bool:
 
 
 def ensure_table_seeds(table: dict) -> bool:
-    """Punt únic d'entrada del desat de taula (upsert del registry): normalitza
-    catàlegs, assigna rols per nom i fa el seed d'estats. Idempotent."""
+    """Single entry point for saving a table (registry upsert): normalizes
+    catalogs, assigns roles by name and seeds statuses. Idempotent."""
     changed = normalize_table_options(table)
     changed = assign_roles(table) or changed
     changed = ensure_status_seed(table) or changed

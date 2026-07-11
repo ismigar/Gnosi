@@ -1,21 +1,22 @@
-"""IMAP IDLE service: push notifications quan arriben missatges nous.
+"""IMAP IDLE service: push notifications when new messages arrive.
 
-Funcionament:
-  - Per cada compte IMAP enabled, llança un thread daemon que manté una
-    connexió IMAP oberta a INBOX i fa servir el comand IDLE (RFC 2177).
-  - El servidor envia notificacions sense petició quan canvia la carpeta
-    (EXISTS, EXPUNGE, FETCH).
-  - Cada notificació rellevant es publica a una cua interna que els
-    consumidors SSE poden subscriure.
-  - Cada ~28 minuts el worker reinicia la connexió IDLE (Gmail i altres
-    servidors tallen connexions inactives a 30' segons RFC).
+How it works:
+  - For each enabled IMAP account, spawns a daemon thread that keeps an
+    open IMAP connection to INBOX and uses the IDLE command (RFC 2177).
+  - The server sends notifications without a request when the folder
+    changes (EXISTS, EXPUNGE, FETCH).
+  - Each relevant notification is published to an internal queue that
+    SSE consumers can subscribe to.
+  - Every ~28 minutes the worker restarts the IDLE connection (Gmail and
+    other servers cut idle connections at 30' per RFC).
 
-Limitacions:
-  - imaplib no té helper IDLE; usem accés directe a `_new_tag` i el socket
-    intern. Funciona des de Python 3.8+ amb imaplib estàndard.
-  - Si la xarxa cau, el worker fa backoff exponencial fins re-connectar.
-  - El refresh d'access_token OAuth2 es fa via `_connect`, igual que altres
-    serveis IMAP. Si caduca, el worker s'atura i logueja error clar.
+Limitations:
+  - imaplib has no IDLE helper; we use direct access to `_new_tag` and the
+    internal socket. Works from Python 3.8+ with standard imaplib.
+  - If the network drops, the worker does exponential backoff until it
+    reconnects.
+  - The OAuth2 access_token refresh is done via `_connect`, same as other
+    IMAP services. If it expires, the worker stops and logs a clear error.
 """
 from __future__ import annotations
 
@@ -29,14 +30,14 @@ from typing import Callable, Deque, Optional
 log = logging.getLogger(__name__)
 
 
-_IDLE_REFRESH_S = 28 * 60   # renovar IDLE cada 28 min
-_RECONNECT_BACKOFF_S = (1, 15, 60, 120, 300)  # backoff exponencial per reconnect
-# Primer reintent a 1s perquè Gmail sovint talla IDLE als ~60s; volem
-# reduir el gap de cobertura push (1s entre cicles enlloc de 5s).
+_IDLE_REFRESH_S = 28 * 60   # renew IDLE every 28 min
+_RECONNECT_BACKOFF_S = (1, 15, 60, 120, 300)  # exponential backoff for reconnect
+# First retry at 1s because Gmail often cuts IDLE at ~60s; we want
+# reduce the push coverage gap (1s between cycles instead of 5s).
 
 
 class _Subscriber:
-    """Un consumidor d'events. Conté una cua local thread-safe."""
+    """An event consumer. Contains a local thread-safe queue."""
     def __init__(self, account_filter: Optional[str] = None):
         self.account_filter = account_filter
         self.queue: Deque[dict] = deque(maxlen=1024)
@@ -60,7 +61,7 @@ class _Subscriber:
 
 
 class ImapIdleManager:
-    """Gestiona workers IDLE per cada compte i distribueix events a subscriptors."""
+    """Manages IDLE workers for each account and distributes events to subscribers."""
 
     def __init__(self):
         self._workers: dict[str, threading.Thread] = {}
@@ -94,10 +95,10 @@ class ImapIdleManager:
             except Exception:
                 pass
 
-    # ── Cicle de vida dels workers ──────────────────────────────────────
+    # ── Worker lifecycle ──────────────────────────────────────
 
     def start_all(self) -> None:
-        """Llança un worker per cada compte IMAP habilitat. Idempotent."""
+        """Launches a worker for each enabled IMAP account. Idempotent."""
         if self._running:
             return
         self._running = True
@@ -144,7 +145,7 @@ class ImapIdleManager:
             self.stop_worker(em)
         self._running = False
 
-    # ── Worker IDLE (un per compte) ─────────────────────────────────────
+    # ── IDLE Worker (one per account) ─────────────────────────────────────
 
     def _worker_loop(self, email_account: str, stop: threading.Event) -> None:
         attempt = 0
@@ -171,7 +172,7 @@ class ImapIdleManager:
                         return
 
                     imap.select("INBOX")
-                    attempt = 0  # reset backoff després de connexió OK
+                    attempt = 0  # reset backoff after successful connection
                     self._idle_session(imap, email_account, stop)
             except Exception as e:
                 log.exception(f"[IDLE] Error al worker {email_account}: {e}")
@@ -186,7 +187,7 @@ class ImapIdleManager:
                 return
 
     def _idle_session(self, imap, email_account: str, stop: threading.Event) -> None:
-        """Una sessió IDLE: envia IDLE, llegeix events, surt cada ~28 min o per stop."""
+        """An IDLE session: sends IDLE, reads events, exits every ~28 min or on stop."""
         tag = imap._new_tag().decode()  # noqa: SLF001 — accés al protocol intern
         try:
             imap.send(f"{tag} IDLE\r\n".encode())
@@ -194,7 +195,7 @@ class ImapIdleManager:
             log.warning(f"[IDLE] No s'ha pogut enviar IDLE a {email_account}: {e}")
             return
 
-        # Llegir línia inicial "+ idling"
+        # Read initial line "+ idling"
         sock = imap.socket()
         prev_timeout = sock.gettimeout()
         try:
@@ -211,11 +212,11 @@ class ImapIdleManager:
 
             log.debug(f"[IDLE] {email_account}: idling…")
             start = time.monotonic()
-            sock.settimeout(60)  # timeout per polling regular del stop event
+            sock.settimeout(60)  # timeout for regular polling of the stop event
 
             while not stop.is_set():
                 if time.monotonic() - start > _IDLE_REFRESH_S:
-                    break  # renovació periòdica
+                    break  # periodic renewal
                 try:
                     line = imap.readline()
                 except socket.timeout:
@@ -225,10 +226,10 @@ class ImapIdleManager:
                     return
 
                 if not line:
-                    return  # connexió tallada
+                    return  # connection dropped
 
                 s = line.decode("utf-8", errors="replace").strip()
-                # Format típic: "* 12 EXISTS", "* 5 EXPUNGE", "* 12 FETCH (FLAGS (\\Seen))"
+                # Typical format: "* 12 EXISTS", "* 5 EXPUNGE", "* 12 FETCH (FLAGS (\\Seen))"
                 if " EXISTS" in s:
                     self._broadcast({
                         "account": email_account,
@@ -249,11 +250,11 @@ class ImapIdleManager:
                         "raw": s,
                     })
         finally:
-            # DONE per sortir d'IDLE
+            # DONE to exit IDLE
             try:
                 sock.settimeout(10)
                 imap.send(b"DONE\r\n")
-                # Consumim la confirmació final del tag
+                # Consume the final tag confirmation
                 while True:
                     line = imap.readline()
                     if not line or line.startswith(tag.encode()):

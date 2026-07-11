@@ -34,11 +34,11 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     else:
         vault_raw = overrides.get("vault")
         vault_path = Path(vault_raw) if vault_raw else None
-        # Robustesa entre Macs (fora de Docker): `params.yaml` viu DINS el vault i
-        # se sincronitza per OneDrive, així que `vault:` pot ser la ruta absoluta de
-        # l'ALTRE Mac (/Users/<altre_usuari>/...) i no existir aquí. Si és el cas,
-        # re-arrelem el tram després de l'usuari a $HOME actual (sense hardcodejar
-        # usuari ni núvol). En Docker no s'activa mai: DIGITAL_BRAIN_VAULT_PATH mana.
+        # Robustness across Macs (outside Docker): `params.yaml` lives INSIDE the vault and
+        # is synced via OneDrive, so `vault:` can be the absolute path of
+        # the OTHER Mac (/Users/<other_user>/...) and not exist here. If that's the case,
+        # we re-root the segment after the user to the current $HOME (without hardcoding
+        # user or cloud). In Docker this never activates: DIGITAL_BRAIN_VAULT_PATH governs.
         if vault_path and vault_path.is_absolute() and not vault_path.exists():
             parts = vault_path.parts
             if len(parts) >= 4 and parts[1] in ("Users", "home"):
@@ -70,9 +70,9 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         (local_data / "system").mkdir(parents=True, exist_ok=True)
         # Per-agent LangGraph checkpoints land here.
         (local_data / "system" / "checkpoints").mkdir(parents=True, exist_ok=True)
-        # Logs operatius (notifications, etc.) — creats al boot perquè els
-        # mòduls que escriuen aquí (notification_service, etc.) no hagin
-        # de fer mkdir defensiu cada vegada.
+        # Operational logs (notifications, etc.) — created at boot so that the
+        # modules that write here (notification_service, etc.) don't have to
+        # of doing a defensive mkdir every time.
         (local_data / "logs").mkdir(parents=True, exist_ok=True)
         (local_data / "audio").mkdir(parents=True, exist_ok=True)
         (local_data / "out").mkdir(parents=True, exist_ok=True)
@@ -80,21 +80,21 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     except Exception:
         pass
 
-    # ── Secrets (credencials d'integracions: Google Calendar/Mail, etc.) ──
-    # ABANS vivien a project_root/pipeline/private_skills/secrets, un BIND MOUNT
-    # dins l'arbre git. Un `git clean -fdx` (o una neteja/reinstal·lació)
-    # esborrava integrations.json i TOTES les integracions de Google deixaven
-    # de carregar (calendaris/mail buits, sense ni error d'auth).
-    # Ara viuen al volum nomenat `gnosi_local_data` (/app/data), com
-    # management.sqlite: fora de git, fora de OneDrive (cap dataless/EDEADLK),
-    # persistent entre rebuilds. És local per màquina — es reconnecta un cop per
-    # Mac via OAuth i ja no es perd. Vegeu directive environment_integrity.md.
+    # ── Secrets (integration credentials: Google Calendar/Mail, etc.) ──
+    # PREVIOUSLY lived at project_root/pipeline/private_skills/secrets, a BIND MOUNT
+    # inside the git tree. A `git clean -fdx` (or a cleanup/reinstall)
+    # deleted integrations.json and ALL Google integrations stopped
+    # loading (empty calendars/mail, without even an auth error).
+    # They now live in the volume named `gnosi_local_data` (/app/data), like
+    # management.sqlite: outside git, outside OneDrive (no dataless/EDEADLK),
+    # persistent across rebuilds. It's local per machine — it reconnects once per
+    # Mac via OAuth and is no longer lost. See directive environment_integrity.md.
     secrets_dir = local_data / "secrets"
     try:
         secrets_dir.mkdir(parents=True, exist_ok=True)
-        # Migració idempotent (un sol cop): si encara hi ha el fitxer a la
-        # ubicació antiga —p. ex. l'altre Mac després d'un `git pull`— el copiem
-        # al volum nou. No esborrem l'antic (és inofensiu com a fallback).
+        # Idempotent migration (one-time only): if the file still exists at the
+        # old location —e.g. the other Mac after a `git pull`— we copy it
+        # to the new volume. We don't delete the old one (it's harmless as a fallback).
         _old_secrets = project_root / "pipeline" / "private_skills" / "secrets" / "integrations.json"
         _new_secrets = secrets_dir / "integrations.json"
         if _old_secrets.exists() and not _new_secrets.exists():
@@ -104,16 +104,16 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         pass
 
     db_path = safe_base / "BD"
-    # Newsletters: clau mantinguda pel frontend (settings tab) per a
-    # subscripcions futures, però NO es crea automàticament al disc per
-    # evitar carpetes buides al vault. El path només existeix si algun
-    # mòdul l'utilitza activament i fa el seu propi mkdir.
+    # Newsletters: key maintained by the frontend (settings tab) for
+    # future subscriptions, but it is NOT automatically created on disk to
+    # avoid empty folders in the vault. The path only exists if some
+    # module actively uses it and does its own mkdir.
     newsletters_path = safe_base / "Newsletters"
     assets_path = safe_base / "Assets"
     calendar_path = safe_base / "Calendar"
     mail_path = safe_base / "Mail"
-    # Noms canònics anglesos. Els llegacy "Plantilles"/"Dibuixos" del primer
-    # disseny s'eliminen — el codi actual escriu a Templates/Drawings.
+    # Canonical English names. The legacy "Plantilles"/"Dibuixos" from the first
+    # design get deleted — the current code writes to Templates/Drawings.
     plantilles_path = safe_base / "Templates"
     dibuixos_path = safe_base / "Drawings"
     wiki_path = safe_base / "Wiki"
@@ -125,10 +125,10 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     registry = db_path / "vault_db_registry.json"
 
     # ── Persistent App Data (Vault-first) ──
-    # `.gnosi/` és l'única carpeta de configuració vault-first: hi viuen
-    # identitat, scheduler, custom icons i agent instructions/tools. Tot el
-    # que pertany a una instància concreta (caches, SQLite, vector stores,
-    # checkpoints, audio, logs, backups) viu a `local_data/` (per dispositiu,
+    # `.gnosi/` is the only vault-first configuration folder: it holds
+    # identity, scheduler, custom icons and agent instructions/tools. All the
+    # that belongs to a specific instance (caches, SQLite, vector stores,
+    # checkpoints, audio, logs, backups) lives in `local_data/` (per device,
     # no sincronitzat).
     persistent_base = safe_base / ".gnosi"
     agent_instructions = persistent_base / "agent" / "instructions"
@@ -156,15 +156,15 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         "DIBUIXOS": dibuixos_path,
         "WIKI": wiki_path,
         "DASHBOARDS": dashboard_path,
-        # `.gnosi/` base canònica per a config sincronitzat.
+        # `.gnosi/` canonical base for synced config.
         "GNOSI_CONFIG": persistent_base,
         "OUT_JSON": out_json,
         "OUT_GRAPH": out_graph,
         "REGISTRY": registry,
-        # Logs operatius — per-instància (van a local_data dins el container).
+        # Operational logs — per-instance (go to local_data inside the container).
         "LOGS": local_data / "logs",
         "LOG_DIR": local_data / "logs",
-        # Vector store i àudio: per-instància, mai al vault.
+        # Vector store and audio: per-instance, never in the vault.
         "CHROMA": local_data / "chroma_db",
         "AUDIO": local_data / "audio",
         # Configs sincronitzats vault-first via .gnosi/.

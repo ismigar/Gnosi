@@ -1,9 +1,9 @@
-"""Contenció de path a l'eina d'agent `create_page` (arg `folder`).
+"""Path containment in the agent tool `create_page` (arg `folder`).
 
-El sanejat del `folder` (que ve de l'LLM) treu els punts però conserva les
-barres: "../../etc" → "///etc", i `vault / "///etc"` esdevé absolut (/etc),
-descartant el prefix del vault → escriptura del .md FORA del vault. La
-contenció confina el destí al vault (fallback a la carpeta per defecte).
+Sanitizing `folder` (which comes from the LLM) strips dots but keeps
+slashes: "../../etc" → "///etc", and `vault / "///etc"` becomes absolute (/etc),
+discarding the vault prefix → writing the .md OUTSIDE the vault. The
+containment confines the destination to the vault (falls back to the default folder).
 """
 import backend.services.context_vars as cv
 import backend.api.vault_routes as vr

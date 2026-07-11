@@ -1,13 +1,13 @@
-"""Permisos per rol dels inline-comments (paritat amb els comentaris de pàgina).
+"""Role-based permissions for inline comments (parity with page comments).
 
-Les tres mutacions (POST/PATCH/DELETE /pages/{id}/inline-comments) exigeixen
-rol `editor`, igual que les dels comentaris de pàgina normals: el frontend no
-fa cap gating per rol, així que el backend és l'única barrera. La lectura
-(GET) queda oberta a viewers, com el GET de comentaris de pàgina.
+The three mutations (POST/PATCH/DELETE /pages/{id}/inline-comments) require
+`editor` role, same as regular page comments: the frontend does no
+role gating at all, so the backend is the only barrier. Reading
+(GET) is left open to viewers, like the page comments GET.
 
-Exercita el routing real (les guardes van a `dependencies=[...]` del decorador,
-no al cos del handler): app FastAPI mínima amb el router del vault i
-`get_workspace_context` sobreescrit per simular cada rol.
+Exercises the real routing (the guards live in the decorator's `dependencies=[...]`,
+not in the handler body): minimal FastAPI app with the vault router and
+`get_workspace_context` overridden to simulate each role.
 """
 from pathlib import Path
 
@@ -51,7 +51,7 @@ def test_viewer_cannot_mutate_inline_comments(tmp_path, monkeypatch):
     r = client.delete("/api/vault/pages/p1/inline-comments/qualsevol-id")
     assert r.status_code == 403, r.text
 
-    # Res no s'ha escrit al vault de prova.
+    # Nothing has been written to the test vault.
     sidecar_dir = tmp_path / ".gnosi" / "inline_comments"
     assert not sidecar_dir.exists() or not list(sidecar_dir.glob("*.json"))
 

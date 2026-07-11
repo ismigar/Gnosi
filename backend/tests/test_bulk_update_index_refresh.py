@@ -1,11 +1,11 @@
-"""bulk-update-metadata ha de refrescar l'índex en memòria amb el valor nou.
+"""bulk-update-metadata must refresh the in-memory index with the new value.
 
-L'endpoint escrivia a disc però NOMÉS invalidava l'índex de cites; no
-refrescava `_page_index_entries` ni el micro-cache. Resultat (reproduït en
-viu): `updated=N` però `GET /by-table`/`/pages` seguien servint el metadata
-VELL des del cache fins al rescan complet (cooldown 600s) → l'edició massiva
-"no s'enganxava" a la graella. El PATCH d'una sola pàgina ja feia aquest
-refresc; ara el bulk també.
+The endpoint wrote to disk but ONLY invalidated the citations index; it didn't
+refresh `_page_index_entries` or the micro-cache. Result (reproduced live):
+`updated=N` but `GET /by-table`/`/pages` kept serving the OLD metadata
+from the cache until the full rescan (600s cooldown) → the bulk edit
+"didn't stick" in the grid. The single-page PATCH already did this
+refresh; now bulk does too.
 """
 import asyncio
 
@@ -20,7 +20,7 @@ def test_bulk_update_refreshes_in_memory_index(monkeypatch, tmp_path):
     v_str = str(vault)
 
     monkeypatch.setattr(vr, "get_active_vault_path", lambda: vault)
-    # `_build_cache_entry_from_memory` usa `get_p("VAULT")` per al rel_folder.
+    # `_build_cache_entry_from_memory` uses `get_p("VAULT")` for the rel_folder.
     monkeypatch.setattr(vr, "get_p", lambda key: vault)
     monkeypatch.setattr(vr, "find_page_path", lambda pid, **kw: fp if pid == "p1" else None)
     monkeypatch.setattr(vr, "_invalidate_cite_key_index", lambda *a, **k: None)
@@ -29,7 +29,7 @@ def test_bulk_update_refreshes_in_memory_index(monkeypatch, tmp_path):
     monkeypatch.setattr(vr, "_pages_cache_invalidate_all",
                         lambda: invalidated.__setitem__("n", invalidated["n"] + 1))
 
-    # Sembra l'entrada d'índex amb el metadata RANCI (com el tindria el cache).
+    # Seed the index entry with STALE metadata (as the cache would have it).
     st = fp.stat()
     vr._page_index_entries.setdefault(v_str, {})[str(fp)] = {
         "id": "p1", "title": "P", "parent_id": None, "is_database": False,
@@ -45,7 +45,7 @@ def test_bulk_update_refreshes_in_memory_index(monkeypatch, tmp_path):
 
         # Disc actualitzat.
         assert "NOU" in fp.read_text(encoding="utf-8")
-        # ÍNDEX en memòria refrescat (abans del fix seguia "vell").
+        # In-memory INDEX refreshed (before the fix it stayed "old").
         entry = vr._page_index_entries[v_str][str(fp)]
         assert (entry.get("metadata") or {}).get("QAField") == "NOU", \
             "l'índex en memòria ha de reflectir el valor nou"
@@ -56,7 +56,7 @@ def test_bulk_update_refreshes_in_memory_index(monkeypatch, tmp_path):
 
 
 def test_bulk_skip_does_not_touch_index(monkeypatch, tmp_path):
-    # Un patch idèntic al valor actual = skip → no refresca ni invalida.
+    # A patch identical to the current value = skip → doesn't refresh or invalidate.
     vault = tmp_path / "vault"
     vault.mkdir()
     fp = vault / "page.md"

@@ -11,17 +11,17 @@ import { useVaultViewData } from '../../hooks/useVaultViewData';
 import { resolveViewSorts, resolveViewFilters } from './schemaUtils';
 
 /**
- * VaultViewBody — render compartit del COS d'una vista de BD segons el seu
- * tipus (taula, llista, kanban, galeria, timeline, feed, calendari).
+ * VaultViewBody — shared render of the BODY of a DB view according to its
+ * type (table, list, kanban, gallery, timeline, feed, calendar).
  *
- * Reutilitzat tant per la taula completa (VaultDashboard) com per la vista
- * embeguda (DbViewEmbed) per evitar duplicar el switch per-tipus i el
- * cablejat de callbacks. NO embolcalla amb cap contenidor: qui el crida posa
- * el seu (alçada/scroll/padding). El tipus `graph` no es gestiona aquí (no té
- * component editable equivalent); el caller el tracta a part.
+ * Reused both by the full table (VaultDashboard) and by the embedded
+ * view (DbViewEmbed) to avoid duplicating the per-type switch and the
+ * callback wiring. It does NOT wrap anything in a container: the caller supplies
+ * its own (height/scroll/padding). The `graph` type is not handled here (it has no
+ * equivalent editable component); the caller deals with it separately.
  *
- * Props: el conjunt de dades de la vista (notes, schema, activeView, …) i els
- * callbacks d'acció. Cada caller passa els seus.
+ * Props: the view's data set (notes, schema, activeView, …) and the
+ * action callbacks. Each caller passes its own.
  */
 export function VaultViewBody({
     type = 'table',
@@ -55,7 +55,7 @@ export function VaultViewBody({
 }) {
     const t = String(type || 'table').toLowerCase();
 
-    // Props comunes als components que comparteixen la mateixa signatura.
+    // Props common to components that share the same signature.
     const common = {
         notes,
         schema,
@@ -72,12 +72,12 @@ export function VaultViewBody({
         onUpdateView,
     };
 
-    // Notes filtrades/ordenades segons la vista. El calendari rep `allNotes` i no
-    // aplica ell mateix els filtres de la vista, així que els hi apliquem aquí amb
-    // el mateix motor que la resta de vistes (abans els ignorava per complet).
-    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — import de Notion i
-    // modal — amb fallback a la llegada `sort`). Memoitzat perquè els resolutors
-    // retornen arrays nous a cada crida.
+    // Notes filtered/sorted according to the view. The calendar receives `allNotes` and does not
+    // apply the view's filters itself, so we apply them here with
+    // the same engine as the rest of the views (it used to ignore them entirely).
+    // The order is resolved with `resolveViewSorts` (key `sorts` — Notion import and
+    // modal — with a fallback to the legacy `sort`). Memoized because the resolvers
+    // return new arrays on each call.
     const filteredViewConfig = useMemo(() => ({
         filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
@@ -92,8 +92,8 @@ export function VaultViewBody({
 
     let body;
     if (t === 'board') {
-        // `onUpdateNote` habilita el drag & drop de targetes entre columnes
-        // (escriu el camp d'agrupació del registre en deixar anar).
+        // `onUpdateNote` enables drag & drop of cards between columns
+        // (writes the record's grouping field on drop).
         body = <VaultKanban {...common} isEmbedded={isEmbedded} onUpdateNote={onUpdateNote} />;
     } else if (t === 'gallery') {
         body = (
@@ -127,9 +127,9 @@ export function VaultViewBody({
     } else if (t === 'calendar') {
         body = (
             <DigitalBrainCalendar
-                // `key`: FullCalendar només llegeix initialView en muntar; canviar
-                // la "vista inicial" al modal amb el calendari obert no feia res
-                // fins a sortir i tornar. El remuntatge és barat aquí.
+                // `key`: FullCalendar only reads initialView on mount; changing
+                // the "initial view" in the modal with the calendar open did nothing
+                // until you left and came back. Remounting is cheap here.
                 key={activeView?.calendarView || 'dayGridMonth'}
                 allNotes={viewFilteredNotes}
                 onNoteSelect={onNoteSelect}
@@ -164,12 +164,12 @@ export function VaultViewBody({
         );
     }
 
-    // Xarxa de seguretat: un throw de render transitori durant el bootstrap en
-    // fred (dades/esquema/registry a mig carregar) o un error real en una cel·la
-    // no ha de tombar la vista. El boundary mostra un fallback discret i
-    // s'auto-recupera quan canvien les dades (resetKeys). Les claus inclouen les
-    // referències de `schema`/`notes` (que canvien en arribar les dades) i la
-    // identitat de la vista/tipus (canvi de vista o taula).
+    // Safety net: a transient render throw during the bootstrap in
+    // cold (data/schema/registry still loading) or an actual error in a cell
+    // must not take down the view. The boundary shows a discreet fallback and
+    // auto-recovers when the data changes (resetKeys). The keys include the
+    // `schema`/`notes` references (which change when the data arrives) and the
+    // view/type identity (view or table change).
     return (
         <VaultViewErrorBoundary resetKeys={[t, activeView?.id, schema, notes, allNotes, isEmbedded]}>
             {body}

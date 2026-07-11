@@ -1,7 +1,7 @@
 /**
  * TldrawEditor.jsx
- * Editor de dibuixos basat en Tldraw per al Vault de Gnosi.
- * Substitueix ExcalidrawEditor i és totalment compatible amb React 19.
+ * Drawing editor based on Tldraw for the Gnosi Vault.
+ * Replaces ExcalidrawEditor and is fully compatible with React 19.
  */
 import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { Tldraw, createTLStore, defaultShapeUtils, getSnapshot, loadSnapshot } from 'tldraw';
@@ -43,8 +43,8 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
     };
 
     const copyId = async () => {
-        // navigator.clipboard pot rebutjar (insecure context, permís denegat).
-        // Sense `await` el toast.success es mostrava abans de saber el resultat.
+        // navigator.clipboard may reject (insecure context, permission denied).
+        // Without `await` the toast.success was shown before knowing the result.
         try {
             await navigator.clipboard.writeText(pageId);
             toast.success(t('tldraw.id_copied'));
@@ -63,7 +63,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
                 </button>
             </div>
 
-            {/* Botons */}
+            {/* Buttons */}
             <div className="flex gap-1 p-2">
                 <button
                     onClick={loadPreview}
@@ -88,7 +88,7 @@ function PageActionsPanel({ pageId, pageTitle, onClose }) {
                 </button>
             </div>
 
-            {/* Preview del contingut */}
+            {/* Content preview */}
             {preview !== null && (
                 <div className="border-t border-slate-200 max-h-[200px] overflow-y-auto p-3">
                     <p className="text-xs text-slate-600 whitespace-pre-wrap leading-relaxed">
@@ -107,10 +107,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const { isEnabled: isPluginEnabled } = usePlugins();
     const cardsEnabled = isPluginEnabled('canvas-cards');
     const [store] = useState(() => createTLStore({ shapeUtils: CANVAS_SHAPE_UTILS }));
-    // 'loading' | 'ready' | 'error' | 'incompatible' — el desat (autosave i
-    // Ctrl+S) NOMÉS és possible a 'ready'. Si la càrrega falla o el snapshot
-    // no s'aplica, desar significaria sobreescriure el dibuix real amb un
-    // llenç buit (vegeu directiva tldraw_save_integrity.md).
+    // 'loading' | 'ready' | 'error' | 'incompatible' — saving (autosave and
+    // Ctrl+S) is ONLY possible in 'ready'. If loading fails or the snapshot
+    // doesn't apply, saving would mean overwriting the real drawing with an
+    // empty canvas (see the tldraw_save_integrity.md directive).
     const [loadState, setLoadState] = useState(drawingId ? 'loading' : 'ready');
     const [retryTick, setRetryTick] = useState(0);
     const editorRef = useRef(null);
@@ -121,31 +121,31 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const [recognizing, setRecognizing] = useState(false);
     const [penOnly, setPenOnly] = useState(false);
 
-    // Reset síncron si canvia el dibuix sense remuntar (patró React
-    // "adjusting state when props change"): cap render no pot veure 'ready'
-    // amb l'estat del dibuix anterior — l'autosave quedaria armat amb un
-    // store que encara té el contingut antic. (El consumidor normal posa
-    // key={drawingId} i remunta, però això no ho podem garantir des d'aquí.)
+    // Synchronous reset if the drawing changes without remounting (React
+    // "adjusting state when props change"): no render can see 'ready'
+    // with the previous drawing's state — autosave would remain armed with a
+    // store that still has the old content. (The normal consumer sets
+    // key={drawingId} and remounts, but we can't guarantee that from here.)
     const [loadedDrawingId, setLoadedDrawingId] = useState(drawingId);
     if (loadedDrawingId !== drawingId) {
         setLoadedDrawingId(drawingId);
         setLoadState(drawingId ? 'loading' : 'ready');
     }
 
-    // Carregar dibuix existent
+    // Load existing drawing
     useEffect(() => {
-        if (!drawingId) return; // sense id no hi ha persistència (estat 'ready' inicial)
+        if (!drawingId) return; // without an id there's no persistence (initial 'ready' state)
 
         const controller = new AbortController();
         axios.get(`/api/vault/drawings/${drawingId}`, { signal: controller.signal })
             .then(res => {
                 if (controller.signal.aborted) return;
                 const data = res.data;
-                // loadSnapshot NO valida el format: amb un objecte sense claus
-                // store/document/session no fa res (no-op silenciós) — és el cas
-                // dels dibuixos legacy .excalidraw.json. Validem abans de cridar-lo.
+                // loadSnapshot does NOT validate the format: with an object lacking
+                // store/document/session keys it does nothing (silent no-op) — this is the case
+                // of legacy .excalidraw.json drawings. We validate before calling it.
                 const isPlainObject = data && typeof data === 'object' && !Array.isArray(data);
-                // {} és el data inicial amb què el dashboard crea un dibuix nou
+                // {} is the initial data the dashboard uses to create a new drawing
                 const isEmptyInitial = isPlainObject && Object.keys(data).length === 0;
                 const isTldrawSnapshot = isPlainObject &&
                     ('store' in data || 'document' in data || 'session' in data);
@@ -166,11 +166,11 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             .catch((err) => {
                 if (controller.signal.aborted || err?.name === 'CanceledError' || axios.isCancel?.(err)) return;
                 if (err?.response?.status === 404) {
-                    // El dibuix no existeix encara → pissarra buida nova (es pot desar)
+                    // The drawing doesn't exist yet → new empty whiteboard (can be saved)
                     setLoadState('ready');
                 } else {
-                    // 500, xarxa, fitxer online-only de OneDrive... el dibuix
-                    // existeix però no l'hem pogut llegir: bloquegem el desat.
+                    // 500, network, OneDrive online-only file... the drawing
+                    // exists but we couldn't read it: we block saving.
                     console.error("Error carregant dibuix:", err);
                     setLoadState('error');
                 }
@@ -181,7 +181,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         };
     }, [drawingId, store, retryTick]);
 
-    // Guardar dibuix (auto-save)
+    // Save drawing (auto-save)
     const handleSave = useCallback(async () => {
         if (!drawingId || loadState !== 'ready') return;
         try {
@@ -197,12 +197,12 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         }
     }, [drawingId, store, title, onSaveSuccess, loadState]);
 
-    // Autosave automàtic cada 1 segon si hi ha canvis (igual que BlockEditor)
+    // Automatic autosave every 1 second if there are changes (same as BlockEditor)
     useEffect(() => {
         if (!drawingId || loadState !== 'ready') return;
 
-        // Només canvis de document fets per l'usuari: càmera i selecció són
-        // scope 'session' i no han de programar cap PUT.
+        // Only document changes made by the user: camera and selection are
+        // scope 'session' and must not schedule any PUT.
         const unsub = store.listen(() => {
             if (autosaveTimerRef.current) {
                 clearTimeout(autosaveTimerRef.current);
@@ -221,11 +221,11 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         };
     }, [drawingId, store, handleSave, loadState]);
 
-    // Flush en desmuntar: si queda un autosave PENDENT (un canvi fet menys d'1s
-    // abans de tancar el dibuix o navegar fora), desa'l abans que el component
-    // desaparegui. Sense això, el cleanup de dalt només cancel·la el timer i
-    // l'últim traç es perdia. Ref a la darrera `handleSave` perquè l'effect
-    // d'unmount (deps buides) no en capturi una de vella amb un `title` ranci.
+    // Flush on unmount: if a PENDING autosave remains (a change made less than 1s
+    // before closing the drawing or navigating away), save it before the component
+    // disappears. Without this, the cleanup above only cancels the timer and
+    // the last stroke would be lost. Ref to the latest `handleSave` so the effect
+    // on unmount (empty deps) doesn't capture an old one with a stale `title`.
     const handleSaveRef = useRef(handleSave);
     useEffect(() => { handleSaveRef.current = handleSave; }, [handleSave]);
     useEffect(() => () => {
@@ -236,7 +236,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         }
     }, []);
 
-    // Desar amb Ctrl+S / Cmd+S
+    // Save with Ctrl+S / Cmd+S
     useEffect(() => {
         const handleKey = (e) => {
             if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -248,7 +248,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         return () => window.removeEventListener('keydown', handleKey);
     }, [handleSave]);
 
-    // Detectar selecció de shape amb pageId al metadata
+    // Detect shape selection with pageId in the metadata
     useEffect(() => {
         const editor = editorRef.current;
         if (!editor) return;
@@ -268,20 +268,20 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             setSelectedPage(null);
         };
 
-        // Comprovar immediatament
+        // Check immediately
         checkSelection();
 
-        // Comprovar en canvis
+        // Check on changes
         const unsub = editor.store.listen(() => {
             setTimeout(checkSelection, 50);
         });
 
         return () => unsub();
-        // Depèn de loadState (i t per la i18n del fallback): quan passa a 'ready' es munta <Tldraw> i onMount
-        // (efecte del fill, s'executa abans que aquest) ja ha omplert editorRef.
+        // Depends on loadState (and t for the fallback's i18n): when it switches to 'ready' <Tldraw> mounts and onMount
+        // (child effect, runs before this one) has already filled editorRef.
     }, [loadState, t]);
 
-    // Registrar els handlers de drag & drop amb fase de captura
+    // Register the drag & drop handlers with capture phase
     useEffect(() => {
         const dragOver = (e) => {
             if (e.dataTransfer.types.includes('application/gnosi-note')) {
@@ -297,7 +297,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             const noteDataString = e.dataTransfer.getData('application/gnosi-note');
             if (!noteDataString) return;
 
-            // Verificar que el drop és dins del wrapper del tldraw
+            // Verify that the drop is inside the tldraw wrapper
             const wrapper = wrapperRef.current;
             if (!wrapper || !wrapper.contains(e.target)) return;
 
@@ -308,7 +308,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             try {
                 const noteData = JSON.parse(noteDataString);
 
-                // Convertir coordenades de pantalla a coordenades del canvas
+                // Convert screen coordinates to canvas coordinates
                 const point = editor.screenToPage({
                     x: e.clientX,
                     y: e.clientY,
@@ -317,7 +317,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 const shapeId = createShapeId();
 
                 if (cardsEnabled) {
-                    // Targeta de pàgina (page-card) amb preview viu, estil Obsidian Canvas.
+                    // Page card (page-card) with a live preview, Obsidian Canvas style.
                     editor.createShape({
                         id: shapeId,
                         type: 'page-card',
@@ -331,7 +331,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                         },
                     });
                 } else {
-                    // Plugin desactivat: enllaç simple com a nota de tldraw.
+                    // Plugin disabled: simple link as a tldraw note.
                     editor.createShape({
                         id: shapeId,
                         type: 'note',
@@ -342,7 +342,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     });
                 }
 
-                // Seleccionar el shape creat
+                // Select the created shape
                 editor.select(shapeId);
 
                 toast.success(t('tldraw.page_added', { title: noteData.title }));
@@ -361,8 +361,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         };
     }, [t]);
 
-    // Incrusta una pàgina existent com a targeta al centre del llenç (mateixa
-    // lògica que el drop de drag&drop, però sense punt de destí: el viewport).
+    // Embeds an existing page as a card at the center of the canvas (same
+    // logic as the drag&drop drop, but without a destination point: the viewport).
     const insertPageOnCanvas = useCallback((pageId, pageTitle) => {
         const editor = editorRef.current;
         if (!editor) return;
@@ -390,14 +390,14 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         editor.select(shapeId);
     }, [cardsEnabled]);
 
-    // Cerca una nota del vault (inclou files de BDs) i la col·loca al llenç.
+    // Searches for a vault note (including DB rows) and places it on the canvas.
     const handleSearchSelect = useCallback((pageId) => {
         const note = allNotes.find((n) => n.id === pageId);
         insertPageOnCanvas(pageId, note?.title);
         toast.success(t('tldraw.page_added', { title: note?.title || t('common.untitled') }));
     }, [allNotes, insertPageOnCanvas, t]);
 
-    // Crea una pàgina nova al Vault i la incrusta com a targeta al centre del llenç.
+    // Creates a new page in the Vault and embeds it as a card at the center of the canvas.
     const handleCreateNoteOnCanvas = useCallback(async () => {
         const editor = editorRef.current;
         if (!editor) return;
@@ -417,25 +417,25 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         }
     }, [insertPageOnCanvas, t]);
 
-    // ── Warmup del model TrOCR ──
-    // En obrir el llenç, demana al backend que precarregui el model en segon
-    // pla (fire-and-forget). Mentre l'usuari dibuixa, el model es carrega, i
-    // quan clica "Passar a text" ja hi és → la 1a crida no espera ~1.3 GB.
+    // ── TrOCR model warmup ──
+    // When opening the canvas, it asks the backend to preload the model in the background
+    // fashion (fire-and-forget). While the user draws, the model loads, and
+    // when clicking "Convert to text" it's already there → the 1st call doesn't wait on ~1.3 GB.
     useEffect(() => {
         axios.post('/api/vault/handwriting/warmup').catch(() => {});
     }, []);
 
-    // ── Passar traços manuscrits a text (OCR local amb TrOCR al backend) ──
-    // Exporta els shapes seleccionats (o tot el llenç si no hi ha selecció) a
-    // PNG amb fons blanc, l'envia al backend i insereix el text reconegut just
-    // a sota. Els traços NO s'esborren: el text s'afegeix al costat.
+    // ── Convert handwritten strokes to text (local OCR with TrOCR on the backend) ──
+    // Exports the selected shapes (or the whole canvas if there's no selection) to
+    // PNG with a white background, sends it to the backend, and inserts the recognized text right
+    // below. The strokes are NOT deleted: the text is added alongside.
     const handleRecognize = useCallback(async () => {
         const editor = editorRef.current;
         if (!editor || recognizing) return;
 
         let ids = editor.getSelectedShapeIds();
         if (!ids || ids.length === 0) {
-            // Sense selecció: usa tots els traços de la pàgina actual.
+            // Without a selection: uses all the strokes on the current page.
             ids = [...editor.getCurrentPageShapeIds()];
         }
         if (ids.length === 0) {
@@ -445,7 +445,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
 
         setRecognizing(true);
         try {
-            // Fons blanc + mode clar: TrOCR espera document fosc sobre blanc.
+            // White background + light mode: TrOCR expects a dark document on white.
             const img = await editor.toImage(ids, {
                 format: 'png',
                 background: true,
@@ -465,7 +465,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 return;
             }
 
-            // Col·loca el text just a sota dels traços reconeguts.
+            // Places the text right below the recognized strokes.
             const bounds = editor.getSelectionPageBounds()
                 || editor.getCurrentPageBounds();
             const x = bounds ? bounds.x : editor.getViewportPageBounds().center.x;
@@ -495,11 +495,11 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
         }
     }, [recognizing, t]);
 
-    // ── Mode "només llapis" (palm rejection) ──
-    // Bloqueja els pointer events de tipus 'touch' abans que arribin a tldraw
-    // (fase de captura) perquè el palmell recolzat no dibuixi. El llapis
-    // (pointerType 'pen') i el ratolí segueixen funcionant. És un toggle: quan
-    // està actiu es perd el pan/zoom amb dos dits, cosa esperada en aquest mode.
+    // ── "Pen only" mode (palm rejection) ──
+    // Blocks 'touch' type pointer events before they reach tldraw
+    // (capture phase) so a resting palm doesn't draw. The pen
+    // (pointerType 'pen') and the mouse keep working. It's a toggle: when
+    // it's active, two-finger pan/zoom is lost, which is expected in this mode.
     useEffect(() => {
         if (!penOnly) return;
         const wrapper = wrapperRef.current;
@@ -519,7 +519,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
 
     return (
         <div className="flex flex-col h-full w-full">
-            {/* Capçalera */}
+            {/* Header */}
             <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-slate-200 shrink-0">
                 <h2 className="text-sm font-semibold text-slate-700 truncate">
                     {title || t('tldraw.untitled_drawing')}
@@ -597,8 +597,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     </CanvasPageContext.Provider>
                 )}
 
-                {/* Càrrega fallida o snapshot inaplicable: bloquegem el llenç
-                    perquè cap edició (ni l'autosave) sobreescrigui el fitxer real */}
+                {/* Failed load or inapplicable snapshot: we lock the canvas
+                    so that no edit (not even autosave) overwrites the real file */}
                 {(loadState === 'error' || loadState === 'incompatible') && (
                     <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
                         <div className="max-w-md mx-4 p-5 bg-white rounded-xl shadow-xl border border-amber-300 text-center">
@@ -625,7 +625,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     </div>
                 )}
 
-                {/* Cercador de notes del vault per col·locar-les al llenç */}
+                {/* Vault note search to place them on the canvas */}
                 <GlobalSearchModal
                     isOpen={isSearchOpen}
                     onClose={() => setIsSearchOpen(false)}
@@ -634,7 +634,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     onNoteSelect={handleSearchSelect}
                 />
 
-                {/* Panel d'accions per a pàgines seleccionades */}
+                {/* Actions panel for selected pages */}
                 {selectedPage && (
                     <PageActionsPanel
                         pageId={selectedPage.id}

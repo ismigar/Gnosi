@@ -1,16 +1,16 @@
 /**
- * Mapping bidireccional entre columnes de Recursos i camps de Zotero.
+ * Bidirectional mapping between Recursos columns and Zotero fields.
  *
- * NO és generat — és coneixement de Gnosi (columnes catalanes) lligat a la
- * nomenclatura oficial de Zotero. Mirall exacte de
- * `backend/services/recursos_zotero_mapping.py`. Sempre que es modifiqui
- * un costat, modificar l'altre — els tests de coherència Py↔JS no cobreixen
- * aquest mòdul (no és generat), però el seu drift trencaria L2/L3.
+ * It is NOT generated — it is Gnosi-specific knowledge (Catalan column names) tied to
+ * Zotero's official naming. Exact mirror of
+ * `backend/services/recursos_zotero_mapping.py`. Whenever one side is
+ * modified, modify the other — the Py↔JS consistency tests do not cover
+ * this module (it isn't generated), but drift here would break L2/L3.
  *
- * Per què hi ha arrays als valors: una columna Recursos pot ser alimentada
- * per diferents camps Zotero segons el tipus. P. ex. `Llibre/Revista` és
- * `publicationTitle` en un `journalArticle` però `bookTitle` en un
- * `bookSection`. L'ordre dins l'array no és preferent.
+ * Why the values are arrays: a Recursos column can be fed
+ * by different Zotero fields depending on the type. E.g. `Llibre/Revista` is
+ * `publicationTitle` in a `journalArticle` but `bookTitle` in a
+ * `bookSection`. The order within the array carries no preference.
  */
 import { ITEM_TYPE_FIELDS } from './zoteroSchema';
 
@@ -35,7 +35,7 @@ export const RECURSOS_TO_ZOTERO_FIELDS = {
     'Idioma':          ['language'],
 };
 
-// Invers: zoteroField → primera columna Recursos que el mencioni.
+// Inverse: zoteroField → first Recursos column that mentions it.
 export const ZOTERO_FIELD_TO_RECURSOS = Object.fromEntries(
     Object.entries(RECURSOS_TO_ZOTERO_FIELDS).flatMap(
         ([col, fields]) => fields.map(f => [f, col])
@@ -43,12 +43,12 @@ export const ZOTERO_FIELD_TO_RECURSOS = Object.fromEntries(
 );
 
 /**
- * True si la columna Recursos pot ser alimentada per qualsevol dels camps
- * oficials del `zoteroItemType` donat. False si el tipus no existeix o la
- * columna no té correspondència Zotero (mostra-la a "Altres camps").
+ * True if the Recursos column can be fed by any of the official
+ * fields of the given `zoteroItemType`. False if the type doesn't exist or the
+ * column has no Zotero mapping (show it under "Other fields").
  *
- * @param {string} recursosField  — nom de columna del frontmatter (ca-AD)
- * @param {string} zoteroItemType — clau canònica Zotero (p.ex. 'journalArticle')
+ * @param {string} recursosField  — frontmatter column name (ca-AD)
+ * @param {string} zoteroItemType — canonical Zotero key (e.g. 'journalArticle')
  * @returns {boolean}
  */
 export function isFieldRelevantForType(recursosField, zoteroItemType) {

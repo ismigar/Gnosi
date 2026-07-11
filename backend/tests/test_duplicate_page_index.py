@@ -1,11 +1,11 @@
-"""duplicate_page ha de registrar la còpia a l'índex de pàgines en memòria.
+"""duplicate_page must register the copy in the in-memory page index.
 
-Sense el registre (`_add_page_to_index_cache`, el mateix helper que usa el
-restore de la paperera), la còpia quedava INVISIBLE per a l'API: el fitxer
-existia a disc però `find_page_path` no el trobava al cache i, amb l'índex
-inicialitzat, salta el rglob de fallback ("probablement esborrada") →
-GET/PATCH/DELETE de la còpia feien 404 fins a un rebuild complet de l'índex.
-Reproduït contra el backend real abans del fix.
+Without the registration (`_add_page_to_index_cache`, the same helper the trash
+restore uses), the copy remained INVISIBLE to the API: the file
+existed on disk but `find_page_path` didn't find it in the cache and, with the
+index initialized, it skips the fallback rglob ("probably deleted") →
+GET/PATCH/DELETE on the copy returned 404 until a full index rebuild.
+Reproduced against the real backend before the fix.
 """
 import asyncio
 from pathlib import Path
@@ -40,9 +40,9 @@ def test_duplicate_registers_copy_in_index(harness):
 
     new_file = harness["dir"] / f"{res['id']}.md"
     assert new_file.exists(), "la còpia no s'ha escrit a disc"
-    # El registre a l'índex és el que fa la còpia VISIBLE per a l'API.
+    # The index registration is what makes the copy VISIBLE to the API.
     assert harness["registered"] == [new_file], "la còpia no s'ha registrat a l'índex"
-    # I el link-index es refresca en background, com abans.
+    # And the link-index refreshes in the background, as before.
     assert any(fn is vr.update_link_index_for_page for fn, _ in bt.tasks)
 
 

@@ -1,26 +1,26 @@
-"""Storage de la designació de "Taula de Referències" del Vault.
+"""Storage for the Vault's "References Table" designation.
 
-Aquesta configuració era originalment compartida amb el sync Zotero ↔ Vault
-(eliminat al cleanup de codi sync deprecated). El que sobreviu: la
-**designació de quina taula del Vault és la de Recursos** (per al gating
-del modal Citations, l'export amb cites resoltes via pandoc, etc.).
+This configuration was originally shared with the Zotero ↔ Vault sync
+(removed in the deprecated sync code cleanup). What survives: the
+**designation of which Vault table is the Recursos one** (for gating
+the Citations modal, export with resolved citations via pandoc, etc.).
 
-El JSON segueix vivint a `pipeline/skills/zotero_sync/zotero_db_config.json`
-per compatibilitat amb instàncies que ja el tenien (no migrem dades en
-runtime). El nom del directori és històric — no implica que el sync existeixi.
+The JSON keeps living at `pipeline/skills/zotero_sync/zotero_db_config.json`
+for compatibility with instances that already had it (we don't migrate data at
+runtime). The directory name is historical — it doesn't imply the sync still exists.
 
-Camps mantinguts:
-  - `target_table`: UUID de la taula del Vault designada com a Recursos.
-  - `references_configured`: bool, indica si l'usuari ha tocat Settings
-    (encara que sigui per desactivar). Si True, NO s'auto-migra a una
-    nova taula trobada per heurística.
-  - `linked_attachments_base`: opcional, ruta a la carpeta de PDFs
-    enllaçats (heretat de Phase 6 attachments).
+Fields kept:
+  - `target_table`: UUID of the Vault table designated as Recursos.
+  - `references_configured`: bool, indicates whether the user has touched Settings
+    (even if just to disable it). If True, it does NOT auto-migrate to a
+    new table found by heuristics.
+  - `linked_attachments_base`: optional, path to the folder of linked
+    PDFs (inherited from Phase 6 attachments).
 
-Camps heretats del sync deprecated (poden existir al JSON però el codi
-viu els ignora): `enabled`, `mapping`, `last_sync_*`, `existing_pages_strategy`,
-`zotero_db`. No els reproduïm a `DEFAULT_CONFIG` perquè el merge dels
-defaults seria semànticament fals.
+Fields inherited from the deprecated sync (may exist in the JSON but the
+live code ignores them): `enabled`, `mapping`, `last_sync_*`, `existing_pages_strategy`,
+`zotero_db`. We don't reproduce them in `DEFAULT_CONFIG` because merging the
+defaults would be semantically false.
 """
 from __future__ import annotations
 
@@ -29,11 +29,11 @@ import threading
 from pathlib import Path
 from typing import Any
 
-# Serialitza el cicle SENCER load→modify→save del config. Hi ha dos escriptors
-# independents: la designació des de Settings (`_set_reference_table_id`) i
-# l'auto-migració one-shot de `get_reference_table_id` (adopta una taula amb
-# 'Citation Key' en vaults antics). Sense candau, una auto-migració en curs
-# podia esclafar la designació que l'usuari acabava de desar a Settings.
+# Serializes the WHOLE load→modify→save cycle of the config. There are two writers
+# independent: the designation from Settings (`_set_reference_table_id`) and
+# the one-shot auto-migration of `get_reference_table_id` (adopts a table with
+# 'Citation Key' in old vaults). Without a lock, an in-progress auto-migration
+# could clobber the designation the user had just saved in Settings.
 cfg_lock = threading.Lock()
 
 _BASE_DIR = Path(__file__).resolve().parents[2]
@@ -47,7 +47,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
 
 
 def load_json(path: Path, default: Any = None) -> Any:
-    """Llegeix un JSON file. Retorna `default` si no existeix o és malformat."""
+    """Reads a JSON file. Returns `default` if it doesn't exist or is malformed."""
     if path is None or not path.exists():
         return default
     try:
@@ -57,7 +57,7 @@ def load_json(path: Path, default: Any = None) -> Any:
 
 
 def save_json(path: Path, data: Any) -> None:
-    """Escriu un JSON atòmicament (evita corrupció a meitat de write)."""
+    """Writes a JSON atomically (avoids corruption mid-write)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     from backend.utils.safe_io import safe_write_json
     safe_write_json(path, data, indent=2, ensure_ascii=False)

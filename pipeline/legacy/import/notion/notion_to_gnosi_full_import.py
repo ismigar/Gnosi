@@ -51,7 +51,7 @@ if not TOKEN or not VAULT_ROOT:
 # Config
 # -----------------------------------------------------------------------------
 
-# Llista de noms de bases dades genèrics que no s'han de migrar mai automàticament
+# List of generic database names that should never be migrated automatically
 BLACKLISTED_DB_NAMES = [
     "Taula 1", "Table 1", "Base de dades sense títol", "Untitled", "Database",
     "VerificacioFinal", "Antigravity Verification Folder", "Verification Folder"
@@ -59,8 +59,8 @@ BLACKLISTED_DB_NAMES = [
 
 VAULT_PATH_STR = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or os.getenv("VAULT_PATH")
 if not VAULT_PATH_STR:
-    # Fallback derivat de l'entorn (no hardcodejar un usuari macOS): VAULT_HOST_PATH
-    # si està definida, si no la ruta canònica dins $HOME (HOME_HOST_PATH o ~).
+    # Fallback derived from the environment (do not hardcode a macOS user): VAULT_HOST_PATH
+    # if defined, otherwise the canonical path inside $HOME (HOME_HOST_PATH or ~).
     _home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
     VAULT_PATH_STR = os.environ.get("VAULT_HOST_PATH") or os.path.join(
         _home, "Library/CloudStorage/OneDrive-UNED/Gnosi"

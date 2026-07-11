@@ -1,13 +1,14 @@
-"""Baixada d'adjunts de Notion (clon) → Vault local, amb reescriptura de rutes.
+"""Downloading Notion attachments (clone) → local Vault, with path rewriting.
 
-Notion serveix els fitxers via URLs S3 signades que **caduquen ~1h**. Per fer un clon autònom
-cal baixar-los DURANT el clon i reescriure les referències a rutes `Assets/...` locals:
-  - valors de camps d'arxiu (`file`/`files`/`image`) → llista d'URLs → llista de rutes locals.
-  - imatges del cos markdown (`![alt](url)`) → ruta local.
+Notion serves files via signed S3 URLs that **expire in ~1h**. To build a self-contained clone
+we need to download them DURING the clone and rewrite references to local `Assets/...`
+paths:
+  - file-field values (`file`/`files`/`image`) → list of URLs → list of local paths.
+  - images in the markdown body (`![alt](url)`) → local path.
 
-Disseny: els helpers de localització (`localize_values`, `localize_body`) són PURS — reben un
-callable `save_asset(url, prop) -> ruta_local|None` que fa la I/O (la capa de ruta el wira amb
-`download_to`, que sí baixa). Així es testegen sense xarxa. cf. directiva
+Design: the localization helpers (`localize_values`, `localize_body`) are PURE — they receive a
+`save_asset(url, prop) -> ruta_local|None` callable that does the I/O (the path layer wires it with
+`download_to`, which does download). This way they can be tested without a network. cf. directive
 `notion_import_configurable_schema.md`.
 """
 from __future__ import annotations
@@ -25,7 +26,7 @@ log = logging.getLogger(__name__)
 ASSET_TYPES = {"file", "files", "image", "images", "attachment", "attachments", "media"}
 _IMG_RE = re.compile(r"!\[([^\]]*)\]\(([^)\s]+)(\s+\"[^\"]*\")?\)")
 
-# save_asset(url, prop_name_or_None) → ruta local "Assets/..." (o None si no es pot baixar)
+# save_asset(url, prop_name_or_None) → local path "Assets/..." (or None if it can't be downloaded)
 SaveAsset = Callable[[str, Optional[str]], Optional[str]]
 
 
@@ -34,8 +35,8 @@ def is_remote(url: str) -> bool:
 
 
 def filename_for(url: str, *, default_ext: str = "") -> str:
-    """Nom de fitxer estable per a una URL: basename net + sufix hash (evita col·lisions i
-    URLs sense nom). Manté l'extensió si n'hi ha."""
+    """Stable filename for a URL: clean basename + hash suffix (avoids collisions and
+    unnamed URLs). Keeps the extension if there is one."""
     path = urlparse(url).path
     base = unquote(Path(path).name) or "fitxer"
     base = re.sub(r"[^\w.\-]+", "_", base).strip("._") or "fitxer"
@@ -47,18 +48,18 @@ def filename_for(url: str, *, default_ext: str = "") -> str:
 
 
 def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optional[str]:
-    """Baixa `url` a `dest_dir` (creant-lo) i torna el NOM del fitxer creat (o None si no és remota
-    o falla). No calcula cap ruta relativa → serveix per a destins FORA del vault (p. ex. Biblioteca,
-    germana del vault)."""
+    """Downloads `url` to `dest_dir` (creating it) and returns the NAME of the created file (or None if it's not remote
+    or fails). It doesn't compute any relative path → used for destinations OUTSIDE the vault (e.g. Biblioteca,
+    a sibling of the vault)."""
     if not is_remote(url):
         return None
     try:
         import httpx
         ua = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
               "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
-        # Streaming amb DEADLINE TOTAL: el timeout de httpx és per-operació de lectura, així que un
-        # fitxer que degota (chunks lents però constants) no timeout mai i pot encallar el clon
-        # minuts. Acotem el temps TOTAL: si supera `timeout` segons, avortem i saltem el fitxer.
+        # Streaming with a TOTAL DEADLINE: httpx's timeout is per read operation, so a
+        # file that trickles (slow but steady chunks) never times out and can stall the clone
+        # for minutes. We cap the TOTAL time: if it exceeds `timeout` seconds, we abort and skip the file.
         deadline = time.monotonic() + timeout
         with httpx.Client(timeout=timeout, follow_redirects=True) as c:
             with c.stream("GET", url, headers={"User-Agent": ua}) as resp:
@@ -80,8 +81,8 @@ def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optiona
 
 
 def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 60.0) -> Optional[str]:
-    """Baixa `url` a `dest_dir` (dins del vault) i torna la ruta RELATIVA a `vault_root` amb `/`
-    (p.ex. `Assets/DB/Taula/Camp/foto_ab12cd34.png`). None si no és remota o falla."""
+    """Downloads `url` to `dest_dir` (inside the vault) and returns the path RELATIVE to `vault_root` with `/`
+    (e.g. `Assets/DB/Taula/Camp/foto_ab12cd34.png`). None if it's not remote or fails."""
     fname = download_file(url, dest_dir, timeout=timeout)
     if not fname:
         return None
@@ -103,8 +104,8 @@ def _ext_from_content_type(ct: str) -> str:
 
 def localize_values(values: Dict[str, Any], properties: List[Dict[str, Any]],
                     save_asset: SaveAsset) -> Tuple[Dict[str, Any], int]:
-    """Reescriu els valors de camps d'arxiu: URLs remotes → rutes locals (via `save_asset`).
-    Manté la URL original si la baixada falla. Torna (valors, nombre baixats)."""
+    """Rewrites file-field values: remote URLs → local paths (via `save_asset`).
+    Keeps the original URL if the download fails. Returns (values, number downloaded)."""
     by_name = {p.get("name"): p for p in (properties or [])}
     out = dict(values)
     n = 0
@@ -126,7 +127,7 @@ def localize_values(values: Dict[str, Any], properties: List[Dict[str, Any]],
 
 
 def localize_body(md: str, save_asset: SaveAsset) -> Tuple[str, int]:
-    """Reescriu les imatges del cos markdown: `![alt](url-remota)` → `![alt](Assets/...)`."""
+    """Rewrites images in the markdown body: `![alt](url-remota)` → `![alt](Assets/...)`."""
     if not md:
         return md, 0
     count = {"n": 0}

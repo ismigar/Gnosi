@@ -1,13 +1,13 @@
-"""Timeout REAL de les crides one-shot d'IA (`factory.get_llm`/`generate_text`).
+"""REAL timeout for one-shot AI calls (`factory.get_llm`/`generate_text`).
 
-Regressió del bug: `llm.invoke(msgs, config={"timeout": N})` NO aplicava cap límit
-(`"timeout"` no és clau de RunnableConfig → langchain l'ignorava) i una crida a un
-proveïdor penjat bloquejava el fil per sempre. El límit ara s'aplica en CONSTRUIR el
-client. cf. directiva `ai_error_handling.md`.
+Bug regression: `llm.invoke(msgs, config={"timeout": N})` applied NO limit at all
+(`"timeout"` is not a RunnableConfig key → langchain ignored it) and a call to a
+hung provider would block the thread forever. The limit is now applied when the
+client is CONSTRUCTED. cf. `ai_error_handling.md` directive.
 
-Pur (sense backend). El test de "proveïdor lent" munta un socket local que accepta i
-no respon MAI: com que el fix viu a la capa HTTP del client, un mock amb `time.sleep`
-NO seria interromput per `request_timeout` i no provaria res — cal un socket real.
+Pure (no backend). The "slow provider" test sets up a local socket that accepts and
+NEVER responds: since the fix lives in the client's HTTP layer, a mock with `time.sleep`
+would NOT be interrupted by `request_timeout` and wouldn't prove anything — a real socket is needed.
 """
 import socket
 import sys
@@ -24,7 +24,7 @@ from langchain_core.messages import HumanMessage  # noqa: E402
 from agent import factory  # noqa: E402
 from agent.factory import generate_text, get_llm  # noqa: E402
 
-# Proveïdors que resolen a un wrapper OpenAI-compatible (request_timeout + max_retries).
+# Providers that resolve to an OpenAI-compatible wrapper (request_timeout + max_retries).
 _OPENAI_FAMILY = ["openai", "deepseek", "mistral", "openrouter", "groq",
                   "generic", "local", "lmstudio"]
 
@@ -33,23 +33,23 @@ _OPENAI_FAMILY = ["openai", "deepseek", "mistral", "openrouter", "groq",
 def test_openai_family_applies_real_timeout_and_disables_retries(provider):
     llm = get_llm(provider, model="x", api_key="sk-test", timeout=7)
     assert llm is not None, f"{provider} no s'ha instanciat"
-    # `timeout` és àlies de request_timeout → arriba al client httpx de l'SDK openai.
+    # `timeout` is an alias for request_timeout → it reaches the openai SDK's httpx client.
     assert getattr(llm, "request_timeout", None) == 7
-    # max_retries=0 → el timeout és un sostre REAL (l'SDK reintenta 2x per defecte,
-    # i el timeout és per-intent → sense això el sostre efectiu seria ~3x).
+    # max_retries=0 → the timeout is a REAL ceiling (the SDK retries 2x by default,
+    # and the timeout is per-attempt → without this the effective ceiling would be ~3x).
     assert getattr(llm, "max_retries", None) == 0
 
 
 def test_openai_family_without_timeout_keeps_defaults():
     llm = get_llm("openai", model="x", api_key="sk-test")
     assert llm is not None
-    # Sense timeout explícit no toquem res: ni request_timeout ni els reintents.
+    # Without an explicit timeout we touch nothing: neither request_timeout nor the retries.
     assert getattr(llm, "request_timeout", None) is None
     assert getattr(llm, "max_retries", None) is None
 
 
 def test_ollama_uses_client_kwargs_timeout():
-    # ChatOllama IGNORA `timeout=` directe (extra="ignore"); ha d'anar per client_kwargs.
+    # ChatOllama IGNORES `timeout=` directly (extra="ignore"); it has to go through client_kwargs.
     llm = get_llm("ollama", model="llama3.2", timeout=7)
     assert llm is not None
     assert getattr(llm, "client_kwargs", None) == {"timeout": 7}
@@ -62,8 +62,8 @@ def test_ollama_without_timeout_defaults_to_60():
 
 
 def test_generate_text_forwards_timeout_and_drops_ignored_config(monkeypatch):
-    """`generate_text(timeout=N)` ha de propagar N al constructor (get_default_llm)
-    i cridar `.invoke()` SENSE `config` (la clau ignorada ja no hi és)."""
+    """`generate_text(timeout=N)` must propagate N to the constructor (get_default_llm)
+    and call `.invoke()` WITHOUT `config` (the ignored key is no longer there)."""
     captured = {}
 
     class _FakeLLM:
@@ -89,14 +89,14 @@ def test_generate_text_forwards_timeout_and_drops_ignored_config(monkeypatch):
     assert text == "hola"
     assert label == "fake-model"
     assert captured["timeout"] == 33, "el timeout no s'ha propagat a get_default_llm"
-    # Cap `config` (ni cap altre kwarg) a .invoke(): abans era config={"timeout":...}.
+    # No `config` (nor any other kwarg) in .invoke(): it used to be config={"timeout":...}.
     assert captured["invoke_args"] == ()
     assert captured["invoke_kwargs"] == {}
 
 
 def test_slow_provider_invoke_is_bounded():
-    """Proveïdor lent → `.invoke()` s'ha d'acotar (no penjar) gràcies al timeout del
-    client. Socket local que accepta i NO respon mai."""
+    """Slow provider → `.invoke()` must be bounded (not hang) thanks to the client's
+    timeout. Local socket that accepts and NEVER responds."""
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", 0))
@@ -111,7 +111,7 @@ def test_slow_provider_invoke_is_bounded():
         while not stop.is_set():
             try:
                 conn, _ = srv.accept()
-                held.append(conn)  # es manté obert, sense resposta
+                held.append(conn)  # stays open, no response
             except socket.timeout:
                 continue
             except OSError:
@@ -146,5 +146,5 @@ def test_slow_provider_invoke_is_bounded():
         pass
 
     assert raised, "s'esperava una excepció de timeout del proveïdor"
-    # Sostre generós per evitar flakiness: el punt és que és ACOTAT (~2s), no infinit.
+    # Generous ceiling to avoid flakiness: the point is that it's BOUNDED (~2s), not infinite.
     assert elapsed < 6, f".invoke() no acotat pel timeout: {elapsed:.1f}s"

@@ -1,15 +1,15 @@
 /**
  * schemaUtils.js
- * Utilitats per gestionar i transformar els esquemes de les taules del Vault.
+ * Utilities for managing and transforming Vault table schemas.
  *
- * Format d'esquema:
+ * Schema format:
  *   { fieldName: 'type', fieldName_config: { formula, relationField, ... } }
  */
 
 const RESERVED_KEYS_SUFFIX = '_config';
 
 /**
- * Retorna tots els noms de camp de l'esquema (exclou les claus _config).
+ * Returns all field names from the schema (excludes _config keys).
  * @param {Object} schema
  * @returns {string[]}
  */
@@ -18,7 +18,7 @@ export function getSchemaFieldNames(schema = {}) {
 }
 
 /**
- * Retorna el tipus d'un camp de l'esquema.
+ * Returns the type of a schema field.
  * @param {Object} schema
  * @param {string} fieldName
  * @returns {string}
@@ -32,7 +32,7 @@ export function getFieldType(schema = {}, fieldName) {
 }
 
 /**
- * Retorna la configuració addicional d'un camp (per a formules, rollups, etc.).
+ * Returns the additional configuration for a field (for formulas, rollups, etc.).
  * @param {Object} schema
  * @param {string} fieldName
  * @returns {Object}
@@ -41,15 +41,15 @@ export function getFieldConfig(schema = {}, fieldName) {
     return schema[`${fieldName}${RESERVED_KEYS_SUFFIX}`] || {};
 }
 
-// Noms de camp que solem usar per a "l'idioma del registre". El modal de
-// traducció els busca per amagar l'idioma origen de la llista de destins.
-// Comparació accent/caixa-insensible (vegeu detectRecordSourceLang).
+// Field names we typically use for "the record's language". The
+// translation modal looks for them to hide the source language from the list of targets.
+// Accent/case-insensitive comparison (see detectRecordSourceLang).
 const LANGUAGE_FIELD_NAMES = ['idioma', 'llengua', 'language', 'lang', 'lengua', 'lingua'];
 
-// Etiquetes habituals → codi ISO 639-1, perquè el camp "Idioma" pot tenir
-// valors com "CA", "ca", "Català", "Castellà", "EN-GB"… L'objectiu és casar-ho
-// amb els `code` de DEFAULT_LANGUAGES del modal. Si no es reconeix, es retorna
-// el prefix de 2 lletres en minúscula (cobreix "EN-GB"→"en", "pt-BR"→"pt").
+// Common labels → ISO 639-1 code, because the "Idioma" field can have
+// values like "CA", "ca", "Català", "Castellà", "EN-GB"… The goal is to match it
+// with the `code` values from the modal's DEFAULT_LANGUAGES. If not recognized, we return
+// the lowercase 2-letter prefix (covers "EN-GB"→"en", "pt-BR"→"pt").
 const LANGUAGE_VALUE_TO_CODE = {
     ca: 'ca', cat: 'ca', català: 'ca', catala: 'ca', catalan: 'ca', catalán: 'ca',
     es: 'es', spa: 'es', cas: 'es', castellà: 'es', castella: 'es', castellano: 'es', español: 'es', espanyol: 'es', spanish: 'es',
@@ -66,8 +66,8 @@ const LANGUAGE_VALUE_TO_CODE = {
 };
 
 /**
- * Normalitza un valor d'idioma ("Català", "EN-GB", "ca") a codi ISO 639-1.
- * Retorna '' si no es pot determinar.
+ * Normalizes a language value ("Català", "EN-GB", "ca") to an ISO 639-1 code.
+ * Returns '' if it cannot be determined.
  * @param {string} value
  * @returns {string}
  */
@@ -76,34 +76,34 @@ export function normalizeLangCode(value) {
     const raw = value.trim().toLowerCase();
     if (!raw) return '';
     if (LANGUAGE_VALUE_TO_CODE[raw]) return LANGUAGE_VALUE_TO_CODE[raw];
-    // "en-gb" / "pt_br" → prefix abans del separador.
+    // "en-gb" / "pt_br" → prefix before the separator.
     const prefix = raw.split(/[-_]/)[0];
     if (LANGUAGE_VALUE_TO_CODE[prefix]) return LANGUAGE_VALUE_TO_CODE[prefix];
-    // Últim recurs: si ja sembla un codi de 2 lletres, accepta'l tal qual.
+    // Last resort: if it already looks like a 2-letter code, accept it as-is.
     return /^[a-z]{2}$/.test(prefix) ? prefix : '';
 }
 
 /**
- * Detecta l'idioma origen d'un registre llegint el seu camp "Idioma" (o
- * sinònims) del metadata. El modal de traducció l'usa per amagar l'idioma que
- * ja és l'original i evitar que l'usuari el trii. Retorna el codi ISO 639-1, o
- * '' si el registre no té camp idioma reconeixible (en aquest cas el backend
- * salta l'origen igualment com a xarxa de seguretat).
+ * Detects a record's source language by reading its "Idioma" field (or
+ * synonyms) from the metadata. The translation modal uses it to hide the language that
+ * is already the original and prevent the user from selecting it. Returns the ISO 639-1 code, or
+ * '' if the record has no recognizable language field (in that case the backend
+ * skips the source anyway, as a safety net).
  *
- * @param {Object} metadata  metadata del registre (note.metadata)
- * @param {Object} schema    esquema de la taula (per resoldre nom↔id del camp)
+ * @param {Object} metadata  record metadata (note.metadata)
+ * @param {Object} schema    table schema (to resolve field name↔id)
  * @returns {string}
  */
 export function detectRecordSourceLang(metadata = {}, schema = {}) {
     if (!metadata || typeof metadata !== 'object') return '';
     const stripAccents = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // 1) Localitza el nom del camp idioma a l'esquema (accent/caixa-insensible).
+    // 1) Locate the language field name in the schema (accent/case-insensitive).
     const langFieldName = getSchemaFieldNames(schema).find(name =>
         LANGUAGE_FIELD_NAMES.includes(stripAccents(String(name).toLowerCase()))
     );
-    // 2) Reuneix les claus candidates al metadata: el nom del camp, el seu id
-    //    estable, i qualsevol clau que coincideixi pel nom (per metadata que
-    //    s'hagi desat per nom o per id).
+    // 2) Gather the candidate keys in the metadata: the field name, its
+    //    stable id, and any key that matches by name (for metadata that
+    //    it has been saved by name or by id).
     const candidates = [];
     if (langFieldName) {
         candidates.push(langFieldName);
@@ -122,9 +122,9 @@ export function detectRecordSourceLang(metadata = {}, schema = {}) {
 }
 
 /**
- * Retorna el NOM del camp "Idioma" (o sinònim) de l'esquema, o undefined si no
- * n'hi ha cap. Reconeix els mateixos noms que detectRecordSourceLang. La taula
- * el fa servir per no duplicar el badge d'idioma quan la columna ja és visible.
+ * Returns the NAME of the "Idioma" field (or synonym) from the schema, or undefined if
+ * there is none. Recognizes the same names as detectRecordSourceLang. The table
+ * uses it to avoid duplicating the language badge when the column is already visible.
  * @param {Object} schema
  * @returns {string|undefined}
  */
@@ -136,8 +136,8 @@ export function getLanguageFieldName(schema = {}) {
 }
 
 /**
- * Construeix un esquema pla (objecte) a partir d'una llista de propietats de taula
- * (format que utilitza el backend: [{ name, type, ...config }]).
+ * Builds a flat schema (object) from a list of table properties
+ * (format used by the backend: [{ name, type, ...config }]).
  * @param {Array} tableProperties
  * @returns {Object}
  */
@@ -165,16 +165,16 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
         if (prop.button_action) config.button_action = prop.button_action;
         if (prop.button_label) config.button_label = prop.button_label;
         if (prop.format && typeof prop.format === 'object') config.format = prop.format;
-        // Opcions explícites de select/multi_select/status: el catàleg fix de
-        // valors triables. Hi ha dues fonts possibles i poden divergir:
-        //   - `config.options` (niat): l'escriu el PATCH inline d'opcions.
-        //   - `prop.options` (nivell superior): l'escriu el desat del modal.
-        // El PATCH NO toca el nivell superior, però el desat del modal
-        // substitueix tota la taula i esborra el `config` niat. Per tant, si
-        // `config.options` existeix és perquè l'últim escrit va ser un PATCH
-        // (és el fresc) → té prioritat. Si no, usem el nivell superior. Sense
-        // això, crear/eliminar una opció inline no es reflectia: la lectura
-        // agafava el nivell superior antic.
+        // Explicit select/multi_select/status options: the fixed catalog of
+        // selectable values. There are two possible sources and they can diverge:
+        //   - `config.options` (nested): written by the inline options PATCH.
+        //   - `prop.options` (top level): written by the modal save.
+        // The PATCH does NOT touch the top level, but the modal's save
+        // replaces the entire table and erases the nested `config`. So, if
+        // `config.options` exists, it's because the last write was a PATCH
+        // (it's the freshest) → it takes priority. Otherwise, we use the top level. Without
+        // this, creating/deleting an option inline wasn't reflected: the read
+        // was picking up the old top-level value.
         const propOptions = Array.isArray(prop.config?.options) ? prop.config.options
             : (Array.isArray(prop.options) ? prop.options : null);
         if (propOptions && propOptions.length > 0) config.options = propOptions;
@@ -187,9 +187,9 @@ export function buildSchemaFromTableProperties(tableProperties = []) {
 }
 
 /**
- * Retorna l'ID immutable d'un camp ('fld_xxxxxxxx') si existeix.
- * Aquest ID és la clau estable per referenciar el camp en notes,
- * filtres, vistes i seccions, independent del seu nom mostrat.
+ * Returns a field's immutable ID ('fld_xxxxxxxx') if it exists.
+ * This ID is the stable key for referencing the field in notes,
+ * filters, views, and sections, independent of its displayed name.
  * @param {Object} schema
  * @param {string} fieldName
  * @returns {string|undefined}
@@ -199,7 +199,7 @@ export function getFieldId(schema = {}, fieldName) {
 }
 
 /**
- * Retorna el nom actual d'un camp donat el seu ID immutable.
+ * Returns the current name of a field given its immutable ID.
  * @param {Object} schema
  * @param {string} fieldId
  * @returns {string|undefined}
@@ -213,10 +213,10 @@ export function getFieldNameById(schema = {}, fieldId) {
 }
 
 /**
- * Resol una referència de camp que pot venir com a ID estable o com a nom.
- * Retorna { id, name } amb tots dos valors quan és possible.
+ * Resolves a field reference that may come as a stable ID or as a name.
+ * Returns { id, name } with both values when possible.
  * @param {Object} schema
- * @param {string} ref - id ('fld_*') o nom de camp
+ * @param {string} ref - id ('fld_*') or field name
  * @returns {{id: string|undefined, name: string|undefined}}
  */
 export function resolveFieldRef(schema = {}, ref) {
@@ -228,11 +228,11 @@ export function resolveFieldRef(schema = {}, ref) {
 }
 
 /**
- * Llegeix un valor de metadata d'una pàgina per ID o nom de camp.
- * Prioritza ID; si no hi és, fa fallback al nom (compatibilitat enrere).
- * @param {Object} page - amb metadata
+ * Reads a metadata value from a page by field ID or name.
+ * Prioritizes ID; if not present, falls back to name (backward compatibility).
+ * @param {Object} page - with metadata
  * @param {Object} schema
- * @param {string} ref - id o nom
+ * @param {string} ref - id or name
  */
 export function getMetaValue(page, schema, ref) {
     if (!page || !page.metadata) return undefined;
@@ -243,11 +243,11 @@ export function getMetaValue(page, schema, ref) {
 }
 
 /**
- * Escriu un valor de metadata utilitzant el NOM actual com a clau
- * (persistència per nom: el .md no guarda mai claus opaques 'fld_*').
- * Elimina qualsevol clau 'fld_*' residual del mateix camp. El backend
- * (to_storage_names) torna a canonicalitzar com a xarxa de seguretat.
- * Muta i retorna el metadata.
+ * Writes a metadata value using the current NAME as the key
+ * (persistence by name: the .md never stores opaque 'fld_*' keys).
+ * Removes any leftover 'fld_*' key for the same field. The backend
+ * (to_storage_names) re-canonicalizes it again as a safety net.
+ * Mutates and returns the metadata.
  */
 export function setMetaValue(metadata, schema, ref, value) {
     metadata = metadata || {};
@@ -264,8 +264,8 @@ export function setMetaValue(metadata, schema, ref, value) {
 }
 
 /**
- * Converteix un esquema pla en una llista de propietats de taula
- * (format que consumeix el component SchemaConfigModal).
+ * Converts a flat schema into a list of table properties
+ * (format consumed by the SchemaConfigModal component).
  * @param {Object} schema
  * @returns {Array}
  */
@@ -281,7 +281,7 @@ export function buildTablePropertiesFromSchema(schema = {}) {
 }
 
 /**
- * Retorna les entrades de l'esquema com a parells [nom, tipus].
+ * Returns the schema entries as [name, type] pairs.
  * @param {Object} schema
  * @returns {Array<[string, string]>}
  */
@@ -290,18 +290,18 @@ export function getSchemaFieldEntries(schema = {}) {
 }
 
 /**
- * Normalitza el camp `sort` d'una vista a un array d'ordres.
+ * Normalizes a view's `sort` field into an array of sort orders.
  *
- * Les vistes guarden `sort` en dues formes històriques: un únic objecte
- * { field, direction } (vistes per defecte del backend i del frontend) o un
- * array [{ id, field, direction }] (multi-ordenació del ViewConfigModal).
- * Tots els consumidors (ViewConfigModal, VaultTable i, indirectament,
- * useVaultViewData) treballen amb arrays i fan `sorts.map(...)`/iteren amb
- * `for...of`, així que normalitzem sempre l'entrada per no petar ni perdre
- * l'ordre quan arriba en forma d'objecte. Descarta entrades sense `field` i
- * assigna `direction: 'asc'` per defecte.
+ * Views store `sort` in two historical forms: a single object
+ * { field, direction } (default backend and frontend views) or an
+ * array [{ id, field, direction }] (multi-sort from the ViewConfigModal).
+ * All consumers (ViewConfigModal, VaultTable, and, indirectly,
+ * useVaultViewData) work with arrays and do `sorts.map(...)`/iterate with
+ * `for...of`, so we always normalize the input to avoid crashing or losing
+ * the order when it arrives as an object. Discards entries without `field` and
+ * assigns `direction: 'asc'` by default.
  *
- * @param {Object|Array|null|undefined} raw  valor cru de `view.sort`
+ * @param {Object|Array|null|undefined} raw  raw value of `view.sort`
  * @returns {Array<{id: string, field: string, direction: string}>}
  */
 export function normalizeSorts(raw) {
@@ -317,24 +317,24 @@ export function normalizeSorts(raw) {
 }
 
 /**
- * Ordre EFECTIU d'una vista, resolent les DUES claus del registry.
+ * EFFECTIVE order for a view, resolving the TWO registry keys.
  *
- * A més de les dues formes de `normalizeSorts`, el registry té dues CLAUS
- * històriques: `sorts` (array complet — l'escriuen l'import de Notion, el
- * PageViewModal i les seccions d'embed) i `sort` (llegat; el modal hi desa
- * només el PRIMER criteri per compat). Es prefereix `sorts` — paritat amb el
- * backend (view_snapshot: `view.get("sorts") or [view["sort"]]`) i amb
- * DbViewEmbed. Llegir només `view.sort`, com feien els renderers del tauler,
- * IGNORAVA l'ordre configurat de totes les vistes importades (cap no té
- * `sort` singular).
+ * In addition to the two forms of `normalizeSorts`, the registry has two
+ * historical KEYS: `sorts` (full array — written by the Notion import, the
+ * PageViewModal, and the embed sections) and `sort` (legacy; the modal saves
+ * only the FIRST criterion there for compat). `sorts` is preferred — parity with the
+ * backend (view_snapshot: `view.get("sorts") or [view["sort"]]`) and with
+ * DbViewEmbed. Reading only `view.sort`, as the dashboard renderers used to do,
+ * IGNORED the configured order of all imported views (none of them has a
+ * singular `sort`).
  *
- * Si la vista té config d'ordre explícita però buida (l'usuari ha tret tots
- * els criteris: el modal desa `sorts: []`), es respecta com a "sense ordre"
- * i NO s'aplica el fallback.
+ * If the view has an explicit but empty sort config (the user has removed all
+ * criteria: the modal saves `sorts: []`), it is respected as "no order"
+ * and the fallback is NOT applied.
  *
- * @param {Object|null|undefined} view      la vista del registry
- * @param {{field: string, direction: string}|null} fallback  ordre per defecte
- *        quan la vista no té CAP config d'ordre (p. ex. last_modified desc)
+ * @param {Object|null|undefined} view      the registry view
+ * @param {{field: string, direction: string}|null} fallback  default order
+ *        when the view has NO sort config at all (e.g. last_modified desc)
  * @returns {Array<{id: string, field: string, direction: string}>}
  */
 export function resolveViewSorts(view, fallback = null) {
@@ -346,17 +346,17 @@ export function resolveViewSorts(view, fallback = null) {
 }
 
 /**
- * Filtres EFECTIUS d'una vista, sempre com a array.
+ * EFFECTIVE filters for a view, always as an array.
  *
- * `view.filters` té dues formes històriques: l'array pla [{field, operator,
- * value}] (la que desa el modal) i l'objecte embolcallat {conditions: [...]}
- * (forma que la toolbar ja contempla per al recompte). El motor
- * (`matchesFilters`) fa `filters.every(...)`: passar-li l'objecte llança
- * TypeError i tomba la vista al boundary. Únic punt de normalització per a
- * tots els renderers.
+ * `view.filters` has two historical forms: the flat array [{field, operator,
+ * value}] (the one the modal saves) and the wrapped object {conditions: [...]}
+ * (a form the toolbar already accounts for in the count). The engine
+ * (`matchesFilters`) does `filters.every(...)`: passing it the object throws a
+ * TypeError and crashes the view at the boundary. Single normalization point for
+ * all renderers.
  *
- * @param {Object|null|undefined} view  la vista del registry
- * @returns {Array} llista de filtres (mai null)
+ * @param {Object|null|undefined} view  the registry view
+ * @returns {Array} list of filters (never null)
  */
 export function resolveViewFilters(view) {
     const f = view?.filters;
@@ -367,7 +367,7 @@ export function resolveViewFilters(view) {
 
 
 /**
- * Determina si una pàgina s'ha de considerar una cita del calendari.
+ * Determines whether a page should be considered a calendar appointment.
  * @param {Object} page 
  * @returns {boolean}
  */
@@ -379,12 +379,12 @@ export function isCalendarPage(page) {
     const tableId = page.resolved_table_id || metadata.table_id || metadata.database_table_id;
     const folder = String(page.folder || '');
     
-    // Match backend logic in is_calendar_entry: la font ha de ser EXACTAMENT
-    // "gnosi"/"gnosi vault" (no una subcadena). Amb `includes('gnosi')` un
-    // registre de BD amb taula i data i font "gnosi-*" (p.ex. "gnosi-newsletter")
-    // es classificava com a cita i quedava AMAGAT de Recents/Sidebar/Cerca, tot i
-    // que el backend el tracta com a registre normal. Les cites reals (sense
-    // taula) segueixen comptant gràcies a `!tableId`.
+    // Match backend logic in is_calendar_entry: the source must be EXACTLY
+    // "gnosi"/"gnosi vault" (not a substring). With `includes('gnosi')` a
+    // DB record with table, date, and source "gnosi-*" (e.g. "gnosi-newsletter")
+    // was classified as a citation and stayed HIDDEN from Recent/Sidebar/Search, even though
+    // would make the backend treat it as a normal record. Real appointments (without
+    // a table) still count thanks to `!tableId`.
     const isEntry = hasDate && (source === 'gnosi' || source === 'gnosi vault' || !tableId);
     const isInFolder = folder === 'Calendar' || folder.startsWith('Calendar/');
     
@@ -392,8 +392,8 @@ export function isCalendarPage(page) {
 }
 
 /**
- * Determina si una pàgina pertany a contingut d'una aplicació del sistema
- * (com Contactes, Mail, etc.) que ha d'estar exclòs de la Wiki general.
+ * Determines whether a page belongs to content from a system application
+ * (such as Contactes, Mail, etc.) that must be excluded from the general Wiki.
  * @param {Object} page
  * @returns {boolean}
  */
@@ -417,9 +417,9 @@ export function isAppContent(page) {
 }
 
 /**
- * Claus de metadata internes/de sistema que NO són camps d'usuari i, per tant,
- * no s'han de mostrar mai al selector de columnes ni al grid. És el mateix
- * conjunt canònic que fa servir BlockEditor per calcular `adhocProperties`.
+ * Internal/system metadata keys that are NOT user fields and therefore
+ * must never be shown in the column selector or the grid. It's the same
+ * canonical set that BlockEditor uses to compute `adhocProperties`.
  */
 export const INTERNAL_METADATA_KEYS = new Set([
     'title', 'table_id', 'database_id', 'database_table_id', 'id',
@@ -432,18 +432,18 @@ export const INTERNAL_METADATA_KEYS = new Set([
 const TITLE_FIELD_NAMES = new Set(['title', 'títol', 'titulo', 'título', 'titre']);
 
 /**
- * Descobreix els NOMS de camp d'usuari a partir del `metadata` d'una mostra de
- * registres. Necessari per a taules sense esquema registrat (p. ex. importades
- * del clon de Notion, com "Recursos"), on `table.properties` és buit però els
- * registres sí que porten camps. Replica el filtre de `adhocProperties` de
- * BlockEditor: exclou claus internes, el títol, i les variants amb prefix
- * favorite / icon_ / cover_ o sufix _manual, i el dict "Zotero Extras".
+ * Discovers user field NAMES from the `metadata` of a sample of
+ * records. Needed for tables without a registered schema (e.g. imported
+ * from the Notion clone, like "Recursos"), where `table.properties` is empty but the
+ * records do carry fields. Replicates BlockEditor's `adhocProperties` filter:
+ * excludes internal keys, the title, and variants prefixed with
+ * favorite / icon_ / cover_ or suffixed with _manual, and the "Zotero Extras" dict.
  *
- * @param {Array} records  llista de registres ({ metadata })
- * @returns {string[]}     noms de camp únics, ordenats alfabèticament
+ * @param {Array} records  list of records ({ metadata })
+ * @returns {string[]}     unique field names, sorted alphabetically
  */
 export function discoverFieldNamesFromRecords(records = []) {
-    const byNorm = new Map(); // clau normalitzada → nom original (primer vist)
+    const byNorm = new Map(); // normalized key → original name (first seen)
     for (const rec of Array.isArray(records) ? records : []) {
         const md = rec && rec.metadata;
         if (!md || typeof md !== 'object') continue;

@@ -202,7 +202,7 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
         raise Exception("No s'ha pogut inicialitzar el servei de Google")
 
     try:
-        # Recuperar el contacte primer per obtenir l'ETAG actual (necessari per a l'update)
+        # Fetch the contact first to get the current ETAG (needed for the update)
         current_person = get_google_contact_by_resource(email, resource_name)
         if not current_person:
             raise Exception(f"Contacte {resource_name} no trobat a Google per obtenir l'ETAG")
@@ -236,12 +236,12 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
                 {"value": contact_data["notes"], "contentType": "TEXT_PLAIN"}
             ]
 
-        # Assegurar que el token està fresc
+        # Make sure the token is fresh
         from google.auth.transport.requests import Request as AuthRequest
         if creds.expired and creds.refresh_token:
             log.info(f"Refrescant token de Google per a {email} abans del PATCH")
             creds.refresh(AuthRequest())
-            # Opcionalment persistir el token (ja ho farà la propera crida de list)
+            # Optionally persist the token (the next list call will already do it)
         
         # Use direct requests to avoid library syntax issues with updateMask
         update_mask = "names,emailAddresses,phoneNumbers,organizations,addresses,biographies"

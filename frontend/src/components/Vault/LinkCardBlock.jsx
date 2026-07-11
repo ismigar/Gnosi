@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { Link2, Loader2, ExternalLink } from 'lucide-react';
 
 /**
  * LinkCardBlock
- * Targeta de previsualització d'un enllaç (estil "bookmark" de Notion): mostra
- * títol, descripció, imatge i lloc d'origen obtinguts via `/api/vault/link-preview`
- * (Open Graph). Es desa a Markdown com a `[bookmark: URL](URL)`.
+ * Preview card for a link (Notion-style "bookmark"): shows
+ * title, description, image, and source site obtained via `/api/vault/link-preview`
+ * (Open Graph). Saved to Markdown as `[bookmark: URL](URL)`.
  */
 
-// Cache en memòria de previsualitzacions per URL (evita refetch en re-render).
+// In-memory cache of previews by URL (avoids refetch on re-render).
 const _previewCache = new Map();
 
 export default function LinkCardBlock({ block }) {
+    const { t } = useTranslation();
     const url = String(block?.props?.url || '').trim();
     const [data, setData] = useState(() => _previewCache.get(url) || null);
     const [loading, setLoading] = useState(!_previewCache.has(url));
@@ -29,7 +31,7 @@ export default function LinkCardBlock({ block }) {
                 _previewCache.set(url, res.data);
                 setData(res.data);
             })
-            .catch(() => { if (!cancelled) setError('No s\'ha pogut carregar la previsualització.'); })
+            .catch(() => { if (!cancelled) setError(t('link_card.preview_error', 'No s\'ha pogut carregar la previsualització.')); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, [url]);
@@ -48,7 +50,7 @@ export default function LinkCardBlock({ block }) {
                 <div className="min-w-0 flex-1 p-3">
                     {loading ? (
                         <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
-                            <Loader2 size={14} className="animate-spin" /> Carregant previsualització…
+                            <Loader2 size={14} className="animate-spin" /> {t('link_card.loading', 'Carregant previsualització…')}
                         </div>
                     ) : (
                         <>

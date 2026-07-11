@@ -61,7 +61,7 @@ class CreatePostRequest(BaseModel):
 
 class NetworkPost(BaseModel):
     text: str
-    # Llista de rutes locals o (ruta, alt_text) per adjuntar media.
+    # List of local paths or (path, alt_text) to attach media.
     media: Optional[List[Any]] = None
 
 class ComposeRequest(BaseModel):
@@ -71,9 +71,9 @@ class ComposeRequest(BaseModel):
     url: str = ""
     source_page_id: Optional[str] = None
     hint: str = ""
-    # Si es passa, només es regeneren aquestes xarxes (subconjunt de `networks`).
+    # If passed, only these networks are regenerated (subset of `networks`).
     regenerate_only: Optional[List[str]] = None
-    # Incrementa per forçar una proposta diferent (evita el cache d'IA per hash).
+    # Increment to force a different proposal (bypasses the AI cache keyed by hash).
     variation: int = 0
 
 class PublishRequest(BaseModel):
@@ -140,10 +140,10 @@ async def update_streams(payload: List[dict] = Body(...)):
 async def get_networks():
     """Returns the user-configured social networks, with live config status."""
     config = integration_manager._load()
-    # deepcopy: `_load()` cacheja i retorna l'objecte compartit (i DEFAULT_NETWORKS és
-    # una constant de mòdul). Enriquir in place mutaria estat compartit entre peticions.
+    # deepcopy: `_load()` caches and returns the shared object (and DEFAULT_NETWORKS is
+    # a module-level constant). Enriching in place would mutate state shared across requests.
     networks = copy.deepcopy(config.get("social_networks", DEFAULT_NETWORKS))
-    # Enriqueix amb l'estat real del client (configurat o no) i el límit de chars.
+    # Enrich with the client's actual state (configured or not) and the char limit.
     for n in networks:
         client = SOCIAL_PUBLISHERS.get(n.get("id"))
         if client is not None:
@@ -157,7 +157,7 @@ async def get_networks():
 
 
 def social_store_unconfigured_types():
-    """Tipus de client stub (xarxes no implementades encara)."""
+    """Stub client type (networks not yet implemented)."""
     from backend.services.social_clients import UnconfiguredPublisher
     return (UnconfiguredPublisher,)
 
@@ -291,7 +291,7 @@ async def get_feed(stream_id: str, limit: int = 20):
 
 
 def _messages_preview(rec: dict, network: Optional[str] = None) -> str:
-    """Extreu un text llegible del camp Missatges d'un registre."""
+    """Extracts readable text from a record's Missatges field."""
     try:
         msgs = json.loads(rec.get(social_store.COL_MESSAGES) or "{}")
     except Exception:
@@ -365,12 +365,13 @@ async def interact_with_post(request: InteractionRequest):
 
 @router.post("/compose", dependencies=[Depends(require_role("editor"))])
 async def compose_posts(request: ComposeRequest):
-    """Genera (amb IA) una proposta de text adaptada per cada xarxa. NO publica.
+    """Generate (with AI) a text proposal adapted for each network. Does NOT publish.
 
-    El text es genera EN EL MATEIX IDIOMA que el contingut original (detectat
-    automàticament). Cada xarxa respecta el seu límit de caràcters i la seva
-    config (to, hashtags). Per regenerar-ne una de sola, passeu `regenerate_only`
-    i un `variation` creixent.
+    The text is generated IN THE SAME LANGUAGE as the original content (detected
+    automatically). Each network respects its character limit and its
+    config (tone, hashtags). To regenerate just one, pass `regenerate_only`
+    and an increasing `variation`.
+    
     """
     networks = request.regenerate_only or request.networks
     if not networks:
@@ -418,10 +419,10 @@ async def compose_posts(request: ComposeRequest):
 
 
 async def _load_source_row(source_page_id: str):
-    """(taula, metadata) de la fila d'origen del Vault, o (None, None).
+    """(table, metadata) of the Vault source row, or (None, None).
 
-    Lazy import de vault_routes per evitar el cicle social↔vault (mateix
-    patró que social_store)."""
+    Lazy import of vault_routes to avoid the social↔vault cycle (same
+    pattern as social_store)."""
     sid = (source_page_id or "").strip()
     if not sid:
         return None, None
@@ -437,9 +438,9 @@ async def _load_source_row(source_page_id: str):
 
 
 async def _check_publish_requires(source_page_id: str) -> None:
-    """Salvaguarda d'action_rules («no es pot publicar un esborrany») sobre la
-    fila d'origen. 409 amb el motiu; si la fila no es pot resoldre, passa
-    (publicacions sense origen del Vault no es bloquegen)."""
+    """action_rules safeguard ("a draft cannot be published") on the
+    source row. 409 with the reason; if the row can't be resolved, it passes through
+    (publications without a Vault origin are not blocked)."""
     try:
         from backend.services import action_rules as ars
 
@@ -459,8 +460,8 @@ async def _check_publish_requires(source_page_id: str) -> None:
 async def _apply_publish_effect_to_source(
     source_page_id: str, background_tasks: BackgroundTasks
 ) -> None:
-    """Efecte d'action_rules en èxit: la fila d'ORIGEN del Vault passa a
-    «Publicat a XXSS» (decisió §9.3 de la directiva de catàlegs d'opcions)."""
+    """action_rules effect on success: the Vault ORIGIN row moves to
+    "Published to Social Media" (decision §9.3 of the option-catalog directive)."""
     try:
         from backend.api import vault_routes as vr
         from backend.services import action_rules as ars
@@ -498,10 +499,11 @@ async def _do_publish(
     save_record: bool = True,
     record_id: Optional[str] = None,
 ):
-    """Publica el text final a cada xarxa i persisteix el resultat.
+    """Publish the final text to each network and persist the result.
 
     `posts`: {network: {"text": str, "media": list|None}}.
-    Retorna (record_id, estat_final, results-per-xarxa).
+    Returns (record_id, final_status, results per network).
+    
     """
     results: Dict[str, Any] = {}
     for net, post in posts.items():
@@ -546,8 +548,8 @@ async def _do_publish(
                 rid, status=final, results=results, published_at=now,
                 background_tasks=background_tasks,
             )
-    # Efecte sobre la fila d'origen NOMÉS amb èxit complet: una publicació
-    # parcial (alguna xarxa ha fallat) no ha de marcar la fila com publicada.
+    # Effect on the source row ONLY on full success: a publication
+    # partial (some network failed) should not mark the row as published.
     if final == social_store.STATUS_PUBLISHED and source_page_id:
         await _apply_publish_effect_to_source(source_page_id, background_tasks)
     return rid, final, results
@@ -555,7 +557,7 @@ async def _do_publish(
 
 @router.post("/publish", dependencies=[Depends(require_role("editor"))])
 async def publish_posts(request: PublishRequest, background_tasks: BackgroundTasks):
-    """Publica un missatge (potencialment diferent) per xarxa i desa el registre."""
+    """Publish a message (potentially different) per network and save the registry."""
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a enviar.")
     await _check_publish_requires(request.source_page_id or "")
@@ -572,9 +574,9 @@ async def publish_posts(request: PublishRequest, background_tasks: BackgroundTas
 
 @router.post("/post", dependencies=[Depends(require_role("editor"))])
 async def create_post(request: CreatePostRequest, background_tasks: BackgroundTasks):
-    """Compat: publica el MATEIX text a diverses xarxes. Per missatge per xarxa,
-    useu /publish. (Abans retornava 501 perquè depenia de n8n; ara publica via
-    els clients directes.)"""
+    """Compat: publishes the SAME text to multiple networks. For a per-network message,
+    use /publish. (Previously returned 501 because it depended on n8n; now it publishes via
+    the direct clients.)"""
     posts = {net: {"text": request.content, "media": None} for net in request.networks}
     rid, final, results = await _do_publish(posts, background_tasks=background_tasks)
     if final == social_store.STATUS_ERROR:
@@ -584,7 +586,7 @@ async def create_post(request: CreatePostRequest, background_tasks: BackgroundTa
 
 @router.post("/schedule", dependencies=[Depends(require_role("editor"))])
 async def schedule_post(request: SchedulePublishRequest, background_tasks: BackgroundTasks):
-    """Programa una publicació futura (desada a la taula del Vault, no en memòria)."""
+    """Schedule a future publication (saved to the Vault table, not in memory)."""
     if request.scheduled_time <= datetime.now():
         raise HTTPException(status_code=400, detail="L'hora programada ha de ser futura.")
     if not request.posts:
@@ -627,7 +629,7 @@ async def get_scheduled_posts():
 
 @router.delete("/scheduled/{post_id}", dependencies=[Depends(require_role("editor"))])
 async def cancel_scheduled_post(post_id: str, background_tasks: BackgroundTasks):
-    """Cancel a scheduled post (marca l'estat com a cancel·lada)."""
+    """Cancel a scheduled post (marks the status as cancelled)."""
     recs = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     if not any(r.get("id") == post_id for r in recs):
         raise HTTPException(status_code=404, detail=f"Scheduled post {post_id} not found")
@@ -639,7 +641,7 @@ async def cancel_scheduled_post(post_id: str, background_tasks: BackgroundTasks)
 
 @router.post("/process-scheduled", dependencies=[Depends(require_role("editor"))])
 async def process_scheduled_posts(background_tasks: BackgroundTasks):
-    """Publica les programades vençudes. La crida el scheduler periòdicament."""
+    """Publish overdue scheduled posts. Called periodically by the scheduler."""
     now = datetime.now()
     pending = await social_store.list_publications(status=social_store.STATUS_SCHEDULED)
     processed = []
@@ -662,8 +664,8 @@ async def process_scheduled_posts(background_tasks: BackgroundTasks):
         )
         _, final, results = await _do_publish(
             posts, save_record=True, record_id=rid,
-            # Origen desat al registre: en publicar la programada, l'efecte
-            # d'Estat arriba igualment a la fila del Vault.
+            # Origin saved on the record: when publishing the scheduled item, the effect
+            # of Estat reaches the Vault row anyway.
             source_page_id=rec.get(social_store.COL_ORIGIN) or "",
             background_tasks=background_tasks,
         )

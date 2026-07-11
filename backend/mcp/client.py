@@ -11,7 +11,8 @@ class MCPClientErrors:
 
 class DockerMCPClient:
     """
-    Client MCP simple que connecta via 'docker exec' i parla JSON-RPC sobre stdio.
+        Simple MCP client that connects via 'docker exec' and speaks JSON-RPC over stdio.
+    
     """
     def __init__(self, server_name: str, docker_cmd: List[str]):
         self.server_name = server_name
@@ -22,7 +23,7 @@ class DockerMCPClient:
         self._reader_task: Optional[asyncio.Task] = None
 
     async def start(self):
-        """Inicia el subprocés Docker."""
+        """Starts the Docker subprocess."""
         log.info(f"🔌 Connecting to MCP Server '{self.server_name}' via: {' '.join(self.docker_cmd)}")
         self.process = await asyncio.create_subprocess_exec(
             *self.docker_cmd,
@@ -38,14 +39,14 @@ class DockerMCPClient:
     async def initialize(self):
         try:
             log.info(f"⏳ Initializing MCP handshake with {self.server_name}...")
-            # Timeout reduït a 2 segons per a independència total
+            # Timeout reduced to 2 seconds for total independence
             response = await asyncio.wait_for(self.send_request("initialize", {
                 "protocolVersion": "0.1.0",
                 "capabilities": {},
                 "clientInfo": {"name": "gnosi-host", "version": "1.0"}
             }), timeout=2.0)
             log.info(f"✅ MCP Initialized ({self.server_name}): {response}")
-            # Notificar que estem llestos
+            # Notify that we're ready
             await self.send_notification("notifications/initialized", {})
         except asyncio.TimeoutError:
             log.error(f"❌ MCP Initialization Timed Out for {self.server_name} after 2s. Continuing without it.")
@@ -73,19 +74,19 @@ class DockerMCPClient:
             "params": params or {}
         }
 
-        # get_running_loop() és la API moderna dins funcions async
-        # (get_event_loop està deprecat des de Python 3.10).
+        # get_running_loop() is the modern API inside async functions
+        # (get_event_loop has been deprecated since Python 3.10).
         future = asyncio.get_running_loop().create_future()
         self._pending_requests[current_id] = future
 
         await self._send_json(request)
         try:
-            # Timeout: si el servidor MCP es penja o crasheja, abans
-            # `await future` quedava penjat indefinidament i bloquejava
-            # el caller (típicament un endpoint d'agent_routes o factory).
+            # Timeout: if the MCP server hangs or crashes, previously
+            # `await future` would hang indefinitely and block
+            # the caller (typically an agent_routes or factory endpoint).
             return await asyncio.wait_for(future, timeout=timeout)
         except asyncio.TimeoutError:
-            # Netegem la pendent perquè no acumuli memòria
+            # We clean up the pending task so it doesn't accumulate memory
             self._pending_requests.pop(current_id, None)
             raise RuntimeError(
                 f"MCP request {method} on {self.server_name} timed out after {timeout}s"
@@ -123,7 +124,7 @@ class DockerMCPClient:
                 if not text:
                     continue
                 
-                # Ignorar logs que no siguin JSON (el shim de n8n/notion ja ho filtra, però per seguretat)
+                # Ignore logs that aren't JSON (the n8n/notion shim already filters this, but just to be safe)
                 if not text.startswith("{"):
                     log.debug(f"[{self.server_name} LOG] {text}")
                     continue
@@ -139,7 +140,7 @@ class DockerMCPClient:
                         future.set_result(msg.get("result"))
                 
                 # Handle Notifications (Server -> Client)
-                # (De moment ignorem, excepte logs)
+                # (For now we ignore it, except for logs)
                 
             except Exception as e:
                 log.error(f"Error parsing MCP message from {self.server_name}: {e}")
@@ -154,9 +155,9 @@ class DockerMCPClient:
         })
 
 async def _docker_container_running(name: str) -> bool:
-    """True si el contenidor docker `name` està en execució.
+    """True if the docker container `name` is running.
 
-    Silenciós si docker no és accessible (retorna False)."""
+    Silent if docker is not accessible (returns False)."""
     try:
         proc = await asyncio.create_subprocess_exec(
             "docker", "inspect", "-f", "{{.State.Running}}", name,
@@ -172,25 +173,25 @@ class MultiServerMCPClient:
     def __init__(self, config: Dict[str, Dict]):
         self.clients: Dict[str, DockerMCPClient] = {}
         self.config = config
-        # Cache de routing tool→servidor. Abans `call_tool` cridava
-        # `get_all_tools()` a CADA invocació (una round-trip `tools/list` per
-        # servidor MCP) només per saber qui té la tool → latència multiplicada
-        # per cada crida de l'agent. Ara es resol de la cache; només es refresca
-        # en un MISS (tool nova, servidor arrencat després).
+        # Tool→server routing cache. Previously `call_tool` called
+        # `get_all_tools()` on EVERY invocation (a `tools/list` round-trip per
+        # MCP server) just to find out who has the tool → multiplied latency
+        # for every agent call. Now it's resolved from the cache; it only refreshes
+        # on a MISS (new tool, server started later).
         self._tool_server_cache: Dict[str, str] = {}
 
     async def start(self):
-        # Iniciar tots els servidors en paral·lel per no bloquejar l'arrencada de l'App
+        # Start all servers in parallel to avoid blocking the App's startup
         tasks = []
         for name, cfg in self.config.items():
             cmd = cfg["command"]
             args = cfg.get("args", [])
             full_cmd = [cmd] + args
 
-            # Si és un MCP via `docker exec -i <container>`, comprova que el
-            # contenidor existeix abans de connectar. Sense això, si el servei
-            # (p. ex. n8n-mcp) no està desplegat, cada arrencada perdia 2s en un
-            # handshake que sempre feia timeout i omplia els logs d'errors.
+            # If it's an MCP via `docker exec -i <container>`, check that the
+            # container exists before connecting. Without this, if the service
+            # (e.g. n8n-mcp) is not deployed, every startup would lose 2s on a
+            # handshake that always timed out and filled the logs with errors.
             if cmd == "docker" and len(args) >= 3 and args[0] == "exec":
                 container = args[2]
                 if not await _docker_container_running(container):
@@ -219,8 +220,8 @@ class MultiServerMCPClient:
                     continue
                 tools_resp = await client.list_tools()
                 tools = tools_resp.get("tools", [])
-                # Prefixar nom de l'eina amb el servidor per evitar col·lisions?
-                # De moment no, deixem noms originals.
+                # Prefix the tool name with the server to avoid collisions?
+                # Not for now, we keep the original names.
                 for t in tools:
                     t["server"] = name # Metadata extra
                     all_tools.append(t)
@@ -229,7 +230,7 @@ class MultiServerMCPClient:
         return all_tools
 
     async def _refresh_tool_routing(self):
-        """Reconstrueix la cache tool→servidor llistant totes les tools un cop."""
+        """Rebuilds the tool→server cache by listing all tools once."""
         tools = await self.get_all_tools()
         self._tool_server_cache = {
             t["name"]: t["server"]
@@ -238,9 +239,9 @@ class MultiServerMCPClient:
         }
 
     async def call_tool(self, tool_name: str, tool_args: Dict):
-        # Ruta ràpida: la cache ja sap quin servidor té la tool (O(1), sense
-        # cap round-trip). Miss (tool desconeguda o servidor ja no present) →
-        # refresca el routing UN cop i reintenta abans de rendir-se.
+        # Fast path: the cache already knows which server has the tool (O(1), without
+        # an extra round-trip). Miss (unknown tool or server no longer present) →
+        # refreshes the routing ONCE and retries before giving up.
         target_server = self._tool_server_cache.get(tool_name)
         if target_server is None or target_server not in self.clients:
             await self._refresh_tool_routing()

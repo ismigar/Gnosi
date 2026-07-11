@@ -20,12 +20,12 @@ class MastodonClient:
     def __init__(self):
         self.instance = os.getenv("TEMENOS_MASTODON_INSTANCE", "https://mastodon.social")
 
-    # Tokens llegits de l'entorn DE FORMA DINÀMICA (no a l'arrencada). El singleton
-    # es crea a import-time, abans que load_env propagui .env_shared/keychain a
-    # os.environ; capturar-los al __init__ deixava el client buit segons l'ordre
-    # de càrrega i després d'un restart (is_configured=False i feeds en mode
-    # "setup" tot i tenir els tokens). Com a properties, el client sempre
-    # reflecteix l'entorn actual.
+    # Tokens read from the environment DYNAMICALLY (not at startup). The singleton
+    # is created at import-time, before load_env propagates .env_shared/keychain to
+    # os.environ; capturing them in __init__ left the client empty depending on the load
+    # order and after a restart (is_configured=False and feeds in
+    # "setup" even though it has the tokens). As properties, the client always
+    # reflects the current environment.
     @property
     def bearer(self) -> str:
         return os.getenv("TEMENOS_MASTODON_BEARER", "")
@@ -40,11 +40,11 @@ class MastodonClient:
 
     @property
     def auth_headers(self) -> dict:
-        # Headers SENSE Content-Type json per a pujades multipart (media).
+        # Headers WITHOUT json Content-Type for multipart uploads (media).
         return {"Authorization": f"Bearer {self.bearer}"}
 
     def is_configured(self) -> bool:
-        """True si hi ha token per publicar/llegir."""
+        """True if there is a token to publish/read."""
         return bool(self.bearer)
     
     async def get_home_timeline(self, limit: int = 20) -> List[Dict]:
@@ -194,9 +194,10 @@ class MastodonClient:
         return transformed
 
     async def _upload_media(self, media: Optional[list]) -> list:
-        """Puja fitxers locals a Mastodon i retorna els media_ids.
+        """Uploads local files to Mastodon and returns the media_ids.
 
-        Cada element pot ser una ruta (str) o una tupla (ruta, alt_text).
+        Each element can be a path (str) or a tuple (path, alt_text).
+        
         """
         media_ids: list = []
         for item in media or []:
@@ -240,7 +241,7 @@ class MastodonClient:
             raise
 
     async def publish(self, text: str, media: Optional[list] = None) -> Dict:
-        """Interfície uniforme de publicació. Retorna {url, id}."""
+        """Uniform publishing interface. Returns {url, id}."""
         media_ids = await self._upload_media(media) if media else []
         result = await self.post_status(text, media_ids=media_ids) or {}
         return {"url": result.get("url"), "id": result.get("id")}
@@ -257,7 +258,7 @@ class BlueskyClient:
         self.access_token = None
         self.did = None
 
-    # Tokens llegits dinàmicament de l'entorn (vegeu la nota a MastodonClient).
+    # Tokens read dynamically from the environment (see the note in MastodonClient).
     @property
     def handle(self) -> str:
         return os.getenv("TEMENOS_BLUESKY_HANDLE", "")
@@ -267,7 +268,7 @@ class BlueskyClient:
         return os.getenv("TEMENOS_BLUESKY_APP_PASSWORD", "")
 
     def is_configured(self) -> bool:
-        """True si hi ha handle + app password per autenticar."""
+        """True if there is a handle + app password to authenticate."""
         return bool(self.handle and self.app_password)
     
     async def _authenticate(self) -> bool:
@@ -392,7 +393,7 @@ class BlueskyClient:
             return False
 
     async def _upload_blob(self, path: str) -> Dict:
-        """Puja un fitxer com a blob i retorna l'objecte blob per a l'embed."""
+        """Upload a file as a blob and return the blob object for the embed."""
         import mimetypes
         with open(path, "rb") as fh:
             content = fh.read()
@@ -446,7 +447,7 @@ class BlueskyClient:
             raise
 
     async def publish(self, text: str, media: Optional[list] = None) -> Dict:
-        """Interfície uniforme de publicació. Retorna {url, id}."""
+        """Uniform publishing interface. Returns {url, id}."""
         result = await self.create_post(text, media=media) or {}
         uri = result.get("uri", "")
         rkey = uri.split("/")[-1] if uri else ""
@@ -489,10 +490,11 @@ class BlueskyClient:
 
 
 class UnconfiguredPublisher:
-    """Stub uniforme per a xarxes encara no implementades (Fase 1+).
+    """Uniform stub for networks not yet implemented (Phase 1+).
 
-    Apareixen al registry perquè la UI les pugui llistar i guiar la connexió,
-    però `publish()` falla amb un missatge clar i `is_configured()` és False.
+    They appear in the registry so the UI can list them and guide the connection,
+    but `publish()` fails with a clear message and `is_configured()` is False.
+    
     """
 
     def __init__(self, network: str, char_limit: int = 280):
@@ -509,15 +511,16 @@ class UnconfiguredPublisher:
 
 
 class TelegramClient:
-    """Client per publicar a Telegram via Bot API (sense OAuth).
+    """Client for publishing to Telegram via the Bot API (no OAuth).
 
-    Config a l'entorn (lectura dinàmica, com Mastodon/Bluesky):
-      TELEGRAM_BOT_TOKEN  — token del bot creat amb @BotFather
-      TELEGRAM_CHAT_ID    — id del xat/canal destí (@elmeucanal o -100123...)
+    Config in the environment (dynamic read, like Mastodon/Bluesky):
+      TELEGRAM_BOT_TOKEN  — token of the bot created with @BotFather
+      TELEGRAM_CHAT_ID    — id of the target chat/channel (@mychannel or -100123...)
+    
     """
 
     network = "telegram"
-    char_limit = 4096  # límit de missatge de text; amb media, el caption és 1024
+    char_limit = 4096  # text message limit; with media, the caption is 1024
 
     @property
     def bot_token(self) -> str:
@@ -535,7 +538,7 @@ class TelegramClient:
         return bool(self.bot_token and self.chat_id)
 
     async def publish(self, text: str, media: Optional[list] = None) -> Dict:
-        """Publica un missatge (amb foto opcional). Retorna {url, id}."""
+        """Publishes a message (with an optional photo). Returns {url, id}."""
         if not self.is_configured():
             raise Exception("Telegram no configurat (TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID).")
         async with httpx.AsyncClient() as client:
@@ -569,10 +572,10 @@ instagram_client = UnconfiguredPublisher("instagram", 2200)
 x_client = UnconfiguredPublisher("x", 280)
 telegram_client = TelegramClient()
 
-# Registry uniforme network → client. Tots exposen la mateixa interfície:
+# Uniform network → client registry. All of them expose the same interface:
 #   .network (str), .char_limit (int), .is_configured() -> bool,
 #   async .publish(text, media) -> {url, id}
-# Permet que /compose i /publish iterin sense `if` per xarxa.
+# Lets /compose and /publish iterate without a network `if`.
 SOCIAL_PUBLISHERS: Dict[str, Any] = {
     "mastodon": mastodon_client,
     "bluesky": bluesky_client,

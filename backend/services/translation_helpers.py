@@ -1,34 +1,35 @@
-"""Helpers purs per a la traducció de contingut (skills translate_row / translate_page).
+"""Pure helpers for content translation (translate_row / translate_page skills).
 
-Viuen a `services/` (no inline a `vault_routes`) per dos motius:
+They live in `services/` (not inline in `vault_routes`) for two reasons:
 
-1. **Testabilitat**: es poden provar amb pytest sense importar el backend sencer,
-   que arrossega `langgraph` i és lent/feixuc d'importar en subprocess
-   (veure directiva `feedback_local_backend_test_verification`).
-2. **Reutilització**: tant els endpoints `translate-row`/`translate-page` (per a la
-   idempotència) com els hooks de desat (`patch_page`/`save_page`, per al marcatge
-   d'obsolescència) necessiten la mateixa lògica de cerca i comparació.
+1. **Testability**: they can be tested with pytest without importing the whole backend,
+   which drags in `langgraph` and is slow/heavy to import in a subprocess
+   (see the `feedback_local_backend_test_verification` directive).
+2. **Reuse**: both the `translate-row`/`translate-page` endpoints (for
+   idempotency) and the save hooks (`patch_page`/`save_page`, for obsolescence
+   marking) need the same lookup and comparison logic.
 
-Sense I/O, sense FastAPI, sense imports del backend: dades entren, dades surten.
+No I/O, no FastAPI, no backend imports: data goes in, data comes out.
 """
 import re
 from typing import Any, Dict, Iterable, Optional
 
 
 def canonicalize_id(page_id: Any) -> str:
-    """Normalitza un UUID per comparar-lo de forma robusta.
+    """Normalizes a UUID for robust comparison.
 
-    Els IDs poden venir amb guions (`df361486-5ff3-...`, forma UUID estàndard) o
-    sense (`df3614865ff3...`, com exporta Notion). `parent_id`, edicions manuals i
-    `translation_origin_id` poden portar qualsevol de les dues formes; comparar-les
-    com a strings crues provoca falsos negatius. Aquest helper unifica les dues
-    formes (minúscules, sense guions ni espais).
+    IDs can come with dashes (`df361486-5ff3-...`, standard UUID form) or
+    without (`df3614865ff3...`, as Notion exports them). `parent_id`, manual edits, and
+    `translation_origin_id` can carry either of the two forms; comparing them
+    as raw strings causes false negatives. This helper unifies the two
+    forms (lowercase, without dashes or spaces).
+    
     """
     return str(page_id or "").strip().lower().replace("-", "")
 
 
 def _meta_of(page: Any) -> Dict[str, Any]:
-    """Extreu el dict de metadata d'un `PageInfo` o d'un dict pla."""
+    """Extracts the metadata dict from a `PageInfo` or from a plain dict."""
     if page is None:
         return {}
     md = getattr(page, "metadata", None)
@@ -38,15 +39,16 @@ def _meta_of(page: Any) -> Dict[str, Any]:
 
 
 def find_translations_of(origin_id: str, pages: Iterable[Any]) -> Dict[str, Any]:
-    """Retorna `{lang: page}` de les traduccions filles d'un original.
+    """Returns `{lang: page}` of the child translations of an original.
 
-    Una traducció és una pàgina amb `metadata.translation_origin_id` igual a
-    `origin_id` (comparat canònicament) i amb un `metadata.translation_lang` no buit.
+    A translation is a page with `metadata.translation_origin_id` equal to
+    `origin_id` (compared canonically) and a non-empty `metadata.translation_lang`.
 
-    `pages` és qualsevol iterable d'objectes amb `.metadata` (p. ex. `PageInfo`) o de
-    dicts amb clau `metadata`. Si hi hagués més d'una traducció per al mateix idioma
-    (estat brut per re-traduccions antigues abans de la idempotència), guanya l'última
-    vista — el caller en re-aprofitarà una i la resta es poden netejar manualment.
+    `pages` is any iterable of objects with `.metadata` (e.g. `PageInfo`) or of
+    dicts with a `metadata` key. If there were more than one translation for the same
+    language (dirty state from old re-translations before idempotency), the last one
+    seen wins — the caller will reuse one of them and the rest can be cleaned up manually.
+    
     """
     out: Dict[str, Any] = {}
     target = canonicalize_id(origin_id)
@@ -71,21 +73,22 @@ def translatable_content_changed(
     *,
     title_matters: bool = False,
 ) -> bool:
-    """Indica si una edició afecta el contingut que es tradueix.
+    """Indicates whether an edit affects the content being translated.
 
-    Serveix de guarda al hook de desat: només si retorna `True` cal marcar les
-    traduccions com a obsoletes. És clau per no disparar escriptures a cada
-    pulsació de tecla de l'autosave del Vault quan el canvi no és rellevant.
+    Acts as a guard in the save hook: translations only need to be marked as
+    stale if this returns `True`. It's key to avoid triggering writes on every
+    keystroke of the Vault's autosave when the change isn't relevant.
 
-    Casos:
-      - **Registres**: `translatable_keys` són les claus (`id`/`name`) dels camps
-        marcats com a traduïbles; es compara cada valor al frontmatter. `title_matters`
-        s'activa quan el camp títol és traduïble.
-      - **Pàgines**: es passen `old_body`/`new_body` i `title_matters=True` (les
-        pàgines tradueixen sempre títol + cos).
+    Cases:
+      - **Records**: `translatable_keys` are the keys (`id`/`name`) of the fields
+        marked as translatable; each value is compared in the frontmatter. `title_matters`
+        is activated when the title field is translatable.
+      - **Pages**: `old_body`/`new_body` and `title_matters=True` are passed (pages
+        always translate title + body).
 
-    Compara amb `!=` directe; n'hi ha prou perquè abans i després comparteixen la
-    mateixa forma de claus dins d'un mateix desat.
+    Compares with a direct `!=`; that's enough because before and after share the
+    same key shape within the same save.
+    
     """
     old_md = old_md or {}
     new_md = new_md or {}
@@ -106,15 +109,15 @@ def translatable_content_changed(
     return False
 
 
-# --- Detecció de l'idioma origen via el camp "Idioma" del registre ----------
-# Mirall del helper de frontend (schemaUtils.detectRecordSourceLang): backend i
-# UI han de coincidir en quin és l'idioma original. Si el registre té un camp
-# "Idioma" (o sinònim), el seu valor mana sobre la detecció heurística del text.
+# --- Source language detection via the record's "Idioma" field ----------
+# Mirror of the frontend helper (schemaUtils.detectRecordSourceLang): backend and
+# UI must agree on what the original language is. If the record has a field
+# "Idioma" (or a synonym), its value takes precedence over the text-based heuristic detection.
 
-# Noms de camp que solem usar per a "l'idioma del registre".
+# Field names we typically use for "the record's language".
 _LANGUAGE_FIELD_NAMES = {"idioma", "llengua", "language", "lang", "lengua", "lingua"}
 
-# Etiquetes/codis habituals → codi ISO 639-1.
+# Common labels/codes → ISO 639-1 code.
 _LANGUAGE_VALUE_TO_CODE = {
     "ca": "ca", "cat": "ca", "català": "ca", "catala": "ca", "catalan": "ca", "catalán": "ca",
     "es": "es", "spa": "es", "cas": "es", "castellà": "es", "castella": "es", "castellano": "es", "español": "es", "espanyol": "es", "spanish": "es",
@@ -137,9 +140,10 @@ def _strip_accents(s: str) -> str:
 
 
 def normalize_lang_code(value: Any) -> str:
-    """Normalitza un valor d'idioma ("Català", "EN-GB", "ca") a codi ISO 639-1.
+    """Normalizes a language value ("Català", "EN-GB", "ca") to an ISO 639-1 code.
 
-    Retorna '' si no es pot determinar.
+    Returns '' if it can't be determined.
+    
     """
     if not isinstance(value, str):
         return ""
@@ -155,11 +159,12 @@ def normalize_lang_code(value: Any) -> str:
 
 
 def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
-    """Idioma origen d'un registre llegit del seu camp "Idioma" (o sinònim).
+    """Source language of a record, read from its "Idioma" field (or a synonym).
 
-    Retorna el codi ISO 639-1, o '' si el registre no té un camp idioma
-    reconeixible amb valor vàlid (el caller cau llavors a la heurística de text).
-    Es compara el nom de la clau accent/caixa-insensiblement.
+    Returns the ISO 639-1 code, or '' if the record doesn't have a recognizable
+    language field with a valid value (the caller then falls back to the text heuristic).
+    The key name is compared accent/case-insensitively.
+    
     """
     if not metadata or not isinstance(metadata, dict):
         return ""
@@ -173,9 +178,9 @@ def detect_record_source_lang(metadata: Optional[Dict[str, Any]]) -> str:
 
 
 def detect_record_lang_raw(metadata: Optional[Dict[str, Any]]) -> str:
-    """Valor CRU (minúscules) del camp "Idioma" de la fila, SENSE truncar a 2
-    lletres. P. ex. "EN-GB" → "en-gb". '' si no en té. Per a destins que accepten
-    codis regionals (com Drupal, que pot tenir "en-gb")."""
+    """RAW value (lowercase) of the row's "Idioma" field, WITHOUT truncating to 2
+    letters. E.g. "EN-GB" → "en-gb". '' if it doesn't have one. For targets that accept
+    regional codes (like Drupal, which can have "en-gb")."""
     if not metadata or not isinstance(metadata, dict):
         return ""
     for key, val in metadata.items():
@@ -185,17 +190,17 @@ def detect_record_lang_raw(metadata: Optional[Dict[str, Any]]) -> str:
     return ""
 
 
-# --- Omplir el camp "Idioma" de la traducció ---------------------------------
-# `detect_record_source_lang` LLEGEIX l'idioma de l'original; aquestes funcions
-# fan l'invers: decideixen QUÈ escriure al camp "Idioma" del subitem traduït
-# perquè quedi marcat amb l'idioma destí (abans quedava buit). Són pures (dades
-# entren, dades surten) perquè el test no hagi d'importar el backend sencer.
+# --- Filling in the translation's "Idioma" field ---------------------------------
+# `detect_record_source_lang` READS the language of the original; these functions
+# do the inverse: they decide WHAT to write in the translated subitem's "Idioma" field
+# so it ends up marked with the target language (before, it was left empty). They are pure (data
+# in, data out) so the test doesn't have to import the whole backend.
 
 
 def find_language_property(properties: Optional[Iterable[Any]]) -> Optional[Dict[str, Any]]:
-    """Retorna la propietat "Idioma" (o sinònim) d'una llista de propietats de
-    taula, o None si no en té cap. El nom es compara accent/caixa-insensiblement
-    (mirall de `detect_record_source_lang`)."""
+    """Returns the "Idioma" property (or a synonym) from a list of table
+    properties, or None if there isn't one. The name is compared accent/case-insensitively
+    (mirrors `detect_record_source_lang`)."""
     for p in properties or []:
         if not isinstance(p, dict):
             continue
@@ -205,9 +210,9 @@ def find_language_property(properties: Optional[Iterable[Any]]) -> Optional[Dict
 
 
 def _select_option_values(prop: Dict[str, Any]) -> list:
-    """Valors triables d'un select: `config.options` (niat, el que escriu el PATCH
-    inline) o `options` (nivell superior, el que escriu el desat del modal). Cada
-    opció pot ser un string o un dict {name/label/value}. Retorna strings nets."""
+    """Selectable values of a select: `config.options` (nested, what the inline PATCH
+    writes) or `options` (top-level, what the modal's save writes). Each
+    option can be a string or a dict {name/label/value}. Returns clean strings."""
     cfg = prop.get("config")
     raw = None
     if isinstance(cfg, dict) and isinstance(cfg.get("options"), list):
@@ -223,16 +228,17 @@ def _select_option_values(prop: Dict[str, Any]) -> list:
 
 
 def language_field_value(prop: Dict[str, Any], target_lang: str) -> str:
-    """Valor a escriure al camp idioma per a `target_lang`.
+    """Value to write to the language field for `target_lang`.
 
-    Prioritza una opció existent del catàleg del select que casi amb el codi
-    destí (estil Notion: reaprofita el valor que l'usuari ja té —"Català", "CA"…—
-    en lloc de duplicar-lo). Si no n'hi ha cap, cau al codi ISO en MAJÚSCULES
-    ("CA", "EN"…), el format dels registres ja existents. Retorna '' si el codi
-    no es pot determinar.
+    Prioritizes an existing option from the select's catalog that matches the
+    target code (Notion style: reuses the value the user already has —"Català", "CA"…—
+    instead of duplicating it). If there isn't one, it falls back to the ISO code in
+    UPPERCASE ("CA", "EN"…), the format of already-existing records. Returns '' if
+    the code can't be determined.
+    
     """
-    # normalize_lang_code ja accepta tant etiquetes ("Català") com qualsevol codi
-    # ISO de 2 lletres ("ca", "ja"…); si el rebutja, no és un idioma → no escrivim.
+    # normalize_lang_code already accepts both labels ("Català") and any
+    # 2-letter ISO code ("ca", "ja"…); if it rejects it, it's not a language → we don't write it.
     code = normalize_lang_code(target_lang)
     if not code:
         return ""
@@ -247,13 +253,14 @@ def language_field_assignment(
     target_lang: str,
     parent_metadata: Optional[Dict[str, Any]] = None,
 ) -> tuple:
-    """(clau, valor) per marcar el camp idioma d'una traducció, o (None, None) si
-    la taula no té camp idioma o el codi no es pot resoldre.
+    """(key, value) to mark the language field of a translation, or (None, None) if
+    the table has no language field or the code can't be resolved.
 
-    La `clau` és l'id estable de la propietat (o el nom si no en té); el backend
-    (`to_storage_names`) la reescriu al nom en desar, com fa amb la resta de
-    camps. El `valor` respecta el format multi_select (llista) quan la propietat
-    ho és, o quan el pare ja desava l'idioma com a llista.
+    The `key` is the property's stable id (or its name if it doesn't have one); the
+    backend (`to_storage_names`) rewrites it to the name on save, as it does with
+    the rest of the fields. The `value` respects the multi_select format (list) when
+    the property is one, or when the parent already saved the language as a list.
+    
     """
     prop = find_language_property(properties)
     if not prop:
@@ -275,18 +282,18 @@ def language_field_assignment(
     return key, ([value] if is_multi else value)
 
 
-# --- Camps imatge compostos -------------------------------------------------
-# Un camp imatge pot tenir com a valor una ruta (string) o un mapa compost
-# {src, alt, title, caption, credit} (veure frontend lib/fileResource.js). Quan
-# és traduïble, NO s'ha de traduir la imatge (src) — es manté la mateixa (el
-# subitem referencia el mateix fitxer, sense duplicar-lo) — i només es tradueixen
-# els subcamps de TEXT (alt, title, caption, credit).
+# --- Composite image fields -------------------------------------------------
+# An image field can have a path (string) or a composite map as its value
+# {src, alt, title, caption, credit} (see frontend lib/fileResource.js). When
+# is translatable, the image (src) must NOT be translated — it stays the same (the
+# subitem references the same file, without duplicating it) — and only
+# the TEXT subfields (alt, title, caption, credit).
 
 _IMAGE_SRC_KEYS = ("src", "url", "path")
 _IMAGE_TEXT_SUBKEYS = ("alt", "title", "caption", "credit", "description")
-# Mirall de isImageFieldName(): exclou noms de text SOBRE la imatge (Alt, Peu…)
-# i accepta Imatge/Cover/Foto… El fem servir per als camps imatge sense subcamps
-# (valor ruta string) perquè no se'ls tradueixi la ruta com si fos text.
+# Mirror of isImageFieldName(): excludes field names for text ABOUT the image (Alt, Peu…)
+# and accepts Imatge/Cover/Foto… We use it for image fields without subfields
+# (string path value) so the path doesn't get translated as if it were text.
 _IMAGE_NAME_RE = re.compile(r"(image|imatge|cover|thumbnail|thumb|foto|imagen)", re.IGNORECASE)
 _IMAGE_NAME_EXCLUDE_RE = re.compile(
     r"\balt\b|\btext\b|\bcaption\b|\bpeu\b|\bllegenda\b|\bleyenda\b|descrip", re.IGNORECASE
@@ -294,8 +301,8 @@ _IMAGE_NAME_EXCLUDE_RE = re.compile(
 
 
 def is_image_field_name(name: Any) -> bool:
-    """True si el NOM del camp denota una imatge (Imatge/Cover/Foto…), excloent
-    els que denoten text sobre la imatge (Alt/Caption/Peu…)."""
+    """True if the field NAME denotes an image (Imatge/Cover/Foto…), excluding
+    those that denote text about the image (Alt/Caption/Peu…)."""
     s = str(name or "")
     if _IMAGE_NAME_EXCLUDE_RE.search(s):
         return False
@@ -303,21 +310,22 @@ def is_image_field_name(name: Any) -> bool:
 
 
 def is_composite_image_value(val: Any) -> bool:
-    """True si el valor és un mapa d'imatge compost (té src/url/path no buit)."""
+    """True if the value is a composite image map (has non-empty src/url/path)."""
     return isinstance(val, dict) and any(
         isinstance(val.get(k), str) and val.get(k).strip() for k in _IMAGE_SRC_KEYS
     )
 
 
 def translate_image_field(val: Any, translate_one) -> tuple:
-    """Tradueix els subcamps de text d'un camp imatge, mantenint la imatge.
+    """Translate the text subfields of an image field, keeping the image.
 
-    `translate_one(text) -> (traduït, provider)`. Retorna
-    `(nou_valor, providers, any_translated)`:
-      - Si `val` és un mapa compost, es còpia i es tradueixen alt/title/caption/
-        credit/description; el src (i la resta de claus) es manté → el subitem
-        referencia el mateix fitxer, no se'n crea cap còpia.
-      - Si `val` és un string (ruta) es retorna tal qual (no es tradueix la ruta).
+    `translate_one(text) -> (translated, provider)`. Returns
+    `(new_value, providers, any_translated)`:
+      - If `val` is a composite map, it is copied and alt/title/caption/
+        credit/description are translated; the src (and the rest of the keys) is kept → the subitem
+        references the same file, no copy is created.
+      - If `val` is a string (path) it is returned as-is (the path is not translated).
+    
     """
     if not isinstance(val, dict):
         return val, set(), False

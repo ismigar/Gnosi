@@ -1,15 +1,15 @@
-"""Tests del mapper declaratiu Zotero item → Recursos.
+"""Tests for the declarative Zotero item → Recursos mapper.
 
-Cobreix:
-  - Equivalència bit-idèntica amb el `_zotero_item_to_recursos` original
-    de `vault_routes.py` per a fixtures realistes (translation-server,
-    Zotero web library export). Sense regressions abans del refactor.
-  - Casos parcials i edge cases (item buit, no-dict, dates rares,
-    creators amb només `name`).
-  - Fallback chain del `Llibre/Revista` (publicationTitle → bookTitle →
-    proceedingsTitle → encyclopediaTitle segons disponibilitat).
-  - Force-str: camps que poden venir com a int al JSON i Recursos els
-    desa com a string (Volum, Número, Pàgines, Edició).
+Covers:
+  - Bit-identical equivalence with the original `_zotero_item_to_recursos`
+    from `vault_routes.py` for realistic fixtures (translation-server,
+    Zotero web library export). No regressions before the refactor.
+  - Partial cases and edge cases (empty item, non-dict, unusual dates,
+    creators with only `name`).
+  - `Llibre/Revista` fallback chain (publicationTitle → bookTitle →
+    proceedingsTitle → encyclopediaTitle depending on availability).
+  - Force-str: fields that may come as int in the JSON and that Recursos
+    stores as string (Volum, Número, Pàgines, Edició).
 """
 from __future__ import annotations
 
@@ -20,10 +20,10 @@ import pytest
 from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
 
 
-# ---------- Implementació original (snapshot, pre-refactor) ----------
-# Còpia literal de _zotero_item_to_recursos / _zotero_creators_to_authors
-# de vault_routes.py a 2026-05-28. Si actualitzem el mapper i això
-# difereix amb la versió nova, els tests d'equivalència ho detecten.
+# ---------- Original implementation (snapshot, pre-refactor) ----------
+# Literal copy of _zotero_item_to_recursos / _zotero_creators_to_authors
+# from vault_routes.py as of 2026-05-28. If we update the mapper and this
+# differs from the new version, the equivalence tests catch it.
 
 def _legacy_creators_to_authors(creators) -> str:
     parts = []
@@ -145,11 +145,11 @@ INSTITUTIONAL_AUTHOR = {
     'place': 'Geneva',
 }
 
-# Cas patològic: int en lloc de string per a camps numèrics
+# Pathological case: int instead of string for numeric fields
 NUMERIC_VOLUME = {
     'itemType': 'journalArticle',
     'title': 'Some article',
-    'volume': 42,        # int al JSON
+    'volume': 42,        # int in the JSON
     'issue': 7,
     'pages': 123,
     'edition': 2,
@@ -159,7 +159,7 @@ EMPTY_ITEM = {}
 NON_DICT = "not an item"
 
 
-# ---------- Equivalència bit-idèntica ----------
+# ---------- Bit-identical equivalence ----------
 
 @pytest.mark.parametrize("fixture", [
     JOURNAL_ARTICLE, BOOK, BOOK_SECTION, CONFERENCE, INSTITUTIONAL_AUTHOR,
@@ -167,8 +167,8 @@ NON_DICT = "not an item"
 ], ids=['journalArticle', 'book', 'bookSection', 'conference',
         'institutional_author', 'numeric_volume', 'empty'])
 def test_equivalence_with_legacy(fixture):
-    """El nou mapper produeix exactament la mateixa sortida que la
-    implementació legacy. Si difereix, és una regressió silenciosa."""
+    """The new mapper produces exactly the same output as the
+    legacy implementation. If it differs, it's a silent regression."""
     assert zotero_item_to_recursos(fixture) == _legacy_zotero_item_to_recursos(fixture)
 
 
@@ -181,20 +181,20 @@ def test_non_dict_returns_empty():
 # ---------- Behavioral checks (no via legacy) ----------
 
 def test_fallback_chain_for_container():
-    """Llibre/Revista cau a bookTitle quan no hi ha publicationTitle."""
+    """Llibre/Revista falls back to bookTitle when there is no publicationTitle."""
     out = zotero_item_to_recursos(BOOK_SECTION)
     assert out['Llibre/Revista'] == 'The Two Cultures and the Scientific Revolution'
 
 
 def test_fallback_chain_first_wins():
-    """Si hi ha publicationTitle, ignora bookTitle (primer al chain)."""
+    """If publicationTitle is present, ignore bookTitle (first in the chain)."""
     item = {'publicationTitle': 'Journal X', 'bookTitle': 'Book Y'}
     assert zotero_item_to_recursos(item)['Llibre/Revista'] == 'Journal X'
 
 
 def test_authors_excludes_non_author_creators():
     out = zotero_item_to_recursos(JOURNAL_ARTICLE)
-    # Vaswani i Shazeer; l'editor s'ignora
+    # Vaswani and Shazeer; the editor is ignored
     assert out['Authors'] == 'Vaswani, Ashish; Shazeer, Noam'
 
 
@@ -223,7 +223,7 @@ def test_numeric_fields_forced_to_str():
 
 
 def test_unmapped_zotero_fields_go_to_extras():
-    """L3.4: camps sense correspondència van a `Zotero Extras`."""
+    """L3.4: fields with no correspondence go to `Zotero Extras`."""
     item = {'itemType': 'patent', 'title': 'X', 'patentNumber': 'US123', 'country': 'US'}
     out = zotero_item_to_recursos(item)
     assert out['Item Type'] == 'patent'
@@ -234,7 +234,7 @@ def test_unmapped_zotero_fields_go_to_extras():
 # ---------- L3.4: Zotero Extras ----------
 
 def test_no_extras_when_all_fields_mapped():
-    """Un item amb només camps consumits NO genera 'Zotero Extras'."""
+    """An item with only consumed fields does NOT generate 'Zotero Extras'."""
     item = {
         'itemType': 'journalArticle', 'title': 'X',
         'creators': [{'creatorType': 'author', 'lastName': 'Smith'}],
@@ -279,7 +279,7 @@ def test_extras_excludes_technical_fields():
         'dateAdded': '2020-01-01', 'dateModified': '2024-05-28',
         'relations': {}, 'attachments': [], 'notes': [],
         'collections': ['col1'], 'accessDate': '2024-06',
-        # I un camp realment Extra perquè el test no quedi sense res
+        # And one field that's genuinely Extra so the test doesn't end up with nothing
         'callNumber': 'QA76.5',
     }
     out = zotero_item_to_recursos(item)
@@ -287,8 +287,8 @@ def test_extras_excludes_technical_fields():
 
 
 def test_extras_excludes_consumed_field_chain():
-    """Si una columna agafa `publicationTitle`, NO apareixerà `bookTitle`
-    a Extras encara que el item el porti (és part del mateix chain)."""
+    """If a column takes `publicationTitle`, `bookTitle` will NOT appear
+    in Extras even if the item carries it (it's part of the same chain)."""
     item = {
         'itemType': 'journalArticle', 'title': 'X',
         'publicationTitle': 'Journal Y',
@@ -296,11 +296,11 @@ def test_extras_excludes_consumed_field_chain():
     }
     out = zotero_item_to_recursos(item)
     assert out['Llibre/Revista'] == 'Journal Y'
-    assert 'Zotero Extras' not in out  # bookTitle també és consumed
+    assert 'Zotero Extras' not in out  # bookTitle is also consumed
 
 
 def test_extras_dict_skips_falsy_values():
-    """Camps amb valor None/'' no van a Extras (consistents amb la resta del mapper)."""
+    """Fields with value None/'' do not go to Extras (consistent with the rest of the mapper)."""
     item = {
         'itemType': 'patent', 'title': 'X',
         'patentNumber': 'US1', 'country': '', 'priorityNumbers': None,

@@ -3,9 +3,9 @@ import { Pencil, X } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
 /**
- * Modal d'input centrat (estètica Gnosi). Substitueix `window.prompt` (vegeu la directiva
- * native_dialog_purge). Controlat: `isOpen` / `onClose` / `onSubmit(valor)`.
- * `onSubmit` rep el text introduït (retallat); el modal es tanca quan resol sense error.
+ * Centered input modal (Gnosi aesthetic). Replaces `window.prompt` (see the
+ * native_dialog_purge directive). Controlled: `isOpen` / `onClose` / `onSubmit(value)`.
+ * `onSubmit` receives the entered text (trimmed); the modal closes when it resolves without error.
  */
 export const PromptModal = ({
     isOpen,
@@ -26,12 +26,12 @@ export const PromptModal = ({
     const [value, setValue] = useState(defaultValue);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Reinicia el valor cada cop que s'obre (amb el defaultValue del moment).
+    // Resets the value every time it opens (with the current defaultValue).
     useEffect(() => {
         if (isOpen) {
             setValue(defaultValue);
             setIsSubmitting(false);
-            // autofocus + selecciona el contingut existent
+            // autofocus + selects the existing content
             const id = setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select?.(); }, 0);
             return () => clearTimeout(id);
         }
@@ -51,7 +51,7 @@ export const PromptModal = ({
         }
     }, [isSubmitting, value, required, onSubmit]);
 
-    // Esc tanca, Tab fa focus-trap. L'Enter el gestionem a l'input (sotmet).
+    // Esc closes, Tab does focus-trap. We handle Enter in the input (submits).
     useModalKeyboard({
         isOpen,
         onClose: () => { if (!isSubmitting) onClose(); },

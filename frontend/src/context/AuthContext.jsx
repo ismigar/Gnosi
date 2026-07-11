@@ -1,18 +1,18 @@
 /**
- * AuthContext — estat global d'autenticació (JWT via cookie HttpOnly).
+ * AuthContext — global authentication state (JWT via HttpOnly cookie).
  *
- * El backend emet una cookie `gnosi_session` al login/register i la llegeix
- * a `get_current_user_id`. Com que el frontend i `/api` són el mateix origin
- * (Vite proxy en dev, reverse-proxy/static en prod), la cookie viatja sola;
- * només cal `credentials: 'include'` per ser explícits i suportar dev
+ * The backend issues a `gnosi_session` cookie on login/register and reads it
+ * in `get_current_user_id`. Since the frontend and `/api` are the same origin
+ * (Vite proxy in dev, reverse-proxy/static in prod), the cookie travels on its own;
+ * `credentials: 'include'` is only needed to be explicit and to support dev
  * cross-origin.
  *
- * Mode personal vs org:
- *   - personal: el backend resol l'usuari legacy sense token. L'app NO es
- *     bloqueja darrere del login (l'usuari únic entra directe). `me` retorna
- *     401 i `user` queda null, però App rendaritza igualment perquè el gate
- *     només aplica en mode org.
- *   - org: cada membre s'autentica. Sense `user`, App mostra <LoginPage>.
+ * Personal mode vs org:
+ *   - personal: the backend resolves the legacy user without a token. The app is NOT
+ *     gated behind login (the single user goes straight in). `me` returns
+ *     401 and `user` stays null, but App renders anyway because the gate
+ *     only applies in org mode.
+ *   - org: each member authenticates. Without `user`, App shows <LoginPage>.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
@@ -28,7 +28,7 @@ async function authFetch(url, options = {}) {
     try {
         data = await res.json();
     } catch {
-        // resposta sense cos (ex. logout) — ok
+        // response without a body (e.g. logout) — ok
     }
     if (!res.ok) {
         const detail = (data && data.detail) || res.statusText || 'Error';
@@ -40,9 +40,9 @@ async function authFetch(url, options = {}) {
 }
 
 /**
- * Manté `gnosi_user_id`, `gnosi_user_email`, `gnosi_workspace_id` i
- * `gnosi_role` a localStorage sincronitzats amb l'usuari autenticat, perquè
- * `use-api.js` (que llegeix de localStorage) enviï els headers correctes.
+ * Keeps `gnosi_user_id`, `gnosi_user_email`, `gnosi_workspace_id`, and
+ * `gnosi_role` in localStorage in sync with the authenticated user, so that
+ * `use-api.js` (which reads from localStorage) sends the correct headers.
  */
 function persistUser(user) {
     if (!user) return;
@@ -62,13 +62,13 @@ function persistUser(user) {
 function clearPersistedUser() {
     localStorage.removeItem('gnosi_user_id');
     localStorage.removeItem('gnosi_user_email');
-    // No esborrem gnosi_workspace_id: en mode personal és 'personal' i ha de
-    // sobreviure; en org el proper login el reescriu.
+    // We don't clear gnosi_workspace_id: in personal mode it's 'personal' and it must
+    // survive; in org, the next login overwrites it.
 }
 
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
-    const [gnosiMode, setGnosiMode] = useState(null); // null = encara desconegut
+    const [gnosiMode, setGnosiMode] = useState(null); // null = still unknown
     const [loading, setLoading] = useState(true);
 
     const refresh = useCallback(async () => {
@@ -139,7 +139,7 @@ export function AuthProvider({ children }) {
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components -- hook co-locat amb el provider; comparteixen el mateix context privat
+// eslint-disable-next-line react-refresh/only-export-components -- hook co-located with the provider; they share the same private context
 export function useAuth() {
     const ctx = useContext(AuthContext);
     if (ctx === null) {

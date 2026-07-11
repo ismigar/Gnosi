@@ -15,8 +15,8 @@ class MailMetadataManager:
         self.secrets_dir.mkdir(parents=True, exist_ok=True)
         self.config_file = self.secrets_dir / "mail_metadata.json"
         # Read-modify-write lock: dues escriptures concurrents (p.ex. dos
-        # tabs marcant llegit alhora) podrien perdre updates si llegeixen
-        # el mateix snapshot abans d'escriure.
+        # tabs marking read at the same time) could lose updates if they read
+        # the same snapshot before writing.
         self._lock = threading.Lock()
 
     def _load(self) -> dict:

@@ -1,11 +1,11 @@
-"""Orquestrador del prenedor d'actes amb IA.
+"""AI-powered meeting minutes taker orchestrator.
 
-Flux d'un job (un en vol): àudio → transcripció LOCAL (faster-whisper) → ACTA amb
-IA (`factory.generate_text`) → pàgina del Vault. Degrada amb elegància: si la IA
-cau (claus invàlides), desa igualment la pàgina amb la transcripció + un avís.
+Flow of a job (one in flight): audio → LOCAL transcription (faster-whisper) → MINUTES with
+AI (`factory.generate_text`) → Vault page. Degrades gracefully: if the AI
+fails (invalid keys), the page is still saved with the transcription + a warning.
 
-Estat global d'un sol job estil `audio_summarizer.generation_status` (es consulta
-des de `GET /api/meetings/status`).
+Single-job global state, `audio_summarizer.generation_status`-style (queried
+from `GET /api/meetings/status`).
 """
 import asyncio
 import logging
@@ -17,7 +17,7 @@ from typing import Optional
 
 log = logging.getLogger(__name__)
 
-# Estat del job (un en vol). stage: idle|transcribing|summarizing|saving|done|error
+# Job state (one in flight). stage: idle|transcribing|summarizing|saving|done|error
 job_status = {
     "running": False,
     "stage": "idle",
@@ -61,12 +61,13 @@ def _acta_page_markdown(acta_md: str, transcript: str, meta_line: str) -> str:
 
 
 def _create_vault_page(title: str, content: str) -> Optional[str]:
-    """Crea una pàgina al Vault reutilitzant `create_page` (via asyncio.run).
+    """Creates a page in the Vault reusing `create_page` (via asyncio.run).
 
-    `create_page` és async i normalment corre en context de petició; aquí
-    l'invoquem directament des del thread del job amb un event loop nou. Per a
-    una pàgina simple (sense taula) no necessita estat de petició: escriu el .md
-    a la carpeta WIKI i insereix la pàgina a l'índex en línia.
+    `create_page` is async and normally runs in a request context; here
+    we invoke it directly from the job's thread with a new event loop. For
+    a simple page (no table) it doesn't need request state: it writes the .md
+    to the WIKI folder and inserts the page into the index inline.
+    
     """
     from fastapi import BackgroundTasks
 
@@ -82,19 +83,19 @@ def _create_vault_page(title: str, content: str) -> Optional[str]:
 
 
 def process_meeting(audio_path: str, title: str, mode: str = "presencial") -> dict:
-    """Job complet (pensat per a córrer en un thread de fons)."""
+    """Full job (intended to run in a background thread)."""
     from backend.services.transcription import transcribe
 
     safe_title = (title or "").strip() or "Reunió"
     try:
-        # 1) Transcripció local
+        # 1) Local transcription
         job_status.update({"stage": "transcribing", "progress": 10, "error": None})
         result = transcribe(audio_path)
         transcript = (result.get("text") or "").strip()
         language = result.get("language")
         duration = result.get("duration", 0) or 0
 
-        # 2) Acta amb IA (degrada si cau)
+        # 2) AI-generated minutes (degrades on failure)
         job_status.update({"stage": "summarizing", "progress": 60})
         acta_md = ""
         if transcript:
@@ -112,7 +113,7 @@ def process_meeting(audio_path: str, title: str, mode: str = "presencial") -> di
                 "A sota tens la transcripció completa."
             )
 
-        # 3) Pàgina del Vault
+        # 3) Vault page
         job_status.update({"stage": "saving", "progress": 85})
         now = datetime.now()
         meta_bits = [
@@ -137,7 +138,7 @@ def process_meeting(audio_path: str, title: str, mode: str = "presencial") -> di
         job_status.update({"running": False, "stage": "error", "error": str(e)})
         return {"error": str(e)}
     finally:
-        # Neteja el fitxer d'àudio temporal (privacitat + espai).
+        # Cleans up the temporary audio file (privacy + space).
         try:
             if audio_path and os.path.exists(audio_path):
                 os.remove(audio_path)
@@ -146,7 +147,7 @@ def process_meeting(audio_path: str, title: str, mode: str = "presencial") -> di
 
 
 def start_async(audio_path: str, title: str, mode: str) -> bool:
-    """Llança el job en un thread daemon. Retorna False si ja n'hi ha un en vol."""
+    """Launches the job in a daemon thread. Returns False if one is already in flight."""
     with _LOCK:
         if job_status["running"]:
             return False

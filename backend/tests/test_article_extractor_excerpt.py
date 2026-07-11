@@ -1,9 +1,9 @@
-"""`looks_like_excerpt` ha de mesurar la longitud del TEXT, no del marcatge.
+"""`looks_like_excerpt` must measure the length of the TEXT, not of the markup.
 
-Un teaser curt embolcallat en molt HTML (nested `<div class="…">` dels CMS
-moderns) es classificava com a article complet perquè la vella "neteja"
-(`c not in "<>"`) conservava els noms d'etiqueta i atributs i inflava la
-longitud per sobre del llindar → mai s'intentava l'extracció del cos complet.
+A short teaser wrapped in a lot of HTML (nested `<div class="…">` from modern
+CMSs) was classified as a full article because the old "cleanup"
+(`c not in "<>"`) kept the tag names and attributes and inflated the
+length above the threshold → full-body extraction was never attempted.
 """
 from backend.services.article_extractor import (
     looks_like_excerpt,
@@ -19,14 +19,14 @@ def test_teaser_curt_amb_marcatge_verbos_es_detecta():
     )
     content = markup_open + f"<p>{teaser}</p>" + "</div>" * 12
 
-    # El text real és curt, però el HTML cru supera el llindar.
+    # The real text is short, but the raw HTML exceeds the threshold.
     assert len(content) > EXCERPT_LEN_THRESHOLD
-    # Tot i així, s'ha de considerar teaser (val la pena extreure el cos).
+    # Even so, it should be considered a teaser (worth extracting the body).
     assert looks_like_excerpt(content) is True
 
 
 def test_article_complet_llarg_no_es_teaser():
-    # Cos llarg de text real, sense CTA → NO és teaser.
+    # Long body of real text, no CTA → NOT a teaser.
     body = "<p>" + ("Contingut real de l'article amb prou substància. " * 40) + "</p>"
     assert len(body) > EXCERPT_LEN_THRESHOLD  # sanity
     assert looks_like_excerpt(body) is False

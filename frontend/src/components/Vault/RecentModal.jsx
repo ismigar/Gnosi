@@ -11,8 +11,8 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const listRef = useRef(null);
     const panelRef = useRef(null);
 
-    // Esc + focus-trap centralitzats al hook canònic. NO passem onConfirm:
-    // l'Enter d'aquest modal selecciona l'ítem ressaltat (handler propi).
+    // Esc + focus-trap centralized in the canonical hook. We do NOT pass onConfirm:
+    // Enter in this modal selects the highlighted item (its own handler).
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
     // Filter and sort notes

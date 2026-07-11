@@ -18,20 +18,20 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-// Quants registres es pinten per lot; l'scroll infinit n'afegeix més a mesura
-// que el sentinella entra a la vista. Mantenir-ho baix estalvia DOM inicial.
+// How many records are rendered per batch; infinite scroll adds more as
+// that the sentinel enters the view. Keeping it low saves initial DOM.
 const FEED_BATCH = 12;
 
-// La `metadata.description` (excerpt del cos) està capada a aquest límit pel
-// backend: si s'hi acosta, el cos real segueix i té sentit oferir "Veure més".
+// The `metadata.description` (body excerpt) is capped at this limit by the
+// backend: if it gets close to it, the real body continues and it makes sense to offer "See more".
 const EXCERPT_CAP = 480;
 
-// Prepara el cos (excerpt o contingut sencer) per a VaultMarkdown: fora els
-// embeds `<file …>` (no renderitzables aquí) i `<br>` HTML → salt de línia real
-// (react-markdown ignora l'HTML cru i es perdria). La resta de Markdown
-// (negretes, llistes, imatges d'Assets, wikilinks) es renderitza amb format.
-// El `(?:>|$)` cobreix el tag TRUNCAT: l'excerpt talla a 500 caràcters i un
-// `<file src="…` sense `>` final sortia com a text pla a la targeta.
+// Prepares the body (excerpt or full content) for VaultMarkdown: outside the
+// `<file …>` embeds (not renderable here) and HTML `<br>` → real line break
+// (react-markdown ignores raw HTML and it would be lost). The rest of the Markdown
+// (bold, lists, Assets images, wikilinks) it renders with formatting.
+// The `(?:>|$)` covers the TRUNCATED tag: the excerpt is cut off at 500 characters and a
+// `<file src="…` without a closing `>` used to render as plain text in the card.
 function prepareBodyMd(raw) {
     if (!raw) return '';
     let s = String(raw);
@@ -42,21 +42,21 @@ function prepareBodyMd(raw) {
 }
 
 /**
- * Targeta del feed (estil Notion): icona+títol en línia, TOTES les propietats
- * en línia com a píndoles, previsualització generosa del contingut amb format i
- * "Veure més" que carrega i desplega el contingut COMPLET de la nota. La
- * targeta no navega en clicar-la (es pot seleccionar text i interactuar amb el
- * cos); obrir la pàgina es fa amb el botó "Obrir" o clicant el títol.
+ * Feed card (Notion style): icon+title inline, ALL properties
+ * inline as pills, generous formatted preview of the content, and
+ * "See more" that loads and expands the note's FULL content. The
+ * card doesn't navigate on click (you can select text and interact with the
+ * body); opening the page is done with the "Open" button or by clicking the title.
  */
 function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const { t, i18n } = useTranslation();
     const [expanded, setExpanded] = useState(false);
     const [fullContent, setFullContent] = useState(null);   // md complet (carregat en demanda)
     const [loadingContent, setLoadingContent] = useState(false);
-    // La portada es resol com a la resta de vistes (VaultGallery): `Assets/x`
-    // → `/api/vault/assets/x` amb el vault actiu al query. Un `background-image`
-    // (com un `<img>` natiu) NO envia la capçalera X-Vault-Id, així que sense
-    // normalitzar, una portada relativa donava 404 i en multivault apuntava al
+    // The cover is resolved the same way as in the other views (VaultGallery): `Assets/x`
+    // → `/api/vault/assets/x` with the active vault in the query. A `background-image`
+    // (like a native `<img>`) does NOT send the X-Vault-Id header, so without
+    // normalize, a relative cover was returning a 404 and in multivault it pointed to the
     // vault equivocat (fix #775).
     const coverUrl = typeof note.metadata?.cover === 'string'
         ? normalizeAssetUrl(note.metadata.cover)
@@ -64,7 +64,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
     const hasCover = !!coverUrl;
 
     const previewMd = useMemo(() => prepareBodyMd(note.metadata?.description || ''), [note]);
-    // L'excerpt s'acosta al límit → el cos real continua més enllà.
+    // The excerpt is approaching the limit → the actual body continues further.
     const looksTruncated = (note.metadata?.description || '').length >= EXCERPT_CAP;
 
     const handleToggleExpand = useCallback(async (e) => {
@@ -77,7 +77,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                 const md = prepareBodyMd(res.data?.content || '');
                 setFullContent(md || previewMd);
             } catch {
-                setFullContent(previewMd);   // fallback: almenys l'excerpt
+                setFullContent(previewMd);   // fallback: at least the excerpt
             } finally {
                 setLoadingContent(false);
             }
@@ -92,11 +92,11 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             onClick={() => { if (selectionActive) onToggleSelect(note.id, {}); }}
             className={`relative bg-[var(--bg-primary)] rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all group flex flex-col ${selectionActive ? 'cursor-pointer' : ''} ${isSelected ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/40'}`}
         >
-            {/* El label només atura la propagació (no obrir la targeta): el
-                toggle el fa l'onChange de l'input. Si el label també cridés
-                onToggleSelect, un clic directe al checkbox dispararia els dos
-                handlers (bubbling) i el toggle doble deixaria la selecció
-                com estava. */}
+            {/* The label only stops propagation (not opening the card): the
+                toggle is handled by the input's onChange. If the label also called
+                onToggleSelect, a direct click on the checkbox would fire both
+                handlers (bubbling) and the double toggle would leave the selection
+                as it was. */}
             <label
                 className={`absolute top-3 left-3 z-20 cursor-pointer ${isSelected || selectionActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                 onClick={(e) => e.stopPropagation()}
@@ -109,7 +109,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                 />
             </label>
 
-            {/* Portada: només si el registre en té. */}
+            {/* Cover: only if the record has one. */}
             {hasCover && (
                 <div className="w-full h-48 sm:h-64 relative bg-[var(--bg-tertiary)] flex-shrink-0">
                     <div
@@ -120,7 +120,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
             )}
 
             <div className="p-6 flex flex-col gap-3">
-                {/* Capçalera: data petita + (icona+títol en línia) + botó Obrir */}
+                {/* Header: small date + (icon+title inline) + Open button */}
                 <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                         <div className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-tertiary)] mb-1.5">
@@ -157,7 +157,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     </button>
                 </div>
 
-                {/* TOTES les propietats en línia (estil Notion): només el valor. */}
+                {/* ALL properties inline (Notion style): value only. */}
                 {pills.length > 0 && (
                     <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
                         {pills.map(({ key, node }) => (
@@ -166,8 +166,8 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     </div>
                 )}
 
-                {/* Cos: excerpt amb format (Markdown) i, en expandir, el contingut
-                    COMPLET de la nota (carregat en demanda). */}
+                {/* Body: formatted excerpt (Markdown) and, when expanded, the
+                    FULL content of the note (loaded on demand). */}
                 {(previewMd || loadingContent) && (
                     <div className="text-sm text-[var(--text-secondary)] leading-relaxed" onClick={(e) => e.stopPropagation()}>
                         <VaultMarkdown
@@ -178,8 +178,8 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                     </div>
                 )}
 
-                {/* "Veure més / Veure menys" centrat (com el «Ver más» de Notion).
-                    Només si l'excerpt està tallat (el cos real continua). */}
+                {/* "Show more / Show less" centered (like Notion's "See more").
+                    Only if the excerpt is truncated (the actual body continues). */}
                 {(looksTruncated || expanded) && (
                     <div className="flex justify-center">
                         <button
@@ -201,10 +201,10 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
 }
 
 /**
- * Llista de targetes amb scroll infinit. Es pinten `visibleCount` registres i
- * un sentinella al final n'afegeix un lot més quan entra a la vista. Component
- * propi perquè el pare el pugui remuntar (via `key`) i reiniciar el recompte en
- * canviar el conjunt, sense `setState` dins d'un effect ni mutar refs en render.
+ * Card list with infinite scroll. `visibleCount` records are rendered and
+ * a sentinel at the end adds one more batch when it enters the viewport. A
+ * dedicated component so the parent can remount it (via `key`) and reset the
+ * count when the set changes, without `setState` inside an effect or mutating refs during render.
  */
 function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSelect, onOpen }) {
     const sentinelRef = useRef(null);
@@ -215,14 +215,14 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
         if (!hasMore) return undefined;
         const sentinel = sentinelRef.current;
         if (!sentinel) return undefined;
-        // setState va dins del callback de l'observer (asíncron), no al cos de
-        // l'effect: és el patró "subscriu-te i actualitza en el callback".
+        // setState goes inside the observer's callback (asynchronous), not in the body of
+        // the effect: it's the "subscribe and update in the callback" pattern.
         //
         // `root: null` (viewport) A POSTA: el sentinella es fa visible a pantalla
-        // igualment tant si l'scroll el fa la pàgina (feed incrustat, que creix)
-        // com el pane de la vista completa. Ancorar el root a l'ancestre
-        // scrollable era fràgil: el scroller de pàgina té clientHeight 0 (layout
-        // flex) i com a root mai no intersecava → el feed es quedava al 1r lot.
+        // equally whether the scrolling is handled by the page (embedded feed, which grows)
+        // like the full-view pane. Anchor the root to the ancestor
+        // scrollable was fragile: the page scroller has clientHeight 0 (layout
+        // flex) and as root it never intersected → the feed stayed stuck on the 1st batch.
         const io = new IntersectionObserver((entries) => {
             if (entries.some(e => e.isIntersecting)) {
                 setVisibleCount(c => Math.min(c + FEED_BATCH, notes.length));
@@ -248,7 +248,7 @@ function FeedList({ notes, buildPills, isSelected, selectionActive, onToggleSele
                 />
             ))}
 
-            {/* Sentinella d'scroll infinit + indicador de càrrega */}
+            {/* Infinite-scroll sentinel + loading indicator */}
             {hasMore && (
                 <div ref={sentinelRef} className="flex items-center justify-center py-4 text-[var(--text-tertiary)]">
                     <Loader2 size={18} className="animate-spin" />
@@ -262,10 +262,10 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
 
-    // El feed mostra TOTES les propietats del registre (com el feed de Notion),
-    // independentment dels `visibleProperties` de la vista: la targeta és el
-    // registre sencer en format publicació. S'exclou `title` (per tipus I per
-    // clau): ja és l'encapçalament de la targeta.
+    // The feed shows ALL properties of the record (like Notion's feed),
+    // regardless of the view's `visibleProperties`: the card is the
+    // entire record in post format. `title` is excluded (by type AND by
+    // key): it's already the card's heading.
     const dynamicColumns = getSchemaFieldNames(schema)
         .map(prop => [prop, getFieldType(schema, prop)])
         .filter(([key, type]) => type && type !== 'title' && String(key).toLowerCase() !== 'title');
@@ -302,8 +302,8 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 );
             }
             case 'period': {
-                // Rang "inici/fi" en un sol valor: cada meitat amb el format
-                // localitzat (abans queia al default i mostrava l'ISO cru).
+                // "start/end" range in a single value: each half with the format
+                // localized (before it fell back to the default and showed the raw ISO).
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 const { start, end } = parsePeriod(value);
                 const fmtOne = (v) => formatDate(v, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale });
@@ -320,9 +320,9 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
             }
             case 'status':
             case 'select': {
-                // Color del catàleg d'opcions ric ({name,color}); si l'opció no
-                // hi és, color automàtic estable pel nom (mateix algorisme que
-                // el backend) — mai el xip neutre.
+                // Color from the rich option catalog ({name,color}); if the option isn't
+                // there, a stable automatic color based on the name (same algorithm as
+                // the backend) — never the neutral chip.
                 const opts = normalizeOptions(getFieldConfig(schema, field)?.options);
                 const opt = opts.find(o => o.name === String(value).trim());
                 const style = optionChipStyle(opt?.color || autoColorFor(value));
@@ -392,17 +392,17 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                     </button>
                 );
             case 'image': {
-                // Miniatura per a valors string (ruta) o compostos {src, alt, …}.
+                // Thumbnail for string values (path) or composite ones {src, alt, …}.
                 const src = getImageSrc(value);
                 const previewUrl = toAssetPreviewUrl(src);
                 if (previewUrl) return <img src={previewUrl} alt={(value && value.alt) || field} className="h-10 w-10 rounded object-cover" />;
                 return src ? <span className="text-sm text-[var(--text-secondary)] truncate max-w-xs inline-block" title={src}>{src}</span> : null;
             }
             default:
-                // Xarxa de seguretat: un OBJECTE (p. ex. camp imatge compost
-                // {src, alt} en un camp no tipat com a image) com a fill de React
-                // llança "Objects are not valid as a React child" i tombava TOT
-                // el feed al boundary. Provem la via d'imatge i, si no, text.
+                // Safety net: an OBJECT (e.g. composite image field
+                // {src, alt} in a field not typed as image) as a React child
+                // throws "Objects are not valid as a React child" and used to crash the WHOLE
+                // feed at the boundary. We try the image path first, and text otherwise.
                 if (value && typeof value === 'object' && !Array.isArray(value)) {
                     const src = getImageSrc(value);
                     const previewUrl = toAssetPreviewUrl(src);
@@ -413,9 +413,9 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         }
     }, [schema, localeSettings, getRelationDisplayMap, t]);
 
-    // Píndoles de propietat d'una nota (valors sense etiqueta, ordre d'esquema).
+    // Property pills for a note (values without labels, schema order).
     const buildPills = useCallback((note) => {
-        // Claus normalitzades (sense espais) perquè casin amb `schemaKeyNorm`.
+        // Normalized keys (no spaces) so they match `schemaKeyNorm`.
         const aliasMap = { dateadded: "created_time", datemodified: "last_edited_time" };
         const normalizeKey = (k) => String(k).toLowerCase().replace(/[^a-z0-9]/gi, '');
         return dynamicColumns.map(([key, type]) => {
@@ -427,11 +427,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         }).filter(Boolean);
     }, [dynamicColumns, renderPropertyValue]);
 
-    // Filtres, ordre i cerca de la vista (mateix motor que taula/galeria).
-    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
-    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS i
-    // sense useMemo el sort/filtrat es recalculava a cada render.
+    // View filters, sorting, and search (same engine as table/gallery).
+    // The order is resolved with `resolveViewSorts` (the `sorts` key — the one that persist
+    // the Notion import and the modal — with fallback to the legacy `sort`).
+    // Memoized: `resolveViewSorts`/`resolveViewFilters` return NEW arrays and
+    // without useMemo, the sort/filtering was recalculated on every render.
     const viewConfig = useMemo(() => ({
         filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: 'last_modified', direction: 'desc' }),
@@ -441,13 +441,13 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
 
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedNotes);
 
-    // Clau del conjunt visible: en canviar (cerca, canvi de vista, filtres o
-    // ordre) es remunta `FeedList` i el seu recompte d'scroll infinit es
-    // reinicia sol. La signatura és ESTABLE respecte del recompte (fix #788):
-    // es basa en la config lògica (filtres + ordre), NO en `sortedNotes.length`
-    // —incloure-la remuntava el feed i el saltava al principi en esborrar notes
-    // des del feed o rebre'n de noves per sync/poll. El `slice` de FeedList ja
-    // gestiona que la llista encongeixi per sota de `visibleCount` sense remuntar.
+    // Key for the visible set: when it changes (search, view change, filters, or
+    // order) `FeedList` remounts and its infinite-scroll count is
+    // resets on its own. The signature is STABLE with respect to the count (fix #788):
+    // it's based on the logical config (filters + sort), NOT on `sortedNotes.length`
+    // —including it remounted the feed and jumped it back to the start when deleting notes
+    // from the feed or receiving new ones via sync/poll. The `slice` in FeedList already
+    // handles the list shrinking below `visibleCount` without remounting.
     const resetKey = `${searchTerm}|${activeView?.id ?? ''}|${JSON.stringify(viewConfig.filters)}|${JSON.stringify(viewConfig.sorts)}`;
 
     const handleBulkDelete = useCallback(() => {

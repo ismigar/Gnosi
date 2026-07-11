@@ -14,9 +14,9 @@ export const RecurrenceChoiceModal = ({
     const { t } = useTranslation();
     const modalRef = useRef(null);
 
-    // Lògica rica de teclat: Esc tanca, Enter confirma l'opció per defecte
-    // (només aquesta instància), Tab focus-trap, restauració de focus. Veure
-    // useModalKeyboard. (Substitueix l'antic RecurrenceKeyboardHandler.)
+    // Rich keyboard logic: Esc closes, Enter confirms the default option
+    // (only this instance), Tab focus-trap, focus restoration. See
+    // useModalKeyboard. (Replaces the old RecurrenceKeyboardHandler.)
     useModalKeyboard({
         isOpen,
         onClose,

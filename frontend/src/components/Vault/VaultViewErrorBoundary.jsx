@@ -1,27 +1,28 @@
 import React from 'react';
 import { AlertTriangle } from 'lucide-react';
+import i18n from '../../i18n';
 
 /**
- * VaultViewErrorBoundary — xarxa de seguretat al voltant del COS d'una vista de
- * BD (taula, kanban, galeria, timeline, feed, calendari).
+ * VaultViewErrorBoundary — a safety net around the BODY of a DB view
+ * (table, kanban, gallery, timeline, feed, calendar).
  *
- * Per què: durant una càrrega EN FRED el cos es pot renderitzar amb dades a mig
- * carregar (notes ↔ schema ↔ activeView ↔ registry encara resolent-se). Si una
- * cel·la o derivació llança en aquesta finestra transitòria, sense boundary
- * React ho reporta com a "recoverable error" ("An error occurred in the
- * <VaultTable> component. Consider adding an error boundary…") i, en el pitjor
- * cas, podria deixar la vista en blanc. Aquest boundary:
- *   1) Mostra un fallback DISCRET en comptes de tombar l'arbre.
- *   2) S'AUTO-RECUPERA: quan canvia qualsevol `resetKey` (p. ex. arriben les
- *      dades, o l'usuari canvia de vista/taula) neteja l'estat d'error i torna a
- *      renderitzar els fills. Sense això, un throw transitori deixaria la vista
- *      bloquejada al fallback fins a un F5 manual.
- *   3) Deixa el stack + component stack a `window.__vaultViewError` per a
- *      depuració (el canal que faltava: els recoverable errors de React 19 van
- *      per `reportError()` → event `window 'error'`, no per `console`).
+ * Why: during a COLD load the body may render with half-loaded data
+ * (notes ↔ schema ↔ activeView ↔ registry still resolving). If a
+ * cell or a derivation throws in that transient window, without a boundary
+ * React reports it as a "recoverable error" ("An error occurred in the
+ * <VaultTable> component. Consider adding an error boundary…") and, in the worst
+ * case, it could leave the view blank. This boundary:
+ *   1) Shows a DISCREET fallback instead of taking down the tree.
+ *   2) AUTO-RECOVERS: when any `resetKey` changes (e.g. the data
+ *      arrives, or the user switches view/table) it clears the error state and
+ *      re-renders the children. Without this, a transient throw would leave the view
+ *      stuck on the fallback until a manual F5.
+ *   3) Leaves the stack + component stack in `window.__vaultViewError` for
+ *      debugging (the missing channel: React 19 recoverable errors go
+ *      through `reportError()` → the `window 'error'` event, not through `console`).
  *
- * És el patró que recomana el propi missatge de React. Reutilitzat per
- * VaultViewBody, així cobreix els 3 punts de render del Dashboard i l'embed.
+ * It is the pattern React's own message recommends. Reused by
+ * VaultViewBody, so it covers the Dashboard's 3 render points and the embed.
  */
 export class VaultViewErrorBoundary extends React.Component {
     constructor(props) {
@@ -47,9 +48,9 @@ export class VaultViewErrorBoundary extends React.Component {
 
     componentDidUpdate(prevProps) {
         if (!this.state.hasError) return;
-        // Reset NOMÉS quan un resetKey ha canviat de VALOR (no per la nova
-        // referència de l'array, que es crea a cada render): així evitem un bucle
-        // reset→throw→reset si el fill torna a llançar amb les mateixes dades.
+        // Reset ONLY when a resetKey has changed in VALUE (not because of the new
+        // array reference, which is created on every render): this avoids a
+        // reset→throw→reset loop if the child throws again with the same data.
         const prev = prevProps.resetKeys || [];
         const next = this.props.resetKeys || [];
         const changed = prev.length !== next.length || next.some((k, i) => !Object.is(k, prev[i]));
@@ -72,10 +73,10 @@ export class VaultViewErrorBoundary extends React.Component {
                 </div>
                 <div className="max-w-sm">
                     <p className="text-sm font-medium text-[var(--text-secondary)]">
-                        No s'ha pogut mostrar aquesta vista
+                        {i18n.t('view_error.title', "No s'ha pogut mostrar aquesta vista")}
                     </p>
                     <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                        Hi ha hagut un error en renderitzar. Reintenta o recarrega la pàgina.
+                        {i18n.t('view_error.hint', 'Hi ha hagut un error en renderitzar. Reintenta o recarrega la pàgina.')}
                     </p>
                 </div>
                 <button
@@ -83,7 +84,7 @@ export class VaultViewErrorBoundary extends React.Component {
                     onClick={this.handleRetry}
                     className="px-3 py-1.5 text-xs font-medium rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                 >
-                    Reintenta
+                    {i18n.t('view_error.retry', 'Reintenta')}
                 </button>
             </div>
         );

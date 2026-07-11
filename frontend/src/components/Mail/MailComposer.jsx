@@ -46,23 +46,23 @@ export default function MailComposer({
     const [showCcBcc, setShowCcBcc] = useState(!!initialCc);
     const [subject, setSubject] = useState(initialSubject);
     const [body, setBody] = useState('');
-    // Signatura reactiva: s'actualitza quan canvia la identitat "De"
+    // Reactive signature: updates when the "From" identity changes
     const signatureHtml = useMemo(
         () => fromAccount?.signature || '',
         [fromAccount]
     );
     const isReplyOrForward = mode === 'reply' || mode === 'reply_all' || mode === 'forward';
 
-    // Respostes/reenviaments: cursor dalt → línia buida → signatura → citat
+    // Replies/forwards: cursor at top → empty line → signature → quoted
     const editorInitialHtml = useMemo(() => {
         if (initialBody) return initialBody;
         if (!quotedHtml) return '';
         const sigBlock = signatureHtml
             ? `<div style="margin-bottom:0.5rem">${signatureHtml}</div><hr style="border:none;border-top:1px solid #ccc;margin:0.5rem 0">`
             : '';
-        // Citat SENSE <blockquote>: BlockNote el converteix en un bloc de
-        // contingut inline i DESCARTA les imatges (i taules) del missatge
-        // citat. El header From/Date/Subject + <hr> del quotedHtml ja fan de
+        // Quote WITHOUT <blockquote>: BlockNote converts it into a
+        // content inline and DISCARDS the images (and tables) of the message
+        // quoted. The From/Date/Subject header + <hr> from quotedHtml already act as
         // divisor (estil Outlook).
         return `${sigBlock}${quotedHtml}`;
     }, [quotedHtml, signatureHtml]);
@@ -111,10 +111,10 @@ export default function MailComposer({
                     account: fromAccount.email,
                 }),
             });
-            // Sense aquest check, una resposta 5xx (servidor caigut, base de
-            // dades de drafts plena) feia que res.json() retornés el body
-            // d'error i tot continués com si res, deixant l'usuari amb la
-            // sensació que els drafts es guardaven cada 2s quan cap ho feia.
+            // Without this check, a 5xx response (server down, drafts
+            // database full) made res.json() return the body
+            // of the error and everything continued as if nothing had happened, leaving the user with the
+            // feeling that drafts were being saved every 2s when none were.
             if (!res.ok) throw new Error(`Draft save HTTP ${res.status}`);
             const data = await res.json();
             const isFirstSave = !draftIdRef.current;
@@ -124,8 +124,8 @@ export default function MailComposer({
                 onDraftSaved?.();
             }
         } catch (err) {
-            // Auto-save no notifica l'usuari (massa intrusiu cada 2s) però
-            // logueja perquè no es perdi la causa real.
+            // Auto-save doesn't notify the user (too intrusive every 2s) but
+            // it logs so the real cause isn't lost.
             console.warn('[MailComposer] draft auto-save failed:', err);
         }
     }, [fromAccount, t]);
@@ -149,15 +149,15 @@ export default function MailComposer({
         onClose();
     }, [saveDraft, onClose]);
 
-    // Auto-save cada 2s mentre hi ha contingut
+    // Auto-save every 2s while there is content
     useEffect(() => {
         if (!fromAccount?.email) return;
         const timer = setInterval(saveDraft, 2000);
         return () => clearInterval(timer);
     }, [fromAccount, saveDraft]);
 
-    // Esc tanca el dropdown de fragments (dropdown: només Esc). L'Esc global
-    // del composer (availability/closeConfirm/closeRequest) es gestiona a part.
+    // Esc closes the snippets dropdown (dropdown: only Esc). The global Esc
+    // of the composer (availability/closeConfirm/closeRequest) is handled separately.
     useModalKeyboard({ isOpen: showSnippets, onClose: () => setShowSnippets(false) });
 
     const handleFileSelect = (e) => {
@@ -199,8 +199,8 @@ export default function MailComposer({
 
             let res;
             if (mode && replyToMessageId) {
-                // folder: el backend resol els cid: del citat contra el
-                // missatge original (per IMAP cal saber-ne la carpeta).
+                // folder: the backend resolves the cid: of the quoted message against the
+                // original message (for IMAP we need to know its folder).
                 const folderQuery = sourceFolder ? `&folder=${encodeURIComponent(sourceFolder)}` : '';
                 res = await fetch(
                     `/api/mail/messages/${replyToMessageId}/reply?email=${encodeURIComponent(smtpEmail)}${folderQuery}`,
@@ -241,9 +241,9 @@ export default function MailComposer({
             ]);
             setCalendarData({ pages: pagesRes.data, integrations: integrationsRes.data, tables: tablesRes.data });
         } catch {
-            toast.error('Error carregant el calendari');
+            toast.error(t('mail.calendar_load_error', 'Error carregant el calendari'));
         }
-    }, []);
+    }, [t]);
 
     const handleInsertAvailability = () => {
         setShowAvailability(true);
@@ -283,11 +283,11 @@ export default function MailComposer({
             if (stored) return stored.map(s => ({ key: s.id, label: s.title, content: s.content }));
         } catch { /* ok */ }
         return [
-            { key: 'snip_default_1', label: 'Salutació formal',        content: 'Benvolgut/da,\n\nEspero que es trobi bé.' },
-            { key: 'snip_default_2', label: 'Gràcies per la resposta', content: 'Moltes gràcies per la seva resposta.' },
-            { key: 'snip_default_3', label: 'Comiat formal',           content: 'Atentament,\n\n' },
-            { key: 'snip_default_4', label: 'Proposta reunió',         content: 'Li proposo una reunió per tractar aquest tema.' },
-            { key: 'snip_default_5', label: 'Seguiment',               content: 'Em poso en contacte per fer seguiment del tema anterior.' },
+            { key: 'snip_default_1', label: t('mail.snippet_formal_greeting_label', 'Salutació formal'), content: t('mail.snippet_formal_greeting') },
+            { key: 'snip_default_2', label: t('mail.snippet_thanks_label', 'Gràcies per la resposta'), content: t('mail.snippet_thanks') },
+            { key: 'snip_default_3', label: t('mail.snippet_best_regards_label', 'Comiat formal'), content: t('mail.snippet_best_regards') },
+            { key: 'snip_default_4', label: t('mail.snippet_meeting_label', 'Proposta reunió'), content: t('mail.snippet_meeting') },
+            { key: 'snip_default_5', label: t('mail.snippet_following_up_label', 'Seguiment'), content: t('mail.snippet_following_up') },
         ];
     })();
 
@@ -328,14 +328,14 @@ export default function MailComposer({
         <div
             className="flex flex-col h-full bg-[var(--bg-primary)] relative animate-in slide-in-from-right-4 duration-300"
             onKeyDown={e => {
-                // Cmd+Enter → enviar; Shift+Enter → hard break gestionat per BlockNote
-                // En ambdós casos evitem el comportament per defecte del browser (submit/refresh)
+                // Cmd+Enter → send; Shift+Enter → hard break handled by BlockNote
+                // In both cases we prevent the browser's default behavior (submit/refresh)
                 if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
                     e.preventDefault();
                     handleSend();
                 } else if (e.shiftKey && e.key === 'Enter') {
-                    // BlockNote ja gestiona Shift+Enter internament; aquí només evitem
-                    // que el browser faci res per defecte si l'event burbulla fora de l'editor
+                    // BlockNote already handles Shift+Enter internally; here we only prevent
+                    // the browser from doing anything by default if the event bubbles outside the editor
                     e.stopPropagation();
                 }
             }}
@@ -385,7 +385,7 @@ export default function MailComposer({
 
                     <AddressInput
                         label={t('mail.to_label')}
-                        placeholder="exemple@correu.com"
+                        placeholder={t('mail.to_email_placeholder', 'exemple@correu.com')}
                         value={to}
                         onChange={setTo}
                         accountEmail={account?.email}
@@ -409,7 +409,7 @@ export default function MailComposer({
                             onClick={() => setShowCcBcc(v => !v)}
                             className="flex items-center gap-1 text-[12px] font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-colors ml-2 shrink-0"
                         >
-                            CC/CCO
+                            {t('mail.cc_bcc_toggle', 'CC/CCO')}
                             <ChevronDown size={13} className={`transition-transform ${showCcBcc ? 'rotate-180' : ''}`} />
                         </button>
                     </div>
@@ -417,15 +417,15 @@ export default function MailComposer({
                     {showCcBcc && (
                         <div className="animate-in slide-in-from-top-1 duration-200">
                             <AddressInput
-                                label="CC"
-                                placeholder="cc@exemple.com"
+                                label={t('mail.cc_label')}
+                                placeholder={t('mail.cc_email_placeholder', 'cc@exemple.com')}
                                 value={cc}
                                 onChange={setCc}
                                 accountEmail={account?.email}
                             />
                             <AddressInput
-                                label="CCO"
-                                placeholder="cco@exemple.com"
+                                label={t('mail.bcc_label', 'CCO')}
+                                placeholder={t('mail.bcc_email_placeholder', 'cco@exemple.com')}
                                 value={bcc}
                                 onChange={setBcc}
                                 accountEmail={account?.email}
@@ -448,7 +448,7 @@ export default function MailComposer({
                         />
                     </div>
 
-                    {/* Signatura fora de l'editor només per missatges nous (en replies ja va dins) */}
+                    {/* Signature outside the editor only for new messages (in replies it's already inside) */}
                     {!isReplyOrForward && signatureHtml && (
                         <div className="mt-3 pt-3 border-t border-[var(--border-primary)]">
                             <div
@@ -543,7 +543,7 @@ export default function MailComposer({
                         <Calendar size={18} />
                     </button>
 
-                    {/* Eliminar / descartar */}
+                    {/* Delete / discard */}
                     <button
                         type="button"
                         onClick={onClose}
@@ -607,12 +607,12 @@ export default function MailComposer({
                                 <div className="w-10 h-10 rounded-2xl bg-[var(--gnosi-blue)] text-white flex items-center justify-center shadow-lg">
                                     <Calendar size={20} />
                                 </div>
-                                Tria la teva disponibilitat
+                                {t('mail.availability_modal_title', 'Tria la teva disponibilitat')}
                             </h3>
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-1 bg-[var(--bg-primary)] p-1 rounded-xl shadow-sm border border-[var(--border-primary)]">
                                     <button type="button" onClick={() => calendarCompRef.current?.getApi().prev()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronLeft size={18} /></button>
-                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">Avui</button>
+                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">{t('calendar.today', 'Avui')}</button>
                                     <button type="button" onClick={() => calendarCompRef.current?.getApi().next()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronRight size={18} /></button>
                                 </div>
                                 <button type="button" onClick={() => setShowAvailability(false)} className="p-3 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-2xl transition-all active:scale-95"><X size={20} /></button>
@@ -631,7 +631,7 @@ export default function MailComposer({
                         </div>
                         <div className="p-6 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] text-center">
                             <p className="text-sm text-[var(--text-secondary)] font-medium italic">
-                                Fes clic i arrossega per crear una franja de disponibilitat. Apareixerà automàticament al correu.
+                                {t('mail.availability_modal_hint', 'Fes clic i arrossega per crear una franja de disponibilitat. Apareixerà automàticament al correu.')}
                             </p>
                         </div>
                     </div>

@@ -19,11 +19,11 @@ router = APIRouter(prefix="/api/analytics", tags=["analytics"])
 
 def _get_base_dir() -> Path:
     """Find monorepo root. Priority to env-derived host path for Docker stability."""
-    # Priority 1: arrel del repo al host. Dins Docker tot $HOME es munta a la mateixa
-    # ruta (${HOME}:${HOME}:ro), així que el repo és a HOME_HOST_PATH/Projectes (o
-    # REPO_ROOT si està definit al .env). Abans es hardcodejava /Users/<usuari>/Projectes,
-    # que trencava en màquines amb un altre usuari macOS. NO usem PROJECT_DIR: dins el
-    # contenidor és /app, on no hi ha docs/ ni monorepo/.
+    # Priority 1: repo root on the host. Inside Docker, all of $HOME is mounted at the same
+    # path (${HOME}:${HOME}:ro), so the repo is at HOME_HOST_PATH/Projectes (or
+    # REPO_ROOT if defined in .env). Previously it was hardcoded to /Users/<user>/Projectes,
+    # which broke on machines with a different macOS user. We do NOT use PROJECT_DIR: inside the
+    # container it's /app, where there's neither docs/ nor monorepo/.
     repo_root_env = os.environ.get("REPO_ROOT")
     if repo_root_env:
         host_root = Path(repo_root_env)
@@ -92,7 +92,7 @@ def _parse_date(date_str: str) -> datetime:
                 return datetime.strptime(date_str, "%d/%m/%Y")
             if len(parts) == 2:
                 # Default to current year for DD/MM (no hardcodejar — caducaria
-                # cada 1 de gener).
+                # every January 1st).
                 current_year = datetime.now().year
                 return datetime.strptime(f"{date_str}/{current_year}", "%d/%m/%Y")
     except Exception:

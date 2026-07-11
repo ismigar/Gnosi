@@ -1,12 +1,12 @@
 /**
  * defaultFormulaUtils.js
- * Funcions per aplicar valors per defecte basats en fórmules als metadades
- * de les pàgines del Vault en el moment de creació.
+ * Functions to apply formula-based default values to the metadata
+ * of Vault pages at creation time.
  */
 
-// Data d'avui en hora LOCAL (YYYY-MM-DD). No fem servir `toISOString` (UTC):
-// prop de mitjanit la data UTC pot ser el dia anterior i un registre creat de
-// matinada rebria com a valor per defecte la data d'ahir.
+// Today's date in LOCAL time (YYYY-MM-DD). We don't use `toISOString` (UTC):
+// near midnight the UTC date can be the previous day and a record created
+// in the early morning would receive yesterday's date as the default value.
 const _localTodayStr = () => {
     const d = new Date();
     const pad = (n) => String(n).padStart(2, '0');
@@ -14,12 +14,12 @@ const _localTodayStr = () => {
 };
 
 /**
- * Avalua una expressió de fórmula simple per a un camp per defecte.
+ * Evaluates a simple formula expression for a default field.
  *
- * Fórmules suportades:
- *   - now()       → Data actual (ISO string)
- *   - {NomCamp}   → Valor del camp especificat dins de metadata
- *   - Qualsevol string literal
+ * Supported formulas:
+ *   - now()       → Current date (ISO string)
+ *   - {NomCamp}   → Value of the specified field within metadata
+ *   - Any literal string
  *
  * @param {string} formula
  * @param {Object} context - { metadata, title, notes, currentTableId }
@@ -34,16 +34,16 @@ function evaluateDefaultFormula(formula, context = {}) {
         return _localTodayStr(); // YYYY-MM-DD
     }
 
-    // today() → mateix que now()
+    // today() → same as now()
     if (/^today\(\)$/i.test(expr)) {
         return _localTodayStr();
     }
 
-    // {NomPropietat} → valor del metadat del registre actual
+    // {NomPropietat} → value of the current record's metadata
     const propRef = expr.match(/^\{(.+)\}$/);
     if (propRef) {
         const fieldName = propRef[1].trim();
-        // Intenta primer del metadata, llavors del títol
+        // Tries the metadata first, then the title
         if (context.metadata && context.metadata[fieldName] !== undefined) {
             return String(context.metadata[fieldName]);
         }
@@ -58,28 +58,28 @@ function evaluateDefaultFormula(formula, context = {}) {
 }
 
 /**
- * Aplica les fórmules per defecte als metadades d'un registre nou,
- * omplint únicament els camps que estan buits o no definits.
+ * Applies the default formulas to a new record's metadata,
+ * filling in only the fields that are empty or undefined.
  *
  * @param {Object} params
- * @param {Object} params.schema    - Esquema de la taula { fieldName: type, fieldName_config: {...} }
- * @param {Object} params.metadata  - Metadades actuals del registre
- * @param {string} params.title     - Títol del registre
- * @param {Array}  params.notes     - Llista de totes les notes (per a lookups futurs)
- * @param {string} params.currentTableId - ID de la taula actual
- * @returns {Object} - Metadades actualitzades
+ * @param {Object} params.schema    - Table schema { fieldName: type, fieldName_config: {...} }
+ * @param {Object} params.metadata  - Current record metadata
+ * @param {string} params.title     - Record title
+ * @param {Array}  params.notes     - List of all notes (for future lookups)
+ * @param {string} params.currentTableId - Current table ID
+ * @returns {Object} - Updated metadata
  */
 export function applyDefaultFormulasToMetadata({ schema = {}, metadata = {}, title = '', notes = [], currentTableId = '' }) {
     const result = { ...metadata };
 
     Object.keys(schema).forEach(key => {
-        // Saltar claus de configuració
+        // Skip configuration keys
         if (key.endsWith('_config')) return;
 
         const configKey = `${key}_config`;
         const config = schema[configKey] || {};
 
-        // Aplicar defaultFormula si el camp és buit
+        // Apply defaultFormula if the field is empty
         if (config.defaultFormula && (result[key] === undefined || result[key] === null || result[key] === '')) {
             const evaluated = evaluateDefaultFormula(config.defaultFormula, {
                 metadata: result,

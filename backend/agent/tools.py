@@ -16,15 +16,15 @@ def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> S
     
     # Build dynamic Pydantic model for arguments
     fields = {}
-    # `required` del JSON Schema de l'MCP: els camps que NO hi són han de ser OPCIONALS.
-    # Abans es marcaven TOTS com a obligatoris (`...`), de manera que una tool MCP amb
-    # paràmetres opcionals (p. ex. `limit`, `encoding`) feia fallar la validació Pydantic
-    # de l'args_schema quan l'LLM els ometia → la crida a la tool es rebutjava.
+    # `required` from the MCP's JSON Schema: fields that are NOT there must be OPTIONAL.
+    # Previously ALL were marked as required (`...`), so an MCP tool with
+    # optional parameters (e.g. `limit`, `encoding`) would fail Pydantic validation
+    # of the args_schema when the LLM omitted them → the tool call was rejected.
     required = set(schema_def.get("required", []) or [])
     if "properties" in schema_def:
         for prop_name, prop_schema in schema_def["properties"].items():
-            # Simplification: el tipus es queda com a Any (el mapatge complet JSON
-            # Schema→Pydantic per tipus queda pendent). Però SÍ respectem `required`.
+            # Simplification: the type stays as Any (the full JSON mapping
+            # Schema→Pydantic by type is still pending). But we DO respect `required`.
             if prop_name in required:
                 fields[prop_name] = (Any, ...)   # obligatori
             else:
@@ -46,14 +46,14 @@ def create_mcp_tool(tool_def: Dict[str, Any], client: MultiServerMCPClient) -> S
     )
 
 def get_mcp_tools(tools_list: List[Dict], client: MultiServerMCPClient) -> List[StructuredTool]:
-    """Converteix les definicions MCP en tools de LangChain, AÏLLANT els errors.
+    """Converts MCP definitions into LangChain tools, ISOLATING errors.
 
-    Les definicions venen de servidors MCP de TERCERS (Notion, etc.). Una de
-    sola mal formada (sense `name`, schema estrany…) NO ha de tombar la resta
-    ni l'agent sencer: abans la list-comprehension propagava l'excepció i
-    `get_mcp_tools` fallava → l'agent es quedava SENSE CAP tool MCP (o no
-    arrencava). Ara cada tool va en el seu try/except i les dolentes se salten
-    amb un log."""
+    The definitions come from THIRD-PARTY MCP servers (Notion, etc.). A single
+    malformed one (missing `name`, odd schema…) must NOT bring down the rest
+    or the whole agent: previously the list comprehension propagated the exception and
+    `get_mcp_tools` would fail → the agent was left WITHOUT ANY MCP tool (or wouldn't
+    start). Now each tool goes in its own try/except and bad ones are skipped
+    with a log entry."""
     tools: List[StructuredTool] = []
     for t in tools_list or []:
         try:

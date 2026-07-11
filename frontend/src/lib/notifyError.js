@@ -65,10 +65,10 @@ export function notifyError(scope, err, userMsg, options = {}) {
         hotToast.error(baseMsg, { duration: 5000 });
     }
 
-    // Persisteix l'error al log central perquè aparegui al Control Center
+    // Persists the error to the central log so it shows up in the Control Center
     // (Logs i Historial). Fire-and-forget: no esperem resposta ni bloquegem
-    // el flux UI si la xarxa cau. Saltable amb { persist: false } per a
-    // errors molt sorollosos (autosave background, etc.).
+    // the UI flow if the network goes down. Skippable with { persist: false } for
+    // very noisy errors (background autosave, etc.).
     if (persist && !silent) {
         try {
             _persistNotification({
@@ -77,7 +77,7 @@ export function notifyError(scope, err, userMsg, options = {}) {
                 level: 'ERROR',
             });
         } catch {
-            /* no-op: el toast ja informa l'usuari */
+            /* no-op: the toast already informs the user */
         }
     }
 
@@ -96,9 +96,9 @@ export function logError(scope, err) {
 }
 
 /**
- * Registra un esdeveniment positiu o informatiu al log central. NO mostra
- * toast — això es deixa al caller (toast.success quan calgui). Pensat per
- * fer que el Control Center tingui un historial complet, no només errors.
+ * Logs a positive or informational event to the central log. Does NOT show a
+ * toast — that is left to the caller (toast.success when needed). Intended to
+ * make the Control Center have a complete history, not just errors.
  */
 export function notifySuccess(scope, message) {
     _persistNotification({
@@ -116,11 +116,11 @@ export function notifyInfo(scope, message) {
     });
 }
 
-// Exportada perquè el wrapper de toast pugui registrar `toast.error` /
-// `toast.success` com a entrades del Control Center.
+// Exported so the toast wrapper can log `toast.error` /
+// `toast.success` as Control Center entries.
 export function _persistNotification({ title, message, level }) {
-    // useApi és un hook React i no es pot usar fora d'un component. Fem un
-    // fetch directe amb els mateixos headers que `useApi.apiFetch` aplica.
+    // useApi is a React hook and cannot be used outside a component. We do a
+    // direct fetch with the same headers that `useApi.apiFetch` applies.
     try {
         const workspaceId = (typeof localStorage !== 'undefined'
             && localStorage.getItem('gnosi_workspace_id')) || 'personal';

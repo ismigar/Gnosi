@@ -28,7 +28,7 @@ const FOLDER_KEY_MAP = {
     'starred': 'mail.starred',
     '[gmail]/starred': 'mail.starred',
     'destacats': 'mail.starred',
-    // Arxiu / Tot el correu
+    // Archive / All Mail
     'archive': 'mail.all_mail',
     'all mail': 'mail.all_mail',
     '[gmail]/all mail': 'mail.all_mail',

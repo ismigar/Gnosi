@@ -1,4 +1,4 @@
-"""Tests del verificador de salut del clon (pur)."""
+"""Tests for the clone's health checker (pure)."""
 import sys
 from pathlib import Path
 
@@ -26,7 +26,7 @@ def test_healthy_clone():
 
 def test_count_mismatch_flagged():
     pages = [{"id": "a", "table_id": "T", "body_empty": False, "view_count": 0, "relations": [], "missing_assets": []}]
-    r = verify_clone({"T": 3}, pages)   # Notion té 3, el clon 1
+    r = verify_clone({"T": 3}, pages)   # Notion has 3, the clone 1
     assert r["summary"]["healthy"] is False
     assert r["tables"][0]["missing"] == 2 and r["tables"][0]["ok"] is False
 

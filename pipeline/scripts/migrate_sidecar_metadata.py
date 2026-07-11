@@ -1,20 +1,20 @@
-"""Migració idempotent: trasllada flags internes (`*_manual`, `is_template`,
-`is_default_template`) del frontmatter `.md` al sidecar JSON corresponent a
+"""Idempotent migration: moves internal flags (`*_manual`, `is_template`,
+`is_default_template`) from the `.md` frontmatter to the corresponding JSON sidecar at
 `<vault>/.gnosi/page_meta/<id>.json`.
 
-Vegeu `docs/dev_memory/directives/sidecar_internal_metadata.md`.
+See `docs/dev_memory/directives/sidecar_internal_metadata.md`.
 
-Ús:
+Usage:
 
     cd ~/Projectes/monorepo/apps/gnosi
-    DIGITAL_BRAIN_VAULT_PATH=/ruta/vault \\
+    DIGITAL_BRAIN_VAULT_PATH=/path/vault \\
         python -m pipeline.scripts.migrate_sidecar_metadata --dry-run
-    DIGITAL_BRAIN_VAULT_PATH=/ruta/vault \\
+    DIGITAL_BRAIN_VAULT_PATH=/path/vault \\
         python -m pipeline.scripts.migrate_sidecar_metadata
 
-El recorregut salta `.gnosi/`, `local_data/`, `.trash/` i qualsevol carpeta
-oculta començada per `.`. És segur córrer-lo diverses vegades: només
-reescriu les pàgines que encara contenen flags internes al frontmatter.
+The traversal skips `.gnosi/`, `local_data/`, `.trash/`, and any hidden
+folder starting with `.`. It's safe to run it multiple times: it only
+rewrites pages that still contain internal flags in the frontmatter.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from typing import Iterable, Tuple
 import yaml
 
 
-# Permet executar com a script independent (sense `python -m`).
+# Allows running as a standalone script (without `python -m`).
 _HERE = Path(__file__).resolve()
 _ROOT = _HERE.parents[3]  # .../monorepo/apps/gnosi
 if str(_ROOT) not in sys.path:
@@ -43,17 +43,17 @@ from backend.services.page_sidecar import (  # noqa: E402
 from backend.utils.safe_io import safe_write_text  # noqa: E402
 
 
-# Carpetes a saltar (recursivament).
+# Folders to skip (recursively).
 SKIP_DIRS = {".gnosi", "local_data", ".trash", ".git"}
 
-# Frontmatter regex (mateixa que vault_routes.parse_frontmatter, per evitar
-# dependència circular amb el backend complet).
+# Frontmatter regex (same as vault_routes.parse_frontmatter, to avoid
+# circular dependency with the full backend).
 _FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
 def find_vault_root(start: Path) -> Path:
-    """Cerca `.gnosi/` pujant des de start; retorna el primer ancestor que
-    el contingui, o el mateix start si ja és el vault root."""
+    """Searches for `.gnosi/` walking up from start; returns the first ancestor that
+    contains it, or start itself if it's already the vault root."""
     current = start.resolve()
     if (current / ".gnosi").is_dir():
         return current
@@ -68,7 +68,7 @@ def find_vault_root(start: Path) -> Path:
 
 
 def iter_markdown_files(vault_root: Path) -> Iterable[Path]:
-    """Generator de tots els `.md` del vault excloent carpetes internes."""
+    """Generator over all `.md` files in the vault, excluding internal folders."""
     for path in vault_root.rglob("*.md"):
         rel = path.relative_to(vault_root)
         if any(part in SKIP_DIRS or part.startswith(".") for part in rel.parts[:-1]):
@@ -77,7 +77,7 @@ def iter_markdown_files(vault_root: Path) -> Iterable[Path]:
 
 
 def parse_frontmatter_raw(content: str) -> Tuple[dict, str]:
-    """Versió simplificada — NO fa merge sidecar (estem migrant cap a sidecar)."""
+    """Simplified version — does NOT merge the sidecar (we're migrating toward the sidecar)."""
     m = _FM_RE.match(content)
     if not m:
         return {}, content
@@ -100,7 +100,7 @@ def render_frontmatter(metadata: dict) -> str:
 
 
 def migrate_file(path: Path, vault_root: Path, dry_run: bool) -> str:
-    """Retorna: 'no-frontmatter' | 'no-id' | 'clean' | 'migrated' | 'error:<msg>'."""
+    """Returns: 'no-frontmatter' | 'no-id' | 'clean' | 'migrated' | 'error:<msg>'."""
     try:
         raw = path.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError) as exc:
@@ -116,8 +116,8 @@ def migrate_file(path: Path, vault_root: Path, dry_run: bool) -> str:
 
     page_id = metadata.get("id")
     if not page_id:
-        # Sense id estable no podem crear sidecar. El deixem com està i
-        # ho reportem perquè l'usuari el resolgui manualment.
+        # Without a stable id we can't create a sidecar. We leave it as is and
+        # report it so the user can resolve it manually.
         return "no-id"
 
     fm_meta, sc_meta = split_metadata(metadata)

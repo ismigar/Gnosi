@@ -112,7 +112,7 @@ const ARTICLE_IFRAME_CSS = `
     iframe { max-width: 100%; }
 `;
 
-// Resize the article iframe to fit its content. Without this, electrón-style
+// Resize the article iframe to fit its content. Without this, Electron-style
 // renderers cap iframes at the height attribute and the article is cut off.
 const fitIframeToContent = (event) => {
     const iframe = event.currentTarget;
@@ -310,9 +310,9 @@ const ReaderDashboard = () => {
     };
 
     const formatArticleMeta = (article) => {
-        // Alguns articles RSS no porten data (`published_at` null; el backend els
-        // ordena amb `nullslast()`). Sense aquest guard, `new Date(null)` donava
-        // l'epoch ("1 de gen.") com a data de l'article.
+        // Some RSS articles don't carry a date (`published_at` null; the backend
+        // sorts them with `nullslast()`). Without this guard, `new Date(null)` produced
+        // the epoch ("Jan 1") as the article's date.
         const d = article.published_at ? new Date(article.published_at) : null;
         const date = d && !isNaN(d.getTime())
             ? d.toLocaleDateString(locale, { day: 'numeric', month: 'short' })
@@ -427,7 +427,7 @@ const ReaderDashboard = () => {
                     />
                 )}
 
-                {/* Columna 1: Canals */}
+                {/* Column 1: Channels */}
                 <aside
                     className={`bg-[var(--bg-secondary)]/50 border-r border-[var(--border-primary)] flex-col flex-shrink-0 md:flex md:relative md:w-60 lg:w-64 ${mobileChannelsOpen ? 'flex fixed inset-y-0 left-0 w-72 z-50 shadow-2xl' : 'hidden'}`}
                 >
@@ -571,7 +571,7 @@ const ReaderDashboard = () => {
                     </div>
                 </aside>
 
-                {/* Columna 2: Articles */}
+                {/* Column 2: Articles */}
                 <div className={`w-full md:w-[360px] lg:w-[400px] border-r border-[var(--border-primary)] bg-[var(--bg-primary)] flex flex-col flex-shrink-0 ${selectedArticle ? 'hidden md:flex' : 'flex'}`}>
 
                     <div className="px-6 py-5">
@@ -653,7 +653,7 @@ const ReaderDashboard = () => {
                     </div>
                 </div>
 
-                {/* Columna 3: Reader */}
+                {/* Column 3: Reader */}
                 <div className={`flex-1 bg-[var(--bg-primary)] h-full overflow-y-auto ${!selectedArticle ? 'hidden md:block' : 'block'}`}>
                     {selectedArticle ? (
                         <article className="max-w-[640px] mx-auto py-12 px-6 md:px-10 animate-fade-in-up">
@@ -702,11 +702,11 @@ const ReaderDashboard = () => {
                                 const isHtml = body.includes('<');
                                 if (!isHtml) return null;
                                 return (
-                                    // XSS prevention: el contingut RSS ve de fonts externes
-                                    // (atacant-controlables). En lloc d'injectar amb
-                                    // dangerouslySetInnerHTML al document principal —que
-                                    // executaria scripts incrustats— el renderitzem dins
-                                    // un iframe sandbox sense `allow-scripts`.
+                                    // XSS prevention: RSS content comes from external sources
+                                    // (attacker-controllable). Instead of injecting with
+                                    // dangerouslySetInnerHTML in the main document —which
+                                    // would execute embedded scripts— we render it inside
+                                    // a sandboxed iframe without `allow-scripts`.
                                     <iframe
                                         key={selectedArticle.id}
                                         srcDoc={`<!DOCTYPE html><html><head><meta charset="utf-8"><base target="_blank"><style>${ARTICLE_IFRAME_CSS}</style></head><body>${body}</body></html>`}

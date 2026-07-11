@@ -1,12 +1,12 @@
-"""Parser tolerant de frontmatter per a quan `yaml.safe_load` falla.
+"""Tolerant frontmatter parser for when `yaml.safe_load` fails.
 
-Font de veritat ÚNICA per al rescat de frontmatter malformat. Abans vivia
-duplicat com a `_parse_frontmatter_fallback` a `vault_routes.py`, però
-`graph_service.parse_frontmatter` NO el tenia: una pàgina amb YAML lleugerament
-malformat (una cometa sense tancar, un tab, un indicador reservat…) es llegia
-correctament al Vault (via aquest rescat) però sortia BUIDA al graf (sense
-títol, tipus ni color). Compartir-lo garanteix que les dues lectures recuperin
-la mateixa metadata de primer nivell.
+SINGLE source of truth for rescuing malformed frontmatter. It used to live
+duplicated as `_parse_frontmatter_fallback` in `vault_routes.py`, but
+`graph_service.parse_frontmatter` did NOT have it: a page with slightly
+malformed YAML (an unclosed quote, a tab, a reserved indicator…) would read
+correctly in the Vault (via this rescue) but came out EMPTY in the graph (without
+title, type, or color). Sharing it guarantees that both reads recover
+the same top-level metadata.
 """
 from __future__ import annotations
 
@@ -14,12 +14,13 @@ import re
 
 
 def parse_frontmatter_fallback(yaml_content: str) -> dict:
-    """Rescata els parells escalars `key: value` de primer nivell d'un
-    frontmatter que `yaml.safe_load` ha rebutjat.
+    """Rescues the top-level scalar `key: value` pairs from a
+    frontmatter that `yaml.safe_load` has rejected.
 
-    Ignora a posta els blocs niats/objectes/llistes i només salva els escalars
-    de primer nivell, de manera que els llistats puguin resoldre id/title/
-    table_id encara que una altra clau tingui YAML corrupte.
+    Intentionally ignores nested blocks/objects/lists and only saves top-level
+    scalars, so that listings can resolve id/title/
+    table_id even if another key has corrupt YAML.
+    
     """
     metadata: dict = {}
     for raw_line in yaml_content.splitlines():
@@ -31,7 +32,7 @@ def parse_frontmatter_fallback(yaml_content: str) -> dict:
         if stripped.startswith("#"):
             continue
 
-        # Ignora blocs YAML niats i membres de llista per no corrompre el parseig.
+        # Ignore nested YAML blocks and list members to avoid corrupting the parsing.
         if line.startswith((" ", "\t", "- ")):
             continue
 

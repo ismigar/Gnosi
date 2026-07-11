@@ -5,20 +5,20 @@ import { VaultMarkdown } from './VaultMarkdown';
 
 /**
  * SyncedBlock
- * Bloc sincronitzat bidireccional (estil Notion synced block). El contingut viu
- * en una font compartida (`/api/vault/synced/{sync_id}`); editar qualsevol
- * instància actualitza la font i totes les altres instàncies la reflecteixen
- * EN VIU: dins la mateixa finestra (event) i entre pestanyes/finestres de l'app
- * (BroadcastChannel). Es desa a Markdown com a fence ```gnosi-synced amb el sync_id.
- * (Cross-device requeriria empènyer pel WS de col·laboració — fora de v1.)
+ * Bidirectional synced block (Notion synced block style). The content lives
+ * in a shared source (`/api/vault/synced/{sync_id}`); editing any
+ * instance updates the source and all other instances reflect it
+ * LIVE: within the same window (event) and across tabs/windows of the app
+ * (BroadcastChannel). Saved to Markdown as a ```gnosi-synced fence with the sync_id.
+ * (Cross-device would require pushing via the collaboration WS — out of scope for v1.)
  */
 
-// Canal entre pestanyes: propaga els canvis a totes les pestanyes/finestres de
-// l'app del mateix origin (no només a la finestra actual).
+// Cross-tab channel: propagates changes to all tabs/windows of
+// the app on the same origin (not just the current window).
 const _syncChannel = (typeof BroadcastChannel !== 'undefined') ? new BroadcastChannel('gnosi-synced') : null;
 
-// Push EN TEMPS REAL entre DISPOSITIUS via SSE (/api/vault/synced-events): un
-// sol EventSource compartit per a tota l'app; cada synced block s'hi subscriu.
+// REAL-TIME push between DEVICES via SSE (/api/vault/synced-events): a
+// single EventSource shared across the whole app; each synced block subscribes to it.
 const _sseListeners = new Set();
 let _sse = null;
 const ensureSyncedSSE = () => {
@@ -29,7 +29,7 @@ const ensureSyncedSSE = () => {
             let d; try { d = JSON.parse(e.data); } catch { return; }
             if (d?.syncId) _sseListeners.forEach((fn) => { try { fn(d.syncId); } catch { /* noop */ } });
         };
-        // EventSource es reconnecta sol en error; no cal tancar-lo.
+        // EventSource reconnects on its own on error; no need to close it.
     } catch { _sse = null; }
 };
 export default function SyncedBlock({ block }) {
@@ -57,14 +57,14 @@ export default function SyncedBlock({ block }) {
             await axios.put(`/api/vault/synced/${syncId}`, { content: draft });
             setContent(draft);
             setEditing(false);
-            // Mateixa finestra (altres instàncies) + altres pestanyes/finestres.
+            // Same window (other instances) + other tabs/windows.
             window.dispatchEvent(new CustomEvent('gnosi:synced-updated', { detail: { syncId } }));
             try { _syncChannel?.postMessage({ syncId }); } catch { /* noop */ }
         } catch { /* noop */ } finally { setSaving(false); }
     };
 
-    // Recarrega si una altra instància del mateix sync_id s'ha desat: mateixa
-    // finestra (event), una altra pestanya (BroadcastChannel) o un altre
+    // Reloads if another instance with the same sync_id has been saved: same
+    // window (event), another tab (BroadcastChannel) or another
     // DISPOSITIU (SSE en temps real).
     useEffect(() => {
         const onUpd = (e) => { if (e.detail?.syncId === syncId && !editing) load(); };
