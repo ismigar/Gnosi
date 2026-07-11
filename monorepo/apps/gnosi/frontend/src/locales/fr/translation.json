@@ -1618,7 +1618,9 @@
     "show_sidebar": "Afficher la barre latérale",
     "lock_edit": "Verrouiller l'édition (lecture seule)",
     "unlock_edit": "Déverrouiller pour modifier",
-    "share_page": "Partager"
+    "share_page": "Partager",
+    "add_favorite": "Ajouter aux favoris",
+    "remove_favorite": "Retirer des favoris"
   },
   "views_header": {
     "manage_views": "Vues",

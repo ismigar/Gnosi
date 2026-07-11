@@ -384,7 +384,9 @@
     "unlock_edit": "Desbloqueja per editar",
     "translate_record": "Tradueix el registre",
     "view_comments": "Comentaris",
-    "share_page": "Comparteix"
+    "share_page": "Comparteix",
+    "add_favorite": "Afegeix a favorits",
+    "remove_favorite": "Treu dels favorits"
   },
   "table": {
     "new_record": "Nou registre",

@@ -384,7 +384,9 @@
     "view_comments": "Comentarios",
     "lock_edit": "Bloquear edición (solo lectura)",
     "unlock_edit": "Desbloquear para editar",
-    "share_page": "Compartir"
+    "share_page": "Compartir",
+    "add_favorite": "Añadir a favoritos",
+    "remove_favorite": "Quitar de favoritos"
   },
   "table": {
     "new_record": "Nuevo registro",

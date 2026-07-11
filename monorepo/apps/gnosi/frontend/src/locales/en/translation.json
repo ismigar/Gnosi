@@ -476,7 +476,9 @@
     "view_comments": "Comments",
     "lock_edit": "Lock editing (read-only)",
     "unlock_edit": "Unlock to edit",
-    "share_page": "Share"
+    "share_page": "Share",
+    "add_favorite": "Add to favorites",
+    "remove_favorite": "Remove from favorites"
   },
   "table": {
     "new_record": "New record",
