@@ -220,7 +220,10 @@
     "purge": "Purge",
     "restore": "Restore",
     "document": "document",
-    "unknown": "unknown"
+    "unknown": "unknown",
+    "confirm": "Confirm",
+    "confirm_action": "Confirm action",
+    "confirm_action_msg": "Are you sure you want to proceed with this action?"
   },
   "calendar": {
     "title": "Calendar",

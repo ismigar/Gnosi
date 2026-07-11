@@ -102,7 +102,10 @@
     "restore": "Restaurer",
     "document": "document",
     "error": "Erreur",
-    "unknown": "inconnu"
+    "unknown": "inconnu",
+    "confirm": "Confirmer",
+    "confirm_action": "Confirmer l'action",
+    "confirm_action_msg": "Voulez-vous vraiment poursuivre cette action ?"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
