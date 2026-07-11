@@ -127,22 +127,6 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
-    // After expanding a group (Enter), place focus on its first item.
-    useEffect(() => {
-        const gid = pendingEnterGroupRef.current;
-        if (!gid || !groupedSections) return;
-        // Calculates the actual index in cardRefs of the expanded group's first item:
-        // sums the notes of the groups expanded BEFORE this one.
-        let idx = 0;
-        for (const sec of groupedSections) {
-            if (sec.id === gid) break;
-            if (expandedGroups.has(sec.id)) idx += sec.notes.length;
-        }
-        pendingEnterGroupRef.current = null;
-        const raf = requestAnimationFrame(() => focusCardAt(idx));
-        return () => cancelAnimationFrame(raf);
-    }, [expandedGroups, groupedSections, focusCardAt]);
-
     // Exposes the API to the editor to "enter" the records (first/last card).
     // If the gallery is grouped, the first element to receive focus is the
     // first group HEADER (expand it with Enter to enter the items).
@@ -318,6 +302,25 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         return sections;
     })();
 
+    // After expanding a group (Enter), place focus on its first item.
+    // Declared AFTER `groupedSections` because the effect references it in its
+    // deps: if placed earlier, evaluating the deps array during render
+    // throws a TDZ (ReferenceError) and trips the VaultViewErrorBoundary.
+    useEffect(() => {
+        const gid = pendingEnterGroupRef.current;
+        if (!gid || !groupedSections) return;
+        // Calculates the actual index in cardRefs of the expanded group's first item:
+        // sums the notes of the groups expanded BEFORE this one.
+        let idx = 0;
+        for (const sec of groupedSections) {
+            if (sec.id === gid) break;
+            if (expandedGroups.has(sec.id)) idx += sec.notes.length;
+        }
+        pendingEnterGroupRef.current = null;
+        const raf = requestAnimationFrame(() => focusCardAt(idx));
+        return () => cancelAnimationFrame(raf);
+    }, [expandedGroups, groupedSections, focusCardAt]);
+
     // Apply card size configuration
     const cardSize = activeView.cardSize || 'medium';
     const getGridClass = () => {
@@ -411,7 +414,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             .replace(/[ \t]+/g, ' ')        // spaces/tabs → 1 (preserves line breaks)
             .replace(/\n{2,}/g, '\n')       // multiple blank lines → a single one
             .split('\n').map(s => s.trim()).filter(Boolean).join('\n')
-            .slice(0, 600);                 // prou text per omplir targetes grans
+            .slice(0, 600);                 // enough text to fill large cards
     };
 
     const getRelationDisplayMap = (field) => {

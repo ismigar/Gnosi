@@ -1499,7 +1499,7 @@ export const VaultSidebar = ({
                         }
                         setConfirmModal({ ...confirmModal, isOpen: false });
                     }}
-                    title={t('sidebar.confirm_delete_type_title', { type: confirmModal.type === 'database' ? 'Database' : 'Table', defaultValue: `Delete ${confirmModal.type === 'database' ? 'Database' : 'Table'}` })}
+                    title={confirmModal.type === 'database' ? t('sidebar.confirm_delete_db_title') : t('sidebar.confirm_delete_table_title')}
                     message={confirmModal.type === 'database' ? t('sidebar.confirm_delete_db_msg') : t('sidebar.confirm_delete_table_msg')}
                     confirmText={t('common.delete')}
                     isDestructive={true}

@@ -54,6 +54,28 @@ const SOURCE_LABELS = {
     url: 'Open Graph / meta tags (URL)',
 };
 
+// Mapeig de l'idioma de la UI (react-i18next: ca / es / en / fr, o variants
+// regionals com en-US) al codi de locale de `ZOTERO_TYPE_LABELS`. Mateix patró
+// que `GNOSI_TO_ZOTERO_LOCALE` a ZoteroReaderTab. Si l'idioma no hi és, fallback
+// a 'en-US' (sempre present al schema). Vegeu build_constants.py::LOCALES.
+const UI_LANG_TO_ZOTERO_LOCALE = {
+    ca: 'ca-AD',
+    es: 'es-ES',
+    en: 'en-US',
+    fr: 'fr-FR',
+};
+
+/** Retorna el label traduït del tipus Zotero segons l'idioma actiu de la UI.
+ *  Cau a la clau canònica (`zoteroType`) si el tipus no té label al locale. */
+function zoteroTypeLabel(zoteroType, uiLanguage) {
+    if (!zoteroType) return null;
+    const base = String(uiLanguage || 'ca').split('-')[0];
+    const locale = UI_LANG_TO_ZOTERO_LOCALE[base] || 'en-US';
+    return ZOTERO_TYPE_LABELS[locale]?.[zoteroType]
+        || ZOTERO_TYPE_LABELS['en-US']?.[zoteroType]
+        || zoteroType;
+}
+
 export const MetadataLookupModal = ({
     isOpen,
     onClose,
@@ -62,7 +84,7 @@ export const MetadataLookupModal = ({
     mode = 'enrich',
     currentMetadata = {},
 }) => {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     // State: editable identifiers + selection + response
     const [doi, setDoi] = useState('');
     const [isbn, setIsbn] = useState('');
@@ -282,7 +304,8 @@ export const MetadataLookupModal = ({
     const hintCls = "text-[10px] text-red-500 mt-0.5";
 
     const allSelected = fieldEntries.length > 0 && fieldEntries.every(([k]) => selectedFields[k]);
-    const typeLabelCa = zoteroType ? (ZOTERO_TYPE_LABELS['ca-AD']?.[zoteroType] || zoteroType) : null;
+    // Label del tipus Zotero en l'idioma actiu de la UI (abans sempre ca-AD).
+    const typeLabel = zoteroTypeLabel(zoteroType, i18n?.language);
 
     return ReactDOM.createPortal(
         <div
@@ -414,8 +437,8 @@ export const MetadataLookupModal = ({
                             {result.identifier && (
                                 <> · <code className="text-[10px] bg-[var(--bg-secondary)] px-1 rounded">{result.identifier}</code></>
                             )}
-                            {typeLabelCa && (
-                                <> · {t('metadata_lookup.type_label', { defaultValue: 'Tipus' })}: <strong className="text-[var(--text-secondary)]">{typeLabelCa}</strong></>
+                            {typeLabel && (
+                                <> · {t('metadata_lookup.type_label', { defaultValue: 'Tipus' })}: <strong className="text-[var(--text-secondary)]">{typeLabel}</strong></>
                             )}
                         </span>
                     )}
