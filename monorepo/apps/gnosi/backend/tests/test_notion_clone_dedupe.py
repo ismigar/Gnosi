@@ -103,3 +103,46 @@ def test_ghost_rows_reported_not_deleted(clone_env):
     assert ghost.exists()                      # MAI s'esborra automàticament
     assert any("bbbb2222-id" in w and "fantasma" in w.lower() for w in rep["warnings"])
     assert not any("aaaa1111-id" in w for w in rep["warnings"])
+
+
+def test_reclone_empty_schema_does_not_wipe_existing_properties(tmp_path, monkeypatch):
+    """GUARD: un re-clon degenerat (fetch parcial de Notion o override buit) que porta
+    `properties: []` NO ha de destruir l'esquema ric existent al registre.
+
+    Incident: «Recursos» va perdre les seves 35 propietats i la graella només pintava
+    Títol + última edició. write_table sobreescriu l'entrada per id, així que ha de
+    preservar les propietats existents quan les entrants venen buides.
+    """
+    vault = tmp_path / "vault"
+    vault.mkdir()
+    rich_props = [
+        {"name": "Title", "type": "title", "id": "fld-title"},
+        {"name": "Item Type", "type": "select", "id": "fld-type",
+         "options": [{"name": "Llibre", "color": "orange"}]},
+        {"name": "Tags", "type": "multi_select", "id": "fld-tags"},
+    ]
+    registry = {
+        "tables": [{"id": TID, "name": "Recursos", "folder": "Recursos",
+                    "database_id": "notion_clone_db", "properties": rich_props}],
+        "views": [], "databases": [{"id": "notion_clone_db", "name": "Notion", "folder": "BD"}],
+    }
+    monkeypatch.setattr(notion_routes, "_get_token", lambda: "tok")
+    monkeypatch.setattr(notion_routes.notion_mcp, "is_connected", lambda: True)
+    monkeypatch.setattr(notion_routes, "get_active_vault_path", lambda: vault)
+    monkeypatch.setattr(notion_routes, "NotionClient", lambda tok: object())
+    monkeypatch.setattr(notion_routes.vault_routes, "load_registry", lambda: registry)
+    monkeypatch.setattr(notion_routes.vault_routes, "save_registry", lambda reg: None)
+    monkeypatch.setattr(notion_routes.vault_routes, "register_page_in_index", lambda p: None)
+    monkeypatch.setitem(notion_routes._CLONE_CANCEL, "flag", False)
+
+    def fake(rest, *, write_table, write_page, write_view, **kw):
+        # Re-clon degenerat: la mateixa taula però amb esquema buit.
+        write_table({"id": TID, "name": "Recursos", "folder": "Recursos", "properties": []})
+        return {"tables": 1, "pages": 0, "views": 0, "attachments": 0,
+                "collected": 0, "errors": [], "warnings": [], "truncated": False}
+
+    monkeypatch.setattr(notion_routes.notion_clone, "clone_workspace", fake)
+    notion_routes._run_clone_sync(["db1"], target_folder="")
+
+    table = next(t for t in registry["tables"] if t["id"] == TID)
+    assert table["properties"] == rich_props  # esquema intacte, no clobberat per []

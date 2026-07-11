@@ -29,6 +29,9 @@ from backend.services import notion_mcp_md
 from backend.services import notion_clone
 from backend.services.integration_manager import integration_manager
 from backend.api import vault_routes
+from backend.config.logger_config import get_logger
+
+log = get_logger(__name__)
 
 router = APIRouter(prefix="/notion", tags=["Notion Import"])
 
@@ -426,6 +429,22 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
             table["database_id"] = "notion_clone_db"
             idx = next((i for i, t in enumerate(tables) if t.get("id") == table["id"]), None)
             if idx is not None:
+                existing = tables[idx]
+                # GUARD against silent schema loss on re-clone. write_table REPLACES
+                # the registry entry by id, so a degenerate clone — a transient/partial
+                # Notion `get_database` fetch, or an empty schema override — that builds
+                # the table with `properties: []` would clobber a previously-good schema.
+                # Real incident: "Recursos" lost its 35 properties and the grid rendered
+                # only Title + last-edited. A Notion database always has at least the
+                # title property, so empty incoming properties are never intentional:
+                # keep the existing schema instead of wiping it.
+                if not (table.get("properties") or []) and (existing.get("properties") or []):
+                    log.warning(
+                        "notion clone: refusing to overwrite table %r (%s) with an empty "
+                        "properties list; keeping the %d existing propert(ies).",
+                        existing.get("name"), table.get("id"), len(existing["properties"]),
+                    )
+                    table["properties"] = existing["properties"]
                 tables[idx] = table
             else:
                 tables.append(table)
