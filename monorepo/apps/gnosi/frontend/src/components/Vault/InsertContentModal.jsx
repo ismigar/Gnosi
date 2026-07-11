@@ -264,6 +264,13 @@ export const InsertContentModal = ({
             url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
         }
         const { data } = await axios.post(url, formData, {
+            // File uploads carry an unbounded payload and the backend writes it
+            // straight to disk — slow when the Vault lives on OneDrive (warmup +
+            // materialization). The global 30s cap in pageEtagInterceptor targets
+            // slow external/IMAP calls, not local uploads, so a ~20MB PDF was
+            // aborting with "timeout of 30000ms exceeded". Disable the cap here;
+            // onUploadProgress already gives the UI a liveness signal.
+            timeout: 0,
             onUploadProgress: (evt) => {
                 if (evt.total) setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
             },
