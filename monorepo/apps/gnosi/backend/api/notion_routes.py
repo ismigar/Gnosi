@@ -366,6 +366,38 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
     # Optional subfolder: empty ("") = the clone goes DIRECTLY to the vault root (no wrapper).
     tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
 
+    # DEDUPE RE-CLON (incident 2026-07-04, 907 duplicats): els ids del clon són deterministes
+    # (uuid5 de l'id de Notion), així que re-clonar sobre un vault que ja té un clon ha de
+    # SOBREESCRIURE el fitxer existent de cada pàgina (mateix id al frontmatter), mai crear-ne
+    # un segon «Títol id8.md». El sufix id8 queda NOMÉS per a col·lisions reals de títol entre
+    # pàgines d'ids DIFERENTS. Mapa id→path construït UNA vegada escanejant NOMÉS les arrels
+    # on escriu el clon (BD/Wiki/.Dashboards): llegir tot el vault forçaria descàrregues de
+    # fitxers OneDrive online-only aliens al clon.
+
+    def _frontmatter_meta(p: Path) -> dict:
+        try:
+            with open(p, encoding="utf-8") as fh:
+                if fh.readline().strip() != "---":
+                    return {}
+                lines = []
+                for line in fh:
+                    if line.strip() == "---":
+                        return yaml.safe_load("".join(lines)) or {}
+                    lines.append(line)
+        except Exception:  # noqa: BLE001
+            pass
+        return {}
+
+    path_by_id: dict = {}
+    for root in ("BD", "Wiki", ".Dashboards"):
+        if not (vault / root).is_dir():
+            continue
+        for p in (vault / root).rglob("*.md"):
+            pid = _frontmatter_meta(p).get("id")
+            if pid:
+                path_by_id.setdefault(str(pid), p)
+    written_ids_by_table: dict = {}  # table_id → set d'ids escrits (per detectar fantasmes)
+
     def write_table(table: dict):
         # The clone runs in a worker thread (via asyncio.to_thread): without the shared
         # shared, these load→modify→save cycles could clobber each other with those
@@ -431,9 +463,23 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", meta["title"]).strip()[:120] or "Sense títol"
         target_dir = vault / folder
         target_dir.mkdir(parents=True, exist_ok=True)
-        path = target_dir / f"{safe}.md"
-        if path.exists():
-            path = target_dir / f"{safe} {meta['id'][:8]}.md"
+        # Re-clon: si ja hi ha un fitxer amb aquest id (frontmatter), es SOBREESCRIU al mateix
+        # path. Si la pàgina ha canviat de carpeta (moguda de taula a Notion), es reubica:
+        # s'esborra l'antic i s'escriu al nou — mai dos fitxers per al mateix id.
+        existing = path_by_id.get(meta["id"])
+        if existing is not None and existing.exists() and existing.parent != target_dir:
+            existing.unlink()
+            existing = None
+        if existing is not None and existing.exists():
+            path = existing
+        else:
+            path = target_dir / f"{safe}.md"
+            if path.exists() and str(_frontmatter_meta(path).get("id")) != meta["id"]:
+                # Col·lisió REAL de títol entre pàgines d'ids diferents → sufix id8.
+                path = target_dir / f"{safe} {meta['id'][:8]}.md"
+        path_by_id[meta["id"]] = path
+        if meta.get("table_id"):
+            written_ids_by_table.setdefault(meta["table_id"], set()).add(meta["id"])
         fm = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
         path.write_text(f"---\n{fm}\n---\n\n{str(page.get('content') or '').lstrip()}\n",
                         encoding="utf-8")
@@ -470,7 +516,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         dest = dest / leaf / (sub or "_camp")
         return download_to(url, dest, vault, timeout=DL_TIMEOUT)
 
-    return notion_clone.clone_workspace(
+    report = notion_clone.clone_workspace(
         rest, fetch_page=notion_mcp.fetch, mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
         write_table=write_table, write_page=write_page, write_view=write_view,
         # [] ≠ None: an EMPTY list is an explicit choice ("no DBs" — e.g. an
@@ -487,6 +533,24 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         should_cancel=lambda: _CLONE_CANCEL["flag"],
         registry_tables=vault_routes.load_registry().get("tables", []),
     )
+
+    # FILES FANTASMA: fitxers del vault amb table_id d'una taula clonada l'id dels quals ja NO
+    # existeix a Notion (rows esborrades/recreades). NOMÉS s'informa (warning al report), mai
+    # s'esborra automàticament. Si el clon s'ha truncat, avortat o té errors, se salta el
+    # diagnòstic: les pàgines no escrites semblarien fantasmes sense ser-ho.
+    if not report.get("truncated") and not report.get("errors") and not _CLONE_CANCEL["flag"]:
+        for table_id, phys in folder_by_table.items():
+            table_dir = vault / phys
+            if not table_dir.is_dir():
+                continue
+            written = written_ids_by_table.get(table_id, set())
+            for p in sorted(table_dir.glob("*.md")):
+                m = _frontmatter_meta(p)
+                if str(m.get("table_id")) == str(table_id) and str(m.get("id")) not in written:
+                    report["warnings"].append(
+                        f"Fila fantasma (l'id ja no és a Notion): «{p.relative_to(vault)}» "
+                        f"(id {m.get('id')}). No s'ha esborrat automàticament.")
+    return report
 
 
 @router.post("/clone", dependencies=[Depends(require_role("editor"))])
