@@ -222,12 +222,14 @@
     "restore": "Restore",
     "document": "document",
     "unknown": "unknown",
+    "confirm": "Confirm",
+    "confirm_action": "Confirm action",
+    "confirm_action_msg": "Are you sure you want to proceed with this action?",
     "prompt_modal_title": "Enter a value",
     "ok": "OK",
     "cancel_short": "Cancel",
     "confirm_modal_title": "Confirm action",
-    "confirm_modal_message": "Are you sure you want to proceed with this action?",
-    "confirm": "Confirm"
+    "confirm_modal_message": "Are you sure you want to proceed with this action?"
   },
   "calendar": {
     "title": "Calendar",
@@ -701,8 +703,8 @@
     "summary_link": "Summary →",
     "history_link": "History →",
     "managed_in_vault": "Managed in the Vault",
-    "error_prefix": "Error",
-    "view_graph": "View Graph"
+    "view_graph": "View Graph",
+    "error_prefix": "Error"
   },
   "errors": {
     "load_pages": "Error loading pages",
@@ -1912,11 +1914,11 @@
     "last_run": "Last run:",
     "keychain_migration_title": "Migration from .env_shared",
     "keychain_migration_hint": "If you have keys in the .env_shared file, you can migrate them to the Keychain automatically.",
+    "credential_configured": "Configured",
+    "credential_placeholder": "Enter the key for {{name}}",
     "api_keys_hint": "Your API keys are stored securely in your computer's Keychain. This tab shows which keys are configured.",
     "credential_save_error": "Error saving: {{message}}",
-    "keychain_migration_error": "Error migrating: {{message}}",
-    "credential_configured": "Configured",
-    "credential_placeholder": "Enter the key for {{name}}"
+    "keychain_migration_error": "Error migrating: {{message}}"
   },
   "contacts": {
     "title": "Contacts",
@@ -2401,14 +2403,14 @@
     "undo_error": "Could not undo",
     "undo_label_trashed": "Deleted",
     "undo_label_archived": "Archived",
-    "file_attached": "Attached: {{name}}",
-    "insert_image_error": "Error inserting image",
     "tag_name_placeholder": "Tag name...",
     "no_tags": "No tags",
     "delete_tag_tooltip": "Delete tag",
     "new_tag": "New tag",
     "usual_group": "Usual group",
-    "add_all_group": "Add all: {{emails}}"
+    "add_all_group": "Add all: {{emails}}",
+    "file_attached": "Attached: {{name}}",
+    "insert_image_error": "Error inserting image"
   },
   "subs_section_title": "Information sources",
   "subs_btn_reload": "Reload",
@@ -3452,9 +3454,9 @@
     "legend_page": "Page / Task",
     "active_deps": "Active dependencies ({{count}} records)",
     "footer_hint": "Interactive timeline with automatic dependencies.",
+    "add_predecessor": "Add predecessor",
     "until": "Until {{date}}",
-    "no_data": "No data to show in the timeline.",
-    "add_predecessor": "Add predecessor"
+    "no_data": "No data to show in the timeline."
   },
   "home": {
     "subtitle": "Your personal knowledge ecosystem",
@@ -3576,10 +3578,10 @@
     "confirm_title": "Correct the whole page with AI",
     "confirm_message": "The page content will be replaced with the corrected version. You can undo it with Ctrl/Cmd+Z.",
     "confirm_button": "Correct",
-    "selection_error": "Could not correct",
-    "correcting_page": "Correcting the page with AI…",
     "button": "Correct (AI)",
-    "correcting": "Correcting with AI…"
+    "correcting": "Correcting with AI…",
+    "selection_error": "Could not correct",
+    "correcting_page": "Correcting the page with AI…"
   },
   "folder_picker": {
     "go_up": "Go up one level (Up)",

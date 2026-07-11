@@ -130,12 +130,14 @@
     "document": "document",
     "error": "Error",
     "unknown": "desconegut",
+    "confirm": "Confirmar",
+    "confirm_action": "Confirmar acció",
+    "confirm_action_msg": "N'estàs segur que vols procedir amb aquesta acció?",
     "prompt_modal_title": "Introdueix un valor",
     "ok": "D'acord",
     "cancel_short": "Cancel·la",
     "confirm_modal_title": "Confirmar acció",
-    "confirm_modal_message": "N'estàs segur que vols procedir amb aquesta acció?",
-    "confirm": "Confirmar"
+    "confirm_modal_message": "N'estàs segur que vols procedir amb aquesta acció?"
   },
   "calendar": {
     "title": "Calendari",
@@ -613,8 +615,8 @@
     "summary_link": "Resum →",
     "history_link": "Historial →",
     "managed_in_vault": "Gestionat al Vault",
-    "error_prefix": "Error",
-    "view_graph": "Veure Graf"
+    "view_graph": "Veure Graf",
+    "error_prefix": "Error"
   },
   "errors": {
     "load_pages": "Error carregant pàgines",
@@ -1802,11 +1804,11 @@
     "last_run": "Última execució:",
     "keychain_migration_title": "Migració des de .env_shared",
     "keychain_migration_hint": "Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament.",
+    "credential_configured": "Configurat",
+    "credential_placeholder": "Introdueix la clau per a {{name}}",
     "api_keys_hint": "Les teves claus API s'emmagatzemen de forma segura al Keychain del teu ordinador. Aquesta pestanya mostra quines claus estan configurades.",
     "credential_save_error": "Error guardant: {{message}}",
-    "keychain_migration_error": "Error migrant: {{message}}",
-    "credential_configured": "Configurat",
-    "credential_placeholder": "Introdueix la clau per a {{name}}"
+    "keychain_migration_error": "Error migrant: {{message}}"
   },
   "contacts": {
     "title": "Contactes",
@@ -2291,14 +2293,14 @@
     "undo_error": "No s'ha pogut desfer",
     "undo_label_trashed": "Eliminat",
     "undo_label_archived": "Arxivat",
-    "file_attached": "Adjuntat: {{name}}",
-    "insert_image_error": "Error inserint imatge",
     "tag_name_placeholder": "Nom de l'etiqueta...",
     "no_tags": "Cap etiqueta",
     "delete_tag_tooltip": "Elimina etiqueta",
     "new_tag": "Nova etiqueta",
     "usual_group": "Grup habitual",
-    "add_all_group": "Afegir tots: {{emails}}"
+    "add_all_group": "Afegir tots: {{emails}}",
+    "file_attached": "Adjuntat: {{name}}",
+    "insert_image_error": "Error inserint imatge"
   },
   "subs_section_title": "Fonts d'Informació",
   "subs_btn_reload": "Recarregar",
@@ -3339,9 +3341,9 @@
     "legend_page": "Pàgina / Tarea",
     "active_deps": "Dependències actives ({{count}} registres)",
     "footer_hint": "Cronograma interactiu amb dependències automàtiques.",
+    "add_predecessor": "Afegir antecessora",
     "until": "Fins al {{date}}",
-    "no_data": "No hi ha dades per mostrar al cronograma.",
-    "add_predecessor": "Afegir antecessora"
+    "no_data": "No hi ha dades per mostrar al cronograma."
   },
   "home": {
     "subtitle": "El teu ecosistema de coneixement personal",
@@ -3463,10 +3465,10 @@
     "confirm_title": "Corregir tota la pàgina amb IA",
     "confirm_message": "Es reemplaçarà el contingut de la pàgina amb la versió corregida. Podràs desfer-ho amb Ctrl/Cmd+Z.",
     "confirm_button": "Corregeix",
-    "selection_error": "No s'ha pogut corregir",
-    "correcting_page": "Corregint la pàgina amb IA…",
     "button": "Corregeix (IA)",
-    "correcting": "Corregint amb IA…"
+    "correcting": "Corregint amb IA…",
+    "selection_error": "No s'ha pogut corregir",
+    "correcting_page": "Corregint la pàgina amb IA…"
   },
   "folder_picker": {
     "go_up": "Pujar un nivell (Up)",

@@ -130,12 +130,14 @@
     "document": "documento",
     "error": "Error",
     "unknown": "desconocido",
+    "confirm": "Confirmar",
+    "confirm_action": "Confirmar acción",
+    "confirm_action_msg": "¿Seguro que quieres proceder con esta acción?",
     "prompt_modal_title": "Introduce un valor",
     "ok": "Aceptar",
     "cancel_short": "Cancelar",
     "confirm_modal_title": "Confirmar acción",
-    "confirm_modal_message": "¿Seguro que quieres proceder con esta acción?",
-    "confirm": "Confirmar"
+    "confirm_modal_message": "¿Seguro que quieres proceder con esta acción?"
   },
   "calendar": {
     "title": "Calendario",
@@ -613,8 +615,8 @@
     "summary_link": "Resumen →",
     "history_link": "Historial →",
     "managed_in_vault": "Gestionado en el Vault",
-    "error_prefix": "Error",
-    "view_graph": "Ver Grafo"
+    "view_graph": "Ver Grafo",
+    "error_prefix": "Error"
   },
   "errors": {
     "load_pages": "Error cargando páginas",
@@ -1762,11 +1764,11 @@
     "last_run": "Última ejecución:",
     "keychain_migration_title": "Migración desde .env_shared",
     "keychain_migration_hint": "Si tienes claves en el archivo .env_shared, puedes migrarlas al Keychain automáticamente.",
+    "credential_configured": "Configurado",
+    "credential_placeholder": "Introduce la clave para {{name}}",
     "api_keys_hint": "Tus claves API se almacenan de forma segura en el Keychain de tu ordenador. Esta pestaña muestra qué claves están configuradas.",
     "credential_save_error": "Error al guardar: {{message}}",
-    "keychain_migration_error": "Error al migrar: {{message}}",
-    "credential_configured": "Configurado",
-    "credential_placeholder": "Introduce la clave para {{name}}"
+    "keychain_migration_error": "Error al migrar: {{message}}"
   },
   "contacts": {
     "title": "Contactos",
@@ -2251,14 +2253,14 @@
     "undo_error": "No se ha podido deshacer",
     "undo_label_trashed": "Eliminado",
     "undo_label_archived": "Archivado",
-    "file_attached": "Adjuntado: {{name}}",
-    "insert_image_error": "Error al insertar imagen",
     "tag_name_placeholder": "Nombre de la etiqueta...",
     "no_tags": "Sin etiquetas",
     "delete_tag_tooltip": "Eliminar etiqueta",
     "new_tag": "Nueva etiqueta",
     "usual_group": "Grupo habitual",
-    "add_all_group": "Añadir todos: {{emails}}"
+    "add_all_group": "Añadir todos: {{emails}}",
+    "file_attached": "Adjuntado: {{name}}",
+    "insert_image_error": "Error al insertar imagen"
   },
   "subs_section_title": "Fuentes de información",
   "subs_btn_reload": "Recargar",
@@ -3353,9 +3355,9 @@
     "legend_page": "Página / Tarea",
     "active_deps": "Dependencias activas ({{count}} registros)",
     "footer_hint": "Cronograma interactivo con dependencias automáticas.",
+    "add_predecessor": "Añadir predecesora",
     "until": "Hasta el {{date}}",
-    "no_data": "No hay datos para mostrar en el cronograma.",
-    "add_predecessor": "Añadir predecesora"
+    "no_data": "No hay datos para mostrar en el cronograma."
   },
   "home": {
     "subtitle": "Tu ecosistema de conocimiento personal",
@@ -3477,10 +3479,10 @@
     "confirm_title": "Corregir toda la página con IA",
     "confirm_message": "Se reemplazará el contenido de la página con la versión corregida. Podrás deshacerlo con Ctrl/Cmd+Z.",
     "confirm_button": "Corregir",
-    "selection_error": "No se ha podido corregir",
-    "correcting_page": "Corrigiendo la página con IA…",
     "button": "Corregir (IA)",
-    "correcting": "Corrigiendo con IA…"
+    "correcting": "Corrigiendo con IA…",
+    "selection_error": "No se ha podido corregir",
+    "correcting_page": "Corrigiendo la página con IA…"
   },
   "folder_picker": {
     "go_up": "Subir un nivel (Up)",

@@ -103,12 +103,14 @@
     "document": "document",
     "error": "Erreur",
     "unknown": "inconnu",
+    "confirm": "Confirmer",
+    "confirm_action": "Confirmer l'action",
+    "confirm_action_msg": "Voulez-vous vraiment poursuivre cette action ?",
     "prompt_modal_title": "Saisissez une valeur",
     "ok": "OK",
     "cancel_short": "Annuler",
     "confirm_modal_title": "Confirmer l'action",
-    "confirm_modal_message": "Êtes-vous sûr de vouloir poursuivre cette action ?",
-    "confirm": "Confirmer"
+    "confirm_modal_message": "Êtes-vous sûr de vouloir poursuivre cette action ?"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
@@ -903,11 +905,11 @@
     "last_run": "Dernière exécution :",
     "keychain_migration_title": "Migration depuis .env_shared",
     "keychain_migration_hint": "Si vous avez des clés dans le fichier .env_shared, vous pouvez les migrer automatiquement vers le Keychain.",
+    "credential_configured": "Configuré",
+    "credential_placeholder": "Saisissez la clé pour {{name}}",
     "api_keys_hint": "Vos clés API sont stockées en toute sécurité dans le Keychain de votre ordinateur. Cet onglet indique quelles clés sont configurées.",
     "credential_save_error": "Erreur lors de l'enregistrement : {{message}}",
-    "keychain_migration_error": "Erreur lors de la migration : {{message}}",
-    "credential_configured": "Configuré",
-    "credential_placeholder": "Saisissez la clé pour {{name}}"
+    "keychain_migration_error": "Erreur lors de la migration : {{message}}"
   },
   "schema": {
     "manage_properties_of": "Gérer les propriétés de",
@@ -1338,14 +1340,14 @@
     "undo_error": "Impossible d'annuler",
     "undo_label_trashed": "Supprimé",
     "undo_label_archived": "Archivé",
-    "file_attached": "Joint : {{name}}",
-    "insert_image_error": "Erreur lors de l'insertion de l'image",
     "tag_name_placeholder": "Nom de l'étiquette...",
     "no_tags": "Aucune étiquette",
     "delete_tag_tooltip": "Supprimer l'étiquette",
     "new_tag": "Nouvelle étiquette",
     "usual_group": "Groupe habituel",
-    "add_all_group": "Tout ajouter : {{emails}}"
+    "add_all_group": "Tout ajouter : {{emails}}",
+    "file_attached": "Joint : {{name}}",
+    "insert_image_error": "Erreur lors de l'insertion de l'image"
   },
   "subs_section_title": "Sources d'information",
   "subs_btn_reload": "Recharger",
@@ -2628,8 +2630,8 @@
     "approved_tools_history": "Historique des outils approuvés",
     "loading_history": "Chargement de l'historique...",
     "no_approval_date": "Aucune date d'approbation",
-    "error_prefix": "Erreur",
-    "view_graph": "Voir le graphe"
+    "view_graph": "Voir le graphe",
+    "error_prefix": "Erreur"
   },
   "media": {
     "title": "Gestionnaire de médias",
@@ -3382,9 +3384,9 @@
     "legend_page": "Page / Tâche",
     "active_deps": "Dépendances actives ({{count}} enregistrements)",
     "footer_hint": "Chronologie interactive avec dépendances automatiques.",
+    "add_predecessor": "Ajouter un prédécesseur",
     "until": "Jusqu'au {{date}}",
-    "no_data": "Aucune donnée à afficher dans la chronologie.",
-    "add_predecessor": "Ajouter un prédécesseur"
+    "no_data": "Aucune donnée à afficher dans la chronologie."
   },
   "home": {
     "subtitle": "Votre écosystème de connaissances personnel",
@@ -3506,10 +3508,10 @@
     "confirm_title": "Corriger toute la page avec l'IA",
     "confirm_message": "Le contenu de la page sera remplacé par la version corrigée. Vous pourrez annuler avec Ctrl/Cmd+Z.",
     "confirm_button": "Corriger",
-    "selection_error": "Impossible de corriger",
-    "correcting_page": "Correction de la page avec l'IA…",
     "button": "Corriger (IA)",
-    "correcting": "Correction avec l'IA…"
+    "correcting": "Correction avec l'IA…",
+    "selection_error": "Impossible de corriger",
+    "correcting_page": "Correction de la page avec l'IA…"
   },
   "folder_picker": {
     "go_up": "Monter d'un niveau (Up)",
