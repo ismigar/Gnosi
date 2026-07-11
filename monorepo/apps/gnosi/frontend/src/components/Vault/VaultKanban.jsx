@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTitlePreview } from './useTitlePreview';
 import { Columns, FileText, Clock, Calendar, CheckSquare, Link as LinkIcon } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
@@ -12,23 +13,24 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-// Tipus de camp sobre els quals NO es pot arrossegar (valors derivats o de
-// sistema: escriure-hi corrompria el frontmatter o no tindria efecte).
+// Field types on which dragging is NOT allowed (derived values or
+// system: writing to it would corrupt the frontmatter or have no effect).
 const NON_DRAGGABLE_GROUP_TYPES = new Set(['formula', 'rollup', 'virtual', 'button', 'created_time', 'last_edited_time', 'created_by', 'last_edited_by']);
 
 export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, schema = {}, idToTitle = {}, onDeleteSelected, onDeletePage, onUpdateNote, searchTerm: externalSearchTerm }) {
-    // Previsualització del contingut en passar el ratolí pel títol d'una targeta.
+    const { t } = useTranslation();
+    // Content preview when hovering over a card's title.
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
-    // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
-    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
-    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS i
-    // sense useMemo el sort/filtrat es recalculava a cada render.
+    // ---- UNIFIED DATA LOGIC (FILTERS, SORT, SEARCH) ----
+    // The order is resolved with `resolveViewSorts` (the `sorts` key — the one that persist
+    // the Notion import and the modal — with fallback to the legacy `sort`).
+    // Memoized: `resolveViewSorts`/`resolveViewFilters` return NEW arrays and
+    // without useMemo, the sort/filtering was recalculated on every render.
     const viewConfig = useMemo(() => ({
         filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
@@ -59,14 +61,14 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         onDeleteSelection: handleBulkDelete,
     });
 
-    // Definir columna d'agrupament
+    // Define grouping column
     const groupBy = activeView?.groupBy || 'status';
 
-    // Propietats visibles a les targetes (mateix criteri que la galeria): tota
-    // vista amb `visibleProperties` configurats els respecta — TAMBÉ la
-    // principal (abans forçava tots els camps i tapava la config real de les
-    // vistes importades de Notion). Sense config: la principal mostra tots els
-    // camps; una vista custom, els 3 primers per defecte.
+    // Properties visible on the cards (same criterion as the gallery): every
+    // view with `visibleProperties` configured respects them — INCLUDING the
+    // main one (previously it forced all fields and hid the real config of the
+    // views imported from Notion). Without config: the main one shows all the
+    // fields; a custom view, the first 3 by default.
     const cardProperties = activeView?.visibleProperties?.length
         ? activeView.visibleProperties
         : (isMainView(activeView)
@@ -120,10 +122,10 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         }
     };
 
-    // Ordre i color de les columnes: si el camp d'agrupació té opcions definides
-    // a l'esquema (select/status), les columnes segueixen el seu ORDRE i n'hereten
-    // el COLOR (com Notion). Abans l'ordre era fix ('Idea/Brollador/…') i sense
-    // color. Fallback: els valors trobats als registres.
+    // Column order and color: if the grouping field has defined options
+    // in the schema (select/status), the columns follow its ORDER and inherit its
+    // COLOR (like Notion). Previously the order was fixed ('Idea/Brollador/…') and without
+    // color. Fallback: the values found in the records.
     const groupConfig = getFieldConfig(schema, groupBy);
     const groupOptions = Array.isArray(groupConfig?.options) ? normalizeOptions(groupConfig.options) : [];
     const optionColorMap = {};
@@ -133,29 +135,29 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         ? groupOptions.map(o => o.name)
         : (groupBy === 'status' ? ['Idea', 'Brollador', 'Zettel', 'Tancat'] : []);
 
-    // ── DRAG & DROP entre columnes ──────────────────────────────────────────
-    // Moviments optimistes pendents: noteId → nou valor del camp d'agrupació.
-    // La targeta es pinta a la columna destí immediatament; l'entrada es neteja
-    // quan el refetch porta el valor ja reflectit (o es reverteix si el PATCH
-    // falla). Sense això, la targeta saltava enrere fins al refetch.
+    // ── DRAG & DROP between columns ──────────────────────────────────────────
+    // Pending optimistic moves: noteId → new value of the grouping field.
+    // The card is rendered in the destination column immediately; the entry is cleared
+    // when the refetch brings back the value already reflected (or it's reverted if the PATCH
+    // fails). Without this, the card would jump back until the refetch.
     const [pendingMoves, setPendingMoves] = useState(() => new Map());
     const [dragOverCol, setDragOverCol] = useState(null);
     const groupByType = getFieldType(schema, groupBy);
     const canDrag = !!onUpdateNote && !NON_DRAGGABLE_GROUP_TYPES.has(groupByType);
 
-    // Valors d'agrupació d'un registre. Resol la clau de forma tolerant (exacta
-    // o normalitzada, com `getCardVal`) i retorna una LLISTA: un camp
-    // multi_select/relació és un ARRAY i el registre ha d'aparèixer a CADA
-    // columna (com Notion). Abans s'usava la clau exacta i el valor cru, així que
-    // un array creava una columna espúria "A,B" i una clau amb prefix decoratiu
-    // (emoji) queia tota a 'Sense Estat'.
+    // A record's grouping values. Resolves the key tolerantly (exact
+    // or normalized, like `getCardVal`) and returns a LIST: a
+    // multi_select/relation field is an ARRAY and the record must appear in EVERY
+    // column (like Notion). Previously the exact key and raw value were used, so
+    // an array created a spurious "A,B" column and a key with a decorative prefix
+    // (emoji) it all fell into 'No Status'.
     const groupValuesOf = (note) => {
         const raw = pendingMoves.has(note.id) ? pendingMoves.get(note.id) : getCardVal(note, groupBy);
         if (Array.isArray(raw)) return raw.map(v => String(v)).filter(Boolean);
         return (raw === undefined || raw === null || String(raw).trim() === '') ? [] : [String(raw)];
     };
 
-    // Neteja els moviments pendents que el prop `notes` ja reflecteix.
+    // Clears the pending moves that the `notes` prop already reflects.
     useEffect(() => {
         if (pendingMoves.size === 0) return;
         const norm = (v) => JSON.stringify(Array.isArray(v) ? v.map(String) : (v === undefined || v === null ? '' : String(v)));
@@ -169,7 +171,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
             }
             return changed ? next : prev;
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- només reacciona a l'arribada de dades fresques
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only reacts to the arrival of fresh data
     }, [notes]);
 
     const customStatuses = new Set();
@@ -179,14 +181,14 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         });
     });
 
-    // Bucket dels registres SENSE valor: clau sentinella interna (no una
-    // etiqueta literal com "Sense Estat") perquè un valor real amb aquest text
-    // no col·lisioni: abans generava dues columnes amb la mateixa key de React
-    // apuntant al MATEIX bucket (targetes duplicades i recompte inflat).
+    // Bucket for records WITHOUT a value: internal sentinel key (not a
+    // literal label like "No Status") so that a real value with this text
+    // doesn't collide: it used to generate two columns with the same React key
+    // pointing to the SAME bucket (duplicate cards and inflated count).
     const EMPTY_BUCKET = '__gnosi_empty__';
     const allStatuses = [...new Set([...predefinedStatuses, ...Array.from(customStatuses)])].concat(EMPTY_BUCKET);
 
-    // Agrupar notes per estat/propietat
+    // Group notes by status/property
     const groupedNotes = allStatuses.reduce((acc, status) => {
         acc[status] = [];
         return acc;
@@ -200,17 +202,17 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         });
     });
 
-    // Deixar anar una targeta sobre una columna: escriu el valor de la columna
-    // al camp d'agrupació (com Notion). Multivalor (multi_select/relació):
-    // substitueix el valor d'ORIGEN pel de destí (la resta es conserven);
-    // columna de buits: neteja el camp. PATCH merge al backend, així només
-    // viatja el camp d'agrupació.
+    // Dropping a card on a column: writes the column's value
+    // to the grouping field (like Notion). Multi-value (multi_select/relation):
+    // replaces the SOURCE value with the destination one (the rest are kept);
+    // empty column: clears the field. PATCH merge on the backend, so only
+    // the grouping field is sent.
     const handleDropOnColumn = async (e, targetStatus) => {
         e.preventDefault();
         setDragOverCol(null);
         if (!canDrag) return;
         let payload = null;
-        try { payload = JSON.parse(e.dataTransfer.getData('text/plain') || 'null'); } catch { /* aliè */ }
+        try { payload = JSON.parse(e.dataTransfer.getData('text/plain') || 'null'); } catch { /* foreign */ }
         if (!payload?.id) return;
         const { id, from } = payload;
         if (from === targetStatus) return;
@@ -228,8 +230,8 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
             nextValue = targetStatus;
         }
 
-        // Clau REAL del metadata (tolerant, com getCardVal): escriure el nom de
-        // l'esquema quan la nota el guarda amb una variant crearia una clau duplicada.
+        // REAL metadata key (tolerant, like getCardVal): writing the name of
+        // the schema when the note saves it with a variant would create a duplicate key.
         const keyNorm = normalizeKey(groupBy);
         const metaKey = Object.keys(note.metadata || {}).find(k => normalizeKey(k) === keyNorm) || groupBy;
 
@@ -271,9 +273,9 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                 {!isEmbedded && (
                     <h1 className="text-2xl font-bold mb-6 text-[var(--text-primary)] flex items-center gap-3 sticky left-0">
                         <Columns size={24} className="text-[var(--gnosi-primary)]" />
-                        {activeView?.name || "Tauler Kanban"}
+                        {activeView?.name || t('kanban.default_title', 'Tauler Kanban')}
                         <span className="text-sm font-normal text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full ml-2">
-                            {sortedAndFilteredNotes.length} registres
+                            {t('kanban.records_count', { count: sortedAndFilteredNotes.length, defaultValue: '{{count}} registres' })}
                         </span>
                     </h1>
                 )}
@@ -289,11 +291,11 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                             <div className="flex justify-between items-center mb-4 px-1">
                                 <h3 className="font-bold text-[var(--text-secondary)] text-[10px] tracking-wider uppercase bg-[var(--bg-primary)] px-2.5 py-1 rounded-lg shadow-sm border border-[var(--border-primary)] inline-flex items-center gap-1.5">
                                     {columnColor(status) && <span className="inline-block w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: columnColor(status) }} />}
-                                    {/* Agrupar per un camp RELACIÓ: el valor de columna és l'id de
-                                        la pàgina relacionada. `idToTitle` (índex global) el resol a
-                                        títol; sense això, la capçalera mostrava l'UUID cru. Per a
-                                        select/text l'id no hi és i es queda el valor (opció). */}
-                                    {status === EMPTY_BUCKET ? 'Sense Estat' : (idToTitle[status] || status)}
+                                    {/* Grouping by a RELATION field: the column value is the id of
+                                        the related page. `idToTitle` (global index) resolves it to a
+                                        title; without this, the header would show the raw UUID. For
+                                        select/text, the id isn't present and the value (the option) is kept as-is. */}
+                                    {status === EMPTY_BUCKET ? t('kanban.no_status', 'Sense Estat') : (idToTitle[status] || status)}
                                 </h3>
                                 <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-primary)]/50">
                                     {groupedNotes[status]?.length || 0}
@@ -326,7 +328,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                         </label>
                                             <h4 className="font-semibold text-[var(--text-primary)] mb-2 group-hover:text-[var(--gnosi-primary)] transition-colors flex items-start gap-2 text-sm leading-snug">
                                             <FileText size={16} className="mt-0.5 text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]/70 shrink-0" />
-                                            <span {...titlePreview.getTitleProps(note.id)}>{note.title || "Sense Títol"}</span>
+                                            <span {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', 'Sense Títol')}</span>
                                         </h4>
 
                                         {cardColumns.length > 0 && (
@@ -352,7 +354,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                 ))}
                                 {groupedNotes[status]?.length === 0 && (
                                     <div className="py-8 text-center text-[10px] text-[var(--text-tertiary)] border-2 border-dashed border-[var(--border-primary)]/50 rounded-xl bg-[var(--bg-secondary)]/30">
-                                        Sense registres
+                                        {t('kanban.no_records', 'Sense registres')}
                                     </div>
                                 )}
                             </div>

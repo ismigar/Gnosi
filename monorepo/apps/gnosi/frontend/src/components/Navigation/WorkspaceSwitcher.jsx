@@ -14,7 +14,7 @@ export function WorkspaceSwitcher() {
             try {
                 const data = await apiFetch('/api/workspaces');
                 
-                // Eliminar duplicats per ID
+                // Remove duplicates by ID
                 const uniqueData = Array.isArray(data) ? data.filter((ws, index, self) =>
                     index === self.findIndex((t) => t.id === ws.id)
                 ) : [];

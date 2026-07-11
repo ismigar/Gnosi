@@ -45,23 +45,23 @@ log = logging.getLogger(__name__)
 
 DEFAULT_DEEPL_URL = "https://api-free.deepl.com/v2/translate"
 
-# Softcatalà exposa públicament dos endpoints (cap requereix API key):
-#  - NMT (Neural): qualitat alta, però *només* en↔ca.
+# Softcatalà publicly exposes two endpoints (neither requires an API key):
+#  - NMT (Neural): high quality, but *only* en↔ca.
 #  - Apertium (basat en regles): qualitat regular, cobreix
 #    cat↔{spa, fra, ita, por, ron, oci, eng, arg, epo, …}.
 DEFAULT_SOFTCATALA_NMT_URL = "https://www.softcatala.org/sc/v2/api/nmt-engcat/translate"
 DEFAULT_SOFTCATALA_APERTIUM_URL = "https://www.softcatala.org/apertium/json/translate"
 
-# Apertium APy públic: cobreix parells *sense* català que Softcatalà no serveix
-# (ex. spa↔eng, spa↔fra). Comparteix el mateix format de payload i resposta
-# que el de Softcatalà.
+# Public Apertium APy: covers pairs *without* Catalan that Softcatalà doesn't serve
+# (e.g. spa↔eng, spa↔fra). Shares the same payload and response format
+# than Softcatalà's.
 DEFAULT_APERTIUM_PUBLIC_URL = "https://apertium.org/apy/translate"
 
 REQUEST_TIMEOUT_S = 20
 
-# OPUS-MT lazy-load config. El model resta en memòria mentre s'usa i es
-# descarrega passat aquest interval — així mai mantenim ~300-500 MB residents
-# només per si calgués traduir es↔fr.
+# OPUS-MT lazy-load config. The model stays in memory while in use and is
+# unloaded after this interval — so we never keep ~300-500 MB resident
+# just in case we need to translate es↔fr.
 OPUS_IDLE_TIMEOUT_S = int(os.environ.get("OPUS_IDLE_TIMEOUT_S", "300"))
 
 
@@ -69,8 +69,8 @@ OPUS_IDLE_TIMEOUT_S = int(os.environ.get("OPUS_IDLE_TIMEOUT_S", "300"))
 # Detection heuristic
 # ---------------------------------------------------------------------------
 
-# Marcadors lèxics simples — no és una detecció robusta, però és suficient
-# per als textos curts i estructurats que típicament hi ha en una fila.
+# Simple lexical markers — not a robust detection, but sufficient
+# for the short, structured text typically found in a row.
 _LANG_HINTS = {
     "ca": (r"\b(és|amb|pel|del|cap|fins|això|aquí|però|també|nostre)\b", r"[lt]·[lt]|ç|í|ò|ú"),
     "es": (r"\b(es|con|por|del|hasta|esto|aquí|pero|también|nuestro|qué)\b", r"ñ|¿|¡"),
@@ -104,11 +104,11 @@ def detect_source_lang(text: str) -> str:
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-# Apertium tradueix paraules tot-en-majúscules o capitalitzades com a noms
-# comuns: "API" → "apio" (es) / "céleri" (fr). Aquesta funció les protegeix
-# substituint-les per tokens alfanumèrics neutres abans de la crida i
-# restaurant-les després. Considerem candidats sigles de 2-6 caràcters
-# completament en majúscula (ASCII), opcionalment amb dígits o guionets:
+# Apertium translates all-caps or capitalized words as common
+# nouns: "API" → "apio" (es) / "céleri" (fr). This function protects them
+# by substituting them with neutral alphanumeric tokens before the call and
+# restoring them afterward. We consider 2-6 character acronyms as candidates
+# fully uppercase (ASCII), optionally with digits or hyphens:
 # API, URL, JSON, HTTP, OAuth2, GPT-4, etc.
 _ACRONYM_RE = re.compile(r"\b[A-Z][A-Z0-9-]{1,5}\b")
 
@@ -162,10 +162,10 @@ _ISO639_2_TO_3 = {
     "nl": "nld",
     "oc": "oci",
     "ro": "ron",
-    "eu": "eus",  # basc — Apertium el cobreix des de ca/es
-    "gl": "glg",  # gallec — Apertium el cobreix des de ca/es
-    "ar": "ara",  # àrab (era "arg" = aragonès, error). Apertium no el cobreix → via DeepL
-    "zh": "zho",  # xinès — Apertium no el cobreix → via DeepL
+    "eu": "eus",  # Basque — Apertium covers it from ca/es
+    "gl": "glg",  # Galician — Apertium covers it from ca/es
+    "ar": "ara",  # Arabic (used to be "arg" = Aragonese, a mistake). Apertium doesn't cover it → via DeepL
+    "zh": "zho",  # Chinese — Apertium doesn't cover it → via DeepL
     "eo": "epo",
 }
 
@@ -174,14 +174,14 @@ def _to_iso3(code: str) -> str:
     return _ISO639_2_TO_3.get(code, code)
 
 
-# Llengües que l'Apertium de Softcatalà tradueix des de/cap al català (parells
-# `cat↔xxx`), VERIFICADES empíricament contra l'endpoint (les no verificades
-# donaven HTTP 400). Per a la resta (àrab, xinès, basc, i gallec des de català)
-# no hi ha motor cat↔ i cal recórrer a DeepL.
-#   - eu (basc): Apertium NO el cobreix ni des de ca ni des de es → DeepL.
-#   - gl (gallec): Apertium el cobreix des de ES (spa→glg ✅) però NO des de
-#     català (cat→glg dóna 400). Per això gl NO és aquí: amb origen català
-#     cauria a DeepL; amb origen castellà el cobreix el bloc d'Apertium públic.
+# Languages that Softcatalà's Apertium translates to/from Catalan (pairs
+# `cat↔xxx`), VERIFIED empirically against the endpoint (unverified ones
+# returned HTTP 400). For the rest (Arabic, Chinese, Basque, and Galician from Catalan)
+# there's no cat↔ engine, so we fall back to DeepL.
+#   - eu (Basque): Apertium does NOT cover it from ca or from es → DeepL.
+#   - gl (Galician): Apertium covers it from ES (spa→glg ✅) but NOT from
+#     Catalan (cat→glg returns 400). That's why gl is NOT here: with Catalan as source
+#     it would fall to DeepL; with Spanish as source, the public Apertium block covers it.
 _SOFTCATALA_APERTIUM_LANGS = {"es", "en", "fr", "pt", "it", "oc", "ro", "de", "nl"}
 
 
@@ -228,11 +228,11 @@ def translate(
     pair = {source_lang, target_lang}
     involves_catalan = "ca" in pair
 
-    # 1. Català: Softcatalà. NMT si és en↔ca; Apertium per a les llengües que
-    # cobreix (regionals i romàniques properes), amb quick-fix d'acrònims perquè
-    # "API" no es tradueixi com a "apio/céleri". Per a parells amb català que
-    # Apertium NO cobreix (p. ex. àrab, xinès), NO retornem placeholder aquí:
-    # caiem cap a DeepL (bloc 4) com a últim recurs.
+    # 1. Catalan: Softcatalà. NMT if en↔ca; Apertium for the languages it
+    # covers (regional and closely related Romance languages), with an acronym quick-fix so that
+    # "API" isn't translated as "apio/céleri". For pairs with Catalan that
+    # Apertium does NOT cover (e.g. Arabic, Chinese), we do NOT return a placeholder here:
+    # we fall through to DeepL (block 4) as a last resort.
     if involves_catalan:
         other = (pair - {"ca"}).pop() if pair != {"ca"} else "ca"
         if pair == {"en", "ca"}:
@@ -247,8 +247,8 @@ def translate(
                 return _restore_acronyms(translated, acro), "softcatala_apertium"
             except Exception as exc:
                 log.warning("Softcatalà Apertium failed (%s→%s): %s — trying DeepL", source_lang, target_lang, exc)
-        # Si arribem aquí, Apertium no cobreix el parell (o ha fallat) →
-        # continuem cap al fallback de DeepL més avall.
+        # If we get here, Apertium doesn't cover the pair (or it failed) →
+        # we continue to the DeepL fallback below.
         api_key = (deepl_api_key or os.environ.get("DEEPL_API_KEY", "")).strip()
         if api_key:
             try:
@@ -257,17 +257,17 @@ def translate(
                 log.warning("DeepL translation failed (%s→%s): %s", source_lang, target_lang, exc)
         return f"[{target_lang}] {text}", "placeholder"
 
-    # 2. es↔fr: OPUS-MT local lazy. Apertium públic dóna qualitat molt baixa
-    # per a aquest parell (errors gramaticals greus), justifica carregar un
-    # model de ~300 MB sota demanda.
+    # 2. es↔fr: local lazy OPUS-MT. Public Apertium gives very low quality
+    # for this pair (serious grammatical errors), justifies loading a
+    # ~300 MB model on demand.
     if pair == {"es", "fr"}:
         try:
             return _translate_opus_mt(text, source_lang, target_lang), "opus_mt"
         except Exception as exc:
             log.warning("OPUS-MT translation failed (%s→%s): %s — falling back", source_lang, target_lang, exc)
-            # Caigui a Apertium públic com a últim recurs lliure.
+            # Falls back to public Apertium as a last free resort.
 
-    # 3. Resta de parells sense català: Apertium APy públic + acronym fix.
+    # 3. Remaining pairs without Catalan: public Apertium APy + acronym fix.
     try:
         protected, acro = _protect_acronyms(text)
         translated = _translate_apertium_public(protected, source_lang, target_lang)
@@ -275,7 +275,7 @@ def translate(
     except Exception as exc:
         log.info("Apertium public failed (%s→%s): %s — trying DeepL", source_lang, target_lang, exc)
 
-    # 4. DeepL com a últim recurs (només si l'usuari ha configurat la key).
+    # 4. DeepL as a last resort (only if the user has configured the key).
     api_key = (deepl_api_key or os.environ.get("DEEPL_API_KEY", "")).strip()
     if api_key:
         try:

@@ -1,31 +1,31 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { Database, Link2, Check, Loader, Unlink, Settings, X, RotateCw } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { SchemaConfigModal } from './Vault/SchemaConfigModal';
 import { ConfirmModal } from './ConfirmModal';
 
-// Persistència de la config d'import: la font de veritat és el SERVIDOR (GET/PUT
-// /api/notion/import-config, per-workspace) perquè sobrevisqui a canvis d'origen
-// (http→https, ports de preview, altre Mac, perfil de navegador — incident 2026-07-03).
-// localStorage queda com a fallback offline i via de migració: pinta l'estat inicial a
-// l'instant i, si el servidor encara no té config però localStorage sí, s'hi puja. Els Set
-// es serialitzen com a array. La feina puntual (report, verify, busy, error) NO es persisteix.
+// Import config persistence: the source of truth is the SERVER (GET/PUT
+// /api/notion/import-config, per-workspace) so it survives origin changes
+// (http→https, preview ports, another Mac, browser profile — incident 2026-07-03).
+// localStorage remains as an offline fallback and migration path: it paints the initial state
+// instantly, and if the server doesn't have config yet but localStorage does, it gets uploaded there. The Sets
+// are serialized as arrays. Point-in-time state (report, verify, busy, error) is NOT persisted.
 const CFG_KEY = 'gnosi_notion_import_cfg';
 const loadCfg = () => {
     try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; }
     catch { return {}; }
 };
 
-// Ordena BD/pàgines pel títol, alfabètic i insensible a accents/majúscules (locale català).
+// Sorts DB/pages by title, alphabetically and case/accent-insensitive (Catalan locale).
 const byTitle = (a, b) => (a?.title || '').localeCompare(b?.title || '', 'ca', { sensitivity: 'base' });
 const sortByTitle = (list) => [...(list || [])].sort(byTitle);
 
 /**
- * Clon de Notion → Vault. Connecta amb un token d'integració + l'MCP allotjat (OAuth) i fa un
- * CLON EXACTE a una carpeta nova (esquema, pàgines, relacions, vistes incrustades, colors,
- * columnes, adjunts, portades). Consumeix /api/notion/{token,status,databases,schema,
- * loose-pages,clone} i /api/notion-oauth/*.
+ * Notion → Vault clone. Connects with an integration token + the hosted MCP (OAuth) and does an
+ * EXACT CLONE into a new folder (schema, pages, relations, embedded views, colors,
+ * columns, attachments, covers). Consumes /api/notion/{token,status,databases,schema,
+ * loose-pages,clone} and /api/notion-oauth/*.
  */
 export default function NotionImportSettings() {
     const { t } = useTranslation();
@@ -38,36 +38,36 @@ export default function NotionImportSettings() {
     const [databases, setDatabases] = useState(sortByTitle(saved.databases));
     const [selected, setSelected] = useState(new Set(saved.selected || []));
     const [report, setReport] = useState(null);
-    const [progress, setProgress] = useState(null);   // {phase,done,total,pages,...} del clon en curs
-    const [confirmAbort, setConfirmAbort] = useState(false);   // modal de confirmació d'avortar
-    const pollRef = useRef(null);                      // id del setInterval de polling del progrés
-    const pollResumeRef = useRef(false);               // true = polling en mode "resume" (modal reobert)
-    const [vaults, setVaults] = useState([]);          // [{id,name,path,active}] vaults del workspace
-    const [cloneVaultId, setCloneVaultId] = useState(saved.cloneVaultId || '__new__'); // vault destí del clon ('__new__' = crear-ne un)
-    const [newVaultName, setNewVaultName] = useState(saved.newVaultName || 'Notion');   // nom del vault nou a crear
-    const [usedVaultId, setUsedVaultId] = useState(null);  // vault on s'ha clonat realment (per verificar-lo allà)
-    const [usedVaultName, setUsedVaultName] = useState('');  // nom d'aquell vault (per la pista «canvia-hi»)
-    const [destClone, setDestClone] = useState(null);   // {tables} si el vault destí JA té un clon (o null)
-    const [confirmDelClone, setConfirmDelClone] = useState(false);  // modal de confirmació d'esborrar el clon
+    const [progress, setProgress] = useState(null);   // {phase,done,total,pages,...} of the clone in progress
+    const [confirmAbort, setConfirmAbort] = useState(false);   // abort confirmation modal
+    const pollRef = useRef(null);                      // id of the progress-polling setInterval
+    const pollResumeRef = useRef(false);               // true = polling in "resume" mode (modal reopened)
+    const [vaults, setVaults] = useState([]);          // [{id,name,path,active}] workspace vaults
+    const [cloneVaultId, setCloneVaultId] = useState(saved.cloneVaultId || '__new__'); // destination vault for the clone ('__new__' = create one)
+    const [newVaultName, setNewVaultName] = useState(saved.newVaultName || 'Notion');   // name of the new vault to create
+    const [usedVaultId, setUsedVaultId] = useState(null);  // vault where it was actually cloned (to verify it there)
+    const [usedVaultName, setUsedVaultName] = useState('');  // name of that vault (for the "switch to it" hint)
+    const [destClone, setDestClone] = useState(null);   // {tables} if the destination vault ALREADY has a clone (or null)
+    const [confirmDelClone, setConfirmDelClone] = useState(false);  // confirmation modal for deleting the clone
     const [verify, setVerify] = useState(null);
-    const [linkedDbs, setLinkedDbs] = useState(null);   // {linked:[{title,page_title,kind}],scanned,capped} o null
+    const [linkedDbs, setLinkedDbs] = useState(null);   // {linked:[{title,page_title,kind}],scanned,capped} or null
     const [mcpConnected, setMcpConnected] = useState(false);
-    const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: esquema SchemaConfigModal}
-    const [cfg, setCfg] = useState(null);                          // {db, schema} de la BD que es configura
-    const [loosePages, setLoosePages] = useState(saved.loosePages || false);          // mostra/inclou pàgines soltes
-    // La llista de pàgines soltes NO es restaura de localStorage: és estat del SERVIDOR i
-    // quedava fossilitzada (una llista capturada amb un backend antic es mostrava per sempre
-    // perquè només es re-demanava si era buida). Es demana fresca en obrir amb el toggle
-    // actiu i a cada activació; només persisteix la TRIA (looseSelected/loosePageTypes).
-    const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pàgines fora de BD
+    const [schemaOverrides, setSchemaOverrides] = useState(saved.schemaOverrides || {});   // {dbId: SchemaConfigModal schema}
+    const [cfg, setCfg] = useState(null);                          // {db, schema} of the DB being configured
+    const [loosePages, setLoosePages] = useState(saved.loosePages || false);          // show/include loose pages
+    // The list of loose pages is NOT restored from localStorage: it's SERVER state and
+    // it used to become fossilized (a list captured with an old backend would be shown forever
+    // because it was only re-requested if it was empty). It's requested fresh when opening with the toggle
+    // active and on every activation; only the SELECTION persists (looseSelected/loosePageTypes).
+    const [loosePagesList, setLoosePagesList] = useState([]);     // [{id,title}] pages outside a DB
     const [loosePageTypes, setLoosePageTypes] = useState(saved.loosePageTypes || {});     // {pageId: "wiki"|"dashboard"}
-    const [looseSelected, setLooseSelected] = useState(new Set(saved.looseSelected || [])); // pàgines soltes a clonar/importar
+    const [looseSelected, setLooseSelected] = useState(new Set(saved.looseSelected || [])); // loose pages to clone/import
 
-    // true quan el GET inicial d'/import-config ha anat bé: fins llavors NO es fa cap PUT
-    // (evitaria clobberar la config del servidor amb l'estat inicial/per defecte del component).
+    // true when the initial GET to /import-config has succeeded: until then NO PUT is made
+    // (this would avoid clobbering the server config with the component's initial/default state).
     const serverCfgOkRef = useRef(false);
 
-    // Aplica una config desada (del servidor) a l'estat del panell. Mateixa forma que loadCfg().
+    // Applies a saved config (from the server) to the panel state. Same shape as loadCfg().
     const applyCfg = useCallback((c) => {
         setDatabases(sortByTitle(c.databases));
         setSelected(new Set(c.selected || []));
@@ -79,9 +79,9 @@ export default function NotionImportSettings() {
         setLooseSelected(new Set(c.looseSelected || []));
     }, []);
 
-    // En obrir: carrega la config del SERVIDOR (font de veritat). Si el servidor encara no en
-    // té però localStorage sí (instal·lació antiga), la hi puja (migració). Si el GET falla
-    // (backend antic, offline), es queda el comportament localStorage-only i no es PUTeja mai.
+    // On open: loads the config from the SERVER (source of truth). If the server doesn't have one yet
+    // but localStorage does (old installation), it uploads it there (migration). If the GET fails
+    // (old backend, offline), the localStorage-only behavior remains and it is never PUT.
     useEffect(() => {
         let alive = true;
         (async () => {
@@ -97,13 +97,13 @@ export default function NotionImportSettings() {
                     }
                 }
                 serverCfgOkRef.current = true;
-            } catch { /* backend sense l'endpoint o offline: només localStorage */ }
+            } catch { /* backend without the endpoint or offline: localStorage only */ }
         })();
         return () => { alive = false; };
     }, [applyCfg]);
 
-    // Autosave: cada canvi es desa a localStorage (fallback instantani) i, amb debounce,
-    // al servidor (per-workspace). El PUT només s'activa un cop llegida la config del servidor.
+    // Autosave: every change is saved to localStorage (instant fallback) and, with debounce,
+    // to the server (per-workspace). The PUT only activates once the server config has been read.
     useEffect(() => {
         const cfg = {
             databases, schemaOverrides, loosePages, loosePageTypes,
@@ -112,7 +112,7 @@ export default function NotionImportSettings() {
             looseSelected: Array.from(looseSelected),
         };
         try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); }
-        catch { /* quota plena o privat: ignora */ }
+        catch { /* quota full or private: ignore */ }
         if (!serverCfgOkRef.current) return undefined;
         const tid = setTimeout(() => { axios.put('/api/notion/import-config', cfg).catch(() => {}); }, 800);
         return () => clearTimeout(tid);
@@ -131,20 +131,20 @@ export default function NotionImportSettings() {
         try {
             const { data } = await axios.get('/api/vaults');
             setVaults(data.vaults || []);
-        } catch { /* multi-vault no disponible: es clona al vault actiu */ }
+        } catch { /* multi-vault not available: clones to the active vault */ }
     }, []);
 
-    // Si el vault destí desat (localStorage) ja no existeix (esborrat), torna a "Crear vault nou"
-    // perquè el selector no quedi en blanc apuntant a un id fantasma (causa de l'incident del clon).
+    // If the saved destination vault (localStorage) no longer exists (deleted), it falls back to "Create new vault"
+    // so the selector doesn't end up blank pointing at a ghost id (the cause of the clone incident).
     useEffect(() => {
         if (cloneVaultId && cloneVaultId !== '__new__' && vaults.length && !vaults.some(v => v.id === cloneVaultId)) {
             setCloneVaultId('__new__');
         }
     }, [vaults, cloneVaultId]);
 
-    // Detecta si el vault destí triat JA té un clon (mira el seu registre). Es re-avalua en canviar
-    // de vault i en obrir el panell → l'estat (verificar/esborrar vs clonar) persisteix encara que
-    // tanquis i reobris, perquè es deriva del vault, no d'estat volàtil de React.
+    // Detects whether the chosen destination vault ALREADY has a clone (checks its registry). Re-evaluated on change,
+    // of vault and when opening the panel → the state (verify/delete vs clone) persists even though
+    // even if you close and reopen it, because it's derived from the vault, not from volatile React state.
     useEffect(() => {
         let alive = true;
         if (busy === 'clone' || !cloneVaultId || cloneVaultId === '__new__' || !vaults.some(v => v.id === cloneVaultId)) {
@@ -169,11 +169,11 @@ export default function NotionImportSettings() {
     }, [loadVaults]);
     useEffect(() => { loadStatus(); }, [loadStatus]);
 
-    // Resol el vault destí del clon: si és '__new__', crea un vault germà a l'arrel (…/Gnosi/<nom>)
-    // i retorna el seu id; si no, l'id triat. El clon hi escriu via la capçalera X-Vault-Id.
+    // Resolves the clone's destination vault: if it's '__new__', creates a sibling vault at the root (…/Gnosi/<name>)
+    // and returns its id; otherwise, the chosen id. The clone writes to it via the X-Vault-Id header.
     const resolveCloneVault = async () => {
-        // Reusa el vault triat NOMÉS si encara existeix (evita enviar l'id d'un vault esborrat, que
-        // el backend resoldria com a Principal). Si no, o si és '__new__', en crea un de nou.
+        // Reuses the chosen vault ONLY if it still exists (avoids sending the id of a deleted vault, which
+        // the backend would resolve as Principal). Otherwise, or if it's '__new__', it creates a new one.
         if (cloneVaultId && cloneVaultId !== '__new__' && vaults.some(v => v.id === cloneVaultId)) {
             return cloneVaultId;
         }
@@ -184,7 +184,7 @@ export default function NotionImportSettings() {
         return data.id;
     };
 
-    // En tornar del consentiment OAuth (?notion_mcp=ok), refresca l'estat i neteja la URL
+    // When returning from OAuth consent (?notion_mcp=ok), refresh the state and clean up the URL
     useEffect(() => {
         const p = new URLSearchParams(window.location.search).get('notion_mcp');
         if (p) {
@@ -210,8 +210,8 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
-    // Detecta vistes enllaçades (linked databases): es veuen a Notion però l'API no les pot
-    // clonar i `/search` no les retorna. Cal compartir-ne la FONT. Escaneig sota demanda.
+    // Detects linked views (linked databases): they're visible in Notion but the API can't
+    // clone them and `/search` doesn't return them. The SOURCE needs to be shared. On-demand scan.
     const checkLinked = async () => {
         setBusy('linked'); setError(''); setLinkedDbs(null);
         try {
@@ -226,9 +226,9 @@ export default function NotionImportSettings() {
         try {
             const { data } = await axios.get('/api/notion/databases', { timeout: 120000 });
             const list = data.databases || [];
-            // Preserva la selecció: conserva les BD que ja tenies marcades i marca les NOVES
-            // (les que no eren a la llista anterior, p. ex. una BD acabada de compartir). A la
-            // primera càrrega (no n'hi havia cap) → totes marcades.
+            // Preserves the selection: keeps the DBs you already had checked and checks the NEW ones
+            // (the ones that weren't in the previous list, e.g. a DB that was just shared). On the
+            // first load (there were none) → all checked.
             const prevIds = new Set(databases.map(d => d.id));
             setSelected(prev => {
                 const next = new Set();
@@ -242,9 +242,9 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     };
 
-    // Demana la llista FRESCA de pàgines soltes i hi reconcilia la tria de l'usuari per id:
-    // conserva selecció i tipus de les pàgines que continuen existint, les noves entren
-    // desmarcades (l'usuari tria) i les desaparegudes cauen de la selecció.
+    // Requests the FRESH list of loose pages and reconciles the user's selection with it by id:
+    // keeps the selection and type of pages that still exist, new ones come in
+    // unchecked (the user decides) and ones that disappeared drop out of the selection.
     const fetchLoosePages = useCallback(async () => {
         setBusy('loose'); setError('');
         try {
@@ -258,8 +258,8 @@ export default function NotionImportSettings() {
         finally { setBusy(''); }
     }, []);
 
-    // La llista es demana quan hi ha connexió i el toggle és actiu: en obrir el panell amb el
-    // toggle persistit i a cada activació. Mai es reutilitza una llista desada (vegeu amunt).
+    // The list is requested when there is a connection and the toggle is active: when opening the panel with the
+    // toggle persisted and on every activation. A saved list is never reused (see above).
     useEffect(() => {
         if (connected && loosePages) fetchLoosePages();
     }, [connected, loosePages, fetchLoosePages]);
@@ -270,8 +270,8 @@ export default function NotionImportSettings() {
         const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
     });
 
-    // Només les pàgines soltes MARCADES s'inclouen (amb el seu tipus wiki/dashboard). Si el
-    // toggle de pàgines soltes està desactivat, no se n'inclou cap.
+    // Only CHECKED loose pages are included (with their wiki/dashboard type). If the
+    // loose pages toggle is off, none are included.
     const selectedLooseTypes = () => {
         if (!loosePages) return null;
         const out = {};
@@ -279,15 +279,15 @@ export default function NotionImportSettings() {
         return Object.keys(out).length ? out : null;
     };
 
-    // Atura el polling de progrés (si n'hi ha) i neteja la barra.
+    // Stops progress polling (if any) and clears the bar.
     const stopProgressPoll = () => {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
-    useEffect(() => stopProgressPoll, []);   // neteja en desmuntar
+    useEffect(() => stopProgressPoll, []);   // cleanup on unmount
 
-    // Consulta el progrés del clon cada 1,5s. En mode "resume" (modal reobert amb un clon ja en
-    // marxa) la petició /clone original s'ha perdut, així que és el mateix polling qui detecta el
-    // final (running=false) i tanca la barra amb els comptadors acumulats.
+    // Polls the clone's progress every 1.5s. In "resume" mode (modal reopened with a clone already in
+    // progress) the original /clone request has been lost, so it's the same polling that detects the
+    // end (running=false) and closes the bar with the accumulated counters.
     const startProgressPoll = (resume) => {
         pollResumeRef.current = resume;
         stopProgressPoll();
@@ -295,23 +295,23 @@ export default function NotionImportSettings() {
             try {
                 const { data } = await axios.get('/api/notion/clone/progress', { timeout: 8000 });
                 setProgress(data);
-                if (pollResumeRef.current && data?.vault_id) setUsedVaultId(data.vault_id);  // per verificar al vault bo
+                if (pollResumeRef.current && data?.vault_id) setUsedVaultId(data.vault_id);  // to verify in the right vault
                 if (pollResumeRef.current && data && data.running === false) {
                     stopProgressPoll(); setBusy(''); setProgress(null);
                     setReport({ status: 'success', tables: data.tables, pages: data.pages,
                         views: data.views, attachments: data.attachments,
                         errors: [], warnings: [], truncated: false });
                 }
-            } catch { /* transitori: ignora, el següent tic ho reintenta */ }
+            } catch { /* transient: ignore, the next tick will retry it */ }
         }, 1500);
     };
 
-    // En obrir el panell, si JA hi ha un clon en marxa (p. ex. es va tancar el modal sense esperar),
-    // recupera'n l'estat i reprèn la barra en comptes d'oferir disparar el clon de nou.
+    // When opening the panel, if a clone is ALREADY running (e.g. the modal was closed without waiting),
+    // recovers its state and resumes the bar instead of offering to trigger the clone again.
     useEffect(() => {
         let alive = true;
         axios.get('/api/notion/clone/progress', { timeout: 8000 }).then(({ data }) => {
-            if (alive && data?.vault_id) setUsedVaultId(data.vault_id);  // recorda el vault del clon per verificar-hi
+            if (alive && data?.vault_id) setUsedVaultId(data.vault_id);  // remembers the clone's vault to verify against
             if (alive && data && data.running) {
                 setBusy('clone'); setProgress(data); startProgressPoll(true);
             }
@@ -322,12 +322,12 @@ export default function NotionImportSettings() {
 
     const runClone = async () => {
         setBusy('clone'); setError(''); setReport(null);
-        // Resol/crea el vault destí ABANS de res; el clon hi escriurà via X-Vault-Id (sense tocar
-        // el vault global actiu). Si falla, no engeguem el clon.
+        // Resolves/creates the destination vault BEFORE anything else; the clone will write to it via X-Vault-Id (without touching
+        // the active global vault). If it fails, we don't start the clone.
         let vid;
         try { vid = await resolveCloneVault(); }
         catch (e) {
-            setError('No s\'ha pogut preparar el vault destí: ' + String(e?.response?.data?.detail || e.message));
+            setError(t('settings.notion.err_prepare_vault', 'No s\'ha pogut preparar el vault destí: {{detail}}', { detail: String(e?.response?.data?.detail || e.message) }));
             setBusy(''); return;
         }
         setUsedVaultId(vid);
@@ -335,22 +335,22 @@ export default function NotionImportSettings() {
             : (vaults.find(v => v.id === vid)?.name || ''));
         const vaultHeader = { 'X-Vault-Id': vid };
         setProgress({ phase: 'starting', done: 0, total: 0, pages: 0 });
-        // El clon és una sola petició bloquejant; mentrestant, consultem el progrés cada 1,5s.
+        // The clone is a single blocking request; meanwhile, we poll the progress every 1.5s.
         startProgressPoll(false);
         try {
             const { data } = await axios.post('/api/notion/clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
-                target_folder: '',   // arrel del vault destí (sense subcarpeta)
+                target_folder: '',   // root of the destination vault (no subfolder)
                 schema_overrides: Object.keys(schemaOverrides).length ? schemaOverrides : null,
                 loose_page_types: selectedLooseTypes(),
-            }, { timeout: 0, headers: vaultHeader });  // clon = moltes crides MCP: sense timeout; al vault destí
+            }, { timeout: 0, headers: vaultHeader });  // clone = many MCP calls: no timeout; on the destination vault
             setReport(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); stopProgressPoll(); setProgress(null); }
     };
 
-    // Avorta el clon en curs (després de confirmar al modal). El backend para al següent punt de
-    // control entre pàgines; la petició /clone segueix oberta i retornarà el report parcial.
+    // Aborts the clone in progress (after confirming in the modal). The backend stops at the next
+    // checkpoint between pages; the /clone request stays open and will return the partial report.
     const doAbortClone = async () => {
         setConfirmAbort(false);
         try {
@@ -361,27 +361,27 @@ export default function NotionImportSettings() {
 
     const runVerify = async () => {
         setBusy('verify'); setError(''); setVerify(null);
-        // Verifica al vault ON S'HA CLONAT: prioritza el vault usat pel clon; si no se sap, el
-        // triat al selector (si és un vault real). MAI sense vault → verificaria el vault ACTIU
-        // (sovint Principal) i donaria un resultat fals ("BD OK 0/16"), l'incident del 2026-07-01.
+        // Verifies in the vault WHERE THE CLONE HAPPENED: prioritizes the vault used by the clone; if unknown, the
+        // one chosen in the selector (if it's a real vault). NEVER without a vault → it would verify the ACTIVE vault
+        // (often Principal) and would give a false result ("DB OK 0/16"), the 2026-07-01 incident.
         const verifyVault = usedVaultId
             || (cloneVaultId && cloneVaultId !== '__new__' && vaults.some(v => v.id === cloneVaultId) ? cloneVaultId : null);
         if (!verifyVault) {
-            setError('No sé a quin vault és el clon. Canvia al vault del clon (selector de vaults) i torna a verificar.');
+            setError(t('settings.notion.err_unknown_clone_vault', 'No sé a quin vault és el clon. Canvia al vault del clon (selector de vaults) i torna a verificar.'));
             setBusy(''); return;
         }
         try {
             const { data } = await axios.post('/api/notion/verify-clone', {
                 database_ids: databases.length ? Array.from(selected) : null,
-                target_folder: '',   // arrel del vault destí (sense subcarpeta)
+                target_folder: '',   // root of the destination vault (no subfolder)
             }, { timeout: 0, headers: { 'X-Vault-Id': verifyVault } });
             setVerify(data);
         } catch (e) { setError(String(e?.response?.data?.detail || e.message)); }
         finally { setBusy(''); }
     };
 
-    // Esborra el clon: elimina el vault destí sencer (fila + carpeta al disc) i reseteja el panell
-    // a "Crear vault nou" perquè es pugui tornar a clonar net.
+    // Deletes the clone: removes the entire destination vault (row + folder on disk) and resets the panel
+    // to "Create new vault" so it can be cloned again cleanly.
     const doDeleteClone = async () => {
         setConfirmDelClone(false);
         const vid = cloneVaultId;
@@ -404,27 +404,27 @@ export default function NotionImportSettings() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                 <Database size={20} />
                 <div>
-                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>Clonar de Notion</div>
+                    <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>{t('settings.notion.title', 'Clonar de Notion')}</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        Clon exacte a una carpeta nova: BD, pàgines, relacions, vistes incrustades, colors, columnes, adjunts i portades. Per migrar a Gnosi d'un sol tret.
+                        {t('settings.notion.subtitle', "Clon exacte a una carpeta nova: BD, pàgines, relacions, vistes incrustades, colors, columnes, adjunts i portades. Per migrar a Gnosi d'un sol tret.")}
                     </div>
                 </div>
             </div>
 
-            {connected === null && <div style={{ color: 'var(--text-tertiary)', padding: 8 }}>Carregant…</div>}
+            {connected === null && <div style={{ color: 'var(--text-tertiary)', padding: 8 }}>{t('common.loading', 'Carregant…')}</div>}
 
-            {/* Connexió */}
+            {/* Connection */}
             {connected === false && (
                 <div style={{ marginTop: 14 }}>
                     <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', display: 'block', marginBottom: 6 }}>
-                        Token d'integració interna (notion.so/my-integrations → comparteix les BD amb la integració)
+                        {t('settings.notion.token_label', "Token d'integració interna (notion.so/my-integrations → comparteix les BD amb la integració)")}
                     </label>
                     <div style={{ display: 'flex', gap: 10 }}>
-                        <input style={{ ...inp, flex: 1 }} type="password" placeholder="ntn_… o secret_…"
+                        <input style={{ ...inp, flex: 1 }} type="password" placeholder={t('settings.notion.token_placeholder', 'ntn_… o secret_…')}
                             value={token} onChange={e => setToken(e.target.value)} />
                         <button className="btn-gnosi-primary" onClick={connect} disabled={busy === 'token' || !token.trim()}
                             style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem' }}>
-                            <Link2 size={15} /> {busy === 'token' ? 'Validant…' : 'Connecta'}
+                            <Link2 size={15} /> {busy === 'token' ? t('settings.notion.validating', 'Validant…') : t('settings.notion.connect_button', 'Connecta')}
                         </button>
                     </div>
                 </div>
@@ -434,36 +434,38 @@ export default function NotionImportSettings() {
                 <>
                     <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', gap: 12 }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--gnosi-primary)', fontWeight: 700, fontSize: '0.85rem' }}>
-                            <Check size={16} /> Connectat{name ? ` · ${name}` : ''}
+                            <Check size={16} /> {t('settings.notion.connected_label', 'Connectat')}{name ? ` · ${name}` : ''}
                         </span>
                         <button onClick={disconnect} disabled={busy === 'token'}
                             style={{ ...inp, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)', padding: '5px 10px' }}>
-                            <Unlink size={14} /> Desconnecta
+                            <Unlink size={14} /> {t('settings.notion.disconnect_button', 'Desconnecta')}
                         </button>
                         <button className="btn-gnosi-primary" onClick={listDbs} disabled={busy === 'list'}
                             style={{ padding: '7px 14px', borderRadius: 10, fontSize: '0.82rem' }}>
-                            {busy === 'list' ? 'Carregant…' : 'Llista bases de dades'}
+                            {busy === 'list' ? t('common.loading', 'Carregant…') : t('settings.notion.list_databases_button', 'Llista bases de dades')}
                         </button>
                         <button onClick={checkLinked} disabled={busy === 'linked'}
-                            title="Cerca BD que es veuen a Notion però són vistes enllaçades (no importables): cal compartir-ne la font."
+                            title={t('settings.notion.detect_linked_title', 'Cerca BD que es veuen a Notion però són vistes enllaçades (no importables): cal compartir-ne la font.')}
                             style={{ ...inp, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px' }}>
                             {busy === 'linked' ? <Loader size={14} className="animate-spin" /> : <Unlink size={14} />}
-                            {busy === 'linked' ? 'Cercant…' : 'Detecta vistes enllaçades'}
+                            {busy === 'linked' ? t('settings.notion.searching', 'Cercant…') : t('settings.notion.detect_linked_button', 'Detecta vistes enllaçades')}
                         </button>
                     </div>
 
                     {linkedDbs && (
                         linkedDbs.linked.length === 0 ? (
                             <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                ✓ Cap vista enllaçada no importable detectada{linkedDbs.capped ? ' (escaneig parcial: hi ha més pàgines de les revisades)' : ''}.
+                                {linkedDbs.capped
+                                    ? t('settings.notion.no_linked_found_partial', '✓ Cap vista enllaçada no importable detectada (escaneig parcial: hi ha més pàgines de les revisades).')
+                                    : t('settings.notion.no_linked_found', '✓ Cap vista enllaçada no importable detectada.')}
                             </div>
                         ) : (
                             <div style={{ marginTop: 12, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: '1px solid #e0a52e', fontSize: '0.83rem', color: 'var(--text-primary)' }}>
                                 <div style={{ fontWeight: 800, color: '#e0a52e', marginBottom: 6 }}>
-                                    ⚠️ {linkedDbs.linked.length} BD enllaçada{linkedDbs.linked.length > 1 ? 'es' : ''} (no importables)
+                                    ⚠️ {t('settings.notion.linked_db_count', '{{count}} BD enllaçada (no importables)', { count: linkedDbs.linked.length })}
                                 </div>
                                 <div style={{ marginBottom: 8, color: 'var(--text-secondary)' }}>
-                                    Es veuen a Notion però són <b>vistes enllaçades</b>: l'API no les pot clonar. Obre-les a Notion, ves a la <b>BD original</b> i comparteix-la amb la integració; després torna a llistar.
+                                    <Trans i18nKey="settings.notion.linked_views_explanation" components={{ b: <b /> }} />
                                 </div>
                                 {linkedDbs.linked.map((l, i) => {
                                     const named = l.title && l.title !== 'Untitled';
@@ -471,15 +473,15 @@ export default function NotionImportSettings() {
                                         <div key={i} style={{ display: 'flex', gap: 8, padding: '3px 0' }}>
                                             <span>🔗</span>
                                             <span>
-                                                {named ? <><b>{l.title}</b> <span style={{ color: 'var(--text-tertiary)' }}>— a «{l.page_title}»</span></>
-                                                    : <>Vista enllaçada dins de <b>«{l.page_title}»</b></>}
+                                                {named ? <><b>{l.title}</b> <span style={{ color: 'var(--text-tertiary)' }}>{t('settings.notion.linked_db_location', '— a «{{page}}»', { page: l.page_title })}</span></>
+                                                    : <>{t('settings.notion.linked_view_in_page_prefix', 'Vista enllaçada dins de')} <b>«{l.page_title}»</b></>}
                                             </span>
                                         </div>
                                     );
                                 })}
                                 {linkedDbs.capped && (
                                     <div style={{ marginTop: 6, color: 'var(--text-tertiary)', fontSize: '0.78rem' }}>
-                                        Escaneig parcial ({linkedDbs.scanned} pàgines): pot haver-n'hi més.
+                                        {t('settings.notion.partial_scan_note', "Escaneig parcial ({{count}} pàgines): pot haver-n'hi més.", { count: linkedDbs.scanned })}
                                     </div>
                                 )}
                             </div>
@@ -490,13 +492,13 @@ export default function NotionImportSettings() {
                         <div style={{ marginTop: 18 }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                                 <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                                    Bases de dades — marca quines incloure ({selected.size}/{databases.length})
+                                    {t('settings.notion.databases_header', 'Bases de dades — marca quines incloure ({{selected}}/{{total}})', { selected: selected.size, total: databases.length })}
                                 </div>
                                 <button type="button"
                                     onClick={() => setSelected(selected.size === databases.length
                                         ? new Set() : new Set(databases.map(d => d.id)))}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gnosi-primary)' }}>
-                                    {selected.size === databases.length ? 'Cap' : 'Tots'}
+                                    {selected.size === databases.length ? t('settings.notion.select_none', 'Cap') : t('settings.notion.select_all', 'Tots')}
                                 </button>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, maxHeight: 220, overflowY: 'auto', overflowX: 'hidden' }}>
@@ -507,7 +509,7 @@ export default function NotionImportSettings() {
                                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.title}</span>
                                         </label>
                                         <button onClick={() => openSchemaConfig(d)} disabled={busy === 'schema:' + d.id}
-                                            title={schemaOverrides[d.id] ? 'Camps configurats — editar' : "Configura els camps d'aquesta BD (tipus, adjunts…)"}
+                                            title={schemaOverrides[d.id] ? t('settings.notion.schema_configured_title', 'Camps configurats — editar') : t('settings.notion.schema_configure_title', "Configura els camps d'aquesta BD (tipus, adjunts…)")}
                                             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: schemaOverrides[d.id] ? 'var(--gnosi-primary)' : 'var(--text-tertiary)' }}>
                                             {busy === 'schema:' + d.id ? <Loader size={14} className="animate-spin" /> : <Settings size={14} />}
                                         </button>
@@ -516,11 +518,11 @@ export default function NotionImportSettings() {
                             </div>
 
                             <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 16, cursor: 'pointer' }}
-                                title="Mostra les pàgines compartides que no pengen de cap base de dades, per triar quines incloure (wiki o dashboard).">
+                                title={t('settings.notion.loose_pages_toggle_title', 'Mostra les pàgines compartides que no pengen de cap base de dades, per triar quines incloure (wiki o dashboard).')}>
                                 <div className={`gnosi-toggle ${loosePages ? 'active' : ''}`} onClick={toggleLoosePages}>
                                     <div className="gnosi-toggle-handle" />
                                 </div>
-                                Incloure pàgines soltes (no a cap BD)
+                                {t('settings.notion.loose_pages_toggle_label', 'Incloure pàgines soltes (no a cap BD)')}
                                 {busy === 'loose' && <Loader size={13} className="animate-spin" />}
                             </label>
 
@@ -528,11 +530,11 @@ export default function NotionImportSettings() {
                                 <div style={{ marginTop: 12 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                                         <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                                            Pàgines fora de BD — marca quines incloure ({looseSelected.size}/{loosePagesList.length})
+                                            {t('settings.notion.loose_pages_header', 'Pàgines fora de BD — marca quines incloure ({{selected}}/{{total}})', { selected: looseSelected.size, total: loosePagesList.length })}
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                             <button type="button" onClick={fetchLoosePages} disabled={busy === 'loose'}
-                                                title="Torna a demanar la llista a Notion"
+                                                title={t('settings.notion.refresh_loose_title', 'Torna a demanar la llista a Notion')}
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--text-tertiary)' }}>
                                                 <RotateCw size={13} className={busy === 'loose' ? 'animate-spin' : undefined} />
                                             </button>
@@ -540,7 +542,7 @@ export default function NotionImportSettings() {
                                                 onClick={() => setLooseSelected(looseSelected.size === loosePagesList.length
                                                     ? new Set() : new Set(loosePagesList.map(p => p.id)))}
                                                 style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.78rem', color: 'var(--gnosi-primary)' }}>
-                                                {looseSelected.size === loosePagesList.length ? 'Cap' : 'Tots'}
+                                                {looseSelected.size === loosePagesList.length ? t('settings.notion.select_none', 'Cap') : t('settings.notion.select_all', 'Tots')}
                                             </button>
                                         </div>
                                     </div>
@@ -556,12 +558,12 @@ export default function NotionImportSettings() {
                                                 </label>
                                                 <div style={{ display: 'flex', flexShrink: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--settings-border)' }}>
                                                     {['wiki', 'dashboard'].map(opt => {
-                                                        // El ressaltat només compta si la pàgina està inclosa,
-                                                        // així una pàgina no marcada no sembla tenir tipus triat.
+                                                        // The highlight only counts if the page is included,
+                                                        // so an unchecked page doesn't appear to have a chosen type.
                                                         const active = included && (loosePageTypes[p.id] || 'wiki') === opt;
                                                         return (
-                                                            // Clicar Wiki/Dashboard SELECCIONA la pàgina (la marca)
-                                                            // i li fixa el tipus, sense haver de clicar el checkbox.
+                                                            // Clicking Wiki/Dashboard SELECTS the page (checks it)
+                                                            // and sets its type, without having to click the checkbox.
                                                             <button key={opt}
                                                                 onClick={() => {
                                                                     setLoosePageTypes(s => ({ ...s, [p.id]: opt }));
@@ -570,7 +572,7 @@ export default function NotionImportSettings() {
                                                                 style={{ padding: '4px 11px', fontSize: '0.76rem', border: 'none', cursor: 'pointer',
                                                                     background: active ? 'var(--gnosi-primary)' : 'transparent',
                                                                     color: active ? '#fff' : 'var(--text-secondary)' }}>
-                                                                {opt === 'wiki' ? 'Wiki' : 'Dashboard'}
+                                                                {opt === 'wiki' ? t('settings.notion.loose_page_type_wiki', 'Wiki') : t('settings.notion.loose_page_type_dashboard', 'Dashboard')}
                                                             </button>
                                                         );
                                                     })}
@@ -582,63 +584,64 @@ export default function NotionImportSettings() {
                                 </div>
                             )}
 
-                            {/* Vault destí: el clon va a un vault SEPARAT a l'arrel (germà del principal)
-                                perquè el puguis validar aïllat i adoptar-lo o descartar-lo, sense barrejar-lo
-                                amb el vault actiu. Per defecte, en crea un de nou. */}
+                            {/* Destination vault: the clone goes to a SEPARATE vault at the root (sibling of the main one)
+                                so you can validate it in isolation and adopt or discard it, without mixing it
+                                with the active vault. By default, it creates a new one. */}
                             <div style={{ marginTop: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                                 <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                    Vault destí:&nbsp;
+                                    {t('settings.notion.dest_vault_label', 'Vault destí:')}&nbsp;
                                     <select style={{ ...inp, display: 'inline-block', cursor: 'pointer' }}
                                         value={cloneVaultId} onChange={e => setCloneVaultId(e.target.value)}>
-                                        <option value="__new__">➕ Crear un vault nou (a l'arrel)</option>
+                                        <option value="__new__">➕ {t('settings.notion.new_vault_option', "Crear un vault nou (a l'arrel)")}</option>
                                         {vaults.map(v => (
-                                            <option key={v.id} value={v.id}>{v.name}{v.active ? ' (actiu)' : ''}</option>
+                                            <option key={v.id} value={v.id}>{v.name}{v.active ? t('settings.notion.active_suffix', ' (actiu)') : ''}</option>
                                         ))}
                                     </select>
                                 </label>
                                 {cloneVaultId === '__new__' && (
                                     <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                                        Nom:&nbsp;
+                                        {t('settings.notion.new_vault_name_label', 'Nom:')}&nbsp;
                                         <input style={{ ...inp, width: 160, display: 'inline-block' }}
                                             value={newVaultName} onChange={e => setNewVaultName(e.target.value)}
                                             placeholder="Notion" />
                                     </label>
                                 )}
                                 <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
-                                    El clon es crea directament a …/Gnosi/{cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?')} (vault separat, sense subcarpeta).
+                                    {t('settings.notion.clone_path_hint', 'El clon es crea directament a …/Gnosi/{{name}} (vault separat, sense subcarpeta).', { name: cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?') })}
                                 </span>
                             </div>
 
                             <div style={{ marginTop: 12, display: 'flex', gap: 20, alignItems: 'center', flexWrap: 'wrap' }}>
                                 {mcpConnected ? (
                                     <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.82rem', color: 'var(--gnosi-primary)', fontWeight: 700 }}>
-                                        <Check size={14} /> MCP connectat
+                                        <Check size={14} /> {t('settings.notion.mcp_connected', 'MCP connectat')}
                                     </span>
                                 ) : (
                                     <button onClick={() => { window.location.href = '/api/notion-oauth/login'; }}
                                         style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px' }}
-                                        title="Connecta amb l'MCP allotjat de Notion (OAuth). IMPRESCINDIBLE per al clon: vistes incrustades, columnes i colors vénen de l'MCP.">
-                                        <Link2 size={15} /> Connecta MCP (imprescindible)
+                                        title={t('settings.notion.mcp_connect_title', "Connecta amb l'MCP allotjat de Notion (OAuth). IMPRESCINDIBLE per al clon: vistes incrustades, columnes i colors vénen de l'MCP.")}>
+                                        <Link2 size={15} /> {t('settings.notion.mcp_connect_button', 'Connecta MCP (imprescindible)')}
                                     </button>
                                 )}
-                                {/* Si el vault destí JA té un clon: no deixem tornar-hi a clonar (duplicats);
-                                    en lloc del botó Clonar mostrem Verifica + Esborra. Persisteix en reobrir. */}
+                                {/* If the destination vault ALREADY has a clone: we don't let it be cloned there
+                                    again (duplicates); instead of the Clone button we show Verify + Delete.
+                                    Persists on reopen. */}
                                 {destClone && busy !== 'clone' ? (
                                     <>
                                         <span style={{ fontSize: '0.82rem', color: '#e0a52e', fontWeight: 700 }}>
-                                            ⚠️ Aquest vault ja té un clon ({destClone.tables} BD)
+                                            ⚠️ {t('settings.notion.dest_has_clone', 'Aquest vault ja té un clon ({{count}} BD)', { count: destClone.tables })}
                                         </span>
                                         <button className="btn-gnosi-primary" onClick={runVerify} disabled={busy === 'verify'}
-                                            title="Compara Notion ↔ clon d'aquest vault."
+                                            title={t('settings.notion.verify_title', "Compara Notion ↔ clon d'aquest vault.")}
                                             style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: 'pointer' }}>
                                             {busy === 'verify' ? <Loader size={15} className="animate-spin" /> : <Check size={15} />}
-                                            {busy === 'verify' ? 'Verificant…' : 'Verifica el clon'}
+                                            {busy === 'verify' ? t('settings.notion.verifying', 'Verificant…') : t('settings.notion.verify_button', 'Verifica el clon')}
                                         </button>
                                         <button onClick={() => setConfirmDelClone(true)} disabled={busy === 'delclone'}
-                                            title="Esborra aquest vault clonat (fila + carpeta) per poder tornar a clonar net."
+                                            title={t('settings.notion.delete_clone_title', 'Esborra aquest vault clonat (fila + carpeta) per poder tornar a clonar net.')}
                                             style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', color: '#e0524e', borderColor: '#e0524e' }}>
                                             {busy === 'delclone' ? <Loader size={15} className="animate-spin" /> : <X size={15} />}
-                                            {busy === 'delclone' ? 'Esborrant…' : 'Esborra el clon'}
+                                            {busy === 'delclone' ? t('settings.notion.deleting', 'Esborrant…') : t('settings.notion.delete_clone_button', 'Esborra el clon')}
                                         </button>
                                     </>
                                 ) : (
@@ -646,8 +649,8 @@ export default function NotionImportSettings() {
                                         <button className="btn-gnosi-primary" onClick={runClone}
                                             disabled={busy === 'clone' || selected.size === 0 || !mcpConnected}
                                             title={mcpConnected
-                                                ? "Clon EXACTE de Notion a una carpeta NOVA. No toca el vault actual."
-                                                : "Connecta primer l'MCP per al clon exacte."}
+                                                ? t('settings.notion.clone_button_title', 'Clon EXACTE de Notion a una carpeta NOVA. No toca el vault actual.')
+                                                : t('settings.notion.clone_button_title_disabled', "Connecta primer l'MCP per al clon exacte.")}
                                             style={{ padding: '9px 18px', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.85rem', cursor: mcpConnected ? 'pointer' : 'not-allowed', opacity: mcpConnected ? 1 : 0.6 }}>
                                             {busy === 'clone' ? <Loader size={15} className="animate-spin" /> : <Database size={15} />}
                                             {busy === 'clone' ? t('notion_cloning') : t('notion_clone')}
@@ -655,9 +658,9 @@ export default function NotionImportSettings() {
                                         {busy === 'clone' && (
                                             <button onClick={() => setConfirmAbort(true)}
                                                 disabled={progress?.phase === 'cancelled'}
-                                                title="Atura el clon. El que ja s'ha clonat queda al disc (parcial)."
+                                                title={t('settings.notion.abort_title', "Atura el clon. El que ja s'ha clonat queda al disc (parcial).")}
                                                 style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, padding: '9px 16px', color: '#e0524e', borderColor: '#e0524e' }}>
-                                                <X size={15} /> {progress?.phase === 'cancelled' ? 'Avortant…' : 'Avortar'}
+                                                <X size={15} /> {progress?.phase === 'cancelled' ? t('settings.notion.aborting', 'Avortant…') : t('settings.notion.abort_button', 'Avortar')}
                                             </button>
                                         )}
                                     </>
@@ -666,9 +669,13 @@ export default function NotionImportSettings() {
 
                             {busy === 'clone' && progress && (() => {
                                 const labels = {
-                                    starting: 'Preparant…', schema: 'Clonant esquemes de BD',
-                                    collect: 'Recollint files', pages: 'Escrivint pàgines',
-                                    loose: 'Pàgines soltes', subpages: 'Sub-pàgines', done: 'Finalitzant…',
+                                    starting: t('settings.notion.progress_starting', 'Preparant…'),
+                                    schema: t('settings.notion.progress_schema', 'Clonant esquemes de BD'),
+                                    collect: t('settings.notion.progress_collect', 'Recollint files'),
+                                    pages: t('settings.notion.progress_pages', 'Escrivint pàgines'),
+                                    loose: t('settings.notion.progress_loose', 'Pàgines soltes'),
+                                    subpages: t('settings.notion.progress_subpages', 'Sub-pàgines'),
+                                    done: t('settings.notion.progress_done', 'Finalitzant…'),
                                 };
                                 const total = progress.total || 0;
                                 const done = progress.done || 0;
@@ -677,19 +684,19 @@ export default function NotionImportSettings() {
                                     <div style={{ marginTop: 14 }}>
                                         <style>{'@keyframes gnosi-indeterminate{0%{margin-left:-40%}100%{margin-left:100%}}'}</style>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 6 }}>
-                                            {/* Durant «collect» les pàgines encara són 0 (s'escriuen a la fase
-                                                següent): mostrem les files recollides perquè es vegi vida. */}
-                                            {/* Durant «subpages» el BFS pot escanejar milers de pares sense trobar
-                                                fills nous: el comptador escanejats/coneguts és l'únic senyal de vida. */}
-                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}{progress.phase === 'collect' ? ` (${progress.collected || 0} files)` : ''}{progress.phase === 'subpages' && progress.scan_total ? ` — escanejant ${progress.scan_done || 0}/${progress.scan_total} pàgines` : ''}</span>
-                                            {/* Cada mètrica com a «fetes/total» quan el total es coneix (pàgines
-                                                després de recollir; BD des de l'inici). Vistes i adjunts es
-                                                descobreixen sobre la marxa → sense denominador. */}
+                                            {/* During «collect» the pages are still 0 (they get written in the next
+                                                phase): we show the rows collected so there's a sign of life. */}
+                                            {/* During «subpages» the BFS may scan thousands of parents without finding
+                                                new children: the scanned/known counter is the only sign of life. */}
+                                            <span>{labels[progress.phase] || progress.phase}{total > 0 ? ` — ${done}/${total}` : ''}{progress.phase === 'collect' ? ` (${t('settings.notion.progress_files_count', '{{count}} files', { count: progress.collected || 0 })})` : ''}{progress.phase === 'subpages' && progress.scan_total ? ` — ${t('settings.notion.progress_scanning', 'escanejant {{done}}/{{total}} pàgines', { done: progress.scan_done || 0, total: progress.scan_total })}` : ''}</span>
+                                            {/* Each metric as «done/total» when the total is known (pages
+                                                after collecting; DBs from the start). Views and attachments are
+                                                discovered on the fly → no denominator. */}
                                             <span>
-                                                {progress.pages || 0}{progress.pages_total ? `/${progress.pages_total}` : ''} pàgines
-                                                {' · '}{progress.tables || 0}{progress.tables_total ? `/${progress.tables_total}` : ''} BD
-                                                {' · '}{progress.views || 0} vistes
-                                                {' · '}{progress.attachments || 0} adjunts
+                                                {progress.pages || 0}{progress.pages_total ? `/${progress.pages_total}` : ''} {t('settings.notion.unit_pages', 'pàgines')}
+                                                {' · '}{progress.tables || 0}{progress.tables_total ? `/${progress.tables_total}` : ''} {t('settings.notion.unit_databases', 'BD')}
+                                                {' · '}{progress.views || 0} {t('settings.notion.unit_views', 'vistes')}
+                                                {' · '}{progress.attachments || 0} {t('settings.notion.unit_attachments', 'adjunts')}
                                             </span>
                                         </div>
                                         <div style={{ height: 8, borderRadius: 99, background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
@@ -709,16 +716,16 @@ export default function NotionImportSettings() {
                     {report && (
                         <div style={{ marginTop: 18, padding: 14, borderRadius: 12, background: 'var(--bg-primary)', border: `1px solid ${report.status === 'cancelled' ? '#e0a52e' : 'var(--settings-border)'}`, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                             <div>
-                                {report.status === 'cancelled' ? '⏹️ Clon avortat (parcial): ' : '✓ Clonat: '}<b>{report.tables}</b> bases de dades · <b>{report.pages}</b> pàgines · <b>{report.views}</b> vistes
-                                {report.attachments > 0 && <span> · <b>{report.attachments}</b> adjunts</span>}
+                                {report.status === 'cancelled' ? t('settings.notion.report_cancelled_prefix', '⏹️ Clon avortat (parcial): ') : t('settings.notion.report_success_prefix', '✓ Clonat: ')}<b>{report.tables}</b> {t('settings.notion.unit_databases_full', 'bases de dades')} · <b>{report.pages}</b> {t('settings.notion.unit_pages', 'pàgines')} · <b>{report.views}</b> {t('settings.notion.unit_views', 'vistes')}
+                                {report.attachments > 0 && <span> · <b>{report.attachments}</b> {t('settings.notion.unit_attachments', 'adjunts')}</span>}
                             </div>
                             {usedVaultName && (
                                 <div style={{ marginTop: 6, color: 'var(--text-secondary)' }}>
-                                    📁 Al vault <b>«{usedVaultName}»</b> (a l'arrel). Canvia-hi des del selector de vaults per veure'l i validar-lo.
+                                    {t('settings.notion.used_vault_hint', "📁 Al vault «{{name}}» (a l'arrel). Canvia-hi des del selector de vaults per veure'l i validar-lo.", { name: usedVaultName })}
                                 </div>
                             )}
                             {report.truncated && (
-                                <div style={{ marginTop: 6, color: '#e0a52e' }}>⚠️ Límit de pàgines assolit: el workspace és més gran. Augmenta el límit.</div>
+                                <div style={{ marginTop: 6, color: '#e0a52e' }}>{t('settings.notion.truncated_warning', '⚠️ Límit de pàgines assolit: el workspace és més gran. Augmenta el límit.')}</div>
                             )}
                             {report.warnings?.length > 0 && (
                                 <div style={{ marginTop: 6, color: '#e0a52e' }}>
@@ -726,20 +733,20 @@ export default function NotionImportSettings() {
                                 </div>
                             )}
                             {report.errors?.length > 0 && (
-                                <div style={{ marginTop: 6, color: '#e0a52e' }}>{report.errors.length} errors (revisa els logs)</div>
+                                <div style={{ marginTop: 6, color: '#e0a52e' }}>{t('settings.notion.errors_count', '{{count}} errors (revisa els logs)', { count: report.errors.length })}</div>
                             )}
                             <button onClick={runVerify} disabled={busy === 'verify'}
                                 style={{ ...inp, marginTop: 10, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8, padding: '7px 14px' }}
-                                title="Compara Notion ↔ clon: recompte per BD, cossos buits, relacions òrfenes, vistes i adjunts.">
+                                title={t('settings.notion.verify_title_detailed', 'Compara Notion ↔ clon: recompte per BD, cossos buits, relacions òrfenes, vistes i adjunts.')}>
                                 {busy === 'verify' ? <Loader size={14} className="animate-spin" /> : <Check size={14} />}
-                                {busy === 'verify' ? 'Verificant…' : 'Verifica el clon'}
+                                {busy === 'verify' ? t('settings.notion.verifying', 'Verificant…') : t('settings.notion.verify_button', 'Verifica el clon')}
                             </button>
                         </div>
                     )}
 
                     {verify && (() => {
-                        // Les BD completes (tables_ok == total) ja és un bon clon: els cossos buits i
-                        // relacions òrfenes són detalls menors, no "incidències". Només si FALTEN BD
+                        // Complete DBs (tables_ok == total) are already a good clone: empty bodies and
+                        // orphan relations are minor details, not "issues". Only if DBs are MISSING
                         // ho marquem com a incomplet (àmbar).
                         const tablesComplete = verify.summary?.tables_ok === verify.summary?.tables_total;
                         const ok = verify.summary?.healthy || tablesComplete;
@@ -747,28 +754,28 @@ export default function NotionImportSettings() {
                         <div style={{ marginTop: 14, padding: 14, borderRadius: 12, fontSize: '0.85rem', color: 'var(--text-primary)',
                             background: 'var(--bg-primary)', border: `1px solid ${ok ? 'var(--gnosi-primary)' : '#e0a52e'}` }}>
                             <div style={{ fontWeight: 800, marginBottom: 8 }}>
-                                {verify.summary?.healthy ? '✅ Clon saludable'
-                                    : tablesComplete ? '✅ Clon complet (detalls menors)'
-                                    : '⚠️ Clon incomplet: falten pàgines'}
+                                {verify.summary?.healthy ? t('settings.notion.verify_healthy', '✅ Clon saludable')
+                                    : tablesComplete ? t('settings.notion.verify_complete_minor', '✅ Clon complet (detalls menors)')
+                                    : t('settings.notion.verify_incomplete', '⚠️ Clon incomplet: falten pàgines')}
                             </div>
                             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 8 }}>
-                                <span>BD OK: <b>{verify.summary?.tables_ok}/{verify.summary?.tables_total}</b></span>
-                                <span>Pàgines: <b>{verify.summary?.pages}</b></span>
-                                <span>Vistes: <b>{verify.summary?.views}</b></span>
-                                <span style={{ color: verify.summary?.empty_bodies ? '#e0a52e' : 'inherit' }}>Cossos buits: <b>{verify.summary?.empty_bodies}</b></span>
-                                <span style={{ color: verify.summary?.orphan_relations ? '#e0a52e' : 'inherit' }}>Relacions òrfenes: <b>{verify.summary?.orphan_relations}</b></span>
-                                <span style={{ color: verify.summary?.missing_assets ? '#e0a52e' : 'inherit' }}>Adjunts que falten: <b>{verify.summary?.missing_assets}</b></span>
+                                <span>{t('settings.notion.verify_db_ok_label', 'BD OK:')} <b>{verify.summary?.tables_ok}/{verify.summary?.tables_total}</b></span>
+                                <span>{t('settings.notion.verify_pages_label', 'Pàgines:')} <b>{verify.summary?.pages}</b></span>
+                                <span>{t('settings.notion.verify_views_label', 'Vistes:')} <b>{verify.summary?.views}</b></span>
+                                <span style={{ color: verify.summary?.empty_bodies ? '#e0a52e' : 'inherit' }}>{t('settings.notion.verify_empty_bodies_label', 'Cossos buits:')} <b>{verify.summary?.empty_bodies}</b></span>
+                                <span style={{ color: verify.summary?.orphan_relations ? '#e0a52e' : 'inherit' }}>{t('settings.notion.verify_orphan_relations_label', 'Relacions òrfenes:')} <b>{verify.summary?.orphan_relations}</b></span>
+                                <span style={{ color: verify.summary?.missing_assets ? '#e0a52e' : 'inherit' }}>{t('settings.notion.verify_missing_assets_label', 'Adjunts que falten:')} <b>{verify.summary?.missing_assets}</b></span>
                             </div>
                             {tablesComplete && !verify.summary?.healthy && (
                                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                    Totes les BD estan completes. Els <b>cossos buits</b> són files sense text a Notion i les <b>relacions òrfenes</b> apunten a pàgines fora del clon (esborrades o filtrades) — detalls menors, no falta contingut de BD.
+                                    <Trans i18nKey="settings.notion.verify_minor_details_note" components={{ b: <b /> }} />
                                 </div>
                             )}
-                            {(verify.tables || []).filter(t => !t.ok).length > 0 && (
+                            {(verify.tables || []).filter(row => !row.ok).length > 0 && (
                                 <div style={{ display: 'grid', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
-                                    {verify.tables.filter(t => !t.ok).map((t, i) => (
+                                    {verify.tables.filter(row => !row.ok).map((row, i) => (
                                         <div key={i} style={{ color: '#e0a52e', fontSize: '0.8rem' }}>
-                                            ⚠️ Una BD: Notion <b>{t.notion}</b> · clon <b>{t.clone}</b> {t.missing > 0 ? `(falten ${t.missing})` : ''}
+                                            ⚠️ <Trans i18nKey="settings.notion.verify_table_mismatch" values={{ notion: row.notion, clone: row.clone }} components={{ b: <b /> }} /> {row.missing > 0 ? t('settings.notion.verify_table_missing_suffix', '(falten {{missing}})', { missing: row.missing }) : ''}
                                         </div>
                                     ))}
                                 </div>
@@ -788,13 +795,13 @@ export default function NotionImportSettings() {
                     folder={cfg.db.title || 'Notion'}
                     tableName={cfg.db.title}
                     currentSchema={cfg.schema}
-                    // Les relacions han d'apuntar a BDs del workspace de NOTION (no a les
-                    // taules del vault local). Id sense guions = table_id_for del backend,
-                    // que és com arriba relation_database_id a l'esquema preconfigurat.
+                    // Relations must point to DBs in the NOTION workspace (not to the
+                    // local vault's tables). Id without dashes = the backend's table_id_for,
+                    // which is how relation_database_id arrives in the preconfigured schema.
                     availableTables={databases.map(d => ({ id: String(d.id || '').replace(/-/g, ''), name: d.title }))}
                     onSave={(newSchema) => {
-                        // SchemaConfigModal és d'AUTOSAVE: crida onSave a cada canvi (i un cop en
-                        // obrir). NO tanquem aquí (tancaria sol en obrir); només desem l'override.
+                        // SchemaConfigModal is AUTOSAVE: it calls onSave on every change (and once on
+                        // open). We do NOT close here (it would close on its own on open); we only save the override.
                         const dbId = cfg.db.id;
                         setSchemaOverrides(prev => ({ ...prev, [dbId]: newSchema }));
                     }}
@@ -805,10 +812,10 @@ export default function NotionImportSettings() {
                 isOpen={confirmAbort}
                 onClose={() => setConfirmAbort(false)}
                 onConfirm={doAbortClone}
-                title="Avortar el clon?"
-                message="El clon s'aturarà al següent punt de control (entre pàgines). El que ja s'ha clonat quedarà al disc com a clon parcial; pots esborrar la carpeta destí i tornar a començar."
-                confirmText="Avortar el clon"
-                cancelText="Continuar clonant"
+                title={t('settings.notion.confirm_abort_title', 'Avortar el clon?')}
+                message={t('settings.notion.confirm_abort_message', "El clon s'aturarà al següent punt de control (entre pàgines). El que ja s'ha clonat quedarà al disc com a clon parcial; pots esborrar la carpeta destí i tornar a començar.")}
+                confirmText={t('settings.notion.confirm_abort_confirm', 'Avortar el clon')}
+                cancelText={t('settings.notion.confirm_abort_cancel', 'Continuar clonant')}
                 isDestructive={true}
             />
 
@@ -816,10 +823,10 @@ export default function NotionImportSettings() {
                 isOpen={confirmDelClone}
                 onClose={() => setConfirmDelClone(false)}
                 onConfirm={doDeleteClone}
-                title="Esborrar el clon?"
-                message={`S'eliminarà el vault «${vaults.find(v => v.id === cloneVaultId)?.name || ''}» sencer (fila + carpeta al disc) amb tot el clon. Aquesta acció no es pot desfer. Després podràs tornar a clonar net.`}
-                confirmText="Esborra el clon"
-                cancelText="Cancel·la"
+                title={t('settings.notion.confirm_delete_clone_title', 'Esborrar el clon?')}
+                message={t('settings.notion.confirm_delete_clone_message', "S'eliminarà el vault «{{name}}» sencer (fila + carpeta al disc) amb tot el clon. Aquesta acció no es pot desfer. Després podràs tornar a clonar net.", { name: vaults.find(v => v.id === cloneVaultId)?.name || '' })}
+                confirmText={t('settings.notion.delete_clone_button', 'Esborra el clon')}
+                cancelText={t('settings.notion.confirm_delete_clone_cancel', 'Cancel·la')}
                 isDestructive={true}
             />
         </div>

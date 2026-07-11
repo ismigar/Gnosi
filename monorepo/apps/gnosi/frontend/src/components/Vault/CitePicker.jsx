@@ -6,17 +6,17 @@ import { Search, X, Quote } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /**
- * Modal-portal picker per inserir citacions al BlockEditor.
+ * Modal-portal picker for inserting citations in the BlockEditor.
  *
- * UX inspirada en Mendeley Cite / Zotero quick-pick:
- *  - Cerca lliure (citation_key, títol, autor) amb debounce 200 ms
- *  - Llista d'opcions amb navegació via ↑/↓
- *  - Enter o click insereix `[@key]` a la posició actual del cursor
- *  - Esc tanca el picker
+ * UX inspired by Mendeley Cite / Zotero quick-pick:
+ *  - Free-text search (citation_key, title, author) with 200 ms debounce
+ *  - List of options with ↑/↓ navigation
+ *  - Enter or click inserts `[@key]` at the current cursor position
+ *  - Esc closes the picker
  *
- * Es renderitza fora del DOM tree del BlockEditor (portal) per evitar
- * que el ProseMirror robi el focus durant l'animació d'obrir. Quan es
- * tanca, retorna el focus a l'editor.
+ * Rendered outside the BlockEditor's DOM tree (portal) to prevent
+ * ProseMirror from stealing focus during the opening animation. When it
+ * closes, it returns focus to the editor.
  */
 const fetchCitations = async (query) => {
     const r = await axios.get('/api/vault/search-citations', {
@@ -37,11 +37,11 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
     const debounceRef = useRef(null);
     const abortRef = useRef(null);
 
-    // Esc + focus-trap centralitzats al hook canònic. NO passem onConfirm:
-    // l'Enter d'aquest modal selecciona la citació ressaltada (handler propi).
+    // Esc + focus-trap centralized in the canonical hook. We do NOT pass onConfirm:
+    // this modal's Enter selects the highlighted citation (own handler).
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
-    // Càrrega inicial + cerca amb debounce
+    // Initial load + debounced search
     useEffect(() => {
         if (!isOpen) return;
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -66,12 +66,12 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
         };
     }, [query, isOpen]);
 
-    // Reset i focus quan s'obre
+    // Reset and focus when it opens
     useEffect(() => {
         if (!isOpen) return;
         setQuery('');
         setActiveIdx(0);
-        // El portal pot trigar un tick a muntar — focus en next frame
+        // The portal may take a tick to mount — focus on next frame
         const id = requestAnimationFrame(() => {
             try { inputRef.current?.focus(); } catch { /* ignore */ }
         });
@@ -105,7 +105,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
         }
     }, [items, activeIdx, handleSelect]);
 
-    // Auto-scroll element actiu a la vista
+    // Auto-scroll active element into view
     useEffect(() => {
         if (!listRef.current) return;
         const active = listRef.current.querySelector(`[data-idx="${activeIdx}"]`);
@@ -114,8 +114,8 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
         }
     }, [activeIdx]);
 
-    // El portal s'ha de calcular abans de qualsevol early-return per
-    // complir les regles dels hooks.
+    // The portal must be calculated before any early return in order to
+    // comply with the rules of hooks.
     const portalEl = useMemo(() => {
         if (typeof document === 'undefined') return null;
         let el = document.getElementById('cite-picker-root');
@@ -134,7 +134,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
         <div
             className="fixed inset-0 z-[9999] flex items-start justify-center pt-24 bg-black/40"
             onMouseDown={(e) => {
-                // Click fora del panel tanca
+                // Click outside the panel closes it
                 if (e.target === e.currentTarget) onClose?.();
             }}
         >

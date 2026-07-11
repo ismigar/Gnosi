@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { toast } from '../lib/toast';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Clock, Trash2, AlertCircle } from 'lucide-react';
 import i18n from '../i18n';
@@ -9,6 +10,7 @@ const ContentCalendar = () => {
     const [loading, setLoading] = useState(true);
     const [currentWeek, setCurrentWeek] = useState(new Date());
     const [confirmTarget, setConfirmTarget] = useState(null);
+    const { t } = useTranslation();
 
     useEffect(() => {
         fetchScheduledPosts();
@@ -37,16 +39,16 @@ const ContentCalendar = () => {
         try {
             const res = await fetch(`/api/social/scheduled/${postId}`, { method: 'DELETE' });
             if (!res.ok) {
-                // Sense aquest else, una resposta 4xx/5xx feia que el post
-                // continués apareixent però l'usuari pensava que ja s'havia
-                // cancel·lat (el confirm s'havia tancat). Ara avisem.
+                // Without this else, a 4xx/5xx response caused the post
+                // to keep appearing even though the user thought it had already been
+                // cancelled (the confirm dialog had closed). Now we warn.
                 throw new Error(`HTTP ${res.status}`);
             }
             setScheduledPosts(prev => prev.filter(p => p.id !== postId));
-            toast.success('Post cancellat');
+            toast.success(t('content_calendar.post_cancelled', 'Post cancellat'));
         } catch (error) {
             console.error('cancelPost failed', error);
-            toast.error('Error cancelling post');
+            toast.error(t('content_calendar.cancel_post_error', 'Error cancelling post'));
         }
     };
 
@@ -64,11 +66,11 @@ const ContentCalendar = () => {
         return days;
     };
 
-    // Get posts for a specific day. Agrupem per data LOCAL als dos costats: les
-    // columnes es mostren en hora local (`day.getDate()`), però abans es filtrava
-    // per data UTC (`day.toISOString()`) contra la part de data crua del
-    // `scheduled_time` (desat en UTC) → un post programat per una hora local de
-    // matinada (UTC = dia anterior) apareixia a la columna del dia previ.
+    // Get posts for a specific day. We group by LOCAL date on both sides: the
+    // columns are shown in local time (`day.getDate()`), but before it was filtered
+    // by UTC date (`day.toISOString()`) against the raw date part of the
+    // `scheduled_time` (saved in UTC) → a post scheduled for a local time of
+    // early morning (UTC = previous day) appeared in the previous day's column.
     const getPostsForDay = (day) => {
         const pad = (n) => String(n).padStart(2, '0');
         const toLocalDate = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -96,7 +98,7 @@ const ContentCalendar = () => {
 
     return (
         <div className="h-full flex flex-col p-6 overflow-hidden">
-            {/* Controls de navegació setmanal */}
+            {/* Weekly navigation controls */}
             <div className="flex items-center gap-4 mb-4 shrink-0">
                 <div className="flex items-center gap-2 bg-[var(--bg-secondary)] rounded-lg p-1 border border-[var(--border-primary)]">
                     <button
@@ -122,7 +124,7 @@ const ContentCalendar = () => {
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-full text-zinc-500 gap-4">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        <span>Carregant calendari...</span>
+                        <span>{t('content_calendar.loading', 'Carregant calendari...')}</span>
                     </div>
                 ) : (
                     <div className="grid grid-cols-7 gap-4 flex-1 min-h-0">
@@ -191,7 +193,7 @@ const ContentCalendar = () => {
                                                     <button
                                                         onClick={() => cancelPost(post.id)}
                                                         className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded transition-all"
-                                                        title="Cancel"
+                                                        title={t('content_calendar.cancel_post_button', 'Cancel')}
                                                     >
                                                         <Trash2 size={14} />
                                                     </button>
@@ -210,10 +212,10 @@ const ContentCalendar = () => {
                 isOpen={confirmTarget != null}
                 onClose={() => setConfirmTarget(null)}
                 onConfirm={doCancelPost}
-                title="Cancel·lar publicació"
-                message="Cancel·lar aquesta publicació programada?"
-                confirmText="Sí, cancel·la"
-                cancelText="No"
+                title={t('content_calendar.cancel_confirm_title', 'Cancel·lar publicació')}
+                message={t('content_calendar.cancel_confirm_message', 'Cancel·lar aquesta publicació programada?')}
+                confirmText={t('content_calendar.cancel_confirm_yes', 'Sí, cancel·la')}
+                cancelText={t('content_calendar.cancel_confirm_no', 'No')}
                 isDestructive
             />
         </div>

@@ -1,27 +1,27 @@
 import { test, expect, type Page, type Route } from '@playwright/test';
 
 /**
- * TldrawEditor — guarda d'integritat del desat (directiva tldraw_save_integrity.md).
+ * TldrawEditor — save integrity guard (tldraw_save_integrity.md directive).
  *
- * El bug que cobreix: si el GET del dibuix fallava (500, OneDrive online-only)
- * o el snapshot no s'aplicava (legacy .excalidraw.json), el component tractava
- * l'error com a "dibuix nou" i l'autosave d'1 s SOBREESCRIVIA el fitxer real
- * amb un llenç buit.
+ * The bug it covers: if the drawing's GET failed (500, OneDrive online-only)
+ * or the snapshot wasn't applied (legacy .excalidraw.json), the component treated
+ * the error as a "new drawing" and the 1s autosave OVERWROTE the real file
+ * with a blank canvas.
  *
- * Cobreix:
- * 1. GET 500 ⇒ overlay d'error, CAP PUT (ni autosave ni Ctrl+S); el botó
- *    "Torna-ho a provar" recupera l'editor quan el backend torna.
- * 2. GET amb JSON d'Excalidraw (legacy) ⇒ overlay d'incompatible, CAP PUT
- *    (el .tldraw.json buit ja no eclipsa el fitxer legacy).
- * 3. Dibuix nou ({}): pan/zoom NO programa cap PUT (autosave filtrat per
- *    scope 'document'); dibuixar un traç SÍ que desa, amb shapes al snapshot.
+ * Covers:
+ * 1. GET 500 ⇒ error overlay, NO PUT (neither autosave nor Ctrl+S); the
+ *    "Retry" button recovers the editor when the backend comes back.
+ * 2. GET with Excalidraw JSON (legacy) ⇒ incompatible overlay, NO PUT
+ *    (the empty .tldraw.json no longer eclipses the legacy file).
+ * 3. New drawing ({}): pan/zoom does NOT schedule any PUT (autosave filtered by
+ *    'document' scope); drawing a stroke DOES save, with shapes in the snapshot.
  *
- * Tot mockejat amb page.route: el test no crea ni toca cap dibuix real.
+ * Everything mocked with page.route: the test doesn't create or touch any real drawing.
  */
 
 const CANVAS = '.tl-container';
 
-/** Mockeja la llista de dibuixos i obre la card del dibuix indicat. */
+/** Mocks the drawings list and opens the card for the specified drawing. */
 async function openDrawingCard(page: Page, id: string, title: string) {
     await page.route('**/api/vault/drawings', (route) =>
         route.fulfill({
@@ -35,8 +35,8 @@ async function openDrawingCard(page: Page, id: string, title: string) {
 }
 
 /**
- * Intercepta GET i PUT del dibuix. Els PUT es registren i es responen amb
- * èxit SENSE tocar el backend; el GET delega en el handler passat.
+ * Intercepts GET and PUT for the drawing. PUTs are recorded and responded to
+ * with success WITHOUT touching the backend; GET delegates to the handler passed in.
  */
 async function interceptDrawing(
     page: Page,
@@ -69,15 +69,15 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         await openDrawingCard(page, ID, 'Guard 500');
 
-        // Overlay d'error visible, amb el desat bloquejat
+        // Error overlay visible, with saving blocked
         await expect(page.getByText("No s'ha pogut carregar el dibuix")).toBeVisible({ timeout: 15_000 });
 
-        // Ni l'autosave (1 s) ni Ctrl+S no han de poder desar
+        // Neither autosave (1 s) nor Ctrl+S should be able to save
         await page.keyboard.press('ControlOrMeta+s');
         await page.waitForTimeout(3_000);
         expect(puts, 'cap PUT amb la càrrega fallida').toHaveLength(0);
 
-        // El backend "torna" → el reintent ha de carregar l'editor
+        // The backend "comes back" → the retry must load the editor
         backendUp = true;
         await page.getByRole('button', { name: 'Torna-ho a provar' }).click();
         await expect(page.getByText("No s'ha pogut carregar el dibuix")).not.toBeVisible({ timeout: 10_000 });
@@ -86,8 +86,8 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
     test('format legacy Excalidraw ⇒ overlay incompatible i cap PUT (no eclipsa)', async ({ page }) => {
         const ID = 'guard-e2e-legacy';
-        // El backend retorna el JSON .excalidraw.json tal qual: loadSnapshot de
-        // tldraw NO llança error amb aquest format — és un no-op silenciós.
+        // The backend returns the .excalidraw.json JSON as-is: loadSnapshot from
+        // tldraw does NOT throw an error with this format — it's a silent no-op.
         const puts = await interceptDrawing(page, ID, (route) =>
             route.fulfill({
                 json: {
@@ -117,13 +117,13 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         const canvas = page.locator(CANVAS).first();
         await expect(canvas).toBeVisible({ timeout: 15_000 });
 
-        // El muntatge inicial pot generar com a màxim un PUT (tldraw crea els
-        // registres per defecte del document en un store buit). Esperem que
-        // s'assenti i prenem la línia de base.
+        // The initial mount may generate at most one PUT (tldraw creates the
+        // default document records in an empty store). We wait for it
+        // to settle and take the baseline.
         await page.waitForTimeout(2_500);
         const baseline = puts.length;
 
-        // Pan/zoom = scope 'session' ⇒ NO ha de programar cap autosave
+        // Pan/zoom = scope 'session' ⇒ must NOT schedule any autosave
         const box = await canvas.boundingBox();
         expect(box).not.toBeNull();
         const cx = box!.x + box!.width / 2;
@@ -134,7 +134,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await page.waitForTimeout(2_000);
         expect(puts.length, 'el pan/zoom no ha de desar').toBe(baseline);
 
-        // Dibuixar un traç = scope 'document' ⇒ autosave en ~1 s
+        // Drawing a stroke = 'document' scope ⇒ autosave in ~1 s
         await page.getByTestId('tools.draw').click();
         await page.mouse.move(cx - 120, cy - 40);
         await page.mouse.down();
@@ -142,7 +142,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await page.mouse.up();
         await expect.poll(() => puts.length, { timeout: 6_000 }).toBeGreaterThan(baseline);
 
-        // El PUT ha de portar el traç al snapshot (no un llenç buit)
+        // The PUT must carry the stroke in the snapshot (not an empty canvas)
         const lastPut = JSON.parse(puts[puts.length - 1]);
         expect(lastPut.title).toBe('Guard Happy');
         const storeRecords = Object.keys(lastPut?.data?.document?.store ?? {});

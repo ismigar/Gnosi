@@ -1,35 +1,35 @@
-"""Snapshot de resultats d'una vista embeguda al cos markdown.
+"""Snapshot of the results of a view embedded in the markdown body.
 
-Cada bloc ```gnosi-view``` del cos pot anar seguit d'una llista de wikilinks
-``[[Títol|id]]`` cap a les pàgines que la vista RETORNA. Serveix per a
-portabilitat: Obsidian (graf, backlinks, navegació), lectors plans i el sync a
-Drupal veuen els enllaços encara que no executin la vista. La llista va
-delimitada per comentaris HTML sentinella perquè sigui un artefacte DERIVAT,
-no contingut autoral:
+Each ```gnosi-view``` block in the body can be followed by a list of wikilinks
+``[[Title|id]]`` to the pages the view RETURNS. It exists for
+portability: Obsidian (graph, backlinks, navigation), plain readers, and the sync to
+Drupal see the links even if they don't execute the view. The list is
+delimited by sentinel HTML comments so that it's a DERIVED artifact,
+not authored content:
 
     ```gnosi-view
     { "view_id": "…", "heading": "", "heading_level": 1 }
     ```
 
     <!-- gnosi-view:result view_id=… -->
-    - [[Títol A|id-a]]
-    - [[Títol B|id-b]]
+    - [[Title A|id-a]]
+    - [[Title B|id-b]]
     <!-- /gnosi-view:result -->
 
-Mateixa filosofia que els wikilinks de relació (``relation_links.py``):
-- **Escriptura** (``inject_view_snapshots``, a ``save_page_md``): autocurativa,
-  re-resol files i títols a cada desada. Idempotent (treu el bloc anterior i el
-  torna a posar).
-- **Lectura** (``strip_view_snapshots``, a ``parse_frontmatter``): treu la
-  llista perquè ni l'editor ni el domini la vegin mai. El round-trip de
-  l'editor no la duplica.
+Same philosophy as the relation wikilinks (``relation_links.py``):
+- **Writing** (``inject_view_snapshots``, in ``save_page_md``): self-healing,
+  re-resolves rows and titles on every save. Idempotent (removes the previous block and
+  puts it back).
+- **Reading** (``strip_view_snapshots``, in ``parse_frontmatter``): removes the
+  list so that neither the editor nor the domain ever see it. The editor's
+  round-trip doesn't duplicate it.
 
-El format del wikilink (``[[Títol|id]]``, id a l'àlies) i la seguretat del
-títol es reusen de ``relation_links``.
+The wikilink format (``[[Title|id]]``, id in the alias) and title
+safety are reused from ``relation_links``.
 
-Mòdul deliberadament lleuger (re + json + typing): la resolució de files i de
-títols arriba per callbacks injectats des de ``vault_routes`` (cap dependència
-pesada ni d'estat global aquí).
+Deliberately lightweight module (re + json + typing): row and title
+resolution arrives via callbacks injected from ``vault_routes`` (no heavy
+dependency or global state here).
 """
 from __future__ import annotations
 
@@ -41,41 +41,41 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 
 from backend.services.relation_links import _decorate_item
 
-# --- Sentinelles del bloc snapshot -----------------------------------------
+# --- Snapshot block sentinels -----------------------------------------
 SNAPSHOT_OPEN_PREFIX = "<!-- gnosi-view:result"
 _SNAPSHOT_BLOCK_RE = re.compile(
-    r"[ \t]*<!--\s*gnosi-view:result\b[^>]*-->\n"  # obertura (amb view_id opcional)
-    r".*?"                                            # ítems (no-greedy)
+    r"[ \t]*<!--\s*gnosi-view:result\b[^>]*-->\n"  # opening (with optional view_id)
+    r".*?"                                            # items (non-greedy)
     r"\n[ \t]*<!--\s*/gnosi-view:result\s*-->[ \t]*",  # tancament
     re.DOTALL,
 )
 
-# Fence ```gnosi-view ... ``` (JSON al mig). El frontend l'emet amb 3 backticks
-# i etiqueta `gnosi-view`; tolerem espais finals a la línia de tancament.
+# ```gnosi-view ... ``` fence (JSON in the middle). The frontend emits it with 3 backticks
+# and `gnosi-view` tag; we tolerate trailing spaces on the closing line.
 _FENCE_RE = re.compile(
     r"```gnosi-view[ \t]*\n(?P<json>.*?)\n```[ \t]*",
     re.DOTALL,
 )
 
-# Límit defensiu: una vista sense filtres pot retornar tota la taula. Evitem
-# escriure llistes desmesurades a cada desada. Si es supera, es trunca i es
-# DEIXA CONSTÀNCIA explícita (mai un tall silenciós).
+# Defensive limit: a view without filters can return the whole table. We avoid
+# writing oversized lists on every save. If exceeded, it's truncated and
+# leaves an explicit RECORD (never a silent cut).
 DEFAULT_MAX_ITEMS = 500
 
-# --- Definició de la vista: fence visible ↔ comentari HTML amagat -----------
-# A disc, la definició es guarda com un comentari HTML
-# (`<!-- gnosi-view:def {json} -->`) perquè Obsidian i els lectors plans
-# l'AMAGUIN (un bloc de codi ```gnosi-view``` es veuria sempre). L'editor de
-# Gnosi treballa SEMPRE amb el fence: el backend reconverteix comentari→fence en
-# llegir i fence→comentari en desar. Així el frontend no canvia i el round-trip
-# de l'editor és idèntic. JSON en una sola línia (el match s'atura a `-->`).
+# --- View definition: visible fence ↔ hidden HTML comment -----------
+# On disk, the definition is stored as an HTML comment
+# (`<!-- gnosi-view:def {json} -->`) so that Obsidian and plain readers
+# HIDE it (a ```gnosi-view``` code block would always be visible). The editor
+# Gnosi ALWAYS works with the fence: the backend converts comment→fence back on
+# read it, and fence→comment on save. This way the frontend doesn't change and the round-trip
+# of the editor is identical. JSON on a single line (the match stops at `-->`).
 _DEF_COMMENT_RE = re.compile(r"[ \t]*<!--\s*gnosi-view:def\s+(?P<json>.*?)\s*-->[ \t]*")
 
 
 def compact_view_fences(body: Any) -> Any:
-    """Frontera d'ESCRIPTURA: ```gnosi-view {json}``` → `<!-- gnosi-view:def {json} -->`.
-    Compacta el JSON en una línia. Si el JSON no és vàlid, deixa el fence intacte
-    (mai trencar la definició)."""
+    """WRITE boundary: ```gnosi-view {json}``` → `<!-- gnosi-view:def {json} -->`.
+    Compacts the JSON into one line. If the JSON is not valid, leaves the fence intact
+    (never break the definition)."""
     if not isinstance(body, str) or "```gnosi-view" not in body:
         return body
 
@@ -101,11 +101,12 @@ def rematerialize_md(
     config_for: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
     resolve_table: Optional[Callable[[str, Optional[str]], Optional[Dict[str, Any]]]] = None,
 ) -> Any:
-    """Regenera el snapshot de vista d'un document .md COMPLET (frontmatter +
-    cos) a partir de les dades ACTUALS. Deixa el frontmatter byte a byte i només
-    toca la regió del snapshot del cos. Retorna el .md nou — IDÈNTIC a l'entrada
-    si res no ha canviat (per no escriure en va). Pur: sense I/O. És la unitat
-    que fa servir la tasca de materialització del vault.
+    """Regenerates the view snapshot of a COMPLETE .md document (frontmatter +
+    body) from the CURRENT data. Leaves the frontmatter byte for byte and only
+    touches the body's snapshot region. Returns the new .md — IDENTICAL to the input
+    if nothing has changed (to avoid writing needlessly). Pure: no I/O. It's the unit
+    used by the vault's materialization task.
+    
     """
     if not isinstance(raw, str) or "gnosi-view" not in raw:
         return raw
@@ -127,9 +128,9 @@ def rematerialize_md(
 
 
 def restore_view_fences(body: Any) -> Any:
-    """Frontera de LECTURA: `<!-- gnosi-view:def {json} -->` → ```gnosi-view {json}```,
-    amb el mateix format que produeix l'editor (JSON indentat a 2 espais) perquè
-    el round-trip sigui idèntic. Comentari amb JSON invàlid es deixa tal qual."""
+    """READ boundary: `<!-- gnosi-view:def {json} -->` → ```gnosi-view {json}```,
+    with the same format the editor produces (JSON indented by 2 spaces) so that
+    the round-trip is identical. A comment with invalid JSON is left as-is."""
     if not isinstance(body, str) or "gnosi-view:def" not in body:
         return body
 
@@ -145,42 +146,43 @@ def restore_view_fences(body: Any) -> Any:
 
 
 def strip_view_snapshots(body: Any) -> Any:
-    """Treu TOTS els blocs snapshot del cos. Idempotent; no-op si no n'hi ha.
+    """Removes ALL snapshot blocks from the body. Idempotent; no-op if there are none.
 
-    És la frontera de LECTURA: a partir d'aquí l'editor i el domini veuen el
-    cos sense la llista derivada. Conserva la resta del document intacta i
-    col·lapsa la línia en blanc que precedia el bloc per no acumular buits.
+    This is the READ boundary: from here on, the editor and the domain see the
+    body without the derived list. Keeps the rest of the document intact and
+    collapses the blank line that preceded the block to avoid accumulating blanks.
+    
     """
     if not isinstance(body, str) or SNAPSHOT_OPEN_PREFIX not in body:
         return body
-    # Treu també una (només una) línia en blanc immediatament anterior, que és
-    # la que afegeix `inject_view_snapshots` com a separador.
+    # Also removes one (only one) blank line immediately before, which is
+    # the one `inject_view_snapshots` adds as a separator.
     cleaned = re.sub(r"\n?\n" + _SNAPSHOT_BLOCK_RE.pattern, "", body, flags=re.DOTALL)
-    # Per si algun bloc no anava precedit de línia en blanc (edició manual):
+    # In case some block wasn't preceded by a blank line (manual edit):
     cleaned = _SNAPSHOT_BLOCK_RE.sub("", cleaned)
     return cleaned
 
 
-# Render del snapshot per a la PREVISUALITZACIÓ: a diferència de
-# `strip_view_snapshots` (que el treu per a l'editor), aquí el DEIXEM visible
-# com a Markdown (taula/llista) i amaguem la definició. NO resol cap vista —
-# usa el contingut ja materialitzat a disc. Per al pop-up i el feed.
+# Rendering the snapshot for PREVIEW: unlike
+# `strip_view_snapshots` (which removes it for the editor), here we LEAVE it visible
+# as Markdown (table/list) and hide the definition. It does NOT resolve any view —
+# uses the content already materialized on disk. For the pop-up and the feed.
 _RESULT_RENDER_RE = re.compile(
     r"[ \t]*<!--\s*gnosi-view:result\b[^>]*-->\n(?P<content>.*?)\n[ \t]*<!--\s*/gnosi-view:result\s*-->[ \t]*",
     re.DOTALL,
 )
 _RESULT_TRUNC_RE = re.compile(r"\n?[ \t]*<!--\s*gnosi-view:result-truncated\s+\d+\s*-->[ \t]*")
-# Wikilink de snapshot `[[Títol\|id]]` (id a l'àlies, pipe escapat dins taules).
-# Per al preview el reduïm a `[[Títol]]`: el renderer del frontend tracta
-# l'àlies com a TEXT visible, així que sense això es veuria l'uuid.
+# Snapshot wikilink `[[Title\|id]]` (id in the alias, pipe escaped inside tables).
+# For the preview we reduce it to `[[Title]]`: the frontend renderer treats
+# the alias as visible TEXT, so without this the uuid would show.
 _SNAPSHOT_WIKILINK_RE = re.compile(r"\[\[([^\[\]|\\]+)\\?\|[^\[\]]+\]\]")
 
 
 def render_view_snapshots(body: Any) -> Any:
-    """Frontera de PREVISUALITZACIÓ: deixa visible el snapshot desat (la taula o
-    llista del bloc `:result`) com a Markdown i elimina la definició amagada
-    (`:def`). És el contrari de `strip_view_snapshots`. Per a vistes sense
-    snapshot a disc, la definició simplement desapareix (cap JSON cru)."""
+    """PREVIEW boundary: leaves the saved snapshot (the table or
+    list from the `:result` block) visible as Markdown and removes the hidden
+    definition (`:def`). It's the opposite of `strip_view_snapshots`. For views without
+    a snapshot on disk, the definition simply disappears (no raw JSON)."""
     if not isinstance(body, str) or "gnosi-view" not in body:
         return body
 
@@ -195,10 +197,10 @@ def render_view_snapshots(body: Any) -> Any:
 
 
 def flatten_view_columns(body: Any) -> Any:
-    """Aplana les directives de columnes (`:::column-list` / `:::column` / `:::`)
-    a contingut lineal per a la previsualització: treu els marcadors i
-    desindenta el contingut (4 espais) perquè headings i llistes no es vegin com
-    a blocs de codi. Pensat per al pop-up (no per a l'editor)."""
+    """Flattens the column directives (`:::column-list` / `:::column` / `:::`)
+    into linear content for the preview: removes the markers and
+    un-indents the content (4 spaces) so that headings and lists don't look like
+    code blocks. Designed for the pop-up (not for the editor)."""
     if not isinstance(body, str) or ":::" not in body:
         return body
     out: List[str] = []
@@ -210,7 +212,7 @@ def flatten_view_columns(body: Any) -> Any:
             continue
         if st.startswith(":::column") or st == ":::":
             continue
-        # Una línia de contingut SENSE indentació tanca la regió de columnes.
+        # A content line WITHOUT indentation closes the column region.
         if in_cols and line and not line[:1].isspace():
             in_cols = False
         if in_cols and line.startswith("    "):
@@ -230,9 +232,9 @@ def _build_block(view_id: str, items: Sequence[str], truncated: int = 0) -> str:
 
 
 def _md_cell(value: Any) -> str:
-    """Escapa un valor per a una cel·la de taula markdown: `|`→`\\|` (preserva els
-    wikilinks amb àlies dins de taules — Obsidian entén `[[T\\|id]]`) i aplana
-    salts de línia."""
+    """Escapes a value for a markdown table cell: `|`→`\\|` (preserves
+    aliased wikilinks inside tables — Obsidian understands `[[T\\|id]]`) and flattens
+    line breaks."""
     s = "" if value is None else str(value)
     return (
         s.replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ").strip()
@@ -261,22 +263,23 @@ def inject_view_snapshots(
     config_for: Optional[Callable[[str], Optional[Dict[str, Any]]]] = None,
     resolve_table: Optional[Callable[[str, Optional[str]], Optional[Dict[str, Any]]]] = None,
 ) -> Any:
-    """Després de cada fence ```gnosi-view```, escriu la llista de wikilinks de
-    les pàgines que la vista retorna. Idempotent i autocuratiu.
+    """After each ```gnosi-view``` fence, writes the list of wikilinks for
+    the pages the view returns. Idempotent and self-healing.
 
-    - ``resolve_ids(view_id, host_page_id)`` retorna els ids de pàgina ordenats
-      de la vista (o ``None``/buit si no es pot resoldre → no s'escriu llista).
-    - ``id_to_title`` resol l'id al títol ACTUAL (per al wikilink). Si no resol,
-      ``_decorate_item`` degrada a id nu (mai bloqueja).
-    - ``host_page_id`` substitueix el valor de filtre ``this``.
-    - ``config_for(view_id)`` (opcional) retorna la config PER VISTA del
-      snapshot: ``{"enabled": bool, "limit": int}``. Si ``enabled`` és fals, la
-      vista NO escriu llista (s'omet, ni tan sols es resol). ``limit`` (>0)
-      acota els ítems amb marca de truncament; ``0`` = sense límit. Si no es
-      passa, s'aplica ``max_items`` a totes.
+    - ``resolve_ids(view_id, host_page_id)`` returns the view's sorted page
+      ids (or ``None``/empty if it can't be resolved → no list is written).
+    - ``id_to_title`` resolves the id to the CURRENT title (for the wikilink). If it doesn't resolve,
+      ``_decorate_item`` falls back to the bare id (never blocks).
+    - ``host_page_id`` replaces the ``this`` filter value.
+    - ``config_for(view_id)`` (optional) returns the PER-VIEW config of the
+      snapshot: ``{"enabled": bool, "limit": int}``. If ``enabled`` is false, the
+      view does NOT write a list (it's skipped, not even resolved). ``limit`` (>0)
+      caps the items with a truncation marker; ``0`` = no limit. If not
+      passed, ``max_items`` is applied to all.
 
-    Mai llança: davant de qualsevol error torna el cos sense tocar (defensiu,
-    com la decoració de relacions).
+    Never raises: in the face of any error it returns the body untouched (defensive,
+    like the relation decoration).
+    
     """
     if not isinstance(body, str) or "```gnosi-view" not in body:
         return body
@@ -296,8 +299,8 @@ def inject_view_snapshots(
                 view_id = ""
             if not view_id:
                 continue
-            # Config per vista (activació + límit) ABANS de resoldre: una vista
-            # desactivada no paga la resolució.
+            # Per-view config (activation + limit) BEFORE resolving: a
+            # disabled view doesn't pay the cost of resolution.
             enabled, limit = True, max_items
             if config_for is not None:
                 try:
@@ -310,8 +313,8 @@ def inject_view_snapshots(
             if not enabled:
                 continue
             block = None
-            # 1) Vistes que el markdown sap representar (table/list): taula amb
-            #    les dades reals (capçaleres + cel·les), via resolve_table.
+            # 1) Views that markdown knows how to represent (table/list): table with
+            #    the real data (headers + cells), via resolve_table.
             if resolve_table is not None:
                 try:
                     tbl = resolve_table(view_id, host_page_id)
@@ -325,7 +328,7 @@ def inject_view_snapshots(
                         trows = trows[:limit]
                     if trows:
                         block = _build_table_block(view_id, tbl["headers"], trows, truncated)
-            # 2) Fallback (qualsevol altre tipus): llista de wikilinks.
+            # 2) Fallback (any other type): list of wikilinks.
             if block is None:
                 try:
                     ids = resolve_ids(view_id, host_page_id) or []
@@ -349,9 +352,9 @@ def inject_view_snapshots(
         return body
 
 
-# --- Resolució de files (port fidel del frontend DbViewEmbed) ---------------
-# sortKey: treu puntuació/símbols/espais inicials perquè «¿Què és?» ordeni com
-# «Què és». \W (no-paraula) + _ ≈ \p{P}\p{S}\s del frontend.
+# --- Row resolution (faithful port of the frontend DbViewEmbed) ---------------
+# sortKey: strips leading punctuation/symbols/spaces so that «¿Què és?» sorts like
+# «Què és». \W (non-word) + _ ≈ \p{P}\p{S}\s from the frontend.
 _SORTKEY_LEAD_RE = re.compile(r"^[\W_]+", re.UNICODE)
 
 
@@ -360,13 +363,13 @@ def sort_key(value: Any) -> str:
 
 
 def _collation_key(value: str) -> str:
-    """Clau de comparació de cadena que replica ``localeCompare('ca',
-    {sensitivity: 'base'})`` del front: plega els diacrítics (à→a, ç→c, ñ→n, ü→u…)
-    i passa a minúscules, de manera que els accentuats s'ordenen per la seva
-    LLETRA BASE. Sense això, la comparació per codepoint del `.lower()` cru
-    posava TOTS els valors amb inicial accentuada DESPRÉS de la 'z' (à = U+00E0 >
-    z = U+007A), i el snapshot ordenava un vault català/castellà diferent de la
-    vista principal (que sí fa localeCompare)."""
+    """String comparison key that replicates the front-end's ``localeCompare('ca',
+    {sensitivity: 'base'})``: folds diacritics (à→a, ç→c, ñ→n, ü→u…)
+    and lowercases, so that accented characters sort by their
+    BASE LETTER. Without this, the raw `.lower()` codepoint comparison
+    put ALL values with an accented initial AFTER 'z' (à = U+00E0 >
+    z = U+007A), and the snapshot sorted a Catalan/Spanish vault differently from the
+    main view (which does use localeCompare)."""
     decomposed = unicodedata.normalize("NFKD", value)
     stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
     return stripped.lower()
@@ -376,8 +379,8 @@ _TRUTHY = {"true", "1", "yes", "si", "sí", "done", "checked", "completat"}
 
 
 def _as_bool(value: Any) -> bool:
-    """Paritat amb ``rule_engine._is_truthy_checkbox`` i el front (``asBool``):
-    camp absent/""/0/"false" = no marcat; ``True``/1/"yes"/"sí"… = marcat."""
+    """Parity with ``rule_engine._is_truthy_checkbox`` and the frontend (``asBool``):
+    absent field/""/0/"false" = unchecked; ``True``/1/"yes"/"sí"… = checked."""
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float)):
@@ -386,19 +389,19 @@ def _as_bool(value: Any) -> bool:
 
 
 def _normalize_field_key(name: Any) -> str:
-    """Nom de camp sense prefix decoratiu (emoji/espais) i en minúscules.
+    """Field name without decorative prefix (emoji/spaces) and lowercased.
 
-    Permet que un filtre guardat amb el nom ANTIC d'una columna (p.ex. amb un
-    prefix decoratiu) casi amb la metadata canonicalitzada al nom NOU
-    (``Àrees``) després de renomenar la columna. Mateixa normalització que
+    Allows a filter saved with the OLD name of a column (e.g. with a
+    decorative prefix) to match the metadata canonicalized to the NEW name
+    (``Àrees``) after renaming the column. Same normalization as
     ``relation_sync._norm``."""
     return re.sub(r"^[^\w]+", "", str(name or ""), flags=re.UNICODE).strip().lower()
 
 
 def _meta_value_for_field(meta: Dict[str, Any], field: str) -> Any:
-    """Valor de ``field`` a ``meta``, tolerant a renames de prefix: prova la clau
-    EXACTA i, si no hi és, casa per nom normalitzat (emoji↔sense). Així un filtre
-    no es trenca quan es renomena la columna a què apunta."""
+    """Value of ``field`` in ``meta``, tolerant of prefix renames: tries the
+    EXACT key and, if not present, matches by normalized name (emoji↔without). This way a filter
+    doesn't break when the column it points to is renamed."""
     if field in meta:
         return meta[field]
     nf = _normalize_field_key(field)
@@ -410,14 +413,14 @@ def _meta_value_for_field(meta: Dict[str, Any], field: str) -> Any:
 
 
 def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]) -> bool:
-    """Port 1:1 de ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
-    ``page_id``. Valors de metadata: llista → conjunt de strings; escalar →
-    [str]; buit/None → []. El field es resol per nom O àlies (tolera renames).
+    """1:1 port of ``applyFilter`` (DbViewEmbed.jsx). ``value == 'this'`` →
+    ``page_id``. Metadata values: list → set of strings; scalar →
+    [str]; empty/None → []. The field is resolved by name OR alias (tolerates renames).
 
-    Text/select es compara case-INsensitiu (com Notion i com la vista principal
-    ``matchesFilters``): "Català" emmagatzemat casa amb el filtre "català". Els
-    checkbox (``"true"/"false"``) es comparen per veritat i els numèrics
-    (``>``/``<``) per valor, cap dels dos afectat per les minúscules."""
+    Text/select is compared case-INsensitively (like Notion and like the main view's
+    ``matchesFilters``): a stored "Català" matches the filter "català". The
+    checkboxes (``"true"/"false"``) are compared by truthiness and the numeric ones
+    (``>``/``<``) by value, neither of them affected by lowercasing."""
     field = f.get("field") if isinstance(f, dict) else None
     if not field:
         return True
@@ -437,16 +440,16 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         return len(arr) > 0
     if target is None:
         return True
-    # Valor booleà (checkbox: "true"/"false"): comparem per veritat, no per
-    # cadena, perquè un camp absent compti com a "no marcat" i casi amb "false"
-    # (i evitem el desajust str(True)=="True" vs "true").
+    # Boolean value (checkbox: "true"/"false"): we compare by truthiness, not by
+    # string, so that an absent field counts as "unchecked" and matches "false"
+    # (and we avoid the mismatch str(True)=="True" vs "true").
     if op in ("equals", "not_equals") and target.lower() in ("true", "false"):
         want = target.lower() == "true"
         cur = _as_bool(v)
         return (cur == want) if op == "equals" else (cur != want)
-    # Text/select case-INsensitiu (com Notion i com la vista principal
-    # matchesFilters): un valor "Català" emmagatzemat casa amb el filtre
-    # "català". Els numèrics (>,<) es comparen a part, sense minúscules.
+    # Text/select case-INsensitive (like Notion and like the main view
+    # matchesFilters): a stored "Català" value matches the filter
+    # "Catalan". Numeric ones (>,<) are compared separately, without lowercasing.
     target_l = target.lower()
     arr_l = [x.lower() for x in arr]
     if op == "equals":
@@ -457,12 +460,12 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         return any(target_l in x for x in arr_l)
     if op == "not_contains":
         return not any(target_l in x for x in arr_l)
-    # major/menor que: si TOTS DOS (valor i filtre) són números purs, comparació
-    # numèrica (_parse_numeric_value, paritat amb parseNumericValue del front:
-    # '12,5' → 12.5, decimal de coma); si no, comparació de CADENA en minúscules.
-    # Per a dates ISO l'ordre lexicogràfic és cronològic i coincideix amb JS
-    # (ASCII), de manera que filtrar una columna de data per rang funciona i és
-    # consistent amb matchesFilters / applyFilter.
+    # greater/less than: if BOTH (value and filter) are pure numbers, comparison
+    # is numeric (_parse_numeric_value, parity with the frontend's parseNumericValue:
+    # '12,5' → 12.5, comma decimal); otherwise, lowercase STRING comparison.
+    # For ISO dates, lexicographic order is chronological and matches JS
+    # (ASCII), so filtering a date column by range works and is
+    # consistent with matchesFilters / applyFilter.
     if op in ("greater_than", "less_than"):
         gt = op == "greater_than"
         target_num = bool(_FULL_NUMERIC_RE.match(target.strip()))
@@ -476,15 +479,15 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
                 if (n > t) if gt else (n < t):
                     return True
             elif not target_num or _ISO_DATE_RE.match(x_stripped):
-                # Comparació de CADENA en minúscules quan:
-                #  - el filtre NO és numèric (p. ex. target és una data completa
+                # Lowercase STRING comparison when:
+                #  - the filter is NOT numeric (e.g. the target is a full date
                 #    "2024-01-15"), o
-                #  - el valor és una data ISO i el target és un any/número nu
-                #    (p. ex. `> 2020` sobre "2024-01-15"): les dates ISO ordenen
-                #    cronològicament en ASCII, igual en JS i Python.
-                # Un text arbitrari ("foo") amb target numèric NO casa (skip): sense
-                # això, "foo" > "5" (string) retornava True incorrectament. Paritat
-                # amb matchesFilters / DbViewEmbed.applyFilter (front).
+                #  - the value is an ISO date and the target is a bare year/number
+                #    (e.g. `> 2020` on "2024-01-15"): ISO dates sort
+                #    chronologically in ASCII, the same in JS and Python.
+                # Arbitrary text ("foo") with a numeric target does NOT match (skip): without
+                # this, "foo" > "5" (string) incorrectly returned True. Parity
+                # with matchesFilters / DbViewEmbed.applyFilter (frontend).
                 xl = x.lower()
                 if (xl > target_l) if gt else (xl < target_l):
                     return True
@@ -492,50 +495,50 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     return True
 
 
-# --- Comparador d'ordenació: paritat 1:1 amb `compareFieldValues` -----------
-# parseFloat de JS (NO és float() de Python!): salta espais INICIALS i parseja
-# el prefix numèric MÉS LLARG, ignorant la resta. float() peta amb "12,5" o "5abc";
+# --- Sort comparator: 1:1 parity with `compareFieldValues` -----------
+# JS's parseFloat (it's NOT Python's float()!): skips LEADING whitespace and parses
+# the LONGEST numeric prefix, ignoring the rest. float() blows up on "12,5" or "5abc";
 # parseFloat("12,5")=12, parseFloat("5abc")=5, parseFloat("0,25")=0. Inclou signe,
-# ±Infinity i exponent (la gramàtica StrDecimalLiteral de l'spec).
+# ±Infinity and exponent (the spec's StrDecimalLiteral grammar).
 _JS_PARSEFLOAT_RE = re.compile(r"[+-]?(?:Infinity|(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)")
 
-# Un valor només compta com a NUMÈRIC per ordenar si TOTA la cadena és un número
-# (dígits, separadors, exponent). `_parse_float_js` parseja prefixos
-# ("2024-07-05"→2024), així que sense aquesta comprovació les dates del mateix any
-# es comparaven com a iguals. Paritat amb el front (`numRe` a compareFieldValues).
+# A value only counts as NUMERIC for sorting if the WHOLE string is a number
+# (digits, separators, exponent). `_parse_float_js` parses prefixes
+# ("2024-07-05"→2024), so without this check dates from the same year
+# were compared as equal. Parity with the front-end (`numRe` in compareFieldValues).
 _FULL_NUMERIC_RE = re.compile(r"^[+-]?[\d.,]+(?:[eE][+-]?\d+)?$")
 
-# Un valor "sembla una data ISO" si comença per YYYY-MM (data, datetime o mes
-# nu). Serveix perquè `> 2020` (target any nu, numèric) casi les dates ISO per
-# comparació lexicogràfica —cronològica en ASCII— sense casar text arbitrari
-# ("foo"). Paritat amb `ISO_DATE_RE` del front (vaultFilters.js).
+# A value "looks like an ISO date" if it starts with YYYY-MM (date, datetime, or bare
+# month). It's used so that `> 2020` (bare numeric year target) matches ISO dates by
+# lexicographic comparison —chronological in ASCII— without matching arbitrary text
+# ("foo"). Parity with the frontend's `ISO_DATE_RE` (vaultFilters.js).
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}")
 
 
 def _parse_float_js(text: str) -> Optional[float]:
-    """Equivalent a JS ``parseFloat``: retorna el float del prefix numèric o
-    ``None`` (el ``NaN`` de JS) si no comença per número. ``re.match`` ancora a
-    l'inici; ``lstrip`` replica el «salta espais inicials» de parseFloat."""
+    """Equivalent to JS ``parseFloat``: returns the float of the numeric prefix or
+    ``None`` (JS's ``NaN``) if it doesn't start with a number. ``re.match`` anchors at
+    the start; ``lstrip`` replicates parseFloat's «skip leading whitespace»."""
     m = _JS_PARSEFLOAT_RE.match(text.lstrip())
     if not m:
         return None
     try:
         return float(m.group(0))
-    except ValueError:  # defensiu; la regex ja restringeix el token
+    except ValueError:  # defensive; the regex already restricts the token
         return None
 
 
-# Cas inequívoc de decimal amb COMA ("12,5", sense punt de milers): una sola
-# coma entre dígits. Paritat amb `parseNumericValue` del front (vaultFilters.js).
+# Unambiguous case of a COMMA decimal ("12,5", without a thousands separator dot): a single
+# comma between digits. Parity with the frontend's `parseNumericValue` (vaultFilters.js).
 _COMMA_DECIMAL_RE = re.compile(r"^-?\d+,\d+$")
 
 
 def _parse_numeric_value(text: str) -> Optional[float]:
-    """Port de ``parseNumericValue`` (vaultFilters.js): tolera el decimal LOCAL
-    amb coma ("0,25" → 0.25, cas inequívoc d'una sola coma sense punt de
-    milers); la resta cau a ``_parse_float_js`` (que, com parseFloat, s'atura a
-    la coma: "0,25" → 0). Sense això el snapshot filtrava i ordenava els camps
-    number en format català/castellà diferent de la vista principal."""
+    """Port of ``parseNumericValue`` (vaultFilters.js): tolerates the LOCAL comma
+    decimal ("0,25" → 0.25, unambiguous case of a single comma without a thousands
+    separator dot); everything else falls to ``_parse_float_js`` (which, like parseFloat, stops at
+    the comma: "0,25" → 0). Without this, the snapshot filtered and sorted
+    number fields in Catalan/Spanish format differently from the main view."""
     t = text.strip()
     if _COMMA_DECIMAL_RE.match(t):
         return float(t.replace(",", "."))
@@ -543,12 +546,12 @@ def _parse_numeric_value(text: str) -> Optional[float]:
 
 
 def _js_str(value: Any) -> str:
-    """Coerció EQUIVALENT a JS ``String(value)`` (el front fa ``String(raw ?? '')``):
-    ``None``→'', ``bool``→'true'/'false', llista→elements units per ',' (com
-    ``Array.prototype.toString``, amb '' per a ``None``), dict→'[object Object]'.
-    Sense això una relació/multi_select (llista de Python) es compararia com
-    "['a', 'b']" al backend però "a,b" al front → ordre divergent (per això la
-    relació es trencava). ``bool`` es comprova ABANS que res (és subclasse d'int)."""
+    """Coercion EQUIVALENT to JS ``String(value)`` (the frontend does ``String(raw ?? '')``):
+    ``None``→'', ``bool``→'true'/'false', list→elements joined by ',' (like
+    ``Array.prototype.toString``, with '' for ``None``), dict→'[object Object]'.
+    Without this, a relation/multi_select (Python list) would compare as
+    "['a', 'b']" on the backend but "a,b" on the frontend → divergent order (which is why the
+    relation broke). ``bool`` is checked BEFORE anything else (it's a subclass of int)."""
     if value is None:
         return ""
     if isinstance(value, bool):
@@ -561,21 +564,21 @@ def _js_str(value: Any) -> str:
 
 
 def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int:
-    """Port 1:1 de ``compareFieldValues`` (vaultFilters.js), ÚNICA font de veritat
-    de l'ordenació de vistes al front (vista principal i incrustades):
+    """1:1 port of ``compareFieldValues`` (vaultFilters.js), the ONLY source of truth
+    for view sorting on the frontend (main view and embedded ones):
 
-    - els valors BUITS van SEMPRE al final, independentment de la direcció (com
-      Notion); la direcció s'aplica NOMÉS a la part no-buida (per això cal un
-      comparador, no un ``key=`` amb ``reverse``: la inversió posaria els buits
-      al principi en descendent).
-    - si tots dos són NUMÈRICS (segons ``parseFloat`` de JS), ordre numèric real
-      (2 < 10, no "10" < "2").
-    - si no, fallback de cadena amb ``_collation_key(sort_key(...))``, que plega
-      els diacrítics a la lletra base per replicar el ``localeCompare('ca',
-      {sensitivity: 'base'})`` del front (à==a): els accentuats s'ordenen amb la
-      seva base, no per codepoint (que els posaria després de la 'z').
+    - EMPTY values ALWAYS go last, regardless of direction (like
+      Notion); direction applies ONLY to the non-empty part (which is why a
+      comparator is needed, not a ``key=`` with ``reverse``: inverting would put the empty ones
+      first in descending order).
+    - if both are NUMERIC (according to JS's ``parseFloat``), real numeric order
+      (2 < 10, not "10" < "2").
+    - otherwise, string fallback with ``_collation_key(sort_key(...))``, which folds
+      diacritics to the base letter to replicate the frontend's ``localeCompare('ca',
+      {sensitivity: 'base'})`` (à==a): accented characters sort by their
+      base letter, not by codepoint (which would put them after 'z').
 
-    Retorna -1/0/1."""
+    Returns -1/0/1."""
     a_val = _js_str(a_raw)
     b_val = _js_str(b_raw)
     a_empty = a_val.strip() == ""
@@ -583,11 +586,11 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
     if a_empty or b_empty:
         if a_empty and b_empty:
             return 0
-        return 1 if a_empty else -1  # buits sempre al final
+        return 1 if a_empty else -1  # empty values always last
     a_num = _parse_numeric_value(a_val) if _FULL_NUMERIC_RE.match(a_val.strip()) else None
     b_num = _parse_numeric_value(b_val) if _FULL_NUMERIC_RE.match(b_val.strip()) else None
     if a_num is not None and b_num is not None:
-        cmp = (a_num > b_num) - (a_num < b_num)  # signe (evita nan amb inf-inf)
+        cmp = (a_num > b_num) - (a_num < b_num)  # sign (avoids nan from inf-inf)
     else:
         ka = _collation_key(sort_key(a_val))
         kb = _collation_key(sort_key(b_val))
@@ -596,10 +599,10 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
 
 
 def multi_key_sort(rows: List[Dict[str, Any]], sorts: Optional[Sequence[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    """Port de ``multiKeySort`` (DbViewEmbed) amb el comparador compartit
-    ``_compare_field_values`` (paritat 1:1 amb ``compareFieldValues`` del front):
-    sense sorts, per títol; si no, multi-clau ESTABLE aplicant les claus de
-    l'última a la primera (``list.sort`` és estable, com ``Array.sort``)."""
+    """Port of ``multiKeySort`` (DbViewEmbed) with the shared comparator
+    ``_compare_field_values`` (1:1 parity with the frontend's ``compareFieldValues``):
+    without sorts, by title; otherwise, STABLE multi-key sort applying the keys from
+    last to first (``list.sort`` is stable, like ``Array.sort``)."""
     if not sorts:
         return sorted(
             rows,
@@ -628,11 +631,11 @@ def resolve_row_ids(
     view: Dict[str, Any],
     host_page_id: Optional[str],
 ) -> List[str]:
-    """Donades les files candidates (``{id, title, metadata}``, metadata ja en
-    noms de RESPOSTA i ids de relació nets) i una vista del registry, retorna
-    els ids ordenats que la vista mostra. Replica filtre + ordre del frontend.
+    """Given the candidate rows (``{id, title, metadata}``, metadata already in
+    RESPONSE names and clean relation ids) and a view from the registry, returns
+    the sorted ids the view shows. Replicates the frontend's filter + sort.
 
-    Els templates s'han d'haver exclòs abans (com fa el frontend amb
+    Templates must have already been excluded beforehand (as the frontend does with
     ``is_template``)."""
     return [str(r.get("id")) for r in resolve_rows(rows, view, host_page_id) if r.get("id")]
 
@@ -642,8 +645,8 @@ def resolve_rows(
     view: Dict[str, Any],
     host_page_id: Optional[str],
 ) -> List[Dict[str, Any]]:
-    """Com ``resolve_row_ids`` però retorna les FILES ordenades (``{id, title,
-    metadata}``), no només els ids — per a la taula markdown."""
+    """Like ``resolve_row_ids`` but returns the sorted ROWS (``{id, title,
+    metadata}``), not just the ids — for the markdown table."""
     filters = view.get("filters") or ([view["filter"]] if view.get("filter") else [])
     filtered = [
         r for r in rows

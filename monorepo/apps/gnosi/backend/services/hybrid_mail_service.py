@@ -1,5 +1,5 @@
 """
-Hybrid Mail Service — consulta Gmail API i IMAP directament sense vault.
+Hybrid Mail Service — queries the Gmail API and IMAP directly without a vault.
 """
 import email as email_lib
 import logging
@@ -17,22 +17,22 @@ from backend.utils.safe_io import sanitize_filename_component
 log = logging.getLogger(__name__)
 
 # ── IMAP connection pool ───────────────────────────────────────────────────────
-# Una connexió persistent per compte. Lock per compte per evitar ús concurrent.
+# A persistent connection per account. Lock per account to prevent concurrent use.
 _IMAP_POOL: dict[str, imaplib.IMAP4] = {}
 _IMAP_LOCKS: dict[str, threading.Lock] = {}
 _IMAP_META = threading.Lock()   # protegeix _IMAP_POOL i _IMAP_LOCKS
 
-_IMAP_TIMEOUT = 20  # segons
+_IMAP_TIMEOUT = 20  # seconds
 
-# Últim motiu d'error d'autenticació per email. S'omple a `_imap_connect_fresh`
-# i el llegeixen els endpoints (list/get/counts) per retornar un missatge
-# explicatiu si el compte cau per OAuth (vs network/host).
+# Last authentication error reason per email. Populated in `_imap_connect_fresh`
+# and the endpoints (list/get/counts) read it to return a message
+# explanatory if the account fails due to OAuth (vs network/host).
 _LAST_AUTH_ERROR: dict[str, str] = {}
 
 
 def _imap_pool_acquire(acc: dict) -> Optional[imaplib.IMAP4]:
-    """Retorna una connexió IMAP del pool, reconnectant si cal.
-    El caller ha d'alliberar-la cridant _imap_pool_release(email)."""
+    """Returns an IMAP connection from the pool, reconnecting if needed.
+    The caller must release it by calling _imap_pool_release(email)."""
     email = acc.get("email") or acc.get("imap_user")
     if not email:
         return None
@@ -64,7 +64,7 @@ def _imap_pool_acquire(acc: dict) -> Optional[imaplib.IMAP4]:
 
 
 def _imap_pool_release(email: str) -> None:
-    """Allibera el lock del compte perquè altres peticions puguin usar la connexió."""
+    """Releases the account lock so other requests can use the connection."""
     lock = _IMAP_LOCKS.get(email)
     if lock and lock.locked():
         try:
@@ -74,7 +74,7 @@ def _imap_pool_release(email: str) -> None:
 
 
 def _imap_pool_invalidate(email: str) -> None:
-    """Elimina la connexió del pool (s'usa quan es detecta un error greu)."""
+    """Removes the connection from the pool (used when a serious error is detected)."""
     with _IMAP_META:
         conn = _IMAP_POOL.pop(email, None)
     if conn:
@@ -83,7 +83,7 @@ def _imap_pool_invalidate(email: str) -> None:
         except Exception:
             pass
 
-# ── Mapping carpetes lògiques → query Gmail ────────────────────────────
+# ── Logical folder mapping → Gmail query ────────────────────────────
 _GMAIL_FOLDER_QUERY = {
     "INBOX":        "in:inbox",
     "SENT":         "in:sent",
@@ -168,8 +168,9 @@ def _get_imap_account(email: str) -> Optional[dict]:
     """Returns the account dict if *email* should be accessed via IMAP.
 
     Covers: manual (any IMAP), Outlook (injects default host/port), and
-    Google OAuth2 (injects imap.gmail.com/smtp.gmail.com i autentica per
-    XOAUTH2 al connectar). Per Google cal `refresh_token` desat al compte.
+    Google OAuth2 (injects imap.gmail.com/smtp.gmail.com and authenticates via
+    XOAUTH2 when connecting). Google requires a `refresh_token` saved on the account.
+    
     """
     acc = integration_manager.get_mail_account(email)
     if not integration_manager.is_imap_account(acc):
@@ -240,7 +241,7 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
 
 
 def _imap_folder_name(imap, folder_type: str) -> Optional[str]:
-    """Retorna el nom real de la carpeta IMAP per a un tipus lògic."""
+    """Returns the real IMAP folder name for a logical type."""
     if folder_type in ("INBOX", "all", "NOT_ARCHIVED", "STARRED"):
         return "INBOX"
     from backend.services.imap_mail_sync_service import _discover_folders, _FOLDER_TYPE_MAP_REVERSE
@@ -254,7 +255,7 @@ def _imap_folder_name(imap, folder_type: str) -> Optional[str]:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# GMAIL — LLISTA
+# GMAIL — LIST
 # ══════════════════════════════════════════════════════════════════════
 
 def gmail_list_messages(
@@ -410,7 +411,7 @@ def _extract_gmail_parts(payload: dict) -> tuple:
 
         if att_id:
             if mime.startswith("image/") and "attachment" not in cd:
-                # Imatge inline (amb o sense CID) — no mostrar com adjunt
+                # Inline image (with or without CID) — don't show as an attachment
                 inline_images.append({
                     "cid": cid or "",
                     "attachment_id": att_id,
@@ -419,7 +420,7 @@ def _extract_gmail_parts(payload: dict) -> tuple:
                     "size": size,
                 })
             elif filename:
-                # Fitxer amb nom explícit (PDF, Word, imatge adjunta, etc.)
+                # File with an explicit name (PDF, Word, attached image, etc.)
                 attachments.append({
                     "attachment_id": att_id,
                     "filename": filename,
@@ -540,7 +541,7 @@ def gmail_get_counts(email: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# IMAP — LLISTA
+# IMAP — LIST
 # ══════════════════════════════════════════════════════════════════════
 
 def imap_list_messages(
@@ -586,7 +587,7 @@ def imap_list_messages(
         all_uids = data[0].split()
         total = len(all_uids)
 
-        # Newest first: agafem des del final
+        # Newest first: we take from the end
         start = max(0, total - offset - limit)
         end   = max(0, total - offset)
         selected = list(reversed(all_uids[start:end]))
@@ -595,8 +596,8 @@ def imap_list_messages(
             return {"messages": [], "total": total}
 
         uid_str = b",".join(selected).decode()
-        # Si el servidor és Gmail (X-GM-EXT-1), demanem X-GM-THRID per al
-        # threading transparent. Altres IMAPs ignorarien l'argument.
+        # If the server is Gmail (X-GM-EXT-1), we request X-GM-THRID for the
+        # transparent threading. Other IMAPs would ignore the argument.
         is_gmail = integration_manager.is_imap_oauth_account(acc)
         fetch_args = "(FLAGS X-GM-THRID RFC822.HEADER)" if is_gmail else "(FLAGS RFC822.HEADER)"
         status, fetch_data = imap.uid("fetch", uid_str, fetch_args)

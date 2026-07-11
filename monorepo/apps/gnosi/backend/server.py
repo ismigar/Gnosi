@@ -116,20 +116,20 @@ async def lifespan(app: FastAPI):
                 log.info(f"ℹ️ No disk page-index cache found for {v_path}")
             kickoff_index_warmup(v_path)
             log.info(f"🔥 Indexer warmup launched in background for {v_path}")
-            # Trigger redundant del link-index rebuild: si l'indexer warmup
-            # triga (OneDrive lent fent rglob), l'índex de wikilinks arrenca
-            # igualment des d'aquí. kickoff_link_index_rebuild fa load-from-disk
-            # primer (mil·lisegons) i després rebuild en background — així la
-            # reescriptura automàtica de wikilinks al rename queda activa des
-            # del primer instant.
+            # Redundant trigger for the link-index rebuild: if the warmup indexer
+            # is slow (OneDrive being slow doing rglob), the wikilinks index starts
+            # anyway from here. kickoff_link_index_rebuild does a load-from-disk
+            # first (milliseconds) and then rebuilds in the background — this way the
+            # automatic wikilink rewriting on rename stays active from
+            # from the first instant.
             kickoff_link_index_rebuild()
             log.info("🔗 Link-index rebuild kickstarted at lifespan startup")
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
-    # 5. Connecta el sistema de plugins v2 (bus d'esdeveniments → sandbox de
-    #    dades). Idempotent; si falla, els plugins de dades queden inerts però
-    #    la resta del backend arrenca normalment.
+    # 5. Connects the plugins v2 system (event bus → sandbox of
+    #    data). Idempotent; if it fails, the data plugins remain inert but
+    #    the rest of the backend starts normally.
     try:
         from backend.services.plugin_dispatcher import wire as wire_plugins
         wire_plugins()
@@ -137,11 +137,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning(f"⚠️ No s'ha pogut connectar el sistema de plugins: {e}")
 
-    # 4b. Índex de noms de fitxers/carpetes del Vault per a la cerca del picker
-    #     ("Seleccionar fitxer o carpeta"). El host_open_helper (Spotlight) no
-    #     veu de forma fiable ~/Library/CloudStorage (OneDrive); aquest índex,
-    #     construït en segon pla des del muntatge /vault del contenidor, fa la
-    #     cerca ràpida i fiable independentment del helper. Vegeu
+    # 4b. Index of Vault file/folder names for the picker search
+    #     ("Select file or folder"). The host_open_helper (Spotlight) does not
+    #     reliably see ~/Library/CloudStorage (OneDrive); this index,
+    #     built in the background from the container's /vault mount, makes the
+    #     search fast and reliable independent of the helper. See
     #     services/vault_file_index.py.
     try:
         from backend.services.vault_file_index import kickoff_file_index_rebuild
@@ -160,8 +160,8 @@ async def lifespan(app: FastAPI):
             registry_mutation,
             _ensure_main_view,
         )
-        # Cicle load→modify→save sencer sota candau: encara que corre a l'arrencada,
-        # els workers IMAP IDLE / indexadors que segueixen ja poden tocar el registre.
+        # Entire load→modify→save cycle under lock: even though it runs at startup,
+        # the IMAP IDLE workers / indexers that follow can now touch the registry.
         with registry_mutation():
             registry = load_registry()
             repaired = []
@@ -181,9 +181,9 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         log.warning(f"⚠️ Could not run main-view repair pass: {e}")
 
-    # 6. IMAP IDLE workers per push real (notificacions de mail nou).
-    #    Cada compte IMAP-eligible (inclou Google via XOAUTH2) llança un
-    #    thread daemon que manté una connexió IDLE oberta a INBOX. Els
+    # 6. IMAP IDLE workers for real push (new mail notifications).
+    #    Each IMAP-eligible account (including Google via XOAUTH2) launches a
+    #    daemon thread that keeps an IDLE connection open on INBOX. The
     #    events EXISTS/EXPUNGE/FETCH es publiquen a clients SSE
     #    (/api/mail/events).
     try:
@@ -203,8 +203,8 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
     if hasattr(app.state, "mcp_client"):
-        # Timeout: si el stop del client MCP es penja (servidors no responen),
-        # no bloqueja el shutdown del worker (i amb ell la recàrrega de --reload).
+        # Timeout: if the MCP client stop hangs (servers not responding),
+        # it does not block the worker's shutdown (and with it the --reload reload).
         try:
             await asyncio.wait_for(app.state.mcp_client.stop(), timeout=5)
             log.info("✅ MCP Client stopped.")
@@ -214,15 +214,15 @@ async def lifespan(app: FastAPI):
 # Instance creation
 app = FastAPI(title="Gnosi Agent", version="0.2.0", lifespan=lifespan)
 
-# CORS — `allow_origins=["*"]` + `allow_credentials=True` és invàlid per
-# spec (el navegador rebutja la resposta amb CORS error). Si en algun moment
-# es necessiten cookies/credentials, cal posar origins explícits aquí.
-# En personal mode no usem credentials cross-origin, així que és segur deixar
-# wildcard amb credentials=False. CORS_ORIGINS env var permet un override
-# explícit (separar amb comes) sense haver de redeploy.
+# CORS — `allow_origins=["*"]` + `allow_credentials=True` is invalid per
+# spec (the browser rejects the response with a CORS error). If at some point
+# cookies/credentials are needed, explicit origins must be set here.
+# In personal mode we don't use cross-origin credentials, so it's safe to leave
+# wildcard with credentials=False. CORS_ORIGINS env var allows an override
+# explicit (comma-separated) without needing to redeploy.
 _cors_origins_env = os.environ.get("CORS_ORIGINS", "").strip()
 _cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] or ["*"]
-_cors_credentials = bool(_cors_origins_env)  # només si l'usuari ha llistat origins
+_cors_credentials = bool(_cors_origins_env)  # only if the user has listed origins
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
@@ -232,14 +232,14 @@ app.add_middleware(
 )
 
 # GZip per a respostes grans (`/pages`, `/by-table`, `/global-index`).
-# `minimum_size=1024` evita comprimir crides petites on l'overhead de
-# compressió no compensa. Per a 300 PageInfo serialitzats (~100-300KB), la
-# compressió típica és 8-12x, reduint el temps de transferència al
+# `minimum_size=1024` avoids compressing small calls where the overhead of
+# compression isn't worth it. For 300 serialized PageInfo (~100-300KB), the
+# typical compression is 8-12x, reducing transfer time to
 # frontend significativament en xarxes lentes.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
-# Multi-vault: fixa el vault ACTIU des de X-Vault-Id en un context que propaga als endpoints
-# (una dependència síncrona no ho aconseguia). Vegeu services/active_vault_middleware.py.
+# Multi-vault: sets the ACTIVE vault from X-Vault-Id in a context that propagates to the endpoints
+# (a synchronous dependency couldn't achieve this). See services/active_vault_middleware.py.
 from backend.services.active_vault_middleware import ActiveVaultMiddleware
 app.add_middleware(ActiveVaultMiddleware)
 
@@ -254,7 +254,7 @@ from fastapi.responses import JSONResponse as _JSONResponse
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: _Request, exc: Exception):
-    """Captura tots els errors 500 no controlats i els registra al sistema de logs."""
+    """Captures all uncontrolled 500 errors and logs them to the logging system."""
     import traceback
     route = f"{request.method} {request.url.path}"
     error_detail = str(exc)
@@ -271,11 +271,11 @@ async def global_exception_handler(request: _Request, exc: Exception):
                 level="ERROR"
             )
         except Exception:
-            pass  # No deixem que el handler de logs causi un altre error
+            pass  # We don't let the logging handler cause another error
 
-    # No retornem `error_detail` al client: pot contenir paths absoluts, fragments
-    # de queries SQL, tokens. Tot ja està al log per debugging. El client només
-    # rep un missatge genèric + un identificador per poder buscar al log si cal.
+    # We do not return `error_detail` to the client: it may contain absolute paths, fragments
+    # of SQL queries, tokens. Everything is already in the log for debugging. The client only
+    # receives a generic message + an identifier so it can be searched in the log if needed.
     error_id = hex(abs(hash((route, error_detail))) & 0xFFFFFFFF)[2:]
     log.error(f"   error_id={error_id}")
     return _JSONResponse(
@@ -299,7 +299,7 @@ app.include_router(handwriting_routes.router, tags=["Handwriting"])
 app.include_router(vault_graph_routes.router, prefix="/api", tags=["Vault Graph"])
 app.include_router(vault_views_routes.router, prefix="/api", tags=["Vault Views"])
 
-# Real-time collaboration (WebSocket: presència + relay per pàgina)
+# Real-time collaboration (WebSocket: presence + per-page relay)
 app.include_router(collab_routes.router, prefix="/api/vault", tags=["Collaboration"])
 # Share links: authenticated endpoints under /api/vault/*, public read at /api/share/{token}
 app.include_router(share_routes.router, prefix="/api", tags=["Share"])

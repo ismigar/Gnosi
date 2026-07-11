@@ -12,13 +12,14 @@ INSTRUCTIONS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def _safe_directive_path(topic: str):
-    """Resol `topic` a un `.md` DINS d'INSTRUCTIONS_DIR, o None si s'escaparia.
+    """Resolve `topic` to a `.md` INSIDE INSTRUCTIONS_DIR, or None if it would escape.
 
-    `topic` ve de l'LLM (potencialment influït per contingut no confiable que
-    l'agent llegeix: pàgines del vault, correus, PDFs). Sense contenció, un `../`
-    o una ruta absoluta permetria llegir/ESCRIURE fitxers arbitraris fora del
-    directori de directives (path traversal). Mateix patró de contenció que
-    `run_tests` a system_tools.py.
+    `topic` comes from the LLM (potentially influenced by untrusted content that
+    the agent reads: vault pages, emails, PDFs). Without containment, a `../`
+    or an absolute path would allow reading/WRITING arbitrary files outside the
+    directives directory (path traversal). Same containment pattern as
+    `run_tests` in system_tools.py.
+    
     """
     topic = topic if topic.endswith(".md") else f"{topic}.md"
     base = INSTRUCTIONS_DIR.resolve()
@@ -78,9 +79,9 @@ def update_directive(topic: str, content: str) -> str:
         if file_path is None:
             return "Error: nom de directiva no vàlid (fora del directori de directives)."
 
-        # Atomic write — un crash a meitat de write deixaria una directiva
-        # truncada. L'agent pot estar editant una directiva crítica i un
-        # SIGINT (timeout o restart del backend) la corromp completament.
+        # Atomic write — a crash halfway through the write would leave a directive
+        # truncated. The agent might be editing a critical directive and a
+        # SIGINT (timeout or backend restart) corrupts it completely.
         safe_write_text(file_path, content)
 
         return f"Successfully updated directive: {topic}"

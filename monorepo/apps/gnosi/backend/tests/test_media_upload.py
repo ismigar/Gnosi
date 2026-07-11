@@ -1,14 +1,14 @@
-"""Tests de seguretat de MediaService.upload_media (path traversal + atomicitat).
+"""Security tests for MediaService.upload_media (path traversal + atomicity).
 
 What we cover:
-    - album amb ".." (pla o niat) → HTTP 400 i res escrit fora d'Images/
-    - album absolut ("/etc") → contingut dins d'Images/ (no escapa)
-    - filename amb separadors/".." → es desa DINS l'àlbum amb nom pla
-    - àlbum niat legítim ("Viatges/2024") segueix funcionant
-    - col·lisió de nom → el contingut original NO se sobreescriu
-    - symlink dins Images apuntant fora → 400 (contenció post-resolve)
+    - album with ".." (flat or nested) → HTTP 400 and nothing written outside Images/
+    - absolute album ("/etc") → content stays inside Images/ (no escape)
+    - filename with separators/".." → saved INSIDE the album with a flat name
+    - legitimate nested album ("Viatges/2024") still works
+    - name collision → the original content is NOT overwritten
+    - symlink inside Images pointing outside → 400 (post-resolve containment)
 
-Veure docs/dev_memory/directives/media_upload_path_safety.md.
+See docs/dev_memory/directives/media_upload_path_safety.md.
 
 Run inside the backend container:
     docker exec gnosi_backend python -m pytest backend/tests/test_media_upload.py -v
@@ -27,7 +27,7 @@ from backend.services.media_service import MediaService
 
 @pytest.fixture()
 def vault(tmp_path: Path):
-    """Vault temporal aïllat: Images/ es crea sota tmp_path."""
+    """Isolated temporary vault: Images/ is created under tmp_path."""
     vault_dir = tmp_path / "vault"
     vault_dir.mkdir()
     token = active_vault_path.set(vault_dir)
@@ -62,7 +62,7 @@ def test_album_traversal_rejected(vault: Path, album: str):
     with pytest.raises(HTTPException) as exc:
         svc.upload_media(_upload("a.jpg"), album=album)
     assert exc.value.status_code == 400
-    # Cap fitxer nou enlloc (ni dins ni fora del vault)
+    # No new file anywhere (neither inside nor outside the vault)
     assert _files_under(vault.parent) == before
 
 
@@ -71,7 +71,7 @@ def test_album_absolute_path_contained(vault: Path):
     info = svc.upload_media(_upload("a.jpg"), album="/etc")
     written = vault / "Images" / "etc" / info["filename"]
     assert written.is_file()
-    # Res fora d'Images
+    # Nothing outside Images
     assert _files_under(vault.parent) == {written}
 
 

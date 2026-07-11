@@ -1,15 +1,15 @@
-"""Transcripció local d'àudio amb faster-whisper (CTranslate2, SENSE torch).
+"""Local audio transcription with faster-whisper (CTranslate2, WITHOUT torch).
 
-Privat: l'àudio es processa a la màquina, no surt a cap núvol. El model es
-carrega de manera mandrosa (singleton) i es baixa al 1r ús a
-`GNOSI_LOCAL_DATA/cache/whisper` (fora d'OneDrive, cf. memòria de caches).
-Decodifica webm/opus (el que produeix MediaRecorder del navegador) via PyAV,
-sense ffmpeg extern.
+Private: the audio is processed on the machine, it never goes to any cloud. The
+model is loaded lazily (singleton) and downloaded on first use to
+`GNOSI_LOCAL_DATA/cache/whisper` (outside OneDrive, cf. the caches memory note).
+Decodes webm/opus (what the browser's MediaRecorder produces) via PyAV,
+without external ffmpeg.
 
-Tamany del model configurable: env `GNOSI_WHISPER_MODEL` o
-`ai.transcription.model` a params.yaml. Default `small` (bon equilibri
-qualitat/velocitat en CPU). `base` és més ràpid; `medium`/`large-v3` més precisos
-però més lents.
+Configurable model size: env `GNOSI_WHISPER_MODEL` or
+`ai.transcription.model` in params.yaml. Default `small` (good balance of
+quality/speed on CPU). `base` is faster; `medium`/`large-v3` are more accurate
+but slower.
 """
 import logging
 import os
@@ -58,7 +58,7 @@ def is_available() -> bool:
 
 
 def get_model():
-    """Carrega (mandrós) i retorna el `WhisperModel` singleton."""
+    """Loads (lazily) and returns the `WhisperModel` singleton."""
     global _MODEL
     if _MODEL is not None:
         return _MODEL
@@ -75,18 +75,19 @@ def get_model():
 
 
 def transcribe(audio_path: str, language: Optional[str] = None) -> dict:
-    """Transcriu un fitxer d'àudio.
+    """Transcribes an audio file.
 
-    Retorna `{text, language, duration, segments}` on `segments` és una llista de
-    `{start, end, text}` (per si es volen marques de temps). `language=None` →
-    autodetecció (Whisper va bé en català/castellà).
+    Returns `{text, language, duration, segments}` where `segments` is a list of
+    `{start, end, text}` (in case timestamps are wanted). `language=None` →
+    auto-detection (Whisper works well with Catalan/Spanish).
+    
     """
     model = get_model()
     segments, info = model.transcribe(
         audio_path,
         language=language,
-        vad_filter=True,   # salta silencis → més ràpid i net
-        beam_size=1,       # ràpid en CPU; pujar a 5 dona una mica més de precisió
+        vad_filter=True,   # skips silences → faster and cleaner
+        beam_size=1,       # fast on CPU; raising it to 5 gives a bit more accuracy
     )
     parts = []
     seg_list = []

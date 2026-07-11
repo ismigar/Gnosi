@@ -29,7 +29,7 @@ class TaskHistoryResponse(BaseModel):
     finished_at: Optional[datetime]
     duration_seconds: Optional[float]
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("started_at", "finished_at")

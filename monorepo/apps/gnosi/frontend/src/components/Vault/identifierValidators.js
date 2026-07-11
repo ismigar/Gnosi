@@ -1,20 +1,20 @@
 /**
- * Validators d'identificadors bibliogràfics (DOI / ISBN / PMID / arXiv / URL).
+ * Validators for bibliographic identifiers (DOI / ISBN / PMID / arXiv / URL).
  *
- * Mirall lleuger dels normalitzadors del backend (`_normalize_doi`, etc. a
- * `vault_routes.py`). Aquí només són **booleans** — el frontend mostra
- * feedback visual immediat quan l'usuari escriu un valor invàlid, abans
- * de cap crida HTTP.
+ * Lightweight mirror of the backend normalizers (`_normalize_doi`, etc. in
+ * `vault_routes.py`). Here they are only **booleans** — the frontend shows
+ * immediate visual feedback when the user types an invalid value, before
+ * any HTTP call.
  *
- * Lema: si retornen `true`, el backend probablement els acceptarà. Si
- * retornen `false`, no demano al backend (estalvia roundtrip i UX).
+ * Rule of thumb: if they return `true`, the backend will probably accept them. If
+ * they return `false`, we don't ask the backend (saves a roundtrip and improves UX).
  *
- * Casos límit (decisió: ser tolerant amb formats comuns):
- *   - DOI pot venir com a `10.xxxx/...` o `https://doi.org/10.xxxx/...`
- *   - ISBN-10 amb checksum X final
- *   - PMID és estrictament numèric
- *   - arXiv té dos formats: nou (`YYMM.NNNNN[vN]`) i antic (`category/YYMMNNN`)
- *   - URL: http(s):// + alguna cosa
+ * Edge cases (decision: be tolerant of common formats):
+ *   - DOI can come as `10.xxxx/...` or `https://doi.org/10.xxxx/...`
+ *   - ISBN-10 with a trailing X checksum
+ *   - PMID is strictly numeric
+ *   - arXiv has two formats: new (`YYMM.NNNNN[vN]`) and old (`category/YYMMNNN`)
+ *   - URL: http(s):// + something
  */
 
 const DOI_RE = /10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i;
@@ -31,9 +31,9 @@ export function isValidDOI(raw) {
 
 export function isValidISBN(raw) {
     if (!raw || typeof raw !== 'string') return false;
-    // `.toUpperCase()` perquè el dígit de control X de l'ISBN-10 és vàlid tant
-    // en majúscula com en minúscula; sense això un "...089x" es rebutjava (el
-    // regex usa `[\dX]`) i el frontend bloquejava la cerca abans de la crida.
+    // `.toUpperCase()` because the ISBN-10 check digit X is valid both
+    // uppercase and lowercase; without this a "...089x" was rejected (the
+    // regex uses `[\dX]`) and the frontend was blocking the search before the call.
     const cleaned = raw.trim().replace(/[-\s]/g, '').toUpperCase();
     return ISBN_DIGITS_RE.test(cleaned);
 }
@@ -55,12 +55,12 @@ export function isValidURL(raw) {
 }
 
 /**
- * Centralitzat: rep el tipus d'identificador i el valor, retorna
- * `{ valid: bool, hint: string | null }`. El hint és copy lleuger
- * sobre per què la validació ha fallat (per a tooltip o ajuda inline).
+ * Centralized: takes the identifier type and value, returns
+ * `{ valid: bool, hint: string | null }`. The hint is light copy
+ * about why validation failed (for a tooltip or inline help).
  *
- * `valid` per a un valor buit és `true` perquè el modal vol acceptar
- * camps en blanc (no tots són obligatoris).
+ * `valid` for an empty value is `true` because the modal wants to accept
+ * blank fields (not all of them are mandatory).
  */
 export function validateIdentifier(kind, raw) {
     if (!raw || !String(raw).trim()) return { valid: true, hint: null };

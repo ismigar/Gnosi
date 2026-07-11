@@ -1,14 +1,14 @@
-"""Tests d'unitat per a `_recover_translations_from_disk` (idempotència de
-translate-row sota OneDrive).
+"""Unit tests for `_recover_translations_from_disk` (idempotency of
+translate-row under OneDrive).
 
-Cobreix la xarxa de seguretat que recupera traduccions filles que existeixen
-al disc però que l'indexer no ha pogut indexar (fitxers online-only/dataless
-→ entry stub sense `translation_*`), evitant que translate-row en creï
-duplicats («… (2).md»).
+Covers the safety net that recovers child translations that exist
+on disk but that the indexer failed to index (online-only/dataless
+files → stub entry without `translation_*`), preventing translate-row from creating
+duplicates («… (2).md»).
 
-NO cobreix: la materialització real via daemon de warmup (es mockeja).
+Does NOT cover: the actual materialization via the warmup daemon (it's mocked).
 
-Run dins el container:
+Run inside the container:
     docker exec gnosi_backend python -m pytest backend/tests/test_translate_row_recover.py -v
 """
 from __future__ import annotations
@@ -35,8 +35,8 @@ def _write_md(path: Path, frontmatter: dict, body: str = "cos de proba") -> None
 
 @pytest.fixture
 def patched_dir(tmp_path, monkeypatch):
-    """Aïlla la funció de l'I/O extern: materialize no-op i índex/cache locals,
-    de manera que el test només exerciti la lògica de descobriment/filtre."""
+    """Isolates the function from external I/O: no-op materialize and local index/cache,
+    so the test only exercises the discovery/filter logic."""
     async def _noop_materialize(p, label=""):
         return None
 
@@ -53,9 +53,9 @@ def patched_dir(tmp_path, monkeypatch):
 
 
 def test_recovers_missing_child_translation(patched_dir):
-    """Recupera només la traducció filla de l'idioma que falta; exclou els
-    idiomes ja coneguts, els fills d'un altre origin i els fitxers que no són
-    traduccions."""
+    """Recovers only the child translation for the missing language; excludes
+    already-known languages, children of a different origin, and files that aren't
+    translations."""
     d = patched_dir
     _write_md(d / "es.md", {"id": "id-es", "translation_origin_id": ORIGIN, "translation_lang": "es"})
     _write_md(d / "fr.md", {"id": "id-fr", "translation_origin_id": ORIGIN, "translation_lang": "fr"})
@@ -69,7 +69,7 @@ def test_recovers_missing_child_translation(patched_dir):
 
 
 def test_no_recovery_when_all_known(patched_dir):
-    """Si l'idioma ja consta com a conegut (al snapshot), no es recupera res."""
+    """If the language is already listed as known (in the snapshot), nothing is recovered."""
     d = patched_dir
     _write_md(d / "es.md", {"id": "id-es", "translation_origin_id": ORIGIN, "translation_lang": "es"})
 
@@ -79,8 +79,8 @@ def test_no_recovery_when_all_known(patched_dir):
 
 
 def test_origin_id_form_insensitive(patched_dir):
-    """L'origin amb guions al fitxer ha de coincidir amb la consulta sense
-    guions (canonicalització d'IDs)."""
+    """The origin with dashes in the file must match the query without
+    dashes (ID canonicalization)."""
     d = patched_dir
     _write_md(d / "es.md", {"id": "id-es", "translation_origin_id": ORIGIN, "translation_lang": "es"})
 

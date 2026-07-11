@@ -56,24 +56,24 @@ FORBIDDEN_PATTERNS = [
     (r"aiohttp\.", "Direct HTTP requests forbidden - use MCP client"),
 ]
 
-# Detecció per AST (no regex): els patrons de dalt es bypassaven trivialment
-# reassignant el nom (`f = eval; f(x)`), amb àlies (`imp = __import__`), o amb
-# modes que la regex no cobria (`open(p, "wb")`). L'AST mira el NOM referenciat,
-# no la sintaxi de crida, així que aquests trucs no s'escapen.
+# AST-based detection (not regex): the patterns above were trivially bypassed
+# by reassigning the name (`f = eval; f(x)`), with aliases (`imp = __import__`), or with
+# modes the regex didn't cover (`open(p, "wb")`). The AST looks at the referenced NAME,
+# not the call syntax, so these tricks don't escape detection.
 #
-# NOTA HONESTA: això NO converteix el validador en un sandbox real. `pathlib`
-# (permès) encara pot llegir/escriure fitxers arbitraris i `__import__` es deixa
-# viu al loader; la contenció real és una decisió d'arquitectura (aprovació
-# humana o sandbox de procés). Aquests checks tanquen els ESCAPES DEMOSTRATS i
-# fan que el validador enforci de debò la seva pròpia llista de prohibicions.
+# HONEST NOTE: this does NOT turn the validator into a real sandbox. `pathlib`
+# (allowed) can still read/write arbitrary files and `__import__` is left
+# alive in the loader; real containment is an architecture decision (human
+# approval or process sandbox). These checks close the DEMONSTRATED ESCAPES and
+# make the validator actually enforce its own list of prohibitions.
 _FORBIDDEN_NAMES = {
     "eval", "exec", "compile", "__import__", "breakpoint",
     "globals", "locals", "vars", "getattr", "setattr", "delattr",
     "memoryview", "input",
 }
-# Atributs perillosos (Attribute node): dunders d'introspecció que porten a
-# `__globals__`/`__subclasses__` (escapes clàssics) i mètodes d'`os` que operen
-# sobre el sistema o l'entorn sense passar per cap regex (`os.environ`,
+# Dangerous attributes (Attribute node): introspection dunders that lead to
+# `__globals__`/`__subclasses__` (classic escapes) and `os` methods that operate
+# about the system or environment without going through any regex (`os.environ`,
 # `os.remove`, `os.system`…).
 _FORBIDDEN_ATTRS = {
     "system", "popen", "environ", "getenv", "putenv", "unsetenv",
@@ -83,7 +83,7 @@ _FORBIDDEN_ATTRS = {
     "__globals__", "__builtins__", "__subclasses__", "__bases__",
     "__mro__", "__code__", "__closure__", "__getattribute__", "__reduce__",
 }
-# Caràcters de mode d'`open()` que impliquen escriptura (tot menys lectura pura).
+# `open()` mode characters that imply writing (anything but pure read).
 _WRITE_OPEN_CHARS = set("wax+")
 
 
@@ -142,7 +142,7 @@ class ToolValidator:
                 if not self._is_import_allowed(module):
                     errors.append(f"Import not allowed: from {module}")
         
-        # 3.5. Escapes per AST (robust davant reassignació/àlies que la regex no veu)
+        # 3.5. AST-based escapes (robust against reassignment/aliasing that regex can't see)
         self._check_dangerous_ast(tree, errors)
 
         # 4. Check for @tool decorator
@@ -174,21 +174,22 @@ class ToolValidator:
         )
     
     def _check_dangerous_ast(self, tree: ast.AST, errors: List[str]) -> None:
-        """Detecta escapes referenciats pel NOM (no per la sintaxi de crida).
+        """Detects escapes referenced by NAME (not by call syntax).
 
-        Tanca els bypasses de la regex: `f = eval`, `imp = __import__`,
-        `getattr(o, "__globals__")`, `os.environ`, `open(p, "wb")`. Mira els
-        nodes Name/Attribute/Call de l'AST, així que reassignar o partir el nom
-        no evita la detecció.
+        Closes the regex bypasses: `f = eval`, `imp = __import__`,
+        `getattr(o, "__globals__")`, `os.environ`, `open(p, "wb")`. Looks at the
+        Name/Attribute/Call nodes of the AST, so reassigning or splitting the name
+        doesn't avoid detection.
+        
         """
         for node in ast.walk(tree):
-            # Nom perillós referenciat de qualsevol manera (crida, àlies, arg…).
+            # Dangerous name referenced in any way (call, alias, arg…).
             if isinstance(node, ast.Name) and node.id in _FORBIDDEN_NAMES:
                 errors.append(f"Forbidden name referenced: {node.id}")
-            # Accés a atribut perillós (os.environ, x.__globals__, …).
+            # Access to a dangerous attribute (os.environ, x.__globals__, …).
             elif isinstance(node, ast.Attribute) and node.attr in _FORBIDDEN_ATTRS:
                 errors.append(f"Forbidden attribute access: .{node.attr}")
-            # `open(...)` amb un mode d'escriptura (qualsevol menys lectura pura).
+            # `open(...)` with a write mode (anything other than pure read).
             elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
                     and node.func.id == "open":
                 mode = None
@@ -197,12 +198,12 @@ class ToolValidator:
                 else:
                     mode = next((kw.value for kw in node.keywords if kw.arg == "mode"), None)
                 if mode is None:
-                    continue  # open(p) → lectura per defecte
+                    continue  # open(p) → read by default
                 if isinstance(mode, ast.Constant) and isinstance(mode.value, str):
                     if set(mode.value) & _WRITE_OPEN_CHARS:
                         errors.append("Forbidden: open() in a write mode")
                 else:
-                    # Mode no literal (variable): no es pot verificar → es bloqueja.
+                    # Non-literal mode (variable): cannot be verified → blocked.
                     errors.append("Forbidden: open() with a non-literal mode")
 
     def _is_import_allowed(self, module: str) -> bool:

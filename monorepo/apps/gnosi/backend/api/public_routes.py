@@ -1,12 +1,12 @@
-"""API pública de Gnosi amb autenticació per Personal Access Token (PAT).
+"""Gnosi's public API with Personal Access Token (PAT) authentication.
 
-Dues superfícies:
-  - Gestió de tokens (autenticada per sessió): crear/llistar/revocar PATs.
-  - API pública (autenticada per PAT via `Authorization: Bearer gnosi_pat_…`):
-    ping, crear pàgines i l'endpoint del web clipper.
+Two surfaces:
+  - Token management (session-authenticated): create/list/revoke PATs.
+  - Public API (PAT-authenticated via `Authorization: Bearer gnosi_pat_…`):
+    ping, create pages, and the web clipper endpoint.
 
-Els tokens es desen NOMÉS com a hash SHA-256. El text en clar es mostra una sola
-vegada en crear-lo. Pensat per a integracions de tercers i el web clipper.
+Tokens are stored ONLY as a SHA-256 hash. The plaintext is shown only once
+when created. Designed for third-party integrations and the web clipper.
 """
 from __future__ import annotations
 
@@ -40,10 +40,11 @@ def require_pat(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_mgmt_db),
 ) -> ApiToken:
-    """Dependència: valida el PAT del header `Authorization: Bearer …`.
+    """Dependency: validates the PAT from the `Authorization: Bearer …` header.
 
-    Retorna l'`ApiToken` actiu i n'actualitza `last_used_at`. 401 si falta o és
-    invàlid/revocat.
+    Returns the active `ApiToken` and updates its `last_used_at`. 401 if it's missing or
+    invalid/revoked.
+    
     """
     if not authorization or not authorization.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Falta el token (Authorization: Bearer …)")
@@ -61,7 +62,7 @@ def require_pat(
     return token
 
 
-# ───────────────────────── Gestió de tokens (sessió) ─────────────────────────
+# ───────────────────────── Token management (session) ─────────────────────────
 
 class CreateTokenRequest(BaseModel):
     name: str
@@ -74,7 +75,7 @@ def create_token(
     context: WorkspaceContext = Depends(get_workspace_context),
     db: Session = Depends(get_mgmt_db),
 ):
-    """Crea un PAT. Retorna el token en clar UNA sola vegada (no es torna a mostrar)."""
+    """Creates a PAT. Returns the plaintext token ONCE (it won't be shown again)."""
     raw = TOKEN_PREFIX + secrets.token_urlsafe(32)
     prefix = raw[: len(TOKEN_PREFIX) + 4]
     tok = ApiToken(
@@ -91,7 +92,7 @@ def create_token(
     return {
         "id": tok.id,
         "name": tok.name,
-        "token": raw,  # ⚠️ única vegada
+        "token": raw,  # ⚠️ only once
         "prefix": prefix,
         "scopes": tok.scopes,
         "created_at": tok.created_at.isoformat() if tok.created_at else None,
@@ -131,7 +132,7 @@ def revoke_token(
     return {"status": "revoked", "id": token_id}
 
 
-# ───────────────────────── API pública (PAT) ─────────────────────────
+# ───────────────────────── Public API (PAT) ─────────────────────────
 
 def _sanitize_filename(title: str) -> str:
     clean = re.sub(r"[^\w\s\-.,()À-ÿ]", "", title).strip() or "Sense títol"
@@ -139,7 +140,7 @@ def _sanitize_filename(title: str) -> str:
 
 
 def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -> dict:
-    """Escriu una pàgina .md al vault amb frontmatter mínim. Retorna {id, path}."""
+    """Writes a .md page to the vault with minimal frontmatter. Returns {id, path}."""
     import yaml
     vault = get_active_vault_path()
     if not vault:
@@ -155,8 +156,8 @@ def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -
     meta = {"id": page_id, "title": title, **extra_meta}
     fm = yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
     path.write_text(f"---\n{fm}\n---\n\n{content or ''}\n", encoding="utf-8")
-    # Registra-la al page-index en memòria perquè aparegui a l'app de seguida
-    # i sigui esborrable per id (sense esperar el rebuild de l'índex).
+    # Register it in the in-memory page-index so it shows up in the app right away
+    # and can be deleted by id (without waiting for the index rebuild).
     try:
         from backend.api.vault_routes import register_page_in_index
         register_page_in_index(path)
@@ -167,7 +168,7 @@ def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -
 
 @router.get("/public/ping")
 def public_ping(token: ApiToken = Depends(require_pat)):
-    """Comprovació d'autenticació per a clients de l'API pública."""
+    """Authentication check for public API clients."""
     return {"ok": True, "user_id": token.user_id, "scopes": token.scopes}
 
 
@@ -180,7 +181,7 @@ class PublicPageRequest(BaseModel):
 
 @router.post("/public/pages")
 def public_create_page(body: PublicPageRequest, token: ApiToken = Depends(require_pat)):
-    """Crea una pàgina al vault via l'API pública (PAT)."""
+    """Creates a page in the vault via the public API (PAT)."""
     extra = {"created": datetime.now(timezone.utc).isoformat()}
     if body.tags:
         extra["tags"] = body.tags
@@ -191,16 +192,17 @@ def public_create_page(body: PublicPageRequest, token: ApiToken = Depends(requir
 class ClipRequest(BaseModel):
     url: str
     title: Optional[str] = None
-    content: str = ""          # markdown o text de la selecció
+    content: str = ""          # markdown or text of the selection
     tags: Optional[list[str]] = None
 
 
 @router.post("/public/clip")
 def public_clip(body: ClipRequest, token: ApiToken = Depends(require_pat)):
-    """Endpoint del web clipper: desa una pàgina web (URL + selecció) al vault.
+    """Web clipper endpoint: saves a web page (URL + selection) to the vault.
 
-    Crea una nota a la carpeta `Clips/` amb la font enllaçada i el contingut
-    capturat. Pensat per a l'extensió de navegador.
+    Creates a note in the `Clips/` folder with the linked source and the captured
+    content. Designed for the browser extension.
+    
     """
     title = (body.title or body.url or "Clip").strip()[:200]
     tags = list(body.tags or [])

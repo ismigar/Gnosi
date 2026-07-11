@@ -1,16 +1,16 @@
 # -*- coding: utf-8 -*-
-"""Gnosi Cite — Extensió LibreOffice Writer (estil Mendeley Cite).
+"""Gnosi Cite — LibreOffice Writer extension (Mendeley Cite style).
 
-Aquesta és la part client de l'extensió: un *protocol handler* UNO que
-registra el protocol ``gnosicite:`` i atén quatre comandes despatxades des
-del menú "Gnosi Cite":
+This is the client side of the extension: a UNO *protocol handler* that
+registers the ``gnosicite:`` protocol and handles four commands dispatched from
+the "Gnosi Cite" menu:
 
-    gnosicite:insertCitation      → obre el diàleg de cerca/inserció
-    gnosicite:insertBibliography  → recopila les cites i insereix la llista
-    gnosicite:refreshAll          → reformata totes les cites (context APA)
-    gnosicite:settings            → configura l'URL del backend
+    gnosicite:insertCitation      → opens the search/insert dialog
+    gnosicite:insertBibliography  → collects the citations and inserts the list
+    gnosicite:refreshAll          → reformats all citations (APA context)
+    gnosicite:settings            → configures the backend URL
 
-Reutilitza els mateixos endpoints que el Word Add-in "Gnosi Cite":
+Reuses the same endpoints as the "Gnosi Cite" Word Add-in:
 
     GET  /api/health
     GET  /api/vault/search-citations?q=&limit=
@@ -18,19 +18,19 @@ Reutilitza els mateixos endpoints que el Word Add-in "Gnosi Cite":
     POST /api/vault/format-citations     {keys[], style, locale}
     POST /api/vault/format-bibliography  {keys[], style, locale}
 
-Tracking de cites (equivalent als Content Controls de Word):
-    Cada cita inserida s'embolcalla en un *reference mark* de Writer amb el
-    nom ``gnosicite::<citation_key>::<uuid>``. Això permet:
-      1. Detectar totes les cites del document
-      2. Reformatar-les amb context complet (desambiguació APA, et al.)
-      3. Generar la bibliografia a partir de les claus
+Citation tracking (equivalent to Word's Content Controls):
+    Each inserted citation is wrapped in a Writer *reference mark* named
+    ``gnosicite::<citation_key>::<uuid>``. This allows:
+      1. Detecting all citations in the document
+      2. Reformatting them with full context (APA disambiguation, et al.)
+      3. Generating the bibliography from the keys
 
-Restriccions tècniques (LibreOffice):
-    - El Python embegut de LO NO porta ``requests`` → fem servir només
-      ``urllib`` de la stdlib.
-    - Les operacions ordenades (refreshAll) recorren el cos del document
-      via enumeració de *text portions*; no cobreixen capçaleres, peus de
-      pàgina ni cel·les de taula (limitació coneguda v0.1).
+Technical constraints (LibreOffice):
+    - LO's embedded Python does NOT ship ``requests`` → we only use
+      stdlib ``urllib``.
+    - Ordered operations (refreshAll) traverse the document body
+      via *text portions* enumeration; they do not cover headers, footers,
+      or table cells (known limitation v0.1).
 """
 
 import json
@@ -50,7 +50,7 @@ from com.sun.star.text.ControlCharacter import PARAGRAPH_BREAK
 
 
 # ---------------------------------------------------------------------------
-# Constants i configuració persistent
+# Constants and persistent configuration
 # ---------------------------------------------------------------------------
 
 IMPL_NAME = "com.gnosi.cite.ProtocolHandler"
@@ -61,9 +61,9 @@ MARK_PREFIX = "gnosicite::"
 STYLE_LABELS = ["APA 7", "Chicago (autor-data)", "MLA", "IEEE"]
 STYLE_VALUES = ["apa", "chicago-author-date", "modern-language-association", "ieee"]
 
-# Locale fix (no exposat a la UI; paritat amb el Word Add-in). Es manté
-# com a constant perquè els endpoints del backend l'esperen i la config el
-# desa, però el diàleg ja no en mostra cap selector.
+# Fixed locale (not exposed in the UI; parity with the Word Add-in). Kept
+# as a constant because the backend endpoints expect it and the config
+# saves it, but the dialog no longer shows any selector for it.
 DEFAULT_LOCALE = "ca-AD"
 
 DEFAULTS = {
@@ -74,7 +74,7 @@ DEFAULTS = {
 
 
 def _config_path():
-    """Retorna la ruta del fitxer de configuració de l'usuari."""
+    """Returns the path to the user's configuration file."""
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(
         os.path.expanduser("~"), ".config"
     )
@@ -82,7 +82,7 @@ def _config_path():
 
 
 def load_config():
-    """Carrega la configuració, omplint amb valors per defecte."""
+    """Loads the configuration, filling in default values."""
     cfg = dict(DEFAULTS)
     try:
         with open(_config_path(), "r", encoding="utf-8") as fh:
@@ -99,7 +99,7 @@ def load_config():
 
 
 def save_config(cfg):
-    """Desa la configuració (silenciós si falla)."""
+    """Saves the configuration (silent on failure)."""
     try:
         path = _config_path()
         os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -114,7 +114,7 @@ def save_config(cfg):
 # ---------------------------------------------------------------------------
 
 class GnosiApi(object):
-    """Embolcall prim sobre els endpoints de cites del backend de Gnosi."""
+    """Thin wrapper around the Gnosi backend's citation endpoints."""
 
     def __init__(self, base_url):
         self.base = (base_url or DEFAULTS["backend_url"]).rstrip("/")
@@ -172,16 +172,16 @@ class GnosiApi(object):
 
 
 # ---------------------------------------------------------------------------
-# Operacions sobre el document (equivalent a Word.run del add-in)
+# Document operations (equivalent to the add-in's Word.run)
 # ---------------------------------------------------------------------------
 
 class DocOps(object):
-    """Inserció i reformatació de cites en un document de Writer."""
+    """Insertion and reformatting of citations in a Writer document."""
 
     def __init__(self, doc):
         self.doc = doc
 
-    # -- helpers de noms de marca --------------------------------------
+    # -- brand name helpers --------------------------------------
 
     @staticmethod
     def _make_name(key):
@@ -195,13 +195,13 @@ class DocOps(object):
         parts = rest.split("::")
         if len(parts) < 2:
             return None
-        # La clau és tot menys l'últim segment (l'uuid); admet claus amb "::".
+        # The key is everything except the last segment (the uuid); supports keys containing "::".
         return "::".join(parts[:-1]) or None
 
-    # -- inserció -------------------------------------------------------
+    # -- insertion -------------------------------------------------------
 
     def insert_citation(self, key, formatted):
-        """Insereix una cita formatada i l'embolcalla en un reference mark."""
+        """Inserts a formatted citation and wraps it in a reference mark."""
         controller = self.doc.getCurrentController()
         view_cursor = controller.getViewCursor()
         text = view_cursor.getText()
@@ -210,19 +210,19 @@ class DocOps(object):
         mark = self.doc.createInstance("com.sun.star.text.ReferenceMark")
         mark.Name = self._make_name(key)
         text.insertTextContent(cur, mark, True)
-        # Situa el cursor DESPRÉS de la cita (col·lapsat al final del rang
-        # que ocupa la marca) perquè l'usuari pugui continuar escrivint sense
-        # que el text entri dins el reference mark.
+        # Places the cursor AFTER the citation (collapsed at the end of the range
+        # the mark occupies) so the user can keep typing without
+        # so that the text enters inside the reference mark.
         try:
             end = mark.getAnchor().getEnd()
             view_cursor.gotoRange(end, False)
         except Exception:
             pass
 
-    # -- recol·lecció de claus -----------------------------------------
+    # -- key collection -----------------------------------------
 
     def unique_keys(self):
-        """Claus úniques presents al document (per a la bibliografia)."""
+        """Unique keys present in the document (for the bibliography)."""
         seen = set()
         ordered = []
         try:
@@ -237,11 +237,12 @@ class DocOps(object):
         return ordered
 
     def _ordered_pairs(self):
-        """Llista de (nom_marca, clau) en ordre del document, amb duplicats.
+        """List of (mark_name, key) in document order, with duplicates.
 
-        Recorre el cos del document enumerant *text portions*; necessari per
-        a la conformitat APA (desambiguació segons primera vs successives
-        aparicions). No cobreix capçaleres/peus ni cel·les de taula.
+        Traverses the document body by enumerating *text portions*; necessary
+        for APA compliance (disambiguation based on first vs. subsequent
+        occurrences). Does not cover headers/footers or table cells.
+        
         """
         pairs = []
         try:
@@ -256,8 +257,8 @@ class DocOps(object):
                     try:
                         if portion.TextPortionType != "ReferenceMark":
                             continue
-                        # Només el portion d'inici per no comptar dos cops els
-                        # marks que abasten un rang (inici + final).
+                        # Only the start portion, to avoid double-counting the
+                        # marks that span a range (start + end).
                         if not getattr(portion, "IsStart", True):
                             continue
                         mark = getattr(portion, "ReferenceMark", None)
@@ -273,13 +274,14 @@ class DocOps(object):
             pass
         return pairs
 
-    # -- reformatació en lot (APA) -------------------------------------
+    # -- batch reformatting (APA) -------------------------------------
 
     def refresh_all(self, api, style, locale):
-        """Reformata totes les cites del document amb context complet.
+        """Reformats all citations in the document with full context.
 
         Returns:
-            (n_actualitzades, error_str_o_None)
+            (n_updated, error_str_or_None)
+        
         """
         pairs = self._ordered_pairs()
         if not pairs:
@@ -310,10 +312,11 @@ class DocOps(object):
     # -- bibliografia ---------------------------------------------------
 
     def insert_bibliography(self, api, style, locale):
-        """Recopila claus úniques i insereix la bibliografia al final.
+        """Collects unique keys and inserts the bibliography at the end.
 
         Returns:
-            nombre d'entrades inserides (0 si no hi ha cites).
+            number of entries inserted (0 if there are no citations).
+        
         """
         keys = self.unique_keys()
         if not keys:
@@ -342,11 +345,11 @@ class DocOps(object):
 
 
 # ---------------------------------------------------------------------------
-# Diàleg de cerca/inserció (UI programàtica)
+# Search/insert dialog (programmatic UI)
 # ---------------------------------------------------------------------------
 
 class CiteDialog(unohelper.Base, XActionListener, XTextListener):
-    """Sidebar-style picker: cerca, selecció d'estil/idioma i accions."""
+    """Sidebar-style picker: search, style/language selection, and actions."""
 
     def __init__(self, ctx, api, ops, cfg):
         self.ctx = ctx
@@ -358,7 +361,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         self._last_q = None
         self._build()
 
-    # -- construcció ----------------------------------------------------
+    # -- construction ----------------------------------------------------
 
     def _add(self, service, name, props):
         model = self.dmodel.createInstance(
@@ -425,10 +428,10 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         self.btnClose = self.dialog.getControl("btnClose")
         self.lblStatus = self.dialog.getControl("lblStatus")
 
-        # Selecció inicial d'estil segons la configuració. El locale és
-        # fix (ca-AD): amb estils autor-data com APA el locale a penes
-        # canvia res i el selector només afegia soroll (paritat amb el
-        # Word Add-in, que tampoc l'exposa).
+        # Initial style selection based on the configuration. The locale is
+        # fix (ca-AD): with author-date styles like APA the locale barely
+        # doesn't change anything and the selector just added noise (parity with the
+        # Word Add-in, which doesn't expose it either).
         self._select(self.lstStyle, STYLE_VALUES, self.cfg.get("style"))
 
         toolkit = self.smgr.createInstanceWithContext(
@@ -460,10 +463,10 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         except Exception:
             pass
 
-    # -- cicle de vida --------------------------------------------------
+    # -- lifecycle --------------------------------------------------
 
     def show(self):
-        # Càrrega inicial (sense filtre).
+        # Initial load (no filter).
         self._do_search()
         if not self.api.ping():
             self._status("Avís: sense connexió amb Gnosi (%s)." % self.api.base)
@@ -476,7 +479,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         except Exception:
             pass
 
-    # -- selecció actual ------------------------------------------------
+    # -- current selection ------------------------------------------------
 
     def _current(self, ctrl, values, default):
         try:
@@ -495,7 +498,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         save_config(self.cfg)
         return style, locale
 
-    # -- cerca ----------------------------------------------------------
+    # -- search ----------------------------------------------------------
 
     def _do_search(self):
         query = ""
@@ -570,9 +573,9 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         except Exception as exc:
             self._status("Error inserint: %s" % exc)
             return
-        # Recalcula totes les cites amb context complet (com Mendeley/Zotero):
-        # APA aplica 2020a/2020b, «et al.» i desambiguació de cognoms sense
-        # acció manual. Si el refresc falla, la cita inserida es manté.
+        # Recalculates all citations with full context (like Mendeley/Zotero):
+        # APA applies 2020a/2020b, "et al.", and surname disambiguation without
+        # manual action. If the refresh fails, the inserted citation is kept.
         try:
             n, err = self.ops.refresh_all(self.api, style, locale)
             if err:
@@ -622,7 +625,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
     # -- XActionListener ------------------------------------------------
 
     def actionPerformed(self, event):
-        cmd = event.ActionCommand or "pick"  # ListBox doble-clic → buit
+        cmd = event.ActionCommand or "pick"  # ListBox double-click → empty
         if cmd in ("insert", "pick"):
             self._insert_selected()
         elif cmd == "bib":
@@ -644,11 +647,11 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
 
 
 # ---------------------------------------------------------------------------
-# Diàleg de configuració
+# Settings dialog
 # ---------------------------------------------------------------------------
 
 class SettingsDialog(unohelper.Base, XActionListener):
-    """Permet editar l'URL del backend de Gnosi."""
+    """Allows editing the Gnosi backend URL."""
 
     def __init__(self, ctx, cfg):
         self.ctx = ctx
@@ -722,12 +725,12 @@ class SettingsDialog(unohelper.Base, XActionListener):
 
 
 # ---------------------------------------------------------------------------
-# Protocol handler (punt d'entrada de les comandes del menú)
+# Protocol handler (entry point for the menu commands)
 # ---------------------------------------------------------------------------
 
 class GnosiCiteHandler(unohelper.Base, XServiceInfo, XDispatchProvider,
                        XDispatch, XInitialization):
-    """Atén el protocol ``gnosicite:`` des del menú "Gnosi Cite"."""
+    """Handles the ``gnosicite:`` protocol from the "Gnosi Cite" menu."""
 
     def __init__(self, ctx):
         self.ctx = ctx
@@ -856,7 +859,7 @@ class GnosiCiteHandler(unohelper.Base, XServiceInfo, XDispatchProvider,
 
 
 # ---------------------------------------------------------------------------
-# Registre del component (passive registration via pyuno)
+# Component registration (passive registration via pyuno)
 # ---------------------------------------------------------------------------
 
 g_ImplementationHelper = unohelper.ImplementationHelper()

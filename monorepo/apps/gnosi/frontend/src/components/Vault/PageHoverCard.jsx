@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';
 import { VaultMarkdown } from './VaultMarkdown';
 
-// Cache de previews COMPLETS (body_md). Separada de la de WikilinkHoverPreview
-// perquè el payload és molt més gran (cos sencer) → menys entrades i mateixa
-// invalidació via l'event DOM `gnosi:invalidatePreview`.
+// Cache of COMPLETE previews (body_md). Separate from the one in WikilinkHoverPreview
+// because the payload is much larger (full body) → fewer entries and the same
+// invalidation via the `gnosi:invalidatePreview` DOM event.
 const FULL_CACHE = new Map();
 const CACHE_MAX = 40;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -42,8 +42,8 @@ if (typeof window !== 'undefined') {
 const PADDING = 8;
 const CARD_WIDTH = 420;
 
-// Camps de metadata que NO s'ensenyen com a propietats al preview sense cos
-// (interns o ja representats en altres llocs del card).
+// Metadata fields that are NOT shown as properties in the bodyless preview
+// (internal or already represented elsewhere in the card).
 const HIDDEN_META_KEYS = new Set([
     'title', 'id', 'table_id', 'database_table_id', 'icon', 'cover',
 ]);
@@ -62,12 +62,12 @@ function formatMetaValue(v) {
     if (v == null) return '';
     if (Array.isArray(v)) return v.map(formatMetaValue).filter(Boolean).join(', ');
     if (typeof v === 'object') return String(v.src || v.title || v.alt || '');
-    // Wikilinks `[[text|id]]` / `[[text]]` → només el text visible.
+    // Wikilinks `[[text|id]]` / `[[text]]` → only the visible text.
     return String(v).replace(/\[\[([^\]|]+)(?:\|[^\]]+)?\]\]/g, '$1').trim();
 }
 
-// Un valor "de relació" (uuid o wikilink amb àlies): serveix per ocultar camps
-// de relació pel seu valor, sigui quin sigui el nom de la columna.
+// A "relation" value (uuid or wikilink with alias): used to hide fields
+// of relation type by their value, regardless of the column name.
 function looksLikeRelationValue(v) {
     const arr = Array.isArray(v) ? v : [v];
     return arr.length > 0 && arr.every(x => typeof x === 'string' && (
@@ -76,14 +76,14 @@ function looksLikeRelationValue(v) {
     ));
 }
 
-// Propietats amb valor de la metadata, per al preview d'un registre sense cos.
+// Properties with a value from the metadata, for previewing a record with no body.
 function visibleProps(meta) {
     if (!meta || typeof meta !== 'object') return [];
     return Object.entries(meta)
         .filter(([k, v]) => !HIDDEN_META_KEYS.has(k)
-            && !k.startsWith('drupal_')   // ids/urls de sincronització Drupal
+            && !k.startsWith('drupal_')   // Drupal sync ids/urls
             && !looksLikeRelationValue(v) // relacions (uuid/wikilink): mostrarien uuids crus
-            && !k.endsWith('_manual')     // flags interns (p.ex. Imatge_manual)
+            && !k.endsWith('_manual')     // internal flags (e.g. Imatge_manual)
             && k !== 'Drupal URL' && k !== 'Drupal NID')
         .map(([k, v]) => [k, formatMetaValue(v)])
         .filter(([, v]) => v && v.length > 0)
@@ -91,19 +91,19 @@ function visibleProps(meta) {
 }
 
 /**
- * Pop-up de previsualització del contingut SENCER d'una pàgina del Vault.
- * Mostra cover (opcional), capçalera fixa (icona + títol) i el cos Markdown
- * amb scroll. Pensat per a hover sobre el títol d'un registre i operable amb
- * teclat (Quick Look): quan s'obre per teclat enfoca el cos perquè ↑↓ / Re Pàg
- * / Av Pàg facin scroll natiu i Esc / Espai el tanquin.
+ * Preview pop-up for the FULL content of a Vault page.
+ * Shows an optional cover, a fixed header (icon + title), and the Markdown body
+ * with scroll. Designed for hovering over a record's title and operable with
+ * the keyboard (Quick Look): when opened via keyboard it focuses the body so ↑↓ / Page Up
+ * / Page Down scroll natively and Esc / Space close it.
  *
  * Props:
- *  - pageId: id de la pàgina a previsualitzar.
- *  - anchorRect: DOMRect de l'element que dispara el preview.
- *  - viaKeyboard: obert amb teclat → enfoca el cos en muntar.
- *  - onClose: tanca el card (Esc / Espai dins el card).
- *  - onOpenPage: obre la pàgina sencera (clic a una imatge del cos).
- *  - onMouseEnter / onMouseLeave: mantenen viu el card mentre el ratolí hi és.
+ *  - pageId: id of the page to preview.
+ *  - anchorRect: DOMRect of the element that triggers the preview.
+ *  - viaKeyboard: opened via keyboard → focuses the body on mount.
+ *  - onClose: closes the card (Esc / Space inside the card).
+ *  - onOpenPage: opens the full page (click on an image in the body).
+ *  - onMouseEnter / onMouseLeave: keep the card alive while the mouse is over it.
  */
 export const PageHoverCard = ({
     pageId,
@@ -119,10 +119,10 @@ export const PageHoverCard = ({
     const [loading, setLoading] = useState(!data);
     const [error, setError] = useState(false);
     const [pos, setPos] = useState(null);
-    const [meta, setMeta] = useState(null); // metadata per al preview sense cos (fetch lazy)
+    const [meta, setMeta] = useState(null); // metadata for the preview without body (lazy fetch)
     const cardRef = useRef(null);
     const scrollRef = useRef(null);
-    const prevFocusRef = useRef(null); // focus a restaurar en sortir el ratolí del card
+    const prevFocusRef = useRef(null); // focus to restore when the mouse leaves the card
 
     useEffect(() => {
         if (!pageId) return undefined;
@@ -154,8 +154,8 @@ export const PageHoverCard = ({
         return () => { cancelled = true; };
     }, [pageId]);
 
-    // Si la pàgina no té cos, carreguem la metadata (lazy) per ensenyar les
-    // propietats del registre i l'enllaç a l'original en lloc de "Pàgina buida".
+    // If the page has no body, we load the metadata (lazily) to show the
+    // record's properties and the link to the original instead of "Empty page".
     useEffect(() => {
         if (!data || (data.body_md && String(data.body_md).trim())) return undefined;
         let cancelled = false;
@@ -165,9 +165,9 @@ export const PageHoverCard = ({
         return () => { cancelled = true; };
     }, [data, pageId]);
 
-    // Posicionament: a sota de l'àncora per defecte; si no hi cap, a sobre; si
-    // tampoc, ancorat a dalt amb padding (el scroll del cos fa la resta).
-    // useLayoutEffect per evitar el flash amb posició errònia.
+    // Positioning: below the anchor by default; if it doesn't fit, above; if
+    // that doesn't fit either, anchored at the top with padding (the body's scroll does the rest).
+    // useLayoutEffect to avoid a flash with the wrong position.
     useLayoutEffect(() => {
         if (!anchorRect || !cardRef.current) return;
         const rect = cardRef.current.getBoundingClientRect();
@@ -185,9 +185,9 @@ export const PageHoverCard = ({
         setPos({ top, left });
     }, [anchorRect, data, loading, error]);
 
-    // Quick Look: en obrir per teclat enfoquem el cos perquè les fletxes facin
-    // scroll natiu. El card és un portal FORA del contenidor de la taula, així
-    // que el listener global de navegació de cel·les l'ignora (no segresta tecles).
+    // Quick Look: when opened via keyboard we focus the body so the arrow keys
+    // scroll natively. The card is a portal OUTSIDE the table container, so
+    // the global cell-navigation listener ignores it (it doesn't hijack keys).
     useEffect(() => {
         if (viaKeyboard && pos && scrollRef.current) {
             scrollRef.current.focus({ preventScroll: true });
@@ -202,16 +202,16 @@ export const PageHoverCard = ({
             e.stopPropagation();
             onClose?.();
         }
-        // ↑↓ / Re Pàg / Av Pàg / Inici / Fi: deixem el scroll natiu del cos enfocat.
+        // ↑↓ / Page Up / Page Down / Home / End: we leave the native scroll of the focused body.
     };
 
-    // Hover: quan el ratolí entra al card i el cos desborda, l'enfoquem perquè
-    // les fletxes / Re Pàg / Av Pàg / Inici / Fi facin scroll natiu (igual que el
-    // Quick Look per teclat). El focus queda DINS del portal, fora del contenidor
-    // de la taula, així que el listener de navegació de cel·les ignora les tecles
-    // (no les segresta). En sortir, restaurem el focus previ perquè la navegació
-    // de cel·les es reprengui. Només enfoquem si hi ha res per desplaçar, per no
-    // robar el focus als registres curts (on les fletxes han de seguir navegant).
+    // Hover: when the mouse enters the card and the body overflows, we focus it so
+    // the arrows / Page Up / Page Down / Home / End scroll natively (same as the
+    // keyboard Quick Look). The focus stays INSIDE the portal, outside the container
+    // of the table, so the cell-navigation listener ignores the keys
+    // (it doesn't hijack them). On exit, we restore the previous focus so navigation
+    // of cells resumes. We only focus if there's something to scroll, so as not to
+    // steal focus from short records (where the arrows must keep navigating).
     const handleCardMouseEnter = () => {
         onMouseEnter?.();
         const el = scrollRef.current;
@@ -226,10 +226,10 @@ export const PageHoverCard = ({
         if (el && el.contains(document.activeElement)) {
             const prev = prevFocusRef.current;
             prevFocusRef.current = null;
-            // Restaura el focus a l'element previ si és enfocable de debò; si no
-            // (típic: el <body>, on `.focus()` sovint és un no-op), simplement
-            // treu el focus del card perquè la graella reprengui la navegació de
-            // cel·les (el focus cau al <body>, que el seu listener sí que accepta).
+            // Restore focus to the previous element if it is genuinely focusable; if not
+            // (typically the <body>, where `.focus()` is often a no-op), simply
+            // remove focus from the card so the grid resumes navigation of
+            // cells (focus falls to the <body>, whose listener does accept it).
             if (prev && prev !== document.body && prev.isConnected && typeof prev.focus === 'function') {
                 prev.focus({ preventScroll: true });
             } else {

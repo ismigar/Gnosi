@@ -1,15 +1,15 @@
-"""OAuth2 helpers compartits per IMAP+XOAUTH2 i SMTP+XOAUTH2.
+"""OAuth2 helpers shared by IMAP+XOAUTH2 and SMTP+XOAUTH2.
 
-Aquest mòdul centralitza:
-  - Refresc d'access_tokens caducats (Google).
-  - Construcció de la cadena SASL XOAUTH2.
-  - Login XOAUTH2 a un objecte imaplib.IMAP4(_SSL) ja connectat.
-  - Login XOAUTH2 a un objecte smtplib.SMTP(_SSL) ja connectat.
+This module centralizes:
+  - Refreshing expired access_tokens (Google).
+  - Building the SASL XOAUTH2 string.
+  - XOAUTH2 login on an already-connected imaplib.IMAP4(_SSL) object.
+  - XOAUTH2 login on an already-connected smtplib.SMTP(_SSL) object.
 
-Política d'errors:
-  - Si el refresh falla (`invalid_grant`), s'eleva `OAuth2RefreshError` amb un
-    missatge en català llest per ensenyar a l'UI. La capa superior decideix
-    si convertir-lo en error 401 perquè el frontend mostri "reconnecta".
+Error policy:
+  - If the refresh fails (`invalid_grant`), `OAuth2RefreshError` is raised with a
+    message in Catalan ready to show in the UI. The upper layer decides
+    whether to turn it into a 401 error so the frontend shows "reconnect".
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 
 
 class OAuth2RefreshError(Exception):
-    """L'access_token no es pot renovar perquè el refresh_token tampoc no és vàlid."""
+    """The access_token cannot be renewed because the refresh_token isn't valid either."""
     def __init__(self, email: str, original: Exception | None = None):
         self.email = email
         self.original = original
@@ -32,15 +32,16 @@ class OAuth2RefreshError(Exception):
 
 
 def _record_refresh_outcome(email: str, error: str | None) -> None:
-    """Persisteix l'últim intent de refresh al compte (per al health endpoint).
+    """Persists the last refresh attempt on the account (for the health endpoint).
 
-    En cas d'èxit, neteja `last_refresh_error`. En fallida, hi desa la causa
-    i la timestamp. No bloqueja el flux si la persistència falla.
+    On success, it clears `last_refresh_error`. On failure, it stores the cause
+    and the timestamp. It doesn't block the flow if persistence fails.
+    
     """
     try:
         from backend.services.integration_manager import integration_manager
         import time
-        with integration_manager._lock:  # noqa: SLF001 — accés directe per actualitzar in-place
+        with integration_manager._lock:  # noqa: SLF001 — direct access to update in place
             data = integration_manager._load()  # noqa: SLF001
             email_lower = email.strip().lower()
             for section in ("emails", "mail_accounts"):
@@ -56,18 +57,19 @@ def _record_refresh_outcome(email: str, error: str | None) -> None:
                             acc["last_refresh_success_at"] = int(time.time())
             integration_manager._save(data)  # noqa: SLF001
     except Exception:
-        pass  # best-effort, no volem fer caure el refresh per això
+        pass  # best-effort, we don't want this to bring down the refresh because of it
 
 
 def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
-    """Retorna `(access_token, account_dict)` per a un compte Google.
+    """Returns `(access_token, account_dict)` for a Google account.
 
-    - Si l'access_token actual és vàlid, el retorna sense canvis.
-    - Si ha caducat, intenta `Credentials.refresh()` i persisteix el nou token.
-    - Si el refresh falla per `invalid_grant`, eleva `OAuth2RefreshError`.
+    - If the current access_token is valid, it's returned unchanged.
+    - If it has expired, tries `Credentials.refresh()` and persists the new token.
+    - If the refresh fails with `invalid_grant`, raises `OAuth2RefreshError`.
 
-    Per a comptes no-Google retorna `(None, account_dict)` perquè el caller
-    sap que ha de fer login amb password.
+    For non-Google accounts, returns `(None, account_dict)` so the caller
+    knows it must log in with a password.
+    
     """
     from backend.services.integration_manager import integration_manager
     from backend.config.env_config import get_env
@@ -98,13 +100,13 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
             client_secret=client_secret,
         )
 
-        # Decideix si cal refrescar:
-        #   - `creds.expired` només és cert si tenim `expiry` (no el persistim).
-        #   - Per tant ens basem en `last_refresh_success_at`: si el token té
-        #     més de 50 min de vida (Google els emet a 1h), forcem refresh.
-        #   - Si mai no hem registrat un refresh exitós (compte legacy), forcem.
+        # Decides whether a refresh is needed:
+        #   - `creds.expired` is only true if we have `expiry` (we don't persist it).
+        #   - So we rely on `last_refresh_success_at`: if the token is
+        #     more than 50 min old (Google issues them for 1h), we force a refresh.
+        #   - If we've never recorded a successful refresh (legacy account), we force it.
         TOKEN_LIFETIME_S = 3600        # access_tokens duren 1h
-        REFRESH_MARGIN_S = 600         # refrescar 10 min abans de caducar
+        REFRESH_MARGIN_S = 600         # refresh 10 min before expiring
         last_ok = account.get("last_refresh_success_at") or 0
         age = time.time() - last_ok if last_ok else float("inf")
         needs_refresh = age >= (TOKEN_LIFETIME_S - REFRESH_MARGIN_S)
@@ -114,7 +116,7 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
                 creds.refresh(Request())
                 integration_manager.update_mail_account_token(email, creds.token)
                 log.info(f"[OAuth2] Token renovat per {email}")
-                # Re-llegim per tenir l'estat fresc.
+                # We re-read to have fresh state.
                 account = integration_manager.get_mail_account(email) or account
                 _record_refresh_outcome(email, error=None)
             except Exception as e:
@@ -134,36 +136,39 @@ def ensure_fresh_token(email: str) -> Tuple[Optional[str], Optional[dict]]:
 
 
 def build_xoauth2_string(email: str, access_token: str) -> bytes:
-    """Construeix la cadena SASL XOAUTH2 sense codificar (sense base64).
+    """Builds the SASL XOAUTH2 string without encoding it (no base64).
 
-    Format RFC: `user={email}\\x01auth=Bearer {token}\\x01\\x01`
-    Retorna bytes perquè imaplib.authenticate l'espera així.
+    RFC format: `user={email}\\x01auth=Bearer {token}\\x01\\x01`
+    Returns bytes because imaplib.authenticate expects it that way.
+    
     """
     return f"user={email}\x01auth=Bearer {access_token}\x01\x01".encode()
 
 
 def xoauth2_imap_login(imap, email: str, access_token: str) -> None:
-    """Autentica una connexió IMAP4 ja oberta amb XOAUTH2.
+    """Authenticates an already-open IMAP4 connection with XOAUTH2.
 
-    Eleva l'excepció original d'imaplib si falla — el caller pot decidir
-    si reintenta després d'un refresh forçat.
+    Raises the original imaplib exception on failure — the caller can decide
+    whether to retry after a forced refresh.
+    
     """
     auth_string = build_xoauth2_string(email, access_token)
     imap.authenticate("XOAUTH2", lambda _challenge: auth_string)
 
 
 def xoauth2_smtp_login(smtp, email: str, access_token: str) -> None:
-    """Autentica una connexió SMTP ja oberta amb XOAUTH2.
+    """Authenticates an already-open SMTP connection with XOAUTH2.
 
-    smtplib no té helper natiu, així que enviem el comand AUTH manualment
-    amb la cadena base64.
+    smtplib has no native helper, so we send the AUTH command manually
+    with the base64 string.
+    
     """
     auth_string = build_xoauth2_string(email, access_token)
     encoded = base64.b64encode(auth_string).decode("ascii")
     code, resp = smtp.docmd("AUTH", f"XOAUTH2 {encoded}")
     if code != 235:
-        # Alguns servidors envien 334 amb un challenge intermedi; el responem
-        # amb una línia buida i tornem a llegir.
+        # Some servers send a 334 with an intermediate challenge; we respond to it
+        # with an empty line and read again.
         if code == 334:
             code, resp = smtp.docmd("")
         if code != 235:

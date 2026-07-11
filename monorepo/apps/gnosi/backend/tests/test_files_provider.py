@@ -1,22 +1,22 @@
-"""Tests d'unitat per a `backend.services.files_provider`.
+"""Unit tests for `backend.services.files_provider`.
 
-Validen el contracte de la capa d'abstracció multi-proveïdor (vegeu
+Validate the contract of the multi-provider abstraction layer (see
 `docs/dev_memory/directives/files_provider_abstraction.md`):
 
-- `LocalProvider`, `OneDriveProvider`, `iCloudDriveProvider` honoren
-  l'interfície `FilesProvider`.
-- La factory `get_files_provider()` resol la implementació correcta
-  segons env vars (`GNOSI_FILES_PROVIDER` explícit + heurística
-  `VAULT_HOST_PATH`).
-- L'singleton es construeix una sola vegada (lazy + thread-safe).
-- L'iCloud prioritza env vars `ICLOUD_*` abans de caure a `ONEDRIVE_*`.
+- `LocalProvider`, `OneDriveProvider`, `iCloudDriveProvider` honor
+  the `FilesProvider` interface.
+- The `get_files_provider()` factory resolves the correct implementation
+  based on env vars (explicit `GNOSI_FILES_PROVIDER` + `VAULT_HOST_PATH`
+  heuristic).
+- The singleton is built only once (lazy + thread-safe).
+- iCloud prioritizes `ICLOUD_*` env vars before falling back to `ONEDRIVE_*`.
 
-NO cobreix:
-    - Crida real al daemon HTTP (requereix daemon corrent al host).
-    - Comportament `st_blocks==0` sobre fitxers reals d'OneDrive/iCloud
-      (el comportament del File Provider és del macOS, no nostre).
+Does NOT cover:
+    - Real call to the HTTP daemon (requires the daemon running on the host).
+    - `st_blocks==0` behavior on real OneDrive/iCloud files
+      (the File Provider's behavior is macOS's, not ours).
 
-Run dins el container:
+Run inside the container:
     docker exec gnosi_backend python -m pytest backend/tests/test_files_provider.py -v
 """
 
@@ -60,8 +60,8 @@ ENV_KEYS = (
 
 @pytest.fixture(autouse=True)
 def _reset_provider_state(monkeypatch):
-    """Cada test parteix d'un singleton net i un entorn buit de les vars
-    rellevants. Així evitem fugues entre tests."""
+    """Each test starts from a clean singleton and an environment with the
+    relevant vars cleared. This way we avoid leaks between tests."""
     fp._provider_instance = None
     for k in ENV_KEYS:
         monkeypatch.delenv(k, raising=False)
@@ -69,7 +69,7 @@ def _reset_provider_state(monkeypatch):
     fp._provider_instance = None
 
 
-# --- Detecció heurística ------------------------------------------------
+# --- Heuristic detection ------------------------------------------------
 
 def test_default_no_env_returns_local():
     assert get_files_provider().name == "local"
@@ -78,7 +78,7 @@ def test_default_no_env_returns_local():
 def test_explicit_local_env(monkeypatch):
     monkeypatch.setenv("GNOSI_FILES_PROVIDER", "local")
     monkeypatch.setenv("VAULT_HOST_PATH", "/Users/foo/OneDrive-UNED/X")
-    # Override explícit guanya per sobre de la heurística OneDrive.
+    # Explicit override wins over the OneDrive heuristic.
     assert get_files_provider().name == "local"
 
 
@@ -87,7 +87,7 @@ def test_onedrive_path_detected(monkeypatch):
     p = get_files_provider()
     assert p.name == "onedrive"
     assert isinstance(p, OneDriveProvider)
-    # I no la subclass — important per a logs i mètriques.
+    # And not the subclass — important for logs and metrics.
     assert not isinstance(p, iCloudDriveProvider)
 
 
@@ -99,8 +99,8 @@ def test_icloud_mobile_documents_path_detected(monkeypatch):
     p = get_files_provider()
     assert p.name == "icloud"
     assert isinstance(p, iCloudDriveProvider)
-    # iCloud hereta de OneDrive: la detecció `isinstance(OneDriveProvider)`
-    # encara és True però el name és "icloud".
+    # iCloud inherits from OneDrive: the `isinstance(OneDriveProvider)` detection
+    # is still True but the name is "icloud".
     assert isinstance(p, OneDriveProvider)
 
 
@@ -115,7 +115,7 @@ def test_explicit_icloud_overrides_heuristic(monkeypatch):
     assert get_files_provider().name == "icloud"
 
 
-# --- Heurística: GoogleDrive i NextCloud ---------------------------------
+# --- Heuristic: GoogleDrive and NextCloud ---------------------------------
 
 def test_gdrive_path_detected(monkeypatch):
     monkeypatch.setenv(
@@ -128,7 +128,7 @@ def test_gdrive_path_detected(monkeypatch):
 
 
 def test_gdrive_path_with_space_detected(monkeypatch):
-    """Algunes traduccions o configs antigues mostren 'Google Drive' amb espai."""
+    """Some old translations or configs show 'Google Drive' with a space."""
     monkeypatch.setenv("VAULT_HOST_PATH", "/Volumes/Google Drive/Gnosi")
     assert get_files_provider().name == "gdrive"
 
@@ -151,8 +151,8 @@ def test_explicit_nextcloud_override(monkeypatch):
 
 
 def test_onedrive_takes_precedence_over_other_keywords(monkeypatch):
-    """Si el path té múltiples keywords, OneDrive guanya (instal·lació
-    més comuna a Gnosi)."""
+    """If the path has multiple keywords, OneDrive wins (the most
+    common installation in Gnosi)."""
     monkeypatch.setenv(
         "VAULT_HOST_PATH",
         "/Users/foo/OneDrive-Personal/Backups/Nextcloud-export/Gnosi",
@@ -162,10 +162,10 @@ def test_onedrive_takes_precedence_over_other_keywords(monkeypatch):
 
 def test_unknown_explicit_falls_back_to_heuristic(monkeypatch, caplog):
     monkeypatch.setenv("GNOSI_FILES_PROVIDER", "dropbox")
-    # Sense VAULT_HOST_PATH → heurística retorna `local`.
+    # Without VAULT_HOST_PATH → the heuristic returns `local`.
     p = get_files_provider()
     assert p.name == "local"
-    # I queda registrat per ajudar al debug.
+    # And it gets logged to help with debugging.
     assert any("desconegut" in r.message for r in caplog.records)
 
 
@@ -202,7 +202,7 @@ def test_onedrive_is_online_only_normal_file_returns_false(tmp_path):
 
 
 def test_onedrive_is_online_only_with_fake_stat_zero_blocks(tmp_path):
-    """Si el cridador ja té un stat_result, evitem el doble stat."""
+    """If the caller already has a stat_result, we avoid the double stat."""
     p = OneDriveProvider()
     f = tmp_path / "ghost.jpg"
     f.write_bytes(b"placeholder")
@@ -211,8 +211,8 @@ def test_onedrive_is_online_only_with_fake_stat_zero_blocks(tmp_path):
 
 
 def test_onedrive_is_online_only_returns_false_on_stat_error(tmp_path):
-    """Path inexistent → no hauríem de tornar True (no podem afirmar
-    online-only sense stat fiable)."""
+    """Non-existent path → we shouldn't return True (we can't assert
+    online-only without a reliable stat)."""
     p = OneDriveProvider()
     assert p.is_online_only(tmp_path / "nope.jpg") is False
 
@@ -316,7 +316,7 @@ def test_nextcloud_is_online_only_normal_file(tmp_path):
     p = NextCloudProvider()
     f = tmp_path / "doc.md"
     f.write_text("# real content")
-    # Sense xattr ni extensió → no és online-only.
+    # No xattr or extension → not online-only.
     assert p.is_online_only(f) is False
 
 
@@ -332,7 +332,7 @@ def test_nextcloud_prefers_own_env(monkeypatch):
     assert p.warmup_url == "http://nextcloud:8000/warmup"
 
 
-# --- Contract: tots compleixen FilesProvider ----------------------------
+# --- Contract: all comply with FilesProvider ----------------------------
 
 @pytest.mark.parametrize(
     "cls",

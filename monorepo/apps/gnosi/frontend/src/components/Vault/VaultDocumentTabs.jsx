@@ -1,5 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { X, Columns2, Plus, Search, FileText, LayoutPanelLeft } from 'lucide-react';
 import {
     DndContext, closestCenter, PointerSensor, KeyboardSensor,
@@ -11,12 +12,13 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
-// Plega accents per a la cerca ràpida insensible a accents ("historia" troba
-// "Història"), com s'espera en un vault català/castellà (NFD + eliminació de
-// les marques combinants U+0300–U+036F).
+// Strips accents for fast accent-insensitive search ("historia" finds
+// "Història"), as expected in a Catalan/Spanish vault (NFD + removal of
+// combining marks U+0300–U+036F).
 const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
 function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabClose, onToggleSplit }) {
+    const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
 
     let tabClasses = "w-[184px] flex items-center gap-2 px-3 py-1.5 rounded-t-md text-sm font-medium transition-colors border-b-2 ";
@@ -41,15 +43,15 @@ function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabCl
             }}
             className={tabClasses + " group cursor-pointer select-none flex-shrink-0"}
             onClick={() => onTabSelect(tab.id)}
-            title={tab.title || 'Sense Títol'}
+            title={tab.title || t('common.untitled', 'Sense títol')}
         >
-            <span className="truncate flex-1 min-w-0" title={tab.title || 'Sense Títol'}>{tab.title || 'Sense Títol'}</span>
+            <span className="truncate flex-1 min-w-0" title={tab.title || t('common.untitled', 'Sense títol')}>{tab.title || t('common.untitled', 'Sense títol')}</span>
             <div className="flex items-center ml-1">
                 {!isActive && canSplit && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggleSplit(tab.id); }}
                         className={`p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isSplit ? 'text-purple-600 bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50/20'}`}
-                        title={isSplit ? "Treure de la vista paral·lela" : "Obrir en paral·lel"}
+                        title={isSplit ? t('doc_tabs.remove_parallel', 'Treure de la vista paral·lela') : t('sidebar.open_parallel', 'Obrir en paral·lel')}
                     >
                         <Columns2 size={14} />
                     </button>
@@ -57,7 +59,7 @@ function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabCl
                 <button
                     onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
                     className="p-1 rounded text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50/10 transition-colors"
-                    title="Tancar pestanya"
+                    title={t('doc_tabs.close_tab', 'Tancar pestanya')}
                 >
                     <X size={14} />
                 </button>
@@ -78,6 +80,7 @@ export function VaultDocumentTabs({
     onQuickOpenItem,
     onQuickOpenParallel
 }) {
+    const { t } = useTranslation();
     const DROPDOWN_WIDTH = 380;
     const VIEWPORT_MARGIN = 16;
     const normalizedTabs = tabs || [];
@@ -102,8 +105,8 @@ export function VaultDocumentTabs({
     const handleDragEnd = (event) => {
         const { active, over } = event;
         if (over && active.id !== over.id && onReorderTabs) {
-            const oldIndex = normalizedTabs.findIndex(t => t.id === active.id);
-            const newIndex = normalizedTabs.findIndex(t => t.id === over.id);
+            const oldIndex = normalizedTabs.findIndex(tab => tab.id === active.id);
+            const newIndex = normalizedTabs.findIndex(tab => tab.id === over.id);
             onReorderTabs(arrayMove(normalizedTabs, oldIndex, newIndex));
         }
     };
@@ -295,7 +298,7 @@ export function VaultDocumentTabs({
     return (
         <div className="relative flex items-center gap-1 overflow-x-auto px-4 pt-1 pb-0 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shrink-0">
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-                <SortableContext items={normalizedTabs.map(t => t.id)} strategy={horizontalListSortingStrategy}>
+                <SortableContext items={normalizedTabs.map(tab => tab.id)} strategy={horizontalListSortingStrategy}>
                     {normalizedTabs.map(tab => (
                         <SortableDocTab
                             key={tab.id}
@@ -321,7 +324,11 @@ export function VaultDocumentTabs({
                     openQuickOpen();
                 }}
                 className="ml-1 flex items-center justify-center w-8 h-8 rounded text-[var(--text-secondary)] hover:text-indigo-700 hover:bg-[var(--bg-tertiary)] transition-colors"
-                title={`Nova pestanya o cerca ràpida (${quickOpenShortcutLabel}). Canviar pestanya: ${tabJumpShortcutLabel}`}
+                title={t('doc_tabs.new_tab_tooltip', {
+                    shortcut: quickOpenShortcutLabel,
+                    tabShortcut: tabJumpShortcutLabel,
+                    defaultValue: 'Nova pestanya o cerca ràpida ({{shortcut}}). Canviar pestanya: {{tabShortcut}}',
+                })}
             >
                 <Plus size={16} />
             </button>
@@ -342,14 +349,14 @@ export function VaultDocumentTabs({
                                 setHighlightedIndex(0);
                             }}
                             onKeyDown={handleQuickOpenKeyDown}
-                            placeholder="Cerca pàgines i taules..."
+                            placeholder={t('doc_tabs.search_placeholder', 'Cerca pàgines i taules...')}
                             className="w-full text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent outline-none"
                         />
                     </div>
 
                     <div className="max-h-72 overflow-y-auto py-1">
                         {filteredItems.length === 0 ? (
-                            <div className="px-3 py-4 text-xs text-slate-500">Sense resultats</div>
+                            <div className="px-3 py-4 text-xs text-slate-500">{t('doc_tabs.no_results', 'Sense resultats')}</div>
                         ) : (
                             filteredItems.map((item, index) => {
                                 const isHighlighted = index === highlightedIndex;
@@ -381,7 +388,7 @@ export function VaultDocumentTabs({
                                         <button
                                             onClick={() => handleOpenParallel(item)}
                                             className={`p-1 rounded transition-colors ${isHighlighted ? 'text-purple-600 hover:bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-purple-600 hover:bg-purple-50/10'}`}
-                                            title={item.type === 'table' ? 'Obrir taula en paral·lel' : 'Obrir en paral·lel'}
+                                            title={item.type === 'table' ? t('doc_tabs.open_table_parallel', 'Obrir taula en paral·lel') : t('sidebar.open_parallel', 'Obrir en paral·lel')}
                                         >
                                             <Columns2 size={14} />
                                         </button>

@@ -1,21 +1,21 @@
 /**
  * vaultMediaUtils.js
- * Utilitats per detectar i renderitzar fitxers multimèdia dins del Vault.
+ * Utilities for detecting and rendering media files within the Vault.
  */
 
 const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico'];
 const VIDEO_EXTENSIONS = ['mp4', 'webm', 'ogg', 'mov', 'avi'];
 const AUDIO_EXTENSIONS = ['mp3', 'wav', 'ogg', 'flac', 'm4a'];
 
-// Extreu l'extensió (en minúscules) d'una URL o path, ELIMINANT primer la query
-// i el fragment. Cal fer-ho ABANS de partir per `.`: si no, una imatge relativa
-// amb query (`foto.jpg?v=2`) o una query amb punt (`clip.mp4?t=1.5`) deixava
-// l'extensió bruta i la detecció de mèdia fallava (no es renderitzava).
+// Extracts the extension (lowercased) from a URL or path, first REMOVING the query
+// and the fragment. This must be done BEFORE splitting on `.`: otherwise, a relative image
+// with a query (`foto.jpg?v=2`) or a query with a dot (`clip.mp4?t=1.5`) would leave
+// the extension dirty and media detection would fail (it wouldn't render).
 const extOf = (value) =>
     String(value).split('?')[0].split('#')[0].split('.').pop()?.toLowerCase();
 
 /**
- * Detecta si un valor de camp és una URL d'imatge.
+ * Detects whether a field value is an image URL.
  * @param {string} value
  * @returns {boolean}
  */
@@ -25,7 +25,7 @@ export function isImageUrl(value) {
 }
 
 /**
- * Detecta si un valor de camp és una URL de vídeo.
+ * Detects whether a field value is a video URL.
  * @param {string} value
  * @returns {boolean}
  */
@@ -35,7 +35,7 @@ export function isVideoUrl(value) {
 }
 
 /**
- * Detecta si un valor de camp és una URL d'àudio.
+ * Detects whether a field value is an audio URL.
  * @param {string} value
  * @returns {boolean}
  */
@@ -45,7 +45,7 @@ export function isAudioUrl(value) {
 }
 
 /**
- * Retorna el tipus de mèdia d'un valor ('image', 'video', 'audio', o null).
+ * Returns the media type of a value ('image', 'video', 'audio', or null).
  * @param {string} value
  * @returns {'image'|'video'|'audio'|null}
  */
@@ -57,9 +57,9 @@ export function getMediaType(value) {
 }
 
 /**
- * Construeix la URL d'una miniatura per a un fitxer del Vault.
- * @param {string} filename - Nom del fitxer
- * @param {string} [baseUrl] - URL base de l'API
+ * Builds the thumbnail URL for a Vault file.
+ * @param {string} filename - File name
+ * @param {string} [baseUrl] - API base URL
  * @returns {string}
  */
 export function getThumbnailUrl(filename, baseUrl = '/api') {

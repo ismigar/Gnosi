@@ -74,11 +74,12 @@ Projects/
 
 ## Code Style Summary
 
+**Documentation language:** ALL code documentation (comments, docstrings, JSDoc) in **English** — the repo is public on GitHub. User-facing text stays multilingual via i18n; identifiers/test data in another language are left as-is. See `docs/dev_memory/directives/english_code_documentation.md`.  
 **TypeScript:** `camelCase` (vars), `PascalCase` (components), `UPPER_SNAKE_CASE` (constants). ESLint flat config. Strict types—no `any`.  
 **Python:** `snake_case` (funcs), `PascalCase` (classes). Google docstrings. Import order: stdlib → 3rd-party → local. `get_logger(__name__)` not `print()`.
 
 ## Interaction
 - Be concise. Declare: "Reading directive for [X]..." or "Error detected. Repairing..."
-- **Spanish/Catalan only.** No English.
+- **Conversation with the maintainer: Spanish/Catalan only.** (This is about chat, NOT the code — code documentation is written in English; see Code Style Summary.)
 - Natiu per defecte (uvicorn + vite via LaunchAgents). Docker és opcional (self-host en servidor).
 - Idempotent scripts. Environment: `.env_shared` (shared) + `.env` (local override).

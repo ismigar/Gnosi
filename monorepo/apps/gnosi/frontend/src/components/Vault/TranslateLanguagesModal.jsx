@@ -6,11 +6,11 @@ import { toast } from '../../lib/toast';
 import { detectRecordSourceLang } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
-// Idiomes oferts per defecte. L'idioma origen el detecta la skill del backend
-// en enviar; aquí, a més, l'amaguem de la llista quan el coneixem pel camp
-// "Idioma" del registre (vegeu sourceLang). Els codis ISO 639-1 es passen tal
-// qual a la skill, que sap rutar-los al proveïdor adequat (Softcatalà/Apertium
-// per ca/es i regionals; DeepL per a la resta com àrab o xinès).
+// Default languages offered. The backend skill detects the source language
+// on submit; here, we also hide it from the list when we know it from the field
+// "Language" of the record (see sourceLang). The ISO 639-1 codes are passed
+// as-is to the skill, which knows how to route them to the right provider (Softcatalà/Apertium
+// for ca/es and regional languages; DeepL for the rest, like Arabic or Chinese).
 const DEFAULT_LANGUAGES = [
     { code: 'ca', label: 'Català' },
     { code: 'es', label: 'Castellà' },
@@ -31,20 +31,20 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     const [selected, setSelected] = useState([]);
     const [submitting, setSubmitting] = useState(false);
     const containerRef = useRef(null);
-    // `mode` generalitza el modal: 'row' tradueix una fila de taula (subitems),
-    // 'page' tradueix una pàgina sencera (subpàgines filles), 'bulk' tradueix
-    // diverses files seleccionades alhora (un subitem per fila i idioma).
+    // `mode` generalizes the modal: 'row' translates a table row (subitems),
+    // 'page' translates a whole page (child subpages), 'bulk' translates
+    // several rows selected at once (one subitem per row and language).
     const isPage = mode === 'page';
     const isBulk = mode === 'bulk';
 
-    // Idioma origen del registre, llegit del seu camp "Idioma" (si en té). En
-    // mode 'bulk' no s'amaga cap idioma: cada fila pot tenir un origen diferent
-    // i el backend ja salta l'origen de cadascuna individualment.
+    // Source language of the record, read from its "Language" field (if it has one). In
+    // 'bulk' mode no language is hidden: each row can have a different source
+    // and the backend already skips the origin of each one individually.
     const sourceLang = useMemo(
         () => (isBulk ? '' : detectRecordSourceLang(recordMetadata || {}, schema || {})),
         [isBulk, recordMetadata, schema]
     );
-    // Llista de destins: amaga l'idioma origen quan el coneixem.
+    // List of targets: hides the source language when we know it.
     const languages = useMemo(
         () => DEFAULT_LANGUAGES.filter(l => l.code !== sourceLang),
         [sourceLang]
@@ -55,7 +55,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
     }, [isOpen]);
 
     const toggle = (code) => {
-        if (code === sourceLang) return; // no es pot triar l'idioma original
+        if (code === sourceLang) return; // the original language cannot be chosen
         setSelected(prev => prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]);
     };
 
@@ -96,7 +96,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
         }
     };
 
-    // Esc cancel·la, Enter confirma (acció positiva). Veure useModalKeyboard.
+    // Esc cancels, Enter confirms (positive action). See useModalKeyboard.
     useModalKeyboard({
         isOpen,
         onClose,

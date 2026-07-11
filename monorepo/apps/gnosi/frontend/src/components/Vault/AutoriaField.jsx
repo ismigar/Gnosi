@@ -1,21 +1,21 @@
 /**
- * AutoriaField.jsx — components del tipus de camp "autoria" (llista ordenada
- * d'autors `{nom, cognom1, cognom2}`). S'usen tant a la vista de taula
- * (VaultTable) com al panell de propietats de la pàgina (BlockEditor), perquè
- * el render i l'edició siguin consistents.
+ * AutoriaField.jsx — components for the "authorship" field type (an ordered list
+ * of authors `{nom, cognom1, cognom2}`). Used both in the table view
+ * (VaultTable) and in the page's properties panel (BlockEditor), so that
+ * rendering and editing stay consistent.
  *
- * Els helpers purs viuen a ./autoriaUtils (separats perquè React Fast Refresh
- * només funciona si un mòdul exporta NOMÉS components).
+ * The pure helpers live in ./autoriaUtils (kept separate because React Fast Refresh
+ * only works if a module exports ONLY components).
  *
- * CSL no té segon cognom: per citar, cognom1+cognom2 es fusionen a `family`
- * (vegeu cslEngine.js / docs/dev_memory/directives/autoria_field_type.md).
+ * CSL has no second surname: for citations, cognom1+cognom2 are merged into `family`
+ * (see cslEngine.js / docs/dev_memory/directives/autoria_field_type.md).
  */
 import React, { useState, useRef, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Plus, X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { emptyAuthor, authorFullName, authorSortLabel, sameAuthor } from './autoriaUtils';
 
-// Render de només lectura: pills "Nom Cognom1 Cognom2".
+// Read-only render: "Name Surname1 Surname2" pills.
 export const AutoriaDisplay = ({ value, emptyText = '-' }) => {
     const list = Array.isArray(value) ? value : [];
     if (!list.length) return <span className="text-[var(--text-tertiary)]">{emptyText}</span>;
@@ -30,14 +30,14 @@ export const AutoriaDisplay = ({ value, emptyText = '-' }) => {
     );
 };
 
-// Editor estructurat: "Afegir autor" mostra una fila buida (nom/cognom1/cognom2).
-// Mentre s'omple una fila, apareixen inline els autors existents que coincideixen
-// (com els altres multiselects); si no en tries cap, el que escrius és un autor
-// nou. No hi ha cercador separat.
+// Structured editor: "Add author" shows an empty row (nom/cognom1/cognom2).
+// While filling in a row, matching existing authors appear inline
+// (like the other multiselects); if you don't pick any, what you type is an author
+// new. There is no separate search box.
 //
-// `onSave(authors)` rep la llista neta (sense files buides). No desa si l'editor
-// s'obre buit i no s'hi afegeix res (no esborra un valor legacy string), ni si el
-// valor no ha canviat (important quan està sempre muntat al panell).
+// `onSave(authors)` receives the clean list (without empty rows). It doesn't save if the editor
+// opens empty and nothing is added to it (it doesn't erase a legacy string value), nor if the
+// value hasn't changed (important when it's always mounted in the panel).
 export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
     const { t } = useTranslation();
     const [authors, setAuthors] = useState(
@@ -45,18 +45,18 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
             ? value.map(a => ({ nom: a?.nom || '', cognom1: a?.cognom1 || '', cognom2: a?.cognom2 || '' }))
             : []
     );
-    // Fila amb el focus actual (per mostrar-hi els suggeriments).
+    // Row with the current focus (to show the suggestions there).
     const [focusedIdx, setFocusedIdx] = useState(null);
-    // Suggeriment ressaltat — compartit entre navegació amb teclat i hover.
-    // -1 = cap seleccionat (l'usuari no ha navegat); Enter sense navegació
-    // tanca el dropdown en comptes de forçar la primera coincidència.
+    // Highlighted suggestion — shared between keyboard navigation and hover.
+    // -1 = none selected (the user hasn't navigated); Enter without navigation
+    // closes the dropdown instead of forcing the first match.
     const [highlightedIdx, setHighlightedIdx] = useState(-1);
     const containerRef = useRef(null);
-    // Hi havia autors estructurats reals a l'inici? (per no esborrar dades)
+    // Were there real structured authors at the start? (so as not to delete data)
     const hadInitial = useRef(Array.isArray(value) && value.some(a => a && (a.nom || a.cognom1 || a.cognom2)));
-    // Valor ja desat (serialitzat). Evita re-desar quan no hi ha canvi —
-    // imprescindible quan l'editor està sempre muntat (panell de propietats),
-    // on cada clic fora dispararia un commit redundant.
+    // Value already saved (serialized). Avoids re-saving when there's no change —
+    // essential when the editor is always mounted (properties panel),
+    // where every outside click would trigger a redundant commit.
     const lastSavedRef = useRef(JSON.stringify(
         (Array.isArray(value) ? value : [])
             .map(a => ({ nom: a?.nom || '', cognom1: a?.cognom1 || '', cognom2: a?.cognom2 || '' }))
@@ -78,7 +78,7 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-        // `authors` al dep array → el handler tanca sempre sobre l'últim valor.
+        // `authors` in the dep array → the handler always closes over the last value.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authors, onSave]);
 
@@ -92,11 +92,11 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
         return next;
     });
 
-    // Autors existents que coincideixen amb el text de la fila `idx` i que encara
-    // no estan a la llista. Buit si la fila és buida → cap suggeriment.
-    // Filtra els suggeriments que buidarien un camp que l'usuari ja ha omplert
-    // (p. ex. dades antigues amb cognom1="García Fernández" quan l'usuari ja té
-    // cognom1="García" i cognom2="Fernández"): evita sobreescriptures silencioses.
+    // Existing authors that match the text of row `idx` and that still
+    // aren't in the list. Empty if the row is empty → no suggestion.
+    // Filters out suggestions that would clear a field the user has already filled in
+    // (e.g. old data with cognom1="García Fernández" when the user already has
+    // cognom1="García" and cognom2="Fernández"): avoids silent overwrites.
     const matchesFor = (idx) => {
         const current = authors[idx] || {};
         const q = authorFullName(current).trim().toLowerCase();
@@ -105,7 +105,7 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
             .filter(s => {
                 if (!authorFullName(s).toLowerCase().includes(q)) return false;
                 if (authors.some(a => sameAuthor(a, s))) return false;
-                // No mostrar suggeriments que esborrarien camps ja escrits.
+                // Don't show suggestions that would erase fields already filled in.
                 if (current.nom && !s.nom) return false;
                 if (current.cognom1 && !s.cognom1) return false;
                 if (current.cognom2 && !s.cognom2) return false;
@@ -117,8 +117,8 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
         setAuthors(prev => prev.map((a, i) => (i === idx ? { nom: s.nom || '', cognom1: s.cognom1 || '', cognom2: s.cognom2 || '' } : a)));
         setFocusedIdx(null);
     };
-    // Navegació amb teclat de la llista de suggeriments de la fila `idx`:
-    // ↓/↑ mou el ressaltat, Enter selecciona el ressaltat, Esc tanca.
+    // Keyboard navigation of the suggestion list for row `idx`:
+    // ↓/↑ moves the highlight, Enter selects the highlighted item, Esc closes.
     const handleKeyNav = (idx, e) => {
         const matches = matchesFor(idx);
         if (!matches.length) return;

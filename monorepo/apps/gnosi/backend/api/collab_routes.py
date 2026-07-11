@@ -1,29 +1,29 @@
-"""Col·laboració en temps real — presència + relay de missatges per pàgina.
+"""Real-time collaboration — presence + per-page message relay.
 
-Esquelet (Via B: servidor central com a relay). Aquest mòdul implementa el
-**canal** de col·laboració, no encara el document CRDT complet:
+Skeleton (Route B: central server as relay). This module implements the
+**channel** for collaboration, not yet the full CRDT document:
 
-  - **Presència**: qui està veient/editant una pàgina ara mateix. El client
-    rep un missatge `{type: "presence", users: [...]}` cada cop que algú
-    entra o surt → la UI mostra "X està editant".
-  - **Relay**: qualsevol altre missatge (cursor, selecció i —en el futur—
-    updates binaris de Yjs) es reenvia tal qual a la resta de peers de la
-    mateixa pàgina. Així la binding completa de Yjs/BlockNote serà només
-    afegir un `type: "update"` per aquest mateix canal, sense tocar el
+  - **Presence**: who's viewing/editing a page right now. The client
+    receives a `{type: "presence", users: [...]}` message every time someone
+    joins or leaves → the UI shows "X is editing".
+  - **Relay**: any other message (cursor, selection, and — in the future —
+    binary Yjs updates) is forwarded as-is to the rest of the peers on the
+    same page. This way the full Yjs/BlockNote binding will just be
+    adding a `type: "update"` for this same channel, without touching the
     transport.
 
 Decisions:
-  - **Sense dependències noves**: només FastAPI/Starlette WebSocket + stdlib.
-  - **Sense persistència** de cap document encara (TODO: snapshot Yjs a disc
-    perquè un peer que entra tard rebi l'estat actual).
-  - **Identitat**: si la cookie `gnosi_session` és present i vàlida, el
-    servidor hi confia per sobre del `user_id` rebut per query (evita que un
-    client suplanti un altre). El `name` (display) ve per query.
+  - **No new dependencies**: only FastAPI/Starlette WebSocket + stdlib.
+  - **No persistence** of any document yet (TODO: Yjs snapshot to disk
+    so a late-joining peer gets the current state).
+  - **Identity**: if the `gnosi_session` cookie is present and valid, the
+    server trusts it over the `user_id` received via query (prevents a
+    client from impersonating another). The `name` (display) comes via query.
 
-TODO producció:
-  - Autoritzar l'accés a la pàgina (workspace/rol) abans d'acceptar el WS.
-  - Límit de connexions per pàgina i rate-limit de missatges.
-  - Snapshot/replay de l'estat CRDT per a late-joiners.
+Production TODO:
+  - Authorize access to the page (workspace/role) before accepting the WS.
+  - Per-page connection limit and message rate-limiting.
+  - Snapshot/replay of CRDT state for late-joiners.
 """
 from __future__ import annotations
 
@@ -33,11 +33,11 @@ from typing import Dict, List, Optional, Set
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
-# Identitat opcional via JWT. Si el mòdul d'autenticació hi és (PR d'auth
-# fusionat), confiem en la cookie de sessió per sobre del user_id rebut per
-# query. Si encara no hi és en aquesta instal·lació, la col·laboració funciona
-# igualment amb la identitat per query (mode personal/legacy). Així aquest
-# mòdul no depèn dur de l'auth i es pot desplegar de forma independent.
+# Optional identity via JWT. If the auth module is present (auth PR
+# merged), we trust the session cookie over the user_id received via
+# query. If it isn't present yet in this installation, collaboration works
+# just the same with identity via query (personal/legacy mode). This way this
+# module doesn't hard-depend on auth and can be deployed independently.
 try:
     from backend.services.auth_service import COOKIE_NAME, decode_access_token
 except ImportError:  # pragma: no cover
@@ -52,7 +52,7 @@ router = APIRouter()
 
 
 class _Peer:
-    """Una connexió WebSocket dins d'una pàgina."""
+    """A WebSocket connection within a page."""
 
     __slots__ = ("ws", "user_id", "name")
 
@@ -63,22 +63,23 @@ class _Peer:
 
 
 class CollabManager:
-    """Registre en memòria de peers per pàgina (room = page_id).
+    """In-memory registry of peers per page (room = page_id).
 
-    En memòria del procés: suficient per a un sol worker uvicorn (el cas
-    actual). Amb múltiples workers caldria un backend compartit (Redis
-    pub/sub) — documentat com a TODO.
+    In-process memory: sufficient for a single uvicorn worker (the current
+    case). With multiple workers a shared backend would be needed (Redis
+    pub/sub) — documented as a TODO.
+    
     """
 
-    # Cap màxim d'updates Yjs guardats per pàgina (replay a late-joiners). Els
-    # updates Yjs són acumulatius i mergeables: aplicar-los en ordre reconstrueix
-    # l'estat. Limitem la mida per no créixer sense fre en sessions llargues; si
-    # se supera, el late-joiner pot demanar un re-sync complet a un peer viu.
+    # Maximum cap of Yjs updates stored per page (replay to late-joiners). The
+    # Yjs updates are cumulative and mergeable: applying them in order reconstructs
+    # the state. We cap the size so it doesn't grow unbounded in long sessions; if
+    # is exceeded, the late-joiner can request a full re-sync from a live peer.
     _MAX_BUFFER = 500
 
     def __init__(self) -> None:
         self._rooms: Dict[str, Set[_Peer]] = {}
-        # Buffer d'updates Yjs (base64) per pàgina, per a replay a late-joiners.
+        # Buffer of Yjs updates (base64) per page, for replay to late-joiners.
         self._doc_buffer: Dict[str, List[str]] = {}
         self._lock = asyncio.Lock()
 
@@ -93,13 +94,13 @@ class CollabManager:
                 room.discard(peer)
                 if not room:
                     self._rooms.pop(page_id, None)
-                    # Sala buida: l'estat ja s'ha materialitzat a disc (autosave
-                    # del client). Descartem el buffer per no servir estat ranci.
+                    # Empty room: the state has already been materialized to disk (autosave
+                    # from the client). We discard the buffer to avoid serving stale state.
                     self._doc_buffer.pop(page_id, None)
 
     def record_update(self, page_id: str, data: str) -> None:
-        """Desa un update Yjs (base64) per a replay. Descarta el més antic si
-        se supera el cap (el client farà re-sync si cal)."""
+        """Stores a Yjs update (base64) for replay. Discards the oldest one if
+        the cap is exceeded (the client will re-sync if needed)."""
         buf = self._doc_buffer.setdefault(page_id, [])
         buf.append(data)
         if len(buf) > self._MAX_BUFFER:
@@ -112,9 +113,9 @@ class CollabManager:
         return list(self._rooms.get(page_id, set()))
 
     def presence_payload(self, room: str, page_id: Optional[str] = None) -> dict:
-        """Llista d'usuaris únics presents (un usuari pot tenir 2 pestanyes).
-        `room` és la clau interna (vault+page_id); `page_id` és el valor real que
-        es mostra al missatge (sense el prefix de vault)."""
+        """List of unique users present (a user can have 2 tabs).
+        `room` is the internal key (vault+page_id); `page_id` is the real value
+        shown in the message (without the vault prefix)."""
         seen: Dict[str, str] = {}
         for p in self.peers(room):
             seen.setdefault(p.user_id, p.name)
@@ -122,10 +123,11 @@ class CollabManager:
         return {"type": "presence", "page_id": page_id or room, "users": users, "count": len(users)}
 
     async def broadcast(self, page_id: str, message: dict, exclude: Optional[_Peer] = None) -> None:
-        """Envia un missatge JSON a tots els peers de la pàgina.
+        """Sends a JSON message to all peers on the page.
 
-        Els peers que fallen l'enviament (connexió morta) s'eliminen perquè
-        no quedin penjats a la presència.
+        Peers for which sending fails (dead connection) are removed so they
+        don't stay stuck in the presence list.
+        
         """
         dead: List[_Peer] = []
         for peer in self.peers(page_id):
@@ -143,10 +145,11 @@ manager = CollabManager()
 
 
 def _resolve_user_id(websocket: WebSocket, query_user_id: str) -> str:
-    """Prioritza el JWT de la cookie sobre el user_id rebut per query.
+    """Prioritizes the JWT from the cookie over the user_id received via query.
 
-    Si la cookie és present i vàlida, és la font de veritat (un client no pot
-    suplantar un altre). Sense cookie (mode personal/legacy), s'usa el query.
+    If the cookie is present and valid, it's the source of truth (a client can't
+    impersonate another). Without a cookie (personal/legacy mode), the query is used.
+    
     """
     token = websocket.cookies.get(COOKIE_NAME)
     if token:
@@ -157,13 +160,13 @@ def _resolve_user_id(websocket: WebSocket, query_user_id: str) -> str:
 
 
 def _room_key(websocket: WebSocket, page_id: str) -> str:
-    """Clau de sala = (vault, page_id). El vault ve de la cookie
-    `gnosi_active_vault`, que el navegador envia al handshake del WebSocket.
+    """Room key = (vault, page_id). The vault comes from the
+    `gnosi_active_vault` cookie, which the browser sends at the WebSocket handshake.
 
-    Sense això, dos vaults amb una pàgina del MATEIX id compartien sala → la
-    presència i els updates CRDT es barrejaven entre vaults (mode org, o dos
-    vaults amb pàgines clonades del mateix id). Sense cookie (single-vault) el
-    namespace queda buit → mateix comportament d'abans."""
+    Without this, two vaults with a page of the SAME id shared a room → the
+    presence and CRDT updates got mixed between vaults (org mode, or two
+    vaults with pages cloned from the same id). Without a cookie (single-vault) the
+    namespace stays empty → same behavior as before."""
     vault_id = (websocket.cookies.get("gnosi_active_vault") or "").strip()
     return f"{vault_id}\x1f{page_id}" if vault_id else page_id
 
@@ -177,16 +180,16 @@ async def collab_ws(
 ):
     await websocket.accept()
     effective_uid = _resolve_user_id(websocket, user_id)
-    room = _room_key(websocket, page_id)   # sala aïllada per vault (vault+page_id)
+    room = _room_key(websocket, page_id)   # room isolated per vault (vault+page_id)
     peer = _Peer(websocket, effective_uid, name or "Anònim")
     await manager.join(room, peer)
     try:
-        # Anuncia la presència actual a tothom (inclòs el nou peer).
+        # Announces the current presence to everyone (including the new peer).
         await manager.broadcast(room, manager.presence_payload(room, page_id))
 
-        # Replay de l'estat CRDT al nou peer (late-joiner): li reenviem els
-        # updates Yjs acumulats de la sessió perquè vegi el document actual sense
-        # esperar que algú torni a teclejar.
+        # Replay of the CRDT state to the new peer (late-joiner): we resend the
+        # accumulated Yjs updates from the session so it sees the current document without
+        # waiting for someone to type again.
         for data in manager.buffered_updates(room):
             try:
                 await websocket.send_json({"type": "yjs-update", "data": data, "replay": True})
@@ -199,15 +202,15 @@ async def collab_ws(
                 continue
             mtype = msg.get("type")
             if mtype == "ping":
-                # Keep-alive del client; responem perquè detecti la connexió viva.
+                # Client keep-alive; we respond so it detects the connection is alive.
                 await websocket.send_json({"type": "pong"})
                 continue
-            # Updates Yjs: a més de reenviar-los, els guardem per a late-joiners.
+            # Yjs updates: besides forwarding them, we store them for late-joiners.
             if mtype == "yjs-update" and isinstance(msg.get("data"), str):
                 manager.record_update(room, msg["data"])
-            # Relay genèric (cursor, selecció, updates Yjs, awareness).
-            # Segellem qui l'envia perquè el receptor no s'hagi de refiar del
-            # camp arbitrari del client.
+            # Generic relay (cursor, selection, Yjs updates, awareness).
+            # We stamp who's sending it so the receiver doesn't have to trust the
+            # arbitrary field from the client.
             msg["from"] = effective_uid
             await manager.broadcast(room, msg, exclude=peer)
     except WebSocketDisconnect:
@@ -216,5 +219,5 @@ async def collab_ws(
         log.warning(f"collab_ws error a page={page_id}: {e}")
     finally:
         await manager.leave(room, peer)
-        # Actualitza la presència per a la resta després de marxar.
+        # Updates presence for everyone else after leaving.
         await manager.broadcast(room, manager.presence_payload(room, page_id))

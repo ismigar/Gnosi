@@ -92,12 +92,12 @@ test.describe('Mail composer paste', () => {
       Buffer.from('%PDF-1.4 fake').toString('base64'),
     );
 
-    // Badge d'adjunt amb el nom del fitxer (exact: el toast «Adjuntat: …»
-    // també conté el nom i faria saltar l'strict mode)
+    // Attachment badge with the file name (exact: the toast «Attached: …»
+    // also contains the name and would trip strict mode)
     await expect(page.getByText('informe.pdf', { exact: true })).toBeVisible({
       timeout: 10_000,
     });
-    // I cap enllaç/embed al cos apuntant al vault
+    // And no link/embed in the body pointing to the vault
     const editorLinks = page.locator(
       '.mail-block-editor a[href*="/api/vault/assets/"], .mail-block-editor [data-url*="/api/vault/assets/"]',
     );

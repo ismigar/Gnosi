@@ -4,7 +4,7 @@ import threading
 from pathlib import Path
 from backend.services.context_vars import get_active_vault_path
 
-# Magatzem de motors de base de dades (un per cada ruta de vault activa)
+# Store of database engines (one per active vault path)
 _engines = {}
 _sessionmakers = {}
 _lock = threading.Lock()
@@ -42,7 +42,7 @@ class VaultNotConfiguredError(Exception):
 
 
 def get_engine_for_path(vault_path: Path):
-    """Retorna o crea un motor SQLAlchemy per a una ruta específica."""
+    """Returns or creates a SQLAlchemy engine for a specific path."""
     if not vault_path:
         raise VaultNotConfiguredError(
             "No vault configured. Please set DIGITAL_BRAIN_VAULT_PATH environment variable "
@@ -95,7 +95,7 @@ engine = None  # Placeholder, we should use get_db()
 
 
 def get_db():
-    """Dependency per a FastAPI que resol el DB segons el context actiu."""
+    """FastAPI dependency that resolves the DB according to the active context."""
     v_path = get_active_vault_path()
 
     if not v_path:

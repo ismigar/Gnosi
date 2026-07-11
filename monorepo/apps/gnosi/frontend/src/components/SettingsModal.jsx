@@ -35,8 +35,8 @@ export function SettingsModal({ isOpen, onClose }) {
         loadCredentials();
     }, [isOpen]);
 
-    // Formulari complex amb autosave i sense una única acció primària: NOMÉS
-    // Esc + focus-trap, sense onConfirm. Veure useModalKeyboard.
+    // Complex form with autosave and no single primary action: ONLY
+    // Esc + focus-trap, without onConfirm. See useModalKeyboard.
     useModalKeyboard({
         isOpen,
         onClose,
@@ -44,10 +44,10 @@ export function SettingsModal({ isOpen, onClose }) {
         trapFocus: true,
     });
 
-    // Autosave silenciós (debounce 800ms — més llarg que altres modals
-    // perquè aquí es toquen color pickers que disparen molts canvis
-    // ràpidament). Errors via toast. Sense reload de pàgina; alguns canvis
-    // (com colors visuals globals) poden requerir refresc manual.
+    // Silent autosave (800ms debounce — longer than other modals
+    // because here color pickers are used that trigger many changes
+    // in quick succession). Errors via toast. No page reload; some changes
+    // (such as global visual colors) may require a manual refresh.
     useEffect(() => {
         if (!isOpen) return;
         if (!initializedRef.current) return;
@@ -71,8 +71,8 @@ export function SettingsModal({ isOpen, onClose }) {
                         body: JSON.stringify(envVars),
                     });
                 }
-                // Notifica els consumidors (Dashboard, GraphPage, AgentChat,
-                // VaultGraph) perquè refetchin sense recarregar la pàgina.
+                // Notifies the consumers (Dashboard, GraphPage, AgentChat,
+                // VaultGraph) so they refetch without reloading the page.
                 emitConfigChanged();
             } catch (err) {
                 console.error('Error saving settings:', err);
@@ -108,8 +108,8 @@ export function SettingsModal({ isOpen, onClose }) {
         try {
             const res = await fetch('/api/config');
             const data = await res.json();
-            // Marquem skip abans d'aplicar el setter per evitar autosave redundant
-            // amb el payload acabat de carregar del backend.
+            // We mark skip before applying the setter to avoid redundant autosave
+            // with the payload just loaded from the backend.
             skipNextAutosaveRef.current = true;
             setConfig(data);
             initializedRef.current = true;
@@ -357,9 +357,9 @@ export function SettingsModal({ isOpen, onClose }) {
 
                             {activeTab === 'schedulers' && (
                                 <div className="settings-section">
-                                    <h3>Tasques Programades</h3>
+                                    <h3>{t('settings.scheduled_tasks', 'Tasques Programades')}</h3>
                                     <p style={{ marginBottom: '20px', color: 'var(--text-secondary)' }}>
-                                        Configura tasques automàtiques del sistema.
+                                        {t('settings.scheduled_tasks_hint', 'Configura tasques automàtiques del sistema.')}
                                     </p>
                                     {schedulers.length === 0 ? (
                                         <p>Carregant tasques...</p>
@@ -454,7 +454,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                     </div>
                                                     {task.last_run && (
                                                         <p style={{ marginTop: '5px', fontSize: '0.8em', color: 'var(--text-tertiary)' }}>
-                                                            Última execució: {new Date(task.last_run).toLocaleString()}
+                                                            {t('settings.last_run', 'Última execució:')} {new Date(task.last_run).toLocaleString()}
                                                         </p>
                                                     )}
                                                 </div>
@@ -567,9 +567,9 @@ export function SettingsModal({ isOpen, onClose }) {
                                         ))}
                                     </div>
                                     <div style={{ marginTop: '20px', padding: '15px', background: 'var(--bg-secondary)', borderRadius: '8px' }}>
-                                        <h4 style={{ marginTop: 0 }}>Migració des de .env_shared</h4>
+                                        <h4 style={{ marginTop: 0 }}>{t('settings.keychain_migration_title', 'Migració des de .env_shared')}</h4>
                                         <p style={{ color: 'var(--text-secondary)', fontSize: '0.9em', marginBottom: '15px' }}>
-                                            Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament.
+                                            {t('settings.keychain_migration_hint', 'Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament.')}
                                         </p>
                                         <button
                                             onClick={async () => {

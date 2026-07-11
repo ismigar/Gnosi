@@ -1,36 +1,36 @@
-"""Mapper declaratiu Zotero item → dict de columnes Recursos.
+"""Declarative Zotero item → Recursos columns dict mapper.
 
-És el motor central que abans de L3.1 vivia hardcoded dins
-`vault_routes._zotero_item_to_recursos` (i en variants per a CrossRef,
-OpenLibrary, arXiv, PubMed, HTML). Llegeix la taula declarativa
-`RECURSOS_TO_ZOTERO_FIELDS` (mòdul `recursos_zotero_mapping`, L2) i
-genera la sortida sense que el mapper conegui cap nom de camp Zotero
-o columna Recursos.
+It's the central engine that before L3.1 lived hardcoded inside
+`vault_routes._zotero_item_to_recursos` (and in variants for CrossRef,
+OpenLibrary, arXiv, PubMed, HTML). It reads the declarative table
+`RECURSOS_TO_ZOTERO_FIELDS` (module `recursos_zotero_mapping`, L2) and
+generates the output without the mapper knowing any Zotero field name
+or Recursos column.
 
-Per què "declaratiu" — afegir una columna Recursos nova (amb correspondència
-Zotero) requereix només afegir una entrada al mapping; aquest mòdul no
-canvia. Igualment, afegir una font nova de lookup (L3.2-3) només requereix
-normalitzar el seu output a un Zotero item; ja no cal escriure un nou
-mapper per font.
+Why "declarative" — adding a new Recursos column (with a Zotero
+correspondence) requires only adding an entry to the mapping; this module doesn't
+change. Likewise, adding a new lookup source (L3.2-3) only requires
+normalizing its output to a Zotero item; there's no longer a need to write a new
+mapper per source.
 
-Tres maneig especials no derivables del mapping:
-  - `Authors`: el camp Zotero `creators` és una llista d'objectes
-    {creatorType, lastName, firstName, name?}; cal aplanar a string
-    `"Cognom, Nom; ..."` com fa Recursos.
-  - `Any`: el camp Zotero `date` és string lliure (`"2024"`, `"2024-05"`,
-    `"May 2024"`, `"2024-05-15"`); extraiem el primer ``\\d{4}`` com a int.
-  - Forced-string: `Volum`, `Número`, `Pàgines`, `Edició` poden venir
-    com a int al JSON però Recursos els guarda com a string.
+Three special cases not derivable from the mapping:
+  - `Authors`: the Zotero `creators` field is a list of objects
+    {creatorType, lastName, firstName, name?}; it needs flattening to the string
+    `"Lastname, Firstname; ..."` the way Recursos does.
+  - `Any`: the Zotero `date` field is a free string (`"2024"`, `"2024-05"`,
+    `"May 2024"`, `"2024-05-15"`); we extract the first ``\\d{4}`` as an int.
+  - Forced-string: `Volum`, `Número`, `Pàgines`, `Edició` may come
+    as int in the JSON but Recursos stores them as string.
 
-L3.4 (aquest mòdul, actualitzat): camps Zotero sense correspondència
-Recursos es capturen sota la clau `Zotero Extras` (dict) al frontmatter.
-Així `patentNumber`, `conferenceName`, `meetingName`, `caseName`,
-`versionNumber`... no es perden encara que no tinguin columna pròpia.
+L3.4 (this module, updated): Zotero fields with no Recursos
+correspondence are captured under the `Zotero Extras` key (dict) in the frontmatter.
+This way `patentNumber`, `conferenceName`, `meetingName`, `caseName`,
+`versionNumber`... are not lost even though they don't have their own column.
 
-Camps purament tècnics de Zotero (`key`, `version`, `tags`, `dateAdded`,
+Purely technical Zotero fields (`key`, `version`, `tags`, `dateAdded`,
 `dateModified`, `relations`, `notes`, `attachments`, `collections`,
-`accessDate`) NO van a `Zotero Extras` — són metadades del sistema
-Zotero, no informació bibliogràfica.
+`accessDate`) do NOT go to `Zotero Extras` — they are Zotero system
+metadata, not bibliographic information.
 """
 from __future__ import annotations
 
@@ -40,14 +40,15 @@ from typing import Any, Callable
 from backend.services.recursos_zotero_mapping import RECURSOS_TO_ZOTERO_FIELDS
 
 
-# ---------- Maneig especial per columna ----------
+# ---------- Special handling per column ----------
 
 def _handle_authors(item: dict) -> str | None:
-    """`creators` (llista Zotero) → `"Cognom, Nom; ..."` (string Recursos).
+    """`creators` (Zotero list) → `"Lastname, Firstname; ..."` (Recursos string).
 
-    Només `creatorType=author` es considera; editors, traductors, etc.
-    s'ometen (els maneja una altra capa al Vault). Acceptem creators
-    amb un sol camp `name` (institucions, p.ex. `{"name": "WHO"}`).
+    Only `creatorType=author` is considered; editors, translators, etc.
+    are omitted (another layer in the Vault handles them). We accept creators
+    with a single `name` field (institutions, e.g. `{"name": "WHO"}`).
+    
     """
     parts: list[str] = []
     for c in item.get('creators') or []:
@@ -68,7 +69,7 @@ def _handle_authors(item: dict) -> str | None:
 
 
 def _handle_any(item: dict) -> int | None:
-    r"""`date` Zotero (lliure) → primer `\d{4}` com a int. None si no hi és."""
+    r"""Zotero `date` (free-form) → first `\d{4}` as int. None if there isn't one."""
     m = re.search(r'\d{4}', str(item.get('date') or ''))
     return int(m.group(0)) if m else None
 
@@ -78,46 +79,47 @@ _SPECIAL_HANDLERS: dict[str, Callable[[dict], Any]] = {
     'Any': _handle_any,
 }
 
-# Columnes Recursos els valors de les quals s'han de stringificar (poden
-# venir com a int al JSON Zotero però Recursos els desa com a text).
+# Recursos columns whose values must be stringified (they can
+# come as int in the Zotero JSON but Recursos stores them as text).
 _FORCE_STR: set[str] = {'Volum', 'Número', 'Pàgines', 'Edició'}
 
-# Camps Zotero purament tècnics — NO van a `Zotero Extras` encara que el
-# mapping declaratiu no els tradueixi. Són metadades del sistema Zotero,
-# no informació bibliogràfica que un autor humà mantindria al frontmatter.
+# Purely technical Zotero fields — do NOT go into `Zotero Extras` even if the
+# declarative mapping doesn't translate them. They are Zotero system metadata,
+# not bibliographic information that a human author would maintain in the frontmatter.
 _TECHNICAL_FIELDS: set[str] = {
     'key', 'version', 'tags', 'relations', 'notes', 'attachments',
     'dateAdded', 'dateModified', 'accessDate', 'collections',
 }
 
 
-# ---------- Mapper públic ----------
+# ---------- Public mapper ----------
 
 def zotero_item_to_recursos(item: dict) -> dict[str, Any]:
-    """Converteix un Zotero item canònic en dict de columnes Recursos.
+    """Converts a canonical Zotero item into a Resources columns dict.
 
-    Iterem `RECURSOS_TO_ZOTERO_FIELDS`. Per a cada columna:
-      1. Si hi ha handler especial (`Authors`, `Any`), l'invoquem.
-      2. Si no, agafem el primer field candidat present al item amb
-         valor truthy. Convertim a `str` si la columna és a `_FORCE_STR`.
+    We iterate over `RECURSOS_TO_ZOTERO_FIELDS`. For each column:
+      1. If there is a special handler (`Authors`, `Any`), we invoke it.
+      2. Otherwise, we take the first candidate field present in the item with
+         a truthy value. Convert to `str` if the column is in `_FORCE_STR`.
 
-    L'ordre dels candidats a `RECURSOS_TO_ZOTERO_FIELDS` defineix el
-    fallback chain (p.ex. `Llibre/Revista` prova `publicationTitle` →
+    The order of candidates in `RECURSOS_TO_ZOTERO_FIELDS` defines the
+    fallback chain (e.g. `Llibre/Revista` tries `publicationTitle` →
     `bookTitle` → `proceedingsTitle` → `encyclopediaTitle`).
 
-    L3.4: camps Zotero no consumits per cap columna i no a `_TECHNICAL_FIELDS`
-    es recullen sota `Zotero Extras` (dict) per no perdre informació de
-    tipus rars (`patentNumber`, `conferenceName`, `meetingName`...).
+    L3.4: Zotero fields not consumed by any column and not in `_TECHNICAL_FIELDS`
+    are collected under `Zotero Extras` (dict) so as not to lose information about
+    rare types (`patentNumber`, `conferenceName`, `meetingName`...).
 
-    Retorna `{}` si `item` no és un dict.
+    Returns `{}` if `item` is not a dict.
+    
     """
     if not isinstance(item, dict):
         return {}
     out: dict[str, Any] = {}
-    # Tots els camps Zotero que aquest mapper "reclama" — els seus chains
-    # de candidats al mapping declaratiu, fins i tot si el item només
-    # porta un dels candidats. Així `bookTitle` i `publicationTitle` no
-    # apareixen tots dos a Extras quan només un d'ells alimenta `Llibre/Revista`.
+    # All the Zotero fields that this mapper "claims" — their chains
+    # of candidates in the declarative mapping, even if the item only
+    # carries one of the candidates. This way `bookTitle` and `publicationTitle` don't
+    # both appear in Extras when only one of them feeds `Llibre/Revista`.
     consumed_fields: set[str] = set()
     for col, candidates in RECURSOS_TO_ZOTERO_FIELDS.items():
         consumed_fields.update(candidates)
@@ -133,7 +135,7 @@ def zotero_item_to_recursos(item: dict) -> dict[str, Any]:
                 out[col] = str(v) if col in _FORCE_STR else v
                 break
 
-    # Extras: tot camp truthy del item que no s'ha consumit i no és tècnic.
+    # Extras: every truthy field from the item that hasn't been consumed and isn't technical.
     extras: dict[str, Any] = {}
     for k, v in item.items():
         if not v:

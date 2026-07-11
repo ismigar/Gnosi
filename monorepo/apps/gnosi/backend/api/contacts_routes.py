@@ -20,13 +20,14 @@ _contacts_cache = _SimpleCache(default_ttl=60, max_size=128)
 log = get_logger(__name__)
 
 def background_sync_contact(workspace_id: str, source: str):
-    """Executa la sincronització cap a fora per a un compte específic.
+    """Runs the outbound sync for a specific account.
 
-    IMPORTANT: aquesta funció **obre i tanca la seva pròpia sessió**.
-    La sessió que ve de `Depends(get_mgmt_db)` ja s'ha tancat per quan
-    FastAPI executa la background task (el `finally db.close()` del
-    dependency es dispara abans d'enviar la resposta). Reusar-la donaria
+    IMPORTANT: this function **opens and closes its own session**.
+    The session coming from `Depends(get_mgmt_db)` has already closed by the time
+    FastAPI runs the background task (the dependency's `finally db.close()`
+    fires before the response is sent). Reusing it would raise
     `DetachedInstanceError`.
+    
     """
     from backend.data.management_db import get_mgmt_session
     db = get_mgmt_session()
@@ -100,8 +101,8 @@ async def list_contacts(
             service = ContactsService(db, x_workspace_id)
             return service.list_contacts(type, search, source)
 
-        # asyncio.get_event_loop() està deprecat dins funcions async i pot
-        # fallar en Python 3.12+. asyncio.to_thread és l'equivalent modern.
+        # asyncio.get_event_loop() is deprecated inside async functions and can
+        # fail in Python 3.12+. asyncio.to_thread is the modern equivalent.
         contacts = await asyncio.to_thread(_fetch)
         result = [contacts_response(c) for c in contacts]
         _contacts_cache.set(cache_key, result)

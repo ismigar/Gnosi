@@ -80,7 +80,7 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
         return () => document.removeEventListener('mousedown', handle);
     }, [onClose]);
 
-    // Esc tanca el picker (dropdown: només Esc, sense Enter ni trap).
+    // Esc closes the picker (dropdown: only Esc, no Enter or trap).
     useModalKeyboard({ isOpen: true, onClose });
 
     const style = anchorRect ? {

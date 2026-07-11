@@ -1,4 +1,4 @@
-"""Tests del recreador de vistes (Fase 2) amb dades REALS de l'MCP de Notion."""
+"""Tests for the view recreator (Phase 2) with REAL data from the Notion MCP."""
 import sys
 from pathlib import Path
 
@@ -9,10 +9,10 @@ from services.notion_view_recreator import (  # noqa: E402
     view_embed, recreate_views_for_page,
 )
 
-HOST_PAGE = "1d3268e52714809ab328fc33d9331454"      # Postgrau de Coaching (fila de Projectes)
-PROJECTES_TABLE = "8e8d3c8d38e64ea0ac417b65561c7712"  # id taula vault Projectes (= db Notion)
+HOST_PAGE = "1d3268e52714809ab328fc33d9331454"      # Postgrau de Coaching (row from Projectes)
+PROJECTES_TABLE = "8e8d3c8d38e64ea0ac417b65561c7712"  # vault table id for Projectes (= Notion db)
 
-# --- markdown real retornat per l'MCP en fer fetch de la pàgina ---
+# --- real markdown returned by the MCP when fetching the page ---
 PAGE_MD = (
     '<page url="...">\n<content>\n'
     '## Planificació {toggle="true"}\n'
@@ -30,7 +30,7 @@ PAGE_MD = (
     '</content>\n</page>'
 )
 
-# --- markdown real de fetch d'una vista incrustada (Vista de Tasques) ---
+# --- real markdown from fetch of an embedded view (Vista de Tasques) ---
 VIEW_MD = (
     'The title of this Data Source is: 📀 Tasques\n'
     '<views>\n<view url="{{view://1d3268e5-2714-80bb-b11e-000ca17d52d8}}">\n'
@@ -42,7 +42,7 @@ VIEW_MD = (
     '"id":"f01b4d8b"}],"type":"table"}\n</view>\n</views>'
 )
 
-# taula Tasques del vault (relació "Projecte" apunta a Projectes)
+# vault's Tasques table (relation "Projecte" points to Projectes)
 TASQUES_TABLE = {
     "id": "ebe5e40f334745779d1c589de14f15a4", "name": "Tasques",
     "properties": [
@@ -68,16 +68,16 @@ def test_parse_mcp_view_resolves_target_and_filter():
     assert v["view_type"] == "table"
     assert "📀 Projecte" in v["display_properties"]
     assert v["filter_property"] == "📀 Projecte"
-    assert v["filter_value_page_id"] == HOST_PAGE   # filtra per AQUESTA pàgina
+    assert v["filter_value_page_id"] == HOST_PAGE   # filters by THIS page
 
 
 def test_resolve_filter_field_by_relation_target():
-    # la relació "Projecte" apunta a Projectes (host) → és el camp del filtre
+    # the "Projecte" relation points to Projectes (host) → it's the filter field
     assert resolve_filter_field(TASQUES_TABLE, PROJECTES_TABLE, "📀 Projecte") == "Projecte"
 
 
 def test_resolve_filter_field_by_name_fallback():
-    # sense relation_database_id, casa pel nom (📀 Projecte → Projecte)
+    # without relation_database_id, matches by name (📀 Projecte → Projecte)
     tbl = {"properties": [{"name": "Projecte", "type": "relation"}]}
     assert resolve_filter_field(tbl, "altra-taula", "📀 Projecte") == "Projecte"
 
@@ -89,9 +89,9 @@ def test_build_gnosi_view_full_fidelity():
     assert view["type"] == "table"
     assert view["name"] == "Tasques pendents"
     assert "📀 Projecte" in view["visibleProperties"]
-    # el filtre "aquesta pàgina" sobre la relació Projecte
+    # the "this page" filter on the Projecte relation
     assert view["filters"] == [{"field": "Projecte", "value": "this"}]
-    # marca de vista contextual: el tauler no la mostra com a pestanya
+    # contextual view marker: the dashboard doesn't show it as a tab
     assert view["embedded"] is True
 
 
@@ -107,15 +107,15 @@ def test_view_embed_format():
 
 
 def test_recreate_views_for_page_end_to_end():
-    # fetch_view: totes les vistes resolen a la mateixa metadada (Vista de Tasques) per al test;
-    # resolve_table: "📀 Tasques"/"Tasques" → taula Tasques del vault.
+    # fetch_view: all views resolve to the same metadata (Vista de Tasques) for the test;
+    # resolve_table: "📀 Tasques"/"Tasques" → vault's Tasques table.
     def fetch_view(db_id):
         return VIEW_MD
     def resolve_table(ds_name):
         return TASQUES_TABLE if "tasques" in (ds_name or "").lower() else None
     out = recreate_views_for_page(PAGE_MD, HOST_PAGE, PROJECTES_TABLE,
                                   fetch_view=fetch_view, resolve_table=resolve_table)
-    assert len(out) == 5                       # 5 vistes incrustades a la pàgina
+    assert len(out) == 5                       # 5 embedded views on the page
     first = out[0]
     assert first["heading"] == "Tasques pendents"
     assert first["view"]["table_id"] == TASQUES_TABLE["id"]
@@ -136,9 +136,9 @@ if __name__ == "__main__":
     sys.exit(1 if failed else 0)
 
 
-# Vista amb filtre de checkbox + ordre + agrupació (format nou de l'MCP, 2026-07):
-# abans NOMÉS es detectava el filtre de relació "aquesta pàgina" i es perdien
-# filtres/ordre/grup (vistes clonades sense configurar).
+# View with checkbox filter + sort + grouping (new MCP format, 2026-07):
+# previously ONLY the "this page" relation filter was detected, and the rest were lost
+# filters/sort/group (cloned views without configuration).
 VIEW_MD_CHECKBOX = (
     '<database url="{{https://app.notion.com/p/a58c144f894f4a47939042b7627cd14e}}" inline="true">\n'
     'The title of this Database is: Vista de Projectes\n'
@@ -157,14 +157,14 @@ def test_build_gnosi_view_maps_filters_sorts_group():
     meta = parse_mcp_view(VIEW_MD_CHECKBOX)
     view = build_gnosi_view("deadbeef" * 4, {"id": "t1", "name": "Projectes", "properties": []},
                             "host-t", meta, "Projectes arxivats")
-    # checkbox_is true → equals "true" (paritat amb vaultFilters.asBool del frontend)
+    # checkbox_is true → equals "true" (parity with the frontend's vaultFilters.asBool)
     assert view["filters"] == [{"field": "Arxivar", "operator": "equals", "value": "true"}]
     assert view["sorts"] == [{"field": "Nom", "direction": "desc"}]
     assert view["groupBy"] == "Estat"
 
 
-# --- bloc multi-pestanya REAL (extracte del fetch MCP de «Vista de Cervell digital»,
-# 2026-07-08: 10 pestanyes en UN bloc; abans només s'importava la primera) ---
+# --- REAL multi-tab block (excerpt from the MCP fetch of «Vista de Cervell digital»,
+# 2026-07-08: 10 tabs in ONE block; previously only the first one was imported) ---
 VIEW_MD_MULTI = (
     '<database url="{{https://app.notion.com/p/eca38afb88a646f68e1ccfa956fc3e00}}" inline="true">\n'
     'The title of this Database is: Vista de Cervell digital\n'
@@ -203,7 +203,7 @@ VIEW_MD_MULTI = (
     '</views>\n</database>'
 )
 
-# vista chart REAL (extracte de «Vista de Recursos»: 📊 Recursos per estat)
+# REAL chart view (excerpt from «Vista de Recursos»: 📊 Recursos per estat)
 VIEW_MD_CHART = (
     'The title of this Data Source is: 📀 Recursos\n'
     '<views>\n<view url="{{view://9dce3651-42c0-4614-ab63-d6a1b7afb2bb}}">\n'
@@ -225,7 +225,7 @@ def test_parse_mcp_views_all_tabs():
     assert [m["view_type"] for m in metas] == ["table", "board", "table", "timeline"]
     assert all(m["data_source_name"] == "📀 Cervell digital" for m in metas)
     assert metas[0]["view_url"] == "7f5cd1ff-c38a-4ef9-a8cb-e22e6eeabcd5"
-    # compat: parse_mcp_view = primera pestanya
+    # compat: parse_mcp_view = first tab
     assert parse_mcp_view(VIEW_MD_MULTI)["name"] == "Taula"
 
 
@@ -234,7 +234,7 @@ def test_parse_mcp_views_board_filters_and_group():
     assert board["group_by"] == "Tags"
     t = {"id": "t1", "name": "Cervell digital", "properties": []}
     view = build_gnosi_view("deadbeef" * 4, t, "host-t", board, "Procesar per tema")
-    # enum_is → equals; is_not_empty passa; el status per GRUPS (llista) no és mapejable
+    # enum_is → equals; is_not_empty passes through; status by GROUPS (list) isn't mappable
     assert view["filters"] == [
         {"field": "Tipus de nota", "operator": "equals", "value": "Nota de lectura"},
         {"field": "Tags", "operator": "is_not_empty"},
@@ -246,7 +246,7 @@ def test_parse_mcp_views_advanced_filter_formula():
     fortes = parse_mcp_views(VIEW_MD_MULTI)[2]
     t = {"id": "t1", "name": "Cervell digital", "properties": []}
     view = build_gnosi_view("deadbeef" * 4, t, "host-t", fortes, "Connexions fortes")
-    # advancedFilter amb resultFilter (fórmula): Centralitat > 10
+    # advancedFilter with resultFilter (formula): Centralitat > 10
     assert view["filters"] == [{"field": "Centralitat", "operator": "greater_than", "value": "10"}]
 
 
@@ -278,8 +278,8 @@ def test_build_gnosi_view_salt_disambiguates_ids():
     v0b = build_gnosi_view("deadbeef" * 4, t, "host-t", metas[0], "Secció")
     v1 = build_gnosi_view("deadbeef" * 4, t, "host-t", metas[1], "Secció",
                           salt=metas[1]["view_url"])
-    assert v0["id"] == v0b["id"]          # sense salt: determinista (id llegat)
-    assert v1["id"] != v0["id"]           # pestanyes 2..N: id propi
+    assert v0["id"] == v0b["id"]          # no salt: deterministic (legacy id)
+    assert v1["id"] != v0["id"]           # tabs 2..N: own id
 
 
 def test_recreate_views_for_page_multi_tab():
@@ -291,10 +291,10 @@ def test_recreate_views_for_page_multi_tab():
         page_md, "deadbeef" * 4, "host-t",
         fetch_view=lambda db_id: VIEW_MD_MULTI,
         resolve_table=lambda name: t if "Cervell" in (name or "") else None)
-    assert len(res) == 4                                  # TOTES les pestanyes
-    assert len({r["view"]["id"] for r in res}) == 4       # ids únics
+    assert len(res) == 4                                  # ALL tabs
+    assert len({r["view"]["id"] for r in res}) == 4       # unique ids
     assert [r["view"]["name"] for r in res] == ["Taula", "Procesar per tema",
                                                 "Connexions fortes", "Notes recents"]
-    # Només l'ÀNCORA porta embed; la resta hi pengen pel camp `tabs` (pestanyes)
+    # Only the ANCHOR carries the embed; the rest hang off it via the `tabs` field (tabs)
     assert res[0]["embed"] and all(r["embed"] is None for r in res[1:])
     assert res[0]["view"]["tabs"] == [r["view"]["id"] for r in res[1:]]

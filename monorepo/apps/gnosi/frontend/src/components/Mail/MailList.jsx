@@ -14,9 +14,9 @@ import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 const cleanName = (addr) =>
     (addr || '').split('<')[0].trim().replace(/^["']+|["']+$/g, '').trim() || addr || '';
 
-// ─── Caché persistent (localStorage) ─────────────────────────────────────────
+// ─── Persistent cache (localStorage) ─────────────────────────────────────────
 const LS_PREFIX = 'gnosi_mail_v1_';
-const LS_MAX_AGE = 24 * 60 * 60 * 1000; // 24h — sempre fetchem fresc, és només per mostrar ràpid
+const LS_MAX_AGE = 24 * 60 * 60 * 1000; // 24h — we always fetch fresh data, this is just to show something quickly
 
 function lsGet(key) {
     try {
@@ -31,7 +31,7 @@ function lsGet(key) {
 function lsSet(key, messages) {
     try {
         const payload = JSON.stringify({ m: messages, ts: Date.now() });
-        if (payload.length > 600_000) return; // evitar excedir quota
+        if (payload.length > 600_000) return; // avoid exceeding quota
         localStorage.setItem(LS_PREFIX + key, payload);
     } catch { /* quota exceeded */ }
 }
@@ -63,7 +63,7 @@ const DEFAULT_CONFIG = {
 };
 
 // ─── MailList ─────────────────────────────────────────────────────────────────
-// Elimina un missatge i tots els seus germans de thread (per Gmail, thread_id !== message_id)
+// Removes a message and all its thread siblings (for Gmail, thread_id !== message_id)
 const filterOutThread = (msgs, msgId, threadId) =>
     msgs.filter(m => m.id !== msgId && !(threadId && threadId !== msgId && m.thread_id === threadId));
 
@@ -91,7 +91,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     const [batchMoveMenu, setBatchMoveMenu] = useState(null); // { x, y, folders }
     const foldersCacheRef = useRef({});
     const msgCacheRef = useRef({});  // stale-while-revalidate: { cacheKey -> messages[] }
-    const [syncing, setSyncing] = useState(false); // actualització en segon pla
+    const [syncing, setSyncing] = useState(false); // background update
     // pagination state per account email
     const [pageTokens, setPageTokens] = useState({});   // gmail next_page_token
     const [offsets, setOffsets] = useState({});          // imap offset
@@ -99,7 +99,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
     const buildUrl = (email, { pageToken, offset, force } = {}) => {
         let url = `/api/mail/messages?email=${encodeURIComponent(email)}&limit=50`;
-        // Sempre envia folder. "all" = tots els correus (sense filtre INBOX). "NOT_ARCHIVED" es filtra al client.
+        // Always sends folder. "all" = all emails (no INBOX filter). "NOT_ARCHIVED" is filtered client-side.
         const folderParam = folder === 'NOT_ARCHIVED' ? 'all' : (folder || 'all');
         url += `&folder=${encodeURIComponent(folderParam)}`;
         if (category) url += `&category=${encodeURIComponent(category)}`;
@@ -123,13 +123,13 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
         const cacheKey = `${emailList.join(',')}|${folder || ''}|${category || ''}`;
 
-        // Mostra dades en caché immediatament (memòria → localStorage → spinner)
+        // Shows cached data immediately (memory → localStorage → spinner)
         const stale = msgCacheRef.current[cacheKey] || (!force && lsGet(cacheKey));
         if (stale && !force) {
             setMessages(stale);
             setLoading(false);
             onMessagesLoaded?.(stale);
-            setSyncing(true); // actualització silenciosa en segon pla
+            setSyncing(true); // silent background update
         } else {
             setLoading(true);
         }
@@ -162,7 +162,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                     seen.add(m.id); return true;
                 });
                 msgCacheRef.current[cacheKey] = unique;
-                lsSet(cacheKey, unique); // persistir per als propers reloads
+                lsSet(cacheKey, unique); // persist for future reloads
                 setMessages(unique);
                 setLoading(false);
                 setSyncing(false);
@@ -247,14 +247,14 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     }, [account, accounts, folder, category]);
 
     // ── Push notifications via Server-Sent Events (IMAP IDLE) ────────────────
-    // Mantenim una `fetchMessages` ref perquè l'EventSource es creï un cop
-    // i pugui cridar sempre la versió més recent del fetch.
+    // We keep a `fetchMessages` ref so the EventSource is created once
+    // and can always call the most recent version of the fetch.
     const fetchRef = useRef(fetchMessages);
     useEffect(() => { fetchRef.current = fetchMessages; });
 
     useEffect(() => {
-        // Si només mostrem un compte concret, filtrem per email perquè
-        // events d'altres comptes no facin reload innecessari.
+        // If we only show a specific account, we filter by email so that
+        // events from other accounts don't trigger an unnecessary reload.
         const url = account?.email
             ? `/api/mail/events?email=${encodeURIComponent(account.email)}`
             : `/api/mail/events`;
@@ -267,7 +267,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         }
 
         const onNew = () => {
-            // Invalida cache i refà fetch silenciós (stale-while-revalidate).
+            // Invalidates cache and redoes a silent fetch (stale-while-revalidate).
             const emails = account?.email
                 ? [account.email]
                 : enabledAccounts.map(a => a.email || a.username).filter(Boolean);
@@ -279,7 +279,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         es.addEventListener('new_message', onNew);
         es.addEventListener('message_removed', onNew);
         es.addEventListener('flags_changed', onNew);
-        es.onerror = () => { /* el navegador re-intenta automàticament */ };
+        es.onerror = () => { /* the browser automatically retries */ };
 
         return () => {
             try { es.close(); } catch { /* no-op */ }
@@ -322,7 +322,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     // Reset focus when list changes
     useEffect(() => { setFocusedIndex(-1); }, [account, accounts, folder, category]);
 
-    // Sync focusedIndex amb selectedMailId quan canvia externament (p.ex. eliminació/navegació automàtica)
+    // Sync focusedIndex with selectedMailId when it changes externally (e.g. deletion/automatic navigation)
     useEffect(() => {
         if (!selectedMailId) return;
         const idx = flatMessagesRef.current.findIndex(m => m.id === selectedMailId);
@@ -342,7 +342,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             if (isComposingRef.current) return;
             const active = document.activeElement;
             const isInteractive = ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON'].includes(active.tagName) || active.isContentEditable;
-            // Delete/Backspace: permet actuar si hi ha selecció encara que el focus sigui en un checkbox
+            // Delete/Backspace: allows acting if there's a selection even if focus is on a checkbox
             const isDeleteKey = e.key === 'Delete' || e.key === 'Backspace';
             if (isInteractive && !(isDeleteKey && selectedIds.size > 0)) return;
             const flat = flatMessagesRef.current;
@@ -391,9 +391,9 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [selectedIds, messages, focusedIndex]);
 
-    // Esc tanca cadascun dels menús desplegables (dropdowns: només Esc).
-    // No interfereix amb la navegació de la llista (fletxes/Enter/Delete) del
-    // handler global de dalt, que no toca Escape.
+    // Esc closes each of the dropdown menus (dropdowns: only Esc).
+    // Does not interfere with the list navigation (arrows/Enter/Delete) of the
+    // global handler above, which doesn't touch Escape.
     useModalKeyboard({ isOpen: !!moveMenu, onClose: () => setMoveMenu(null) });
     useModalKeyboard({ isOpen: !!batchMoveMenu, onClose: () => setBatchMoveMenu(null) });
     useModalKeyboard({ isOpen: !!contextMenu, onClose: () => setContextMenu(null) });
@@ -408,18 +408,18 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
     const handleBatchActionWithConfirm = (action) => {
         if (selectedIds.size === 0) return;
-        
+
         let confirmMsg = null;
-        let confirmTitle = "Confirmar acció";
+        let confirmTitle = t('mail.confirm_action_title', 'Confirmar acció');
         const isTrash = folder === 'TRASH' || folder?.toUpperCase() === 'TRASH';
 
         if (action === 'trash') {
             if (isTrash) {
-                confirmTitle = "Eliminar permanentment";
-                confirmMsg = `Vols eliminar permanentment aquests ${selectedIds.size} missatges? Aquesta acció no es pot desfer.`;
+                confirmTitle = t('mail.delete_permanently_title', 'Eliminar permanentment');
+                confirmMsg = t('mail.delete_permanently_confirm', { count: selectedIds.size, defaultValue_one: 'Vols eliminar permanentment aquest missatge? Aquesta acció no es pot desfer.', defaultValue_other: 'Vols eliminar permanentment aquests {{count}} missatges? Aquesta acció no es pot desfer.' });
             } else if (selectedIds.size > 5) {
-                confirmTitle = "Moure a la paperera";
-                confirmMsg = `Vols moure aquests ${selectedIds.size} missatges a la paperera?`;
+                confirmTitle = t('mail.move_to_trash_title', 'Moure a la paperera');
+                confirmMsg = t('mail.move_to_trash_confirm', { count: selectedIds.size, defaultValue: 'Vols moure aquests {{count}} missatges a la paperera?' });
             }
         }
 
@@ -440,11 +440,11 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
     const handleEmptyFolder = () => {
         const isTrash = folder === 'TRASH' || folder?.toUpperCase() === 'TRASH';
-        const title = isTrash ? "Buidar paperera" : "Buidar brossa";
-        const msg = isTrash 
-            ? (account ? "Vols buidar tota la paperera permanentment? Aquesta acció no es pot desfer." : "Vols buidar la paperera de TOTES les comptes?")
-            : (account ? "Vols moure tota la brossa a la paperera?" : "Vols moure la brossa a la paperera de TOTES les comptes?");
-        
+        const title = isTrash ? t('mail.empty_trash_title', 'Buidar paperera') : t('mail.empty_junk_title', 'Buidar brossa');
+        const msg = isTrash
+            ? (account ? t('mail.empty_trash_confirm_account', 'Vols buidar tota la paperera permanentment? Aquesta acció no es pot desfer.') : t('mail.empty_trash_confirm_all', 'Vols buidar la paperera de TOTES les comptes?'))
+            : (account ? t('mail.empty_junk_confirm_account', 'Vols moure tota la brossa a la paperera?') : t('mail.empty_junk_confirm_all', 'Vols moure la brossa a la paperera de TOTES les comptes?'));
+
         setConfirmConfig({
             isOpen: true,
             title,
@@ -456,7 +456,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
                 if (emailList.length === 0) {
                     setConfirmConfig({ isOpen: false });
-                    toast.error("No hi ha comptes configurats");
+                    toast.error(t('mail.no_accounts_configured', 'No hi ha comptes configurats'));
                     return;
                 }
 
@@ -472,21 +472,21 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
                     if (succeeded.length === 0) {
                         const errData = await failed[0].res.json().catch(() => ({}));
-                        throw new Error(errData.detail || "Error al servidor");
+                        throw new Error(errData.detail || t('mail.server_error', 'Error al servidor'));
                     }
 
                     if (failed.length > 0) {
                         const errDetails = await Promise.all(failed.map(async f => {
                             const d = await f.res.json().catch(() => ({}));
-                            return `${f.email}: ${d.detail || 'Error desconegut'}`;
+                            return `${f.email}: ${d.detail || t('errors.unknown')}`;
                         }));
-                        toast.error(`Buidat parcialment. Errors: ${errDetails.join('; ')}`, { duration: 6000 });
+                        toast.error(t('mail.empty_partial_error', 'Buidat parcialment. Errors: {{errors}}', { errors: errDetails.join('; ') }), { duration: 6000 });
                     } else {
-                        toast.success(isTrash ? "Paperera buidada" : "Brossa moguda a la paperera");
+                        toast.success(isTrash ? t('mail.trash_emptied', 'Paperera buidada') : t('mail.junk_moved_to_trash', 'Brossa moguda a la paperera'));
                     }
 
                     setLoading(false);
-                    // Neteja caché per evitar mostrar missatges esborrats mentre es refresca
+                    // Clears cache to avoid showing deleted messages while it refreshes
                     const cacheKey = `${emailList.join(',')}|${folder || ''}|${category || ''}`;
                     msgCacheRef.current[cacheKey] = [];
                     setMessages([]);
@@ -497,13 +497,13 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                     setLoading(false);
                     setConfirmConfig({ isOpen: false });
                     console.error("Error buidant carpeta:", err);
-                    toast.error(`Error: ${err.message || "No s'ha pogut buidar"}`);
+                    toast.error(`${t('mail.error_prefix', 'Error')}: ${err.message || t('mail.empty_folder_fallback_error', "No s'ha pogut buidar")}`);
                 }
             }
         });
     };
 
-    // Refs per llegir valors actuals dins l'observer sense re-registrar-lo
+    // Refs to read current values inside the observer without re-registering it
     const hasMoreRef = useRef(hasMore);
     const loadingMoreRef = useRef(loadingMore);
     const loadMoreFnRef = useRef(loadMore);
@@ -511,7 +511,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     useEffect(() => { loadingMoreRef.current = loadingMore; }, [loadingMore]);
     useEffect(() => { loadMoreFnRef.current = loadMore; }, [loadMore]);
 
-    // Scroll infinit: registrat una sola vegada, llegeix refs per evitar el loop
+    // Infinite scroll: registered once, reads refs to avoid the loop
     useEffect(() => {
         const el = sentinelRef.current;
         if (!el) return;
@@ -661,7 +661,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             let groupTitle;
 
             if (effectiveConfig.groupBy === 'sender') {
-                groupTitle = (msg.thread_senders?.[0] || msg.sender || 'Desconegut').split('<')[0].trim();
+                groupTitle = (msg.thread_senders?.[0] || msg.sender || t('mail.unknown_sender', 'Desconegut')).split('<')[0].trim();
             } else {
                 const ts = msg.timestamp || (Date.now() / 1000);
                 const date = parseISO(new Date(ts * 1000).toISOString());
@@ -714,16 +714,16 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                toast.error(err.detail || "No s'ha pogut moure el missatge");
+                toast.error(err.detail || t('mail.move_message_failed', "No s'ha pogut moure el missatge"));
                 setMessages(prev => [msg, ...prev]);
                 return;
             }
         } catch {
-            toast.error("Error de connexió en moure el missatge");
+            toast.error(t('mail.move_connection_error', 'Error de connexió en moure el missatge'));
             setMessages(prev => [msg, ...prev]);
             return;
         }
-        toast.success(`Mogut a ${folderName}`);
+        toast.success(t('mail.moved_to_folder', 'Mogut a {{folder}}', { folder: folderName }));
         onBatchDone?.();
     };
 
@@ -772,7 +772,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (failedIds.size > 0) {
             const failedMsgs = removedMsgs.filter(m => failedIds.has(m.id));
             setMessages(prev => [...failedMsgs, ...prev]);
-            toast.error(`No s'han pogut moure ${failedIds.size} missatge${failedIds.size > 1 ? 's' : ''}`);
+            toast.error(t('mail.move_batch_error', { count: failedIds.size, defaultValue_one: "No s'han pogut moure {{count}} missatge", defaultValue_other: "No s'han pogut moure {{count}} missatges" }));
         }
         onBatchDone?.();
     };
@@ -823,7 +823,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         // Optimistic UI: update/remove immediately
         if (action === 'trash' || action === 'archive') {
             setMessages(prev => prev.filter(m => !selectedIds.has(m.id)));
-            // Purga la caché perquè no reapareguin en recarregar
+            // Purges the cache so they don't reappear on reload
             Object.keys(msgCacheRef.current).forEach(key => {
                 msgCacheRef.current[key] = msgCacheRef.current[key].filter(m => !selectedIds.has(m.id));
             });
@@ -834,7 +834,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         setSelectedIds(new Set());
 
         if (action === 'trash' || action === 'archive') {
-            // Esborranys vault: crida l'endpoint específic de cada un
+            // Vault drafts: calls the specific endpoint for each one
             const vaultIds = messages.filter(m => ids.includes(m.id) && m.source === 'vault').map(m => m.id);
             const imapIds = ids.filter(id => !vaultIds.includes(id));
 
@@ -865,7 +865,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                 })(),
             ]);
         } else {
-            // Per 'read' i altres accions, crida batch genèric
+            // For 'read' and other actions, calls the generic batch
             const emailsToCall = account?.email
                 ? [{ email: account.email, ids }]
                 : Object.values(
@@ -897,7 +897,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             <div className="px-4 py-4 flex items-center justify-between border-b border-[var(--border-primary)] min-h-[72px] gap-2">
                 <button
                     onClick={onToggleMailboxSidebar}
-                    title={showMailboxSidebar ? "Amaga bústia" : "Mostra bústia"}
+                    title={showMailboxSidebar ? t('mail.hide_mailbox', 'Amaga bústia') : t('mail.show_mailbox', 'Mostra bústia')}
                     className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors shrink-0"
                 >
                     <PanelLeft size={16} />
@@ -915,21 +915,21 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 <span className="text-sm font-bold text-[var(--text-primary)]">{selectedIds.size} {t('mail.selected')}</span>
                             </div>
                             <div className="flex items-center gap-0.5">
-                                <button onClick={() => handleBatchActionWithConfirm('archive')} title="Arxivar seleccionats" className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
+                                <button onClick={() => handleBatchActionWithConfirm('archive')} title={t('mail.archive_selected', 'Arxivar seleccionats')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
                                     <Archive size={16} />
                                 </button>
-                                <button onClick={() => handleBatchActionWithConfirm('trash')} title="Eliminar seleccionats" className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-all">
+                                <button onClick={() => handleBatchActionWithConfirm('trash')} title={t('mail.delete_selected', 'Eliminar seleccionats')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-all">
                                     <Trash2 size={16} />
                                 </button>
-                                <button onClick={handleBatchMoveOpen} title="Moure a carpeta" className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
+                                <button onClick={handleBatchMoveOpen} title={t('mail.move_to_folder_title', 'Moure a carpeta')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
                                     <FolderInput size={16} />
                                 </button>
-                                <button onClick={() => handleBatchAction('read')} title="Marcar com a llegit" className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
+                                <button onClick={() => handleBatchAction('read')} title={t('mail.mark_read', 'Marcar com a llegit')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
                                     <CheckCircle2 size={16} />
                                 </button>
                                 <div className="relative">
                                     <button
-                                        title="Assignar etiqueta"
+                                        title={t('mail.assign_tag', 'Assignar etiqueta')}
                                         onClick={e => {
                                             const rect = e.currentTarget.getBoundingClientRect();
                                             setInlineTagPicker(prev => prev?.msgId === '__batch__' ? null : { msgId: '__batch__', rect });
@@ -989,7 +989,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 <button
                                     onClick={handleEmptyFolder}
                                     className="p-2 text-[var(--status-error)] hover:bg-[var(--status-error)]/10 rounded-xl transition-all"
-                                    title={folder?.toUpperCase() === 'TRASH' ? 'Buida paperera' : 'Buida brossa'}
+                                    title={folder?.toUpperCase() === 'TRASH' ? t('mail.empty_trash_tooltip', 'Buida paperera') : t('mail.empty_junk_tooltip', 'Buida brossa')}
                                 >
                                     <Trash2 size={16} />
                                 </button>
@@ -997,7 +997,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                             <button
                                 onClick={() => setUnreadOnly(!unreadOnly)}
                                 className={`p-2 rounded-xl transition-all ${unreadOnly ? 'bg-[var(--gnosi-blue)] text-white shadow-lg' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
-                                title={unreadOnly ? "Mostra-ho tot" : "Filtra no llegits"}
+                                title={unreadOnly ? t('mail.show_all', 'Mostra-ho tot') : t('mail.filter_unread', 'Filtra no llegits')}
                             >
                                 <CircleDot size={16} fill={unreadOnly ? 'currentColor' : 'none'} />
                             </button>
@@ -1006,7 +1006,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 onClick={() => fetchMessages({ force: true })}
                                 disabled={loading}
                                 className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] rounded-lg transition-colors disabled:opacity-40 shrink-0"
-                                title="Refrescar"
+                                title={t('common.refresh')}
                             >
                                 <RefreshCw size={16} className={(loading || syncing) ? 'animate-spin' : ''} />
                             </button>
@@ -1064,7 +1064,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                                 <span className={`text-[13.5px] truncate ${msg.thread_unread > 0 ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                                                     {msg.thread_senders?.length > 1
                                                         ? msg.thread_senders.slice(0, 2).join(', ') + (msg.thread_senders.length > 2 ? '…' : '')
-                                                        : cleanName(msg.sender) || 'Desconegut'
+                                                        : cleanName(msg.sender) || t('mail.unknown_sender', 'Desconegut')
                                                     }
                                                 </span>
                                                 {msg.thread_count > 1 && (
@@ -1121,35 +1121,35 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                                 {msg.has_attachments && <Paperclip size={14} className="text-[var(--text-secondary)]" />}
                                                 <div className={`flex items-center gap-0.5 transition-opacity ${(selectedMailId || isComposing) ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
                                                     <button
-                                                        title={msg.is_starred ? "Treure destacat" : "Marcar com a destacat"}
+                                                        title={msg.is_starred ? t('mail.unstar', 'Treure destacat') : t('mail.star_action', 'Marcar com a destacat')}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] hover:text-[var(--status-warning)] transition-colors"
                                                         onClick={e => handleInlineAction(e, 'star', msg)}
                                                     >
                                                         <Star size={15} fill={msg.is_starred ? 'currentColor' : 'none'} className={msg.is_starred ? 'text-[var(--status-warning)]' : ''} />
                                                     </button>
                                                     <button
-                                                        title="Arxivar"
+                                                        title={t('mail.archive_action', 'Arxivar')}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] transition-colors"
                                                         onClick={e => handleInlineAction(e, 'archive', msg)}
                                                     >
                                                         <Archive size={15} />
                                                     </button>
                                                     <button
-                                                        title="Moure a carpeta"
+                                                        title={t('mail.move_to_folder_title', 'Moure a carpeta')}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] transition-colors"
                                                         onClick={e => handleInlineMoveOpen(e, msg)}
                                                     >
                                                         <FolderInput size={15} />
                                                     </button>
                                                     <button
-                                                        title="Eliminar"
+                                                        title={t('mail.delete_action', 'Eliminar')}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors"
                                                         onClick={e => handleInlineAction(e, 'trash', msg)}
                                                     >
                                                         <Trash2 size={15} />
                                                     </button>
                                                     <button
-                                                        title="Etiquetes"
+                                                        title={t('mail.labels', 'Etiquetes')}
                                                         className={`p-1.5 rounded transition-colors ${inlineTagPicker?.msgId === msg.id ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
                                                         onClick={e => {
                                                             e.stopPropagation();
@@ -1213,12 +1213,12 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                 )}
             </div>
 
-            {/* Sentinel per scroll infinit */}
+            {/* Sentinel for infinite scroll */}
             <div ref={sentinelRef} className="py-3 flex justify-center">
                 {loadingMore && <div className="w-4 h-4 border-2 border-[var(--gnosi-blue)] border-t-transparent rounded-full animate-spin" />}
             </div>
 
-            {/* Move menu (inline per missatge) */}
+            {/* Move menu (inline per message) */}
             {moveMenu && createPortal(
                 <>
                     <div className="fixed inset-0" style={{ zIndex: 10000 }} onClick={() => setMoveMenu(null)} />
@@ -1227,9 +1227,9 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         style={{ left: moveMenu.x, top: moveMenu.y, zIndex: 10001 }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Moure a...</div>
+                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', 'Moure a...')}</div>
                         {moveMenu.folders.length === 0
-                            ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">Carregant...</div>
+                            ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">{t('common.loading')}</div>
                             : moveMenu.folders
                                 .filter(f => f.name !== moveMenu.msg?.imap_folder)
                                 .map(f => (
@@ -1257,9 +1257,9 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         style={{ left: batchMoveMenu.x, top: batchMoveMenu.y, zIndex: 10001 }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">Moure {selectedIds.size} missatge{selectedIds.size > 1 ? 's' : ''} a...</div>
+                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_batch_menu_title', { count: selectedIds.size, defaultValue_one: 'Moure {{count}} missatge a...', defaultValue_other: 'Moure {{count}} missatges a...' })}</div>
                         {batchMoveMenu.folders.length === 0
-                            ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">Carregant...</div>
+                            ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">{t('common.loading')}</div>
                             : batchMoveMenu.folders.map(f => (
                                 <button
                                     key={f.name}

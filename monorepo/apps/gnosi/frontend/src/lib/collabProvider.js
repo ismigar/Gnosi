@@ -1,11 +1,11 @@
 /**
- * collabProvider.js — proveïdor Yjs mínim sobre el canal WebSocket existent
- * (`/api/vault/collab/{pageId}`). Transporta updates del document (CRDT) i
- * awareness (cursors/selecció) com a missatges JSON amb payload base64, de
- * manera que reutilitza el mateix relay que ja fa servir la presència.
+ * collabProvider.js — minimal Yjs provider on top of the existing WebSocket channel
+ * (`/api/vault/collab/{pageId}`). Transports document updates (CRDT) and
+ * awareness (cursors/selection) as JSON messages with base64 payload, so
+ * it reuses the same relay that presence already uses.
  *
- * Es passa a BlockNote via `useCreateBlockNote({ collaboration: { provider,
- * fragment, user } })`. NOMÉS s'instancia en mode org (veure useYjsCollaboration).
+ * Passed to BlockNote via `useCreateBlockNote({ collaboration: { provider,
+ * fragment, user } })`. It is ONLY instantiated in org mode (see useYjsCollaboration).
  */
 import * as Y from 'yjs';
 import { Awareness, encodeAwarenessUpdate, applyAwarenessUpdate } from 'y-protocols/awareness';
@@ -33,8 +33,8 @@ function buildWsUrl(pageId) {
 }
 
 /**
- * Proveïdor de col·laboració compatible amb BlockNote: exposa `doc` i
- * `awareness`. Es connecta sol i reenvia/aplica updates Yjs i awareness.
+ * Collaboration provider compatible with BlockNote: exposes `doc` and
+ * `awareness`. Connects on its own and forwards/applies Yjs updates and awareness.
  */
 export class GnosiCollabProvider {
     constructor(pageId, doc, user) {
@@ -49,14 +49,14 @@ export class GnosiCollabProvider {
             this.awareness.setLocalStateField('user', user);
         }
 
-        // Local doc updates → enviar als peers.
+        // Local doc updates → send to peers.
         this._docHandler = (update, origin) => {
-            if (origin === this) return; // no reenviem el que ve de la xarxa
+            if (origin === this) return; // we don't forward what comes from the network
             this._send({ type: 'yjs-update', data: toBase64(update) });
         };
         this.doc.on('update', this._docHandler);
 
-        // Local awareness changes → enviar als peers.
+        // Local awareness changes → send to peers.
         this._awarenessHandler = ({ added, updated, removed }) => {
             const changed = added.concat(updated, removed);
             const upd = encodeAwarenessUpdate(this.awareness, changed);
@@ -83,8 +83,8 @@ export class GnosiCollabProvider {
         this.ws = ws;
 
         ws.onopen = () => {
-            // En obrir, enviem l'estat complet del doc (com a update) i la nostra
-            // awareness perquè els altres ens vegin de seguida.
+            // On open, we send the full doc state (as an update) and our
+            // awareness so others see us right away.
             try {
                 const state = Y.encodeStateAsUpdate(this.doc);
                 this._send({ type: 'yjs-update', data: toBase64(state) });

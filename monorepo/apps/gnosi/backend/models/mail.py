@@ -88,7 +88,7 @@ class MailMessageSchema(BaseModel):
     category: Optional[str]
     labels: Optional[str]
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
 
@@ -140,7 +140,7 @@ class MailViewSchema(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at", "updated_at")
@@ -166,7 +166,7 @@ class MailTagSchema(BaseModel):
     color: str
     created_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at")

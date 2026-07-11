@@ -1,9 +1,9 @@
-"""`html_meta_to_zotero_item` ha de llegir les meta independentment de
-l'ordre dels atributs (`content` pot venir abans de `name`/`property`).
+"""`html_meta_to_zotero_item` must read the meta tags regardless of
+attribute order (`content` can come before `name`/`property`).
 
-El parseig antic exigia `name=…` ABANS de `content=…` amb un únic regex,
-i es perdia silenciosament totes les meta amb l'ordre invertit — habitual
-en moltes pàgines de publicadors.
+The old parsing required `name=…` BEFORE `content=…` with a single regex,
+and silently lost every meta tag with the reversed order — common
+on many publisher pages.
 """
 from backend.services.lookup_normalizers import html_meta_to_zotero_item
 
@@ -43,7 +43,7 @@ def test_ordre_normal_segueix_funcionant():
 
 def test_ordre_invertit_ja_no_es_perd():
     item = html_meta_to_zotero_item(CONTENT_FIRST, "http://x")
-    # Abans del fix això tornava {} (només url) perquè cap meta casava.
+    # Before the fix this returned {} (only url) because no meta tag matched.
     assert item["title"] == "Thinking, Fast and Slow"
     assert item["DOI"] == "10.1234/abcd.5678"
     assert item["date"] == "2011"

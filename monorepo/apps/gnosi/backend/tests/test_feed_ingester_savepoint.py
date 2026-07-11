@@ -1,14 +1,14 @@
-"""Regressió: un error en UN article no ha d'esborrar tot el lot del run.
+"""Regression: an error in ONE article must not wipe out the whole run's batch.
 
-`fetch_and_store_feeds` insereix els articles dins d'UNA sola transacció
-(el `db.commit()` és únic, al final). El codi antic, quan un article fallava
-(típicament `extract_full_content` llançant en fer la petició HTTP a la URL
-de l'article), feia `db.rollback()` al `except` — revertint TOTA la
-transacció i esborrant en silenci tots els articles ja inserits del lot.
+`fetch_and_store_feeds` inserts articles within a SINGLE transaction
+(the `db.commit()` happens once, at the end). The old code, when an article
+failed (typically `extract_full_content` raising while making the HTTP request to the
+article's URL), did `db.rollback()` in the `except` — reverting the ENTIRE
+transaction and silently deleting every article already inserted in the batch.
 
-El fix embolcalla la inserció en un savepoint (`db.begin_nested()`) i treu
-el `db.rollback()` del `except`, de manera que només es descarta l'article
-que falla i la resta del lot sobreviu al commit final.
+The fix wraps the insertion in a savepoint (`db.begin_nested()`) and removes
+the `db.rollback()` from the `except`, so that only the failing article
+is discarded and the rest of the batch survives the final commit.
 """
 from datetime import datetime, timezone
 
@@ -23,7 +23,7 @@ import backend.services.feed_ingester as fi
 
 
 class _Entry(dict):
-    """Imita una entrada de feedparser: accés per dict.get I per atribut."""
+    """Mimics a feedparser entry: access via dict.get AND via attribute."""
     def __getattr__(self, name):
         try:
             return self[name]
@@ -46,8 +46,8 @@ def in_memory_db(monkeypatch):
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
 
-    # El motor real es demana via get_engine_for_path(vault_path); el
-    # substituïm perquè retorni sempre el nostre motor en memòria.
+    # The real engine is requested via get_engine_for_path(vault_path); the
+    # we replace it so it always returns our in-memory engine.
     monkeypatch.setattr(fi, "get_engine_for_path", lambda _p: (engine, SessionLocal))
     monkeypatch.setattr(fi, "get_active_vault_path", lambda: "/tmp/vault-test")
 
@@ -65,7 +65,7 @@ def _entry(url, title):
     return _Entry(
         link=url,
         title=title,
-        summary="teaser curt",  # dispara looks_like_excerpt → extract_full_content
+        summary="teaser curt",  # triggers looks_like_excerpt → extract_full_content
         published_parsed=None,
         updated_parsed=None,
     )
@@ -76,11 +76,11 @@ def test_un_article_fallit_no_esborra_el_lot(in_memory_db, monkeypatch):
 
     entries = [
         _entry("http://feed.test/a", "A"),
-        _entry("http://feed.test/BAD", "B"),  # aquest farà petar l'extracció
+        _entry("http://feed.test/BAD", "B"),  # this one will make extraction crash
         _entry("http://feed.test/c", "C"),
     ]
 
-    # Totes les entrades semblen teasers → s'intenta extreure el cos complet.
+    # All entries look like teasers → we try to extract the full body.
     monkeypatch.setattr(fi, "looks_like_excerpt", lambda _c: True)
 
     def _extract(url):
@@ -90,8 +90,8 @@ def test_un_article_fallit_no_esborra_el_lot(in_memory_db, monkeypatch):
 
     monkeypatch.setattr(fi, "extract_full_content", _extract)
 
-    # _fetch_feed s'executa dins d'un ThreadPoolExecutor; el substituïm per
-    # retornar el feed ja parsejat sense xarxa.
+    # _fetch_feed runs inside a ThreadPoolExecutor; we replace it with
+    # return the already-parsed feed without hitting the network.
     def _fake_fetch(source):
         return source, _Parsed(entries)
 
@@ -104,8 +104,8 @@ def test_un_article_fallit_no_esborra_el_lot(in_memory_db, monkeypatch):
     total = db.query(Article).count()
     db.close()
 
-    # A i C s'han de conservar; només B (el que peta) es descarta.
+    # A and C must be preserved; only B (the one that fails) is discarded.
     assert urls == {"http://feed.test/a", "http://feed.test/c"}, urls
     assert total == 2
-    # I el comptador retornat ha de coincidir amb el que hi ha realment a la BD.
+    # And the returned counter must match what's actually in the DB.
     assert count == 2

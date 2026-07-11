@@ -8,16 +8,16 @@ import { useApi } from '../../hooks/use-api';
 
 /**
  * InlineComments
- * Comentaris ancorats a una selecció de text (estil Google Docs / Notion).
- *   - Botó flotant «Comenta» quan hi ha una selecció dins l'editor.
- *   - Popover de redacció que captura el text seleccionat com a cita + el
- *     `block_id` del bloc (per fer-hi scroll després).
- *   - Panell lateral amb tots els comentaris (resoldre / esborrar / anar-hi).
+ * Comments anchored to a text selection (Google Docs / Notion style).
+ *   - Floating "Comment" button when there's a selection inside the editor.
+ *   - Composer popover that captures the selected text as a quote + the
+ *     `block_id` of the block (to scroll to it afterward).
+ *   - Side panel with all comments (resolve / delete / go to it).
  *
- * Backend: `/api/vault/pages/{id}/inline-comments` (sidecar vault-first).
- * Es munta amb `pageId`; el panell s'obre/tanca amb l'event `gnosi:toggle-comments`.
- * Els viewers només poden llegir el fil: el backend retorna 403 a les
- * mutacions (PR #742) i aquí no se'ls mostra cap acció d'escriptura.
+ * Backend: `/api/vault/pages/{id}/inline-comments` (vault-first sidecar).
+ * Mounted with `pageId`; the panel opens/closes with the `gnosi:toggle-comments` event.
+ * Viewers can only read the thread: the backend returns 403 on
+ * mutations (PR #742) and no write action is shown to them here.
  */
 export default function InlineComments({ pageId }) {
     const { t } = useTranslation();
@@ -25,7 +25,7 @@ export default function InlineComments({ pageId }) {
     const canComment = role !== 'viewer';
     const [comments, setComments] = useState([]);
     const [panelOpen, setPanelOpen] = useState(false);
-    const [btn, setBtn] = useState(null);     // {top,left} del botó flotant
+    const [btn, setBtn] = useState(null);     // {top,left} of the floating button
     const [compose, setCompose] = useState(null); // {top,left,quote,blockId}
     const [draft, setDraft] = useState('');
     const composeRef = useRef(null);
@@ -38,15 +38,15 @@ export default function InlineComments({ pageId }) {
 
     useEffect(() => { load(); }, [load]);
 
-    // Toggle del panell des de fora (VaultShell / paleta de comandes).
+    // Toggling the panel from outside (VaultShell / command palette).
     useEffect(() => {
         const onToggle = () => setPanelOpen((v) => !v);
         window.addEventListener('gnosi:toggle-comments', onToggle);
         return () => window.removeEventListener('gnosi:toggle-comments', onToggle);
     }, []);
 
-    // Detecta selecció de text dins l'editor i mostra el botó flotant.
-    // Els viewers no poden crear comentaris: ni listener ni botó.
+    // Detects text selection inside the editor and shows the floating button.
+    // Viewers cannot create comments: no listener and no button.
     useEffect(() => {
         if (!pageId || !canComment) return undefined;
         const onUp = () => {
@@ -56,7 +56,7 @@ export default function InlineComments({ pageId }) {
                 const anchor = sel.anchorNode;
                 const el = anchor?.nodeType === 3 ? anchor.parentElement : anchor;
                 if (!el || !el.closest || !el.closest('.ProseMirror')) { setBtn(null); return; }
-                if (el.closest('[data-gnosi-portal]')) return; // dins del popover
+                if (el.closest('[data-gnosi-portal]')) return; // inside the popover
                 const rect = sel.getRangeAt(0).getBoundingClientRect();
                 setBtn({ top: rect.top - 38, left: rect.left + rect.width / 2 - 60 });
             }, 10);
@@ -66,7 +66,7 @@ export default function InlineComments({ pageId }) {
         return () => { document.removeEventListener('mouseup', onUp); document.removeEventListener('keyup', onUp); };
     }, [pageId, canComment]);
 
-    // Notifica errors de mutació: 403 → missatge de permisos; resta → genèric.
+    // Reports mutation errors: 403 → permissions message; otherwise → generic.
     const notifyMutationError = useCallback((err, key, fallback) => {
         if (err?.response?.status === 403) {
             toast.error(t('errors.comment_forbidden', { defaultValue: 'El teu rol no permet modificar comentaris' }));
@@ -126,7 +126,7 @@ export default function InlineComments({ pageId }) {
 
     return (
         <>
-            {/* Botó flotant a la selecció (només rols amb escriptura) */}
+            {/* Floating button on selection (write-enabled roles only) */}
             {canComment && btn && createPortal(
                 <button
                     data-gnosi-portal="comment-btn"
@@ -137,7 +137,7 @@ export default function InlineComments({ pageId }) {
                     <MessageSquarePlus size={14} /> {t('inline_comments.add', 'Comenta')}
                 </button>, document.body)}
 
-            {/* Popover de redacció (només rols amb escriptura) */}
+            {/* Composer popover (write-enabled roles only) */}
             {canComment && compose && createPortal(
                 <div
                     data-gnosi-portal="comment-compose"

@@ -1,26 +1,26 @@
-"""Política de MERGE al pull de contactes (remot → Gnosi).
+"""MERGE policy on contacts pull (remote → Gnosi).
 
-Regressió del bug de pèrdua silenciosa de dades a
-`ContactsSyncEngine.sync_remote_to_gnosi`: quan el contacte remot NO porta un
-camp (p. ex. el vCard no té TEL, o la persona de Google no té phoneNumbers), els
-dos parsers el retornen com a cadena buida "" (clau PRESENT), no absent. El codi
-antic feia `updated_data["phone"] = parsed.get("phone")` → machacava el phone
-local a "" a cada sync, perdent dades introduïdes per l'usuari.
+Regression of the silent data-loss bug in
+`ContactsSyncEngine.sync_remote_to_gnosi`: when the remote contact does NOT carry a
+field (e.g. the vCard has no TEL, or the Google person has no phoneNumbers), both
+parsers return it as an empty string "" (key PRESENT), not absent. The old
+code did `updated_data["phone"] = parsed.get("phone")` → it clobbered the local
+phone to "" on every sync, losing data entered by the user.
 
-El sync és BIDIRECCIONAL (vegeu docs/dev_memory/directives/contacts-sync.md): un
-camp remot buit/absent MAI ha de sobreescriure el valor local. El fix usa
-`parsed.get(k) or existing.X`, agnòstic al parser (Google i CardDAV).
+The sync is BIDIRECTIONAL (see docs/dev_memory/directives/contacts-sync.md): an
+empty/absent remote field must NEVER overwrite the local value. The fix uses
+`parsed.get(k) or existing.X`, parser-agnostic (Google and CardDAV).
 
-Test d'integració real: SQLite en memòria + ContactsService real + els providers
-REALS (parse_to_internal autèntic); només es mockeja la crida de xarxa list_contacts.
+Real integration test: in-memory SQLite + real ContactsService + the REAL
+providers (authentic parse_to_internal); only the list_contacts network call is mocked.
 """
 from __future__ import annotations
 
 import os
 import tempfile
 
-# El backend fa mkdir del directori de dades a l'import; cal apuntar-lo a scratch
-# ABANS d'importar res de `backend.*` (sense això, l'import peta intentant /app).
+# The backend does mkdir on the data directory at import time; it must be pointed at scratch
+# BEFORE importing anything from `backend.*` (without this, the import crashes trying /app).
 os.environ.setdefault("GNOSI_LOCAL_DATA", tempfile.mkdtemp(prefix="gnosi-test-contacts-"))
 
 import pytest  # noqa: E402
@@ -29,7 +29,7 @@ from sqlalchemy.orm import sessionmaker  # noqa: E402
 from sqlalchemy.pool import StaticPool  # noqa: E402
 
 from backend.data.management_db import Base  # noqa: E402
-# Importa els models perquè els mappers (relationship("Workspace")) es configurin.
+# Import the models so the mappers (relationship("Workspace")) get configured.
 import backend.models.contact  # noqa: E402,F401
 import backend.models.management  # noqa: E402,F401  (Workspace)
 from backend.services.contacts_service import ContactsService  # noqa: E402
@@ -58,7 +58,7 @@ def db():
 
 
 def _seed_local(db, **overrides):
-    """Crea un contacte local amb tots els camps omplerts per l'usuari."""
+    """Create a local contact with all fields filled in by the user."""
     svc = ContactsService(db, WS)
     data = {
         "name": "Joan Prova",
@@ -76,13 +76,13 @@ def _seed_local(db, **overrides):
 
 
 def _engine_with_fake_remote(db, integration, remote_people):
-    """ContactsSyncEngine real amb la xarxa mockejada (parse_to_internal REAL)."""
+    """Real ContactsSyncEngine with the network mocked (REAL parse_to_internal)."""
     engine = ContactsSyncEngine(db, WS, integration)
     engine.provider.list_contacts = lambda: list(remote_people)
     return engine
 
 
-# --- Fixtures de dades remotes "pobres" (sense els camps opcionals) -----------
+# --- Fixtures for "poor" remote data (without the optional fields) -----------
 
 GOOGLE_INTEGRATION = {"provider": "google", "email": "joan@x.example"}
 CARDDAV_INTEGRATION = {
@@ -92,7 +92,7 @@ CARDDAV_INTEGRATION = {
     "token": "tok",
 }
 
-# Persona de Google NOMÉS amb nom i email (sense phoneNumbers/organizations/biographies).
+# Google person with ONLY name and email (no phoneNumbers/organizations/biographies).
 GOOGLE_PERSON_BARE = {
     "resourceName": "people/c1",
     "names": [{"displayName": "Joan Prova"}],
@@ -100,7 +100,7 @@ GOOGLE_PERSON_BARE = {
     "metadata": {"sources": [{"type": "CONTACT", "updateTime": "2026-07-05T10:00:00Z"}]},
 }
 
-# vCard mínim: FN + EMAIL, sense TEL/ORG/NOTE/ADR (i el parser no inclou photo_url).
+# Minimal vCard: FN + EMAIL, no TEL/ORG/NOTE/ADR (and the parser doesn't include photo_url).
 CARDDAV_PERSON_BARE = {
     "href": "/c/1.vcf",
     "etag": "e1",
@@ -116,7 +116,7 @@ CARDDAV_PERSON_BARE = {
     ],
 )
 def test_pull_preserves_local_when_remote_field_empty(db, integration, remote):
-    """El bug central: remot sense phone/company/notes NO ha de buidar el local."""
+    """The core bug: remote without phone/company/notes must NOT wipe out the local data."""
     local = _seed_local(db)
 
     res = _engine_with_fake_remote(db, integration, [remote]).sync_remote_to_gnosi()
@@ -124,7 +124,7 @@ def test_pull_preserves_local_when_remote_field_empty(db, integration, remote):
 
     assert res["errors"] == []
     assert res["updated"] == 1
-    # Camps que el remot NO aporta → es preserva el que va introduir l'usuari.
+    # Fields that the remote does NOT provide → what the user entered is preserved.
     assert local.phone == LOCAL_PHONE
     assert local.company == LOCAL_COMPANY
     assert local.job_title == "CTO"
@@ -134,12 +134,12 @@ def test_pull_preserves_local_when_remote_field_empty(db, integration, remote):
 
 
 def test_carddav_pull_preserves_local_even_with_absent_photo_url_key(db):
-    """CardDAV ni tan sols inclou la clau photo_url (None, no ""): també es preserva."""
+    """CardDAV doesn't even include the photo_url key (None, not ""): it's preserved too."""
     local = _seed_local(db)
     parsed = ContactsSyncEngine(db, WS, CARDDAV_INTEGRATION).provider.parse_to_internal(
         CARDDAV_PERSON_BARE
     )
-    # Garantim la premissa del test: la clau és realment ABSENT al parser CardDAV.
+    # We guarantee the test's premise: the key is truly ABSENT in the CardDAV parser.
     assert "photo_url" not in parsed
 
     _engine_with_fake_remote(db, CARDDAV_INTEGRATION, [CARDDAV_PERSON_BARE]).sync_remote_to_gnosi()
@@ -175,7 +175,7 @@ def test_carddav_pull_preserves_local_even_with_absent_photo_url_key(db):
     ],
 )
 def test_pull_applies_remote_value_when_present(db, integration, remote):
-    """No sobre-preservem: si el remot SÍ porta valor, guanya el remot (last-write-wins)."""
+    """We don't over-preserve: if the remote DOES carry a value, the remote wins (last-write-wins)."""
     local = _seed_local(db)
 
     _engine_with_fake_remote(db, integration, [remote]).sync_remote_to_gnosi()
@@ -183,12 +183,12 @@ def test_pull_applies_remote_value_when_present(db, integration, remote):
 
     assert local.phone == "+34 700 000 000"
     assert local.company == "NouCorp"
-    # Els camps que el remot segueix sense portar, es preserven.
+    # Fields that the remote still doesn't carry are preserved.
     assert local.notes == LOCAL_NOTES
 
 
 def test_pull_imports_new_contact_when_no_local_match(db):
-    """Sanity: el camí de creació (sense contacte local) segueix funcionant."""
+    """Sanity: the creation path (no local contact) still works."""
     svc = ContactsService(db, WS)
     assert svc.list_contacts() == []
 

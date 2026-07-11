@@ -6,7 +6,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from backend.config.app_config import load_params
 
-# Configuració
+# Configuration
 cfg = load_params(strict_env=False)
 CHROMA_DIR = cfg.paths["CHROMA"]
 
@@ -82,7 +82,7 @@ class MemoryStore:
         )
 
     def add_memory(self, text: str, metadata: dict = None):
-        """Guarda un fragment de text a la memòria a llarg termini."""
+        """Saves a text fragment to long-term memory."""
         if not self.vector_store:
             return "Error: Memory not initialized (No embeddings available)."
 
@@ -91,7 +91,7 @@ class MemoryStore:
         return "Success: Memory saved."
 
     def search_memory(self, query: str, k: int = 3):
-        """Recupera fets rellevants per a la query."""
+        """Retrieves relevant facts for the query."""
         if not self.vector_store:
             return []
 
@@ -107,8 +107,8 @@ class VaultStore:
             self.vector_store = None
             return
 
-        # Inicialitzar Chroma Persistent per al contingut del Vault
-        # Fem servir una col·lecció diferent de la memòria de l'agent
+        # Initialize Chroma Persistent for the Vault content
+        # We use a different collection from the agent's memory
         self.vector_store = Chroma(
             collection_name="gnosi_vault_content",
             embedding_function=self.embeddings,
@@ -116,7 +116,7 @@ class VaultStore:
         )
 
     def search_vault(self, query: str, k: int = 5):
-        """Busca contingut rellevant al Vault (Wiki, BD, etc.)."""
+        """Searches for relevant content in the Vault (Wiki, BD, etc.)."""
         if not self.vector_store:
             return []
 
@@ -130,7 +130,7 @@ class VaultStore:
         ]
 
     def add_content(self, text: str, metadata: dict = None):
-        """Afegeix contingut indexat del Vault."""
+        """Adds indexed content from the Vault."""
         if not self.vector_store:
             return False
         doc = Document(page_content=text, metadata=metadata or {})
@@ -139,23 +139,23 @@ class VaultStore:
 
 
 # --- Singletons MANDROSOS (lazy) -------------------------------------------
-# NO instanciem els stores a nivell de mòdul: construir-los crida
-# `_get_embeddings()`, que importa torch (sentence-transformers). Si això passa
-# en importar el mòdul, qualsevol procés `multiprocessing` (spawn, default a
-# macOS) que reimporti el backend durant el seu bootstrap carrega torch dins
-# d'aquell context restringit i es DEADLOCKA en un lock d'inicialització
+# We do NOT instantiate the stores at module level: building them calls
+# `_get_embeddings()`, which imports torch (sentence-transformers). If this happens
+# when importing the module, any `multiprocessing` process (spawn, default on
+# macOS) that re-imports the backend during its bootstrap loads torch inside
+# that restricted context and DEADLOCKS on an initialization lock
 # (`PyThread_acquire_lock`). Resultat observat (2026-06-25): fills orfes penjats
-# que s'acumulen a cada reinici i, si el pare en fa `join` damunt l'event loop,
-# tot el backend es congela (tota petició -> 000, "no carrega"). Diferir la
-# construcció al 1r ús real elimina torch del bootstrap dels fills. Mateix patró
-# que `services/transcription.py`.
+# that accumulate on each restart and, if the parent `join`s them on top of the event loop,
+# the whole backend freezes (every request -> 000, "doesn't load"). Deferring the
+# construction to the first real use removes torch from the children's bootstrap. Same pattern
+# than `services/transcription.py`.
 _memory_store = None
 _vault_store = None
 _store_lock = threading.Lock()
 
 
 def get_memory_store() -> "MemoryStore":
-    """Retorna el `MemoryStore` singleton, construint-lo (i carregant torch) al 1r ús."""
+    """Returns the `MemoryStore` singleton, building it (and loading torch) on first use."""
     global _memory_store
     if _memory_store is None:
         with _store_lock:
@@ -165,7 +165,7 @@ def get_memory_store() -> "MemoryStore":
 
 
 def get_vault_store() -> "VaultStore":
-    """Retorna el `VaultStore` singleton, construint-lo (i carregant torch) al 1r ús."""
+    """Returns the `VaultStore` singleton, building it (and loading torch) on first use."""
     global _vault_store
     if _vault_store is None:
         with _store_lock:
@@ -176,8 +176,8 @@ def get_vault_store() -> "VaultStore":
 
 def __getattr__(name):
     # Retrocompat (PEP 562): `from .memory import memory_store` / `vault_store`
-    # segueix funcionant, però ara el singleton (i torch) es construeix NOMÉS en
-    # el 1r accés real a l'atribut, no en importar el mòdul.
+    # still works, but now the singleton (and torch) is built ONLY on
+    # the first real access to the attribute, not when importing the module.
     if name == "memory_store":
         return get_memory_store()
     if name == "vault_store":

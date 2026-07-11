@@ -5,13 +5,13 @@ import i18n from '../../i18n';
 
 /**
  * DateMentionInline
- * Menció de data inline estil Notion. Mostra la data formatada i, si hi ha una
- * hora de recordatori, una campaneta. En clicar obre un popover per editar la
- * data i (opcionalment) l'hora del recordatori.
+ * Notion-style inline date mention. Shows the formatted date and, if there is a
+ * reminder time, a small bell. Clicking opens a popover to edit the
+ * date and (optionally) the reminder time.
  *
- * Es desa a Markdown com a `@2026-06-25` (data) o `@2026-06-25T09:00` (amb
- * recordatori). Token segur: comença per dígit, així que no col·lisiona amb les
- * cites `@key` (que exigeixen lletra després de la @).
+ * Saved to Markdown as `@2026-06-25` (date) or `@2026-06-25T09:00` (with
+ * reminder). Safe token: starts with a digit, so it doesn't collide with
+ * `@key` citations (which require a letter after the @).
  */
 
 const fmtDate = (iso) => {

@@ -28,9 +28,9 @@ const PostHistory = () => {
     };
 
     const formatDate = (isoString) => {
-        // Els posts no publicats (pending/failed/cancelled) arriben amb
-        // `published_at` buit (el backend torna `"" `); sense aquest guard,
-        // `new Date("")`/`new Date(null)` donaven "Invalid Date" o l'epoch (1970).
+        // Unpublished posts (pending/failed/cancelled) come with
+        // `published_at` empty (the backend returns `"" `); without this guard,
+        // `new Date("")`/`new Date(null)` gave "Invalid Date" or the epoch (1970).
         if (!isoString) return '—';
         const d = new Date(isoString);
         if (isNaN(d.getTime())) return '—';

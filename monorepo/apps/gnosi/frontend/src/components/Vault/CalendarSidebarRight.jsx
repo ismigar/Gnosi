@@ -7,46 +7,6 @@ import { ConfirmModal } from '../ConfirmModal';
 import { RecurrenceChoiceModal } from '../Vault/RecurrenceChoiceModal';
 import { buildOccurrenceKey, truncateRruleBefore } from '../../utils/calendarUtils';
 
-const REMINDER_OPTIONS = [
-    { value: '', label: 'Cap' },
-    { value: '5', label: '5 minuts abans' },
-    { value: '15', label: '15 minuts abans' },
-    { value: '30', label: '30 minuts abans' },
-    { value: '60', label: '1 hora abans' },
-    { value: '1440', label: '1 dia abans' },
-];
-
-const TRAVEL_TIME_OPTIONS = [
-    { value: '', label: 'Cap' },
-    { value: '5', label: '5 min' },
-    { value: '10', label: '10 min' },
-    { value: '15', label: '15 min' },
-    { value: '30', label: '30 min' },
-    { value: '45', label: '45 min' },
-    { value: '60', label: '1 hora' },
-    { value: '90', label: '1 h 30 min' },
-    { value: '120', label: '2 hores' },
-];
-
-const RECURRENCE_OPTIONS = [
-    { value: '', label: 'No es repeteix' },
-    { value: 'DAILY', label: 'Cada dia' },
-    { value: 'WEEKLY', label: 'Cada setmana' },
-    { value: 'MONTHLY', label: 'Cada mes' },
-    { value: 'YEARLY', label: 'Cada any' },
-];
-
-const DAYS_OF_WEEK = [
-    { value: 'MO', label: 'Dll' },
-    { value: 'TU', label: 'Dt' },
-    { value: 'WE', label: 'Dc' },
-    { value: 'TH', label: 'Dj' },
-    { value: 'FR', label: 'Dv' },
-    { value: 'SA', label: 'Ds' },
-    { value: 'SU', label: 'Dg' },
-];
-
-
 export const CalendarSidebarRight = ({
     searchQuery,
     onSearchChange,
@@ -91,13 +51,13 @@ export const CalendarSidebarRight = ({
                     onClick={() => setActiveTab('shortcuts')}
                     className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeTab === 'shortcuts' ? 'text-[var(--gnosi-primary)] border-b-2 border-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                 >
-                    Shortcuts
+                    {t('calendar.shortcuts_tab', 'Shortcuts')}
                 </button>
                 <button
                     onClick={() => setActiveTab('availability')}
                     className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeTab === 'availability' ? 'text-[var(--gnosi-primary)] border-b-2 border-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                 >
-                    Disponibilitat
+                    {t('mail.availability', 'Disponibilitat')}
                 </button>
             </div>
 
@@ -119,11 +79,11 @@ export const CalendarSidebarRight = ({
     );
 };
 
-/* ─── Contingut per defecte (cerca + shortcuts) ─── */
+/* ─── Default content (search + shortcuts) ─── */
 const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSearch, allNotes, onEventEdit }) => {
     const { t } = useTranslation();
 
-    // Filtrem notes basant-nos en la cerca per mostrar-les aquí
+    // We filter notes based on the search to show them here
     const filteredResults = React.useMemo(() => {
         if (!searchQuery.trim()) return [];
         const lower = searchQuery.toLowerCase();
@@ -152,10 +112,10 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                 )}
             </div>
 
-            {/* Resultats de cerca ràpida */}
+            {/* Quick search results */}
             {searchQuery && (
                 <div className="mt-4 space-y-2">
-                    <h4 className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-1">Resultats</h4>
+                    <h4 className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-1">{t('calendar.search_results_heading', 'Resultats')}</h4>
                     {filteredResults.length > 0 ? (
                         filteredResults.map(res => (
                             <button
@@ -163,12 +123,12 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                                 onClick={() => onEventEdit?.(res.id)}
                                 className="w-full text-left p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors border border-transparent hover:border-[var(--border-primary)]"
                             >
-                                <div className="text-[12px] font-semibold text-[var(--text-primary)] truncate">{res.title || res.metadata?.title || 'Sense Títol'}</div>
-                                <div className="text-[10px] text-[var(--text-tertiary)]">{res.metadata?.date?.split('T')[0] || 'Sense data'}</div>
+                                <div className="text-[12px] font-semibold text-[var(--text-primary)] truncate">{res.title || res.metadata?.title || t('common.untitled', 'Sense Títol')}</div>
+                                <div className="text-[10px] text-[var(--text-tertiary)]">{res.metadata?.date?.split('T')[0] || t('calendar.no_date', 'Sense data')}</div>
                             </button>
                         ))
                     ) : (
-                        <div className="text-[11px] text-[var(--text-tertiary)] px-1 italic">Cap coincidència</div>
+                        <div className="text-[11px] text-[var(--text-tertiary)] px-1 italic">{t('calendar.no_matches', 'Cap coincidència')}</div>
                     )}
                 </div>
             )}
@@ -212,19 +172,58 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
     );
 };
 
-const RSVP_META = {
-    accepted:    { label: '✓ Acceptat',  dot: 'bg-green-500',  btn: 'border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950',  activeCls: 'bg-green-500 text-white border-green-500' },
-    declined:    { label: '✗ Rebutjat',  dot: 'bg-red-500',    btn: 'border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950',          activeCls: 'bg-red-500 text-white border-red-500' },
-    tentative:   { label: '? Potser',    dot: 'bg-amber-400',  btn: 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950',  activeCls: 'bg-amber-400 text-white border-amber-400' },
-    needsAction: { label: 'Pendent',     dot: 'bg-gray-400',   btn: '', activeCls: '' },
-};
-
-/* ─── Formulari d'events (crear/editar) ─── */
+/* ─── Events form (create/edit) ─── */
 const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, onRsvp, userEmail = '', defaultCalendarId = '' }) => {
     const { t } = useTranslation();
     const titleRef = useRef(null);
 
-    // Funció per normalitzar hores al format HH:mm
+    const RSVP_META = {
+        accepted:    { label: t('calendar.rsvp_accepted', '✓ Acceptat'),  dot: 'bg-green-500',  btn: 'border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950',  activeCls: 'bg-green-500 text-white border-green-500' },
+        declined:    { label: t('calendar.rsvp_declined', '✗ Rebutjat'),  dot: 'bg-red-500',    btn: 'border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950',          activeCls: 'bg-red-500 text-white border-red-500' },
+        tentative:   { label: t('calendar.rsvp_maybe', '? Potser'),      dot: 'bg-amber-400',  btn: 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950',  activeCls: 'bg-amber-400 text-white border-amber-400' },
+        needsAction: { label: t('calendar.rsvp_pending', 'Pendent'),     dot: 'bg-gray-400',   btn: '', activeCls: '' },
+    };
+
+    const REMINDER_OPTIONS = [
+        { value: '', label: t('calendar.option_none', 'Cap') },
+        { value: '5', label: t('calendar.reminder_5min', '5 minuts abans') },
+        { value: '15', label: t('calendar.reminder_15min', '15 minuts abans') },
+        { value: '30', label: t('calendar.reminder_30min', '30 minuts abans') },
+        { value: '60', label: t('calendar.reminder_1h', '1 hora abans') },
+        { value: '1440', label: t('calendar.reminder_1d', '1 dia abans') },
+    ];
+
+    const TRAVEL_TIME_OPTIONS = [
+        { value: '', label: t('calendar.option_none', 'Cap') },
+        { value: '5', label: t('calendar.travel_5min', '5 min') },
+        { value: '10', label: t('calendar.travel_10min', '10 min') },
+        { value: '15', label: t('calendar.travel_15min', '15 min') },
+        { value: '30', label: t('calendar.travel_30min', '30 min') },
+        { value: '45', label: t('calendar.travel_45min', '45 min') },
+        { value: '60', label: t('calendar.travel_1h', '1 hora') },
+        { value: '90', label: t('calendar.travel_1h30', '1 h 30 min') },
+        { value: '120', label: t('calendar.travel_2h', '2 hores') },
+    ];
+
+    const RECURRENCE_OPTIONS = [
+        { value: '', label: t('calendar.recurrence_none', 'No es repeteix') },
+        { value: 'DAILY', label: t('calendar.recurrence_daily', 'Cada dia') },
+        { value: 'WEEKLY', label: t('calendar.recurrence_weekly', 'Cada setmana') },
+        { value: 'MONTHLY', label: t('calendar.recurrence_monthly', 'Cada mes') },
+        { value: 'YEARLY', label: t('calendar.recurrence_yearly', 'Cada any') },
+    ];
+
+    const DAYS_OF_WEEK = [
+        { value: 'MO', label: t('calendar.day_mo', 'Dll') },
+        { value: 'TU', label: t('calendar.day_tu', 'Dt') },
+        { value: 'WE', label: t('calendar.day_we', 'Dc') },
+        { value: 'TH', label: t('calendar.day_th', 'Dj') },
+        { value: 'FR', label: t('calendar.day_fr', 'Dv') },
+        { value: 'SA', label: t('calendar.day_sa', 'Ds') },
+        { value: 'SU', label: t('calendar.day_su', 'Dg') },
+    ];
+
+    // Function to normalize times to the HH:mm format
     const padTime = (timeStr) => {
         if (!timeStr) return '';
         const parts = timeStr.split(':');
@@ -271,20 +270,20 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const lastSavedData = useRef(null);
     const autoSaveTimeoutRef = useRef(null);
     const flushSaveRef = useRef(() => {});
-    // En mode 'create' la cita NO es crea fins que hi ha títol. createdIdRef guarda
-    // l'id un cop creada perquè els autosaves següents facin PATCH (no dupliquin).
-    // createdId és l'equivalent reactiu per a la UI (capçalera i botó Eliminar).
+    // In 'create' mode the appointment is NOT created until there's a title. createdIdRef stores
+    // the id once created so that subsequent autosaves do a PATCH (not duplicate it).
+    // createdId is the reactive equivalent for the UI (header and Delete button).
     const createdIdRef = useRef(null);
     const isCreatingRef = useRef(false);
     const [createdId, setCreatedId] = useState(null);
-    // Quan la cita es crea en un calendari de Google, guardem l'id de l'event de Google
-    // (+ compte i calendar_id) perquè els canvis següents facin PATCH a Google, no al Vault.
+    // When the appointment is created in a Google calendar, we store the Google event id
+    // (+ account and calendar_id) so that subsequent changes PATCH Google, not the Vault.
     const googleRef = useRef(null);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [isRecurrenceDeleteOpen, setIsRecurrenceDeleteOpen] = useState(false);
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
 
-    // Poblar camps
+    // Populate fields
     useEffect(() => {
         isInitializing.current = true;
         lastSavedData.current = null;
@@ -363,8 +362,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             originalAttendeesRef.current = loadedAttendees.map(a => a.email);
         } else {
             setTitle('');
-            // initialDate pot venir com a "YYYY-MM-DD" (tot el dia) o amb hora
-            // ("YYYY-MM-DDTHH:mm[:ss]") si s'ha clicat una franja horària.
+            // initialDate can come as "YYYY-MM-DD" (all day) or with a time
+            // ("YYYY-MM-DDTHH:mm[:ss]") if a time slot was clicked.
             const rawInit = initialDate || '';
             if (rawInit.includes('T')) {
                 setStartDate(rawInit.split('T')[0]);
@@ -378,7 +377,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             setEndDate('');
             setEndTime('');
 
-            // Calendari predeterminat (configurat per l'usuari o primer disponible)
+            // Default calendar (configured by the user or the first available one)
             const defCalId = defaultCalendarId || calendars.find(c => c.is_default)?.id || calendars[0]?.id || '';
             setCalendarId(defCalId);
 
@@ -406,12 +405,12 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         }, 150);
     }, [mode, eventData, initialDate]);
 
-    // Autosave en cada modificació (debounced). En edició desa la cita existent; en
-    // creació la crea (només quan hi ha títol vàlid) i continua editant-la.
+    // Autosave on every modification (debounced). When editing, it saves the existing appointment; when
+    // creating, it creates it (only once there's a valid title) and continues editing it.
     useEffect(() => {
         if (saving || deleting) return;
-        if (mode === 'view') return; // els events externs (Google) en mode lectura no s'autodesen
-        if (!title.trim() || !startDate) return; // sense títol no es crea res (evita esborranys)
+        if (mode === 'view') return; // external events (Google) in read mode are not autosaved
+        if (!title.trim() || !startDate) return; // without a title, nothing is created (avoids drafts)
 
         const currentData = {
             title, allDay, startDate, endDate, startTime, endTime,
@@ -420,10 +419,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         };
         const currentStr = JSON.stringify(currentData);
 
-        // Edició d'una cita existent: fixa la línia base amb les dades acabades de carregar
-        // —encara que estiguem inicialitzant— perquè el PRIMER canvi de l'usuari ja es detecti
-        // i es desi. En creació deixem la base a null perquè el primer títol vàlid dispari la
-        // creació via debounce.
+        // Editing an existing appointment: sets the baseline with the data that was just loaded
+        // —even while we're initializing— so that the user's FIRST change is already detected
+        // and saved. When creating, we leave the baseline as null so the first valid title triggers
+        // creation via debounce.
         if (lastSavedData.current === null) {
             if (mode === 'edit' && eventData?.id) {
                 lastSavedData.current = currentStr;
@@ -431,7 +430,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             }
         }
 
-        // No autodesar durant la inicialització (un cop fixada la línia base en edició).
+        // Do not autosave during initialization (once the baseline is set in edit mode).
         if (isInitializing.current) return;
         if (lastSavedData.current === currentStr) return;
 
@@ -486,7 +485,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         return () => window.removeEventListener('keydown', handleKey);
     }, [onClose, mode, eventData, createdId]);
 
-    // Flush del desament pendent quan el panell es desmunta (canvi d'event, navegació...)
+    // Flush the pending save when the panel unmounts (event change, navigation...)
     useEffect(() => {
         return () => { flushSaveRef.current?.(); };
     }, []);
@@ -526,7 +525,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         setAttendees(prev => prev.filter(a => a.email !== email));
     }, []);
 
-    // ─── Geocoding d'ubicació (OpenStreetMap / Photon) ─────────────────────────
+    // ─── Location geocoding (OpenStreetMap / Photon) ─────────────────────────
     const fetchLocationSuggestions = useCallback((val) => {
         const query = (val || '').trim();
         // No geocodifiquem URLs ni consultes massa curtes
@@ -551,7 +550,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
     const handleLocationChange = useCallback((val) => {
         setLocation(val);
-        // L'edició manual invalida la verificació prèvia (coordenades)
+        // Manual editing invalidates the prior verification (coordinates)
         setLocationLat(null);
         setLocationLon(null);
         if (locationSuggestTimeoutRef.current) clearTimeout(locationSuggestTimeoutRef.current);
@@ -580,7 +579,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             e.preventDefault();
             if (locationHighlight >= 0) selectLocationSuggestion(locationSuggestions[locationHighlight]);
         } else if (e.key === 'Escape') {
-            // Tanca només el desplegable, no el panell sencer
+            // Closes only the dropdown, not the whole panel
             e.preventDefault();
             e.stopPropagation();
             setLocationSuggestions([]);
@@ -596,13 +595,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         return date;
     };
 
-    // Construeix l'event en format Google Calendar API (per a calendaris de Google)
+    // Builds the event in Google Calendar API format (for Google calendars)
     const buildGoogleEventData = () => {
         const tz = (typeof Intl !== 'undefined' && Intl.DateTimeFormat().resolvedOptions().timeZone) || 'Europe/Madrid';
         const ev = { summary: title.trim() };
         if (allDay) {
             ev.start = { date: startDate };
-            // A Google, end.date és EXCLUSIU → +1 dia respecte l'últim dia
+            // In Google, end.date is EXCLUSIVE → +1 day relative to the last day
             const base = endDate || startDate;
             const d = new Date(`${base}T00:00:00`);
             d.setDate(d.getDate() + 1);
@@ -632,10 +631,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         if (e) e.preventDefault();
         if (!title.trim() || !startDate) return;
 
-        // Evita una segona creació (POST) mentre la primera encara està en vol
+        // Prevents a second creation (POST) while the first one is still in flight
         if (!eventData?.id && !createdIdRef.current && isCreatingRef.current) return;
 
-        // Si és un guardat manual (no silent) d'un event recurrent i no hem triat encara
+        // If it's a manual save (not silent) of a recurring event and we haven't chosen yet
         const isRecurrent = !!(eventData?.metadata?.rrule || eventData?.metadata?.recurrence);
         if (!silent && isRecurrent && !isSeries && !isInstanceOnly && !isFollowing) {
             setIsRecurrenceModifyOpen(true);
@@ -648,7 +647,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         const fullStart = buildDatetime(startDate, startTime);
         const fullEnd = buildDatetime(endDate, endTime);
 
-        // ─── Editar un event de Google JA EXISTENT (reobert en mode edició) → PATCH a Google ───
+        // ─── Editing a Google event that ALREADY EXISTS (reopened in edit mode) → PATCH to Google ───
         const existGm = eventData?.metadata || {};
         const isExistingGoogle = mode === 'edit' && eventData?.id && (existGm._provider === 'google' || existGm._account) && !existGm._vault_path;
         if (isExistingGoogle) {
@@ -672,8 +671,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 );
                 lastSavedData.current = formSnap;
                 if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
-                // Actualització optimista (sense refetch) per no recarregar tot el calendari a
-                // cada tecla: passem l'event actualitzat perquè es refresqui només aquest.
+                // Optimistic update (without refetch) so as not to reload the whole calendar on
+                // every keystroke: we pass the updated event so only this one is refreshed.
                 onSaved?.({
                     id: eventData.id,
                     title: title.trim(),
@@ -700,7 +699,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             return;
         }
 
-        // ─── Calendari de Google: crear/editar l'event DE DEBÒ a Google (no al Vault) ───
+        // ─── Google Calendar: actually create/edit the event in Google (not in the Vault) ───
         const selCal = calendars.find(c => c.id === calendarId);
         const isGoogleCal = !!(selCal && selCal.kind === 'external' && selCal.google_calendar_id && selCal.account);
         if (isGoogleCal && mode !== 'edit') {
@@ -711,7 +710,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             });
             try {
                 if (googleRef.current?.id) {
-                    // Actualitza l'event que ja hem creat a Google en aquesta sessió
+                    // Updates the event we already created in Google during this session
                     await axios.patch(
                         `/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`,
                         {
@@ -725,7 +724,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         }
                     );
                 } else if (!isCreatingRef.current) {
-                    // Crea l'event nou a Google (guardem l'id per no duplicar-lo)
+                    // Creates the new event in Google (we store the id to avoid duplicating it)
                     isCreatingRef.current = true;
                     const resp = await axios.post(
                         `/api/calendar/events?email=${encodeURIComponent(selCal.account)}&calendar_id=${encodeURIComponent(selCal.google_calendar_id)}`,
@@ -734,8 +733,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     if (resp.data?.id) {
                         googleRef.current = { id: resp.data.id, account: selCal.account, calendar_id: selCal.google_calendar_id };
                         setCreatedId(resp.data.id);
-                        // Si la cita ja existia al Vault (canvi de calendari Tasques→Google),
-                        // esborra-la perquè no quedi duplicada.
+                        // If the appointment already existed in the Vault (calendar change Tasks→Google),
+                        // delete it so it doesn't remain duplicated.
                         if (createdIdRef.current) {
                             try { await axios.delete(`/api/vault/pages/${createdIdRef.current}`); }
                             catch (delErr) { console.error('Error netejant cita duplicada al Vault:', delErr); }
@@ -773,11 +772,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 metadata.location_lat = locationLat;
                 metadata.location_lon = locationLon;
             } else {
-                // Ubicació no verificada (text lliure/URL): neteja coords antigues (PATCH fa merge)
+                // Unverified location (free text/URL): clears old coords (PATCH merges)
                 removeMetaKeys.push('location_lat', 'location_lon');
             }
         } else {
-            // Sense ubicació: neteja tot el bloc d'ubicació
+            // No location: clears the whole location block
             removeMetaKeys.push('location', 'location_lat', 'location_lon');
         }
         if (reminder) metadata.reminder = reminder;
@@ -809,10 +808,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 metadata.table_name = cal.name;
                 metadata.database_table_name = cal.name;
             } else {
-                // Calendari extern (Google): NO canviem el source a l'email del calendari.
-                // fetchPages filtra tot el que no és source 'Gnosi', així que la cita
-                // desapareixeria en refrescar. Mentre no hi hagi la integració per crear-la
-                // realment a Google, la desem a la primera taula de Gnosi perquè romangui
+                // External calendar (Google): we do NOT change the source to the calendar's email.
+                // fetchPages filters out everything that isn't source 'Gnosi', so the appointment
+                // would disappear on refresh. Until there's an integration to actually create it
+                // in Google, we save it to the first Gnosi table so it remains
                 // visible i no es perdi.
                 const fallbackTable = calendars.find(c => c.kind === 'table');
                 if (fallbackTable) {
@@ -827,7 +826,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         try {
             if (mode === 'edit' && eventData?.id) {
                 if (isInstanceOnly) {
-                    // 1. Afegeix EXDATE al master
+                    // 1. Add EXDATE to the master
                     const instanceDate = eventData.metadata?.date;
                     const occurrenceKey = buildOccurrenceKey(instanceDate, null, eventData.metadata?.all_day, eventData.metadata || {});
                     
@@ -843,7 +842,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         }
                     });
 
-                    // 2. Crea nova cita única
+                    // 2. Creates a new single appointment
                     const newMetadata = { ...metadata, rrule: null, exdates: [] };
                     const response = await axios.post('/api/vault/pages', {
                         title: title.trim(),
@@ -854,13 +853,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     onClose?.();
                     toast.success(t('calendar.instance_updated'));
                 } else if (isFollowing) {
-                    // 1. Truncar la rrule del mestre antic
+                    // 1. Truncate the old master's rrule
                     const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
                     await axios.patch(`/api/vault/pages/${eventData.id}`, {
                         metadata: { rrule: newRruleOldMaster }
                     });
 
-                    // 2. Crear un nou mestre que comenci en la nova data
+                    // 2. Create a new master that starts on the new date
                     const newMetadata = {
                         ...(eventData.metadata || {}),
                         ...metadata,
@@ -877,7 +876,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     onClose?.();
                     toast.success(t('calendar.series_split_updated'));
                 } else {
-                    // Patch normal (o tota la sèrie)
+                    // Normal patch (or the whole series)
                     const response = await axios.patch(`/api/vault/pages/${eventData.id}`, {
                         title: title.trim(),
                         content: description.trim() || undefined,
@@ -890,7 +889,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     if (!silent) onClose?.();
                 }
             } else if (createdIdRef.current) {
-                // Cita ja creada en aquesta mateixa sessió: PATCH (continuem editant-la)
+                // Appointment already created in this same session: PATCH (we continue editing it)
                 const response = await axios.patch(`/api/vault/pages/${createdIdRef.current}`, {
                     title: title.trim(),
                     content: description.trim() || undefined,
@@ -901,8 +900,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 onSaved?.(response.data);
                 if (!silent) onClose?.();
             } else {
-                // Primera creació: POST. Guarda l'id perquè els autosaves següents facin
-                // PATCH (no dupliquin) i la UI passi a mode "edició".
+                // First creation: POST. Stores the id so subsequent autosaves do a
+                // PATCH (not duplicate) and the UI switches to "edit" mode.
                 isCreatingRef.current = true;
                 const response = await axios.post('/api/vault/pages', {
                     title: title.trim(),
@@ -911,8 +910,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 });
                 createdIdRef.current = response.data?.id || null;
                 setCreatedId(createdIdRef.current);
-                // Si la cita ja existia a Google (canvi de calendari Google→taula),
-                // esborra-la de Google perquè no quedi duplicada.
+                // If the appointment already existed in Google (calendar change Google→table),
+                // delete it from Google so it doesn't remain duplicated.
                 if (googleRef.current?.id) {
                     try {
                         await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
@@ -942,7 +941,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     };
 
     const handleDelete = async (isSeries = false, isInstanceOnly = false, isFollowing = false) => {
-        // Si la cita s'ha creat en un calendari de Google en aquesta sessió, esborra-la a Google
+        // If the appointment was created in a Google calendar during this session, delete it in Google
         if (googleRef.current?.id) {
             setDeleting(true);
             try {
@@ -961,7 +960,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             return;
         }
 
-        // Event de Google ja existent (reobert en mode lectura): esborra'l a Google si no és de només lectura
+        // Google event that already exists (reopened in read mode): delete it in Google if it's not read-only
         const gmeta = eventData?.metadata || {};
         const gIsGoogle = (gmeta._provider === 'google' || !!gmeta._account) && !gmeta._vault_path;
         if (gIsGoogle && eventData?.id) {
@@ -988,7 +987,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         const deleteId = eventData?.id || createdIdRef.current;
         if (!deleteId) return;
 
-        // Si és recurrent i no hem triat, obrim el modal (una cita nova mai és recurrent)
+        // If it's recurring and we haven't chosen, open the modal (a new appointment is never recurring)
         const isRecurrent = !!(eventData?.metadata?.rrule || eventData?.metadata?.recurrence);
         if (isRecurrent && !isSeries && !isInstanceOnly && !isFollowing) {
             setIsRecurrenceDeleteOpen(true);
@@ -998,7 +997,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         setDeleting(true);
         try {
             if (isInstanceOnly) {
-                // Lògica d'esborrat d'instància
+                // Instance deletion logic
                 const occurrenceKey = buildOccurrenceKey(
                     eventData.metadata?.date,
                     null,
@@ -1019,7 +1018,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 });
                 toast.success(t('calendar.instance_deleted'));
             } else if (isFollowing) {
-                // Split: Truncar la rrule del mestre perquè acabi abans d'avui
+                // Split: Truncate the master's rrule so it ends before today
                 const newRrule = truncateRruleBefore(eventData.metadata?.rrule, eventData.metadata?.date);
                 await axios.patch(`/api/vault/pages/${eventData.id}`, {
                     metadata: { rrule: newRrule }
@@ -1041,28 +1040,28 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         }
     };
 
-    // Desa qualsevol canvi pendent abans de tancar/desmuntar. L'autosave té un debounce
-    // de 450ms; sense aquest flush, tancar de pressa perdria l'últim canvi. S'actualitza
-    // cada render perquè capturi els valors i el handleSubmit més recents.
+    // Saves any pending change before closing/unmounting. Autosave has a debounce
+    // of 450ms; without this flush, closing quickly would lose the last change. It's updated
+    // on every render so it captures the latest values and handleSubmit.
     flushSaveRef.current = () => {
         if (autoSaveTimeoutRef.current) {
             clearTimeout(autoSaveTimeoutRef.current);
             autoSaveTimeoutRef.current = null;
         }
-        if (mode === 'view') return; // els events externs (Google) no s'autodesen
-        if (!title.trim() || !startDate) return; // sense títol: no crear/desar (evita esborranys)
+        if (mode === 'view') return; // external events (Google) are not autosaved
+        if (!title.trim() || !startDate) return; // no title: don't create/save (avoids drafts)
         const snap = JSON.stringify({
             title, allDay, startDate, endDate, startTime, endTime,
             calendarId, location, locationLat, locationLon, reminder, recurrence, selectedDays,
             endType, endCount, untilDate, description, attendees, travelTime
         });
         if (lastSavedData.current !== snap) {
-            handleSubmit(null, true, snap); // crea (POST) o actualitza (PATCH) segons calgui
+            handleSubmit(null, true, snap); // creates (POST) or updates (PATCH) as needed
         }
     };
 
     const isViewMode = mode === 'view';
-    // Un event de Google ja existent (reobert) es pot eliminar si no és de només lectura
+    // A Google event that already exists (reopened) can be deleted if it's not read-only
     const _gmeta = eventData?.metadata || {};
     const isDeletableGoogleEvent = !!((_gmeta._provider === 'google' || _gmeta._account) && !_gmeta._vault_path && !_gmeta.readonly && eventData?.id);
     const inputClass = `w-full bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg px-2.5 py-1.5 text-[13px] text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] focus:outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)]/30 focus:border-[var(--gnosi-primary)] transition-all ${isViewMode ? 'disabled:cursor-not-allowed disabled:opacity-60 disabled:bg-[var(--bg-tertiary)]' : ''}`;
@@ -1085,7 +1084,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3">
-                {/* Títol */}
+                {/* Title */}
                 <div>
                     <label className={labelClass}>{t('calendar.event_title', 'Títol')}</label>
                     <input
@@ -1100,7 +1099,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     />
                 </div>
 
-                {/* Tot el dia */}
+                {/* All day */}
                 <div className="flex items-center justify-between py-1">
                     <label className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--text-secondary)]">
                         <Sun size={14} className="text-amber-500" />
@@ -1136,7 +1135,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     </div>
                 </div>
 
-                {/* Hores (ocult si "Tot el dia") */}
+                {/* Hours (hidden if "All day") */}
                 {!allDay && (
                     <div className="grid grid-cols-2 gap-2">
                         <div>
@@ -1156,7 +1155,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     </div>
                 )}
 
-                {/* Calendari (Taules habilitades i calendaris) */}
+                {/* Calendar (Enabled tables and calendars) */}
                 <div>
                     <label className={labelClass}>
                         <CalendarPlus size={10} />
@@ -1169,7 +1168,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     </select>
                 </div>
 
-                {/* Ubicació */}
+                {/* Location */}
                 <div>
                     <label className={labelClass}>
                         <MapPin size={10} />
@@ -1183,7 +1182,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             onKeyDown={handleLocationKeyDown}
                             onFocus={() => { if (locationBlurTimeoutRef.current) clearTimeout(locationBlurTimeoutRef.current); }}
                             onBlur={() => {
-                                // Retard per permetre el clic sobre un suggeriment abans de tancar
+                                // Delay to allow clicking a suggestion before closing
                                 locationBlurTimeoutRef.current = setTimeout(() => {
                                     setLocationSuggestions([]);
                                     setLocationHighlight(-1);
@@ -1255,7 +1254,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     </select>
                 </div>
 
-                {/* Temps de desplaçament */}
+                {/* Travel time */}
                 <div>
                     <label className={labelClass}>
                         <Navigation size={10} />
@@ -1276,10 +1275,10 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     </label>
 
                     {isViewMode ? (
-                        /* ── Visualització (events externs) ── */
+                        /* ── View (external events) ── */
                         <div className="space-y-1">
                             {attendees.length === 0 ? (
-                                <p className="text-[11px] text-[var(--text-tertiary)] italic px-0.5">Sense convidats</p>
+                                <p className="text-[11px] text-[var(--text-tertiary)] italic px-0.5">{t('calendar.no_attendees', 'Sense convidats')}</p>
                             ) : (
                                 <>
                                     {attendees.map((att, i) => {
@@ -1294,14 +1293,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-1 flex-shrink-0">
-                                                    {att.organizer && <span className="text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-bold">org</span>}
+                                                    {att.organizer && <span className="text-[9px] bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded-full font-bold">{t('calendar.organizer_badge', 'org')}</span>}
                                                     <span className="text-[9px] text-[var(--text-tertiary)]">{meta.label}</span>
                                                 </div>
                                             </div>
                                         );
                                     })}
 
-                                    {/* Botons RSVP si l'usuari és convidat */}
+                                    {/* RSVP buttons if the user is invited */}
                                     {attendees.some(a => a.self) && (() => {
                                         const self = attendees.find(a => a.self);
                                         return (
@@ -1316,7 +1315,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                                             onClick={() => onRsvp?.(rv)}
                                                             className={`flex-1 py-1 text-[10px] font-bold rounded border transition-colors ${isActive ? m.activeCls : m.btn}`}
                                                         >
-                                                            {rv === 'accepted' ? '✓ Acceptar' : rv === 'tentative' ? '? Potser' : '✗ Rebutjar'}
+                                                            {rv === 'accepted' ? t('calendar.rsvp_accept_action', '✓ Acceptar') : rv === 'tentative' ? t('calendar.rsvp_maybe', '? Potser') : t('calendar.rsvp_decline_action', '✗ Rebutjar')}
                                                         </button>
                                                     );
                                                 })}
@@ -1327,9 +1326,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             )}
                         </div>
                     ) : (
-                        /* ── Edició / Creació ── */
+                        /* ── Edit / Create ── */
                         <div className="space-y-1.5">
-                            {/* Chips d'attendees existents */}
+                            {/* Existing attendee chips */}
                             {attendees.length > 0 && (
                                 <div className="flex flex-wrap gap-1">
                                     {attendees.map((att, i) => (
@@ -1354,7 +1353,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         value={attendeeInput}
                                         onChange={e => handleAttendeeInputChange(e.target.value)}
                                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAttendeeFromInput(); } if (e.key === 'Escape') setAttendeeSuggestions([]); }}
-                                        placeholder="Afegir per email o nom..."
+                                        placeholder={t('calendar.attendee_input_placeholder', 'Afegir per email o nom...')}
                                         className={`${inputClass} flex-1`}
                                     />
                                     <button type="button" onClick={addAttendeeFromInput}
@@ -1380,7 +1379,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     )}
                 </div>
 
-                {/* Repetició */}
+                {/* Recurrence */}
                 <div className="space-y-2">
                     <label className={labelClass}>
                         <CalendarPlus size={10} />
@@ -1435,7 +1434,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         }}
                                         className="w-3 h-3 accent-[var(--gnosi-primary)]"
                                     />
-                                    <span className="text-[12px] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">Mai</span>
+                                    <span className="text-[12px] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">{t('calendar.recurrence_end_never', 'Mai')}</span>
                                 </label>
 
                                 <label className="flex items-center gap-2 cursor-pointer group">
@@ -1450,7 +1449,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         className="w-3 h-3 accent-[var(--gnosi-primary)]"
                                     />
                                     <div className="flex items-center gap-1.5 flex-1">
-                                        <span className="text-[12px] text-[var(--text-secondary)]">Després de</span>
+                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_after', 'Després de')}</span>
                                         <input
                                             type="number"
                                             min="1"
@@ -1462,7 +1461,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                             onBlur={handleFieldBlur}
                                             className="w-12 h-6 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded text-[11px] px-1 text-center focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                         />
-                                        <span className="text-[12px] text-[var(--text-secondary)]">vegades</span>
+                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_times', 'vegades')}</span>
                                     </div>
                                 </label>
 
@@ -1478,7 +1477,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         className="w-3 h-3 accent-[var(--gnosi-primary)]"
                                     />
                                     <div className="flex items-center gap-1.5 flex-1">
-                                        <span className="text-[12px] text-[var(--text-secondary)]">El dia</span>
+                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_until', 'El dia')}</span>
                                         <input
                                             type="date"
                                             value={untilDate}
@@ -1497,7 +1496,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 </div>
 
 
-                {/* Descripció */}
+                {/* Description */}
                 <div className="pb-4">
                     <label className={labelClass}>
                         <AlignLeft size={10} />
@@ -1537,7 +1536,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             <ConfirmModal 
                 isOpen={isDeleteConfirmOpen}
                 onClose={() => setIsDeleteConfirmOpen(false)}
-                onConfirm={() => handleDelete(false, false)} // Per defecte esborra tot si es confirma aquí (si no és recurrent)
+                onConfirm={() => handleDelete(false, false)} // By default deletes everything if confirmed here (if it's not recurring)
                 title={t('calendar.confirm_delete_event_title', 'Eliminar cita')}
                 message={t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?')}
                 confirmText={t('common.delete', 'Eliminar')}
@@ -1565,14 +1564,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     );
 };
 
-/* ─── Eina de Disponibilitat (Availability Tool) ─── */
+/* ─── Availability Tool (Availability Tool) ─── */
 const AvailabilityTool = ({ calendars }) => {
-    // Sense aquest hook, els literals `t('calendar.availability....')` dins
-    // el JSX llançaven ReferenceError quan l'usuari obria el sidebar de
-    // disponibilitat → tot el sidebar quedava trencat amb un toast d'error.
+    // Without this hook, the `t('calendar.availability....')` literals inside
+    // the JSX would throw a ReferenceError when the user opened the sidebar for
+    // availability → the whole sidebar would end up broken with an error toast.
     const { t } = useTranslation();
-    // Data per defecte: AVUI en hora local (no `toISOString`, que és UTC i prop
-    // de mitjanit donaria el dia anterior).
+    // Default date: TODAY in local time (not `toISOString`, which is UTC and close
+    // at midnight would give the previous day).
     const [date, setDate] = useState(() => {
         const d = new Date();
         const p = (n) => String(n).padStart(2, '0');
@@ -1584,17 +1583,17 @@ const AvailabilityTool = ({ calendars }) => {
     const checkAvailability = async () => {
         const email = calendars.find(c => c.kind === 'external')?.account;
         if (!email) {
-            toast.error("No hi ha cap compte de correu configurat.");
+            toast.error(t('calendar.availability.no_account', 'No hi ha cap compte de correu configurat.'));
             return;
         }
 
         setLoading(true);
         try {
-            // Finestra del dia LOCAL triat (no UTC): parsejant sense `Z`, el
-            // navegador interpreta els límits en hora local i `toISOString` els
-            // passa a l'instant UTC correcte. Amb `...Z` la finestra era el dia
-            // UTC, desplaçada respecte del dia local per a usuaris fora d'UTC
-            // (p. ex. UTC+2: el "6 de juliol" consultava 02:00→01:59 locals).
+            // Window of the chosen LOCAL day (not UTC): by parsing without `Z`, the
+            // browser interprets the bounds in local time and `toISOString` converts them
+            // converts to the correct UTC instant. With `...Z` the window was the
+            // to UTC, shifted relative to the local day for users outside UTC
+            // (e.g. UTC+2: "July 6" queried 02:00→01:59 local).
             const timeMin = new Date(`${date}T00:00:00`).toISOString();
             const timeMax = new Date(`${date}T23:59:59`).toISOString();
 
@@ -1629,7 +1628,7 @@ const AvailabilityTool = ({ calendars }) => {
             setFreeSlots(slots);
         } catch (err) {
             console.error(err);
-            toast.error("Error consultant disponibilitat.");
+            toast.error(t('calendar.availability.query_error', 'Error consultant disponibilitat.'));
         } finally {
             setLoading(false);
         }
@@ -1637,14 +1636,14 @@ const AvailabilityTool = ({ calendars }) => {
 
     const copySlotsAsText = async () => {
         if (freeSlots.length === 0) return;
-        const text = `Hola! Estic disponible el dia ${date} en aquests horaris:\n` +
-            freeSlots.map(s => `- ${s.start} a ${s.end}`).join('\n') +
-            ` \n\nQuin et va millor?`;
+        const text = `${t('calendar.availability.share_intro', 'Hola! Estic disponible el dia {{date}} en aquests horaris:', { date })}\n` +
+            freeSlots.map(s => `- ${s.start} ${t('calendar.availability.share_time_sep', 'a')} ${s.end}`).join('\n') +
+            ` \n\n${t('calendar.availability.share_outro', 'Quin et va millor?')}`;
         try {
             await navigator.clipboard.writeText(text);
-            toast.success("Horaris copiats al porta-retalls!");
+            toast.success(t('calendar.availability.copied_success', 'Horaris copiats al porta-retalls!'));
         } catch {
-            toast.error("No s'ha pogut copiar al porta-retalls");
+            toast.error(t('calendar.availability.copy_error', "No s'ha pogut copiar al porta-retalls"));
         }
     };
 

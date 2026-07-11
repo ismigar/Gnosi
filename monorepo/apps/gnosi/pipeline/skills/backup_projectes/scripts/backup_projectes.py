@@ -3,14 +3,14 @@ import os
 import datetime
 import logging
 
-# Configuració. Derivem de $HOME perquè és un script del host (no Docker): la ruta
-# absoluta amb un usuari macOS hardcodejat trencava en l'altra màquina (la font no
-# existia i el backup fallava silenciosament → risc de pèrdua de dades).
+# Configuration. We derive from $HOME because this is a host script (not Docker): the
+# absolute path with a hardcoded macOS user broke on the other machine (the source didn't
+# exist and the backup failed silently → risk of data loss).
 HOME = os.path.expanduser("~")
 SOURCE_DIR = f"{HOME}/Projectes/"
-# Destí del backup: per defecte el OneDrive de l'autor, però overridable via
-# BACKUP_DEST_DIR perquè funcioni amb un altre núvol (Dropbox/iCloud/Drive) o
-# sense núvol (una carpeta local). Cap assumpció de proveïdor hardcodejada.
+# Backup destination: defaults to the author's OneDrive, but overridable via
+# BACKUP_DEST_DIR so it works with another cloud provider (Dropbox/iCloud/Drive) or
+# without a cloud provider (a local folder). No hardcoded provider assumption.
 DEST_DIR = os.environ.get("BACKUP_DEST_DIR") or f"{HOME}/Library/CloudStorage/OneDrive-UNED/Backups/Projectes/"
 LOG_FILE = os.path.join(SOURCE_DIR, "monorepo/apps/gnosi/pipeline/sandbox/backup.log")
 
@@ -30,12 +30,12 @@ EXCLUDES = [
 ]
 
 def run_backup():
-    # Assegurar que el directori de destinació existeix
+    # Ensure the destination directory exists
     if not os.path.exists(DEST_DIR):
         print(f"Creant directori de destinació: {DEST_DIR}")
         os.makedirs(DEST_DIR, exist_ok=True)
 
-    # Construir el comandament rsync
+    # Build the rsync command
     exclude_args = []
     for excl in EXCLUDES:
         exclude_args.extend(["--exclude", excl])
@@ -51,8 +51,8 @@ def run_backup():
     start_time = datetime.datetime.now()
 
     try:
-        # Executar rsync sense capturar tot el text a memòria (evita problemes de decodificació)
-        # i redirigint la sortida a un fitxer directament si calgués.
+        # Run rsync without capturing all the text in memory (avoids decoding issues)
+        # and redirecting output directly to a file if needed.
         result = subprocess.run(cmd, capture_output=False, text=False)
         
         end_time = datetime.datetime.now()

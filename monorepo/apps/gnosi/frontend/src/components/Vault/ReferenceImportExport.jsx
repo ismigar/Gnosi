@@ -1,13 +1,13 @@
 /**
  * ReferenceImportExport.jsx
  *
- * Controls d'importació/exportació de referències (BibTeX/RIS) per a una taula
- * de Recursos. L'import crea pàgines (amb Citation Key generat si cal) via
- * `POST /api/vault/import-references`; l'export baixa un .bib/.ris via
+ * Import/export controls for references (BibTeX/RIS) for a
+ * Resources table. Import creates pages (with a generated Citation Key if needed) via
+ * `POST /api/vault/import-references`; export downloads a .bib/.ris via
  * `GET /api/vault/export-references`.
  *
- * Es mostra només quan `tableId` està definit (el caller decideix mostrar-lo
- * només per a taules amb columna `Citation Key`).
+ * It is shown only when `tableId` is defined (the caller decides whether to show it
+ * only for tables with a `Citation Key` column).
  */
 import React, { useCallback, useRef, useState } from 'react';
 import axios from 'axios';
@@ -23,7 +23,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
 
     const handleImport = useCallback(async (e) => {
         const file = e.target.files?.[0];
-        e.target.value = ''; // permet re-seleccionar el mateix fitxer
+        e.target.value = ''; // allows reselecting the same file
         if (!file || !tableId) return;
         setBusy(true);
         try {
@@ -35,15 +35,15 @@ export function ReferenceImportExport({ tableId, onImported }) {
                 { headers: { 'Content-Type': 'multipart/form-data' } },
             );
             const d = r.data || {};
-            // Toast principal — nombre net d'altes vs duplicats detectats.
+            // Main toast — net count of additions vs detected duplicates.
             toast.success(t('references_io.imported', {
                 defaultValue: `${d.created || 0} referències importades · ${d.skipped || 0} ja existien`,
                 created: d.created || 0,
                 skipped: d.skipped || 0,
             }));
-            // Desglossament del motiu dels duplicats (nou a #42 / PR #3):
-            // citation_key / DOI / ISBN / títol normalitzat. Toast separat
-            // (success) perquè evitar duplicats és un resultat positiu.
+            // Breakdown of the reason for duplicates (new in #42 / PR #3):
+            // citation_key / DOI / ISBN / normalized title. Separate toast
+            // (success) because avoiding duplicates is a positive outcome.
             const s = d.skip_summary || {};
             const reasons = [];
             if (s.citation_key) reasons.push(`${s.citation_key} per clau`);

@@ -6,7 +6,7 @@ from backend.models.reader import FeedSource
 
 db = SessionLocal()
 try:
-    # Ruta de l'OPML: 1r argument o, per defecte, ~/Downloads (no hardcodejar usuari)
+    # OPML path: 1st argument or, by default, ~/Downloads (do not hardcode a user)
     opml_path = sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser("~/Downloads/Feeds.opml")
     tree = ET.parse(opml_path)
     imported = 0

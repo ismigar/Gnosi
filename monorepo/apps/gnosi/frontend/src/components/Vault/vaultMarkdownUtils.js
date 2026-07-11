@@ -2,24 +2,24 @@ import { defaultUrlTransform } from 'react-markdown';
 import { withActiveVault } from '../../lib/fileResource';
 
 /* -------------------------------------------------------------------------- */
-/*  Wikilinks: sentinel + conversió a markdown clicable (compartit Vault)      */
+/*  Wikilinks: sentinel + conversion to clickable markdown (shared Vault)      */
 /* -------------------------------------------------------------------------- */
-// Substitueix `[[target]]`, `[[target|alias]]`, `[[target#section]]` i
-// `[[target#section|alias]]` per un link markdown amb un sentinel a l'href.
-// El renderer de l'element `a` (a VaultMarkdown) reconeix el sentinel i
-// renderitza un `WikilinkInline` real (mateix component que fa servir l'editor),
-// de manera que el markdown renderitzat té wikilinks clicables com a la pàgina.
-// Sense això el ReactMarkdown deixa els claudàtors com a text pla.
+// Replaces `[[target]]`, `[[target|alias]]`, `[[target#section]]` and
+// `[[target#section|alias]]` with a markdown link with a sentinel in the href.
+// The `a` element renderer (in VaultMarkdown) recognizes the sentinel and
+// renders a real `WikilinkInline` (the same component the editor uses),
+// so that the rendered markdown has clickable wikilinks just like the page.
+// Without this, ReactMarkdown leaves the brackets as plain text.
 //
-// El sentinel NO pot dur `__` (markdown-it ho interpreta com a bold i trenca
-// la URL dins `](...)`) i ha de passar el `urlTransform` de react-markdown:
-// per defecte sanititza protocols desconeguts a `""`, cosa que deixava
-// `<a href="">` → clic obria una pestanya nova a l'origin. Per això registrem
-// `wikilinkUrlTransform`, que el deixa passar intacte.
+// The sentinel must NOT contain `__` (markdown-it interprets it as bold and breaks
+// the URL inside `](...)`) and it must pass react-markdown's `urlTransform`:
+// by default sanitizes unknown protocols to `""`, which left
+// `<a href="">` → clicking opened a new tab at the origin. That's why we register
+// `wikilinkUrlTransform`, which lets it pass through untouched.
 export const WIKILINK_HREF_SENTINEL = 'gnosi-wikilink:';
-// Sentinel per a text acolorit heretat (`<span style="color/background-color">`):
-// el render de l'element `a` de VaultMarkdown el torna a un `<span>` amb el color.
-// Definit aquí perquè `wikilinkUrlTransform` (a sota) el deixi passar intacte.
+// Sentinel for legacy colored text (`<span style="color/background-color">`):
+// VaultMarkdown's `a` element render turns it back into a `<span>` with the color.
+// Defined here so that `wikilinkUrlTransform` (below) lets it pass through intact.
 export const STYLE_HREF_SENTINEL = 'gnosi-style:';
 const WIKILINK_RE = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
 
@@ -28,14 +28,14 @@ export const convertWikilinksToMd = (md) => {
     return md.replace(WIKILINK_RE, (_, target, section, alias) => {
         const fullTarget = (target || '').trim() + (section ? `#${section.trim()}` : '');
         const displayTitle = (alias || (section ? `${target}#${section}` : target) || '').trim();
-        // Evitem `[`/`]` al text del link i `(` `)` a l'href perquè no
-        // trenquin la sintaxi markdown del link.
+        // We avoid `[`/`]` in the link text and `(` `)` in the href so it doesn't
+        // break the link's markdown syntax.
         const safeTitle = displayTitle.replace(/[\][]/g, '');
-        // `encodeURIComponent` NO codifica `(` ni `)`; uns parèntesis SENSE
-        // balancejar al títol trencaven el link Markdown (un `)` el tanca abans
-        // d'hora i un `(` impedeix que es parsegi). Els codifiquem explícitament
-        // a %28/%29 — WikilinkInline ja decodifica l'href, així que la diana es
-        // resol igual.
+        // `encodeURIComponent` does NOT encode `(` or `)`; parentheses that are not
+        // balanced in the title broke the Markdown link (a `)` closes it too
+        // early, and a `(` prevents it from being parsed). We encode them explicitly
+        // to %28/%29 — WikilinkInline already decodes the href, so the target
+        // resolves the same.
         const safeHref = encodeURIComponent(fullTarget)
             .replace(/\(/g, '%28')
             .replace(/\)/g, '%29');
@@ -43,10 +43,10 @@ export const convertWikilinksToMd = (md) => {
     });
 };
 
-// react-markdown sanititza per defecte qualsevol href amb un protocol que no
-// reconeix (els nostres `gnosi-wikilink:` / `gnosi-style:` inclosos) substituint-lo
-// per `""`. Aquest transform deixa passar els sentinels intactes i delega la resta
-// al defecte.
+// react-markdown sanitizes by default any href with a protocol that isn't
+// recognizes (including our `gnosi-wikilink:` / `gnosi-style:`) by substituting it
+// `""`. This transform lets the sentinels pass through intact and delegates the rest
+// to the default.
 export const wikilinkUrlTransform = (url) => (
     typeof url === 'string'
         && (url.startsWith(WIKILINK_HREF_SENTINEL) || url.startsWith(STYLE_HREF_SENTINEL))
@@ -55,27 +55,27 @@ export const wikilinkUrlTransform = (url) => (
 );
 
 /* -------------------------------------------------------------------------- */
-/*  HTML inline heretat del serialitzador (color de text/fons, subratllat…)    */
+/*  Inline HTML inherited from the serializer (text/background color, underline…)    */
 /* -------------------------------------------------------------------------- */
-// El serialitzador del Vault (markdown-mapper) desa el color de text/fons INLINE
-// com a `<span style="color:…;background-color:…">…</span>`, el subratllat com a
-// `<u>…</u>`, els salts tous com a `<br>` i el color de BLOC com a `<div style>`.
-// L'editor (BlockNote / markdown-it) ho reinterpreta, però react-markdown SENSE
-// rehype-raw escapa aquest HTML i el mostrava CRU al preview / feed / pàgina
-// compartida. Aquí el reconvertim a construccions que react-markdown SÍ que
-// renderitza: els spans de color a un link amb sentinel `gnosi-style:` (el render
-// de l'element `a` a VaultMarkdown el torna a un `<span>` amb el color), i la
-// resta al seu equivalent markdown/text. (`STYLE_HREF_SENTINEL` es defineix a dalt,
-// vora el sentinel de wikilink, perquè `wikilinkUrlTransform` el pugui deixar passar.)
+// The Vault serializer (markdown-mapper) saves the text/background color INLINE
+// as `<span style="color:…;background-color:…">…</span>`, underline as
+// `<u>…</u>`, soft breaks as `<br>` and BLOCK color as `<div style>`.
+// The editor (BlockNote / markdown-it) reinterprets it, but react-markdown WITHOUT
+// rehype-raw escapes this HTML and used to show it RAW in the preview / feed / shared
+// page. Here we convert it back into constructs that react-markdown DOES
+// render: color spans into a link with a `gnosi-style:` sentinel (the render
+// of the `a` element in VaultMarkdown turns it back into a `<span>` with the color), and the
+// everything else to its markdown/text equivalent. (`STYLE_HREF_SENTINEL` is defined above,
+// sits next to the wikilink sentinel, so `wikilinkUrlTransform` can let it pass.)
 
-// Només acceptem colors "segurs" (hex, rgb/rgba o un nom CSS simple). Qualsevol
-// altra cosa (`url(...)`, `expression(...)`, `javascript:…`) es descarta. A més,
-// el render final aplica un OBJECTE d'estil de React, de manera que no hi ha
-// superfície d'injecció encara que un valor rar s'esmunyís.
+// We only accept "safe" colors (hex, rgb/rgba, or a simple CSS name). Anything
+// else (`url(...)`, `expression(...)`, `javascript:…`) is discarded. Moreover,
+// the final render applies a React style OBJECT, so there is no
+// injection surface even if some odd value slipped through.
 const SAFE_COLOR_RE = /^(#[0-9a-f]{3,8}|rgba?\([\d.,\s%]+\)|[a-z]+)$/i;
 
-// Extreu el valor d'una propietat de color d'una cadena `style`. El límit
-// `(?:^|;)` evita que `color` casi amb la cua de `background-color`.
+// Extracts the value of a color property from a `style` string. The boundary
+// `(?:^|;)` keeps `color` from matching the tail of `background-color`.
 function pickStyleColor(styleStr, prop) {
     const re = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+?)\\s*(?:;|$)`, 'i');
     const m = re.exec(styleStr || '');
@@ -84,9 +84,9 @@ function pickStyleColor(styleStr, prop) {
     return SAFE_COLOR_RE.test(val) ? val : null;
 }
 
-// Codifica el payload d'estil perquè viatgi dins l'href d'un link markdown sense
-// trencar-lo (ni espais ni `(` `)`, que tancarien el link abans d'hora). Mirall
-// de la codificació de convertWikilinksToMd.
+// Encodes the style payload so it can travel inside a markdown link's href without
+// break it (no spaces or `(` `)`, which would close the link prematurely). Mirror
+// interfering with convertWikilinksToMd's encoding.
 function encodeStylePayload(color, bg) {
     const parts = [];
     if (color) parts.push(`c=${color}`);
@@ -94,8 +94,8 @@ function encodeStylePayload(color, bg) {
     return encodeURIComponent(parts.join('&')).replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
-// Converteix un color CSS (hex #rgb/#rrggbb[aa] o rgb()/rgba()) a {r,g,b}. Els
-// colors amb nom no els sabem mesurar → null (deixem el text heretat).
+// Converts a CSS color (hex #rgb/#rrggbb[aa] or rgb()/rgba()) to {r,g,b}. The
+// we don't know how to measure named colors → null (we leave the inherited text).
 function parseCssColorToRgb(v) {
     if (typeof v !== 'string') return null;
     const s = v.trim();
@@ -108,10 +108,10 @@ function parseCssColorToRgb(v) {
     return null;
 }
 
-// Color de text llegible sobre un fons donat: fosc sobre fons clar, clar sobre
-// fons fosc (brillantor YIQ). Els ressaltats heretats de Notion són tons CLARS
-// pensats per a mode clar; en mode FOSC el text clar del tema quedava il·legible
-// a sobre. Fixem el text segons el FONS (independent del tema), com fa Notion.
+// Readable text color over a given background: dark over a light background, light over
+// a dark background (YIQ brightness). Highlights inherited from Notion are LIGHT tones
+// designed for light mode; in DARK mode the theme's light text became illegible
+// on top. We set the text based on the BACKGROUND (theme-independent), like Notion does.
 function readableTextForBg(bg) {
     const rgb = parseCssColorToRgb(bg);
     if (!rgb) return null;
@@ -119,13 +119,13 @@ function readableTextForBg(bg) {
     return yiq >= 140 ? '#1f2933' : '#f2f2f2';
 }
 
-// Descodifica el payload d'un href `gnosi-style:` a un objecte d'estil de React.
-// Revalida cada color (defensa en profunditat: no confiem que l'href no s'hagi
-// manipulat).
+// Decodes the payload of a `gnosi-style:` href into a React style object.
+// Revalidates each color (defense in depth: we don't trust that the href hasn't been
+// manipulated).
 export function decodeStylePayload(href) {
     if (typeof href !== 'string') return {};
     let raw = href.slice(STYLE_HREF_SENTINEL.length);
-    try { raw = decodeURIComponent(raw); } catch { /* deixem el cru */ }
+    try { raw = decodeURIComponent(raw); } catch { /* we leave it raw */ }
     const style = {};
     for (const kv of raw.split('&')) {
         const [k, v] = kv.split('=');
@@ -133,9 +133,9 @@ export function decodeStylePayload(href) {
         if (k === 'c') style.color = v;
         else if (k === 'b') style.backgroundColor = v;
     }
-    // Amb fons però sense color de text explícit, forcem un text que contrasti amb
-    // el fons perquè sigui llegible tant en mode clar com FOSC (si no, el ressaltat
-    // clar de Notion + text clar del tema fosc quedava invisible).
+    // With a background but no explicit text color, we force text that contrasts with
+    // the background so it's readable in both light and DARK mode (otherwise, the highlight
+    // light-colored from Notion + light text from the dark theme ended up invisible).
     if (style.backgroundColor && !style.color) {
         const fg = readableTextForBg(style.backgroundColor);
         if (fg) style.color = fg;
@@ -146,43 +146,43 @@ export function decodeStylePayload(href) {
 export const convertInlineHtmlToMd = (md) => {
     if (!md || typeof md !== 'string') return md;
     let out = md;
-    // Salts tous (`<br>` / `<br>\n`) → salt de línia dur (dos espais + newline).
+    // Soft breaks (`<br>` / `<br>\n`) → hard line break (two spaces + newline).
     out = out.replace(/<br\s*\/?>(?:\r?\n)?/gi, '  \n');
-    // Spans de color → link amb sentinel (preserva el color a través del render de `a`).
+    // Color spans → link with a sentinel (preserves the color through the `a` render).
     out = out.replace(/<span\b[^>]*?\sstyle="([^"]*)"[^>]*>([\s\S]*?)<\/span>/gi, (_m, style, text) => {
         const color = pickStyleColor(style, 'color');
         const bg = pickStyleColor(style, 'background-color');
-        if (!color && !bg) return text; // cap color reconegut → només el text interior
-        // Els `[` `]` del text trencarien la sintaxi del link; els traiem (el text
-        // acolorit sol ser una etiqueta/paraula curta, no markdown complex).
+        if (!color && !bg) return text; // no recognized color → just the inner text
+        // The `[` `]` in the text would break the link's syntax; we strip them (colored
+        // text tends to be a short tag/word, not complex markdown).
         const safeText = text.replace(/[\][]/g, '');
         return `[${safeText}](${STYLE_HREF_SENTINEL}${encodeStylePayload(color, bg)})`;
     });
-    // Subratllat i divs de color de BLOC: sense equivalent net al preview →
-    // conservem el contingut interior i descartem l'embolcall.
+    // Underline and BLOCK color divs: no clean equivalent in the preview →
+    // we keep the inner content and discard the wrapper.
     out = out.replace(/<\/?u>/gi, '');
     out = out.replace(/<div\b[^>]*\sstyle="[^"]*"[^>]*>([\s\S]*?)<\/div>/gi, '$1');
     return out;
 };
 
 /* -------------------------------------------------------------------------- */
-/*  Normalització d'URLs d'assets del Vault                                    */
+/*  Normalization of Vault asset URLs                                    */
 /* -------------------------------------------------------------------------- */
 export function normalizeAssetUrl(url, vaultOverride) {
     if (typeof url !== 'string') return '';
     const v = url.trim();
     if (!v) return '';
-    // Les URLs servides del vault porten el vault actiu (withActiveVault) perquè
-    // l'`<img>` natiu resolgui el vault correcte sense capçalera X-Vault-Id;
-    // les remotes es deixen intactes. `vaultOverride` força un vault concret
-    // (pàgina compartida pública: el visitant no té el vault a localStorage).
+    // URLs served from the vault carry the active vault (withActiveVault) so that
+    // the native `<img>` resolves the correct vault without an X-Vault-Id header;
+    // remote ones are left untouched. `vaultOverride` forces a specific vault
+    // (public shared page: the visitor doesn't have the vault in localStorage).
     //
-    // Una URL «externa» es reconeix pel seu ESQUEMA (`xxx:` — http, https,
-    // data, blob…) o per ser protocol-relative (`//host/…`), NO pel prefix
-    // "http". `startsWith('http')` classificava malament un asset local amb
-    // nom que comença per "http" (`http-headers.png` → es retornava cru →
-    // imatge trencada) i alhora enviava els `data:`/`blob:` (imatges enganxades
-    // inline) al fallback del vault, corrompent-los.
+    // An "external" URL is recognized by its SCHEME (`xxx:` — http, https,
+    // data, blob…) or for being protocol-relative (`//host/…`), NOT by the prefix
+    // "http". `startsWith('http')` was misclassifying a local asset with
+    // name that starts with "http" (`http-headers.png` → it was returned raw →
+    // broken image) and was also sending `data:`/`blob:` (pasted images
+    // inline) in the vault fallback, corrupting them.
     if (/^[a-z][a-z0-9+.-]*:/i.test(v) || v.startsWith('//')) return v;
     if (v.startsWith('/')) return withActiveVault(v, vaultOverride);
     if (v.startsWith('Assets/')) return withActiveVault(`/api/vault/assets/${v.substring(7)}`, vaultOverride);

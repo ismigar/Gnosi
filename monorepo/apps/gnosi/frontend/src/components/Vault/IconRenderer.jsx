@@ -25,10 +25,10 @@ const normalizeVaultAssetUrl = (value) => {
 /**
  * IconRenderer
  * 
- * Lògica universal per renderitzar icones:
- * 1. Emoji (text pla)
- * 2. Lucide Icon (format "lucide:NomIcona:color")
- * 3. URL/Imatge (https://... o Assets/...)
+ * Universal logic for rendering icons:
+ * 1. Emoji (plain text)
+ * 2. Lucide Icon (format "lucide:IconName:color")
+ * 3. URL/Image (https://... or Assets/...)
  */
 export const IconRenderer = ({ icon, size = 16, className = "" }) => {
     if (!icon) return null;

@@ -2,9 +2,9 @@ import os
 import sys
 from pathlib import Path
 
-# Afegir arrel del backend al path
-# Pipeline està a monorepo/apps/gnosi/pipeline
-# Backend està a monorepo/apps/gnosi/backend
+# Add the backend root to the path
+# Pipeline is at monorepo/apps/gnosi/pipeline
+# Backend is at monorepo/apps/gnosi/backend
 BACKEND_ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(BACKEND_ROOT))
 sys.path.append(str(BACKEND_ROOT.parent)) # monorepo/apps/gnosi
@@ -26,7 +26,7 @@ def index_vault():
     extensions = [".md", ".txt"]
     
     count = 0
-    # Recórrer Wiki i BD (que contenen markdown)
+    # Traverse Wiki and BD (which contain markdown)
     for folder in ["Wiki", "BD"]:
         folder_path = vault_path / folder
         if not folder_path.exists():
@@ -40,8 +40,8 @@ def index_vault():
                         if not content.strip():
                             continue
                             
-                        # Indexar fragmentat (opcionalment podríem usar RecursiveCharacterTextSplitter)
-                        # Per ara, indexem el fitxer sencer si és petit o els primers 2000 caràcters
+                        # Index in chunks (optionally we could use RecursiveCharacterTextSplitter)
+                        # For now, we index the whole file if it's small, or the first 2000 characters
                         metadata = {
                             "source": str(file_path.relative_to(vault_path)),
                             "filename": file_path.name,

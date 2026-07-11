@@ -248,7 +248,7 @@ export default function MailSidebar({
                     className="flex-1 overflow-y-auto px-2 pb-4 space-y-4"
                     onClick={() => setViewMenuId(null)}
                 >
-                    {/* Vistes personalitzades */}
+                    {/* Custom views */}
                     <div>
                         <div className="px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
                             {t('mail.views')}
@@ -263,7 +263,7 @@ export default function MailSidebar({
                         </button>
                     </div>
 
-                    {/* Carpetes del sistema */}
+                    {/* System folders */}
                     <div>
                         <div className="px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
                             {t('mail.mail_section')}

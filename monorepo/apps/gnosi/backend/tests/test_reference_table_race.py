@@ -1,10 +1,10 @@
-"""Cursa entre la designació de taula de referències (Settings) i
-l'auto-migració one-shot de `get_reference_table_id`.
+"""Race between the references-table designation (Settings) and
+the one-shot auto-migration of `get_reference_table_id`.
 
-Tots dos escriuen `zotero_db_config.json` amb un cicle load→modify→save.
-Sense `cfg_lock` (i sense re-comprovar l'estat fresc dins del candau),
-una auto-migració en curs podia esclafar la designació que l'usuari acabava
-de desar a Settings. Mateix patró de test determinista amb Barrier que
+Both write `zotero_db_config.json` through a load→modify→save cycle.
+Without `cfg_lock` (and without re-checking the fresh state inside the lock),
+an in-progress auto-migration could clobber the designation the user had just
+saved in Settings. Same deterministic Barrier-based test pattern as
 test_daily_note_race.py.
 """
 import copy
@@ -30,16 +30,16 @@ _CITABLE_REGISTRY = {
 
 
 class _FakeCfgStore:
-    """Simula el JSON de config amb rendez-vous determinista al load."""
+    """Simulates the config JSON with a deterministic rendez-vous on load."""
 
     def __init__(self, cfg: dict, parties: int = 2):
         self.cfg = cfg
         self._barrier = threading.Barrier(parties)
 
     def load(self, path, default=None):
-        # Snapshot ABANS de la barrera: si es prengués després, el GIL pot
-        # serialitzar la lectura darrere del save de l'altre fil i el test
-        # passaria fins i tot sense candau (fals negatiu).
+        # Snapshot BEFORE the barrier: if taken after, the GIL could
+        # serialize the read behind the save of the other thread and the test
+        # would pass even without a lock (false negative).
         snap = copy.deepcopy(self.cfg)
         try:
             self._barrier.wait(timeout=0.5)
@@ -61,8 +61,8 @@ def store(monkeypatch):
 
 
 def test_settings_choice_survives_concurrent_automigration(store):
-    """La designació de l'usuari a Settings guanya sempre, encara que
-    l'auto-migració corri en paral·lel."""
+    """The user's designation in Settings always wins, even if
+    the auto-migration runs in parallel."""
     with ThreadPoolExecutor(max_workers=2) as ex:
         f_set = ex.submit(vr._set_reference_table_id, "user-choice")
         f_get = ex.submit(vr.get_reference_table_id)
@@ -76,14 +76,14 @@ def test_settings_choice_survives_concurrent_automigration(store):
 
 
 def test_automigration_adopts_when_unconfigured(store):
-    """Sanejament: sense designació ni pas per Settings, adopta la taula citable."""
+    """Sanity check: with no designation and no pass through Settings, it adopts the citable table."""
     assert vr.get_reference_table_id() == "t-citable"
     assert store.cfg["target_table"] == "t-citable"
 
 
 def test_automigration_respects_deliberate_deactivation(store):
-    """Si l'usuari ha DESACTIVAT referències a Settings (target buit però
-    configured=True), l'auto-migració no s'hi fica."""
+    """If the user has DISABLED references in Settings (empty target but
+    configured=True), the auto-migration stays out of it."""
     store.cfg = {"target_table": "", "references_configured": True}
     assert vr.get_reference_table_id() is None
     assert store.cfg["target_table"] == ""

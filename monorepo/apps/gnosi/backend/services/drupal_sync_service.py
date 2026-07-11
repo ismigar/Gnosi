@@ -1,16 +1,16 @@
-"""Client de sincronització amb Drupal (JSON:API + endpoints custom `n8n_helper`).
+"""Drupal sync client (JSON:API + custom `n8n_helper` endpoints).
 
-Escriptura resistent al WAF de Pangea, que **bloqueja PATCH**:
-  - CREAR node   → ``POST /jsonapi/node/<bundle>``          (JSON:API; POST no bloquejat)
-  - ACTUALITZAR  → ``POST /custom/node-helper/update``       (mòdul `n8n_helper`)
-  - TRADUIR      → ``POST /custom/translation-helper/add``   (mòdul `n8n_helper`)
+Writes resilient to the Pangea WAF, which **blocks PATCH**:
+  - CREATE node  → ``POST /jsonapi/node/<bundle>``          (JSON:API; POST not blocked)
+  - UPDATE       → ``POST /custom/node-helper/update``       (`n8n_helper` module)
+  - TRANSLATE    → ``POST /custom/translation-helper/add``   (`n8n_helper` module)
 
-La descoberta (tipus de contingut i camps) va per JSON:API GET. Vegeu la
-directiva ``docs/dev_memory/directives/drupal_content_sync.md`` per al SOP i les
-restriccions.
+Discovery (content types and fields) goes through JSON:API GET. See the
+``docs/dev_memory/directives/drupal_content_sync.md`` directive for the SOP and
+restrictions.
 
-Credencials: ``DRUPAL_ROOT_USER`` (per defecte ``admin``) + ``DRUPAL_ROOT_PASSWORD``
-(env dins Docker via ``.env_shared``; keychain ``drupal_root_password`` al host).
+Credentials: ``DRUPAL_ROOT_USER`` (default ``admin``) + ``DRUPAL_ROOT_PASSWORD``
+(env inside Docker via ``.env_shared``; ``drupal_root_password`` keychain entry on the host).
 """
 import base64
 import html as _html
@@ -33,21 +33,22 @@ _TIMEOUT = httpx.Timeout(45.0, connect=15.0)
 
 
 class DrupalSyncError(RuntimeError):
-    """Error genèric de comunicació amb Drupal (status + cos retallat)."""
+    """Generic Drupal communication error (status + truncated body)."""
 
 
 class DrupalNotFound(DrupalSyncError):
-    """El node sol·licitat no existeix a Drupal (404 dels endpoints custom)."""
+    """The requested node does not exist in Drupal (404 from the custom endpoints)."""
 
 
-# --- Config / credencials --------------------------------------------------
+# --- Config / credentials --------------------------------------------------
 
 def _base_url() -> str:
-    """URL canònica de Drupal, sense ``www`` ni barra final.
+    """Canonical Drupal URL, without ``www`` or a trailing slash.
 
-    ``.env_shared`` desa ``DRUPAL_URL`` amb ``www``, però el lloc fa un 301 cap
-    al host sense ``www`` i el redirect deixa caure el Basic-auth → cal atacar
-    sempre el host canònic directament.
+    ``.env_shared`` stores ``DRUPAL_URL`` with ``www``, but the site issues a 301
+    to the host without ``www``, and the redirect drops the Basic auth → we must always
+    hit the canonical host directly.
+    
     """
     raw = (os.getenv("DRUPAL_URL") or "").strip().rstrip("/")
     if not raw:
@@ -56,7 +57,7 @@ def _base_url() -> str:
 
 
 def base_url() -> str:
-    """URL canònica pública de Drupal (per derivar enllaços de node)."""
+    """Public canonical Drupal URL (used to derive node links)."""
     return _base_url()
 
 
@@ -64,14 +65,14 @@ def _password() -> str:
     pw = os.getenv("DRUPAL_ROOT_PASSWORD")
     if pw:
         return pw
-    # Al host (fora de Docker) la contrasenya viu al keychain, com la de DeepL.
+    # On the host (outside Docker) the password lives in the keychain, like the DeepL one.
     try:
         from backend.security.keychain_manager import get_keychain
 
         kc = get_keychain()
         if kc.has_credential("drupal_root_password"):
             return kc.get_credential("drupal_root_password") or ""
-    except Exception as exc:  # keychain no disponible (p. ex. dins Docker)
+    except Exception as exc:  # keychain not available (e.g. inside Docker)
         log.warning("drupal: keychain no disponible: %s", exc)
     return ""
 
@@ -87,7 +88,7 @@ def _auth() -> tuple[str, str]:
 
 
 def _client() -> httpx.AsyncClient:
-    """Client httpx preconfigurat (base_url canònica, Basic-auth, timeouts)."""
+    """Preconfigured httpx client (canonical base_url, Basic auth, timeouts)."""
     return httpx.AsyncClient(
         base_url=_base_url(),
         auth=_auth(),
@@ -105,7 +106,7 @@ def _raise_for(resp: httpx.Response, ctx: str) -> None:
 
 
 def _node_url(base: str, attrs: dict) -> Optional[str]:
-    """URL pública del node a partir de ``path.alias`` o, si no n'hi ha, ``/node/<nid>``."""
+    """Public node URL derived from ``path.alias`` or, if there isn't one, ``/node/<nid>``."""
     alias = (attrs.get("path") or {}).get("alias")
     if alias:
         return f"{base}{alias}"
@@ -116,7 +117,7 @@ def _node_url(base: str, attrs: dict) -> Optional[str]:
 # --- Descoberta (lectura) --------------------------------------------------
 
 async def list_content_types() -> list[dict]:
-    """Tipus de contingut de Drupal: ``[{machine, label, uuid}]`` (ordenats per etiqueta)."""
+    """Drupal content types: ``[{machine, label, uuid}]`` (sorted by label)."""
     async with _client() as c:
         r = await c.get("/jsonapi/node_type/node_type")
     _raise_for(r, "list_content_types")
@@ -136,23 +137,24 @@ async def list_content_types() -> list[dict]:
 
 
 def _label_from_machine(name: str) -> str:
-    """Etiqueta llegible a partir del machine name d'un camp (``field_editorial`` →
-    ``Editorial``). Fallback quan no tenim el ``label`` real de ``field_config``."""
+    """Readable label derived from a field's machine name (``field_editorial`` →
+    ``Editorial``). Fallback for when we don't have the real ``label`` from ``field_config``."""
     base = re.sub(r"^field_", "", name or "").replace("_", " ").strip()
     return (base[:1].upper() + base[1:]) if base else (name or "")
 
 
 async def list_fields(bundle: str) -> list[dict]:
-    """Camps d'un bundle: ``[{field_name, label, field_type}]``.
+    """Fields of a bundle: ``[{field_name, label, field_type}]``.
 
-    Inclou el camp base ``title`` (no apareix a ``field_config``) i recorre la
-    paginació per si de cas. Filtra per bundle també al client per robustesa.
+    Includes the base ``title`` field (doesn't appear in ``field_config``) and walks
+    the pagination just in case. Also filters by bundle on the client side for robustness.
 
-    Fallback: si el JSON:API del lloc no exposa l'entitat de config
-    ``field_config`` (algunes instàncies no ho fan → 0 camps), descobrim els
-    camps llegint un node real del bundle (els ``field_*`` d'attributes i
-    relationships). Perdem el ``field_type``/``label`` exactes (els inferim),
-    però permet veure i editar el mapping a la UI.
+    Fallback: if the site's JSON:API doesn't expose the ``field_config`` config
+    entity (some instances don't → 0 fields), we discover the
+    fields by reading a real node from the bundle (the ``field_*`` attributes and
+    relationships). We lose the exact ``field_type``/``label`` (we infer them),
+    but it allows viewing and editing the mapping in the UI.
+    
     """
     fields: list[dict] = [
         {"field_name": "title", "label": "Títol", "field_type": "string"},
@@ -172,8 +174,8 @@ async def list_fields(bundle: str) -> list[dict]:
                 if not fn or fn in seen:
                     continue
                 seen.add(fn)
-                # Per a camps de referència (taxonomia) capturem el/s bundle/s
-                # destí (vocabularis) per poder resoldre/crear termes al sync.
+                # For reference fields (taxonomy) we capture the target bundle(s)
+                # (vocabularies) so we can resolve/create terms during sync.
                 settings = a.get("settings") if isinstance(a.get("settings"), dict) else {}
                 handler = settings.get("handler_settings") if isinstance(settings.get("handler_settings"), dict) else {}
                 tb = handler.get("target_bundles")
@@ -191,17 +193,17 @@ async def list_fields(bundle: str) -> list[dict]:
                 })
             url = (doc.get("links", {}).get("next") or {}).get("href")
 
-        # Fallback via nodes reals quan `field_config` no ha exposat cap camp.
-        # Demanem uns quants nodes (no només un): el bundle/vocabulari destí d'un
-        # camp de referència només es pot inferir d'un node que TINGUI el camp
-        # emplenat, i un sol node pot tenir-lo buit (cas de `field_tags`).
-        if len(fields) == 1:  # només el `title` base
+        # Fallback via real nodes when `field_config` hasn't exposed any field.
+        # We request several nodes (not just one): the target bundle/vocabulary of a
+        # reference field can only be inferred from a node that HAS the field
+        # filled in, and a single node can have it empty (the case of `field_tags`).
+        if len(fields) == 1:  # just the base `title`
             try:
                 rn = await c.get(f"/jsonapi/node/{bundle}?page[limit]=50")
                 if rn.status_code < 400:
                     nodes = (rn.json() or {}).get("data") or []
-                    # Acumula els bundles destí de cada camp de referència a partir
-                    # de TOTS els nodes que el tinguin emplenat.
+                    # Accumulates the target bundles for each reference field from
+                    # ALL the nodes that have it populated.
                     ref_targets: dict = {}
                     for n in nodes:
                         for k, rel in (n.get("relationships") or {}).items():
@@ -213,8 +215,8 @@ async def list_fields(bundle: str) -> list[dict]:
                                 t = (it or {}).get("type") or ""  # "taxonomy_term--<vocab>"
                                 if "--" in t:
                                     ref_targets.setdefault(k, set()).add(t.split("--", 1)[1])
-                    # El primer node ja exposa TOTS els camps del bundle (encara que
-                    # buits): l'usem per a la llista de noms.
+                    # The first node already exposes ALL the bundle's fields (although
+                    # empty): we use it for the list of names.
                     base = nodes[0] if nodes else {}
                     attrs = base.get("attributes") or {}
                     rels = base.get("relationships") or {}
@@ -234,33 +236,34 @@ async def list_fields(bundle: str) -> list[dict]:
                         fields.append({"field_name": k, "label": _label_from_machine(k),
                                        "field_type": "entity_reference",
                                        "target_bundles": sorted(ref_targets.get(k, set()))})
-            except Exception as exc:  # millor esforç: si falla, ens quedem amb `title`
+            except Exception as exc:  # best effort: if it fails, we fall back to `title`
                 log.warning("drupal: fallback de descoberta via node per %r ha fallat: %s", bundle, exc)
     return fields
 
 
 def _norm_title(s) -> str:
-    """Clau de comparació de títols, robusta: minúscules, sense accents, sense
-    puntuació ni caràcters especials, espais col·lapsats. Perquè el match entre
-    Gnosi i Drupal toleri diferències d'espais/majúscules/accents/signes."""
+    """Robust title-comparison key: lowercase, no accents, no
+    punctuation or special characters, collapsed spaces. So that matching between
+    Gnosi and Drupal tolerates differences in spacing/case/accents/punctuation."""
     s = unicodedata.normalize("NFKD", str(s or ""))
-    s = "".join(c for c in s if not unicodedata.combining(c))  # treu accents
-    s = re.sub(r"[^0-9a-z\s]", " ", s.lower())  # treu puntuació/especials
+    s = "".join(c for c in s if not unicodedata.combining(c))  # strips accents
+    s = re.sub(r"[^0-9a-z\s]", " ", s.lower())  # strips punctuation/special characters
     return " ".join(s.split())  # col·lapsa espais
 
 
 async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[dict]:
-    """Nodes del bundle amb el títol EXACTE indicat: ``[{uuid, nid, url, title}]``.
+    """Bundle nodes with the EXACT title given: ``[{uuid, nid, url, title}]``.
 
-    Serveix per vincular files de Gnosi a nodes de Drupal ja existents sense
-    crear-ne de nous (match per títol).
+    Used to link Gnosi rows to existing Drupal nodes without
+    creating new ones (match by title).
+    
     """
     title = (title or "").strip()
     if not title:
         return []
-    # Match INSENSIBLE A ESPAIS: alguns nodes de Drupal tenen el títol amb espais
-    # sobrants (p. ex. "…totes   "), que feien fallar el match exacte i creaven
-    # duplicats. Cerquem amb CONTAINS i filtrem client-side pel títol normalitzat.
+    # SPACE-INSENSITIVE match: some Drupal nodes have titles with duplicated
+    # extra (e.g. "…totes   "), which made the exact match fail and created
+    # spaces. We search with CONTAINS and filter client-side by normalized title.
     norm = _norm_title(title)
     if not norm:
         return []
@@ -281,7 +284,7 @@ async def find_nodes_by_title(bundle: str, title: str, limit: int = 5) -> list[d
     for d in r.json().get("data", []):
         a = d.get("attributes", {})
         if _norm_title(a.get("title")) != norm:
-            continue  # CONTAINS pot retornar títols més llargs: exigim match normalitzat
+            continue  # CONTAINS can return longer titles: we require a normalized match
         out.append({
             "uuid": d.get("id"),
             "nid": a.get("drupal_internal__nid"),
@@ -299,9 +302,10 @@ async def create_node(
     relationships: Optional[dict] = None,
     langcode: Optional[str] = None,
 ) -> dict:
-    """Crea un node nou via JSON:API (``POST``, no bloquejat pel WAF).
+    """Creates a new node via JSON:API (``POST``, not blocked by the WAF).
 
-    Retorna ``{uuid, nid, url, title}``.
+    Returns ``{uuid, nid, url, title}``.
+    
     """
     attrs = dict(attributes or {})
     if langcode:
@@ -333,10 +337,11 @@ async def update_node(
     attributes: dict,
     relationships: Optional[dict] = None,
 ) -> dict:
-    """Actualitza un node existent via l'endpoint custom (POST, esquiva el WAF).
+    """Updates an existing node via the custom endpoint (POST, bypasses the WAF).
 
-    Llança ``DrupalNotFound`` si el node ja no existeix (uuid ranci) → el
-    cridant pot caure a ``create_node``.
+    Raises ``DrupalNotFound`` if the node no longer exists (stale uuid) → the
+    caller can fall back to ``create_node``.
+    
     """
     payload = {
         "uuid": uuid,
@@ -355,10 +360,11 @@ async def update_node(
 
 
 async def add_translation(uuid: str, langcode: str, fields: dict) -> dict:
-    """Crea o actualitza la traducció ``langcode`` d'un node (idempotent).
+    """Creates or updates the ``langcode`` translation of a node (idempotent).
 
-    Empeny només atributs (text/cos): a Drupal els camps compartits (tags,
-    imatge) no es tradueixen. Llança ``DrupalNotFound`` si el node no existeix.
+    Pushes only attributes (text/body): in Drupal, shared fields (tags,
+    image) aren't translated. Raises ``DrupalNotFound`` if the node doesn't exist.
+    
     """
     payload = {"uuid": uuid, "langcode": langcode, "fields": fields or {}}
     async with _client() as c:
@@ -377,16 +383,17 @@ async def upload_image(
     filename: str,
     data: bytes,
 ) -> str:
-    """Puja un fitxer binari a un camp d'imatge/fitxer i retorna l'UUID del fitxer.
+    """Uploads a binary file to an image/file field and returns the file's UUID.
 
-    Endpoint de pujada de fitxers de JSON:API: ``POST /jsonapi/node/<bundle>/<camp>``
-    amb el cos binari i ``Content-Disposition: file; filename="…"``. L'UUID
-    retornat s'enllaça després com a relació ``file--file`` (amb ``meta.alt``).
+    JSON:API file-upload endpoint: ``POST /jsonapi/node/<bundle>/<camp>``
+    with the binary body and ``Content-Disposition: file; filename="…"``. The
+    returned UUID is then linked as a ``file--file`` relationship (with ``meta.alt``).
+    
     """
-    # El header Content-Disposition ha de ser ASCII. Els noms de la Biblioteca solen
-    # portar accents (sovint com a caràcters combinants NFD de macOS, p. ex.
-    # "García"); transliterem a ASCII per al nom de pujada (el contingut binari i
-    # l'``alt`` del camp conserven el text original intacte).
+    # The Content-Disposition header must be ASCII. Library names tend to
+    # may carry accents (often as macOS NFD combining characters, e.g.
+    # "García"); we transliterate to ASCII for the upload name (the binary content and
+    # the field's ``alt`` preserve the original text intact).
     ascii_name = unicodedata.normalize("NFKD", filename).encode("ascii", "ignore").decode("ascii") or "file"
     headers = {
         "Accept": JSONAPI,
@@ -403,16 +410,17 @@ async def upload_image(
 
 
 async def find_existing_file(filename: str, filesize: Optional[int] = None) -> Optional[str]:
-    """UUID d'un fitxer ja pujat a Drupal amb el mateix nom (i mida), per
-    reaprofitar-lo en comptes de crear-ne una còpia nova a cada re-sincronització.
+    """UUID of a file already uploaded to Drupal with the same name (and size), to
+    reuse it instead of creating a new copy on every re-sync.
 
-    Drupal NO sobreescriu en rebre un nom repetit: crea ``nom_0``, ``nom_1``… i
-    això inflava ``sites/default/files`` amb centenars de còpies de la mateixa
-    imatge. L'entitat conserva el nom ORIGINAL a ``filename`` (el sufix de
-    col·lisió va només a l'``uri``), així que filtrem pel nom EXACTE de pujada i,
-    si es passa ``filesize``, validem la mida en bytes per no reaprofitar una
-    versió amb contingut diferent. Retorna el fitxer més antic coincident (UUID),
-    o ``None`` (i aleshores el cridant puja, com abans — sense regressió).
+    Drupal does NOT overwrite when it receives a repeated name: it creates ``nom_0``, ``nom_1``… and
+    this was bloating ``sites/default/files`` with hundreds of copies of the same
+    image. The entity keeps the ORIGINAL name in ``filename`` (the collision
+    suffix only goes into the ``uri``), so we filter by the EXACT upload name and,
+    if ``filesize`` is passed, we validate the size in bytes so we don't reuse a
+    version with different content. Returns the oldest matching file (UUID),
+    or ``None`` (in which case the caller uploads, as before — no regression).
+    
     """
     if not filename:
         return None
@@ -423,8 +431,8 @@ async def find_existing_file(filename: str, filesize: Optional[int] = None) -> O
                 "/jsonapi/file/file",
                 params={
                     "filter[filename]": ascii_name,
-                    # Només fitxers PERMANENT: un de temporary el podria esborrar el
-                    # garbage collector de Drupal i deixar el node amb la imatge trencada.
+                    # Only PERMANENT files: a temporary one could be deleted by the
+                    # Drupal's garbage collector and leave the node with a broken image.
                     "filter[status]": "1",
                     "fields[file--file]": "filename,filesize",
                     "sort": "drupal_internal__fid",
@@ -448,9 +456,10 @@ async def resolve_or_create_term(
     *,
     cache: Optional[dict] = None,
 ) -> str:
-    """UUID del terme de taxonomia ``name`` dins ``vocabulary``; el crea si falta.
+    """UUID of the taxonomy term ``name`` within ``vocabulary``; creates it if missing.
 
-    ``cache`` (opcional) evita repetir cerques/creacions dins una mateixa execució.
+    ``cache`` (optional) avoids repeating searches/creations within the same run.
+    
     """
     name = (name or "").strip()
     if not name:
@@ -482,15 +491,16 @@ async def resolve_or_create_term(
     return tid
 
 
-# --- Conversió de cos ------------------------------------------------------
+# --- Body conversion ------------------------------------------------------
 
 def markdown_to_full_html(md: str) -> str:
-    """Converteix Markdown→HTML per al camp ``body`` (format ``full_html``).
+    """Converts Markdown→HTML for the ``body`` field (``full_html`` format).
 
-    Reutilitza ``pandoc`` (ja present a la imatge del backend), igual que la
-    bibliografia de cites. És **bloquejant** (subprocess): els cridants async
-    l'han d'embolcallar amb ``asyncio.to_thread``. Si pandoc falla o no hi és,
-    degrada a text pla embolcallat en ``<p>``.
+    Reuses ``pandoc`` (already present in the backend image), same as the
+    citation bibliography. It is **blocking** (subprocess): async callers
+    must wrap it with ``asyncio.to_thread``. If pandoc fails or isn't present,
+    it degrades to plain text wrapped in ``<p>``.
+    
     """
     text = (md or "").strip()
     if not text:
@@ -500,10 +510,10 @@ def markdown_to_full_html(md: str) -> str:
             tmp = Path(tmpdir)
             (tmp / "in.md").write_text(text, encoding="utf-8")
             r = subprocess.run(
-                # markdown-smart: NO transforma cometes/guions (respecta el text
-                # de l'autor). shift-heading-level-by=1: el títol del node ja és
-                # l'<h1>, així els títols del cos baixen un nivell (cap <h1>
-                # duplicat). Els blocs `::: nom … :::` → <div class="nom">.
+                # markdown-smart: does NOT transform quotes/dashes (respects the text
+                # of the author). shift-heading-level-by=1: the node's title is already
+                # the <h1>, so the body's headings drop one level (no <h1>
+                # duplicate). The `::: nom … :::` blocks → <div class="nom">.
                 ["pandoc", "in.md", "-f", "markdown-smart", "-t", "html",
                  "--wrap=none", "--shift-heading-level-by=1"],
                 cwd=tmp, capture_output=True, text=True, timeout=30,

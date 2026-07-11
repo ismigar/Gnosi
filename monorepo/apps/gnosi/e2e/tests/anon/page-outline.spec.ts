@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * PageOutline ("navegador de títols"): the global section navigator mounted in
+ * PageOutline ("title navigator"): the global section navigator mounted in
  * App.jsx scans #page-content-scroll for h1-h3 and lets you jump to them.
  *
  * This test is content-agnostic on purpose: instead of betting on a specific

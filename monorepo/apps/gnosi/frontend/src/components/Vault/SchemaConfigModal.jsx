@@ -19,8 +19,8 @@ import { pushModalLayer } from '../../hooks/useModalKeyboard';
 import PromptModal from '../PromptModal';
 import { useTranslation } from 'react-i18next';
 
-// ID immutable per a properties: 'fld_' + 8 hex chars. Es persisteix al
-// schema de la taula i es manté entre renames del nom de camp.
+// Immutable ID for properties: 'fld_' + 8 hex chars. It is persisted in the
+// table schema and is preserved across field name renames.
 const generateFieldId = () => {
     const bytes = new Uint8Array(4);
     if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
@@ -45,32 +45,32 @@ const ROLLUP_AGGREGATIONS = [
     { value: 'show_original', label: 'Show original' },
 ];
 
-// Tipus de camp que poden marcar-se com a traduïbles. Exclou camps derivats
-// (formula/rollup/virtual), camps sense contingut textual i tipus
-// estructurals com `button`. El `title` sí que s'admet: el backend
-// (translate_row) usa la traducció del títol com a títol del subitem.
+// Field types that can be marked as translatable. Excludes derived fields
+// (formula/rollup/virtual), fields without textual content, and type
+// structural fields such as `button`. `title` is indeed allowed: the backend
+// (translate_row) uses the title translation as the subitem's title.
 const TRANSLATABLE_FIELD_TYPES = new Set([
     'title', 'text', 'rich_text', 'select', 'multi_select', 'status', 'url'
 ]);
 
-// Catàleg d'accions que pot executar un camp de tipus `button`. Per ara
-// només la traducció de fila; afegir-hi noves accions implica registrar-les
-// també al backend (skills) i, si convé, a la UI.
+// Catalog of actions that a `button`-type field can execute. For now
+// only row translation; adding new actions means registering them
+// also in the backend (skills) and, if needed, in the UI.
 const BUTTON_ACTIONS = [
     { id: 'translate_row', label_key: 'schema.button_action_translate_row', label_default: 'Traduir fila a subitems' },
 ];
 
-// Tipus de camp que tenen un catàleg fix d'opcions triables.
+// Field types that have a fixed catalog of selectable options.
 const OPTION_FIELD_TYPES = new Set(['select', 'multi_select', 'status']);
 
-// Una fila d'opció dins de l'OptionsEditor. El rename es confirma onBlur/Enter
-// (no a cada tecla) perquè el nom segueixi sent un id estable per al drag —
-// així no apareixen ids duplicats transitoris mentre s'escriu.
+// An option row inside the OptionsEditor. The rename is confirmed on onBlur/Enter
+// (not on every keystroke) so the name stays a stable id for dragging —
+// this way no transient duplicate ids appear while typing.
 function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, onRename, onRemove, onSetColor, onSetGroup, onSetDefault }) {
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: option.name });
-    // La fila es remunta per key={option.name} quan l'opció es renombra, així
-    // que el draft no necessita cap efecte de sincronització.
+    // The row is remounted via key={option.name} when the option is renamed, so
+    // the draft doesn't need any synchronization effect.
     const [draft, setDraft] = useState(option.name);
     const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -96,7 +96,7 @@ function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, o
             <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]">
                 <GripVertical size={14} />
             </div>
-            {/* Color de l'opció: punt clicable que obre la paleta. */}
+            {/* Option color: clickable dot that opens the palette. */}
             <button
                 type="button"
                 onClick={() => setPaletteOpen((v) => !v)}
@@ -168,13 +168,13 @@ function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, o
     );
 }
 
-// Diàleg d'eliminació d'una opció amb dues sortides: buidar els valors o
-// REASSIGNAR-los a una altra opció (estil Notion). Sempre amb confirmació
-// (mai destructiu a la primera pulsació) i portal a body, fora del modalRef
-// del pare, perquè l'Esc no tanqui tota la configuració.
+// Dialog for deleting an option with two outcomes: clear the values or
+// REASSIGN them to another option (Notion style). Always with confirmation
+// (never destructive on the first click) and portal to body, outside the parent's modalRef
+// so that Esc doesn't close the entire configuration.
 function RemoveOptionDialog({ state, options, onCancel, onConfirm }) {
     const { t } = useTranslation();
-    // El pare remunta el diàleg per key a cada obertura: useState arrenca net.
+    // The parent remounts the dialog via key on each opening: useState starts clean.
     const [reassignTo, setReassignTo] = useState('');
     if (!state.isOpen) return null;
     const others = options.filter((o) => o.name !== state.value);
@@ -225,30 +225,30 @@ function RemoveOptionDialog({ state, options, onCancel, onConfirm }) {
     );
 }
 
-// Estats que les action_rules escriuen o comproven: en eliminar-los, la UI
-// avisa (el motor els recrearia sol si una regla els necessita — §4.1.5).
+// States that the action_rules write or check: when removing them, the UI
+// warns (the engine would recreate them on its own if a rule needs them — §4.1.5).
 const RULE_PROTECTED_OPTIONS = new Set([
     'Esborrany', 'Traduït', 'Publicat a Drupal', 'Publicat a XXSS',
 ]);
 
-// Editor del catàleg d'opcions d'un camp select/multi_select/status. Afegir,
-// reanomenar (amb reescriptura eager de les files al servidor), eliminar amb
-// buidat o reassignació, reordenar (drag), color per opció, grup (status) i
-// opció per defecte. Viu en un DndContext propi, niat dins del de camps.
+// Editor for the option catalog of a select/multi_select/status field. Add,
+// rename (with eager rewriting of rows on the server), delete with
+// clearing or reassignment, reorder (drag), per-option color, group (status) and
+// default option. Lives in its own DndContext, nested inside the one for fields.
 function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = [], defaultOption = '', onDefaultOptionChange, optionTools = null, fieldId = '', catalogRef = '', sharedCatalogs = {}, onLinkCatalog = null }) {
     const { t } = useTranslation();
     const [newOption, setNewOption] = useState('');
-    const [usage, setUsage] = useState(null); // {nom: recompte} o null mentre carrega
+    const [usage, setUsage] = useState(null); // {name: count} or null while loading
     const [confirmRemove, setConfirmRemove] = useState({ isOpen: false, value: null, usageCount: null, protectedReason: '' });
     const [showNewCatalog, setShowNewCatalog] = useState(false);
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
-    // Amb catàleg compartit (config.catalog_ref), les opcions VIUEN al registry
-    // arrel i s'editen allà (totes les taules enllaçades les veuen). Sense, són
-    // locals del camp. Renombrar/eliminar arreu només està suportat per a
-    // catàlegs locals (la reescriptura de files és per-taula).
+    // With a shared catalog (config.catalog_ref), the options LIVE in the root
+    // registry and are edited there (all linked tables see them). Otherwise, they are
+    // local to the field. Renaming/deleting everywhere is only supported for
+    // local catalogs (row rewriting is per-table).
     const isShared = Boolean(catalogRef);
     const richOptions = normalizeOptions(isShared ? (sharedCatalogs[catalogRef] || []) : options);
     const names = richOptions.map((o) => o.name);
@@ -257,8 +257,8 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         else onChange(next);
     };
 
-    // Comptador d'ús per opció (servidor). Només si el camp ja existeix al
-    // registry (fieldId persistit); per a camps nous no hi ha res a comptar.
+    // Usage counter per option (server). Only if the field already exists in the
+    // registry (persisted fieldId); for new fields there is nothing to count.
     useEffect(() => {
         let cancelled = false;
         if (!optionTools?.fetchUsage || !fieldId) return undefined;
@@ -277,17 +277,17 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
     };
 
     const renameOption = (oldVal, newVal) => {
-        if (names.includes(newVal)) return; // silenciós: no duplicar
+        if (names.includes(newVal)) return; // silent: do not duplicate
         if (isShared) {
-            // La reescriptura de files per a catàlegs compartits (multi-taula)
-            // encara no està suportada: renombrar deixaria valors orfes.
+            // Row rewriting for shared catalogs (multi-table)
+            // is not yet supported: renaming would leave orphaned values.
             toast.error(t('schema.shared_catalog_rename_unsupported', 'Renombrar opcions d\'un catàleg compartit encara no està suportat.'));
             return;
         }
         onChange(richOptions.map((o) => (o.name === oldVal ? { ...o, name: newVal } : o)));
         if (defaultOption === oldVal) onDefaultOptionChange?.(newVal);
-        // Reescriptura eager dels .md afectats (els valors es guarden per nom):
-        // UNA crida al servidor, mai N PATCHes des del client.
+        // Eager rewrite of affected .md files (values are stored by name):
+        // ONE call to the server, never N PATCHes from the client.
         optionTools?.renameEverywhere?.(fieldId, oldVal, newVal, usage?.[oldVal] ?? null);
         if (usage && usage[oldVal] !== undefined) {
             setUsage((u) => {
@@ -312,9 +312,9 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         }));
     };
 
-    // Eliminar una opció la treu de TOTS els registres que la facin servir (no
-    // només del catàleg) o els reassigna a una altra opció. Sempre amb
-    // confirmació (accessibilitat: mai destructiu a la primera pulsació).
+    // Deleting an option removes it from ALL records that use it (not
+    // just from the catalog) or reassigns them to another option. Always with
+    // confirmation (accessibility: never destructive on the first click).
     const requestRemoveOption = (val) => {
         if (isShared) {
             toast.error(t('schema.shared_catalog_remove_unsupported', 'Eliminar opcions d\'un catàleg compartit encara no està suportat.'));
@@ -354,9 +354,9 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         }
     };
 
-    // Vincular el camp a un catàleg compartit (o desvincular-lo). En
-    // desvincular, les opcions del catàleg es COPIEN com a locals perquè el
-    // camp no es quedi sense catàleg.
+    // Link the field to a shared catalog (or unlink it). When
+    // unlinking, the catalog options are COPIED as local ones so the
+    // field doesn't end up without a catalog.
     const handleCatalogLink = (value) => {
         if (!onLinkCatalog) return;
         if (value === '__create__') {
@@ -364,7 +364,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
             return;
         }
         if (!value && isShared) {
-            onChange(richOptions); // còpia local del catàleg compartit
+            onChange(richOptions); // local copy of the shared catalog
             onLinkCatalog('');
             return;
         }
@@ -547,7 +547,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             { value: 'period', label: t('schema.type_period') },
                             { value: 'checkbox', label: t('schema.type_checkbox') },
                             { value: 'url', label: t('schema.type_url') },
-                            { value: 'zotero', label: 'Zotero' },
+                            { value: 'zotero', label: t('schema.type_zotero', 'Zotero') },
                             { value: 'files', label: t('schema.type_files') },
                             { value: 'image', label: t('schema.type_image', 'Imatge') },
                             { value: 'relation', label: t('schema.type_relation') },
@@ -606,8 +606,8 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             {drupalFields.map((df) => (
                                 <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
                             ))}
-                            {/* Fallback: si Drupal no respon (p. ex. 436), mostra igualment
-                                el valor guardat perquè el mapping no sembli perdut. */}
+                            {/* Fallback: if Drupal doesn't respond (e.g. 436), still show
+                                the saved value so the mapping doesn't look lost. */}
                             {drupalFieldMapping[field.id] && !drupalFields.some((df) => df.field_name === drupalFieldMapping[field.id]) && (
                                 <option value={drupalFieldMapping[field.id]}>{drupalFieldMapping[field.id]}</option>
                             )}
@@ -626,7 +626,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 )}
             </div>
 
-            {/* Number: format (número / moneda / percentatge + decimals) */}
+            {/* Number: format (number / currency / percentage + decimals) */}
             {field.type === 'number' && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
@@ -677,7 +677,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 </div>
             )}
 
-            {/* Date/datetime: format de presentació */}
+            {/* Date/datetime: display format */}
             {(field.type === 'date' || field.type === 'datetime') && (
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
@@ -948,8 +948,8 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                     const relatedTable = (allTables || []).find(tt => tt.id === field.relation_database_id);
                                     const relatedName = relatedTable ? (relatedTable.name || relatedTable.title || relatedTable.id) : '';
                                     const srcName = currentTableName || '';
-                                    // Etiqueta llegible: "[Taula actual] <cardinalitat> [Taula relacionada]".
-                                    // Ex: "Recursos molts a un Àrees" = cada recurs pertany a una àrea, però una àrea té molts recursos.
+                                    // Readable label: "[Current table] <cardinality> [Related table]".
+                                    // E.g.: "Resources many-to-one Areas" = each resource belongs to one area, but an area has many resources.
                                     const cardLabel = (key) => {
                                         const base = t(`schema.${key}`);
                                         if (srcName && relatedName) return `${srcName} ${base.toLowerCase()} ${relatedName}`;
@@ -1020,50 +1020,50 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const [fields, setFields] = useState([]);
     const [allTables, setAllTables] = useState([]);
     const [virtualComputers, setVirtualComputers] = useState([]);
-    // Nom de la taula ACTUAL per a l'etiqueta llegible de cardinalitat ("[origen] X a Y [destí]").
-    // El VaultDashboard passa el nom via `folder`, no `tableName`; a més el resolem per `tableId`
-    // contra allTables (autoritatiu). Sense això, l'origen sortia buit i la cardinalitat es
-    // mostrava sense les taules (regressió).
+    // Name of the CURRENT table for the human-readable cardinality label ("[source] X to Y [target]").
+    // The VaultDashboard passes the name via `folder`, not `tableName`; we also resolve it by `tableId`
+    // against allTables (authoritative). Without this, the source came out empty and the cardinality
+    // was displayed without the tables (regression).
     const resolvedTableName = tableName
         || (allTables.find(tt => tt.id === tableId)?.name)
         || folder || '';
     const [enableSubitems, setEnableSubitems] = useState(initialEnableSubitems);
     const [enableTranslation, setEnableTranslation] = useState(initialEnableTranslation);
-    // Catàlegs compartits d'opcions ({nom: [{name,color,group}…]}).
+    // Shared option catalogs ({name: [{name,color,group}…]}).
     const [sharedCatalogs, setSharedCatalogs] = useState({});
-    // Sincronització amb Drupal (config de taula; es persisteix al registre).
+    // Synchronization with Drupal (table config; persisted in the registry).
     const [enableDrupalSync, setEnableDrupalSync] = useState(initialEnableDrupalSync);
     const [drupalBundle, setDrupalBundle] = useState(initialDrupalBundle || '');
     const [drupalFieldMapping, setDrupalFieldMapping] = useState(initialDrupalFieldMapping || {});
-    // Publicació a XXSS: el senyal viu a l'esquema (columna `system` "XXSS"),
-    // com Drupal. L'estat del toggle es deriva de l'esquema en obrir (no és un prop).
+    // Publishing to XXSS: the flag lives in the schema (`system` column "XXSS"),
+    // like Drupal. The toggle state is derived from the schema on open (it is not a prop).
     const [enableSocialPublish, setEnableSocialPublish] = useState(false);
-    // Catàlegs descoberts de Drupal (efímers; només alimenten els <select>).
+    // Catalogs discovered from Drupal (ephemeral; they only feed the <select> elements).
     const [drupalContentTypes, setDrupalContentTypes] = useState([]);
     const [drupalFields, setDrupalFields] = useState([]);
     const [drupalLoading, setDrupalLoading] = useState(false);
     const [drupalError, setDrupalError] = useState('');
     const [matching, setMatching] = useState(false);
-    // Guard d'inicialització: només volem sincronitzar l'estat local amb les
-    // props quan el modal s'obre. Si el pare re-renderitza mentre està obert
-    // (p.ex. fetchRegistry posterior a una acció no relacionada), les props
-    // arriben amb noves referències i sobreescriurien edicions de l'usuari
-    // que encara no ha desat (toggles, camps afegits, etc.).
+    // Initialization guard: we only want to sync local state with the
+    // props when the modal opens. If the parent re-renders while it is open
+    // (e.g. fetchRegistry after an unrelated action), the props
+    // arrive with new references and would overwrite the user's edits
+    // that haven't been saved yet (toggles, added fields, etc.).
     const initializedRef = useRef(false);
-    // Ref per saltar-se el primer trigger d'autosave: just després de la
-    // inicialització, els setters causen un re-render que faria saltar
-    // l'autosave amb un payload idèntic al backend. No té sentit enviar-ho.
+    // Ref to skip the first autosave trigger: right after
+    // initialization, the setters cause a re-render that would trigger
+    // autosave with a payload identical to the backend's. There's no point sending it.
     const skipNextAutosaveRef = useRef(false);
-    // Ref a l'element arrel del modal: hi enganxem el listener d'Esc (vegeu avall).
+    // Ref to the modal's root element: we attach the Esc listener there (see below).
     const modalRef = useRef(null);
-    // Ref al cos scrollable del modal: hi posem el focus en obrir perquè es
-    // pugui fer scroll amb el teclat (fletxes / Re Pàg) i l'Esc funcioni.
+    // Ref to the modal's scrollable body: we focus it on open so it
+    // can be scrolled with the keyboard (arrows / Page Up) and Esc works.
     const scrollRef = useRef(null);
-    // Desat pendent (debounce encara no disparat). El fem flush en desmuntar
-    // perquè tancar (Esc/X) just després d'editar no perdi l'últim canvi.
+    // Pending save (debounce not yet fired). We flush it on unmount
+    // so that closing (Esc/X) right after editing doesn't lose the last change.
     const pendingSaveRef = useRef(null);
-    // Capa d'aquest modal a la pila global (cf. pushModalLayer): compartida
-    // entre l'effect que la registra i el handler d'Esc amb focus al <body>.
+    // Layer of this modal in the global stack (cf. pushModalLayer): shared
+    // between the effect that registers it and the Esc handler with focus on <body>.
     const modalLayerRef = useRef(null);
 
     useEffect(() => {
@@ -1080,8 +1080,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             const fieldsArray = getSchemaFieldNames(currentSchema || {}).map((name) => {
                 const cfg = getFieldConfig(currentSchema || {}, name);
                 return {
-                    // Reusem el field_id immutable del config si existeix; en cas
-                    // contrari generem-ne un de nou que es persistirà al desar.
+                    // We reuse the immutable field_id from the config if it exists; otherwise
+                    // we generate a new one that will be persisted on save.
                     id: cfg.id || generateFieldId(),
                     name,
                     type: getFieldType(currentSchema || {}, name),
@@ -1103,13 +1103,13 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     button_action: cfg.button_action || '',
                     button_label: cfg.button_label || '',
                     format: (cfg.format && typeof cfg.format === 'object') ? cfg.format : {},
-                    // Catàleg ric: normalitza strings llegats a {name,color,group}.
+                    // Rich catalog: normalizes legacy strings into {name,color,group}.
                     options: normalizeOptions(cfg.options),
                     defaultOption: cfg.default_option || '',
                     catalogRef: cfg.catalog_ref || '',
-                    // Config CRU del registry: buildPayload hi arrenca per fer
-                    // round-trip de claus que la UI no gestiona (role,
-                    // option_groups…) — sense això, cada desat les esborrava.
+                    // Registry CRU config: buildPayload starts from it to do
+                    // round-trip of keys that the UI doesn't manage (role,
+                    // option_groups…) — without this, every save would erase them.
                     rawConfig: cfg,
                     visible: initialVisibleProperties ? initialVisibleProperties.includes(name) : true
                 };
@@ -1122,9 +1122,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             setDrupalFieldMapping(initialDrupalFieldMapping || {});
             setEnableSocialPublish(fieldsArray.some((f) => f.system && /xxss|social/i.test(f.name || '')));
 
-            // Taules candidates per a camps de relació. Si el pare en passa una llista
-            // (p.ex. Importa Notion: les BDs del workspace de Notion, no les del vault
-            // local), mana ella; si no, es carreguen les taules del vault actiu.
+            // Candidate tables for relation fields. If the parent passes a list of them
+            // (e.g. Notion Import: the Notion workspace's DBs, not the vault's
+            // local one), it takes precedence; otherwise, the active vault's tables are loaded.
             if (Array.isArray(availableTables)) {
                 setAllTables(availableTables);
             } else {
@@ -1140,7 +1140,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 fetchTables();
             }
 
-            // Catàlegs compartits d'opcions (registry arrel `option_catalogs`).
+            // Shared option catalogs (root registry `option_catalogs`).
             const fetchSharedCatalogs = async () => {
                 try {
                     const response = await axios.get('/api/vault/option-catalogs');
@@ -1164,18 +1164,18 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     }, [isOpen, currentSchema, initialEnableSubitems, initialVisibleProperties, initialEnableTranslation, initialEnableDrupalSync, initialDrupalBundle, initialDrupalFieldMapping, availableTables]);
 
-    // Comprova si ja existeix un camp botó amb l'acció de traducció.
-    // Tot camp `button` rep `button_action` al crear-se (handleUpdateField i
-    // addTranslateButton el posen explícitament), així que la comparació
-    // directa és correcta: si arribés un botó amb button_action buit, voldria
-    // dir que la configuració és incompleta i el banner d'avís ha d'aparèixer.
+    // Checks whether a button field with the translation action already exists.
+    // Every `button` field receives `button_action` when created (handleUpdateField and
+    // addTranslateButton sets it explicitly), so the comparison
+    // direct comparison is correct: if a button with an empty button_action arrived, it would mean
+    // the configuration is incomplete and the warning banner must appear.
     const hasTranslateButton = fields.some(
         (f) => f.type === 'button' && f.button_action === 'translate_row'
     );
 
-    // Afegeix un camp `button` amb acció `translate_row` si encara no n'hi ha.
-    // Tria un nom únic basat en l'etiqueta "Traduir" per evitar col·lisions amb
-    // camps existents (validació silenciosa).
+    // Adds a `button` field with the `translate_row` action if there isn't one yet.
+    // Picks a unique name based on the "Translate" label to avoid collisions with
+    // existing fields (silent validation).
     const addTranslateButton = () => {
         if (hasTranslateButton) return;
         const baseName = t('schema.button_label_translate', 'Traduir');
@@ -1210,22 +1210,22 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }]);
     };
 
-    // En activar traducció per primera vegada, els subitems són necessaris
-    // (les traduccions es desen com a fills). Si l'usuari el desactiva
-    // explícitament després, respectem la seva decisió. A més, si encara no
-    // hi ha cap camp `button` amb acció `translate_row`, n'afegim un perquè
-    // l'usuari tingui immediatament un disparador visible a la taula.
-    // Confirmació centrada (ConfirmModal estàndard del projecte) en DESACTIVAR
-    // un toggle amb conseqüències. Abans s'usava window.confirm; ara fem servir
-    // el modal del mig de la pantalla, coherent amb la resta de la UI.
+    // When enabling translation for the first time, sub-items are required
+    // (translations are saved as children). If the user disables it
+    // explicitly afterward, we respect their decision. Also, if there isn't
+    // yet a `button` field with the `translate_row` action, we add one so that
+    // the user immediately has a visible trigger in the table.
+    // Centered confirmation (the project's standard ConfirmModal) when DISABLING
+    // a toggle with consequences. window.confirm was used before; now we use
+    // the modal in the middle of the screen, consistent with the rest of the UI.
     const [toggleConfirm, setToggleConfirm] = useState({ isOpen: false, title: '', message: '', confirmText: '', onConfirm: null });
     const closeToggleConfirm = () => setToggleConfirm((s) => ({ ...s, isOpen: false }));
     const requestDisableConfirm = ({ title, message, confirmText, onConfirm }) => {
         setToggleConfirm({ isOpen: true, title, message, confirmText, onConfirm });
     };
 
-    // Eines de servidor per a l'editor d'opcions. Sense tableId (taula encara
-    // no persistida al registry) queden desactivades i tot el CRUD és local.
+    // Server tools for the options editor. Without tableId (table still
+    // not persisted to the registry) remain disabled and all CRUD is local.
     const optionTools = {
         sharedCatalogs,
         fetchUsage: tableId ? async (fieldId) => {
@@ -1262,10 +1262,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         },
     };
 
-    // Seed-on-enable (mirall de ensure_status_seed del backend, per a UX
-    // immediata): en activar Traduir/Drupal/XXSS, el camp amb rol `status`
-    // rep les opcions base i la de la funcionalitat. El servidor ho torna a
-    // garantir en desar — això només estalvia esperar l'autosave+refetch.
+    // Seed-on-enable (mirror of the backend's ensure_status_seed, for UX
+    // immediate): when enabling Translate/Drupal/XXSS, the field with role `status`
+    // receives the base options and the feature's option. The server sends it back
+    // guarantee on save — this only saves waiting for the autosave+refetch.
     const seedStatusOptions = (feature) => {
         setFields((prev) => {
             const isStatusField = (f) =>
@@ -1308,16 +1308,16 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     };
 
-    // --- Sincronització amb Drupal -----------------------------------------
-    // Noms de les columnes gestionades pel sistema on el sync desa el NID i
-    // l'URL del node de Drupal. Read-only a la graella (config.system). Són
-    // VALORS desats a l'esquema (el sync els busca pel nom) — mai via i18n.
+    // --- Drupal synchronization -----------------------------------------
+    // Names of the system-managed columns where the sync stores the NID and
+    // the Drupal node's URL. Read-only in the grid (config.system). They are
+    // VALUES stored in the schema (the sync looks them up by name) — never via i18n.
     const DRUPAL_NID_COL = 'Drupal NID';
     const DRUPAL_URL_COL = 'Drupal URL';
 
-    // Afegeix les dues columnes de sortida (NID/URL) si encara no hi són. Es
-    // gestionen com a part de l'esquema (com el botó de traduir): així es
-    // persisteixen via buildPayload i no les esborra l'autosave continu.
+    // Adds the two output columns (NID/URL) if they aren't there yet. They
+    // are managed as part of the schema (like the translate button): this way
+    // they're persisted via buildPayload and continuous autosave doesn't erase them.
     const addDrupalColumns = () => {
         const mk = (name, type) => ({
             id: generateFieldId(), name, type,
@@ -1337,9 +1337,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     };
 
     const handleToggleDrupalSync = (next) => {
-        // En desactivar, demana confirmació (modal centrat) si hi ha un mapeig
-        // configurat: així un clic accidental (amb autosave actiu) no deixa la
-        // taula sense sincronitzar sense avís. El mapeig es conserva al backend.
+        // When disabling, asks for confirmation (centered modal) if there is a mapping
+        // configured: this way an accidental click (with autosave active) doesn't leave the
+        // table unsynced without warning. The mapping is preserved on the backend.
         if (!next && enableDrupalSync && Object.keys(drupalFieldMapping || {}).length > 0) {
             requestDisableConfirm({
                 title: t('schema.drupal_sync_disable_title', 'Desactivar sincronització amb Drupal'),
@@ -1356,11 +1356,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     };
 
-    // Columna `system` que marca la taula com a publicable a XXSS. La seva
-    // presència és el senyal que fa aparèixer el botó "Publicar a XXSS" (com les
-    // columnes de Drupal). Es persisteix amb l'esquema via l'autosave de `fields`:
-    // és un VALOR desat/comparat per lògica, no una etiqueta — mai via i18n
-    // (traduir-la trencaria la detecció en taules creades en un altre idioma).
+    // `system` column that marks the table as publishable to XXSS. Its
+    // presence is the signal that makes the "Publish to XXSS" button appear (like the
+    // Drupal columns). It is persisted with the schema via the `fields` autosave:
+    // it's a saved/compared VALUE for logic, not a label — never via i18n
+    // (translating it would break detection in tables created in another language).
     const SOCIAL_PUBLISH_COL = 'XXSS';
     const addSocialPublishColumns = () => {
         setFields((prev) => {
@@ -1377,9 +1377,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         });
     };
 
-    // Retira la columna `system` de XXSS de l'esquema. Mateix criteri de
-    // detecció que l'estat inicial (system + nom xxss/social), perquè en
-    // reobrir el modal el toggle no torni a derivar-se com a actiu.
+    // Removes the `system` column of XXSS from the schema. Same criterion for
+    // detection than the initial state (system + xxss/social name), because in
+    // reopening the modal the toggle doesn't get re-derived as active.
     const removeSocialPublishColumns = () => {
         setFields((prev) => prev.filter((f) => !(f.system && /xxss|social/i.test(f.name || ''))));
     };
@@ -1401,9 +1401,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     };
 
-    // Vincula les files existents amb nodes de Drupal pel títol (backfill de
-    // nid/url, sense crear res a Drupal). Útil per a contingut creat abans
-    // d'activar la sinc, o en afegir registres nous.
+    // Links existing rows to Drupal nodes by title (backfill of
+    // nid/url, without creating anything in Drupal). Useful for content created before
+    // of enabling sync, or when adding new records.
     const handleMatchExisting = async () => {
         if (!tableId || !drupalBundle) return;
         setMatching(true);
@@ -1418,7 +1418,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     };
 
-    // Descobreix els tipus de contingut de Drupal en activar la sincronització.
+    // Discovers Drupal content types when enabling synchronization.
     useEffect(() => {
         if (!isOpen || !enableDrupalSync || drupalContentTypes.length > 0) return;
         let cancelled = false;
@@ -1432,7 +1432,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, enableDrupalSync]);
 
-    // Descobreix els camps del tipus de contingut triat.
+    // Discovers the fields of the chosen content type.
     useEffect(() => {
         if (!isOpen || !enableDrupalSync || !drupalBundle) { setDrupalFields([]); return; }
         let cancelled = false;
@@ -1502,24 +1502,24 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             newFields[index].button_label = '';
         }
         if (key === 'type' && value === 'button') {
-            // Defaults sensats: l'acció més comuna és la traducció.
+            // Sensible defaults: the most common action is translation.
             if (!newFields[index].button_action) newFields[index].button_action = 'translate_row';
-            // Els botons no són traduïbles per ells mateixos.
+            // Buttons are not translatable by themselves.
             newFields[index].translatable = false;
         }
         if (key === 'type' && !TRANSLATABLE_FIELD_TYPES.has(value)) {
             newFields[index].translatable = false;
         }
         if (key === 'type' && value === 'status' && normalizeOptions(newFields[index].options).length === 0) {
-            // Un camp `status` nounat arrenca amb el catàleg base (decisió §9.1).
+            // A newly created `status` field starts with the base catalog (decision §9.1).
             newFields[index].options = seedOptionsForFeature('base');
         }
         setFields(newFields);
     };
 
-    // Confirmació abans d'eliminar una propietat: el botó de paperera no ha de
-    // ser destructiu a la primera pulsació (accessibilitat — evita esborrats
-    // accidentals per tremolor/distonia). Desem índex i nom per mostrar-lo al diàleg.
+    // Confirmation before deleting a property: the trash button must not
+    // be destructive on the first press (accessibility — avoids
+    // accidental deletions due to tremor/dystonia). We save the index and name to show it in the dialog.
     const [confirmRemoveField, setConfirmRemoveField] = useState({ isOpen: false, index: null, name: '' });
 
     const handleRemoveField = (index) => {
@@ -1545,9 +1545,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         }
     };
 
-    // Validació silenciosa: retorna un missatge si cal corregir alguna cosa,
-    // null si tot OK. No mostra toasts: l'estat es reflecteix a la barra
-    // d'autosave del peu.
+    // Silent validation: returns a message if something needs to be corrected,
+    // null if everything's OK. Doesn't show toasts: the state is reflected in the bar
+    // of the footer's autosave.
     const validate = () => {
         if (fields.some(f => !f.name.trim())) return t('schema.error_name_required');
         if (fields.some(f => f.type === 'formula' && !f.formula?.trim())) return t('schema.error_formula_required');
@@ -1559,9 +1559,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         return null;
     };
 
-    // Claus de config que la UI gestiona explícitament: buildPayload les
-    // esborra del config cru abans de re-escriure-les des de l'estat local.
-    // La resta (role, option_groups, …) fan round-trip intactes.
+    // Config keys that the UI manages explicitly: buildPayload
+    // removes them from the raw config before rewriting them from local state.
+    // The rest (role, option_groups, …) round-trip intact.
     const MANAGED_CONFIG_KEYS = [
         'id', 'system', 'formula', 'compute', 'relationField', 'targetProperty',
         'aggregation', 'limit', 'fallbackValue', 'defaultFormula',
@@ -1570,26 +1570,26 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         'translatable', 'default_option', 'catalog_ref',
     ];
 
-    // Construeix el schema serialitzable que s'envia al backend a partir de
-    // l'estat local. Pres directament del bloc anterior de `handleSave`.
+    // Builds the serializable schema sent to the backend from
+    // the local state. Taken directly from the previous block of `handleSave`.
     const buildPayload = () => {
         const newSchemaObj = {};
         const visibleProperties = [];
         fields.forEach(f => {
             const cleanName = f.name.trim();
             newSchemaObj[cleanName] = f.type;
-            // Round-trip del config del registry: les claus que la UI no
-            // gestiona (role, option_groups…) es conserven tal qual.
+            // Round-trip of the registry config: keys that the UI doesn't
+            // manage (role, option_groups…) are kept as-is.
             const config = { ...(f.rawConfig || {}) };
             for (const k of MANAGED_CONFIG_KEYS) delete config[k];
-            // Persisteix el field_id immutable: és la clau estable per a
-            // referenciar el camp en notes, vistes, filtres i seccions.
-            // No es regenera mai un cop assignat.
+            // Persists the immutable field_id: it's the stable key for
+            // referencing the field in notes, views, filters and sections.
+            // It is never regenerated once assigned.
             if (f.id && /^fld_[0-9a-f]{8}$/.test(f.id)) {
                 config.id = f.id;
             }
-            // Columna gestionada pel sistema (Drupal NID/URL): read-only a la
-            // graella. El sync n'escriu el valor; l'usuari no l'edita.
+            // System-managed column (Drupal NID/URL): read-only in the
+            // grid. The sync writes its value; the user doesn't edit it.
             if (f.system === true) {
                 config.system = true;
             }
@@ -1632,8 +1632,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     config.button_label = f.button_label.trim();
                 }
             }
-            // Format per camp (override del global): només es persisteix si té
-            // valors significatius, perquè un camp sense format derivi del global.
+            // Per-field format (override of the global one): only persisted if it has
+            // meaningful values, so that a field without a format derives from the global one.
             if (f.type === 'number' && f.format) {
                 const fmt = {};
                 if (f.format.kind && f.format.kind !== 'number') fmt.kind = f.format.kind;
@@ -1644,11 +1644,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             if ((f.type === 'date' || f.type === 'datetime') && f.format?.dateFormat) {
                 config.format = { ...(config.format || {}), dateFormat: f.format.dateFormat };
             }
-            // Catàleg d'opcions per a select/multi_select/status, en format
-            // ric {name,color,group}. Amb `catalog_ref` (catàleg compartit)
-            // les opcions viuen al registry arrel i NO es persisteixen al
-            // camp. Si la llista queda buida, no escrivim la clau perquè el
-            // camp pugui continuar derivant opcions dels valors existents.
+            // Option catalog for select/multi_select/status, in
+            // rich {name,color,group} format. With `catalog_ref` (shared catalog)
+            // the options live in the root registry and are NOT persisted to the
+            // field. If the list ends up empty, we don't write the key so that the
+            // field can keep deriving options from the existing values.
             if (OPTION_FIELD_TYPES.has(f.type)) {
                 const catalogRef = String(f.catalogRef || '').trim();
                 if (catalogRef) {
@@ -1664,8 +1664,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     config.default_option = def;
                 }
             }
-            // Només persistim `translatable: true` quan el camp està marcat
-            // i el seu tipus el suporta. Si no, no afegim la clau.
+            // We only persist `translatable: true` when the field is marked
+            // and its type supports it. Otherwise, we don't add the key.
             if (enableTranslation && f.translatable && TRANSLATABLE_FIELD_TYPES.has(f.type)) {
                 config.translatable = true;
             }
@@ -1679,23 +1679,23 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         return { newSchemaObj, visibleProperties };
     };
 
-    // Autosave amb debounce: després d'un canvi, espera 600ms d'inactivitat,
-    // valida i envia. Si la validació falla silenciosament: l'estat queda
-    // sense desar fins que l'usuari completi els camps requerits. Només
-    // notifiquem amb toast quan el servidor falla — els altres modals de
-    // l'app també segueixen aquest patró (silenci per defecte).
+    // Autosave with debounce: after a change, waits 600ms of inactivity,
+    // validates, and sends. If validation fails silently: the state remains
+    // unsaved until the user completes the required fields. We only
+    // notify with a toast when the server fails — the app's other modals
+    // also follow this pattern (silent by default).
     useEffect(() => {
         if (!isOpen) return;
-        if (!initializedRef.current) return; // primera renderització: no autosave
+        if (!initializedRef.current) return; // first render: no autosave
         if (skipNextAutosaveRef.current) {
-            // Els setters d'inicialització acaben de causar aquest trigger.
-            // El payload és idèntic al backend; res a desar.
+            // The initialization setters just caused this trigger.
+            // The payload is identical to the backend's; nothing to save.
             skipNextAutosaveRef.current = false;
             return;
         }
-        if (validate()) return; // validació silenciosa
-        // Desa l'estat actual. El desem en un ref perquè el puguem disparar
-        // també en desmuntar (flush) si el debounce encara no ha saltat.
+        if (validate()) return; // silent validation
+        // Saves the current state. We save it in a ref so we can trigger it
+        // also on unmount (flush) if the debounce hasn't fired yet.
         const doSave = async () => {
             pendingSaveRef.current = null;
             try {
@@ -1717,26 +1717,26 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, fields, enableSubitems, enableTranslation, enableDrupalSync, drupalBundle, drupalFieldMapping]);
 
-    // Flush del desat pendent en desmuntar el modal (p.ex. tancar amb Esc o la X
-    // just després d'editar, abans dels 600ms del debounce). Fire-and-forget:
-    // el POST es completa encara que el component ja no hi sigui. Sense això,
-    // el `clearTimeout` de l'efecte d'autosave cancel·lava l'últim canvi.
+    // Flush the pending save on unmounting the modal (e.g. closing with Esc or the X
+    // right after editing, before the debounce's 600ms). Fire-and-forget:
+    // the POST completes even if the component is no longer there. Without this,
+    // the autosave effect's `clearTimeout` would cancel the last change.
     useEffect(() => {
         return () => { pendingSaveRef.current?.(); };
     }, []);
 
-    // Tancament amb Esc — listener NATIU directament a l'element del modal (via
-    // ref), no a `window`. Provat al navegador amb tecles REALS: el de `window`
-    // no responia de manera fiable a la pulsació real des d'un camp de dins del
-    // modal (sí amb la X), mentre que un listener a l'element sí. Deps només
-    // [isOpen] per no re-vincular a cada render (el churn deixava finestres on el
-    // listener no hi era). `onClose` és estable de comportament, així que el
+    // Closing with Esc — NATIVE listener directly on the modal element (via
+    // ref), not on `window`. Tested in the browser with REAL keystrokes: the `window` one
+    // didn't respond reliably to a real keypress from a field inside the
+    // modal (it did with the X), while a listener on the element did. Deps only
+    // [isOpen] to avoid re-binding on every render (the churn left windows where the
+    // listener wasn't there). `onClose` is stable in behavior, so
     // capturem directament.
     useEffect(() => {
         if (!isOpen) return;
-        // Capa a la pila global de modals: aquest modal pot estar niat DINS
-        // de Configuració (Importa Notion) i tenir un ConfirmModal a sobre.
-        // Cada Esc només ha de tancar la capa superior (cf. useModalKeyboard).
+        // Layer in the global modal stack: this modal can be nested INSIDE
+        // of Settings (Notion Import) and having a ConfirmModal on top.
+        // Each Esc should only close the top layer (cf. useModalKeyboard).
         const layer = pushModalLayer();
         modalLayerRef.current = layer;
         const el = modalRef.current;
@@ -1747,9 +1747,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             }
         };
         el?.addEventListener('keydown', handleKeyDown);
-        // Focus al COS scrollable (no a l'arrel): així l'Esc funciona (el keydown
-        // hi bombolla cap a `el`) i, a més, es pot fer scroll amb el teclat.
-        // Donar focus a l'arrel (no scrollable) trencava el scroll amb teclat.
+        // Focus on the scrollable BODY (not the root): this way Esc works (the keydown
+        // bubbles up to `el`) and, additionally, it can be scrolled with the keyboard.
+        // Giving focus to the root (not scrollable) broke keyboard scrolling.
         scrollRef.current?.focus();
         return () => {
             el?.removeEventListener('keydown', handleKeyDown);
@@ -1759,38 +1759,38 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
-    // Bandera global mentre el modal és obert: VaultTable la mira per
-    // desactivar la navegació de cel·les de la graella. Sense això, amb una
-    // cel·la activa, el handler de la graella (a window) es quedava CADA
-    // fletxa (movia el cursor sota el modal i el preventDefault matava el
-    // scroll natiu del cos) i, amb focus al <body>, una lletra o ⌫ editava o
-    // buidava cel·les a cegues sota el modal.
+    // Global flag while the modal is open: VaultTable checks it to
+    // disable grid cell navigation. Without this, with a
+    // active cell, the grid handler (on window) remained EVERY
+    // arrow (it moved the cursor under the modal and the preventDefault killed the
+    // native scroll of the body) and, with focus on <body>, a letter or ⌫ would edit or
+    // was blindly clearing cells beneath the modal.
     useEffect(() => {
         if (!isOpen) return;
         document.body.classList.add('gnosi-modal-open');
         return () => document.body.classList.remove('gnosi-modal-open');
     }, [isOpen]);
 
-    // Scroll amb teclat sempre viu dins del modal. El navegador només scrolla
-    // l'ancestre scrollable de l'element ENFOCAT, i aquí el focus es perd
-    // contínuament: un clic a la capçalera/marc/backdrop el deixa al <body>
-    // (i aquells keydown ni bombollegen per modalRef: per això el listener va
-    // a document), i un clic "a dins" gairebé sempre cau en un camp, que es
-    // queda el focus. Política segons on és el focus:
-    //  - body o cromada del modal: totes les tecles de scroll, també Home/End;
-    //  - inputs de text (el gruix del modal): fletxes i Re/Av Pàg scrollegen
-    //    (amb preventDefault el caret no es mou), però Home/End i les tecles
-    //    amb Maj (selecció) queden per al caret; els tipus d'input on les
-    //    fletxes SÍ fan feina (number, date, radio…) no es toquen;
-    //  - select, textarea i contenteditable: no es toca res (semàntica pròpia);
-    //  - nanses de dnd-kit ([aria-roledescription]): no es toca res, que el
-    //    drag amb teclat (Espai + fletxes) és seu — per això l'espai tampoc
-    //    no es gestiona enlloc (activa botons);
-    //  - resta (cos scrollable inclòs): scrollem NOSALTRES amb preventDefault.
-    //    No deleguem mai al scroll natiu: verificat en viu que, fins i tot amb
-    //    el focus al cos i l'event net de preventDefault, Chrome no scrollava
-    //    (i amb el nostre preventDefault, mai no hi pot haver scroll doble);
-    //  - focus en un altre overlay (ConfirmModal niat): no es toca res.
+    // Keyboard scroll always lives inside the modal. The browser only scrolls
+    // the scrollable ancestor of the FOCUSED element, and here focus is lost
+    // continuously: a click on the header/frame/backdrop leaves it on <body>
+    // (and those keydowns don't even bubble through modalRef: that's why the listener goes
+    // on document), and a click "inside" almost always lands on a field, which
+    // keeps the focus. Policy depending on where the focus is:
+    //  - body or modal chrome: all scroll keys, including Home/End;
+    //  - text inputs (the bulk of the modal): arrows and Page Up/Down scroll
+    //    (with preventDefault the caret doesn't move), but Home/End and the keys
+    //    with Shift (selection) are left for the caret; the input types where
+    //    arrows DO work (number, date, radio…) are left untouched;
+    //  - select, textarea, and contenteditable: nothing is touched (their own semantics);
+    //  - dnd-kit handles ([aria-roledescription]): nothing is touched, since
+    //    keyboard drag (Space + arrows) is theirs — that's why space isn't either
+    //    is not handled anywhere (enables buttons);
+    //  - everything else (including the scrollable body): WE scroll it ourselves with preventDefault.
+    //    We never delegate to native scroll: verified live that, even with
+    //    the focus to the body and the event clear of preventDefault, Chrome didn't scroll
+    //    (and with our preventDefault, there can never be double scrolling);
+    //  - focus on another overlay (nested ConfirmModal): nothing is touched.
     useEffect(() => {
         if (!isOpen) return;
         const FLETXES_DEL_CONTROL = new Set(['number', 'range', 'date', 'time', 'datetime-local', 'month', 'week', 'radio']);
@@ -1802,9 +1802,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             const focusAlBody = t === document.body || t === document.documentElement;
             const dinsDelModal = t instanceof Element && modalRef.current?.contains(t);
             if (!focusAlBody && !dinsDelModal) return;
-            // Esc amb focus al <body> (clic a la cromada): el listener d'Esc de
-            // modalRef no veu aquests events (no hi bombollegen). Pels de dins
-            // del modal no passem mai d'aquí: aquell listener fa stopPropagation.
+            // Esc with focus on <body> (click on the chrome): the Esc listener of
+            // modalRef doesn't see these events (they don't bubble there). For the ones inside
+            // the modal we never get past here: that listener calls stopPropagation.
             if (e.key === 'Escape' && focusAlBody) {
                 if (modalLayerRef.current?.isTop()) onClose();
                 return;
@@ -1815,7 +1815,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             if (control) {
                 const esInputDeText = control.tagName === 'INPUT' && !FLETXES_DEL_CONTROL.has(control.type);
                 if (!esInputDeText) return;
-                nomesVerticals = true; // Home/End queden per al caret
+                nomesVerticals = true; // Home/End remain for the caret
             }
             const pagina = main.clientHeight * 0.9;
             const salts = { ArrowDown: 48, ArrowUp: -48, PageDown: pagina, PageUp: -pagina };
@@ -1835,10 +1835,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen]);
 
-    // Fix scroll (Mac+Chrome): els <select>/<input>/<textarea> natius absorbeixen
-    // el wheel quan el cursor hi és a sobre i el cos del modal no scrolleja. Com
-    // que aquest modal és ple de controls (camps + mapping de Drupal), redirigim
-    // el wheel al cos scrollable. Mateix patró que GlobalSettingsModal.
+    // Scroll fix (Mac+Chrome): native <select>/<input>/<textarea> absorb
+    // the wheel when the cursor is over it and the modal body doesn't scroll. Since
+    // this modal is full of controls (fields + Drupal mapping), we redirect
+    // the wheel to the scrollable body. Same pattern as GlobalSettingsModal.
     useEffect(() => {
         if (!isOpen) return;
         const handler = (e) => {
@@ -1848,7 +1848,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             if (!t || !t.closest || !main || !main.contains(t)) return;
             const tag = t.tagName;
             if (tag !== 'SELECT' && tag !== 'INPUT' && tag !== 'TEXTAREA') return;
-            // textarea amb scroll propi: deixa que el gestioni ella mateixa
+            // textarea with its own scroll: let it manage it itself
             if (tag === 'TEXTAREA' && t.scrollHeight > t.clientHeight + 1) return;
             if (main.scrollHeight > main.clientHeight) {
                 main.scrollTop += e.deltaY;
@@ -1861,12 +1861,12 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
 
     if (!isOpen) return null;
 
-    // Portal a document.body: quan aquest modal s'obre des de dins del modal de
-    // Configuració global, l'ancestre `.settings-modal` té un `transform` (que fa
-    // que el nostre `fixed inset-0` es resolgui contra ESE caixa, no el viewport) i
-    // `.settings-main` és `overflow-y:auto` amb el seu propi handler de wheel en
-    // captura → el scroll amb el cursor se l'enduia el panell de fons. Renderitzant
-    // al body escapem d'aquell context (igual que el popover intern d'aquest fitxer).
+    // Portal to document.body: when this modal opens from inside the
+    // global Settings modal, the `.settings-modal` ancestor has a `transform` (which makes
+    // our `fixed inset-0` resolve against THAT box, not the viewport) and
+    // `.settings-main` is `overflow-y:auto` with its own wheel handler on
+    // capture → scrolling with the cursor was being taken by the background panel. Rendering
+    // by going to the body we escape that context (just like this file's internal popover).
     return createPortal(
         <>
         <div
@@ -1904,8 +1904,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                         checked={enableSubitems}
                                         disabled={enableTranslation}
                                         onChange={(e) => {
-                                            // Bloquejat mentre la taula sigui traduïble: les
-                                            // traduccions es persisteixen com a subitems.
+                                            // Blocked while the table is translatable: the
+                                            // translations are persisted as subitems.
                                             if (enableTranslation && !e.target.checked) return;
                                             setEnableSubitems(e.target.checked);
                                         }}
@@ -2003,8 +2003,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                             {drupalContentTypes.map((ct) => (
                                                 <option key={ct.machine} value={ct.machine}>{ct.label} ({ct.machine})</option>
                                             ))}
-                                            {/* Fallback: si Drupal no respon, mostra el bundle guardat
-                                                perquè no sembli que s'ha perdut la configuració. */}
+                                            {/* Fallback: if Drupal doesn't respond, show the saved bundle
+                                                so it doesn't look like the configuration was lost. */}
                                             {drupalBundle && !drupalContentTypes.some((ct) => ct.machine === drupalBundle) && (
                                                 <option value={drupalBundle}>{drupalBundle}</option>
                                             )}
@@ -2035,7 +2035,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                                         {drupalFields.map((df) => (
                                                             <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
                                                         ))}
-                                                        {/* Fallback: valor guardat tot i que Drupal no respongui. */}
+                                                        {/* Fallback: saved value even if Drupal doesn't respond. */}
                                                         {drupalFieldMapping['__body__'] && !drupalFields.some((df) => df.field_name === drupalFieldMapping['__body__']) && (
                                                             <option value={drupalFieldMapping['__body__']}>{drupalFieldMapping['__body__']}</option>
                                                         )}

@@ -1,22 +1,22 @@
-// Sistema d'invalidació de configuració global.
+// Global configuration invalidation system.
 //
-// Substitueix el `window.location.reload()` que abans aplicaven els modals
-// de settings després d'editar `params.yaml` / `.env`. Ara emeten un event
-// i els consumidors es subscriuen per refetch silenciós.
+// Replaces the `window.location.reload()` that the settings modals used to
+// apply after editing `params.yaml` / `.env`. Now they emit an event
+// and consumers subscribe for a silent refetch.
 //
 // Disseny:
-// - `emitConfigChanged()` dispara un CustomEvent al window.
-// - `useConfigChanged(callback)` ho escolta i crida el callback. Captura la
-//   última versió del callback amb un ref intern, així el component pot
-//   passar una funció inline sense haver d'embolicar-la amb `useCallback`.
+// - `emitConfigChanged()` fires a CustomEvent on window.
+// - `useConfigChanged(callback)` listens for it and calls the callback. Captures the
+//   latest version of the callback with an internal ref, so the component can
+//   pass an inline function without having to wrap it with `useCallback`.
 //
-// Quan emetre: a `SettingsModal` i `GlobalSettingsModal`, després de cada
-// autosave amb èxit a `/api/config` o `/api/env`.
+// When to emit: in `SettingsModal` and `GlobalSettingsModal`, after every
+// successful autosave to `/api/config` or `/api/env`.
 //
-// Quan escoltar: a qualsevol component que faci GET a `/api/config`
-// (AgentChat, VaultGraph, Dashboard, GraphPage). Els components que reben
-// `config` com a prop (p.ex. GraphViewer) no cal que s'subscriguin — el
-// pare refetcha i actualitza l'estat, i React repinta el fill.
+// When to listen: in any component that does a GET to `/api/config`
+// (AgentChat, VaultGraph, Dashboard, GraphPage). Components that receive
+// `config` as a prop (e.g. GraphViewer) don't need to subscribe — the
+// the parent refetches and updates the state, and React repaints the child.
 
 import { useEffect, useRef } from 'react';
 

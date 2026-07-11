@@ -1,7 +1,7 @@
 import sys
 from pathlib import Path
 
-# Afegim el backend al path per poder importar els models
+# Add the backend to the path so we can import the models
 _this_file = Path(__file__).resolve()
 PROJECT_ROOT = _this_file.parents[2]
 sys.path.append(str(PROJECT_ROOT))
@@ -11,12 +11,12 @@ from backend.models.management import User, Workspace, Membership, Vault, UserRo
 from backend.models.notification import Notification
 
 def init_mgmt_db():
-    # Assegurar el motor i les taules
+    # Ensure the engine and the tables
     _get_or_init_mgmt_engine()
     
     db = get_mgmt_session()
     try:
-        # 1. Verificar si ja tenim el workspace "Personal"
+        # 1. Check whether we already have the "Personal" workspace
         personal_ws = db.query(Workspace).filter(Workspace.slug == "personal").first()
         if not personal_ws:
 
@@ -28,7 +28,7 @@ def init_mgmt_db():
             db.commit()
             db.refresh(personal_ws)
             
-            # 2. Crear un usuari per defecte (ismael-legacy)
+            # 2. Create a default user (ismael-legacy)
             legacy_user = db.query(User).filter(User.email == "ismael-legacy@gnosi.app").first()
             if not legacy_user:
 
@@ -40,7 +40,7 @@ def init_mgmt_db():
                 db.commit()
                 db.refresh(legacy_user)
             
-            # 3. Vincular usuari al workspace com OWNER
+            # 3. Link user to the workspace as OWNER
 
             membership = Membership(
                 user_id=legacy_user.id,
@@ -49,12 +49,12 @@ def init_mgmt_db():
             )
             db.add(membership)
             
-            # 4. Crear el Vault principal
+            # 4. Create the main Vault
 
             default_vault = Vault(
                 workspace_id=personal_ws.id,
                 name="Cervell Digital",
-                path_override="vault" # El vault actual
+                path_override="vault" # The current vault
             )
             db.add(default_vault)
             db.commit()

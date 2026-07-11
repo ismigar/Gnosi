@@ -1,20 +1,20 @@
 /**
  * slashMenuUtils.js
- * Utilitats per construir catàlegs de comandes del menú Slash de BlockNote.
- * IMPORTANT: Aquest fitxer NO pot contenir JSX (extensió .js pura).
+ * Utilities for building BlockNote Slash menu command catalogs.
+ * IMPORTANT: This file MUST NOT contain JSX (pure .js extension).
  */
 
 /**
- * Construeix el catàleg d'elements del menú Slash personalitzats.
+ * Builds the catalog of custom Slash menu items.
  * @param {Object} params
- * @param {Array}  params.allTables      - Llista de taules disponibles al Vault
- * @param {Function} params.onOpenPageView - Callback(tableId?) per obrir el modal de vista
- * @returns {Array} - Llista de grups del menú Slash
+ * @param {Array}  params.allTables      - List of tables available in the Vault
+ * @param {Function} params.onOpenPageView - Callback(tableId?) to open the view modal
+ * @returns {Array} - List of Slash menu groups
  */
 export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}) {
     if (!onOpenPageView) return [];
 
-    // Una entrada per taula que obre el modal pre-seleccionant-la
+    // One entry per table that opens the modal, pre-selecting it
     const tableItems = allTables.map(table => ({
         title: table.name || table.id,
         description: 'Afegir vista d\'aquesta taula a la pàgina',
@@ -23,7 +23,7 @@ export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}
         onItemClick: () => onOpenPageView(table.id),
     }));
 
-    // Entrada genèrica sense pre-selecció
+    // Generic entry with no pre-selection
     const vistaItem = [{
         title: 'Vista',
         description: 'Afegir una vista filtrada d\'una taula a aquesta pàgina',
@@ -36,17 +36,17 @@ export function buildSlashCommandCatalog({ allTables = [], onOpenPageView } = {}
 }
 
 /**
- * Construeix el catàleg "Convertir en…" (estil Notion "Turn into").
- * Cada entrada converteix el bloc on és el cursor al tipus indicat, preservant
- * el contingut inline (text). Tots els ítems comparteixen l'àlies "tur" perquè
- * escrivint `/tur` aparegui tota la llista de destinacions.
+ * Builds the "Turn into" catalog (Notion-style "Turn into").
+ * Each entry converts the block where the cursor is to the given type, preserving
+ * the inline content (text). All items share the "tur" alias so that
+ * typing `/tur` shows the whole list of destinations.
  * @param {Object} params
- * @param {Function} params.editor - Instància de l'editor BlockNote
+ * @param {Function} params.editor - BlockNote editor instance
  * @returns {Array}
  */
 export function buildTurnIntoCatalog({ editor } = {}) {
-    // type + props de destí, títol, icona i àlies. L'àlies "tur"/"convertir"
-    // és comú a tots; els específics permeten filtrar dins de la llista.
+    // target type + props, title, icon and alias. The "tur"/"convertir" alias
+    // is common to all of them; the specific ones allow filtering within the list.
     const targets = [
         { type: 'paragraph', iconKey: 'paragraph', title: 'Paràgraf', aliases: ['paragraf', 'paragraph', 'text', 'p'] },
         { type: 'heading', props: { level: 1 }, iconKey: 'heading1', title: 'Encapçalament 1', aliases: ['encapcalament', 'h1', 'titol', 'heading'] },
@@ -66,7 +66,7 @@ export function buildTurnIntoCatalog({ editor } = {}) {
     return targets.map(target => ({
         title: target.title,
         iconKey: target.iconKey,
-        // "tur"/"convertir"/"turn" disponibles a tots per fer aparèixer la llista sencera
+        // "tur"/"convertir"/"turn" available on all of them so the whole list shows up
         aliases: ['tur', 'convertir', 'turn', 'convert', ...target.aliases],
         group: 'Convertir en',
         subtext: 'Converteix el bloc actual',
@@ -76,7 +76,7 @@ export function buildTurnIntoCatalog({ editor } = {}) {
                 const block = editor.getTextCursorPosition().block;
                 if (!block) return;
                 editor.updateBlock(block, { type: target.type, props: target.props || {} });
-                // Recol·loca el cursor al bloc ja convertit
+                // Repositions the cursor in the already-converted block
                 editor.setTextCursorPosition(block, 'end');
                 editor.focus();
             } catch (e) {
@@ -87,9 +87,9 @@ export function buildTurnIntoCatalog({ editor } = {}) {
 }
 
 /**
- * Construeix el catàleg d'elements del menú Slash per als layouts de columnes.
+ * Builds the catalog of Slash menu items for column layouts.
  * @param {Object} params
- * @param {Function} params.editor - Instància de l'editor BlockNote
+ * @param {Function} params.editor - BlockNote editor instance
  * @returns {Array}
  */
 export function buildColumnLayoutCatalog({ editor } = {}) {

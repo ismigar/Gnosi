@@ -2,9 +2,9 @@ import { matchesFilters, matchesSearch as vaultMatchesSearch } from './vaultFilt
 
 export { matchesFilters, vaultMatchesSearch };
 
-// Plega accents per a la cerca insensible a accents ("historia" troba
-// "Història"), com s'espera en un vault català/castellà. NFD descompon les
-// lletres accentuades i s'eliminen les marques combinants (U+0300–U+036F:
+// Folds accents for accent-insensitive search ("historia" finds
+// "Història"), as expected in a Catalan/Castilian vault. NFD decomposes
+// accented letters and combining marks are removed (U+0300–U+036F:
 // accents, cedilla, titlla).
 const foldAccents = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
@@ -19,11 +19,11 @@ export function getEffectiveTableId(attrs) {
     const nodeKind = (attrs.kind || "").toLowerCase();
     const nodePath = attrs.path || "";
 
-    // Les ENTITATS DE SISTEMA es classifiquen PRIMER (per kind/path). Un node de
-    // contacte/calendari/correu/dibuix NO té database_id ni table_id, així que la
-    // comprovació "wiki" (sense db/table) se'ls empassava i quedaven mal
-    // classificats com a 'wiki' (p. ex. els 200 contactes del graf). El wiki és
-    // l'ÚLTIM recurs.
+    // SYSTEM ENTITIES are classified FIRST (by kind/path). A node of
+    // contact/calendar/mail/drawing does NOT have a database_id or table_id, so the
+    // "wiki" check (no db/table) was swallowing them and they ended up
+    // misclassified as 'wiki' (e.g. the 200 contacts in the graph). The wiki is
+    // the LAST resort.
     if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) {
         return attrs.metadata?.calendar_id
             ? `calendar:${attrs.metadata.calendar_id}`
@@ -55,8 +55,8 @@ export function getSystemCategory(attrs) {
     const nodeKind = (attrs.kind || "").toLowerCase();
     const nodePath = attrs.path || "";
 
-    // Sistema PRIMER (per kind/path); el wiki (sense db/table) és l'últim recurs,
-    // si no se'ls empassaria els nodes de sistema (contacte/calendari/correu…).
+    // System FIRST (by kind/path); the wiki (no db/table) is the last resort,
+    // otherwise it would swallow the system nodes (contact/calendar/mail…).
     if (nodeKind === 'calendar' || nodePath.startsWith('Calendar/')) return 'calendar';
     if (nodeKind === 'contact' || nodePath.startsWith('Contacts/') || nodePath.startsWith('Contactes/')) return 'contacts';
     if (nodeKind === 'mail') return 'mail';
@@ -175,25 +175,25 @@ export function applyFilters(graph, filters) {
             }
 
             // 1. Database/Table visibility from global settings
-            // Convenció: un cop l'usuari ha inicialitzat les seves fonts
-            // (`sourcesInitialized`, sembrades a la primera càrrega), una selecció
-            // BUIDA vol dir "no mostris res". Abans d'inicialitzar mantenim el
-            // comportament heretat ("buit = mostra-ho tot") per no deixar el graf
-            // en blanc durant la càrrega/migració.
+            // Convention: once the user has initialized their sources
+            // (`sourcesInitialized`, seeded on first load), an empty selection
+            // EMPTY means "don't show anything". Before initializing we keep the
+            // inherited behavior ("empty = show everything") so as not to leave the graph
+            // blank during loading/migration.
             const enforceSources = sourcesInitialized;
             if (isSystemNode) {
                 const isBucketOnly = ['wiki', 'drawings', 'images', 'assets'].includes(systemCategory);
                 if (enforceSources || hasDbVisibility) {
                     if (!visibleDbSet.has(systemCategory)) return;
                 }
-                // wiki/drawings/images/assets no tenen sub-element: només es filtren per categoria.
+                // wiki/drawings/images/assets have no sub-element: they are only filtered by category.
                 if (!isBucketOnly && (enforceSources || hasTableVisibility)) {
                     if (!visibleTableSet.has(effectiveTableId)) return;
                 }
             } else {
                 if (nodeTableRaw) {
                     if (enforceSources) {
-                        // Visible si la taula està seleccionada O la seva BD pare ho està.
+                        // Visible if the table is selected OR its parent DB is.
                         if (!visibleTableSet.has(nodeTableRaw) && !(nodeDb && visibleDbSet.has(nodeDb))) return;
                     } else {
                         if (hasTableVisibility && !visibleTableSet.has(nodeTableRaw)) return;
@@ -267,7 +267,7 @@ export function applyFilters(graph, filters) {
         graph.forEachEdge((edge, attrs, source, target) => {
             if (!visibleNodes.has(source) || !visibleNodes.has(target)) return;
 
-            // 'link' = wikilinks [[...]], 'relation' = relacions del frontmatter (per esquema)
+            // 'link' = wikilinks [[...]], 'relation' = frontmatter relations (by schema)
             const isReal = attrs.kind === 'explicit' || attrs.kind === 'structural'
                 || attrs.kind === 'wikilink' || attrs.kind === 'link' || attrs.kind === 'relation';
             const sim = attrs.similarity !== undefined ? Number(attrs.similarity) : 0;

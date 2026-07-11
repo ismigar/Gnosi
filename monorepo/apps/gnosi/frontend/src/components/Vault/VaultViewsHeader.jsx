@@ -66,7 +66,7 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showMenu]);
 
-    // Esc tanca el menú de la pestanya (dropdown).
+    // Esc closes the tab menu (dropdown).
     useModalKeyboard({ isOpen: showMenu, onClose: () => setShowMenu(false) });
 
     return (
@@ -84,7 +84,7 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
                 onClick={() => onSelect?.(view.id)}
                 title={view.name}
             >
-                {/* Mànec de drag separat per evitar conflicte amb onClick */}
+                {/* Separate drag handle to avoid conflicting with onClick */}
                 <span
                     {...listeners}
                     className="cursor-grab active:cursor-grabbing flex items-center"
@@ -157,8 +157,8 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
     );
 }
 
-// Fila del panell "Gestiona vistes": mànec per reordenar + nom + interruptor
-// mostrar/amagar. La vista principal no es pot amagar (queda bloquejada).
+// Row of the "Manage views" panel: reorder handle + name + show/hide
+// toggle. The main view cannot be hidden (it stays locked).
 function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
     const { t } = useTranslation();
     const {
@@ -252,8 +252,8 @@ export function VaultViewsHeader({
     const [showSearch, setShowSearch] = useState(false);
     const [isAddingView, setIsAddingView] = useState(false);
     const [showNewMenu, setShowNewMenu] = useState(false);
-    // Submenú "..." d'una plantilla concreta dins del menú "+ Nou".
-    // Guarda { id, tpl, top, right } (coords fixes calculades del botó "...").
+    // "..." submenu of a specific template inside the "+ New" menu.
+    // Stores { id, tpl, top, right } (fixed coords computed from the "..." button).
     const [templateMenuFor, setTemplateMenuFor] = useState(null);
     const hasTemplateActions = !!(onEditTemplate || onDuplicateTemplate || onSetDefaultTemplate || onDeleteTemplate);
 
@@ -274,12 +274,12 @@ export function VaultViewsHeader({
         setShowNewMenu(false);
     };
 
-    // Compte de registres de la vista ACTIVA (no de tota la taula). Si la vista
-    // té filtres, només els registres que els compleixen; si no en té, equival
-    // al total. Reutilitza `matchesFilters` (la mateixa funció pura que aplica
-    // VaultTable via useVaultViewData) perquè el badge i la taula no divergeixin.
-    // La cerca es deixa fora a posta: és transitòria i ja la reflecteix el
-    // "Mostrant X de Y" de dins de la taula; el badge és la mida de la vista.
+    // Record count of the ACTIVE view (not of the whole table). If the view
+    // has filters, only the records matching them; if it has none, it equals
+    // the total. It reuses `matchesFilters` (the same pure function applied by
+    // VaultTable via useVaultViewData) so the badge and the table don't diverge.
+    // Search is deliberately left out: it is transient and already reflected by
+    // the "Showing X of Y" inside the table; the badge is the view's size.
     const activeViewFilters = useMemo(
         () => (views?.find(v => v.id === activeViewId)?.filters) || [],
         [views, activeViewId]
@@ -290,9 +290,9 @@ export function VaultViewsHeader({
     }, [notes, activeViewFilters, recordCount]);
     const isFilteredView = viewRecordCount !== recordCount;
 
-    // Vistes que es mostren com a pestanyes: totes menys les amagades. La vista
-    // principal sempre hi és (isViewHidden la deixa fora). El panell de gestió
-    // (botó "+") segueix veient TOTES les vistes per poder mostrar-les de nou.
+    // Views shown as tabs: all but the hidden ones. The main
+    // view is always there (isViewHidden leaves it out). The management panel
+    // (the "+" button) still sees ALL views so they can be shown again.
     const tabViews = useMemo(
         () => (views || []).filter(v => !isViewHidden(v, views)),
         [views]
@@ -312,16 +312,16 @@ export function VaultViewsHeader({
 
     useEffect(() => {
         if (!showNewMenu) {
-            // En tancar-se el menú "+ Nou", el submenú d'accions també desapareix.
+            // When the "+ New" menu closes, the actions submenu disappears too.
             setTemplateMenuFor(null);
             return undefined;
         }
         const handler = (e) => {
-            // El submenú d'accions de plantilla es teletransporta a <body> via
-            // createPortal (per escapar del containing block del menú, que té un
-            // `transform` residual de l'animació i trencaria el position:fixed).
-            // En quedar fora de newMenuRef, cal excloure'l aquí o un clic dins seu
-            // tancaria el menú "+ Nou" abans d'executar l'acció.
+            // The template actions submenu is teleported to <body> via
+            // createPortal (to escape the menu's containing block, which has a
+            // residual `transform` from the animation and would break position:fixed).
+            // Since it ends up outside newMenuRef, it must be excluded here or a click inside it
+            // would close the "+ New" menu before running the action.
             if (newMenuRef.current && !newMenuRef.current.contains(e.target) && !e.target.closest?.('[data-template-submenu]')) {
                 setShowNewMenu(false);
             }
@@ -330,7 +330,7 @@ export function VaultViewsHeader({
         return () => document.removeEventListener('mousedown', handler);
     }, [showNewMenu]);
 
-    // Esc tanca cadascun dels dropdowns d'aquesta capçalera.
+    // Esc closes each of this header's dropdowns.
     useModalKeyboard({ isOpen: showNewMenu, onClose: () => setShowNewMenu(false) });
     useModalKeyboard({ isOpen: isAddingView, onClose: () => setIsAddingView(false) });
     useModalKeyboard({ isOpen: showOverflow, onClose: () => setShowOverflow(false) });
@@ -376,9 +376,9 @@ export function VaultViewsHeader({
         if (showSearch && searchRef.current) searchRef.current.focus();
     }, [showSearch]);
 
-    // Reordenació del STRIP de pestanyes (només vistes visibles). Es reconstrueix
-    // l'ordre complet conservant les amagades al final (el seu ordre relatiu
-    // només importa dins del panell de gestió).
+    // Reordering of the tab STRIP (visible views only). It is rebuilt
+    // the full order keeping hidden ones at the end (their relative order
+    // only matters inside the management panel).
     const handleDragEnd = (event) => {
         const { active, over } = event;
         if (over && active.id !== over.id) {
@@ -390,7 +390,7 @@ export function VaultViewsHeader({
         }
     };
 
-    // Reordenació del PANELL de gestió: opera sobre la llista completa.
+    // Reordering of the management PANEL: operates on the full list.
     const handleManageDragEnd = (event) => {
         const { active, over } = event;
         if (over && active.id !== over.id) {
@@ -414,7 +414,7 @@ export function VaultViewsHeader({
         }
     }, [onEditView, onDeleteView, onDuplicateView, onRenameView]);
 
-    // Gestió de l'input de cerca que s'expandeix
+    // Handling of the expanding search input
 
     return (
         <div className="relative z-50 flex flex-col w-full bg-[var(--bg-primary)] shrink-0">
@@ -579,7 +579,7 @@ export function VaultViewsHeader({
                         <span className="hidden md:inline">{t('views_header.fields')}</span>
                     </button>
 
-                    {/* New button (split: acció principal + chevron per al menú) */}
+                    {/* New button (split: main action + chevron for the menu) */}
                     <div ref={newMenuRef} className="relative inline-flex shadow-md rounded-xl">
                         <button
                             onClick={() => onCreateRecord?.()}
@@ -723,13 +723,13 @@ export function VaultViewsHeader({
                 </div>
             </div>
 
-            {/* Panell de gestió de vistes (botó "+"): mostrar/amagar i reordenar
-                les existents, i crear-ne de noves. */}
+            {/* Views management panel ("+" button): show/hide and reorder
+                the existing ones, and create new ones. */}
             {isAddingView && (
                 <>
                     <div className="fixed inset-0 z-[1001]" onClick={() => setIsAddingView(false)} />
                     <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1.5 animate-in slide-in-from-top-2 duration-200">
-                        {/* Secció: gestió de vistes existents */}
+                        {/* Section: management of existing views */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                             {t('views_header.manage_views', 'Vistes')}
                         </div>
@@ -755,7 +755,7 @@ export function VaultViewsHeader({
 
                         <div className="h-px bg-[var(--border-primary)] my-1.5 mx-2" />
 
-                        {/* Secció: crear una vista nova */}
+                        {/* Section: create a new view */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
                             {t('views_header.add_new_view', 'Afegir vista nova')}
                         </div>

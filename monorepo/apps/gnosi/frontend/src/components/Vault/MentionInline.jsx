@@ -2,10 +2,10 @@ import React from 'react';
 
 /**
  * MentionInline
- * Menció d'una persona (contacte) al contingut, estil Notion `@Persona`.
- * Es desa a Markdown com a `@[Nom|id]` (token segur: no col·lisiona amb cites
- * `@key` ni amb wikilinks `[[…]]`). Mostra un xip amb el nom; en clicar obre la
- * fitxa del contacte a la secció Contactes.
+ * Mention of a person (contact) in the content, Notion `@Person` style.
+ * Saved to Markdown as `@[Name|id]` (safe token: doesn't collide with citations
+ * `@key` or wikilinks `[[…]]`). Shows a chip with the name; clicking it opens the
+ * contact's card in the Contacts section.
  */
 export default function MentionInline({ inlineContent }) {
     const name = String(inlineContent?.props?.name || '').trim() || 'Algú';
@@ -15,7 +15,7 @@ export default function MentionInline({ inlineContent }) {
         e.preventDefault();
         e.stopPropagation();
         if (id) {
-            // Navegació suau a la fitxa del contacte (sense recarregar l'SPA).
+            // Smooth navigation to the contact's card (without reloading the SPA).
             try {
                 window.history.pushState({}, '', `/contacts?id=${encodeURIComponent(id)}`);
                 window.dispatchEvent(new PopStateEvent('popstate'));

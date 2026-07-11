@@ -1,6 +1,6 @@
-"""Test de les transformacions pures de Notion (esquema/valors/blocs) que reusa el CLON.
+"""Test of Notion's pure transformations (schema/values/blocks) that reuses the CLONE.
 
-(L'orquestrador d'import i el diff es van eliminar: només queda el clon.)
+(The import orchestrator and the diff were removed: only the clone remains.)
 """
 import sys
 from pathlib import Path
@@ -14,8 +14,8 @@ from services.notion_importer import (  # noqa: E402
 
 
 def test_id_scheme_reconciles_with_vault():
-    # table id = id de BD de Notion SENSE guions (com el vault: 90e31c41f815...);
-    # page id = id de Notion TAL QUAL amb guions (com el frontmatter del vault).
+    # table id = Notion DB id WITHOUT dashes (like the vault: 90e31c41f815...);
+    # page id = Notion id AS-IS with dashes (like the vault frontmatter).
     assert table_id_for("90e31c41-f815-489b-99f3-0086b120cbfa") == "90e31c41f815489b99f30086b120cbfa"
     assert page_id_for("103268e5-2714-8069-9ec2-e8121dae22c5") == "103268e5-2714-8069-9ec2-e8121dae22c5"
 
@@ -56,7 +56,7 @@ def test_property_schema_mapping():
     assert by_name["Tags"]["type"] == "multi_select"
     assert by_name["Tasks"]["relation_database_id"] == table_id_for("db-999")
     assert by_name["Score"]["read_only"] is True
-    assert by_name["ID"]["type"] == "text"   # unique_id → text (abans es perdia)
+    assert by_name["ID"]["type"] == "text"   # unique_id → text (previously lost)
 
 
 def test_value_extraction():
@@ -79,7 +79,7 @@ def test_value_extraction():
     assert vals["When"] == {"start": "2026-01-01", "end": "2026-01-05"}
     assert vals["Owner"] == "Ismael"
     assert vals["Tasks"] == [page_id_for("pg-1")]
-    assert vals["ID"] == "PROJ-42"   # unique_id amb prefix
+    assert vals["ID"] == "PROJ-42"   # unique_id with prefix
 
 
 def test_blocks_to_markdown_with_nesting():

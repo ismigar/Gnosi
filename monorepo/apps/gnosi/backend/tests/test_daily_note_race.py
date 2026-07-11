@@ -1,9 +1,9 @@
-"""Cursa del get-or-create de la nota diària (POST /api/vault/daily).
+"""Race in the daily note's get-or-create (POST /api/vault/daily).
 
-Dues peticions SIMULTÀNIES per la mateixa data passaven totes dues el "find"
-(cap resultat) i es creaven DUES notes (reproduït contra el backend real amb
-dos POST concurrents). `_daily_note_lock` serialitza el get-or-create: la
-segona petició espera i el seu "find" ja veu la nota creada per la primera.
+Two SIMULTANEOUS requests for the same date both passed the "find"
+(no results) and TWO notes were created (reproduced against the real backend with
+two concurrent POSTs). `_daily_note_lock` serializes the get-or-create: the
+second request waits and its "find" already sees the note created by the first.
 """
 import asyncio
 import threading
@@ -14,15 +14,15 @@ import backend.api.vault_routes as vr
 
 
 class _FakeStore:
-    """Simula el magatzem: find amb rendez-vous + create que hi escriu."""
+    """Simulates the store: find with rendez-vous + create that writes to it."""
 
     def __init__(self):
         self.created = []
         self.existing_id = None
-        # Rendez-vous DETERMINISTA (no un sleep amb timing): sense candau, els
-        # dos "find" concurrents es troben a la barrera i tots dos tornen None
-        # → dues creacions. Amb el candau, el segon find no s'executa fins
-        # després del create: la barrera venç (timeout) per al primer i el
+        # DETERMINISTIC rendez-vous (not a timing-based sleep): without the lock, the
+        # two concurrent "find"s meet at the barrier and both return None
+        # → two creations. With the lock, the second find doesn't run until
+        # after the create: the barrier trips (timeout) for the first and the
         # segon ja veu la nota creada.
         self._barrier = threading.Barrier(2)
 
@@ -42,8 +42,8 @@ class _FakeStore:
 @pytest.fixture()
 def store(monkeypatch):
     st = _FakeStore()
-    # Mode carpeta (sense taula font): el camí BD-backed es prova igual perquè
-    # comparteix el mateix candau; aquí exercim el camí genèric.
+    # Folder mode (no source table): the DB-backed path is exercised all the same because
+    # it shares the same lock; here we exercise the generic path.
     monkeypatch.setattr(vr, "_daily_source_config", lambda: (None, None))
     monkeypatch.setattr(vr, "_find_daily_note_id", st.find)
     monkeypatch.setattr(vr, "_load_daily_template_content", lambda: "")
@@ -66,7 +66,7 @@ def test_concurrent_get_or_create_creates_once(store):
 
     r1, r2 = asyncio.run(scenario())
     assert len(store.created) == 1, "dues creacions per la mateixa data (cursa)"
-    # Totes dues respostes apunten a la MATEIXA nota.
+    # Both answers point to the SAME note.
     assert r1["id"] == r2["id"] == "created-1"
 
 

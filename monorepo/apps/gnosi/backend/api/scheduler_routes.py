@@ -86,7 +86,7 @@ async def run_task(name: str, background_tasks: BackgroundTasks) -> Dict[str, An
         if not scheduler_manager.get_task(name):
             raise HTTPException(status_code=404, detail=f"Task '{name}' not found")
             
-        # Iniciem el procés asíncronament utilitzant BackgroundTasks de FastAPI
+        # We start the process asynchronously using FastAPI's BackgroundTasks
         background_tasks.add_task(scheduler_manager.run_task_now, name)
         
         return {

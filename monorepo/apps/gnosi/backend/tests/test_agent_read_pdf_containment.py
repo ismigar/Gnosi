@@ -1,9 +1,9 @@
-"""Contenció de path a l'eina d'agent `read_pdf`.
+"""Path containment in the agent tool `read_pdf`.
 
-El `path` ve de l'LLM (prompt-injectable via contingut no confiable que l'agent
-llegeix). Sense contenció, una ruta absoluta o un `../` llegia qualsevol PDF del
-sistema i en tornava el text a la conversa (exfiltració). `read_pdf` ha de
-confinar la lectura al vault actiu (mateix patró que `_safe_directive_path`).
+`path` comes from the LLM (prompt-injectable via untrusted content that the agent
+reads). Without containment, an absolute path or a `../` could read any PDF on the
+system and return its text into the conversation (exfiltration). `read_pdf` must
+confine reading to the active vault (same pattern as `_safe_directive_path`).
 """
 import backend.services.context_vars as cv
 from backend.agent.vault_tools import read_pdf
@@ -28,9 +28,9 @@ def test_pdf_inside_vault_is_allowed(monkeypatch, tmp_path):
     _make_pdf(vault / "Assets" / "doc.pdf")
 
     out = _call("Assets/doc.pdf")
-    # Contenció superada (pàgina en blanc → sense text extraïble, però NO denegat).
+    # Containment passed (blank page → no extractable text, but NOT denied).
     assert not out.startswith("Accés denegat")
-    assert "extraïble" in out or out  # llegeix, no bloqueja
+    assert "extraïble" in out or out  # reads, doesn't block
 
 
 def test_absolute_path_outside_vault_denied(monkeypatch, tmp_path):
@@ -48,7 +48,7 @@ def test_relative_traversal_denied(monkeypatch, tmp_path):
     vault = tmp_path / "vault"
     vault.mkdir()
     monkeypatch.setattr(cv, "get_active_vault_path", lambda: vault)
-    # Un PDF real just fora del vault; el `../` intenta arribar-hi.
+    # A real PDF just outside the vault; the `../` tries to reach it.
     _make_pdf(tmp_path / "outside.pdf")
 
     out = _call("../outside.pdf")

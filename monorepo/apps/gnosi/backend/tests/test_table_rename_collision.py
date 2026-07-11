@@ -55,7 +55,7 @@ def test_rewrites_raw_and_encoded_refs(tmp_path):
     text = page.read_text(encoding="utf-8")
     assert f"{NEW_URL}a.png" in text
     assert f"{NEW_URL}b.png" in text
-    assert "/api/vault/assets/Old" not in text  # cap referència antiga (raw ni encoded)
+    assert "/api/vault/assets/Old" not in text  # no old references (raw or encoded)
 
 
 def test_rewrites_nested_pages(tmp_path):

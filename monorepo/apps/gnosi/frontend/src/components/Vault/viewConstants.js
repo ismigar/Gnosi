@@ -22,7 +22,7 @@ export const isMainView = (view, tableViews = []) => {
 
     const safeTableViews = Array.isArray(tableViews) ? tableViews.filter(Boolean) : [];
 
-    // Sense context de taula: cas degenerat (vista única o virtual)
+    // No table context: degenerate case (single or virtual view)
     if (safeTableViews.length === 0) {
         return view.id === 'default' || view.is_main === true || view.is_default === true || view.name === MAIN_VIEW_NAME;
     }
@@ -32,7 +32,7 @@ export const isMainView = (view, tableViews = []) => {
         : safeTableViews;
     const candidateViews = scopedViews.length > 0 ? scopedViews : safeTableViews;
 
-    // Prioritat: explícit > nom canònic > primer per ordre. Sempre una sola vista principal.
+    // Priority: explicit > canonical name > first by order. Always a single main view.
     const explicitMain = candidateViews.find(v => v.id === 'default' || v.is_main === true || v.is_default === true);
     if (explicitMain) return explicitMain.id === view.id;
 
@@ -48,37 +48,37 @@ export const getViewIcon = (typeId) => {
     return view ? view.icon : Table;
 };
 
-// Una vista està amagada (no es mostra com a pestanya) si té `hidden: true`.
-// La vista principal MAI s'amaga: sempre ha de quedar almenys una pestanya
-// accessible, i és l'àncora de la taula.
+// A view is hidden (not shown as a tab) if it has `hidden: true`.
+// The main view is NEVER hidden: at least one tab must always remain
+// accessible, and is the table's anchor.
 export const isViewHidden = (view, tableViews = []) =>
     !!view?.hidden && !isMainView(view, tableViews);
 
-// UUID versió 5 (determinista, `uuid5`) vs 4 (aleatori, `uuid4`): el 13è dígit
-// hex del format canònic. Gnosi crea TOTES les vistes de taula amb `uuid4`
-// (uuidv4 al frontend, uuid.uuid4() al backend); només l'import de Notion
-// (notion_view_recreator / notion_clone, namespaces uuid5) en genera amb
-// `uuid5`. Per tant, per a una vista sense flag, `uuid5` ⟹ prové de l'import.
+// UUID version 5 (deterministic, `uuid5`) vs 4 (random, `uuid4`): the 13th digit
+// hex of the canonical format. Gnosi creates ALL table views with `uuid4`
+// (uuidv4 on the frontend, uuid.uuid4() on the backend); only the Notion import
+// (notion_view_recreator / notion_clone, uuid5 namespaces) generates them with
+// `uuid5`. So, for a view without the flag, `uuid5` ⟹ it comes from the import.
 const isUuidV5 = (id) => /^[0-9a-f]{8}-[0-9a-f]{4}-5[0-9a-f]{3}-/i.test(String(id || ''));
 
-// Vista contextual d'un embed de pàgina (creada per PageViewModal/DbViewEmbed
-// o pel clonador de Notion): només té sentit renderitzada dins de la seva
-// pàgina amfitriona, on el motor resol el filtre pel context del host. El
-// tauler NO l'ha de mostrar com a pestanya de la taula (DbViewEmbed la
-// segueix llegint del registry pel seu compte). Senyals, en ordre:
-//   1) `embedded` booleà explícit → mana en els dos sentits (un duplicat fet
-//      des del tauler el posa a `false` per quedar-se com a pestanya encara
-//      que arrossegui el filtre "this"; els creadors d'embed el posen a `true`).
-//   2) Fallback per a vistes preexistents SENSE flag:
-//      a) el format històric del clonador — filtre {field, value:"this"} SENSE
-//         operator (els filtres desats des de la UI sempre porten operator); o
-//      b) `uuid5` — signatura de l'import de Notion. Cal perquè molts embeds
-//         antics NO porten filtre "this" (quan la relació a la pàgina no es va
-//         resoldre, el recreador la va mapejar a `Font contains <url Notion>` o
-//         va quedar sense filtre): amb "this" sol, "Cervell digital" encara
-//         mostrava ~118 pestanyes. La vista principal EFECTIVA (isMainView) mai
-//         passa per aquí — el tauler la reserva abans de filtrar—, així que la
-//         principal d'una taula importada (també uuid5) no desapareix.
+// Contextual view of a page embed (created by PageViewModal/DbViewEmbed
+// or by the Notion cloner): it only makes sense rendered within its
+// host page, where the engine resolves the filter by the host's context. The
+// dashboard must NOT show it as a table tab (DbViewEmbed
+// keeps reading from the registry on its own). Signals, in order:
+//   1) explicit `embedded` boolean → wins in both directions (a duplicate made
+//      from the dashboard sets it to `false` to remain as a tab even
+//      to carry the "this" filter along; embed creators set it to `true`).
+//   2) Fallback for pre-existing views WITHOUT the flag:
+//      a) the cloner's historic format — filter {field, value:"this"} WITHOUT
+//         operator (filters saved from the UI always carry an operator); or
+//      b) `uuid5` — signature of the Notion import. Needed because many embeds
+//         old ones do NOT carry a "this" filter (when the relation to the page wasn't
+//         resolve, the recreator mapped it to `Font contains <url Notion>` or
+//         ended up without a filter): with "this" alone, "Cervell digital" still
+//         showed ~118 tabs. The EFFECTIVE main view (isMainView) never
+//         made through here — the dashboard reserves it before filtering—, so the
+//         main view of an imported table (also uuid5) doesn't disappear.
 export const isPageEmbedView = (view) => {
     if (!view) return false;
     if (typeof view.embedded === 'boolean') return view.embedded;

@@ -21,10 +21,10 @@ class User(Base):
     email = Column(String, unique=True, index=True, nullable=False)
     name = Column(String)
     avatar_url = Column(String)
-    # PR Auth: hash bcrypt. Nullable per a backward compat amb usuaris
-    # creats abans del sistema d'auth (p.ex. el legacy "ismael-legacy" o
-    # usuaris importats via OAuth). Si és None, l'usuari ha d'usar OAuth
-    # o set-password per al primer login email/password.
+    # PR Auth: bcrypt hash. Nullable for backward compat with users
+    # created before the auth system (e.g. the legacy "ismael-legacy" or
+    # users imported via OAuth). If it's None, the user must use OAuth
+    # or set-password for the first email/password login.
     password_hash = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -47,7 +47,7 @@ class Membership(Base):
     user_id = Column(String, ForeignKey("users.id"), primary_key=True)
     workspace_id = Column(String, ForeignKey("workspaces.id"), primary_key=True)
     role = Column(String, default=UserRole.VIEWER)
-    permissions = Column(String, default='{"capabilities": ["read"]}') # JSON string per SQLite
+    permissions = Column(String, default='{"capabilities": ["read"]}') # JSON string for SQLite
     joined_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="memberships")
@@ -81,10 +81,11 @@ class VaultAccess(Base):
     workspace = relationship("Workspace")
 
 class ApiToken(Base):
-    """Personal Access Token (PAT) per a l'API pública de Gnosi.
+    """Personal Access Token (PAT) for Gnosi's public API.
 
-    Es desa NOMÉS el hash SHA-256 del token (mai el text en clar). El prefix
-    visible (`gnosi_pat_xxxx…`) permet identificar-lo a la UI sense desxifrar.
+    ONLY the SHA-256 hash of the token is stored (never the plaintext). The
+    visible prefix (`gnosi_pat_xxxx…`) allows identifying it in the UI without decrypting.
+    
     """
     __tablename__ = "api_tokens"
 
@@ -94,7 +95,7 @@ class ApiToken(Base):
     name = Column(String, nullable=False)
     token_hash = Column(String, unique=True, index=True, nullable=False)
     token_prefix = Column(String, nullable=False)  # p.ex. "gnosi_pat_a1b2"
-    scopes = Column(String, default="read,write")    # CSV de scopes
+    scopes = Column(String, default="read,write")    # CSV of scopes
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     last_used_at = Column(DateTime(timezone=True), nullable=True)
     revoked = Column(Integer, default=0)  # soft-delete (0/1)
@@ -111,11 +112,11 @@ class ShareLink(Base):
     id = Column(String, primary_key=True, default=lambda: uuid.uuid4().hex)
     page_id = Column(String, nullable=False, index=True)
     workspace_id = Column(String, nullable=False)
-    # Vault on viu la pàgina (mode multi-vault), capturat en crear l'enllaç. El
-    # lector anònim (/s/{token}) no té cap senyal de vault (ni cookie ni
-    # capçalera), així que sense això la lectura queia SEMPRE al Principal i
-    # compartir una pàgina d'un vault no-default fallava (contingut) o mostrava
-    # imatges trencades. NULL = Principal (compat enrere / single-vault).
+    # Vault where the page lives (multi-vault mode), captured when the link is created. The
+    # anonymous reader (/s/{token}) has no vault signal at all (neither cookie nor
+    # header), so without this the read would ALWAYS fall back to the Main vault and
+    # sharing a page from a non-default vault would fail (content) or show
+    # broken images. NULL = Principal (backward compat / single-vault).
     vault_id = Column(String, nullable=True)
     created_by = Column(String)  # user_id of the sharer
     permission = Column(String, default="view")  # view | comment | edit
@@ -140,7 +141,7 @@ class WorkspaceResponse(WorkspaceBase):
     created_at: datetime
     role: Optional[str] = None
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at")
@@ -151,7 +152,7 @@ class UserResponse(UserBase):
     id: str
     created_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at")
@@ -166,7 +167,7 @@ class MemberResponse(BaseModel):
     permissions: Optional[dict] = None
     joined_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("joined_at")
@@ -192,5 +193,5 @@ class VaultAccessResponse(BaseModel):
     vault_name: str
     permissions: dict
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)

@@ -1,4 +1,4 @@
-"""Tests dels convertidors d'esquema Notion ↔ SchemaConfigModal (pur)."""
+"""Tests for the Notion ↔ SchemaConfigModal schema converters (pure)."""
 import sys
 from pathlib import Path
 
@@ -21,7 +21,7 @@ def test_notion_to_modal_format():
     s = notion_props_to_modal_schema(PROPS)
     assert s["Nom"] == "title"
     assert s["Estat"] == "status" and s["Estat_config"]["options"][0]["name"] == "Fet"
-    # camp d'arxiu rep storage_folder per defecte
+    # file field gets the default storage_folder
     assert s["Foto"] == "files" and s["Foto_config"]["storage_folder"] == "assets"
     assert s["Foto_config"]["file_mode"] == "upload"
     assert s["Projecte_config"]["relation_database_id"] == "db-proj"
@@ -38,7 +38,7 @@ def test_modal_to_props_preserves_order_and_config():
 
 
 def test_user_override_changes_type_and_storage():
-    # l'usuari canvia "Foto" de files→image i storage_folder a biblioteca; treu "Score"
+    # the user changes "Foto" from files→image and storage_folder to biblioteca; removes "Score"
     s = notion_props_to_modal_schema(PROPS)
     s["Foto"] = "image"
     s["Foto_config"]["type"] = "image"
@@ -46,7 +46,7 @@ def test_user_override_changes_type_and_storage():
     del s["Score"]; del s["Score_config"]
     props = modal_schema_to_props(s)
     names = [p["name"] for p in props]
-    assert "Score" not in names            # camp tret per l'usuari
+    assert "Score" not in names            # field removed by the user
     foto = next(p for p in props if p["name"] == "Foto")
     assert foto["type"] == "image" and foto["storage_folder"] == "biblioteca"
 

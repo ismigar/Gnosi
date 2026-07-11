@@ -1,14 +1,14 @@
-"""Catàleg/galeria de plugins (fase 2.2 de plugin_system.md).
+"""Plugin catalog/gallery (phase 2.2 of plugin_system.md).
 
-Un índex de plugins recomanats, a l'estil dels "community plugins" d'Obsidian,
-amb instal·lació d'un clic. Dues fonts d'entrada:
+An index of recommended plugins, in the style of Obsidian's "community plugins",
+with one-click installation. Two input sources:
 
-  * `bundled`: plugins d'exemple que viatgen amb Gnosi a `plugins-examples/`. Es
-    comprimeixen al vol i es passen a `plugin_system.install_from_zip`.
-  * `url`: un .zip remot (requereix xarxa al backend; acció d'administració).
+  * `bundled`: example plugins that ship with Gnosi in `plugins-examples/`. They
+    are zipped on the fly and passed to `plugin_system.install_from_zip`.
+  * `url`: a remote .zip (requires network access on the backend; admin action).
 
-El catàleg es llegeix de `plugins-examples/catalog.json`. Mantenir-lo com a
-dades (no codi) permet ampliar-lo sense tocar el backend.
+The catalog is read from `plugins-examples/catalog.json`. Keeping it as
+data (not code) allows it to be extended without touching the backend.
 """
 from __future__ import annotations
 
@@ -49,11 +49,12 @@ def _load_bundled_catalog() -> List[Dict[str, Any]]:
 
 
 def fetch_remote_index(url: str) -> List[Dict[str, Any]]:
-    """Descarrega un índex remot de plugins (JSON: llista d'entrades `url`).
+    """Downloads a remote plugin index (JSON: list of `url` entries).
 
-    Cada entrada pot dur `id`, `name`, `description`, `url` (zip), `sha256` i
-    `signature`. Es força `source='url'`. Errors → [] (l'índex remot mai ha de
-    tombar la galeria local).
+    Each entry may carry `id`, `name`, `description`, `url` (zip), `sha256` and
+    `signature`. `source='url'` is forced. Errors → [] (the remote index must
+    never take down the local gallery).
+    
     """
     if not url or not url.lower().startswith(("http://", "https://")):
         return []
@@ -80,10 +81,11 @@ def fetch_remote_index(url: str) -> List[Dict[str, Any]]:
 
 
 def load_catalog(registry_url: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Catàleg complet: exemples `bundled` + (opcional) índex remot.
+    """Full catalog: `bundled` examples + (optional) remote index.
 
-    Si es dona `registry_url`, s'hi fusionen les entrades remotes; les locals
-    (bundled) tenen prioritat si hi ha col·lisió d'id.
+    If `registry_url` is given, the remote entries are merged in; the local
+    (bundled) ones take priority if there's an id collision.
+    
     """
     catalog = _load_bundled_catalog()
     if registry_url:
@@ -95,7 +97,7 @@ def load_catalog(registry_url: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 def _zip_dir_bytes(src: Path) -> bytes:
-    """Comprimeix un directori (recursiu) a bytes de .zip, rutes relatives."""
+    """Compresses a directory (recursively) into .zip bytes, relative paths."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for f in sorted(src.rglob("*")):
@@ -105,11 +107,11 @@ def _zip_dir_bytes(src: Path) -> bytes:
 
 
 def install_bundled(config_dir: Path, entry_id: str) -> Dict[str, Any]:
-    """Instal·la un plugin `bundled` del catàleg pel seu id d'entrada."""
+    """Installs a `bundled` plugin from the catalog by its entry id."""
     entry = next((e for e in load_catalog() if e.get("id") == entry_id), None)
     if not entry or entry.get("source") != "bundled":
         raise ps.PluginError(f"entrada de catàleg desconeguda: {entry_id!r}")
-    # `path` és relatiu a plugins-examples/ i validat contra path-traversal.
+    # `path` is relative to plugins-examples/ and validated against path traversal.
     rel = str(entry.get("path") or entry_id)
     if ".." in rel.split("/") or rel.startswith("/"):
         raise ps.PluginError("ruta d'exemple invàlida")
@@ -127,14 +129,15 @@ def install_from_url(
     expected_sha256: Optional[str] = None,
     signature: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Descarrega un .zip i l'instal·la (acció d'administració; requereix xarxa).
+    """Downloads a .zip and installs it (admin action; requires network access).
 
-    Verificacions ABANS d'instal·lar (fail-closed):
-      * `expected_sha256`: integritat (detecta corrupció/manipulació del binari).
-      * `signature`: signatura Ed25519 sobre els bytes del zip; ha de verificar
-        amb alguna clau del magatzem de confiança. Si es dona però NO verifica →
-        es rebutja (editor desconegut o binari alterat). Si NO es dona →
-        s'instal·la però el manifest retornat es marca amb `signedBy=None`.
+    Checks BEFORE installing (fail-closed):
+      * `expected_sha256`: integrity (detects binary corruption/tampering).
+      * `signature`: Ed25519 signature over the zip bytes; must verify
+        against some key in the trust store. If given but it does NOT verify →
+        it's rejected (unknown publisher or altered binary). If NOT given →
+        it's installed but the returned manifest is marked with `signedBy=None`.
+    
     """
     if not url.lower().startswith(("http://", "https://")):
         raise ps.PluginError("url ha de ser http(s)")
@@ -168,10 +171,11 @@ def install_from_url(
 
 
 def install_catalog_entry(config_dir: Path, entry_id: str) -> Dict[str, Any]:
-    """Instal·la una entrada del catàleg pel seu id, sigui `bundled` o `url`.
+    """Installs a catalog entry by its id, whether `bundled` or `url`.
 
-    Per a entrades `url`, si el catàleg declara `sha256` i/o `signature`, es
-    verifiquen abans d'instal·lar.
+    For `url` entries, if the catalog declares `sha256` and/or `signature`,
+    they are verified before installing.
+    
     """
     entry = next((e for e in load_catalog() if e.get("id") == entry_id), None)
     if not entry:

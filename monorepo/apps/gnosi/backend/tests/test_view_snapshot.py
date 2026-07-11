@@ -1,8 +1,8 @@
-"""Snapshot de resultats de vista al cos markdown — round-trip i resolució.
+"""Snapshot of view results in the markdown body — round-trip and resolution.
 
-Mirall de test_relation_wikilinks.py per al cos: inject (domini → wikilinks),
-strip (wikilinks → cos net), idempotència i fidelitat del filtre/ordre respecte
-el frontend (DbViewEmbed).
+Mirrors test_relation_wikilinks.py for the body: inject (domain → wikilinks),
+strip (wikilinks → clean body), idempotency, and filter/order fidelity relative to
+the frontend (DbViewEmbed).
 """
 from backend.services.view_snapshot import (
     _parse_numeric_value,
@@ -48,7 +48,7 @@ def test_sort_key_strips_leading_punct():
     assert sort_key(2024) == "2024"
 
 
-# --- apply_filter (port de DbViewEmbed.applyFilter) -------------------------
+# --- apply_filter (port of DbViewEmbed.applyFilter) -------------------------
 def test_filter_this_equals_on_relation_list():
     f = {"field": "Àrea", "operator": "equals", "value": "this"}
     assert apply_filter({"Àrea": [PAGE, "other"]}, PAGE, f) is True
@@ -71,19 +71,19 @@ def test_filter_no_field_is_passthrough():
     assert apply_filter({}, PAGE, {"operator": "equals", "value": "x"}) is True
 
 
-# --- decimal amb coma (paritat amb parseNumericValue del front) --------------
+# --- decimal with comma (parity with the frontend's parseNumericValue) --------------
 def test_parse_numeric_value_comma_decimal():
     assert _parse_numeric_value("12,5") == 12.5
     assert _parse_numeric_value("-0,25") == -0.25
     assert _parse_numeric_value("12.5") == 12.5
     assert _parse_numeric_value("5") == 5.0
-    # Ambigu (punt de milers + coma): cau a parseFloat, com al front.
+    # Ambiguous (thousands separator + comma): falls back to parseFloat, like on the frontend.
     assert _parse_numeric_value("1.234,56") == 1.234
     assert _parse_numeric_value("abc") is None
 
 
 def test_filter_numeric_comma_decimal():
-    # '12,5' > '12,4' — abans parseFloat s'aturava a la coma (12 > 12 → False).
+    # '12,5' > '12,4' — previously parseFloat stopped at the comma (12 > 12 → False).
     f = {"field": "n", "operator": "greater_than", "value": "12,4"}
     assert apply_filter({"n": "12,5"}, PAGE, f) is True
     assert apply_filter({"n": "12,3"}, PAGE, f) is False
@@ -93,25 +93,25 @@ def test_filter_numeric_comma_decimal():
 
 
 def test_filter_numeric_target_vs_nonnumeric_value_parity():
-    """Target numèric (any/número nu) contra un valor NO numèric: les dates ISO
-    casen per ordre lexicogràfic (cronològic), però el text arbitrari NO. Paritat
-    amb matchesFilters / DbViewEmbed.applyFilter del front (Opció 3)."""
+    """Numeric target (bare year/number) against a NON-numeric value: ISO dates
+    match by lexicographic order (chronological), but arbitrary text does NOT. Parity
+    with the frontend's matchesFilters / DbViewEmbed.applyFilter (Option 3)."""
     gt2020 = {"field": "d", "operator": "greater_than", "value": "2020"}
     lt2020 = {"field": "d", "operator": "less_than", "value": "2020"}
-    # Data ISO amb any nu: comparació cronològica.
+    # ISO date with a bare year: chronological comparison.
     assert apply_filter({"d": "2024-01-15"}, PAGE, gt2020) is True
     assert apply_filter({"d": "2019-05-01"}, PAGE, gt2020) is False
     assert apply_filter({"d": "2019-05-01"}, PAGE, lt2020) is True
     assert apply_filter({"d": "2024-01-15"}, PAGE, lt2020) is False
-    # Text arbitrari contra un llindar numèric: NO casa (abans "foo" > "5" → True).
+    # Arbitrary text against a numeric threshold: does NOT match (previously "foo" > "5" → True).
     gt5 = {"field": "n", "operator": "greater_than", "value": "5"}
     lt5 = {"field": "n", "operator": "less_than", "value": "5"}
     assert apply_filter({"n": "foo"}, PAGE, gt5) is False
     assert apply_filter({"n": "foo"}, PAGE, lt5) is False
-    # Columna mixta (número + text): només compta la cel·la numèrica vàlida.
+    # Mixed column (number + text): only the valid numeric cell counts.
     assert apply_filter({"n": ["foo", "9"]}, PAGE, gt5) is True
     assert apply_filter({"n": ["foo", "3"]}, PAGE, gt5) is False
-    # Target data completa (NO numèric): comparació de cadena, com abans.
+    # Full-date target (NOT numeric): string comparison, as before.
     gtdate = {"field": "d", "operator": "greater_than", "value": "2020-06-01"}
     assert apply_filter({"d": "2020-06-02"}, PAGE, gtdate) is True
     assert apply_filter({"d": "2020-05-31"}, PAGE, gtdate) is False
@@ -128,12 +128,12 @@ def test_sort_by_field_desc_and_default_title():
     desc = [r["id"] for r in multi_key_sort(rows, [{"field": "Any", "direction": "desc"}])]
     assert desc == ["2", "1"]
     by_title = [r["id"] for r in multi_key_sort(rows, [])]
-    assert by_title == ["2", "1"]  # A abans de B
+    assert by_title == ["2", "1"]  # A before B
 
 
 def test_sort_comma_decimal_numeric_order():
-    # '0,5' < '0,75' < '2,25' — abans tots els "0,xx" empataven a 0 (parseFloat)
-    # i l'ordre quedava a mercè de l'estabilitat del sort.
+    # '0,5' < '0,75' < '2,25' — previously all "0,xx" tied at 0 (parseFloat)
+    # and the order was left at the mercy of the sort's stability.
     rows = [
         {"id": "1", "title": "x", "metadata": {"Preu": "2,25"}},
         {"id": "2", "title": "y", "metadata": {"Preu": "0,75"}},
@@ -154,7 +154,7 @@ def test_resolve_filters_this_and_sorts():
         "filters": [{"field": "Àrea", "operator": "equals", "value": "this"}],
         "sorts": [{"field": "Any", "direction": "asc"}],
     }
-    assert resolve_row_ids(rows, view, PAGE) == [B, A]  # C filtrat, ordre per Any asc
+    assert resolve_row_ids(rows, view, PAGE) == [B, A]  # C filtered, order by Any asc
 
 
 # --- strip / inject round-trip ---------------------------------------------
@@ -169,7 +169,7 @@ def test_inject_adds_followable_wikilinks():
     assert "- [[Alpha|id-a]]" in out
     assert "- [[Bèta|id-b]]" in out
     assert "<!-- /gnosi-view:result -->" in out
-    # el contingut posterior es conserva
+    # the trailing content is preserved
     assert "# Següent" in out
 
 
@@ -180,7 +180,7 @@ def test_strip_removes_block_and_leaves_rest():
     assert "gnosi-view:result" not in stripped
     assert "[[Alpha" not in stripped
     assert "# Següent" in stripped
-    assert "```gnosi-view" in stripped  # el fence es conserva
+    assert "```gnosi-view" in stripped  # the fence is preserved
 
 
 def test_strip_inverts_inject():
@@ -200,16 +200,16 @@ def test_inject_refreshes_stale_snapshot():
     body = f"# A\n\n{_fence()}\n# B\n"
     first = inject_view_snapshots(body, _resolver([A]), _id_to_title, PAGE)
     assert "- [[Alpha|id-a]]" in first and "id-b" not in first
-    # les files canvien → re-injecció parteix del cos net i reflecteix l'estat nou
+    # the rows change → re-injection starts from the clean body and reflects the new state
     second = inject_view_snapshots(first, _resolver([A, B]), _id_to_title, PAGE)
     assert "- [[Bèta|id-b]]" in second
-    assert second.count("<!-- gnosi-view:result") == 1  # un sol bloc, no acumula
+    assert second.count("<!-- gnosi-view:result") == 1  # a single block, doesn't accumulate
 
 
 def test_unknown_title_degrades_to_bare_id():
     body = _fence()
     out = inject_view_snapshots(body, _resolver(["id-sense-titol"]), lambda _: None, PAGE)
-    assert "- id-sense-titol" in out  # id nu, mai bloqueja
+    assert "- id-sense-titol" in out  # bare id, never blocks
 
 
 def test_empty_result_writes_no_block():
@@ -239,11 +239,11 @@ def test_truncation_marker_when_over_cap():
     out = inject_view_snapshots(body, _resolver(ids), lambda r: f"T{r}", PAGE, max_items=2)
     assert out.count("- [[") == 2
     assert "<!-- gnosi-view:result-truncated 3 -->" in out
-    # i el strip també neteja el bloc truncat
+    # and the strip also cleans up the truncated block
     assert "gnosi-view:result" not in strip_view_snapshots(out)
 
 
-# --- config_for: activació i límit per vista --------------------------------
+# --- config_for: activation and per-view limit --------------------------------
 def test_config_disabled_writes_no_block():
     body = f"# A\n\n{_fence()}\n# B\n"
     out = inject_view_snapshots(
@@ -265,7 +265,7 @@ def test_config_disabled_skips_resolution():
         _fence(), resolver, _id_to_title, PAGE,
         config_for=lambda vid: {"enabled": False},
     )
-    assert called["n"] == 0  # vista desactivada → ni es resol
+    assert called["n"] == 0  # disabled view → not even resolved
 
 
 def test_config_per_view_limit_overrides_default():
@@ -286,15 +286,15 @@ def test_config_limit_zero_means_unlimited():
         body, _resolver(ids), lambda r: f"T{r}", PAGE, max_items=2,
         config_for=lambda vid: {"enabled": True, "limit": 0},
     )
-    assert out.count("- [[") == 4  # límit 0 → sense truncament malgrat max_items=2
+    assert out.count("- [[") == 4  # limit 0 → no truncation despite max_items=2
     assert "truncated" not in out
 
 
-# --- Definició: fence ↔ comentari (compact / restore) -----------------------
+# --- Definition: fence ↔ comment (compact / restore) -----------------------
 def test_compact_fence_to_hidden_comment():
     body = f"# Formació\n\n{_fence()}\n# Resta\n"
     out = compact_view_fences(body)
-    assert "```gnosi-view" not in out  # el bloc de codi visible desapareix
+    assert "```gnosi-view" not in out  # the visible code block disappears
     assert '<!-- gnosi-view:def {"view_id":"view-123"' in out
     assert "# Resta" in out
 
@@ -314,23 +314,23 @@ def test_compact_restore_roundtrip_is_identity():
 
 def test_compact_leaves_invalid_json_fence_intact():
     body = "```gnosi-view\n{not valid json,,}\n```\n"
-    assert compact_view_fences(body) == body  # no es trenca la definició
+    assert compact_view_fences(body) == body  # the definition doesn't break
 
 
 def test_disk_form_def_comment_then_result_after_inject_and_compact():
-    # Simula el desat real: inject (troba el fence) → compact (fence→comentari).
+    # Simulates the real save: inject (finds the fence) → compact (fence→comment).
     body = f"# Formació\n\n{_fence()}\n# Resta\n"
     injected = inject_view_snapshots(body, _resolver([A, B]), _id_to_title, PAGE)
     disk = compact_view_fences(injected)
-    assert "```gnosi-view" not in disk            # definició amagada
-    assert "gnosi-view:def" in disk               # … com a comentari
+    assert "```gnosi-view" not in disk            # hidden definition
+    assert "gnosi-view:def" in disk               # … as a comment
     assert "- [[Alpha|id-a]]" in disk             # resultats visibles (navegables)
-    # I la lectura ho desfà tot: comentari→fence + treu resultats → cos original.
+    # And reading undoes it all: comment→fence + strips results → original body.
     read_back = strip_view_snapshots(restore_view_fences(disk))
     assert read_back == body
 
 
-# --- Taula markdown per a vistes table/list ---------------------------------
+# --- Markdown table for table/list views ---------------------------------
 def _table_resolver(headers, rows):
     return lambda view_id, host: {"headers": headers, "rows": rows} if view_id == VID else None
 
@@ -345,16 +345,16 @@ def test_table_snapshot_renders_markdown_table():
     )
     assert "| Títol | Any | Centre |" in out
     assert "| --- | --- | --- |" in out
-    # el `|` del wikilink amb àlies s'escapa per no trencar la cel·la
+    # the `|` in an aliased wikilink is escaped so it doesn't break the cell
     assert "| [[Curs A\\|id-a]] | 2022 | Escola X |" in out
-    assert "- [[" not in out  # taula, no llista
+    assert "- [[" not in out  # table, not list
 
 
 def test_table_falls_back_to_list_for_non_table_views():
     body = _fence()
     out = inject_view_snapshots(
         body, _resolver([A, B]), _id_to_title, PAGE,
-        resolve_table=lambda v, h: None,  # no és table/list
+        resolve_table=lambda v, h: None,  # not table/list
     )
     assert "- [[Alpha|id-a]]" in out
     assert "| --- |" not in out
@@ -367,7 +367,7 @@ def test_table_respects_limit_with_truncation():
         body, _resolver(["x"]), _id_to_title, PAGE, max_items=2,
         resolve_table=_table_resolver(["Títol", "N"], rows),
     )
-    # 1 capçalera + 1 separador + 2 files de dades
+    # 1 header + 1 separator + 2 data rows
     assert out.count("\n|") == 4
     assert "<!-- gnosi-view:result-truncated 3 -->" in out
 
@@ -378,10 +378,10 @@ def test_table_block_is_stripped_on_read():
         body, _resolver([A]), _id_to_title, PAGE,
         resolve_table=_table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"]]),
     )
-    assert strip_view_snapshots(out) == body  # la taula també es treu en llegir
+    assert strip_view_snapshots(out) == body  # the table is also stripped when reading
 
 
-# --- rematerialize_md: unitat de la tasca de materialització ----------------
+# --- rematerialize_md: materialization-task unit ----------------
 _DOC = (
     "---\nid: p1\ntitle: Àrea X\n---\n\n"
     "# Formació\n\n"
@@ -393,12 +393,12 @@ _DOC = (
 def test_rematerialize_materializes_then_is_idempotent():
     tbl = _table_resolver(["Títol", "N"], [["[[A|id-a]]", "1"], ["[[B|id-b]]", "2"]])
     once = rematerialize_md(_DOC, "p1", _resolver([A, B]), _id_to_title, None, tbl)
-    # frontmatter intacte; definició amagada; taula amb dades
+    # frontmatter intact; hidden definition; table with data
     assert once.startswith("---\nid: p1\ntitle: Àrea X\n---\n")
     assert "gnosi-view:def" in once and "```gnosi-view" not in once
     assert "| Títol | N |" in once
     assert "# Formació" in once and "# Resta" in once
-    # re-materialitzar amb les MATEIXES dades → idèntic (no escriuria)
+    # re-materializing with the SAME data → identical (would not write)
     twice = rematerialize_md(once, "p1", _resolver([A, B]), _id_to_title, None, tbl)
     assert twice == once
 

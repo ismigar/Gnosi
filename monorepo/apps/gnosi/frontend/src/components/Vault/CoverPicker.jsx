@@ -111,7 +111,7 @@ export const CoverPicker = ({ isOpen, onClose, onSelectCover, currentCover, trig
         }
     };
 
-    // Esc tanca el popover de portada (l'Enter de l'input d'URL es manté intacte).
+    // Esc closes the cover popover (the URL input's Enter is kept intact).
     useModalKeyboard({ isOpen, onClose });
 
     if (!isOpen) return null;

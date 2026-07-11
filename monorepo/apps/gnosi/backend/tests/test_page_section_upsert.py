@@ -1,13 +1,13 @@
-"""Upsert de seccions de pàgina per view_id (no per heading).
+"""Upsert page sections by view_id (not by heading).
 
-Garanteix que múltiples embeds SENSE encapçalament no col·lisionen.
+Ensures that multiple embeds WITHOUT a heading don't collide.
 """
 from backend.api.vault_views_routes import _find_section_upsert_index
 
 
 def test_distinct_view_ids_same_empty_heading_no_collision():
     sections = [{"view_id": "v1", "heading": ""}]
-    # nou embed: heading buit igual, però view_id diferent → afegir (None)
+    # new embed: same empty heading, but different view_id → add (None)
     assert _find_section_upsert_index(sections, "v2", "") is None
 
 
@@ -26,7 +26,7 @@ def test_inline_section_matches_by_heading():
 
 
 def test_inline_does_not_overwrite_view_backed_section():
-    # una secció inline (sense view_id) amb heading buit NO ha de trepitjar una
-    # secció ancorada a una vista del registry (que té view_id)
+    # an inline section (without view_id) with an empty heading must NOT overwrite a
+    # section anchored to a registry view (which has view_id)
     sections = [{"view_id": "v1", "heading": ""}]
     assert _find_section_upsert_index(sections, None, "") is None

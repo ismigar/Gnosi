@@ -1,16 +1,16 @@
 /**
- * CollaborationPresence — avatars dels altres usuaris a la mateixa pàgina.
+ * CollaborationPresence — avatars of the other users on the same page.
  *
- * Es munta a la barra de títol del BlockEditor. No renderitza res si:
- *   - no estem en mode org (un sol usuari), o
- *   - no hi ha ningú més a la pàgina.
- * Així, en l'ús personal habitual, és invisible i sense cost.
+ * Mounted in the BlockEditor's title bar. Renders nothing if:
+ *   - we are not in org mode (single user), or
+ *   - there is no one else on the page.
+ * So, in everyday personal use, it is invisible and has no cost.
  */
 import React from 'react';
 import { useCollaboration } from '../../hooks/useCollaboration';
 
-// Paleta estable derivada del nom perquè cada usuari tingui sempre el mateix
-// color (sense estat compartit). Hash simple → índex de paleta.
+// Stable palette derived from the name so each user always has the same
+// color (no shared state). Simple hash → palette index.
 const AVATAR_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
 function colorFor(id) {

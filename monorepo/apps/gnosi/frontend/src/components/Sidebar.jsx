@@ -54,7 +54,7 @@ export function Sidebar({
 
             {/* --- COLOR SELECTOR --- */}
             <div className="section">
-                <h2 className="filter-title">Pintar per</h2>
+                <h2 className="filter-title">{t('graph.sidebar.color_by', 'Pintar per')}</h2>
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <label style={{ cursor: 'pointer' }}>
                         <input
@@ -65,7 +65,7 @@ export function Sidebar({
                             onChange={(e) => onColorModeChange(e.target.value)}
                             style={{ marginRight: '5px' }}
                         />
-                        Tipus
+                        {t('graph.sidebar.color_kind', 'Tipus')}
                     </label>
                     <label style={{ cursor: 'pointer' }}>
                         <input
@@ -76,7 +76,7 @@ export function Sidebar({
                             onChange={(e) => onColorModeChange(e.target.value)}
                             style={{ marginRight: '5px' }}
                         />
-                        Clúster
+                        {t('graph.sidebar.color_cluster', 'Clúster')}
                     </label>
                     <label style={{ cursor: 'pointer' }}>
                         <input
@@ -87,7 +87,7 @@ export function Sidebar({
                             onChange={(e) => onColorModeChange(e.target.value)}
                             style={{ marginRight: '5px' }}
                         />
-                        IA Cluster
+                        {t('graph.sidebar.color_ai_cluster', 'IA Cluster')}
                     </label>
                 </div>
             </div>
@@ -95,7 +95,7 @@ export function Sidebar({
             {/* --- PATHFINDING SECTION --- */}
             <div className="section" style={{ border: isPathfindingMode ? '2px solid var(--gnosi-blue)' : 'none', borderRadius: '8px', padding: isPathfindingMode ? '10px' : '0' }}>
                 <h2 className="filter-title" style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    Cerca de camins
+                    {t('graph.sidebar.pathfinding_title', 'Cerca de camins')}
                 </h2>
                 <div style={{ marginBottom: '10px' }}>
                     <button
@@ -111,7 +111,7 @@ export function Sidebar({
                             fontWeight: 'bold'
                         }}
                     >
-                        {isPathfindingMode ? 'Atura la cerca' : 'Comença la cerca'}
+                        {isPathfindingMode ? t('graph.sidebar.pathfinding_stop', 'Atura la cerca') : t('graph.sidebar.pathfinding_start', 'Comença la cerca')}
                     </button>
                 </div>
 
@@ -128,10 +128,10 @@ export function Sidebar({
                             }}
                         >
                             <div style={{ fontWeight: 'bold', color: !pathSource ? 'var(--status-warning)' : 'inherit' }}>
-                                {!pathSource ? '👉 SELECCIONA:' : '✅'} Origen
+                                {!pathSource ? t('graph.sidebar.pathfinding_select_prompt', '👉 SELECCIONA:') : '✅'} {t('graph.sidebar.pathfinding_origin_label', 'Origen')}
                             </div>
                             <div style={{ fontSize: '0.85em' }}>
-                                {pathSource ? getNodeLabel(pathSource) : '(Clica un node al graf)'}
+                                {pathSource ? getNodeLabel(pathSource) : t('graph.sidebar.pathfinding_click_node_hint', '(Clica un node al graf)')}
                             </div>
                         </div>
 
@@ -146,10 +146,10 @@ export function Sidebar({
                             }}
                         >
                             <div style={{ fontWeight: 'bold', color: (pathSource && !pathTarget) ? 'var(--status-success)' : 'inherit' }}>
-                                {(pathSource && !pathTarget) ? '👉 SELECCIONA:' : (pathTarget ? '✅' : '⏳')} Destí
+                                {(pathSource && !pathTarget) ? t('graph.sidebar.pathfinding_select_prompt', '👉 SELECCIONA:') : (pathTarget ? '✅' : '⏳')} {t('graph.sidebar.pathfinding_target_label', 'Destí')}
                             </div>
                             <div style={{ fontSize: '0.85em' }}>
-                                {pathTarget ? getNodeLabel(pathTarget) : (pathSource ? '(Clica un altre node)' : '(Espera a seleccionar origen)')}
+                                {pathTarget ? getNodeLabel(pathTarget) : (pathSource ? t('graph.sidebar.pathfinding_click_another_node_hint', '(Clica un altre node)') : t('graph.sidebar.pathfinding_wait_origin_hint', '(Espera a seleccionar origen)'))}
                             </div>
                         </div>
 
@@ -167,13 +167,13 @@ export function Sidebar({
                                     marginBottom: '10px'
                                 }}
                             >
-                                Neteja selecció
+                                {t('graph.sidebar.pathfinding_clear_selection', 'Neteja selecció')}
                             </button>
                         )}
 
                         {pathResult && pathResult.fullPath && pathResult.fullPath.length > 0 && (
                             <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '4px' }}>
-                                <div style={{ fontWeight: 'bold', color: 'var(--gnosi-blue)', marginBottom: '5px' }}>Camí trobat ({pathResult.fullPath.length} nodes):</div>
+                                <div style={{ fontWeight: 'bold', color: 'var(--gnosi-blue)', marginBottom: '5px' }}>{t('graph.sidebar.pathfinding_path_found', { count: pathResult.fullPath.length, defaultValue: 'Camí trobat ({{count}} nodes):' })}</div>
                                 <div style={{ fontSize: '0.8rem' }}>
                                     {pathResult.fullPath.map((nodeId, index) => (
                                         <div key={nodeId} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
@@ -187,7 +187,7 @@ export function Sidebar({
 
                         {pathResult && pathResult.noPath && (
                             <div style={{ marginTop: '10px', padding: '10px', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '4px', color: 'var(--status-error)', fontSize: '0.8rem' }}>
-                                No s'ha trobat cap camí entre aquests nodes.
+                                {t('graph.sidebar.pathfinding_no_path_found', "No s'ha trobat cap camí entre aquests nodes.")}
                             </div>
                         )}
                     </div>
@@ -196,7 +196,7 @@ export function Sidebar({
 
             {/* --- TIMELINE SECTION --- */}
             <div className="section">
-                <h2 className="filter-title">Cronologia</h2>
+                <h2 className="filter-title">{t('graph.sidebar.timeline_title', 'Cronologia')}</h2>
                 <div className="similarity-filter">
                     {/* Only show slider if we have valid dates */}
                     {minDate && maxDate ? (
@@ -216,7 +216,7 @@ export function Sidebar({
                             </label>
                         </>
                     ) : (
-                        <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>No hi ha dades de temps</div>
+                        <div style={{ fontSize: "0.8rem", color: "var(--text-tertiary)" }}>{t('graph.sidebar.timeline_no_data', 'No hi ha dades de temps')}</div>
                     )}
                 </div>
             </div>
@@ -245,7 +245,7 @@ export function Sidebar({
                         checked={hideIsolated}
                         onChange={(e) => onHideIsolatedChange(e.target.checked)}
                     />
-                    <label htmlFor="isolated-nodes-filter">Oculta nodes aïllats</label>
+                    <label htmlFor="isolated-nodes-filter">{t('graph.sidebar.hide_isolated_nodes', 'Oculta nodes aïllats')}</label>
                 </div>
 
                 {!hideIsolated && (
@@ -256,7 +256,7 @@ export function Sidebar({
                             checked={onlyIsolated}
                             onChange={(e) => onOnlyIsolatedChange(e.target.checked)}
                         />
-                        <label htmlFor="only-isolated-filter">Mostra només nodes aïllats</label>
+                        <label htmlFor="only-isolated-filter">{t('graph.sidebar.show_only_isolated_nodes', 'Mostra només nodes aïllats')}</label>
                     </div>
                 )}
             </div>

@@ -1,9 +1,9 @@
 /**
- * autoriaUtils.js — helpers purs del tipus de camp "autoria"
- * (llista ordenada d'autors `{nom, cognom1, cognom2}`).
+ * autoriaUtils.js — pure helpers for the "autoria" field type
+ * (ordered list of authors `{nom, cognom1, cognom2}`).
  *
- * En un fitxer separat dels components (AutoriaField.jsx) perquè React Fast
- * Refresh només funciona si un mòdul exporta NOMÉS components.
+ * In a file separate from the components (AutoriaField.jsx) because React Fast
+ * Refresh only works if a module exports ONLY components.
  */
 
 export const emptyAuthor = () => ({ nom: '', cognom1: '', cognom2: '' });
@@ -11,7 +11,7 @@ export const emptyAuthor = () => ({ nom: '', cognom1: '', cognom2: '' });
 // Pill visible: "Nom Cognom1 Cognom2".
 export const authorFullName = (a) => [a?.nom, a?.cognom1, a?.cognom2].map(s => (s || '').trim()).filter(Boolean).join(' ');
 
-// Etiqueta "Cognom1 Cognom2, Nom" per a cerca i tooltip.
+// Label "Surname1 Surname2, Name" for search and tooltip.
 export const authorSortLabel = (a) => {
     const family = [a?.cognom1, a?.cognom2].map(s => (s || '').trim()).filter(Boolean).join(' ');
     const given = (a?.nom || '').trim();
@@ -20,9 +20,9 @@ export const authorSortLabel = (a) => {
 
 export const sameAuthor = (a, b) => a?.nom === b?.nom && a?.cognom1 === b?.cognom1 && a?.cognom2 === b?.cognom2;
 
-// Autors únics a partir d'un conjunt de valors crus de cel·la (cadascun pot ser
-// un array d'autors). Dedup per nom|cognom1|cognom2; ignora autors buits.
-// Serveix per als suggeriments d'autocompletar.
+// Unique authors from a set of raw cell values (each one can be
+// an array of authors). Dedup by name|surname1|surname2; ignore empty authors.
+// Used for autocomplete suggestions.
 export const dedupeAuthors = (values) => {
     const seen = new Set();
     const out = [];

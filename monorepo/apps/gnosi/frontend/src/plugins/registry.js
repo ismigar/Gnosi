@@ -1,12 +1,12 @@
 /**
- * registry.js — registre intern de "plugins" (features opcionals) de Gnosi.
+ * registry.js — Gnosi's internal registry of "plugins" (optional features).
  *
- * v1: registre declaratiu de features integrades que es poden activar/desactivar
- * per vault. NO executa codi de tercers (no-objectiu de v1 per seguretat). Cada
- * entrada descriu una feature i on s'aplica; els consumidors (sidebar, menú de
- * pàgina, slash) en comproven l'estat amb `isPluginEnabled(id)`.
+ * v1: declarative registry of built-in features that can be enabled/disabled
+ * per vault. Does NOT run third-party code (a non-goal of v1 for security). Each
+ * entry describes a feature and where it applies; consumers (sidebar, page
+ * menu, slash) check its state with `isPluginEnabled(id)`.
  *
- * L'estat (quins estan desactivats) es persisteix a `.gnosi/plugins.json` via
+ * The state (which ones are disabled) is persisted in `.gnosi/plugins.json` via
  * `GET/PUT /api/vault/plugins`.
  */
 

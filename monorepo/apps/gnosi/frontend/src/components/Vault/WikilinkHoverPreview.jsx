@@ -5,8 +5,8 @@ import { FileText } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { IconRenderer } from './IconRenderer';
 
-// Cache de preview compartit entre instàncies. Evita refetch quan l'usuari
-// passa el ratolí repetidament pels mateixos wikilinks (timeline, backlinks).
+// Preview cache shared across instances. Avoids refetching when the user
+// repeatedly hovers over the same wikilinks (timeline, backlinks).
 const PREVIEW_CACHE = new Map();
 const CACHE_MAX = 100;
 const CACHE_TTL_MS = 5 * 60 * 1000;
@@ -30,11 +30,11 @@ function writeCache(id, data) {
 }
 
 /**
- * Invalida el preview cachejat d'una pàgina (o tot el cache si no passes id).
- * Cal cridar-la quan la pàgina ha canviat per evitar mostrar "Pàgina buida"
- * o un extracte obsolet a hovers posteriors fins que expiri el TTL de 5 min.
+ * Invalidates the cached preview of a page (or the entire cache if no id is passed).
+ * Must be called when the page has changed to avoid showing "Empty page"
+ * or a stale excerpt in later hovers until the 5 min TTL expires.
  */
-// eslint-disable-next-line react-refresh/only-export-components -- helper exposat al costat del component perquè comparteixen el mateix cache local
+// eslint-disable-next-line react-refresh/only-export-components -- helper exposed next to the component because they share the same local cache
 export function invalidatePreviewCache(pageId) {
     if (!pageId) {
         PREVIEW_CACHE.clear();
@@ -43,9 +43,9 @@ export function invalidatePreviewCache(pageId) {
     PREVIEW_CACHE.delete(pageId);
 }
 
-// Invalidació via DOM event perquè qualsevol capa (interceptor d'axios,
-// botons de "recarrega", cron de refresc) pugui demanar-ho sense haver
-// d'importar aquest mòdul. detail.pageId opcional → si falta, neteja tot.
+// Invalidation via a DOM event so that any layer (axios interceptor,
+// "reload" buttons, refresh cron) can request it without having
+// importing this module. detail.pageId is optional → if missing, clears everything.
 if (typeof window !== 'undefined') {
     window.addEventListener('gnosi:invalidatePreview', (ev) => {
         invalidatePreviewCache(ev?.detail?.pageId);
@@ -53,14 +53,14 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Popup estil Wikipedia per al hover de wikilinks.
- * Mostra títol, icon (si existeix) i extracte (primer paràgraf).
+ * Wikipedia-style popup for wikilink hover.
+ * Shows title, icon (if present), and excerpt (first paragraph).
  *
  * Props:
- *  - pageId: ID resolt (UUID o títol normalitzat) de la pàgina
- *  - anchorRect: DOMRect del wikilink que ha disparat el hover
- *  - onMouseEnter / onMouseLeave: callbacks per mantenir el popup viu mentre
- *    el cursor és a sobre (delegada al component pare per al close timeout).
+ *  - pageId: resolved ID (UUID or normalized title) of the page
+ *  - anchorRect: DOMRect of the wikilink that triggered the hover
+ *  - onMouseEnter / onMouseLeave: callbacks to keep the popup alive while
+ *    the cursor is over it (delegated to the parent component for the close timeout).
  */
 export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouseLeave }) => {
     const { t } = useTranslation();
@@ -99,8 +99,8 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
         return () => { cancelled = true; };
     }, [pageId]);
 
-    // Posicionament: a sota del wikilink per defecte; si no hi cap, a sobre.
-    // useLayoutEffect per evitar flash visible amb posició errònia.
+    // Positioning: below the wikilink by default; if it doesn't fit, above.
+    // useLayoutEffect to avoid a visible flash with the wrong position.
     useLayoutEffect(() => {
         if (!anchorRect || !popupRef.current) return;
         const popup = popupRef.current;

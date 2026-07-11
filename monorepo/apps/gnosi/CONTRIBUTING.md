@@ -81,6 +81,16 @@ Stop everything with `docker-compose down`.
 
 ## Coding conventions
 
+### Language
+
+**Write all code documentation in English** — comments, docstrings, and JSDoc. Gnosi is an
+open project and English is the shared language of the codebase, so anyone who clones the
+repository can read it. This applies to the *source-level documentation only*: user-facing
+text stays multilingual and is translated through the i18n system (never hard-code UI
+strings — add translation keys), and identifiers or test data that happen to be in another
+language are left as-is. In short: **comments and docstrings in English; product content
+through i18n.**
+
 ### Python (backend, pipeline)
 
 - `snake_case` for functions and variables, `PascalCase` for classes.

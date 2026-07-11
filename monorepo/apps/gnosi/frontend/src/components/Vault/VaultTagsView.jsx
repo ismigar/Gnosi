@@ -5,8 +5,8 @@ import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
 
 /**
- * Pàgina de Tags estil Obsidian: índex de tots els tags del vault amb
- * recompte, expandibles per veure (i obrir) les pàgines que els contenen.
+ * Obsidian-style Tags page: an index of every tag in the vault with
+ * a count, expandable to see (and open) the pages that contain them.
  */
 export function VaultTagsView({ onPageSelect }) {
     const { t } = useTranslation();

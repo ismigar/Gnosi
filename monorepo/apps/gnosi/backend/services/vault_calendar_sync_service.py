@@ -11,13 +11,13 @@ from backend.utils.safe_io import safe_write_text
 
 log = logging.getLogger(__name__)
 
-# Calendaris subscrits que NO volem sincronitzar al vault. Google publica
-# subscripcions automàtiques (orto/ocàs per ciutat, fases de la lluna, etc.)
-# que generen milers d'events diaris d'event únic — soroll que satura
-# Calendar/External i, com a placeholders on-demand d'OneDrive, encalla
-# l'indexador des de Docker (`OSError: [Errno 35] Resource deadlock avoided`).
-# Coincidència per substring del `summary` del calendari (case-insensitive,
-# multilingüe perquè Google pot localitzar el nom segons l'idioma del compte).
+# Subscribed calendars that we do NOT want to sync to the vault. Google publishes
+# automatic subscriptions (sunrise/sunset per city, moon phases, etc.)
+# that generate thousands of daily single-event events — noise that saturates
+# Calendar/External and, as OneDrive on-demand placeholders, gets stuck
+# the indexer from Docker (`OSError: [Errno 35] Resource deadlock avoided`).
+# Substring match on the calendar's `summary` (case-insensitive,
+# multilingual because Google can localize the name according to the account's language).
 _EXCLUDED_CALENDAR_SUMMARY_PATTERNS = (
     "sortida i posta de sol",   # CA
     "fases de la lluna",        # CA
@@ -89,9 +89,9 @@ class VaultCalendarSyncService:
                 calendar_id = calendar_entry.get('id')
                 summary = calendar_entry.get('summary', 'Unknown')
 
-                # Salta subscripcions de soroll (orto/ocàs, fases de la lluna…)
-                # que com a placeholders OneDrive bloquegen l'indexador des de
-                # Docker amb `OSError: [Errno 35]`.
+                # Skips noise subscriptions (sunrise/sunset, moon phases…)
+                # that as OneDrive placeholders block the indexer from
+                # Docker with `OSError: [Errno 35]`.
                 summary_lc = summary.lower()
                 if any(p in summary_lc for p in _EXCLUDED_CALENDAR_SUMMARY_PATTERNS):
                     log.info(f"⏭️ Skipping noise calendar '{summary}' for {email}")

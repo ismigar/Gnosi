@@ -8,9 +8,9 @@ import yaml
 import logging
 import os
 
-# Auth gate: config conté provider AI, paths del vault i mode (personal/org).
-# require_role("admin") és no-op en personal mode (usuari auto-owner) però
-# bloqueja accés en organitzacio mode.
+# Auth gate: config contains the AI provider, vault paths, and mode (personal/org).
+# require_role("admin") is a no-op in personal mode (user is auto-owner) but
+# blocks access in organization mode.
 router = APIRouter(dependencies=[Depends(require_role("admin"))])
 log = logging.getLogger(__name__)
 
@@ -120,9 +120,9 @@ async def update_config(request: Request):
 
         log.info(f"Final configuration to save (summary): {list(merged_config.keys())}")
 
-        # Atomic write: params.yaml és la config principal de l'app. Un crash
-        # a meitat de safe_dump deixaria el YAML truncat i el següent restart
-        # del backend caducaria al load_params.
+        # Atomic write: params.yaml is the app's main config. A crash
+        # mid safe_dump would leave the YAML truncated and the next restart
+        # from the backend would expire on load_params.
         yaml_text = yaml.safe_dump(
             merged_config,
             default_flow_style=False,
@@ -131,14 +131,14 @@ async def update_config(request: Request):
         )
         safe_write_text(params_path, yaml_text)
 
-        # NO forcem cap reinici del servidor. Abans es feia `touch backend/server.py`
-        # perquè uvicorn --reload reencarregués el procés a CADA desat de config, però:
-        #   - load_params() rellegeix params.yaml fresc a cada petició → els canvis ja
-        #     s'apliquen sense reiniciar;
-        #   - el reinici tomba el backend 30-60s (reindexos), mata qualsevol feina en
-        #     curs (p. ex. un CLON de Notion sencer, incident 2026-07-04) i encadena
-        #     el watchdog natiu (kickstart -k) quan l'arrencada triga més del grace;
-        #   - amb l'autosave del panell de Configuració, això passava a cada edició.
+        # We do NOT force any server restart. Previously we did `touch backend/server.py`
+        # so uvicorn --reload would reload the process on EVERY config save, but:
+        #   - load_params() re-reads params.yaml fresh on every request → changes already
+        #     they are applied without restarting;
+        #   - the restart brings down the backend for 30-60s (reindexing), kills any work in
+        #     course (e.g. a full Notion CLONE, 2026-07-04 incident) and chains
+        #     the native watchdog (kickstart -k) when startup takes longer than the grace period;
+        #   - with the Settings panel's autosave, this used to happen on every edit.
         log.info("File params.yaml updated successfully.")
         return {"status": "success", "message": "Configuration updated"}
 

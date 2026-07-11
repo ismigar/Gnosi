@@ -20,35 +20,35 @@ async def create_workspace(
     x_user_id: str = Header(...),
     db: Session = Depends(get_mgmt_db)
 ):
-    # 1. Trobar o crear usuari
+    # 1. Find or create user
     user = db.query(User).filter(User.id == x_user_id).first()
     if not user:
-        # Si no existeix, el creem amb dades mínimes
+        # If it doesn't exist, we create it with minimal data
         user = User(id=x_user_id, name="User", email=f"{x_user_id}@example.com")
         db.add(user)
         db.flush()
 
-    # 2. Generar slug si no ve especificat
+    # 2. Generate slug if not specified
     slug = request.slug
     if not slug:
         import re
         slug = re.sub(r'[^a-z0-9]', '-', request.name.lower()).strip('-')
-        # Evitar duplicats de slug (simple appending de suffix si cal)
+        # Avoid slug duplicates (simple suffix appending if needed)
         original_slug = slug
         counter = 1
         while db.query(Workspace).filter(Workspace.slug == slug).first():
             slug = f"{original_slug}-{counter}"
             counter += 1
 
-    # 3. Crear Workspace
+    # 3. Create Workspace
     new_ws = Workspace(
         name=request.name,
         slug=slug
     )
     db.add(new_ws)
-    db.flush() # Per obtenir l'ID
+    db.flush() # To get the ID
 
-    # 4. Assignar creador com a OWNER
+    # 4. Assign creator as OWNER
     membership = Membership(
         user_id=x_user_id,
         workspace_id=new_ws.id,
@@ -56,8 +56,8 @@ async def create_workspace(
     )
     db.add(membership)
     
-    # 5. Crear un Vault per defecte si no existeix? 
-    # Per ara, creem el workspace buit i deixem que el frontend o altres fluxos gestionin el vault.
+    # 5. Create a default Vault if it doesn't exist? 
+    # For now, we create the empty workspace and let the frontend or other flows manage the vault.
     
     db.commit()
     db.refresh(new_ws)
@@ -71,7 +71,7 @@ async def list_workspaces(
     x_user_id: str = Header(...),
     db: Session = Depends(get_mgmt_db)
 ):
-    # Obtenir tots els membres de l'usuari amb el seu workspace
+    # Get all the user's members along with their workspace
     memberships = (
         db.query(Membership)
         .filter(Membership.user_id == x_user_id)
@@ -84,7 +84,7 @@ async def list_workspaces(
         if not ws:
             continue
             
-        # Convertir a model Pydantic i afegir el rol
+        # Convert to Pydantic model and add the role
         ws_data = WorkspaceResponse(
             id=ws.id,
             name=ws.name,
@@ -102,7 +102,7 @@ async def list_workspace_members(
     db: Session = Depends(get_mgmt_db),
     context: WorkspaceContext = Depends(require_role("admin"))
 ):
-    # Validar que l'ID coincideix (per seguretat del context)
+    # Validate that the ID matches (for context security)
     if context.workspace_id != workspace_id:
          raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
@@ -112,7 +112,7 @@ async def list_workspace_members(
     results = []
     for m in memberships:
         if not m.user:
-            # Si no hi ha usuari vinculat (cas corrupte), ometem o retornem placeholder
+            # If there's no linked user (corrupt case), we skip it or return a placeholder
             continue
             
         import json
@@ -153,8 +153,8 @@ async def update_member_role(
     if not membership:
         raise HTTPException(status_code=404, detail="Membre no trobat")
     
-    # Impedir que un admin es tregui el seu propi rol d'admin o canvi el d'un owner?
-    # Per ara, permetem que l'admin gestioni tot menys potser el seu propi rol si és l'últim admin.
+    # Prevent an admin from removing their own admin role or changing an owner's?
+    # For now, we allow the admin to manage everything except perhaps their own role if they're the last admin.
     
     if request.role:
         membership.role = request.role.value
@@ -175,16 +175,16 @@ async def add_workspace_member(
     if context.workspace_id != workspace_id:
          raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
-    # 1. Trobar o crear usuari
+    # 1. Find or create user
     user = db.query(User).filter(User.email == request.email).first()
     if not user:
-        # Crear usuari placeholder
+        # Create placeholder user
         user_name = request.email.split('@')[0].capitalize()
         user = User(email=request.email, name=user_name)
         db.add(user)
-        db.flush() # Per obtenir l'ID
+        db.flush() # To get the ID
     
-    # 2. Verificar si ja és membre
+    # 2. Check if already a member
     existing = db.query(Membership).filter(
         Membership.workspace_id == workspace_id,
         Membership.user_id == user.id
@@ -193,7 +193,7 @@ async def add_workspace_member(
     if existing:
         raise HTTPException(status_code=400, detail="L'usuari ja és membre d'aquest workspace")
     
-    # 3. Crear membresia
+    # 3. Create membership
     import json
     new_member = Membership(
         user_id=user.id,
@@ -224,8 +224,8 @@ async def remove_workspace_member(
     if not membership:
         raise HTTPException(status_code=404, detail="Membre no trobat")
 
-    # Impedir que un admin s'elimini a si mateix si és l'últim?
-    # Per ara, acció directa.
+    # Prevent an admin from removing themselves if they're the last one?
+    # For now, direct action.
     db.delete(membership)
     db.commit()
     
@@ -237,7 +237,7 @@ async def get_workspace(
     x_user_id: str = Header(...),
     db: Session = Depends(get_mgmt_db)
 ):
-    # Validar que l'usuari té accés
+    # Validate that the user has access
     membership = db.query(Membership).filter(
         Membership.user_id == x_user_id,
         Membership.workspace_id == workspace_id
@@ -248,9 +248,9 @@ async def get_workspace(
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
-        # Cas corrupte: la membership existeix però el workspace ha estat
-        # eliminat. `from_orm(None)` crashejaria amb un 500. Retornem 404
-        # explícit perquè el frontend pugui reaccionar (refrescar llista, etc.).
+        # Corrupt case: the membership exists but the workspace has been
+        # deleted. `from_orm(None)` would crash with a 500. We return a 404
+        # explicitly so the frontend can react (refresh the list, etc.).
         raise HTTPException(status_code=404, detail="Workspace no trobat (membresia òrfena)")
     ws_data = WorkspaceResponse.from_orm(workspace)
     ws_data.role = membership.role
@@ -268,7 +268,7 @@ async def list_workspace_vaults(
     vaults = db.query(Vault).filter(Vault.workspace_id == workspace_id).all()
     return [{"id": v.id, "name": v.name} for v in vaults]
 
-# --- Endpoints de Gestió de VaultAccess ---
+# --- VaultAccess Management Endpoints ---
 
 @router.get("/{workspace_id}/members/{user_id}/vaults", response_model=List[VaultAccessResponse])
 async def list_member_vault_access(
@@ -305,7 +305,7 @@ async def grant_vault_access(
     if context.workspace_id != workspace_id:
         raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
-    # Validar que el vault existeix
+    # Validate that the vault exists
     vault = db.query(Vault).filter(Vault.id == request.vault_id, Vault.workspace_id == workspace_id).first()
     if not vault:
         raise HTTPException(status_code=404, detail="Vault no trobat")

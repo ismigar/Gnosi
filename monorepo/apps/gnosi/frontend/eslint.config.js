@@ -23,12 +23,12 @@ export default defineConfig([
       },
     },
     rules: {
-      // `ignoreRestSiblings`: permet l'idioma de desestructurar una propietat
-      // NOMÉS per excloure-la del `...rest` (p. ex. `{ node, ...props }` per no
-      // vessar `node` de react-markdown al DOM). No amaga variables realment
-      // no usades: només les que tenen un germà rest.
+      // `ignoreRestSiblings`: allows the idiom of destructuring a property
+      // ONLY to exclude it from `...rest` (e.g. `{ node, ...props }` so as not to
+      // leak react-markdown's `node` into the DOM). Doesn't really hide variables
+      // unused: only those that have a sibling rest.
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', ignoreRestSiblings: true }],
-      // Directiva PURGE_NATIVE_DIALOGS: prohibits els diàlegs natius del navegador.
+      // PURGE_NATIVE_DIALOGS directive: native browser dialogs are forbidden.
       // Usa ConfirmModal (confirm), PromptModal (prompt) o toast.error (alert).
       'no-restricted-globals': [
         'error',

@@ -57,12 +57,12 @@ const NOTION_COLORS = [
 // -- REUSABLE UI COMPONENTS --
 
 /**
- * Interruptor accessible (role="switch") amb suport de teclat.
- * Substitueix els `<div className="gnosi-toggle">` no enfocables: ara és
- * enfocable amb Tab i activable amb Enter/Espai. El handler `onChange` rep
- * l'esdeveniment (clic o teclat) perquè qui crida pugui fer stopPropagation.
- * `display` el deixa només-visual (sense rol ni teclat) quan el control
- * interactiu real és un contenidor pare.
+ * Accessible switch (role="switch") with keyboard support.
+ * Replaces the non-focusable `<div className="gnosi-toggle">`: it is now
+ * focusable with Tab and activatable with Enter/Space. The `onChange` handler receives
+ * the event (click or keyboard) so the caller can do stopPropagation.
+ * `display` leaves it visual-only (no role or keyboard) when the actual
+ * interactive control is a parent container.
  */
 export const GnosiToggle = ({ active, onChange, label, style, scale, display = false }) => {
     const mergedStyle = scale != null ? { ...style, transform: `scale(${scale})` } : style;
@@ -332,29 +332,29 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     const [activeTab, setActiveTab] = useState(initialTab);
     const [integrations, setIntegrations] = useState({ calendars: [], contacts: [], mail_accounts: [] });
-    const integrationsLoadedRef = useRef(false); // Evita que auto-save dispari amb dades buides
+    const integrationsLoadedRef = useRef(false); // Prevents auto-save from firing with empty data
     const [googleSubCalendars, setGoogleSubCalendars] = useState([]);
     const [databases, setDatabases] = useState([]);
     const [tables, setTables] = useState([]);
-    // Nodes del graf (càrrega mandrosa) per derivar les opcions reals dels camps
-    // de tipus llista al control "Valor fix / defecte" de la pestanya del graf.
+    // Graph nodes (lazy-loaded) to derive the actual options for the fields
+    // of list type in the "Fixed value / default" control on the graph tab.
     const [graphNodes, setGraphNodes] = useState(null);
     const [graphNodesLoading, setGraphNodesLoading] = useState(false);
     const graphNodesFetchedRef = useRef(false);
-    // Taula de referències designada (Settings → backend get_reference_table_id).
+    // Designated reference table (Settings → backend get_reference_table_id).
     const [referenceTable, setReferenceTable] = useState({ table_id: null, configured: false, name: null });
     const [refBusy, setRefBusy] = useState(false);
     const [aiCatalog, setAiCatalog] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
-    // Translate-row skill: DeepL key viu al Keychain (`/api/credentials/`),
-    // l'URL de Softcatalà a `.env_shared` (no és secret). El bind és per
-    // separat perquè utilitzen endpoints diferents amb semàntiques diferents.
+    // Translate-row skill: DeepL key lives in the Keychain (`/api/credentials/`),
+    // the Softcatalà URL in `.env_shared` (it's not secret). The bind is
+    // separate because they use different endpoints with different semantics.
     const [translateState, setTranslateState] = useState({
         deepl_has_value: false,    // GET /api/credentials/deepl_api_key.has_value
-        deepl_input: '',           // valor nou pendent de desar (no es prepopula mai)
-        softcatala_url: '',        // valor actual de SOFTCATALA_API_URL a .env_shared
+        deepl_input: '',           // new value pending save (never pre-populated)
+        softcatala_url: '',        // current value of SOFTCATALA_API_URL in .env_shared
         loading: false,
         saving_deepl: false,
         saving_softcatala: false,
@@ -430,10 +430,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     ], [integrations, tn]);
 
-    // Carrega els nodes del graf un sol cop en entrar a la pestanya del graf, per
-    // poblar els desplegables de "Valor fix / defecte" dels camps de tipus llista.
-    // Reutilitza l'endpoint del graf: així el valor escollit casa amb els valors
-    // reals que mostra el filtre del graf.
+    // Loads the graph nodes once when entering the graph tab, to
+    // populate the "Fixed value / default" dropdowns for list-type fields.
+    // Reuses the graph endpoint: this way the chosen value matches the
+    // actual values shown by the graph filter.
     useEffect(() => {
         if (!isOpen || activeTab !== 'graph' || graphNodesFetchedRef.current) return;
         graphNodesFetchedRef.current = true;
@@ -445,9 +445,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             .finally(() => setGraphNodesLoading(false));
     }, [isOpen, activeTab]);
 
-    // Índex tableId → camp(minúscules) → conjunt de valors, derivat dels nodes.
-    // getEffectiveTableId unifica taules de BD i entitats del sistema igual que el
-    // filtre del graf, de manera que l'id del fieldKey hi casa.
+    // Index tableId → field (lowercase) → set of values, derived from the nodes.
+    // getEffectiveTableId unifies DB tables and system entities the same way the
+    // graph filter does, so the fieldKey's id matches.
     const graphFieldValues = useMemo(() => {
         const idx = new Map();
         for (const node of (graphNodes || [])) {
@@ -475,10 +475,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return set ? Array.from(set).sort((a, b) => a.localeCompare(b)) : [];
     };
 
-    // Render del control "Valor fix / defecte" segons el tipus del camp: llista →
-    // desplegable amb les opcions reals; casella → checkbox; data/data-hora/número →
-    // input natiu; la resta → text. És una funció (no un component) per no perdre el
-    // focus dels inputs en cada re-render del draft.
+    // Renders the "Fixed value / default" control based on the field type: list →
+    // dropdown with the actual options; checkbox → checkbox; date/date-time/number →
+    // native input; everything else → text. It's a function (not a component) so as not to lose
+    // input focus on every re-render of the draft.
     const renderFieldDefaultInput = (field, fieldKey, placeholder) => {
         const ftype = (field?.type || 'text').toLowerCase();
         const defaultVal = draft.graph.field_defaults?.[fieldKey] || '';
@@ -488,7 +488,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }));
         const baseStyle = { fontSize: '0.75rem', padding: '6px 10px', height: 'auto', width: '130px' };
 
-        // Llista (select / multi_select / status) → desplegable amb opcions reals.
+        // List (select / multi_select / status) → dropdown with real options.
         if (ftype === 'select' || ftype === 'multi_select' || ftype === 'status') {
             const [tableId, fieldName] = fieldKey.split(':');
             const opts = getFieldOptions(tableId, fieldName);
@@ -496,7 +496,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 if (graphNodesLoading) {
                     return <span style={{ ...baseStyle, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center' }}>{t('common.loading', 'Carregant…')}</span>;
                 }
-                // Sense valors coneguts: text lliure perquè l'usuari en pugui fixar un.
+                // Without known values: free text so the user can set one.
                 return <input type="text" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
             }
             const withCurrent = (defaultVal && !opts.includes(defaultVal)) ? [defaultVal, ...opts] : opts;
@@ -508,7 +508,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             );
         }
 
-        // Casella (checkbox) → checkbox real. Marcat = 'true'; desmarcat = sense valor.
+        // Checkbox (checkbox) → real checkbox. Checked = 'true'; unchecked = no value.
         if (ftype === 'checkbox') {
             const checked = defaultVal === 'true';
             return (
@@ -519,12 +519,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             );
         }
 
-        // Data / Data i hora / Número → inputs natius del tipus corresponent.
+        // Date / Date and time / Number → native inputs of the corresponding type.
         if (ftype === 'date') return <input type="date" className="gnosi-input" style={baseStyle} value={defaultVal} onChange={e => setVal(e.target.value)} />;
         if (ftype === 'datetime') return <input type="datetime-local" className="gnosi-input" style={baseStyle} value={defaultVal} onChange={e => setVal(e.target.value)} />;
         if (ftype === 'number') return <input type="number" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
 
-        // Per defecte → text.
+        // By default → text.
         return <input type="text" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
     };
 
@@ -532,8 +532,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [pickerField, setPickerField] = useState(null);
     const [aiValidationStatus, setAiValidationStatus] = useState({});
     const [googleAuthConfigured, setGoogleAuthConfigured] = useState(false);
-    // True si /api/calendar/calendars retorna la capçalera X-Calendar-Auth-Error
-    // (token de Google caducat/revocat) → mostrem avís de reconnexió.
+    // True if /api/calendar/calendars returns the X-Calendar-Auth-Error header
+    // (Google token expired/revoked) → we show a reconnection warning.
     const [googleCalAuthError, setGoogleCalAuthError] = useState(false);
 
     // AI Editing Modals
@@ -569,16 +569,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [isManualGoogle, setIsManualGoogle] = useState(false);
     const [manualServer, setManualServer] = useState('');
     const [manualPassword, setManualPassword] = useState('');
-    const [editingAccountId, setEditingAccountId] = useState(null); // ID del compte en edició
+    const [editingAccountId, setEditingAccountId] = useState(null); // ID of the account being edited
     const [syncingAccounts, setSyncingAccounts] = useState({}); // Tracking individual syncs
     const [syncErrorAccounts, setSyncErrorAccounts] = useState(() => {
         try { return new Set(JSON.parse(localStorage.getItem('gnosi_mail_sync_errors') || '[]')); } catch { return new Set(); }
-    }); // Emails amb error de sync de CORREU (persistit a localStorage). NO s'ha
-        // d'usar per pintar Calendari/Contactes: cada servei té el seu propi senyal.
-    // Errors d'autenticació del Calendari: derivats de la capçalera
-    // X-Calendar-Auth-Error a cada obertura de la pestanya (senyal viu, no persistit).
+    }); // Emails with MAIL sync error (persisted in localStorage). Must NOT be
+        // used to render Calendar/Contacts: each service has its own signal.
+    // Calendar authentication errors: derived from the
+    // X-Calendar-Auth-Error header on every tab open (live signal, not persisted).
     const [calendarAuthErrors, setCalendarAuthErrors] = useState(() => new Set());
-    // Errors de sincronització de Contactes: resultat del sync manual (no persistit).
+    // Contacts sync errors: result of the manual sync (not persisted).
     const [contactsSyncErrors, setContactsSyncErrors] = useState(() => new Set());
     const [mailDarkBody, setMailDarkBody] = useState(() => {
         try { return localStorage.getItem('gnosi_mail_dark_body') === '1'; } catch { return false; }
@@ -664,8 +664,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             });
             if (!res.ok) throw new Error(`HTTP ${res.status}`);
         } catch (err) {
-            // Sense aquesta restauració, l'UI mostrava els canvis com si
-            // s'haguessin desat tot i que el backend tenia l'estat antic.
+            // Without this restoration, the UI showed the changes as if
+            // would have been saved even though the backend had the old state.
             setSocialNetworks(previous);
             toast.error(tn('social.save_networks_error'));
             console.error('[social] saveSocialNetworks failed', err);
@@ -717,7 +717,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const identityAutoSaveRef = useRef(null); // debounce timer
     const identityLoadedForRef = useRef(null); // tracks which account was last loaded (skip initial save)
 
-    // Referències fresques per a evitar stale closures en els callbacks de setTimeout/cleanup
+    // Fresh references to avoid stale closures in the setTimeout/cleanup callbacks
     const integrationsRef = useRef(integrations);
     useEffect(() => {
         integrationsRef.current = integrations;
@@ -772,11 +772,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         };
 
         clearTimeout(identityAutoSaveRef.current);
-        identityAutoSaveRef.current = setTimeout(saveChanges, 800); // 800ms debounce és més interactiu
+        identityAutoSaveRef.current = setTimeout(saveChanges, 800); // 800ms debounce is more interactive
 
         return () => {
             clearTimeout(identityAutoSaveRef.current);
-            // Si el component es desmunta o canvia de compte i hi ha canvis pendents, els guardem immediatament
+            // If the component unmounts or the account changes while there are pending changes, we save them immediately
             saveChanges();
         };
     }, [mailSignature, mailDisplayName, mailSubjectPrefix, mailAliases, mailCertificate, editingAccountId]);
@@ -784,7 +784,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // -- AUTO-SAVE CONTROLS --
     const autoSaveTimeoutRef = useRef(null);
     const lastSavedData = useRef(null);
-    // Ref al panell del modal (.settings-modal): delimita el focus-trap del teclat.
+    // Ref to the modal panel (.settings-modal): delimits the keyboard focus-trap.
     const panelRef = useRef(null);
     const [savingStatus, setSavingStatus] = useState('idle'); // 'idle' | 'saving' | 'saved' | 'error'
     const [confirmConfig, setConfirmConfig] = useState({ isOpen: false, title: '', message: '', onConfirm: () => {} });
@@ -795,8 +795,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     useEffect(() => {
         if (isOpen) {
-            integrationsLoadedRef.current = false; // Reset al obrir el modal
-            lastSavedData.current = null; // Reset baseline per evitar saves espuris
+            integrationsLoadedRef.current = false; // Reset when opening the modal
+            lastSavedData.current = null; // Reset baseline to avoid spurious saves
             loadConfig();
             loadAiCatalog();
             loadTablesAndDatabases();
@@ -824,8 +824,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 .then(r => {
                     const authErr = r.headers.get('X-Calendar-Auth-Error') || '';
                     setGoogleCalAuthError(Boolean(authErr));
-                    // Emails concrets amb token caducat → pinten el badge ERROR
-                    // NOMÉS d'aquesta pestanya (no s'hereta de l'estat de Correu).
+                    // Specific emails with an expired token → paint the ERROR badge
+                    // ONLY for this tab (not inherited from the Mail state).
                     setCalendarAuthErrors(new Set(authErr.split(',').map(e => e.trim()).filter(Boolean)));
                     return r.ok ? r.json() : [];
                 })
@@ -834,8 +834,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     }, [activeTab, isOpen]);
 
-    // Translate tab: carrega l'estat de la DeepL key (Keychain) i la URL de
-    // Softcatalà (env). Es crida a cada obertura de la pestanya per
+    // Translate tab: loads the state of the DeepL key (Keychain) and the URL of
+    // Softcatalà (env). It's called on every tab open to
     // reflectir canvis fets via /api/credentials/migrate o edicions
     // externes a .env_shared.
     useEffect(() => {
@@ -891,9 +891,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         const value = translateState.softcatala_url.trim();
         setTranslateState(s => ({ ...s, saving_softcatala: true }));
         try {
-            // Cadena buida → reset a default. Enviem string buida per
-            // sobreescriure i, si l'usuari volia eliminar, el backend ho
-            // persisteix com a `SOFTCATALA_API_URL=` (la skill cau al default).
+            // Empty string → reset to default. We send an empty string to
+            // overwrite, and if the user wanted to remove it, the backend
+            // persists as `SOFTCATALA_API_URL=` (the skill falls back to the default).
             await axios.post('/api/env', { SOFTCATALA_API_URL: value });
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         } catch (err) {
@@ -907,11 +907,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         try { localStorage.setItem('gnosi_mail_sync_errors', JSON.stringify([...syncErrorAccounts])); } catch { /* quota */ }
     }, [syncErrorAccounts]);
 
-    // Quan s'obre la pestanya de Correu, fer un health check passiu cridant
-    // /api/mail/counts per cada compte. Si retorna {} (autenticació o
-    // connexió IMAP fallida), marca el compte com a error; si retorna
-    // dades, treu-lo del Set. Així es corregeix l'estat ERROR persistit
-    // a localStorage de comptes que ja funcionen correctament.
+    // When the Mail tab opens, perform a passive health check calling
+    // /api/mail/counts for each account. If it returns {} (authentication or
+    // IMAP connection failed), marks the account as error; if it returns
+    // data, removes it from the Set. This corrects the persisted ERROR state
+    // to localStorage for accounts that are already working correctly.
     useEffect(() => {
         if (activeTab !== 'mail' || !isOpen) return;
         const accs = [
@@ -953,26 +953,26 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return () => { cancelled = true; };
     }, [activeTab, isOpen, integrations.mail_accounts, integrations.emails]);
 
-    // Teclat canònic: Esc tanca i Tab fa focus-trap dins el panell (amb
-    // restauració del focus). SENSE onConfirm: és un panell de configuració
-    // amb pestanyes i autosave, sense una única acció primària; abans Enter
-    // també tancava el modal, però això era un comportament estrany (prémer
-    // Enter en un input tancava Configuració), així que ara Enter queda lliure.
+    // Canonical keyboard: Esc closes and Tab does a focus-trap inside the panel (with
+    // focus restoration). WITHOUT onConfirm: it's a settings panel
+    // with tabs and autosave, with no single primary action; previously Enter
+    // also closed the modal, but that was odd behavior (pressing
+    // Enter in an input closed Settings), so now Enter is left free.
     //
-    // Els sub-modals (proveïdor d'IA, agent, picker de carpetes, confirmació)
-    // es renderitzen com a germans FORA de `.settings-modal` i tenen el seu
-    // propi focus-trap. Mentre n'hi hagi un d'obert, desactivem el trap d'aquí
-    // perquè no els hi robi el focus (el Tab quedaria atrapat al panell de fons).
+    // The sub-modals (AI provider, agent, folder picker, confirmation)
+    // render as siblings OUTSIDE `.settings-modal` and have their own
+    // have their own focus-trap. While one is open, we disable this trap
+    // so it doesn't steal their focus (Tab would get trapped in the background panel).
     const childModalOpen = isConnectModalOpen || !!editingAgent || pickerOpen || confirmConfig.isOpen;
 
     const handleClose = async () => {
         try {
-            // 1. Cancel·lem els timeouts d'auto-save per evitar que es tornin a disparar de forma duplicada
+            // 1. We cancel the auto-save timeouts to prevent them from firing again in duplicate
             clearTimeout(autoSaveTimeoutRef.current);
             clearTimeout(identityAutoSaveRef.current);
             if (newsletterAccountSaveTimerRef.current) clearTimeout(newsletterAccountSaveTimerRef.current);
 
-            // 2. Determinem si hi ha canvis pendents en la identitat del correu
+            // 2. We determine whether there are pending changes in the mail identity
             let updatedIntegrations = { ...integrations };
             let hasIdentityChanges = false;
             if (editingAccountId) {
@@ -1002,7 +1002,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 }
             }
 
-            // 3. Determinem si hi ha canvis pendents a la configuració general o integracions
+            // 3. We determine whether there are pending changes in the general settings or integrations
             const currentData = JSON.stringify({
                 settings: draft.settings,
                 paths: draft.paths,
@@ -1025,14 +1025,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 hasNewsletterChanges = lastSavedNewsletterAccountRef.current !== currentNewsletter;
             }
 
-            // 4. Si hi ha qualsevol canvi pendent, els guardem de forma seqüencial/síncrona (esperant el Promise.all)
+            // 4. If there is any pending change, we save them sequentially/synchronously (awaiting Promise.all)
             if (hasIdentityChanges || hasConfigChanges || hasNewsletterChanges) {
                 setSavingStatus('saving');
                 setIsSaving(true);
                 try {
                     const promises = [];
                     
-                    // Guardar config general, integracions i identitat
+                    // Save general config, integrations, and identity
                     if (hasConfigChanges || hasIdentityChanges) {
                         promises.push(
                             axios.post('/api/config', {
@@ -1050,7 +1050,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                         );
                     }
 
-                    // Guardar newsletter
+                    // Save newsletter
                     if (hasNewsletterChanges) {
                         const next = { ...newsletterAccount };
                         if (!newsletterPasswordDirty) delete next.password;
@@ -1071,7 +1071,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (globalErr) {
             console.error("Error global crític a handleClose:", globalErr);
         } finally {
-            // 5. Cridem al onClose original per a tancar la modal SEMPRE, fins i tot si hi ha errors
+            // 5. We call the original onClose to close the modal ALWAYS, even if there are errors
             onClose();
         }
     };
@@ -1130,7 +1130,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     },
                     integrations: data,
                 });
-                // Marcar com a carregat només DESPRÉS de setIntegrations
+                // Mark as loaded only AFTER setIntegrations
                 setTimeout(() => {
                     integrationsLoadedRef.current = true;
                 }, 100);
@@ -1156,9 +1156,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     const loadTablesAndDatabases = async () => {
-        // Tables i Databases del Vault — usats per les pestanyes Calendari
-        // (selecció de taules) i Bases de dades. Abans es carregaven dins de
-        // loadZoteroData, retirat en treure la integració Zotero de Settings.
+        // Vault Tables and Databases — used by the Calendar
+        // (table selection) and Databases tabs. They used to be loaded inside
+        // loadZoteroData, removed when the Zotero integration was taken out of Settings.
         try {
             const res = await fetch('/api/vault/tables');
             if (res.ok) setTables(await res.json());
@@ -1169,7 +1169,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (e) { console.error("Databases fetch error:", e); }
     };
 
-    // --- Taula de referències (estil Zotero) ------------------------------
+    // --- Reference table (Zotero style) ------------------------------
     const loadReferenceTable = async () => {
         try {
             const res = await fetch('/api/vault/reference-table');
@@ -1177,8 +1177,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } catch (e) { console.error("Reference table fetch error:", e); }
     };
 
-    // Designa una taula existent com a taula de referències (o la desactiva
-    // amb id buit). El backend li garanteix l'esquema citable.
+    // Designates an existing table as the reference table (or disables it
+    // with an empty id). The backend guarantees the citable schema for it.
     const handleSetReferenceTable = async (tableId) => {
         setRefBusy(true);
         try {
@@ -1197,7 +1197,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         } finally { setRefBusy(false); }
     };
 
-    // Crea una taula nova ja citable i la designa.
+    // Creates a new table that's already citable and designates it.
     const handleCreateReferenceTable = async () => {
         setRefBusy(true);
         try {
@@ -1255,7 +1255,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 delete_after_ingest: data.delete_after_ingest !== false
             };
             setNewsletterAccount(next);
-            // Baseline per evitar autosave en falsos canvis (per ex. recàrrega post-save).
+            // Baseline to prevent autosave on false changes (e.g. reload after save).
             lastSavedNewsletterAccountRef.current = JSON.stringify({ ...next, _passwordDirty: false });
             setNewsletterAccountLoaded(true);
             setNewsletterPasswordDirty(false);
@@ -1265,10 +1265,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     /**
-     * Persisteix la config POP3. Silent per a l'autosave (només actualitza
-     * l'indicador global "Desat / Al dia / Error" del modal). Si l'usuari
-     * no ha tocat la contrasenya, no s'envia al payload — el backend manté
-     * la guardada.
+     * Persists the POP3 config. Silent for autosave (only updates
+     * the modal's global "Saved / Up to date / Error" indicator). If the user
+     * hasn't touched the password, it isn't sent in the payload — the backend keeps
+     * the saved one.
      */
     const saveNewsletterAccount = async () => {
         if (!newsletterAccountLoaded) return;
@@ -1307,9 +1307,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         setNewsletterAccountTesting(true);
         setNewsletterAccountStatus(t('subs_news_status_testing'));
         try {
-            // Enviem els valors actuals del form: així l'usuari pot provar abans de desar.
-            // Si l'usuari no ha tocat la contrasenya (encara és '••••••••'), no l'enviem
-            // perquè el backend usi la guardada a la BD.
+            // We send the current form values: this way the user can test before saving.
+            // If the user hasn't touched the password (it's still '••••••••'), we don't send it
+            // so the backend uses the one saved in the DB.
             const payload = {
                 mail_server: newsletterAccount.mail_server,
                 mail_port: parseInt(newsletterAccount.mail_port, 10) || 110,
@@ -1372,7 +1372,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             return;
         }
 
-        // Protecció crítica: no desar integrations si encara no s'han carregat del servidor
+        // Critical safeguard: don't save integrations if they haven't been loaded from the server yet
         if (!integrationsLoadedRef.current) {
             console.warn('[AutoSave] Ignorant desa: integrations encara no carregades.');
             return;
@@ -1403,7 +1403,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             lastSavedData.current = currentData;
             setSavingStatus('saved');
             setTimeout(() => setSavingStatus('idle'), 3000);
-            // Notifica consumidors de `/api/config` perquè refetchin sense reload.
+            // Notifies consumers of `/api/config` so they refetch without a reload.
             emitConfigChanged();
         } catch (err) {
             console.error("Auto-save error:", err);
@@ -1452,17 +1452,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         };
     }, [draft, integrations]);
 
-    // Fix scroll: a Mac+Chrome, <select>/<input>/<textarea> natius poden absorbir
-    // el wheel i evitar que .settings-main/sidebar facin scroll. També donem suport
-    // a fer scroll amb tecles del teclat (fletxes amunt/avall, espai, repag, avpag, home, end)
-    // quan el focus no està en un camp de text editable.
+    // Fix scroll: on Mac+Chrome, native <select>/<input>/<textarea> can absorb
+    // the wheel and prevent .settings-main/sidebar from scrolling. We also support
+    // scrolling with keyboard keys (up/down arrows, space, page up, page down, home, end)
+    // when focus is not on an editable text field.
     useEffect(() => {
         if (!isOpen) return;
 
         const wheelHandler = (e) => {
             if (e.ctrlKey || e.metaKey) return;
-            // Hi ha un modal niat al damunt (p. ex. SchemaConfigModal, portat al
-            // body): defereix-li l'scroll, no robis l'event cap a .settings-main.
+            // There is a nested modal on top (e.g. SchemaConfigModal, ported to the
+            // body): defer scrolling to it, don't steal the event toward .settings-main.
             if (document.body.classList.contains('gnosi-modal-open')) return;
             const t = e.target;
             if (!t || !t.closest) return;
@@ -1480,9 +1480,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         const keyScrollHandler = (e) => {
             const scrollKeys = ['ArrowDown', 'ArrowUp', 'PageDown', 'PageUp', 'Home', 'End', ' '];
             if (!scrollKeys.includes(e.key)) return;
-            // Modal niat obert al damunt: que gestioni ell l'scroll amb teclat. Si no,
-            // aquest handler (a window, en captura) scrolleja .settings-main del fons
-            // i fa preventDefault → el handler del modal niat bota per defaultPrevented.
+            // Nested modal open on top: let it handle keyboard scroll itself. Otherwise,
+            // this handler (on window, in capture phase) scrolls the background .settings-main
+            // and calls preventDefault → the nested modal's handler bails out due to defaultPrevented.
             if (document.body.classList.contains('gnosi-modal-open')) return;
 
             const ae = document.activeElement;
@@ -1544,7 +1544,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 const updatedIntegrations = { ...integrations };
                 let changed = false;
 
-                // Eliminació agressiva de TOTES les llistes de l'objecte
+                // Aggressive removal of ALL lists from the object
                 Object.keys(updatedIntegrations).forEach(key => {
                     if (Array.isArray(updatedIntegrations[key])) {
                         const originalLen = updatedIntegrations[key].length;
@@ -1557,7 +1557,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                 setSavingStatus('saving');
                 try {
-                    // Forcem el guardat fins i tot si 'changed' és false per netejar possibles inconsistències
+                    // We force the save even if 'changed' is false to clean up possible inconsistencies
                     await axios.post('/api/integrations/bulk', updatedIntegrations);
                     setIntegrations(updatedIntegrations);
                     setSavingStatus('saved');
@@ -1611,8 +1611,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         const accountId = account?.id || account;
         if (!accountId) return;
         const email = account?.email || account?.username || '';
-        // Cada servei manté el seu propi conjunt d'errors: un sync fallit de
-        // Contactes/Calendari no ha de marcar el compte com a erroni a Correu.
+        // Each service keeps its own set of errors: a failed sync of
+        // Contacts/Calendar must not mark the account as errored in Mail.
         const markError = category === 'contacts' ? setContactsSyncErrors
                         : category === 'calendar' ? setCalendarAuthErrors
                         : setSyncErrorAccounts;
@@ -1721,13 +1721,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     };
 
     /**
-     * Si l'usuari enganxa una URL de canal YouTube, la converteix al feed XML públic.
-     * Patrons reconeguts:
+     * If the user pastes a YouTube channel URL, it converts it to the public XML feed.
+     * Recognized patterns:
      *   - youtube.com/channel/UC...        → youtube.com/feeds/videos.xml?channel_id=UC...
      *   - youtube.com/user/NAME            → youtube.com/feeds/videos.xml?user=NAME
      *   - youtube.com/playlist?list=PL...  → youtube.com/feeds/videos.xml?playlist_id=PL...
-     * Pels handles (@nom) cal channel_id real → mostrem un avís perquè l'usuari el copiï manualment.
-     * Si ja és una URL de feed XML o no és YouTube, retorna la URL tal qual.
+     * For handles (@name) a real channel_id is needed → we show a notice for the user to copy it manually.
+     * If it's already an XML feed URL or not YouTube, returns the URL as-is.
      */
     const normalizeYoutubeUrl = (rawUrl) => {
         if (!rawUrl) return { url: rawUrl, warning: '' };
@@ -1743,7 +1743,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         m = url.match(/youtube\.com\/@([\w.-]+)/i);
         if (m) return {
             url,
-            warning: `No es pot convertir automàticament un handle (@${m[1]}). Obre el canal, fes clic dret a la pàgina → "Veure codi font" i busca "channelId". Després enganxa: https://www.youtube.com/feeds/videos.xml?channel_id=UC...`
+            warning: t('subs_form_status_youtube_handle_warning', { handle: m[1] })
         };
         return { url, warning: '' };
     };
@@ -1756,8 +1756,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         if (newsletterType === 'youtube') {
             const { url: converted, warning } = normalizeYoutubeUrl(finalUrl);
             if (warning) {
-                // El warning ve de normalizeYoutubeUrl en català com a fallback;
-                // si conté '@handle', el reformulem amb la clau i18n.
+                // normalizeYoutubeUrl already returns the warning via the same i18n key;
+                // this branch just re-derives the handle to interpolate it explicitly.
                 const handleMatch = finalUrl.match(/youtube\.com\/@([\w.-]+)/i);
                 if (handleMatch) {
                     setNewsletterStatus(t('subs_form_status_youtube_handle_warning', { handle: handleMatch[1] }));
@@ -1822,14 +1822,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-    // if (!draft.settings) return null; // Eliminar per evitar que el pare no renderitzi res
+    // if (!draft.settings) return null; // Remove to avoid the parent rendering nothing
 
     return (
         <>
             <div className={`settings-overlay ${isOpen ? 'active' : ''}`} />
             <div ref={panelRef} className={`settings-modal ${isOpen ? 'active' : ''}`}>
-                {/* Botó X fora de .settings-main perquè s'ancori al modal i no
-                    desaparegui amb el scroll del contingut. */}
+                {/* X button outside .settings-main so it anchors to the modal and doesn't
+                    disappear when the content scrolls. */}
                 <button onClick={handleClose} className="gnosi-close-btn settings-close-btn" aria-label={tn('close_settings')}>
                     <X />
                 </button>
@@ -1894,7 +1894,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </div>
                              )}
 
-                             {/* PERFIL D'IDENTITAT */}
+                             {/* IDENTITY PROFILE */}
                              {activeTab === 'profile' && (
                                 <div className="animate-in">
                                     <IdentityProfile 
@@ -1941,7 +1941,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <Section title={tn('general.files_structure')} icon={FolderOpen}>
                                             <FormGroup label={tn('general.root_folder')} description={tn('general.root_folder_desc')}>
                                                 <div style={{ display: 'flex', gap: '14px' }}>
-                                                    {/* Mostra la carpeta CONTENIDORA (pare del vault actiu), no el vault: els vaults viuen dins d'aquesta arrel. */}
+                                                    {/* Show the CONTAINER folder (parent of the active vault), not the vault: vaults live inside this root. */}
                                                     <input type="text" className="gnosi-input" value={(draft.paths.vault || '').replace(/[/\\][^/\\]+[/\\]?$/, '') || draft.paths.vault || ''} readOnly style={{ flex: 1, opacity: 0.7, fontFamily: 'monospace', fontSize: '0.82rem', letterSpacing: '0' }} />
                                                     <button onClick={() => { setPickerField('vault'); setPickerOpen(true); }} className="btn-gnosi-secondary" style={{ padding: '0 24px', borderRadius: '14px', border: 'none', background: 'rgba(59, 130, 246, 0.12)', color: 'var(--gnosi-blue)', flexShrink: 0 }}>
                                                         <FolderOpen size={18} />
@@ -1958,7 +1958,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </Section>
                             )}
 
-                            {/* WORKSPACE — gestió de membres i accés a vaults */}
+                            {/* WORKSPACE — member management and vault access */}
                             {activeTab === 'workspace' && (
                                 <Section
                                     title={t('settings.tabs.workspace') || 'Workspace'}
@@ -1977,7 +1977,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </Section>
                             )}
 
-                            {/* REFERÈNCIES (estil Zotero) */}
+                            {/* REFERENCES (Zotero style) */}
                             {activeTab === 'references' && (
                                 <Section title={t('settings.tabs.references') || 'Referències'} icon={BookOpen}>
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
@@ -2019,7 +2019,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </Section>
                             )}
 
-                            {/* IDIOMA I REGIÓ */}
+                            {/* LANGUAGE AND REGION */}
                             {activeTab === 'language' && (
                                 <Section title={tn('language.section_title')} icon={Globe}>
                                     <FormGroup label={tn('language.select_language')} description={tn('language.select_language_desc')}>
@@ -2060,7 +2060,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </Section>
                             )}
 
-                            {/* APARENÇA */}
+                            {/* APPEARANCE */}
                             {activeTab === 'appearance' && (
                                 <Section title={tn('appearance.section_title')} icon={Palette}>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '56px' }}>
@@ -2114,7 +2114,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </Section>
                             )}
 
-                            {/* Avís: token de Google caducat (calendaris no carreguen) */}
+                            {/* Warning: Google token expired (calendars won't load) */}
                             {activeTab === 'calendar' && googleCalAuthError && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', marginBottom: '16px', borderRadius: '14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flex: 1 }}>
@@ -2186,7 +2186,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     }
                                 >
                                     <div style={{ minHeight: '340px', marginTop: '20px' }}>
-                                        {/* Calendari per defecte */}
+                                        {/* Default calendar */}
                                         {activeTab === 'contacts' && (() => {
                                             const allContactSources = [
                                                 ...(integrations.contacts || []),
@@ -2480,7 +2480,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 : [...currentList, mailAcc];
 
                                                             if (editingAccountId && mailImapHost) {
-                                                                // Mode edició: prova la connexió IMAP/SMTP
+                                                                // Edit mode: test the IMAP/SMTP connection
                                                                 setMailTestStatus('testing');
                                                                 try {
                                                                     await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
@@ -2503,7 +2503,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     toast.error(tn('accounts.test_conn_error', { detail: err?.response?.data?.detail || err.message || tn('accounts.unknown_error') }));
                                                                 }
                                                             } else {
-                                                                // Mode nou compte: guarda i tanca
+                                                                // New account mode: saves and closes
                                                                 setSavingStatus('saving');
                                                                 try {
                                                                     await axios.post('/api/integrations/bulk', { ...integrations, [key]: newList });
@@ -2523,7 +2523,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 }
                                                             }
                                                         }} className="animate-in" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                                                            {/* NOM REMITENT + ÀLIES */}
+                                                            {/* SENDER NAME + ALIASES */}
                                                             <div style={{ gridColumn: 'span 2', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', padding: '16px 20px', background: 'var(--settings-bg)', borderRadius: '16px', border: '1px solid var(--settings-border)' }}>
                                                                 <div>
                                                                     <FormGroup label={tn('accounts.sender_name')} description={tn('accounts.sender_name_desc')}>
@@ -2554,7 +2554,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 </div>
                                                             </div>
 
-                                                            {/* SECCIÓ IMAP */}
+                                                            {/* IMAP SECTION */}
                                                             <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.imap_section')}</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
@@ -2572,7 +2572,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 </FormGroup>
                                                             </form>
 
-                                                            {/* SECCIÓ SMTP */}
+                                                            {/* SMTP SECTION */}
                                                             <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '20px', background: 'var(--settings-bg)', borderRadius: '20px', border: '1px solid var(--settings-border)' }}>
                                                                 <h4 style={{ margin: '0 0 5px 0', fontSize: '0.85rem', color: 'var(--gnosi-blue)', fontWeight: '900', textTransform: 'uppercase' }}>{tn('accounts.smtp_section')}</h4>
                                                                 <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: '10px' }}>
@@ -2604,7 +2604,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </div>
                                                             <div style={{ gridColumn: 'span 2' }}>
                                                                 <FormGroup label={tn('accounts.certificate_label')}>
-                                                                    <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder="/ruta/al/certificat.crt" />
+                                                                    <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder={t('settings.accounts.certificate_placeholder', '/ruta/al/certificat.crt')} />
                                                                 </FormGroup>
                                                             </div>
                                                             
@@ -2735,7 +2735,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             if (hasAny) {
                                                 return (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                                        {/* Comptes Externs / Integracions */}
+                                                        {/* External Accounts / Integrations */}
                                                         {uniqueAccounts.map((acc, idx) => (
                                                             <AccountRow
                                                                 key={`acc-${idx}`}
@@ -2768,7 +2768,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             />
                                                         ))}
                                                         
-                                                        {/* Taules del Vault (només per a Calendari) */}
+                                                        {/* Vault tables (Calendar only) */}
                                                         {vaultCalendars.map((tbl, idx) => {
                                                             const tblColor = integrations.calendar_colors?.[tbl.id] || integrations.calendar_colors?.[`${tbl.name}`] || '#6366f1';
                                                             return (
@@ -2791,7 +2791,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             );
                                                         })}
 
-                                                        {/* Sub-modal per a canviar el color de la taula */}
+                                                        {/* Sub-modal for changing the table's color */}
                                                         {editingTableColor && (
                                                             <div className="account-edit-overlay" style={{
                                                                 position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', 
@@ -2852,7 +2852,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         {tn('snippets.intro')}
                                     </p>
 
-                                    {/* Llista de fragments existents */}
+                                    {/* List of existing fragments */}
                                     {snippets.length > 0 && (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '24px' }}>
                                             {snippets.map(s => (
@@ -2884,7 +2884,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     )}
 
-                                    {/* Formulari d'afegir/editar */}
+                                    {/* Add/edit form */}
                                     <div style={{
                                         padding: '20px', background: 'var(--settings-bg)',
                                         borderRadius: '16px', border: '1px solid var(--settings-border)',
@@ -3026,7 +3026,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 </>
                             )}
 
-                            {/* NEWSLETTERS — formulari dinàmic + llista */}
+                            {/* NEWSLETTERS — dynamic form + list */}
                             {activeTab === 'newsletters' && (
                                 <Section title={t('subs_section_title')} icon={Rss} extra={
                                     <div style={{ display: 'inline-flex', gap: '8px' }}>
@@ -3039,7 +3039,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         <div style={{ marginBottom: '20px', padding: '14px 20px', borderRadius: '14px', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', color: 'var(--status-error)', fontSize: '0.9rem' }}>{newsletterSourcesError}</div>
                                     )}
 
-                                    {/* FORMULARI DINÀMIC ÚNIC */}
+                                    {/* SINGLE DYNAMIC FORM */}
                                     <div className="animate-in" style={{ background: 'var(--settings-sidebar-bg)', padding: '32px', borderRadius: '28px', border: '1px solid var(--settings-border)', marginBottom: '40px', boxShadow: '0 12px 40px rgba(0,0,0,0.05)' }}>
                                         {/* Toggle 3-way */}
                                         <div style={{ display: 'flex', gap: '10px', marginBottom: '24px', flexWrap: 'wrap' }}>
@@ -3061,14 +3061,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             ))}
                                         </div>
 
-                                        {/* Subtítol del formulari (canvia segons el tipus) */}
+                                        {/* Form subtitle (changes depending on type) */}
                                         <h4 style={{ margin: '0 0 18px 0', fontSize: '0.95rem', color: 'var(--text-primary)', fontWeight: 900 }}>
                                             {newsletterType === 'rss' && t('subs_form_title_rss')}
                                             {newsletterType === 'youtube' && t('subs_form_title_youtube')}
                                             {newsletterType === 'newsletter' && t('subs_form_title_newsletter')}
                                         </h4>
 
-                                        {/* Camps RSS / YOUTUBE */}
+                                        {/* RSS / YOUTUBE fields */}
                                         {(newsletterType === 'rss' || newsletterType === 'youtube') && (
                                             <>
                                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
@@ -3093,7 +3093,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             </>
                                         )}
 
-                                        {/* Camps NEWSLETTER (config POP3) */}
+                                        {/* NEWSLETTER fields (POP3 config) */}
                                         {newsletterType === 'newsletter' && (
                                             <>
                                                 <div style={{ marginBottom: '18px', padding: '14px 18px', borderRadius: '12px', background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)', color: 'var(--text-secondary)', fontSize: '0.85rem', lineHeight: 1.5 }}>
@@ -3114,7 +3114,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         </select>
                                                     </FormGroup>
                                                 </div>
-                                                {/* Form wrapper perquè el gestor de contrasenyes del navegador associï user+password */}
+                                                {/* Form wrapper so the browser's password manager associates user+password */}
                                                 <form onSubmit={e => e.preventDefault()} autoComplete="on" style={{ marginBottom: '20px' }}>
                                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                                                         <FormGroup label={t('subs_news_field_email')}>
@@ -3158,7 +3158,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         )}
                                     </div>
 
-                                    {/* COMPTADOR + LLISTA DE FONTS */}
+                                    {/* COUNTER + SOURCE LIST */}
                                     <div style={{ marginBottom: '14px', color: 'var(--text-secondary)', fontSize: '0.82rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 800 }}>
                                         {newsletterSourcesLoading ? t('subs_count_loading', { count: newsletterSources.length }) : t('subs_count', { count: newsletterSources.length })}
                                     </div>
@@ -3248,7 +3248,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                                     <Section title={tn('graph.visible_structures')} icon={Database}>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
-                                            {/* Bases de dades i Taules */}
+                                            {/* Databases and Tables */}
                                             <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
                                                 <div 
                                                     onClick={() => setIsDatabasesExpanded(!isDatabasesExpanded)}
@@ -3373,7 +3373,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                 );
                                                             })}
 
-                                                            {/* Orphan Tables / Altres Estructures */}
+                                                            {/* Orphan Tables / Other Structures */}
                                                             {(() => {
                                                                 const orphanTables = (tables || []).filter(t => !databases.some(db => db.id === t.database_id));
                                                                 if (orphanTables.length === 0) return null;
@@ -3441,7 +3441,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 )}
                                             </div>
 
-                                            {/* Entitats del Sistema */}
+                                            {/* System Entities */}
                                             <div style={{ background: 'var(--settings-bg)', borderRadius: '24px', border: '1px solid var(--settings-border)', overflow: 'hidden' }}>
                                                 <div 
                                                     onClick={() => setIsSystemEntitiesExpanded(!isSystemEntitiesExpanded)}
@@ -3752,7 +3752,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </Section>
 
-                                    {/* Registry de models del router (data-driven + pressupost) */}
+                                    {/* Router model registry (data-driven + budget) */}
                                     <ModelRegistrySettings />
                                 </>
                             )}
@@ -3768,7 +3768,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 <PluginsSettings />
                             )}
 
-                            {/* TRADUCCIÓ */}
+                            {/* TRANSLATION */}
                             {activeTab === 'translate' && (
                                 <Section
                                     title={t('translate_settings.section_title') || 'Serveis de traducció'}
@@ -3978,7 +3978,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
-    // Ref al panell: delimita el focus-trap i l'àmbit del Enter.
+    // Ref to the panel: delimits the focus-trap and the scope of Enter.
     const panelRef = useRef(null);
 
     useEffect(() => {
@@ -3990,8 +3990,8 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     const provider = aiCatalog[selectedId];
     const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
 
-    // Teclat canònic: Esc tanca i prou (coherent amb tot el Config), Tab fa
-    // focus-trap. Sense Enter→desa: el desat es fa amb el botó "Desar".
+    // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
+    // focus-trap. No Enter→save: saving is done with the "Save" button.
     useModalKeyboard({
         isOpen,
         onClose,
@@ -4088,13 +4088,13 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
     const [provider, setProvider] = useState(agent.provider || '');
     const [model, setModel] = useState(agent.model || '');
     const [icon, setIcon] = useState(agent.icon || '🤖');
-    // Ref al panell: delimita el focus-trap i l'àmbit del Enter.
+    // Ref to the panel: delimits the focus-trap and the scope of Enter.
     const panelRef = useRef(null);
 
     const availableModels = aiCatalog[provider]?.models || [];
 
-    // Teclat canònic: Esc tanca i prou (coherent amb tot el Config), Tab fa
-    // focus-trap. Sense Enter→desa: el desat es fa amb el botó "Desar Agent".
+    // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
+    // focus-trap. No Enter→save: saving is done with the "Save Agent" button.
     useModalKeyboard({
         isOpen,
         onClose,

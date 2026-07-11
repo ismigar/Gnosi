@@ -1,27 +1,27 @@
-/* Gnosi Cite Add-in — lògica de la sidebar
+/* Gnosi Cite Add-in — sidebar logic
  *
- * Responsabilitats:
- *   - Cerca al Vault de Gnosi via /api/vault/search-citations
- *   - Inserció de cita formatada (via /api/vault/format-citation)
- *   - Inserció/refresc de bibliografia (via /api/vault/format-bibliography)
- *   - Tracking de cites inserides via Content Controls (Word.run)
+ * Responsibilities:
+ *   - Search the Gnosi Vault via /api/vault/search-citations
+ *   - Insert formatted citation (via /api/vault/format-citation)
+ *   - Insert/refresh bibliography (via /api/vault/format-bibliography)
+ *   - Track inserted citations via Content Controls (Word.run)
  *
- * Patró Mendeley-style:
- *   Cada cita inserida és un Content Control de Word amb tag
- *   `gnosi-cite:<citation_key>`, que ens permet:
- *     1. Detectar totes les cites del document amb una sola crida
- *     2. Re-renderitzar-les si l'usuari canvia d'estil
- *     3. Generar la bibliografia consultant els tags
+ * Mendeley-style pattern:
+ *   Each inserted citation is a Word Content Control with tag
+ *   `gnosi-cite:<citation_key>`, which lets us:
+ *     1. Detect all citations in the document with a single call
+ *     2. Re-render them if the user changes style
+ *     3. Generate the bibliography by reading the tags
  *
- * NOTA: Word per a la Web no permet inserir/modificar content controls
- * de tipus "Rich Text" en alguns hosts. Si la API falla, caiem al text
- * pla com a fallback.
+ * NOTE: Word on the Web doesn't allow inserting/modifying "Rich Text"
+ * content controls on some hosts. If the API fails, we fall back to
+ * plain text.
  */
 (function () {
     'use strict';
 
-    // Backend base URL. En sideload local és el mateix origin que serveix
-    // la sidebar. En producció, hauria d'apuntar a la URL definitiva.
+    // Backend base URL. In local sideload it's the same origin that serves
+    // the sidebar. In production, it should point to the final URL.
     const API_BASE = window.location.origin;
 
     let lastQuery = '';
@@ -29,8 +29,8 @@
     let activeIdx = 0;
     let searchTimer = null;
 
-    // Refs DOM (resolts en DOMContentLoaded perquè l'Office.onReady ho fa
-    // abans i alguns navegadors muntem amb retard).
+    // DOM refs (resolved on DOMContentLoaded because Office.onReady does it
+    // before and in some browsers we mount with a delay).
     const $ = (id) => document.getElementById(id);
 
     function setStatus(text, kind) {
@@ -74,13 +74,13 @@
     }
 
     async function formatCitation(citationKey) {
-        // Renderitza una cita aïllada — UX immediata en la inserció. NOTA:
-        // això viola la norma APA en documents amb cites múltiples (no fa
-        // desambiguació autor/any ni `et al.` automàtic). Per garantir
-        // conformitat APA, l'usuari ha de prémer "Actualitza bibliografia"
-        // un cop té totes les cites inserides, que fa servir
-        // `formatCitationsBatch()` (vegis més avall) per reprocessar-les
-        // totes juntes amb el context complet.
+        // Renders a single isolated citation — immediate UX on insertion. NOTE:
+        // this violates the APA standard in documents with multiple citations (it doesn't do
+        // author/year disambiguation or automatic `et al.`). To guarantee
+        // APA compliance, the user must press "Update bibliography"
+        // once all citations are inserted, which uses
+        // `formatCitationsBatch()` (see below) to reprocess them
+        // all together with the full context.
         try {
             const style = $('style-select').value || 'apa';
             const locale = 'ca-AD';
@@ -99,14 +99,14 @@
     }
 
     async function formatCitationsBatch(citationKeys) {
-        // Reprocessa TOTES les cites del document en una sola crida
-        // pandoc — APA-conforme: desambigua autors homònims, sufixa
-        // `2020a`/`2020b`, aplica `et al.` segons primera aparició, etc.
+        // Reprocesses ALL citations in the document in a single call
+        // pandoc — APA-compliant: disambiguates homonymous authors, suffixes
+        // `2020a`/`2020b`, applies `et al.` based on first appearance, etc.
         //
-        // Resposta: `[{ key, ordinal, formatted, resolved }, ...]`
-        // Cada entrada conserva l'ordre original (incloent duplicats),
-        // així que el caller pot mapar cada Content Control a la seva
-        // versió formatada per posició.
+        // Response: `[{ key, ordinal, formatted, resolved }, ...]`
+        // Each entry keeps its original order (including duplicates),
+        // so the caller can map each Content Control to its
+        // formatted version by position.
         if (!citationKeys || !citationKeys.length) return [];
         try {
             const style = $('style-select').value || 'apa';
@@ -171,11 +171,11 @@
                 (meta ? '<div class="result-meta">' + escapeHtml(meta) + '</div>' : '');
             li.addEventListener('click', () => insertCitation(item));
             li.addEventListener('mouseenter', () => {
-                // NOMÉS actualitzem el realçat (classe 'active'); NO
-                // re-renderitzem la llista. Re-renderitzar substitueix els
-                // <li> sota el cursor i, al WebView de Word per Mac, pot
-                // empassar-se el clic (mousedown i mouseup cauen en elements
-                // diferents) → la inserció no es disparava mai.
+                // We ONLY update the highlight (class 'active'); we do NOT
+                // we re-render the list. Re-rendering replaces the
+                // <li> under the cursor and, in Word for Mac's WebView, can
+                // swallow the click (mousedown and mouseup land on elements
+                // different) → the insertion never fired.
                 activeIdx = idx;
                 list.querySelectorAll('.result-item').forEach((el, i) => {
                     el.classList.toggle('active', i === idx);
@@ -195,12 +195,12 @@
     }
 
     async function returnFocusToDocument() {
-        // 1) API nativa: Window.setFocus() (WordApiDesktop 1.4, anunciada a
-        //    Ignite 2025) retorna el focus del teclat al cos del document de
-        //    manera fiable. El mètode penja de document.activeWindow (un
-        //    Word.Window), NO de document. Es fa en un Word.run propi perquè,
-        //    si la build no suporta el requirement set, el throw al sync no
-        //    afecti la inserció.
+        // 1) Native API: Window.setFocus() (WordApiDesktop 1.4, announced at
+        //    Ignite 2025) reliably returns keyboard focus to the document
+        //    body. The method hangs off document.activeWindow (a
+        //    Word.Window), NOT off document. This runs in its own Word.run so
+        //    that, if the build doesn't support the requirement set, the
+        //    throw on sync doesn't affect the insertion.
         try {
             if (typeof Word !== 'undefined' && Word.run) {
                 await Word.run(async (context) => {
@@ -212,8 +212,8 @@
         } catch (e) {
             console.warn('Window.setFocus no disponible; fallback a blur:', e && e.message);
         }
-        // 2) Fallback per a builds antigues: window.blur() allibera el WebView
-        //    en algunes versions; innocu si no es respecta.
+        // 2) Fallback for older builds: window.blur() releases the WebView
+        //    in some versions; harmless if not honored.
         try {
             if (document.activeElement && document.activeElement.blur) {
                 document.activeElement.blur();
@@ -234,10 +234,10 @@
         }
         const tag = 'gnosi-cite:' + item.citation_key;
 
-        // Patró robust per a Word (inclòs Word per Mac): inserir el text a la
-        // selecció PRIMER (sync), i en una segona passada embolcallar-lo en
-        // un Content Control per al seguiment. Crear un Content Control buit
-        // sobre una selecció col·lapsada (només cursor) falla a Word per Mac.
+        // Robust pattern for Word (including Word for Mac): insert the text
+        // into the selection FIRST (sync), then in a second pass wrap it in a
+        // Content Control for tracking. Creating an empty Content Control
+        // over a collapsed selection (cursor only) fails in Word for Mac.
         try {
             if (typeof Word === 'undefined' || !Word.run) {
                 throw new Error('API de Word no disponible');
@@ -250,15 +250,15 @@
                     const cc = inserted.insertContentControl();
                     cc.tag = tag;
                     cc.title = 'Gnosi cite ' + item.citation_key;
-                    // El cursor ha de quedar DESPRÉS de la cita, FORA del
-                    // content control, per poder continuar escrivint sense
-                    // que el text entri dins la cita. RangeLocation.After és
-                    // el punt degenerat just després del CC.
+                    // The cursor must end up AFTER the citation, OUTSIDE the
+                    // content control, so the user can keep typing without
+                    // the text entering the citation. RangeLocation.After is
+                    // the degenerate point right after the CC.
                     cc.getRange(Word.RangeLocation.after).select();
                     await context.sync();
                 } catch (ccErr) {
-                    // El text JA és al document; només falla el seguiment per
-                    // Content Control. Igualment, situa el cursor al final.
+                    // The text is ALREADY in the document; only the tracking
+                    // via Content Control fails. Either way, place the cursor at the end.
                     try {
                         inserted.getRange(Word.RangeLocation.after).select();
                         await context.sync();
@@ -266,18 +266,18 @@
                     console.warn('CC wrap failed (text inserit igualment):', ccErr && ccErr.message);
                 }
             });
-            // Recalcula totes les cites amb context complet (com
-            // Mendeley/Zotero): APA aplica 2020a/2020b, `et al.` i
-            // desambiguació de cognoms sol, sense cap acció manual.
+            // Recalculates all citations with full context (like
+            // Mendeley/Zotero): APA applies 2020a/2020b, `et al.` and
+            // surname disambiguation alone, without any manual action.
             await reformatAllCitations({ silent: true });
-            // Retorna el focus del teclat al document perquè l'usuari pugui
-            // continuar escrivint sense clicar-hi. Via API nativa
-            // Document.setFocus() (WordApiDesktop 1.3+) amb fallback a blur.
+            // Returns keyboard focus to the document so the user can keep
+            // typing without clicking on it. Via the native API
+            // Document.setFocus() (WordApiDesktop 1.3+) with fallback to blur.
             await returnFocusToDocument();
             setFooter('Inserida @' + item.citation_key + '.');
         } catch (err) {
             console.warn('Word.run insert failed, fallback:', err && err.message);
-            // Fallback: API genèrica d'Office (text pla a la selecció).
+            // Fallback: generic Office API (plain text into the selection).
             try {
                 Office.context.document.setSelectedDataAsync(
                     text + ' ',
@@ -297,15 +297,15 @@
     }
 
     async function collectCitationKeysFromDocument(uniqueOnly) {
-        // Itera tots els Content Controls i extrau els que tinguin el tag
-        // `gnosi-cite:<key>`.
+        // Iterates all Content Controls and extracts the ones that have the
+        // `gnosi-cite:<key>` tag.
         //
-        // `uniqueOnly=true` (default) → per a bibliografia (cada key apareix
-        //   una sola vegada, sense importar quantes vegades es cita)
-        // `uniqueOnly=false` → per a reformat batch (preserva l'ordre
-        //   complet incloent duplicats; necessari perquè pandoc-citeproc
-        //   pugui fer "et al." i desambiguació autor-any en funció de la
-        //   primera vs successives aparicions)
+        // `uniqueOnly=true` (default) → for the bibliography (each key
+        //   appears only once, no matter how many times it's cited)
+        // `uniqueOnly=false` → for batch reformatting (preserves the full
+        //   order including duplicates; needed so pandoc-citeproc can do
+        //   "et al." and author-year disambiguation based on the first vs
+        //   subsequent appearances)
         const allowDuplicates = uniqueOnly === false;
         try {
             return await Word.run(async (context) => {
@@ -334,8 +334,8 @@
     }
 
     async function refreshBibliography() {
-        // Per a la bibliografia (llista final del document) cada key
-        // apareix una sola vegada — `uniqueOnly=true` (default).
+        // For the bibliography (final list in the document) each key
+        // appears only once — `uniqueOnly=true` (default).
         setFooter('Llegint cites del document…');
         const keys = await collectCitationKeysFromDocument();
         if (!keys.length) {
@@ -357,19 +357,19 @@
                 const heading = body.insertParagraph('Bibliografia', Word.InsertLocation.end);
                 heading.styleBuiltIn = Word.BuiltInStyleName.heading1;
                 if (entriesHtml.length) {
-                    // Word converteix <em>/<i> en cursiva i <a href> en
-                    // hipervincle real. El format de paràgraf (alineació +
-                    // sagnia francesa) s'aplica DESPRÉS via Word.js, no per
-                    // CSS: el WebView de Word ignora text-align/marges de
-                    // l'HTML i, si no, hereta la justificació de l'estil del
-                    // document (espais enormes entre paraules — no és APA).
+                    // Word converts <em>/<i> into italics and <a href> into
+                    // a real hyperlink. Paragraph formatting (alignment +
+                    // hanging indent) is applied AFTERWARDS via Word.js, not
+                    // via CSS: Word's WebView ignores text-align/margins from
+                    // the HTML and, otherwise, inherits the document style's
+                    // justification (huge spaces between words — not APA).
                     const html = entriesHtml.map((e) => '<p>' + e + '</p>').join('');
                     const range = body.insertHtml(html, Word.InsertLocation.end);
                     range.load('paragraphs');
                     await context.sync();
                     range.paragraphs.items.forEach((p) => {
-                        p.alignment = Word.Alignment.left;   // ragged right (no justificat)
-                        p.leftIndent = 36;                   // 0,5" — base de la sagnia
+                        p.alignment = Word.Alignment.left;   // ragged right (not justified)
+                        p.leftIndent = 36;                   // 0.5" — indent base
                         p.firstLineIndent = -36;             // hanging indent APA
                         p.spaceAfter = 6;
                     });
@@ -388,13 +388,13 @@
     }
 
     async function reformatAllCitations(opts) {
-        // Reformata TOTES les cites del document amb context complet en una
-        // sola crida pandoc-citeproc (en ordre, amb duplicats): APA pot
-        // decidir 2020a/2020b per mateix autor+any, inicials per a cognoms
-        // homònims i `et al.` segons primera vs següents aparicions. Es crida
-        // automàticament després de cada inserció (com Mendeley/Zotero), de
-        // manera que l'usuari no ha de prémer cap botó. `silent` evita
-        // sobreescriure el missatge de peu en el flux automàtic.
+        // Reformats ALL citations in the document with full context in a
+        // single pandoc-citeproc call (in order, with duplicates): APA can
+        // decide 2020a/2020b for same author+year, initials for surnames
+        // homonyms and `et al.` based on first vs subsequent appearances. It's called
+        // automatically after each insertion (like Mendeley/Zotero), so
+        // that the user doesn't have to press any button. `silent` avoids
+        // overwriting the footer message in the automatic flow.
         const silent = !!(opts && opts.silent);
         if (typeof Word === 'undefined' || !Word.run) return;
         try {
@@ -402,7 +402,7 @@
                 const ccs = context.document.contentControls;
                 ccs.load('items/tag');
                 await context.sync();
-                const targets = [];  // [{cc, key}] en ordre del document
+                const targets = [];  // [{cc, key}] in document order
                 ccs.items.forEach((cc) => {
                     const tag = String(cc.tag || '');
                     if (!tag.startsWith('gnosi-cite:')) return;
@@ -414,7 +414,7 @@
                 const keys = targets.map((t) => t.key);
                 const formatted = await formatCitationsBatch(keys);
                 if (!formatted.length) return;
-                // Mapeig per ordinal — preserva duplicats i ordre del document.
+                // Mapping by ordinal — preserves duplicates and document order.
                 targets.forEach((t, idx) => {
                     const item = formatted[idx];
                     if (!item) return;
@@ -465,23 +465,23 @@
         const insertBibBtn = $('insert-bibliography');
         if (insertBibBtn) insertBibBtn.addEventListener('click', insertBibliography);
 
-        // En canviar l'estil (APA → Chicago…), reformata les cites ja
-        // inserides perquè el canvi es propagui sense acció manual.
+        // When changing the style (APA → Chicago…), reformats the citations already
+        // inserted so the change propagates without manual action.
         const styleSelect = $('style-select');
         if (styleSelect) styleSelect.addEventListener('change', () => {
             reformatAllCitations({ silent: false });
         });
     }
 
-    // Office.onReady garanteix que la API està disponible. També es
-    // dispara fora de Word (per testing al navegador) — en aquest cas
-    // info.host serà null i les operacions Word.run fallaran amb un
-    // error informatiu (s'ha de fer servir el fallback setSelectedDataAsync).
+    // Office.onReady guarantees that the API is available. It's also
+    // fires outside Word (for testing in the browser) — in this case
+    // info.host will be null and Word.run operations will fail with a
+    // informative error (the setSelectedDataAsync fallback must be used).
     Office.onReady((info) => {
         setFooter('Host: ' + (info && info.host ? info.host : 'browser'));
         bindUI();
         ping();
-        // Càrrega inicial sense filtre — primers 50 per popularitat.
+        // Initial load without filter — first 50 by popularity.
         searchCitations('').then((items) => {
             lastResults = items;
             activeIdx = 0;

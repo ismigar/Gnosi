@@ -16,9 +16,9 @@ log = logging.getLogger(__name__)
 
 
 # ── Cache/pool invalidation on credential changes ────────────────────────────
-# Camps que, si canvien, invaliden la connexió IMAP/SMTP cachejada del compte
-# afectat. Cobreix també XOAUTH2 (token, refresh_token) perquè un re-consent
-# manual des de la UI hauria d'aplicar-se sense esperar el polling.
+# Fields that, if changed, invalidate the account's cached IMAP/SMTP connection
+# affected. Also covers XOAUTH2 (token, refresh_token) so that a re-consent
+# manual action from the UI should be applied without waiting for polling.
 _MAIL_CRED_FIELDS = (
     "imap_host", "imap_port", "imap_user", "imap_password", "imap_encryption",
     "smtp_host", "smtp_port", "smtp_user", "smtp_password", "smtp_encryption",
@@ -27,8 +27,8 @@ _MAIL_CRED_FIELDS = (
 
 
 def _snapshot_mail_credentials() -> dict[str, tuple]:
-    """Snapshot {email_lower → tupla de credencials sensibles} per detectar
-    canvis abans/després d'una escriptura a integrations.json."""
+    """Snapshot {email_lower → tuple of sensitive credentials} to detect
+    changes before/after a write to integrations.json."""
     raw = integration_manager.get_raw("mail_accounts") + integration_manager.get_raw("emails")
     snapshot = {}
     for acc in raw:
@@ -42,7 +42,7 @@ def _snapshot_mail_credentials() -> dict[str, tuple]:
 
 
 def _diff_mail_credentials(before: dict[str, tuple], after: dict[str, tuple]) -> set[str]:
-    """Retorna els emails amb credencials modificades respecte al snapshot anterior."""
+    """Returns the emails whose credentials changed relative to the previous snapshot."""
     changed = set()
     for email, vals in after.items():
         if before.get(email) != vals:
@@ -51,9 +51,9 @@ def _diff_mail_credentials(before: dict[str, tuple], after: dict[str, tuple]) ->
 
 
 def _invalidate_imap_state(emails: set[str]) -> None:
-    """Treu del pool, esborra l'últim error d'auth i invalida counts per cada
-    compte, i reinicia el seu worker IDLE perquè reconnecti amb les noves
-    credencials immediatament en lloc d'esperar el reintent de 5 min."""
+    """Removes from the pool, clears the last auth error, and invalidates counts for each
+    account, and restarts its IDLE worker so it reconnects with the new
+    credentials immediately instead of waiting for the 5 min retry."""
     if not emails:
         return
     try:
@@ -72,15 +72,15 @@ def _invalidate_imap_state(emails: set[str]) -> None:
             _COUNTS_CACHE.pop(email)
         except Exception as e:
             log.debug(f"[CRED-CHANGE] Error invalidant cache per {email}: {e}")
-    # El _MAIL_CACHE indexa per (email, folder, category, ...); fem clear total
-    # ja que filtrar per email és complex i el cost és baix (TTL curt).
+    # _MAIL_CACHE indexes by (email, folder, category, ...); we do a full clear
+    # since filtering by email is complex and the cost is low (short TTL).
     try:
         _MAIL_CACHE.clear()
     except Exception:
         pass
 
-    # Reinicia worker IDLE per cada compte. Si el compte no és IMAP-eligible
-    # start_worker farà no-op a la pràctica (el manager comprova capacitats).
+    # Restarts the IDLE worker for each account. If the account isn't IMAP-eligible
+    # start_worker will no-op in practice (the manager checks capabilities).
     try:
         from backend.services.imap_idle_service import idle_manager
         for email in emails:
@@ -132,7 +132,7 @@ def _test_email_sync(
     except Exception as e:
         result["error"] = f"IMAP: {safe_error_detail(e, context='POST /api/integrations/test-email IMAP')}"
 
-    # Si la connexió IMAP ha fallat, no cal continuar amb SMTP, ja retorna error
+    # If the IMAP connection failed, no need to continue with SMTP, it already returns an error
     if not result["imap"]:
         return result
 
@@ -185,7 +185,7 @@ async def test_email_connection(payload: dict = Body(...)):
         if not all([imap_host, smtp_host, username, password]):
             return {"success": False, "error": "Falten credencials"}
 
-        # imaplib/smtplib són bloquejants → off-thread per no congelar l'event loop.
+        # imaplib/smtplib are blocking → run off-thread so they don't freeze the event loop.
         result = await asyncio.to_thread(
             _test_email_sync,
             imap_host,
@@ -220,7 +220,7 @@ async def test_contacts_connection(payload: dict = Body(...)):
         from requests.auth import HTTPBasicAuth
 
         try:
-            # requests.get bloqueja l'event loop fins a 10s → off-thread.
+            # requests.get blocks the event loop for up to 10s → off-thread.
             response = await asyncio.to_thread(
                 requests.get,
                 url,
@@ -257,7 +257,7 @@ async def test_calendar_connection(payload: dict = Body(...)):
         from requests.auth import HTTPBasicAuth
 
         try:
-            # requests.* bloqueja l'event loop fins a 10s → off-thread.
+            # requests.* blocks the event loop for up to 10s → off-thread.
             response = await asyncio.to_thread(
                 requests.request,
                 "PROPFIND",
@@ -338,7 +338,7 @@ async def update_calendar_selection(payload: Any = Body(...)):
 
 @router.put("/default_calendar", dependencies=[Depends(require_role("editor"))])
 async def update_default_calendar(payload: dict = Body(...)):
-    """Desa el calendari predeterminat per a noves cites."""
+    """Save the default calendar for new appointments."""
     try:
         integration_manager.update("default_calendar", payload.get("source", ""))
         return {"status": "success"}
@@ -349,7 +349,7 @@ async def update_default_calendar(payload: dict = Body(...)):
 
 @router.put("/default_mail", dependencies=[Depends(require_role("editor"))])
 async def update_default_mail(payload: dict = Body(...)):
-    """Desa el compte de correu predeterminat."""
+    """Save the default mail account."""
     try:
         integration_manager.update("default_mail", payload.get("email", ""))
         return {"status": "success"}
@@ -360,7 +360,7 @@ async def update_default_mail(payload: dict = Body(...)):
 
 @router.put("/default_contacts")
 async def update_default_contacts(payload: dict = Body(...)):
-    """Desa el compte de contactes predeterminat."""
+    """Save the default contacts account."""
     try:
         integration_manager.update("default_contacts", payload.get("email", ""))
         return {"status": "success"}

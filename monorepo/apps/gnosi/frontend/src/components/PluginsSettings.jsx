@@ -15,10 +15,10 @@ const SELECT_STYLE = {
 };
 
 /**
- * Configuració del plugin daily-notes: permet usar una base de dades (taula)
- * com a font de la "Nota del dia" (p. ex. "Bitàcora") en lloc de la carpeta
- * `Daily Notes/`. La columna de data s'auto-detecta (primer camp de tipus
- * `date`) i es pot confirmar/canviar. Buidar la BD torna al comportament clàssic.
+ * Configuration for the daily-notes plugin: allows using a database (table)
+ * as the source of the "Daily Note" (e.g. "Logbook") instead of the
+ * `Daily Notes/` folder. The date column is auto-detected (first field of type
+ * `date`) and can be confirmed/changed. Clearing the DB reverts to the classic behavior.
  */
 function DailyNotesConfig() {
     const { t } = useTranslation();
@@ -108,10 +108,10 @@ function DailyNotesConfig() {
 }
 
 /**
- * Secció de plugins de TERCERS (v2): plugins instal·lats a `.gnosi/plugins/<id>/`
- * amb manifest propi. Permet activar/desactivar, veure i concedir els permisos
- * que declaren, i executen codi en sandbox (iframe UI / Node dades). Veure
- * directiva `plugin_system.md`.
+ * THIRD-PARTY plugins section (v2): plugins installed at `.gnosi/plugins/<id>/`
+ * with their own manifest. Allows enabling/disabling, viewing and granting the
+ * permissions they declare, and they run code in a sandbox (UI iframe / data Node). See
+ * the `plugin_system.md` directive.
  */
 function ThirdPartyPlugins() {
     const { t } = useTranslation();
@@ -128,8 +128,8 @@ function ThirdPartyPlugins() {
     const [newKey, setNewKey] = useState({ name: '', public_key: '' });
     const fileRef = React.useRef(null);
 
-    // No fa setState síncron: `loading` ja arrenca a true i es baixa al final
-    // (evita cascading renders; cf. react-hooks/set-state-in-effect).
+    // Doesn't do synchronous setState: `loading` already starts as true and is set to false at the end
+    // (avoids cascading renders; cf. react-hooks/set-state-in-effect).
     const refresh = () => Promise.all([
         axios.get('/api/vault/plugins/installed').then((r) => r.data?.plugins || []).catch(() => []),
         axios.get('/api/vault/plugins/catalog').then((r) => r.data?.permissions || {}).catch(() => ({})),
@@ -179,7 +179,7 @@ function ThirdPartyPlugins() {
     const togglePermission = async (pid, declared, current, perm) => {
         const has = current.includes(perm);
         const next = has ? current.filter((p) => p !== perm) : [...current, perm];
-        // Només enviem permisos declarats pel manifest (el backend també ho valida).
+        // We only send permissions declared by the manifest (the backend also validates this).
         const clean = next.filter((p) => declared.includes(p));
         try {
             await axios.post(`/api/vault/plugins/${encodeURIComponent(pid)}/permissions`, { permissions: clean });
@@ -479,8 +479,8 @@ function ThirdPartyPlugins() {
 }
 
 /**
- * Panell de configuració de Plugins: activa/desactiva les features opcionals
- * (registre intern). L'estat es persisteix per vault a `.gnosi/plugins.json`.
+ * Plugin configuration panel: enables/disables the optional features
+ * (internal registry). State is persisted per vault in `.gnosi/plugins.json`.
  */
 const CONFIGURABLE = { 'daily-notes': DailyNotesConfig };
 

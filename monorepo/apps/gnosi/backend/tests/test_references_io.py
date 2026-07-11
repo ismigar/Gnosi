@@ -1,4 +1,4 @@
-"""Tests per a import/export BibTeX i RIS (P1). Mòdul pur — sense backend viu.
+"""Tests for BibTeX and RIS import/export (P1). Pure module — no live backend.
 
     docker exec gnosi_backend python -m pytest backend/tests/test_references_io.py -v
 """

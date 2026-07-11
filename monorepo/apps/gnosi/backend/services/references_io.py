@@ -1,15 +1,16 @@
-"""Import/Export BibTeX i RIS ↔ camps de Recursos (Gnosi).
+"""Import/Export BibTeX and RIS ↔ Recursos fields (Gnosi).
 
-Funcions **pures** (només stdlib) — no depenen del backend ni de la xarxa, per
-poder-se provar de manera aïllada. Els dicts de sortida usen els noms de columna
-canònics de Recursos (vegeu la directiva `gnosi_native_reference_manager.md`):
+**Pure** functions (stdlib only) — they don't depend on the backend or the
+network, so they can be tested in isolation. The output dicts use the
+canonical Recursos column names (see the directive
+`gnosi_native_reference_manager.md`):
 `Citation Key`, `Item Type`, `Authors`, `Any`, `Llibre/Revista`, `Editorial`,
 `Lloc`, `Volum`, `Número`, `Pàgines`, `Edició`, `DOI`, `ISBN`, `ISSN`, `URL`,
 `Idioma`, `Title`, `Títol del llibre`.
 
-`Item Type` es desa amb els valors estil Zotero (anglès), que la skill
-`zotero_schema` (vegeu `backend/services/zotero_schema.py`) mapeja
-automàticament a CSL via `_resolve_csl_type`.
+`Item Type` is saved with Zotero-style values (English), which the
+`zotero_schema` skill (see `backend/services/zotero_schema.py`) automatically
+maps to CSL via `_resolve_csl_type`.
 """
 from __future__ import annotations
 
@@ -17,7 +18,7 @@ import re
 import unicodedata
 from typing import Dict, List
 
-# Accents LaTeX habituals en BibTeX → diacrític combinant Unicode.
+# Common LaTeX accents in BibTeX → Unicode combining diacritic.
 _LATEX_ACCENTS = {
     "'": '́', '`': '̀', '"': '̈', '^': '̂', '~': '̃',
     '=': '̄', '.': '̇', 'c': '̧', 'v': '̌', 'u': '̆',
@@ -26,24 +27,24 @@ _LATEX_ACCENTS = {
 
 
 def _decode_latex_accents(s: str) -> str:
-    """`Sin\\'ead` → `Sinéad`, `\\c{c}` → `ç`. Cobreix les formes `\\'{e}` i `\\'e`."""
+    """`Sin\\'ead` → `Sinéad`, `\\c{c}` → `ç`. Covers the forms `\\'{e}` and `\\'e`."""
     def repl(m: 're.Match') -> str:
         comb = _LATEX_ACCENTS.get(m.group(1))
         if not comb:
             return m.group(0)
         return unicodedata.normalize('NFC', m.group(2) + comb)
-    # Accents amb clau: `\'{e}`, `\c{c}`, `\v{S}`, `\H{o}`… (les lletres-comanda
-    # c/v/u/H NOMÉS en forma braced).
+    # Accents with braces: `\'{e}`, `\c{c}`, `\v{S}`, `\H{o}`… (the command letters
+    # c/v/u/H ONLY in braced form).
     s = re.sub(r"\\([`'\"^~=.cvuH])\{(\w)\}", repl, s)
-    # Accents SÍMBOL sense clau: `\'e`, `\"u`, `\^o`… El signe (`' " ^ ~ = .`)
-    # no pot iniciar una comanda LaTeX de paraula, així que és segur.
+    # SYMBOL accents without braces: `\'e`, `\"u`, `\^o`… The sign (`' " ^ ~ = .`)
+    # cannot start a word LaTeX command, so it's safe.
     #
-    # NO s'inclouen aquí les lletres-comanda c/v/u/H sense clau (abans hi havia
-    # `\\([cvuH])\{?(\w)\}?` amb la clau OPCIONAL): casava comandes LaTeX com
-    # `\url{…}`, `\cite{…}` o `\verbatim` i les CORROMPIA (`\url` → `r̆l`,
-    # perquè `\u`+`r` es llegia com a breve). La forma braced ja la cobreix la
-    # línia de dalt; la unbraced (`\cc`) és no estàndard (els exportadors —
-    # Zotero, JabRef… — sempre escriuen `\c{c}`).
+    # The command-letters c/v/u/H without braces are NOT included here (there used to be
+    # `\\([cvuH])\{?(\w)\}?` with the key OPTIONAL): it used to match LaTeX commands like
+    # `\url{…}`, `\cite{…}` or `\verbatim` and CORRUPTED them (`\url` → `r̆l`,
+    # because `\u`+`r` was read as a breve). The braced form already covers the
+    # line above; the unbraced form (`\cc`) is non-standard (exporters —
+    # Zotero, JabRef… — always write `\c{c}`).
     s = re.sub(r"\\([`'\"^~=.])(\w)", repl, s)
     return s
 
@@ -85,7 +86,7 @@ _ITEM_TO_RIS_TYPE = {
     'thesis': 'THES', 'report': 'RPRT', 'webpage': 'ELEC', 'document': 'GEN', 'preprint': 'JOUR',
 }
 
-# Camps "simples" de Recursos en l'ordre canònic de serialització.
+# "Simple" Recursos fields in canonical serialization order.
 _RECURSOS_SIMPLE_FIELDS = [
     'Title', 'Any', 'Llibre/Revista', 'Títol del llibre', 'Editorial', 'Lloc',
     'Volum', 'Número', 'Pàgines', 'Edició', 'DOI', 'ISBN', 'ISSN', 'URL', 'Idioma',
@@ -97,7 +98,7 @@ _RECURSOS_SIMPLE_FIELDS = [
 # ---------------------------------------------------------------------------
 
 def _name_to_canonical(name: str) -> str:
-    """`"First Last"` → `"Last, First"`; manté `"Last, First"` si ja té coma."""
+    """`"First Last"` → `"Last, First"`; keeps `"Last, First"` if it already has a comma."""
     name = (name or '').strip()
     if not name or ',' in name:
         return name
@@ -108,13 +109,13 @@ def _name_to_canonical(name: str) -> str:
 
 
 def _authors_to_recursos_string(authors: List[str]) -> str:
-    """Llista d'autors → string canònic de Recursos (`"Cognom, Nom; …"`)."""
+    """List of authors → canonical Recursos string (`"Last, First; …"`)."""
     out = [_name_to_canonical(a) for a in authors if a and a.strip()]
     return '; '.join(o for o in out if o)
 
 
 def _recursos_authors_to_list(authors) -> List[str]:
-    """Camp `Authors` de Recursos (string o estructurat) → llista `"Cognom, Nom"`."""
+    """Field `Authors` from Recursos (string or structured) → list `"Cognom, Nom"`."""
     if isinstance(authors, list):
         out = []
         for a in authors:
@@ -140,32 +141,32 @@ def _recursos_authors_to_list(authors) -> List[str]:
 # ---------------------------------------------------------------------------
 
 def _strip_bibtex_value(raw: str) -> str:
-    """Neteja un valor BibTeX: treu claus/cometes externes, col·lapsa espais i
-    desfà alguns escapats habituals."""
+    """Cleans a BibTeX value: strips outer braces/quotes, collapses whitespace, and
+    undoes some common escape sequences."""
     s = raw.strip()
-    # Treu un nivell de {…} o "…" extern.
+    # Removes one level of outer {…} or "…".
     while len(s) >= 2 and ((s[0] == '{' and s[-1] == '}') or (s[0] == '"' and s[-1] == '"')):
         s = s[1:-1].strip()
-    # Descodifica accents LaTeX abans de treure les claus internes (que poden
-    # formar part de `\'{e}`).
+    # Decodes LaTeX accents before stripping the inner braces (which may
+    # be part of `\'{e}`).
     s = _decode_latex_accents(s)
     s = s.replace('{', '').replace('}', '')
-    # Desfà els escapats de LaTeX (simètric amb `_bibtex_escape`) perquè el
-    # round-trip export→import recuperi el text literal.
+    # Undoes LaTeX escaping (symmetric with `_bibtex_escape`) so that the
+    # round-trip export→import recovers the literal text.
     s = re.sub(r'\\([&%$#_])', r'\1', s)
     s = re.sub(r'\s+', ' ', s)
     return s.strip()
 
 
 def _parse_bibtex_fields(body: str) -> Dict[str, str]:
-    """Parseja `name = value, …` respectant claus i cometes balancejades."""
+    """Parses `name = value, …` respecting balanced braces and quotes."""
     fields: Dict[str, str] = {}
     i, n = 0, len(body)
     while i < n:
-        # nom del camp
+        # field name
         m = re.match(r'\s*([A-Za-z][\w-]*)\s*=\s*', body[i:])
         if not m:
-            # salta fins a la pròxima coma de nivell 0
+            # skips to the next level-0 comma
             nxt = body.find(',', i)
             if nxt == -1:
                 break
@@ -173,7 +174,7 @@ def _parse_bibtex_fields(body: str) -> Dict[str, str]:
             continue
         name = m.group(1).lower()
         i += m.end()
-        # valor: {…} balancejat, "…", o token nu fins a la coma
+        # value: balanced {…}, "…", or a bare token up to the comma
         if i < n and body[i] == '{':
             depth, j = 0, i
             while j < n:
@@ -218,7 +219,7 @@ def _bibtex_entry_to_recursos(etype: str, key: str, f: Dict[str, str]) -> Dict:
         m = re.search(r'\d{4}', f['year'])
         if m:
             out['Any'] = int(m.group(0))
-    # journal (articles) o booktitle (capítols/conf)
+    # journal (articles) or booktitle (chapters/conf)
     if f.get('journal'):
         out['Llibre/Revista'] = f['journal']
     elif f.get('booktitle'):
@@ -250,7 +251,7 @@ def _bibtex_entry_to_recursos(etype: str, key: str, f: Dict[str, str]) -> Dict:
 
 
 def parse_bibtex(text: str) -> List[Dict]:
-    """Parseja un document BibTeX → llista de dicts de metadata de Recursos."""
+    """Parses a BibTeX document → list of Recursos metadata dicts."""
     entries: List[Dict] = []
     n = len(text)
     i = 0
@@ -268,12 +269,12 @@ def parse_bibtex(text: str) -> List[Dict]:
         if etype in ('comment', 'string', 'preamble'):
             i = cur
             continue
-        # key fins a la primera coma
+        # key up to the first comma
         comma = text.find(',', cur)
         if comma == -1:
             break
         key = text[cur:comma].strip()
-        # cos fins a la clau de tancament balancejada
+        # body up to the balanced closing brace
         depth, j = 1, comma + 1
         while j < n and depth > 0:
             if text[j] == '{':
@@ -294,10 +295,10 @@ def parse_bibtex(text: str) -> List[Dict]:
 # ---------------------------------------------------------------------------
 
 def _bibtex_escape(value: str) -> str:
-    # Caràcters especials de LaTeX que, sense escapar, fan petar la compilació
-    # d'un BibTeX exportat (molt comuns als títols: "C_max", "F#", "$O(n)$",
-    # "50% & més"). El desescapat simètric és a `_strip_bibtex_value`. No es
-    # toquen `{ } \ ^ ~` (necessiten maneig especial i són molt més rars).
+    # Special LaTeX characters that, if not escaped, break the compilation
+    # of an exported BibTeX (very common in titles: "C_max", "F#", "$O(n)$",
+    # "50% & more"). The symmetric unescaping is in `_strip_bibtex_value`. We don't
+    # touch `{ } \ ^ ~` (they need special handling and are much rarer).
     return (
         str(value)
         .replace('&', r'\&')
@@ -359,7 +360,7 @@ def to_bibtex(entries: List[Dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_ris(text: str) -> List[Dict]:
-    """Parseja un document RIS → llista de dicts de metadata de Recursos."""
+    """Parses an RIS document → list of Recursos metadata dicts."""
     entries: List[Dict] = []
     cur: Dict[str, List[str]] = {}
 
@@ -425,7 +426,7 @@ def _ris_record_to_recursos(r: Dict[str, List[str]]) -> Dict:
     if first('DO'):
         out['DOI'] = first('DO')
     if first('SN'):
-        # SN serveix tant per ISBN com ISSN; heurística pel guió de l'ISSN.
+        # SN serves both ISBN and ISSN; heuristic for the ISSN hyphen.
         sn = first('SN')
         out['ISSN' if re.match(r'^\d{4}-\d{3}[\dxX]$', sn) else 'ISBN'] = sn
     if first('UR', 'L1'):
@@ -491,7 +492,7 @@ def to_ris(entries: List[Dict]) -> str:
 # ---------------------------------------------------------------------------
 
 def detect_format(text: str) -> str:
-    """`'bibtex'`, `'ris'` o `'unknown'` segons el contingut."""
+    """`'bibtex'`, `'ris'`, or `'unknown'` depending on the content."""
     head = text.lstrip()[:4000]
     if re.search(r'^\s*TY\s{2}-\s', head, re.MULTILINE):
         return 'ris'

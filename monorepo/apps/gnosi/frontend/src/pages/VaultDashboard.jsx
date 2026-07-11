@@ -37,14 +37,14 @@ import { buildSchemaFromTableProperties, buildTablePropertiesFromSchema, getSche
 import { applyDefaultFormulasToMetadata } from '../components/Vault/defaultFormulaUtils';
 import { Palette } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
-// L'editor de dibuix (tldraw) és molt pesat i només s'usa en mode 'drawing':
-// el carreguem mandrosament perquè no entri al chunk del Vault.
+// The drawing editor (tldraw) is very heavy and is only used in 'drawing' mode:
+// we load it lazily so it doesn't end up in the Vault chunk.
 const TldrawEditor = lazy(() => import('../components/Vault/TldrawEditor'));
 
-// La taula de referències ja NO es detecta per heurística (nom o columna
-// "Citation Key") sinó per la designació de Settings — backend
-// `get_reference_table_id`. El frontend la rep via GET /api/vault/reference-table
-// (estat `refTableId`) i hi basa tots els controls de referències.
+// The references table is NO longer detected by heuristics (name or column
+// "Citation Key") but rather by the designation from Settings — backend
+// `get_reference_table_id`. The frontend receives it via GET /api/vault/reference-table
+// (state `refTableId`), and all reference controls are based on it.
 
 export default function VaultDashboard() {
     const { t } = useTranslation();
@@ -57,9 +57,9 @@ export default function VaultDashboard() {
     const [tabs, setTabs] = useState([]);
     const [activeTabId, setActiveTabId] = useState(null);
     const [codeViewByTabId, setCodeViewByTabId] = useState({});
-    // Bloqueig d'edició per pàgina (per ID). Persistit a localStorage perquè
-    // el lock sobrevisqui reload del navegador. Quan està tancat (true), el
-    // BlockEditor renderitza com a read-only i bloqueja totes les
+    // Per-page edit lock (by ID). Persisted to localStorage so that
+    // the lock survives a browser reload. When it's locked (true), the
+    // BlockEditor renders as read-only and blocks all the
     // modificacions (text, propietats, drag-drop, slash menu).
     const [editLockedByPageId, setEditLockedByPageId] = useState(() => {
         try {
@@ -81,7 +81,7 @@ export default function VaultDashboard() {
     const [templateToDelete, setTemplateToDelete] = useState(null);
     const [promptModal, setPromptModal] = useState({ isOpen: false, defaultTitle: '', parentId: null, isDatabase: false, isDrawing: false, isDashboard: false, isView: false, isRename: false, isTemplate: false, targetView: null, viewType: null, inputValue: '', isLoading: false });
 
-    // Plugins (features opcionals): activació per vault (registre intern).
+    // Plugins (optional features): per-vault activation (internal registry).
     const { isEnabled: isPluginEnabled } = usePlugins();
 
     // For now we support "editor" for all pages.
@@ -97,18 +97,18 @@ export default function VaultDashboard() {
     const [isPresentOpen, setIsPresentOpen] = useState(false);
     const [isWorkspacesOpen, setIsWorkspacesOpen] = useState(false);
     const [isRecentOpen, setIsRecentOpen] = useState(false);
-    // Id de la pàgina per a la qual el modal «Tradueix la pàgina» està obert (null = tancat).
+    // Id of the page for which the «Translate page» modal is open (null = closed).
     const [translatePageModalId, setTranslatePageModalId] = useState(null);
-    // Mode del modal de traducció obert des del menú de pàgina: 'row' tradueix
-    // els camps traduïbles a un subitem (registre de taula traduïble); 'page'
-    // tradueix títol + cos a una subpàgina (pàgina normal). Vegeu GAP 2.
+    // Mode of the translation modal opened from the page menu: 'row' translates
+    // the translatable fields into a subitem (translatable table row); 'page'
+    // translates title + body into a subpage (normal page). See GAP 2.
     const [translatePageMode, setTranslatePageMode] = useState('page');
     const [historyOpenSignal, setHistoryOpenSignal] = useState(0);
     const [commentsOpen, setCommentsOpen] = useState(false);
     const [shareOpen, setShareOpen] = useState(false);
     const [globalIndex, setGlobalIndex] = useState({});
-    // Mapa id → [àlies de nota] (frontmatter `aliases:`). Alimenta la resolució
-    // i els suggeriments de wikilinks per àlies (estil Obsidian).
+    // Map id → [note aliases] (frontmatter `aliases:`). Feeds the resolution
+    // and wikilink suggestions by alias (Obsidian-style).
     const [aliasIndex, setAliasIndex] = useState({});
     const [registry, setRegistry] = useState({ databases: [], tables: [], views: [] });
     const [activeTableId, setActiveTableId] = useState(null);
@@ -140,24 +140,24 @@ export default function VaultDashboard() {
     const [redoStack, setRedoStack] = useState([]);
     const undoRef = useRef(null);
     const redoRef = useRef(null);
-    // Miralls de la mida de les piles per al listener global de Cmd+Z (deps `[]`).
-    // Sense això el handler segrestaria (preventDefault) l'atall encara que no
-    // hi hagi cap operació de taula per desfer, empassant-se l'undo de l'editor
-    // quan el focus no és exactament dins el contenteditable (p. ex. en obrir
-    // la pàgina o just després d'una interacció que treu el focus al body).
+    // Mirrors of the stack sizes for the global Cmd+Z listener (deps `[]`).
+    // Without this, the handler would hijack (preventDefault) the shortcut even when there
+    // is no table operation to undo, swallowing the editor's undo
+    // when focus isn't exactly inside the contenteditable (e.g. when opening
+    // the page or right after an interaction that moves focus to the body).
     const undoStackLenRef = useRef(0);
     const redoStackLenRef = useRef(0);
-    // Miralls de la vista activa per a handlers que viuen en effects amb
-    // deps `[]` (p. ex. `handleOpenPdf`): llegir l'estat directament hi
-    // seria stale. Els usem per recordar D'ON s'obre un document i poder
-    // tornar-hi en tancar-lo.
+    // Mirrors of the active view for handlers that live in effects with
+    // deps `[]` (e.g. `handleOpenPdf`): reading the state directly there
+    // would be stale. We use them to remember WHERE a document is opened from and to be able to
+    // return there when closing it.
     const activeTableIdRef = useRef(null);
     const activeTabIdRef = useRef(null);
     const activeViewIdRef = useRef(null);
     const viewModeRef = useRef('editor');
     const TABLE_TAB_PREFIX = 'table:';
-    // Prefix estable per identificar una pestanya PDF/EPUB/snapshot. Reusa
-    // la pestanya quan l'usuari clica el mateix document dues vegades.
+    // Stable prefix to identify a PDF/EPUB/snapshot tab. Reuses
+    // the tab when the user clicks the same document twice.
     const PDF_TAB_PREFIX = 'pdf:';
 
     const isAbortLikeError = useCallback((err) => {
@@ -279,9 +279,9 @@ export default function VaultDashboard() {
             if (next.length > 0 && next[next.length - 1].id === entry.id && next[next.length - 1].type === entry.type && next[next.length - 1].subId === entry.subId) {
                 return next;
             }
-            // Desa l'origen (la ubicació que deixem) perquè el breadcrumb pugui
-            // tornar al lloc real d'on s'ha obert l'entrada (p.ex. un dashboard),
-            // no només a la taula a què pertany estructuralment el registre.
+            // Saves the origin (the location we're leaving) so the breadcrumb can
+            // return to the actual place the entry was opened from (e.g. a dashboard),
+            // not just to the table the record structurally belongs to.
             const prevTop = next.length > 0 ? next[next.length - 1] : null;
             const from = prevTop ? { type: prevTop.type, id: prevTop.id, subId: prevTop.subId } : null;
             return [...next, { ...entry, from }];
@@ -421,10 +421,10 @@ export default function VaultDashboard() {
         }));
     }, [activeTableId, getVisibleTableRecords, resolvePageTableId, visibleTableRecordsById, t]);
 
-    // Optimistic patch del sidebar: el BlockEditor el crida abans (o en
-    // paral·lel) al PATCH del backend per a canvis discrets com icona o
-    // portada, perquè el sidebar es refresqui de seguida sense esperar al
-    // re-fetch complet de pàgines.
+    // Optimistic patch of the sidebar: BlockEditor calls it before (or in
+    // parallel) to the backend's PATCH for discrete changes like icon or
+    // cover, so the sidebar refreshes right away without waiting for the
+    // full page re-fetch.
     const updatePageMetadataLocal = useCallback((pageId, partialMetadata) => {
         if (!pageId || !partialMetadata) return;
         setPages(prev => {
@@ -437,19 +437,19 @@ export default function VaultDashboard() {
         });
     }, []);
 
-    // Taula on s'ha de crear un recurs des d'una font externa (DOI/ISBN/arXiv/
-    // PMID/URL/PDF). Quan no és null, el MetadataLookupModal s'obre en mode 'create'.
+    // Table where a resource must be created from an external source (DOI/ISBN/arXiv/
+    // PMID/URL/PDF). When it's not null, the MetadataLookupModal opens in 'create' mode.
     const [createSourceTableId, setCreateSourceTableId] = useState(null);
 
-    // Id de la taula de referències designada a Settings — font de veritat per a
-    // tot el gating de referències (import/export, Citation Key, "Crear des d'una
-    // font"). Si l'usuari la canvia a Settings, tota la funcionalitat la segueix.
+    // Id of the references table designated in Settings — source of truth for
+    // all reference gating (import/export, Citation Key, "Create from a
+    // source"). If the user changes it in Settings, all functionality follows it.
     const [refTableId, setRefTableId] = useState(null);
     const refreshReferenceTable = useCallback(async () => {
         try {
             const { data } = await axios.get('/api/vault/reference-table');
             setRefTableId(data?.table_id || null);
-        } catch { /* sense designació o backend ocupat → gating desactivat */ }
+        } catch { /* no designation or backend busy → gating disabled */ }
     }, []);
     useEffect(() => { refreshReferenceTable(); }, [refreshReferenceTable]);
 
@@ -465,27 +465,27 @@ export default function VaultDashboard() {
         });
     }, [getSchemaFromTableId, pages]);
 
-    // ---- Navegació enrere/endavant: sobre l'historial REAL del navegador ----
-    // Tota navegació dins del Vault passa per `pushToHistory → navigate()`, així
-    // que l'historial del navegador és el registre complet. Conduïm les fletxes
-    // amb `navigate(-1)`/`navigate(1)` perquè es comportin EXACTAMENT com el
-    // navegador: URL, contingut i estat sempre sincronitzats. (Abans hi havia una
-    // pila interna per punter que canviava el contingut sense reescriure l'URL →
-    // desfasament; i la 1a navegació no activava "enrere" perquè l'inici no es
-    // registrava com a entrada.)
+    // ---- Back/forward navigation: built on the browser's REAL history ----
+    // All navigation within the Vault goes through `pushToHistory → navigate()`, so
+    // the browser history is the complete record. We drive the arrows
+    // with `navigate(-1)`/`navigate(1)` so they behave EXACTLY like the
+    // browser: URL, content, and state always in sync. (Previously there was a
+    // internal pointer stack that changed the content without rewriting the URL →
+    // offset; and the 1st navigation didn't enable "back" because the start wasn't
+    // was registering as an entry.)
     //
-    // React Router v7 desa la posició a `window.history.state.idx`: numèric,
-    // incrementa amb cada navegació SPA i sobreviu al reload. `idx > 0` = hi ha
-    // pàgina anterior de Gnosi (idx=0 = entrada fresca/externa, res on tornar).
+    // React Router v7 stores the position in `window.history.state.idx`: numeric,
+    // increments with every SPA navigation and survives reload. `idx > 0` = there is a
+    // previous Gnosi page (idx=0 = fresh/external entry, nothing to go back to).
     const getBrowserHistoryIndex = () => {
         if (typeof window === 'undefined') return 0;
         const idx = window.history.state?.idx;
         return typeof idx === 'number' ? idx : 0;
     };
 
-    // Per saber si hi ha ENDAVANT cal el màxim assolit (el navegador no l'exposa).
-    // PUSH (navegació nova) trunca el forward → el màxim baixa a l'índex actual;
-    // POP/REPLACE (back/forward/reload) no abaixen mai el màxim.
+    // To know if there's FORWARD we need the max reached (the browser doesn't expose it).
+    // PUSH (new navigation) truncates forward → the max drops to the current index;
+    // POP/REPLACE (back/forward/reload) never lower the max.
     const navigationType = useNavigationType();
     const browserHistoryIndex = getBrowserHistoryIndex();
     const maxBrowserHistoryIndexRef = useRef(browserHistoryIndex);
@@ -498,9 +498,9 @@ export default function VaultDashboard() {
     const canGoBack = browserHistoryIndex > 0;
     const canGoForward = browserHistoryIndex < maxBrowserHistoryIndexRef.current;
 
-    // navigate(-1/+1) = back/forward del navegador: dispara `popstate` → l'efecte
-    // "Sincronitzar URL → Estat Intern" carrega la pàgina (o l'inici) amb
-    // fromHistory=true, sense crear entrades noves ni tocar la pila interna.
+    // navigate(-1/+1) = browser back/forward: triggers `popstate` → the effect
+    // "Sync URL → Internal State" loads the page (or the home) with
+    // fromHistory=true, without creating new entries or touching the internal stack.
     const handleNavigationBack = () => { if (canGoBack) navigate(-1); };
     const handleNavigationForward = () => { if (canGoForward) navigate(1); };
     // --------------------------------------------
@@ -545,8 +545,8 @@ export default function VaultDashboard() {
                 );
                 return [];
             }
-            // 503 amb Retry-After: el backend ens diu que l'índex encara s'està
-            // escalfant. Reintentem respectant la capçalera (fallback 2s).
+            // 503 with Retry-After: the backend tells us the index is still
+            // warming up. We retry honoring the header (fallback 2s).
             if (err?.response?.status === 503 && attempt < FETCH_PAGES_MAX_ATTEMPTS) {
                 const retryAfter = Number(err.response.headers?.['retry-after']) || 2;
                 if (fetchPagesRetryTimerRef.current) clearTimeout(fetchPagesRetryTimerRef.current);
@@ -636,27 +636,27 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAbortLikeError, resolvePageTableId, shouldIncludeTableRecord]);
 
-    // Després de traduir (translate-row/-rows/-page) la taula s'ha de refrescar.
-    // Però les pàgines acabades de crear poden trigar un instant a ser visibles a
-    // l'índex del backend (indexació sota OneDrive): un refresc immediat de vegades
-    // retornava la llista SENSE les traduccions i quedaven "invisibles" fins a un
-    // F5 manual. Com que la resposta de la traducció ens dóna els ids creats/
-    // actualitzats, reintentem la càrrega de la taula fins que hi apareguin (o
-    // esgotem els intents). Sense ids (cap creació) fa un sol refresc, com abans.
+    // After translating (translate-row/-rows/-page) the table needs to be refreshed.
+    // But newly created pages can take a moment to become visible in
+    // the backend index (indexing under OneDrive): an immediate refresh sometimes
+    // returned the list WITHOUT the translations and they remained "invisible" until a
+    // manual F5. Since the translation response gives us the created/
+    // updated ones, we retry loading the table until they appear in it (or
+    // we run out of attempts). Without ids (no creation) it does a single refresh, like before.
     const refreshTableAfterTranslate = useCallback(async (tableId, data) => {
         const expectedIds = [
             ...(data?.created || []),
             ...(data?.updated || []),
-            // translate-rows (bulk) embolcalla el resultat de cada fila dins `results`.
+            // translate-rows (bulk) wraps each row's result inside `results`.
             ...((data?.results || []).flatMap(r => [...(r?.created || []), ...(r?.updated || [])])),
         ].map(x => x?.id).filter(Boolean);
 
         let pages = tableId ? await fetchPagesByTable(tableId) : [];
-        // Les pàgines acabades de crear poden trigar a ser visibles a l'índex del
-        // backend (indexació sota OneDrive: mesurat fins a ~10s). Reintentem amb
-        // backoff creixent fins a ~15s: els primers intents són ràpids (cas
-        // normal → s'atura de seguida) i els últims més espaiats per cobrir el
-        // lag sense saturar de peticions. Abans eren 6×500ms=3s i s'esgotava.
+        // Newly created pages can take a while to become visible in the
+        // backend index (indexing under OneDrive: measured up to ~10s). We retry with
+        // growing backoff up to ~15s: the first attempts are fast (the
+        // normal case → it stops right away) and the last ones more spaced out to cover the
+        // lag without flooding it with requests. Before, it was 6×500ms=3s and it would time out.
         const backoffMs = [400, 700, 1100, 1600, 2200, 3000, 3000, 3000];
         for (const delay of backoffMs) {
             if (!expectedIds.length) break;
@@ -670,14 +670,14 @@ export default function VaultDashboard() {
 
     const loadPage = useCallback(async (pageId, fromHistory = false, attempt = 0) => {
         if (!pageId) return;
-        // Si el wikilink ha passat un títol literal en lloc d'un UUID
-        // (p.ex. "Resum estructurat del DVA"), el resolem ara contra
-        // `globalIndex` o `pages`. Sense això, GET /api/vault/pages/<títol>
-        // retorna 404. globalIndex pot estar buit en la primera càrrega
-        // si la cerca és immediata; per això hi ha un segon fallback a
-        // `pages` i un tercer fallback al backend (`/resolve-by-title`)
-        // — aquest darrer cobreix moves on globalIndex encara no s'ha
-        // refrescat al frontend.
+        // If the wikilink passed a literal title instead of a UUID
+        // (e.g. "Resum estructurat del DVA"), we now resolve it against
+        // `globalIndex` or `pages`. Without this, GET /api/vault/pages/<title>
+        // returns 404. globalIndex can be empty on the first load
+        // if the search is immediate; that's why there's a second fallback to
+        // `pages` and a third fallback to the backend (`/resolve-by-title`)
+        // — this last one covers moves where globalIndex hasn't yet
+        // refreshed on the frontend.
         const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (!UUID_RE.test(pageId)) {
             const lower = String(pageId).toLowerCase().trim();
@@ -689,7 +689,7 @@ export default function VaultDashboard() {
                     break;
                 }
             }
-            // 2) Llista local de pages
+            // 2) Local list of pages
             if (!resolved) {
                 const match = (pagesRef.current || pages).find(
                     p => String(p.title || '').toLowerCase().trim() === lower
@@ -701,7 +701,7 @@ export default function VaultDashboard() {
                 try {
                     const r = await axios.get('/api/vault/resolve-by-title', { params: { title: pageId } });
                     if (r?.data?.id) resolved = r.data.id;
-                } catch { /* ignore — caurem al 404 estàndard */ }
+                } catch { /* ignore — we'll fall back to the standard 404 */ }
             }
             if (resolved && resolved !== pageId) {
                 pageId = resolved;
@@ -710,7 +710,7 @@ export default function VaultDashboard() {
         const tabId = pageId;
         const existingTab = tabs.find(t => t.id === tabId);
         if (existingTab) {
-            // Cap petició en vol: només canviem el focus.
+            // No request in flight: we just change the focus.
             if (activeLoadAbortRef.current) {
                 activeLoadAbortRef.current.abort();
                 activeLoadAbortRef.current = null;
@@ -722,16 +722,16 @@ export default function VaultDashboard() {
             return;
         }
 
-        // ATENCIÓ: si l'usuari fa doble-click al MATEIX wikilink, abans
-        // avortàvem el primer loadPage i el segon reutilitzava la
+        // WARNING: if the user double-clicks the SAME wikilink, before
+        // we used to abort the first loadPage and the second one would reuse the
         // requestPromise avortada → loadPage fallava silenciosament i
-        // calia 2-3 clicks més perquè finalment funcionés. Si el mateix
-        // pageId ja s'està carregant, no avortem; deixem que la primera
-        // crida acabi i sortim sense fer res.
+        // it took 2-3 more clicks for it to finally work. If the same
+        // pageId is already loading, we don't abort; we let the first
+        // call finishes and we exit without doing anything.
         const inFlightForSamePage = pageRequestInFlightRef.current.has(pageId);
         if (inFlightForSamePage) {
-            // Esperem el resultat de la primera crida i, quan acabi,
-            // setActiveTabId per assegurar el focus a la pàgina nova.
+            // We wait for the result of the first call and, when it finishes,
+            // setActiveTabId to ensure focus on the new page.
             try {
                 const res = await pageRequestInFlightRef.current.get(pageId);
                 if (res?.data) {
@@ -740,13 +740,13 @@ export default function VaultDashboard() {
                     setActiveTableId(null);
                     if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
                 }
-            } catch { /* la primera crida ja informarà errors */ }
+            } catch { /* the first call will already report errors */ }
             return;
         }
 
-        // Avortem només si la càrrega anterior era d'un pageId DIFERENT
-        // (l'usuari ha canviat de target). Per al mateix pageId acabem
-        // de tractar-ho a sobre.
+        // We only abort if the previous load was for a DIFFERENT pageId
+        // (the user has changed target). For the same pageId we end up
+        // of handling it as well.
         if (activeLoadAbortRef.current) {
             activeLoadAbortRef.current.abort();
         }
@@ -776,7 +776,7 @@ export default function VaultDashboard() {
             if (!fromHistory) pushToHistory({ type: 'editor', id: pageId });
         } catch (err) {
             if (controller.signal.aborted || isAbortLikeError(err)) {
-                // Aborted by a newer loadPage — silenciós, no és un error real.
+                // Aborted by a newer loadPage — silent, not a real error.
                 if (controller.signal.aborted) return;
                 if (attempt < 2) {
                     setTimeout(() => loadPage(pageId, fromHistory, attempt + 1), 400);
@@ -805,13 +805,13 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPages, fetchPagesByTable, pages, resolvePageTableId]);
 
-    // Mou una pàgina del wiki sota un nou pare (drag & drop a la sidebar).
-    // Si newParentId és null, la pàgina passa a ser root.
+    // Moves a wiki page under a new parent (drag & drop in the sidebar).
+    // If newParentId is null, the page becomes root.
     const handleMovePage = useCallback(async (pageId, newParentId) => {
         if (!pageId) return;
         if (pageId === newParentId) return;
-        // Update optimista del state local: la sidebar reflecteix immediatament
-        // el canvi mentre el PATCH viatja.
+        // Optimistic update of local state: the sidebar immediately reflects
+        // the change while the PATCH is in flight.
         setPages(prev => prev.map(p => p.id === pageId
             ? { ...p, parent_id: newParentId, metadata: { ...(p.metadata || {}), parent_id: newParentId } }
             : p
@@ -823,10 +823,10 @@ export default function VaultDashboard() {
             });
             toast.success(t('success.page_moved') || 'Pàgina moguda');
             void fetchPages();
-            // Refresca globalIndex perquè els wikilinks per títol segueixin
-            // resolent correctament (idToTitle s'usa al BlockEditor sense
-            // re-fetch automàtic). Sense això, després d'un move pot quedar
-            // stale fins a la propera càrrega.
+            // Refreshes globalIndex so title-based wikilinks keep
+            // resolving correctly (idToTitle is used in BlockEditor without
+            // automatic re-fetch). Without this, after a move it can remain
+            // stale until the next load.
             void fetchGlobalIndex();
         } catch (err) {
             notifyError('move-page', err, t('errors.move_page'));
@@ -858,12 +858,12 @@ export default function VaultDashboard() {
         const persisted = registry.views?.filter(v => v.table_id === tableId) || [];
         const localOnly = views.filter(v => v.table_id === tableId && !persisted.find(pv => pv.id === v.id));
         const allViews = [...persisted, ...localOnly];
-        // Les vistes contextuals dels embeds de pàgina (una per secció
-        // incrustada; "Cervell digital" n'acumulava ~600) no són pestanyes del
-        // tauler: DbViewEmbed les segueix llegint del registry pel seu compte.
-        // La vista principal EFECTIVA es determina ABANS de filtrar i no
-        // s'exclou mai, perquè també pot dur el filtre "this" (p. ex. la
-        // principal de Tasques).
+        // The contextual views of page embeds (one per section
+        // embedded; "Cervell digital" accumulated ~600 of them) aren't tabs of the
+        // dashboard: DbViewEmbed keeps reading them from the registry on its own.
+        // The EFFECTIVE main view is determined BEFORE filtering and does not
+        // is never excluded, because it can also carry the "this" filter (e.g. the
+        // main one of Tasques).
         const mainView = allViews.find(v => isMainView(v, allViews));
         const tabViews = allViews.filter(v => v === mainView || !isPageEmbedView(v));
         return ensureMainViewForTable(tabViews, tableId);
@@ -883,8 +883,8 @@ export default function VaultDashboard() {
         } catch (err) {
             console.error("Error carregant índex global:", err);
         }
-        // L'índex d'àlies és secundari: si falla, els wikilinks per títol
-        // segueixen funcionant (i `[[àlies]]` encara resol via /resolve-by-title).
+        // The alias index is secondary: if it fails, title-based wikilinks
+        // keep working (and `[[alias]]` still resolves via /resolve-by-title).
         try {
             const aliasRes = await axios.get('/api/vault/alias-index');
             setAliasIndex(aliasRes.data || {});
@@ -899,11 +899,11 @@ export default function VaultDashboard() {
             const tableId = updatedView.table_id || activeTableId;
             const tableViews = getTableViews(tableId);
             const main = isMainView(updatedView, tableViews);
-            // La vista principal ja NO reescriu `visibleProperties` a tot
-            // l'esquema en desar: això destruïa en silenci la config de camps
-            // de les vistes principals (p. ex. les importades de Notion) al
-            // primer canvi d'ordre o d'amplada de columna. Ara tota vista
-            // conserva i respecta els seus camps configurats.
+            // The main view no longer rewrites `visibleProperties` on every
+            // the schema on save: this was silently destroying the field config
+            // of the main views (e.g. those imported from Notion) when
+            // first change of order or column width. Now every view
+            // preserve and respect its configured fields.
             const normalizedView = {
                 ...updatedView,
                 is_main: main,
@@ -935,9 +935,9 @@ export default function VaultDashboard() {
             order: (view.order !== undefined ? view.order : 0) + 0.5,
             table_id: view.table_id || activeTableId,
             is_main: false,
-            // Un duplicat fet des del tauler és una pestanya de ple dret,
-            // encara que l'original fos la principal d'origen embed (amb
-            // filtre "this"): sense això, la còpia naixeria invisible.
+            // A duplicate made from the dashboard is a full-fledged tab,
+            // even if the original was the main one from an embed origin (with
+            // the "this" filter): without this, the copy would end up invisible.
             embedded: false,
         };
         try {
@@ -983,13 +983,13 @@ export default function VaultDashboard() {
     };
 
     const handleReorderViews = async (reorderedViews) => {
-        // Persisteix l'ordre via un únic PUT atomic (no race condition amb
-        // POSTs concurrents que no movien les entrades del registry).
+        // Persists the order via a single atomic PUT (no race condition with
+        // concurrent POSTs that didn't move the registry entries).
         if (!Array.isArray(reorderedViews) || reorderedViews.length === 0) return;
         const tableId = reorderedViews[0]?.table_id;
         if (!tableId) return;
         const orderedIds = reorderedViews.map(v => v.id);
-        // Optimistic UI: actualitza el state local abans del round-trip.
+        // Optimistic UI: updates local state before the round-trip.
         setViews(reorderedViews);
         try {
             await axios.put('/api/vault/views/order', {
@@ -1011,12 +1011,12 @@ export default function VaultDashboard() {
         const tableViews = getTableViews(tableId);
         const view = tableViews.find(v => v.id === viewId);
         if (!view) return;
-        // La vista principal mai s'amaga: ha de quedar sempre una pestanya àncora.
+        // The main view is never hidden: there must always remain one anchor tab.
         if (isMainView(view, tableViews)) {
             toast.error(t('errors.hide_main_view') || 'No es pot amagar la vista principal');
             return;
         }
-        // Si amaguem la vista activa, saltem a la primera visible (o a la principal).
+        // If we hide the active view, we jump to the first visible one (or to the main one).
         if (hidden && activeViewId === viewId) {
             const fallback = tableViews.find(v => v.id !== viewId && !v.hidden)
                 || tableViews.find(v => isMainView(v, tableViews));
@@ -1106,9 +1106,9 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tableTemplates, fetchPages, loadPage]);
 
-    // Crea un registre a partir de les metadades suggerides per un lookup
-    // (DOI/ISBN/arXiv/PMID/URL/PDF). El `suggested` ja inclou `Citation Key`;
-    // a més, el backend la garanteix a `create_page` si faltés. Obre la fitxa nova.
+    // Creates a record from the metadata suggested by a lookup
+    // (DOI/ISBN/arXiv/PMID/URL/PDF). The `suggested` already includes `Citation Key`;
+    // moreover, the backend guarantees it in `create_page` if it were missing. Opens the new entry.
     const handleCreateFromSource = useCallback(async (tableId, suggested) => {
         if (!tableId) return;
         try {
@@ -1138,9 +1138,9 @@ export default function VaultDashboard() {
     }, [applySchemaDefaults, fetchPages, loadPage, t]);
 
 
-    // Daily Notes (estil Obsidian): obre (o crea) la nota diària d'una data.
-    // La data es calcula en HORA LOCAL del client perquè la nota d'"avui"
-    // coincideixi amb el dia de l'usuari independentment de la zona del servidor.
+    // Daily Notes (Obsidian style): opens (or creates) the daily note for a date.
+    // The date is computed in the client's LOCAL TIME so the "today" note
+    // matches the user's day regardless of the server's time zone.
     const handleOpenDailyNote = useCallback(async (dateStr) => {
         try {
             let date = dateStr;
@@ -1157,7 +1157,7 @@ export default function VaultDashboard() {
         }
     }, [fetchPages, loadPage, t]);
 
-    // Adaptador estil `fetch` sobre axios per a PageViewModal (que espera
+    // `fetch`-style adapter over axios for PageViewModal (which expects
     // `apiFetch(url, {method, headers, body}) -> JSON`).
     const viewModalApiFetch = useCallback(async (url, opts = {}) => {
         const method = (opts.method || 'GET').toUpperCase();
@@ -1177,7 +1177,7 @@ export default function VaultDashboard() {
     }, []);
 
     const handleAddView = (type) => {
-        // Les plantilles segueixen el flux del prompt (no són una vista).
+        // Templates follow the prompt flow (they are not a view).
         if (type === 'template') {
             setPromptModal({
                 isOpen: true,
@@ -1192,7 +1192,7 @@ export default function VaultDashboard() {
             });
             return;
         }
-        // Vista normal: obre el PageViewModal per crear la vista directament.
+        // Normal view: opens the PageViewModal to create the view directly.
         handleConfigureView({ type: type || 'table', name: '' });
     };
 
@@ -1202,8 +1202,8 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Avortar totes les peticions pendents quan es desmunta el component
-    // (eviten "setState on unmounted component" warnings i memory leaks).
+    // Abort all pending requests when the component unmounts
+    // (avoid "setState on unmounted component" warnings and memory leaks).
     useEffect(() => {
         return () => {
             if (activeLoadAbortRef.current) {
@@ -1222,9 +1222,9 @@ export default function VaultDashboard() {
     useEffect(() => {
         if (!registry.tables) return;
 
-        // Arrel /vault (p. ex. back del navegador fins a l'inici): torna a la
-        // pantalla d'inici en comptes de deixar enganxat el contingut anterior.
-        // (setState fa bail-out si el valor no canvia → no provoca re-renders.)
+        // Root /vault (e.g. browser back all the way to the start): returns to the
+        // home screen instead of leaving the previous content stuck.
+        // (setState bails out if the value doesn't change → it doesn't trigger re-renders.)
         if (!nestedPath) {
             setActiveTabId(null);
             setActiveTableId(null);
@@ -1237,14 +1237,14 @@ export default function VaultDashboard() {
         if (parts[0] === 'table' && parts[1]) {
             const tableId = parts[1];
             const viewId = parts[3]; // table/:id/view/:id
-            // En una recàrrega (Cmd+R) aquest efecte s'executa abans que
-            // /api/vault/registry resolgui: registry.tables encara és [] (truthy),
-            // i handleTableSelect fixaria activeTableId però NO l'esquema (el guard
-            // de registre de la línia ~1222 falla amb el registre buit). El re-run
-            // posterior, ja amb el registre carregat, s'ignora perquè activeTableId
-            // ja coincideix → l'esquema queda {} i no es renderitza cap columna.
-            // Esperem que el registre conegui la taula perquè la selecció sencera
-            // (esquema + vista inicial) es faci en una sola passada.
+            // On a reload (Cmd+R) this effect runs before
+            // /api/vault/registry resolves: registry.tables is still [] (truthy),
+            // and handleTableSelect would set activeTableId but NOT the schema (the guard
+            // on the registry at line ~1222 fails with an empty registry). The re-run
+            // afterward, with the registry already loaded, is ignored because activeTableId
+            // already matches → the schema stays {} and no column is rendered.
+            // We wait for the registry to know the table so the whole selection
+            // (schema + initial view) happens in a single pass.
             if (!registry.tables?.some(t => t.id === tableId)) return;
             if (activeTableId !== tableId) {
                 handleTableSelect(tableId, viewId, true);
@@ -1259,9 +1259,9 @@ export default function VaultDashboard() {
         } else if (parts[0] === 'drawing') {
             if (viewMode !== 'drawing') setViewMode('drawing');
         } else if (parts[0] === 'view' && parts[1]) {
-            // Suport per rutes existents com /vault/view/areas
+            // Support for existing routes like /vault/view/areas
             const id = parts[1];
-            // Intentar trobar si és una taula o una pàgina
+            // Try to find out whether it's a table or a page
             const table = registry.tables.find(t => t.id === id || t.name.toLowerCase() === id.toLowerCase());
             if (table && table.id !== activeTableId) {
                 handleTableSelect(table.id, null, true);
@@ -1295,7 +1295,7 @@ export default function VaultDashboard() {
         };
     }, [activeTableId, fetchPagesByTable]);
 
-    // Sincronitzar tableNotes quan el snapshot del servidor s'actualitza (p.ex. després d'una eliminació)
+    // Sync tableNotes when the server snapshot updates (e.g. after a deletion)
     useEffect(() => {
         if (!activeTableId) return;
         const freshNotes = visibleTableRecordsById[activeTableId];
@@ -1316,21 +1316,23 @@ export default function VaultDashboard() {
     const closePromptModalRef = useRef(null);
     useEffect(() => { loadPageRef.current = loadPage; }, [loadPage]);
 
-    // Importació de notes (Markdown/Obsidian) feta des de la paleta de comandes:
-    // refresca la llista de pàgines i informa amb un toast.
+    // Note import (Markdown/Obsidian) done from the command palette:
+    // refreshes the page list and reports via a toast.
     useEffect(() => {
         const onImported = (e) => {
             const d = e.detail || {};
             if (d.error) {
-                toast.error?.(`Error important: ${d.error}`) || toast(`Error important: ${d.error}`);
+                const importErrorMsg = t('errors.import_notes', 'Error important: {{error}}', { error: d.error });
+                toast.error?.(importErrorMsg) || toast(importErrorMsg);
                 return;
             }
             const n = d.imported || 0;
             fetchPages();
-            try { toast(`${n} ${n === 1 ? 'nota importada' : 'notes importades'} a «${d.folder || 'Importades'}»`); } catch { /* noop */ }
+            try { toast(t('vault.notes_imported_to', { count: n, folder: d.folder || 'Importades' })); } catch { /* noop */ }
         };
         window.addEventListener('gnosi:imported', onImported);
         return () => window.removeEventListener('gnosi:imported', onImported);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPages]);
     useEffect(() => { closePromptModalRef.current = closePromptModal; }, [closePromptModal]);
 
@@ -1348,16 +1350,16 @@ export default function VaultDashboard() {
             }
         };
 
-        // La paleta de comandes pot demanar obrir la cerca global.
+        // The command palette can request opening global search.
         const handleOpenSearch = () => setIsGlobalSearchOpen(true);
         window.addEventListener('gnosi:open-search', handleOpenSearch);
-        // … o la vista d'etiquetes jeràrquiques.
+        // … or the hierarchical tags view.
         const handleOpenTags = () => setIsTagsOpen(true);
         window.addEventListener('gnosi:open-tags', handleOpenTags);
-        // … o el mode presentació de la nota actual.
+        // … or the presentation mode of the current note.
         const handlePresent = () => setIsPresentOpen(true);
         window.addEventListener('gnosi:present', handlePresent);
-        // … o els espais de treball desats.
+        // … or saved workspaces.
         const handleWorkspaces = () => setIsWorkspacesOpen(true);
         window.addEventListener('gnosi:open-workspaces', handleWorkspaces);
 
@@ -1368,49 +1370,49 @@ export default function VaultDashboard() {
             }
         };
 
-        // PDFs enllaçats des d'una pàgina del Vault o de fora: useFileLinkInterceptor
-        // dispara aquest event amb { src, title }. Cancel·lem el default
-        // perquè l'interceptor sàpiga que l'hem gestionat (no cal navegar a
-        // /vault/pdf?src=... com a fallback).
+        // PDFs linked from a Vault page or from outside: useFileLinkInterceptor
+        // fires this event with { src, title }. We cancel the default
+        // so the interceptor knows we've handled it (no need to navigate to
+        // /vault/pdf?src=... as a fallback).
         const handleOpenPdf = (e) => {
             const { src, title, kind } = e.detail || {};
             if (!src) return;
             e.preventDefault();
-            // PDF / EPUB / snapshot HTML comparteixen prefix de tab (vegeu
-            // PDF_TAB_PREFIX) perquè conceptualment són "documents" del
-            // reader Zotero. El camp `kind` controla quin viewer concret
-            // s'inicialitza dins l'iframe.
+            // PDF / EPUB / snapshot HTML share a tab prefix (see
+            // PDF_TAB_PREFIX) because conceptually they are "documents" of the
+            // Zotero reader. The `kind` field controls which specific viewer
+            // is initialized inside the iframe.
             const id = `${PDF_TAB_PREFIX}${src}`;
-            // Recordem D'ON s'obre el document perquè el botó "Enrere" del
-            // visor (i tancar la pestanya) hi puguin tornar. Sense això,
-            // obrir un PDF des d'una taula la feia desaparèixer sense camí
-            // de retorn ("no puc tornar enrere"). Llegim els miralls (refs)
-            // perquè aquest handler viu en un effect amb deps `[]`.
+            // We remember WHERE the document is opened from so the "Back" button of the
+            // viewer (and closing the tab) can return there. Without this,
+            // opening a PDF from a table would make it disappear with no way
+            // back ("I can't go back"). We read the mirrors (refs)
+            // because this handler lives in an effect with `[]` deps.
             const origin = {
                 tableId: activeTableIdRef.current,
                 tabId: activeTabIdRef.current,
                 viewId: activeViewIdRef.current,
             };
             setTabs(prev => {
-                // Si la pestanya ja existeix (reobrir el mateix document),
-                // REFRESQUEM l'origen al lloc real d'on s'acaba de reobrir;
-                // si no, "Enrere" tornaria al primer lloc on es va obrir.
+                // If the tab already exists (reopening the same document),
+                // WE REFRESH the origin to the actual place it was just reopened from;
+                // otherwise, "Back" would return to the first place it was opened.
                 if (prev.some(t => t.id === id)) {
                     return prev.map(t => (t.id === id ? { ...t, origin } : t));
                 }
-                return [...prev, { id, title: title || 'document', isPdf: true, src, kind: kind || 'pdf', origin }];
+                return [...prev, { id, title: title || t('common.document', 'document'), isPdf: true, src, kind: kind || 'pdf', origin }];
             });
             setActiveTabId(id);
             setViewMode('editor');
             setActiveTableId(null);
         };
 
-        // Registrar a la pila d'undo els registres esborrats des d'una vista
-        // INCRUSTADA (DbViewEmbed). Aquell esborrat va per un camí propi (axios
-        // directe) que no toca aquest `undoStack`, de manera que sense això el
-        // Cmd+Z no els recuperava. La vista incrustada emet aquest event amb els
-        // ids un cop el soft-delete ha reeixit; aquí ho tractem igual que un
-        // esborrat de la vista principal.
+        // Record in the undo stack the records deleted from a view
+        // EMBEDDED (DbViewEmbed). That deletion goes through its own path (axios
+        // directly) that doesn't touch this `undoStack`, so without this the
+        // Cmd+Z wouldn't recover them. The embedded view emits this event with the
+        // ids once the soft-delete has succeeded; here we treat it the same as a
+        // deleted from the main view.
         const handleRecordsDeleted = (e) => {
             const ids = (e.detail?.ids || []).filter(Boolean);
             if (!ids.length) return;
@@ -1433,6 +1435,7 @@ export default function VaultDashboard() {
             window.removeEventListener('gnosi:open-pdf', handleOpenPdf);
             window.removeEventListener('gnosi:records-deleted', handleRecordsDeleted);
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // Global Undo/Redo shortcuts (using refs to avoid stale closures)
@@ -1441,13 +1444,13 @@ export default function VaultDashboard() {
             if (!(e.metaKey || e.ctrlKey)) return;
             const tag = document.activeElement?.tagName;
             if (tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable) return;
-            // Amb Shift, e.key arriba en majúscula ('Z'); normalitzem.
+            // With Shift, e.key arrives uppercase ('Z'); we normalize it.
             const key = String(e.key || '').toLowerCase();
             if (key === 'z' && !e.shiftKey) {
-                // Només segrestem l'atall si REALMENT hi ha una operació de taula
-                // per desfer. Si no, deixem propagar l'event perquè l'editor (o el
-                // navegador) el pugui gestionar — abans s'empassava l'undo de
-                // l'editor quan el focus era fora del contenteditable.
+                // We only hijack the shortcut if there REALLY is a table operation
+                // to undo. Otherwise, we let the event propagate so the editor (or the
+                // browser) can handle it — previously it swallowed the undo of
+                // the editor when focus was outside the contenteditable.
                 if (undoStackLenRef.current === 0) return;
                 e.preventDefault();
                 undoRef.current?.();
@@ -1462,7 +1465,7 @@ export default function VaultDashboard() {
     }, []);
 
     const handleTableSelect = useCallback(async (tableId, viewId = null, fromHistory = false) => {
-        // Si ja hi ha una pestanya de taula oberta, canviar el focus a ella
+        // If a table tab is already open, switch focus to it
         const existingTableTab = tabs.find(t => t.isTable && getTableIdFromTab(t) === tableId);
         if (existingTableTab) {
             if (!fromHistory) pushToHistory({ type: 'table', id: tableId, subId: viewId });
@@ -1472,7 +1475,7 @@ export default function VaultDashboard() {
             if (viewId) setActiveViewId(viewId);
             return;
         }
-        // Si la taula ja és la vista activa inline i no hi ha canvi de vista, no fer res
+        // If the table is already the active inline view and there's no view change, do nothing
         if (!fromHistory && activeTableId === tableId && !viewId) return;
 
         if (!fromHistory) {
@@ -1546,10 +1549,10 @@ export default function VaultDashboard() {
         setTabs(prevTabs => prevTabs.map(tab => {
             if (tab.id !== pageId) return tab;
 
-            // Si `content` és `undefined`, l'editor només ha actualitzat
-            // metadata (p.ex. rename del títol via panell o header). Mantenim
-            // el contingut existent — sense aquest fallback, perdíem el body
-            // de la pestanya cada cop que es renombrava la pàgina.
+            // If `content` is `undefined`, the editor has only updated
+            // metadata (e.g. renaming the title via panel or header). We keep
+            // the existing content — without this fallback, we used to lose the body
+            // of the tab every time the page was renamed.
             return {
                 ...tab,
                 content: content !== undefined ? content : tab.content,
@@ -1558,12 +1561,12 @@ export default function VaultDashboard() {
             };
         }));
 
-        // Propaga el canvi al state global `pages` i al cache
-        // `visibleTableRecordsById` perquè, en tornar a una vista (Table,
-        // Gallery, Kanban, Feed) després de tancar la pestanya, hi vegis
-        // immediatament el nou títol/metadata/contingut sense haver de fer
-        // refresh manual. Sense això, la vista llegeix del cache anterior i
-        // mostra dades stale fins al pròxim `fetchPages`.
+        // Propagates the change to the global `pages` state and to the cache
+        // `visibleTableRecordsById` so that, when returning to a view (Table,
+        // Gallery, Kanban, Feed) after closing the tab, you see
+        // the new title/metadata/content immediately without having to do a
+        // manual refresh. Without this, the view reads from the previous cache and
+        // shows stale data until the next `fetchPages`.
         const nextTitle = payload?.title;
         const nextMetadata = payload?.metadata;
         const applyPatch = (page) => {
@@ -1654,9 +1657,9 @@ export default function VaultDashboard() {
                 const remainingSplitTabIds = prevSplit.filter(id => id !== tabId);
 
                 if (activeTabId === tabId) {
-                    // Si tanquem un document (PDF/EPUB) que recorda d'on es va
-                    // obrir, hi tornem en comptes del fallback genèric "última
-                    // pestanya" — és el "tornar enrere" que esperava l'usuari.
+                    // If we close a document (PDF/EPUB) that remembers where it was
+                    // opened from, we return there instead of the generic "last
+                    // tab" fallback — it's the "go back" the user expected.
                     const origin = closingTab?.origin;
                     if (origin && (origin.tableId || origin.tabId)) {
                         if (origin.tabId && remainingTabs.some(tab => tab.id === origin.tabId)) {
@@ -1668,14 +1671,14 @@ export default function VaultDashboard() {
                         }
                         if (origin.tableId) {
                             // handleTableSelect fixa activeTableId/viewMode i
-                            // posa activeTabId=null per ell mateix. fromHistory=true:
-                            // tornar enrere no ha d'afegir una entrada nova a
-                            // l'historial (la URL ja és la de la taula d'origen).
+                            // sets activeTabId=null by itself. fromHistory=true:
+                            // going back should not add a new entry to
+                            // the history (the URL is already that of the origin table).
                             handleTableSelect(origin.tableId, origin.viewId || null, true);
-                            // Anem a vista de taula inline, que NO renderitza
-                            // panells de split: netegem splitTabIds per no
-                            // deixar-los orfes (invisibles fins que es torni a
-                            // un editor).
+                            // We go to the inline table view, which does NOT render
+                            // split panels: we clear splitTabIds so as not to
+                            // leaving them orphaned (invisible until you go back to
+                            // an editor).
                             return [];
                         }
                     }
@@ -1707,11 +1710,11 @@ export default function VaultDashboard() {
     }, [activeTabId, splitTableIds, handleTableSelect]);
 
     useEffect(() => {
-        // No filtrar tabs mentre les dades globals encara s'estan carregant.
-        // Sense aquesta guarda, obrir el dashboard amb URL directa
-        // /vault/page/<id> tancava el tab que loadPage acabava d'obrir
-        // (perquè `pages` encara era [] quan corria l'efecte) i el dashboard
-        // queia al "Benvinguda" en lloc de mostrar la pàgina demanada.
+        // Don't filter tabs while the global data is still loading.
+        // Without this guard, opening the dashboard with a direct URL
+        // /vault/page/<id> was closing the tab that loadPage had just opened
+        // (because `pages` was still [] when the effect ran) and the dashboard
+        // would fall back to "Welcome" instead of showing the requested page.
         if (loading || isRegistryLoading) return;
 
         const existingPageIds = new Set(pages.map(page => page.id));
@@ -1723,9 +1726,9 @@ export default function VaultDashboard() {
                     const tableId = getTableIdFromTab(tab);
                     return Boolean(tableId && existingTableIds.has(tableId));
                 }
-                // Pestanyes PDF i drawings no viuen al `pages` registry —
-                // són pestanyes "volàtils" que la sessió manté en memòria.
-                // No s'haurien de filtrar perquè no formen part del catàleg.
+                // PDF and drawings tabs don't live in the `pages` registry —
+                // are "volatile" tabs that the session keeps in memory.
+                // They shouldn't be filtered because they're not part of the catalog.
                 if (tab.isPdf || tab.isDrawing) return true;
                 return existingPageIds.has(tab.id);
             });
@@ -1786,9 +1789,9 @@ export default function VaultDashboard() {
         });
     }, [activeTabId, ensurePageTabLoaded, splitTableIds.length]);
 
-    // Reemplaça la tab activa per la pàgina destí (semàntica "same tab" del navegador).
-    // Si la pàgina destí ja és la activa, no fa res.
-    // Si no hi ha cap tab activa, equival a `loadPage` (afegir + focus).
+    // Replaces the active tab with the destination page (browser "same tab" semantics).
+    // If the destination page is already the active one, it does nothing.
+    // If there's no active tab, it's equivalent to `loadPage` (add + focus).
     const handleOpenInCurrentTab = useCallback(async (pageId) => {
         if (!pageId) return;
         if (pageId === activeTabId) return;
@@ -1797,7 +1800,7 @@ export default function VaultDashboard() {
 
         await loadPage(pageId);
 
-        // Tanca la tab anterior només si segueix existint i no s'ha promogut a la nova.
+        // Closes the previous tab only if it still exists and hasn't been promoted to the new one.
         if (previousTabId && previousTabId !== pageId) {
             setTabs(prev => prev.filter(t => t.id !== previousTabId));
             setSplitTabIds(prev => prev.filter(id => id !== previousTabId));
@@ -2006,9 +2009,9 @@ export default function VaultDashboard() {
                 pushToHistory({ type: 'table', id: tableId });
             }
         } else if (!tab.isPdf) {
-            // PDF tabs no van a l'history de navegació (no tenen ruta canonical
-            // dins el Vault) — només són d'una sessió. Reactiu a obrir-los
-            // de nou amb el mateix link.
+            // PDF tabs don't go into the navigation history (they have no canonical route
+            // within the Vault) — they're session-only. Reacts to opening them
+            // again with the same link.
             pushToHistory({ type: 'editor', id: tabId });
         }
 
@@ -2116,7 +2119,7 @@ export default function VaultDashboard() {
                 setViewMode('drawing');
                 setTabs(prev => (prev.some(t => t.id === drawingId) ? prev : [...prev, { id: drawingId, title: title, isDrawing: true }]));
             } else if (isDatabase && databaseId) {
-                // Taula dins d'una Database (App)
+                // Table inside a Database (App)
                 const tableRes = await axios.post('/api/vault/tables', {
                     name: title,
                     database_id: databaseId,
@@ -2156,9 +2159,9 @@ export default function VaultDashboard() {
         }
     };
 
-    // ---- ELIMINACIÓ INDIVIDUAL (soft-delete + toast amb "Desfer") ----
-    // Soft-delete: el backend mou la pàgina a `.trash/{id}/`. Es pot restaurar
-    // des del toast (durant uns segons) o des de la vista de paperera.
+    // ---- INDIVIDUAL DELETION (soft-delete + toast with "Undo") ----
+    // Soft-delete: the backend moves the page to `.trash/{id}/`. It can be restored
+    // from the toast (for a few seconds) or from the trash view.
     // Vegeu docs/dev_memory/directives/vault_trash.md.
     const handleDeletePage = useCallback(async (pageId, pageTitle) => {
         if (!pageId) return;
@@ -2177,10 +2180,10 @@ export default function VaultDashboard() {
             });
             handleTabClose(id);
             if (nestedPath && nestedPath.includes(id)) {
-                // Tornem al tab que `handleTabClose` ha promogut (típicament
-                // el dashboard o la taula pare des d'on s'havia obert
-                // l'entrada), enlloc de caure a `/vault` (pantalla "Hola"
-                // buida) i deixar l'usuari descontextualitzat.
+                // We return to the tab that `handleTabClose` has promoted (typically
+                // the dashboard or parent table it had been opened from
+                // the entry), instead of falling back to `/vault` (the "Hola" screen
+                // empty) and leave the user without context.
                 const remaining = tabs.filter(tab => tab.id !== id);
                 const fallback = remaining[remaining.length - 1];
                 if (fallback?.isDrawing) {
@@ -2233,7 +2236,7 @@ export default function VaultDashboard() {
                 </span>
             ), { duration: 8000 });
         } catch (err) {
-            // 404: ja no hi és al disc; neteja local i avís de fantasma.
+            // 404: it's no longer on disk; local cleanup and a ghost warning.
             if (err?.response?.status === 404) {
                 removeFromState();
                 refreshAfterDelete();
@@ -2245,10 +2248,10 @@ export default function VaultDashboard() {
         }
     }, [nestedPath, navigate, handleTabClose, fetchPages, fetchPagesByTable, activeTableId, t, tabs, pushToHistory]);
 
-    // ---- ELIMINAR MÚLTIPLES REGISTRES (soft-delete + toast amb "Desfer") ----
-    // Sense modal: el delete és reversible des del toast (8 s), des de Cmd+Z,
-    // o des de la vista de paperera. Els errors parcials (alguns 4xx/5xx) es
-    // mostren a banda, perquè no enganyem l'usuari amb un "fet" quan no és.
+    // ---- DELETE MULTIPLE RECORDS (soft-delete + toast with "Undo") ----
+    // No modal: the delete is reversible from the toast (8 s), from Cmd+Z,
+    // or from the trash view. Partial errors (some 4xx/5xx) are
+    // are shown separately, so we don't mislead the user with a "done" when it isn't.
     const handleDeleteSelected = useCallback(async (selectedIds) => {
         const idArray = [...selectedIds];
         if (idArray.length === 0) return;
@@ -2257,7 +2260,7 @@ export default function VaultDashboard() {
             if (activeTableId) void fetchPagesByTable(activeTableId);
             else void fetchPages();
         };
-        // Restore amb informe d'errors parcials. Retorna {succeeded, failed}.
+        // Restore with partial error reporting. Returns {succeeded, failed}.
         const restoreMany = async (ids) => {
             const results = await Promise.allSettled(
                 ids.map(id => axios.post(`/api/vault/pages/${id}/restore`))
@@ -2279,8 +2282,8 @@ export default function VaultDashboard() {
             return { succeeded, failed };
         };
 
-        // DELETE: 404 → tractat com a èxit (ja no és al disc; cal treure'l de
-        // l'estat local igualment); 200/2xx → èxit; resta → fallat.
+        // DELETE: 404 → treated as success (it's no longer on disk; it still needs to be removed from
+        // local state anyway); 200/2xx → success; anything else → failed.
         const deleteResults = await Promise.allSettled(
             idArray.map(id => axios.delete(`/api/vault/pages/${id}`))
         );
@@ -2297,7 +2300,7 @@ export default function VaultDashboard() {
             }
         });
 
-        // Optimistic update només per als ids confirmats.
+        // Optimistic update only for confirmed ids.
         setPages(prev => prev.filter(p => !deletedIds.includes(p.id)));
         setTableNotes(prev => prev.filter(p => !deletedIds.includes(p.id)));
         setVisibleTableRecordsById(prev => {
@@ -2344,9 +2347,9 @@ export default function VaultDashboard() {
     }, [fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
 
     // ---- DESFER (Undo) — restaurar la darrera tongada eliminada ----
-    // Si totes les restauracions fallen, no movem l'operació a redoStack: la
-    // mantenim a undoStack per permetre reintents. Si la fallida és parcial,
-    // sí que netegem (els que sí han tornat ja no es poden tornar a desfer).
+    // If all restores fail, we don't move the operation to redoStack: we
+    // keep it in undoStack to allow retries. If the failure is partial,
+    // we do clean up (the ones that did come back can no longer be undone again).
     const undoLastOperation = useCallback(async () => {
         if (undoStack.length === 0) return;
         const operation = undoStack[undoStack.length - 1];
@@ -2374,11 +2377,11 @@ export default function VaultDashboard() {
             }
 
             if (succeeded.length === 0) {
-                // Cap restauració: mantenim l'operació a undoStack per reintent.
+                // No restoration: we keep the operation in undoStack for a retry.
                 return;
             }
-            // Si parcial, només els succeeded són candidats a "redo" — la
-            // resta ja no es pot eliminar perquè potser ja ho està.
+            // If partial, only the succeeded ones are candidates for "redo" — the
+            // rest can no longer be deleted because it might already be.
             setRedoStack(prev => [...prev, { type: 'delete', ids: succeeded }]);
         } else {
             setRedoStack(prev => [...prev, operation]);
@@ -2388,7 +2391,7 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [undoStack, fetchPages, fetchPagesByTable, activeTableId]);
 
-    // ---- REFER (Redo) — tornar a moure a la paperera ----
+    // ---- REFER (Redo) — move back to trash ----
     const redoLastOperation = useCallback(async () => {
         if (redoStack.length === 0) return;
         const operation = redoStack[redoStack.length - 1];
@@ -2433,12 +2436,12 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [redoStack, pages, syncPagesState, fetchPages, fetchPagesByTable, activeTableId, handleTabClose]);
 
-    // Mantenir refs actualitzades (evita closures obsoletes al listener de Cmd+Z)
+    // Keep refs up to date (avoids stale closures in the Cmd+Z listener)
     useEffect(() => { undoRef.current = undoLastOperation; }, [undoLastOperation]);
     useEffect(() => { redoRef.current = redoLastOperation; }, [redoLastOperation]);
     useEffect(() => { undoStackLenRef.current = undoStack.length; }, [undoStack]);
     useEffect(() => { redoStackLenRef.current = redoStack.length; }, [redoStack]);
-    // Mantenim els miralls de la vista activa al dia (vegeu refs a dalt).
+    // We keep the active view mirrors up to date (see refs above).
     useEffect(() => { activeTableIdRef.current = activeTableId; }, [activeTableId]);
     useEffect(() => { activeTabIdRef.current = activeTabId; }, [activeTabId]);
     useEffect(() => { activeViewIdRef.current = activeViewId; }, [activeViewId]);
@@ -2474,11 +2477,11 @@ export default function VaultDashboard() {
             ));
 
             await fetchPages();
-            // Refresca globalIndex perquè el títol nou aparegui al lookup
-            // títol→id (els wikilinks `[[Antic títol]]` pendents quedaran
-            // sense match però `[[Nou títol]]` resoldrà correctament; el
-            // backend tampoc no fa "rewrite" automàtic dels wikilinks
-            // existents, això requeriria un job separat).
+            // Refreshes globalIndex so the new title appears in the lookup
+            // title→id (pending `[[Old title]]` wikilinks will remain
+            // unmatched, but `[[Nou títol]]` will resolve correctly; the
+            // backend doesn't do an automatic "rewrite" of the wikilinks
+            // that already exist, either; that would require a separate job).
             void fetchGlobalIndex();
             toast.success(t('success.title_updated'));
         } catch {
@@ -2488,10 +2491,10 @@ export default function VaultDashboard() {
 
     const handleToggleFavorite = useCallback(async (pageId) => {
         if (!pageId) return;
-        // Calcula el nou valor a partir de l'estat local (cau més ràpid que
-        // un GET, i serveix també com a base per al patch optimista que fa
-        // que la secció Favorits aparegui de seguida al sidebar sense
-        // esperar al PUT + fetchPages següents).
+        // Computes the new value from local state (it resolves faster than
+        // a GET, and also serves as the basis for the optimistic patch that makes
+        // the Favorites section appear right away in the sidebar without
+        // waiting for the subsequent PUT + fetchPages).
         const currentPage = pagesRef.current.find(p => p.id === pageId)
             || tabs.find(t => t.id === pageId);
         const wasFav = currentPage?.metadata?.favorite === true
@@ -2510,9 +2513,9 @@ export default function VaultDashboard() {
             ? { ...t, metadata: { ...(t.metadata || {}), favorite: nextFav } }
             : t));
 
-        // 2) Persistència al backend. Necessitem el contingut actual per al
-        // PUT (no perdre cos de la nota); si el GET o el PUT fallen,
-        // revertim l'optimista per no enganyar l'usuari.
+        // 2) Persistence to the backend. We need the current content for the
+        // PUT (not lose the note body); if the GET or the PUT fail,
+        // we revert the optimistic update so as not to mislead the user.
         try {
             const getRes = await axios.get(`/api/vault/pages/${pageId}`);
             const { content, metadata, title } = getRes.data;
@@ -2524,8 +2527,8 @@ export default function VaultDashboard() {
                 parent_id: updatedMeta.parent_id || null,
                 metadata: updatedMeta,
             });
-            // No esperem a fetchPages (és lent en xarxes saturades); el
-            // patch optimista ja ha refrescat la UI.
+            // We don't wait for fetchPages (it's slow on saturated networks); the
+            // optimistic patch has already refreshed the UI.
         } catch (err) {
             console.error(err);
             // Revertir optimista
@@ -2554,12 +2557,12 @@ export default function VaultDashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [resolvePageTableId, setActiveTableId, setIsSchemaModalOpen]);
 
-    // Persisteix una nova opció de `select`/`multi_select` al schema d'una
-    // taula. Es crida quan l'usuari escriu un valor nou al picker del panell
-    // de propietats. Sense això, el valor només queda al metadata del
-    // registre (i acaba reapareixent com a "opció observada" via
-    // getAvailableOptions) — sí funciona en visualització, però es perd la
-    // intenció de tenir-la com a opció oficial del schema.
+    // Persist a new `select`/`multi_select` option to the schema of a
+    // table. Called when the user types a new value into the panel's picker
+    // of properties. Without this, the value only stays in the metadata of the
+    // record (and ends up reappearing as an "observed option" via
+    // getAvailableOptions) — it does work for display, but the
+    // intent of having it as an official schema option is lost.
     const handleAddSchemaOption = useCallback(async (tableId, fieldId, nextOptions) => {
         if (!tableId || !fieldId || !Array.isArray(nextOptions)) return;
         try {
@@ -2616,12 +2619,12 @@ export default function VaultDashboard() {
         return buildTableCrumbsByTableId(tableId);
     };
 
-    // Construeix el tram "contenidor" del breadcrumb d'una entrada segons
-    // l'ORIGEN real de navegació (d'on l'ha obert l'usuari), no només la
-    // jerarquia estructural de la taula. Arbre de casos:
-    //   - origen = dashboard   -> tram cap al dashboard (hi torna en clicar)
-    //   - origen = vista taula  -> tram BD / Taula (a la vista exacta)
-    //   - altres / desconegut   -> null (el cridador cau a la jerarquia estructural)
+    // Builds the "container" segment of an entry's breadcrumb according to
+    // the actual navigation ORIGIN (where the user opened it from), not just the
+    // structural hierarchy of the table. Case tree:
+    //   - origin = dashboard   -> segment toward the dashboard (returns there on click)
+    //   - source = table view  -> DB / Table segment (at the exact view)
+    //   - other / unknown   -> null (the caller falls back to the structural hierarchy)
     const buildOriginContainerCrumbs = (origin) => {
         if (!origin) return null;
         if (origin.type === 'table') {
@@ -2651,9 +2654,9 @@ export default function VaultDashboard() {
         const hasParentHierarchy = pageBreadcrumbs.length > 1;
 
         if (!hasParentHierarchy) {
-            // Per a un registre de taula, prioritza l'origen real de navegació
-            // (dashboard o vista de taula) i, si no en tenim, cau a la
-            // jerarquia estructural de la taula a què pertany el registre.
+            // For a table record, prioritize the actual navigation origin
+            // (dashboard or table view) and, if we don't have one, fall back to the
+            // structural hierarchy of the table the record belongs to.
             let containerCrumbs = null;
             if (resolvePageTableId(activePage)) {
                 const currentHistoryEntry = navigationHistory[historyPointer];
@@ -2672,11 +2675,11 @@ export default function VaultDashboard() {
     const currentActiveTab = activeTabId ? tabs.find(t => t.id === activeTabId) : null;
     const canToggleCodeView = viewMode === 'editor' && Boolean(currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
     const isCodeViewActive = canToggleCodeView ? Boolean(codeViewByTabId[currentActiveTab.id]) : false;
-    // Traduir pàgina: només per a pàgines markdown editables (ni taules ni PDFs).
+    // Translate page: only for editable markdown pages (not tables or PDFs).
     const canTranslatePage = viewMode === 'editor' && Boolean(currentOpenPage && currentActiveTab && !currentActiveTab.isTable && !currentActiveTab.isPdf);
-    // GAP 2: si la pàgina oberta és un registre d'una taula traduïble (i no és
-    // ella mateixa una traducció), el menú ha de traduir els CAMPS a un subitem
-    // (mode 'row'), no el cos a una subpàgina. Per a pàgines normals, mode 'page'.
+    // GAP 2: if the open page is a record of a translatable table (and is not
+    // itself a translation), the menu must translate the FIELDS into a submenu item
+    // ('row' mode), not the body into a subpage. For normal pages, 'page' mode.
     const openPageTableId = currentOpenPage ? resolvePageTableId(currentOpenPage) : null;
     const openPageTable = openPageTableId ? registry.tables?.find(t => t.id === openPageTableId) : null;
     const openPageIsTranslatableRecord = Boolean(openPageTable?.translation_enabled)
@@ -2896,9 +2899,9 @@ export default function VaultDashboard() {
         const tab = tabs.find(t => t.id === tabId);
         if (!tab) return null;
 
-        // Pestanyes PDF: visor integrat. No té contingut Markdown ni
-        // metadades del Vault — només ruta del fitxer. Es comporta com
-        // qualsevol pestanya (es pot tancar, reordenar, split-view).
+        // PDF tabs: integrated viewer. It has no Markdown content or
+        // Vault metadata — only the file path. It behaves like
+        // any tab (it can be closed, reordered, split-view).
         if (tab.isPdf) {
             return (
                 <ZoteroReaderTab
@@ -2906,8 +2909,8 @@ export default function VaultDashboard() {
                     src={tab.src}
                     title={tab.title}
                     kind={tab.kind || 'pdf'}
-                    // Botó "Enrere" del visor → tanca el document i torna a
-                    // d'on es va obrir (handleTabClose honora `tab.origin`).
+                    // "Back" button of the viewer → closes the document and returns to
+                    // it was opened from (handleTabClose honors `tab.origin`).
                     onClose={() => handleTabClose(tab.id)}
                 />
             );
@@ -2982,7 +2985,7 @@ export default function VaultDashboard() {
                     />
                     <div className="flex-1 overflow-hidden flex flex-col">
                         {(() => {
-                            // El `graph` no té component editable equivalent → es manté a part.
+                            // The `graph` has no equivalent editable component → kept separate.
                             if (cv.type === 'graph') {
                                 return (
                                     <VaultGraph
@@ -3050,8 +3053,8 @@ export default function VaultDashboard() {
             );
         }
 
-        // Daily notes: barra de navegació per dies (← dia anterior · Avui · dia següent →),
-        // estil Obsidian. Només es mostra si la pàgina activa és una nota diària.
+        // Daily notes: day navigation bar (← previous day · Today · next day →),
+        // Obsidian style. Only shown if the active page is a daily note.
         const dailyDate = tab.metadata?.note_type === 'daily' ? (tab.metadata?.date || tab.title) : null;
         const shiftDay = (iso, delta) => {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
@@ -3201,7 +3204,7 @@ export default function VaultDashboard() {
                 />
                 <div className="flex-1 overflow-hidden flex flex-col">
                     {(() => {
-                        // El `graph` no té component editable equivalent → es manté a part.
+                        // The `graph` has no equivalent editable component → kept separate.
                         if (cv.type === 'graph') {
                             return (
                                 <VaultGraph
@@ -3494,11 +3497,11 @@ export default function VaultDashboard() {
                                         }
                                     };
 
-                                    // El `graph` no té component editable equivalent → es manté
-                                    // a part (com als panells dividits, que ja ho feien). Sense
-                                    // aquesta branca, VaultViewBody el tractava com a taula.
-                                    // Embolcall flex a alçada completa: l'arrel de VaultGraph és
-                                    // `flex-1` i en un pare no-flex quedava amb alçada 0.
+                                    // The `graph` has no equivalent editable component → kept
+                                    // separately (as split panels already did). Without
+                                    // this branch, VaultViewBody treated it as a table.
+                                    // Full-height flex wrapper: VaultGraph's root is
+                                    // `flex-1` and in a non-flex parent it ended up with height 0.
                                     if (cv.type === 'graph') {
                                         return (
                                             <div className="h-full flex flex-col">
@@ -3561,8 +3564,8 @@ export default function VaultDashboard() {
                                         />
                                     );
 
-                                    // Embolcalls per-tipus (alçada/scroll/padding/fons);
-                                    // table/list no en porta. El cos és sempre VaultViewBody.
+                                    // Per-type wrappers (height/scroll/padding/background);
+                                    // table/list don't carry one. The body is always VaultViewBody.
                                     const wrapperClass = {
                                         board: 'p-0 h-full overflow-y-auto w-full custom-scrollbar bg-[var(--bg-primary)]',
                                         calendar: 'p-6 h-full',
@@ -3782,28 +3785,28 @@ export default function VaultDashboard() {
                                 const newProperties = buildTablePropertiesFromSchema(newSchemaObj);
                                 try {
                                     // 1. Update table schema (Backend registry).
-                                    // `translation_enabled` és metadada de la taula
-                                    // (no de la vista) perquè defineix què es pot
-                                    // traduir, no com es mostra.
+                                    // `translation_enabled` is metadata of the table
+                                    // (not of the view) because it defines what can be
+                                    // translated, not how it's displayed.
                                     await axios.post(`/api/vault/tables`, {
                                         ...activeTable,
                                         properties: newProperties,
                                         translation_enabled: !!viewConfig.enableTranslation,
                                         drupal_sync_enabled: !!viewConfig.enableDrupalSync,
-                                        // Conservem bundle i mapping encara que la
-                                        // sincronització estigui desactivada: desactivar
-                                        // no ha de destruir el mapeig (es recupera si es
-                                        // reactiva). Abans s'enviava '' / {} i un autosave
-                                        // amb el toggle off esborrava tot el mapeig.
+                                        // We keep bundle and mapping even though the
+                                        // sync is disabled: disabling
+                                        // must not destroy the mapping (it's recovered if
+                                        // re-enabled). Previously '' / {} used to be sent, and an autosave
+                                        // with the toggle off would erase the entire mapping.
                                         drupal_bundle: viewConfig.drupalBundle || '',
                                         drupal_field_mapping: viewConfig.drupalFieldMapping || {},
                                     });
                                     setSchema(newSchemaObj);
 
                                     // 2. Update view configuration if it exists.
-                                    // Es desa la selecció REAL de camps de l'usuari
-                                    // també per a la vista principal (abans es
-                                    // reescrivia a tot l'esquema i la selecció es
+                                    // The user's REAL field selection is saved
+                                    // also for the main view (previously it was
+                                    // rewritten to the whole schema and the selection was
                                     // perdia en silenci).
                                     if (cv?.id) {
                                         await handleUpdateView({
@@ -3814,9 +3817,9 @@ export default function VaultDashboard() {
                                     }
 
                                     await fetchRegistry();
-                                    // No tanquem el modal ni mostrem toast: el modal
-                                    // fa autosave continu — tancar-lo a cada save
-                                    // l'expulsava al primer canvi de l'usuari.
+                                    // We don't close the modal or show a toast: the modal
+                                    // does continuous autosave — closing it on every save
+                                    // would kick it out on the user's first change.
                                 } catch (err) {
                                     console.error("Error saving structure:", err);
                                     toast.error(t('errors.save_config'));
@@ -3828,11 +3831,11 @@ export default function VaultDashboard() {
             }
             {
                 isViewConfigOpen && viewToConfigure && (
-                    // El MATEIX modal que per a l'embed (PageViewModal), en mode
-                    // "table": configura/crea una vista de la taula amb menys
-                    // opcions (sense taula origen, encapçalament, abast ni "desa
-                    // a les vistes"). `editingView` amb id → actualitza; sense
-                    // id (p. ex. {type}) → crea una vista nova.
+                    // The SAME modal as for the embed (PageViewModal), in mode
+                    // "table": configures/creates a table view with fewer
+                    // options (no source table, heading, scope, or "save
+                    // to views"). `editingView` with id → updates; without
+                    // id (e.g. {type}) → creates a new view.
                     <PageViewModal
                         isOpen={isViewConfigOpen}
                         mode="table"

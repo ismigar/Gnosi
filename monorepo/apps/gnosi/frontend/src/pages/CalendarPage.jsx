@@ -20,10 +20,10 @@ export default function CalendarPage() {
     const { t } = useTranslation();
     const navigate = useNavigate();
     const [pages, setPages] = useState([]);           // notes vault locals (source=Gnosi)
-    const [externalEvents, setExternalEvents] = useState([]); // events de Google/CalDAV
-    const [googleCalendars, setGoogleCalendars] = useState([]); // calendaris reals de Google (id, name, account)
+    const [externalEvents, setExternalEvents] = useState([]); // Google/CalDAV events
+    const [googleCalendars, setGoogleCalendars] = useState([]); // real Google calendars (id, name, account)
     const [undatedNotes, setUndatedNotes] = useState([]);
-    const [dateRange, setDateRange] = useState(null);  // { start, end } del rang visible
+    const [dateRange, setDateRange] = useState(null);  // { start, end } of the visible range
     const [loading, setLoading] = useState(true);
     const [currentTitle, setCurrentTitle] = useState('');
     const [activeView, setActiveView] = useState('dayGridMonth');
@@ -32,26 +32,26 @@ export default function CalendarPage() {
     const [enabledTables, setEnabledTables] = useState([]); // Enabled tables as calendars
     const [integrations, setIntegrations] = useState({});
     const calendarRef = useRef(null);
-    // Ref que guarda la selecció original del servidor (per restaurar fonts async com sub-calendaris)
+    // Ref that stores the original server selection (to restore async sources like sub-calendars)
     const savedCalendarSelectionRef = useRef(undefined);
     const [showLeftSidebar, setShowLeftSidebar] = useState(true);
     const [showRightSidebar, setShowRightSidebar] = useState(true);
     const [isGlobalSearchOpen, setIsGlobalSearchOpen] = useState(false);
     const [partialData, setPartialData] = useState(false);
 
-    // Notificador de reunions amb IA (orden del día)
+    // AI meeting notifier (agenda)
     const [remindersEnabled, setRemindersEnabled] = useState(false);
     const [remindersLead, setRemindersLead] = useState(10);
 
-    // Estado de selección y edición de eventos
-    const [selectedEventId, setSelectedEventId] = useState(null); // ID del evento seleccionado
-    const [isEditingEvent, setIsEditingEvent] = useState(false); // Si está en modo edición
+    // Event selection and editing state
+    const [selectedEventId, setSelectedEventId] = useState(null); // ID of the selected event
+    const [isEditingEvent, setIsEditingEvent] = useState(false); // Whether it's in edit mode
     const [selectedEvent, setSelectedEvent] = useState(null); // Event complet seleccionat
 
     // Side panel (replaces popup modal)
     const [eventPanel, setEventPanel] = useState(null); // null | { mode, data, date, isEditing }
 
-    // Menú contextual
+    // Context menu
     const [contextMenu, setContextMenu] = useState({
         open: false,
         x: 0,
@@ -62,7 +62,7 @@ export default function CalendarPage() {
         allDay: false
     });
 
-    // Estats de supressió
+    // Deletion states
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [isRecurrenceChoiceOpen, setIsRecurrenceChoiceOpen] = useState(false);
     const [isRecurrenceModifyOpen, setIsRecurrenceModifyOpen] = useState(false);
@@ -78,14 +78,14 @@ export default function CalendarPage() {
             if (src) sources.add(src);
         });
 
-        // Fonts de les notes vault locals
+        // Sources for local vault notes
         pages.forEach(p => {
             const s = (p.metadata?.source || '').trim();
             if (!s || s === 'Gnosi' || s === 'Gnosi Vault') return;
             if (s !== 'es_es' && !s.includes('holidays')) sources.add(s);
         });
 
-        // Fonts dels events externs híbrids
+        // Sources of hybrid external events
         externalEvents.forEach(ev => {
             const s = (ev.metadata?.source || '').trim();
             if (s && s !== 'Gnosi' && s !== 'Gnosi Vault') sources.add(s);
@@ -123,7 +123,7 @@ export default function CalendarPage() {
 
             const customColor = integrations?.calendar_colors?.[s];
 
-            // Resol el calendari real de Google (calendar_id + provider) per crear-hi events de debò
+            // Resolves the real Google calendar (calendar_id + provider) to actually create events in it
             let googleCalId = null;
             let provider = null;
             if (!isGnosi && !isTable) {
@@ -165,18 +165,18 @@ export default function CalendarPage() {
         calendarConfigs.forEach(cfg => {
             if (cfg.source) map[cfg.source] = cfg.color;
         });
-        // Fallbacks clau per notes locals
+        // Key fallbacks for local notes
         const vaultColor = integrations?.vault_calendar?.color || 'var(--gnosi-primary)';
         if (!map['Gnosi']) map['Gnosi'] = vaultColor;
         if (!map['Gnosi Vault']) map['Gnosi Vault'] = vaultColor;
         return map;
     }, [calendarConfigs, integrations]);
 
-    // Initial selection: restaura la visibilitat guardada, inclús per fonts async (sub-calendaris)
+    // Initial selection: restores the saved visibility, even for async sources (sub-calendars)
     useEffect(() => {
         if (calendarConfigs.length === 0) return;
 
-        // Inicialitzar la ref amb la selecció guardada (només la primera vegada que integrations té dades)
+        // Initialize the ref with the saved selection (only the first time integrations has data)
         if (savedCalendarSelectionRef.current === undefined && Object.keys(integrations).length > 0) {
             const raw = integrations?.calendar_selection;
             if (Array.isArray(raw) && raw.length > 0) {
@@ -184,31 +184,31 @@ export default function CalendarPage() {
             } else if (raw?.selection && Array.isArray(raw.selection) && raw.selection.length > 0) {
                 savedCalendarSelectionRef.current = new Set(raw.selection);
             } else {
-                savedCalendarSelectionRef.current = null; // null = cap selecció guardada → mostrar tot
+                savedCalendarSelectionRef.current = null; // null = no saved selection → show everything
             }
         }
 
         const savedSet = savedCalendarSelectionRef.current;
 
-        // Afegir fonts que hagin d'estar seleccionades però encara no ho estan
+        // Add sources that should be selected but aren't yet
         setSelectedCalendars(prev => {
             const next = new Set(prev);
             let changed = false;
             calendarConfigs.forEach(cfg => {
                 if (!next.has(cfg.source)) {
-                    // Afegir si: no hi ha selecció guardada (mostrar tot) o estava a la selecció guardada
+                    // Add if: there's no saved selection (show everything) or it was in the saved selection
                     if (savedSet === null || savedSet === undefined || savedSet.has(cfg.source)) {
                         next.add(cfg.source);
                         changed = true;
                     }
-                    // Si estava explícitament amagat (no és a savedSet) → no afegir
+                    // If it was explicitly hidden (not in savedSet) → don't add
                 }
             });
             return changed ? next : prev;
         });
     }, [calendarConfigs, integrations]);
 
-    // Converteix un event híbrid (Google/CalDAV) al format allNotes que espera DigitalBrainCalendar
+    // Converts a hybrid event (Google/CalDAV) to the allNotes format expected by DigitalBrainCalendar
     const convertHybridEvent = (ev) => ({
         id: ev.id,
         title: ev.title,
@@ -226,7 +226,7 @@ export default function CalendarPage() {
             readonly: ev.is_read_only || false,
             attendees: ev.attendees || [],
             organizer: ev.organizer || '',
-            // camps interns per distingir vault vs extern
+            // internal fields to distinguish vault vs external
             _provider: ev.provider,
             _account: ev.account,
             _calendar_id: ev.calendar_id,
@@ -236,9 +236,9 @@ export default function CalendarPage() {
         },
     });
 
-    // Fetch d'events externs (Google Calendar / CalDAV) pel rang visible.
-    // Si canvia el rang/cerca mentre una request està en vol, s'avorta la
-    // anterior per evitar que setExternalEvents rebi dades obsoletes (race).
+    // Fetch external events (Google Calendar / CalDAV) for the visible range.
+    // If the range/search changes while a request is in flight, the
+    // previous one to prevent setExternalEvents from receiving stale data (race).
     const externalEventsAbortRef = useRef(null);
     const fetchExternalEvents = async (timeMin, timeMax, search = '') => {
         if (externalEventsAbortRef.current) {
@@ -304,7 +304,7 @@ export default function CalendarPage() {
 
                 const hasDate = page.metadata?.date;
                 const source = (page.metadata?.source || '').trim();
-                // Excloure events de proveïdors externs (ara venen de l'API híbrida)
+                // Exclude events from external providers (now they come from the hybrid API)
                 if (source && source !== 'Gnosi' && source !== 'Gnosi Vault') return;
 
                 if (hasDate) {
@@ -336,7 +336,7 @@ export default function CalendarPage() {
         fetchPages();
     }, []);
 
-    // Carrega els calendaris reals de Google (id/account) per poder crear-hi events de debò
+    // Loads the real Google calendars (id/account) to be able to actually create events in them
     useEffect(() => {
         let cancelled = false;
         axios.get('/api/calendar/calendars')
@@ -345,7 +345,7 @@ export default function CalendarPage() {
         return () => { cancelled = true; };
     }, []);
 
-    // Avortar la request d'events externs si el component es desmunta.
+    // Abort the external events request if the component unmounts.
     useEffect(() => {
         return () => {
             if (externalEventsAbortRef.current) {
@@ -355,7 +355,7 @@ export default function CalendarPage() {
         };
     }, []);
 
-    // Re-fetch events externs quan canvia el rang de dates o la cerca
+    // Re-fetch external events when the date range or the search changes
     useEffect(() => {
         if (dateRange) {
             fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
@@ -379,9 +379,9 @@ export default function CalendarPage() {
     const handleCreateEventAtDate = useCallback((clickedDate) => {
         const hasTime = clickedDate instanceof Date && (clickedDate.getHours() !== 0 || clickedDate.getMinutes() !== 0);
         const dateStr = hasTime ? formatLocalDateTime(clickedDate) : formatLocalDate(clickedDate);
-        // Obre el formulari en mode creació SENSE crear encara la cita: només es desa
-        // quan l'usuari hi posa un títol (l'autosave del formulari ho gestiona). Així
-        // s'eviten els esborranys "Nova cita" buits si es tanca sense escriure res.
+        // Opens the form in creation mode WITHOUT creating the appointment yet: it's only saved
+        // when the user gives it a title (the form's autosave handles this). This way
+        // we avoid empty "New appointment" drafts if it's closed without typing anything.
         setSelectedEventId(null);
         setSelectedEvent(null);
         setIsEditingEvent(true);
@@ -427,10 +427,10 @@ export default function CalendarPage() {
         }
     };
 
-    // Shortcuts de teclat
+    // Keyboard shortcuts
     useEffect(() => {
         const handleKeyDown = (e) => {
-            // Cmd+K -> Cerca global
+            // Cmd+K -> Global search
             if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
                 e.preventDefault();
                 setIsGlobalSearchOpen(prev => !prev);
@@ -448,9 +448,9 @@ export default function CalendarPage() {
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    // Clic en evento → obre panel d'edició (vault) o de detall (extern)
+    // Click on event → opens edit panel (vault) or detail panel (external)
     const handleEventClick = useCallback(async (pageId, patchData = null, action = null) => {
-        // Si ens passen patchData i action, és una modificació directa (drag/resize)
+        // If patchData and action are passed to us, it's a direct modification (drag/resize)
         if (patchData && action) {
             const event = pages.find(p => p.id === pageId) || externalEvents.find(ev => ev.id === pageId);
             if (!event) return;
@@ -462,7 +462,7 @@ export default function CalendarPage() {
                 return;
             }
 
-            // Si no és recurrent, apliquem el patch directament
+            // If it's not recurring, we apply the patch directly
             try {
                 await axios.patch(`/api/vault/pages/${pageId}`, { metadata: patchData });
                 toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
@@ -482,12 +482,12 @@ export default function CalendarPage() {
             return;
         }
 
-        // Comprovar si és un event extern (Google/CalDAV)
+        // Check whether it's an external event (Google/CalDAV)
         const externalEv = externalEvents.find(ev => ev.id === pageId);
         if (externalEv) {
-            // Les cites de Google pròpies (no de només lectura) s'obren en mode edició perquè
-            // es puguin editar (es desen amb PATCH a Google); les compartides/read-only i la
-            // resta d'externs, en mode lectura.
+            // One's own Google appointments (not read-only) open in edit mode so that
+            // they can be edited (they're saved with PATCH to Google); shared/read-only ones and the
+            // the rest of the external ones, in read-only mode.
             const m = externalEv.metadata || {};
             const isEditableGoogle = (m._provider === 'google' || !!m._account) && !m._vault_path && !m.readonly;
             setSelectedEventId(pageId);
@@ -498,7 +498,7 @@ export default function CalendarPage() {
             return;
         }
 
-        // Event de vault → carrega pàgina completa per editar
+        // Vault event → loads the full page for editing
         try {
             const res = await axios.get(`/api/vault/pages/${pageId}`);
             setSelectedEventId(pageId);
@@ -512,9 +512,9 @@ export default function CalendarPage() {
         }
     }, [selectedEventId, externalEvents, pages, t]);
 
-    // Menú contextual (clic dret)
+    // Context menu (right click)
     const handleContextMenu = useCallback(({ x, y, date, eventId = null, instanceStart = '', allDay = false }) => {
-        // Si s'ha fet clic sobre un event, seleccionar-lo i buscar les seves dades
+        // If a click was made on an event, select it and look up its data
         if (eventId) {
             setSelectedEventId(eventId);
             const event = pages.find(p => p.id === eventId);
@@ -523,7 +523,7 @@ export default function CalendarPage() {
         setContextMenu({ open: true, x, y, date, eventId, instanceStart, allDay });
     }, [pages]);
 
-    // Obrir panel en mode crear des del context menu
+    // Open panel in create mode from the context menu
     const handleNewEventFromContext = useCallback(() => {
         const baseDate = contextMenu.date ? new Date(`${contextMenu.date}T09:00:00`) : new Date();
         handleCreateEventAtDate(baseDate);
@@ -541,7 +541,7 @@ export default function CalendarPage() {
 
     // buildOccurrenceKey moved to utils/calendarUtils.js
 
-    // Eliminar evento desde context menu (reforçat amb ID directe)
+    // Delete event from context menu (reinforced with direct ID)
     const handleDeleteFromContext = useCallback((forcedId = null) => {
         const targetEventId = forcedId || contextMenu.eventId || selectedEventId;
         if (!targetEventId) return;
@@ -549,7 +549,7 @@ export default function CalendarPage() {
         const eventData = pages.find(p => p.id === targetEventId) || selectedEvent;
         if (!eventData) return;
 
-        // Guàrdia d'origen
+        // Origin guard
         const isGoogleEvent = eventData?.metadata?.source === 'google' || 
                              (typeof eventData.id === 'string' && eventData.id.length > 20 && !eventData.id.includes('-'));
         
@@ -604,7 +604,7 @@ export default function CalendarPage() {
                 });
                 toast.success(t('calendar.instance_deleted'));
             } else if (isFollowing) {
-                // Split: Truncar la rrule del mestre perquè acabi abans d'avui
+                // Split: Truncate the master's rrule so it ends before today
                 const newRrule = truncateRruleBefore(eventData.metadata?.rrule, contextMenu.instanceStart);
                 await axios.patch(`/api/vault/pages/${targetEventId}`, {
                     metadata: { rrule: newRrule }
@@ -638,7 +638,7 @@ export default function CalendarPage() {
 
         try {
             if (isInstanceOnly) {
-                // 1. Afegir instància actual a EXDATE
+                // 1. Add the current instance to EXDATE
                 const occurrenceKey = buildOccurrenceKey(
                     instanceStart,
                     null,
@@ -658,7 +658,7 @@ export default function CalendarPage() {
                     }
                 });
 
-                // 2. Crear nova cita única amb les noves dades
+                // 2. Create a new single appointment with the new data
                 const newMetadata = {
                     ...(eventData.metadata || {}),
                     ...patchData,
@@ -675,18 +675,18 @@ export default function CalendarPage() {
 
                 toast.success(t('calendar.instance_updated', 'Instància actualitzada!'));
             } else if (isFollowing) {
-                // 1. Truncar la rrule del mestre antic
+                // 1. Truncate the old master's rrule
                 const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, instanceStart);
                 await axios.patch(`/api/vault/pages/${id}`, {
                     metadata: { rrule: newRruleOldMaster }
                 });
 
-                // 2. Crear un nou mestre que comenci en la nova data
+                // 2. Create a new master that starts on the new date
                 const newMetadata = {
                     ...(eventData.metadata || {}),
-                    ...patchData, // Inclou la nova date i end_date
+                    ...patchData, // Includes the new date and end_date
                     exdates: [],
-                    // rrule es manté el mateix (sense el truncament)
+                    // rrule stays the same (without the truncation)
                 };
                 delete newMetadata.id;
 
@@ -698,7 +698,7 @@ export default function CalendarPage() {
 
                 toast.success(t('calendar.series_split_updated', 'Sèrie dividida i actualitzada!'));
             } else {
-                // Modificar tota la sèrie (el master)
+                // Modify the whole series (the master)
                 await axios.patch(`/api/vault/pages/${id}`, {
                     metadata: patchData
                 });
@@ -714,21 +714,21 @@ export default function CalendarPage() {
         }
     };
 
-    // Callback quan es desa un event - actualizar solo ese evento en el estado local
+    // Callback for when an event is saved - update only that event in the local state
     const handleEventSaved = useCallback((updatedEvent) => {
         if (updatedEvent) {
             const m = updatedEvent.metadata || {};
             const isGoogle = (m._provider === 'google' || !!m._account) && !m._vault_path;
             if (isGoogle) {
-                // Actualització optimista d'un event extern (Google): actualitza NOMÉS aquest
-                // event, sense refetch, per no recarregar tot el calendari a cada tecla.
+                // Optimistic update of an external event (Google): updates ONLY this
+                // event, without refetching, so as not to reload the whole calendar on every keystroke.
                 setExternalEvents(prev => prev.map(ev =>
                     ev.id === updatedEvent.id
                         ? { ...ev, ...updatedEvent, metadata: { ...ev.metadata, ...(updatedEvent.metadata || {}) } }
                         : ev
                 ));
             } else {
-                // Actualització optimista (Vault)
+                // Optimistic update (Vault)
                 setPages(prevPages => {
                     const existingIndex = prevPages.findIndex(page => page.id === updatedEvent.id);
                     if (existingIndex !== -1) {
@@ -743,13 +743,13 @@ export default function CalendarPage() {
                                 : page
                         );
                     } else {
-                        // Event nou: afegir
+                        // New event: add
                         return [...prevPages, updatedEvent];
                     }
                 });
             }
 
-            // Si l'event actualitzat és el seleccionat, actualitzar selectedEvent també
+            // If the updated event is the selected one, update selectedEvent too
             if (selectedEventId === updatedEvent.id) {
                 setSelectedEvent(prevEvent => ({
                     ...prevEvent,
@@ -758,15 +758,15 @@ export default function CalendarPage() {
                 }));
             }
         } else {
-            // Si no es passa cap event, refresca-ho tot: Vault i també els events de
-            // Google (les operacions a Google criden onSaved() sense argument).
+            // If no event is passed, refresh everything: Vault and also the events from
+            // Google (operations on Google call onSaved() without an argument).
             fetchPages();
             if (dateRange) fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedEventId, dateRange, searchQuery]);
 
-    // RSVP: acceptar/rebutjar/potser una invitació de Google Calendar
+    // RSVP: accept/decline/maybe a Google Calendar invitation
     const handleRsvp = useCallback(async (rsvpStatus) => {
         if (!eventPanel) return;
         const eventId = eventPanel.data?.id;
@@ -781,7 +781,7 @@ export default function CalendarPage() {
                 calendar_id: calId,
                 rsvp: rsvpStatus,
             });
-            // Actualitzar estat local sense re-fetch
+            // Update local state without re-fetching
             setEventPanel(prev => {
                 if (!prev) return prev;
                 const updatedAttendees = (prev.data?.metadata?.attendees || []).map(a =>
@@ -807,9 +807,9 @@ export default function CalendarPage() {
                     },
                 };
             }));
-            const label = rsvpStatus === 'accepted' ? '✓ Invitació acceptada'
-                : rsvpStatus === 'declined' ? '✗ Invitació rebutjada'
-                : '? Marcat com a potser';
+            const label = rsvpStatus === 'accepted' ? t('calendar.rsvp_accepted', '✓ Invitació acceptada')
+                : rsvpStatus === 'declined' ? t('calendar.rsvp_declined', '✗ Invitació rebutjada')
+                : t('calendar.rsvp_maybe', '? Marcat com a potser');
             toast.success(label);
         } catch (err) {
             console.error('handleRsvp error:', err);
@@ -834,7 +834,7 @@ export default function CalendarPage() {
         setActiveView(view);
     };
 
-    // ── Recordatoris de reunions (notificador IA) ──────────────────────────
+    // ── Meeting reminders (AI notifier) ──────────────────────────
     useEffect(() => {
         let alive = true;
         axios.get('/api/calendar/reminders/settings')
@@ -870,7 +870,7 @@ export default function CalendarPage() {
         <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
             <AppHeader icon={Calendar} title={`${t('calendar.title')} ${currentTitle ? `- ${currentTitle}` : ''}`}>
                 <div className="flex items-center gap-4">
-                    {/* Toggles de Panells Laterals */}
+                    {/* Side Panel Toggles */}
                     <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
                         <button 
                             onClick={() => {
@@ -878,7 +878,7 @@ export default function CalendarPage() {
                                 setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
                             }}
                             className={`p-1.5 rounded transition-all ${showLeftSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title={showLeftSidebar ? "Amagar barra esquerra" : "Mostrar barra esquerra"}
+                            title={showLeftSidebar ? t('calendar.hide_left_sidebar', 'Amagar barra esquerra') : t('calendar.show_left_sidebar', 'Mostrar barra esquerra')}
                         >
                             <PanelLeft size={16} strokeWidth={2.5} />
                         </button>
@@ -889,18 +889,18 @@ export default function CalendarPage() {
                                 setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
                             }}
                             className={`p-1.5 rounded transition-all ${showRightSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title={showRightSidebar ? "Amagar barra dreta" : "Mostrar barra dreta"}
+                            title={showRightSidebar ? t('calendar.hide_right_sidebar', 'Amagar barra dreta') : t('calendar.show_right_sidebar', 'Mostrar barra dreta')}
                         >
                             <PanelRight size={16} strokeWidth={2.5} />
                         </button>
                     </div>
 
-                    {/* Notificador de reunions amb IA */}
+                    {/* AI meeting notifier */}
                     <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-0.5 rounded-lg border border-[var(--border-primary)] shadow-sm">
                         <button
                             onClick={() => saveReminderSettings({ enabled: !remindersEnabled })}
                             className={`flex items-center gap-1 p-1.5 rounded transition-all ${remindersEnabled ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title={remindersEnabled ? 'Recordatoris de reunions amb IA activats' : 'Activar recordatoris de reunions amb IA'}
+                            title={remindersEnabled ? t('calendar.ai_reminders_active', 'Recordatoris de reunions amb IA activats') : t('calendar.ai_reminders_activate', 'Activar recordatoris de reunions amb IA')}
                         >
                             <Bell size={16} strokeWidth={2.5} />
                         </button>
@@ -909,12 +909,12 @@ export default function CalendarPage() {
                                 value={remindersLead}
                                 onChange={(e) => saveReminderSettings({ lead_minutes: Number(e.target.value) })}
                                 className="bg-transparent text-[11px] font-bold uppercase text-[var(--text-secondary)] outline-none cursor-pointer pr-1"
-                                title="Antelació de l'avís"
+                                title={t('calendar.reminder_lead_time', "Antelació de l'avís")}
                             >
-                                <option value={5}>5 min</option>
-                                <option value={10}>10 min</option>
-                                <option value={15}>15 min</option>
-                                <option value={30}>30 min</option>
+                                <option value={5}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 5 })}</option>
+                                <option value={10}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 10 })}</option>
+                                <option value={15}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 15 })}</option>
+                                <option value={30}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 30 })}</option>
                             </select>
                         )}
                     </div>
@@ -970,7 +970,7 @@ export default function CalendarPage() {
                                 if (next.has(source)) next.delete(source);
                                 else next.add(source);
                                 setSelectedCalendars(next);
-                                // Sincronitzar la ref per evitar que l'efecte reiniciï calendaris amagats
+                                // Sync the ref to prevent the effect from resetting hidden calendars
                                 savedCalendarSelectionRef.current = new Set(next);
                                 axios.put('/api/integrations/calendar_selection', {
                                     selection: Array.from(next)
@@ -1038,9 +1038,9 @@ export default function CalendarPage() {
                                 setSelectedEventId(null);
                                 setSelectedEvent(null);
                                 setIsEditingEvent(false);
-                                // Després d'editar, refresca UN sol cop en tancar perquè el calendari
-                                // reflecteixi els canvis desats. Durant l'edició fem actualització
-                                // optimista (sense refetch) per evitar el parpadeig a cada tecla.
+                                // After editing, refresh ONCE on close so the calendar
+                                // reflects the saved changes. During editing we do an optimistic
+                                // optimistic (without refetching) to avoid flickering on every keystroke.
                                 if (wasEditing && dateRange) {
                                     setTimeout(() => {
                                         fetchExternalEvents(dateRange.start, dateRange.end, searchQuery);
@@ -1062,7 +1062,7 @@ export default function CalendarPage() {
                 </div>
             </div>
 
-            {/* Menú contextual (clic dret) */}
+            {/* Context menu (right click) */}
             <CalendarContextMenu
                 isOpen={contextMenu.open}
                 position={{ x: contextMenu.x, y: contextMenu.y }}

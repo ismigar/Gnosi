@@ -1,17 +1,17 @@
-"""Cursa del cicle load→modify→save dels comentaris de pàgina i inline.
+"""Race in the load→modify→save cycle of page and inline comments.
 
-El `threading.Lock` de `_load_comments`/`_save_comments` fa atòmics cada load i
-cada save PER SEPARAT, però el cicle sencer dels handlers no ho era: dos POST
-simultanis carregaven el mateix snapshot, tots dos hi afegien el seu comentari
-i el segon save trepitjava el primer (reproduït contra el backend real: dels
-dos comentaris concurrents només en sobrevivia un). Els candaus
-`_comments_mutation_lock` i `_inline_comments_mutation_lock` serialitzen el
-cicle sencer.
+The `threading.Lock` in `_load_comments`/`_save_comments` makes each load and
+each save atomic SEPARATELY, but the whole handler cycle wasn't: two simultaneous
+POSTs loaded the same snapshot, both added their comment to it,
+and the second save clobbered the first (reproduced against the real backend: of the
+two concurrent comments only one survived). The
+`_comments_mutation_lock` and `_inline_comments_mutation_lock` locks serialize the
+whole cycle.
 
-El rendez-vous és DETERMINISTA (threading.Barrier, no un sleep): sense candau
-els dos load concurrents es troben a la barrera i tots dos parteixen del mateix
-snapshot; amb el candau, el segon load no s'executa fins després del primer
-save (la barrera venç per timeout) i ja veu el comentari de l'altre.
+The rendez-vous is DETERMINISTIC (threading.Barrier, not a sleep): without the lock
+the two concurrent loads meet at the barrier and both start from the same
+snapshot; with the lock, the second load doesn't run until after the first
+save (the barrier trips on timeout) and it already sees the other's comment.
 """
 import asyncio
 import copy
@@ -33,7 +33,7 @@ class _FakeCommentsStore:
             self._barrier.wait(timeout=0.5)
         except threading.BrokenBarrierError:
             pass
-        return copy.deepcopy(self.data)  # còpia, com llegir del disc
+        return copy.deepcopy(self.data)  # copy, like reading from disk
 
     def save(self, data):
         self.data = copy.deepcopy(data)

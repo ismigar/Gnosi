@@ -85,10 +85,10 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
     };
 
     const handleFieldChange = (field, index, key, value) => {
-        // Construïm la nova llista DINS del functional update (a partir de `prev`),
-        // no del `formData` del closure: així no es perd cap actualització pendent
-        // de la mateixa llista (p. ex. una fila afegida just abans en el mateix
-        // batch). Coherent amb handleAddField/handleRemoveField, que ja usen `prev`.
+        // We build the new list INSIDE the functional update (from `prev`),
+        // not from the closure's `formData`: this way no pending update is lost
+        // from the same list (e.g. a row added just before in the same
+        // batch). Consistent with handleAddField/handleRemoveField, which already use `prev`.
         setFormData(prev => {
             const newList = [...prev[field]];
             newList[index] = { ...newList[index], [key]: value };
@@ -356,7 +356,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                             value={formData.name}
                             onChange={handleChange}
                             required
-                            placeholder="Ex: Joan Sala"
+                            placeholder={t('contacts.name_placeholder', 'Ex: Joan Sala')}
                             style={inputStyle}
                         />
                     </div>
@@ -378,9 +378,9 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                 boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                             }}>
                                 {formData.photo_url ? (
-                                    <img 
-                                        src={formData.photo_url} 
-                                        alt="Preview" 
+                                    <img
+                                        src={formData.photo_url}
+                                        alt={t('contacts.photo_preview_alt', 'Preview')}
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                         onError={(e) => {
                                             e.target.style.display = 'none';
@@ -401,7 +401,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                         name="photo_url"
                                         value={formData.photo_url}
                                         onChange={handleChange}
-                                        placeholder="https://exemple.com/foto.jpg"
+                                        placeholder={t('contacts.photo_url_placeholder', 'https://exemple.com/foto.jpg')}
                                         style={{ ...inputStyle, marginTop: 0, flex: 1 }}
                                     />
                                     {isGmail(formData.emails[0]?.value || formData.email) && (
@@ -489,7 +489,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                             name="company"
                             value={formData.company}
                             onChange={handleChange}
-                            placeholder="Opcional"
+                            placeholder={t('contacts.company_placeholder', 'Opcional')}
                             style={inputStyle}
                         />
                     </div>
@@ -500,7 +500,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                             name="job_title"
                             value={formData.job_title}
                             onChange={handleChange}
-                            placeholder="Ex: Director IT"
+                            placeholder={t('contacts.job_placeholder', 'Ex: Director IT')}
                             style={inputStyle}
                             disabled={formData.type !== 'b2b'}
                         />
@@ -529,9 +529,9 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                 </div>
 
                 {/* Multi-field Sections */}
-                {renderMultiFieldSection(t('contacts.email_label', 'Emails'), 'emails', <Mail size={14} />, "email@exemple.com", emailLabels, "email")}
+                {renderMultiFieldSection(t('contacts.email_label', 'Emails'), 'emails', <Mail size={14} />, t('contacts.email_field_placeholder', 'email@exemple.com'), emailLabels, "email")}
                 {renderMultiFieldSection(t('contacts.phone_label', 'Telèfons'), 'phones', <Phone size={14} />, "+34 600 000 000", phoneLabels, "tel")}
-                {renderMultiFieldSection(t('contacts.address_label', 'Adreces'), 'addresses', <MapPin size={14} />, "Carrer, Número, Ciutat...", addressLabels)}
+                {renderMultiFieldSection(t('contacts.address_label', 'Adreces'), 'addresses', <MapPin size={14} />, t('contacts.address_field_placeholder', 'Carrer, Número, Ciutat...'), addressLabels)}
 
                 <div>
                     <label style={labelStyle}><Tag size={14} /> {t('contacts.notes_label', 'Notes / Comentaris')}</label>
@@ -540,7 +540,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                         value={formData.notes}
                         onChange={handleChange}
                         rows={4}
-                        placeholder="Notes addicionals sobre el contacte..."
+                        placeholder={t('contacts.notes_placeholder', 'Notes addicionals sobre el contacte...')}
                         style={{ ...inputStyle, resize: 'vertical', minHeight: '120px' }}
                     />
                 </div>

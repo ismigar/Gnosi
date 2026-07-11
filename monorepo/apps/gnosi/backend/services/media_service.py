@@ -22,27 +22,27 @@ from backend.utils.safe_io import safe_write_bytes, sanitize_path_segment
 
 log = logging.getLogger(__name__)
 
-# TTL del cache de l'escaneig recursiu. A OneDrive amb desenes de milers
-# d'imatges la primera passada pot trigar minuts; aquí mantenim el resultat
-# per evitar repetir-la per cada paginació.
-_SCAN_CACHE_TTL_S = 24 * 60 * 60  # 24 h: el ritme normal de canvis a Images/
-                                   # és diari, no per minuts. La invalidació
-                                   # explícita ja ataca els uploads.
+# TTL for the recursive scan cache. On OneDrive with tens of thousands
+# of images the first pass can take minutes; here we keep the result
+# to avoid repeating it on every pagination.
+_SCAN_CACHE_TTL_S = 24 * 60 * 60  # 24 h: the normal rate of changes in Images/
+                                   # is daily, not by minutes. The invalidation
+                                   # explicit one already handles the uploads.
 
-# Cache persistent: el contenidor pot reiniciar-se sovint i no volem que cada
-# reinici dispari un escaneig de 56k fitxers. /app/data és un volum local
-# (gnosi_local_data) — és correcte deixar-hi pickles.
+# Persistent cache: the container can restart often and we don't want every
+# restart to trigger a scan of 56k files. /app/data is a local volume
+# (gnosi_local_data) — it's fine to leave pickles there.
 _PERSIST_DIR = Path("/app/data/media_cache")
 
-# Roots multi-arrel suportats per la cerca de mitjans. La clau s'envia des del
-# frontend (?root=...). Cada root resol a una carpeta i a un prefix d'URL per
-# servir els fitxers. La carpeta es resol dinàmicament a get_active_vault_path()
-# perquè el vault pot canviar amb workspace switching.
+# Multi-root roots supported for the media search. The key is sent from the
+# frontend (?root=...). Each root resolves to a folder and a URL prefix to
+# serve the files. The folder is resolved dynamically in get_active_vault_path()
+# because the vault can change with workspace switching.
 #
-# - "images"     → Images/ (galeria històrica, comportament default per back-compat)
-# - "assets"     → Assets/ (mitjans inserits a pàgines via /assets/upload)
-# - "biblioteca" → Biblioteca/ (carpeta germana del vault, no dins)
-# - "vault"      → tot el vault, exclou carpetes de sistema (.git, .gnosi, BD)
+# - "images"     → Images/ (historical gallery, default behavior for back-compat)
+# - "assets"     → Assets/ (media inserted into pages via /assets/upload)
+# - "biblioteca" → Biblioteca/ (sibling folder of the vault, not inside)
+# - "vault"      → the whole vault, excludes system folders (.git, .gnosi, DB)
 MEDIA_ROOTS: Dict[str, Dict[str, Any]] = {
     "images": {"label": "Imatges (Galeria)", "url_prefix": "/api/vault/images/"},
     "assets": {"label": "Assets de pàgines", "url_prefix": "/api/vault/assets/"},
@@ -50,9 +50,9 @@ MEDIA_ROOTS: Dict[str, Dict[str, Any]] = {
     "vault": {"label": "Tot el Vault", "url_prefix": "/api/vault/raw/"},
 }
 
-# Carpetes que mai s'escanegen quan root="vault": meta dades de control de
-# versions, configuració interna, BD JSON. Sense aquesta llista, escanejar
-# tot el vault inclouria milers de fitxers JSON irrellevants i alentiria la
+# Folders that are never scanned when root="vault": control metadata for
+# versions, internal configuration, JSON DB. Without this list, scanning
+# the whole vault would include thousands of irrelevant JSON files and would slow down the
 # primera passada considerablement.
 _VAULT_SKIP_DIRS = {
     ".git", ".gnosi", ".Dashboards", "BD", "node_modules",
@@ -61,25 +61,25 @@ _VAULT_SKIP_DIRS = {
 
 
 class MediaService:
-    # Sidecar de metadades d'usuari (tags + descripció). Viu DINS el vault
-    # perquè són dades semàntiques de l'usuari i han de sincronitzar entre
-    # dispositius via OneDrive — la regla "caches fora d'OneDrive" no aplica
-    # a dades, només a caches/índexs derivables.
+    # User metadata sidecar (tags + description). Lives INSIDE the vault
+    # because they are semantic user data and need to sync across
+    # devices via OneDrive — the "caches outside OneDrive" rule does not apply
+    # to data, only to derivable caches/indexes.
     _USER_META_FILENAME = "media_metadata.json"
-    # Vistes desades de l'usuari (filtres + sort + scope amb nom). Mateixa
-    # raó que _USER_META_FILENAME: dades d'usuari, dins el vault.
+    # User's saved views (filters + sort + named scope). Same
+    # reason as _USER_META_FILENAME: user data, inside the vault.
     _VIEWS_FILENAME = "media_views.json"
 
     def __init__(self):
-        # Ja no inicialitzem el path aquí per evitar errors al boot
+        # We no longer initialize the path here to avoid errors at boot
         self._media_dir_cache = None
         self._scan_cache: Dict[str, Tuple[float, List[Tuple[Path, float]]]] = {}
         self._scan_locks: Dict[str, threading.Lock] = {}
         self._locks_guard = threading.Lock()
-        # Sidecar lazy: es carrega al primer ús (update_metadata o filtre per tags).
+        # Lazy sidecar: loads on first use (update_metadata or filter by tags).
         self._user_metadata: Optional[Dict[str, Any]] = None
         self._user_metadata_lock = threading.RLock()
-        # Vistes lazy: es carreguen al primer accés.
+        # Lazy views: loaded on first access.
         self._views: Optional[Dict[str, Any]] = None
         self._views_lock = threading.RLock()
         try:
@@ -88,9 +88,10 @@ class MediaService:
             log.debug(f"No es pot crear {_PERSIST_DIR}: {e}")
 
     def _root_dir(self, root: str = "images") -> Optional[Path]:
-        """Resol la clau de root a un Path absolut. Crea Images/ si cal
-        (back-compat) però NO crea les altres carpetes — si Biblioteca o Assets
-        no existeixen, retornem None i el caller respondrà amb llista buida.
+        """Resolves the root key to an absolute Path. Creates Images/ if needed
+        (back-compat) but does NOT create the other folders — if Biblioteca or Assets
+        don't exist, we return None and the caller will respond with an empty list.
+        
         """
         base = get_active_vault_path()
         if root == "images":
@@ -104,10 +105,10 @@ class MediaService:
         if root == "assets":
             return base / "Assets"
         if root == "biblioteca":
-            # Resolució vault-first amb fallback llegat (mateixa regla que
-            # get_p("BIBLIOTECA")): abans es calculava aquí `base.parent/Biblioteca`
-            # a pèl, i per als vaults fills (p. ex. Principal) apuntava a una
-            # carpeta equivocada → el picker sortia buit.
+            # Vault-first resolution with legacy fallback (same rule as
+            # get_p("BIBLIOTECA")): previously `base.parent/Biblioteca` was computed here
+            # directly, and for child vaults (e.g. Principal) it pointed to a
+            # wrong folder → the picker came out empty.
             from backend.services.biblioteca_paths import resolve_biblioteca
             return resolve_biblioteca(base)
         if root == "vault":
@@ -116,9 +117,9 @@ class MediaService:
         return None
 
     def get_roots(self) -> List[Dict[str, Any]]:
-        """Retorna la llista de roots disponibles amb metadades. Marca
-        `available=False` per als que no existeixen al disc, perquè la UI
-        pugui amagar-los o desactivar-los."""
+        """Returns the list of available roots with metadata. Marks
+        `available=False` for those that don't exist on disk, so the UI
+        can hide or disable them."""
         items: List[Dict[str, Any]] = []
         for key, meta in MEDIA_ROOTS.items():
             d = self._root_dir(key)
@@ -133,14 +134,15 @@ class MediaService:
 
     @property
     def media_dir(self) -> Path:
-        """Resol el directori de mitjans dinàmicament segons el vault actiu.
-        Mantingut per compatibilitat: equival a `_root_dir("images")`.
+        """Resolves the media directory dynamically based on the active vault.
+        Kept for compatibility: equivalent to `_root_dir("images")`.
+        
         """
         return self._root_dir("images")
 
-    # Ampliem la llista d'extensions vàlides: la galeria històrica només mostrava
-    # imatges, però amb multi-root volem trobar també vídeos i PDFs perquè el
-    # MediaCenter funcioni com a picker per al BlockEditor.
+    # We're expanding the list of valid extensions: the historical gallery only showed
+    # images, but with multi-root we also want to find videos and PDFs because the
+    # MediaCenter works as a picker for the BlockEditor.
     _IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".svg", ".avif", ".bmp"}
     _VIDEO_EXTS = {".mp4", ".webm", ".mov", ".m4v", ".ogv"}
     _AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg", ".flac"}
@@ -158,13 +160,14 @@ class MediaService:
 
     def _scan_recursive(self, root: Path, skip_dirs: Optional[set] = None) -> Iterator[Tuple[Path, float]]:
         """
-        Recorre `root` recursivament emetent (path, mtime) per cada fitxer
-        amb extensió vàlida. Usa os.scandir perquè comparteix el stat() amb
-        el llistat (a OneDrive cada stat addicional és car: el rglob+stat
-        anterior trigava >60s per ~56k fitxers).
+                Recursively walks `root`, emitting (path, mtime) for each file
+        with a valid extension. Uses os.scandir because it shares the stat() with
+        the listing (on OneDrive every additional stat is expensive: the previous
+        rglob+stat took >60s for ~56k files).
 
-        `skip_dirs` és una llista de noms de carpeta (no paths) a evitar; útil
-        per al root="vault" que ha de saltar-se .git, .gnosi, BD/, etc.
+        `skip_dirs` is a list of folder names (not paths) to avoid; useful
+        for root="vault", which must skip .git, .gnosi, BD/, etc.
+        
         """
         try:
             with os.scandir(root) as it:
@@ -173,7 +176,7 @@ class MediaService:
                         if entry.is_dir(follow_symlinks=False):
                             if skip_dirs and entry.name in skip_dirs:
                                 continue
-                            # Saltem també carpetes ocultes per defecte
+                            # We also skip hidden folders by default
                             if entry.name.startswith('.') and skip_dirs is not None:
                                 continue
                             yield from self._scan_recursive(Path(entry.path), skip_dirs)
@@ -196,7 +199,7 @@ class MediaService:
             return lk
 
     def _persist_path(self, target_dir: Path) -> Path:
-        """Fitxer pickle on persistim el cache d'aquest target_dir."""
+        """Pickle file where we persist the cache for this target_dir."""
         h = hashlib.sha1(str(target_dir).encode("utf-8")).hexdigest()[:16]
         return _PERSIST_DIR / f"scan_{h}.pkl"
 
@@ -221,12 +224,13 @@ class MediaService:
             log.debug(f"No es pot persistir cache per {target_dir}: {e}")
 
     def _scan_with_cache(self, target_dir: Path, skip_dirs: Optional[set] = None) -> List[Tuple[Path, float]]:
-        """Retorna l'índex (path, mtime) per `target_dir` amb cache TTL +
-        persistència a disc per sobreviure reinicis del contenidor.
+        """Returns the index (path, mtime) for `target_dir` with a TTL cache +
+        disk persistence to survive container restarts.
 
-        `skip_dirs` es propaga a `_scan_recursive`. Hash key inclou el set
-        de carpetes saltades perquè el cache de "vault sense BD" no col·lideixi
-        amb un eventual scan futur "vault sencer".
+        `skip_dirs` propagates to `_scan_recursive`. The hash key includes the set
+        of skipped folders so that the "vault without BD" cache doesn't collide
+        with a possible future "whole vault" scan.
+        
         """
         cache_suffix = "::" + ",".join(sorted(skip_dirs)) if skip_dirs else ""
         key = str(target_dir) + cache_suffix
@@ -235,7 +239,7 @@ class MediaService:
         if cached and (now - cached[0]) < _SCAN_CACHE_TTL_S:
             return cached[1]
 
-        # Si en RAM no hi és, intentem el persistit abans de re-escanejar.
+        # If it's not in RAM, we try the persisted version before re-scanning.
         if cached is None:
             persisted = self._load_persisted(Path(key))
             if persisted and (now - persisted[0]) < _SCAN_CACHE_TTL_S:
@@ -260,7 +264,7 @@ class MediaService:
             return entries
 
     def invalidate_cache(self, target_dir: Optional[Path] = None) -> None:
-        """Buida el cache (un directori concret o tot)."""
+        """Clears the cache (a specific directory or all of it)."""
         if target_dir is None:
             self._scan_cache.clear()
             try:
@@ -276,7 +280,7 @@ class MediaService:
                 pass
 
     # ------------------------------------------------------------------
-    # Sidecar de metadades d'usuari (tags + descripció)
+    # User metadata sidecar (tags + description)
     # ------------------------------------------------------------------
 
     def _user_meta_path(self) -> Optional[Path]:
@@ -331,7 +335,7 @@ class MediaService:
                 return False
 
     def _get_user_meta_for(self, root: str, rel_path_in_root: str) -> Dict[str, Any]:
-        """Retorna {tags, description} del sidecar (defaults si no hi és)."""
+        """Returns {tags, description} from the sidecar (defaults if not present)."""
         self._ensure_user_metadata_loaded()
         item = self._user_metadata["items"].get(
             self._user_meta_key(root, rel_path_in_root)
@@ -349,14 +353,15 @@ class MediaService:
         metadata: Dict[str, Any],
         root: str = "images",
     ) -> bool:
-        """Actualitza tags/descripció per (root, path_in_root) al sidecar.
+        """Updates tags/description for (root, path_in_root) in the sidecar.
 
-        `path_in_root` és relatiu al root (p.e. `Viatges/2026/IMG.jpg`). El
-        camp arriba al payload de `_get_file_info` com a `path_in_root`.
+        `path_in_root` is relative to the root (e.g. `Viatges/2026/IMG.jpg`). The
+        field arrives in the `_get_file_info` payload as `path_in_root`.
+        
         """
         if not path_in_root:
             return False
-        # Validem que el path no surti del root (prevenció path traversal).
+        # We validate that the path doesn't escape the root (path traversal prevention).
         r_dir = self._root_dir(root)
         if r_dir is None:
             return False
@@ -371,8 +376,8 @@ class MediaService:
         with self._user_metadata_lock:
             existing = self._user_metadata["items"].get(key, {})
 
-            # Tags: normalitzem a minúscules sense espais; ordenats i sense
-            # duplicats per consistència entre escriptures.
+            # Tags: normalized to lowercase without spaces; sorted and without
+            # duplicates for consistency across writes.
             if "tags" in metadata:
                 raw_tags = metadata.get("tags") or []
                 norm_tags = sorted({
@@ -396,7 +401,7 @@ class MediaService:
         return self._save_user_metadata()
 
     # ------------------------------------------------------------------
-    # Vistes desades (filtres + sort + scope amb nom)
+    # Saved views (filters + sort + named scope)
     # ------------------------------------------------------------------
 
     def _views_path(self) -> Optional[Path]:
@@ -448,8 +453,8 @@ class MediaService:
 
     @staticmethod
     def _normalize_view_payload(data: Dict[str, Any]) -> Dict[str, Any]:
-        """Sanititza el payload d'una vista: només camps coneguts, sense
-        deixar passar coses arbitràries que puguin omplir el JSON."""
+        """Sanitizes a view's payload: only known fields, without
+        letting arbitrary things through that could bloat the JSON."""
         scope = data.get("scope") or {}
         filters = data.get("filters") or {}
         sort = data.get("sort") or {}
@@ -526,12 +531,12 @@ class MediaService:
             return True
 
     # ------------------------------------------------------------------
-    # Filtres + sort post-cache (per get_all_media)
+    # Filters + sort post-cache (for get_all_media)
     # ------------------------------------------------------------------
 
     @staticmethod
     def _parse_iso_to_epoch(iso_str: Optional[str], end_of_day: bool = False) -> Optional[float]:
-        """`YYYY-MM-DD` o ISO complet → epoch seconds. None si invàlid."""
+        """`YYYY-MM-DD` or full ISO → epoch seconds. None if invalid."""
         if not iso_str:
             return None
         try:
@@ -565,12 +570,13 @@ class MediaService:
         sort: str,
         dir_: str,
     ) -> List[Tuple[Path, float]]:
-        """Filtra (path, mtime) pel conjunt de filtres declarat i ordena.
+        """Filters (path, mtime) by the declared set of filters and sorts.
 
-        Els filtres dependents del sidecar (tags/desc) carreguen la cache de
-        metadades una sola vegada; els que necessiten `st.st_size` o sort per
-        size disparen un `path.stat()` per fitxer (relativament barat un cop
-        l'index està en RAM, però no gratis a OneDrive).
+        Filters that depend on the sidecar (tags/desc) load the metadata
+        cache only once; those that need `st.st_size` or sort by
+        size trigger a `path.stat()` per file (relatively cheap once
+        the index is in RAM, but not free on OneDrive).
+        
         """
         needs_meta = bool(tags_any or tags_all or tags_none or desc_contains)
         if needs_meta:
@@ -643,7 +649,7 @@ class MediaService:
                 key=lambda t: self.classify_kind(t[0].suffix.lower()),
                 reverse=reverse,
             )
-        else:  # "mtime" o desconegut → comportament històric
+        else:  # "mtime" or unknown → historical behavior
             out.sort(key=lambda t: t[1], reverse=reverse)
 
         return [(p, m) for p, m, _ in out]
@@ -660,8 +666,8 @@ class MediaService:
         return items or None
 
     def _resolve_album_dir(self, album: Optional[str], root: str = "images") -> Optional[Path]:
-        """Resol l'`album` (relatiu al root indicat) a un Path absolut, validant
-        que no surt del root. Retorna None si és invalid."""
+        """Resolves the `album` (relative to the given root) to an absolute Path, validating
+        that it doesn't escape the root. Returns None if invalid."""
         r_dir = self._root_dir(root)
         if r_dir is None or not r_dir.exists():
             return None
@@ -697,22 +703,23 @@ class MediaService:
         sort: str = "mtime",
         dir_: str = "desc",
     ) -> Dict[str, Any]:
-        """Llista fitxers de mitjans amb paginació, filtres i ordenació.
+        """Lists media files with pagination, filters, and sorting.
 
-        `album` pot ser un path relatiu amb subdirectoris (`Pueblo/Sierra`).
-        Sempre escaneja recursivament el directori indicat.
-        `root` selecciona la carpeta arrel: images|assets|biblioteca|vault.
+        `album` can be a relative path with subdirectories (`Pueblo/Sierra`).
+        Always scans the given directory recursively.
+        `root` selects the root folder: images|assets|biblioteca|vault.
 
-        Filtres acceptats (tots opcionals, csv on aplica):
+        Accepted filters (all optional, csv where applicable):
         - kinds: image,video,audio,pdf,other
-        - extensions: jpg,png,...  (sense punt)
-        - q: substring sobre filename (case-insensitive)
-        - desc_contains: substring sobre descripció (case-insensitive)
-        - tags_any / tags_all / tags_none: csv de tags (normalitzats a minúscules)
-        - size_min / size_max: en KB
-        - mtime_from / mtime_to: dates ISO (`YYYY-MM-DD` o complet)
-        - sort: mtime|filename|size|kind  (def: mtime)
-        - dir_: asc|desc  (def: desc)
+        - extensions: jpg,png,...  (no dot)
+        - q: substring on filename (case-insensitive)
+        - desc_contains: substring on description (case-insensitive)
+        - tags_any / tags_all / tags_none: csv of tags (normalized to lowercase)
+        - size_min / size_max: in KB
+        - mtime_from / mtime_to: ISO dates (`YYYY-MM-DD` or full)
+        - sort: mtime|filename|size|kind  (default: mtime)
+        - dir_: asc|desc  (default: desc)
+        
         """
         target_dir = self._resolve_album_dir(album, root=root)
         if target_dir is None or not target_dir.exists():
@@ -724,7 +731,7 @@ class MediaService:
                 "root": root,
             }
 
-        # Per al root="vault" saltem carpetes de sistema. Per la resta, no.
+        # For root="vault" we skip system folders. For the rest, we don't.
         skip = _VAULT_SKIP_DIRS if root == "vault" else None
         all_entries = self._scan_with_cache(target_dir, skip_dirs=skip)
 
@@ -765,8 +772,8 @@ class MediaService:
                 dir_=dir_,
             )
         else:
-            # Path ràpid back-compat: cap filtre, sort per defecte → reutilitzem
-            # exactament l'ordre del cache (ja és mtime desc).
+            # Fast back-compat path: no filter, default sort → we reuse
+            # exactly the cache order (it's already mtime desc).
             entries = all_entries
 
         total = len(entries)
@@ -782,22 +789,24 @@ class MediaService:
         }
 
     def get_albums(self) -> List[str]:
-        """Retorna la llista de carpetes (àlbums) a Images. Mantingut per
-        compatibilitat — l'arbre lazy es serveix via `get_tree_node`.
+        """Returns the list of folders (albums) in Images. Kept for
+        compatibility — the lazy tree is served via `get_tree_node`.
+        
         """
         m_dir = self.media_dir
         if not m_dir.exists(): return []
         return [d.name for d in m_dir.iterdir() if d.is_dir()]
 
     def get_tree_node(self, path: Optional[str] = None, root: str = "images") -> List[Dict[str, Any]]:
-        """Retorna les subcarpetes immediates de `<root>/path` (o del root
-        si `path` és None), cada una amb un flag `has_children` calculat per
-        permetre a la UI mostrar el chevron sense carregar tot l'arbre.
+        """Returns the immediate subfolders of `<root>/path` (or of the root
+        if `path` is None), each with a `has_children` flag computed to
+        let the UI show the chevron without loading the whole tree.
 
-        És lazy: només llegeix un nivell. Per als ~33k directoris d'aquest
-        vault, escanejar tot l'arbre seria inviable.
+        It's lazy: it only reads one level. For the ~33k directories in this
+        vault, scanning the whole tree would be infeasible.
 
-        Per al root="vault" exclou carpetes de sistema (`.git`, `BD`, etc.).
+        For root="vault" it excludes system folders (`.git`, `BD`, etc.).
+        
         """
         target = self._resolve_album_dir(path, root=root)
         if target is None or not target.exists():
@@ -842,16 +851,17 @@ class MediaService:
         return nodes
 
     def upload_media(self, file: UploadFile, album: str = "General") -> Dict[str, Any]:
-        """Puja un fitxer i el guarda a la carpeta de l'àlbum corresponent.
+        """Uploads a file and saves it to the corresponding album folder.
 
-        `album` pot ser jeràrquic ("Viatges/2024": l'arbre de la UI navega
-        subcarpetes), així que es saneja segment a segment i es conté el
-        destí dins d'Images/. Veure la directiva media_upload_path_safety.
+        `album` can be hierarchical ("Viatges/2024": the UI tree navigates
+        subfolders), so it's sanitized segment by segment and the
+        destination is contained within Images/. See the media_upload_path_safety directive.
+        
         """
         m_dir = self.media_dir
 
-        # Segments "." / ".." són sempre traversal (la UI no els genera mai):
-        # rebuig sorollós en comptes de sanejar-los en silenci.
+        # "." / ".." segments are always traversal (the UI never generates them):
+        # noisy rejection instead of silently sanitizing them.
         segments: List[str] = []
         for seg in re.split(r"[\\/]+", album or ""):
             seg = seg.strip()
@@ -864,8 +874,8 @@ class MediaService:
             segments = ["General"]
         target_dir = m_dir.joinpath(*segments)
 
-        # Contenció post-resolució: tanca també symlinks dins Images que
-        # apuntin fora. Es comprova ABANS de crear cap directori.
+        # Post-resolution containment: also closes off symlinks inside Images that
+        # point outside. This is checked BEFORE creating any directory.
         try:
             target_dir.resolve().relative_to(m_dir.resolve())
         except ValueError:
@@ -882,12 +892,12 @@ class MediaService:
             filename = f"{file_hash}_{filename}"
             target_path = target_dir / filename
 
-        # Atòmic (tmp + rename): un upload interromput mai deixa un fitxer
-        # truncat que OneDrive pugui replicar a mitges.
+        # Atomic (tmp + rename): an interrupted upload never leaves a
+        # truncated file that OneDrive might replicate halfway.
         safe_write_bytes(target_path, content)
 
-        # Invalidar caches afectats: el directori de l'àlbum i el del root
-        # (que també conté el fitxer recursivament).
+        # Invalidate affected caches: the album's directory and the root's
+        # (which also contains the file recursively).
         self.invalidate_cache(target_dir)
         self.invalidate_cache(m_dir)
 
@@ -907,9 +917,9 @@ class MediaService:
                         try:
                             results["date_taken"] = datetime.strptime(value, "%Y:%m:%d %H:%M:%S").isoformat()
                         except (ValueError, TypeError) as e:
-                            # Format de data EXIF malformat — ho ignorem però
-                            # ho loggem perquè algun proveïdor pot estar
-                            # produint dades fora d'spec.
+                            # Malformed EXIF date format — we ignore it but
+                            # we log it because some provider might be
+                            # producing out-of-spec data.
                             log.debug(f"EXIF date parse failed for {path}: {e}")
                     elif decoded == "GPSInfo":
                         gps_data = {GPSTAGS.get(t, t): value[t] for t in value}
@@ -935,14 +945,14 @@ class MediaService:
         try:
             rel_path = path.relative_to(v_path)
         except ValueError:
-            # El root pot ser fora de VAULT (Biblioteca és germà). En aquest
-            # cas usem la ruta sencera com a referència; la URL la calculem
-            # des del root específic.
+            # The root can be outside VAULT (Biblioteca is a sibling). In this
+            # case we use the full path as reference; we compute the URL
+            # from the specific root.
             rel_path = path
         album = path.parent.name
         r_dir = self._root_dir(root)
 
-        # URL: relatiu al root, amb el prefix corresponent del root.
+        # URL: relative to the root, with the root's corresponding prefix.
         prefix = MEDIA_ROOTS.get(root, MEDIA_ROOTS["images"])["url_prefix"]
         try:
             url_rel = path.relative_to(r_dir).as_posix() if r_dir else path.name
@@ -951,7 +961,7 @@ class MediaService:
             url_rel = path.name
             url = f"{prefix}{path.name}"
 
-        # Si estem en mode ràpid, no mirem EXIF (que obre el fitxer)
+        # If we're in fast mode, we don't look at EXIF (which opens the file)
         exif = {}
         if not fast:
             exif = self._get_exif_data(path)
@@ -959,8 +969,8 @@ class MediaService:
         st = path.stat()
         ext = path.suffix.lower()
 
-        # Hidratació de tags + descripció des del sidecar (clau `<root>::<rel>`).
-        # Lookup O(1) en memòria — no fa I/O addicional per fitxer.
+        # Hydration of tags + description from the sidecar (key `<root>::<rel>`).
+        # O(1) in-memory lookup — does no additional I/O per file.
         user_meta = self._get_user_meta_for(root, url_rel)
 
         return {
@@ -981,5 +991,5 @@ class MediaService:
             "description": user_meta["description"],
         }
 
-# Instància global segueix sent vàlida ja que el constructor és segur ara
+# The global instance remains valid since the constructor is now safe
 media_service = MediaService()

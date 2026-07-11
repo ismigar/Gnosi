@@ -75,11 +75,12 @@ def _provider_is_available(provider_name: str, provider_cfg: Optional[dict]) -> 
 
 
 def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str, fallback_model: Optional[str]) -> tuple[str, Optional[str]]:
-    """Auto-selecció de model: delega al router data-driven conscient de pressupost.
+    """Automatic model selection: delegates to the budget-aware, data-driven router.
 
-    Camí modern: `model_router.route_model` (registry editable + capacitat + disponibilitat
-    + tokens/cost). Si el router no resol, manté el fallback de l'agent. Substitueix els
-    antics stacks hardcoded (cf. directiva `vault_knowledge_agents.md`).
+    Modern path: `model_router.route_model` (editable registry + capability + availability
+    + tokens/cost). If the router doesn't resolve, keeps the agent's fallback. Replaces the
+    old hardcoded stacks (cf. directive `vault_knowledge_agents.md`).
+    
     """
     try:
         from backend.agent.model_router import route_model, load_registry, UsageStore
@@ -107,13 +108,13 @@ def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str,
     return fallback_provider, fallback_model
 
 
-# --- 1. Definir l'Estat ---
+# --- 1. Define the State ---
 class AgentState(TypedDict):
     messages: Annotated[Sequence[BaseMessage], operator.add]
     next: str
 
 
-# --- 2. Prompts dels Agents (Base) ---
+# --- 2. Agent Prompts (Base) ---
 DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Gnosi".
 La teva feina és coordinar l'equip d'experts per resoldre la petició de l'usuari.
 
@@ -130,7 +131,7 @@ INSTRUCCIONS DE ROUTING:
 Retorna EXCLUSIVAMENT el nom del següent worker: 'Coder', 'Brain', 'General' o 'FINISH'.
 """
 
-# --- 3. Gestió de Proveïdors de LLM ---
+# --- 3. LLM Provider handling ---
 
 
 def get_llm(
@@ -141,24 +142,25 @@ def get_llm(
     timeout: Optional[float] = None,
 ):
     """
-    Instancia un LLM segons el proveïdor i la configuració.
+        Instantiate an LLM according to the provider and configuration.
 
-    `timeout` (segons): límit REAL de xarxa aplicat en construir el client. langchain
-    IGNORA `config={"timeout": ...}` a `.invoke()` (no és clau de RunnableConfig), així que
-    el límit HA d'anar aquí. Per als proveïdors OpenAI-compatible es tradueix a
-    `request_timeout` (timeout del client httpx) i desactivem els reintents de l'SDK
-    (`max_retries=0`) perquè el `timeout` sigui un sostre real i no per-intent. `timeout=None`
-    manté el comportament clàssic (camí de l'agent: sense límit dur, reintents per defecte).
-    Vegeu directiva `ai_error_handling.md`.
+    `timeout` (seconds): REAL network limit applied when building the client. langchain
+    IGNORES `config={"timeout": ...}` in `.invoke()` (it's not a RunnableConfig key), so
+    the limit MUST go here. For OpenAI-compatible providers it translates to
+    `request_timeout` (httpx client timeout) and we disable the SDK's retries
+    (`max_retries=0`) so that `timeout` is a real ceiling and not per-attempt. `timeout=None`
+    keeps the classic behavior (agent path: no hard limit, default retries).
+    See directive `ai_error_handling.md`.
+    
     """
-    # Tractar cadenes buides com a None per forçar el fallback a env vars
+    # Treat empty strings as None to force the fallback to env vars
     if not api_key:
         api_key = None
     if not base_url:
         base_url = None
 
-    # kwargs de timeout per als wrappers OpenAI/Anthropic-compatible (àlies de
-    # request_timeout / default_request_timeout). Ollama NO els accepta → client_kwargs.
+    # timeout kwargs for the OpenAI/Anthropic-compatible wrappers (aliases of
+    # request_timeout / default_request_timeout). Ollama does NOT accept them → client_kwargs.
     req_timeout_kwargs = (
         {"timeout": timeout, "max_retries": 0} if timeout is not None else {}
     )
@@ -167,8 +169,8 @@ def get_llm(
         if provider == "ollama":
             from langchain_ollama import ChatOllama
             log.debug(f"Instantiating ChatOllama with model {model or 'llama3.2'}")
-            # ChatOllama IGNORA `timeout=` directe (model_config extra="ignore"); el
-            # timeout de xarxa s'ha de passar via client_kwargs → client httpx d'ollama.
+            # ChatOllama IGNORES `timeout=` directly (model_config extra="ignore"); the
+            # network timeout must be passed via client_kwargs → ollama's httpx client.
             return ChatOllama(
                 model=model or "llama3.2",
                 base_url=base_url or "http://host.docker.internal:11434",
@@ -245,7 +247,7 @@ def get_llm(
         log.error(f"❌ Error instantiating LLM for provider '{provider}': {e}")
         return None
 
-    # Fallback si no es reconeix el proveïdor i no hi ha URL
+    # Fallback if the provider isn't recognized and there's no URL
     return None
 
 
@@ -282,20 +284,21 @@ def _get_hybrid_llm(timeout: Optional[float] = None):
 
 
 def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
-    """Retorna un LLM llest per a crides one-shot (generació de contingut,
-    resums, ordre del dia de reunions…).
+    """Returns an LLM ready for one-shot calls (content generation,
+    summaries, meeting agendas…).
 
-    `timeout` (segons) es propaga al constructor del client (timeout REAL de xarxa,
-    cf. `get_llm`). None → sense límit dur.
+    `timeout` (seconds) is propagated to the client constructor (REAL network timeout,
+    cf. `get_llm`). None → no hard limit.
 
-    Resol el proveïdor/model com ho fa l'agent: agent actiu → selecció `auto`
-    segons el missatge → fallback híbrid (qualsevol proveïdor amb clau). Usa la
-    config FRESCA de params.yaml (no la cachejada a import) perquè reculli
-    proveïdors afegits en calent. Torna None si no n'hi ha cap de disponible.
+    Resolves the provider/model the same way the agent does: active agent → `auto`
+    selection based on the message → hybrid fallback (any provider with a key). Uses the
+    FRESH config from params.yaml (not the one cached at import time) so it picks up
+    providers added on the fly. Returns None if none is available.
 
-    NOTA: és el camí MODERN (get_llm + resolve_provider_api_key), a diferència
-    del client legacy `pipeline/ai_client.py` que espera `model_url`/`model_name`
-    per proveïdor (incompatible amb l'esquema de proveïdors actual).
+    NOTE: this is the MODERN path (get_llm + resolve_provider_api_key), unlike
+    the legacy client `pipeline/ai_client.py` which expects `model_url`/`model_name`
+    per provider (incompatible with the current provider schema).
+    
     """
     ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
     providers = ai_cfg.get("providers", {}) or {}
@@ -309,7 +312,7 @@ def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
     provider_name = (agent_data or {}).get("provider")
     model_name = (agent_data or {}).get("model")
 
-    # Sense agent definit (o sense proveïdor), tria automàticament segons el text.
+    # With no agent defined (or no provider), pick automatically based on the text.
     if not provider_name:
         provider_name, model_name = _resolve_auto_llm(
             message=user_message,
@@ -336,18 +339,19 @@ def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
 
 
 def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tuple[str, str]:
-    """Crida one-shot a l'LLM per defecte. Retorna (text, etiqueta_model).
+    """One-shot call to the default LLM. Returns (text, model_label).
 
-    Llança RuntimeError si no hi ha cap proveïdor d'IA disponible, perquè el
-    caller pugui degradar amb elegància (HTTP 503 / recordatori sense agenda).
+    Raises RuntimeError if no AI provider is available, so that the
+    caller can gracefully degrade (HTTP 503 / reminder without an agenda).
+    
     """
     from langchain_core.messages import HumanMessage
 
     llm = get_default_llm(user_message=user_message or prompt[:200], timeout=timeout)
     if not llm:
         raise RuntimeError("No AI provider available")
-    # El timeout ja viu al client (get_default_llm→get_llm). NO passar
-    # config={"timeout": ...}: langchain l'ignora (no és clau de RunnableConfig).
+    # The timeout already lives in the client (get_default_llm→get_llm). Do NOT pass
+    # config={"timeout": ...}: langchain ignores it (it's not a RunnableConfig key).
     resp = llm.invoke([HumanMessage(content=prompt)])
     text = getattr(resp, "content", "") or ""
     if not isinstance(text, str):
@@ -369,10 +373,11 @@ async def create_agent_workflow(
     user_message: str = "",
 ) -> tuple[StateGraph, dict]:
     """
-    Crea el workflow (graf) Multi-Agent basat en un perfil d'agent específic.
-    Retorna el graf sense compilar per permetre afegir checkpointers externament.
+        Creates the Multi-Agent workflow (graph) based on a specific agent profile.
+    Returns the uncompiled graph to allow adding checkpointers externally.
+    
     """
-    # 1. Obtenir configuració de l'agent des de params.yaml
+    # 1. Get agent configuration from params.yaml
     ai_cfg = cfg.get("ai", {})
     agents = ai_cfg.get("agents", [])
     providers = ai_cfg.get("providers", {})
@@ -383,14 +388,14 @@ async def create_agent_workflow(
     agent_data = next((a for a in agents if a.get("id") == target_id), None)
     
     if not agent_data and agents:
-        # Trobar el primer habilitat o el primer de la llista
+        # Find the first enabled one, or the first in the list
         agent_data = next((a for a in agents if a.get("enabled", True)), agents[0])
 
     if not agent_data:
 
         return None, {}
 
-    # 2. Configurar LLM per l'agent
+    # 2. Configure LLM for the agent
     provider_name = agent_data.get("provider", "groq")
     model_name = agent_data.get("model")
 
@@ -465,7 +470,7 @@ async def create_agent_workflow(
     brain_tools = mcp_langchain_tools + memory_tools + VAULT_KNOWLEDGE_TOOLS
     brain_llm = llm.bind_tools(brain_tools)
 
-    # --- Nodes del Graf ---
+    # --- Graph Nodes ---
 
     def supervisor_node(state: AgentState):
         messages = state["messages"]
@@ -513,7 +518,7 @@ async def create_agent_workflow(
         )
         return {"messages": [response], "next": "FINISH"}
 
-    # --- Construcció del Graf ---
+    # --- Graph construction ---
     workflow = StateGraph(AgentState)
     workflow.add_node("supervisor", supervisor_node)
     workflow.add_node("coder", coder_node)
@@ -552,7 +557,7 @@ async def create_agent_workflow(
     workflow.add_edge("brain_tools", "brain")
     workflow.add_edge("general", END)
 
-    # 6. Retornar el workflow sense compilar + metadata del model escollit
+    # 6. Return the uncompiled workflow + metadata of the chosen model
     return workflow, {
         "mode": llm_mode,
         "provider": provider_name,

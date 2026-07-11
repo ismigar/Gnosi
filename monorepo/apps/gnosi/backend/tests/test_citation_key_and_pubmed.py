@@ -1,6 +1,6 @@
-"""Unit tests per a la generació de Citation Key (P0) i el mapeig PubMed (P3).
+"""Unit tests for Citation Key generation (P0) and PubMed mapping (P3).
 
-Funcions pures — no requereixen backend viu.
+Pure functions — no live backend required.
 
     docker exec gnosi_backend python -m pytest backend/tests/test_citation_key_and_pubmed.py -v
 """
@@ -74,7 +74,7 @@ def test_alpha_suffix(i, expected):
 
 
 def test_first_author_family_structured_literal_only():
-    # autor només amb nom (sense cognoms) → últim token del nom
+    # author with only a first name (no surname) → last token of the name
     assert _first_author_family([{"nom": "Plató"}]) == "Plató"
 
 
@@ -88,7 +88,7 @@ def test_first_author_family_structured_literal_only():
     ("  42 ", "42"),
     ("not-a-pmid", None),
     ("", None),
-    ("978-0-13-110362-7", None),  # ISBN no s'ha de confondre amb PMID
+    ("978-0-13-110362-7", None),  # ISBN must not be confused with PMID
 ])
 def test_normalize_pmid(raw, expected):
     assert _normalize_pmid(raw) == expected
@@ -97,7 +97,7 @@ def test_normalize_pmid(raw, expected):
 def test_pubmed_author_canonical():
     assert _pubmed_author_to_canonical("Murphy SA") == "Murphy, SA"
     assert _pubmed_author_to_canonical("Van Der Berg AB") == "Van Der Berg, AB"
-    assert _pubmed_author_to_canonical("Murphy, S.") == "Murphy, S."  # ja té coma
+    assert _pubmed_author_to_canonical("Murphy, S.") == "Murphy, S."  # already has a comma
 
 
 def test_pubmed_mapping_and_citable():
@@ -127,11 +127,11 @@ def test_pubmed_mapping_and_citable():
     assert out["DOI"] == "10.1/abc"
     assert out["PMID"] == "31000000"
     assert out["Item Type"] == "journalArticle"
-    # i la clau generada des d'aquests autors ha de ser correcta
+    # and the key generated from these authors must be correct
     assert generate_citation_key(out["Authors"], out["Any"]) == "smith2020"
 
 
-# --- P4: identificadors des del text d'un PDF -------------------------------
+# --- P4: identifiers from the text of a PDF -------------------------------
 
 
 def test_pdf_text_doi():
@@ -140,9 +140,9 @@ def test_pdf_text_doi():
 
 
 def test_pdf_text_arxiv_requires_prefix():
-    # Amb prefix → detectat
+    # With prefix → detected
     assert _identifiers_from_text("Preprint arXiv:2103.00020v2 ...") == {"arxiv": "2103.00020v2"}
-    # Sense prefix, un número que casa amb el patró NO ha de ser fals positiu
+    # Without a prefix, a number that matches the pattern must NOT be a false positive
     assert _identifiers_from_text("Revenue grew 2103.00020 in Q4") == {}
 
 
@@ -150,7 +150,7 @@ def test_pdf_text_none():
     assert _identifiers_from_text("No identifiers here at all.") == {}
 
 
-# --- P2: mapeig d'ítems Zotero (translation-server) -------------------------
+# --- P2: Zotero item mapping (translation-server) -------------------------
 
 
 def test_zotero_creators():

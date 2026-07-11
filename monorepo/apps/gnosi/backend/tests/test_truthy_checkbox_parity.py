@@ -1,10 +1,10 @@
-"""Paritat del conjunt de veritat de checkbox entre els 4 motors.
+"""Parity of the checkbox truthy set across the 4 engines.
 
-asBool (vaultFilters.js), FILTER_TRUTHY (DbViewEmbed) i _TRUTHY
-(view_snapshot) inclouen "sí" ACCENTUAT i declaren paritat amb
-rule_engine._is_truthy_checkbox — que no el tenia: una casella desada en
-català ("sí") comptava com a marcada a filtres/vistes/snapshot però NO al
-rollup percent_checked (percentatge infravalorat en silenci).
+asBool (vaultFilters.js), FILTER_TRUTHY (DbViewEmbed), and _TRUTHY
+(view_snapshot) include ACCENTED "sí" and claim parity with
+rule_engine._is_truthy_checkbox — which didn't have it: a checkbox saved in
+Catalan ("sí") counted as checked in filters/views/snapshot but NOT in the
+percent_checked rollup (percentage silently undervalued).
 """
 import pytest
 
@@ -27,5 +27,5 @@ def test_rule_engine_marks_falsy(value):
 
 @pytest.mark.parametrize("value", TRUTHY_CASES + FALSY_CASES)
 def test_parity_with_view_snapshot(value):
-    # Els dos motors backend han de coincidir per a TOTS els casos.
+    # The two backend engines must agree for ALL cases.
     assert RuleEngine._is_truthy_checkbox(value) == _as_bool(value)

@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
-"""Construeix l'índex remot de plugins OFICIALS (signat) per a la distribució.
+"""Builds the remote index of OFFICIAL (signed) plugins for distribution.
 
-Pensat per córrer al pipeline de release (`build-release.yml`): agafa cada carpeta
-de plugin, la comprimeix, en calcula el SHA-256, la signa amb la clau privada
-oficial (des de l'entorn) i escriu:
+Meant to run in the release pipeline (`build-release.yml`): it takes each plugin
+folder, compresses it, computes its SHA-256, signs it with the official
+private key (from the environment), and writes:
 
-  <out>/<id>.zip            — l'artefacte de cada plugin
-  <out>/plugins-index.json  — l'índex (llista d'entrades `source:"url"` amb
-                              `url`, `sha256` i, si hi ha clau, `signature`)
+  <out>/<id>.zip            — each plugin's artifact
+  <out>/plugins-index.json  — the index (list of `source:"url"` entries with
+                              `url`, `sha256`, and, if a key is present, `signature`)
 
-Aquest índex es publica com a asset del release; l'app el consumeix via
-`registry_url` (p. ex. `.../releases/latest/download/plugins-index.json`) i
-verifica cada signatura contra la clau `gnosi-official` bundled.
+This index is published as a release asset; the app consumes it via
+`registry_url` (e.g. `.../releases/latest/download/plugins-index.json`) and
+verifies each signature against the bundled `gnosi-official` key.
 
-La clau privada MAI s'escriu al disc ni al repo: arriba per l'entorn
-`GNOSI_PLUGIN_SIGNING_KEY` (base64 de la clau Ed25519 crua, com la del keyfile).
-Si no hi és, es genera un índex SENSE signatura (que l'app marcarà "no verificat").
+The private key is NEVER written to disk or to the repo: it arrives via the
+`GNOSI_PLUGIN_SIGNING_KEY` environment variable (base64 of the raw Ed25519 key, like the one in the keyfile).
+If it's absent, an index is generated WITHOUT a signature (which the app will mark "unverified").
 
-Depèn només de `cryptography` (no importa el backend de Gnosi).
+Depends only on `cryptography` (does not import Gnosi's backend).
 
-Ús:
+Usage:
   GNOSI_PLUGIN_SIGNING_KEY=<b64> python build_index.py \
       --plugins-dir . --base-url https://github.com/ismigar/Gnosi/releases/latest/download \
       --out ./dist-plugins --include hello-command,clone-logger,vault-stats
@@ -50,13 +50,13 @@ def _zip_dir(src: Path) -> bytes:
 
 
 def _load_signer():
-    """Retorna una funció signadora (bytes→sig b64) o None si no hi ha clau."""
+    """Returns a signing function (bytes→sig b64), or None if there's no key."""
     key_b64 = os.environ.get("GNOSI_PLUGIN_SIGNING_KEY", "").strip()
     if not key_b64:
         return None
     if Ed25519PrivateKey is None:
         raise RuntimeError("cryptography no instal·lada però hi ha clau de signatura")
-    # Accepta tant la clau crua base64 com un JSON {"private": "..."} (keyfile).
+    # Accepts both the raw base64 key and a JSON {"private": "..."} (keyfile).
     if key_b64.startswith("{"):
         key_b64 = json.loads(key_b64)["private"]
     priv = Ed25519PrivateKey.from_private_bytes(base64.b64decode(key_b64))

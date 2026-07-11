@@ -153,7 +153,7 @@ def _discover_folders(imap) -> list[tuple[str, str]]:
             name_lower = name.lower()
             folder_type = _NAME_TYPE_MAP.get(name_lower)
             if folder_type is None:
-                # Prova el nom base de carpetes jeràrquiques (p.ex. "INBOX.Trash" → "trash")
+                # Try the base name of hierarchical folders (e.g. "INBOX.Trash" → "trash")
                 basename = name_lower.rsplit(".", 1)[-1].rsplit("/", 1)[-1]
                 if basename != name_lower:
                     folder_type = _NAME_TYPE_MAP.get(basename)
@@ -210,12 +210,13 @@ class ImapMailSyncService:
     def _connect(self, email_account: str):
         """Context manager: yields authenticated IMAP connection.
 
-        Suporta dos modes d'autenticació:
-        - Password (LOGIN) per comptes manuals/IMAP convencionals.
-        - SASL XOAUTH2 per comptes Google OAuth2 (i, en futur, Microsoft).
+        Supports two authentication modes:
+        - Password (LOGIN) for manual/conventional IMAP accounts.
+        - SASL XOAUTH2 for Google OAuth2 accounts (and, in the future, Microsoft).
 
-        L'`integration_manager.resolve_imap_defaults` injecta hosts per
-        defecte (imap.gmail.com per Google) si no estan configurats.
+        The `integration_manager.resolve_imap_defaults` injects default
+        hosts (imap.gmail.com for Google) if they aren't configured.
+        
         """
         account_data = self._get_account_data(email_account)
         if not account_data:
@@ -223,7 +224,7 @@ class ImapMailSyncService:
             yield None
             return
 
-        # Resol els defaults (Google → imap.gmail.com, etc.) abans de validar.
+        # Resolves the defaults (Google → imap.gmail.com, etc.) before validating.
         account_data = integration_manager.resolve_imap_defaults(account_data)
         is_oauth = integration_manager.is_imap_oauth_account(account_data)
 
@@ -506,8 +507,8 @@ class ImapMailSyncService:
             msg = email.message_from_bytes(raw_email)
 
             raw_subject = msg.get("Subject", "")
-            # `.strip("<>")` no aplana headers folded amb `\r\n` davant del
-            # `<`; usem sanitize que també treu reserved chars de Windows.
+            # `.strip("<>")` doesn't flatten headers folded with `\r\n` before the
+            # `<`; we use sanitize which also strips Windows reserved chars.
             message_id = sanitize_filename_component(msg.get("Message-ID", ""))
             if not message_id:
                 date_val = msg.get("Date", "")
@@ -638,10 +639,10 @@ class ImapMailSyncService:
         if m:
             try:
                 data = yaml.safe_load(m.group(1))
-                # Un frontmatter escalar (p. ex. text solt) fa que safe_load torni un str/int
-                # truthy, no un dict, i `... or {}` el deixava passar: després `meta.update(...)`
-                # / `meta.get(...)` als callers (p. ex. _update_vault_file) petava amb
-                # AttributeError durant el sync. Garantim SEMPRE un dict.
+                # A scalar frontmatter (e.g. loose text) makes safe_load return a str/int
+                # truthy, not a dict, and `... or {}` let it through: then `meta.update(...)`
+                # / `meta.get(...)` in the callers (e.g. _update_vault_file) crashed with
+                # AttributeError during the sync. We ALWAYS guarantee a dict.
                 if isinstance(data, dict):
                     return data
             except Exception:
@@ -837,7 +838,7 @@ class ImapMailSyncService:
             from_folder = meta.get("imap_folder") or imap_folder
             self._update_vault_file(vault_file, {"type": "Deleted", "archived": True})
         else:
-            # Missatge híbrid (no al vault): extreu UID del prefix imap_
+            # Hybrid message (not in the vault): extract UID from the imap_ prefix
             raw = message_id[5:] if message_id.startswith("imap_") else message_id
             uid = raw
             from_folder = imap_folder
@@ -931,12 +932,13 @@ class ImapMailSyncService:
     ) -> bool:
         """Set/unset \\Seen on server and update vault.
 
-        Si no hi ha vault file però el caller ens dona `imap_uid` i `imap_folder`
-        (o el `message_id` és `imap_<UID>` i podem assumir INBOX), apliquem el
-        flag directament al servidor sense passar pel vault. Així els correus
-        que encara no s'han sincronitzat al vault també poden marcar-se com
-        a llegits — i el sidebar (que consulta `STATUS UNSEEN` al servidor)
-        veu el canvi a la pròxima petició de counts.
+        If there is no vault file but the caller gives us `imap_uid` and `imap_folder`
+        (or `message_id` is `imap_<UID>` and we can assume INBOX), we apply the
+        flag directly on the server without going through the vault. This way emails
+        that haven't been synced to the vault yet can also be marked as
+        read — and the sidebar (which queries `STATUS UNSEEN` on the server)
+        sees the change on the next counts request.
+        
         """
         vault_file = self._find_vault_file(message_id)
         uid: str | None = None
@@ -948,17 +950,17 @@ class ImapMailSyncService:
             folder = meta.get("imap_folder")
             self._update_vault_file(vault_file, {"is_read": is_read})
 
-        # Fallback: si no tenim uid/folder via vault, fes-los servir dels args
-        # del caller o derivar-los del message_id (`imap_<UID>` en INBOX).
+        # Fallback: if we don't have uid/folder via the vault, use them from the args
+        # from the caller or derive them from message_id (`imap_<UID>` in INBOX).
         if not uid:
             uid = imap_uid or (message_id[5:] if message_id.startswith("imap_") else None)
         if not folder:
             folder = imap_folder or "INBOX"
 
         if not uid:
-            # Sense uid no es pot tocar el servidor; només cas vault_file inexistent
-            # i message_id sense prefix imap_. Considerem-ho fallit perquè el
-            # caller pugui invalidar caches igualment a través d'altres camins.
+            # Without a uid the server can't be touched; only the case of a missing vault_file
+            # and message_id without the imap_ prefix. We consider it failed so the
+            # caller can still invalidate caches through other paths.
             return bool(vault_file)
 
         with self._connect(email_account) as imap:
@@ -1031,12 +1033,13 @@ class ImapMailSyncService:
         bcc: str = "",
         replace_uid: Optional[str] = None,
     ) -> Optional[str]:
-        """APPEND un missatge amb flag \\Draft a la carpeta de Drafts del compte.
+        """APPEND a message with the \\Draft flag to the account's Drafts folder.
 
-        Si `replace_uid` està definit, intenta esborrar la versió antiga
-        (auto-save: l'usuari escriu i cada N segons s'actualitza el draft).
+        If `replace_uid` is set, tries to delete the old version
+        (auto-save: the user types and the draft is updated every N seconds).
 
-        Retorna l'UID del draft persistit al servidor, o None si ha fallat.
+        Returns the UID of the draft persisted on the server, or None if it failed.
+        
         """
         from email.mime.text import MIMEText
         from email.mime.multipart import MIMEMultipart
@@ -1067,7 +1070,7 @@ class ImapMailSyncService:
             raw_bytes = msg.as_bytes()
 
             try:
-                # Esborra la versió anterior abans d'afegir la nova (auto-save)
+                # Delete the previous version before adding the new one (auto-save)
                 if replace_uid:
                     try:
                         imap.select(_imap_name(drafts_folder))
@@ -1077,7 +1080,7 @@ class ImapMailSyncService:
                     except Exception as e:
                         log.debug(f"[IMAP] No s'ha pogut esborrar draft antic UID={replace_uid}: {e}")
 
-                # APPEND amb flag \Draft. RFC 3501 secció 6.3.11.
+                # APPEND with the \Draft flag. RFC 3501 section 6.3.11.
                 date_time = imaplib.Time2Internaldate(time.time())
                 status, data = imap.append(
                     _imap_name(drafts_folder),
@@ -1089,9 +1092,9 @@ class ImapMailSyncService:
                     log.error(f"[IMAP] APPEND draft fallit: {status} {data}")
                     return None
 
-                # Recuperem l'UID assignat. Gmail/IMAP reporten APPENDUID si el
-                # servidor suporta UIDPLUS (RFC 4315). Fallback: cercar pel
-                # Message-ID que acabem de generar.
+                # We retrieve the assigned UID. Gmail/IMAP report APPENDUID if the
+                # server supports UIDPLUS (RFC 4315). Fallback: search by the
+                # Message-ID we just generated.
                 new_uid = None
                 if data and isinstance(data[0], bytes):
                     txt = data[0].decode("utf-8", errors="replace")
@@ -1100,7 +1103,7 @@ class ImapMailSyncService:
                         new_uid = m.group(1)
 
                 if not new_uid:
-                    # Fallback: cerca per Date + Subject més recent
+                    # Fallback: search by most recent Date + Subject
                     try:
                         imap.select(_imap_name(drafts_folder))
                         st, d = imap.uid("search", None, "ALL")
@@ -1122,13 +1125,14 @@ class ImapMailSyncService:
     # ------------------------------------------------------------------
 
     def fetch_thread_by_gm_thrid(self, email_account: str, gm_thrid: str) -> list[dict]:
-        """Retorna tots els missatges d'un thread Gmail (X-GM-THRID) via IMAP.
+        """Returns all messages in a Gmail thread (X-GM-THRID) via IMAP.
 
-        Funciona només per a comptes Google (Gmail IMAP suporta X-GM-EXT-1
-        amb capacitats X-GM-MSGID, X-GM-THRID, X-GM-LABELS).
+        Only works for Google accounts (Gmail IMAP supports X-GM-EXT-1
+        with X-GM-MSGID, X-GM-THRID, X-GM-LABELS capabilities).
 
-        Cerca a "All Mail" perquè conté els missatges de totes les carpetes
-        d'un mateix thread (INBOX + SENT, p.ex.).
+        Searches "All Mail" because it contains messages from all folders
+        of the same thread (INBOX + SENT, e.g.).
+        
         """
         with self._connect(email_account) as imap:
             if imap is None:
@@ -1144,8 +1148,8 @@ class ImapMailSyncService:
             except Exception:
                 return []
 
-            # "[Gmail]/All Mail" conté tots els missatges (INBOX + SENT + arxiu).
-            # El nom localitzat varia: provem el flag \All primer.
+            # "[Gmail]/All Mail" contains all messages (INBOX + SENT + archive).
+            # The localized name varies: we try the \All flag first.
             all_mail = self._find_server_folder(imap, "Archived") or "[Gmail]/All Mail"
             try:
                 status, _ = imap.select(_imap_name(all_mail), readonly=True)
@@ -1153,7 +1157,7 @@ class ImapMailSyncService:
                     log.warning(f"[IMAP] No s'ha pogut seleccionar {all_mail}")
                     return []
 
-                # Cerca per X-GM-THRID. Format: `X-GM-THRID 1234567890123456789`
+                # Search by X-GM-THRID. Format: `X-GM-THRID 1234567890123456789`
                 status, data = imap.uid("search", None, f"X-GM-THRID {gm_thrid}")
                 if status != "OK" or not data or not data[0]:
                     return []
@@ -1188,7 +1192,7 @@ class ImapMailSyncService:
                     raw_to = msg_obj.get("To", "")
                     raw_date = msg_obj.get("Date", "")
 
-                    # Decodificar capçaleres MIME
+                    # Decode MIME headers
                     def _dec(v):
                         return _decode_str(v) if v else ""
 
@@ -1207,7 +1211,7 @@ class ImapMailSyncService:
                         "gm_thrid": gm_thrid,
                     })
 
-                # Ordre cronològic: APIs de mail solen mostrar més antics primer al thread
+                # Chronological order: mail APIs usually show oldest first in the thread
                 from email.utils import parsedate_to_datetime
                 def _ts(m):
                     try:
@@ -1238,9 +1242,10 @@ def imap_smtp_send(
 ) -> bool:
     """Send a message via SMTP using an IMAP account's SMTP config.
 
-    Suporta dos modes d'autenticació:
-    - LOGIN amb password (comptes manuals/IMAP).
-    - SASL XOAUTH2 (comptes Google OAuth2): refresca l'access_token si cal.
+    Supports two authentication modes:
+    - LOGIN with password (manual/IMAP accounts).
+    - SASL XOAUTH2 (Google OAuth2 accounts): refreshes the access_token if needed.
+    
     """
     import smtplib
     import ssl
@@ -1248,7 +1253,7 @@ def imap_smtp_send(
     from backend.services.integration_manager import integration_manager
     from backend.services.mail_inline_images import build_mail_content
 
-    # Resol defaults (Google → smtp.gmail.com, etc.)
+    # Resolve defaults (Google → smtp.gmail.com, etc.)
     account = integration_manager.resolve_imap_defaults(account)
     is_oauth = integration_manager.is_imap_oauth_account(account)
 
@@ -1302,8 +1307,8 @@ def imap_smtp_send(
 
     try:
         ctx = ssl.create_default_context()
-        # timeout=30 evita que un servidor SMTP penjat bloquegi el thread
-        # de FastAPI fins minuts (l'usuari fa "Send" i no torna res).
+        # timeout=30 prevents a hung SMTP server from blocking the thread
+        # from FastAPI for minutes (the user clicks "Send" and nothing comes back).
         if smtp_enc == "ssl":
             with smtplib.SMTP_SSL(smtp_host, smtp_port, context=ctx, timeout=30) as server:
                 server.ehlo()

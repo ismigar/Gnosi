@@ -6,7 +6,7 @@ from pathlib import Path
 
 from backend.utils.safe_io import safe_write_text
 
-# Definir arrel del projecte per seguretat (Sandbox bàsic)
+# Define project root for security (basic sandbox)
 BASE_DIR = Path(os.getcwd()).resolve()
 
 
@@ -136,9 +136,9 @@ def apply_patch(file_path: str, search_text: str, replace_text: str) -> str:
 
         new_content = content.replace(search_text, replace_text)
 
-        # Atomic write — l'agent edita codi font (.py); un crash a meitat
-        # del write deixaria el fitxer corromput i potencialment trencaria
-        # el backend al següent reload.
+        # Atomic write — the agent edits source code (.py); a crash halfway
+        # through the write would leave the file corrupted and potentially break
+        # the backend on the next reload.
         safe_write_text(target_path, new_content)
 
         return f"Success: Patched {file_path}"
@@ -160,15 +160,15 @@ def run_tests(path: str = "backend") -> str:
         if not str(target_path).startswith(str(BASE_DIR)):
             return "Error: Access denied."
 
-        # Run pytest amb timeout per evitar bloquejar l'agent si tests
-        # tenen un loop infinit o connexions penjades.
+        # Run pytest with a timeout to avoid blocking the agent if tests
+        # have an infinite loop or hanging connections.
         try:
             result = subprocess.run(
                 ["python", "-m", "pytest", str(target_path)],
                 capture_output=True,
                 text=True,
                 cwd=str(BASE_DIR),
-                timeout=300,  # 5 min, prou per la majoria de suites
+                timeout=300,  # 5 min, enough for most suites
             )
         except subprocess.TimeoutExpired:
             return "Error: pytest timeout (5 min). Tests poden tenir un loop infinit."
@@ -309,7 +309,7 @@ def get_vault_registry() -> str:
         return f"Error reading registry: {str(e)}"
 
 
-# Llista exportable
+# Exportable list
 from backend.agent.directive_tools import (
     list_directives,
     read_directive,

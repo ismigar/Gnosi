@@ -270,11 +270,11 @@ def fetch_and_store_newsletters():
         cfg = _load_account_config(db)
         server = (cfg.get("server") or "").strip()
 
-        # poplib.POP3(host) crida getaddrinfo, que codifica el host amb el codec
-        # 'idna'. Un host buit o placeholder ("...", labels buits) peta amb un
-        # UnicodeError críptic ("label empty or too long") i la tasca surt
-        # 'error'. Validem amb el MATEIX codec abans de connectar: si no és un
-        # host vàlid (no configurat / encara amb valors d'exemple), skip net.
+        # poplib.POP3(host) calls getaddrinfo, which encodes the host with the codec
+        # 'idna'. An empty or placeholder host ("...", empty labels) crashes with a
+        # cryptic UnicodeError ("label empty or too long") and the task exits with
+        # 'error'. We validate with the SAME codec before connecting: if it's not a
+        # valid host (not configured / still has example values), clean skip.
         def _is_valid_host(h: str) -> bool:
             if not h:
                 return False
@@ -310,16 +310,16 @@ def fetch_and_store_newsletters():
             delete_ids = []
 
             for i in range(1, num_messages + 1):
-                # Cada missatge s'aïlla en el seu propi try/except: un únic email
-                # verinós (parseig/decodificació que peta, o error de DB a
-                # db.add/db.query) NO ha de tombar tota la ingesta ni bloquejar
-                # la resta. Si peta, es registra i es fa `continue` SENSE tocar la
-                # transacció global; l'escriptura de l'Article s'embolcalla a més
-                # en un savepoint (begin_nested) perquè un IntegrityError no deixi
-                # la sessió en estat brut. Mateix patró que el fix #771 del
-                # feed_ingester. CRÍTIC: només marquem per esborrar del servidor
-                # els missatges processats amb ÈXIT (delete_ids.append dins el try,
-                # al final); un missatge fallit es queda al servidor per poder-lo
+                # Each message is isolated in its own try/except: a single poisoned
+                # email (parsing/decoding that crashes, or a DB error in
+                # db.add/db.query) must NOT bring down the whole ingest or block
+                # the rest. If it crashes, it gets logged and we `continue` WITHOUT touching the
+                # the global transaction; the Article write is additionally wrapped
+                # in a savepoint (begin_nested) so an IntegrityError doesn't leave
+                # the session in a dirty state. Same pattern as fix #771 in
+                # feed_ingester. CRITICAL: we only mark for deletion from the server
+                # messages processed SUCCESSFULLY (delete_ids.append inside the try,
+                # at the end); a failed message stays on the server so it can be
                 # reintentar/inspeccionar.
                 subject = "(No subject)"
                 try:
@@ -393,18 +393,18 @@ def fetch_and_store_newsletters():
                             published_at=local_date,
                             is_read=False
                         )
-                        # Savepoint per missatge: si el flush peta (p. ex.
-                        # IntegrityError), es reverteix NOMÉS aquest INSERT i la
-                        # transacció global segueix viva per als altres missatges.
+                        # Savepoint per message: if the flush blows up (e.g.
+                        # IntegrityError), ONLY this INSERT is rolled back and the
+                        # global transaction stays alive for the other messages.
                         with db.begin_nested():
                             db.add(new_article)
                             db.flush()  # Catch IntegrityError early
                         new_articles_count += 1
                         log.info(f"  📩 [{sender_source.name}] {subject.strip()[:60]}")
 
-                    # Mark for deletion NOMÉS si el missatge s'ha processat amb èxit
-                    # (POP3 és "consume & clear"). Un missatge que peta abans d'aquí
-                    # NO s'esborra del servidor.
+                    # Mark for deletion ONLY if the message was processed successfully
+                    # (POP3 is "consume & clear"). A message that crashes before this point
+                    # is NOT deleted from the server.
                     if cfg["delete_after_ingest"]:
                         delete_ids.append(i)
                 except Exception as e:

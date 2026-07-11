@@ -4,7 +4,7 @@ from pathlib import Path
 from backend.data.management_db import _get_mgmt_db_path
 
 def migrate_db():
-    # Determinació de la ruta de la DB dinàmica
+    # Determining the dynamic DB path
     db_path = _get_mgmt_db_path()
 
     if not db_path.exists():
@@ -15,7 +15,7 @@ def migrate_db():
     cursor = conn.cursor()
     
     try:
-        # Afegir columna permissions si no existeix
+        # Add permissions column if it doesn't exist
         cursor.execute("ALTER TABLE memberships ADD COLUMN permissions TEXT DEFAULT '{\"capabilities\": [\"read\"]}'")
 
     except sqlite3.OperationalError as e:

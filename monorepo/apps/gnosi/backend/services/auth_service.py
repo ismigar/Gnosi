@@ -1,18 +1,18 @@
 """Authentication service — JWT cookies + bcrypt password hashing.
 
-Aquesta capa substitueix el legacy `X-User-ID` header per autenticació
-real basada en JWT. Mantenim compatibilitat amb el header header X-User-ID
-per a scripts/Docker existents (`get_user_id_or_legacy()` aplica un
-fallback no-trencador).
+This layer replaces the legacy `X-User-ID` header with real JWT-based
+authentication. We maintain compatibility with the X-User-ID header
+for existing scripts/Docker (`get_user_id_or_legacy()` applies a
+non-breaking fallback).
 
 Tokens:
-  - HS256 signat amb `GNOSI_JWT_SECRET` (env var; fallback dev hardcoded).
-  - TTL per defecte 7 dies — cookies `HttpOnly`, `SameSite=Lax`.
-  - Payload mínim: `{sub: user_id, exp: int, iat: int}`.
+  - HS256 signed with `GNOSI_JWT_SECRET` (env var; hardcoded dev fallback).
+  - Default TTL 7 days — `HttpOnly`, `SameSite=Lax` cookies.
+  - Minimal payload: `{sub: user_id, exp: int, iat: int}`.
 
 Passwords:
-  - bcrypt via `passlib`, cost 12 (defecte robust).
-  - Mai emmagatzemats en clar; mai retornats al client.
+  - bcrypt via `passlib`, cost 12 (robust default).
+  - Never stored in plaintext; never returned to the client.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 
 
-# ---------- Configuració ----------
+# ---------- Configuration ----------
 
 _SECRET_FALLBACK_DEV = "dev-only-secret-please-set-GNOSI_JWT_SECRET-in-production"
 SECRET_KEY: str = os.environ.get("GNOSI_JWT_SECRET", _SECRET_FALLBACK_DEV)
@@ -33,22 +33,22 @@ ALGORITHM: str = "HS256"
 DEFAULT_TTL_DAYS: int = 7
 COOKIE_NAME: str = "gnosi_session"
 
-# Bcrypt context — cost 12 és el valor canònic per a 2024-2026 (uns 250 ms / hash).
+# Bcrypt context — cost 12 is the canonical value for 2024-2026 (about 250 ms / hash).
 _pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
 
 
 # ---------- Password hashing ----------
 
 def hash_password(plain: str) -> str:
-    """Bcrypt hash. Lança ValueError si la contrasenya és vacia."""
+    """Bcrypt hash. Raises ValueError if the password is empty."""
     if not plain or not isinstance(plain, str):
         raise ValueError("Password buit")
     return _pwd_context.hash(plain)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """True si `plain` coincideix amb el hash. Mai lança per format invàlid:
-    qualsevol fallada de comparació es tracta com a "no coincideix"."""
+    """True if `plain` matches the hash. Never raises due to invalid format:
+    any comparison failure is treated as "does not match"."""
     if not plain or not hashed:
         return False
     try:
@@ -60,7 +60,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 # ---------- JWT ----------
 
 def create_access_token(user_id: str, ttl_days: Optional[int] = None) -> str:
-    """Emet un JWT signat amb el secret. `sub` = user_id."""
+    """Issues a JWT signed with the secret. `sub` = user_id."""
     if not user_id:
         raise ValueError("user_id buit")
     now = datetime.now(timezone.utc)
@@ -74,11 +74,12 @@ def create_access_token(user_id: str, ttl_days: Optional[int] = None) -> str:
 
 
 def decode_access_token(token: str) -> Optional[str]:
-    """Retorna `user_id` si el token és vàlid; `None` altrament.
+    """Returns `user_id` if the token is valid; `None` otherwise.
 
-    No lança HTTPException directament — el caller decideix què fer
-    amb None (tipus 401 per a un endpoint protegit, fallback legacy
-    per al middleware compatibility).
+    Does not raise HTTPException directly — the caller decides what to do
+    with None (e.g. 401 for a protected endpoint, legacy fallback
+    for middleware compatibility).
+    
     """
     if not token:
         return None
@@ -95,20 +96,21 @@ def get_current_user_id(
     gnosi_session: Optional[str] = Cookie(default=None),
     authorization: Optional[str] = Header(default=None),
 ) -> Optional[str]:
-    """Resol l'usuari actual a partir de:
-      1. Cookie `gnosi_session` (preferent — set pel /api/auth/login).
-      2. Header `Authorization: Bearer <token>` (per a clients API).
+    """Resolves the current user from:
+      1. `gnosi_session` cookie (preferred — set by /api/auth/login).
+      2. `Authorization: Bearer <token>` header (for API clients).
 
-    Retorna `None` si no hi ha cap font vàlida; lança HTTPException
-    només si una font és present però el token és malformat o expirat
-    (millor 401 explícit que silenciós).
+    Returns `None` if no valid source is present; raises HTTPException
+    only if a source is present but the token is malformed or expired
+    (an explicit 401 is better than a silent one).
+    
     """
     # 1) Cookie
     if gnosi_session:
         uid = decode_access_token(gnosi_session)
         if uid:
             return uid
-        # Cookie present però invàlida → 401 amb missatge clar
+        # Cookie present but invalid → 401 with a clear message
         raise HTTPException(status_code=401, detail="Sessió expirada o invàlida")
 
     # 2) Header Authorization
@@ -123,18 +125,19 @@ def get_current_user_id(
 
 
 def require_authenticated(uid: Optional[str] = Depends(get_current_user_id)) -> str:
-    """Dependency que **força** autenticació. Helper per a endpoints
-    protegits que no accepten fallback legacy.
+    """Dependency that **forces** authentication. Helper for protected
+    endpoints that don't accept a legacy fallback.
 
-    Ús:
+    Usage:
         @router.get("/whoami")
         def me(uid: str = Depends(require_authenticated)):
             ...
+    
     """
-    # `uid` es resol via Depends(get_current_user_id) (cookie/Bearer). SENSE aquest
-    # Depends al paràmetre, FastAPI el tractava com un query param `uid`: l'endpoint
-    # quedava o bé sempre 401 (sense ?uid) o bé BYPASSABLE (?uid=qualsevol valor).
-    # Aquí només validem que hi hagi identitat resolta.
+    # `uid` is resolved via Depends(get_current_user_id) (cookie/Bearer). WITHOUT this
+    # Depends on the parameter, FastAPI treated it as a query param `uid`: the endpoint
+    # would end up either always 401 (without ?uid) or BYPASSABLE (?uid=any value).
+    # Here we only validate that a resolved identity exists.
     if not uid:
         raise HTTPException(status_code=401, detail="Cal autenticació")
     return uid
@@ -144,16 +147,17 @@ def get_user_id_or_legacy(
     auth_uid: Optional[str] = None,
     x_user_id: Optional[str] = None,
 ) -> str:
-    """Fallback compatible amb el sistema legacy.
+    """Fallback compatible with the legacy system.
 
-    Prioritat:
-      1. JWT (cookie o Bearer) → usuari real.
-      2. Header `X-User-ID` → user_id explícit (scripts, Docker init).
-      3. "ismael-legacy" → default històric per a sessions interactives
-         sense auth a setup personal.
+    Priority:
+      1. JWT (cookie or Bearer) → real user.
+      2. `X-User-ID` header → explicit user_id (scripts, Docker init).
+      3. "ismael-legacy" → historical default for interactive sessions
+         without auth in a personal setup.
 
-    Aquest helper l'utilitza `workspace_service.get_workspace_context`
-    per migrar gradualment sense trencar instal·lacions existents.
+    This helper is used by `workspace_service.get_workspace_context`
+    to migrate gradually without breaking existing installations.
+    
     """
     if auth_uid:
         return auth_uid

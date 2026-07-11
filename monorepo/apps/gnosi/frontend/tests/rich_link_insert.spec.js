@@ -1,14 +1,14 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * E2E del flux d'inserció d'enllaç ric (modal RichLinkInsert).
+ * E2E test for the rich link insertion flow (RichLinkInsert modal).
  *
- * Cobreix:
- * 1. Slash menu obre el modal "Enllaç ric"
- * 2. Tab Local → mode "Enllaçar (file://)" insereix un enllaç inline correcte
- * 3. Click sobre l'enllaç file:// crida l'endpoint /api/vault/open-local-path
- *    (en lloc de deixar que el navegador obri nova pestanya buida)
- * 4. Cap regressió: el contingut existent es manté després d'inserir
+ * Covers:
+ * 1. Slash menu opens the "Rich link" modal
+ * 2. Local tab → "Link (file://)" mode inserts a correct inline link
+ * 3. Clicking the file:// link calls the /api/vault/open-local-path endpoint
+ *    (instead of letting the browser open a new empty tab)
+ * 4. No regression: existing content is preserved after inserting
  */
 
 const APP_URL = process.env.APP_URL || 'http://localhost:5173';
@@ -16,7 +16,7 @@ const APP_URL = process.env.APP_URL || 'http://localhost:5173';
 async function openFirstNote(page) {
     await page.goto(APP_URL);
     await page.waitForLoadState('networkidle');
-    // Busca la primera nota disponible al sidebar
+    // Look for the first available note in the sidebar
     const firstNoteLink = page.locator('[data-testid="sidebar-page"], aside a[href*="/vault/page/"]').first();
     await firstNoteLink.waitFor({ state: 'visible', timeout: 10000 });
     await firstNoteLink.click();
@@ -26,7 +26,7 @@ async function openFirstNote(page) {
 test.describe('RichLinkInsert (slash menu /Enllaç ric)', () => {
 
     test('insereix un enllaç file:// i el clic crida open-local-path', async ({ page }) => {
-        // Mock de l'endpoint perquè el test no depengui del shell del sistema
+        // Mock the endpoint so the test doesn't depend on the system shell
         let openCalledWith = null;
         await page.route('**/api/vault/open-local-path', async (route) => {
             openCalledWith = JSON.parse(route.request().postData() || '{}');
@@ -39,52 +39,52 @@ test.describe('RichLinkInsert (slash menu /Enllaç ric)', () => {
 
         await openFirstNote(page);
 
-        // Captura el contingut inicial per verificar que NO es perd
+        // Capture the initial content to verify it is NOT lost
         const editorBefore = await page.locator('.bn-editor').innerText();
 
-        // 1. Posa el cursor a un block buit nou (Enter al final)
+        // 1. Place the cursor in a new empty block (Enter at the end)
         await page.locator('.bn-editor').click();
         await page.keyboard.press('End');
         await page.keyboard.press('Enter');
 
-        // 2. Activa el slash menu i cerca "Enllaç ric"
+        // 2. Activate the slash menu and search for "Rich link"
         await page.keyboard.type('/');
         await page.waitForSelector('text=Enllaç ric', { timeout: 5000 });
         await page.click('text=Enllaç ric');
 
-        // 3. El modal s'ha d'obrir amb el tab URL per defecte
+        // 3. The modal must open with the URL tab by default
         await expect(page.locator('text=URL')).toBeVisible();
         await expect(page.locator('text=Local')).toBeVisible();
         await expect(page.locator('text=Embed')).toBeVisible();
 
-        // 4. Clica el tab Local
+        // 4. Click the Local tab
         await page.click('button[role="tab"]:has-text("Local")');
 
-        // 5. Verifica el toggle entre "Enllaçar" i "Pujar"
+        // 5. Verify the toggle between "Link" and "Upload"
         await expect(page.locator('text=Enllaçar (file://)')).toBeVisible();
         await expect(page.locator('text=Pujar a Assets')).toBeVisible();
 
-        // 6. Mode "Enllaçar" és el default — enganxa la ruta
+        // 6. "Link" mode is the default — paste the path
         const testPath = '/Users/test/Documents/Carpeta Test';
         await page.fill('input[placeholder*="document.pdf"]', testPath);
         await page.fill('input[placeholder*="Text mostrat"]', 'Carpeta Test');
 
-        // 7. Clica "Inserir enllaç"
+        // 7. Click "Insert link"
         await page.click('button:has-text("Inserir enllaç")');
 
-        // 8. El modal s'ha de tancar i l'enllaç ha d'aparèixer al document
+        // 8. The modal should close and the link should appear in the document
         await expect(page.locator('text=Inserir enllaç')).not.toBeVisible({ timeout: 3000 });
         const link = page.locator(`.bn-editor a[href="file://${testPath}"]`);
         await expect(link).toBeVisible({ timeout: 5000 });
         await expect(link).toHaveText('Carpeta Test');
 
-        // 9. El contingut original NO s'ha perdut
+        // 9. The original content has NOT been lost
         const editorAfter = await page.locator('.bn-editor').innerText();
         expect(editorAfter.length).toBeGreaterThanOrEqual(editorBefore.length);
 
-        // 10. Click sobre l'enllaç → ha de cridar /api/vault/open-local-path
+        // 10. Click the link → should call /api/vault/open-local-path
         await link.click();
-        await page.waitForTimeout(500); // dóna temps a la crida fetch
+        await page.waitForTimeout(500); // give the fetch call time to complete
         expect(openCalledWith).not.toBeNull();
         expect(openCalledWith.path).toBe(`file://${testPath}`);
     });
@@ -109,14 +109,14 @@ test.describe('RichLinkInsert (slash menu /Enllaç ric)', () => {
     test('autosave: el contingut persisteix després de toggle MD ↔ vista normal', async ({ page }) => {
         await openFirstNote(page);
 
-        // Escriu text que sigui detectable
+        // Type text that is detectable
         const marker = `marker-${Date.now()}`;
         await page.locator('.bn-editor').click();
         await page.keyboard.press('End');
         await page.keyboard.press('Enter');
         await page.keyboard.type(marker);
 
-        // Espera l'autosave (el debounce és 700ms)
+        // Wait for autosave (the debounce is 700ms)
         await page.waitForTimeout(1500);
 
         // Toggle a MD
@@ -124,16 +124,16 @@ test.describe('RichLinkInsert (slash menu /Enllaç ric)', () => {
         await mdToggle.click();
         await page.waitForSelector('textarea', { timeout: 3000 });
 
-        // El textarea ha de mostrar el marker, NO "[object Object]"
+        // The textarea should show the marker, NOT "[object Object]"
         const md = await page.locator('textarea').inputValue();
         expect(md).toContain(marker);
         expect(md).not.toContain('[object Object]');
 
-        // Toggle a vista normal
+        // Toggle to normal view
         await mdToggle.click();
         await page.waitForSelector('.bn-editor', { timeout: 3000 });
 
-        // El marker hi és (no s'ha perdut)
+        // The marker is there (it hasn't been lost)
         const editorText = await page.locator('.bn-editor').innerText();
         expect(editorText).toContain(marker);
     });

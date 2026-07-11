@@ -54,9 +54,9 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
     target_model = payload.model or default_models.get(provider)
 
     try:
-        # timeout=10 s'aplica en construir el client (timeout REAL de xarxa). NO es pot
-        # passar a .invoke() via config={"timeout":...}: langchain l'ignora i el «validar»
-        # es penjaria si el proveïdor no respon. cf. directiva ai_error_handling.md.
+        # timeout=10 is applied when building the client (REAL network timeout). It can NOT be
+        # passed to .invoke() via config={"timeout":...}: langchain ignores it, and the "validate"
+        # would hang if the provider doesn't respond. cf. directive ai_error_handling.md.
         llm = get_llm(
             provider=provider,
             model=target_model,
@@ -68,8 +68,8 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
         if not llm:
             return {"success": False, "error": f"No s'ha pogut instanciar el proveïdor {provider}. Revisa que la dependència o la clau API siguin correctos. Model: {target_model}"}
 
-        # Intent d'invocació mínima — to_thread evita bloquejar l'event loop
-        # (alguns LLMs no exposen `ainvoke` o el seu sync n'és el primary path).
+        # Minimal invocation attempt — to_thread avoids blocking the event loop
+        # (some LLMs don't expose `ainvoke` or their sync version is the primary path).
         from langchain_core.messages import HumanMessage
         response = await asyncio.to_thread(
             llm.invoke,
@@ -135,8 +135,8 @@ async def set_provider_credentials(provider_id: str, payload: ProviderCredential
     migrated_ai_cfg, _ = migrate_ai_provider_secrets(ai_cfg)
     current_config["ai"] = migrated_ai_cfg
 
-    # Atomic write: params.yaml conté tota la config principal de l'app
-    # (incluint provider AI). Un crash a meitat el deixaria corrupte.
+    # Atomic write: params.yaml contains all the app's main config
+    # (including AI provider). A crash halfway through would leave it corrupted.
     yaml_text = yaml.safe_dump(
         current_config, default_flow_style=False,
         allow_unicode=True, sort_keys=False,
@@ -217,7 +217,7 @@ async def update_provider_status(provider_id: str, payload: ProviderStatusPayloa
 
 
 # ---------------------------------------------------------------------------
-# Registry de models del router (data-driven) + política de pressupost
+# Router model registry (data-driven) + budget policy
 # cf. backend/agent/model_router.py i directiva vault_knowledge_agents.md
 # ---------------------------------------------------------------------------
 class ModelsPayload(BaseModel):
@@ -227,8 +227,8 @@ class ModelsPayload(BaseModel):
 
 @router.get("/models")
 async def get_model_registry():
-    """Retorna el registry de models del router (config `ai.models`, o el per defecte)
-    i la política de pressupost (`ai.budget`)."""
+    """Returns the router's model registry (config `ai.models`, or the default)
+    and the budget policy (`ai.budget`)."""
     from backend.agent.model_router import load_registry, DEFAULT_REGISTRY
     cfg = load_params(strict_env=False)
     ai_cfg = dict(cfg.get("ai", {}) or {})
@@ -241,10 +241,10 @@ async def get_model_registry():
 
 @router.put("/models", dependencies=[Depends(require_role("admin"))])
 async def set_model_registry(payload: ModelsPayload):
-    """Desa el registry de models i la política de pressupost a params.yaml."""
+    """Saves the model registry and the budget policy to params.yaml."""
     if not isinstance(payload.models, list):
         raise HTTPException(status_code=400, detail="models ha de ser una llista")
-    # Validació mínima de cada entrada
+    # Minimal validation of each entry
     cleaned = []
     for m in payload.models:
         if not isinstance(m, dict) or not m.get("provider") or not m.get("model_id"):
@@ -284,7 +284,7 @@ async def set_model_registry(payload: ModelsPayload):
     return {"status": "success", "count": len(cleaned)}
 
 
-# ── Generació de contingut amb IA (per a l'editor del Vault) ──────────────────
+# ── AI content generation (for the Vault editor) ──────────────────
 
 class GeneratePayload(BaseModel):
     prompt: Optional[str] = ""
@@ -294,7 +294,7 @@ class GeneratePayload(BaseModel):
 
 
 def _build_generation_prompt(payload: "GeneratePayload") -> str:
-    """Construeix el prompt final segons el mode (presets estil Notion)."""
+    """Build the final prompt according to the mode (Notion-style presets)."""
     instruction = (payload.prompt or "").strip()
     context = (payload.context or "").strip()
     mode = (payload.mode or "free").strip().lower()
@@ -349,13 +349,14 @@ def _build_generation_prompt(payload: "GeneratePayload") -> str:
 
 @router.post("/generate")
 async def generate_content(payload: GeneratePayload):
-    """Generació one-shot de text amb IA per inserir-lo en pàgines del Vault.
+    """One-shot AI text generation to insert into Vault pages.
 
-    Usa el camí MODERN `factory.generate_text` (get_llm + resolve_provider_api_key),
-    el mateix que l'agent i el botó «validar» de Configuració › IA. Cada crida és
-    nova (no hi ha caché), així «continua escrivint» dues vegades dona text
-    diferent. Degrada amb 503 si no hi ha cap proveïdor disponible, mai amb error
-    dur.
+    Uses the MODERN path `factory.generate_text` (get_llm + resolve_provider_api_key),
+    the same one used by the agent and the «validate» button in Settings › AI. Each call is
+    fresh (no caching), so calling «keep writing» twice gives different text.
+    Degrades with 503 if no provider is available, never with a hard
+    error.
+    
     """
     from backend.agent.factory import generate_text
 
@@ -373,7 +374,7 @@ async def generate_content(payload: GeneratePayload):
             detail="No hi ha cap proveïdor d'IA disponible. Revisa Configuració › IA.",
         ) from e
     except Exception as e:
-        # Clau invàlida/caducada, rate-limit o permisos → missatge accionable.
+        # Invalid/expired key, rate-limit, or permissions → actionable message.
         msg = str(e).lower()
         if any(k in msg for k in ("timeout", "timed out", "timed_out")):
             raise HTTPException(
@@ -398,8 +399,8 @@ async def generate_content(payload: GeneratePayload):
 
 class CorrectPayload(BaseModel):
     text: str
-    language: Optional[str] = None   # "català" | "castellà" | "anglès"… (pista opcional)
-    scope: Optional[str] = "selection"  # selection | block | page (només per matís de prompt)
+    language: Optional[str] = None   # "Catalan" | "Spanish" | "English"… (optional hint)
+    scope: Optional[str] = "selection"  # selection | block | page (only for prompt nuance)
 
 
 _LANG_LABELS = {
@@ -411,12 +412,13 @@ _LANG_LABELS = {
 
 @router.post("/correct")
 async def correct_text(payload: CorrectPayload):
-    """Corregeix ortografia i gramàtica d'un fragment amb IA.
+    """Corrects spelling and grammar of a fragment using AI.
 
-    Germà de `/ai/generate` però amb un contracte estricte: retorna NOMÉS el text
-    corregit, conservant sentit, to, idioma i format. Pensat per aplicar-se sobre
-    una selecció, un bloc o una pàgina sencera de l'editor. Degrada amb 503 si no
-    hi ha proveïdor, mai amb error dur.
+    Sibling of `/ai/generate` but with a strict contract: it returns ONLY the
+    corrected text, preserving meaning, tone, language, and format. Meant to be applied to
+    a selection, a block, or an entire editor page. Degrades with a 503 if there's
+    no provider, never with a hard error.
+    
     """
     from backend.agent.factory import generate_text
 

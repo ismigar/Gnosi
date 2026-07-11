@@ -70,9 +70,9 @@ async def login():
         "state":         state,
         "prompt":        "select_account",
     }
-    # urlencode garanteix encoding correcte d'espais a SCOPES, `://` a
-    # redirect_uri, etc. La concat manual abans podia generar URLs invàlides
-    # depenent dels valors.
+    # urlencode ensures correct encoding of spaces in SCOPES, `://` in
+    # redirect_uri, etc. Manual concatenation used to produce invalid URLs
+    # depending on the values.
     from urllib.parse import urlencode
     url = AUTH_URL + "?" + urlencode(params)
     return RedirectResponse(url=url)
@@ -95,8 +95,8 @@ async def callback(request: Request):
     _pending.pop(state, None)
     cfg = _get_config()
 
-    # Exchange code for tokens — `requests` és bloquejant; off-thread per
-    # no congelar l'event loop fins a 15s.
+    # Exchange code for tokens — `requests` is blocking; off-thread so
+    # not freeze the event loop for up to 15s.
     try:
         resp = await asyncio.to_thread(
             http.post,

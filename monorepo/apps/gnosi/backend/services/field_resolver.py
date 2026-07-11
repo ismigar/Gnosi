@@ -1,21 +1,21 @@
 """
-Resolució de camps per ID immutable o nom (capa de compatibilitat).
+Field resolution by immutable ID or name (compatibility layer).
 
-Cada property d'una taula del registry té un 'id' immutable amb format
-'fld_xxxxxxxx'. Aquest mòdul ofereix helpers per llegir/escriure metadata
-de pàgines de manera independent del nom (que pot canviar).
+Each property of a registry table has an immutable 'id' with the format
+'fld_xxxxxxxx'. This module offers helpers to read/write page metadata
+independently of the name (which can change).
 
-Convencions:
-- Una "ref" pot ser un id ('fld_*') o un nom de camp (string qualsevol).
-- Quan llegim metadata, si la clau ID hi és la prioritzem; si no, fallback al nom.
+Conventions:
+- A "ref" can be an id ('fld_*') or a field name (any string).
+- When reading metadata, if the ID key is present we prioritize it; otherwise, fall back to the name.
 
-PERSISTÈNCIA PER NOM (2026-05): el `.md` i les respostes API guarden les claus
-pel **nom actual** del camp, mai per `fld_*` (que és opac per a un humà). L'id
-segueix existint a l'esquema (registry) com a referència de vistes/filtres. Per
-robustesa davant renombrar columnes, cada property pot tenir `aliases` (noms
-antics): el resolver casa per id, nom actual o àlies, i `to_storage_names` /
-`to_response_names` reescriuen sempre al nom actual. Vegeu la directiva
-`docs/dev_memory/directives/vault_persist_by_name.md`.
+PERSISTENCE BY NAME (2026-05): the `.md` file and API responses store keys
+by the field's **current name**, never by `fld_*` (which is opaque to a human). The id
+still exists in the schema (registry) as a reference for views/filters. For
+robustness against column renames, each property can have `aliases` (old
+names): the resolver matches by id, current name, or alias, and `to_storage_names` /
+`to_response_names` always rewrite to the current name. See the
+`docs/dev_memory/directives/vault_persist_by_name.md` directive.
 """
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -34,14 +34,14 @@ def get_property_by_id(table: Dict, field_id: str) -> Optional[Dict]:
 
 
 def get_property_by_name(table: Dict, name: str) -> Optional[Dict]:
-    """Casa per nom ACTUAL primer; si no, per àlies (nom antic)."""
+    """Matches by CURRENT name first; otherwise, by alias (old name)."""
     if not table or not name:
         return None
     props = table.get("properties", []) or []
     for p in props:
         if p.get("name") == name:
             return p
-    # Fallback: nom antic guardat com a àlies.
+    # Fallback: old name saved as an alias.
     for p in props:
         if name in (p.get("aliases") or []):
             return p
@@ -49,7 +49,7 @@ def get_property_by_name(table: Dict, name: str) -> Optional[Dict]:
 
 
 def resolve_property(table: Dict, ref: str) -> Optional[Dict]:
-    """Resol una ref (id, nom actual o àlies) a la property completa."""
+    """Resolves a ref (id, current name, or alias) to the full property."""
     if not ref:
         return None
     if is_field_id(ref):
@@ -58,10 +58,10 @@ def resolve_property(table: Dict, ref: str) -> Optional[Dict]:
 
 
 def resolve_ref(table: Dict, ref: str) -> Tuple[Optional[str], Optional[str]]:
-    """Retorna (id, name) per una ref donada."""
+    """Returns (id, name) for a given ref."""
     prop = resolve_property(table, ref)
     if not prop:
-        # No existeix; mantenim la ref en el camp on tindria sentit
+        # It doesn't exist; we keep the ref in the field where it would make sense
         if is_field_id(ref):
             return ref, None
         return None, ref
@@ -69,7 +69,7 @@ def resolve_ref(table: Dict, ref: str) -> Tuple[Optional[str], Optional[str]]:
 
 
 def get_meta_value(metadata: Dict, table: Dict, ref: str) -> Any:
-    """Llegeix metadata per ref (id o nom). Prioritza id, fallback a nom."""
+    """Reads metadata by ref (id or name). Prioritizes id, falls back to name."""
     if not metadata:
         return None
     fid, fname = resolve_ref(table, ref)
@@ -82,9 +82,10 @@ def get_meta_value(metadata: Dict, table: Dict, ref: str) -> Any:
 
 def set_meta_value(metadata: Dict, table: Dict, ref: str, value: Any) -> Dict:
     """
-    Escriu metadata utilitzant id com a clau quan és possible.
-    Elimina la clau-nom si encara hi era (migració lazy).
-    Muta i retorna metadata.
+        Writes metadata using id as the key whenever possible.
+    Removes the name-key if it was still present (lazy migration).
+    Mutates and returns metadata.
+    
     """
     if metadata is None:
         metadata = {}
@@ -100,11 +101,12 @@ def set_meta_value(metadata: Dict, table: Dict, ref: str, value: Any) -> Dict:
 
 def expand_metadata_for_response(metadata: Dict, table: Dict) -> Dict:
     """
-    Per a respostes API: si una clau és un field_id i existeix la property
-    corresponent al schema, afegeix també una entrada amb el nom actual
-    (sense esborrar la id). Així el frontend antic (que llegeix per nom)
-    continua funcionant durant la migració.
-    Retorna un dict nou (no muta).
+        For API responses: if a key is a field_id and the corresponding property
+    exists in the schema, also add an entry with the current name
+    (without removing the id). This way the old frontend (which reads by name)
+    keeps working during the migration.
+    Returns a new dict (does not mutate).
+    
     """
     if not metadata or not table:
         return dict(metadata or {})
@@ -121,9 +123,10 @@ def expand_metadata_for_response(metadata: Dict, table: Dict) -> Dict:
 
 def migrate_metadata_keys(metadata: Dict, table: Dict) -> Tuple[Dict, int]:
     """
-    Reescriu totes les claus name → id quan trobem coincidència al schema.
-    Retorna (metadata_migrada, nombre_de_claus_migrades).
-    No toca claus que ja són IDs ni claus desconegudes (no estan al schema).
+        Rewrites all name → id keys whenever we find a match in the schema.
+    Returns (migrated_metadata, number_of_migrated_keys).
+    Does not touch keys that are already IDs or unknown keys (not in the schema).
+    
     """
     if not metadata or not table:
         return metadata or {}, 0
@@ -140,23 +143,23 @@ def migrate_metadata_keys(metadata: Dict, table: Dict) -> Tuple[Dict, int]:
     return new_meta, migrated
 
 
-# Prioritat de procedència quan diverses claus apunten a la mateixa columna.
+# Provenance priority when several keys point to the same column.
 _PRIO_CURRENT_NAME = 0
 _PRIO_FIELD_ID = 1
 _PRIO_ALIAS = 2
 
 
 def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
-    """Reescriu TOTES les claus resolubles al **nom actual** de la columna.
+    """Rewrites ALL resolvable keys to the column's **current name**.
 
-    És el límit canònic d'ESCRIPTURA (disc) i de resposta: garanteix que mai es
-    persisteixi un `fld_*` ni un nom antic (àlies). Les claus que no resolen a
-    cap property (propietats locals reals) es conserven intactes.
+    This is the canonical WRITE boundary (disk) and response boundary: it guarantees that a
+    `fld_*` or an old name (alias) is never persisted. Keys that don't resolve to
+    any property (genuine local properties) are kept intact.
 
-    Conflicte (diverses claus → mateixa columna): guanya per prioritat
-    nom actual > id > àlies.
+    Conflict (several keys → same column): priority order is
+    current name > id > alias.
 
-    Retorna (metadata_nou, ha_canviat). No muta l'entrada.
+    Returns (new_metadata, has_changed). Does not mutate the input.
     """
     if not isinstance(metadata, dict) or not metadata or not table:
         return (dict(metadata) if isinstance(metadata, dict) else {}), False
@@ -172,8 +175,8 @@ def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
                 alias_to_name[a] = cname
 
     chosen: Dict[str, Tuple[int, Any]] = {}  # nom_actual -> (prioritat, valor)
-    passthrough: Dict[str, Any] = {}          # claus no resolubles (locals reals)
-    order: List[Tuple[str, str]] = []         # ordre de primera aparició
+    passthrough: Dict[str, Any] = {}          # unresolvable keys (real locals)
+    order: List[Tuple[str, str]] = []         # order of first appearance
 
     def consider(cname: str, prio: int, value: Any) -> None:
         if cname not in chosen:
@@ -202,7 +205,7 @@ def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
 
 
 def to_response_names(metadata: Dict, table: Dict) -> Dict:
-    """Versió per a respostes API: claus resoltes al nom actual, sense `fld_*`
-    ni àlies. No muta. Substitueix `expand_metadata_for_response`."""
+    """Version for API responses: keys resolved to the current name, without `fld_*`
+    or aliases. Does not mutate. Replaces `expand_metadata_for_response`."""
     out, _ = to_storage_names(metadata, table)
     return out

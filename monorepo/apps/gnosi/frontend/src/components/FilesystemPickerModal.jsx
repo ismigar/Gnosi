@@ -7,26 +7,26 @@ import { useTranslation } from 'react-i18next';
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
 /**
- * Modal navegador del sistema d'arxius (carpetes + fitxers).
+ * File system browser modal (folders + files).
  *
  * Props:
- *   - isOpen, onClose: control de visibilitat.
- *   - mode: 'folder' (per defecte), 'file' o 'any'.
- *       * 'folder': només mostra carpetes; botó "Seleccionar" al peu retorna
- *         la carpeta actual.
- *       * 'file': mostra carpetes i fitxers; clic en un fitxer retorna la
- *         seva ruta.
- *       * 'any': mostra carpetes i fitxers; clic en un fitxer el retorna i el
- *         botó del peu retorna la carpeta actual. Serveix per enllaçar tant
- *         fitxers com carpetes.
- *   - onSelect(absoluteHostPath, { isDir }): la ruta retornada és sempre la
- *     del HOST (la que veu Finder); no la del path mapeat dins de Docker. El
- *     segon argument indica si és una carpeta (sempre false en mode 'file',
- *     sempre true en mode 'folder').
- *   - initialPath: ruta on començar (interna o host).
- *   - initialQuery: text amb què pre-omplir la cerca en obrir-se. Útil quan
- *     ja se sap el nom del fitxer (p.ex. l'usuari ha arrossegat un fitxer i
- *     ara l'ha de localitzar al disc perquè el navegador no en dóna la ruta).
+ *   - isOpen, onClose: visibility control.
+ *   - mode: 'folder' (default), 'file', or 'any'.
+ *       * 'folder': shows only folders; the "Select" button at the bottom returns
+ *         the current folder.
+ *       * 'file': shows folders and files; clicking a file returns its
+ *         path.
+ *       * 'any': shows folders and files; clicking a file returns it and the
+ *         bottom button returns the current folder. Used to link both
+ *         files and folders.
+ *   - onSelect(absoluteHostPath, { isDir }): the returned path is always the
+ *     HOST one (the one Finder sees), not the path mapped inside Docker. The
+ *     second argument indicates whether it's a folder (always false in 'file' mode,
+ *     always true in 'folder' mode).
+ *   - initialPath: path to start at (internal or host).
+ *   - initialQuery: text to pre-fill the search with on open. Useful when
+ *     the file name is already known (e.g. the user has dragged a file and
+ *     now needs to locate it on disk because the browser doesn't provide its path).
  */
 export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath = '', mode = 'folder', initialQuery = '' }) {
     const { t } = useTranslation();
@@ -38,19 +38,19 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
-    // Resultats de la cerca global. `null` = no s'està buscant (mode browse).
+    // Global search results. `null` = not currently searching (browse mode).
     const [searchResults, setSearchResults] = useState(null);
     const [searchTruncated, setSearchTruncated] = useState(false);
-    // Índex de l'element ressaltat a la llista (carpetes/fitxers o resultats de
-    // cerca). Compartit per teclat (↑↓) i ratolí (hover), igual que el patró
-    // canònic de MultiSelectPills: un sol `highlightedIndex` per a tots dos.
+    // Index of the highlighted element in the list (folders/files or search
+    // results). Shared by keyboard (↑↓) and mouse (hover), same as the
+    // canonical MultiSelectPills pattern: a single `highlightedIndex` for both.
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const modalRef = useRef(null);
-    // Contenidor scrollable de la llista (role="listbox"): rep el focus i les
-    // fletxes; manté el focus en entrar/sortir de carpetes, així la navegació
-    // amb teclat no s'interromp. Patró aria-activedescendant.
+    // Scrollable container for the list (role="listbox"): receives focus and the
+    // arrows; keeps focus when entering/leaving folders, so navigation
+    // with the keyboard isn't interrupted. aria-activedescendant pattern.
     const listRef = useRef(null);
-    // Refs a cada opció renderitzada, per fer scrollIntoView de la ressaltada.
+    // Refs to each rendered option, to scrollIntoView the highlighted one.
     const itemRefs = useRef([]);
 
     useEffect(() => {
@@ -59,16 +59,16 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialPath]);
 
-    // En obrir-se, pre-omple la cerca amb `initialQuery` (si n'hi ha). El
-    // useEffect de cerca debounced ja s'encarrega de llançar la consulta.
+    // On opening, pre-fills the search with `initialQuery` (if present). The
+    // debounced search useEffect already takes care of firing the query.
     useEffect(() => {
         if (isOpen) setSearchQuery(initialQuery || '');
     }, [isOpen, initialQuery]);
 
-    // Picker de navegació sense una única acció primària (en mode 'file' es
-    // selecciona clicant un fitxer de la llista; en 'folder'/'any' el botó del
-    // peu). Per això NOMÉS Esc + focus-trap, sense onConfirm. El hook escolta en
-    // CAPTURA a window (venç el stopPropagation de BlockNote/ProseMirror).
+    // Navigation picker with no single primary action (in 'file' mode it's
+    // selected by clicking a file in the list; in 'folder'/'any' mode the bottom
+    // button). That's why it's ONLY Esc + focus-trap, without onConfirm. The hook listens in
+    // CAPTURE on window (overrides BlockNote/ProseMirror's stopPropagation).
     useModalKeyboard({
         isOpen,
         onClose,
@@ -76,8 +76,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         trapFocus: true,
     });
 
-    // Cerca global a tot el disk amb debounce. Si el query és curt (<2 chars)
-    // tornem a mode browse i mostrem el directori actual.
+    // Global search across the whole disk with debounce. If the query is short (<2 chars)
+    // we go back to browse mode and show the current directory.
     useEffect(() => {
         if (!isOpen) return;
         const q = searchQuery.trim();
@@ -110,9 +110,9 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         return () => clearTimeout(handle);
     }, [isOpen, searchQuery, tn]);
 
-    // En canviar de carpeta o de resultats de cerca, torna a ressaltar el
-    // primer element (o cap, si la llista és buida). Així ↑↓ i Enter sempre
-    // tenen un punt de partida coherent.
+    // When changing folder or search results, re-highlights the
+    // first element (or none, if the list is empty). This way ↑↓ and Enter always
+    // have a consistent starting point.
     useEffect(() => {
         const showFilesNow = mode === 'file' || mode === 'any';
         const count = searchResults !== null
@@ -121,7 +121,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         setHighlightedIndex(count > 0 ? 0 : -1);
     }, [currentPath, searchResults, directories, files, mode]);
 
-    // Manté l'element ressaltat visible quan es navega amb el teclat.
+    // Keeps the highlighted element visible when navigating with the keyboard.
     useEffect(() => {
         if (highlightedIndex < 0) return;
         const el = itemRefs.current[highlightedIndex];
@@ -159,8 +159,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     if (!isOpen) return null;
 
-    // 'file' i 'any' mostren fitxers; 'folder' i 'any' permeten retornar la
-    // carpeta actual amb el botó del peu.
+    // 'file' and 'any' show files; 'folder' and 'any' allow returning the
+    // current folder with the bottom button.
     const showFiles = mode === 'file' || mode === 'any';
     const canPickFolder = mode === 'folder' || mode === 'any';
 
@@ -184,9 +184,9 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         onSelect(displayPath || currentPath, { isDir: true });
     };
 
-    // Resultat de cerca: si és carpeta, navega-hi (cal entrar-hi per
-    // seleccionar-la amb el botó del peu); si és fitxer i el mode mostra
-    // fitxers, seleccionar-lo.
+    // Search result: if it's a folder, navigate into it (you need to enter it to
+    // select it with the bottom button); if it's a file and the mode shows
+    // files, select it.
     const handleSearchResultClick = (item) => {
         if (item.is_dir) {
             setSearchQuery('');
@@ -196,10 +196,10 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         }
     };
 
-    // ── Navegació amb teclat ──
-    // Llista plana i ordenada de tot el que es pot seleccionar ara mateix. Un
-    // sol array perquè l'índex ressaltat (↑↓) i les refs casin amb el que es
-    // pinta, tant en mode cerca com en mode browse.
+    // ── Keyboard navigation ──
+    // Flat, sorted list of everything that can be selected right now. A
+    // single array so that the highlighted index (↑↓) and the refs match what is
+    // renders, both in search mode and browse mode.
     const visibleSearchResults = isSearching
         ? searchResults.filter((it) => showFiles || it.is_dir)
         : [];
@@ -214,8 +214,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     const goUp = () => void browse(joinPath(currentPath, '..'));
 
-    // Obre/selecciona l'element a `index`: carpeta → hi entra; fitxer → el
-    // retorna; resultat de cerca → delega al seu handler (que ja distingeix).
+    // Opens/selects the item at `index`: folder → enters it; file → the
+    // returned; search result → delegates to its handler (which already distinguishes).
     const activate = (index) => {
         const it = items[index];
         if (!it) return;
@@ -232,8 +232,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         });
     };
 
-    // Tecles dins la llista (contenidor role="listbox"). El focus hi viu, així
-    // que ↑↓ no es perden en entrar/sortir de carpetes.
+    // Keys inside the list (role="listbox" container). Focus lives there, so
+    // ↑↓ aren't lost when entering/leaving folders.
     const handleListKeyDown = (e) => {
         switch (e.key) {
             case 'ArrowDown':
@@ -258,7 +258,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     activate(highlightedIndex);
                 }
                 break;
-            // → només entra a carpetes (no selecciona fitxers, que seria inesperat).
+            // → only enters folders (doesn't select files, which would be unexpected).
             case 'ArrowRight': {
                 const it = items[highlightedIndex];
                 if (it && (it.kind === 'dir' || (it.kind === 'search' && it.data.is_dir))) {
@@ -267,8 +267,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 }
                 break;
             }
-            // "Anar enrere": puja un nivell. Dins la llista no s'escriu text,
-            // així que ⌫ i ← són segurs per a aquesta drecera (estil Finder).
+            // "Go back": goes up one level. Inside the list, no text is typed,
+            // so ⌫ and ← are safe for this shortcut (Finder style).
             case 'Backspace':
             case 'ArrowLeft':
                 e.preventDefault();
@@ -279,8 +279,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         }
     };
 
-    // Tecles dins el cercador. ↓ baixa a la llista; Enter obre el ressaltat;
-    // ⌫ amb el camp buit puja un nivell (no interfereix mai mentre s'escriu).
+    // Keys inside the search box. ↓ moves down into the list; Enter opens the highlighted item;
+    // ⌫ with an empty field goes up one level (never interferes while typing).
     const handleSearchKeyDown = (e) => {
         if (e.key === 'ArrowDown') {
             e.preventDefault();
@@ -404,7 +404,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         />
                     </div>
 
-                    {/* List (role="listbox": el focus hi viu i les fletxes el naveguen) */}
+                    {/* List (role="listbox": focus lives there and the arrow keys navigate it) */}
                     <div
                         ref={listRef}
                         role="listbox"

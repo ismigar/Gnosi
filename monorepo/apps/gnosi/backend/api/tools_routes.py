@@ -17,9 +17,9 @@ router = APIRouter(prefix="/api/tools", tags=["tools"])
 
 
 def _get_tools_base() -> Path:
-    """Directori on viuen pending/approved/rejected — ha de coincidir amb el
-    que llegeix `loader.ToolLoader.__init__` (cfg.paths.AGENT_TOOLS). Si no,
-    aprovar/rebutjar mou fitxers a un lloc que ningú llegeix."""
+    """Directory where pending/approved/rejected live — must match what
+    `loader.ToolLoader.__init__` reads (cfg.paths.AGENT_TOOLS). Otherwise,
+    approving/rejecting moves files to a place nobody reads."""
     cfg = load_params(strict_env=False)
     tools_base = cfg.paths.get("AGENT_TOOLS")
     if tools_base:

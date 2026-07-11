@@ -1,20 +1,20 @@
-"""Router de models data-driven i conscient de pressupost.
+"""Data-driven, budget-aware model router.
 
-Substitueix els stacks de models HARDCODED de `factory._resolve_auto_llm` per un
-**registry editable** + una **política de selecció** que considera: capacitat requerida
-per la petició, disponibilitat/salut del proveïdor, tokens/quota restants i cost.
+Replaces the HARDCODED model stacks from `factory._resolve_auto_llm` with an
+**editable registry** + a **selection policy** that considers: capability required
+by the request, provider availability/health, remaining tokens/quota, and cost.
 
-Disseny: el nucli (`classify_request`, `route_model`) és PUR — rep la disponibilitat, l'ús
-i el pressupost INJECTATS, de manera que es pot testejar sense backend ni xarxa (cf.
-directiva `vault_knowledge_agents.md`, memòria `feedback_local_backend_test_verification`).
+Design: the core (`classify_request`, `route_model`) is PURE — it receives availability, usage,
+and budget INJECTED, so it can be tested without a backend or network (cf.
+directive `vault_knowledge_agents.md`, memory `feedback_local_backend_test_verification`).
 """
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
-# Registry per defecte (els antics stacks hardcoded, ara com a DADES)
-# Una entrada: provider, model_id, is_local, enabled, priority (menor=preferit),
+# Default registry (the old hardcoded stacks, now as DATA)
+# One entry: provider, model_id, is_local, enabled, priority (lower=preferred),
 # cost_in/out (USD per 1k tokens; 0 = local), context_window, quality (1..3),
 # tags (capacitats: "code", "vision", "long", "tools"...), monthly_quota? (tokens).
 # ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ _CODE_KW = {"code", "codi", "codigo", "programa", "programar", "bug", "error", "
 
 def classify_request(message: str, *, has_images: bool = False,
                      context_tokens: int = 0) -> Dict[str, Any]:
-    """Extreu les característiques de la petició que guien el routing (PUR)."""
+    """Extracts the request features that guide routing (PURE)."""
     text = (message or "").strip().lower()
     tokens = set(text.replace("\n", " ").split())
     is_complex = len(text) > 320 or bool(_COMPLEX_KW & tokens)
@@ -90,21 +90,22 @@ def route_model(
     has_images: bool = False,
     context_tokens: int = 0,
 ) -> Dict[str, Any]:
-    """Tria el millor model segons capacitat + disponibilitat + pressupost + cost (PUR).
+    """Picks the best model based on capability + availability + budget + cost (PURE).
 
-    - `is_available(provider)`: injectat (al backend = `_provider_is_available`).
-    - `usage`: {f"{provider}:{model_id}": tokens_usats_aquest_període}.
+    - `is_available(provider)`: injected (in the backend = `_provider_is_available`).
+    - `usage`: {f"{provider}:{model_id}": tokens_used_this_period}.
     - `budget`: {"prefer_local": bool, "remaining_tokens": int|None,
-                 "prefer_local_below": int} → si queden pocs tokens de pagament, degrada a local.
-    - `manual`: {provider, model_id} → força un model (mode manual), si està disponible.
-    Retorna {provider, model_id, reason, estimated_cost_per_1k}.
+                 "prefer_local_below": int} → if few paid tokens remain, it degrades to local.
+    - `manual`: {provider, model_id} → forces a model (manual mode), if available.
+    Returns {provider, model_id, reason, estimated_cost_per_1k}.
+    
     """
     registry = registry or DEFAULT_REGISTRY
     usage = usage or {}
     budget = budget or {}
     features = classify_request(message, has_images=has_images, context_tokens=context_tokens)
 
-    # Mode manual: respecta l'elecció si el proveïdor està viu
+    # Manual mode: respects the choice if the provider is alive
     if manual and manual.get("model_id"):
         if is_available(manual.get("provider", "")):
             return {**manual, "reason": "manual"}
@@ -115,7 +116,7 @@ def route_model(
     budget_tight = bool(budget.get("prefer_local")) or (
         remaining is not None and below and remaining <= below)
 
-    # Candidats: habilitats, disponibles, amb capacitats requerides, dins context, amb quota
+    # Candidates: enabled, available, with required capabilities, within context, with quota
     needs = features["needs"]
     candidates = [
         m for m in registry
@@ -126,7 +127,7 @@ def route_model(
         and not _quota_exhausted(m, usage)
     ]
     if not candidates:
-        # Degradació: relaxa les capacitats (excepte context) i torna a provar
+        # Degradation: relaxes capabilities (except context) and retries
         candidates = [
             m for m in registry
             if m.get("enabled", True) and is_available(m["provider"])
@@ -138,13 +139,13 @@ def route_model(
     desired = features["desired_quality"]
 
     def score(m: Dict[str, Any]) -> tuple:
-        # 1) Penalitza quedar-se curt de qualitat; sobra-qualitat és lleu malbaratament.
+        # 1) Penalize falling short on quality; excess quality is a minor waste.
         q_gap = max(0, desired - m.get("quality", 1)) * 10 + max(0, m.get("quality", 1) - desired)
         avg_cost = (m.get("cost_in", 0) + m.get("cost_out", 0)) / 2
         if budget_tight:
             # Cost mana; local (cost 0) guanya
             return (0 if m.get("is_local") else 1, avg_cost, q_gap, m.get("priority", 999))
-        # Cas normal: encaix de qualitat primer, després cost, després prioritat
+        # Normal case: quality fit first, then cost, then priority
         return (q_gap, avg_cost, m.get("priority", 999))
 
     best = sorted(candidates, key=score)[0]
@@ -158,10 +159,10 @@ def route_model(
 
 
 # ---------------------------------------------------------------------------
-# Càrrega del registry des de config (amb fallback al per defecte)
+# Load the registry from config (with fallback to the default)
 # ---------------------------------------------------------------------------
 def load_registry() -> List[Dict[str, Any]]:
-    """Llegeix `ai.models` de la config; si no hi és, sembra amb DEFAULT_REGISTRY."""
+    """Reads `ai.models` from config; if absent, seeds with DEFAULT_REGISTRY."""
     try:
         from backend.config.app_config import load_params
         models = (load_params(strict_env=False).get("ai", {}) or {}).get("models")
@@ -173,10 +174,10 @@ def load_registry() -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Comptabilitat d'ús (tokens per model/període) — alimenta "queden tokens"
+# Usage accounting (tokens per model/period) — feeds "tokens remaining"
 # ---------------------------------------------------------------------------
 class UsageStore:
-    """Comptador persistent de tokens per `provider:model_id`. Període mensual (YYYY-MM)."""
+    """Persistent token counter per `provider:model_id`. Monthly period (YYYY-MM)."""
 
     def __init__(self, path: Optional[str] = None):
         self._path = path

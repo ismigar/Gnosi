@@ -1,12 +1,12 @@
-"""Curses del cicle load→modify→save de meeting_reminders.json.
+"""Races in the meeting_reminders.json load→modify→save cycle.
 
-L'estat té QUATRE mutadors concurrents: `scan_and_notify` (fil de l'scheduler,
-cada minut), `dismiss` i `update_settings` (API) i el prune de `get_active`.
-Sense `_state_lock`, dues mutacions llegien el mateix snapshot i l'última
-escriptura esclafava l'altra; a més, l'escaneig desava un snapshot pres ABANS
-de la generació d'agenda amb IA (segons), ressuscitant recordatoris que
-l'usuari havia descartat mentrestant. Mateix patró de test determinista amb
-Barrier que test_daily_note_race.py.
+The state has FOUR concurrent mutators: `scan_and_notify` (scheduler thread,
+every minute), `dismiss` and `update_settings` (API), and the `get_active` prune.
+Without `_state_lock`, two mutations would read the same snapshot and the last
+write would clobber the other; moreover, the scan saved a snapshot taken BEFORE
+the AI agenda generation (seconds), resurrecting reminders that
+the user had dismissed in the meantime. Same deterministic test pattern with
+Barrier as test_daily_note_race.py.
 """
 import copy
 import threading
@@ -29,19 +29,19 @@ def _reminder(rid: str, start_iso: str) -> dict:
 
 
 class _FakeStore:
-    """Simula meeting_reminders.json. Amb `parties=2`, el load fa un
-    rendez-vous determinista: sense candau els dos cicles concurrents llegien
-    el mateix snapshot; amb candau, el segon load espera el primer save i la
-    barrera venç per timeout."""
+    """Simulates meeting_reminders.json. With `parties=2`, the load performs a
+    deterministic rendez-vous: without a lock, the two concurrent cycles would read
+    the same snapshot; with the lock, the second load waits for the first save and the
+    barrier resolves via timeout."""
 
     def __init__(self, state: dict, parties: int = 0):
         self.state = state
         self._barrier = threading.Barrier(parties) if parties else None
 
     def load(self):
-        # Snapshot ABANS de la barrera: si es prengués després, el GIL pot
-        # serialitzar la lectura darrere del save de l'altre fil i el test
-        # passaria fins i tot sense candau (fals negatiu).
+        # Snapshot BEFORE the barrier: if it were taken after, the GIL could
+        # serialize the read behind the save of the other thread and the test
+        # would pass even without a lock (false negative).
         snap = copy.deepcopy(self.state)
         if self._barrier is not None:
             try:
@@ -60,7 +60,7 @@ def _install(monkeypatch, store: _FakeStore):
 
 
 def test_concurrent_dismiss_both_survive(monkeypatch):
-    """Dos dismiss simultanis (dos clics al banner): cap s'ha de perdre."""
+    """Two simultaneous dismisses (two clicks on the banner): none must be lost."""
     start = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
     store = _FakeStore(
         {
@@ -82,9 +82,9 @@ def test_concurrent_dismiss_both_survive(monkeypatch):
 
 
 def test_scan_does_not_resurrect_dismissed(monkeypatch):
-    """Un dismiss fet DURANT l'escaneig (mentre la IA genera l'agenda) ha de
-    sobreviure: la fusió final recarrega l'estat fresc en lloc de desar el
-    snapshot d'abans de la feina llarga."""
+    """A dismiss made DURING the scan (while the AI generates the agenda) must
+    survive: the final merge reloads fresh state instead of saving the
+    snapshot from before the long-running work."""
     now = datetime.now(timezone.utc)
     x_start = (now + timedelta(minutes=3)).isoformat()
     y_start = (now + timedelta(minutes=5)).isoformat()
@@ -110,8 +110,8 @@ def test_scan_does_not_resurrect_dismissed(monkeypatch):
     dismiss_done = threading.Event()
 
     def slow_agenda(ev):
-        # Simula la crida d'IA: senyala que l'escaneig és a la fase llarga i
-        # espera que el dismiss de l'usuari s'hagi completat.
+        # Simulates the AI call: signals that the scan is in the long phase and
+        # waits for the user's dismiss to have completed.
         scan_in_agenda.set()
         assert dismiss_done.wait(timeout=5), "el dismiss no ha arribat"
         return ""
@@ -128,12 +128,12 @@ def test_scan_does_not_resurrect_dismissed(monkeypatch):
     assert result["new"] == 1
     ids = {a["id"] for a in store.state["active"]}
     assert ids == {"y"}, f"el recordatori descartat ha ressuscitat: {ids}"
-    # La clau de dedup del nou recordatori queda registrada.
+    # The dedup key of the new reminder stays registered.
     assert any(k.startswith("y|") for k in store.state["notified"])
 
 
 def test_concurrent_settings_and_dismiss(monkeypatch):
-    """update_settings i dismiss simultanis: totes dues mutacions sobreviuen."""
+    """simultaneous update_settings and dismiss: both mutations survive."""
     start = (datetime.now(timezone.utc) + timedelta(minutes=5)).isoformat()
     store = _FakeStore(
         {

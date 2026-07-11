@@ -1,11 +1,11 @@
-"""Middleware ASGI: fixa el vault ACTIU des de `X-Vault-Id` en un context que PROPAGA.
+"""ASGI Middleware: sets the ACTIVE vault from `X-Vault-Id` in a context that PROPAGATES.
 
-El problema: `get_workspace_context` (que feia `active_vault_path.set()`) és una dependència
-SÍNCRONA → FastAPI l'executa en un threadpool i el contextvar NO propaga a l'endpoint → tot
-queia al vault per defecte (el canvi de vault no feia res).
+The problem: `get_workspace_context` (which used to do `active_vault_path.set()`) is a
+SYNCHRONOUS dependency → FastAPI runs it in a threadpool and the contextvar does NOT propagate to the endpoint → everything
+fell back to the default vault (switching vaults did nothing).
 
-La solució: aquest middleware PUR ASGI fa el `set()` en el MATEIX task que crida l'app interna,
-així el contextvar sí propaga a l'endpoint (async) i a les seves crides `anyio.to_thread`.
+The solution: this PURE ASGI middleware does the `set()` in the SAME task that calls the inner app,
+so the contextvar DOES propagate to the endpoint (async) and to its `anyio.to_thread` calls.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ _TTL = 60.0
 
 
 def reset_vault_path_cache() -> None:
-    """Invalida la cau id→ruta (en crear/esborrar vaults)."""
+    """Invalidates the id→path cache (when creating/deleting vaults)."""
     _id_path_cache.clear()
 
 
@@ -53,7 +53,7 @@ def _resolve_vault_path(vault_id: str):
 
 
 class ActiveVaultMiddleware:
-    """Wrapper ASGI pur (no BaseHTTPMiddleware: aquell trenca la propagació de contextvars)."""
+    """Pure ASGI wrapper (not BaseHTTPMiddleware: that one breaks contextvar propagation)."""
 
     def __init__(self, app):
         self.app = app
@@ -67,11 +67,11 @@ class ActiveVaultMiddleware:
             if k == b"x-vault-id" and v:
                 vid = v.decode("latin-1").strip() or None
                 break
-        # Fallback: query-param `vault`. Les peticions natives d'`<img>` (icones,
-        # covers, imatges inline) NO passen per axios i per tant NO porten la
-        # capçalera X-Vault-Id → sense això cauen al vault per defecte i els
-        # assets d'un vault no-default tornen 404. El frontend hi afegeix
-        # `?vault=<id>` (withActiveVault). La capçalera, si hi és, MANA.
+        # Fallback: `vault` query-param. Native `<img>` requests (icons,
+        # covers, inline images) do NOT go through axios and therefore do NOT carry the
+        # X-Vault-Id header → without it they fall back to the default vault and
+        # assets from a non-default vault return 404. The frontend adds
+        # `?vault=<id>` to them (withActiveVault). The header, if present, WINS.
         if not vid:
             qs = scope.get("query_string") or b""
             if b"vault=" in qs:
@@ -80,12 +80,12 @@ class ActiveVaultMiddleware:
                 if vals:
                     vid = (vals[0] or "").strip() or None
         # Fallback final: cookie `gnosi_active_vault`. Moltes peticions no porten
-        # ni capçalera ni `?vault=` perquè no passen per axios ni per un generador
-        # d'URL que hi afegeixi el param: `fetch()` cru (edició de cel·les, agent,
-        # pujades, anotacions), mèdia natiu (`<video>/<audio>/<iframe>`),
-        # `background-image`, `EventSource`/SSE i `/api/chat`. Totes SÍ envien les
-        # cookies same-origin, que el frontend manté sincronitzades amb el vault
-        # actiu (setActiveVaultCookie). Prioritat: capçalera > `?vault=` > cookie.
+        # neither header nor `?vault=` because they don't go through axios nor through a
+        # URL generator that would add the param: raw `fetch()` (cell editing, agent,
+        # uploads, annotations), native media (`<video>/<audio>/<iframe>`),
+        # `background-image`, `EventSource`/SSE, and `/api/chat`. All of them DO send
+        # same-origin cookies, which the frontend keeps synced with the
+        # active vault (setActiveVaultCookie). Priority: header > `?vault=` > cookie.
         if not vid:
             for k, v in scope.get("headers", []):
                 if k == b"cookie" and v:

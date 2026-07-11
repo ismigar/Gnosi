@@ -1,9 +1,9 @@
-"""vCard 3.0 (RFC 2426): els valors de text amb `;` `,` `\\` o salts de línia
-s'han d'ESCAPAR en construir el vCard i DESESCAPAR en parsejar-lo.
+"""vCard 3.0 (RFC 2426): text values containing `;` `,` `\\` or line breaks
+must be ESCAPED when building the vCard and UNESCAPED when parsing it.
 
-Sense escapar, una NOTE multilínia trencava tot el vCard (la 2a línia es
-parseja com una propietat bogus) i un `;`/`,` a `N`/`ORG`/`ADR` corrompia
-l'estructura de camps.
+Without escaping, a multi-line NOTE would break the whole vCard (the 2nd line
+gets parsed as a bogus property) and a `;`/`,` in `N`/`ORG`/`ADR` would corrupt
+the field structure.
 """
 from backend.services.contacts_sync_engine import (
     CardDAVContactsProvider,
@@ -27,12 +27,12 @@ def test_build_escapa_salt_de_linia_i_separadors():
         },
         uid="uid-1",
     )
-    # Cap salt de línia real dins d'un valor (trencaria el vCard):
+    # No real line break inside a value (would break the vCard):
     assert "Línia u\nlínia dos" not in vcard
     assert "NOTE:Línia u\\nlínia dos" in vcard
-    # El `;` de l'empresa va escapat (no fa de separador de components ORG):
+    # The company's `;` is escaped (it doesn't act as an ORG component separator):
     assert "ORG:Acme\\; Inc" in vcard
-    # Cada línia del vCard és una propietat vàlida (conté ':').
+    # Each vCard line is a valid property (contains ':').
     for ln in vcard.split("\r\n"):
         assert ln == "" or ":" in ln, ln
 
@@ -45,10 +45,10 @@ def test_round_trip_build_parse_preserva_els_valors():
         "phone": "+34600111222",
         "company": "Recerca, S.L.; Divisió",
         "job_title": "Cap d'àrea",
-        # Nota: l'ADR és un camp estructurat i el parser col·lapsa components
-        # amb `;`; per això la clau d'adreça del round-trip fa servir comes
-        # (que sí es preserven). Un `;` LITERAL a l'adreça és un cas ja lossy
-        # per disseny del collapse, independent d'aquest fix.
+        # Note: ADR is a structured field and the parser collapses components
+        # with `;`; that's why the round-trip address key uses commas
+        # (which ARE preserved). A LITERAL `;` in the address is already a lossy case
+        # by design of the collapse, independent of this fix.
         "address": "Av. Diagonal, 100, 4t, Barcelona",
         "notes": "Nota amb\nsalt de línia i coma, i punt i coma;",
     }
@@ -63,7 +63,7 @@ def test_parse_desescapa_valors_del_servidor():
     vcard = (
         "BEGIN:VCARD\r\nVERSION:3.0\r\n"
         "FN:Nom\r\n"
-        "NOTE:Primera\\nSegona\r\n"          # el servidor ha escapat el salt
+        "NOTE:Primera\\nSegona\r\n"          # the server has escaped the newline
         "ORG:Empresa\\, SA\r\n"
         "END:VCARD\r\n"
     )

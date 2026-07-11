@@ -1,12 +1,12 @@
-"""Orquestrador del CLON EXACTE de Notion → Gnosi (a carpeta nova, Notion = font de veritat).
+"""Orchestrator for the EXACT CLONE of Notion → Gnosi (into a new folder, Notion = source of truth).
 
-Diferent del sync guardat: ids NAMESPACED (no toca ni col·lisiona amb el vault existent),
-TOTES les pàgines, i el cos ve de l'MCP (fidelitat: columnes, vistes incrustades) en comptes
-dels blocs REST. Cada `<!-- gnosi-notion-db:id -->` (de `notion_mcp_md`) es resol a una
-`gnosi-view` de la taula CLONADA (via `notion_view_recreator`).
+Different from the saved sync: NAMESPACED ids (doesn't touch or collide with the existing vault),
+ALL pages, and the body comes from the MCP (fidelity: columns, embedded views) instead
+of REST blocks. Each `<!-- gnosi-notion-db:id -->` (from `notion_mcp_md`) resolves to a
+`gnosi-view` of the CLONED table (via `notion_view_recreator`).
 
-Esquema + valors de fila vénen de la REST (estructurat); el cos i les vistes, de l'MCP.
-cf. directiva `notion_exact_clone.md`.
+Schema + row values come from REST (structured); the body and views, from the MCP.
+cf. directive `notion_exact_clone.md`.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ _MARKER_RE = re.compile(r"<!--\s*gnosi-notion-db:([0-9a-f]{32})\s*-->")
 
 
 class CloneAborted(Exception):
-    """L'usuari ha demanat avortar el clon (cancel·lació cooperativa entre passades)."""
+    """The user has requested to abort the clone (cooperative cancellation between passes)."""
 
 
 def clone_table_id(notion_db_id: str) -> str:
@@ -36,26 +36,26 @@ def clone_page_id(notion_page_id: str) -> str:
     return str(uuid.uuid5(_CLONE_NS, "page:" + str(notion_page_id or "").replace("-", "")))
 
 
-# Emoji/símbols de prefix decoratiu (📀, 🗒️, variation selectors, ZWJ…) + espais inicials.
-# NOMÉS treu el prefix: preserva majúscules i accents (≠ `nvr._strip_icon`, que és per comparar:
-# minúscula + treu-ho tot). Els filtres de vistes igualment resolen perquè `resolve_filter_field`
-# re-normalitza amb `_strip_icon` als dos costats.
+# Decorative prefix emoji/symbols (📀, 🗒️, variation selectors, ZWJ…) + leading spaces.
+# ONLY strips the prefix: preserves uppercase letters and accents (≠ `nvr._strip_icon`, which is for comparing:
+# lowercase + strips everything). View filters still resolve because `resolve_filter_field`
+# re-normalize with `_strip_icon` on both sides.
 _LEADING_ICON_RE = re.compile(
     r"^[\s\U0001F000-\U0001FAFF☀-➿←-⇿⬀-⯿️‍⃣™ℹ]+")
 
 
 def _clean(name: Any) -> Any:
-    """Nom de camp sense l'emoji de prefix (com el vault), preservant la resta del nom."""
+    """Field name without the prefix emoji (like the vault), preserving the rest of the name."""
     if not isinstance(name, str) or not name:
         return name
     return _LEADING_ICON_RE.sub("", name).strip() or name
 
 
 def _child_page_ids(blocks: Any) -> List[str]:
-    """ids de les sub-pàgines (blocs `child_page`) d'una pàgina, incloses les niades dins de
-    blocs contenidors (toggle, columna, callout…) via `_children`. NO baixa dins de les
-    `child_page` trobades: els seus fills pertanyen a la subpàgina (el BFS la visita després
-    com a pare); baixar-hi els atribuiria a l'avi."""
+    """ids of a page's sub-pages (`child_page` blocks), including those nested inside
+    container blocks (toggle, column, callout…) via `_children`. Does NOT descend into
+    found `child_page` blocks: their children belong to the sub-page (the BFS visits it later
+    as the parent); descending into them would attribute them to the grandparent."""
     out: List[str] = []
     for b in (blocks or []):
         if not isinstance(b, dict):
@@ -68,7 +68,7 @@ def _child_page_ids(blocks: Any) -> List[str]:
 
 
 def _icon_or_cover_url(obj: Any) -> Optional[str]:
-    """URL d'una icona/portada de Notion de tipus file/external (None si és emoji o buit)."""
+    """URL of a Notion icon/cover of type file/external (None if it's emoji or empty)."""
     if isinstance(obj, dict):
         t = obj.get("type")
         if t == "external":
@@ -80,8 +80,8 @@ def _icon_or_cover_url(obj: Any) -> Optional[str]:
 
 def _apply_icon_cover(meta: Dict[str, Any], page: Dict[str, Any], table: Dict[str, Any],
                       save_asset) -> int:
-    """Posa `icon` i `cover` a `meta`. Icona emoji → tal qual; icona/portada d'imatge → es baixa
-    (si hi ha `save_asset`) a Assets i es desa la ruta. Torna el nombre d'imatges baixades."""
+    """Sets `icon` and `cover` on `meta`. Emoji icon → as-is; image icon/cover → downloaded
+    (if `save_asset` is available) to Assets and the path is saved. Returns the number of images downloaded."""
     n = 0
     emoji = _emoji_icon(page.get("icon"))
     if emoji:
@@ -102,8 +102,8 @@ def _apply_icon_cover(meta: Dict[str, Any], page: Dict[str, Any], table: Dict[st
 
 
 def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
-    """Esquema de taula clonat: noms de camp SENSE emoji (com el vault), id i relacions
-    namespaced al clon."""
+    """Cloned table schema: field names WITHOUT emoji (like the vault), id and relations
+    namespaced to the clone."""
     t = map_database_schema(notion_db)
     t["id"] = clone_table_id(notion_db.get("id"))
     for p in t.get("properties", []):
@@ -114,9 +114,9 @@ def clone_table_schema(notion_db: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Re-keya els valors a noms NETS (sense emoji) i remapa les relacions a ids de pàgina del
-    clon. Les dates es deixen TAL QUAL (es preserva la granularitat de Notion: data o data+hora).
-    La decoració de relacions a `[[Títol|id]]` es fa al write_page (cal el mapa de títols)."""
+    """Re-keys the values to CLEAN names (without emoji) and remaps relations to the clone's
+    page ids. Dates are left AS-IS (Notion's granularity is preserved: date or date+time).
+    Decorating relations as `[[Títol|id]]` is done in write_page (needs the title map)."""
     by_clean = {p.get("name"): p for p in (schema or [])}
     out: Dict[str, Any] = {}
     for k, v in values.items():
@@ -130,8 +130,8 @@ def clone_values(values: Dict[str, Any], schema: List[Dict[str, Any]]) -> Dict[s
 
 
 def _clean_view_fields(gv: Dict[str, Any]) -> Dict[str, Any]:
-    """Camps SENSE emoji (els camps clonats també ho estan) → casen: columnes visibles,
-    filtres, ordre, agrupació i camps de config per-tipus (chart/timeline/calendar)."""
+    """Fields WITHOUT emoji (cloned fields are also without emoji) → match: visible columns,
+    filters, sort, grouping, and per-type config fields (chart/timeline/calendar)."""
     gv["visibleProperties"] = [_clean(x) for x in (gv.get("visibleProperties") or [])]
     for _f in gv.get("filters") or []:
         if _f.get("field"):
@@ -145,9 +145,9 @@ def _clean_view_fields(gv: Dict[str, Any]) -> Dict[str, Any]:
     return gv
 
 
-# L'MCP de Notion llista també vistes de GRÀFIC "suggerides" per Notion que l'usuari no
-# veu com a pestanyes reals del bloc (verificat 2026-07-08: «Recursos» retornava 3 charts
-# inexistents a la UI). No hi ha cap flag al JSON per distingir-les → s'ometen per defecte.
+# Notion's MCP also lists CHART views "suggested" by Notion that the user hasn't
+# sees them as real tabs of the block (verified 2026-07-08: «Recursos» returned 3 charts
+# nonexistent in the UI). There's no flag in the JSON to tell them apart → they're omitted by default.
 SKIP_VIEW_TYPES = ("chart",)
 
 
@@ -155,21 +155,21 @@ def build_clone_views(notion_host_page_id: str, clone_host_table_id: str, view_b
                       view_md: str,
                       resolve_clone_table: Callable[[str], Optional[Dict[str, Any]]],
                       skip_types: tuple = SKIP_VIEW_TYPES) -> List[Dict[str, Any]]:
-    """TOTES les gnosi-views (pestanyes) d'un bloc `<database>` clonat, en ordre de Notion.
-    La PRIMERA és l'àncora del bloc (l'única amb embed al cos) i porta les altres al camp
-    `tabs` — el frontend (DbViewEmbed) les mostra com a pestanyes, com a Notion.
+    """ALL the gnosi-views (tabs) of a cloned `<database>` block, in Notion order.
+    The FIRST is the block's anchor (the only one with an embed in the body) and carries the others in the
+    `tabs` field — the frontend (DbViewEmbed) shows them as tabs, like Notion.
 
-    Ids namespaced al clon: la 1a pestanya conserva l'id llegat
-    `uuid5(view:{host}:{block})` (els embeds de clons previs segueixen resolent);
-    les següents hi afegeixen la `view_url` de Notion. Reutilitzat pel clon
-    (resolve_view_markers) i per l'import INCREMENTAL de vistes que falten."""
+    Namespaced ids in the clone: the 1st tab keeps the legacy id
+    `uuid5(view:{host}:{block})` (embeds from previous clones keep resolving);
+    the following ones add Notion's `view_url` to it. Reused by the clone
+    (resolve_view_markers) and by the INCREMENTAL import of missing views."""
     out: List[Dict[str, Any]] = []
     for j, meta in enumerate(nvr.parse_mcp_views(view_md or "")):
         if meta.get("view_type") in (skip_types or ()):
             continue
         ct = resolve_clone_table(meta.get("data_source_name"))
         if not ct:
-            continue  # la taula destí no s'ha clonat → aquesta pestanya no es pot recrear
+            continue  # the target table hasn't been cloned → this tab can't be recreated
         name = meta.get("name") or meta.get("data_source_name") or ct.get("name") or "Vista"
         gv = nvr.build_gnosi_view(notion_host_page_id, ct, clone_host_table_id, meta, name)
         seed = f"view:{notion_host_page_id}:{view_block_id}"
@@ -185,12 +185,13 @@ def build_clone_views(notion_host_page_id: str, clone_host_table_id: str, view_b
 def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_table_id: str,
                          *, fetch_view: Callable[[str], str],
                          resolve_clone_table: Callable[[str], Optional[Dict[str, Any]]]):
-    """Substitueix cada `<!-- gnosi-notion-db:id -->` per l'embed de la vista ÀNCORA del bloc;
-    la resta de pestanyes es creen al registry i pengen del camp `tabs` de l'àncora (abans
-    només es creava la primera: «Cervell digital» en perdia 9 de 10).
+    """Replaces each `<!-- gnosi-notion-db:id -->` with the embed of the block's ANCHOR view;
+    the rest of the tabs are created in the registry and hang off the anchor's `tabs`
+    field (previously only the first one was created: «Cervell digital» lost 9 out of 10).
 
-    `fetch_view(view_block_id)` → markdown MCP de la vista. `resolve_clone_table(data_source_name)`
-    → taula clonada (dict amb id de clon) o None. Retorna (cos_amb_embeds, [vistes_a_crear]).
+    `fetch_view(view_block_id)` → the view's MCP markdown. `resolve_clone_table(data_source_name)`
+    → cloned table (dict with clone id) or None. Returns (body_with_embeds, [views_to_create]).
+    
     """
     views: List[Dict[str, Any]] = []
 
@@ -200,7 +201,7 @@ def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_tabl
             gvs = build_clone_views(notion_host_page_id, clone_host_table_id, vid,
                                     fetch_view(vid), resolve_clone_table)
             if not gvs:
-                return ""  # res de resoluble → treu el marcador
+                return ""  # nothing resolvable → removes the marker
             views.extend(gvs)
             return nvr.view_embed(gvs[0]["id"])
         except Exception:
@@ -210,9 +211,9 @@ def resolve_view_markers(body_md: str, notion_host_page_id: str, clone_host_tabl
 
 
 def clone_workspace(
-    rest_client,                       # NotionClient (REST): esquema + files + valors
+    rest_client,                       # NotionClient (REST): schema + rows + values
     *,
-    fetch_page: Callable[[str], str],  # MCP: id pàgina → markdown Notion (cos + vistes)
+    fetch_page: Callable[[str], str],  # MCP: page id → Notion markdown (body + views)
     mcp_to_markdown: Callable[[str], str],
     write_table: Callable[[Dict[str, Any]], None],
     write_page: Callable[[Dict[str, Any]], None],
@@ -228,26 +229,27 @@ def clone_workspace(
     should_cancel: Optional[Callable[[], bool]] = None,
     registry_tables: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    """Clona les BD seleccionades a `target_folder` amb ids del clon i cos de fidelitat (MCP).
+    """Clones the selected DBs into `target_folder` with clone ids and a fidelity body (MCP).
 
-    `save_asset(url, prop_or_None, table) -> ruta_local|None`: baixa un adjunt (camp d'arxiu o
-    imatge del cos) i torna la ruta `Assets/...`; si és None, no es baixen adjunts (es deixen
-    les URLs de Notion, que caduquen).
-    `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} de pàgines FORA de BD a clonar amb
-    l'etiqueta is_dashboard corresponent.
+    `save_asset(url, prop_or_None, table) -> ruta_local|None`: downloads an attachment (file field or
+    body image) and returns the `Assets/...` path; if None, no attachments are downloaded
+    (Notion's URLs are left, which expire).
+    `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} of pages OUTSIDE a DB to clone with
+    the corresponding is_dashboard label.
+    
     """
-    # `tables_total`/`pages_total`: denominadors per al panell («processades/total»).
-    # Es fixen quan es CONEIXEN de veritat: taules en arrencar (BDs seleccionades),
-    # pàgines en acabar la recollida (+ soltes + subpàgines a mesura que el BFS les
-    # descobreix). Vistes i adjunts no tenen total conegut per endavant → sense denominador.
+    # `tables_total`/`pages_total`: denominators for the panel («processed/total»).
+    # They get fixed when they're truly KNOWN: tables at startup (selected DBs),
+    # pages once collection finishes (+ loose ones + sub-pages as the BFS
+    # discover). Views and attachments don't have a known total upfront → no denominator.
     report = {"tables": 0, "pages": 0, "views": 0, "attachments": 0, "collected": 0,
               "tables_total": len(database_ids), "pages_total": 0,
               "errors": [], "warnings": [], "truncated": False}
 
     def _emit(phase: str, done: int, total: int) -> None:
-        """Reporta progrés i comprova la cancel·lació. Es crida a l'inici de cada element de cada
-        passada → punt de control cooperatiu per avortar. Un error al callback no atura el clon,
-        però una cancel·lació SÍ (CloneAborted, propagada amunt)."""
+        """Reports progress and checks for cancellation. Called at the start of each item in each
+        pass → cooperative checkpoint for aborting. An error in the callback doesn't stop the clone,
+        but a cancellation DOES (CloneAborted, propagated upward)."""
         if should_cancel is not None and should_cancel():
             raise CloneAborted()
         if progress_cb is None:
@@ -259,19 +261,19 @@ def clone_workspace(
 
     users = rest_client.list_users()
 
-    # Mapa nom-de-data-source (sense icona) → taula clonada, per resoldre vistes.
-    # SEED amb les taules del registre existent (`registry_tables`): en un clon INCREMENTAL
-    # (p. ex. només pàgines soltes sobre un vault ja clonat) les vistes incrustades han de
-    # resoldre contra les taules ja clonades; sense seed, el marcador es descartava i els
-    # taulells quedaven sense vistes. La passada 1 sobreescriu amb les taules fresques.
+    # Map of data-source name (without icon) → cloned table, to resolve views.
+    # SEED with the tables from the existing registry (`registry_tables`): in an INCREMENTAL clone
+    # (e.g. only loose pages on top of an already-cloned vault) embedded views need to
+    # resolve against the already-cloned tables; without the seed, the marker was discarded and the
+    # dashboards were left without views. Pass 1 overwrites with the fresh tables.
     clone_tables_by_name: Dict[str, Dict[str, Any]] = {}
     for t in (registry_tables or []):
         key = nvr._strip_icon(t.get("name"))
         if key:
             clone_tables_by_name[key] = t
 
-    # PASSADA 1: clonar TOTS els esquemes de taula abans de les pàgines, perquè una vista pot
-    # referenciar una taula que es clona més tard (resolució de marcadors completa).
+    # PASS 1: clone ALL table schemas before the pages, because a view might
+    # reference a table that's cloned later (complete marker resolution).
     db_by_id: Dict[str, Dict[str, Any]] = {}
     for i, db_id in enumerate(database_ids):
         _emit("schema", i, len(database_ids))
@@ -282,11 +284,11 @@ def clone_workspace(
             if schema_overrides and db_id in schema_overrides:
                 from backend.services.notion_schema_config import apply_override
                 table = apply_override(table, schema_overrides[db_id])
-                # L'override ve del MODAL (esquema de /databases/{id}/schema): noms AMB emoji i
-                # relation_database_id de NOTION. Com que substitueix les props ja normalitzades
-                # per clone_table_schema, cal re-normalitzar: sense això els camps de relació
-                # deixaven de casar amb clone_values/decorate i els valors quedaven com a ids de
-                # Notion crus (bug real del clon de Recursos, 2026-07-02).
+                # The override comes from the MODAL (schema from /databases/{id}/schema): names WITH emoji and
+                # relation_database_id from NOTION. Since it replaces the already-normalized props
+                # from clone_table_schema, they need to be re-normalized: without this, relation fields
+                # stopped matching clone_values/decorate and the values were left as ids of
+                # raw Notion (real bug in the Recursos clone, 2026-07-02).
                 _sel_clone_ids = {clone_table_id(d) for d in database_ids}
                 for p in table.get("properties", []):
                     p["name"] = _clean(p.get("name"))
@@ -294,7 +296,7 @@ def clone_workspace(
                     if p.get("type") == "relation" and tgt and tgt not in _sel_clone_ids:
                         p["relation_database_id"] = clone_table_id(tgt)
             _tname = table.get('name') or 'Taula'
-            # Sense subcarpeta (target_folder buit) → la taula penja directament de l'arrel del vault.
+            # Without a subfolder (empty target_folder) → the table hangs directly from the vault root.
             table["folder"] = f"{target_folder}/{_tname}" if target_folder else _tname
             write_table(table)
             report["tables"] += 1
@@ -302,8 +304,8 @@ def clone_workspace(
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"database": db_id, "stage": "schema", "error": str(e)})
 
-    # AVÍS: camps de relació que apunten a una BD NO seleccionada → quedaran orfes (cal marcar
-    # totes les BD per a un clon complet). Guard-rail per al clon "d'un sol tret".
+    # WARNING: relation fields pointing to a NOT selected DB → will be left orphaned (must flag
+    # all DBs for a complete clone). Guard-rail for the "one-shot" clone.
     cloned_ids = {t.get("id") for t in clone_tables_by_name.values()}
     for t in clone_tables_by_name.values():
         for p in t.get("properties", []):
@@ -313,10 +315,10 @@ def clone_workspace(
                     f"La taula «{t.get('name')}» té el camp de relació «{p.get('name')}» cap a una "
                     f"BD no seleccionada: aquestes relacions quedaran sense destí. Marca totes les BD.")
 
-    # PASSADA 2a: RECOLLIR files + títols de TOTES les BD abans d'escriure, per tenir el mapa
-    # complet id_clon → títol (cal per decorar les relacions a `[[Títol|id]]`, fins i tot quan
-    # apunten a una pàgina que es clona més tard o d'una altra BD). No torna a consultar Notion
-    # a la passada 2b (reusa les files recollides).
+    # PASS 2a: COLLECT rows + titles from ALL the DBs before writing, to have the map
+    # complete id_clon → title (needed to decorate relations as `[[Títol|id]]`, even when
+    # they point to a page that's cloned later or from another DB). Doesn't query Notion again
+    # in pass 2b (reuses the collected rows).
     from backend.services.notion_importer import _plain_title
     from backend.services.relation_links import decorate_relation_wikilinks, relation_keys_from_table
     from backend.services.notion_attachments import localize_values
@@ -333,16 +335,16 @@ def clone_workspace(
                 if len(collected) >= max_pages:
                     report["truncated"] = True
                     break
-                # Emissió PER FILA (no només per BD): la recollida baixa els adjunts i és la
-                # fase llarga del clon (fins a 90s per adjunt lent). Sense això el panell es
-                # quedava a «collect 0/N, 0 pàgines» minuts sencers (semblava penjat) i
-                # «Avortar» no responia fins a canviar de BD (el punt de control és _emit).
+                # Emission PER ROW (not just per DB): the collection downloads attachments and is the
+                # long phase of the clone (up to 90s per slow attachment). Without this the panel
+                # would stay at «collect 0/N, 0 pages» for whole minutes (it looked frozen) and
+                # «Abort» didn't respond until switching DBs (the checkpoint is _emit).
                 _emit("collect", di, len(db_by_id))
                 try:
                     values = clone_values(page_to_values(row, users), table.get("properties", []))
-                    # Baixa els adjunts dels camps d'arxiu ARA que la URL signada de Notion és
-                    # FRESCA. Si es deixés per a la passada 2b (com abans), en clons llargs (>1h)
-                    # les URLs S3 caduquen (X-Amz-Expires=3600) i donen 403 → adjunts perduts.
+                    # Downloads file-field attachments NOW while Notion's signed URL is
+                    # FRESH. If left for pass 2b (as before), in long clones (>1h)
+                    # S3 URLs expire (X-Amz-Expires=3600) and return 403 → lost attachments.
                     if save_asset is not None:
                         values, na = localize_values(
                             values, table.get("properties", []),
@@ -361,10 +363,10 @@ def clone_workspace(
         return clone_titles.get(rid)
 
     def _fetch_page_checked(pid) -> str:
-        """fetch_page amb reintents: l'MCP torna '' en error (silenciós) i un fetch buit vol dir
-        COS PERDUT (fins i tot una pàgina buida de Notion torna l'embolcall <page>). Si després
-        de 3 intents segueix buit, es registra com a ERROR al report (abans passava desapercebut:
-        120 cossos perduts al clon del 2026-07-01)."""
+        """fetch_page with retries: the MCP returns '' on error (silently) and an empty fetch means
+        LOST BODY (even an empty Notion page returns the <page> wrapper). If after
+        3 attempts it's still empty, it's logged as an ERROR in the report (previously this went unnoticed:
+        120 lost bodies in the clone from 2026-07-01)."""
         md = fetch_page(pid)
         for backoff in (2, 4):
             if md:
@@ -376,10 +378,10 @@ def clone_workspace(
                                      "error": "fetch MCP buit després de 3 intents (cos no clonat)"})
         return md
 
-    # Mencions/sub-pàgines SENSE títol al markdown de l'MCP → el conversor (pur) emet `[[<id
-    # notion 32-hex>]]`. Aquí (que SÍ tenim context) ho resolem a `[[Títol]]` (el renderer del
-    # cos resol wikilinks per títol): primer via clone_titles; si l'id no és d'aquest clon,
-    # fallback a la REST (get_page, memoitzat). Si no es pot resoldre, es deixa tal qual.
+    # Mentions/sub-pages WITHOUT a title in the MCP's markdown → the (pure) converter emits `[[<id
+    # notion 32-hex>]]`. Here (where we DO have context) we resolve it to `[[Títol]]` (the renderer of the
+    # body resolves wikilinks by title): first via clone_titles; if the id isn't from this clone,
+    # fallback to REST (get_page, memoized). If it can't be resolved, it's left as-is.
     _wiki_id_re = re.compile(r"\[\[([0-9a-f]{32})\]\]")
     _missing_title_cache: Dict[str, Optional[str]] = {}
 
@@ -402,13 +404,13 @@ def clone_workspace(
             return f"[[{safe}]]"
         return _wiki_id_re.sub(repl, body)
 
-    # INVERSOS de relació: Notion mostra les dues bandes (dual relation). Com que ja tenim totes
-    # les files recollides, poblem el camp invers de cada destí (best-effort i NOMÉS quan és no
-    # ambigu, via relation_sync.resolve_inverse_relation). Així les relacions es veuen completes
-    # sense dependre de cap sincronització posterior.
+    # Relation INVERSES: Notion shows both sides (dual relation). Since we already have all
+    # the collected rows, we populate the inverse field of each target (best-effort and ONLY when it's
+    # unambiguous, via relation_sync.resolve_inverse_relation). This way relations appear complete
+    # without depending on any later synchronization.
     from backend.services import relation_sync
     table_by_id = {t.get("id"): t for t in clone_tables_by_name.values()}
-    inverse_adds: Dict[str, Dict[str, set]] = {}   # target_clone_id → {camp_invers: {source_ids}}
+    inverse_adds: Dict[str, Dict[str, set]] = {}   # target_clone_id → {inverse_field: {source_ids}}
     for table, row, values, title, rel_keys in collected:
         src = clone_page_id(row["id"])
         for key in rel_keys:
@@ -419,16 +421,16 @@ def clone_workspace(
             if not pair:
                 continue
             inv_field = pair[1]
-            for tgt in v:    # tgt = id de clon (ja remapat per clone_values)
+            for tgt in v:    # tgt = clone id (already remapped by clone_values)
                 inverse_adds.setdefault(tgt, {}).setdefault(inv_field, set()).add(src)
 
-    # PASSADA 2b: escriure (cos + vistes via MCP, adjunts, relacions decorades a `[[Títol|id]]`)
+    # PASS 2b: write (body + views via MCP, attachments, relations decorated as `[[Title|id]]`)
     report["pages_total"] = len(collected)
     for pi, (table, row, values, title, rel_keys) in enumerate(collected):
         _emit("pages", pi, len(collected))
         try:
             props = table.get("properties", [])
-            # (Els adjunts dels camps d'arxiu ja s'han baixat a la passada 2a amb URLs fresques.)
+            # (Attachments from file fields were already downloaded in pass 2a with fresh URLs.)
             body = ""
             try:
                 page_md = _fetch_page_checked(row["id"])
@@ -441,14 +443,14 @@ def clone_workspace(
                 for gv in gviews:
                     write_view(gv)
                     report["views"] += 1
-                # Baixa les imatges del cos (![alt](url) remotes → Assets/ locals)
+                # Download body images (remote ![alt](url) → local Assets/)
                 if save_asset is not None and body:
                     from backend.services.notion_attachments import localize_body
                     body, nb = localize_body(body, lambda u, p: save_asset(u, p, table))
                     report["attachments"] += nb
             except Exception as e:  # noqa: BLE001
                 report["errors"].append({"page": row.get("id"), "stage": "mcp", "error": str(e)})
-            # Fusiona els inversos que apunten a AQUESTA pàgina (dedup, preservant els directes)
+            # Merge the inverses that point to THIS page (dedup, preserving the direct ones)
             adds = inverse_adds.get(clone_page_id(row["id"]))
             if adds:
                 for f, ids in adds.items():
@@ -459,7 +461,7 @@ def clone_workspace(
                             cur.append(i)
                     values[f] = cur
             meta = {"table_id": table["id"], **values}
-            decorate_relation_wikilinks(meta, rel_keys, id_to_title=_id_to_title)  # id → [[Títol|id]]
+            decorate_relation_wikilinks(meta, rel_keys, id_to_title=_id_to_title)  # id → [[Title|id]]
             report["attachments"] += _apply_icon_cover(meta, row, table, save_asset)  # icona+portada
             write_page({
                 "id": clone_page_id(row["id"]),
@@ -472,14 +474,14 @@ def clone_workspace(
             report["errors"].append({"page": row.get("id"), "error": str(e)})
 
     def _clone_standalone(pid, page, extra_meta):
-        """Clona una pàgina autònoma (solta o sub-pàgina): cos+vistes via MCP, adjunts, icona+portada.
-        El tipus (wiki/dashboard) ve NOMÉS d'`extra_meta` (tria explícita de l'usuari a la
-        importació). NO s'infereix de tenir vistes incrustades: els articles del Wiki (una carta
-        amb un toggle "Notes" que incrusta vistes) i les pàgines contenidor d'una BD (només el
-        view de la taula homònima) també en porten, i inferir-ho els enviava erròniament a
-        Taulells (.Dashboards) en comptes del Wiki / la secció de BD."""
+        """Clone a standalone page (loose or sub-page): body+views via MCP, attachments, icon+cover.
+        The type (wiki/dashboard) comes ONLY from `extra_meta` (the user's explicit choice at the
+        import). It is NOT inferred from having embedded views: Wiki articles (a card
+        with a "Notes" toggle that embeds views) and DB container pages (just the
+        view of the same-named table) also carry them, and inferring it would incorrectly send them to
+        Dashboards (.Dashboards) instead of the Wiki / the DB section."""
         title = _page_title(page) or "Sense títol"
-        clone_titles[clone_page_id(pid)] = title   # que les mencions entre soltes resolguin
+        clone_titles[clone_page_id(pid)] = title   # so that mentions between loose pages resolve
         body = ""
         try:
             page_md = _fetch_page_checked(pid)
@@ -504,7 +506,7 @@ def clone_workspace(
                     "content": _resolve_body_links(body), "metadata": meta})
         report["pages"] += 1
 
-    # PASSADA 3: pàgines FORA de BD (wiki/dashboard segons tria de l'usuari)
+    # PASS 3: pages OUTSIDE a DB (wiki/dashboard per the user's choice)
     _loose = list((loose_page_types or {}).items())
     report["pages_total"] += len(_loose)
     for li, (pid, ptype) in enumerate(_loose):
@@ -518,24 +520,24 @@ def clone_workspace(
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"page": pid, "stage": "loose", "error": str(e)})
 
-    # PASSADA 4: SUB-PÀGINES (blocs child_page) — clona-les com a pàgines pròpies perquè res quedi
-    # orfe. Cicle-segur (conjunt de vistos) i acotat per max_pages. Per a la migració d'un sol tret.
+    # PASS 4: SUB—PAGES (child_page blocks) - clone them as their own pages so nothing is left
+    # orphaned. Cycle-safe (visited set) and bounded by max_pages. For one-shot migration.
     if follow_subpages:
         from collections import deque
         seed = [r["id"] for _, r, _, _, _ in collected] + list(loose_page_types or {})
         seen = {str(x).replace("-", "") for x in seed}
         to_scan = deque(seed)
         sub_done = 0
-        # Comptadors d'ESCANEIG (pares consultats / pares coneguts): el total creix a mesura que
-        # el BFS descobreix subpàgines. Van al report perquè el panell mostri «escanejant X/Y».
+        # SCAN counters (parents queried / parents known): the total grows as
+        # the BFS discovers sub-pages. They go into the report so the panel shows «scanning X/Y».
         report["scan_done"] = 0
         report["scan_total"] = len(to_scan)
         while to_scan and report["pages"] < max_pages:
             parent = to_scan.popleft()
-            # Emissió PER PARE (no només per subpàgina descoberta): escanejar milers de pares
-            # sense fills nous (una crida REST per pare) trigava 30-60 min amb el progrés i el
-            # heartbeat congelats — l'usuari i el watchdog el creien penjat (incident 2026-07-04).
-            # També fa que «Avortar» respongui durant l'escaneig (el punt de control és _emit).
+            # Emitting PER PARENT (not just per discovered sub-page): scanning thousands of parents
+            # with no new children (one REST call per parent) used to take 30-60 min, with the progress and the
+            # frozen heartbeats — the user and the watchdog thought it was hung (2026-07-04 incident).
+            # This also makes «Abort» responsive during the scan (the checkpoint is _emit).
             report["scan_done"] += 1
             _emit("subpages", sub_done, 0)
             try:
@@ -549,19 +551,19 @@ def clone_workspace(
                 if report["pages"] >= max_pages:
                     report["truncated"] = True
                     break
-                # Total desconegut (es descobreix amb el BFS): total=0 → barra indeterminada.
-                # El denominador global de pàgines sí que creix amb cada descoberta.
+                # Unknown total (discovered via BFS): total=0 → indeterminate bar.
+                # The global page denominator does grow with each discovery.
                 report["pages_total"] += 1
                 _emit("subpages", sub_done, 0)
                 try:
                     page = rest_client.get_page(cid)
-                    # La jerarquia es conserva NOMÉS via metadata `parent_id` (el fitxer viu a
-                    # Wiki/ igualment): la sidebar nia per parent_id i la pertinença a taula va
-                    # per carpeta — cf. directiva `vault_subpages_hierarchy.md`. Sense això,
-                    # totes les subpàgines s'aplanaven com a soltes del Wiki.
+                    # The hierarchy is preserved ONLY via `parent_id` metadata (the file lives in
+                    # Wiki/ all the same): the sidebar nests by parent_id, and table membership goes
+                    # by folder — cf. directive `vault_subpages_hierarchy.md`. Without this,
+                    # all sub-pages used to be flattened as loose Wiki pages.
                     _clone_standalone(cid, page, {"parent_id": clone_page_id(parent)})
                     sub_done += 1
-                    to_scan.append(cid)   # recursa: sub-pàgines de la sub-pàgina
+                    to_scan.append(cid)   # recurse: sub-pages of the sub-page
                     report["scan_total"] += 1
                 except Exception as e:  # noqa: BLE001
                     report["errors"].append({"page": cid, "stage": "subpage", "error": str(e)})

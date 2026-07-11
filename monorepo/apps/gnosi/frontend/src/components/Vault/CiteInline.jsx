@@ -25,9 +25,9 @@ function writeCache(key, value) {
 }
 
 /**
- * Resol un citation key. Retorna `{ id, page, cslItem }` o null si no hi és.
- * Per al render formatat, GET la pàgina sencera al backend (no només l'id)
- * perquè podem extraure el CSL-JSON localment.
+ * Resolves a citation key. Returns `{ id, page, cslItem }` or null if not found.
+ * For the formatted render, GET the full page from the backend (not just the id)
+ * because we can extract the CSL-JSON locally.
  */
 async function resolveCitationKey(key) {
     const cached = readCache(key);
@@ -39,8 +39,8 @@ async function resolveCitationKey(key) {
             writeCache(key, null);
             return null;
         }
-        // Necessitem la metadata completa per al render CSL. Una sola crida
-        // més (la pàgina). Cacheig de 5 min al mateix mapa per ser eficient.
+        // We need the complete metadata for the CSL render. A single call
+        // more (the page). Cached for 5 min in the same map for efficiency.
         try {
             const page = await axios.get(`/api/vault/pages/${id}`);
             const cslItem = recursosPageToCsl(page.data);
@@ -48,8 +48,8 @@ async function resolveCitationKey(key) {
             writeCache(key, value);
             return value;
         } catch {
-            // Si el GET falla, retornem només l'id perquè el click i el
-            // hover encara funcionin (no render formatat).
+            // If the GET fails, we return only the id so that the click and the
+            // hover still work (no formatted render).
             const value = { id, page: null, cslItem: null };
             writeCache(key, value);
             return value;
@@ -61,16 +61,16 @@ async function resolveCitationKey(key) {
 }
 
 /**
- * Render d'una cita `[@key]` al BlockEditor. Mateix patró que WikilinkInline:
- *  - Click → obre la pàgina del Recursos corresponent al citation key
- *  - Hover → preview reutilitzant `WikilinkHoverPreview` un cop resolt el id
- *  - Cmd+Click → nova pestanya; Shift+Click → split-view
+ * Renders a citation `[@key]` in the BlockEditor. Same pattern as WikilinkInline:
+ *  - Click → opens the Resources page corresponding to the citation key
+ *  - Hover → preview reusing `WikilinkHoverPreview` once the id is resolved
+ *  - Cmd+Click → new tab; Shift+Click → split-view
  *
- * Estil: chip distintiu (color secundari, prefix `@`) per diferenciar
- * dels wikilinks (que són blau primari).
+ * Style: distinct chip (secondary color, `@` prefix) to differentiate
+ * from wikilinks (which are primary blue).
  *
- * Quan la cita no resol (key inexistent al Vault), surt vermell amb
- * un tooltip indicant el problema — l'usuari sap que ha de revisar.
+ * When the citation doesn't resolve (key not found in the Vault), it shows red with
+ * a tooltip indicating the problem — the user knows they need to check it.
  */
 export const CiteInline = ({ citationKey }) => {
     const ctx = useContext(VaultEditorContext) || {};
@@ -83,12 +83,12 @@ export const CiteInline = ({ citationKey }) => {
     const closeTimerRef = useRef(null);
     // undefined = loading, null = not found, { id, page, cslItem } = ok
     const [resolved, setResolved] = useState(undefined);
-    const [formatted, setFormatted] = useState(null);  // string HTML quan disponible
+    const [formatted, setFormatted] = useState(null);  // HTML string when available
     const [hoverActive, setHoverActive] = useState(false);
     const [anchorRect, setAnchorRect] = useState(null);
 
-    // Estil i locale de cita venen del context (definit per la pàgina via
-    // frontmatter, o el default global). Sense estil, mode "raw" (mostra @key).
+    // Citation style and locale come from the context (set by the page via
+    // frontmatter, or the global default). Without a style, "raw" mode (shows @key).
     const cslStyle = ctx.cslStyle || 'apa';
     const cslLocale = ctx.cslLocale || 'ca-AD';
 
@@ -101,7 +101,7 @@ export const CiteInline = ({ citationKey }) => {
             const value = await resolveCitationKey(citationKey);
             if (cancelled) return;
             setResolved(value);
-            // Render formatat si tenim CSL-JSON
+            // Formatted render if we have CSL-JSON
             if (value?.cslItem) {
                 try {
                     const items = { [value.cslItem.id]: value.cslItem };
@@ -184,14 +184,14 @@ export const CiteInline = ({ citationKey }) => {
     };
 
     // Estats visuals:
-    //   - loading (undefined): gris, indica que encara resol
-    //   - resolt (object): teal + cursor pointer; mostra format CSL si disponible
-    //   - no resolt (null): vermell amb tooltip
+    //   - loading (undefined): gray, indicates it is still resolving
+    //   - resolved (object): teal + cursor pointer; shows CSL format if available
+    //   - unresolved (null): red with tooltip
     const isLoading = resolved === undefined;
     const isMissing = resolved === null;
     const cls = [
         'cite-inline px-1 rounded-sm cursor-pointer transition-all',
-        // El text formatat (Turkle, 2011) usa estil natural; el @key raw, font-mono.
+        // The formatted text (Turkle, 2011) uses natural style; the raw @key, font-mono.
         formatted ? 'text-[0.95em]' : 'font-mono text-[0.9em]',
         isLoading
             ? 'text-[var(--text-tertiary)] bg-[var(--bg-secondary)]/50'
@@ -207,8 +207,8 @@ export const CiteInline = ({ citationKey }) => {
             : `@${citationKey} — Obre la referència`;
 
     // Contingut visible: text formatat (Turkle, 2011) si disponible; raw @key
-    // altrament. Si l'usuari encara està editant, el formatat dóna context;
-    // si vol veure/editar el key cru, el tooltip li'l mostra.
+    // otherwise. If the user is still editing, the formatting provides context;
+    // if they want to see/edit the raw key, the tooltip shows it to them.
     const displayContent = formatted
         ? <span dangerouslySetInnerHTML={{ __html: formatted }} />
         : `@${citationKey}`;
@@ -227,9 +227,9 @@ export const CiteInline = ({ citationKey }) => {
                 onMouseEnter={handleMouseEnter}
                 onMouseLeave={handleMouseLeave}
                 style={{ pointerEvents: 'auto' }}
-                // contentEditable=false perquè el chip sigui atòmic dins
-                // del BlockEditor (l'usuari l'esborra amb Backspace com a
-                // unit, no entra dins per modificar el contingut).
+                // contentEditable=false so the chip is atomic within
+                // the BlockEditor (the user deletes it with Backspace like
+                // unit, doesn't go inside to modify the content).
                 contentEditable={false}
             >
                 {displayContent}

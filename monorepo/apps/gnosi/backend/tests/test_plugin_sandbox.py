@@ -1,9 +1,9 @@
-"""Tests del sandbox de dades (subprocés Node capat) + enforcement de permisos.
+"""Tests for the data sandbox (capped Node subprocess) + permission enforcement.
 
-E2E amb Node real (skip si no hi ha node). Verifica que:
-  * un plugin rep l'esdeveniment i pot cridar handlers del host que TÉ permès;
-  * una crida a un mètode SENSE permís concedit es rebutja al host;
-  * els logs del plugin arriben de tornada.
+E2E with real Node (skipped if node isn't available). Verifies that:
+  * a plugin receives the event and can call host handlers it HAS permission for;
+  * a call to a method WITHOUT granted permission is rejected by the host;
+  * the plugin's logs make it back.
 """
 import sys
 from pathlib import Path
@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(not sb.node_available(), reason="node no disponi
 def _install_backend_plugin(base: Path, pid: str, code: str, permissions, events):
     d = base / "plugins" / pid
     d.mkdir(parents=True, exist_ok=True)
-    (d / "manifest.json").write_text("{}", encoding="utf-8")  # no s'usa aquí
+    (d / "manifest.json").write_text("{}", encoding="utf-8")  # not used here
     (d / "backend.mjs").write_text(code, encoding="utf-8")
     manifest = ps.validate_manifest({
         "id": pid, "version": "1.0.0", "backend": "backend.mjs",
@@ -86,7 +86,7 @@ def test_sandbox_query_db_gated(tmp_path):
 
 
 def test_sandbox_network_hard_block(tmp_path):
-    # Sense permís `network`: importar node:net ha de PETAR (bloqueig dur).
+    # Without `network` permission: importing node:net must FAIL (hard block).
     code = """
     export default { async onEvent(event, api) {
       try { await import('node:net'); api.log('NET_OK'); }
@@ -95,7 +95,7 @@ def test_sandbox_network_hard_block(tmp_path):
     } };
     """
     manifest = _install_backend_plugin(tmp_path, "netter", code, ["network"], ["page:updated"])
-    # granted buit → net NO concedit
+    # granted empty → net NOT granted
     res = sb.run_event(tmp_path, manifest, [], "page:updated", {})
     assert res["ok"] is True
     assert any("net-bloquejat" in l["message"] for l in res["logs"])
@@ -114,7 +114,7 @@ def test_sandbox_permission_denied(tmp_path):
       catch (e) { api.warn('denegat', e.message); }
     } };
     """
-    # granted buit → readPage s'ha de denegar al host.
+    # granted empty → readPage must be denied to the host.
     manifest = _install_backend_plugin(tmp_path, "sneaky", code, ["vault:read"], ["page:updated"])
     res = sb.run_event(tmp_path, manifest, [], "page:updated", {})
     assert res["ok"] is True
@@ -123,8 +123,8 @@ def test_sandbox_permission_denied(tmp_path):
 
 
 def test_sandbox_settings_roundtrip(tmp_path):
-    # settings.set desa i settings.get llegeix, per plugin. Handlers reals del
-    # dispatcher (toquen `.gnosi/plugins.json` via l'estat), amb el vault a tmp.
+    # settings.set saves and settings.get reads, per plugin. Real handlers of the
+    # dispatcher (they touch `.gnosi/plugins.json` via the state), with the vault in tmp.
     from backend.services.context_vars import active_vault_path
     from backend.services.plugin_dispatcher import _HOST_HANDLERS
     active_vault_path.set(tmp_path)
@@ -145,7 +145,7 @@ def test_sandbox_settings_roundtrip(tmp_path):
 
 
 def test_sandbox_create_page(tmp_path):
-    # vault.createPage crea un .md nou al vault (tmp). Requereix vault:write.
+    # vault.createPage creates a new .md in the vault (tmp). Requires vault:write.
     from backend.services.context_vars import active_vault_path
     from backend.services.plugin_dispatcher import _HOST_HANDLERS
     active_vault_path.set(tmp_path)
@@ -162,14 +162,14 @@ def test_sandbox_create_page(tmp_path):
     res = sb.run_event(tmp_path, manifest, ["vault:write"], "page:updated", {})
     assert res["ok"] is True
     assert any("creada si" in l["message"] for l in res["logs"])
-    # El fitxer .md ha d'existir al vault tmp.
+    # The .md file must exist in the tmp vault.
     mds = list(tmp_path.rglob("*.md"))
     assert any("Nova del plugin" in p.name for p in mds)
 
 
 def test_sandbox_write_page_preserves_frontmatter(tmp_path):
-    # writePage NO ha de trepitjar el frontmatter: es crea una pàgina amb
-    # metadata, el plugin escriu un cos nou, i la metadata ha de sobreviure.
+    # writePage must NOT overwrite the frontmatter: a page is created with
+    # metadata, the plugin writes a new body, and the metadata must survive.
     from backend.services.context_vars import active_vault_path
     from backend.services.plugin_dispatcher import _HOST_HANDLERS
     from backend.api.vault_routes import save_page_md, parse_frontmatter, register_page_in_index
@@ -192,7 +192,7 @@ def test_sandbox_write_page_preserves_frontmatter(tmp_path):
     res = sb.run_event(tmp_path, manifest, ["vault:read", "vault:write"], "page:updated", {})
     assert res["ok"] is True
     assert any("meta-estat actiu cos cos vell" in l["message"] for l in res["logs"])
-    # Rellegeix del disc: el cos ha canviat però el frontmatter (estat) es manté.
+    # Re-reads from disk: the body has changed but the frontmatter (state) is preserved.
     meta, body = parse_frontmatter(fp.read_text(encoding="utf-8"), fp)
     assert meta.get("estat") == "actiu"
     assert meta.get("title") == "Nota"

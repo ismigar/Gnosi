@@ -49,12 +49,13 @@ async def create_notification(
     payload: NotificationCreate,
     db: Session = Depends(get_mgmt_db),
 ):
-    """Persisteix una notificació al log central.
+    """Persist a notification to the central log.
 
-    Els clients (frontend, scripts) escriuen aquí perquè els errors,
-    successos i avisos quedin al Control Center i no només com a toasts
-    efímers. Sense protecció de role: qualsevol caller autenticat pot
-    registrar-hi entries (és un log, no una acció destructiva).
+    Clients (frontend, scripts) write here so that errors,
+    successes, and warnings end up in the Control Center and not only as ephemeral
+    toasts. No role protection: any authenticated caller can
+    log entries here (it's a log, not a destructive action).
+    
     """
     try:
         level = (payload.level or "INFO").strip().upper()
@@ -87,9 +88,9 @@ async def clear_notifications(db: Session = Depends(get_mgmt_db)):
         return {"success": True, "message": "All notifications deleted"}
     except Exception as e:
         db.rollback()
-        # Abans retornava 200 amb body {success: False}, així el frontend no
-        # podia distingir-ho d'un èxit. Ara HTTPException(500) perquè axios
-        # rebuig la promesa i el caller pot reaccionar.
+        # Previously returned 200 with body {success: False}, so the frontend couldn't
+        # distinguish it from a success. Now HTTPException(500) so that axios
+        # reject the promise so the caller can react.
         raise HTTPException(
             status_code=500,
             detail=safe_error_detail(e, "DELETE /notifications"),
@@ -250,9 +251,9 @@ async def browse_directory(body: BrowseRequest = Body(...)):
     }
 
 
-# Carpetes que mai s'haurien de recórrer durant la cerca global. Library i
-# CloudStorage tenen massa contingut i sovint contenen rèpliques sincronitzades
-# de tota mena que esclatarien la cerca; les caches/git/node_modules són soroll.
+# Folders that should never be traversed during the global search. Library and
+# CloudStorage have too much content and often contain synced replicas
+# of every kind that would blow up the search; caches/git/node_modules are noise.
 _SEARCH_SKIP_DIR_NAMES = {
     "node_modules", ".git", "__pycache__", "Library",
     ".cache", ".local", ".npm", ".docker", ".android",
@@ -268,17 +269,18 @@ _HOST_SEARCH_HELPER_URL = os.getenv(
 
 
 def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float = 10.0):
-    """Delega la cerca a Spotlight (`mdfind`) via el helper del host.
+    """Delegate the search to Spotlight (`mdfind`) via the host helper.
 
-    El backend corre dins de Docker i no té `mdfind`; el `host_open_helper`
-    (pipeline/skills/host_open_helper/) escolta a 127.0.0.1:5099 al host i
-    exposa `/search`. Spotlight té un índex viu del disc i torna en
-    mil·lisegons, mentre que el `os.walk` del contenidor sobre OneDrive
-    triga segons.
+    The backend runs inside Docker and doesn't have `mdfind`; the `host_open_helper`
+    (pipeline/skills/host_open_helper/) listens on 127.0.0.1:5099 on the host and
+    exposes `/search`. Spotlight has a live index of the disk and returns in
+    milliseconds, while the container's `os.walk` over OneDrive
+    takes seconds.
 
-    Retorna el dict de resposta del helper (claus `results`/`truncated`), o
-    `None` si el helper no està disponible o falla — perquè el caller faci
-    fallback al walk local.
+    Returns the helper's response dict (`results`/`truncated` keys), or
+    `None` if the helper is unavailable or fails — so the caller can
+    fall back to the local walk.
+    
     """
     import urllib.request
 
@@ -294,7 +296,7 @@ def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float 
                 return None
             data = json.loads(resp.read() or b"{}")
     except Exception:
-        # Helper apagat, timeout, o 5xx (Spotlight ha fallat) → fallback.
+        # Helper down, timeout, or 5xx (Spotlight has failed) → fallback.
         return None
 
     if not isinstance(data, dict) or not isinstance(data.get("results"), list):
@@ -303,8 +305,8 @@ def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float 
 
 
 def _dedup_by_path(primary: list, secondary: list, limit: int) -> list:
-    """Fusiona dues llistes de resultats {name,path,is_dir} sense duplicats per
-    `path`, mantenint l'ordre (primary primer). Talla a `limit`."""
+    """Merges two result lists {name,path,is_dir} without duplicates by
+    `path`, keeping the order (primary first). Cuts off at `limit`."""
     seen: set = set()
     out: list = []
     for item in list(primary) + list(secondary):
@@ -320,16 +322,17 @@ def _dedup_by_path(primary: list, secondary: list, limit: int) -> list:
 
 @router.post("/search", dependencies=[Depends(require_role("admin"))])
 async def search_filesystem(body: SearchRequest = Body(...)):
-    """Cerca per nom a tot el sistema (Vault + Biblioteca + home host).
+    """Search by name across the whole system (Vault + Library + host home).
 
-    Estratègia:
-      1. Índex de fitxers del Vault (`services/vault_file_index`) — en memòria,
-         ràpid i FIABLE (no depèn del helper ni de l'estat d'OneDrive). Cobreix
-         Vault + Biblioteca, les arrels CloudStorage que el helper sovint no veu.
-      2. host_open_helper (Spotlight) — afegeix la resta de HOME (Documents,
-         Downloads…) on el helper sí funciona. Es fusiona amb (1), dedup per ruta.
-      3. Fallback (NOMÉS si l'índex encara no està llest, p.ex. just a
-         l'arrencada): `os.walk` dins del contenidor, amb caps per root.
+    Strategy:
+      1. Vault file index (`services/vault_file_index`) — in memory,
+         fast and RELIABLE (doesn't depend on the helper or OneDrive's state). Covers
+         Vault + Library, the CloudStorage roots that the helper often doesn't see.
+      2. host_open_helper (Spotlight) — adds the rest of HOME (Documents,
+         Downloads…) where the helper does work. Merged with (1), deduped by path.
+      3. Fallback (ONLY if the index isn't ready yet, e.g. right at
+         startup): `os.walk` inside the container, with per-root caps.
+    
     """
     q = (body.query or "").strip().lower()
     if len(q) < 2:
@@ -337,9 +340,9 @@ async def search_filesystem(body: SearchRequest = Body(...)):
 
     limit = max(1, min(500, body.limit or 100))
 
-    # Helper (Spotlight) — ràpid, per a HOME/no-CloudStorage. Pot ser None (helper
-    # caigut) o tornar buit per al Vault (File Provider d'OneDrive ranci): per
-    # això NO ens hi refiem sols per al Vault; l'índex (sota) el cobreix.
+    # Helper (Spotlight) — fast, for HOME/non-CloudStorage. Can be None (helper
+    # gone down) or return empty for the Vault (stale OneDrive File Provider): to
+    # so we do NOT rely on it alone for the Vault; the index (below) covers it.
     helper_roots = [
         p for p in (os.getenv("VAULT_HOST_PATH"), os.getenv("HOME_HOST_PATH"))
         if p
@@ -349,7 +352,7 @@ async def search_filesystem(body: SearchRequest = Body(...)):
     )
     helper_results = helper_data.get("results", []) if helper_data else []
 
-    # ── Capa 1+2: índex del Vault (fiable) fusionat amb el helper (resta de HOME) ──
+    # ── Layer 1+2: Vault index (reliable) merged with the helper (rest of HOME) ──
     from backend.services import vault_file_index
     if vault_file_index.is_ready():
         index_results = await asyncio.to_thread(
@@ -362,7 +365,7 @@ async def search_filesystem(body: SearchRequest = Body(...)):
             "engine": "index+spotlight",
         }
 
-    # Índex encara no llest (finestra curta a l'arrencada): comportament previ.
+    # Index not ready yet (short window at startup): previous behavior.
     if helper_data is not None:
         return {
             "results": helper_results,
@@ -370,25 +373,25 @@ async def search_filesystem(body: SearchRequest = Body(...)):
             "engine": "spotlight",
         }
 
-    # ── Capa 3: fallback walk dins del contenidor ──
+    # ── Layer 3: fallback walk inside the container ──
     vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
     home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
     vault_host = os.getenv("VAULT_HOST_PATH") or ""
 
-    # Caminem en passades prioritàries: primer el Vault, després les
-    # carpetes d'usuari habituals (Documents, Desktop, Downloads, …) i
-    # finalment la resta de la HOME. Així garantim que els fitxers
-    # rellevants apareguin encara que la HOME contingui molts fitxers
-    # poc interessants (Library està a la skip-list però altres carpetes
-    # com Movies grans poden esgotar el límit).
+    # We walk in priority passes: first the Vault, then the
+    # common user folders (Documents, Desktop, Downloads, …) and
+    # finally the rest of HOME. This way we guarantee that the files
+    # relevant ones show up even if HOME contains many files
+    # of little interest (Library is on the skip-list but other folders
+    # such as large Movies can exhaust the limit).
     #
-    # Library normalment es salta perquè conté caches, plists i app data
-    # que no aporten res al search. Però les carpetes de sync cloud
+    # Library is normally skipped because it contains caches, plists, and app data
+    # that add nothing to the search. But cloud sync folders
     # (OneDrive, Dropbox, Google Drive, Box → Library/CloudStorage; iCloud
-    # Drive → Library/Mobile Documents) sí que contenen fitxers reals de
-    # l'usuari i s'han de cobrir. Les afegim com a roots prioritaris
-    # explícits: el skip de "Library" només es comprova durant els walks,
-    # no als roots inicials, així que entrar-hi directament està permès.
+    # Drive → Library/Mobile Documents) do contain real files from
+    # the user and must be covered. We add them as priority roots
+    # explicit: the skip of "Library" is only checked during the walks,
+    # not at the initial roots, so entering it directly is allowed.
     priority_subdirs = [
         "Documents", "Desktop", "Downloads", "Pictures", "Movies", "Music",
         "Library/CloudStorage", "Library/Mobile Documents",
@@ -426,28 +429,28 @@ async def search_filesystem(body: SearchRequest = Body(...)):
 
     import os as native_os
 
-    # Pressupost de nodes PER root: cap carpeta pot acaparar tota la cerca.
-    # Abans hi havia un únic `max_visited` global de 250k; com que el Vault
-    # i, sobretot, Library/CloudStorage (OneDrive) són enormes, una sola
-    # passada s'hi encallava i la crida trigava molts segons sense arribar
-    # mai a Documents/Downloads. Amb un cap per root, cada carpeta rellevant
-    # es visita encara que les anteriors siguin immenses.
+    # Node budget PER root: no single folder can hog the entire search.
+    # Previously there was a single global `max_visited` of 250k; since the Vault
+    # and, above all, Library/CloudStorage (OneDrive) are huge, a single
+    # previous pass would get stuck there and the call would take many seconds without reaching
+    # never got to Documents/Downloads. With a per-root cap, each relevant folder
+    # gets visited even if the previous ones are huge.
     per_root_max_visited = 30000
-    # Cap de resultats PER root: sense això el Vault (tot .md) omplia els
-    # `limit` resultats abans que cap altre root hi aportés res, i la cerca
-    # semblava trobar "només .md". Repartint el límit, els resultats són
-    # una barreja de tots els orígens.
+    # A cap on results PER root: without this the Vault (all .md) would fill up the
+    # `limit` results before any other root contributed anything, and the search
+    # seemed to find "only .md" files. By splitting the limit, the results are
+    # a mix of all sources.
     per_root_result_cap = max(15, limit // max(1, len(priority_roots)))
 
     results: list = []
     truncated = False
-    # Deduplicar resultats quan un fitxer es trobi des de més d'un root
-    # prioritari (p.ex. Vault + walk genèric de HOME).
+    # Deduplicate results when a file is found from more than one
+    # priority root (e.g. Vault + generic HOME walk).
     seen_result_paths: set[str] = set()
 
     def _record_hit(internal: str, name: str, is_dir: bool) -> bool:
-        """Afegeix un match si encara no s'havia trobat. Retorna True si
-        s'ha arribat al límit GLOBAL de resultats."""
+        """Add a match if it hasn't been found yet. Returns True if
+        the GLOBAL results limit has been reached."""
         if internal in seen_result_paths:
             return False
         seen_result_paths.add(internal)
@@ -458,16 +461,17 @@ async def search_filesystem(body: SearchRequest = Body(...)):
         })
         return len(results) >= limit
 
-    # Normalitza la query a NFC un cop: macOS desa noms en NFD, així una query
-    # "ética" (NFC, 1 codepoint) casa amb el nom de disc descompost (e + accent).
+    # Normalize the query to NFC once: macOS stores names in NFD, so a query
+    # "ética" (NFC, 1 codepoint) matches the decomposed name on disk (e + accent).
     q_norm = unicodedata.normalize("NFC", q)
 
     def _walk_all() -> None:
-        """Recorre els roots prioritaris omplint `results`.
+        """Walk the priority roots, filling `results`.
 
-        És síncron i bloquejant — un `os.walk` sobre muntatges lents com
-        OneDrive pot trigar segons —, així que el handler el crida dins
-        d'un thread a part per no congelar l'event loop de FastAPI.
+        It's synchronous and blocking — an `os.walk` over slow mounts like
+        OneDrive can take seconds —, so the handler calls it inside
+        a separate thread to avoid freezing FastAPI's event loop.
+        
         """
         nonlocal truncated
         for root in priority_roots:
@@ -477,10 +481,10 @@ async def search_filesystem(body: SearchRequest = Body(...)):
             root_hits = 0
             stop_root = False
             for current_dir, dirs, files in native_os.walk(str(root), followlinks=False):
-                # Pruna in-place. A més del soroll habitual, saltem els
-                # roots prioritaris que ja caminem per separat: així el
-                # walk genèric de HOME no torna a recórrer Documents,
-                # Desktop, Downloads… (abans es visitaven dos cops).
+                # Prune in-place. In addition to the usual noise, we skip the
+                # priority roots that we already walk separately: this way the
+                # generic HOME walk doesn't traverse Documents again,
+                # Desktop, Downloads… (previously visited twice).
                 dirs[:] = [
                     d for d in dirs
                     if not d.startswith(".")

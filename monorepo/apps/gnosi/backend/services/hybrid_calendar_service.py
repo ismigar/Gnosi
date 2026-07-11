@@ -1,9 +1,9 @@
 """
-Hybrid Calendar Service — consulta Google Calendar i CalDAV directament sense vault.
+Hybrid Calendar Service — queries Google Calendar and CalDAV directly without a vault.
 
-Proveïdors suportats:
+Supported providers:
   - google  → Google Calendar API v3
-  - caldav  → qualsevol servidor CalDAV (iCloud, Fastmail, Nextcloud, Radicale…)
+  - caldav  → any CalDAV server (iCloud, Fastmail, Nextcloud, Radicale…)
 """
 import logging
 import re
@@ -73,10 +73,11 @@ def _google_service(email: str):
 
 
 class GoogleAuthExpired(Exception):
-    """El refresh token de Google ha caducat o s'ha revocat (invalid_grant).
+    """The Google refresh token has expired or been revoked (invalid_grant).
 
-    Es propaga fins a la ruta perquè la UI pugui demanar reconnexió en lloc de
-    mostrar una llista buida silenciosament. `email` indica el compte afectat.
+    It propagates up to the route so the UI can request reconnection instead of
+    silently showing an empty list. `email` indicates the affected account.
+    
     """
     def __init__(self, email: str = ""):
         self.email = email
@@ -84,7 +85,7 @@ class GoogleAuthExpired(Exception):
 
 
 def google_list_calendars(email: str) -> list[dict]:
-    """Retorna la llista de calendaris disponibles per a un compte Google."""
+    """Returns the list of calendars available for a Google account."""
     service = _google_service(email)
     if not service:
         return []
@@ -116,7 +117,7 @@ def google_list_events(
     search: Optional[str] = None,
     calendar_id: Optional[str] = None,
 ) -> list[dict]:
-    """Consulta tots els calendaris (o un de concret) i retorna events normalitzats."""
+    """Queries all calendars (or one specific one) and returns normalized events."""
     service = _google_service(email)
     if not service:
         return []
@@ -233,7 +234,7 @@ def caldav_list_calendars(email: str) -> list[dict]:
         return []
 
     session = _caldav_session(acc)
-    # PROPFIND per descobrir les col·leccions de calendaris
+    # PROPFIND to discover the calendar collections
     body = """<?xml version="1.0" encoding="utf-8"?>
 <d:propfind xmlns:d="DAV:" xmlns:cal="urn:ietf:params:xml:ns:caldav">
   <d:prop>
@@ -259,11 +260,11 @@ def caldav_list_calendars(email: str) -> list[dict]:
             is_cal = restype is not None and restype.find("{urn:ietf:params:xml:ns:caldav}calendar") is not None
             if not is_cal:
                 continue
-            # Últim segment NO buit de l'href (id del calendari): robust a href sense barra
-            # final o sense barres. Abans `href.split("/")[-2]` llançava IndexError amb un href
-            # sense prou barres i, com que l'except de sota es menja la resta, avortava TOTA la
-            # llista de calendaris; a més `[-2]` (assumint barra final) agafava el segment pare
-            # si no n'hi havia.
+            # Last NON-empty segment of the href (calendar id): robust to an href without a trailing
+            # slash or without slashes. Previously `href.split("/")[-2]` raised an IndexError with an href
+            # without enough slashes and, since the except below swallows the rest, it aborted the ENTIRE
+            # from a calendar list; also `[-2]` (assuming a trailing slash) took the parent segment
+            # if there wasn't one.
             _segs = [s for s in href.split("/") if s]
             name = resp.findtext(".//{DAV:}displayname") or (_segs[-1] if _segs else "") or href
             calendars.append({
@@ -397,7 +398,7 @@ def _normalize_caldav_event(component, email: str, cal: dict) -> dict:
     }
 
 
-# ── Dispatcher públic ──────────────────────────────────────────────────────────
+# ── Public dispatcher ──────────────────────────────────────────────────────────
 
 def list_calendars(email: str) -> list[dict]:
     acc = _get_account(email)

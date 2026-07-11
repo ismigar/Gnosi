@@ -3,29 +3,29 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ListTree, X } from 'lucide-react';
 
-// Contenidor de scroll principal definit a App.jsx. Hi cerquem els encapçalaments.
+// Main scroll container defined in App.jsx. We look for headings inside it.
 const CONTENT_SELECTOR = '#page-content-scroll';
 const STORAGE_KEY = 'page_outline_open_v1';
-// Marge superior perquè l'encapçalament no quedi enganxat a dalt en saltar-hi.
+// Top margin so the heading doesn't end up stuck at the top when jumping to it.
 const SCROLL_MARGIN = 16;
-// Offset (px des de dalt del viewport) per decidir quina secció és l'activa.
+// Offset (px from the top of the viewport) to decide which section is active.
 const ACTIVE_OFFSET = 120;
 
-// El navegador de títols només té sentit a pàgines de contingut llarg: Vault
-// (notes/documents), Correu i Lector de notícies. A la resta (Control Center,
-// Configuració, Graf, etc.) no s'hi mostra.
+// The heading navigator only makes sense on long-content pages: Vault
+// (notes/documents), Mail and News Reader. On the rest (Control Center,
+// Settings, Graph, etc.) it isn't shown.
 const ALLOWED_PREFIXES = ['/vault', '/mail', '/reader'];
 const isOutlineRoute = (path) =>
     ALLOWED_PREFIXES.some((p) => path === p || path.startsWith(`${p}/`));
 
-// Id intern estable; el prefix `i` ja en garanteix la unicitat.
+// Stable internal id; the `i` prefix already guarantees its uniqueness.
 const slugify = (text, i) =>
     `pout-${i}-${text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40)}`;
 
-// Comprova si l'element té un ancestre amb scroll efectiu dins del container,
-// és a dir, on tindria sentit "saltar-hi". Si no, el heading viu en una zona
-// fixa (p. ex. capçaleres de columnes a Lector/Correu) i el navegador no aporta:
-// `scrollIntoView` no es mou perquè l'element ja és totalment visible.
+// Checks whether the element has an ancestor with effective scroll inside the container,
+// that is, where jumping to it would make sense. If not, the heading lives in a
+// fixed area (e.g. column headers in Reader/Mail) and the navigator adds nothing:
+// `scrollIntoView` doesn't move because the element is already fully visible.
 const hasScrollableAncestor = (el, container) => {
     const stop = container ? container.parentElement : null;
     let p = el.parentElement;
@@ -37,9 +37,9 @@ const hasScrollableAncestor = (el, container) => {
     return false;
 };
 
-// Text "net" del títol: agafa els nodes de text propis del heading, que exclouen
-// els chips d'acció renderitzats com a fills (p. ex. un "Detalls →" dins del h3).
-// Si el títol va embolcallat i no hi ha text directe, cau al text complet sense a/button.
+// "Clean" text of the title: takes the heading's own text nodes, which exclude
+// action chips rendered as children (e.g. a "Details →" inside the h3).
+// If the title is wrapped and there's no direct text, it falls back to the full text without a/button.
 const headingText = (el) => {
     const direct = Array.from(el.childNodes)
         .filter((n) => n.nodeType === Node.TEXT_NODE)
@@ -63,36 +63,36 @@ export default function PageOutline() {
     const nodesRef = useRef([]);
     const navRef = useRef(null);
 
-    // Només actiu a Vault, Correu i Lector.
+    // Only active in Vault, Mail and Reader.
     const enabled = isOutlineRoute(location.pathname);
 
-    // Escaneja el contingut visible i recull h1-h3 reals (no els de targetes-enllaç).
+    // Scans the visible content and collects real h1-h3 (not the ones from link-cards).
     const scan = useCallback(() => {
         const container = document.querySelector(CONTENT_SELECTOR);
         if (!enabled || !container) { setHeadings([]); nodesRef.current = []; return; }
         const collected = [];
         const nodes = [];
         container.querySelectorAll('h1, h2, h3').forEach((el, i) => {
-            if (el.closest('a, button')) return;     // títols de targetes/botons no són seccions
+            if (el.closest('a, button')) return;     // card/button titles are not sections
             if (el.offsetParent === null) return;     // amagat (modals tancades, display:none)
-            if (!hasScrollableAncestor(el, container)) return; // viu en una zona fixa: saltar-hi no fa res
+            if (!hasScrollableAncestor(el, container)) return; // lives in a fixed area: jumping to it does nothing
             const text = headingText(el);
             if (!text) return;
-            // Id SINTÈTIC: NO l'escrivim al DOM ni hi toquem `style`. Els
-            // headings viuen dins l'editor ProseMirror, que gestiona el seu
-            // propi DOM i REVERTEIX qualsevol `id`/`style` afegit de fora;
-            // aquella reversió disparava el MutationObserver de sota → re-scan
-            // → re-escriptura → bucle infinit (títols i pàgina parpellejant).
-            // Guardem la referència viva a `nodesRef` i usem l'id sintètic
-            // només a l'estat. El `scroll-margin-top` es posa per CSS (vegeu
-            // l'efecte d'injecció d'estil).
+            // SYNTHETIC id: we do NOT write it to the DOM nor touch `style` on it. The
+            // headings live inside the ProseMirror editor, which manages its
+            // own DOM and REVERTS any `id`/`style` added from outside;
+            // that reversion used to trigger the MutationObserver below → re-scan
+            // → rewrite → infinite loop (headings and page flickering).
+            // We keep the live reference in `nodesRef` and use the synthetic id
+            // only in state. The `scroll-margin-top` is set via CSS (see
+            // the style-injection effect).
             const id = slugify(text, i);
             collected.push({ id, text, level: Number(el.tagName[1]) });
             nodes.push({ id, el, text });
         });
         nodesRef.current = nodes;
-        // Evita re-renders inútils (i que l'efecte de scroll-spy es re-subscrigui
-        // en bucle) quan el conjunt de títols no ha canviat realment.
+        // Avoids useless re-renders (and the scroll-spy effect re-subscribing
+        // in a loop) when the set of headings hasn't actually changed.
         setHeadings((prev) => (
             prev.length === collected.length
             && prev.every((h, i) => h.id === collected[i].id && h.level === collected[i].level && h.text === collected[i].text)
@@ -101,9 +101,9 @@ export default function PageOutline() {
         ));
     }, [enabled]);
 
-    // `scroll-margin-top` per als títols del contingut via CSS global (una sola
-    // vegada), en comptes d'escriure `el.style` a cada heading —que toca el DOM
-    // de ProseMirror i provoca el bucle de reversió/re-scan.
+    // `scroll-margin-top` for the content headings via global CSS (just
+    // once), instead of writing `el.style` on every heading —which touches the DOM
+    // of ProseMirror and causes the reversion/re-scan loop.
     useEffect(() => {
         const STYLE_ID = 'page-outline-scroll-margin';
         if (document.getElementById(STYLE_ID)) return;
@@ -113,8 +113,8 @@ export default function PageOutline() {
         document.head.appendChild(style);
     }, []);
 
-    // Re-escaneja en canviar de ruta (amb reintents pel contingut que carrega async)
-    // i quan el DOM del contingut canvia (dashboards dinàmics).
+    // Re-scans on route change (with retries for content that loads asynchronously)
+    // and when the content DOM changes (dynamic dashboards).
     useEffect(() => {
         const timers = [0, 300, 1000].map((d) => setTimeout(scan, d));
 
@@ -137,7 +137,7 @@ export default function PageOutline() {
         };
     }, [location.pathname, scan]);
 
-    // Scroll-spy: marca com a activa l'última secció que ha passat per dalt.
+    // Scroll-spy: marks as active the last section that has passed the top.
     useEffect(() => {
         if (headings.length === 0) return;
         let raf = 0;
@@ -156,7 +156,7 @@ export default function PageOutline() {
             if (!raf) raf = requestAnimationFrame(compute);
         };
         compute();
-        // capture:true per capturar també l'scroll de contenidors interns.
+        // capture:true to also capture scrolling of inner containers.
         window.addEventListener('scroll', onScroll, true);
         window.addEventListener('resize', onScroll);
         return () => {
@@ -166,7 +166,7 @@ export default function PageOutline() {
         };
     }, [headings]);
 
-    // Manté l'element actiu visible dins la llista del panell.
+    // Keeps the active element visible within the panel's list.
     useEffect(() => {
         if (!isOpen || !activeId || !navRef.current) return;
         const item = navRef.current.querySelector(`[data-target="${activeId}"]`);
@@ -178,7 +178,7 @@ export default function PageOutline() {
         try { localStorage.setItem(STORAGE_KEY, val ? '1' : '0'); } catch { /* ignore */ }
     }, []);
 
-    // Esc tanca el panell.
+    // Esc closes the panel.
     useEffect(() => {
         if (!isOpen) return;
         const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
@@ -187,12 +187,12 @@ export default function PageOutline() {
     }, [isOpen, setOpen]);
 
     const goTo = (id) => {
-        // 1) Prova la referència viva del darrer scan (la més fiable).
+        // 1) Tries the live reference from the last scan (the most reliable).
         const entry = nodesRef.current.find((n) => n.id === id && n.el.isConnected);
         let el = entry?.el || null;
-        // 2) Si el node original ha estat reemplaçat (p. ex. re-render de BlockNote/ProseMirror),
-        //    re-cerca per text al container actual i salta-hi. (Ja no escrivim
-        //    `id` al DOM, així que no hi ha fallback per getElementById.)
+        // 2) If the original node has been replaced (e.g. a BlockNote/ProseMirror re-render),
+        //    re-search by text in the current container and jump to it. (We no longer write
+        //    `id` in the DOM, so there is no fallback via getElementById.)
         if (!el || !el.isConnected) {
             const item = headings.find((h) => h.id === id);
             const container = document.querySelector(CONTENT_SELECTOR);
@@ -201,13 +201,13 @@ export default function PageOutline() {
                     .find((h) => h.isConnected && headingText(h) === item.text);
             }
         }
-        // `behavior: 'smooth'` no desplaça en aquests contenidors de scroll
-        // niats (flex amb overflow); el salt instantani sí que és fiable.
+        // `behavior: 'smooth'` doesn't scroll within these scroll containers
+        // that are nested (flex with overflow); the instant jump, however, is reliable.
         if (el && el.isConnected) el.scrollIntoView({ block: 'start' });
         setActiveId(id);
     };
 
-    // Només a rutes permeses i amb almenys 2 títols.
+    // Only on allowed routes and with at least 2 headings.
     if (!enabled || headings.length < 2) return null;
 
     const minLevel = Math.min(...headings.map((h) => h.level));

@@ -5,13 +5,13 @@ import { X, Send, Loader2, RefreshCw, AlertTriangle, Sparkles, ArrowLeft } from 
 import { toast } from '../../lib/toast';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
-// Modal "Publicar a XXSS": tries xarxes → la IA proposa un text adaptat per
-// cada una (en el MATEIX idioma que l'original) → edites/regeneres → publiques o
-// programes. La publicació real i el registre a la taula "Publicacions Socials"
-// els fa el backend (/api/social/compose, /publish, /schedule).
+// "Post to social media" modal: pick networks → the AI proposes adapted text for
+// each one (in the SAME language as the original) → you edit/regenerate → you publish or
+// schedule. The actual publishing and the record in the "Social Publications" table
+// are handled by the backend (/api/social/compose, /publish, /schedule).
 //
-// Es pot obrir des d'un registre del Vault (passant `noteId`: agafa títol i cos
-// de la pàgina) o en mode lliure (sense `noteId`: l'usuari escriu el contingut).
+// It can be opened from a Vault record (passing `noteId`: it takes the title and body
+// of the page) or in free mode (without `noteId`: the user writes the content).
 export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetadata = {}, onPublished }) {
     const { t } = useTranslation();
     const containerRef = useRef(null);
@@ -36,7 +36,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
 
     const busy = composing || publishing;
 
-    // Reinicialitza en obrir i carrega xarxes + contingut origen.
+    // Reinitializes on open and loads networks + source content.
     useEffect(() => {
         if (!isOpen) return;
         setStep('select');
@@ -47,7 +47,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
         setScheduledAt('');
         setHint('');
 
-        // Contingut origen: títol del registre com a punt de partida.
+        // Source content: the record's title as the starting point.
         setSourceTitle(String(recordMetadata?.title || '').trim());
         setSourceContent('');
 
@@ -56,15 +56,15 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 const res = await axios.get('/api/social/networks');
                 const list = (res.data || []).filter((n) => n.enabled !== false);
                 setNetworks(list);
-                // Preselecciona les configurades.
+                // Preselects the configured ones.
                 setSelected(new Set(list.filter((n) => n.configured).map((n) => n.id)));
             } catch (err) {
                 console.error('Error carregant xarxes:', err);
                 toast.error(t('social.networks_error', 'No s\'han pogut carregar les xarxes.'));
             }
 
-            // Si venim d'un registre, carreguem el cos de la pàgina per donar
-            // millor context a la IA. Si falla, derivem del metadata.
+            // If we come from a record, we load the page body to give
+            // the AI better context. If it fails, we derive it from the metadata.
             if (noteId) {
                 try {
                     const res = await axios.get(`/api/vault/pages/${noteId}`);
@@ -122,7 +122,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             setStep('compose');
         } catch (err) {
             console.error('Error generant publicacions:', err);
-            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('social.compose_error', 'Error generant les propostes')}: ${msg}`);
         } finally {
             setComposing(false);
@@ -149,7 +149,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 setVariationByNet((prev) => ({ ...prev, [net]: v }));
             }
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('social.regen_error', 'Error regenerant')}: ${msg}`);
         } finally {
             setRegeneratingNet(null);
@@ -186,7 +186,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             if (onPublished) onPublished(res.data);
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('social.publish_error', 'Error publicant')}: ${msg}`);
         } finally {
             setPublishing(false);
@@ -219,7 +219,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             if (onPublished) onPublished(res.data);
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('social.schedule_error', 'Error programant')}: ${msg}`);
         } finally {
             setPublishing(false);
@@ -257,7 +257,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                         <Send size={18} className="text-[var(--gnosi-primary)]" />
                         {t('social.publish_title', 'Publicar a XXSS')}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar" disabled={busy}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={busy}>
                         <X />
                     </button>
                 </div>
@@ -441,8 +441,8 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
     );
 }
 
-// Deriva un contingut raonable del metadata d'un registre quan no podem llegir
-// el cos de la pàgina: títol + el camp de text més llarg.
+// Derives reasonable content from a record's metadata when we cannot read
+// the page body: title + the longest text field.
 function deriveContent(meta) {
     if (!meta || typeof meta !== 'object') return '';
     const parts = [];

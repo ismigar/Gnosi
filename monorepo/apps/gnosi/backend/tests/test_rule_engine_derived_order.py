@@ -1,14 +1,14 @@
-"""Ordre d'evaluació UNIFICAT de camps derivats (fórmules + rollups).
+"""UNIFIED evaluation order for derived fields (formulas + rollups).
 
-Regressió del bug de corrupció silenciosa: abans les fórmules s'avaluaven
-SENCERES abans que els rollups, així que una fórmula que llegia un rollup veia
-el valor ranci de disc (o `None`) — anava un desat endarrerida. El fix és un
-únic graf de dependències topològic (`_order_definitions` +
-`_definition_dependencies`) que barreja fórmules I rollups, amb detecció de
-cicles.
+Regression test for the silent-corruption bug: previously formulas were evaluated
+ENTIRELY before rollups, so a formula that read a rollup saw
+the stale value from disk (or `None`) — it was one save behind. The fix is a
+single topological dependency graph (`_order_definitions` +
+`_definition_dependencies`) that mixes formulas AND rollups, with cycle
+detection.
 
-Els rollups llegeixen files RELACIONADES de disc; aquí es mocka
-`_load_related_metadata` perquè el test es concentri en l'ORDRE, no en l'I/O.
+Rollups read RELATED rows from disk; here `_load_related_metadata` is mocked
+so the test focuses on ORDER, not I/O.
 """
 from __future__ import annotations
 
@@ -21,7 +21,7 @@ from backend.services.rule_engine import RuleEngine
 
 
 def _engine(tmp_path: Path, related: dict[str, dict] | None = None) -> RuleEngine:
-    """RuleEngine amb vault buit i `_load_related_metadata` mockat per id."""
+    """RuleEngine with an empty vault and `_load_related_metadata` mocked by id."""
     engine = RuleEngine(tmp_path)
     lookup = related or {}
     engine._load_related_metadata = lambda rid: lookup.get(str(rid))  # type: ignore[assignment]
@@ -46,14 +46,15 @@ def _rollup(name: str, relation_field: str, aggregation: str = "count_all") -> d
     }
 
 
-# --- Comportament E2E: fórmula que depèn d'un rollup --------------------------
+# --- E2E behavior: formula that depends on a rollup --------------------------
 
 def test_formula_reads_freshly_recomputed_rollup(tmp_path):
-    """`estat` depèn del rollup `total_tasques`: ha de veure el valor FRESC.
+    """`estat` depends on the `total_tasques` rollup: it must see the FRESH value.
 
-    Amb l'ordre antic (fórmules abans que rollups) `estat` es calculava amb el
-    `total_tasques` ranci de disc (0) → "buit". Ara el rollup es recalcula
-    primer (2) → "actiu".
+    With the old order (formulas before rollups) `estat` was calculated with the
+    stale `total_tasques` from disk (0) → "buit". Now the rollup is recalculated
+    first (2) → "actiu".
+    
     """
     table = {
         "id": "t_proj",
@@ -65,7 +66,7 @@ def test_formula_reads_freshly_recomputed_rollup(tmp_path):
     }
     engine = _engine(tmp_path, related={"task1": {"title": "T1"}, "task2": {"title": "T2"}})
 
-    # Valors rancis de disc: total_tasques=0 i estat="buit".
+    # Stale values from disk: total_tasques=0 and estat="buit".
     metadata = {
         "database_table_id": "t_proj",
         "Tasques": ["task1", "task2"],
@@ -79,18 +80,19 @@ def test_formula_reads_freshly_recomputed_rollup(tmp_path):
     assert result["estat"] == "actiu", "la fórmula ha de llegir el rollup FRESC, no el ranci"
 
 
-# --- Comportament E2E: rollup que depèn d'una fórmula (cas invers) ------------
+# --- E2E behavior: rollup that depends on a formula (inverse case) ------------
 
 def test_rollup_reads_freshly_computed_formula(tmp_path):
-    """El `relation_field` d'un rollup és una fórmula: no s'ha de regredir.
+    """A rollup's `relation_field` is a formula: this must not regress.
 
-    Un swap ingenu (rollups abans que fórmules) trencaria aquest cas. El graf
-    unificat ordena la fórmula `rel_ids` abans del rollup `recompte`.
+    A naive swap (rollups before formulas) would break this case. The
+    unified graph orders the `rel_ids` formula before the `recompte` rollup.
+    
     """
     table = {
         "id": "t_x",
         "properties": [
-            _formula("rel_ids", '"a,b,c"'),  # la fórmula produeix el conjunt de relacions
+            _formula("rel_ids", '"a,b,c"'),  # the formula produces the set of relations
             _rollup("recompte", relation_field="rel_ids"),
         ],
     }
@@ -107,29 +109,29 @@ def test_rollup_reads_freshly_computed_formula(tmp_path):
     assert result["recompte"] == 3, "el rollup ha de veure el relation_field FRESC de la fórmula"
 
 
-# --- Detecció de cicle fórmula ↔ rollup ---------------------------------------
+# --- Formula ↔ rollup cycle detection ---------------------------------------
 
 def test_cycle_between_formula_and_rollup_is_detected_no_crash(tmp_path, caplog):
-    """`campA` (fórmula) → `campB` (rollup) → `campA`: cicle. No ha de petar."""
+    """`campA` (formula) → `campB` (rollup) → `campA`: cycle. Must not crash."""
     table = {
         "id": "t_c",
         "properties": [
-            _formula("campA", "campB + 1"),          # depèn del rollup campB
-            _rollup("campB", relation_field="campA"),  # depèn de la fórmula campA
+            _formula("campA", "campB + 1"),          # depends on the campB rollup
+            _rollup("campB", relation_field="campA"),  # depends on the campA formula
         ],
     }
-    engine = _engine(tmp_path)  # sense relacions → count_all 0
+    engine = _engine(tmp_path)  # no relations → count_all 0
     metadata = {"database_table_id": "t_c", "campA": "", "campB": 0}
 
     with caplog.at_level(logging.WARNING, logger="backend.services.rule_engine"):
         result = engine._evaluate_derived(metadata, table)
 
     assert "cycle" in caplog.text.lower(), "s'ha de registrar l'avís de cicle"
-    # Passada acotada: sense excepció i tots dos camps queden escrits (determinista).
+    # Bounded pass: no exception and both fields end up written (deterministic).
     assert "campA" in result and "campB" in result
 
 
-# --- Unit directe del graf: _order_definitions -------------------------------
+# --- Direct unit test of the graph: _order_definitions -------------------------------
 
 def test_order_definitions_places_rollup_before_dependent_formula(tmp_path):
     engine = _engine(tmp_path)
@@ -171,7 +173,7 @@ def test_order_definitions_reports_mixed_cycle(tmp_path):
 
 
 def test_formula_only_table_still_orders_by_deps(tmp_path):
-    """No regressió: sense rollups, l'ordre inter-fórmules es manté."""
+    """No regression: without rollups, the inter-formula order is preserved."""
     engine = _engine(tmp_path)
     defs = [
         {"name": "total", "kind": "formula", "expression": "subtotal * 1.21", "mode": "always"},

@@ -49,10 +49,10 @@ class DryRunManager:
         requires_confirmation = risk_level == RiskLevel.EXTERNAL_WRITE
         
         if requires_confirmation:
-            # Store for later execution. Abans usàvem `hash() % 10000` que
-            # col·lisionava ràpid (paradoxa de l'aniversari ~40% amb 100
-            # entrades) i feia que dos calls diferents s'sobreescrivissin
-            # al `_pending_executions`. uuid4 elimina les col·lisions.
+            # Store for later execution. Previously we used `hash() % 10000` which
+            # collided quickly (birthday paradox ~40% with 100
+            # inputs) and caused two different calls to overwrite each other
+            # in `_pending_executions`. uuid4 eliminates collisions.
             execution_id = f"{tool_name}_{uuid.uuid4().hex[:8]}"
             self._pending_executions[execution_id] = {
                 "tool_name": tool_name,

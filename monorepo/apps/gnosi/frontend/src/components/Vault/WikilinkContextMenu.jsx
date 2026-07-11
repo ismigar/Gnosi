@@ -4,9 +4,9 @@ import { ArrowRight, ExternalLink, Columns2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
- * Menú contextual per a wikilinks (clic dret).
- * Ofereix obrir a la mateixa pestanya, en una de nova, o en panell paral·lel.
- * Suporta navegació per teclat: ↑ / ↓ entre opcions, Enter per executar.
+ * Context menu for wikilinks (right click).
+ * Offers opening in the same tab, in a new one, or in a side panel.
+ * Supports keyboard navigation: ↑ / ↓ between options, Enter to run.
  */
 export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, onOpenNewTab, onOpenParallel }) => {
     const { t } = useTranslation();
@@ -40,9 +40,9 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
         },
     ], [t, cmdLabel, onOpenSameTab, onOpenNewTab, onOpenParallel]);
 
-    // Selecció via teclat. Comencem sense cap selecció (-1) per no donar
-    // pista visual abans que l'usuari premi una fletxa; la primera ↓/↑
-    // selecciona la primera/última opció habilitada.
+    // Keyboard selection. We start with no selection (-1) so as not to give
+    // a visual hint before the user presses an arrow; the first ↓/↑
+    // selects the first/last enabled option.
     const [selectedIdx, setSelectedIdx] = useState(-1);
 
     useEffect(() => {
@@ -101,8 +101,8 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
             }
             if (e.key === 'Enter') {
                 e.preventDefault();
-                // Si no hi ha res seleccionat, Enter executa la primera opció
-                // (comportament de menú estàndard al ser activat amb teclat).
+                // If nothing is selected, Enter runs the first option
+                // (standard menu behavior when activated via keyboard).
                 const idx = selectedIdx >= 0 ? selectedIdx : (enabledIndices[0] ?? -1);
                 const item = items[idx];
                 if (item && typeof item.onClick === 'function') {
@@ -112,7 +112,7 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
             }
         };
         const handleScroll = () => onClose();
-        // Defer per evitar tancar immediatament amb el mateix clic dret
+        // Defer to avoid closing immediately with the same right-click
         const timer = setTimeout(() => {
             document.addEventListener('mousedown', handleClick);
             document.addEventListener('keydown', handleKey);
@@ -126,7 +126,7 @@ export const WikilinkContextMenu = ({ isOpen, position, onClose, onOpenSameTab, 
         };
     }, [isOpen, onClose, items, selectedIdx]);
 
-    // Ajustar posició si surt de la pantalla
+    // Adjust position if it goes off-screen
     useLayoutEffect(() => {
         if (!isOpen || !menuRef.current || !position) return;
         const rect = menuRef.current.getBoundingClientRect();

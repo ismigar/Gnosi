@@ -1,9 +1,9 @@
-"""`block_to_md` (import de Notion) ha de:
-- escapar el `|` (i col·lapsar salts) a les cel·les de `table_row`, o una
-  cel·la amb un `|` trenca l'estructura de la taula GFM importada;
-- serialitzar els blocs `code` amb el text LITERAL (sense aplicar-hi les
-  anotacions bold/enllaç/`code`, que sortien com a marques Markdown dins el
-  codi).
+"""`block_to_md` (Notion import) must:
+- escape `|` (and collapse line breaks) in `table_row` cells, or a
+  cell with a `|` breaks the imported GFM table structure;
+- serialize `code` blocks with the LITERAL text (without applying the
+  bold/link/`code` annotations, which used to show up as Markdown marks inside the
+  code).
 """
 from backend.services.notion_importer import block_to_md
 
@@ -23,7 +23,7 @@ def test_table_row_escapa_pipe_i_col·lapsa_salts():
         ]},
     }
     out = block_to_md(block)
-    # La fila és una sola línia amb 3 columnes (el `|` intern va escapat).
+    # The row is a single line with 3 columns (the internal `|` is escaped).
     assert out == r"| a\|b | línia1 línia2 | c |"
     assert "\n" not in out
 
@@ -40,12 +40,12 @@ def test_code_block_es_literal_sense_anotacions():
         },
     }
     out = block_to_md(block)
-    # El text del codi és literal: cap `**` ni `[...](...)` injectat.
+    # The code text is literal: no `**` or `[...](...)` injected.
     assert out == "```python\nx = 1  # veure docs\n```"
 
 
 def test_paragraf_normal_segueix_amb_format():
-    # Fora dels blocs de codi, les anotacions SÍ s'apliquen.
+    # Outside code blocks, annotations DO get applied.
     block = {"type": "paragraph", "paragraph": {"rich_text": [
         {"plain_text": "negreta", "annotations": {"bold": True}},
     ]}}

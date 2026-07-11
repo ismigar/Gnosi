@@ -1,6 +1,6 @@
-"""Test del mòdul de sidecar per a metadata interna de pàgina.
+"""Test of the sidecar module for internal page metadata.
 
-Vegeu `docs/dev_memory/directives/sidecar_internal_metadata.md`.
+See `docs/dev_memory/directives/sidecar_internal_metadata.md`.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ from backend.services.page_sidecar import (
 
 @pytest.fixture()
 def vault(tmp_path: Path) -> Path:
-    """Vault minimal amb `.gnosi/` per a què `vault_root_for` el detecti."""
+    """Minimal vault with `.gnosi/` so that `vault_root_for` detects it."""
     (tmp_path / ".gnosi").mkdir()
     return tmp_path
 
@@ -32,14 +32,14 @@ def vault(tmp_path: Path) -> Path:
 def test_is_sidecar_key_static():
     assert is_sidecar_key("is_template")
     assert is_sidecar_key("is_default_template")
-    # Manual flag dinàmic
+    # Dynamic manual flag
     assert is_sidecar_key("title_manual")
     assert is_sidecar_key("tags_manual")
-    # Camps normals
+    # Normal fields
     assert not is_sidecar_key("title")
     assert not is_sidecar_key("tags")
     assert not is_sidecar_key("id")
-    # Edge: claus que NO acaben amb "_manual"
+    # Edge case: keys that do NOT end with "_manual"
     assert not is_sidecar_key("manual")
     assert not is_sidecar_key("manualization")
     # Tipus no-string
@@ -57,7 +57,7 @@ def test_split_metadata_separates_internal_flags():
     fm, sc = split_metadata(meta)
     assert fm == {"id": "abc", "title": "Foo", "tags": ["a", "b"]}
     assert sc == {"is_template": True, "title_manual": True}
-    # No mutar l'entrada
+    # Do not mutate the input
     assert "is_template" in meta
 
 
@@ -95,7 +95,7 @@ def test_delete_sidecar(vault: Path):
     write_sidecar(vault, "p", {"is_template": True})
     delete_sidecar(vault, "p")
     assert not sidecar_path_for(vault, "p").exists()
-    # Idempotent — segona crida no peta
+    # Idempotent — second call doesn't crash
     delete_sidecar(vault, "p")
 
 
@@ -120,7 +120,7 @@ def test_apply_sidecar_no_id_returns_unchanged(vault: Path):
 
 
 def test_apply_sidecar_no_vault_returns_unchanged(tmp_path: Path):
-    # tmp_path sense `.gnosi/` → no és vault
+    # tmp_path without `.gnosi/` → not a vault
     fake_md = tmp_path / "page.md"
     meta = {"id": "abc", "title": "X"}
     assert apply_sidecar_to(meta, fake_md) == meta
@@ -131,7 +131,7 @@ def test_persist_sidecar_from_writes_and_strips(vault: Path):
     meta = {"id": "abc", "title": "Hi", "is_template": True, "title_manual": True}
     fm = persist_sidecar_from(meta, fake_md)
     assert fm == {"id": "abc", "title": "Hi"}
-    # Sidecar persistit
+    # Persisted sidecar
     assert read_sidecar(vault, "abc") == {
         "is_template": True,
         "title_manual": True,
@@ -141,8 +141,8 @@ def test_persist_sidecar_from_writes_and_strips(vault: Path):
 def test_persist_sidecar_no_id_returns_full_metadata(vault: Path):
     fake_md = vault / "page.md"
     meta = {"title": "Sense id", "is_template": True}
-    # Sense id, no podem fer sidecar; retornem el dict íntegre per a no perdre
-    # flags al .md (fallback al comportament antic).
+    # Without an id, we can't do sidecar; we return the entire dict so as not to lose
+    # flags in the .md (fallback to the old behavior).
     fm = persist_sidecar_from(meta, fake_md)
     assert fm == meta
 
@@ -150,8 +150,8 @@ def test_persist_sidecar_no_id_returns_full_metadata(vault: Path):
 def test_persist_sidecar_empty_clears_existing(vault: Path):
     write_sidecar(vault, "abc", {"is_template": True})
     fake_md = vault / "page.md"
-    meta = {"id": "abc", "title": "Hi"}  # cap flag interna
+    meta = {"id": "abc", "title": "Hi"}  # no internal flag
     fm = persist_sidecar_from(meta, fake_md)
     assert fm == {"id": "abc", "title": "Hi"}
-    # El sidecar previ s'ha eliminat
+    # The previous sidecar has been removed
     assert not sidecar_path_for(vault, "abc").exists()

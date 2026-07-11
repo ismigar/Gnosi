@@ -1,16 +1,16 @@
-"""Persistència de publicacions socials a una taula del Vault.
+"""Persistence of social posts in a Vault table.
 
-Substitueix els arrays en memòria (SCHEDULED_POSTS / POST_HISTORY) de
-`social_routes.py`, que es perdien a cada reinici. Cada publicació (esborrany,
-programada, publicada o fallida) és una fila d'una taula "Publicacions Socials"
-del Vault, desada com a Markdown + frontmatter com qualsevol altre registre.
+Replaces the in-memory arrays (SCHEDULED_POSTS / POST_HISTORY) of
+`social_routes.py`, which were lost on every restart. Each post (draft,
+scheduled, published, or failed) is a row of a "Publicacions Socials"
+table in the Vault, saved as Markdown + frontmatter like any other record.
 
-Reaprofita les funcions del Vault (`create_table`, `create_page`, `patch_page`)
-via imports lazy per evitar dependències circulars (vault_routes no coneix
-aquest mòdul; aquest sí el crida).
+Reuses the Vault functions (`create_table`, `create_page`, `patch_page`)
+via lazy imports to avoid circular dependencies (vault_routes doesn't know
+about this module; this module does call it).
 
-Tipus de camp deliberadament "segurs" (title/text/date): l'usuari pot promoure
-'Estat' o 'Xarxes' a select/multi-select des de la UI sense que res es trenqui.
+Deliberately "safe" field types (title/text/date): the user can promote
+'Estat' or 'Xarxes' to select/multi-select from the UI without anything breaking.
 """
 import json
 import uuid
@@ -20,12 +20,12 @@ from typing import Dict, List, Optional, Any
 
 log = logging.getLogger(__name__)
 
-# Identificadors estables de la taula d'historial.
+# Stable identifiers for the history table.
 SOCIAL_TABLE_ID = "gnosi_social_publications"
 SOCIAL_TABLE_NAME = "Publicacions Socials"
 SOCIAL_DB_ID = "gnosi_vault_db"
 
-# Estats possibles d'una publicació.
+# Possible states of a post.
 STATUS_DRAFT = "esborrany"
 STATUS_SCHEDULED = "programada"
 STATUS_PUBLISHING = "publicant"
@@ -34,7 +34,7 @@ STATUS_PARTIAL = "parcial"
 STATUS_ERROR = "error"
 STATUS_CANCELLED = "cancelada"
 
-# Noms de columna (les metadades es persisteixen per nom: vault_persist_by_name).
+# Column names (metadata is persisted by name: vault_persist_by_name).
 COL_STATUS = "Estat"
 COL_NETWORKS = "Xarxes"
 COL_ORIGIN = "Origen"
@@ -44,7 +44,7 @@ COL_PUBLISHED = "Publicada el"
 
 
 def _schema() -> List[Dict[str, Any]]:
-    """Esquema fix de la taula. Les xarxes són DADES, no columnes."""
+    """Fixed schema of the table. Networks are DATA, not columns."""
     return [
         {"id": str(uuid.uuid4()), "name": "Títol", "type": "title"},
         {"id": str(uuid.uuid4()), "name": COL_STATUS, "type": "text"},
@@ -57,7 +57,7 @@ def _schema() -> List[Dict[str, Any]]:
 
 
 async def ensure_social_table() -> str:
-    """Crea (idempotent) la taula d'historial al registre i retorna el seu id."""
+    """Create (idempotently) the history table in the registry and return its id."""
     from backend.api.vault_routes import load_registry, create_table
 
     registry = load_registry()
@@ -71,14 +71,14 @@ async def ensure_social_table() -> str:
         "folder": SOCIAL_TABLE_NAME,
         "properties": _schema(),
     }
-    # create_table fa upsert + crea carpeta d'assets + vista principal.
+    # create_table does upsert + creates assets folder + main view.
     await create_table(table)
     log.info(f"🆕 Taula '{SOCIAL_TABLE_NAME}' creada al registre ({SOCIAL_TABLE_ID}).")
     return SOCIAL_TABLE_ID
 
 
 def _build_body(proposals: Dict[str, Any]) -> str:
-    """Cos Markdown llegible amb el text de cada xarxa."""
+    """Readable Markdown body with the text for each network."""
     lines: List[str] = []
     for net, data in (proposals or {}).items():
         text = data.get("text") if isinstance(data, dict) else str(data)
@@ -96,22 +96,23 @@ async def save_publication(
     source_title: str = "",
     scheduled_time: str = "",
 ) -> str:
-    """Desa una publicació nova com a fila del Vault. Retorna l'id de la pàgina.
+    """Saves a new post as a row in the Vault. Returns the page id.
 
-    `proposals`: {network: {"text": str, ...}} — el missatge final per xarxa.
+    `proposals`: {network: {"text": str, ...}} — the final message per network.
+    
     """
     from backend.api.vault_routes import create_page, PageSaveRequest
 
     await ensure_social_table()
 
-    # Títol llegible: el de l'origen, o un tall del primer text.
+    # Readable title: the source's title, or a truncated snippet of the first text.
     title = (source_title or "").strip()
     if not title:
         first = next(iter(proposals.values()), {})
         snippet = (first.get("text") if isinstance(first, dict) else str(first)) or "Publicació"
         title = snippet.strip().split("\n")[0][:60] or "Publicació"
 
-    # Missatges: {network: {text}} — update_publication hi afegirà status/url/error.
+    # Missatges: {network: {text}} — update_publication will add status/url/error to it.
     messages = {
         net: {"text": (proposals.get(net, {}) or {}).get("text", "") if isinstance(proposals.get(net), dict) else ""}
         for net in networks
@@ -141,10 +142,11 @@ async def update_publication(
     results: Optional[Dict[str, Any]] = None,
     published_at: Optional[str] = None,
 ) -> None:
-    """Actualitza l'estat i/o els resultats per xarxa d'una publicació.
+    """Updates the status and/or per-network results of a post.
 
-    `results`: {network: {"status": ..., "url": ..., "error": ...}} — es fusiona
-    dins el camp Missatges existent (sense perdre el text original).
+    `results`: {network: {"status": ..., "url": ..., "error": ...}} — this is merged
+    into the existing Missatges field (without losing the original text).
+    
     """
     from backend.api.vault_routes import (
         find_page_path, parse_frontmatter, patch_page, PagePatchRequest,
@@ -157,7 +159,7 @@ async def update_publication(
         patch_meta[COL_PUBLISHED] = published_at
 
     if results:
-        # Llegim els missatges actuals per fusionar-hi els resultats.
+        # We read the current messages to merge the results into them.
         current: Dict[str, Any] = {}
         try:
             file_path = await asyncio.to_thread(find_page_path, page_id)
@@ -179,7 +181,7 @@ async def update_publication(
 
 
 async def list_publications(status: Optional[str] = None) -> List[Dict[str, Any]]:
-    """Llegeix les publicacions de la taula (opcionalment filtrades per estat)."""
+    """Read the table's posts (optionally filtered by status)."""
     from backend.api.vault_routes import _resolve_table_folder_from_metadata, parse_frontmatter
 
     folder = _resolve_table_folder_from_metadata({"database_table_id": SOCIAL_TABLE_ID})

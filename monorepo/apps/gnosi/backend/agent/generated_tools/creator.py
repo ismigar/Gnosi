@@ -19,16 +19,17 @@ from .learning_loop import learning_loop
 
 
 def _get_tools_base() -> Path:
-    """Retorna el directori base on viuen pending/ i approved/.
+    """Returns the base directory where pending/ and approved/ live.
 
-    Ha de coincidir amb el que llegeix `loader.ToolLoader.__init__`. Si no
-    coincideixen, els tools creats per l'agent no es carreguen mai.
+    Must match what `loader.ToolLoader.__init__` reads. If they don't
+    match, tools created by the agent never get loaded.
+    
     """
     cfg = load_params(strict_env=False)
     tools_base = cfg.paths.get("AGENT_TOOLS")
     if tools_base:
         return tools_base
-    # Fallback per compatibilitat: alguns entorns no tenen el path configurat.
+    # Fallback for compatibility: some environments don't have the path configured.
     return Path(__file__).parent
 
 
@@ -148,16 +149,16 @@ def create_new_tool(name: str, description: str, code: str) -> str:
     
     # === PHASE 6: SAVE — HUMAN APPROVAL REQUIRED (ALWAYS) ===
     #
-    # Política de seguretat (directiva generated_tools_approval_policy.md,
-    # OPCIÓ A, 2026-07-06): CAP tool generada s'auto-aprova. Un LLM —
-    # potencialment influït per contingut no confiable (prompt-injection) —
-    # escriu aquest codi, que després s'executa amb `exec()` amb `pathlib` i
-    # `__import__` a l'abast (el sandbox del loader NO és un sandbox real).
-    # L'única defensa fiable és que un humà llegeixi el codi abans d'habilitar-lo.
+    # Security policy (directive generated_tools_approval_policy.md,
+    # OPTION A, 2026-07-06): NO generated tool auto-approves. An LLM —
+    # potentially influenced by untrusted content (prompt injection) —
+    # writes this code, which is later executed with `exec()` with `pathlib` and
+    # `__import__` in scope (the loader's sandbox is NOT a real sandbox).
+    # The only reliable defense is for a human to read the code before enabling it.
     #
-    # `validation.risk_level` es desa NOMÉS com a etiqueta informativa per al
-    # revisor al Dashboard; NO és un permís. No el tornis a lligar a
-    # l'auto-aprovació: es deriva del NOM de la tool i és manipulable.
+    # `validation.risk_level` is stored ONLY as an informational label for the
+    # reviewer in the Dashboard; it is NOT a permission. Do not tie it back to
+    # auto-approval: it is derived from the tool's NAME and can be manipulated.
     record = registry.create(
         name=name,
         description=description,

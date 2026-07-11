@@ -46,7 +46,7 @@ function Dashboard() {
                     
                     <div className="flex items-center gap-1">
                         {[...Array(totalPages)].map((_, i) => {
-                            // Mostrar només algunes pàgines si n'hi ha moltes
+                            // Show only some pages if there are many
                             if (totalPages > 7) {
                                 if (i > 0 && i < totalPages - 1 && Math.abs(i - page) > 1) {
                                     if (i === 1 || i === totalPages - 2) return <span key={i} className="px-1 text-[10px] opacity-30">...</span>;
@@ -142,18 +142,18 @@ function Dashboard() {
     const [isEditorSaving, setIsEditorSaving] = useState(false);
     const [editorContent, setEditorContent] = useState('');
 
-    // Estats per als modals de confirmació (substitueixen window.confirm)
-    const [confirmDeleteDirective, setConfirmDeleteDirective] = useState(null); // directiva a esborrar
+    // States for the confirmation modals (replace window.confirm)
+    const [confirmDeleteDirective, setConfirmDeleteDirective] = useState(null); // directive to delete
     const [confirmPurgeHistory, setConfirmPurgeHistory] = useState(false);
     const [confirmPurgeLogs, setConfirmPurgeLogs] = useState(false);
     
-    // Nous estats per a modals de drill-down
+    // New states for drill-down modals
     const [isToolsModalOpen, setIsToolsModalOpen] = useState(false);
     const [isMemoryModalOpen, setIsMemoryModalOpen] = useState(false);
     const [graphNodes, setGraphNodes] = useState([]);
     const [isGraphLoading, setIsGraphLoading] = useState(false);
     
-    // Suprimir advertència d'unused variable
+    // Suppress unused-variable warning
     const [selectedHardwareType, setSelectedHardwareType] = useState('summary');
 
     const activeWorkspaceId = localStorage.getItem('gnosi_workspace_id') || 'personal';
@@ -179,7 +179,7 @@ function Dashboard() {
         }
     }, [apiFetch]);
 
-    // Re-fetch quan el modal de Settings ha desat canvis (sense reload).
+    // Re-fetch when the Settings modal has saved changes (without a reload).
     useConfigChanged(fetchConfig);
 
     const fetchPendingTools = useCallback(async () => {
@@ -614,7 +614,7 @@ function Dashboard() {
             } else {
                 toast.error(data.error || t('dashboard.unknown_error'), { id: t_id });
             }
-            // Refresquem després d'un petit delay perquè el backend hagi processat el canvi d'estat a "running"
+            // We refresh after a short delay so the backend has processed the state change to "running"
             setTimeout(() => refreshSchedulers(true), 500);
         } catch (e) {
             console.error("Error running scheduler", e);
@@ -629,7 +629,7 @@ function Dashboard() {
     };
 
 
-    // Gestor unificat de teclat per a tots els modals del Dashboard
+    // Unified keyboard handler for all Dashboard modals
     useEffect(() => {
         const anyModalOpen = isAddMemberModalOpen || isPermissionsModalOpen || isTrapsModalOpen || isDirectivesModalOpen || isToolsModalOpen || isMemoryModalOpen || editingDirective;
         if (!anyModalOpen) return;
@@ -646,9 +646,9 @@ function Dashboard() {
             } else if (e.key === 'Enter') {
                 if (document.activeElement.tagName === 'TEXTAREA') return;
                 
-                // Si estem editant una directiva, Enter podria guardar? 
-                // Habitualment preferim que no tanqui si estem editant text, però el requeriment és Enter = Confirm.
-                // En aquest cas, com que hi ha un botó de Sauve, ho deixem així.
+                // If we're editing a directive, could Enter save it? 
+                // We usually prefer it not to close if we're editing text, but the requirement is Enter = Confirm.
+                // In this case, since there's a Sauve button, we leave it like this.
                 if (editingDirective) handleSaveDirective();
                 else if (isAddMemberModalOpen) handleAddMember();
                 else if (isPermissionsModalOpen) handleUpdatePermissions(selectedMember.user_id, selectedMember.permissions, selectedMember.role);
@@ -1663,7 +1663,7 @@ function Dashboard() {
                 </div>
             )}
 
-            {/* Modal Afegir Membre */}
+            {/* Add Member modal */}
             {isAddMemberModalOpen && (
                 <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="w-full max-w-md bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-2xl shadow-2xl p-6 zoom-in animate-in duration-300">

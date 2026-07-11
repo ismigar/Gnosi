@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { BaseBoxShapeUtil, HTMLContainer, Rectangle2d, resizeBox, T } from 'tldraw';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { FileText, ExternalLink } from 'lucide-react';
 
 // Context to surface app callbacks (open a page) into the shape component, which
@@ -19,6 +20,7 @@ export const CanvasPageContext = createContext({ onOpenPage: null });
 const _pageCache = new Map(); // pageId -> { title, content }
 
 function usePageData(pageId) {
+    const { t } = useTranslation();
     const [data, setData] = useState(() => _pageCache.get(pageId) || null);
     useEffect(() => {
         if (!pageId) return;
@@ -30,18 +32,19 @@ function usePageData(pageId) {
                 _pageCache.set(pageId, next);
                 if (!cancelled) setData(next);
             } catch {
-                if (!cancelled) setData({ title: '(no disponible)', content: '' });
+                if (!cancelled) setData({ title: t('page_card.unavailable_title', '(no disponible)'), content: '' });
             }
         })();
         return () => { cancelled = true; };
-    }, [pageId]);
+    }, [pageId, t]);
     return data;
 }
 
 function PageCardComponent({ shape }) {
+    const { t } = useTranslation();
     const { onOpenPage } = useContext(CanvasPageContext);
     const data = usePageData(shape.props.pageId);
-    const title = data?.title || shape.props.pageTitle || 'Pàgina';
+    const title = data?.title || shape.props.pageTitle || t('tldraw.page', 'Pàgina');
     const preview = (data?.content || '').replace(/^---[\s\S]*?---\s*/, '').slice(0, 320);
 
     return (
@@ -68,7 +71,7 @@ function PageCardComponent({ shape }) {
                 {onOpenPage && (
                     <button
                         onPointerDown={(e) => { e.stopPropagation(); onOpenPage(shape.props.pageId); }}
-                        title="Obre la pàgina"
+                        title={t('feed.open_page', 'Obre la pàgina')}
                         style={{ display: 'inline-flex', alignItems: 'center', border: 'none', background: 'transparent', cursor: 'pointer', color: '#64748b', padding: 2 }}
                     >
                         <ExternalLink size={13} />
@@ -76,7 +79,7 @@ function PageCardComponent({ shape }) {
                 )}
             </div>
             <div style={{ flex: 1, overflow: 'hidden', padding: '8px 10px', fontSize: 11, lineHeight: 1.45, color: 'var(--text-secondary,#475569)', whiteSpace: 'pre-wrap' }}>
-                {preview || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>Sense contingut</span>}
+                {preview || <span style={{ fontStyle: 'italic', color: '#94a3b8' }}>{t('editor.no_content', 'Sense contingut')}</span>}
             </div>
         </HTMLContainer>
     );

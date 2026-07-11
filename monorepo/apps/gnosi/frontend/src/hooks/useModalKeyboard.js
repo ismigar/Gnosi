@@ -1,50 +1,50 @@
 /**
  * useModalKeyboard.js
- * Gestió de teclat CANÒNICA per a modals de Gnosi.
+ * CANONICAL keyboard handling for Gnosi modals.
  *
- *   Esc   → acció negativa (cancel·lar / tancar)  — sempre, sense condicions
- *   Enter → acció positiva (confirmar)            — amb salvaguardes
- *   Tab   → focus-trap dins el modal              — opcional (trapFocus)
+ *   Esc   → negative action (cancel / close)  — always, unconditionally
+ *   Enter → positive action (confirm)            — with safeguards
+ *   Tab   → focus-trap inside the modal              — optional (trapFocus)
  *
- * Per què en fase de CAPTURA i a `window`:
- *   Editors i pickers de dins del modal (BlockEditor, dnd-kit, MultiSelectPills…)
- *   criden `stopPropagation()` en els seus keydown. Si escoltéssim en bombolla,
- *   l'event mai arribaria al listener i l'Esc "no respondria" segons des d'on
- *   tinguessis el focus. En captura, l'event ens arriba ABANS que cap fill el
- *   pugui aturar. Aquest és el patró que ja fan servir FilesystemPicker,
- *   InsertContentModal, PageViewModal i BlockEditor.
+ * Why in CAPTURE phase and on `window`:
+ *   Editors and pickers inside the modal (BlockEditor, dnd-kit, MultiSelectPills…)
+ *   call `stopPropagation()` on their keydown. If we listened during bubbling,
+ *   the event would never reach the listener and Esc would "not respond" depending on where
+ *   focus happened to be. In capture, the event reaches us BEFORE any child
+ *   can stop it. This is the same pattern already used by FilesystemPicker,
+ *   InsertContentModal, PageViewModal, and BlockEditor.
  *
- * Per què refs i no deps:
- *   Vincular el listener només a `isOpen` (i no a `onClose`/`onConfirm`) evita el
- *   "churn": si depenguéssim de callbacks recreats a cada render, el listener es
- *   desvincularia/revincularia constantment i deixaria finestres on una pulsació
- *   real es perd. Llegim els callbacks via ref, sempre actualitzats.
+ * Why refs and not deps:
+ *   Binding the listener only to `isOpen` (and not to `onClose`/`onConfirm`) avoids
+ *   "churn": if we depended on callbacks recreated on every render, the listener would
+ *   constantly unbind/rebind and leave windows where a real
+ *   keypress is lost. We read the callbacks via ref, always up to date.
  *
- * Conviu amb navegació pròpia (fletxes ↑↓ per llistes): aquest hook NOMÉS toca
- * Escape, Enter (si passes onConfirm) i Tab (si trapFocus). Deixa la resta de
- * tecles intactes, així un modal amb llista navegable manté el seu handler de
- * fletxes i només delega Esc/Enter aquí.
+ * Coexists with its own navigation (↑↓ arrows for lists): this hook ONLY touches
+ * Escape, Enter (if you pass onConfirm), and Tab (if trapFocus). It leaves the rest of the
+ * keys untouched, so a modal with a navigable list keeps its own arrow
+ * handler and only delegates Esc/Enter here.
  *
  * @param {Object}   params
- * @param {boolean}  params.isOpen           - El modal és visible.
- * @param {Function} params.onClose          - Acció negativa (Esc / backdrop).
- * @param {Function} [params.onConfirm]      - Acció positiva (Enter). Omet-la si el modal no en té (p. ex. dropdowns o llistes amb Enter propi).
- * @param {boolean}  [params.confirmDisabled] - Si true, Enter no confirma (mirall del botó primari deshabilitat).
- * @param {React.RefObject} [params.containerRef] - Ref al panell del modal. Enter només confirma si el focus hi és a dins; necessari per a trapFocus.
- * @param {boolean}  [params.closeOnEscape]  - Permet desactivar Esc en casos molt concrets (per defecte true).
- * @param {boolean}  [params.trapFocus]      - Si true, Tab cicla dins el modal i es restaura el focus al tancar (necessita containerRef).
+ * @param {boolean}  params.isOpen           - Whether the modal is visible.
+ * @param {Function} params.onClose          - Negative action (Esc / backdrop).
+ * @param {Function} [params.onConfirm]      - Positive action (Enter). Omit it if the modal doesn't have one (e.g. dropdowns or lists with their own Enter handling).
+ * @param {boolean}  [params.confirmDisabled] - If true, Enter does not confirm (mirrors the disabled primary button).
+ * @param {React.RefObject} [params.containerRef] - Ref to the modal panel. Enter only confirms if focus is inside it; required for trapFocus.
+ * @param {boolean}  [params.closeOnEscape]  - Allows disabling Esc in very specific cases (defaults to true).
+ * @param {boolean}  [params.trapFocus]      - If true, Tab cycles within the modal and focus is restored on close (requires containerRef).
  */
 import { useEffect, useRef } from 'react';
 
-// ── Pila global de capes de modal ──────────────────────────────────────────
-// Amb modals NIATS (Configuració → Importa Notion → esquema / confirmació),
-// cada Esc ha de tancar només el modal SUPERIOR, no tota la pila alhora: com
-// que aquest hook escolta a `window` en fase de captura, sense la pila el
-// modal de sota veia l'Esc del de sobre i es tancava també (l'usuari queia
-// de cop a la home). Cada modal obert registra una capa en obrir-se i
-// l'allibera en tancar; els handlers d'Esc només actuen si la seva capa és
-// la de dalt. Exportada perquè modals amb gestió de teclat pròpia
-// (SchemaConfigModal) també hi comptin.
+// ── Global stack of modal layers ──────────────────────────────────────────
+// With NESTED modals (Settings → Import Notion → schema / confirmation),
+// each Esc must close only the TOP modal, not the whole stack at once: since
+// this hook listens on `window` in the capture phase, without the stack the
+// modal below would see the Esc from the one above and close too (the user would fall
+// straight back to the home). Each open modal registers a layer when it opens and
+// releases it when it closes; Esc handlers only act if their layer is
+// the top one. Exported so modals with their own keyboard handling
+// (SchemaConfigModal) can also be counted.
 const modalLayerStack = [];
 
 export function pushModalLayer() {
@@ -71,10 +71,10 @@ export function useModalKeyboard({
     const onCloseRef = useRef(onClose);
     const onConfirmRef = useRef(onConfirm);
     const confirmDisabledRef = useRef(confirmDisabled);
-    // Mantenim els refs frescos en un effect (la regla react-hooks/refs prohibeix
-    // escriure'ls durant el render). Sense array de deps → corre després de cada
-    // commit, així el listener (vinculat només per isOpen) llegeix sempre els
-    // valors actuals sense haver-se de re-registrar.
+    // We keep the refs fresh in an effect (the react-hooks/refs rule forbids
+    // write them during render). No deps array → runs after every
+    // commit, so the listener (bound only via isOpen) always reads the
+    // current values without having to re-register.
     useEffect(() => {
         onCloseRef.current = onClose;
         onConfirmRef.current = onConfirm;
@@ -84,19 +84,19 @@ export function useModalKeyboard({
     useEffect(() => {
         if (!isOpen) return undefined;
 
-        // Registra aquest modal a la pila de capes: només el de dalt respon a Esc.
+        // Registers this modal in the layer stack: only the top one responds to Esc.
         const layer = pushModalLayer();
 
-        // Recordem qui tenia el focus ABANS d'obrir, per restaurar-lo en tancar
-        // (accessibilitat). Funciona perquè els modals ja NO usen autoFocus HTML
-        // (que mouria el focus abans d'aquesta línia): el focus inicial el posa
-        // aquest hook més avall, després de capturar l'element extern.
+        // We remember who had focus BEFORE opening, to restore it on close
+        // (accessibility). Works because modals no longer use HTML autoFocus
+        // (which would move focus before this line): the initial focus is set by
+        // this hook further down, after capturing the external element.
         const previouslyFocused = trapFocus ? document.activeElement : null;
 
-        // Focus inicial dins el modal: l'element marcat amb [data-autofocus], o
-        // el primer focusable, o el panell mateix. Síncron dins l'effect (NO en
-        // requestAnimationFrame, que es pausa en pestanyes en segon pla). El
-        // contingut ja és al DOM quan corre l'effect. Només amb trapFocus.
+        // Initial focus inside the modal: the element marked with [data-autofocus], or
+        // the first focusable element, or the panel itself. Synchronous inside the effect (NOT in
+        // requestAnimationFrame, which pauses in background tabs). The
+        // content is already in the DOM when the effect runs. Only with trapFocus.
         if (trapFocus && containerRef?.current) {
             const root = containerRef.current;
             if (!root.contains(document.activeElement)) {
@@ -121,15 +121,15 @@ export function useModalKeyboard({
 
         const handleKeyDown = (e) => {
             if (closeOnEscape && e.key === 'Escape') {
-                // Amb un modal niat obert a sobre (capa superior d'un altre),
-                // l'Esc és seu: no tanquem ni consumim l'event.
+                // With a nested modal open on top (upper layer of another one),
+                // the Esc belongs to it: we neither close nor consume the event.
                 if (!layer.isTop()) return;
                 e.preventDefault();
                 onCloseRef.current?.();
                 return;
             }
 
-            // Focus-trap: Tab cicla dins el modal (opcional).
+            // Focus trap: Tab cycles within the modal (optional).
             if (trapFocus && e.key === 'Tab') {
                 const items = getFocusable();
                 if (items.length === 0) return;
@@ -150,23 +150,23 @@ export function useModalKeyboard({
             }
 
             if (e.key === 'Enter' && onConfirmRef.current) {
-                // Combinacions de tecles: no són "confirmar".
+                // Key combinations: they are not "confirm".
                 if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
-                // IME (xinès, japonès, coreà…): Enter tanca la composició, no el modal.
+                // IME (Chinese, Japanese, Korean…): Enter closes the composition, not the modal.
                 if (e.isComposing || e.keyCode === 229) return;
 
                 const ae = document.activeElement;
                 const tag = ae?.tagName;
-                // En text multilínia, Enter és salt de línia.
+                // In multiline text, Enter is a line break.
                 if (tag === 'TEXTAREA' || ae?.isContentEditable) return;
-                // Si el focus és en un element interactiu propi (botó, enllaç,
-                // select), deixem el seu comportament natiu: així Enter sobre
-                // "Cancel·lar" cancel·la i sobre el botó primari confirma, sense
-                // que el hook ho sobreescrigui.
+                // If focus is on its own interactive element (button, link,
+                // select), we leave its native behavior: so Enter on
+                // "Cancel" cancels and on the primary button confirms, without
+                // for the hook to override it.
                 if (tag === 'BUTTON' || tag === 'A' || tag === 'SELECT') return;
-                // Mirall del botó primari deshabilitat.
+                // Mirrors the disabled primary button.
                 if (confirmDisabledRef.current) return;
-                // Evita confirmar des d'un input del fons (fora del modal).
+                // Avoids confirming from a background input (outside the modal).
                 if (containerRef?.current && !containerRef.current.contains(ae)) return;
 
                 e.preventDefault();
@@ -178,7 +178,7 @@ export function useModalKeyboard({
         return () => {
             window.removeEventListener('keydown', handleKeyDown, true);
             layer.release();
-            // Restaura el focus a qui el tenia abans d'obrir (només amb trapFocus).
+            // Restores focus to whoever had it before opening (only with trapFocus).
             if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
                 try { previouslyFocused.focus(); } catch { /* l'element ja no existeix */ }
             }

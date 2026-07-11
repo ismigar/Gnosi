@@ -1,15 +1,15 @@
-"""Cinturó d'eines de coneixement: dona a l'agent MANS sobre el vault (no només cerca).
+"""Knowledge tool belt: gives the agent HANDS on the vault (not just search).
 
-Segueix el patró de `system_tools.py`: funcions `@tool` amb imports mandrosos. Les tools
-d'I/O operen DIRECTE sobre el vault + índex (com el handler `/import`), via
-`get_active_vault_path()` + `register_page_in_index()` — sense HTTP-to-self ni auth.
+Follows the `system_tools.py` pattern: `@tool` functions with lazy imports. The I/O
+tools operate DIRECTLY on the vault + index (like the `/import` handler), via
+`get_active_vault_path()` + `register_page_in_index()` — no HTTP-to-self or auth.
 
-La SUBSTÀNCIA de coneixement (construir fitxa Cornell, rànquing de connexions, modelar el
-frontmatter) està en funcions PURES al capdamunt, testejables sense backend (cf. directiva
+The knowledge SUBSTANCE (building a Cornell note, ranking connections, modeling the
+frontmatter) is in PURE functions at the top, testable without a backend (cf. directive
 `vault_knowledge_agents.md`).
 
-⚠️ Seguretat QA: l'autosave/collab persisteix per WebSocket; per provar, fer servir pàgines
-d'usar i llençar o un vault a /tmp, MAI notes reals (cf. memòries vault_editor_qa_safety i
+⚠️ QA safety: autosave/collab persists over WebSocket; to test, use disposable
+pages or a vault in /tmp, NEVER real notes (cf. memories vault_editor_qa_safety and
 collab_ws_bypasses_fetch_block).
 """
 from __future__ import annotations
@@ -19,16 +19,16 @@ from typing import Any, Dict, List, Optional
 
 try:
     from langchain_core.tools import tool
-except Exception:  # permet importar els helpers purs sense langchain (per a tests)
+except Exception:  # allows importing the pure helpers without langchain (for tests)
     def tool(fn=None, **_kw):
         return fn if fn else (lambda f: f)
 
 
 # ===========================================================================
-# HELPERS PURS (sense backend) — la "intel·ligència" de coneixement
+# PURE HELPERS (no backend) — the knowledge "intelligence"
 # ===========================================================================
 def build_page_frontmatter(title: str, metadata: Optional[Dict[str, Any]] = None) -> str:
-    """Modela el frontmatter YAML d'una pàgina nova (title + metadata + id si cal)."""
+    """Models the YAML frontmatter of a new page (title + metadata + id if needed)."""
     import yaml
     import uuid
     meta = dict(metadata or {})
@@ -39,9 +39,10 @@ def build_page_frontmatter(title: str, metadata: Optional[Dict[str, Any]] = None
 
 
 def build_cornell_note(title: str, *, cues: List[str], notes: str, summary: str) -> str:
-    """Construeix una fitxa d'estudi mètode Cornell en Markdown (pur).
+    """Builds a Cornell-method study note in Markdown (pure).
 
-    Estructura: Notes (cos) | Pistes/preguntes (columna esquerra com a llista) | Resum (peu).
+    Structure: Notes (body) | Cues/questions (left column as a list) | Summary (footer).
+    
     """
     cue_block = "\n".join(f"- {c.strip()}" for c in cues if c.strip()) or "_—_"
     return (
@@ -58,10 +59,11 @@ def _tokenize(text: str) -> set:
 
 def rank_link_candidates(page_text: str, candidates: List[Dict[str, Any]],
                          top_k: int = 8) -> List[Dict[str, Any]]:
-    """Ordena candidates {title,id,content} per solapament de vocabulari amb la pàgina (pur).
+    """Ranks {title,id,content} candidates by vocabulary overlap with the page (pure).
 
-    Heurística barata (Jaccard de paraules ≥4 lletres) per a `propose_links`. La decisió
-    final la pren l'LLM; això només prioritza què li ensenyem.
+    Cheap heuristic (Jaccard of words ≥4 letters) for `propose_links`. The final
+    decision is made by the LLM; this only prioritizes what we show it.
+    
     """
     base = _tokenize(page_text)
     if not base:
@@ -81,16 +83,16 @@ def rank_link_candidates(page_text: str, candidates: List[Dict[str, Any]],
 
 
 # ===========================================================================
-# TOOLS D'I/O (operen sobre el vault del context actiu)
+# I/O TOOLS (operate on the active context's vault)
 # ===========================================================================
 def _resolve_page_path(page_id_or_title: str):
-    """Resol id o títol → Path del .md dins el vault actiu (via índex de pàgines)."""
+    """Resolves id or title → Path of the .md within the active vault (via page index)."""
     from backend.services.context_vars import get_active_vault_path
     vault = get_active_vault_path()
     if not vault:
         return None
     needle = str(page_id_or_title).strip()
-    # 1) per id al frontmatter / 2) per nom de fitxer (títol)
+    # 1) by id in the frontmatter / 2) by filename (title)
     for p in vault.rglob("*.md"):
         try:
             head = p.read_text(encoding="utf-8")[:2000]
@@ -104,7 +106,7 @@ def _resolve_page_path(page_id_or_title: str):
 
 @tool
 def read_page(page_id_or_title: str) -> str:
-    """Llegeix el contingut i metadata d'una pàgina del Vault per id o títol."""
+    """Reads the content and metadata of a Vault page by id or title."""
     p = _resolve_page_path(page_id_or_title)
     if not p:
         return f"No s'ha trobat cap pàgina per '{page_id_or_title}'."
@@ -116,19 +118,19 @@ def read_page(page_id_or_title: str) -> str:
 
 @tool
 def read_pdf(path: str, max_chars: int = 12000) -> str:
-    """Extreu el text d'un PDF (d'Assets/Biblioteca). Materialitza si és online-only."""
+    """Extracts text from a PDF (from Assets/Biblioteca). Materializes it if online-only."""
     from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
     vault = get_active_vault_path()
     if not vault:
         return "Error: no hi ha cap vault actiu."
     vault_root = Path(vault).resolve()
-    # `path` ve de l'LLM i pot estar influït per contingut NO confiable que
-    # l'agent llegeix (pàgines, correus, altres PDFs) → prompt-injectable.
-    # Contenció OBLIGATÒRIA (mateix patró que `_safe_directive_path`): resol i
-    # comprova que el fitxer cau DINS del vault actiu. Sense això, una ruta
-    # absoluta (`/Users/…/extracte.pdf`) o un `../` llegia qualsevol PDF del
-    # sistema i en tornava el text a la conversa (exfiltració).
+    # `path` comes from the LLM and may be influenced by UNTRUSTED content that
+    # the agent reads (pages, emails, other PDFs) → prompt-injectable.
+    # MANDATORY containment (same pattern as `_safe_directive_path`): resolve and
+    # checks that the file falls INSIDE the active vault. Without this, a path
+    # absolute (`/Users/…/extracte.pdf`) or a `../` would read any PDF in the
+    # system and would return its text into the conversation (exfiltration).
     raw = Path(path)
     target = (raw if raw.is_absolute() else (vault_root / path)).resolve()
     if target != vault_root and vault_root not in target.parents:
@@ -136,7 +138,7 @@ def read_pdf(path: str, max_chars: int = 12000) -> str:
     if not target.exists():
         return f"No existeix el PDF: {target}"
     try:
-        from pypdf import PdfReader  # dep present al backend
+        from pypdf import PdfReader  # dep present in the backend
         reader = PdfReader(str(target))
         text = "\n".join((pg.extract_text() or "") for pg in reader.pages)
         return text[:max_chars] if text.strip() else "(PDF sense text extraïble — potser escanejat)"
@@ -147,7 +149,7 @@ def read_pdf(path: str, max_chars: int = 12000) -> str:
 @tool
 def create_page(title: str, content: str = "", folder: str = "Importades",
                 metadata: Optional[Dict[str, Any]] = None) -> str:
-    """Crea una pàgina nova al Vault (carpeta `folder`) i la registra a l'índex. Retorna l'id."""
+    """Creates a new page in the Vault (folder `folder`) and registers it in the index. Returns the id."""
     from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
     from backend.api.vault_routes import register_page_in_index
@@ -159,11 +161,11 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
     page_id = page_id.group(2) if page_id else ""
     safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", title).strip()[:120] or "Sense títol"
     folder_safe = re.sub(r"[^\w\s\-/À-ÿ]", "", folder).strip() or "Importades"
-    # `folder` ve de l'LLM (prompt-injectable). El sanejat treu els punts però
-    # CONSERVA les barres: un "../../etc" queda "///etc", i `vault / "///etc"`
-    # esdevé ABSOLUT (/etc) descartant el prefix del vault → escriptura del .md
-    # FORA del vault. Contenció: si el destí resolt s'escapa del vault, cau a la
-    # carpeta per defecte (mateix patró que read_pdf/_safe_directive_path).
+    # `folder` comes from the LLM (prompt-injectable). The sanitization strips dots but
+    # KEEPS the slashes: a "../../etc" becomes "///etc", and `vault / "///etc"`
+    # becomes ABSOLUTE (/etc) by discarding the vault prefix → the .md gets written
+    # OUTSIDE the vault. Containment: if the resolved destination escapes the vault, it falls back to the
+    # default folder (same pattern as read_pdf/_safe_directive_path).
     vault_root = vault.resolve()
     target_dir = (vault / folder_safe).resolve()
     if target_dir != vault_root and vault_root not in target_dir.parents:
@@ -182,7 +184,7 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
 
 @tool
 def propose_links(page_id_or_title: str, k: int = 8) -> str:
-    """Proposa connexions `[[...]]` per a una pàgina: cerca relacionades i les prioritza."""
+    """Proposes `[[...]]` connections for a page: searches for related ones and ranks them."""
     from .memory import vault_store
     page = read_page.func(page_id_or_title) if hasattr(read_page, "func") else read_page(page_id_or_title)
     if page.startswith("No s'ha trobat"):
@@ -201,7 +203,7 @@ def propose_links(page_id_or_title: str, k: int = 8) -> str:
 
 @tool
 def summarize_to_cornell(source: str, title: str = "", folder: str = "Resums") -> str:
-    """Resumeix una pàgina o PDF en una fitxa Cornell i la desa com a pàgina nova del Vault."""
+    """Summarizes a page or PDF into a Cornell note and saves it as a new Vault page."""
     from .factory import generate_text
     is_pdf = str(source).lower().endswith(".pdf")
     raw = (read_pdf.func(source) if hasattr(read_pdf, "func") else read_pdf(source)) if is_pdf \
@@ -223,7 +225,7 @@ def summarize_to_cornell(source: str, title: str = "", folder: str = "Resums") -
 
 
 def _parse_cornell_json(text: str):
-    """Tolerant: extreu notes/cues/summary d'un JSON (o degrada a text pla)."""
+    """Tolerant: extracts notes/cues/summary from a JSON (or degrades to plain text)."""
     import json
     m = re.search(r"\{.*\}", text or "", re.DOTALL)
     if m:
@@ -238,7 +240,7 @@ def _parse_cornell_json(text: str):
     return (text or "").strip(), [], ""
 
 
-# Llista exportable per registrar a l'agent "brain" (factory.py)
+# Exportable list for registering with the "brain" agent (factory.py)
 VAULT_KNOWLEDGE_TOOLS = [
     read_page, read_pdf, create_page, propose_links, summarize_to_cornell,
 ]

@@ -1,13 +1,13 @@
-"""Recreador de vistes incrustades de Notion (Fase 2, via MCP allotjat).
+"""Recreator of embedded Notion views (Phase 2, via hosted MCP).
 
-L'API REST no resol les linked database views, però l'MCP allotjat de Notion SÍ: en fer
-`fetch` d'una pàgina retorna les vistes com `<database url=".../<id>" inline>` sota les
-capçaleres, i en fer `fetch` de la vista en dóna la **taula destí** (data source) i el
-**filtre exacte** (p.ex. `📀 Projecte relation_contains <aquesta pàgina>`).
+The REST API doesn't resolve linked database views, but Notion's hosted MCP DOES: when you
+`fetch` a page, it returns the views as `<database url=".../<id>" inline>` under the
+headings, and when you `fetch` the view it gives the **target table** (data source) and the
+**exact filter** (e.g. `📀 Projecte relation_contains <this page>`).
 
-Aquest mòdul són les transformacions PURES (parse + construcció de la `gnosi-view` + embed),
-testejables amb les dades reals de l'MCP, sense xarxa. La capa d'I/O (client MCP HTTP+OAuth)
-és a part (cf. directiva `notion_mcp_oauth_views.md`).
+This module holds the PURE transformations (parse + building the `gnosi-view` + embed),
+testable with the MCP's real data, without a network. The I/O layer (HTTP+OAuth MCP client)
+is separate (cf. directive `notion_mcp_oauth_views.md`).
 """
 from __future__ import annotations
 
@@ -21,8 +21,8 @@ _DB_RE = re.compile(r'<database\s+url="[^"]*?([0-9a-f]{32})"[^>]*\binline="true"
 _HEADING_RE = re.compile(r"^\s*(#{1,6})\s+(.+?)(?:\s*\{[^}]*\})?\s*$")
 _DS_NAME_RE = re.compile(r"The title of this Data Source is:\s*(.+)")
 _VIEW_RE = re.compile(r"<view\s+url=\"([^\"]*)\"\s*>\s*(\{.*?\})\s*</view>", re.DOTALL)
-# Cada data source del bloc: la línia de títol segueix l'etiqueta (per resoldre el
-# `dataSourceUrl` de cada vista en bases multi-font).
+# Each data source in the block: the title line follows the label (to resolve the
+# `dataSourceUrl` of each view in multi-source databases).
 _DS_ENTRY_RE = re.compile(
     r'<data-source\s+url="\{?\{?collection://([0-9a-f-]+)\}?\}?"[^>]*>\s*\n'
     r"The title of this Data Source is:\s*(.+)")
@@ -34,16 +34,16 @@ def _uid(s) -> str:
 
 
 def _strip_icon(name: str) -> str:
-    """Treu emoji/prefix decoratiu i normalitza per comparar noms de camp/taula."""
+    """Strip decorative emoji/prefix and normalize to compare field/table names."""
     return re.sub(r"[^\w]", "", str(name or "").lower())
 
 
 # ---------------------------------------------------------------------------
-# 1) Parse de la PÀGINA (markdown de l'MCP) → seccions amb vistes
+# 1) Parse the PAGE (MCP markdown) → sections with views
 # ---------------------------------------------------------------------------
 def parse_mcp_page(page_md: str) -> List[Dict[str, Any]]:
-    """Retorna [{heading, db_id}] en ordre: cada `<database inline>` amb la capçalera que el
-    precedeix. `db_id` és el block id (32-hex) de la vista (cal `fetch` per resoldre-la)."""
+    """Returns [{heading, db_id}] in order: each `<database inline>` with the heading that
+    precedes it. `db_id` is the block id (32-hex) of the view (needs a `fetch` to resolve it)."""
     m = re.search(r"<content>(.*)</content>", page_md, re.DOTALL)
     body = m.group(1) if m else page_md
     out: List[Dict[str, Any]] = []
@@ -59,13 +59,13 @@ def parse_mcp_page(page_md: str) -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# 2) Parse de la VISTA (markdown de `fetch` del database) → metadada
+# 2) Parse the VIEW (markdown from `fetch` of the database) → metadata
 # ---------------------------------------------------------------------------
 def _advanced_filters(af: Any) -> List[Dict[str, Any]]:
-    """Aplana un `advancedFilter` de Notion a una llista de filtres property plans.
-    Només grups AND (o d'UN filtre, on and==or): els filtres de Gnosi són AND. El cas
-    fórmula (`operator:"every"` amb `resultFilter`) es fusiona: property de fora +
-    operator/value de dins (p. ex. «Connexions fortes»: Centralitat > 10)."""
+    """Flattens a Notion `advancedFilter` into a list of flat property filters.
+    Only AND groups (or a single filter, where and==or): Gnosi's filters are AND. The
+    formula case (`operator:"every"` with `resultFilter`) is merged: the outer property +
+    the inner operator/value (e.g. «Strong connections»: Centrality > 10)."""
     if not isinstance(af, dict) or af.get("type") != "group":
         return []
     items = [f for f in (af.get("filters") or []) if isinstance(f, dict)]
@@ -86,8 +86,8 @@ def _advanced_filters(af: Any) -> List[Dict[str, Any]]:
 
 def _parse_view_json(v: Dict[str, Any], ds_names: Dict[str, str], default_ds: str,
                      view_url: str) -> Dict[str, Any]:
-    """JSON d'un `<view>` de l'MCP → meta de vista (forma de parse_mcp_view + name/view_url/
-    chart/timeline_by/date_by, i el data source resolt per `dataSourceUrl`)."""
+    """JSON of an MCP `<view>` → view meta (shape of parse_mcp_view + name/view_url/
+    chart/timeline_by/date_by, and the data source resolved via `dataSourceUrl`)."""
     ds_name = default_ds
     m = re.search(r"collection://([0-9a-f-]+)", str(v.get("dataSourceUrl") or ""))
     if m and ds_names.get(m.group(1)):
@@ -107,15 +107,15 @@ def _parse_view_json(v: Dict[str, Any], ds_names: Dict[str, str], default_ds: st
         meta["filters_raw"].append(flt)
         if meta["filter_property"] is None:
             meta["filter_property"] = flt.get("property")
-            # `value` pot venir com a dict {"value":X}, llista o escalar: usem
-            # _filter_value (mateixa desambiguació que la resta del mòdul). Abans
-            # es feia `.get("value")` cru i petava amb AttributeError si era llista
-            # (p. ex. filtre de relació ["<page-id>"]) → l'except se l'empassava i
-            # la vista perdia filtres/ordre/grup silenciosament.
+            # `value` can come as a dict {"value":X}, a list, or a scalar: we use
+            # _filter_value (same disambiguation as the rest of the module). Before,
+            # it did a raw `.get("value")` and crashed with AttributeError if it was a list
+            # (e.g. relation filter ["<page-id>"]) → the except swallowed it and
+            # the view was silently losing filters/order/group.
             val = _filter_value(flt) or ""
             pid = _PAGE_ID_RE.search(str(val))
             meta["filter_value_page_id"] = pid.group(1) if pid else None
-    # Ordre i agrupació (si la vista en porta; formats defensius)
+    # Sort and grouping (if the view has them; defensive formats)
     for s in (v.get("sorts") or []):
         if not isinstance(s, dict):
             continue
@@ -128,12 +128,12 @@ def _parse_view_json(v: Dict[str, Any], ds_names: Dict[str, str], default_ds: st
     if isinstance(gb, dict):
         gb = gb.get("property") or gb.get("field")
     meta["group_by"] = gb or None
-    # Timeline/calendar: el camp de data de la vista (VaultTimeline/Calendar: dateField)
+    # Timeline/calendar: the view's date field (VaultTimeline/Calendar: dateField)
     tb = v.get("timelineBy")
     meta["timeline_by"] = tb if isinstance(tb, str) and tb.strip() else None
     cb = v.get("calendarBy")
     meta["date_by"] = cb if isinstance(cb, str) and cb.strip() else None
-    # Chart: config de VaultChart {chartType, xField, yField, aggregation}
+    # Chart: VaultChart config {chartType, xField, yField, aggregation}
     if v.get("type") == "chart":
         cc = v.get("chartConfig") or {}
         dc = cc.get("dataConfig") or {}
@@ -151,11 +151,11 @@ def _parse_view_json(v: Dict[str, Any], ds_names: Dict[str, str], default_ds: st
 
 
 def parse_mcp_views(view_md: str) -> List[Dict[str, Any]]:
-    """TOTES les vistes (pestanyes) d'un bloc `<database>` de l'MCP, en ordre.
+    """ALL the views (tabs) of an MCP `<database>` block, in order.
 
-    Notion agrupa N vistes com a pestanyes d'un mateix bloc de linked database i el fetch
-    MCP les retorna totes com a `<view url>{json}</view>`; abans només es llegia la primera
-    (`.search`) i la resta es perdien en silenci («Cervell digital»: 10 → 1)."""
+    Notion groups N views as tabs of the same linked-database block, and the MCP
+    fetch returns all of them as `<view url>{json}</view>`; previously only the first one was read
+    (`.search`) and the rest were silently lost («Digital Brain»: 10 → 1)."""
     ds_names = {m.group(1): m.group(2).strip() for m in _DS_ENTRY_RE.finditer(view_md or "")}
     nm = _DS_NAME_RE.search(view_md or "")
     default_ds = nm.group(1).strip() if nm else ""
@@ -171,7 +171,7 @@ def parse_mcp_views(view_md: str) -> List[Dict[str, Any]]:
 
 
 def parse_mcp_view(view_md: str) -> Dict[str, Any]:
-    """Meta de la PRIMERA vista del bloc (compat; per a totes les pestanyes: parse_mcp_views)."""
+    """Metadata of the FIRST view in the block (compat; for all tabs: parse_mcp_views)."""
     views = parse_mcp_views(view_md)
     if views:
         return views[0]
@@ -186,16 +186,16 @@ def parse_mcp_view(view_md: str) -> Dict[str, Any]:
 
 
 def _scalar(v: Any) -> str:
-    """Valor de filtre de Notion → string de Gnosi (checkbox: 'true'/'false', paritat amb
-    vaultFilters.asBool del frontend)."""
+    """Notion filter value → Gnosi string (checkbox: 'true'/'false', parity with
+    the frontend's vaultFilters.asBool)."""
     if isinstance(v, bool):
         return "true" if v else "false"
     return "" if v is None else str(v)
 
 
 def _filter_value(flt: Dict[str, Any]) -> Any:
-    """El `value` d'un simpleFilter en qualsevol de les formes vistes de l'MCP:
-    {"type":"exact","value":X} · llista directa · escalar directe."""
+    """The `value` of a simpleFilter in any of the forms seen from the MCP:
+    {"type":"exact","value":X} · direct list · direct scalar."""
     v = flt.get("value")
     if isinstance(v, dict):
         return v.get("value")
@@ -203,8 +203,8 @@ def _filter_value(flt: Dict[str, Any]) -> Any:
 
 
 def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """simpleFilter de Notion → filtre de Gnosi {field, operator, value} (None si no mapejable).
-    Operadors de Gnosi (cf. frontend vaultFilters.js): equals, not_equals, contains,
+    """Notion simpleFilter → Gnosi filter {field, operator, value} (None if not mappable).
+    Gnosi operators (cf. frontend vaultFilters.js): equals, not_equals, contains,
     not_contains, is_empty, is_not_empty, greater_than, less_than."""
     prop = flt.get("property")
     op = str(flt.get("operator") or "")
@@ -212,14 +212,14 @@ def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         return None
     val = _filter_value(flt)
     if isinstance(val, list):
-        # llista = OR ("és una de…"); els filtres de Gnosi són AND → només el cas d'un element
-        # és mapejable amb fidelitat.
+        # list = OR ("is one of…"); Gnosi's filters are AND → only the single-element case
+        # is faithfully mappable.
         if len(val) != 1:
             return None
         val = val[0]
     if isinstance(val, dict):
-        # Formes de status: {"type":"is_option","value":"X"} → el valor; {"type":"is_group"}
-        # (grup d'estats) no té equivalent a un select pla de Gnosi → no mapejable.
+        # Status shapes: {"type":"is_option","value":"X"} → the value; {"type":"is_group"}
+        # (status group) has no equivalent in a plain Gnosi select → not mappable.
         if val.get("type") == "is_option":
             val = val.get("value")
         else:
@@ -229,8 +229,8 @@ def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if op.endswith("is_empty"):
         return {"field": prop, "operator": "is_empty"}
     if val is None:
-        # Filtre incomplet a Notion (operador triat sense valor): no filtra res allà;
-        # mapejar-lo amb valor buit aquí sí que filtraria → es descarta.
+        # Incomplete filter in Notion (operator chosen without a value): it filters nothing there;
+        # mapping it with an empty value here WOULD filter → it's discarded.
         return None
     if "not_contain" in op:
         return {"field": prop, "operator": "not_contains", "value": _scalar(val)}
@@ -248,12 +248,12 @@ def map_simple_filter(flt: Dict[str, Any]) -> Optional[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# 3) Construcció de la `gnosi-view` del vault + embed
+# 3) Building the vault's `gnosi-view` + embed
 # ---------------------------------------------------------------------------
 def resolve_filter_field(target_table: Dict[str, Any], host_table_id: str,
                          filter_property: Optional[str]) -> Optional[str]:
-    """Camp de `target_table` pel qual filtrar = la relació que apunta a la taula amfitriona
-    (per id) o, si no, per nom (= filter_property de Notion, p.ex. '📀 Projecte' → 'Projecte')."""
+    """`target_table` field to filter by = the relation that points to the host table
+    (by id) or, failing that, by name (= Notion's filter_property, e.g. '📀 Projecte' → 'Projecte')."""
     props = target_table.get("properties", []) or []
     for p in props:
         if p.get("type") == "relation" and _uid(p.get("relation_database_id")) == _uid(host_table_id):
@@ -269,10 +269,10 @@ def resolve_filter_field(target_table: Dict[str, Any], host_table_id: str,
 def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table_id: str,
                      view_meta: Dict[str, Any], heading: str,
                      salt: str = "") -> Dict[str, Any]:
-    """Vista de Gnosi (per a `POST /api/vault/views`) equivalent a la vista incrustada de Notion.
-    Filtre `{field, value:"this"}` quan la vista filtra per la relació a la pàgina amfitriona.
-    `salt`: sufix de l'id per a les pestanyes 2..N d'un mateix bloc (la 1a el deixa buit i
-    conserva l'id llegat → els embeds de clons previs continuen resolent)."""
+    """Gnosi view (for `POST /api/vault/views`) equivalent to Notion's embedded view.
+    Filter `{field, value:"this"}` when the view filters by the relation to the host page.
+    `salt`: id suffix for tabs 2..N of the same block (the 1st leaves it empty and
+    keeps the legacy id → embeds from previous clones keep resolving)."""
     seed = f"{host_page_id}:{target_table.get('id')}:{heading}"
     if salt:
         seed += f":{salt}"
@@ -283,13 +283,13 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
         "name": heading or target_table.get("name") or "Vista",
         "type": view_meta.get("view_type", "table"),
         "visibleProperties": view_meta.get("display_properties") or [],
-        # Vista contextual d'una secció de pàgina: el tauler no la mostra com a
-        # pestanya (frontend isPageEmbedView); els embeds la segueixen llegint
-        # del registry amb normalitat.
+        # Contextual view of a page section: the dashboard doesn't show it as
+        # tab (frontend isPageEmbedView); the embeds keep reading it
+        # a normal part of the registry.
         "embedded": True,
     }
-    # Config específica del tipus (mateixes claus que llegeixen VaultChart/VaultTimeline/
-    # DigitalBrainCalendar al frontend).
+    # Type-specific config (same keys read by VaultChart/VaultTimeline/
+    # DigitalBrainCalendar in the frontend).
     ch = view_meta.get("chart")
     if isinstance(ch, dict) and view["type"] == "chart":
         view["chartType"] = ch.get("chartType") or "bar"
@@ -301,12 +301,12 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
     date_by = view_meta.get("timeline_by") or view_meta.get("date_by")
     if date_by and view["type"] in ("timeline", "calendar"):
         view["dateField"] = date_by
-    # TOTS els filtres de la vista: el de relació a la pàgina amfitriona → {value:"this"}
-    # (format històric, el motor el resol al host); la resta → operadors de Gnosi.
+    # ALL the view's filters: the one for the relation to the host page → {value:"this"}
+    # (legacy format, the engine resolves it on the host); the rest → Gnosi operators.
     filters: List[Dict[str, Any]] = []
     for flt in (view_meta.get("filters_raw") or []):
         val = _filter_value(flt)
-        # el filtre de relació pot dur la pàgina com a escalar O dins d'una llista
+        # the relation filter may carry the page as a scalar OR inside a list
         _cands = val if isinstance(val, list) else [val]
         pid = None
         for c in _cands:
@@ -322,7 +322,7 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
         mapped = map_simple_filter(flt)
         if mapped:
             filters.append(mapped)
-    # Compat: metas antics sense filters_raw però amb el filtre "aquesta pàgina" detectat
+    # Compat: old metas without filters_raw but with the "this page" filter detected
     if not filters and view_meta.get("filter_value_page_id") \
             and _uid(view_meta["filter_value_page_id"]) == _uid(host_page_id):
         fname = resolve_filter_field(target_table, host_table_id, view_meta.get("filter_property"))
@@ -338,27 +338,27 @@ def build_gnosi_view(host_page_id: str, target_table: Dict[str, Any], host_table
 
 
 def view_embed(view_id: str) -> str:
-    """La incrustació al cos de la pàgina (comentari HTML que el vault materialitza)."""
+    """The embed in the page body (HTML comment that the vault materializes)."""
     return f'<!-- gnosi-view:def {{"view_id":"{view_id}"}} -->'
 
 
 # ---------------------------------------------------------------------------
-# 4) Orquestrador (fetch_view / resolve_table injectats → desacoblat de l'I/O MCP)
+# 4) Orchestrator (fetch_view / resolve_table injected → decoupled from the MCP I/O)
 # ---------------------------------------------------------------------------
 def recreate_views_for_page(
     page_md: str,
     host_page_id: str,
     host_table_id: str,
     *,
-    fetch_view,            # callable(db_id) -> markdown de la vista (via MCP)
-    resolve_table,         # callable(data_source_name) -> taula del vault (dict) o None
+    fetch_view,            # callable(db_id) -> markdown of the view (via MCP)
+    resolve_table,         # callable(data_source_name) -> vault table (dict) or None
 ) -> List[Dict[str, Any]]:
-    """Per a una pàgina (markdown MCP), retorna [{heading, db_id, view, embed}] de cada vista
-    incrustada resoluble a una taula del vault — TOTES les pestanyes de cada bloc, no només
-    la primera. Només la 1a pestanya de cada bloc (l'ÀNCORA) porta `embed` (l'única que va
-    al cos, com a Notion); la resta hi pengen pel camp `tabs` de l'àncora. Les vistes de
-    gràfic "suggerides" per l'MCP (no existeixen com a pestanyes reals) s'ometen. La capa
-    que escriu (POST /views + insereix l'embed sota la capçalera) i el client MCP són a part."""
+    """For a page (MCP markdown), returns [{heading, db_id, view, embed}] for each
+    embedded view resolvable to a vault table — ALL tabs of each block, not just
+    the first. Only the 1st tab of each block (the ANCHOR) carries `embed` (the only one that goes
+    into the body, as in Notion); the rest hang off the anchor's `tabs` field. The
+    chart views "suggested" by the MCP (they don't exist as real tabs) are omitted. The
+    layer that writes (POST /views + inserts the embed under the heading) and the MCP client are separate."""
     results: List[Dict[str, Any]] = []
     for sec in parse_mcp_page(page_md):
         try:

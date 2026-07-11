@@ -1,8 +1,8 @@
-"""MultiServerMCPClient.call_tool ha de resoldre el servidor des d'una cache.
+"""MultiServerMCPClient.call_tool must resolve the server from a cache.
 
-Abans cridava get_all_tools() (un `tools/list` per servidor MCP) a CADA
-invocació només per saber qui té la tool. Ara la cache tool→servidor ho fa
-O(1) i només es refresca en un miss.
+Previously it called get_all_tools() (a `tools/list` per MCP server) on EVERY
+invocation just to find out who has the tool. Now the tool→server cache does it in
+O(1) and only refreshes on a miss.
 """
 import asyncio
 
@@ -72,7 +72,7 @@ def test_tool_appears_after_refresh():
 
 
 def test_stale_server_in_cache_triggers_refresh():
-    # La cache apunta a un servidor que ja no és a self.clients → refresca.
+    # The cache points to a server that is no longer in self.clients → refreshes.
     mc = _make([[{"name": "search", "server": "s1"}]])
     mc._tool_server_cache = {"search": "servidor-mort"}
     asyncio.run(mc.call_tool("search", {}))

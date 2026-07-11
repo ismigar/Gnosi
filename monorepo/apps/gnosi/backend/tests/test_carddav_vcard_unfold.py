@@ -1,10 +1,10 @@
-"""CardDAV: els valors vCard PLEGATS (RFC 6350/2426 line folding) s'han de
-desplegar abans de parsejar, o notes/adreces llargues es trunquen.
+"""CardDAV: FOLDED vCard values (RFC 6350/2426 line folding) must be
+unfolded before parsing, or long notes/addresses get truncated.
 
-Els servidors CardDAV (Nextcloud, iCloud, Google) parteixen les línies de més
-de 75 caràcters amb un CRLF + espai/tab de continuació. El parser per línia
-capturava només la primera línia → pèrdua de dades (una ADR podia perdre
-ciutat/codi postal/país).
+CardDAV servers (Nextcloud, iCloud, Google) split lines longer than
+75 characters with a CRLF + continuation space/tab. The per-line parser
+only captured the first line → data loss (an ADR could lose
+city/postal code/country).
 """
 from backend.services.contacts_sync_engine import CardDAVContactsProvider
 
@@ -34,7 +34,7 @@ def test_nota_plegada_es_recupera_sencera():
 
 def test_adreca_plegada_conserva_ciutat_i_codi_postal():
     parsed = _parse(FOLDED)
-    # Abans del fix, tot el que hi havia després del plegat es perdia.
+    # Before the fix, everything after the fold was lost.
     assert "Barcelona" in parsed["address"]
     assert "08007" in parsed["address"]
     assert "Catalunya" in parsed["address"]

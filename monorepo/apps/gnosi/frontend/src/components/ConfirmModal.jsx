@@ -27,9 +27,9 @@ export const ConfirmModal = ({
         }
     }, [isSubmitting, onConfirm]);
 
-    // Lògica rica de teclat (Esc, Enter→confirma, Tab focus-trap, restauració
-    // de focus en tancar): ara centralitzada al hook canònic. Esc no avorta una
-    // operació destructiva en curs (guard isSubmitting), igual que el backdrop.
+    // Rich keyboard logic (Esc, Enter→confirm, Tab focus-trap, restoration
+    // of focus on close): now centralized in the canonical hook. Esc does not abort an
+    // ongoing destructive operation (isSubmitting guard), same as the backdrop.
     useModalKeyboard({
         isOpen,
         onClose: () => { if (!isSubmitting) onClose(); },

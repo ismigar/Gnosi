@@ -1,24 +1,24 @@
-"""Reconeixement d'escriptura a mà (ink → text) LOCAL amb TrOCR.
+"""Handwriting recognition (ink → text) LOCAL with TrOCR.
 
-Privat: la imatge dels traços es processa a la màquina, no surt a cap núvol
-(coherent amb el vault offline-first de Gnosi). El model es carrega de manera
-mandrosa (singleton) i es baixa al 1r ús a `GNOSI_LOCAL_DATA/cache/trocr`
-(fora d'OneDrive, cf. memòria de caches).
+Private: the stroke image is processed on the machine, it never goes to any cloud
+(consistent with Gnosi's offline-first vault). The model is loaded
+lazily (singleton) and downloaded on first use to `GNOSI_LOCAL_DATA/cache/trocr`
+(outside OneDrive, cf. caches memory).
 
-Model configurable: env `GNOSI_TROCR_MODEL` o `ai.handwriting.model` a
-params.yaml. Default `microsoft/trocr-base-handwritten` (equilibri
-qualitat/velocitat en CPU; `-large-` és més precís però molt més lent en Intel).
+Configurable model: env `GNOSI_TROCR_MODEL` or `ai.handwriting.model` in
+params.yaml. Default `microsoft/trocr-base-handwritten` (balance of
+quality/speed on CPU; `-large-` is more accurate but much slower on Intel).
 
-⚠️ Limitació coneguda: TrOCR handwritten està entrenat en ANGLÈS. En català/
-castellà funciona però amb més errors (sobretot accents i dígrafs). Per pal·liar-
-ho, opcionalment passem la sortida per una CORRECCIÓ amb l'LLM local (Ollama) que
-arregla accents/dígrafs sense treure el text de la màquina (`correct=True`). Si
-no hi ha proveïdor d'IA, es retorna el text cru sense fallar. Per multi-línia fem
-una segmentació simple per projecció horitzontal (TrOCR és mono-línia).
+⚠️ Known limitation: TrOCR handwritten is trained in ENGLISH. In Catalan/
+Spanish it works but with more errors (especially accents and digraphs). To mitigate
+this, we optionally pass the output through a CORRECTION with the local LLM (Ollama) that
+fixes accents/digraphs without altering the machine's text (`correct=True`). If
+there is no AI provider, the raw text is returned without failing. For multi-line we do
+a simple segmentation by horizontal projection (TrOCR is single-line).
 
-Warmup: `warmup()` precarrega el model en segon pla (thread daemon) perquè la
-primera crida real de reconeixement no hagi d'esperar la càrrega. El frontend el
-crida en obrir el llenç.
+Warmup: `warmup()` preloads the model in the background (daemon thread) so that
+the first real recognition call doesn't have to wait for the load. The frontend
+calls it when the canvas is opened.
 """
 import io
 import logging
@@ -34,10 +34,10 @@ log = logging.getLogger(__name__)
 _MODEL = None          # VisionEncoderDecoderModel
 _PROCESSOR = None      # TrOCRProcessor
 _LOCK = threading.Lock()
-_WARMUP_THREAD = None   # thread de precàrrega en vol (evita duplicats)
+_WARMUP_THREAD = None   # in-flight preload thread (avoids duplicates)
 
 _DEFAULT_MODEL = "microsoft/trocr-base-handwritten"
-# Sostre de línies per evitar que un llenç gran encalli la CPU minuts.
+# Line cap to prevent a large canvas from stalling the CPU for minutes.
 _MAX_LINES = 40
 
 _LANG_LABELS = {"ca": "català", "es": "castellà", "en": "anglès", "fr": "francès"}
@@ -68,7 +68,7 @@ def _model_id() -> str:
 
 
 def _correct_default() -> bool:
-    """Si per defecte s'aplica la correcció IA (params `ai.handwriting.correct`)."""
+    """Whether AI correction is applied by default (params `ai.handwriting.correct`)."""
     try:
         cfg = load_params(strict_env=False)
         val = ((cfg.get("ai", {}) or {}).get("handwriting", {}) or {}).get("correct")
@@ -91,7 +91,7 @@ def is_loaded() -> bool:
 
 
 def _load():
-    """Carrega (mandrós) el processor + model TrOCR (singleton, CPU)."""
+    """Loads (lazily) the TrOCR processor + model (singleton, CPU)."""
     global _MODEL, _PROCESSOR
     if _MODEL is not None and _PROCESSOR is not None:
         return _PROCESSOR, _MODEL
@@ -109,11 +109,12 @@ def _load():
 
 
 def warmup() -> bool:
-    """Precarrega el model en un thread daemon (idempotent, no bloqueja).
+    """Preloads the model in a daemon thread (idempotent, non-blocking).
 
-    Retorna True si ha engegat (o ja estava carregant/carregat), False si el
-    motor no està disponible. La idea és cridar-lo quan s'obre el llenç: mentre
-    l'usuari escriu, el model es carrega, i quan clica "Passar a text" ja hi és.
+    Returns True if it started (or was already loading/loaded), False if the
+    engine is not available. The idea is to call it when the canvas is opened: while
+    the user writes, the model loads, and by the time they click "Convert to text" it's already there.
+    
     """
     global _WARMUP_THREAD
     if not is_available():
@@ -137,9 +138,10 @@ def warmup() -> bool:
 
 
 def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
-    """Corregeix accents/ortografia amb l'LLM local (Ollama). Reaprofita el
-    mateix mecanisme que `POST /api/ai/correct`. Retorna el text corregit o
-    `None` si no hi ha proveïdor d'IA o falla (degradació neta → text cru).
+    """Corrects accents/spelling with the local LLM (Ollama). Reuses the
+    same mechanism as `POST /api/ai/correct`. Returns the corrected text or
+    `None` if there's no AI provider or it fails (clean degradation → raw text).
+    
     """
     if not text.strip():
         return None
@@ -173,13 +175,14 @@ def recognize(
     correct: Optional[bool] = None,
     language: Optional[str] = None,
 ) -> dict:
-    """Reconeix el text manuscrit d'una imatge PNG/JPEG.
+    """Recognizes the handwritten text from a PNG/JPEG image.
 
-    `segment=True` parteix la imatge en línies i les reconeix una a una (millor
-    per notes de diverses línies). `correct` aplica una correcció IA (accents/
-    ortografia) a la sortida; si és `None` s'usa el default de config. Retorna
-    `{text, raw, lines, model, corrected}` on `text` és el resultat final (cru o
-    corregit) i `raw` és sempre la sortida directa de TrOCR.
+    `segment=True` splits the image into lines and recognizes them one by one (better
+    for multi-line notes). `correct` applies an AI correction (accents/
+    spelling) to the output; if it's `None` the config default is used. Returns
+    `{text, raw, lines, model, corrected}` where `text` is the final result (raw or
+    corrected) and `raw` is always TrOCR's direct output.
+    
     """
     from PIL import Image
 
@@ -221,25 +224,26 @@ def recognize(
 
 
 def _segment_lines(image):
-    """Parteix una imatge multi-línia en retalls d'una línia cadascun.
+    """Splits a multi-line image into crops of one line each.
 
-    Projecció horitzontal: sumem la "tinta" (píxels foscos) per fila; les
-    bandes contigües amb tinta són línies, separades per franges en blanc.
-    Retorna una llista d'imatges PIL (una per línia) o `[image]` si no es pot
-    segmentar de forma fiable (imatge d'una sola línia, o massa soroll).
+    Horizontal projection: we sum the "ink" (dark pixels) per row; contiguous
+    bands with ink are lines, separated by blank stripes.
+    Returns a list of PIL images (one per line) or `[image]` if it can't be
+    segmented reliably (single-line image, or too much noise).
+    
     """
     import numpy as np
     from PIL import Image
 
     gray = image.convert("L")
     arr = np.asarray(gray, dtype=np.uint8)
-    # Tinta = píxels més foscos que un llindar (fons blanc de l'export tldraw).
+    # Ink = pixels darker than a threshold (white background from the tldraw export).
     ink = arr < 200
     row_has_ink = ink.sum(axis=1) > 0
     if not row_has_ink.any():
         return [image]
 
-    # Detecta bandes contigües de files amb tinta.
+    # Detects contiguous bands of rows with ink.
     bands = []
     start = None
     for y, has in enumerate(row_has_ink):
@@ -251,7 +255,7 @@ def _segment_lines(image):
     if start is not None:
         bands.append((start, len(row_has_ink)))
 
-    # Descarta bandes minúscules (soroll) i afegeix un marge vertical.
+    # Discards tiny bands (noise) and adds a vertical margin.
     h = arr.shape[0]
     pad = max(4, h // 100)
     crops = []

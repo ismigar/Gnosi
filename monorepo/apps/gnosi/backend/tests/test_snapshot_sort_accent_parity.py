@@ -1,16 +1,16 @@
-"""Paritat d'ordenació de text amb accents entre el snapshot (backend) i la
-vista principal (front, `compareFieldValues` amb `localeCompare('ca', base)`).
+"""Sorting parity for accented text between the snapshot (backend) and the
+main view (frontend, `compareFieldValues` with `localeCompare('ca', base)`).
 
-Abans, el fallback de cadena comparava per codepoint del `.lower()` cru, de
-manera que qualsevol valor amb inicial accentuada (à = U+00E0) anava DESPRÉS de
-la 'z' (U+007A). En un vault català/castellà, el snapshot ordenava diferent de
-la vista principal. El fix plega els diacrítics a la lletra base.
+Before, the string fallback compared by codepoint of the raw `.lower()`, so
+any value with an accented initial (à = U+00E0) went AFTER
+'z' (U+007A). In a Catalan/Castilian vault, the snapshot sorted differently from
+the main view. The fix folds diacritics to the base letter.
 """
 from backend.services.view_snapshot import _compare_field_values, multi_key_sort
 
 
-# Ordre esperat = el que retorna `localeCompare('ca', {sensitivity:'base'})` al
-# front (verificat en node): els accentuats s'interleaven per lletra base.
+# Expected order = whatever `localeCompare('ca', {sensitivity:'base'})` returns on the
+# front (verified in node): accented characters interleave by base letter.
 EXPECTED_CA = ["àrea", "Banana", "Çelona", "niu", "ópal", "Òrbita", "poma", "Zebra"]
 
 
@@ -22,21 +22,21 @@ def test_ordre_amb_accents_coincideix_amb_locale_del_front():
 
 
 def test_accentuada_no_va_despres_de_la_z():
-    # "àrea" < "Zebra" amb collation base (à→a); per codepoint seria al revés.
+    # "àrea" < "Zebra" with base collation (à→a); by codepoint it would be reversed.
     assert _compare_field_values("àrea", "Zebra", "asc") < 0
     assert _compare_field_values("Zebra", "àrea", "asc") > 0
 
 
 def test_base_insensible_a_accent_i_majuscula():
-    # à == a == À (sensitivity base) → empat.
+    # à == a == À (base sensitivity) → tie.
     assert _compare_field_values("àrea", "AREA", "asc") == 0
     assert _compare_field_values("Çelona", "celona", "asc") == 0
 
 
 def test_descendent_mante_els_buits_al_final():
-    # Els buits SEMPRE al final, també en descendent (no s'inverteixen).
+    # Empty values ALWAYS last, even in descending order (they are not reversed).
     rows = [{"metadata": {"Nom": v}} for v in ["", "óptim", "", "abc"]]
     out = multi_key_sort(rows, [{"field": "Nom", "direction": "desc"}])
     noms = [r["metadata"]["Nom"] for r in out]
-    assert noms[-2:] == ["", ""]           # buits al final
-    assert noms[:2] == ["óptim", "abc"]    # desc: ó(base o) > a
+    assert noms[-2:] == ["", ""]           # empty ones at the end
+    assert noms[:2] == ["óptim", "abc"]    # desc: ó (base o) > a

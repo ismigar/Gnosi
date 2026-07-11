@@ -7,14 +7,14 @@ import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { discoverFieldNamesFromRecords } from './schemaUtils';
 
 /**
- * Modal per afegir una vista de BD a una pàgina (slash command /vista).
+ * Modal for adding a DB view to a page (slash command /vista).
  *
- * Suporta filtres múltiples, ordenació i selector de propietats per checkbox.
- * Opcionalment, desa la vista al registry de la taula (registry.views[]) per
- * reaprofitar-la des de la pàgina pròpia de la taula.
+ * Supports multiple filters, sorting, and a checkbox property selector.
+ * Optionally, saves the view to the table's registry (registry.views[]) to
+ * reuse it from the table's own page.
  *
- * Backend: POST /api/vault/views (vista guardada) + POST /api/pages/{id}/views
- * (embed amb view_id).
+ * Backend: POST /api/vault/views (saved view) + POST /api/pages/{id}/views
+ * (embed with view_id).
  */
 const FILTER_OPERATORS = [
     { value: 'equals', label: 'igual' },
@@ -27,10 +27,10 @@ const FILTER_OPERATORS = [
     { value: 'less_than', label: 'menor que' },
 ];
 
-// --- Opcions de configuració específiques per tipus de vista ---
-// La GALERIA accepta una mida de targeta i un mode de previsualització; el
-// KANBAN un camp d'agrupació; CALENDARI/TIMELINE un (o dos) camps de data.
-// Els valors viuen a la vista (registry, dict lliure) i el render els honora.
+// --- View-type-specific configuration options ---
+// The GALLERY accepts a card size and a preview mode; the
+// KANBAN a grouping field; CALENDAR/TIMELINE one (or two) date fields.
+// The values live in the view (registry, free-form dict) and the renderer honors them.
 const CARD_SIZES = [
     { value: 'small', label: 'Petita' },
     { value: 'medium', label: 'Mitjana' },
@@ -42,8 +42,8 @@ const GALLERY_PREVIEWS = [
     { value: 'properties', label: 'Només propietats', hint: 'Sense imatge; títol i propietats.' },
     { value: 'none', label: 'Només títol', hint: 'Targeta mínima: portada i títol, sense propietats.' },
 ];
-// Tipus d'esquema vàlids per a cada control: agrupació de Kanban (camps amb un
-// conjunt acotat de valors) i eix temporal de calendari/timeline.
+// Valid schema types for each control: Kanban grouping (fields with a
+// bounded set of values) and calendar/timeline temporal axis.
 const GROUP_FIELD_TYPES = new Set(['select', 'status', 'multi_select']);
 const DATE_FIELD_TYPES = new Set(['date', 'datetime', 'period']);
 const NUMERIC_FIELD_TYPES = new Set(['number', 'formula', 'rollup', 'currency', 'percent']);
@@ -57,20 +57,20 @@ const TABS = [
 ];
 
 /**
- * Selector cercable per al valor d'un filtre de RELACIÓ. En lloc d'un text
- * lliure (propens a errades com "thiis"), ofereix un desplegable amb:
- *  - "Aquesta pàgina" (valor especial `this` = id de la pàgina on s'incrusta),
- *  - els títols dels registres de la taula relacionada (valor = id),
- *  amb un cercador per filtrar i navegació amb teclat (↑↓/Enter/Esc).
+ * Searchable selector for a RELATION filter's value. Instead of free
+ * text (prone to typos like "thiis"), it offers a dropdown with:
+ *  - "This page" (special value `this` = id of the page where it's embedded),
+ *  - the titles of the related table's records (value = id),
+ *  with a search box to filter and keyboard navigation (↑↓/Enter/Esc).
  */
 function RelationValuePicker({ value, onChange, options, loading, thisLabel, placeholder }) {
     const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const [query, setQuery] = useState('');
     const [highlighted, setHighlighted] = useState(0);
-    // Posició fixa del panell: el desplegable es renderitza en un PORTAL a
-    // <body> per no quedar tallat pel `overflow-y-auto` del cos del modal
-    // (abans només es veia el cercador i la llista quedava amagada).
+    // Fixed panel position: the dropdown is rendered in a PORTAL to
+    // <body> so it isn't clipped by the modal body's `overflow-y-auto`
+    // (previously only the search box was visible and the list stayed hidden).
     const [rect, setRect] = useState(null);
     const boxRef = useRef(null);
     const panelRef = useRef(null);
@@ -103,8 +103,8 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
             if (panelRef.current?.contains(e.target)) return;
             setOpen(false);
         };
-        // El panell té posició fixa calculada en obrir; si l'usuari fa scroll
-        // (p. ex. dins el modal) o redimensiona, el tanquem per no desalinear.
+        // The panel has a fixed position calculated on open; if the user scrolls
+        // (e.g. inside the modal) or resizes, we close it to avoid misalignment.
         const onMove = () => setOpen(false);
         document.addEventListener('mousedown', onDoc);
         window.addEventListener('resize', onMove);
@@ -172,15 +172,15 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
 export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null, mode = 'embed', editingView = null, initialTab = null }) {
     const { t } = useTranslation();
 
-    // `mode='table'`: el MATEIX modal però configurant una vista de la taula
-    // (no un embed). S'amaguen les opcions pròpies de l'embed (taula origen ja
-    // fixada, vista existent, abast compartit/local, "desa a les vistes",
-    // encapçalament) i en desar s'actualitza/crea la vista del registry
-    // directament (sense secció ni bloc). `editingView` = vista a configurar
-    // (null = crear-ne una de nova).
+    // `mode='table'`: the SAME modal but configuring a view of the table
+    // (not an embed). The embed-specific options are hidden (source table already
+    // pinned, existing view, shared/local scope, "save to views",
+    // in the heading) and on save the registry view is updated/created
+    // directly (without a section or block). `editingView` = view being configured
+    // (null = create a new one).
     const isTableMode = mode === 'table';
 
-    // Ref al panell interior del modal: delimita el focus-trap del teclat.
+    // Ref to the modal's inner panel: delimits the keyboard focus-trap.
     const panelRef = useRef(null);
 
     const [activeTab, setActiveTab] = useState('general');
@@ -189,24 +189,24 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [sourceTableId, setSourceTableId] = useState(preselectedTableId);
     const [viewName, setViewName] = useState('');
     const [visibleProperties, setVisibleProperties] = useState([]);
-    // Camps d'usuari descoberts als registres per a taules SENSE esquema
-    // registrat (p. ex. "Recursos", importada del clon de Notion: `properties`
-    // buit però els registres porten camps). Sense això el selector de columnes
-    // només mostraria el títol. Es fusionen a `tableFields`.
+    // User fields discovered in the records for tables WITHOUT a schema
+    // registered (e.g. "Recursos", imported from the Notion clone: `properties`
+    // empty but the records carry fields). Without this, the column selector
+    // would only show the title. They are merged into `tableFields`.
     const [discoveredFields, setDiscoveredFields] = useState([]);
     const [viewType, setViewType] = useState('table');
     const [filters, setFilters] = useState([]);
-    // Llista ordenada de criteris d'ordenació; el primer element té prioritat
-    // màxima (ex: ordena per `Estat` asc; en empat, per `Data` desc).
+    // Ordered list of sort criteria; the first element has the highest
+    // priority (e.g.: sort by `Estat` asc; ties broken by `Data` desc).
     const [sorts, setSorts] = useState([]);
-    // Snapshot de wikilinks de resultats al markdown (portabilitat). Viu a la
-    // vista del registry (resultSnapshot / resultSnapshotLimit); el backend
-    // l'honora en desar la pàgina. Default: activat, 500 (0 = sense límit).
+    // Snapshot of results' wikilinks in the markdown (portability). Lives in the
+    // view from the registry (resultSnapshot / resultSnapshotLimit); the backend
+    // honors it when saving the page. Default: enabled, 500 (0 = no limit).
     const [resultSnapshot, setResultSnapshot] = useState(true);
     const [resultSnapshotLimit, setResultSnapshotLimit] = useState(500);
-    // Opcions específiques per tipus de vista (galeria/kanban/calendari/timeline).
-    // Es desen a la vista i el render les honora; les vistes que no són del
-    // tipus corresponent simplement les ignoren.
+    // View-type-specific options (gallery/kanban/calendar/timeline).
+    // They are saved to the view and the renderer honors them; views that are not of the
+    // corresponding type simply ignore them.
     const [cardSize, setCardSize] = useState('medium');
     const [galleryPreview, setGalleryPreview] = useState('cover');
     const [coverField, setCoverField] = useState('');
@@ -219,7 +219,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [calendarView, setCalendarView] = useState('dayGridMonth');
     const [colorField, setColorField] = useState('');
     const [rowHeight, setRowHeight] = useState('normal');
-    // Opcions de la vista de gràfic (chart).
+    // Chart view options.
     const [chartType, setChartType] = useState('bar');
     const [xField, setXField] = useState('');
     const [yField, setYField] = useState('');
@@ -227,18 +227,18 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const [saveToTableViews, setSaveToTableViews] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
-    // Vistes guardades a la taula seleccionada — l'usuari pot triar-ne una en
-    // lloc d'haver de configurar-ho tot des de zero.
+    // Views saved on the selected table — the user can choose one when
+    // stead of having to configure everything from scratch.
     const [existingViews, setExistingViews] = useState([]);
     const [selectedExistingViewId, setSelectedExistingViewId] = useState('');
     const [loadingExistingViews, setLoadingExistingViews] = useState(false);
-    // Quantes pàgines comparteixen la vista existent seleccionada — si > 1
-    // (incloent aquesta), avisem l'usuari abans de propagar canvis.
+    // How many pages share the selected existing view — if > 1
+    // (including this one), we warn the user before propagating changes.
     const [viewUsage, setViewUsage] = useState({ count: 0, pages: [] });
-    // Què fer si l'usuari modifica una vista compartida:
-    //   'shared' = aplicar canvis a totes les pàgines que la usen (default)
-    //   'fork'   = només aquesta pàgina; la secció s'embeveix sense view_id i
-    //              porta una còpia inline dels filtres/sorts/properties.
+    // What to do if the user modifies a shared view:
+    //   'shared' = apply changes to all pages that use it (default)
+    //   'fork'   = only this page; the section is embedded without view_id and
+    //              carries an inline copy of the filters/sorts/properties.
     const [editScope, setEditScope] = useState('shared');
     const [modalPinnedViewIds, setModalPinnedViewIds] = useState(new Set());
 
@@ -248,17 +248,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     );
 
     const tableFields = useMemo(() => {
-        // Una columna de títol de l'esquema (la propietat de tipus `title`
-        // d'una taula importada de Notion, p. ex. "Nom"/"Título", o un camp
-        // literalment anomenat title/títol/titulo/titre) ÉS el títol de la
-        // pàgina. El sistema ja l'exposa com a camp canònic `title`, que el
-        // render llegeix de `r.title`. La detecció anterior, basada només en
-        // noms sense accent, no reconeixia `Título` (amb í) ni les columnes
-        // de tipus `title` amb un altre nom (`Nom`), i acabava mostrant DUES
-        // columnes de títol; a més, la columna amb nom propi ni tan sols es
-        // renderitzava (el seu valor no és a `metadata`, sinó a `title`).
-        // Per això excloem totes les columnes de títol de l'esquema i deixem
-        // un únic `title` canònic.
+        // A title column from the schema (the property of type `title`
+        // from a table imported from Notion, e.g. "Nom"/"Título", or a field
+        // literally named title/títol/titulo/titre) IS the title of the
+        // page. The system already exposes it as the canonical `title` field, which the
+        // renderer reads from `r.title`. The previous detection, based only on
+        // unaccented names, didn't recognize `Título` (with í) nor the columns
+        // of type `title` with a different name (`Nom`), and it ended up showing TWO
+        // title columns; moreover, the column with its own name wasn't even
+        // rendered (its value isn't in `metadata`, but in `title`).
+        // That's why we exclude all title columns from the schema and leave
+        // a single canonical `title`.
         const isTitleField = (p) => {
             if (String(p.type || '').trim().toLowerCase() === 'title') return true;
             const n = String(p.name || '').trim().toLowerCase();
@@ -268,9 +268,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             .filter(p => !isTitleField(p))
             .map(p => ({ name: p.name, type: p.type, relation_database_id: p.relation_database_id }));
         props.unshift({ name: 'title', type: 'title' });
-        // Fusiona els camps descoberts als registres que l'esquema registrat NO
-        // conté (taules sense `properties`, com "Recursos"). Es marquen com a
-        // `text` (tipus no conegut) i van al final, després de l'esquema.
+        // Merges the fields discovered in records that the registered schema does NOT
+        // contain (tables without `properties`, like "Recursos"). They are marked as
+        // `text` (unknown type) and go at the end, after the schema.
         const known = new Set(props.map(p => String(p.name || '').toLowerCase()));
         for (const name of discoveredFields) {
             if (known.has(String(name).toLowerCase())) continue;
@@ -286,9 +286,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return m;
     }, [tableFields]);
 
-    // Cau de registres de taules relacionades per als desplegables de filtre
-    // de relació: { [tableId]: [{ value: id, label: títol }] }. `undefined` =
-    // encara no carregat (mostrem "Carregant…").
+    // Cache of related table records for the filter dropdowns
+    // for relation: { [tableId]: [{ value: id, label: title }] }. `undefined` =
+    // not yet loaded (we show "Loading…").
     const [relationCache, setRelationCache] = useState({});
     useEffect(() => {
         if (!isOpen) return;
@@ -312,9 +312,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     }, [isOpen, filters, fieldMeta, apiFetch, relationCache, t]);
 
-    // Llegeix les opcions per-tipus d'una vista (registry o secció inline) als
-    // estats del modal, tolerant les dues convencions de nom (camelCase del
-    // registry i snake_case de la secció embeguda).
+    // Reads the per-type options of a view (registry or inline section) into the
+    // modal's state, tolerating both naming conventions (camelCase from the
+    // registry and snake_case from the embedded section).
     const applyTypeOptions = (v) => {
         setCardSize(v?.cardSize || 'medium');
         setGalleryPreview(v?.galleryPreview || 'cover');
@@ -354,10 +354,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
     useEffect(() => {
         if (!isOpen) return;
-        // Mode TAULA: configurem una vista del registry directament (no un
-        // embed). Pre-omplim des de `editingView` (o defaults si en creem una).
+        // TABLE mode: we configure a registry view directly (not an
+        // embed). We pre-fill from `editingView` (or defaults if we're creating one).
         if (isTableMode) {
-            // 'appearance' del modal antic = pestanya 'general' aquí. Només ids coneguts.
+            // 'appearance' from the old modal = 'general' tab here. Only known ids.
             const validIds = new Set(TABS.map(t => t.id));
             const norm = initialTab === 'appearance' ? 'general' : initialTab;
             setActiveTab(norm && validIds.has(norm) ? norm : 'general');
@@ -400,10 +400,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             }
             return;
         }
-        // Mode EDITA: pre-omplim a partir dels props del block existent.
-        // Si la secció té view_id, el carregarem al useEffect d'existing
-        // views (selecció automàtica). Si no, parsegem `section` (config
-        // inline) per omplir filters/sorts/visible_properties.
+        // EDIT mode: we prefill from the existing block's props.
+        // If the section has a view_id, we'll load it in the existing
+        // views useEffect (automatic selection). If not, we parse `section` (config
+        // inline) to fill filters/sorts/visible_properties.
         if (editingBlock) {
             const p = editingBlock.props || {};
             setActiveTab('general');
@@ -412,7 +412,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setError('');
 
             const vid = String(p.view_id || '');
-            // Carreguem les vistes fixades del localStorage
+            // We load the pinned views from localStorage
             try {
                 const saved = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${vid || 'default'}`) || '[]');
                 setModalPinnedViewIds(new Set(saved));
@@ -420,7 +420,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setModalPinnedViewIds(new Set());
             }
 
-            // Inline fallback (vista local desconnectada)
+            // Inline fallback (disconnected local view)
             let inline = null;
             if (!vid && p.section) {
                 try { inline = JSON.parse(p.section); } catch { /* malformat */ }
@@ -431,9 +431,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setEditScope('shared');
 
             if (vid) {
-                // Pre-càrrega via fetch directe perquè els useEffect en cadena
+                // Preload via a direct fetch so the chained useEffects don't
                 // (sourceTableId → existingViews → selectedExistingViewId) no
-                // arribin a buidar la selecció abans d'haver llegit la vista.
+                // end up clearing the selection before the view has been read.
                 let cancelled = false;
                 apiFetch(`/api/vault/views/${encodeURIComponent(vid)}`)
                     .then(v => {
@@ -452,8 +452,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         } else {
                             setSorts([]);
                         }
-                        // Posem la vista directament a la llista existent
-                        // perquè el desplegable la mostri seleccionada.
+                        // We put the view directly into the existing list
+                        // so the dropdown shows it selected.
                         setExistingViews(prev => {
                             if (prev.some(x => x.id === v.id)) return prev;
                             return [v, ...prev];
@@ -461,7 +461,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         setSelectedExistingViewId(vid);
                     })
                     .catch(() => {
-                        // Si fallem, deixem la modal en mode crear nova.
+                        // If we fail, we leave the modal in create-new mode.
                         if (!cancelled) {
                             setSourceTableId(preselectedTableId || '');
                             setSelectedExistingViewId('');
@@ -470,7 +470,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 return () => { cancelled = true; };
             }
 
-            // Vista local (inline). Pre-omplim a partir del JSON serialitzat.
+            // Local view (inline). We pre-fill from the serialized JSON.
             setSelectedExistingViewId('');
             setSourceTableId(inline?.source_table_id || preselectedTableId || '');
             setViewType(inline?.type || 'table');
@@ -483,7 +483,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setExistingViews([]);
             return;
         }
-        // Mode CREA: tot net.
+        // CREATE mode: everything clean.
         setActiveTab('general');
         setHeading('');
         setHeadingLevel(1);
@@ -505,8 +505,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setError('');
     }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
 
-    // Quan canvia la taula origen, carreguem les vistes ja guardades per
-    // permetre triar-ne una en lloc de crear-la des de zero.
+    // When the source table changes, we load the views already saved for
+    // allow choosing one instead of creating it from scratch.
     useEffect(() => {
         if (!sourceTableId) {
             setExistingViews([]);
@@ -519,10 +519,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             .then(data => {
                 if (cancelled) return;
                 const list = Array.isArray(data) ? data : (data?.views || []);
-                // La "Taula Principal" no es persisteix al registry: el frontend
-                // la crea virtualment quan una taula encara no té cap vista
-                // (vegi VaultDashboard.jsx::ensureMainViewForTable). Si no
-                // l'afegim aquí, l'usuari no la pot triar al desplegable.
+                // The "Main Table" is not persisted in the registry: the frontend
+                // creates it virtually when a table doesn't yet have any view
+                // (see VaultDashboard.jsx::ensureMainViewForTable). If we don't
+                // add it here, the user can't select it in the dropdown.
                 const hasMain = list.some(v =>
                     v.id === 'default' || v.is_main === true || v.is_default === true || v.name === 'Taula Principal'
                 );
@@ -539,9 +539,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     });
                 }
                 setExistingViews(list);
-                // Si la vista actualment seleccionada NO pertany a la nova
-                // taula (canvi user-iniciat), reset. Si SÍ que hi és (mode
-                // edit pre-omplint), conservem la selecció.
+                // If the currently selected view does NOT belong to the new
+                // table (user-initiated change), reset. If it DOES belong (pre-filling
+                // edit mode), we keep the selection.
                 setSelectedExistingViewId(prev => {
                     if (!prev) return '';
                     return list.some(v => v.id === prev) ? prev : '';
@@ -556,12 +556,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return () => { cancelled = true; };
     }, [sourceTableId, apiFetch]);
 
-    // Taules sense esquema registrat (`properties` buit, p. ex. "Recursos"
-    // importada del clon de Notion) no exposen cap camp al selector de columnes.
-    // Descobrim els camps d'usuari a partir d'una mostra de registres perquè
-    // l'usuari els pugui triar (i perquè l'efecte de sanejat no els esborri de
-    // les vistes que ja els usen). Només ho fem quan cal: si la taula ja té
-    // esquema, no hi ha res a descobrir.
+    // Tables without a registered schema (`properties` empty, e.g. "Recursos"
+    // imported from the Notion clone) do not expose any field in the column selector.
+    // We discover the user fields from a sample of records so that
+    // the user can select them (and so the sanitization effect doesn't remove them from
+    // views that already use them). We only do this when needed: if the table already has
+    // schema, there is nothing to discover.
     useEffect(() => {
         if (!sourceTableId || !selectedTable) { setDiscoveredFields([]); return; }
         if (Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0) {
@@ -579,8 +579,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return () => { cancelled = true; };
     }, [sourceTableId, selectedTable, apiFetch]);
 
-    // Quan l'usuari selecciona una vista existent, pre-omple els camps amb la
-    // seva config i carrega quantes pàgines la comparteixen.
+    // When the user selects an existing view, it pre-fills the fields with its
+    // config and loads how many pages share it.
     useEffect(() => {
         if (!selectedExistingViewId) {
             setViewUsage({ count: 0, pages: [] });
@@ -595,7 +595,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setResultSnapshot(v.resultSnapshot !== false);
         setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
         applyTypeOptions(v);
-        // Compat: el registry pot tenir `sorts: [...]` (nou) o `sort: {...}` (llegacy)
+        // Compat: the registry can have `sorts: [...]` (new) or `sort: {...}` (legacy)
         if (Array.isArray(v.sorts) && v.sorts.length > 0) {
             setSorts(v.sorts);
         } else if (v.sort && v.sort.field) {
@@ -603,9 +603,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         } else {
             setSorts([]);
         }
-        // La "Taula Principal" virtual no té entry al registry; la traiem
-        // com a "punt de partida" però activem el desat (es creaarà com a
-        // vista nova de debò). El usage tampoc té sentit per a 'default'.
+        // The virtual "Main Table" has no entry in the registry; we show it
+        // as a "starting point" but we enable saving (it will be created as a
+        // genuinely new view). The usage also doesn't make sense for 'default'.
         if (selectedExistingViewId === 'default' || v.is_main) {
             setSaveToTableViews(true);
             setViewUsage({ count: 0, pages: [] });
@@ -613,11 +613,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             return;
         }
 
-        // Quan tries una vista existent real, no la dupliquem al registry.
+        // When you pick a real existing view, we don't duplicate it in the registry.
         setSaveToTableViews(false);
         setEditScope('shared');
 
-        // Carrega usage per saber si la vista és compartida.
+        // Loads usage to find out whether the view is shared.
         let cancelled = false;
         apiFetch(`/api/vault/views/${encodeURIComponent(selectedExistingViewId)}/usage`)
             .then(data => {
@@ -633,15 +633,15 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         return () => { cancelled = true; };
     }, [selectedExistingViewId, existingViews, apiFetch]);
 
-    // Ajusta visibleProperties quan canvia la taula (treu els camps que ja no
-    // existeixen) i garanteix que el `title` canònic hi és sempre: com a Notion,
-    // la columna de títol és la propietat primària, sempre visible i no es pot
-    // treure. Si falta, es posa al davant.
+    // Adjusts visibleProperties when the table changes (removes fields that no longer
+    // exist) and ensures the canonical `title` is always present: as in Notion,
+    // the title column is the primary property, always visible, and cannot be
+    // remove. If missing, it is placed at the front.
     useEffect(() => {
         if (!selectedTable) return;
-        // Taula sense esquema registrat i descobriment de camps encara pendent:
-        // NO sanegem, o esborraríem columnes vàlides de la vista abans de saber
-        // quins camps existeixen (els camps arriben async via discoveredFields).
+        // Table without a registered schema and field discovery still pending:
+        // we do NOT sanitize, or we would delete valid view columns before knowing
+        // which fields exist (fields arrive async via discoveredFields).
         const hasSchema = Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0;
         if (!hasSchema && discoveredFields.length === 0) return;
         const valid = new Set(tableFields.map(f => f.name));
@@ -651,11 +651,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     }, [sourceTableId, selectedTable, tableFields, discoveredFields]);
 
-    // Lògica de teclat canònica: Esc tanca, Tab fa focus-trap dins el panell i
-    // es restaura el focus en tancar. Sense onConfirm: aquest modal és un
-    // configurador amb autosave/desat explícit, sense una única acció primària
-    // que Enter hagi de disparar. El hook escolta en CAPTURA a window, així
-    // venç el stopPropagation de BlockNote (TipTap/ProseMirror).
+    // Canonical keyboard logic: Esc closes, Tab does a focus-trap inside the panel, and
+    // focus is restored on close. No onConfirm: this modal is a
+    // configurator with autosave/explicit save, without a single primary action
+    // for Enter to trigger. The hook listens in CAPTURE on window, so it
+    // overrides BlockNote's stopPropagation (TipTap/ProseMirror).
     useModalKeyboard({
         isOpen,
         onClose: () => onClose(false),
@@ -666,15 +666,15 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     if (!isOpen) return null;
 
     const toggleProperty = (name) => {
-        // El `title` és la columna primària (com a Notion): sempre visible, no es
-        // pot deseleccionar.
+        // The `title` is the primary column (as in Notion): always visible, cannot be
+        // can deselect.
         if (name === 'title') return;
         setVisibleProperties(prev =>
             prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
         );
     };
 
-    // Mou una columna visible amunt/avall per controlar l'ordre d'aparició.
+    // Moves a visible column up/down to control the order of appearance.
     const moveProperty = (idx, dir) => {
         setVisibleProperties(prev => {
             const arr = [...prev];
@@ -685,9 +685,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     };
 
-    // Etiqueta visible d'un camp: el `title` canònic es tradueix ("Títol") i
-    // la resta es mostren amb la primera lletra en majúscula (els noms amb
-    // emoji/accents inicials es conserven intactes).
+    // A field's visible label: the canonical `title` is translated ("Title") and
+    // the rest are shown with the first letter capitalized (names with
+    // leading emoji/accents are kept intact).
     const capitalizeFirst = (s) => {
         const str = String(s || '');
         return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
@@ -696,9 +696,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         name === 'title' ? t('view.column_title', { defaultValue: 'Títol' }) : capitalizeFirst(name)
     );
 
-    // Valor inicial d'un filtre segons el tipus del camp: els checkbox neixen
-    // amb un booleà concret ('false' = sense marcar) en lloc de buit, perquè la
-    // comparació booleana del motor casi també les files sense valor.
+    // Initial value of a filter based on the field type: checkboxes start
+    // with a specific boolean ('false' = unchecked) instead of empty, because the
+    // engine's boolean comparison also matches rows with no value.
     const defaultFilterValue = (fieldName) => (
         fieldMeta[fieldName]?.type === 'checkbox' ? 'false' : ''
     );
@@ -711,9 +711,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     const updateFilter = (idx, patch) => {
         setFilters(prev => prev.map((f, i) => {
             if (i !== idx) return f;
-            // Si canvia el camp, el valor anterior pot no tenir sentit pel nou
-            // tipus (p. ex. un id de relació en un camp de text); el reiniciem
-            // al valor per defecte del nou tipus.
+            // If the field changes, the previous value may not make sense for the new
+            // type (e.g. a relation id in a text field); we reset it
+            // to the new type's default value.
             const next = { ...f, ...patch };
             if (patch.field !== undefined && patch.field !== f.field) next.value = defaultFilterValue(patch.field);
             return next;
@@ -747,14 +747,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         });
     };
 
-    // Construeix l'objecte amb les opcions específiques del tipus de vista
-    // actiu. Només inclou els camps que apliquen al tipus perquè una vista no
-    // arrossegui config irrellevant (p. ex. cardSize en una taula).
+    // Builds the object with the options specific to the view type
+    // that's active. Only includes the fields that apply to the type so that a view doesn't
+    // drags along irrelevant config (e.g. cardSize on a table).
     const buildViewExtras = (src) => {
-        // Sense `src` pren l'estat actual del modal; amb `src` (una vista
-        // existent) n'extreu els mateixos camps amb els mateixos defaults,
-        // tolerant camelCase (registry) i snake_case (secció embeguda). Així la
-        // detecció de canvis i el desat usen exactament la mateixa forma.
+        // Without `src` it takes the modal's current state; with `src` (an
+        // existing view) it extracts the same fields with the same defaults,
+        // tolerating camelCase (registry) and snake_case (embedded section). This way
+        // change detection and saving use exactly the same shape.
         const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, chartType, xField, yField, aggregation };
         const extras = {};
         if (viewType === 'gallery') {
@@ -805,8 +805,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setSaving(true);
         setError('');
         try {
-            // Sanititza els filtres: descarta files sense camp; per operators
-            // que no requereixen value, deixem null.
+            // Sanitize the filters: discard rows without a field; for operators
+            // that don't require a value, we leave null.
             const cleanFilters = filters
                 .filter(f => f.field)
                 .map(f => ({
@@ -818,13 +818,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             const cleanSorts = sorts
                 .filter(s => s.field)
                 .map(s => ({ field: s.field, direction: s.direction || 'asc' }));
-            // Mantenim `sort` (singular) per compat amb el renderer/UI que
-            // encara llegeixen un únic criteri.
+            // We keep `sort` (singular) for compatibility with the renderer/UI that
+            // still reads a single criterion.
             const sortConfig = cleanSorts[0] || null;
 
-            // Mode TAULA: desa la vista del registry directament (crea o
-            // actualitza), sense secció ni bloc. Retorna la vista desada al
-            // caller perquè refresqui el registry i la seleccioni.
+            // TABLE mode: saves the registry view directly (creates or
+            // updates), without a section or block. Returns the saved view to the
+            // caller so it can refresh the registry and select it.
             if (isTableMode) {
                 const viewBody = {
                     ...(editingView || {}),
@@ -854,8 +854,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         body: JSON.stringify(viewBody),
                     });
                 }
-                // `saved` pot ser la vista creada (amb id nou) o un status; en
-                // qualsevol cas retornem el cos amb l'id resultant.
+                // `saved` can be the created view (with a new id) or a status; in
+                // any case we return the body with the resulting id.
                 const savedView = {
                     ...viewBody,
                     id: editingView?.id || saved?.id || viewBody.id,
@@ -864,40 +864,40 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 return;
             }
 
-            // 'default' és la vista principal virtual (no persistida): la
-            // tractem com si l'usuari hagués escollit "Crear nova vista" amb
-            // saveToTableViews=true (això s'ha forçat al useEffect de
-            // selecció). Aquí netegem el viewId perquè no s'enviï 'default'
-            // al backend.
+            // 'default' is the virtual main view (not persisted): the
+            // we treat it as if the user had chosen "Create new view" with
+            // saveToTableViews=true (this was forced in the useEffect of
+            // selection). Here we clear the viewId so 'default' isn't sent
+            // to the backend.
             const isDefaultPick = selectedExistingViewId === 'default';
             let viewId = (selectedExistingViewId && !isDefaultPick) ? selectedExistingViewId : null;
 
-            // Reaprofitem la vista existent si n'han triat una real. Si
-            // l'usuari l'ha modificada:
-            //   - editScope === 'shared': fem upsert al registry → afecta totes
-            //     les pàgines que l'embeguin (això és el comportament natural
-            //     d'una vista compartida).
-            //   - editScope === 'fork': desfem la referència `view_id` i la
-            //     secció es desa amb els camps inline. Així aquesta pàgina
-            //     queda desconnectada de la vista compartida.
+            // We reuse the existing view if a real one was chosen. If
+            // the user has modified it:
+            //   - editScope === 'shared': we upsert to the registry → affects all
+            //     the pages that embed it (this is the natural behavior
+            //     of a shared view).
+            //   - editScope === 'fork': we remove the `view_id` reference and the
+            //     the section is saved with inline fields. This way this page
+            //     ends up disconnected from the shared view.
             if (selectedExistingViewId && !isDefaultPick) {
                 const original = existingViews.find(x => x.id === selectedExistingViewId);
                 const newPropsJson = JSON.stringify({
-                    // `type` també compta com a modificació: sense ell, canviar
-                    // NOMÉS el tipus (taula→board/feed/graph, sense extras) no
-                    // s'upsertava mai al registry i DbViewEmbed —que prefereix la
-                    // vista del registry a la secció— seguia pintant el tipus vell.
+                    // `type` also counts as a modification: without it, changing
+                    // ONLY the type (table→board/feed/graph, without extras) did not
+                    // was never upserted to the registry and DbViewEmbed —which prefers the
+                    // view from the registry to the section— it kept rendering the old type.
                     type: viewType,
                     filters: cleanFilters,
                     sorts: cleanSorts,
                     visibleProperties,
                     resultSnapshot,
                     resultSnapshotLimit,
-                    // Opcions per tipus (galeria: cardSize/galleryPreview; board:
-                    // groupBy; etc.). Sense incloure-les aquí, canviar NOMÉS la
-                    // previsualització o la mida de targeta no es detectava com a
-                    // modificació i mai s'aplicava la vista compartida al registry
-                    // (d'on el render llegeix galleryPreview) → el canvi es perdia.
+                    // Options by type (gallery: cardSize/galleryPreview; board:
+                    // groupBy; etc.). Without including them here, changing ONLY the
+                    // preview or card size was not detected as a
+                    // modification and the shared view was never applied to the registry
+                    // (from where the render reads galleryPreview) → the change was lost.
                     ...buildViewExtras(),
                 });
                 const oldPropsJson = JSON.stringify({
@@ -912,7 +912,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 const modified = newPropsJson !== oldPropsJson;
 
                 if (modified && editScope === 'fork') {
-                    // Desfés el lligam: la secció serà inline.
+                    // Undo the link: the section will be inline.
                     viewId = null;
                 } else if (modified && editScope === 'shared') {
                     const updated = {
@@ -935,8 +935,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     });
                 }
             } else if (saveToTableViews) {
-                // Cas "crear nova": la creem primer al registry.views[] perquè
-                // la secció pugui referenciar-la per id.
+                // Case "create new": we create it first in registry.views[] so that
+                // the section can reference it by id.
                 const viewBody = {
                     table_id: sourceTableId,
                     name: (viewName || heading || 'Vista').trim(),
@@ -948,11 +948,11 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     resultSnapshot,
                     resultSnapshotLimit,
                     ...buildViewExtras(),
-                    // Si filtra pel context de la pàgina ("this"), com a
-                    // pestanya del tauler no resoldria res: es marca embedded
-                    // i només viu dins dels embeds (isPageEmbedView). Sense
-                    // "this", es respecta el checkbox "desa també a les vistes
-                    // de la taula" i queda com a pestanya normal.
+                    // If it filters by the page context ("this"), as a
+                    // dashboard tab it would resolve nothing: it is marked embedded
+                    // and only lives inside embeds (isPageEmbedView). Without
+                    // "this", the "also save to the views" checkbox is respected
+                    // of the table" and remains as a normal tab.
                     ...(cleanFilters.some(f => f?.value === 'this') ? { embedded: true } : {}),
                 };
                 const created = await apiFetch('/api/vault/views', {
@@ -963,9 +963,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 viewId = created?.id || null;
             }
 
-            // 2) Crea la secció embeguda a la pàgina. Si tenim view_id,
-            // referenciem la vista guardada (única font de veritat). Sense
-            // view_id, escrivim els camps inline (mode "vista local").
+            // 2) Creates the embedded section in the page. If we have view_id,
+            // we reference the saved view (single source of truth). Without
+            // view_id, we write the fields inline ("local view" mode).
             const sectionBody = {
                 heading: heading.trim(),
                 heading_level: headingLevel,
@@ -978,7 +978,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 visible_properties: visibleProperties,
                 view_type: viewType,
                 ...buildViewExtras(),
-                // Llegacy: mantingut per a l'sync_sections que encara llegeix `columns`
+                // Legacy: kept for sync_sections which still reads `columns`
                 columns: visibleProperties,
             };
 
@@ -1000,8 +1000,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 }
             }
 
-            // Retornem prou info perquè el caller (BlockEditor) pugui inserir
-            // un block dbViewEmbed al cursor amb la config completa.
+            // We return enough info so the caller (BlockEditor) can insert
+            // a dbViewEmbed block at the cursor with the full config.
             onClose(true, {
                 view_id: viewId,
                 heading: heading.trim(),
@@ -1019,20 +1019,20 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         }
     };
 
-    // Camps de l'esquema aptes per a cada control per-tipus: agrupació de
-    // Kanban (camps amb valors acotats) i eix temporal de calendari/timeline.
+    // Schema fields suitable for each per-type control: grouping of
+    // Kanban (fields with bounded values) and calendar/timeline time axis.
     const groupFieldOptions = tableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
     const dateFieldOptions = tableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
     const numericFieldOptions = tableFields.filter(f => NUMERIC_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
-    // Camps aptes per a la portada de la galeria: adjunts/imatges/URL o camps amb
-    // nom d'imatge (la galeria n'extreu la src amb getImageSrc).
+    // Fields suitable for the gallery cover: attachments/images/URL or fields with
+    // an image name (the gallery extracts the src from it with getImageSrc).
     const coverFieldOptions = tableFields.filter(f => {
         const ty = String(f.type || '').toLowerCase();
         return ty === 'files' || ty === 'image' || ty === 'url' || /imatge|image|cover|portada|foto|photo|thumbnail|miniatura/i.test(f.name || '');
     });
 
-    // No tanquem amb click fora: amb tantes pestanyes és fàcil clicar
-    // accidentalment l'overlay i perdre la config. Tancament només via X / Esc.
+    // We don't close on click outside: with so many tabs it's easy to
+    // accidentally click the overlay and lose the config. Closing only via X / Esc.
     const handleOverlayClick = () => {};
 
     return (
@@ -1124,8 +1124,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             </div>
 
-                            {/* Opcions específiques del tipus de vista triat: apareixen
-                                contextualment just sota el selector de tipus. */}
+                            {/* Type-specific options for the chosen view type: they appear
+                                contextually right below the type selector. */}
                             {(viewType === 'table' || viewType === 'list') && (
                                 <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
                                     <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.table_options', 'Opcions de la taula')}</p>
@@ -1541,9 +1541,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 </div>
                             )}
 
-                            {/* Portabilitat: snapshot de wikilinks de resultats al
-                                markdown (Obsidian/Drupal/lectors plans). El valor
-                                viu a la vista; el backend l'honora en desar. */}
+                            {/* Portability: snapshot of result wikilinks into
+                                markdown (Obsidian/Drupal/plain readers). The value
+                                lives in the view; the backend honors it when saving. */}
                             <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
                                 <label className="flex items-start gap-2 cursor-pointer">
                                     <input
@@ -1725,13 +1725,13 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     ))}
                                                 </select>
                                                 {(() => {
-                                                    // El control del valor casa amb el tipus del camp: un checkbox
-                                                    // es filtra amb un checkbox (igual que el camp), un nombre amb
-                                                    // un input numèric, una data amb un selector de data i una
-                                                    // relació amb el seu picker.
+                                                    // The value control matches the field type: a checkbox
+                                                    // is filtered with a checkbox (just like the field), a number with
+                                                    // a numeric input, a date with a date picker, and a
+                                                    // relation with its picker.
                                                     const inputCls = 'text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40';
                                                     if (noValue) {
-                                                        // is_empty / is_not_empty: no cal cap valor.
+                                                        // is_empty / is_not_empty: no value is needed.
                                                         return <input className={inputCls} value="" placeholder="—" disabled />;
                                                     }
                                                     if (isRelation) {
@@ -1748,9 +1748,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     }
                                                     const ftype = meta?.type;
                                                     if (ftype === 'checkbox') {
-                                                        // Mateix control que el camp: un checkbox. Marcat = filtra
-                                                        // pels registres marcats ('true'); sense marcar = pels no
-                                                        // marcats ('false', que el motor també casa amb els buits).
+                                                        // Same control as the field: a checkbox. Checked = filters
+                                                        // for marked records ('true'); unmarked = for not
+                                                        // checked ('false', which the engine also matches with empty values).
                                                         const checked = f.value === 'true';
                                                         return (
                                                             <label className={`${inputCls} flex items-center gap-2 cursor-pointer`}>

@@ -13,11 +13,11 @@ def _get_mgmt_db_path() -> Path:
     from backend.config.app_config import load_params
     cfg = load_params(strict_env=False)
 
-    # Prioritat: Ruta de dades configurada al vault/.system
+    # Priority: Data path configured in vault/.system
     db_path = cfg.paths.get("MGMT_DB")
 
     if not db_path:
-        # Fallback a la carpeta data del projecte
+        # Fallback to the project's data folder
         project_root = cfg.paths.get("PROJECT_DIR") or Path(__file__).resolve().parents[2]
         db_path = project_root / "data" / "management.sqlite"
 
@@ -32,9 +32,9 @@ Base = declarative_base()
 
 def _get_or_init_mgmt_engine():
     global _engine, _SessionLocal
-    # Double-checked locking: el check ràpid sense lock evita prendre el lock
-    # un cop l'engine ja està creat (cas comú). El segon check dins el lock
-    # garanteix que dos threads concurrents al primer arrencada no creïn
+    # Double-checked locking: the fast check without a lock avoids acquiring the lock
+    # once the engine is already created (common case). The second check inside the lock
+    # guarantees that two concurrent threads on first startup don't create
     # dos engines diferents (i possiblement Base.metadata.create_all races).
     if _engine is None:
         with _engine_lock:
@@ -52,20 +52,21 @@ def _get_or_init_mgmt_engine():
                 Base.metadata.create_all(bind=engine)
                 _apply_lightweight_migrations(engine)
                 _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-                _engine = engine  # publicar al final per garantir visibilitat
+                _engine = engine  # publish at the end to guarantee visibility
     return _engine, _SessionLocal
 
 
 def _apply_lightweight_migrations(engine):
-    """Afegeix columnes noves a taules ja existents (no tenim Alembic).
+    """Adds new columns to already existing tables (we don't have Alembic).
 
-    `Base.metadata.create_all` crea taules que falten però MAI columnes noves
-    sobre taules que ja existeixen. Quan s'afegeix un camp a un model —p.ex.
-    `User.password_hash` per a l'auth JWT— les BD creades abans no el tenen i
-    qualsevol query peta amb «no such column». Aquí ho resolem de forma
-    idempotent: inspeccionem l'esquema real i fem `ALTER TABLE ... ADD COLUMN`
-    només si la columna no hi és. SQLite accepta afegir columnes nullable
-    sense reescriure la taula.
+    `Base.metadata.create_all` creates missing tables but NEVER new columns
+    on tables that already exist. When a field is added to a model —e.g.
+    `User.password_hash` for JWT auth— databases created earlier don't have it and
+    any query fails with «no such column». Here we solve it in an
+    idempotent way: we inspect the real schema and run `ALTER TABLE ... ADD COLUMN`
+    only if the column isn't there. SQLite allows adding nullable columns
+    without rewriting the table.
+    
     """
     additive_columns = {
         "users": {
@@ -80,7 +81,7 @@ def _apply_lightweight_migrations(engine):
         existing_tables = set(inspector.get_table_names())
         for table, columns in additive_columns.items():
             if table not in existing_tables:
-                continue  # create_all ja l'haurà creat amb totes les columnes
+                continue  # create_all will have already created it with all the columns
             present = {c["name"] for c in inspector.get_columns(table)}
             for col_name, col_type in columns.items():
                 if col_name in present:
@@ -89,12 +90,12 @@ def _apply_lightweight_migrations(engine):
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
                 log.info(f"🛠️ Migració lleugera: afegida columna {table}.{col_name}")
     except Exception as e:
-        # No bloquegem l'arrencada per un upgrade fallit; si la columna
-        # realment falta, l'error sortirà a la primera query i quedarà al log.
+        # We don't block startup for a failed upgrade; if the column
+        # is really missing, the error will show up on the first query and will be logged.
         log.warning(f"⚠️ _apply_lightweight_migrations ha fallat: {e}")
 
 def get_mgmt_db() -> Generator[Session, None, None]:
-    """Dependency per a FastAPI o ús intern."""
+    """Dependency for FastAPI or internal use."""
     _, SessionLocal = _get_or_init_mgmt_engine()
     db = SessionLocal()
     try:
@@ -109,7 +110,7 @@ def get_mgmt_db() -> Generator[Session, None, None]:
             pass
         db.close()
 
-# Per a ús fora del context de dependency (ex: scripts d'inicialització)
+# For use outside the dependency context (e.g. initialization scripts)
 def get_mgmt_session() -> Session:
     _, SessionLocal = _get_or_init_mgmt_engine()
     return SessionLocal()

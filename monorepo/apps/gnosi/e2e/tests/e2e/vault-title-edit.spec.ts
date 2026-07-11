@@ -1,24 +1,24 @@
 import { test, expect, type Locator, type Page } from '@playwright/test';
 
 /**
- * VaultTable — el clic sobre el TÍTOL edita inline (com la resta de camps),
- * NO obre la fitxa. Obrir = botons de l'esquerra / Alt+O.
- * (Canvi 2026-06-03; vegeu directiva vault_table_cell_grid.md.)
+ * VaultTable — clicking the TITLE edits inline (like the rest of the fields),
+ * it does NOT open the record. Open = left-hand buttons / Alt+O.
+ * (Change 2026-06-03; see vault_table_cell_grid.md directive.)
  *
- * Prova NO destructiva: obre l'editor del títol i el tanca amb Escape sense
- * teclejar → cap PATCH, no escriu a disc (l'autosave només desa amb valor canviat).
+ * NON-destructive test: opens the title editor and closes it with Escape without
+ * typing → no PATCH, nothing written to disk (autosave only saves on a changed value).
  *
- * Portable: descobreix una taula del vault amb ≥2 files via /api/vault/tables
- * (no hardcodeja cap id, que és per màquina). Si no en troba cap, salta.
+ * Portable: discovers a vault table with ≥2 rows via /api/vault/tables
+ * (doesn't hardcode any id, which is machine-specific). If it finds none, it skips.
  */
 
-// Files de dades = files amb 2a <td> (la 1a és accions/checkbox). Les files
-// espaiadores de la virtualització NO tenen 2a <td>, així `td:nth-child(2)` les
-// filtra de manera natural. La cel·la de títol és la 2a <td>.
+// Data rows = rows with a 2nd <td> (the 1st is actions/checkbox). The
+// virtualization spacer rows do NOT have a 2nd <td>, so `td:nth-child(2)`
+// filters them out naturally. The title cell is the 2nd <td>.
 const titleCell = (page: Page, k: number): Locator =>
   page.locator('table tbody tr td:nth-child(2)').nth(k);
 
-// Descobriment fet un sol cop per worker i cachejat.
+// Discovery done once per worker and cached.
 let resolvedTableUrl: string | null = null;
 let scanDone = false;
 
@@ -28,7 +28,7 @@ async function discoverTableWithRows(page: Page): Promise<string | null> {
   const tables = (await res.json()) as Array<{ id: string }>;
   for (const t of tables.slice(0, 8)) {
     await page.goto(`/vault/table/${t.id}`, { waitUntil: 'domcontentloaded' });
-    // ≥2 cel·les de títol ⇒ ≥2 files de dades (cal nth(0) i nth(1) als tests).
+    // ≥2 title cells ⇒ ≥2 data rows (need nth(0) and nth(1) in the tests).
     const secondTitle = page.locator('table tbody tr td:nth-child(2)').nth(1);
     const ok = await secondTitle
       .waitFor({ state: 'visible', timeout: 5_000 })
@@ -40,7 +40,7 @@ async function discoverTableWithRows(page: Page): Promise<string | null> {
 }
 
 test.describe('VaultTable: clic al títol edita (no obre)', () => {
-  test.describe.configure({ timeout: 60_000 }); // marge per al descobriment de taula
+  test.describe.configure({ timeout: 60_000 }); // margin for table discovery
 
   test.beforeEach(async ({ page }) => {
     if (!scanDone) {
@@ -60,26 +60,26 @@ test.describe('VaultTable: clic al títol edita (no obre)', () => {
     const cell = titleCell(page, 0);
     await cell.waitFor({ state: 'visible' });
 
-    await cell.dblclick({ force: true }); // force: evita el flakiness d'estabilitat de files virtualitzades
+    await cell.dblclick({ force: true }); // force: avoids flakiness in the stability of virtualized rows
 
     const editor = cell.locator('input');
     await expect(editor).toBeVisible({ timeout: 3_000 }); // editor inline a la cel·la
-    await expect(editor).not.toHaveValue('');             // duu el títol actual
-    await expect(page).toHaveURL(/\/vault\/table\//);      // NO ha obert la fitxa
+    await expect(editor).not.toHaveValue('');             // carries the current title
+    await expect(page).toHaveURL(/\/vault\/table\//);      // did NOT open the page
 
-    await page.keyboard.press('Escape');                  // tanca sense desar
+    await page.keyboard.press('Escape');                  // closes without saving
     await expect(editor).toHaveCount(0);
   });
 
   test('clic sobre la cel·la de títol ja activa edita (1r clic només selecciona)', async ({ page }) => {
-    const cell = titleCell(page, 1); // fila no auto-activa (la 0 ho és en carregar)
+    const cell = titleCell(page, 1); // row is not auto-active (row 0 is, on load)
     await cell.waitFor({ state: 'visible' });
 
     await cell.click({ force: true });                        // 1r clic: selecciona (cursor)
-    await expect(cell.locator('input')).toHaveCount(0);       // encara NO edita
+    await expect(cell.locator('input')).toHaveCount(0);       // still does NOT edit
     await expect(page).toHaveURL(/\/vault\/table\//);
 
-    await cell.click({ force: true });                        // 2n clic sobre activa: edita
+    await cell.click({ force: true });                        // 2nd click on active: edit
     await expect(cell.locator('input')).toBeVisible({ timeout: 3_000 });
     await expect(page).toHaveURL(/\/vault\/table\//);
 
@@ -90,7 +90,7 @@ test.describe('VaultTable: clic al títol edita (no obre)', () => {
     const firstRow = page
       .locator('table tbody tr', { has: page.locator('td:nth-child(2) span.truncate') })
       .first();
-    // 1r <button> de la cel·la d'accions (td 1) = botó "Obrir" (icona ExternalLink).
+    // 1st <button> in the actions cell (td 1) = "Open" button (ExternalLink icon).
     const openBtn = firstRow.locator('td:nth-child(1) button').first();
     await openBtn.scrollIntoViewIfNeeded();
     await openBtn.click({ force: true });

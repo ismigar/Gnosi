@@ -1,9 +1,9 @@
-"""Esborrar un dibuix passa per la paperera (soft-delete), com les pàgines.
+"""Deleting a drawing goes through the trash (soft-delete), like pages.
 
-Abans `DELETE /drawings/{id}` feia `unlink()` directe: irreversible a
-l'instant, i el backup d'`.history` només existeix si el dibuix s'havia
-sobreescrit algun cop — un dibuix nou esborrat es perdia del tot, mentre
-que tota la resta de l'app té Restaurar + 90 dies.
+Before, `DELETE /drawings/{id}` did a direct `unlink()`: instantly
+irreversible, and the `.history` backup only exists if the drawing had
+been overwritten at some point — a newly created drawing that got deleted
+was lost entirely, while the rest of the app has Restore + 90 days.
 """
 import asyncio
 import json

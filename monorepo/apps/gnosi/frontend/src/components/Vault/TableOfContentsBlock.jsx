@@ -1,31 +1,32 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { List } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 /**
  * TableOfContentsBlock
- * Bloc inserible que genera un índex de continguts a partir dels headings
- * del document en VIU (es regenera quan canvia el contingut). `content: "none"`.
- * En clicar una entrada, fa scroll fins al heading corresponent.
+ * Insertable block that generates a table of contents from the document's
+ * headings LIVE (it regenerates when the content changes). `content: "none"`.
+ * Clicking an entry scrolls to the corresponding heading.
  *
- * Es serialitza a Markdown com a `{{toc}}` (mirall de `{{bibliography}}`).
+ * Serialized to Markdown as `{{toc}}` (mirrors `{{bibliography}}`).
  */
 
-// Extreu el text pla d'un array de contingut inline de BlockNote.
+// Extracts the plain text from a BlockNote inline content array.
 const inlineText = (content) => {
     if (!Array.isArray(content)) return '';
     return content
         .map((it) => {
             if (!it || typeof it !== 'object') return '';
             if (typeof it.text === 'string') return it.text;
-            // wikilink / cite / mention: usa el títol visible si n'hi ha
+            // wikilink / cite / mention: uses the visible title if there is one
             return String(it.props?.title || it.props?.label || '');
         })
         .join('')
         .trim();
 };
 
-// Recorre el document (incloent fills de columnes/toggles) i recull els
-// headings en ordre amb el seu nivell, text i id de bloc (per fer scroll).
+// Traverses the document (including children of columns/toggles) and collects the
+// headings in order with their level, text, and block id (to scroll to).
 const extractHeadings = (editor) => {
     const out = [];
     const walk = (blocks) => {
@@ -37,21 +38,22 @@ const extractHeadings = (editor) => {
             if (Array.isArray(b?.children) && b.children.length) walk(b.children);
         }
     };
-    try { walk(editor?.document || []); } catch { /* editor encara no llest */ }
+    try { walk(editor?.document || []); } catch { /* editor not ready yet */ }
     return out;
 };
 
 export default function TableOfContentsBlock({ editor }) {
+    const { t } = useTranslation();
     const [headings, setHeadings] = useState(() => extractHeadings(editor));
 
     useEffect(() => {
         if (!editor?.onChange) return undefined;
-        // onChange retorna una funció de desubscripció en BlockNote >= 0.25.
+        // onChange returns an unsubscribe function in BlockNote >= 0.25.
         let unsub;
         try {
             unsub = editor.onChange(() => setHeadings(extractHeadings(editor)));
         } catch { /* noop */ }
-        // Recalcula també a muntar per si el document ja tenia headings.
+        // Also recalculates on mount in case the document already had headings.
         setHeadings(extractHeadings(editor));
         return () => { try { unsub?.(); } catch { /* noop */ } };
     }, [editor]);
@@ -63,8 +65,8 @@ export default function TableOfContentsBlock({ editor }) {
         } catch { /* noop */ }
     }, []);
 
-    // Nivell mínim per indentar de forma relativa (un doc que comença en H2
-    // no ha de quedar tot indentat).
+    // Minimum level to indent relatively (a doc that starts at H2
+    // it shouldn't all end up indented).
     const minLevel = headings.length ? Math.min(...headings.map((h) => h.level)) : 1;
 
     return (
@@ -74,11 +76,11 @@ export default function TableOfContentsBlock({ editor }) {
         >
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
                 <List size={14} />
-                <span>Índex</span>
+                <span>{t('editor.toc_block_title', 'Índex')}</span>
             </div>
             {headings.length === 0 ? (
                 <div className="text-sm italic text-[var(--text-tertiary)]">
-                    Afegeix encapçalaments per generar l'índex.
+                    {t('editor.toc_empty', "Afegeix encapçalaments per generar l'índex.")}
                 </div>
             ) : (
                 <ul className="space-y-0.5">

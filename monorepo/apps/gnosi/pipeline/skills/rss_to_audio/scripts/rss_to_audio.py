@@ -8,10 +8,10 @@ from groq import Groq
 from gtts import gTTS
 import time
 
-# Carreguem variables
+# Load variables
 try:
     from dotenv import load_dotenv
-    # Carreguem .env_shared des de l'arrel de projectes
+    # Load .env_shared from the projects root
     env_path = os.path.join(os.path.dirname(__file__), '../../../../.env_shared')
     if os.path.exists(env_path):
         load_dotenv(env_path)
@@ -23,7 +23,7 @@ GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 TARGET_TAGS = ["Religió", "ESS", "Actualitat", "News"]
 
 def parse_opml(filepath):
-    """Llegeix l'OPML i extreu les URLs dels feeds que pertanyen a les carpetes diana."""
+    """Reads the OPML and extracts the feed URLs that belong to the target folders."""
     feeds = []
     try:
         tree = ET.parse(filepath)
@@ -42,7 +42,7 @@ def parse_opml(filepath):
     return feeds
 
 def fetch_rss_24h(feeds):
-    """Descarrega i filtra articles publicats en les darreres 24 hores, netejant el HTML."""
+    """Downloads and filters articles published in the last 24 hours, cleaning the HTML."""
     target_time = datetime.now(timezone.utc) - timedelta(hours=24)
     articles = []
     
@@ -66,7 +66,7 @@ def fetch_rss_24h(feeds):
                         "source": feed['title'],
                         "category": feed['category'],
                         "title": entry.title,
-                        "content": text_content[:2000] # Limitem per evitar articles excessivament llargs
+                        "content": text_content[:2000] # We limit this to avoid excessively long articles
                     })
         except Exception as e:
             print(f"Error processant el feed {feed['url']}: {e}")
@@ -75,7 +75,7 @@ def fetch_rss_24h(feeds):
     return articles
 
 def generate_summary(articles):
-    """Junta els articles, controla els tokens i fa la petició al model de Groq per a síntesi d'àudio."""
+    """Joins the articles, manages the tokens, and makes the request to the Groq model for audio synthesis."""
     if not GROQ_API_KEY:
         print("Falta GROQ_API_KEY!")
         return "Error: Falta la clau de l'API de Groq."
@@ -116,7 +116,7 @@ def generate_summary(articles):
         return "Error generant el resum a causa del proveïdor LLM."
 
 def text_to_audio(text, filename):
-    """Converteix text a àudio utilitzant gTTS en llengua catalana."""
+    """Converts text to audio using gTTS in Catalan."""
     print(f"Generant àudio amb gTTS, es guardarà com a {filename}...")
     try:
         tts = gTTS(text=text, lang='ca', slow=False)

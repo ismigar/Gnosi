@@ -1,15 +1,15 @@
-"""Helpers per garantir que els camps `datetime` sortin sempre amb info de
-zona horària al ISO serialitzat.
+"""Helpers to ensure `datetime` fields always come out with timezone
+info in the serialized ISO string.
 
-Sense això, columnes `DateTime` (sense `timezone=True`) que guarden
-`datetime.now(timezone.utc)` retornen un `datetime` naive a SQLAlchemy,
-i Pydantic el serialitza com `"2026-05-12T18:55:00"`. El navegador llavors
-fa `new Date(iso).toLocaleString()` interpretant la cadena com a **hora
-local**, i la columna apareix 1-2 hores enrere al UI.
+Without this, `DateTime` columns (without `timezone=True`) that store
+`datetime.now(timezone.utc)` return a naive `datetime` in SQLAlchemy,
+and Pydantic serializes it as `"2026-05-12T18:55:00"`. The browser then
+runs `new Date(iso).toLocaleString()`, interpreting the string as **local
+time**, and the column appears 1-2 hours behind in the UI.
 
-Convencionalment, tots els `default=lambda: datetime.now(timezone.utc)`
-del repo guarden UTC; per a entrades antigues naive assumim aquesta
-convenció i hi adjuntem `tzinfo=UTC` abans de serialitzar.
+By convention, every `default=lambda: datetime.now(timezone.utc)`
+in the repo stores UTC; for old naive entries we assume this
+convention and attach `tzinfo=UTC` to them before serializing.
 """
 from __future__ import annotations
 
@@ -18,11 +18,12 @@ from typing import Optional
 
 
 def normalize_utc(v: Optional[datetime]) -> Optional[str]:
-    """Retorna el ISO 8601 d'un datetime, garantint que porti tz info.
+    """Returns the ISO 8601 of a datetime, ensuring it carries tz info.
 
-    - `None` → `None` (camps `Optional`).
-    - Datetime naive → assumit com UTC i serialitzat amb `+00:00`.
-    - Datetime aware → serialitzat tal qual.
+    - `None` → `None` (`Optional` fields).
+    - Naive datetime → assumed as UTC and serialized with `+00:00`.
+    - Aware datetime → serialized as-is.
+    
     """
     if v is None:
         return None

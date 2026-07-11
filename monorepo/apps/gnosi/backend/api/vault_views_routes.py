@@ -1,9 +1,9 @@
 """
-vault_views_routes.py — API per gestionar vistes per pàgina.
+vault_views_routes.py — API to manage per-page views.
 
-POST   /api/pages/{page_id}/views          → afegeix/actualitza una vista
-GET    /api/pages/{page_id}/views          → llista vistes de la pàgina
-DELETE /api/pages/{page_id}/views/{heading} → elimina una vista
+POST   /api/pages/{page_id}/views          → adds/updates a view
+GET    /api/pages/{page_id}/views          → lists the page's views
+DELETE /api/pages/{page_id}/views/{heading} → deletes a view
 """
 
 import json
@@ -30,14 +30,14 @@ router = APIRouter()
 
 class ViewFilter(BaseModel):
     field: str
-    value: str  # "this" = page_id actual, o un UUID explícit
+    value: str  # "this" = current page_id, or an explicit UUID
 
 
 class ViewSection(BaseModel):
-    # Permet camps addicionals (view_id, sorts, visible_properties, view_type,
-    # group_by, etc.) que el frontend afegeix a partir de la versió canònica
-    # mínima. Així les seccions guardades al registry preserven tots els camps
-    # quan són re-desades — abans, els no declarats es perdien al model_dump.
+    # Allows additional fields (view_id, sorts, visible_properties, view_type,
+    # group_by, etc.) that the frontend adds on top of the canonical
+    # minimal version. This way sections saved to the registry preserve all the fields
+    # when re-saved — previously, undeclared ones were lost in model_dump.
     model_config = ConfigDict(extra='allow')
 
     heading: str
@@ -48,8 +48,8 @@ class ViewSection(BaseModel):
     columns: List[str] = ["title"]
 
     def model_post_init(self, _ctx) -> None:
-        # Sanititzar heading: salts de línia parteixen el markdown final i
-        # generen `# Heading\nresta` invàlid. Aplanem a espais.
+        # Sanitize heading: line breaks split the final markdown and
+        # generate an invalid `# Heading\nrest`. We flatten to spaces.
         if self.heading:
             self.heading = " ".join(self.heading.splitlines()).strip()
 
@@ -59,14 +59,15 @@ class ViewSection(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _registry_mutation():
-    """Context manager del cicle RMW del registre, COMPARTIT amb vault_routes.
+    """Context manager for the registry's RMW cycle, SHARED with vault_routes.
 
-    Aquest mòdul i vault_routes.py fan RMW sobre EL MATEIX fitxer
-    (`vault_db_registry.json`): vault_routes muta `tables`/`views`/... i aquí
-    mutem `pages`, però tots dos carreguen i desen el fitxer SENCER. Sense un
-    candau únic, un `create_table` (vault_routes) i un upsert de vista (aquí)
-    concurrents s'esclafarien (last-writer-wins entre mòduls). Import mandrós per
-    trencar el cicle d'imports (server importa tots dos routers).
+    This module and vault_routes.py do RMW on THE SAME file
+    (`vault_db_registry.json`): vault_routes mutates `tables`/`views`/... and here
+    we mutate `pages`, but both load and save the WHOLE file. Without a
+    single lock, a concurrent `create_table` (vault_routes) and a view upsert (here)
+    would clobber each other (last-writer-wins between modules). Lazy import to
+    break the import cycle (server imports both routers).
+    
     """
     from backend.api import vault_routes as _vr
     return _vr.registry_mutation()
@@ -86,26 +87,27 @@ def _save_registry(registry: dict, registry_path: Path) -> None:
     # Atomic write — registry sits on cloud-synced storage; half-flushed
     # writes propagate to other devices and break everyone.
     safe_write_json(registry_path, registry, indent=2, ensure_ascii=False)
-    # Refresca la caché en memòria de vault_routes. CRÍTIC: vault_routes.load_registry
-    # té una fast-path de 30s (TTL) que torna l'objecte en caché SENSE ni stat() del
-    # fitxer. Si no la refresquéssim, un mutador de vault_routes (p. ex. create_table)
-    # dins d'aquesta finestra reprendria el seu snapshot ranci —sense els canvis de
-    # `pages` que acabem d'escriure— i el desaria a sobre, perdent-los. Refrescar-la
-    # amb les dades fresques fa que aquell load vegi ja aquest desat.
+    # Refreshes vault_routes' in-memory cache. CRITICAL: vault_routes.load_registry
+    # has a 30s fast-path (TTL) that returns the cached object WITHOUT even a stat() on the
+    # file. If we didn't refresh it, a vault_routes mutator (e.g. create_table)
+    # within this window would resume from its stale snapshot —without the
+    # `pages` changes we just wrote— and would save over it, losing them. Refreshing it
+    # with the fresh data makes that load already see this save.
     try:
         from backend.api import vault_routes as _vr
         _vr._update_registry_cache(registry_path, registry)
-    except Exception as e:  # best-effort: mai fer fallar el desat per la caché
+    except Exception as e:  # best-effort: never fail the save because of the cache
         log.debug(f"No s'ha pogut refrescar la caché del registre de vault_routes: {e}")
 
 
 def _page_exists_on_disk(page_id: str) -> bool:
-    """Comprova que la pàgina existeix al vault.
+    """Checks that the page exists in the vault.
 
-    Delega a `find_page_path` perquè usa comparació canònica d'ids
-    (insensible a guionets i majúscules: una frontmatter amb
-    `id: df3614865ff34a1490055d9b7b456492` casa amb una URL amb
-    `df361486-5ff3-4a14-9005-5d9b7b456492`, i a l'inrevés).
+    Delegates to `find_page_path` because it uses canonical id
+    comparison (case- and dash-insensitive: frontmatter with
+    `id: df3614865ff34a1490055d9b7b456492` matches a URL with
+    `df361486-5ff3-4a14-9005-5d9b7b456492`, and vice versa).
+    
     """
     try:
         from backend.api.vault_routes import find_page_path
@@ -116,13 +118,14 @@ def _page_exists_on_disk(page_id: str) -> bool:
 
 
 def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
-    """Sincronitza les seccions del .md (taula plana per a Obsidian).
+    """Syncs the .md sections (flat table for Obsidian).
 
-    `sync_sections` viu a `pipeline/sandbox/` (gitignored): a la imatge de
-    producció el directori és buit, l'import falla i retornem False. Això
-    és OK perquè el bloc `gnosi-view` el renderitza el frontend des del
-    registry — la taula plana és un best-effort per a clients markdown
-    externs (Obsidian) i no és necessària per veure la vista a l'app.
+    `sync_sections` lives in `pipeline/sandbox/` (gitignored): in the
+    production image the directory is empty, the import fails and we return False. This
+    is OK because the `gnosi-view` block is rendered by the frontend from the
+    registry — the flat table is a best-effort for external markdown
+    clients (Obsidian) and isn't necessary to see the view in the app.
+    
     """
     try:
         sandbox = Path(__file__).parents[2] / "pipeline" / "sandbox"
@@ -141,7 +144,7 @@ def _sync_page(page_id: str, registry: dict, vault_path: Path) -> bool:
 
 @router.get("/pages/{page_id}/views")
 async def get_page_views(page_id: str):
-    """Retorna les vistes configurades per a una pàgina."""
+    """Returns the views configured for a page."""
     try:
         cfg = load_params(strict_env=False)
         vault_path = cfg.paths.get("VAULT")
@@ -170,14 +173,15 @@ async def get_page_views(page_id: str):
 
 
 def _find_section_upsert_index(sections, new_vid, heading):
-    """Índex de la secció a SUBSTITUIR en un upsert, o ``None`` per afegir-ne una
-    de nova.
+    """Index of the section to REPLACE in an upsert, or ``None`` to add a
+    new one.
 
-    Si la secció entrant té ``view_id``, s'aparella per ``view_id`` (identitat
-    estable del bloc): així dos embeds amb el mateix heading (p. ex. buit) però
-    view_id diferent NO col·lisionen. Si no en té (secció inline/llegada),
-    s'aparella per ``heading`` però NOMÉS amb seccions que tampoc tenen view_id
-    (per no trepitjar una secció ancorada a una vista del registry).
+    If the incoming section has ``view_id``, it's matched by ``view_id`` (stable
+    block identity): this way two embeds with the same heading (e.g. empty) but
+    different view_id do NOT collide. If it doesn't have one (inline/legacy section),
+    it's matched by ``heading`` but ONLY with sections that also lack a view_id
+    (so as not to trample a section anchored to a registry view).
+    
     """
     if new_vid:
         return next(
@@ -196,8 +200,9 @@ def _find_section_upsert_index(sections, new_vid, heading):
 @router.post("/pages/{page_id}/views", dependencies=[Depends(require_role("editor"))])
 async def upsert_page_view(page_id: str, view: ViewSection):
     """
-    Afegeix o actualitza una vista per a una pàgina concreta.
-    Guarda la config al registry i sincronitza el .md.
+        Adds or updates a view for a specific page.
+    Saves the config to the registry and syncs the .md.
+    
     """
     try:
         cfg = load_params(strict_env=False)
@@ -205,16 +210,16 @@ async def upsert_page_view(page_id: str, view: ViewSection):
         if not vault_path:
             raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
 
-        # Cicle load→modify→save sencer sota candau COMPARTIT amb vault_routes
-        # (mateix fitxer de registre). Cos síncron, sense `await`: atòmic també
-        # respecte altres corrutines. `_sync_page` (best-effort, toca el .md) va
-        # FORA del candau.
+        # Entire load→modify→save cycle under a lock SHARED with vault_routes
+        # (same registry file). Synchronous body, no `await`: atomic too
+        # relative to other coroutines. `_sync_page` (best-effort, touches the .md) used to
+        # OUTSIDE the lock.
         with _registry_mutation():
             registry, registry_path = _load_registry(vault_path)
 
-            # Validació de la taula origen abans de tocar res al registry: així
-            # els errors són clars (422) en lloc d'un 200 silenciós amb
-            # md_synced: False que confonia l'usuari.
+            # Source table validation before touching anything in the registry: this way
+            # errors are clear (422) instead of a silent 200 with
+            # md_synced: False, which confused the user.
             tables = registry.get("tables") or []
             target_table = next(
                 (t for t in tables if str(t.get("id")) == str(view.source_table_id)),
@@ -226,7 +231,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
                     detail=f"Taula origen '{view.source_table_id}' no existeix al registry.",
                 )
 
-            # Si hi ha filtre, validar que el camp existeixi a la taula.
+            # If there's a filter, validate that the field exists in the table.
             if view.filter and view.filter.field:
                 prop_names = {p.get("name") for p in (target_table.get("properties") or [])}
                 if view.filter.field not in prop_names:
@@ -238,10 +243,10 @@ async def upsert_page_view(page_id: str, view: ViewSection):
                         ),
                     )
 
-            # La pàgina ha d'existir al disc abans de tocar el registry. Usem
-            # `find_page_path` (comparació canònica) en lloc d'un scan limitat
-            # a `.Dashboards`: pàgines en qualsevol carpeta del vault (BD/, Arees/,
-            # …) també han de validar-se.
+            # The page must exist on disk before touching the registry. We use
+            # `find_page_path` (canonical comparison) instead of a scan limited
+            # to `.Dashboards`: pages in any vault folder (BD/, Arees/,
+            # …) must also be validated.
             if not _page_exists_on_disk(page_id):
                 raise HTTPException(
                     status_code=404,
@@ -250,7 +255,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
                     ),
                 )
 
-            # Inicialitza `pages` si no existeix
+            # Initializes `pages` if it doesn't exist
             if "pages" not in registry:
                 registry["pages"] = {}
             if page_id not in registry["pages"]:
@@ -258,9 +263,9 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
             sections: list = registry["pages"][page_id].setdefault("sections", [])
 
-            # Upsert: identifica la secció pel `view_id` (identitat ESTABLE del
-            # bloc), no pel heading — així múltiples embeds SENSE encapçalament a la
-            # mateixa pàgina NO col·lisionen. Vegeu `_find_section_upsert_index`.
+            # Upsert: identifies the section by `view_id` (STABLE identity of the
+            # block), not by heading — this way multiple embeds WITHOUT a heading on the
+            # same page do NOT collide. See `_find_section_upsert_index`.
             new_section = view.model_dump()
             existing_idx = _find_section_upsert_index(
                 sections, new_section.get("view_id"), view.heading
@@ -274,9 +279,9 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
             _save_registry(registry, registry_path)
 
-        # Best-effort: sincronitza la taula plana al .md per a Obsidian.
-        # En producció (sense `pipeline/sandbox/`) retorna False — el block
-        # `gnosi-view` el renderitza el frontend, no fa falta per a l'app.
+        # Best-effort: syncs the flat table to the .md file for Obsidian.
+        # In production (without `pipeline/sandbox/`) it returns False — the block
+        # `gnosi-view` is rendered by the frontend, not needed for the app.
         synced = _sync_page(page_id, registry, vault_path)
 
         return {
@@ -304,14 +309,14 @@ async def upsert_page_view(page_id: str, view: ViewSection):
 
 @router.delete("/pages/{page_id}/views/{heading}", dependencies=[Depends(require_role("editor"))])
 async def delete_page_view(page_id: str, heading: str):
-    """Elimina una vista d'una pàgina i re-sincronitza el .md."""
+    """Deletes a view from a page and re-syncs the .md."""
     try:
         cfg = load_params(strict_env=False)
         vault_path = cfg.paths.get("VAULT")
         if not vault_path:
             raise HTTPException(status_code=500, detail="VAULT_PATH no configurat")
 
-        # Cicle load→modify→save sota candau compartit; `_sync_page` fora.
+        # load→modify→save cycle under a shared lock; `_sync_page` outside.
         with _registry_mutation():
             registry, registry_path = _load_registry(vault_path)
 

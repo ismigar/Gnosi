@@ -1,31 +1,31 @@
 #!/usr/bin/env python3
-"""Genera els fitxers de constants Py + JS a partir de `schema.json`.
+"""Generates the Py + JS constants files from `schema.json`.
 
-Llegeix `pipeline/skills/zotero_schema/schema.json` (pinned, mai de la xarxa
-en aquest script — vegis `refresh_schema.py` per actualitzar-lo) i emet:
+Reads `pipeline/skills/zotero_schema/schema.json` (pinned, never from the network
+in this script — see `refresh_schema.py` to update it) and emits:
 
   - `backend/services/zotero_schema.py`
   - `frontend/src/components/Vault/zoteroSchema.js`
 
-Tots dos amb header "GENERATED — DO NOT EDIT". Sortida determinista
-(claus ordenades alfabèticament) perquè el test de regeneració pugui
-comparar contra el fitxer commitat.
+Both with header "GENERATED — DO NOT EDIT". Deterministic output
+(keys sorted alphabetically) so the regeneration test can
+compare against the committed file.
 
-Constants generades (mateixos noms a Py i JS):
-  - SCHEMA_VERSION           — versió de schema.json (camp `version`)
-  - SCHEMA_SOURCE_SHA        — primers 16 chars de SHA-256 del schema.json
-  - ALL_ITEM_TYPES           — llista alfabètica de tots els itemType
-  - ZOTERO_TO_CSL_TYPE       — {zoteroType: cslType}  (1:1; primer CSL pare)
-  - ZOTERO_TYPE_LABELS       — {locale: {zoteroType: label_traduit}}
-  - LABEL_TO_ZOTERO_TYPE     — {locale: {label_traduit: zoteroType}}
-                               (per compat amb frontmatter que desa labels)
-  - ITEM_TYPE_FIELDS         — {zoteroType: [zoteroField, ...]} amb els
-                               camps oficials de cada tipus (per a L2: el
-                               modal d'alta agrupa "rellevant" vs "altres")
+Generated constants (same names in Py and JS):
+  - SCHEMA_VERSION           — schema.json version (`version` field)
+  - SCHEMA_SOURCE_SHA        — first 16 chars of schema.json's SHA-256
+  - ALL_ITEM_TYPES           — alphabetical list of all itemType values
+  - ZOTERO_TO_CSL_TYPE       — {zoteroType: cslType}  (1:1; first CSL parent)
+  - ZOTERO_TYPE_LABELS       — {locale: {zoteroType: translated_label}}
+  - LABEL_TO_ZOTERO_TYPE     — {locale: {translated_label: zoteroType}}
+                               (for compat with frontmatter that stores labels)
+  - ITEM_TYPE_FIELDS         — {zoteroType: [zoteroField, ...]} with the
+                               official fields of each type (for L2: the
+                               creation modal groups "relevant" vs "other")
 
-L'invers `csl.types` del schema és CSL→[Zotero]; aquí l'invertim a
-Zotero→CSL agafant el PRIMER tipus CSL pare per a cada Zotero (ordre
-estable: ordenació alfabètica dels CSL types, primer hit guanya).
+The schema's `csl.types` inverse is CSL→[Zotero]; here we invert it to
+Zotero→CSL by taking the FIRST parent CSL type for each Zotero type (stable
+order: alphabetical sort of CSL types, first hit wins).
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-# Locales que Gnosi exposa (han d'existir a schema.locales).
+# Locales that Gnosi exposes (must exist in schema.locales).
 LOCALES = ("ca-AD", "es-ES", "en-GB", "en-US")
 
 ROOT = Path(__file__).resolve().parents[4]  # monorepo/apps/gnosi
@@ -56,11 +56,12 @@ def load_schema() -> tuple[dict, str]:
 
 
 def derive_zotero_to_csl(csl_types: Dict[str, List[str]]) -> Dict[str, str]:
-    """csl.types al schema és CSL→[Zotero]. L'invertim a Zotero→CSL.
+    """csl.types in the schema is CSL→[Zotero]. We invert it to Zotero→CSL.
 
-    Cada Zotero key apareix sota un sol CSL type. Validem aquesta
-    assumpció: si un zoteroType apareix sota més d'un CSL, agafem el
-    primer en ordre alfabètic de CSL i emetem un warning per stderr.
+    Each Zotero key appears under a single CSL type. We validate this
+    assumption: if a zoteroType appears under more than one CSL, we take the
+    alphabetically first CSL and emit a warning to stderr.
+    
     """
     inverse: Dict[str, str] = {}
     multi: Dict[str, List[str]] = {}
@@ -78,10 +79,11 @@ def derive_zotero_to_csl(csl_types: Dict[str, List[str]]) -> Dict[str, str]:
 
 
 def derive_item_type_fields(schema: dict) -> Dict[str, List[str]]:
-    """{zoteroType: [zoteroField, ...]} amb els camps oficials de cada tipus.
+    """{zoteroType: [zoteroField, ...]} with the official fields of each type.
 
-    Els camps es presenten en l'ordre del schema (que és l'ordre canònic
-    de Zotero — primer els més usats, segons les seves heurístiques d'UI).
+    The fields are presented in the schema's order (which is Zotero's
+    canonical order — most-used fields first, according to its own UI heuristics).
+    
     """
     out: Dict[str, List[str]] = {}
     for it in schema["itemTypes"]:
@@ -91,7 +93,7 @@ def derive_item_type_fields(schema: dict) -> Dict[str, List[str]]:
 
 
 def derive_labels(schema: dict, all_types: List[str]) -> Dict[str, Dict[str, str]]:
-    """{locale: {zoteroType: label}}. Cau a la clau original si manca."""
+    """{locale: {zoteroType: label}}. Falls back to the original key if missing."""
     out: Dict[str, Dict[str, str]] = {}
     for loc in LOCALES:
         it = schema.get("locales", {}).get(loc, {}).get("itemTypes", {})
@@ -100,12 +102,12 @@ def derive_labels(schema: dict, all_types: List[str]) -> Dict[str, Dict[str, str
 
 
 def invert_labels(labels: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]]:
-    """{locale: {label: zoteroType}}. Si un mateix label apunta a múltiples
-    types al mateix locale, conservem el primer alfabètic (estable)."""
+    """{locale: {label: zoteroType}}. If the same label points to multiple
+    types in the same locale, we keep the alphabetically first one (stable)."""
     out: Dict[str, Dict[str, str]] = {}
     for loc, pairs in labels.items():
         inv: Dict[str, str] = {}
-        for zot in sorted(pairs):  # ordre estable
+        for zot in sorted(pairs):  # stable order
             label = pairs[zot]
             inv.setdefault(label, zot)
         out[loc] = inv
@@ -115,7 +117,7 @@ def invert_labels(labels: Dict[str, Dict[str, str]]) -> Dict[str, Dict[str, str]
 # ---------- Emissors Python / JavaScript ----------
 
 def _py_dict(d: dict, indent: int = 4) -> str:
-    """Emet un dict Python amb claus ordenades, valors string, indent fix."""
+    """Emits a Python dict with sorted keys, string values, fixed indent."""
     pad = " " * indent
     lines = ["{"]
     for k in sorted(d):

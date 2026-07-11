@@ -1,21 +1,21 @@
-"""iCloudDriveProvider: vault sobre iCloud Drive amb el File Provider macOS.
+"""iCloudDriveProvider: vault over iCloud Drive with the macOS File Provider.
 
-iCloud Drive utilitza el mateix patró que OneDrive a macOS:
-- Fitxers online-only marcats amb `st_blocks == 0`.
-- Materialització disparada per `open()/read()` (el File Provider
-  framework gestiona la baixada de manera transparent).
+iCloud Drive uses the same pattern as OneDrive on macOS:
+- Online-only files marked with `st_blocks == 0`.
+- Materialization triggered by `open()/read()` (the File Provider
+  framework handles the download transparently).
 
-El daemon `sh/onedrive_warmup_daemon.py` és agnòstic al proveïdor:
-només rep un path absolut i fa `open()/read()`. Així el mateix daemon
-serveix per OneDrive i per iCloud — l'únic que canvia és l'etiqueta
-del provider (visible al log) i, opcionalment, env vars dedicades.
+The `sh/onedrive_warmup_daemon.py` daemon is provider-agnostic:
+it only receives an absolute path and does `open()/read()`. So the same daemon
+serves both OneDrive and iCloud — the only thing that changes is the provider
+label (visible in the log) and, optionally, dedicated env vars.
 
-Si l'usuari té un daemon dedicat per iCloud (per exemple, un altre
-port), pot definir `ICLOUD_WARMUP_URL` i `ICLOUD_WARMUP_TIMEOUT`. Si
-no, es cau a `ONEDRIVE_WARMUP_URL` / `ONEDRIVE_WARMUP_TIMEOUT` (default
+If the user has a dedicated daemon for iCloud (for example, a different
+port), they can define `ICLOUD_WARMUP_URL` and `ICLOUD_WARMUP_TIMEOUT`. If
+not, it falls back to `ONEDRIVE_WARMUP_URL` / `ONEDRIVE_WARMUP_TIMEOUT` (default
 `host.docker.internal:5009`).
 
-Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/dev_memory/directives/files_provider_abstraction.md`.
 """
 
 from __future__ import annotations
@@ -27,11 +27,12 @@ from .onedrive import OneDriveProvider
 
 
 class iCloudDriveProvider(OneDriveProvider):
-    """Detecció + materialització per a iCloud Drive (File Provider macOS).
+    """Detection + materialization for iCloud Drive (macOS File Provider).
 
-    Reutilitza tota la lògica de `OneDriveProvider`; només canvia el
-    `name` (per logs/observabilitat) i prioritza env vars `ICLOUD_*`
-    abans de caure a `ONEDRIVE_*` per al daemon HTTP.
+    Reuses all the logic of `OneDriveProvider`; it only changes the
+    `name` (for logs/observability) and prioritizes `ICLOUD_*` env vars
+    before falling back to `ONEDRIVE_*` for the HTTP daemon.
+    
     """
 
     name = "icloud"

@@ -1,39 +1,39 @@
-"""Sincronització bidireccional de relacions — lògica pura.
+"""Bidirectional relation sync — pure logic.
 
-Quan una pàgina canvia un camp de relació (p.ex. una Àrea afegeix un recurs a
-`Recursos`), el camp INVERS de la pàgina de l'altre costat (`Àrees` al recurs)
-ha d'actualitzar-se, o les vistes incrustades —que filtren per l'invers— surten
-buides. El backend no ho feia (`PATCH` = `metadata.update`).
+When a page changes a relation field (e.g. an Àrea adds a resource to
+`Recursos`), the INVERSE field on the page on the other side (`Àrees` on the
+resource) must update, or the embedded views —which filter by the inverse—
+come out empty. The backend didn't do this (`PATCH` = `metadata.update`).
 
-Aquest mòdul NO toca el filesystem: només calcula QUÈ s'ha de propagar. El
-costat d'I/O (llegir/escriure les pàgines destí) viu a `vault_routes.py`.
+This module does NOT touch the filesystem: it only calculates WHAT needs to be
+propagated. The I/O side (reading/writing the target pages) lives in `vault_routes.py`.
 
-Aparellament directe↔invers: **per taula destí** (`relation_database_id`); no hi
-ha `related_property_id`. Es desa SEMPRE per nom de camp tal com viu al
-frontmatter. Es **normalitza** (minúscules, sense espais/prefixos decoratius)
-per casar la clau del frontmatter amb el nom de la property al registry. Vegeu
+Direct↔inverse pairing: **by target table** (`relation_database_id`); there is
+no `related_property_id`. It is ALWAYS saved by field name as it lives in the
+frontmatter. It is **normalized** (lowercase, no spaces/decorative prefixes)
+to match the frontmatter key with the property name in the registry. See
 docs/dev_memory/directives/vault_relation_inverse_sync.md
 
-Mòdul lleuger (re + typing): importable des de vault_routes i scripts sense
-arrossegar dependències.
+Lightweight module (re + typing): importable from vault_routes and scripts
+without pulling in dependencies.
 """
 from __future__ import annotations
 
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-# Ítem de relació al frontmatter: `[[Títol|id]]` (l'id viu a l'àlies) o id nu.
+# Relation item in the frontmatter: `[[Title|id]]` (the id lives in the alias) or a bare id.
 _WIKILINK_RE = re.compile(r"^\s*\[\[[^\]\|]*\|\s*(?P<rid>[^\]\|]+?)\s*\]\]\s*$")
 
 
 def _norm(name: Any) -> str:
-    """Normalitza un nom de camp: treu prefixos no alfanumèrics inicials i
-    espais, i passa a minúscules. Robust davant variacions de format."""
+    """Normalizes a field name: strips leading non-alphanumeric prefixes and
+    spaces, and lowercases it. Robust against formatting variations."""
     return re.sub(r"^[^\w]+", "", str(name or ""), flags=re.UNICODE).strip().lower()
 
 
 def to_ids(value: Any) -> List[str]:
-    """Valor d'un camp relació → llista d'ids nets (accepta ids o `[[T|id]]`)."""
+    """Relation field value → list of clean ids (accepts ids or `[[T|id]]`)."""
     if value is None:
         return []
     items = value if isinstance(value, list) else [value]
@@ -60,15 +60,16 @@ def resolve_inverse_relation(
     frontmatter_key: str,
     get_table: Callable[[str], Optional[Dict]],
 ) -> Optional[Tuple[str, str]]:
-    """`(taula_destí_id, nom_camp_invers)` per al camp `frontmatter_key` de
-    `origin_table`, o `None` si és ambigu/desconegut.
+    """`(target_table_id, inverse_field_name)` for the `frontmatter_key` field of
+    `origin_table`, or `None` if it's ambiguous/unknown.
 
-    Ambigu (i per tant NO es propaga) si:
-    - la clau no casa amb exactament 1 property relació de l'origen,
-    - la destí és la mateixa taula (auto-relació),
-    - l'origen té >1 camp cap a la mateixa destí (no se sap quin invers toca:
-      p.ex. Àrees té `Experiència professional` i `Titulacions` → mateixa taula),
-    - la destí no té exactament 1 camp cap a l'origen.
+    Ambiguous (and therefore NOT propagated) if:
+    - the key doesn't match exactly 1 relation property of the origin,
+    - the target is the same table (self-relation),
+    - the origin has >1 field pointing to the same target (it isn't clear which inverse
+      applies: e.g. Àrees has `Experiència professional` and `Titulacions` → same table),
+    - the target doesn't have exactly 1 field pointing to the origin.
+    
     """
     if not origin_table:
         return None
@@ -96,13 +97,14 @@ def relation_changes(
     origin_table: Optional[Dict],
     get_table: Callable[[str], Optional[Dict]],
 ) -> List[Tuple[str, str, str]]:
-    """Llista de `(target_id, nom_camp_invers, op)` a aplicar a l'altre costat.
-    `op` ∈ {"add", "remove"}. Compara els camps relació de `old_meta` i `new_meta`.
+    """List of `(target_id, inverse_field_name, op)` to apply on the other side.
+    `op` ∈ {"add", "remove"}. Compares the relation fields of `old_meta` and `new_meta`.
+    
     """
     old_meta = old_meta or {}
     new_meta = new_meta or {}
-    # Noms normalitzats dels camps de relació de l'esquema (nom + àlies): la
-    # font única per reconèixer un camp de relació, sigui quin sigui el nom.
+    # Normalized names of the schema's relation fields (name + aliases): the
+    # single source for recognizing a relation field, whatever its name.
     rel_norms = set()
     for p in _relations(origin_table):
         rel_norms.add(_norm(p.get("name")))

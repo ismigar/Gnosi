@@ -1,42 +1,42 @@
 /**
- * Citation Style Language (CSL) engine wrapper sobre `citeproc-js`.
+ * Citation Style Language (CSL) engine wrapper around `citeproc-js`.
  *
- * citeproc-js és la biblioteca de referència per a processar CSL en
- * JavaScript (MIT-licensed, mantinguda per Frank Bennett). Aquí
- * l'embolcallem amb una API d'alt nivell que:
- *   - Carrega estils CSL i locales des de `/public/csl/{styles,locales}/`
- *     amb cache en memòria.
- *   - Mapeja una "Recursos page" del Vault Gnosi a un item CSL-JSON.
- *   - Retorna text formatat per a una cita inline o una bibliografia.
+ * citeproc-js is the reference library for processing CSL in
+ * JavaScript (MIT-licensed, maintained by Frank Bennett). Here
+ * we wrap it with a high-level API that:
+ *   - Loads CSL styles and locales from `/public/csl/{styles,locales}/`
+ *     with an in-memory cache.
+ *   - Maps a "Recursos page" from the Gnosi Vault to a CSL-JSON item.
+ *   - Returns formatted text for an inline citation or a bibliography.
  *
- * Estructura CSL-JSON (subset que generem):
+ * CSL-JSON structure (subset we generate):
  *   {
  *     id: "smith2020",
  *     type: "article-journal" | "book" | "chapter" | ...,
  *     author: [{ family: "Smith", given: "A." }],
  *     issued: { "date-parts": [[2020]] },
  *     title: "...",
- *     "container-title": "...",  // revista o llibre antifitrió
+ *     "container-title": "...",  // journal or host book
  *     publisher: "...",
  *     "publisher-place": "...",
  *     volume: "...", issue: "...", page: "...",
  *     DOI: "...", ISBN: "...", ISSN: "...", URL: "...",
  *   }
  *
- * Vegeu https://docs.citationstyles.org/ per a la spec completa.
+ * See https://docs.citationstyles.org/ for the complete spec.
  */
 import CSL from 'citeproc';
 import { ZOTERO_TO_CSL_TYPE, LABEL_TO_ZOTERO_TYPE } from './zoteroSchema';
 
 /**
- * Resol el camp "Item Type" del Vault (clau Zotero canònica o label
- * traduït) a un tipus CSL. Ordre de resolució:
- *   1. Clau Zotero canònica (`journalArticle`, `book`, `preprint`, …)
- *   2. Label traduït a qualsevol locale (`"Article de revista acadèmica"` → ca-AD → journalArticle)
- *   3. Fallback `'document'` (CSL genèric)
+ * Resolves the Vault's "Item Type" field (canonical Zotero key or
+ * translated label) to a CSL type. Resolution order:
+ *   1. Canonical Zotero key (`journalArticle`, `book`, `preprint`, …)
+ *   2. Label translated in any locale (`"Article de revista acadèmica"` → ca-AD → journalArticle)
+ *   3. Fallback `'document'` (generic CSL)
  *
- * Aquest helper substitueix l'antic `ITEM_TYPE_MAP` hardcoded. El
- * coneixement viu ara a `zoteroSchema.js` (generat des de l'oficial).
+ * This helper replaces the old hardcoded `ITEM_TYPE_MAP`. The
+ * knowledge now lives in `zoteroSchema.js` (generated from the official schema).
  */
 export function resolveCslType(raw) {
     if (!raw || typeof raw !== 'string') return 'document';
@@ -48,8 +48,8 @@ export function resolveCslType(raw) {
     return 'document';
 }
 
-// Estils canònics — fallback estàtic si el backend no respon o si volem
-// arrencar abans que la llista dinàmica arribi. Es completen amb el que
+// Canonical styles — static fallback if the backend doesn't respond or if we want to
+// start up before the dynamic list arrives. They're completed with what
 // detecti `GET /api/vault/csl/styles` (vegis `fetchAvailableStyles`).
 export const AVAILABLE_STYLES = [
     { id: 'apa', label: 'APA 7th edition', file: 'apa.csl', locale: 'en-US' },
@@ -58,20 +58,20 @@ export const AVAILABLE_STYLES = [
     { id: 'ieee', label: 'IEEE', file: 'ieee.csl', locale: 'en-US' },
 ];
 
-// Cache per als estils descoberts via backend. Es popula al primer
-// `fetchAvailableStyles()` i s'invalida quan l'usuari puja un nou fitxer.
+// Cache for styles discovered via the backend. It gets populated on the first
+// `fetchAvailableStyles()` and is invalidated when the user uploads a new file.
 let _dynamicStylesCache = null;
 
 /**
- * Demana al backend la llista completa d'estils CSL al catàleg
- * (`frontend/public/csl/styles/`). Si la crida falla, cau a la llista
- * estàtica `AVAILABLE_STYLES` per no trencar la UX.
+ * Requests the full list of CSL styles in the catalog from the backend
+ * (`frontend/public/csl/styles/`). If the call fails, it falls back to the
+ * static `AVAILABLE_STYLES` list to avoid breaking the UX.
  *
- * Format retornat: `[{id, file, label, locale}]` per coherència amb el
- * fallback estàtic. El backend envia `title` (denominació oficial CSL);
- * el mappem a `label`. `locale` cau a 'en-US' si no es coneix (el CSL
- * pot tenir `default-locale` però la majoria d'estils no el porten;
- * en aquest cas citeproc-js usa el locale globalment configurat).
+ * Returned format: `[{id, file, label, locale}]` for consistency with the
+ * static fallback. The backend sends `title` (official CSL name);
+ * we map it to `label`. `locale` falls back to 'en-US' if unknown (CSL
+ * can have `default-locale` but most styles don't include it;
+ * in that case citeproc-js uses the globally configured locale).
  */
 export async function fetchAvailableStyles({ force = false } = {}) {
     if (_dynamicStylesCache && !force) return _dynamicStylesCache;
@@ -96,7 +96,7 @@ export async function fetchAvailableStyles({ force = false } = {}) {
     return AVAILABLE_STYLES;
 }
 
-/** Invalida el cache (cridar després d'un upload reeixit). */
+/** Invalidates the cache (call after a successful upload). */
 export function invalidateAvailableStylesCache() {
     _dynamicStylesCache = null;
 }
@@ -123,8 +123,8 @@ async function loadStyle(file) {
 }
 
 async function loadLocale(lang) {
-    // CSL.Engine demana els locales síncronament via `retrieveLocale`.
-    // Per això els pre-loadem i els guardem al cache abans de crear l'engine.
+    // CSL.Engine requests locales synchronously via `retrieveLocale`.
+    // That's why we preload them and store them in the cache before creating the engine.
     if (_localeCache.has(lang)) return _localeCache.get(lang);
     const xml = await fetchText(`/csl/locales/locales-${lang}.xml`);
     _localeCache.set(lang, xml);
@@ -132,16 +132,16 @@ async function loadLocale(lang) {
 }
 
 /**
- * Crea (o reusa) un CSL Engine per a un estil i locale concrets.
- * `items` és un mapa `id → CSL-JSON item` que l'engine consulta via
- * `retrieveItem`. Cal passar-lo perquè els ids siguin coneguts.
+ * Creates (or reuses) a CSL Engine for a specific style and locale.
+ * `items` is a map `id → CSL-JSON item` that the engine queries via
+ * `retrieveItem`. It must be passed so the ids are known.
  */
 export async function getEngine(styleId, locale, items) {
     const style = AVAILABLE_STYLES.find(s => s.id === styleId) || AVAILABLE_STYLES[0];
     const styleXml = await loadStyle(style.file);
-    // Pre-carrega els locales que el style i el user poden necessitar.
-    // Especifiquem `en-US` sempre com a fallback (la majoria de CSL styles
-    // l'usen per a strings que no tenen traducció al locale demanat).
+    // Preloads the locales that the style and the user might need.
+    // We always specify `en-US` as a fallback (most CSL styles
+    // they use it for strings that have no translation in the requested locale).
     const wantedLocales = new Set([locale, 'en-US']);
     await Promise.all([...wantedLocales].map(loadLocale));
 
@@ -155,31 +155,31 @@ export async function getEngine(styleId, locale, items) {
         engine = new CSL.Engine(sys, styleXml, locale);
         _engineCache.set(cacheKey, engine);
     } else {
-        // Engine reutilitzat — cal actualitzar el `sys.retrieveItem` perquè
-        // tingui els items més recents. citeproc-js té una propietat `sys`
-        // mutable, però refer un engine és segur (els caches XML es mantenen).
+        // Reused engine — the `sys.retrieveItem` needs to be updated so that
+        // it has the most recent items. citeproc-js has a `sys` property
+        // that's mutable, but recreating an engine is safe (the XML caches are kept).
         engine.sys.retrieveItem = (id) => items[id] || null;
     }
     return engine;
 }
 
 /**
- * Mapeja una pàgina del Vault Recursos a un objecte CSL-JSON.
+ * Maps a page from the Vault Recursos to a CSL-JSON object.
  *
- * Heurístiques i decisions:
- *  - `Citation Key` és l'`id`. Sense ell, retornem null (no es pot citar).
- *  - `Authors` és un string lliure ("Smith, A.; Jones, B." o "Lynn Margulis,
- *    Lorraine Olendzenski"). Provem dos formats:
- *      a) Separat per `;` → cada part és un autor (Cognom, Nom)
- *      b) Separat per `,` → primer és Cognom, Nom (un sol autor)
+ * Heuristics and decisions:
+ *  - `Citation Key` is the `id`. Without it, we return null (it can't be cited).
+ *  - `Authors` is a free-form string ("Smith, A.; Jones, B." or "Lynn Margulis,
+ *    Lorraine Olendzenski"). We try two formats:
+ *      a) Separated by `;` → each part is an author (Surname, Name)
+ *      b) Separated by `,` → first is Surname, Name (a single author)
  *  - `Item Type` (Llibre, Article de revista acadèmica, …) → CSL type
- *    (book, article-journal, …) via mapeig parcial. Si no coincideix,
- *    cau a "document" (genèric).
- *  - `Llibre/Revista` és `container-title` per articles; per llibres és
- *    irrelevant però l'omplim com a aïllament defensiu.
+ *    (book, article-journal, …) via partial mapping. If nothing matches,
+ *    falls back to "document" (generic).
+ *  - `Llibre/Revista` is `container-title` for articles; for books it's
+ *    irrelevant but we fill it in as a defensive safeguard.
  */
-// Sinònims i alies legacy que el schema oficial no cobreix però que poden
-// existir al frontmatter de pàgines antigues. Es resolen abans del schema.
+// Legacy synonyms and aliases that the official schema doesn't cover but that may
+// exist in the frontmatter of old pages. They are resolved before the schema.
 const LEGACY_TYPE_ALIASES = {
     'Article científic': 'article-journal',
     'Article de revista': 'article-journal',
@@ -196,23 +196,23 @@ const LEGACY_TYPE_ALIASES = {
 
 function parseAuthors(authorsStr) {
     if (!authorsStr || typeof authorsStr !== 'string') return [];
-    // Detectar separador. Si conté `;`, és el separador entre autors.
-    // Si només `,`, és perillós: pot ser "Smith, A." (un autor) o
-    // "Lynn Margulis, Lorraine Olendzenski" (dos autors). Heurística:
-    // si cada segment té un sol mot, són cognoms separats. Si cada
-    // segment té format "Cognom, Inicial.", el `,` no és separador.
+    // Detect separator. If it contains `;`, that's the separator between authors.
+    // If only `,`, it's dangerous: it could be "Smith, A." (one author) or
+    // "Lynn Margulis, Lorraine Olendzenski" (two authors). Heuristic:
+    // if each segment has a single word, they are separate surnames. If each
+    // segment has the format "Surname, Initial.", the `,` is not a separator.
     const parts = authorsStr.includes(';')
         ? authorsStr.split(';').map(s => s.trim()).filter(Boolean)
         : [authorsStr.trim()];
     const out = [];
     for (const p of parts) {
-        // Format "Cognom, Nom" amb coma + espai → un autor
-        // Format "Nom1 Cognom1, Nom2 Cognom2" → dos autors separats per coma
+        // Format "Surname, Name" with comma + space → one author
+        // Format "Name1 Surname1, Name2 Surname2" → two authors separated by a comma
         if (/,\s/.test(p) && p.split(',').length === 2) {
             const [family, given] = p.split(',').map(s => s.trim());
             if (family) out.push({ family, given });
         } else if (p.includes(',')) {
-            // Múltiples autors separats per coma
+            // Multiple authors separated by comma
             for (const sub of p.split(',').map(s => s.trim()).filter(Boolean)) {
                 const tokens = sub.split(/\s+/);
                 if (tokens.length === 1) {
@@ -222,7 +222,7 @@ function parseAuthors(authorsStr) {
                 }
             }
         } else {
-            // Un sol autor sense coma
+            // A single author without a comma
             const tokens = p.split(/\s+/);
             if (tokens.length === 1) {
                 out.push({ family: tokens[0] });
@@ -235,10 +235,10 @@ function parseAuthors(authorsStr) {
 }
 
 /**
- * Detecta un valor de camp "autoria" (array d'objectes {nom,cognom1,cognom2})
- * dins la metadata. Independent del nom de la columna —que és cosmètic i
- * renombrable—: el localitzem per **forma del valor**, no per clau. Retorna
- * l'array d'autors estructurats o null si no n'hi ha cap.
+ * Detects an "autoria" field value (array of objects {nom,cognom1,cognom2})
+ * within the metadata. Independent of the column name —which is cosmetic and
+ * renamable—: we locate it by **shape of the value**, not by key. Returns
+ * the array of structured authors or null if there is none.
  */
 function findStructuredAuthors(metadata) {
     if (!metadata || typeof metadata !== 'object') return null;
@@ -251,9 +251,9 @@ function findStructuredAuthors(metadata) {
 }
 
 /**
- * Mapeja autors estructurats a l'array `author` de CSL-JSON.
- * CSL no té concepte de segon cognom: cognom1+cognom2 es fusionen a `family`.
- * Un autor amb només `nom` (sense cognoms) es tracta com a nom literal.
+ * Maps structured authors to the CSL-JSON `author` array.
+ * CSL has no concept of a second surname: cognom1+cognom2 are merged into `family`.
+ * An author with only `nom` (no surnames) is treated as a literal name.
  */
 function structuredAuthorsToCsl(list) {
     const out = [];
@@ -277,8 +277,8 @@ export function recursosPageToCsl(page) {
     if (!id) return null;
 
     const typeRaw = m['Item Type'] || '';
-    // Legacy aliases primer (sinònims que el schema oficial no cobreix),
-    // després el resolver basat en el schema generat.
+    // Legacy aliases first (synonyms that the official schema doesn't cover),
+    // then the resolver based on the generated schema.
     const type = LEGACY_TYPE_ALIASES[typeRaw] || resolveCslType(typeRaw);
 
     const item = {
@@ -287,17 +287,17 @@ export function recursosPageToCsl(page) {
         title: page.title || m['Title'] || '',
     };
 
-    // Prioritat al camp "autoria" estructurat (citacions deterministes); si no
-    // n'hi ha, fallback a l'string lliure legacy via heurística.
+    // Priority to the structured "autoria" field (deterministic citations); if not,
+    // fallback to the legacy free-form string via heuristic.
     const structured = findStructuredAuthors(m);
     const authors = structured ? structuredAuthorsToCsl(structured) : parseAuthors(m['Authors']);
     if (authors.length) item.author = authors;
 
-    // Any de cita. Si conté un enter (p. ex. "2020", "2020-05", "c. 2020",
-    // "2020?"), n'extraiem l'any → `date-parts` (manté l'ordenació, #568). Si
-    // NO té cap dígit però hi ha text ("en premsa", "in press"), el preservem
-    // com a `literal` CSL perquè citeproc el mostri tal qual en lloc de "n.d."
-    // (#584). Buit → ometem `issued` i surt "n.d.".
+    // Citation year. If it contains an integer (e.g. "2020", "2020-05", "c. 2020",
+    // "2020?"), we extract the year → `date-parts` (keeps the ordering, #568). If
+    // it has NO digits but there is text ("en premsa", "in press"), we preserve it
+    // as CSL `literal` so citeproc displays it as-is instead of "n.d."
+    // (#584). Empty → we omit `issued` and it shows "n.d.".
     const yearRaw = String(m['Any'] ?? '').trim();
     const yearMatch = yearRaw.match(/-?\d{1,4}/);
     if (yearMatch) {
@@ -323,14 +323,14 @@ export function recursosPageToCsl(page) {
 }
 
 /**
- * Renderitza la cita inline d'un sol item amb un estil concret.
- * Retorna el text ja formatat (p.ex. "(Turkle, 2011)").
+ * Renders the inline citation of a single item with a specific style.
+ * Returns the already-formatted text (e.g. "(Turkle, 2011)").
  */
 export async function renderInlineCitation(citationKey, items, styleId = 'apa', locale = 'en-US') {
     if (!items[citationKey]) return `[?@${citationKey}]`;
     const engine = await getEngine(styleId, locale, items);
     engine.updateItems([citationKey]);
-    // citeproc-js retorna [[noteIndex, html, citationID]] per a processCitationCluster
+    // citeproc-js returns [[noteIndex, html, citationID]] for processCitationCluster
     const citationData = {
         properties: { noteIndex: 0 },
         citationItems: [{ id: citationKey }],
@@ -340,7 +340,7 @@ export async function renderInlineCitation(citationKey, items, styleId = 'apa', 
         // result format: [statusInfo, [[clusterIndex, html, clusterID], ...]]
         const clusters = result[1];
         if (clusters && clusters[0]) {
-            // Tercer és el HTML formatat
+            // Third is the formatted HTML
             return clusters[0][1] || `(${citationKey})`;
         }
     } catch (err) {
@@ -350,8 +350,8 @@ export async function renderInlineCitation(citationKey, items, styleId = 'apa', 
 }
 
 /**
- * Genera la bibliografia HTML per a un conjunt d'items.
- * Retorna { entries, formatting } o null si no hi ha cap item.
+ * Generates the HTML bibliography for a set of items.
+ * Returns { entries, formatting } or null if there are no items.
  */
 export async function renderBibliography(citationKeys, items, styleId = 'apa', locale = 'en-US') {
     if (!citationKeys?.length) return null;

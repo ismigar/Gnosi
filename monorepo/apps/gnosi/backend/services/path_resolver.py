@@ -47,15 +47,16 @@ class PathResolver:
         return files
 
     def add_file(self, vault_path: Path, record_id: Optional[str], file_path: Path) -> None:
-        """Registra (o re-ubica) UN fitxer sense esperar el rescan complet.
+        """Registers (or relocates) ONE file without waiting for the full rescan.
 
-        `update_index` només corre al rescan de vault (cooldown 600s i només
-        si algú toca GET /pages): sense aquest mètode, una pàgina CREADA no
-        entrava a `_vault_files` fins al següent rescan (invisible per a
-        /unlinked-mentions i per al `find_path` del rule_engine), i una de
-        RENOMBRADA hi quedava amb el path antic (`find_path` → None). Els
-        cridadors són els mateixos punts que registren la pàgina a l'índex
-        de vault_routes (create/PATCH/restore/duplicate).
+        `update_index` only runs on the vault rescan (600s cooldown and only
+        if someone hits GET /pages): without this method, a CREATED page
+        wouldn't enter `_vault_files` until the next rescan (invisible to
+        /unlinked-mentions and to the rule_engine's `find_path`), and a
+        RENAMED one would stay there with the old path (`find_path` → None).
+        The callers are the same points that register the page in the
+        vault_routes index (create/PATCH/restore/duplicate).
+        
         """
         v_str = str(vault_path)
         new_str = str(file_path)
@@ -65,14 +66,14 @@ class PathResolver:
             id_map[record_id] = new_str
         files = self._vault_files.setdefault(v_str, [])
         if old_str and old_str != new_str:
-            # Rename/move: fora el path antic de la llista de fitxers.
+            # Rename/move: remove the old path from the file list.
             old_path = Path(old_str)
             self._vault_files[v_str] = files = [p for p in files if p != old_path]
         if file_path not in files:
             files.append(file_path)
 
     def remove_file(self, vault_path: Path, record_id: Optional[str], file_path: Optional[Path]) -> None:
-        """Desregistra UN fitxer (soft-delete/purge), simètric a `add_file`."""
+        """Unregisters ONE file (soft-delete/purge), symmetric to `add_file`."""
         v_str = str(vault_path)
         id_map = self._id_to_path.get(v_str, {})
         mapped = id_map.pop(record_id, None) if record_id else None

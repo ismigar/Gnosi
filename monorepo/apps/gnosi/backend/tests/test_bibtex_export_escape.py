@@ -1,6 +1,6 @@
-"""En exportar a BibTeX, els caràcters especials de LaTeX (`& % $ # _`) s'han
-d'escapar o el fitxer no compila; i el round-trip export→import ha de
-recuperar el text literal (desescapat simètric a `_strip_bibtex_value`).
+"""When exporting to BibTeX, LaTeX special characters (`& % $ # _`) must be
+escaped or the file won't compile; and the export→import round-trip must
+recover the literal text (unescaping symmetric to `_strip_bibtex_value`).
 """
 from backend.services.references_io import entry_to_bibtex, parse_bibtex
 
@@ -10,10 +10,10 @@ TITLE = "Computing C_max in $O(n)$ time with 50% less cost & F# code"
 
 def test_export_escapa_els_especials():
     bib = entry_to_bibtex({"Citation Key": "k1", "Item Type": "journalArticle", "Title": TITLE})
-    # Cap d'aquests caràcters ha d'aparèixer SENSE la barra invertida davant.
+    # None of these characters should appear WITHOUT a backslash before them.
     assert r"\_" in bib and r"\$" in bib and r"\#" in bib
     assert r"\&" in bib and r"\%" in bib
-    # I no hi ha cap `_`, `#` o `$` "nu" (sempre precedit de `\`).
+    # And there's no "bare" `_`, `#`, or `$` (always preceded by `\`).
     import re
     for ch in ("_", "#", "$"):
         assert not re.search(r"(?<!\\)" + re.escape(ch), bib.split("title = {", 1)[1]), ch

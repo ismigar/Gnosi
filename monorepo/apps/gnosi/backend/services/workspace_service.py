@@ -27,7 +27,8 @@ ROLE_WEIGHTS = {
 
 def require_role(min_role: str):
     """
-    Retorna una dependència que valida si l'usuari té el rol mínim necessari.
+        Returns a dependency that validates whether the user has the minimum required role.
+    
     """
     def role_checker(context: WorkspaceContext = Depends(get_workspace_context)):
         user_weight = ROLE_WEIGHTS.get(context.role.lower(), 0)
@@ -44,7 +45,8 @@ def require_role(min_role: str):
 
 def require_capability(capability: str):
     """
-    Valida si l'usuari té una capacitat específica al JSON de permisos.
+        Validates whether the user has a specific capability in the permissions JSON.
+    
     """
     def capability_checker(context: WorkspaceContext = Depends(get_workspace_context)):
         if capability not in context.capabilities and context.role != "owner":
@@ -56,8 +58,8 @@ def require_capability(capability: str):
     return capability_checker
 
 def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
-    """Assegura que existeixi un workspace personal per a l'usuari."""
-    # 1. Trobar o crear usuari
+    """Ensure a personal workspace exists for the user."""
+    # 1. Find or create user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         user = User(id=user_id, name="User", email="user@example.com")
@@ -68,12 +70,12 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             db.rollback()
             raise
 
-    # 2. Cercar membresia 'Personal'.
-    # Scope a workspace_id == "personal": el workspace personal SEMPRE té aquest id
-    # (hardcoded a la branca de creació de sota). Sense aquest filtre, si l'usuari
-    # també és `owner` d'un workspace d'organització, el `.first()` (sense order_by)
-    # podia retornar aquella membresia i _resolve_personal_vault acabava resolent el
-    # vault d'un ALTRE workspace en mode personal (fuita de dades entre workspaces).
+    # 2. Look up the 'Personal' membership.
+    # Scoped to workspace_id == "personal": the personal workspace ALWAYS has this id
+    # (hardcoded in the creation branch below). Without this filter, if the user
+    # is also `owner` of an organization workspace, the `.first()` (without order_by)
+    # could return that membership and _resolve_personal_vault would end up resolving the
+    # vault from ANOTHER workspace in personal mode (data leak between workspaces).
     membership = db.query(Membership).filter(
         Membership.user_id == user_id,
         Membership.workspace_id == "personal",
@@ -81,19 +83,19 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     ).first()
 
     if not membership:
-        # Crear workspace
+        # Create workspace
         ws_id = "personal"
         ws = db.query(Workspace).filter(Workspace.id == ws_id).first()
         if not ws:
             ws = Workspace(id=ws_id, name="Personal Workspace")
             db.add(ws)
 
-        # Crear Vault
+        # Create Vault
         rel_vault = str(vault_path)
         v = Vault(id=str(uuid.uuid4()), workspace_id=ws_id, name="Main Vault", path_override=rel_vault)
         db.add(v)
 
-        # Crear Membresia
+        # Create Membership
         membership = Membership(user_id=user_id, workspace_id=ws_id, role="owner")
         db.add(membership)
 
@@ -111,8 +113,8 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
 
 def _resolve_personal_vault(db: Session, ws_id: str, x_vault_id: Optional[str],
                             default_vault_path: Path) -> Path:
-    """Mode personal multi-vault: si s'indica `X-Vault-Id` i és un Vault vàlid del workspace
-    personal, en retorna la ruta; altrament, el vault per defecte (compatibilitat enrere)."""
+    """Personal multi-vault mode: if `X-Vault-Id` is given and it's a valid Vault of the
+    personal workspace, returns its path; otherwise, the default vault (backward compatibility)."""
     if not x_vault_id:
         return default_vault_path
     v = db.query(Vault).filter(Vault.id == x_vault_id, Vault.workspace_id == ws_id).first()
@@ -138,12 +140,12 @@ def get_workspace_context(
     project_root = params.paths.get("PROJECT_DIR")
     default_vault_path = params.paths.get("VAULT")
 
-    # Resol l'usuari: prioritat JWT > X-User-ID > legacy "ismael-legacy".
+    # Resolve the user: priority JWT > X-User-ID > legacy "ismael-legacy".
     # `auth_uid` ve d'`auth_service.get_current_user_id` (cookie/Bearer).
     from backend.services.auth_service import get_user_id_or_legacy
     resolved_user_id = get_user_id_or_legacy(auth_uid, x_user_id)
 
-    # MODE PERSONAL: un workspace, però multi-vault opcional (X-Vault-Id; per defecte el principal)
+    # PERSONAL MODE: one workspace, but optional multi-vault (X-Vault-Id; defaults to the main one)
     if params.gnosi_mode == "personal":
         ws_id = _ensure_personal_exists(db, resolved_user_id, default_vault_path)
         vpath = _resolve_personal_vault(db, ws_id, x_vault_id, default_vault_path)
@@ -155,14 +157,14 @@ def get_workspace_context(
             vault_path=vpath
         )
 
-    # MODE ORG: substitueix x_user_id per resolved_user_id a partir d'aquí.
+    # ORG MODE: replaces x_user_id with resolved_user_id from here on.
     x_user_id = resolved_user_id
 
-    # MODE ORGANITZACIÓ: Lògica Multi-tenant
+    # ORGANIZATION MODE: Multi-tenant logic
     if not x_workspace_id:
         membership = db.query(Membership).filter(Membership.user_id == x_user_id).first()
         if not membership:
-            # Si no hi ha res, creem el personal per defecte per evitar bloquejos
+            # If there's nothing, we create the default personal one to avoid blocking
             x_workspace_id = _ensure_personal_exists(db, x_user_id, default_vault_path)
             membership = db.query(Membership).filter(Membership.user_id == x_user_id).first()
         else:
@@ -175,7 +177,7 @@ def get_workspace_context(
         if not membership:
             raise HTTPException(status_code=403, detail="Unauthorized access to this workspace")
 
-    # Comprovar si hi ha restriccions de VaultAccess
+    # Check whether there are VaultAccess restrictions
     vault_access = db.query(VaultAccess).filter(
         VaultAccess.workspace_id == x_workspace_id,
         VaultAccess.user_id == x_user_id
@@ -183,8 +185,8 @@ def get_workspace_context(
     
     allowed_vault_ids = [va.vault_id for va in vault_access]
     
-    # Si no hi ha restriccions explícites, i es owner/admin, pot veure tots? 
-    # Per ara, si n'hi ha, filtrem. Si no n'hi ha, permetem el primer (comportament original).
+    # If there are no explicit restrictions, and is owner/admin, can they see all? 
+    # For now, if there are any, we filter. If there aren't, we allow the first one (original behavior).
     
     query = db.query(Vault).filter(Vault.workspace_id == x_workspace_id)
     if allowed_vault_ids:
@@ -193,10 +195,10 @@ def get_workspace_context(
     vault = query.first()
     
     if not vault:
-        # Si hi havia restriccions i no n'ha trobat cap de vàlid
+        # If there were restrictions and none valid were found
         if allowed_vault_ids:
              raise HTTPException(status_code=403, detail="No tens accés a cap Vault en aquest workspace")
-        # Altrament, si no hi ha cap vault al workspace
+        # Otherwise, if there's no vault in the workspace
         raise HTTPException(status_code=404, detail="No s'ha trobat cap Vault per a aquest workspace")
 
     if vault.path_override:
@@ -219,7 +221,7 @@ def get_workspace_context(
             # Malformed permissions JSON — fall back to read-only.
             pass
     
-    # Si és admin o owner, té totes per defecte si no s'especifica
+    # If they're admin or owner, they have all by default if not specified
     if membership.role in ["admin", "owner"] and "admin" not in capabilities:
         capabilities.append("admin")
         if "write" not in capabilities: capabilities.append("write")

@@ -6,15 +6,15 @@ import { Mic, Square, Loader2, X, FileText, Monitor, Users, AlertTriangle, Check
 import { toast } from '../lib/toast';
 
 /**
- * Prenedor d'actes de reunions amb IA (estil Notion AI Meeting Notes).
+ * AI meeting minutes taker (Notion AI Meeting Notes style).
  *
- * Component global (App.jsx). Grava l'àudio de la reunió:
- *  - Presencial: micròfon (capta la sala).
- *  - Online: àudio de la pestanya/pantalla compartida (els altres) + micròfon,
- *    barrejats amb Web Audio API.
- * En aturar, puja l'àudio a `POST /api/meetings/record`; el backend el transcriu
- * LOCALMENT (faster-whisper) i en genera l'ACTA (IA) com a pàgina del Vault. El
- * component fa polling de `/status` i ofereix obrir l'acta.
+ * Global component (App.jsx). Records the meeting's audio:
+ *  - In-person: microphone (captures the room).
+ *  - Online: shared tab/screen audio (the others) + microphone,
+ *    mixed with the Web Audio API.
+ * On stop, it uploads the audio to `POST /api/meetings/record`; the backend transcribes it
+ * LOCALLY (faster-whisper) and generates the MINUTES (AI) as a Vault page. The
+ * component polls `/status` and offers to open the minutes.
  */
 const fmt = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
@@ -32,7 +32,7 @@ export default function MeetingRecorder() {
     const navigate = useNavigate();
     const recorderRef = useRef(null);
     const chunksRef = useRef([]);
-    const streamsRef = useRef([]);   // tots els MediaStream a aturar
+    const streamsRef = useRef([]);   // all MediaStreams to stop
     const audioCtxRef = useRef(null);
     const timerRef = useRef(null);
     const pollRef = useRef(null);
@@ -102,7 +102,7 @@ export default function MeetingRecorder() {
         try {
             let recordStream;
             if (mode === 'online') {
-                // Comparteix pestanya/pantalla AMB àudio + micròfon, barrejats.
+                // Share tab/screen WITH audio + microphone, mixed.
                 let display;
                 try {
                     display = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -117,12 +117,12 @@ export default function MeetingRecorder() {
                     return;
                 }
                 let mic = null;
-                try { mic = await navigator.mediaDevices.getUserMedia({ audio: true }); streamsRef.current.push(mic); } catch { /* sense micro, només pestanya */ }
+                try { mic = await navigator.mediaDevices.getUserMedia({ audio: true }); streamsRef.current.push(mic); } catch { /* without mic, tab only */ }
                 const ac = new (window.AudioContext || window.webkitAudioContext)();
                 audioCtxRef.current = ac;
                 const dest = ac.createMediaStreamDestination();
                 [display, mic].forEach((s) => { if (s && s.getAudioTracks().length) { try { ac.createMediaStreamSource(s).connect(dest); } catch { /* noop */ } } });
-                // No necessitem el vídeo: atura'l per estalviar recursos.
+                // We don't need the video: stop it to save resources.
                 display.getVideoTracks().forEach((t) => { t.onended = () => stopRecording(); });
                 recordStream = dest.stream;
             } else {
@@ -174,7 +174,7 @@ export default function MeetingRecorder() {
 
     return (
         <>
-            {/* Launcher (sobre el botó d'AgentChat) */}
+            {/* Launcher (above the AgentChat button) */}
             {!open && (
                 <button
                     type="button"

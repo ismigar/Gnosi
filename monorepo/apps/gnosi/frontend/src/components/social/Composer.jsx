@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Calendar as CalendarIcon, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import Scheduler from './Scheduler';
 import { toast } from '../../lib/toast';
 
@@ -12,6 +13,7 @@ const NETWORK_STYLES = {
 };
 
 const Composer = () => {
+    const { t } = useTranslation();
     const [content, setContent] = useState('');
     const [networks, setNetworks] = useState([]);
     const [selectedNetworks, setSelectedNetworks] = useState([]);
@@ -58,12 +60,12 @@ const Composer = () => {
 
             if (!res.ok) {
                 const err = await res.json();
-                throw new Error(err.detail || 'Failed to post');
+                throw new Error(err.detail || t('social.post_failed', "No s'ha pogut publicar"));
             }
 
             const message = immediate
-                ? 'Post published successfully!'
-                : `Post scheduled for ${scheduledTime.toLocaleString()}`;
+                ? t('social.post_success', 'Publicat correctament!')
+                : t('social.post_scheduled_for', 'Publicació programada per {{time}}', { time: scheduledTime.toLocaleString() });
 
             toast.success(message);
             setContent('');
@@ -71,7 +73,7 @@ const Composer = () => {
             setShowScheduler(false);
         } catch (error) {
             console.error(error);
-            toast.error(`Error: ${error.message}`);
+            toast.error(t('social.post_error', 'Error: {{message}}', { message: error.message }));
         } finally {
             setIsPosting(false);
         }
@@ -82,11 +84,11 @@ const Composer = () => {
         setShowScheduler(false);
     };
 
-    // Límit de caràcters REAL: el mínim de les xarxes seleccionades (un post va
-    // a totes alhora, així que ha de cabre a la més restrictiva). El backend ja
-    // envia `char_limit` per xarxa (mastodon 500, bluesky 300, twitter 280…);
-    // abans s'avisava sempre a 280 fix, fals per a Mastodon/Facebook/etc. Sense
-    // cap xarxa seleccionada no apliquem límit.
+    // REAL character limit: the minimum among the selected networks (a post goes
+    // out to all of them at once, so it must fit within the most restrictive one). The backend already
+    // sends `char_limit` per network (mastodon 500, bluesky 300, twitter 280…);
+    // previously it always warned at a fixed 280, which was wrong for Mastodon/Facebook/etc. Without
+    // validates this; if no network is selected we don't apply a limit.
     const effectiveLimit = selectedNetworks.length
         ? Math.min(...selectedNetworks.map(id => networks.find(n => n.id === id)?.char_limit ?? 500))
         : Infinity;
@@ -122,14 +124,16 @@ const Composer = () => {
                 <textarea
                     className="w-full p-4 rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] placeholder-[var(--text-secondary)] focus:ring-2 focus:ring-[var(--gnosi-blue)]/30 focus:border-[var(--gnosi-blue)]/40 focus:outline-none resize-none transition-all scrollbar-thin"
                     rows="5"
-                    placeholder="Què està passant?"
+                    placeholder={t('social.composer_placeholder', 'Què està passant?')}
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                 />
 
                 <div className="absolute bottom-3 right-3 flex items-center gap-3 text-xs bg-[var(--bg-secondary)]/80 px-2 py-1 rounded-full backdrop-blur-sm">
                     <span className={`${overLimit ? 'text-[var(--status-error)]' : 'text-[var(--text-secondary)]'}`}>
-                        {content.length}{Number.isFinite(effectiveLimit) ? ` / ${effectiveLimit}` : ''} caràcters
+                        {Number.isFinite(effectiveLimit)
+                            ? t('social.char_count_limit', '{{count}} / {{limit}} caràcters', { count: content.length, limit: effectiveLimit })
+                            : t('social.char_count', '{{count}} caràcters', { count: content.length })}
                     </span>
                     {overLimit && (
                         <AlertTriangle size={12} className="text-yellow-500" />
@@ -142,7 +146,7 @@ const Composer = () => {
                 <div className="mt-3 flex items-center justify-between bg-blue-500/10 border border-blue-500/20 px-3 py-2 rounded-lg text-sm text-blue-300">
                     <div className="flex items-center gap-2">
                         <CalendarIcon size={16} />
-                        <span>Programat per: <strong>{scheduledTime.toLocaleString()}</strong></span>
+                        <span>{t('social.scheduled_for', 'Programat per:')} <strong>{scheduledTime.toLocaleString()}</strong></span>
                     </div>
                     <button
                         onClick={() => setScheduledTime(null)}
@@ -177,7 +181,7 @@ const Composer = () => {
                     `}
                 >
                     <CalendarIcon size={18} />
-                    <span>Programar</span>
+                    <span>{t('social.schedule_button', 'Programar')}</span>
                 </button>
 
                 <button
@@ -191,7 +195,9 @@ const Composer = () => {
                         scheduledTime ? <CalendarIcon size={18} /> : <Send size={18} />
                     )}
                     <span>
-                        {isPosting ? 'Publicant...' : scheduledTime ? 'Confirmar Programa' : 'Publicar Ara'}
+                        {isPosting
+                            ? t('social.publishing', 'Publicant...')
+                            : scheduledTime ? t('social.confirm_schedule', 'Confirmar Programa') : t('social.publish_now', 'Publicar Ara')}
                     </span>
                 </button>
             </div>

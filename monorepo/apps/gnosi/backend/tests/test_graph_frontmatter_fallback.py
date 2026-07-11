@@ -1,9 +1,9 @@
-"""El graf ha de recuperar la metadata de primer nivell d'una pàgina amb YAML
-malformat, IGUAL que fa el Vault (rescat tolerant compartit).
+"""The graph must recover the top-level metadata of a page with malformed YAML,
+JUST LIKE the Vault does (shared tolerant rescue).
 
-Abans, `graph_service.parse_frontmatter` tornava `{}` a qualsevol error de YAML,
-de manera que una pàgina amb, p. ex., una cometa sense tancar al títol sortia
-BUIDA al graf (sense títol/tipus/color) tot i llegir-se correctament al Vault.
+Before, `graph_service.parse_frontmatter` returned `{}` on any YAML error,
+so a page with, e.g., an unclosed quote in the title came out
+EMPTY in the graph (no title/type/color) even though it read correctly in the Vault.
 """
 from backend.services.graph_service import parse_frontmatter
 from backend.services.frontmatter_fallback import parse_frontmatter_fallback
@@ -22,7 +22,7 @@ MALFORMED = (
 
 def test_graf_recupera_metadata_de_yaml_malformat():
     meta, body = parse_frontmatter(MALFORMED)
-    # Abans del fix: meta == {} (i el node sortia sense títol/tipus).
+    # Before the fix: meta == {} (and the node came out without title/type).
     assert meta.get("id") == "abc123"
     assert meta.get("Item Type") == "book"
     assert meta.get("is_hub") is True
@@ -43,7 +43,7 @@ def test_sense_frontmatter_retorna_buit():
 
 
 def test_fallback_pur_salva_escalars_de_primer_nivell():
-    # Ignora els membres de llista ('- item') i les línies INDENTADES ('  a: 1');
-    # 'nested:' és una clau de primer nivell amb valor buit → s'inclou com a "".
+    # Ignores list members ('- item') and INDENTED lines ('  a: 1');
+    # 'nested:' is a top-level key with an empty value → it's included as "".
     md = parse_frontmatter_fallback("id: x\nnested:\n  a: 1\n- item\nflag: false\n")
     assert md == {"id": "x", "nested": "", "flag": False}

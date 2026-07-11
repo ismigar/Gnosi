@@ -6,21 +6,21 @@ import { toast } from '../../lib/toast';
 import { fetchAvailableStyles, invalidateAvailableStylesCache } from './cslEngine';
 
 /**
- * Picker d'estils CSL amb cerca i upload.
+ * CSL style picker with search and upload.
  *
  * Props:
- *   - value (string)         id de l'estil triat actualment
- *   - onChange (string→void) callback quan l'usuari tria un estil
- *   - readOnly (bool)        deshabilita el upload (manté la cerca)
+ *   - value (string)         id of the currently chosen style
+ *   - onChange (string→void) callback when the user picks a style
+ *   - readOnly (bool)        disables the upload (keeps search)
  *
  * UX:
- *   - Input de cerca (filtra per id i label)
- *   - Llistat scrollable amb radio buttons; click selecciona
- *   - Botó "Pujar nou fitxer (.csl)" → input file → POST /api/vault/csl/styles
- *   - Toast d'èxit/error + refrescà de la llista després d'un upload reeixit
+ *   - Search input (filters by id and label)
+ *   - Scrollable list with radio buttons; click selects
+ *   - "Upload new file (.csl)" button → file input → POST /api/vault/csl/styles
+ *   - Success/error toast + list refresh after a successful upload
  *
- * No renderitza cap modal — és un component embebible. El caller decideix
- * si va dins un dropdown, una secció de Settings o un panel propi.
+ * Renders no modal — it's an embeddable component. The caller decides
+ * whether it goes inside a dropdown, a Settings section, or its own panel.
  */
 export function CslStylePicker({ value, onChange, readOnly = false }) {
     const { t } = useTranslation();
@@ -70,7 +70,7 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
             await loadStyles(true);
             if (r.data?.id) onChange?.(r.data.id);
         } catch (err) {
-            const detail = err?.response?.data?.detail || err?.message || 'desconegut';
+            const detail = err?.response?.data?.detail || err?.message || t('common.unknown', 'desconegut');
             toast.error(t('csl_picker.upload_failed', {
                 defaultValue: `Error pujant l'estil: ${detail}`,
                 detail,

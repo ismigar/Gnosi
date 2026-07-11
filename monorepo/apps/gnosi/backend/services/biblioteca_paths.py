@@ -1,26 +1,26 @@
-"""Resolució ÚNICA de la carpeta Biblioteca: SEMPRE dins del vault.
+"""SINGLE resolution of the Biblioteca folder: ALWAYS inside the vault.
 
-Decisió de disseny (2026-07-03): `<vault>/Biblioteca` és l'única ubicació, en
-natiu i en Docker. Cada vault és autocontingut i portable — esborrar, moure o
-clonar el vault s'emporta els seus PDFs. No hi ha fallback llegat: ni la
-germana del contenidor de vaults (`BIBLIOTECA_HOST_PATH`, retirada de l'env)
-ni `base.parent/Biblioteca` (que amb un vault fill com Principal apuntaria a
-l'arrel del contenidor `.../Gnosi`).
+Design decision (2026-07-03): `<vault>/Biblioteca` is the only location, both
+native and in Docker. Each vault is self-contained and portable — deleting, moving, or
+cloning the vault takes its PDFs with it. There is no legacy fallback: neither the
+vault-container sibling (`BIBLIOTECA_HOST_PATH`, removed from the env)
+nor `base.parent/Biblioteca` (which, with a child vault like Principal, would point to
+the container root `.../Gnosi`).
 
-Un sol lloc de veritat per a `get_p("BIBLIOTECA")` (vault_routes), el media
-picker (media_service) i el clon de Notion (notion_routes.save_asset).
+A single source of truth for `get_p("BIBLIOTECA")` (vault_routes), the media
+picker (media_service), and the Notion clone (notion_routes.save_asset).
 """
 from pathlib import Path
 from typing import List
 
 
 def resolve_biblioteca(base: Path) -> Path:
-    """Arrel canònica de la Biblioteca del vault `base` (lectura i escriptura)."""
+    """Canonical root of the Biblioteca for the `base` vault (read and write)."""
     return base / "Biblioteca"
 
 
 def biblioteca_roots(base: Path) -> List[Path]:
-    """Arrels de Biblioteca del vault `base`. Des del disseny vault-first pur
-    n'hi ha UNA de sola; es manté la forma de llista pels call sites que
-    iteren (serve_biblioteca_file, valors portables d'upload, re-root)."""
+    """Biblioteca roots for the `base` vault. Under the pure vault-first design
+    there is only ONE; the list form is kept for call sites that
+    iterate over it (serve_biblioteca_file, portable upload values, re-root)."""
     return [resolve_biblioteca(base)]

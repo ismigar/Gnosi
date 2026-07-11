@@ -3,10 +3,10 @@ import { LayoutPanelLeft, Plus, Trash2, X, FolderOpen } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 /**
- * WorkspacesModal — Espais de treball desats (saved layouts).
- * Desa el conjunt de pestanyes obertes amb un nom i les pot tornar a obrir.
- * Persistència local (localStorage); cada espai = llista de {id, isTable, title}.
- * Es desa només pàgines i taules (els PDFs/dibuixos s'ometen a la v1).
+ * WorkspacesModal — Saved workspaces (saved layouts).
+ * Saves the set of open tabs under a name and can reopen them.
+ * Local persistence (localStorage); each workspace = list of {id, isTable, title}.
+ * Only pages and tables are saved (PDFs/drawings are omitted in v1).
  */
 const KEY = 'gnosi.workspaces';
 const load = () => { try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch { return []; } };

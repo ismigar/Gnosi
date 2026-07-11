@@ -61,21 +61,21 @@ export function installPageEtagInterceptor() {
     // Request: auto-attach expected_etag on PATCH/PUT to /pages/{id}
     axios.interceptors.request.use((config) => {
         try {
-            // Mode personal multi-vault: el vault actiu triat es propaga a CADA petició
-            // (sense res triat → el backend usa el vault principal: compatibilitat enrere).
+            // Personal multi-vault mode: the chosen active vault is propagated to EVERY request
+            // (nothing selected → the backend uses the main vault: backward compatibility).
             try {
-                // Una capçalera X-Vault-Id explícita de la petició MANA (p. ex. clonar Notion a un
-                // vault separat sense canviar el vault global actiu); només si no n'hi ha, posem
-                // el vault actiu del localStorage.
+                // An explicit X-Vault-Id header from the request TAKES PRECEDENCE (e.g. cloning Notion into a
+                // separate vault without changing the current global vault); only if there isn't one do we set
+                // the active vault from localStorage.
                 const explicit = config.headers && config.headers['X-Vault-Id'];
                 const vid = typeof localStorage !== 'undefined' ? localStorage.getItem('gnosi_active_vault') : null;
                 if (!explicit && vid) config.headers = { ...(config.headers || {}), 'X-Vault-Id': vid };
-                // Manté la cookie same-origin sincronitzada amb localStorage (font
-                // de veritat) perquè les peticions NO-axios (fetch cru, <img>, SSE,
-                // /api/chat, WebSocket) portin també el vault. Auto-repara la cookie
-                // si ha expirat o l'ha esborrat el navegador. No la posem si un
-                // X-Vault-Id explícit mana (deixem que la cookie reflecteixi el
-                // vault global, no el destí puntual d'un clon).
+                // Keeps the same-origin cookie synchronized with localStorage (source
+                // of truth) so that NON-axios requests (raw fetch, <img>, SSE,
+                // /api/chat, WebSocket) also carry the vault. Auto-repairs the cookie
+                // if it has expired or the browser has deleted it. We don't set it if a
+                // explicit X-Vault-Id takes precedence (we let the cookie reflect the
+                // global vault, not the one-off destination of a clone).
                 if (!explicit) setActiveVaultCookie(vid);
             } catch { /* localStorage no disponible */ }
             const method = (config.method || 'get').toLowerCase();
@@ -111,10 +111,10 @@ export function installPageEtagInterceptor() {
                 if (!pageId) return response;
                 const etag = response?.data?.etag;
                 if (etag) etagByPage.set(pageId, etag);
-                // Invalida el preview cache del WikilinkHoverPreview en
-                // PATCH/PUT exitós: sense això, l'extracte cachejat (TTL 5
-                // min) sobreviu al canvi i el hover mostra "Pàgina buida"
-                // o text obsolet fins que caduqui.
+                // Invalidates the WikilinkHoverPreview preview cache on
+                // successful PATCH/PUT: without this, the cached excerpt (TTL 5
+                // min) survives the change and the hover shows "Empty page"
+                // or stale text until it expires.
                 const method = (response?.config?.method || 'get').toLowerCase();
                 if (method === 'patch' || method === 'put') {
                     window.dispatchEvent(
@@ -141,14 +141,14 @@ export function installPageEtagInterceptor() {
                     if (pageId && detail?.current_etag) {
                         etagByPage.set(pageId, detail.current_etag);
                     }
-                    // Auto-retry UNA VEGADA per request amb el nou etag. Sense
-                    // això, quan diversos PATCH es queden encavalcats (autosave
-                    // amb timeout que despenja la cadena, OneDrive tocant el
-                    // mtime sense canvis reals), tots porten l'etag vell i tots
-                    // tornen 409 — l'usuari veu el toast però els canvis no es
-                    // guarden. Aquí reintentem amb `current_etag` perquè el
-                    // PATCH "guanyi" si encara és vàlid; només broadcastegem
-                    // el conflicte si el reintent també falla.
+                    // Auto-retry ONCE per request with the new etag. Without
+                    // this, when several PATCHes end up overlapping (autosave
+                    // with a timeout that unhooks the chain, OneDrive touching the
+                    // mtime with no real changes), they all carry the old etag and all
+                    // return 409 — the user sees the toast but the changes are not
+                    // saved. Here we retry with `current_etag` so that the
+                    // Let the PATCH "win" if it's still valid; we only broadcast
+                    // the conflict if the retry also fails.
                     const cfg = error?.config;
                     const canRetry = cfg && !cfg._etagRetried && pageId && detail?.current_etag;
                     if (canRetry) {
@@ -160,8 +160,8 @@ export function installPageEtagInterceptor() {
                             cfg.data = nextBody;
                             return await axios.request(cfg);
                         } catch (retryErr) {
-                            // Si el reintent també falla amb etag, deixem que
-                            // surti pel camí normal (toast de conflicte).
+                            // If the retry also fails with etag, we let
+                            // it go through the normal path (conflict toast).
                             error = retryErr;
                         }
                     }

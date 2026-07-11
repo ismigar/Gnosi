@@ -1,29 +1,29 @@
 /**
  * toast.js
  *
- * Wrapper sobre `react-hot-toast` que afegeix persistència automàtica al
- * Control Center per a TOTES les variants de toast: `error`, `success`,
- * `loading`, `custom`, `promise` i la crida directa `toast(message)`. La
- * resta de mètodes (dismiss, remove) es deleguen sense canvis perquè no
- * generen contingut nou.
+ * Wrapper around `react-hot-toast` that adds automatic persistence to the
+ * Control Center for ALL toast variants: `error`, `success`,
+ * `loading`, `custom`, `promise`, and the direct `toast(message)` call. The
+ * remaining methods (dismiss, remove) are delegated unchanged because they don't
+ * generate new content.
  *
- * Motivació: hi havia 200+ call sites de `toast.*` que només mostraven un
- * toast efímer. Migrar-los manualment a `notifyError` / `notifySuccess` no
- * era viable. Substituint només l'import a aquest fitxer
- * (`from 'react-hot-toast'` → `from '<path>/lib/toast'`), tots els toasts
- * ja existents queden registrats al log central sense tocar la lògica del
- * caller.
+ * Motivation: there were 200+ `toast.*` call sites that only showed an
+ * ephemeral toast. Manually migrating them to `notifyError` / `notifySuccess` wasn't
+ * viable. Only replacing the import in this file
+ * (`from 'react-hot-toast'` → `from '<path>/lib/toast'`), all toasts
+ * already in place get registered in the central log without touching the caller's
+ * logic.
  *
- * Dedup: missatges idèntics dins d'una finestra curta no es duplican al log
- * (un autosave fallant en bucle no inflarà el Control Center amb 50 errors
- * iguals). El toast visual segueix sortint cada vegada — la dedup és només
- * per a la persistència.
+ * Dedup: identical messages within a short window aren't duplicated in the log
+ * (an autosave failing in a loop won't flood the Control Center with 50 identical
+ * errors). The visual toast still shows up every time — the dedup is only
+ * for persistence.
  *
- * Extracció de missatge: text pla → tal qual; JSX/objectes → cerca text útil
- * (props.children, message, title) abans de caure a un placeholder. Així un
- * `toast.error(<div>Falten credencials</div>)` queda registrat com "Falten
- * credencials" i no com "[object Object]" (que a més deduparia totes les
- * crides amb JSX en una de sola).
+ * Message extraction: plain text → as-is; JSX/objects → look for useful text
+ * (props.children, message, title) before falling back to a placeholder. That way a
+ * `toast.error(<div>Falten credencials</div>)` gets logged as "Falten
+ * credencials" and not as "[object Object]" (which would also dedupe all
+ * calls with JSX into a single one).
  */
 import { toast as baseToast } from 'react-hot-toast';
 import { _persistNotification } from './notifyError';
@@ -46,12 +46,12 @@ function _shouldPersist(key) {
 }
 
 /**
- * Extreu un text representatiu del missatge del toast.
- * Cobreix: strings, números, funcions (renderer dinàmic), JSX (intentem
- * llegir `props.children` recursivament), objectes amb camps típics
- * (message/title/text). En últim recurs retorna un placeholder identificable
- * per tipus, no `[object Object]` — així evitem que tots els toasts
- * estructurats es deduplin com si fossin el mateix.
+ * Extracts a representative text from the toast message.
+ * Covers: strings, numbers, functions (dynamic renderer), JSX (we try
+ * to read `props.children` recursively), objects with typical fields
+ * (message/title/text). As a last resort, returns a placeholder identifiable
+ * by type, not `[object Object]` — this way we avoid all structured
+ * toasts being deduped as if they were the same.
  */
 function _msgString(msg) {
     if (msg == null) return '';
@@ -67,12 +67,12 @@ function _msgString(msg) {
             const childText = _msgString(msg.props.children);
             if (childText) return childText;
         }
-        // Objectes "data" típics
+        // Typical "data" objects
         for (const key of ['message', 'title', 'text', 'description', 'detail']) {
             if (typeof msg[key] === 'string' && msg[key]) return msg[key];
         }
-        // Fallback: identificador per tipus de component React (no totes les
-        // crides amb JSX han de col·lapsar en el mateix bucket de dedup).
+        // Fallback: identifier by React component type (not all
+        // calls with JSX must collapse into the same dedup bucket).
         const typeName = msg.type?.displayName || msg.type?.name
             || (typeof msg.type === 'string' ? msg.type : '');
         return typeName ? `(${typeName})` : '(object)';
@@ -95,15 +95,15 @@ function _persist(level, message, prefix) {
     });
 }
 
-// Funció callable: `toast('text')` ha de seguir funcionant. Persisteix com a
-// INFO perquè el caller ha decidit no qualificar-ho com error/success.
+// Callable function: `toast('text')` must keep working. Persists as
+// INFO because the caller decided not to qualify it as error/success.
 const wrapped = function toast(message, options) {
     _persist('INFO', message, 'I');
     return baseToast(message, options);
 };
 
-// Copiem totes les propietats del baseToast (dismiss, remove, etc.) abans de
-// sobreescriure les que volem instrumentar.
+// We copy all properties from baseToast (dismiss, remove, etc.) before
+// overwriting the ones we want to instrument.
 Object.assign(wrapped, baseToast);
 
 wrapped.error = (message, options) => {
@@ -127,11 +127,11 @@ wrapped.custom = (message, options) => {
 };
 
 // `toast.promise(promise, { loading, success, error })` — react-hot-toast
-// resol cadascun dels tres missatges segons l'estat del promise. Persistim
-// preventivament el `loading` (és el que es veu primer) i deixem que els
-// callbacks `.then`/`.catch` interns de baseToast disparin success/error,
-// que també passaran pel nostre wrapper si el caller fa `toast.success(...)`
-// dins. Per als objectes `msgs`, registrem cadascun amb el seu nivell.
+// resolves each of the three messages according to the promise's state. We persist
+// the `loading` one preemptively (it's the one seen first) and let the others
+// internal `.then`/`.catch` callbacks of baseToast fire success/error,
+// that will also pass through our wrapper if the caller calls `toast.success(...)`
+// inside. For `msgs` objects, we log each one with its level.
 wrapped.promise = (promise, msgs, options) => {
     if (msgs && typeof msgs === 'object') {
         if (msgs.loading) _persist('INFO', msgs.loading, 'L');

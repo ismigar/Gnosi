@@ -3,7 +3,7 @@ from backend.config.paths_config import LOG_DIR
 from typing import Optional
 from pathlib import Path
 
-# Configurar el directori i el fitxer de log (resilient a None per al 30 de març)
+# Configure the log directory and file (resilient to None for March 30)
 LOG_FILE = (LOG_DIR / "gnosi.log") if LOG_DIR else None
 
 def setup_logging(level=logging.INFO):

@@ -28,10 +28,10 @@ function currentAuthor() {
 }
 
 /**
- * Panell lliscant de comentaris d'una pàgina (estil Notion). Fil pla amb
- * afegir / editar / resoldre / eliminar. Persistit a `.gnosi/page_comments.json`.
- * Els viewers només llegeixen: el backend retorna 403 a les mutacions (PR #742)
- * i aquí se'ls amaga el compositor i les accions d'escriptura.
+ * Sliding comments panel for a page (Notion style). Flat thread with
+ * add / edit / resolve / delete. Persisted to `.gnosi/page_comments.json`.
+ * Viewers only read: the backend returns 403 on mutations (PR #742)
+ * and the composer and write actions are hidden from them here.
  */
 export function PageComments({ pageId, pageTitle, open, onClose }) {
     const { t } = useTranslation();
@@ -64,7 +64,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
         if (open && pageId) fetchComments();
     }, [open, pageId, fetchComments]);
 
-    // 403 (rol viewer, PR #742) → missatge de permisos; resta → clau genèrica.
+    // 403 (viewer role, PR #742) → permissions message; otherwise → generic key.
     const notifyMutationError = useCallback((err, key, fallback) => {
         if (err?.response?.status === 403) {
             toast.error(t('errors.comment_forbidden', { defaultValue: 'El teu rol no permet modificar comentaris' }));

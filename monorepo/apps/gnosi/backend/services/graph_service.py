@@ -45,24 +45,24 @@ COLOR_PALETTE = {
 IGNORED_DIRS = {
     "node_modules", ".venv", ".git", ".tmp", "dist", "build",
     "target", ".cache", "__pycache__", "Plantilles", "Library", ".gemini",
-    # Carpetes de sistema gestionades per serveis dedicats (no pàgines wiki)
-    # Contacts i Images són cloud-only a OneDrive: el rglob/scandir triga ~18s via FUSE.
-    # S'afegeixen al graf via _add_contact_nodes (SQLite) i _add_media_nodes (desactivat).
+    # System folders managed by dedicated services (not wiki pages)
+    # Contacts and Images are cloud-only on OneDrive: rglob/scandir takes ~18s via FUSE.
+    # Added to the graph via _add_contact_nodes (SQLite) and _add_media_nodes (disabled).
     "Mail", "Calendar", "Contacts", "Contactes", "Images",
     "system", "custom_icons", "data",
 }
 
-# Status override: detecta "idea" com a paraula sencera al valor d'estat per
-# pintar el node en groc. Amb \b s'eviten falsos positius com "idealment" o
-# "ideari" que contenen "idea" com a substring.
+# Status override: detects "idea" as a whole word in the status value to
+# color the node yellow. With \b we avoid false positives like "idealment" or
+# "ideari" that contain "idea" as a substring.
 _STATUS_IDEA_RE = re.compile(r"\bidea\b", re.IGNORECASE)
 
-# Classificació de `note_type` → `kind`. Cada patró requereix que el token
-# aparegui al començament o precedit per un separador per evitar falsos
-# positius com "Impermanent" → permanent o "Eventualment" → event. S'accepta
-# un sufix opcional però limitat a `\w{0,4}` i, després, un separador o final
-# de text (`(?=[\s_\-]|$)`), per cobrir plurals i variacions lingüístiques ("permanente", "permanents",
-# "calendari", "diaris", etc.). L'ordre importa: es retorna el primer match.
+# Classification of `note_type` → `kind`. Each pattern requires the token
+# to appear at the start or preceded by a separator to avoid false
+# positives like "Impermanent" → permanent or "Eventualment" → event. It accepts
+# an optional suffix limited to `\w{0,4}` and, after that, a separator or end
+# of text (`(?=[\s_\-]|$)`), to cover plurals and linguistic variations ("permanente", "permanents",
+# "calendari", "diaris", etc.). Order matters: the first match is returned.
 _KIND_PATTERNS = (
     (re.compile(r"(^|[\s_\-])(reading|lectura)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "reading"),
     (re.compile(r"(^|[\s_\-])permanent\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "permanent"),
@@ -91,11 +91,12 @@ def get_markdown_files_efficient(root_path: Path) -> List[Path]:
 
 
 def parse_section_links(content: str) -> dict[str | None, list[str]]:
-    """Extreu wikilinks del cos del .md agrupats per heading.
+    """Extracts wikilinks from the .md body grouped by heading.
 
-    Retorna {heading_str: [link, ...], None: [link, ...]}
-    on None = links anteriors al primer heading.
-    Ignora blocs :::gnosi-ignore i ```code``` per no duplicar artefactes Notion.
+    Returns {heading_str: [link, ...], None: [link, ...]}
+    where None = links before the first heading.
+    Ignores :::gnosi-ignore blocks and ```code``` blocks to avoid duplicating Notion artifacts.
+    
     """
     # Strip frontmatter
     match = re.match(r'^---\s*\n.*?\n---\s*\n', content, re.DOTALL)
@@ -109,7 +110,7 @@ def parse_section_links(content: str) -> dict[str | None, list[str]]:
     for line in body.split("\n"):
         stripped = line.strip()
 
-        # Track :::gnosi-ignore blocks (Notion artefacts — no compten per al graf)
+        # Track :::gnosi-ignore blocks (Notion artifacts — they don't count towards the graph)
         if stripped.startswith(":::gnosi-ignore"):
             in_ignore = True
             continue
@@ -154,15 +155,15 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
         body = content[match.end():]
         try:
             metadata = yaml.safe_load(yaml_content) or {}
-            # El despullat dels wikilinks de relació ('[[Títol|id]]' → id) es fa
-            # al caller amb l'ESQUEMA de la taula: aquí (funció lliure) no es
-            # coneix quins camps són de relació.
+            # Stripping of relation wikilinks ('[[Title|id]]' → id) is done
+            # by the caller using the table's SCHEMA: here (a free function) it's not
+            # known which fields are relation fields.
             return metadata, body
         except yaml.YAMLError as e:
-            # Rescat tolerant IGUAL que el Vault (vault_routes.parse_frontmatter):
-            # sense això, una pàgina amb YAML lleugerament malformat (cometa sense
-            # tancar, tab, indicador reservat…) sortia BUIDA al graf (sense títol/
-            # tipus/color) tot i llegir-se bé al Vault.
+            # Tolerant rescue, SAME as the Vault (vault_routes.parse_frontmatter):
+            # without this, a page with slightly malformed YAML (an unclosed quote,
+            # a tab, a reserved indicator…) would come out EMPTY in the graph (without title/
+            # type/color) even though it read fine in the Vault.
             fallback_metadata = parse_frontmatter_fallback(yaml_content)
             if fallback_metadata:
                 return fallback_metadata, body
@@ -181,7 +182,7 @@ class GraphService:
     # Cache for the full graph
     _graph_cache = None
     _last_graph_time = 0
-    _GRAPH_CACHE_TTL = 30  # seconds — prou per evitar rebuilds continus però reactiu als canvis
+    _GRAPH_CACHE_TTL = 30  # seconds — enough to avoid continuous rebuilds but reactive to changes
 
     # Class-level Persistent Node Data Cache (metadata, links, etc.)
     # Format: { path_str: { mtime: float, metadata: dict, size: int, links: list, kind: str, color: str, title: str } }
@@ -195,10 +196,10 @@ class GraphService:
     _LAYOUT_CACHE = {}
     _LAYOUT_HASH: Optional[str] = None
 
-    # Persistència del _NODE_DATA_CACHE a disc: evita rellegir milers de fitxers
-    # del vault al primer build després de reiniciar el backend (cold start
-    # ~10s -> ~1s). La invalidació per mtime (a _add_page_nodes) garanteix
-    # coherència: els fitxers canviats es rellegeixen igualment.
+    # Persistence of _NODE_DATA_CACHE to disk: avoids re-reading thousands of files
+    # from the vault on the first build after restarting the backend (cold start
+    # ~10s -> ~1s). Invalidation by mtime (in _add_page_nodes) guarantees
+    # consistency: changed files are still re-read.
     _NODE_CACHE_LOADED = False
 
     @staticmethod
@@ -211,12 +212,12 @@ class GraphService:
 
     @classmethod
     def _load_node_cache(cls):
-        """Carrega _NODE_DATA_CACHE de disc un sol cop (cold start). Best-effort."""
+        """Loads _NODE_DATA_CACHE from disk once (cold start). Best-effort."""
         if cls._NODE_CACHE_LOADED:
             return
         cls._NODE_CACHE_LOADED = True
         if cls._NODE_DATA_CACHE:
-            return  # ja poblat en memòria
+            return  # already populated in memory
         p = cls._node_cache_path()
         if not p or not p.exists():
             return
@@ -232,7 +233,7 @@ class GraphService:
 
     @classmethod
     def _save_node_cache(cls):
-        """Persisteix _NODE_DATA_CACHE a disc (escriptura atòmica). Best-effort."""
+        """Persists _NODE_DATA_CACHE to disk (atomic write). Best-effort."""
         p = cls._node_cache_path()
         if not p or not cls._NODE_DATA_CACHE:
             return
@@ -250,9 +251,9 @@ class GraphService:
 
     @classmethod
     def _load_layout_cache(cls):
-        """Carrega el layout (posicions) de disc un cop. El layout (igraph) és
-        la part més lenta del cold start; persistir-lo evita recalcular-lo si
-        l'estructura del graf no ha canviat (mateix hash). Best-effort."""
+        """Loads the layout (positions) from disk once. The layout (igraph) is
+        the slowest part of the cold start; persisting it avoids recalculating it if
+        the graph structure hasn't changed (same hash). Best-effort."""
         if cls._LAYOUT_CACHE_LOADED:
             return
         cls._LAYOUT_CACHE_LOADED = True
@@ -275,7 +276,7 @@ class GraphService:
 
     @classmethod
     def _save_layout_cache(cls):
-        """Persisteix el layout a disc (escriptura atòmica). Best-effort."""
+        """Persists the layout to disk (atomic write). Best-effort."""
         if not cls._LAYOUT_CACHE or not cls._LAYOUT_HASH:
             return
         try:
@@ -323,16 +324,17 @@ class GraphService:
         return {"databases": [], "tables": [], "views": []}
 
     def _compute_graph_hash(self, G: "nx.Graph") -> str:
-        """Hash estable del graf basat en nodes+edges. Detecta canvis estructurals."""
+        """Stable hash of the graph based on nodes+edges. Detects structural changes."""
         nodes = sorted(str(n) for n in G.nodes())
         edges = sorted((str(s), str(t)) for s, t in G.edges())
         payload = json.dumps({"n": nodes, "e": edges}, sort_keys=True).encode()
         return hashlib.sha256(payload).hexdigest()
 
     def _compute_layout(self, G: "nx.Graph") -> Dict[str, Tuple[float, float]]:
-        """Calcula posicions amb igraph Fruchterman-Reingold (ràpid, qualitat alta).
-        Falla amb fallback a networkx spring_layout si igraph no està disponible.
-        Retorna dict {node_id: (x, y)} en l'espai original (pre-escalat al render).
+        """Computes positions with igraph Fruchterman-Reingold (fast, high quality).
+        Falls back to networkx spring_layout if igraph is not available.
+        Returns dict {node_id: (x, y)} in the original space (pre-scaling for render).
+        
         """
         n_nodes = G.number_of_nodes()
         if n_nodes == 0:
@@ -341,9 +343,9 @@ class GraphService:
         if _HAS_IGRAPH:
             node_list = list(G.nodes())
             idx = {n: i for i, n in enumerate(node_list)}
-            # Fem servir NOMÉS edges "link" (wikilinks reals) per al layout, igual que Obsidian.
-            # Els edges "relation" (inferits per tags) creen una xarxa artificialment densa
-            # que col·lapsa tots els nodes en un sol clúster.
+            # We use ONLY "link" edges (real wikilinks) for the layout, just like Obsidian.
+            # "relation" edges (inferred from tags) create an artificially dense network
+            # that collapses all nodes into a single cluster.
             layout_edges = [
                 (idx[s], idx[t])
                 for s, t, d in G.edges(data=True)
@@ -355,7 +357,7 @@ class GraphService:
             _rnd.seed(42)
             layout = ig_graph.layout_fruchterman_reingold(niter=n_iter)
             coords = layout.coords
-            # Normalitzem a un espai fix de 10000 × 10000 centrat a l'origen
+            # We normalize to a fixed 10000 × 10000 space centered at the origin
             raw_xs = [float(coords[i][0]) for i in range(n_nodes)]
             raw_ys = [float(coords[i][1]) for i in range(n_nodes)]
             xmin, xmax = min(raw_xs), max(raw_xs)
@@ -375,7 +377,7 @@ class GraphService:
             pos_raw = nx.spring_layout(G, seed=42, iterations=300)
             pos = {n: (float(p[0]), float(p[1])) for n, p in pos_raw.items()}
 
-        # Col·loquem nodes orfes (degree 0) en una corona externa al voltant del component connectat.
+        # We place orphan nodes (degree 0) in an outer ring around the connected component.
         connected = [n for n in G.nodes() if G.degree(n) > 0]
         orphans = [n for n in G.nodes() if G.degree(n) == 0]
         if connected and orphans:
@@ -421,8 +423,8 @@ class GraphService:
         # so that _add_structural_edges can resolve parent IDs, then strip them before export.
         self._add_registry_nodes(G)
 
-        # Cold start: carrega el node cache de disc per no rellegir milers de
-        # fitxers després d'un reinici (la invalidació per mtime es manté).
+        # Cold start: loads the node cache from disk to avoid re-reading thousands of
+        # files after a restart (mtime invalidation is still preserved).
         GraphService._load_node_cache()
         GraphService._load_layout_cache()
         page_nodes = self._add_page_nodes(G)
@@ -434,8 +436,8 @@ class GraphService:
         registry_nodes = [n for n, d in G.nodes(data=True) if d.get("kind") in ("database", "table", "view")]
         G.remove_nodes_from(registry_nodes)
         
-        # 4. Generate Layout — calculat al backend amb igraph (Fruchterman-Reingold)
-        # Caché per hash de l'estructura del graf (nodes + edges). Si no canvia, no recalcula.
+        # 4. Generate Layout — calculated on the backend with igraph (Fruchterman-Reingold)
+        # Cache keyed by hash of the graph structure (nodes + edges). If it doesn't change, it doesn't recalculate.
         graph_hash = self._compute_graph_hash(G)
         if GraphService._LAYOUT_HASH == graph_hash and GraphService._LAYOUT_CACHE:
             log.info(f"Reusing cached layout (hash={graph_hash[:8]}, {len(G.nodes())} nodes)")
@@ -463,7 +465,7 @@ class GraphService:
                 "color": attrs.get("color", COLOR_PALETTE.get(attrs.get("kind"), COLOR_PALETTE["default"])),
                 "kind": attrs.get("kind", "page"),
                 "metadata": meta,
-                # Atributs addicionals necessaris per la categorització al frontend (graphFilters.js)
+                # Additional attributes needed for categorization in the frontend (graphFilters.js)
                 "path": attrs.get("path", ""),
                 "table_id": attrs.get("table_id") or meta.get("table_id") or meta.get("database_table_id"),
                 "database_id": attrs.get("database_id") or meta.get("database_id"),
@@ -512,7 +514,7 @@ class GraphService:
         }
         
         GraphService._graph_cache = result
-        GraphService._last_graph_time = time.time()  # temps DESPRÉS del build, no abans
+        GraphService._last_graph_time = time.time()  # time AFTER the build, not before
         return result
 
     def _add_registry_nodes(self, G: nx.Graph):
@@ -598,7 +600,7 @@ class GraphService:
                 title = cache_entry["title"]
                 kind = cache_entry["kind"]
                 color = cache_entry["color"]
-                pass  # size llegit des de cache_entry["size"] al G.add_node
+                pass  # size read from cache_entry["size"] in G.add_node
             else:
                 # Cache miss - Read and parse file
                 try:
@@ -621,7 +623,7 @@ class GraphService:
                             kind = kind_value
                             break
 
-                    # Fallback: detectar per ruta si el frontmatter no especifica el tipus
+                    # Fallback: detect by path if the frontmatter doesn't specify the type
                     if kind == "page":
                         if path_str.startswith("Contacts/") or path_str.startswith("Contactes/"):
                             kind = "contact"
@@ -637,9 +639,9 @@ class GraphService:
                     status = str(metadata.get("estat") or metadata.get("status") or "")
                     if _STATUS_IDEA_RE.search(status): color = "#fcd34d"
 
-                    # PRE-EXTRACT WIKILINKS per secció (evita re-lectura al pas d'edges)
+                    # PRE-EXTRACT WIKILINKS per section (avoids re-reading in the edges step)
                     section_links = parse_section_links(raw_content)
-                    # Flat list per compatibilitat backward
+                    # Flat list for backward compatibility
                     all_links = list({lnk for links in section_links.values() for lnk in links})
 
                     # Update Cache
@@ -669,9 +671,9 @@ class GraphService:
                     inferred_table_id = folder_to_table_id.get(table_folder)
                     inferred_db_id = inferred_db_id or folder_to_db_id.get(table_folder)
 
-            # Camps de relació → ids nets ('[[Títol|id]]' → id) segons l'ESQUEMA
-            # de la taula. Les arestes es creen a _add_structural_edges; aquí es
-            # neteja el metadata del node (sobre una còpia, mai el cache).
+            # Relation fields → clean ids ('[[Title|id]]' → id) according to the SCHEMA
+            # of the table. Edges are created in _add_structural_edges; here we
+            # clean up the node's metadata (on a copy, never the cache).
             _rel_keys = relation_keys_from_table(
                 next((t for t in self.registry.get("tables", [])
                       if t.get("id") == inferred_table_id), None))
@@ -707,12 +709,13 @@ class GraphService:
         return page_nodes
 
     def _add_contact_nodes(self, G: nx.Graph):
-        """Afegeix contactes des de management.sqlite (BD local, NO el vault).
+        """Adds contacts from management.sqlite (local DB, NOT the vault).
 
-        El model Contact viu a management_db.Base (management.sqlite) — la
-        mateixa BD que serveix /api/contacts via get_mgmt_db. Abans s'obria la
-        BD del vault (get_engine_for_path), que NO té la taula 'contacts' →
-        'no such table: contacts' i cap contacte al graf.
+        The Contact model lives in management_db.Base (management.sqlite) — the
+        same DB that serves /api/contacts via get_mgmt_db. It used to open the
+        vault DB (get_engine_for_path), which does NOT have the 'contacts' table →
+        'no such table: contacts' and no contacts in the graph.
+        
         """
         try:
             from backend.data.management_db import get_mgmt_session
@@ -796,8 +799,8 @@ class GraphService:
 
     def _add_structural_edges(self, G: nx.Graph, page_nodes: List[Dict[str, Any]]):
         # 1. Frontmatter relation detection (Already loaded in node attributes).
-        # Reconeix els camps de relació per l'ESQUEMA (type=relation, nom+àlies),
-        # sigui quin sigui el nom de la columna. Vegeu vault_relation_inverse_sync.md
+        # Recognizes relation fields via the SCHEMA (type=relation, name+aliases),
+        # regardless of the column name. See vault_relation_inverse_sync.md
         rel_keys_by_table = {
             t.get("id"): relation_keys_from_table(t)
             for t in self.registry.get("tables", [])
@@ -815,17 +818,17 @@ class GraphService:
 
             tid = metadata.get("table_id") or metadata.get("database_table_id")
             rel_keys = rel_keys_by_table.get(tid)
-            # Scan for relation fields (per esquema)
+            # Scan for relation fields (by schema)
             for key, value in metadata.items():
                 if is_relation_key(key, rel_keys):
                     targets = value if isinstance(value, list) else [value]
                     for t in targets:
-                        t_id = strip_item(t)  # `[[Títol|id]]` → id (o id tal qual)
+                        t_id = strip_item(t)  # `[[Title|id]]` → id (or id as-is)
                         if isinstance(t_id, str) and G.has_node(t_id):
                             G.add_edge(node_id, t_id, kind="relation", color="#6366f1", size=1.5)
 
         # 2. Wikipedia-style links from cached link data (NO NEW FILE READS!)
-        # Títols genèrics de Notion que NO han de ser hubs (artefactes d'exportació)
+        # Generic Notion titles that must NOT become hubs (export artifacts)
         GENERIC_TITLES = {"untitled", "sense títol", "sin título", "new page", "nova pàgina"}
 
         # Pre-build O(1) lookup indexes before iterating links
@@ -841,7 +844,7 @@ class GraphService:
                 if stem not in GENERIC_TITLES:
                     stem_to_id.setdefault(stem, n_id)
 
-        # Pre-build table_id → {heading: section_config} per classificar edges
+        # Pre-build table_id → {heading: section_config} to classify edges
         table_sections_map: dict[str, dict[str, dict]] = {}
         for table in self.registry.get("tables", []):
             sections = table.get("sections", [])
@@ -866,7 +869,7 @@ class GraphService:
 
             section_links = page.get("section_links") or {}
 
-            # Processa primer les seccions db_view per garantir kind='relation' si hi ha conflicte
+            # Processes db_view sections first to guarantee kind='relation' in case of conflict
             ordered_headings = sorted(
                 section_links.keys(),
                 key=lambda h: (0 if h in db_view_headings else 1),
@@ -881,7 +884,7 @@ class GraphService:
                     if not resolved or resolved == node_id or not G.has_node(resolved):
                         continue
                     if G.has_edge(node_id, resolved):
-                        # Si ja existeix com a link simple però ara és db_view, promou-lo
+                        # If it already exists as a simple link but is now a db_view, promote it
                         if is_db_view and G.edges[node_id, resolved].get("kind") == "link":
                             G.edges[node_id, resolved]["kind"] = "relation"
                             G.edges[node_id, resolved]["color"] = "#6366f1"
@@ -957,12 +960,13 @@ class GraphService:
 
     def accept_suggestion(self, source_id: str, target_id: str, reason: Optional[str] = None) -> Dict[str, Any]:
         """Accepts an AI suggestion. Currently disabled — SuggestionHandler
-        module no és present en aquest build.
+        module is not present in this build.
 
-        Bug previ: el cos sencer estava dins una triple-comilla com a
-        "docstring" → la funció retornava None i el caller crashejava
-        amb TypeError quan feia `result["success"]`. Ara retorna un
-        dict explícit perquè el caller mostri l'error 400 net.
+        Previous bug: the entire body was inside a triple-quote as a
+        "docstring" → the function returned None and the caller crashed
+        with a TypeError when doing `result["success"]`. Now it returns an
+        explicit dict so the caller shows a clean 400 error.
+        
         """
         _ = (source_id, target_id, reason)
         return {

@@ -47,22 +47,22 @@ import { toast } from '../lib/toast';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const PERSPECTIVES = [ // Mantenim per referència o inbox, però prioritzem àlbums
+const PERSPECTIVES = [ // We keep it for reference or inbox, but we prioritize albums
   { id: 'General', label: 'General', icon: FolderOpen, color: 'text-blue-500' },
   { id: 'Inbox', label: 'Inbox', icon: FolderOpen, color: 'text-orange-500' }
 ];
 
 const normalizeUrl = (url) => {
   if (!url) return '';
-  // Si és una URL absoluta del backend (p.e. http://backend:5002/api/...), la fem relativa
+  // If it's an absolute backend URL (e.g. http://backend:5002/api/...), we make it relative
   const match = url.match(/^https?:\/\/[^/]+(\/api\/.*)$/i);
   if (match?.[1]) return match[1];
   return url;
 };
 
-// TreeNode és recursiu i lazy: només demana les subcarpetes quan l'usuari
-// expandeix el node. Sense això, indexar els ~33k directoris de l'arxiu
-// faria inviable el muntatge de la sidebar.
+// TreeNode is recursive and lazy: it only requests subfolders when the user
+// expands the node. Without this, indexing the archive's ~33k directories
+// would make mounting the sidebar unviable.
 const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSelect, root = 'images' }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
@@ -150,9 +150,9 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
   );
 });
 
-// Placeholders visuals per a fitxers que `<img>` no pot renderitzar
-// (vídeo, pdf, àudio, altres). Sense això surten com a quadres negres
-// mentre `<img>` falla en bucle.
+// Visual placeholders for files that `<img>` can't render
+// (video, pdf, audio, other). Without this they show up as black boxes
+// while `<img>` fails in a loop.
 const NON_IMAGE_THUMB = {
   video: { Icon: Video, labelKey: 'media.thumb_video', accent: 'text-rose-400' },
   pdf:   { Icon: FileText, labelKey: 'media.thumb_pdf', accent: 'text-orange-400' },
@@ -160,9 +160,9 @@ const NON_IMAGE_THUMB = {
   other: { Icon: HardDrive, labelKey: 'media.thumb_other', accent: 'text-slate-400' },
 };
 
-// Thumb gestiona el seu estat de càrrega/error per imatge. Si OneDrive està
-// materialitzant un fitxer en background, el primer GET pot retornar 503;
-// reintentem un parell de cops abans d'ensenyar el placeholder cloud-off.
+// Thumb manages its own loading/error state per image. If OneDrive is
+// materializing a file in the background, the first GET may return 503;
+// we retry a couple of times before showing the cloud-off placeholder.
 const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
   const { t } = useTranslation();
   const [attempt, setAttempt] = useState(0);
@@ -174,8 +174,8 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
     ? 'aspect-square relative overflow-hidden bg-gray-900'
     : 'w-24 h-24 relative rounded-xl overflow-hidden flex-shrink-0 bg-gray-900';
 
-  // Vídeo / PDF / àudio / altres: mai van a `<img>` — placeholder amb icona
-  // del tipus i nom del fitxer.
+  // Video / PDF / audio / other: never go into `<img>` — placeholder with an icon
+  // of the type and file name.
   if (kind && kind !== 'image') {
     const meta = NON_IMAGE_THUMB[kind] || NON_IMAGE_THUMB.other;
     const Icon = meta.Icon;
@@ -188,7 +188,7 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
     );
   }
 
-  // El query param `?_r=N` força el navegador a no servir-ho del cache.
+  // The `?_r=N` query param forces the browser not to serve it from cache.
   const finalSrc = attempt === 0 ? src : `${src}${src.includes('?') ? '&' : '?'}_r=${attempt}`;
 
   if (failed) {
@@ -220,8 +220,8 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
   );
 });
 
-// Metadades visuals dels roots disponibles. La llista efectiva ve del backend
-// (/media/roots) i només mostrem els que tenen `available=true`.
+// Visual metadata for the available roots. The effective list comes from the backend
+// (/media/roots) and we only show the ones with `available=true`.
 const ROOT_META = {
   images: { Icon: ImageIcon, labelKey: 'media.root_images', allLabelKey: 'media.all_images' },
   assets: { Icon: Folder, labelKey: 'media.root_assets', allLabelKey: 'media.all_assets' },
@@ -229,9 +229,9 @@ const ROOT_META = {
   vault: { Icon: Database, labelKey: 'media.root_vault', allLabelKey: 'media.all_vault' },
 };
 
-// Modal centrat per demanar el nom d'una vista. Substitueix `window.prompt`
-// (nadiu del navegador, ancorat a dalt-esquerra) per ser consistent amb la
-// resta de modals de l'app.
+// Centered modal to ask for a view's name. Replaces `window.prompt`
+// (native to the browser, anchored top-left) to be consistent with the
+// rest of the app's modals.
 function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
   const { t } = useTranslation();
   const [value, setValue] = useState(defaultValue || '');
@@ -300,8 +300,8 @@ function ViewNamePromptModal({ open, defaultValue, onCancel, onConfirm }) {
   );
 }
 
-// Confirm centrat reutilitzable. Substitueix `window.confirm` (nadiu, ancorat
-// a dalt) perquè els dialogs de l'app siguin consistents.
+// Reusable centered confirm. Replaces `window.confirm` (native, anchored
+// at the top) so the app's dialogs are consistent.
 function ConfirmDialog({
   open,
   title,
@@ -361,7 +361,7 @@ function ConfirmDialog({
   );
 }
 
-// Pills de tipus al toolbar. L'ordre defineix l'ordre visual.
+// Type pills in the toolbar. The order defines the visual order.
 const KIND_OPTIONS = [
   { key: 'image', labelKey: 'media.kind_image', Icon: ImageIcon },
   { key: 'video', labelKey: 'media.kind_video', Icon: Video },
@@ -370,7 +370,7 @@ const KIND_OPTIONS = [
   { key: 'other', labelKey: 'media.kind_other', Icon: HardDrive },
 ];
 
-// Presets de rang de mtime. `days=null` = personalitzat (input de dates).
+// mtime range presets. `days=null` = custom (date input).
 const DATE_PRESETS = [
   { key: 'all', labelKey: 'media.date_all', days: 0 },
   { key: '7d', labelKey: 'media.date_7d', days: 7 },
@@ -410,8 +410,8 @@ const isoDaysAgo = (days) => {
   return d.toISOString().slice(0, 10);
 };
 
-// Toolbar de filtres + sort. F1: estat només en memòria del component pare,
-// no es persisteixen com a "vistes" encara (això és F3).
+// Filter + sort toolbar. F1: state only in memory in the parent component,
+// not yet persisted as "views" (that's F3).
 function MediaToolbar({
   filters,
   sort,
@@ -426,9 +426,9 @@ function MediaToolbar({
   const { t } = useTranslation();
   const [tagDraft, setTagDraft] = useState('');
 
-  // Multi-select OR: clicar afegeix/treu un tipus de la selecció. Cap pill
-  // activa = mostrar tot. Les pills actives es veuen blaves, així que la
-  // selecció múltiple és visualment òbvia.
+  // Multi-select OR: clicking adds/removes a type from the selection. No pill
+  // active = show everything. Active pills are shown in blue, so the
+  // multiple selection is visually obvious.
   const toggleKind = (key) => {
     const set = new Set(filters.kinds);
     if (set.has(key)) set.delete(key); else set.add(key);
@@ -583,7 +583,7 @@ function MediaToolbar({
         </button>
       </div>
 
-      {/* Vistes + Reset */}
+      {/* Views + Reset */}
       {(hasActiveFilters || activeViewId) && (
         <div className="ml-auto flex items-center gap-2">
           {activeViewId ? (
@@ -630,8 +630,8 @@ export default function MediaCenter() {
   const [media, setMedia] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
-  // Defecte: null = "Totes les fotos". L'àlbum "General" sol estar buit i feia
-  // que l'arxiu aparegués buit en obrir-lo.
+  // Default: null = "All photos". The "General" album is usually empty and made
+  // the archive appear empty when opening it.
   const [activeAlbum, setActiveAlbum] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState('grid');
@@ -639,26 +639,26 @@ export default function MediaCenter() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
 
-  // Multi-root: la galeria pot mirar Images/ (default), Assets/, Biblioteca/
-  // o tot el Vault. Els roots disponibles vénen del backend.
+  // Multi-root: the gallery can look at Images/ (default), Assets/, Biblioteca/
+  // or the whole Vault. Available roots come from the backend.
   const [roots, setRoots] = useState([]);
   const [activeRoot, setActiveRoot] = useState('images');
 
-  // Estats de paginació
+  // Pagination state
   const [offset, setOffset] = useState(0);
   const [total, setTotal] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const PAGE_SIZE = 50;
 
-  // Filtres i ordenació. Es poden desar com a "vista" (sidecar al vault)
-  // i tornar-se a aplicar des de la sidebar.
+  // Filters and sorting. Can be saved as a "view" (sidecar in the vault)
+  // and be reapplied from the sidebar.
   const [filters, setFilters] = useState({ ...DEFAULT_FILTERS });
   const [sort, setSort] = useState({ ...DEFAULT_SORT });
   const [views, setViews] = useState([]);
   const [activeViewId, setActiveViewId] = useState(null);
-  // Quan apliquem una vista canviem `activeRoot` i el useEffect que escolta
-  // `activeRoot` reseteja `activeAlbum=''`. Aquesta ref evita que aquest
-  // reset sobreescrigui l'`activeAlbum` que la vista demana.
+  // When we apply a view we change `activeRoot`, and the useEffect listening to
+  // `activeRoot` resets `activeAlbum=''`. This ref prevents that
+  // reset overwrites the `activeAlbum` that the view requests.
   const applyingViewRef = useRef(false);
   const hasActiveFilters = (
     filters.kinds.length > 0
@@ -688,9 +688,9 @@ export default function MediaCenter() {
   }, [activeRoot]);
 
   const fetchMedia = useCallback(async (reset = false) => {
-    // `activeAlbum === null` (undefined) → no carreguem res. Cal que l'usuari
-    // triï un àlbum o demani explícitament 'Totes les fotos' (string buida ''),
-    // que dispara un escaneig recursiu de tot el root actiu (lent la primera
+    // `activeAlbum === null` (undefined) → we load nothing. The user must
+    // choose an album or explicitly request 'All photos' (empty string ''),
+    // which triggers a recursive scan of the whole active root (slow the first
     // vegada a OneDrive).
     if (activeAlbum === null) {
       setMedia([]);
@@ -705,7 +705,7 @@ export default function MediaCenter() {
       const params = { limit: PAGE_SIZE, offset: currentOffset, root: activeRoot };
       if (activeAlbum) params.album = activeAlbum;
 
-      // Filtres (només els actius es propaguen al backend)
+      // Filters (only the active ones are propagated to the backend)
       if (filters.kinds.length > 0) params.kinds = filters.kinds.join(',');
       if (filters.q.trim()) params.q = filters.q.trim();
       if (filters.tagsAny.length > 0) params.tags_any = filters.tagsAny.join(',');
@@ -715,14 +715,14 @@ export default function MediaCenter() {
       if (sizePreset?.min != null) params.size_min = sizePreset.min;
       if (sizePreset?.max != null) params.size_max = sizePreset.max;
 
-      // Ordenació (només si difereix del defecte server-side)
+      // Sorting (only if it differs from the server-side default)
       if (sort.field !== 'mtime' || sort.dir !== 'desc') {
         params.sort = sort.field;
         params.dir = sort.dir;
       }
 
-      // 'Totes les fotos' pot trigar minuts la primera vegada a OneDrive,
-      // sobretot per al root="vault" (escaneja tot l'arxiu).
+      // 'All photos' can take minutes the first time on OneDrive,
+      // especially for root="vault" (scans the entire archive).
       const res = await axios.get('/api/vault/media', { params, timeout: 600000 });
       const { items, total: totalCount } = res.data;
 
@@ -744,7 +744,7 @@ export default function MediaCenter() {
     }
   }, [activeAlbum, activeRoot, offset, filters, sort, t]);
 
-  // Carrega els roots disponibles un cop, al muntatge.
+  // Loads the available roots once, on mount.
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -760,13 +760,13 @@ export default function MediaCenter() {
     return () => { cancelled = true; };
   }, []);
 
-  // Recarrega l'arbre quan canvia el root actiu i selecciona "Tot el root"
-  // automàticament (`activeAlbum=''`). Així apareix el toolbar de filtres
-  // (que requereix `activeAlbum !== null`) i el grid es carrega sense que
-  // l'usuari hagi de clicar enlloc. La primera passada per root nou pot
-  // trigar a OneDrive; després el cache persistent la fa instantània.
-  // Si estem aplicant una vista, no resetegem `activeAlbum` (el set posterior
-  // de `applyView` el sobreescriuria però el render seria inestable).
+  // Reload the tree when the active root changes and select "Whole root"
+  // automatically (`activeAlbum=''`). This way the filter toolbar appears
+  // (which requires `activeAlbum !== null`) and the grid loads without
+  // the user having to click anywhere. The first pass for a new root can
+  // having to wait on OneDrive; afterwards the persistent cache makes it instant.
+  // If we're applying a view, we don't reset `activeAlbum` (the later set
+  // from `applyView` would overwrite it, but the render would be unstable).
   useEffect(() => {
     fetchAlbums(activeRoot);
     if (applyingViewRef.current) {
@@ -778,7 +778,7 @@ export default function MediaCenter() {
     setOffset(0);
   }, [activeRoot, fetchAlbums]);
 
-  // Carga inicial de vistes desades.
+  // Initial load of saved views.
   const fetchViews = useCallback(async () => {
     try {
       const r = await axios.get('/api/vault/media/views', { timeout: 15000 });
@@ -805,7 +805,7 @@ export default function MediaCenter() {
     setSort(targetSort);
   }, [activeRoot]);
 
-  // El modal centrat substitueix `window.prompt` (nadiu, ancorat a dalt).
+  // The centered modal replaces `window.prompt` (native, anchored to the top).
   const [viewPromptOpen, setViewPromptOpen] = useState(false);
   const handleSaveAsView = useCallback(() => {
     setViewPromptOpen(true);
@@ -846,7 +846,7 @@ export default function MediaCenter() {
     }
   }, [activeViewId, activeRoot, activeAlbum, filters, sort, views, t]);
 
-  // Confirm dialog genèric: si no és `null`, renderitzem el modal centrat.
+  // Generic confirm dialog: if it's not `null`, we render the centered modal.
   const [confirmDialog, setConfirmDialog] = useState(null);
 
   const handleDeleteView = useCallback((id) => {
@@ -871,8 +871,8 @@ export default function MediaCenter() {
     });
   }, [activeViewId, views, t]);
 
-  // Reset al canviar d'àlbum, root, filtres o ordenació. Tots disparen una
-  // nova petició amb offset=0 perquè el `total` reportat depèn dels filtres.
+  // Reset when changing album, root, filters, or sorting. All of them trigger a
+  // new request with offset=0 because the reported `total` depends on the filters.
   useEffect(() => {
     fetchMedia(true);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -888,8 +888,8 @@ export default function MediaCenter() {
     try {
       setIsUploading(true);
       toast.loading(t('media.uploading'), { id: 'upload' });
-      // Per al root "images" mantenim el flux antic (galeria amb àlbums).
-      // Per a la resta, derivar a /assets/upload (no hi ha noció d'àlbum).
+      // For the "images" root we keep the old flow (gallery with albums).
+      // For the rest, defer to /assets/upload (there's no notion of album).
       let url;
       if (activeRoot === 'images') {
         const album = activeAlbum || 'General';
@@ -916,10 +916,10 @@ export default function MediaCenter() {
     });
   };
 
-  // Auto-save: cap botó "Desar". Cada modificació de tags/descripció dispara
-  // un PATCH debounced (600 ms). Mostrem "Desant…/Desat" al peu del panell.
-  // - `initialMetaRef`: snapshot per (foto) per evitar saves a l'obrir.
-  // - `saveAbortRef`: cancel·la peticions en curs si arriba una nova edició.
+  // Auto-save: no "Save" button. Every change to tags/description triggers
+  // a debounced PATCH (600 ms). We show "Saving…/Saved" at the bottom of the panel.
+  // - `initialMetaRef`: snapshot per (photo) to avoid saves on open.
+  // - `saveAbortRef`: cancels in-flight requests if a new edit comes in.
   const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
   const initialMetaRef = useRef({ id: null, tags: [], description: '' });
   const saveTimerRef = useRef(null);
@@ -940,7 +940,7 @@ export default function MediaCenter() {
         album: photo.album,
         metadata: meta,
       }, { signal: ctrl.signal });
-      // Sincronitzem l'snapshot perquè el següent diff parteixi del valor desat.
+      // We sync the snapshot so the next diff starts from the saved value.
       initialMetaRef.current = {
         id: photo.id,
         tags: [...(meta.tags || [])],
@@ -958,7 +958,7 @@ export default function MediaCenter() {
     }
   }, [activeRoot]);
 
-  // Quan obrim una foto, registrem el seu snapshot inicial. Cap save aquí.
+  // When we open a photo, we record its initial snapshot. No save here.
   useEffect(() => {
     if (selectedPhoto) {
       initialMetaRef.current = {
@@ -972,11 +972,11 @@ export default function MediaCenter() {
     if (saveAbortRef.current) { try { saveAbortRef.current.abort(); } catch { /* noop */ } saveAbortRef.current = null; }
   }, [selectedPhoto?.id]);
 
-  // Auto-save debounced quan editingMetadata difereix de l'snapshot inicial.
+  // Debounced auto-save when editingMetadata differs from the initial snapshot.
   useEffect(() => {
     if (!selectedPhoto) return;
     const initial = initialMetaRef.current;
-    if (initial.id !== selectedPhoto.id) return; // snapshot encara no quadra
+    if (initial.id !== selectedPhoto.id) return; // snapshot doesn't match yet
 
     const sameTags = initial.tags.length === editingMetadata.tags.length
       && initial.tags.every((t, i) => t === editingMetadata.tags[i]);
@@ -996,8 +996,8 @@ export default function MediaCenter() {
   );
 
   // ----- Visor (lightbox) -----
-  // Estat: el visor està obert quan `selectedPhoto != null`. La navegació
-  // prev/next es deriva de l'índex dins `filteredMedia`.
+  // State: the viewer is open when `selectedPhoto != null`. The navigation
+  // prev/next is derived from the index within `filteredMedia`.
   const [slideshowActive, setSlideshowActive] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const viewerRootRef = useRef(null);
@@ -1037,16 +1037,16 @@ export default function MediaCenter() {
     }
   }, []);
 
-  // Sincronitza `isFullscreen` amb l'estat real del browser (l'usuari pot
-  // sortir amb Esc nadiu, no només amb el botó).
+  // Syncs `isFullscreen` with the browser's actual state (the user can
+  // exit with native Esc, not just with the button).
   useEffect(() => {
     const onFs = () => setIsFullscreen(!!document.fullscreenElement);
     document.addEventListener('fullscreenchange', onFs);
     return () => document.removeEventListener('fullscreenchange', onFs);
   }, []);
 
-  // Atall de teclat global mentre el visor està obert. Ignorem si l'usuari
-  // està escrivint a un input/textarea (tags, descripció, etc).
+  // Global keyboard shortcut while the viewer is open. We ignore it if the user
+  // is typing in an input/textarea (tags, description, etc).
   useEffect(() => {
     if (!selectedPhoto) return;
     const onKey = (e) => {
@@ -1073,9 +1073,9 @@ export default function MediaCenter() {
     return () => document.removeEventListener('keydown', onKey);
   }, [selectedPhoto, goPrev, goNext, toggleFullscreen, closeViewer]);
 
-  // Slideshow: cada SLIDESHOW_INTERVAL_MS va a la següent. S'atura quan
-  // arriba al final o quan l'usuari el desactiva. Es reinicia quan canvia
-  // l'item actual perquè cada item té un timer fresc.
+  // Slideshow: every SLIDESHOW_INTERVAL_MS it moves to the next one. It stops when
+  // it reaches the end or when the user disables it. It restarts when
+  // the current item changes so that each item gets a fresh timer.
   useEffect(() => {
     if (!slideshowActive || !selectedPhoto) return;
     const t = setTimeout(() => {
@@ -1143,7 +1143,7 @@ export default function MediaCenter() {
         </div>
       </header>
 
-      {/* Toolbar de filtres + ordenació (només quan hi ha àlbum actiu) */}
+      {/* Filter + sort toolbar (only when there's an active album) */}
       {activeAlbum !== null && (
         <MediaToolbar
           filters={filters}
@@ -1161,7 +1161,7 @@ export default function MediaCenter() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Albums */}
         <aside className="w-64 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
-          {/* Tabs de root: Images, Assets, Biblioteca, Vault */}
+          {/* Root tabs: Images, Assets, Biblioteca, Vault */}
           {roots.length > 1 && (
             <>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1">{t('media.origin')}</p>
@@ -1193,8 +1193,8 @@ export default function MediaCenter() {
             </>
           )}
 
-          {/* Vistes desades — apareixen sobre la llista de carpetes. Aplicar
-              una vista canvia root, àlbum, filtres i ordenació alhora. */}
+          {/* Saved views — appear above the folder list. Applying
+              a view changes root, album, filters, and sorting all at once. */}
           {views.length > 0 && (
             <>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1 mt-1">{t('media.views')}</p>
@@ -1347,10 +1347,10 @@ export default function MediaCenter() {
 
       </div>
 
-      {/* Visor (lightbox) — pantalla quasi-completa amb panell de metadades
-          a la dreta, navegació prev/next, slideshow i fullscreen. El panell
-          es plega quan estem en mode fullscreen o slideshow per maximitzar
-          l'espai del media. */}
+      {/* Viewer (lightbox) — near full-screen view with a metadata panel
+          on the right, prev/next navigation, slideshow, and fullscreen. The panel
+          collapses in fullscreen or slideshow mode to maximize
+          the media's screen space. */}
       <AnimatePresence>
         {selectedPhoto && (
           <motion.div
@@ -1420,7 +1420,7 @@ export default function MediaCenter() {
                   </button>
                 )}
 
-                {/* Render segons tipus */}
+                {/* Render based on type */}
                 {selectedPhoto.kind === 'image' && (
                   <img
                     key={selectedPhoto.id}
@@ -1467,7 +1467,7 @@ export default function MediaCenter() {
                 )}
               </div>
 
-              {/* Panell de metadades — amagat en fullscreen i slideshow */}
+              {/* Metadata panel — hidden in fullscreen and slideshow */}
               {!isFullscreen && !slideshowActive && (
                 <aside className="w-80 bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col h-full border-l border-white/10 shrink-0">
                   <div className="flex-1 overflow-y-auto p-5 space-y-5 custom-scrollbar">

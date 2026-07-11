@@ -21,16 +21,16 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
     const { t } = useTranslation();
     const localeSettings = useLocaleSettings();
     const [internalSearchTerm, setInternalSearchTerm] = useState('');
-    // Grups DESPLEGATS (defecte: plegat — Set buit). Mateix patró que VaultTable.
+    // EXPANDED groups (default: collapsed — empty Set). Same pattern as VaultTable.
     const [expandedGroups, setExpandedGroups] = useState(() => new Set());
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
-    // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
-    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
-    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS i
-    // sense useMemo el sort/filtrat es recalculava a cada render.
+    // ---- UNIFIED DATA LOGIC (FILTERS, SORT, SEARCH) ----
+    // The order is resolved with `resolveViewSorts` (the `sorts` key — the one that persist
+    // the Notion import and the modal — with fallback to the legacy `sort`).
+    // Memoized: `resolveViewSorts`/`resolveViewFilters` return NEW arrays and
+    // without useMemo, the sort/filtering was recalculated on every render.
     const viewConfig = useMemo(() => ({
         filters: resolveViewFilters(activeView),
         sorts: resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
@@ -39,10 +39,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
 
     const { sortedPages: sortedAndFilteredNotes } = useVaultViewData({ pages: notes, schema, view: viewConfig, searchTerm });
 
-    // Previsualització del contingut en passar el ratolí pel títol d'una targeta.
+    // Content preview when hovering over a card's title.
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
 
-    // ---- SELECCIÓ MÚLTIPLE ----
+    // ---- MULTIPLE SELECTION ----
     const { selectedIds, isSelected, toggleSelect, selectAll, clearSelection } = useVaultSelection(sortedAndFilteredNotes);
 
     const handleBulkDelete = useCallback(() => {
@@ -66,18 +66,18 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         onDeleteSelection: handleBulkDelete,
     });
 
-    // ---- NAVEGACIÓ DE TECLAT PER TARGETES ----
-    // La galeria s'incrusta a l'editor com un bloc-vista: quan el focus és a la
-    // closca de l'embed, Espai/Enter hi «baixa» (via `registerNavApi.focusFirstCell`,
-    // que crida DbViewEmbed). Aquí movem el focus entre targetes amb les fletxes
-    // (geomètric, robust amb la graella responsiva i les seccions agrupades),
-    // obrim amb Enter, previsualitzem amb Espai (Quick Look) i en sortim pels
-    // límits (↑/↓ als extrems → editor) o amb Esc (→ closca). `cardRefs` s'indexa
-    // per l'índex pla de la targeta (comptador continu a través dels grups).
+    // ---- KEYBOARD NAVIGATION FOR CARDS ----
+    // The gallery is embedded in the editor as a view-block: when focus is on the
+    // embed shell, Space/Enter "descends" into it (via `registerNavApi.focusFirstCell`,
+    // that calls DbViewEmbed). Here we move focus between cards with the arrow keys
+    // (geometric, robust with the responsive grid and grouped sections),
+    // we open with Enter, preview with Space (Quick Look), and exit it via the
+    // boundaries (↑/↓ at the ends → editor) or with Esc (→ shell). `cardRefs` is indexed
+    // by the card's flat index (a counter that runs continuously across groups).
     const cardRefs = useRef([]);
-    // Capçaleres de grup (navegació per teclat): un ref per capçalera, indexat
-    // per ordre de grup. Quan el focus hi és, ↑/↓ mou entre capçaleres i Enter
-    // desplega el grup i baixa al seu primer ítem.
+    // Group headers (keyboard navigation): one ref per header, indexed
+    // by group order. When focus is there, ↑/↓ moves between headers and Enter
+    // expands the group and moves down to its first item.
     const groupHeaderRefs = useRef([]);
 
     const focusCardAt = useCallback((idx) => {
@@ -96,13 +96,13 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         return true;
     }, []);
 
-    // Navegació des de la capçalera d'un grup:
-    //  ↑/↓   → capçalera anterior/següent
-    //  Enter → commuta plegat; si queda desplegat, baixa al primer ítem del grup
-    //  →     → si desplegat, baixa al primer ítem (sense commutar)
-    //  Esc   → surt a la closca/editor
-    // L'entrada als ítems es retarda al pròxim render (effect) perquè les
-    // targetes d'un grup plegat no existeixen a cardRefs fins que es desplega.
+    // Navigation from a group's header:
+    //  ↑/↓   → previous/next header
+    //  Enter → toggles collapsed state; if expanded, moves down to the group's first item
+    //  →     → if expanded, moves down to the first item (without toggling)
+    //  Esc   → exits to the shell/editor
+    // Entry into the items is deferred to the next render (effect) because the
+    // cards of a collapsed group don't exist in cardRefs until it's expanded.
     const pendingEnterGroupRef = useRef(null);
     const handleGroupHeaderKeyDown = (e, idx, groupId) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -127,12 +127,12 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
-    // Després de desplegar un grup (Enter), situa el focus al seu primer ítem.
+    // After expanding a group (Enter), place focus on its first item.
     useEffect(() => {
         const gid = pendingEnterGroupRef.current;
         if (!gid || !groupedSections) return;
-        // Calcula l'índex real a cardRefs del primer ítem del grup desplegat:
-        // suma les notes dels grups desplegats ANTERIOR a aquest.
+        // Calculates the actual index in cardRefs of the expanded group's first item:
+        // sums the notes of the groups expanded BEFORE this one.
         let idx = 0;
         for (const sec of groupedSections) {
             if (sec.id === gid) break;
@@ -143,14 +143,14 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         return () => cancelAnimationFrame(raf);
     }, [expandedGroups, groupedSections, focusCardAt]);
 
-    // Exposa a l'editor l'API per «entrar» als registres (primera/última targeta).
-    // Si la galeria és agrupada, el primer element a rebre el focus és la
-    // primera CAPÇALERA de grup (es desplega amb Enter per entrar als ítems).
+    // Exposes the API to the editor to "enter" the records (first/last card).
+    // If the gallery is grouped, the first element to receive focus is the
+    // first group HEADER (expand it with Enter to enter the items).
     useEffect(() => {
         if (!registerNavApi) return undefined;
         registerNavApi({
             focusFirstCell: () => {
-                // Agrupada: el focus inicial va a la primera capçalera de grup.
+                // Grouped: initial focus goes to the first group header.
                 if (groupHeaderRefs.current.some(Boolean)) {
                     const i = groupHeaderRefs.current.findIndex(Boolean);
                     return i >= 0 ? focusGroupHeaderAt(i) : focusCardAt(cardRefs.current.findIndex(Boolean));
@@ -172,7 +172,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         const els = cardRefs.current;
         const from = els[fromIdx];
         if (!from) return;
-        // Esquerra/dreta: ordre de lectura (salta forats d'índex); als extrems, surt.
+        // Left/right: reading order (skips index gaps); at the ends, it exits.
         if (dir === 'left') {
             let n = fromIdx - 1; while (n >= 0 && !els[n]) n--;
             if (n >= 0) focusCardAt(n); else onExitTop?.();
@@ -183,8 +183,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             if (n < els.length) focusCardAt(n); else onExitBottom?.();
             return;
         }
-        // Amunt/avall: geomètric — la targeta amb el centre més proper en aquella
-        // direcció vertical (desempat per la distància horitzontal).
+        // Up/down: geometric — the card with the closest center in that
+        // vertical direction (ties broken by horizontal distance).
         const fr = from.getBoundingClientRect();
         const fx = fr.left + fr.width / 2;
         const fy = fr.top + fr.height / 2;
@@ -211,7 +211,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 e.preventDefault(); onNoteSelect?.(noteId); break;
             case ' ':
             case 'Spacebar': {
-                // Quick Look (com a la taula): Espai obre la previsualització.
+                // Quick Look (like in the table): Space opens the preview.
                 e.preventDefault();
                 const el = cardRefs.current[flatIdx];
                 if (el) titlePreview.openForKeyboard(noteId, el.getBoundingClientRect());
@@ -226,30 +226,30 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
-    // Tota vista amb `visibleProperties` configurats els respecta — TAMBÉ la
-    // principal (abans forçava tots els camps i tapava la config real de les
-    // vistes importades de Notion). Sense config: la principal mostra tot
-    // l'esquema; una vista custom, els 3 primers camps.
+    // Every view with `visibleProperties` configured respects them — INCLUDING the
+    // main one (previously it forced all fields and hid the real config of the
+    // views imported from Notion). Without config: the main view shows everything
+    // the schema; a custom view, the first 3 fields.
     const visibleProperties = activeView?.visibleProperties?.length
         ? activeView.visibleProperties
         : (isMainView(activeView)
             ? getSchemaFieldNames(schema)
             : getSchemaFieldNames(schema).slice(0, 3));
-    // Exclou `title` (com el kanban): la capçalera de la targeta ja el mostra i
-    // el filtre anterior (`type` truthy) era un no-op — getFieldType mai retorna
-    // falsy — així que el títol sortia duplicat com a fila de propietat.
+    // Excludes `title` (like the kanban): the card header already shows it and
+    // the previous filter (`type` truthy) was a no-op — getFieldType never returns
+    // falsy — so the title used to appear duplicated as a property row.
     const dynamicColumns = visibleProperties.map(prop => [prop, getFieldType(schema, prop)]).filter(([key, type]) => type && type !== 'title');
 
-    // ---- AGRUPACIÓ (activeView.groupBy) ----
-    // Seccions estil Notion: capçalera de grup + graella per a cada valor del
-    // camp. El modal de vista ja oferia `groupBy` per a la galeria (i l'import
-    // de Notion el persisteix), però la galeria l'ignorava. Mateixa semàntica
-    // que el kanban: l'ordre i el color de les seccions segueixen el catàleg
-    // d'opcions del camp (select/status); un valor multi (array) fa aparèixer
-    // el registre a CADA grup; els registres sense valor van a l'últim grup.
+    // ---- GROUPING (activeView.groupBy) ----
+    // Notion-style sections: group header + grid for each value of the
+    // field. The view modal already offered `groupBy` for the gallery (and the import
+    // Notion persists it), but the gallery ignored it. Same semantics
+    // as the kanban: the order and color of the sections follow the catalog
+    // of field options (select/status); a multi value (array) makes
+    // the record appear in EVERY group; records without a value go to the last group.
     const groupBy = activeView?.groupBy || '';
-    // Col·lapse/expansió d'un grup (estat local). Defecte: PLEGAT. Es reinicia
-    // en canviar de vista o de camp d'agrupació (claus sense sentit altre cop).
+    // Collapse/expand of a group (local state). Default: COLLAPSED. It resets
+    // when changing view or grouping field (keys become meaningless again).
     const toggleGroup = useCallback((groupKey) => {
         setExpandedGroups(prev => {
             const next = new Set(prev);
@@ -291,9 +291,9 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 buckets.get(v).push(note);
             });
         });
-        // `id` distint del nom mostrat: la secció d'agrupats-buits porta una
-        // clau sentinella perquè un valor real "Sense grup" no col·lisioni amb
-        // ella (keys de React duplicades i reconciliació creuada).
+        // `id` distinct from the displayed name: the empty-group section carries a
+        // sentinel key so that a real "No group" value doesn't collide with
+        // it (duplicate React keys and cross-reconciliation).
         let sections = [...buckets.entries()]
             .filter(([, groupNotes]) => groupNotes.length > 0)
             .map(([name, groupNotes]) => ({
@@ -302,9 +302,9 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 color: colorMap[name] ? optionColorHex(colorMap[name]) : null,
                 notes: groupNotes,
             }));
-        // Ordre dels grups: 'catalog' (defecte, ordre del catàleg d'opcions);
-        // 'alpha' alfabètic pel nom; 'count' per nombre de registres. Direcció
-        // asc/desc. El grup "Sense grup" sempre al final.
+        // Group order: 'catalog' (default, option catalog order);
+        // 'alpha' alphabetical by name; 'count' by number of records. Direction
+        // asc/desc. The "No group" group always goes last.
         const gs = activeView?.groupSort || activeView?.group_sort || 'catalog';
         const gsd = (activeView?.groupSortDir || activeView?.group_sort_dir || 'asc') === 'desc' ? -1 : 1;
         if (gs === 'alpha') {
@@ -356,29 +356,29 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
     };
 
-    // Mode de previsualització de la targeta (camp `galleryPreview` de la vista):
-    //   cover      → àrea superior amb la portada de la pàgina + propietats
-    //   content    → àrea superior amb un fragment del text + propietats
-    //   properties → sense àrea superior; títol + propietats (targeta compacta)
-    //   none       → targeta mínima: només títol i icona
+    // Card preview mode (the view's `galleryPreview` field):
+    //   cover      → top area with the page cover + properties
+    //   content    → top area with a text excerpt + properties
+    //   properties → no top area; title + properties (compact card)
+    //   none       → minimal card: title and icon only
     const galleryPreview = activeView.galleryPreview || 'cover';
-    // 'content' ja NO puja a una àrea superior tipus portada: es renderitza com a
-    // targeta-document (títol a dalt + el text de la pàgina omplint el que càpiga).
+    // 'content' no longer promotes to a cover-like top area: it's rendered as a
+    // document-card (title on top + the page text filling whatever space is available).
     const showCoverArea = galleryPreview === 'cover';
     const showContentPreview = galleryPreview === 'content';
-    // En mode 'content' la targeta l'omple el text de la pàgina, no les propietats.
+    // In 'content' mode the card is filled by the page text, not the properties.
     const showProperties = galleryPreview === 'cover' || galleryPreview === 'properties';
 
-    // Camp d'on treure la portada de cada targeta. Buit = portada de la pàgina
-    // (`metadata.cover`, comportament clàssic). Si s'especifica un camp, n'extraiem
-    // la imatge servible (getImageSrc + toAssetPreviewUrl).
+    // Field to pull each card's cover from. Empty = the page's cover
+    // (`metadata.cover`, classic behavior). If a field is specified, we extract
+    // the servable image (getImageSrc + toAssetPreviewUrl).
     const coverField = activeView.coverField || '';
     const getCoverUrl = (note) => {
         if (coverField) {
-            // Resolució TOLERANT de la clau (exacta o normalitzada), com la resta
-            // del component (getGroupVal, fila de propietats): un metadata amb la
-            // clau en una altra caixa/accent deixava la portada en gradient buit
-            // mentre la fila de propietats sí mostrava la miniatura.
+            // TOLERANT key resolution (exact or normalized), like the rest
+            // of the component (getGroupVal, property row): a metadata with the
+            // key in another box/accent left the cover with an empty gradient
+            // while the property row did show the thumbnail.
             let raw = note.metadata?.[coverField];
             if (raw === undefined || raw === null || raw === '') {
                 const keyNorm = normalizeMetaKey(coverField);
@@ -393,12 +393,12 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
         }
         return '';
     };
-    // Ajust de la imatge de portada: 'contain' (sencera, defecte) o 'cover' (omple).
+    // Cover image fit: 'contain' (whole image, default) or 'cover' (fills).
     const coverFitClass = (activeView.imageFit || 'contain') === 'cover' ? 'bg-cover' : 'bg-contain';
 
-    // Fragment de text per al mode "content". Tolerant amb la forma del registre
-    // (excerpt/body_md/content o una descripció a metadata); neteja frontmatter,
-    // imatges/enllaços i marques markdown bàsiques per a una previsualització neta.
+    // Text excerpt for "content" mode. Tolerant of the record's shape
+    // (excerpt/body_md/content or a description in metadata); strips frontmatter,
+    // images/links, and basic markdown markup for a clean preview.
     const getExcerpt = (note) => {
         const raw = note.excerpt || note.body_md || note.content
             || note.metadata?.description || note.metadata?.summary || '';
@@ -408,8 +408,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             .replace(/!\[[^\]]*\]\([^)]*\)/g, '')
             .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
             .replace(/[#>*_`~]/g, '')
-            .replace(/[ \t]+/g, ' ')        // espais/tabs → 1 (preserva salts de línia)
-            .replace(/\n{2,}/g, '\n')       // línies en blanc múltiples → una de sola
+            .replace(/[ \t]+/g, ' ')        // spaces/tabs → 1 (preserves line breaks)
+            .replace(/\n{2,}/g, '\n')       // multiple blank lines → a single one
             .split('\n').map(s => s.trim()).filter(Boolean).join('\n')
             .slice(0, 600);                 // prou text per omplir targetes grans
     };
@@ -457,8 +457,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 );
             case 'multi_select':
             case 'relation': {
-                // String() + filter(Boolean) com al kanban: sense això, "a, " o un
-                // array amb buits pintava pills buides i inflava el "+N".
+                // String() + filter(Boolean) like in the kanban: without this, "a, " or an
+                // array with empty values would paint empty pills and inflate the "+N".
                 const items = (Array.isArray(value) ? value : String(value).split(',')).map(s => String(s).trim()).filter(Boolean);
                 const displayMap = type === 'relation' ? getRelationDisplayMap(field) : idToTitle;
                 return (
@@ -502,8 +502,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     </button>
                 );
             case 'image': {
-                // Tipus imatge explícit: miniatura tant si el valor és string (ruta)
-                // com compost {src, alt, …}. value-gateja amb la URL servible.
+                // Explicit image type: thumbnail whether the value is a string (path)
+                // or a composite {src, alt, …}. The value is resolved into a servable URL.
                 const src = getImageSrc(value);
                 const previewUrl = toAssetPreviewUrl(src);
                 if (previewUrl) return <img src={previewUrl} alt={(value && value.alt) || field} className="h-9 w-9 rounded object-cover" />;
@@ -511,19 +511,19 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             }
             default:
                 if (value && typeof value === 'object') {
-                    // Camp imatge COMPOST {src, …}: miniatura si resol, si no el src.
+                    // COMPOSITE image field {src, …}: thumbnail if it resolves, otherwise the src.
                     const src = getImageSrc(value);
                     const previewUrl = toAssetPreviewUrl(src);
                     if (previewUrl) return <img src={previewUrl} alt={value.alt || field} className="h-9 w-9 rounded object-cover" />;
                     return <span className="truncate text-xs block text-[var(--text-secondary)]" title={src}>{src}</span>;
                 }
-                // Un booleà (camp Notion sense tipar a l'esquema) no és títol vàlid.
+                // A boolean (Notion field untyped in the schema) is not a valid title.
                 return <span className="truncate text-xs block text-[var(--text-secondary)]" title={typeof value === 'boolean' ? undefined : value}>{value}</span>;
         }
     };
 
-    // Targeta individual (reutilitzada per la graella plana i per cada secció
-    // de grup; l'índex només dóna estabilitat a la key dins de cada graella).
+    // Individual card (reused for the flat grid and for each group section;
+    // the index only gives stability to the key within each grid).
     const renderCard = (note, flatIndex) => {
         const coverUrl = getCoverUrl(note);
         const hasCover = !!coverUrl;
@@ -537,10 +537,10 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 onClick={() => { if (selectedIds.size > 0) { toggleSelect(note.id, {}); } else { onNoteSelect(note.id); } }}
                 className={`group relative bg-[var(--bg-primary)] rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col outline-none focus:ring-2 focus:ring-[var(--gnosi-primary)] focus:border-[var(--gnosi-primary)] ${(showCoverArea || showContentPreview) ? getCardHeightClass() : ''} ${isSelected(note.id) ? 'border-[var(--gnosi-primary)] ring-2 ring-[var(--gnosi-primary)]/20' : 'border-[var(--border-primary)] hover:border-[var(--gnosi-primary)]/50'}`}
             >
-                {/* Checkbox de selecció (cantonada superior esquerra). El toggle
-                    viu NOMÉS a l'onChange de l'input (#722): amb toggle també a
-                    l'onClick del label, el clic directe al checkbox disparava
-                    tots dos pel bubbling i es quedava com estava (no-op). */}
+                {/* Selection checkbox (top-left corner). The toggle lives ONLY in the
+                    input's onChange (#722): with the toggle also on the label's onClick,
+                    a direct click on the checkbox fired both via bubbling and it stayed
+                    as it was (no-op). */}
                 <label
                     className={`absolute top-2 left-2 z-20 cursor-pointer ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                     onClick={(e) => e.stopPropagation()}
@@ -552,8 +552,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         className="w-4 h-4 rounded border-[var(--border-primary)] text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)] cursor-pointer bg-[var(--bg-secondary)]/90 shadow-sm"
                     />
                 </label>
-                {/* Àrea superior: només mode 'cover' (portada de la pàgina).
-                    El mode 'content' es renderitza dins el cos, sota el títol. */}
+                {/* Top area: only in 'cover' mode (page cover).
+                    'content' mode is rendered inside the body, below the title. */}
                 {showCoverArea && (
                     <div className={`${getCoverHeightClass()} relative shrink-0 bg-[var(--bg-secondary)] border-b border-[var(--border-primary)]`}>
                         {hasCover ? (
@@ -565,7 +565,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                             <div className="absolute inset-0 bg-gradient-to-br from-[var(--bg-tertiary)] to-[var(--gnosi-primary)]/10" />
                         )}
 
-                        {/* Icona superposada a la portada */}
+                        {/* Icon overlaid on the cover */}
                         <div className="absolute -bottom-5 left-4 w-10 h-10 bg-[var(--bg-secondary)] rounded-lg shadow-sm border border-[var(--border-primary)] flex items-center justify-center z-10 group-hover:scale-110 transition-transform overflow-hidden">
                             <IconRenderer icon={note.metadata?.icon} size={24} />
                         </div>
@@ -583,8 +583,8 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                         <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', 'Sense títol')}</span>
                     </h3>
 
-                    {/* Previsualització del contingut (mode 'content'): el que
-                        càpiga del text de la pàgina, sota el títol, amb fade final. */}
+                    {/* Content preview (mode 'content'): whatever fits of the page
+                        text, below the title, with a fade at the end. */}
                     {showContentPreview && (
                         <div className="relative flex-1 min-h-0 overflow-hidden">
                             {excerpt ? (
@@ -645,7 +645,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                 />
             )}
 
-            {/* Barra d'accions en bulk */}
+            {/* Bulk actions bar */}
             {selectedIds.size > 0 && (
                 <VaultBulkActionsBar
                     selectedIds={selectedIds}
@@ -659,16 +659,16 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
             <div className="flex-1 overflow-y-auto custom-scrollbar px-4 md:px-6 pb-4 md:pb-6 pt-vault-header-top">
                 <div className="max-w-[1400px] mx-auto">
                     {groupedSections ? (
-                        // Agrupada: una secció per valor del camp `groupBy`, amb
-                        // capçalera (punt de color del catàleg + nom + recompte).
-                        // `flat` és un comptador continu a través de les seccions
-                        // perquè cada targeta tingui un índex pla únic (nav de teclat).
-                        // Grups PLEGBLES: defecte plegat; el chevron desplega/plega.
+                        // Grouped: one section per value of the `groupBy` field, with a
+                        // header (catalog color dot + name + count). `flat` is a counter
+                        // that runs continuously across sections so each card gets a unique
+                        // flat index (keyboard nav).
+                        // COLLAPSIBLE groups: collapsed by default; the chevron expands/collapses.
                         (() => {
-                            // Neteja de refs de capçaleres de runs anteriors
-                            // (els grups poden canviar per ordre/filtre).
+                            // Clear header refs from previous runs
+                            // (groups can change due to sort/filter).
                             groupHeaderRefs.current.length = 0;
-                            let flat = 0;            // índex pla de targeta (només desplegades)
+                            let flat = 0;            // flat card index (expanded only)
                             return groupedSections.map(({ id, name, color, notes: groupNotes }) => {
                                 const expanded = expandedGroups.has(id);
                                 const headerIdx = groupHeaderRefs.current.push(null) - 1;

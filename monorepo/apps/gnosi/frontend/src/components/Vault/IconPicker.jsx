@@ -166,7 +166,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [isOpen, onClose, triggerRef]);
 
-    // Esc tanca el popover de selecció d'icona.
+    // Esc closes the icon-selection popover.
     useModalKeyboard({ isOpen, onClose });
 
     if (!isOpen) return null;

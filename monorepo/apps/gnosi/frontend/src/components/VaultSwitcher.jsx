@@ -1,15 +1,17 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import { Vault, Plus, Check, Loader, Trash2 } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 /**
- * Selector de vault (mode personal multi-vault). Llista els vaults, permet crear-ne de nous i
- * canviar l'actiu (es desa a localStorage `gnosi_active_vault` i es propaga via X-Vault-Id a
- * cada petició — vegeu pageEtagInterceptor). Útil per clonar Notion a un vault separat,
- * validar-lo aïllat i adoptar-lo o descartar-lo. Canviar de vault recarrega l'app.
+ * Vault selector (personal multi-vault mode). Lists the vaults, allows creating new ones, and
+ * switching the active one (saved to localStorage as `gnosi_active_vault` and propagated via X-Vault-Id on
+ * every request — see pageEtagInterceptor). Useful for cloning Notion into a separate vault,
+ * validating it in isolation, and adopting or discarding it. Switching vaults reloads the app.
  */
 export default function VaultSwitcher() {
+    const { t } = useTranslation();
     const [vaults, setVaults] = useState([]);
     const [busy, setBusy] = useState('');
     const [creating, setCreating] = useState(false);
@@ -36,7 +38,7 @@ export default function VaultSwitcher() {
             const target = vaults.find(v => v.id === id);
             if (target?.name) localStorage.setItem('gnosi_active_vault_name', target.name);
         } catch { /* */ }
-        window.location.reload();   // recarrega tot des del vault triat
+        window.location.reload();   // reloads everything from the chosen vault
     };
 
     const create = async () => {
@@ -51,7 +53,7 @@ export default function VaultSwitcher() {
         finally { setBusy(''); }
     };
 
-    const remove = (v) => setConfirmTarget(v);   // obre el modal de confirmació de Gnosi
+    const remove = (v) => setConfirmTarget(v);   // opens Gnosi's confirmation modal
 
     const doRemove = async () => {
         const v = confirmTarget;
@@ -69,7 +71,7 @@ export default function VaultSwitcher() {
     return (
         <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: '1px solid var(--settings-border)', background: 'var(--bg-primary)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                <Vault size={15} /> Vault actiu
+                <Vault size={15} /> {t('vault_switcher.active_vault', 'Vault actiu')}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {vaults.map(v => (
@@ -81,7 +83,7 @@ export default function VaultSwitcher() {
                             {v.active && <Check size={13} />}{v.name}
                         </button>
                         {!v.active && (
-                            <button onClick={() => remove(v)} disabled={busy === 'del:' + v.id} title="Esborra aquest vault del registre"
+                            <button onClick={() => remove(v)} disabled={busy === 'del:' + v.id} title={t('vault_switcher.delete_tooltip', 'Esborra aquest vault del registre')}
                                 style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--settings-border)', cursor: 'pointer', padding: '7px 8px', color: 'var(--text-tertiary)', display: 'flex' }}>
                                 {busy === 'del:' + v.id ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
                             </button>
@@ -90,33 +92,33 @@ export default function VaultSwitcher() {
                 ))}
                 {creating ? (
                     <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input style={{ ...inp, width: 160 }} autoFocus placeholder="Nom del vault" value={newName}
+                        <input style={{ ...inp, width: 160 }} autoFocus placeholder={t('settings.general.vault_name', 'Nom del vault')} value={newName}
                             onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && create()} />
                         <button className="btn-gnosi-primary" onClick={create} disabled={busy === 'create' || !newName.trim()}
                             style={{ padding: '7px 12px', borderRadius: 10, fontSize: '0.82rem' }}>
-                            {busy === 'create' ? <Loader size={13} className="animate-spin" /> : 'Crea'}
+                            {busy === 'create' ? <Loader size={13} className="animate-spin" /> : t('common.create', 'Crea')}
                         </button>
-                        <button onClick={() => { setCreating(false); setNewName(''); }} style={{ ...inp, cursor: 'pointer' }}>Cancel·la</button>
+                        <button onClick={() => { setCreating(false); setNewName(''); }} style={{ ...inp, cursor: 'pointer' }}>{t('common.cancel', 'Cancel·la')}</button>
                     </span>
                 ) : (
                     <button onClick={() => setCreating(true)}
                         style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
-                        <Plus size={14} /> Nou vault
+                        <Plus size={14} /> {t('vault_switcher.new_vault', 'Nou vault')}
                     </button>
                 )}
             </div>
             <div style={{ marginTop: 8, fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
-                Clona Notion a un vault separat, verifica'l aïllat i adopta'l o descarta'l sense tocar el principal.
+                {t('vault_switcher.description', "Clona Notion a un vault separat, verifica'l aïllat i adopta'l o descarta'l sense tocar el principal.")}
             </div>
             {error && <div style={{ marginTop: 6, color: '#e05252', fontSize: '0.8rem' }}>{error}</div>}
             <ConfirmModal
                 isOpen={!!confirmTarget}
                 onClose={() => setConfirmTarget(null)}
                 onConfirm={doRemove}
-                title="Esborrar vault"
-                message={confirmTarget ? `Esborrar el vault «${confirmTarget.name}» del registre? No esborra cap fitxer del disc.` : ''}
-                confirmText="Esborrar"
-                cancelText="Cancel·la"
+                title={t('vault_switcher.delete_modal_title', 'Esborrar vault')}
+                message={confirmTarget ? t('vault_switcher.delete_modal_message', 'Esborrar el vault «{{name}}» del registre? No esborra cap fitxer del disc.', { name: confirmTarget.name }) : ''}
+                confirmText={t('vault_switcher.delete_modal_confirm', 'Esborrar')}
+                cancelText={t('common.cancel', 'Cancel·la')}
                 isDestructive
             />
         </div>

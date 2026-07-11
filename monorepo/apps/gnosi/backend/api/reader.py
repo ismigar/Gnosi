@@ -15,7 +15,7 @@ from backend.services.workspace_service import get_workspace_context, require_ro
 log = logging.getLogger(__name__)
 ALLOWED_SSL_MODES = ("starttls", "ssl", "none")
 
-# Taules i models ara es gestionen automàticament per cada vault a db.py
+# Tables and models are now managed automatically per vault in db.py
 router = APIRouter(prefix="/api/reader", tags=["reader"], dependencies=[Depends(get_workspace_context)])
 
 # -- Feed Sources --
@@ -518,8 +518,8 @@ def get_podcast_info():
         return {"exists": False}
 
     latest_file = sorted(files, reverse=True)[0]
-    # Bug previ: el file_path es construïa amb AUDIO_OUTPUT_DIR (config.paths.AUDIO)
-    # però els fitxers vivien a pod_dir → getmtime fallava amb FileNotFoundError.
+    # Previous bug: file_path was built using AUDIO_OUTPUT_DIR (config.paths.AUDIO)
+    # but the files lived in pod_dir → getmtime failed with FileNotFoundError.
     file_path = os.path.join(pod_dir, latest_file)
 
     # Get the modification date

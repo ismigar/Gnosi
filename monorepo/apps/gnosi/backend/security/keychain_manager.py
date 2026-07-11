@@ -70,15 +70,15 @@ class KeychainManager:
                 "-D",
                 "Gnosi Credential",
             ]
-            # timeout=10s perquè si el Keychain està bloquejat i mostra el
-            # diàleg de password, el subprocess es queda penjat indefinidament
-            # i bloqueja el thread del backend.
+            # timeout=10s because if the Keychain is locked and shows the
+            # password dialog, the subprocess hangs indefinitely
+            # and blocks the backend thread.
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
-                # `security add-generic-password` falla amb returncode 45 si
-                # ja existeix; cau a `-U` (update). Si _macos_update també
-                # falla, hem de retornar False — abans retornava sempre True
-                # i emmascarava errors reals (Keychain bloquejat, etc.).
+                # `security add-generic-password` fails with returncode 45 if
+                # it already exists; falls back to `-U` (update). If _macos_update also
+                # fails, we must return False — previously it always returned True
+                # and masked real errors (locked Keychain, etc.).
                 return self._macos_update(key, value)
             return True
         except Exception as e:
@@ -102,9 +102,9 @@ class KeychainManager:
                 "Gnosi Credential",
                 "-U",
             ]
-            # timeout=10s perquè si el Keychain està bloquejat i mostra el
-            # diàleg de password, el subprocess es queda penjat indefinidament
-            # i bloqueja el thread del backend.
+            # timeout=10s because if the Keychain is locked and shows the
+            # password dialog, the subprocess hangs indefinitely
+            # and blocks the backend thread.
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode != 0:
                 log.error(
@@ -130,9 +130,9 @@ class KeychainManager:
                 key_name,
                 "-w",
             ]
-            # timeout=10s perquè si el Keychain està bloquejat i mostra el
-            # diàleg de password, el subprocess es queda penjat indefinidament
-            # i bloqueja el thread del backend.
+            # timeout=10s because if the Keychain is locked and shows the
+            # password dialog, the subprocess hangs indefinitely
+            # and blocks the backend thread.
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()
@@ -161,9 +161,9 @@ class KeychainManager:
         """List all credentials from macOS Keychain."""
         try:
             cmd = ["security", "dump-trust-settings", "-s", self.service_name]
-            # timeout=10s perquè si el Keychain està bloquejat i mostra el
-            # diàleg de password, el subprocess es queda penjat indefinidament
-            # i bloqueja el thread del backend.
+            # timeout=10s because if the Keychain is locked and shows the
+            # password dialog, the subprocess hangs indefinitely
+            # and blocks the backend thread.
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
             lines = result.stdout.split("\n")
             return [line.strip() for line in lines if "acct" in line.lower()]
@@ -222,14 +222,14 @@ class KeychainManager:
                 cipher = Fernet(
                     base64.urlsafe_b64encode(hashlib.sha256(master_key).digest())
                 )
-                # Atomic write: aquest fitxer conté credencials encriptades,
-                # un crash entremig el deixaria buit/corrupte.
+                # Atomic write: this file contains encrypted credentials,
+                # a crash in the middle would leave it empty/corrupt.
                 safe_write_bytes(storage_path, cipher.encrypt(json.dumps(data).encode()))
             else:
-                # Sense GNOSI_MASTER_KEY els credentials s'escriuen en
-                # CLAR a disc. Avisem perquè és una caiguda de seguretat
-                # silenciosa (l'usuari assumiria que el fitxer .enc està
-                # encriptat com diu el nom).
+                # Without GNOSI_MASTER_KEY the credentials are written in
+                # IN THE CLEAR on disk. We warn because this is a security lapse
+                # that goes unnoticed (the user would assume the .enc file is
+                # encrypted as the name says).
                 log.warning(
                     f"⚠️ GNOSI_MASTER_KEY no configurat — credencial '{key}' "
                     f"escrita SENSE ENCRIPTAR a {storage_path}. Configura "

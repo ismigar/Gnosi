@@ -1,10 +1,10 @@
 /**
- * usePluginHost — accés React a les contribucions dels plugins de tercers.
+ * usePluginHost — React access to third-party plugins' contributions.
  *
- * Subscriu el component al store de `host.js` (comandes, vistes i panells que
- * els plugins han registrat) i dispara la càrrega inicial dels plugins un sol
- * cop per sessió. Els consumidors (paleta de comandes, shell, sidebar) hi
- * llegeixen les contribucions actives i es re-renderitzen quan canvien.
+ * Subscribes the component to the `host.js` store (commands, views, and panels
+ * that plugins have registered) and triggers the initial plugin load a single
+ * time per session. Consumers (command palette, shell, sidebar) read the
+ * active contributions from it and re-render when they change.
  */
 import { useEffect, useState } from 'react';
 import { subscribeHost, loadPlugins, isLoaded, getContributions } from './host';
@@ -25,7 +25,7 @@ export function usePluginHost() {
     return state; // { commands, views, sidebar }
 }
 
-/** Força una recàrrega dels plugins (p. ex. després de canviar permisos). */
+/** Forces a plugin reload (e.g. after changing permissions). */
 export function reloadPlugins() {
     return loadPlugins();
 }

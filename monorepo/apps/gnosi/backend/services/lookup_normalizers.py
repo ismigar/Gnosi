@@ -1,19 +1,19 @@
-"""Normalitzadors: payload cru de cada font de lookup → Zotero item canònic.
+"""Normalizers: raw payload from each lookup source → canonical Zotero item.
 
-Patró arquitectònic (L3): cada font (CrossRef, OpenLibrary, arXiv, PubMed,
-HTML meta tags, ...) té vocabulari propi. En lloc de tenir un mapper directe
-"font → Recursos" per font, normalitzem **primer** a Zotero item i deleguem
-al mapper declaratiu central [`zotero_to_recursos_mapper`].
+Architectural pattern (L3): each source (CrossRef, OpenLibrary, arXiv, PubMed,
+HTML meta tags, ...) has its own vocabulary. Instead of having a direct
+"source → Recursos" mapper per source, we normalize **first** to a Zotero item and
+delegate to the central declarative mapper [`zotero_to_recursos_mapper`].
 
-Aquest disseny:
-  - Centralitza l'única veritat sobre la nomenclatura Zotero/Recursos.
-  - Permet afegir fonts noves sense tocar el mapping Recursos.
-  - Manté els normalitzadors com a funcions pures (sense xarxa ni FS),
-    trivials de testejar.
+This design:
+  - Centralizes the single source of truth about Zotero/Recursos naming.
+  - Allows adding new sources without touching the Recursos mapping.
+  - Keeps the normalizers as pure functions (no network or FS),
+    trivial to test.
 
-Estat actual (L3.3): CrossRef, Open Library, arXiv, PubMed, HTML meta tags.
-Pendent L3.4: capturar camps Zotero rars (patentNumber, etc.) al frontmatter
-sota una clau dedicada.
+Current state (L3.3): CrossRef, Open Library, arXiv, PubMed, HTML meta tags.
+Pending L3.4: capture rare Zotero fields (patentNumber, etc.) in the frontmatter
+under a dedicated key.
 """
 from __future__ import annotations
 
@@ -21,10 +21,10 @@ import re
 from typing import Any, Optional
 
 
-# ---------- Helpers locals (duplicació conscient de vault_routes) ----------
-# Aquestes utilitats també existeixen a `vault_routes.py`; les dupliquem
-# aquí per mantenir el mòdul pur (sense importar FastAPI/dependencies del
-# backend). Si en una iteració posterior cal centralitzar-les, candidats:
+# ---------- Local helpers (deliberate duplication of vault_routes) ----------
+# These utilities also exist in `vault_routes.py`; we duplicate them
+# here to keep the module pure (without importing FastAPI/backend
+# dependencies). If a later iteration needs to centralize them, candidates:
 # `backend/services/identifier_normalizers.py`.
 
 _DOI_RE_LOCAL = re.compile(r'10\.\d{4,9}/[-._;()/:A-Z0-9]+', re.IGNORECASE)
@@ -46,8 +46,8 @@ def _normalize_isbn_local(raw: str) -> Optional[str]:
 
 
 # CrossRef `type` (https://api.crossref.org/types) → Zotero itemType.
-# Cobrim els més comuns. Si en surt un de no llistat, el deixem tal qual
-# (Zotero ignorarà el item type, però els altres camps continuaran).
+# We cover the most common ones. If one shows up that isn't listed, we leave it as is
+# (Zotero will ignore the item type, but the other fields will still work).
 _CROSSREF_TYPE_TO_ZOTERO: dict[str, str] = {
     'journal-article': 'journalArticle',
     'book': 'book',
@@ -55,8 +55,8 @@ _CROSSREF_TYPE_TO_ZOTERO: dict[str, str] = {
     'proceedings-article': 'conferencePaper',
     'thesis': 'thesis',
     'report': 'report',
-    # Tipus addicionals que no eren al mapper legacy però es poden afegir
-    # sense risc — el schema oficial Zotero (v42) els conté:
+    # Additional types that weren't in the legacy mapper but can be added
+    # safely — the official Zotero schema (v42) contains them:
     'posted-content': 'preprint',
     'dataset': 'dataset',
     'standard': 'standard',
@@ -64,13 +64,14 @@ _CROSSREF_TYPE_TO_ZOTERO: dict[str, str] = {
 
 
 def crossref_to_zotero_item(work: dict) -> dict[str, Any]:
-    """Converteix una resposta de l'API CrossRef (camp `message`) a un
-    Zotero item canònic. Funció pura.
+    """Converts a CrossRef API response (`message` field) into a
+    canonical Zotero item. Pure function.
 
-    L'entrada típica és el que retorna ``GET https://api.crossref.org/works/{doi}``
-    sota ``response.json()["message"]``. Els camps coberts són els que
-    el mapper central reconeix (vegis `RECURSOS_TO_ZOTERO_FIELDS`); la
-    resta s'ignoren a L3.2 i es recolliran a L3.4.
+    The typical input is what ``GET https://api.crossref.org/works/{doi}``
+    returns under ``response.json()["message"]``. The fields covered are the ones
+    the central mapper recognizes (see `RECURSOS_TO_ZOTERO_FIELDS`); the
+    rest are ignored in L3.2 and will be collected in L3.4.
+    
     """
     if not isinstance(work, dict):
         return {}
@@ -81,13 +82,13 @@ def crossref_to_zotero_item(work: dict) -> dict[str, Any]:
     if crossref_type:
         item['itemType'] = _CROSSREF_TYPE_TO_ZOTERO.get(crossref_type, crossref_type)
 
-    # Title (CrossRef l'envia com a array; agafem la primera)
+    # Title (CrossRef sends it as an array; we take the first one)
     title = work.get('title')
     if title:
         item['title'] = title[0] if isinstance(title, list) else title
 
-    # Creators: només autors. Editors/traductors quedarien al item Zotero
-    # amb creatorType propi però el mapper central els ignora a L3.1.
+    # Creators: authors only. Editors/translators would stay in the Zotero item
+    # with their own creatorType but the central mapper ignores them in L3.1.
     creators: list[dict[str, str]] = []
     for a in work.get('author') or []:
         if not isinstance(a, dict):
@@ -105,11 +106,11 @@ def crossref_to_zotero_item(work: dict) -> dict[str, Any]:
     if creators:
         item['creators'] = creators
 
-    # Date: CrossRef té `published-print`, `published-online`, `issued`
-    # amb estructura {date-parts: [[year, month?, day?]]}. Prioritzem
-    # print > online > issued per coincidir amb el comportament legacy.
-    # El mapper central només n'extreu l'any (regex \d{4}), així que
-    # n'hi ha prou amb passar l'any com a string.
+    # Date: CrossRef has `published-print`, `published-online`, `issued`
+    # with structure {date-parts: [[year, month?, day?]]}. We prioritize
+    # print > online > issued to match the legacy behavior.
+    # The central mapper only extracts the year from it (regex \d{4}), so
+    # it's enough to pass the year as a string.
     for key in ('published-print', 'published-online', 'issued'):
         date_obj = work.get(key) or {}
         parts = date_obj.get('date-parts') or []
@@ -120,14 +121,14 @@ def crossref_to_zotero_item(work: dict) -> dict[str, Any]:
             except (TypeError, ValueError):
                 continue
 
-    # Container (revista/proceedings/llibre): l'envien com a array igual
-    # que el title. Mapem a `publicationTitle` perquè és el primer del
+    # Container (journal/proceedings/book): they send it as an array too
+    # than the title. We map to `publicationTitle` because it's the first of the
     # fallback chain a `RECURSOS_TO_ZOTERO_FIELDS['Llibre/Revista']`.
     container = work.get('container-title')
     if container:
         item['publicationTitle'] = container[0] if isinstance(container, list) else container
 
-    # Camps simples
+    # Simple fields
     if work.get('publisher'):
         item['publisher'] = work['publisher']
     if work.get('volume'):
@@ -143,7 +144,7 @@ def crossref_to_zotero_item(work: dict) -> dict[str, Any]:
     if work.get('language'):
         item['language'] = work['language']
 
-    # Identificadors que poden venir com a array
+    # Identifiers that can come as an array
     isbn = work.get('ISBN')
     if isbn:
         item['ISBN'] = isbn[0] if isinstance(isbn, list) else isbn
@@ -159,8 +160,9 @@ def crossref_to_zotero_item(work: dict) -> dict[str, Any]:
 def _split_full_name(full: str) -> Optional[dict]:
     """`"Daniel Kahneman"` → `{lastName: "Kahneman", firstName: "Daniel"}`.
 
-    Per noms d'un sol token, retornem `{name: token}` (Zotero ho tracta
-    com a creator amb nom literal).
+    For single-token names, we return `{name: token}` (Zotero treats it
+    as a creator with a literal name).
+    
     """
     full = (full or '').strip()
     if not full:
@@ -173,15 +175,16 @@ def _split_full_name(full: str) -> Optional[dict]:
 
 
 def openlibrary_to_zotero_item(book: dict) -> dict[str, Any]:
-    """Open Library `bibkeys` (`jscmd=data`) → Zotero item canònic.
+    """Open Library `bibkeys` (`jscmd=data`) → canonical Zotero item.
 
-    Particularitats:
-      - `title` + `subtitle` es concatenen amb `: ` (legacy ho fa així).
-      - `authors[].name` ve com a string sencer; split heurístic last/first.
-      - `publish_date` és lliure (`"2011"`, `"June 2011"`, `"2011-06-15"`).
-      - `publishers` i `publish_places` són llistes de dict `{name: ...}`
-        o strings; agafem el primer.
-      - Tipus fix: `book`.
+    Particularities:
+      - `title` + `subtitle` are concatenated with `: ` (legacy does it this way).
+      - `authors[].name` comes as a whole string; heuristic last/first split.
+      - `publish_date` is free-form (`"2011"`, `"June 2011"`, `"2011-06-15"`).
+      - `publishers` and `publish_places` are lists of dict `{name: ...}`
+        or strings; we take the first one.
+      - Fixed type: `book`.
+    
     """
     if not isinstance(book, dict):
         return {}
@@ -194,8 +197,8 @@ def openlibrary_to_zotero_item(book: dict) -> dict[str, Any]:
     elif title:
         item['title'] = title
     elif subtitle:
-        # Cas extrem: subtitle sense title (mai vist a Open Library, però
-        # el legacy ho gestionava amb `.strip(': ')`).
+        # Edge case: subtitle without title (never seen on Open Library, but
+        # the legacy code handled it with `.strip(': ')`).
         item['title'] = subtitle
 
     creators = []
@@ -242,10 +245,11 @@ def openlibrary_to_zotero_item(book: dict) -> dict[str, Any]:
 # ---------- arXiv ----------
 
 def arxiv_to_zotero_item(entry_xml: str) -> dict[str, Any]:
-    """Resposta Atom XML de l'API d'arXiv → Zotero item `preprint`.
+    """Atom XML response from the arXiv API → Zotero `preprint` item.
 
-    Parseig amb `xml.etree` (stdlib). Si el XML és malformat, retornem
-    `{}` perquè el caller pugui detectar fallida.
+    Parsed with `xml.etree` (stdlib). If the XML is malformed, we return
+    `{}` so the caller can detect failure.
+    
     """
     import xml.etree.ElementTree as ET
     if not entry_xml or not isinstance(entry_xml, str):
@@ -299,10 +303,11 @@ def arxiv_to_zotero_item(entry_xml: str) -> dict[str, Any]:
 # ---------- PubMed (E-utilities esummary) ----------
 
 def _pubmed_name_to_creator(name: str) -> Optional[dict]:
-    """`"Murphy SA"` (cognom + inicials) → `{lastName: "Murphy", firstName: "SA"}`.
+    """`"Murphy SA"` (last name + initials) → `{lastName: "Murphy", firstName: "SA"}`.
 
-    Si el cognom ja porta coma (format `"Murphy, S.A."`), parsegem el split.
-    Si no es pot inferir cognom, retornem el name literal.
+    If the last name already has a comma (format `"Murphy, S.A."`), we parse the split.
+    If the last name can't be inferred, we return the literal name.
+    
     """
     name = (name or '').strip()
     if not name:
@@ -318,7 +323,7 @@ def _pubmed_name_to_creator(name: str) -> Optional[dict]:
             return c
         return None
     toks = name.split()
-    # Format PubMed típic: l'últim token són inicials curtes
+    # Typical PubMed format: the last token is short initials
     if len(toks) >= 2 and re.fullmatch(r'[A-Za-z]{1,4}', toks[-1]):
         return {'creatorType': 'author', 'lastName': ' '.join(toks[:-1]),
                 'firstName': toks[-1]}
@@ -326,13 +331,14 @@ def _pubmed_name_to_creator(name: str) -> Optional[dict]:
 
 
 def pubmed_to_zotero_item(doc: dict) -> dict[str, Any]:
-    """PubMed esummary doc → Zotero item `journalArticle`.
+    """PubMed esummary doc → Zotero `journalArticle` item.
 
-    Particularitats:
-      - `title` arriba amb `.` final que cal treure.
-      - `authors[].name` format `"Cognom Inicials"`; parsejat especialment.
-      - `articleids[]` (array) porta el DOI sota `idtype=doi`.
-      - `uid` és el PMID (sempre present).
+    Particularities:
+      - `title` arrives with a trailing `.` that needs to be stripped.
+      - `authors[].name` format `"LastName Initials"`; parsed specially.
+      - `articleids[]` (array) carries the DOI under `idtype=doi`.
+      - `uid` is the PMID (always present).
+    
     """
     if not isinstance(doc, dict):
         return {}
@@ -386,17 +392,18 @@ def pubmed_to_zotero_item(doc: dict) -> dict[str, Any]:
 # ---------- HTML meta tags (Open Graph, Dublin Core, citation_*) ----------
 
 def _parse_meta_tags(html: str) -> tuple[list, list, list]:
-    """Extreu els parells `(clau_sense_prefix, content)` dels `<meta>` de
-    tres famílies: Highwire (`citation_*`), Open Graph (`og:*`) i Dublin
+    """Extracts the `(key_without_prefix, content)` pairs from `<meta>` tags of
+    three families: Highwire (`citation_*`), Open Graph (`og:*`) and Dublin
     Core (`DC.*`).
 
-    Independent de l'ORDRE dels atributs dins del `<meta>`: l'HTML permet
-    tant `<meta name="citation_title" content="…">` com
-    `<meta content="…" name="citation_title">`, i moltes pàgines emeten el
-    `content` primer. El parseig anterior, amb un únic regex que exigia
-    `name=…` ABANS de `content=…`, es perdia silenciosament totes les meta
-    amb l'ordre invertit (títol, autors, DOI…). Aquí escanegem cada tag i
-    llegim `name`/`property` i `content` per separat.
+    Independent of the ORDER of attributes within the `<meta>` tag: HTML allows
+    both `<meta name="citation_title" content="...">` and
+    `<meta content="..." name="citation_title">`, and many pages emit
+    `content` first. The previous parsing, with a single regex that required
+    `name=...` BEFORE `content=...`, silently missed every meta tag
+    with the reversed order (title, authors, DOI...). Here we scan each tag and
+    read `name`/`property` and `content` separately.
+    
     """
     citations: list = []
     og: list = []
@@ -419,21 +426,22 @@ def _parse_meta_tags(html: str) -> tuple[list, list, list]:
 
 
 def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
-    """Extreu meta tags d'una pàgina HTML → Zotero item.
+    """Extracts meta tags from an HTML page → Zotero item.
 
-    Prioritats (de més a menys autoritatiu): `citation_*` (Highwire) >
-    `DC.*` (Dublin Core) > `og:*` (Open Graph). Fallback `<title>` si
-    cap meta porta el títol.
+    Priorities (from most to least authoritative): `citation_*` (Highwire) >
+    `DC.*` (Dublin Core) > `og:*` (Open Graph). Falls back to `<title>` if
+    no meta tag carries the title.
 
-    A partir d'aquest commit, els camps es separen correctament:
+    As of this commit, the fields are correctly separated:
       - `journal_title` (Highwire) / `DC.publisher` → `publicationTitle`
-        només si ve d'aquest meta (revista on s'ha publicat).
-      - `publisher` (sense prefix `citation_` o `DC.`) → `publisher`
-        (l'editor: Acme Press, Elsevier, ...).
+        only if it comes from this meta tag (the journal where it was published).
+      - `publisher` (without the `citation_` or `DC.` prefix) → `publisher`
+        (the publisher: Acme Press, Elsevier, ...).
 
-    Si veieu el quirk antic a algun lloc del codi pre-corregit
-    (publisher anant a `Llibre/Revista`), és bug i hauria
-    d'actualitzar-se a aquest nou comportament.
+    If you see the old quirk anywhere in the pre-fix code
+    (publisher going to `Llibre/Revista`), it's a bug and should
+    be updated to this new behavior.
+    
     """
     if not isinstance(html, str):
         return {'url': url} if url else {}
@@ -442,7 +450,7 @@ def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
     title_m = re.search(r'<title[^>]*>([^<]+)</title>', html, re.IGNORECASE)
     fallback_title = title_m.group(1).strip() if title_m else None
 
-    # Ordre de prioritat: og < dc < citation (l'últim guanya en sobreescriure)
+    # Priority order: og < dc < citation (the last one wins when overwriting)
     sources: dict[str, str] = {}
     for k, v in og: sources[k.lower()] = v
     for k, v in dc: sources[k.lower()] = v
@@ -511,8 +519,8 @@ def html_meta_to_zotero_item(html: str, url: str) -> dict[str, Any]:
         if m:
             item['date'] = m.group(0)
 
-    # Separació correcta: el nom de la revista (journal_title) i l'editor
-    # (publisher) són conceptes diferents i van a camps Zotero diferents.
+    # Correct separation: the journal name (journal_title) and the publisher
+    # (publisher) are different concepts and go to different Zotero fields.
     journal = get('journal_title')
     if journal:
         item['publicationTitle'] = journal

@@ -1,12 +1,12 @@
-"""Accés a l'MCP allotjat de Notion (per a la recreació de vistes — Fase 2).
+"""Access to Notion's hosted MCP (for view recreation — Phase 2).
 
-Llegeix el token OAuth de `integrations.json` (clau `notion_mcp`, desat per
-`api/notion_oauth_routes`), connecta amb `mcp/http_client.HttpMCPClient` i exposa `fetch(id)`
-→ Notion-flavored markdown (amb `<database inline url>`), que `notion_view_recreator` parseja.
+Reads the OAuth token from `integrations.json` (key `notion_mcp`, saved by
+`api/notion_oauth_routes`), connects via `mcp/http_client.HttpMCPClient` and exposes `fetch(id)`
+→ Notion-flavored markdown (with `<database inline url>`), which `notion_view_recreator` parses.
 
-Config per env (verificar a la implementació real):
-  NOTION_MCP_URL          (def. https://mcp.notion.com/mcp)
-  NOTION_MCP_FETCH_TOOL   (def. fetch)
+Config via env (verify against the actual implementation):
+  NOTION_MCP_URL          (default https://mcp.notion.com/mcp)
+  NOTION_MCP_FETCH_TOOL   (default fetch)
 """
 from __future__ import annotations
 
@@ -42,9 +42,9 @@ def is_connected() -> bool:
 
 
 def _unwrap_notion_json(raw: str) -> str:
-    """L'MCP de Notion retorna `content[].text` com un JSON `{metadata,title,url,text}` on
-    el markdown real (Notion-flavored, amb `<database inline>`) és al camp intern `text`.
-    Cal desembolicar-lo (el connector ho fa sol; nosaltres no ho fèiem)."""
+    """Notion's MCP returns `content[].text` as a JSON `{metadata,title,url,text}` where
+    the real markdown (Notion-flavored, with `<database inline>`) is in the inner `text` field.
+    It must be unwrapped (the connector does it automatically; we weren't doing it)."""
     s = (raw or "").strip()
     if s.startswith("{"):
         try:
@@ -57,7 +57,7 @@ def _unwrap_notion_json(raw: str) -> str:
 
 
 def _extract_text(result) -> str:
-    """Treu el markdown real del resultat d'una tool MCP de Notion."""
+    """Extracts the real markdown from the result of a Notion MCP tool."""
     if result is None:
         return ""
     if isinstance(result, str):
@@ -82,8 +82,8 @@ def _is_auth_error(e) -> bool:
 
 
 def refresh_token() -> Optional[str]:
-    """Renova l'access token MCP amb el refresh_token (els tokens OAuth són de vida curta).
-    Desa el nou token via IntegrationManager. Retorna el nou access token o None."""
+    """Renews the MCP access token using the refresh_token (OAuth tokens are short-lived).
+    Saves the new token via IntegrationManager. Returns the new access token or None."""
     try:
         from backend.services.integration_manager import integration_manager
         mcp = integration_manager.get_raw("notion_mcp") or {}
@@ -120,12 +120,12 @@ def refresh_token() -> Optional[str]:
     return None
 
 
-_client_cache: dict = {}  # token → HttpMCPClient (inicialitzat un sol cop, reusat)
+_client_cache: dict = {}  # token → HttpMCPClient (initialized once, reused)
 
-# Tallafoc: si el token caduca i NO es pot renovar, marquem l'MCP com a mort perquè les crides
-# següents (clon = centenars de pàgines × vistes) tornin "" a l'instant sense un round-trip de
-# xarxa + refresc fallit cadascuna (era la causa del "no acaba mai"). Es reseteja en reconnectar
-# (healthcheck amb token nou) o explícitament via reset_health().
+# Circuit breaker: if the token expires and CANNOT be renewed, we mark the MCP as dead so that
+# subsequent calls (clone = hundreds of pages × views) instantly return "" without a round-trip
+# over the network + a failed refresh each time (this was the cause of the "never finishes"). It resets on reconnect
+# (healthcheck with a new token) or explicitly via reset_health().
 _mcp_dead: bool = False
 
 
@@ -140,14 +140,14 @@ def _get_client(token: str):
         from backend.mcp.http_client import HttpMCPClient
         c = HttpMCPClient(_env("NOTION_MCP_URL", _DEFAULT_URL), token)
         c.initialize()
-        _client_cache.clear()           # només mantenim el token actiu
+        _client_cache.clear()           # we only keep the active token
         _client_cache[token] = c
     return c
 
 
 def healthcheck() -> tuple[bool, str]:
-    """Una sola comprovació viva de l'MCP (initialize, renovant si cal). Retorna (ok, motiu):
-    "ok" | "no_token" | "expired" | <error>. Reseteja el tallafoc si l'MCP respon."""
+    """A single live check of the MCP (initialize, renewing if needed). Returns (ok, reason):
+    "ok" | "no_token" | "expired" | <error>. Resets the circuit breaker if the MCP responds."""
     global _mcp_dead
     token = get_mcp_token()
     if not token:
@@ -178,7 +178,7 @@ def _do_fetch(token: str, notion_id: str) -> str:
 
 
 def fetch(notion_id: str) -> str:
-    """Fetch d'una pàgina/vista via l'MCP → markdown. Renova el token si ha caducat (401). '' si falla."""
+    """Fetch of a page/view via the MCP → markdown. Renews the token if it has expired (401). '' on failure."""
     global _mcp_dead
     if _mcp_dead:
         return ""
@@ -195,5 +195,5 @@ def fetch(notion_id: str) -> str:
                     return _do_fetch(new, notion_id)
                 except Exception:  # noqa: BLE001
                     return ""
-            _mcp_dead = True   # token mort i sense renovació → no segueixis picant per cada pàgina
+            _mcp_dead = True   # dead token with no renewal → don't keep hitting it for every page
         return ""

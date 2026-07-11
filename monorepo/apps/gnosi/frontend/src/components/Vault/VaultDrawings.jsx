@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { Palette, Calendar, HardDrive, Trash2, ExternalLink, Loader2 } from 'lucide-react';
 import toast from '../../lib/toast';
 import ConfirmModal from '../ConfirmModal';
@@ -7,6 +8,7 @@ import ConfirmModal from '../ConfirmModal';
 const API_BASE_URL = '/api/vault';
 
 const VaultDrawings = ({ onDrawingSelect }) => {
+    const { t } = useTranslation();
     const [drawings, setDrawings] = useState([]);
     const [loading, setLoading] = useState(true);
     const [drawingToDelete, setDrawingToDelete] = useState(null);
@@ -17,7 +19,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
             const response = await axios.get(`${API_BASE_URL}/drawings`);
             setDrawings(response.data);
         } catch (error) {
-            toast.error("Error carregant dibuixos");
+            toast.error(t('drawings.load_error', 'Error carregant dibuixos'));
             console.error(error);
         } finally {
             setLoading(false);
@@ -37,11 +39,11 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         if (!drawingToDelete) return;
         try {
             await axios.delete(`${API_BASE_URL}/drawings/${drawingToDelete}`);
-            toast.success("Dibuix eliminat");
+            toast.success(t('drawings.deleted', 'Dibuix eliminat'));
             fetchDrawings();
         } catch (error) {
             console.error(error);
-            toast.error("Error eliminant el dibuix");
+            toast.error(t('drawings.delete_error', 'Error eliminant el dibuix'));
         } finally {
             setDrawingToDelete(null);
         }
@@ -51,7 +53,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <Loader2 className="animate-spin mb-4" size={32} />
-                <p>Buscant dibuixos...</p>
+                <p>{t('drawings.searching', 'Buscant dibuixos...')}</p>
             </div>
         );
     }
@@ -60,8 +62,8 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-100 rounded-xl m-6">
                 <Palette size={48} className="mb-4 opacity-20" />
-                <p>No hi ha cap dibuix encara.</p>
-                <p className="text-sm">Crea'n un des del sidebar!</p>
+                <p>{t('drawings.empty_title', 'No hi ha cap dibuix encara.')}</p>
+                <p className="text-sm">{t('drawings.empty_hint', "Crea'n un des del sidebar!")}</p>
             </div>
         );
     }
@@ -111,9 +113,9 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                 isOpen={!!drawingToDelete}
                 onClose={() => setDrawingToDelete(null)}
                 onConfirm={confirmDelete}
-                title="Eliminar dibuix"
-                message="N'estàs segur que vols eliminar permanentment aquest dibuix? Aquesta acció no es pot desfer i esborrarà el fitxer."
-                confirmText="Eliminar"
+                title={t('drawings.delete_confirm_title', 'Eliminar dibuix')}
+                message={t('drawings.delete_confirm_message', "N'estàs segur que vols eliminar permanentment aquest dibuix? Aquesta acció no es pot desfer i esborrarà el fitxer.")}
+                confirmText={t('common.delete', 'Eliminar')}
                 isDestructive={true}
             />
         </div>

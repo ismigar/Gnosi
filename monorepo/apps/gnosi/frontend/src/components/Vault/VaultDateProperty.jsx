@@ -1,16 +1,17 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
 
-// --- Helpers de període (format "YYYY-MM-DD/YYYY-MM-DD") ---
-// Compartits amb VaultTable per mostrar/calcular el nombre de dies sense
-// duplicar lògica de dates.
+// --- Period helpers (format "YYYY-MM-DD/YYYY-MM-DD") ---
+// Shared with VaultTable to show/calculate the number of days without
+// duplicating date logic.
 export const parsePeriod = (value) => {
     const [start = '', end = ''] = String(value || '').split('/');
     return { start, end };
 };
 
-// Nombre de dies inclusiu entre inici i fi (1 = mateix dia). null si no es pot calcular.
+// Inclusive number of days between start and end (1 = same day). null if it cannot be calculated.
 export const periodDaysInclusive = (start, end) => {
     if (!start || !end) return null;
     const a = new Date(`${start}T00:00:00`);
@@ -20,7 +21,7 @@ export const periodDaysInclusive = (start, end) => {
     return diff >= 1 ? diff : null;
 };
 
-// Suma `days` dies a una data ISO (YYYY-MM-DD) i torna ISO. '' si la base no és vàlida.
+// Adds `days` days to an ISO date (YYYY-MM-DD) and returns ISO. '' if the base isn't valid.
 export const addDaysISO = (isoDate, days) => {
     const d = new Date(`${isoDate}T00:00:00`);
     if (isNaN(d.getTime())) return '';
@@ -29,13 +30,13 @@ export const addDaysISO = (isoDate, days) => {
     return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
-// Serialitza un Date als components LOCALS ("YYYY-MM-DD" o, per datetime,
-// "YYYY-MM-DDTHH:MM"). MAI `toISOString()`: per a un camp date en una zona
-// UTC+ la mitjanit local cau al dia anterior en UTC (p. ex. 15/07 00:00 a
-// Madrid → "2024-07-14T22:00:00Z"), així que el DIA es desplaçaria un dia
-// enrere; i per a datetime, l'hora es desplaçaria per l'offset. Desem sempre
-// l'hora local tal com l'usuari la veu (coherent amb les dades "YYYY-MM-DD"
-// ja existents i amb cellGridUtils, que també evita toISOString a les dates).
+// Serializes a Date into its LOCAL components ("YYYY-MM-DD" or, for datetime,
+// "YYYY-MM-DDTHH:MM"). NEVER `toISOString()`: for a date field in a time zone
+// UTC+ local midnight falls on the previous day in UTC (e.g. 15/07 00:00 at
+// Madrid → "2024-07-14T22:00:00Z"), so the DAY would shift by one day
+// backward; and for datetime, the time would shift by the offset. We always save
+// the local time exactly as the user sees it (consistent with the "YYYY-MM-DD" data
+// that already exist, and with cellGridUtils, which also avoids toISOString on dates).
 const _toLocalDateStr = (date, type) => {
     const pad = (n) => String(n).padStart(2, '0');
     const day = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
@@ -43,14 +44,15 @@ const _toLocalDateStr = (date, type) => {
 };
 
 export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
+    const { t } = useTranslation();
     const inputRef = useRef(null);
     const hiddenInputRef = useRef(null);
     const [inputValue, setInputValue] = useState('');
-    // L'idioma de la interfície per formatar la data mostrada a l'input
-    // (abans estava fixat a 'ca-ES', ignorant la preferència de l'usuari).
+    // The interface language to format the date shown in the input
+    // (previously it was hardcoded to 'ca-ES', ignoring the user's preference).
     const { dateLocale } = useLocaleSettings();
 
-    // Formateig inicial i sincronització
+    // Initial formatting and syncing
     useEffect(() => {
         if (!value) {
             setInputValue('');
@@ -60,7 +62,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         try {
             const date = new Date(value);
             if (isNaN(date.getTime())) {
-                setInputValue(value); // Si no és vàlida, mantenim el text original (entrada manual en curs)
+                setInputValue(value); // If it's not valid, we keep the original text (manual entry in progress)
             } else {
                 const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
                 if (type === 'datetime') {
@@ -74,12 +76,12 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         }
     }, [value, type, dateLocale]);
 
-    // Convertir de local a ISO per desar
+    // Convert from local to ISO for saving
     const handleInputChange = (e) => {
         const val = e.target.value;
         setInputValue(val);
 
-        // Intentar parsejar si sembla una data completa
+        // Try to parse if it looks like a complete date
         if (val.length >= 10) {
             const parts = val.split(/[/\- :]/);
             if (parts.length >= 3) {
@@ -104,7 +106,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         }
     };
 
-    // Formateig per al input ocult (format HTML/ISO local)
+    // Formatting for the hidden input (local HTML/ISO format)
     const toHTMLValue = (val) => {
         if (!val) return '';
         const d = new Date(val);
@@ -136,16 +138,16 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         const val = e.target.value;
         if (!val) return;
 
-        // El valor d'un <input type="date|datetime-local"> JA és l'hora local
-        // en format canònic ("YYYY-MM-DD" o "YYYY-MM-DDTHH:MM"): el desem tal
-        // qual. Passar-lo per `new Date(val).toISOString()` el convertiria a UTC
-        // i desplaçaria el dia/hora (vegeu _toLocalDateStr).
+        // The value of an <input type="date|datetime-local"> is ALREADY the local time
+        // in canonical format ("YYYY-MM-DD" or "YYYY-MM-DDTHH:MM"): we save it as-is
+        // which. Passing it through `new Date(val).toISOString()` would convert it to UTC
+        // and it would shift the day/time (see _toLocalDateStr).
         onChange(val);
     };
 
-    // Gestió de Períodes: dues dates (inici → fi) + nombre de dies.
-    // El nombre de dies es deriva de les dates; si l'usuari l'edita i hi ha
-    // data d'inici, recalculem la data de fi (inici + N-1 dies, inclusiu).
+    // Period handling: two dates (start → end) + number of days.
+    // The number of days is derived from the dates; if the user edits it and there is
+    // start date, we recalculate the end date (start + N-1 days, inclusive).
     if (type === 'period') {
         const { start, end } = parsePeriod(value);
         const days = periodDaysInclusive(start, end);
@@ -179,11 +181,11 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     value={days ?? ''}
                     onChange={handleDaysChange}
                     disabled={!start}
-                    placeholder="dies"
-                    title="Nombre de dies (recalcula la data de fi)"
+                    placeholder={t('vault_date.days_placeholder', 'dies')}
+                    title={t('vault_date.days_count_hint', 'Nombre de dies (recalcula la data de fi)')}
                     className="w-12 shrink-0 bg-transparent hover:bg-[var(--bg-tertiary)] text-xs text-right rounded px-1 transition-colors outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                 />
-                <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">d</span>
+                <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">{t('vault_date.days_unit', 'd')}</span>
             </div>
         );
     }
@@ -196,15 +198,15 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                 value={inputValue}
                 onChange={handleInputChange}
                 onFocus={(e) => {
-                    // Esperar un moment per no interrompre el focus si l'usuari vol escriure
-                    // però permetre l'obertura si és un click buit
+                    // Wait a moment so as not to interrupt focus if the user wants to type
+                    // but allow it to open if it's an empty click
                     if (!inputValue) triggerPicker();
                 }}
                 onClick={() => {
-                    // Si ja té focus i cliques de nou, obrim el picker (com a Motion)
+                    // If it already has focus and you click again, we open the picker (like Motion)
                     triggerPicker();
                 }}
-                placeholder={type === 'datetime' ? "DD/MM/AAAA HH:MM" : "DD/MM/AAAA"}
+                placeholder={type === 'datetime' ? t('vault_date.format_datetime_placeholder', 'DD/MM/AAAA HH:MM') : t('vault_date.format_date_placeholder', 'DD/MM/AAAA')}
                 className="w-full bg-transparent text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] rounded px-1 -ml-1 transition-colors"
             />
 
@@ -215,12 +217,12 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     triggerPicker();
                 }}
                 className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-tertiary)] hover:text-indigo-500 transition-all focus:opacity-100"
-                title="Obrir calendari"
+                title={t('vault_date.open_calendar', 'Obrir calendari')}
             >
                 {type === 'datetime' ? <Clock size={12} /> : <CalendarIcon size={12} />}
             </button>
 
-            {/* Input ocult que realment té el calendari */}
+            {/* Hidden input that actually holds the calendar */}
             <input
                 ref={hiddenInputRef}
                 type={type === 'datetime' ? "datetime-local" : "date"}

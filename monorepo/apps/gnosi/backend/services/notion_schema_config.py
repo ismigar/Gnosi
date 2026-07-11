@@ -1,11 +1,11 @@
-"""Conversió d'esquema Notion ↔ format de SchemaConfigModal (import/clon configurable).
+"""Notion schema conversion ↔ SchemaConfigModal format (configurable import/clone).
 
-El modal de Gnosi (`SchemaConfigModal`) treballa amb la forma `{camp: tipus, camp_config: {...}}`.
-L'importador produeix `properties: [{name, type, options, relation_database_id, ...}]`. Aquests
-helpers converteixen en els dos sentits perquè l'usuari pugui configurar l'esquema de cada BD
-amb el formulari de camps que ja coneix (incloent `storage_folder` per camps d'arxiu).
+Gnosi's modal (`SchemaConfigModal`) works with the shape `{camp: tipus, camp_config: {...}}`.
+The importer produces `properties: [{name, type, options, relation_database_id, ...}]`. These
+helpers convert in both directions so the user can configure the schema of each DB
+with the fields form they already know (including `storage_folder` for file fields).
 
-PUR → testejable sense backend. cf. directiva `notion_import_configurable_schema.md`.
+PURE → testable without a backend. cf. directive `notion_import_configurable_schema.md`.
 """
 from __future__ import annotations
 
@@ -15,9 +15,10 @@ ASSET_TYPES = {"files", "file", "image", "images"}
 
 
 def notion_props_to_modal_schema(properties: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """`properties` (de map_database_schema) → forma de SchemaConfigModal `{nom:tipus, nom_config}`.
+    """`properties` (from map_database_schema) → SchemaConfigModal shape `{nom:tipus, nom_config}`.
 
-    Els camps d'arxiu reben `storage_folder: "assets"` per defecte (l'usuari el pot canviar).
+    File fields get `storage_folder: "assets"` by default (the user can change it).
+    
     """
     out: Dict[str, Any] = {}
     for p in properties or []:
@@ -41,10 +42,11 @@ def notion_props_to_modal_schema(properties: List[Dict[str, Any]]) -> Dict[str, 
 
 
 def modal_schema_to_props(schema: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Forma de SchemaConfigModal → `properties: [...]` per a la taula del vault.
+    """SchemaConfigModal shape → `properties: [...]` for the vault table.
 
-    Preserva l'ORDRE dels camps (dict insertion order). Les claus `*_config` aporten id, opcions,
-    relació, `storage_folder`, etc.
+    Preserves the field ORDER (dict insertion order). The `*_config` keys provide id, options,
+    relation, `storage_folder`, etc.
+    
     """
     props: List[Dict[str, Any]] = []
     for name, t in (schema or {}).items():
@@ -73,10 +75,11 @@ def modal_schema_to_props(schema: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def apply_override(base_table: Dict[str, Any], override_schema: Dict[str, Any]) -> Dict[str, Any]:
-    """Aplica un override de SchemaConfigModal a una taula derivada de Notion.
+    """Applies a SchemaConfigModal override to a table derived from Notion.
 
-    L'override MANA en tipus i config (storage_folder, etc.); la taula base aporta id, name,
-    folder, icon. Camps absents a l'override (l'usuari els ha tret) NO s'inclouen.
+    The override GOVERNS type and config (storage_folder, etc.); the base table provides id, name,
+    folder, icon. Fields absent from the override (the user removed them) are NOT included.
+    
     """
     table = dict(base_table)
     if override_schema:

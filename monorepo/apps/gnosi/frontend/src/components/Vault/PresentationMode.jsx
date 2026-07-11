@@ -4,13 +4,13 @@ import { VaultMarkdown } from './VaultMarkdown';
 
 /**
  * PresentationMode
- * Mode presentació / slides a pantalla completa a partir del Markdown de la nota.
- * Les diapositives se separen per una línia `---` (separador estil Obsidian
- * Slides / reveal.js); si no n'hi ha cap, es divideix per encapçalaments de
- * primer/segon nivell. Navegació: ←/→, Espai, RePàg/AvPàg; Esc per sortir.
+ * Full-screen presentation / slides mode generated from the note's Markdown.
+ * Slides are separated by a `---` line (Obsidian Slides / reveal.js style
+ * separator); if there is none, it splits by first/second-level
+ * headings. Navigation: ←/→, Space, PgUp/PgDn; Esc to exit.
  */
 
-// Treu el frontmatter YAML inicial si n'hi ha.
+// Removes the initial YAML frontmatter if there is one.
 const stripFrontmatter = (md) => {
     const m = String(md || '').match(/^---\n[\s\S]*?\n---\n?/);
     return m ? md.slice(m[0].length) : String(md || '');
@@ -19,10 +19,10 @@ const stripFrontmatter = (md) => {
 const splitSlides = (md) => {
     const body = stripFrontmatter(md).trim();
     if (!body) return ['(Nota buida)'];
-    // 1) Separadors explícits `---` en una línia pròpia.
+    // 1) Explicit `---` separators on their own line.
     const bySep = body.split(/\n[ \t]*---[ \t]*\n/);
     if (bySep.length > 1) return bySep.map((s) => s.trim()).filter(Boolean);
-    // 2) Fallback: divideix per encapçalaments H1/H2 (cadascun inicia slide).
+    // 2) Fallback: splits by H1/H2 headings (each one starts a slide).
     const lines = body.split('\n');
     const slides = [];
     let cur = [];

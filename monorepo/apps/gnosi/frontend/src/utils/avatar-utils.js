@@ -23,13 +23,13 @@ export const isGmail = (email) => {
  */
 export const getGoogleAvatarUrl = (email) => {
     if (!email) return '';
-    // L'antiga URL "semipública" `profiles.google.com/s2/photos/...` és de
-    // Google+, tancat el 2019: sempre torna 404. Usar-la com a `src` d'avatar
-    // provocava un 404 per cada contacte de Gmail sense foto i, pitjor, filtrava
-    // l'email de cada contacte a un endpoint de Google a cada càrrega de la
-    // llista. No existeix cap URL PÚBLICA per a la foto de perfil de Google
-    // (caldria la People API amb OAuth), així que tornem '' i els consumidors
-    // cauen elegantment a les inicials.
+    // The old "semi-public" URL `profiles.google.com/s2/photos/...` is from
+    // Google+, shut down in 2019: always returns 404. Using it as the avatar `src`
+    // caused a 404 for every Gmail contact without a photo and, worse, leaked
+    // each contact's email to a Google endpoint on every load of the
+    // the list. There is no PUBLIC URL for the Google profile picture
+    // (the People API with OAuth would be needed), so we return '' and the consumers
+    // gracefully fall back to initials.
     return '';
 };
 

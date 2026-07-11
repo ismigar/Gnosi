@@ -10,13 +10,13 @@ import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, bui
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
 
-// Desplegable d'una cel·la (select/multi_select) renderitzat en un PORTAL a
-// `document.body` amb `position: fixed`, ancorat sota l'input. Així escapa del
-// scroller `overflow-auto` de la taula incrustada (que abans el retallava quan
-// la vista era curta) i del context d'apilament `isolate` del bloc embed, i
-// queda SEMPRE per sobre (z-index màxim). Si no hi cap a sota, es gira amunt.
-// El click-fora dels pickers ha d'ignorar els clics dins del portal: ho marquem
-// amb `data-cell-dropdown` i ho comprovem amb `closest('[data-cell-dropdown]')`.
+// A cell's dropdown (select/multi_select) rendered in a PORTAL at
+// `document.body` with `position: fixed`, anchored below the input. This way it escapes the
+// embedded table's `overflow-auto` scroller (which used to clip it when
+// the view was short) and the embed block's `isolate` stacking context, and
+// always stays on top (max z-index). If it doesn't fit below, it flips upward.
+// The click-outside for pickers must ignore clicks inside the portal: we mark it
+// with `data-cell-dropdown` and check it with `closest('[data-cell-dropdown]')`.
 const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
     { anchorRef, className = '', maxHeight = 240, children },
     ref,
@@ -26,9 +26,9 @@ const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
         let raf = 0;
         const compute = () => {
             const el = anchorRef.current;
-            // Els layout effects corren child-first: en el primer muntatge el
-            // `ref` del contenidor pare (anchorRef) encara pot no estar adjuntat.
-            // Reintenta al frame següent, quan ja hi és.
+            // Layout effects run child-first: on the first mount the
+            // the parent container's `ref` (anchorRef) may not be attached yet.
+            // Retries on the next frame, when it's already there.
             if (!el) { raf = requestAnimationFrame(compute); return; }
             const r = el.getBoundingClientRect();
             const spaceBelow = window.innerHeight - r.bottom;
@@ -44,8 +44,8 @@ const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
             });
         };
         compute();
-        // `true` (capture) per recollir l'scroll de QUALSEVOL contenidor ancestre
-        // (el scroller intern de la taula), no només el de window.
+        // `true` (capture) to catch scroll from ANY ancestor container
+        // (the table's internal scroller), not just window's.
         window.addEventListener('scroll', compute, true);
         window.addEventListener('resize', compute);
         return () => {
@@ -78,14 +78,15 @@ const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
 });
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
+    const { t } = useTranslation();
     const [localValues, setLocalValues] = useState(value);
     const [search, setSearch] = useState('');
     const containerRef = useRef(null);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            // El desplegable viu en un portal (fora de containerRef): no el
-            // comptem com a "fora".
+            // The dropdown lives in a portal (outside containerRef): it doesn't
+            // count it as "outside".
             if (containerRef.current && !containerRef.current.contains(e.target) && !e.target.closest?.('[data-cell-dropdown]')) {
                 onSave(localValues);
             }
@@ -109,15 +110,15 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
 
     const handleCreate = () => {
         if (!canCreate) return;
-        onCreate(term);              // persisteix l'opció al schema
-        setLocalValues(prev => [...prev, term]); // i la selecciona en aquest registre
+        onCreate(term);              // persists the option to the schema
+        setLocalValues(prev => [...prev, term]); // and selects it in this record
         setSearch('');
     };
 
     const handleDelete = (val) => {
         if (!onDeleteOption) return;
-        onDeleteOption(val);         // treu l'opció del catàleg del camp
-        setLocalValues(prev => prev.filter(v => v !== val)); // i d'aquest registre
+        onDeleteOption(val);         // removes the option from the field's catalog
+        setLocalValues(prev => prev.filter(v => v !== val)); // and of this record
     };
 
     return (
@@ -133,7 +134,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
             <input
                 autoFocus
                 className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                placeholder={onCreate ? 'Cercar o crear…' : 'Cercar…'}
+                placeholder={onCreate ? t('table.search_or_create_placeholder', 'Cercar o crear…') : t('table.search_placeholder', 'Cercar…')}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => {
@@ -158,7 +159,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
                             {onDeleteOption && (
                                 <span
                                     role="button"
-                                    title="Elimina l'opció del camp"
+                                    title={t('table.delete_option_tooltip', "Elimina l'opció del camp")}
                                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); handleDelete(opt); }}
                                     className="shrink-0 p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
                                 >
@@ -172,7 +173,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
                             className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 cursor-pointer"
                             onMouseDown={e => { e.preventDefault(); handleCreate(); }}
                         >
-                            <Plus size={12} /> Crear «{term}»
+                            <Plus size={12} /> {t('table.create_option', 'Crear «{{term}}»', { term })}
                         </div>
                     )}
                 </CellDropdownPortal>
@@ -181,11 +182,12 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
     );
 };
 
-// Picker inline d'un sol valor per a cel·les select/status de la taula.
-// Substitueix el <select> natiu per poder cercar, crear i eliminar opcions
-// (estil Notion). Navegable amb teclat (↑↓/Enter/Esc) compartint un sol
-// highlightedIndex amb el hover —vegeu el patró canònic a MultiSelectPills.
+// Inline single-value picker for select/status cells in the table.
+// Replaces the native <select> to allow searching, creating, and deleting options
+// (Notion style). Keyboard-navigable (↑↓/Enter/Esc) sharing a single
+// highlightedIndex with hover — see the canonical pattern in MultiSelectPills.
 const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
+    const { t } = useTranslation();
     const [search, setSearch] = useState('');
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const containerRef = useRef(null);
@@ -194,7 +196,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (containerRef.current && !containerRef.current.contains(e.target) && !e.target.closest?.('[data-cell-dropdown]')) {
-                onSave(value); // tanca sense canviar (handleCellSave fa early-return si és igual)
+                onSave(value); // closes without changing (handleCellSave does an early return if it's the same)
             }
         };
         document.addEventListener('mousedown', handleClickOutside);
@@ -208,8 +210,8 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
     const canCreate = Boolean(term && onCreate && !options.includes(term));
     const totalItems = filtered.length + (canCreate ? 1 : 0);
 
-    // El reset del highlight en canviar la cerca es fa a l'onChange de l'input
-    // (no en un effect) per evitar un render en cascada.
+    // The highlight reset when the search changes happens in the input's onChange
+    // (not in an effect) to avoid a cascading render.
     useEffect(() => {
         const el = listRef.current?.querySelector(`[data-idx="${highlightedIndex}"]`);
         if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'nearest' });
@@ -237,7 +239,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
             <input
                 autoFocus
                 className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                placeholder={onCreate ? 'Cercar o crear…' : 'Cercar…'}
+                placeholder={onCreate ? t('table.search_or_create_placeholder', 'Cercar o crear…') : t('table.search_placeholder', 'Cercar…')}
                 value={search}
                 onChange={e => { setSearch(e.target.value); setHighlightedIndex(0); }}
                 onKeyDown={handleKeyDown}
@@ -262,7 +264,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
                             {onDeleteOption && (
                                 <span
                                     role="button"
-                                    title="Elimina l'opció del camp"
+                                    title={t('table.delete_option_tooltip', "Elimina l'opció del camp")}
                                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onDeleteOption(opt); }}
                                     className="shrink-0 p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
                                 >
@@ -279,11 +281,11 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
                         onMouseDown={e => { e.preventDefault(); onCreate(term); }}
                         className={`flex items-center gap-1 px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] cursor-pointer ${highlightedIndex === filtered.length ? 'bg-[var(--gnosi-primary)]/10' : ''}`}
                     >
-                        <Plus size={12} /> Crear «{term}»
+                        <Plus size={12} /> {t('table.create_option', 'Crear «{{term}}»', { term })}
                     </div>
                 )}
                 {filtered.length === 0 && !canCreate && (
-                    <div className="px-2 py-1 text-xs text-[var(--text-tertiary)]/60 italic">Cap opció</div>
+                    <div className="px-2 py-1 text-xs text-[var(--text-tertiary)]/60 italic">{t('table.no_options', 'Cap opció')}</div>
                 )}
             </CellDropdownPortal>
         </div>
@@ -325,17 +327,17 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { asBool } from '../../utils/vaultFilters';
 
 /**
- * Sentinella que dispara `onLoadMore` quan entra al viewport.
+ * Sentinel that fires `onLoadMore` when it enters the viewport.
  *
- * Reemplaça el botó "Mostrar més" manual: la taula carrega els primers
- * `ROWS_BATCH_SIZE` rows i, quan l'usuari arriba al final, els següents
- * apareixen sols. Així no paguem el cost de muntar 300 rows al primer
- * render (~4 s observat) i mantenim la sensació d'una llista sencera.
+ * Replaces the manual "Show more" button: the table loads the first
+ * `ROWS_BATCH_SIZE` rows and, when the user reaches the end, the next ones
+ * appear on their own. This way we don't pay the cost of mounting 300 rows on the first
+ * render (~4 s observed) and we keep the feel of a complete list.
  *
- * Implementat amb `IntersectionObserver` (zero polling, alliberat al
- * dismount) + un fallback síncron amb botó per si l'autoload no salta
- * (DOM al què el sentinel no és visible, p.ex. dins un dialeg amb
- * `display:none` mentre canvies de tab).
+ * Implemented with `IntersectionObserver` (zero polling, released on
+ * dismount) + a synchronous fallback button in case the autoload doesn't trigger
+ * (DOM where the sentinel isn't visible, e.g. inside a dialog with
+ * `display:none` while switching tabs).
  */
 const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleCount, total, batchSize, onLoadMore, label }) {
     const ref = useRef(null);
@@ -370,46 +372,46 @@ const InfiniteLoadSentinel = React.memo(function InfiniteLoadSentinel({ visibleC
     );
 });
 
-// ── Propietat del teclat entre INSTÀNCIES de VaultTable ─────────────────────
-// El listener de teclat és global (window) i cada instància en munta un: amb
-// un panell dividit o 2+ taules incrustades a la mateixa pàgina, cada fletxa
-// movia el cursor de TOTES les graelles alhora i ⌫/⌘V editava/buidava cel·les
-// de taules que l'usuari no tocava (PATCHs reals). Una sola instància "posseeix"
-// el teclat: l'última amb què l'usuari ha interactuat (clic, entrada per nav
-// d'editor) o, si cap, la primera que s'inicialitza. La resta ignoren els events.
+// ── Keyboard ownership across VaultTable INSTANCES ─────────────────────
+// The keyboard listener is global (window) and each instance mounts one: with
+// a split panel or 2+ embedded tables on the same page, each arrow
+// moved the cursor of ALL the grids at once and ⌫/⌘V edited/cleared cells
+// of tables the user wasn't touching (real PATCHes). A single instance "owns"
+// the keyboard: the last one the user interacted with (click, entry via nav
+// from the editor) or, if none, the first one that initializes. The rest ignore the events.
 let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
 export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
     const { t, i18n } = useTranslation();
-    // Identitat estable d'aquesta instància per a la propietat del teclat.
+    // Stable identity of this instance for keyboard ownership.
     const gridInstanceIdRef = useRef(null);
     if (!gridInstanceIdRef.current) gridInstanceIdRef.current = `vault-grid-${++_gridInstanceSeq}`;
     const claimKeyboard = useCallback(() => { _gridKeyboardOwner = gridInstanceIdRef.current; }, []);
-    // En desmuntar, allibera la propietat si era nostra.
+    // On unmount, release the property if it was ours.
     useEffect(() => () => {
         if (_gridKeyboardOwner === gridInstanceIdRef.current) _gridKeyboardOwner = null;
     }, []);
-    // Usuari actual (per als camps "Creat per"/"Editat per" en mode personal).
+    // Current user (for the "Created by"/"Edited by" fields in personal mode).
     const { user: currentUser } = useAuth();
-    // Defaults globals de format (moneda/número/data) — override per camp via config.format.
+    // Global format defaults (currency/number/date) — overridden per field via config.format.
     const localeSettings = useLocaleSettings();
-    // Overrides optimistic per cel·la. Map<noteId, partialMetadata>. Quan
-    // l'usuari edita un camp, apliquem el canvi aquí *abans* del PATCH al
-    // backend; així la UI reflecteix la nova dada de seguida (0 ms percebut)
-    // i el backend (~200-450 ms) corre en background. Es netegen
-    // automàticament al `useEffect` de sota quan el prop `notes` arriba
-    // amb el valor desitjat ja reflectit (post-refetch); si el PATCH falla,
-    // el catch a `handleCellSave` els treu manualment (rollback) i mostra
-    // un toast d'error.
+    // Optimistic overrides per cell. Map<noteId, partialMetadata>. When
+    // the user edits a field, we apply the change here *before* the PATCH to the
+    // backend; this way the UI reflects the new data right away (0 ms perceived)
+    // and the backend (~200-450 ms) runs in the background. They are cleared
+    // automatically in the `useEffect` below when the `notes` prop arrives
+    // with the desired value already reflected (post-refetch); if the PATCH fails,
+    // the catch in `handleCellSave` removes them manually (rollback) and shows
+    // an error toast.
     const [optimisticPatches, setOptimisticPatches] = useState(() => new Map());
-    // Override optimistic del títol. Map<noteId, newTitle>. El títol viu a
-    // `note.title` (no a metadata), així que `optimisticPatches` no l'abasta;
-    // aquest map dóna feedback immediat en editar-lo inline. Es neteja sol quan
-    // el refetch reflecteix el nou títol (vegeu l'effect de sota).
+    // Optimistic override of the title. Map<noteId, newTitle>. The title lives in
+    // `note.title` (not in metadata), so `optimisticPatches` doesn't cover it;
+    // this map gives immediate feedback when editing it inline. It clears itself when
+    // the refetch reflects the new title (see the effect below).
     const [optimisticTitles, setOptimisticTitles] = useState(() => new Map());
-    // Estabilitzem la referència a `notes || []` per evitar que canviï a
-    // cada render i invalidi `useMemo`/`useEffect` sense raó.
+    // We stabilize the reference to `notes || []` to prevent it from changing on
+    // every render and invalidating `useMemo`/`useEffect` for no reason.
     const rawNotes = useMemo(() => notes || [], [notes]);
     const safeNotes = useMemo(() => {
         if (optimisticPatches.size === 0 && optimisticTitles.size === 0) return rawNotes;
@@ -425,7 +427,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         });
     }, [rawNotes, optimisticPatches, optimisticTitles]);
 
-    // Neteja overrides de títol ja reflectits al prop `notes` (post-refetch).
+    // Clears title overrides already reflected in the `notes` prop (post-refetch).
     useEffect(() => {
         if (optimisticTitles.size === 0) return;
         setOptimisticTitles(prev => {
@@ -439,8 +441,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         });
     }, [rawNotes, optimisticTitles]);
 
-    // Neteja els patches que ja queden reflectits a `notes` (després d'un
-    // refetch reeixit). Sense això, els overrides s'acumularien indefinidament.
+    // Clears patches that are already reflected in `notes` (after a
+    // successful refetch). Without this, the overrides would accumulate indefinitely.
     useEffect(() => {
         if (optimisticPatches.size === 0) return;
         setOptimisticPatches(prev => {
@@ -449,10 +451,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             for (const [noteId, patch] of next) {
                 const note = rawNotes.find(n => n.id === noteId);
                 if (!note) continue;
-                // `sameCellValue` (no ===): els valors ARRAY (multi_select,
-                // relation, files) mai eren estrictament iguals a la còpia
-                // fresca i l'override quedava viu per sempre, tapant canvis
-                // externs (rule engine, relacions inverses, altres clients).
+                // `sameCellValue` (not ===): ARRAY values (multi_select,
+                // relation, files) were never strictly equal to the copy
+                // fresh and the override stayed alive forever, masking changes
+                // external (rule engine, inverse relations, other clients).
                 const allMatch = Object.entries(patch).every(
                     ([k, v]) => sameCellValue((note.metadata || {})[k], v)
                 );
@@ -463,17 +465,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             return changed ? next : prev;
         });
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- només volem reaccionar a canvis de `notes`
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- we only want to react to changes in `notes`
     }, [rawNotes]);
-    // Mida del batch inicial. Renderitzar 200 rows × ~12 cells (~2400
-    // components React) al primer mount d'una taula de 303 registres
-    // trigava ~4 s amb el thread principal congelat. Carreguem-ne 50
-    // d'entrada (~600 components, ~700 ms) i la resta via autoload on
-    // scroll. La UX queda igual perquè els altres apareixen abans que
-    // l'usuari hi arribi.
+    // Initial batch size. Rendering 200 rows × ~12 cells (~2400
+    // React components) on the first mount of a table with 303 records
+    // took ~4 s with the main thread frozen. We load 50 of them
+    // up front (~600 components, ~700 ms) and the rest via autoload on
+    // on scroll. The UX stays the same because the rest appear before
+    // the user gets there.
     const ROWS_BATCH_SIZE = 50;
 
-    // State for column widths — inicialitzades des de la vista (persistents).
+    // State for column widths — initialized from the view (persistent).
     const [columnWidths, setColumnWidths] = useState(() => ({
         title: 250,
         last_modified: 150,
@@ -481,18 +483,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }));
     const columnWidthsRef = useRef({});
     columnWidthsRef.current = columnWidths;
-    // En canviar de vista (cada vista té les seves amplades), re-sincronitza.
+    // When switching views (each view has its own widths), re-synchronize.
     useEffect(() => {
         setColumnWidths({ title: 250, last_modified: 150, ...(activeView?.columnWidths || {}) });
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeView?.id]);
 
-    // Alçada de fila configurable (activeView.rowHeight): compacta/normal/alta.
+    // Configurable row height (activeView.rowHeight): compact/normal/tall.
     const rowHeight = activeView?.rowHeight || 'normal';
     const rowPadClass = rowHeight === 'compact' ? 'py-1' : (rowHeight === 'tall' ? 'py-4' : 'py-2.5');
 
-    // Agrupació de files (activeView.groupBy): nom d'un camp de l'esquema
-    // (select/status/multi_select). Buit = sense agrupar (taula plana actual).
+    // Row grouping (activeView.groupBy): name of a field from the schema
+    // (select/status/multi_select). Empty = no grouping (current flat table).
     const groupByField = activeView?.groupBy || '';
 
     // Refs for drag state
@@ -500,42 +502,42 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const startX = useRef(0);
     const startWidth = useRef(0);
 
-    // Reordenació de columnes per arrossegament (drag-to-reorder de la capçalera).
-    // La LÒGICA viu en refs (sempre actuals dins els handlers natius de DnD, sense
-    // staleness de closures); l'ESTAT només alimenta l'indicador visual (re-render).
-    const draggedColRef = useRef(null);     // key de la columna que s'arrossega
-    const dropAfterRef = useRef(false);     // drop a la dreta (true) o esquerra (false) de la destí
+    // Column reordering by dragging (drag-to-reorder from the header).
+    // The LOGIC lives in refs (always current inside the native DnD handlers, without
+    // closure staleness); the STATE only feeds the visual indicator (re-render).
+    const draggedColRef = useRef(null);     // key of the column being dragged
+    const dropAfterRef = useRef(false);     // drop to the right (true) or left (false) of the target
     const [draggedColumn, setDraggedColumn] = useState(null);
     const [dragOverColumn, setDragOverColumn] = useState(null);
     const [dropAfter, setDropAfter] = useState(false);
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
-    // ── Graella estil Notion/Excel ───────────────────────────────────────
-    // `activeCell` és el CURSOR (vora ressaltada) i és independent de
-    // `editingCell` (input obert). `anchorCell` és l'àncora d'una selecció
-    // rectangular (Shift+fletxes / Shift+clic); el rang és el rectangle
-    // entre àncora i cursor. Vegeu docs/dev_memory/directives/vault_table_cell_grid.md
+    // ── Notion/Excel-style grid ───────────────────────────────────────
+    // `activeCell` is the CURSOR (highlighted border) and is independent of
+    // `editingCell` (open input). `anchorCell` is the anchor of a
+    // rectangular selection (Shift+arrows / Shift+click); the range is the rectangle
+    // between anchor and cursor. See docs/dev_memory/directives/vault_table_cell_grid.md
     const [activeCell, setActiveCell] = useState(null);   // { rowId, field }
     const [anchorCell, setAnchorCell] = useState(null);   // { rowId, field } | null
     const [editInitial, setEditInitial] = useState(null); // char inicial en type-to-edit (text/number)
     const clipboardRef = useRef(null);                    // { matrix: rawValues[][] } — porta-retalls intern
-    // Refs per a tancaments d'event — permeten que el listener de teclat
-    // llegeixi valors actuals sense reconstruir-se a cada keypress.
+    // Refs for event closures — allow the keyboard listener
+    // reads current values without rebuilding itself on every keypress.
     const activeCellRef = useRef(null);
     activeCellRef.current = activeCell;
     const anchorCellRef = useRef(null);
     anchorCellRef.current = anchorCell;
     const editingCellRef = useRef(null);
     editingCellRef.current = editingCell;
-    // Previsualització del contingut en passar el ratolí (o Espai/Quick Look)
-    // pel títol d'un registre. Un sol card per a tota la taula; el listener
-    // global de teclat l'invoca via `titlePreviewRef` (sense recrear-se).
+    // Content preview on hover (or Space/Quick Look)
+    // over a record's title. A single card for the whole table; the listener
+    // global keyboard listener invokes it via `titlePreviewRef` (without recreating itself).
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const titlePreviewRef = useRef(null);
     titlePreviewRef.current = titlePreview;
     const [mediaPickerCell, setMediaPickerCell] = useState(null); // { rowId, field, originalMetaKey, tableId }
-    // Confirmació en eliminar un fitxer d'un camp `files`:
+    // Confirmation when deleting a file from a `files` field:
     // { rowId, field, originalMetaKey, idx, arr, target, fileName }
     const [fileDeletePrompt, setFileDeletePrompt] = useState(null);
     const [fileDeleteBusy, setFileDeleteBusy] = useState(false);
@@ -550,29 +552,29 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const searchTerm = searchTermProp !== undefined ? searchTermProp : internalSearchTerm;
     const setSearchTerm = onSearchChange || setInternalSearchTerm;
     const [expandedRows, setExpandedRows] = useState(new Set()); // IDs of expanded rows
-    const [expandedGroups, setExpandedGroups] = useState(() => new Set()); // claus de grup DESPLEGADES (agrupació); defecte: plegat
+    const [expandedGroups, setExpandedGroups] = useState(() => new Set()); // EXPANDED group keys (grouping); default: collapsed
     const [newSubitemTitle, setNewSubitemTitle] = useState(''); // title for the new inline subitem
     const [addingSubitemFor, setAddingSubitemFor] = useState(null); // parent ID for adding a subitem
     const [openingResourceId, setOpeningResourceId] = useState(null);
     const [visibleRowsCount, setVisibleRowsCount] = useState(ROWS_BATCH_SIZE);
-    // Snapshot d'ids per a la traducció massiva (GAP 3c). Capturem la selecció
-    // en obrir el modal perquè netejar-la després no buidi la petició.
+    // Snapshot of ids for bulk translation (GAP 3c). We capture the selection
+    // when opening the modal so clearing it afterward doesn't empty the request.
     const [bulkTranslateIds, setBulkTranslateIds] = useState(null);
 
-    // La taula és traduïble si té almenys un camp marcat `translatable`. És el
-    // mateix senyal que valida el backend (translate-row fa 400 si no n'hi ha
-    // cap) i que SchemaConfigModal només escriu quan la traducció està activada
-    // — per això no cal una prop addicional `translation_enabled`.
+    // The table is translatable if it has at least one field marked `translatable`. This is the
+    // same signal the backend validates (translate-row returns 400 if there aren't
+    // any) and that SchemaConfigModal only writes when translation is enabled
+    // — that's why no additional `translation_enabled` prop is needed.
     const isTranslatableTable = useMemo(
         () => getSchemaFieldNames(schema).some(
             (name) => getFieldConfig(schema, name)?.translatable === true
         ),
         [schema]
     );
-    // Mostra el botó de sincronitzar amb Drupal quan la taula té la funció
-    // activada. El senyal és a l'esquema: en activar-la s'hi afegeixen columnes
-    // `system` "Drupal NID/URL" (vegeu SchemaConfigModal), de manera que no cal
-    // enfilar un prop nou per tots els llocs on es renderitza VaultTable.
+    // Shows the Drupal sync button when the table has the feature
+    // enabled. The signal is in the schema: enabling it adds
+    // `system` "Drupal NID/URL" columns (see SchemaConfigModal), so there's no need for
+    // thread a new prop through every place that renders VaultTable.
     const isDrupalSyncTable = useMemo(
         () => getSchemaFieldNames(schema).some((name) => {
             const cfg = getFieldConfig(schema, name);
@@ -580,9 +582,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }),
         [schema]
     );
-    // Mostra el botó "Publicar a XXSS" quan la taula té la funció activada. En
-    // activar-la, SchemaConfigModal hi afegeix una columna `system` "XXSS"
-    // (estat de publicació), de manera que el senyal viu a l'esquema com Drupal.
+    // Shows the "Publish to XXSS" button when the table has the feature enabled. When
+    // enabling it, SchemaConfigModal adds a `system` "XXSS" column
+    // (publication status), so the signal lives in the schema just like Drupal.
     const isSocialPublishTable = useMemo(
         () => getSchemaFieldNames(schema).some((name) => {
             const cfg = getFieldConfig(schema, name);
@@ -590,18 +592,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }),
         [schema]
     );
-    // `useCallback` per mantenir la referència estable: `React.memo` al
-    // `InfiniteLoadSentinel` només funciona si les props no canvien a
-    // cada render del pare. Sense això, una nova funció inline per
-    // render fa que el sentinel es remunti i `IntersectionObserver` es
-    // reconnecti, disparant `onLoadMore` immediatament i en bucle fins
-    // omplir la llista — efectivament treia el benefici del batching.
+    // `useCallback` to keep the reference stable: `React.memo` in
+    // `InfiniteLoadSentinel` only works if the props don't change on
+    // every parent render. Without this, a new inline function per
+    // render causes the sentinel to remount and `IntersectionObserver`
+    // reconnects, firing `onLoadMore` immediately and in a loop until
+    // fill the list — effectively negated the benefit of batching.
     const handleLoadMoreRows = useCallback(() => {
         setVisibleRowsCount(prev => prev + ROWS_BATCH_SIZE);
     }, [ROWS_BATCH_SIZE]);
     const [newRowTitle, setNewRowTitle] = useState('');
-    // Acció pendent disparada per un camp de tipus `button`. Si està set,
-    // mostrem el modal corresponent a l'acció (ara mateix només `translate_row`).
+    // Pending action triggered by a `button`-type field. If it's set,
+    // we show the modal corresponding to the action (currently only `translate_row`).
     const [pendingAction, setPendingAction] = useState(null);
     const dropdownRef = useRef(null);
     const subitemInputRef = useRef(null);
@@ -626,22 +628,22 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, [addingSubitemFor]);
 
     // ---- UNIFIED DATA LOGIC (FILTERS, SORT, SEARCH) ----
-    // `resolveViewSorts` resol les DUES claus del registry (`sorts` array
-    // complet — import de Notion/modal — i `sort` llegat) i les dues formes
-    // (objecte o array). Abans es llegia només `activeView.sort` i l'ordre
-    // configurat de TOTES les vistes importades (que persisteixen `sorts`)
-    // s'ignorava en silenci. Sense cap config: més recent primer; amb config
-    // explícita però buida (l'usuari ha tret tots els ordres): sense ordre.
-    // Memoitzat: `resolveViewSorts`/`resolveViewFilters` retornen arrays NOUS a
-    // cada crida i, sense useMemo, el sort/filtrat d'useVaultViewData es
-    // recalculava a cada render de la taula.
+    // `resolveViewSorts` resolves BOTH registry keys (`sorts` array
+    // complete — Notion import/modal — and legacy `sort`) and both forms
+    // (object or array). Before, only `activeView.sort` was read and the order
+    // configured by ALL imported views (which persist `sorts`)
+    // was silently ignored. With no config: most recent first; with
+    // explicit but empty config (the user has removed all orders): no order.
+    // Memoized: `resolveViewSorts`/`resolveViewFilters` return NEW arrays on
+    // every call and, without useMemo, the sort/filtering in useVaultViewData was
+    // recalculated on every render of the table.
     const effectiveSorts = useMemo(
         () => resolveViewSorts(activeView, { field: "last_modified", direction: "desc" }),
         [activeView]
     );
-    // L'ordre primari governa la fletxa asc/desc de la capçalera i el toggle.
+    // The primary order governs the header's asc/desc arrow and the toggle.
     const activeSort = effectiveSorts[0] || {};
-    // Signatura estable (multi-camp) per reinicialitzar el cursor quan canvia l'ordre.
+    // Stable signature (multi-field) to reinitialize the cursor when the order changes.
     const sortSignature = effectiveSorts.map(s => `${s.field}:${s.direction}`).join(',');
 
     const viewConfig = useMemo(() => ({
@@ -664,10 +666,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const childrenMap = {};
     const rootNotes = [];
 
-    // Mapa de fills COMPLET (sobre safeNotes, SENSE els filtres de la vista),
-    // només per a la propagació al pare: decidir "tots els fills fets" o el
-    // min/max de dates amb només els fills VISIBLES marcava el pare com a
-    // Completat encara que tingués fills pendents amagats pel filtre.
+    // COMPLETE children map (over safeNotes, WITHOUT the view's filters),
+    // only for propagation to the parent: deciding "all children done" or the
+    // min/max of dates with only the VISIBLE children marked the parent as
+    // Completed even though it had pending children hidden by the filter.
     const allChildrenByParent = {};
 
     if (enableSubitems) {
@@ -741,40 +743,40 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, [activeView?.id, searchTerm, sortedNotes.length]);
 
     // ── Virtualization (TanStack Virtual) ───────────────────────────────
-    // El primer mount d'una taula de 303 registres trigava 1-4 s perquè
-    // muntava els N rows × ~12 cells alhora. Aquí només renderitzem els
-    // rows efectivament dins viewport + uns quants per anticipar-se al
-    // scroll (`overscan`). El cost del primer paint cau a O(viewport),
-    // independent de la mida total de la taula.
+    // The first mount of a table with 303 records took 1-4 s because
+    // it mounted the N rows × ~12 cells at once. Here we only render the
+    // rows actually within the viewport + a few extra to anticipate the
+    // scroll (`overscan`). The cost of the first paint drops to O(viewport),
+    // independent of the table's total size.
     //
     // **Descriptors plans**: `tanstack/react-virtual` assumeix 1 element
-    // mesurable per índex. Per evitar trencar aquest contracte (root +
-    // children expandits + form subitem dins un `Fragment` confonia el
-    // virtualizer i feia padding/scroll imprecisos), aplanem la jerarquia
-    // a una llista única `rowDescriptors` on **cada entrada genera un
-    // sol `<tr>`**. El virtualizer indexa 1:1 contra aquesta llista i
-    // `measureElement` rep directament el `<tr>` del virtual item.
+    // measurable by index. To avoid breaking this contract (root +
+    // expanded children + form subitem inside a `Fragment` confused the
+    // virtualizer and caused imprecise padding/scrolling), we flatten the hierarchy
+    // into a single `rowDescriptors` list where **each entry generates a
+    // single `<tr>`**. The virtualizer indexes 1:1 against this list and
+    // `measureElement` directly receives the `<tr>` of the virtual item.
     //
-    // Patró del DOM: `<tbody>` natiu amb espaiadors `<tr>` (height =
-    // padding) per sobre i sota dels rows visibles, així `<table>`+
-    // `<thead>` mantenen l'alineació de columnes sense haver de canviar
+    // DOM pattern: native `<tbody>` with `<tr>` spacers (height =
+    // padding) above and below the visible rows, so `<table>`+
+    // `<thead>` keep column alignment without having to change
     // `display: block`.
     const tableContainerRef = useRef(null);
 
-    // Metadades del camp d'agrupació (ordre i color de les opcions, com el
-    // kanban): si el camp té opcions definides a l'esquema, els grups segueixen
-    // el seu ORDRE i n'hereten el COLOR. `fieldId` és la reserva per llegir el
-    // valor quan la metadata es clava per id en lloc de per nom.
+    // Metadata for the grouping field (order and color of the options, like the
+    // kanban): if the field has options defined in the schema, the groups follow
+    // their ORDER and inherit their COLOR. `fieldId` is the fallback for reading the
+    // value when the metadata is keyed by id instead of by name.
     const groupMeta = useMemo(() => {
         if (!groupByField) return null;
         const cfg = getFieldConfig(schema, groupByField);
         const options = (cfg && Array.isArray(cfg.options)) ? normalizeOptions(cfg.options) : [];
         const colorMap = {};
         options.forEach(o => { colorMap[o.name] = o.color; });
-        // Agrupar per un camp RELACIÓ: el valor del grup és l'id de la pàgina
-        // relacionada. Resolem id→títol (com fan les cel·les de relació) perquè
-        // la capçalera de grup mostri el títol i no l'UUID cru. Per a select/text
-        // `labelMap` és null i el label es queda igual (el nom/opció).
+        // Grouping by a RELATION field: the group value is the id of the related
+        // page. We resolve id→title (as relation cells do) so that
+        // the group header shows the title and not the raw UUID. For select/text
+        // `labelMap` is null and the label stays the same (the name/option).
         const relDb = cfg?.relation_database_id;
         const labelMap = relDb
             ? Object.fromEntries((allNotes || []).filter(n => {
@@ -785,9 +787,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return { fieldId: cfg?.id || null, optionOrder: options.map(o => o.name), colorMap, labelMap };
     }, [groupByField, schema, allNotes, idToTitle]);
 
-    // Col·lapse/expansió d'un grup (estat local). Es reinicia en canviar de
-    // vista o de camp d'agrupació, on les claus de grup deixen de tenir sentit.
-    // Defecte: PLEGAT (Set buit); l'usuari desplega els grups que vol veure.
+    // Collapse/expansion of a group (local state). It resets when changing
+    // view or grouping field, where the group keys stop making sense.
+    // Default: COLLAPSED (empty Set); the user expands the groups they want to see.
     const toggleGroup = useCallback((groupKey) => {
         setExpandedGroups(prev => {
             const next = new Set(prev);
@@ -797,18 +799,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     }, []);
     useEffect(() => { setExpandedGroups(new Set()); }, [activeView?.id, groupByField]);
 
-    // True si l'usuari té alguna agregació de columna activa: aleshores cada
-    // grup mostra un peu amb els subtotals (estil Notion).
+    // True if the user has any active column aggregation: then each
+    // group shows a footer with the subtotals (Notion-style).
     const hasGroupAggregations = useMemo(
         () => Object.values(aggregations || {}).some(f => f && f !== 'none'),
         [aggregations]
     );
 
-    // Llista plana de descriptors. Cada entrada → 1 `<tr>` virtual.
+    // Flat list of descriptors. Each entry → 1 virtual `<tr>`.
     const rowDescriptors = useMemo(() => {
         const list = [];
-        // Afegeix una fila root i, si està desplegada, els seus subitems + el
-        // formulari de nou subitem. Reutilitzat per la via plana i l'agrupada.
+        // Adds a root row and, if it's expanded, its subitems + the
+        // new-subitem form. Reused by the flat and grouped paths.
         const pushNoteRows = (note) => {
             list.push({ kind: 'row', note, isChild: false, depth: 0 });
             if (expandedRows.has(note.id)) {
@@ -822,18 +824,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
         };
 
-        // Sense agrupació: comportament previ (tram d'infinite-load + virtualització).
+        // Without grouping: previous behavior (infinite-load chunk + virtualization).
         if (!groupByField || !groupMeta) {
             for (const note of visibleRootNotes) pushNoteRows(note);
             return list;
         }
 
-        // Amb agrupació: agrupem TOTES les files ordenades/filtrades (no només el
-        // tram d'infinite-load) perquè els comptadors i el conjunt de grups
-        // siguin exactes; la virtualització ja limita el cost al viewport. El
-        // valor del grup es llegeix pel nom del camp o, com a reserva, per l'id
-        // (getMetaKey viu més avall i no és accessible aquí; aquesta resolució
-        // cobreix els dos formats reals de metadata).
+        // With grouping: we group ALL sorted/filtered rows (not just the
+        // infinite-load chunk) so that the counters and the set of groups
+        // are accurate; virtualization already limits the cost to the viewport. The
+        // group value is read by the field name or, as a fallback, by the id
+        // (getMetaKey lives further below and is not accessible here; this resolution
+        // covers both real metadata formats).
         const EMPTY = ' empty';
         const readVal = (note) => {
             const m = note?.metadata || {};
@@ -849,13 +851,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             else name = (raw === null || raw === undefined) ? '' : String(raw).trim();
             const gid = name === '' ? EMPTY : name;
             let g = groups.get(gid);
-            if (!g) { g = { key: gid, label: gid === EMPTY ? 'Sense valor' : (groupMeta.labelMap?.[name] || name), notes: [] }; groups.set(gid, g); }
+            if (!g) { g = { key: gid, label: gid === EMPTY ? t('table.no_group_value', 'Sense valor') : (groupMeta.labelMap?.[name] || name), notes: [] }; groups.set(gid, g); }
             g.notes.push(note);
         }
-        // Ordre: per defecte el del catàleg d'opcions (→ valors no catalogats
-        // per ordre d'aparició); 'alpha' per nom de grup; 'count' per nombre de
-        // registres. Direcció asc/desc. El grup "Sense valor" (EMPTY) sempre al
-        // final independentment de l'ordre triat.
+        // Order: defaults to that of the option catalog (→ uncataloged values
+        // in order of appearance); 'alpha' by group name; 'count' by number of
+        // records. asc/desc direction. The "No value" group (EMPTY) always at the
+        // end regardless of the chosen order.
         const groupSort = activeView?.groupSort || activeView?.group_sort || 'catalog';
         const groupSortDir = (activeView?.groupSortDir || activeView?.group_sort_dir || 'asc') === 'desc' ? -1 : 1;
         const order = groupMeta.optionOrder;
@@ -878,10 +880,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 const c = a.notes.length - b.notes.length;
                 return (c || byCatalog(a, b)) * groupSortDir;
             }
-            return byCatalog(a, b); // 'catalog': asc = ordre catàleg; desc = ordre invers
+            return byCatalog(a, b); // 'catalog': asc = catalog order; desc = reverse order
         });
         if (groupSort === 'catalog' && groupSortDir === -1) {
-            // Inverteix mantenint el grup buit al final.
+            // Inverts while keeping the empty group at the end.
             const empty = ordered.filter(g => g.key === EMPTY);
             const rest = ordered.filter(g => g.key !== EMPTY).reverse();
             ordered.splice(0, ordered.length, ...rest, ...empty);
@@ -895,34 +897,34 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 count: g.notes.length,
                 colorHex: colorName ? optionColorHex(colorName) : null,
             });
-            if (!expandedGroups.has(g.key)) continue; // grup plegat → no rows (defecte: plegat)
+            if (!expandedGroups.has(g.key)) continue; // collapsed group → no rows (default: collapsed)
             for (const note of g.notes) pushNoteRows(note);
-            // Peu de grup (subtotals estil Notion): només si l'usuari té
-            // alguna agregació de columna activa. Es calcula sobre les notes
-            // d'AQUEST grup (g.notes). Es renderitza sota les files del grup.
+            // Group footer (Notion-style subtotals): only if the user has
+            // any active column aggregation. It's calculated over the notes
+            // of THIS group (g.notes). It's rendered below the group's rows.
             if (hasGroupAggregations) {
                 list.push({ kind: 'group-footer', groupKey: g.key, notes: g.notes });
             }
         }
         return list;
-    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations, activeView?.groupSort, activeView?.groupSortDir, activeView?.group_sort, activeView?.group_sort_dir]);
+    }, [groupByField, groupMeta, visibleRootNotes, sortedNotes, expandedRows, childrenMap, addingSubitemFor, expandedGroups, hasGroupAggregations, activeView?.groupSort, activeView?.groupSortDir, activeView?.group_sort, activeView?.group_sort_dir, t]);
 
     const rowVirtualizer = useVirtualizer({
         count: rowDescriptors.length,
         getScrollElement: () => tableContainerRef.current,
-        // Una row aproxima 56 px. Amb descriptors plans no cal pujar
-        // l'estimació per expansió: cada child és ja el seu propi virtual
-        // item amb el seu propi estimateSize/measureElement.
+        // One row is approximately 56 px. With flat descriptors there's no need to bump up
+        // the estimate for expansion: each child is already its own virtual
+        // item with its own estimateSize/measureElement.
         estimateSize: () => (rowHeight === 'compact' ? 40 : rowHeight === 'tall' ? 76 : 56),
-        // Mesura directa: cada virtual item és UN sol `<tr>`, no fa falta
-        // DOM walking. Aquesta és precisament la millora que el patró
-        // d'aplanament aporta sobre el de `Fragment` + walking.
+        // Direct measurement: each virtual item is a SINGLE `<tr>`, no need for
+        // DOM walking. This is precisely the improvement that the pattern
+        // that flattening contributes over the `Fragment` + walking one.
         measureElement: (el) => el?.getBoundingClientRect().height || 56,
         overscan: 8,
-        // scrollPaddingStart: compensa la capçalera sticky (~44 px) perquè
-        // scrollToIndex no deixi files amagades rere el thead.
-        // scrollPaddingEnd: manté 1 fila de marge a sota perquè el cursor
-        // no arribi mai a la vora inferior abans que el scroll es dispari.
+        // scrollPaddingStart: compensates for the sticky header (~44 px) so that
+        // scrollToIndex doesn't leave rows hidden behind the thead.
+        // scrollPaddingEnd: keeps 1 row of margin at the bottom so that the cursor
+        // never reaches the bottom edge before the scroll is triggered.
         scrollPaddingStart: 44,
         scrollPaddingEnd: 56,
     });
@@ -935,17 +937,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
     const handleSort = (field) => {
         if (!activeView || !onUpdateView) return;
-        // Llegim l'ordre primari EFECTIU (clau `sorts` o `sort`, objecte o array).
+        // We read the EFFECTIVE primary order (key `sorts` or `sort`, object or array).
         const primary = resolveViewSorts(activeView)[0];
         const isCurrentField = primary?.field === field;
         let newDirection = 'asc';
         if (isCurrentField) {
             newDirection = primary.direction === 'asc' ? 'desc' : 'asc';
         }
-        // Clicar una capçalera estableix aquest camp com a ÚNIC ordre (estil
-        // Notion/Airtable). Es desen LES DUES claus en sincronia (com el
-        // PageViewModal): si només s'escrivís `sort`, un `sorts` antic de la
-        // vista guanyaria la resolució i el clic semblaria mort.
+        // Clicking a header sets this field as the SOLE sort (in
+        // Notion/Airtable). BOTH keys are saved in sync (like the
+        // PageViewModal style): if only `sort` were written, a stale `sorts` from the
+        // view would win the resolution and the click would seem to do nothing.
         const newSorts = [{ field, direction: newDirection }];
         const updatedView = { ...activeView, sort: newSorts, sorts: newSorts };
         onUpdateView(updatedView);
@@ -954,43 +956,43 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // Strip schema by removing title to put it at the beginning and filtering by visibility
     const dynamicColumns = useMemo(() => {
         const titleFieldName = Object.entries(schema || {}).find(([, t]) => t === 'title')?.[0];
-        // Tota vista amb `visibleProperties` configurats els respecta — TAMBÉ la
-        // principal. Abans la principal forçava tot l'esquema viu i tapava la
-        // config real (les vistes principals importades de Notion porten un
-        // subconjunt triat per l'usuari). Sense config (vista principal local
-        // 'default' o vista antiga), es mostra tot l'esquema, que segueix fent
-        // aparèixer els camps nous a l'instant.
+        // Every view with `visibleProperties` configured respects them — INCLUDING the
+        // main one. Previously the main view forced the entire live schema and masked the
+        // actual config (main views imported from Notion carry a
+        // subset chosen by the user). Without config (local main view
+        // 'default' or an old view), the entire schema is shown, which keeps making
+        // new fields appear instantly.
         const baseFields = activeView?.visibleProperties?.length
             ? activeView.visibleProperties.map(key => [key, getFieldType(schema, key)]).filter(([key, type]) => key && type)
             : getSchemaFieldEntries(schema).filter(([key, type]) => type !== 'title');
 
-        // El títol ja es pinta com a columna fixa: cap entrada de
-        // `visibleProperties` ha de tornar-lo a mostrar com a columna de dades.
-        // L'excloem pel nom real del camp (titleFieldName), per la referència
-        // canònica/legacy 'title' (que getFieldType resol a 'text' perquè
-        // l'esquema no en té la clau) i per qualsevol camp de tipus 'title'.
+        // The title is already rendered as a fixed column: no entry from
+        // `visibleProperties` must show it again as a data column.
+        // We exclude it by the field's real name (titleFieldName), by the reference
+        // to canonical/legacy 'title' (which getFieldType resolves to 'text' because
+        // the schema doesn't have that key), and by any field of type 'title'.
         return baseFields.filter(([key, type]) => key !== titleFieldName && key !== 'title' && type !== 'title');
     }, [activeView, schema]);
 
-    // Drag-to-reorder de columnes: disponible a QUALSEVOL vista (la principal
-    // inclosa: ara que respecta i persisteix els seus `visibleProperties`, el
-    // drag ja no es reverteix en recarregar). Cal `onUpdateView` per persistir.
+    // Column drag-to-reorder: available in ANY view (the main
+    // included: now that it respects and persists its `visibleProperties`, the
+    // drag no longer reverts on reload). `onUpdateView` is required to persist it.
     const canReorderColumns = !!onUpdateView && !!activeView;
 
-    // La columna "Modificació" (last_modified) són metadades, no un camp de
-    // l'esquema. Amb `visibleProperties` configurats només es mostra si la
-    // vista la inclou; sense config (vista sense visibleProperties) es
-    // conserva el comportament previ: mostrar-la.
+    // The "Modification" column (last_modified) is metadata, not a field of the
+    // schema. With `visibleProperties` configured, it's only shown if the
+    // the view includes it; without config (view with no visibleProperties) it
+    // keeps the previous behavior: show it.
     const showModifiedColumn = useMemo(() => {
         const vp = activeView?.visibleProperties;
         if (!vp || vp.length === 0) return true;
         return vp.some(k => k === 'last_modified' || k === 'modified' || k === 'last_edited_time');
     }, [activeView]);
 
-    // La columna "Idioma" és visible a la vista actual? Si ho és, el badge
-    // d'idioma del costat del títol mostra el mateix valor que la cel·la →
-    // redundant. L'amaguem, però conservem l'avís "stale" (que la columna no
-    // porta). Compara per nom resolt perquè les columnes poden venir per id o nom.
+    // Is the "Language" column visible in the current view? If it is, the badge
+    // for the language, next to the title, shows the same value as the cell →
+    // redundant. We hide it, but keep the "stale" warning (which the column doesn't
+    // carry). It compares by resolved name because columns can come by id or by name.
     const hasVisibleLanguageColumn = useMemo(() => {
         const langFieldName = getLanguageFieldName(schema);
         if (!langFieldName) return false;
@@ -1012,17 +1014,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         });
     }, [schema]);
 
-    // ── Graella: ordre de columnes i files navegables ───────────────────
-    // El cursor recorre el `title` (col 0, sticky) + les columnes de metadades
-    // (dynamicColumns). El títol és navegable i editable cel·la a cel·la però
-    // queda fora de l'enganxat/buidat en bloc (viu a note.title, no a metadata;
-    // vegeu isPasteableType). Accions i last_modified segueixen fora.
+    // ── Grid: column order and navigable rows ───────────────────
+    // The cursor moves through the `title` (col 0, sticky) + the metadata columns
+    // (dynamicColumns). The title is navigable and editable cell by cell, but
+    // stays out of block paste/clear (lives in note.title, not metadata;
+    // see isPasteableType). Actions and last_modified remain outside.
     const gridColumns = useMemo(
         () => [{ key: 'title', type: 'title' }, ...dynamicColumns.map(([key, type]) => ({ key, type }))],
         [dynamicColumns]
     );
-    // Files navegables = descriptors `kind:'row'`, amb el seu índex de
-    // descriptor (= índex del virtualizer) per a scrollToIndex.
+    // Navigable rows = descriptors with `kind:'row'`, with their index of
+    // descriptor (= virtualizer index) for scrollToIndex.
     const navRows = useMemo(() => {
         const out = [];
         rowDescriptors.forEach((d, i) => {
@@ -1044,9 +1046,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     navRowsRef.current = navRows;
     const rowDescriptorsRef = useRef([]);
     rowDescriptorsRef.current = rowDescriptors;
-    // Navegació entre capçaleres de grup i entrada a la primera fila (mode
-    // separat: el cursor de cel·la no es veu afectat). Es defineixen aquí perquè
-    // l'effect `pendingEnterGroupDesc` hi tingui accés sense TDZ.
+    // Navigation between group headers and entry into the first row (mode
+    // kept separate: the cell cursor is not affected). They are defined here so that
+    // the `pendingEnterGroupDesc` effect can access them without a TDZ issue.
     const focusGroupHeaderByOffset = (fromDescriptorIndex, delta) => {
         const list = rowDescriptorsRef.current;
         for (let i = fromDescriptorIndex + delta; i >= 0 && i < list.length; i += delta) {
@@ -1064,7 +1066,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const list = rowDescriptorsRef.current;
         for (let i = groupDescriptorIndex + 1; i < list.length; i++) {
             const d = list[i];
-            if (d.kind === 'group-header') return false; // grup buit
+            if (d.kind === 'group-header') return false; // empty group
             if (d.kind === 'row' && d.note) {
                 setActiveCell({ rowId: d.note.id, field: gridColumnsRef.current[0]?.key || 'title' });
                 rowVirtualizer.scrollToIndex(i);
@@ -1073,14 +1075,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
         return false;
     };
-    // descriptorIndex d'un grup que s'acaba de desplegar amb Enter des de la seva
-    // capçalera; l'effect de sota hi posa el cursor a la primera fila.
+    // descriptorIndex of a group that has just been expanded with Enter from its
+    // header; the effect below places the cursor on the first row.
     const pendingEnterGroupDescRef = useRef(null);
     useEffect(() => {
         const di = pendingEnterGroupDescRef.current;
         if (di === null) return;
         pendingEnterGroupDescRef.current = null;
-        // Espera que el descriptor de la primera fila existeixi (re-render).
+        // Waits for the first row's descriptor to exist (re-render).
         const raf = requestAnimationFrame(() => focusFirstRowOfGroup(di));
         return () => cancelAnimationFrame(raf);
     }, [rowDescriptors, expandedGroups, focusFirstRowOfGroup]);
@@ -1090,15 +1092,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     navRowIndexByIdRef.current = navRowIndexById;
     const colIndexByKeyRef = useRef(new Map());
     colIndexByKeyRef.current = colIndexByKey;
-    // Índex id→nota per a lookups O(1) dins els bucles de copy/paste/clear
-    // (abans `safeNotes.find` per cel·la → O(n·m) en seleccions grans).
+    // id→note index for O(1) lookups inside the copy/paste/clear loops
+    // (previously `safeNotes.find` per cell → O(n·m) on large selections).
     const noteById = useMemo(() => {
         const m = new Map();
         for (const n of safeNotes) m.set(n.id, n);
         return m;
     }, [safeNotes]);
 
-    // Rectangle de selecció actual (índexs inclusius dins navRows/gridColumns).
+    // Current selection rectangle (inclusive indices within navRows/gridColumns).
     const selectionRect = useMemo(() => {
         if (!activeCell) return null;
         const aRow = navRowIndexById.get(activeCell.rowId);
@@ -1126,27 +1128,27 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return { isActive, inRange };
     }, [selectionRect, navRowIndexById, colIndexByKey, activeCell]);
 
-    // Quan la vista, la cerca o l'ordre canvien (o en carregar la pàgina), posem
-    // el cursor a la primera cel·la com fa Excel, sense haver de fer clic.
-    // Les notes arriben de forma asíncrona: en el primer mount `navRows` sol
-    // ser buit, així que esperem a tenir dades. `initializedViewRef` garanteix
-    // que només inicialitzem una vegada per vista (no re-situa el cursor quan
-    // s'afegeix una fila o es pagina), i deixa intacta la navegació/Escape de
-    // l'usuari (activeCell NO és dependència).
+    // When the view, search, or sort changes (or when the page loads), we set
+    // the cursor on the first cell like Excel does, without having to click.
+    // Notes arrive asynchronously: on the first mount `navRows` is usually
+    // empty, so we wait until we have data. `initializedViewRef` ensures
+    // that we only initialize once per view (it doesn't reposition the cursor when
+    // a row is added or pagination happens), and leaves the user's navigation/Escape
+    // intact (activeCell is NOT a dependency).
     const initializedViewRef = useRef(null);
     useEffect(() => {
         const viewKey = `${activeView?.id}|${searchTerm}|${sortSignature}`;
         if (initializedViewRef.current === viewKey) return;
-        if (navRows.length === 0 || gridColumns.length === 0) return; // espera les dades
-        // Si una ALTRA instància posseeix el teclat (panell dividit, 2+ embeds),
-        // no li prenem el cursor en carregar: només la propietària (o la primera
-        // de totes) s'auto-inicialitza. Un clic de l'usuari reclama la propietat.
+        if (navRows.length === 0 || gridColumns.length === 0) return; // waits for the data
+        // If ANOTHER instance owns the keyboard (split panel, 2+ embeds),
+        // we don't take its cursor away on load: only the owner (or the first
+        // of all) auto-initializes. A click from the user claims ownership.
         if (_gridKeyboardOwner && _gridKeyboardOwner !== gridInstanceIdRef.current) return;
         initializedViewRef.current = viewKey;
         _gridKeyboardOwner = gridInstanceIdRef.current;
         setAnchorCell(null);
-        // Vista agrupada: el focus inicial va a la PRIMERA CAPÇALERA de grup
-        // (Enter la desplega i baixa als ítems). Altrament, a la primera cel·la.
+        // Grouped view: initial focus goes to the FIRST group HEADER
+        // (Enter expands it and moves down to the items). Otherwise, to the first cell.
         if (groupByField) {
             const firstGroupIdx = rowDescriptors.findIndex(d => d.kind === 'group-header');
             if (firstGroupIdx >= 0) {
@@ -1181,8 +1183,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (resizingCol.current) {
             resizingCol.current = null;
             document.body.style.cursor = 'default';
-            // Persisteix les amplades a la vista perquè es conservin en recarregar
-            // o canviar de vista (abans eren només estat local i es perdien).
+            // Persist the widths to the view so they are preserved on reload
+            // or when switching views (previously they were only local state and were lost).
             if (activeView && onUpdateView) {
                 onUpdateView({ ...activeView, columnWidths: { ...columnWidthsRef.current } });
             }
@@ -1198,20 +1200,20 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         };
     }, [handleMouseMove, handleMouseUp]);
 
-    // ── Reordenació de columnes per arrossegament ───────────────────────
-    // Només les columnes de DADES (dynamicColumns) són arrossegables; el títol
-    // (sticky), el checkbox/accions i "Modificació" queden fixos. En deixar anar,
-    // reconstruïm l'ordre i el persistim a `activeView.visibleProperties` via
-    // `onUpdateView` (igual que handleSort desa `sort`); el pare (handleUpdateView)
-    // el desa tal qual a les vistes NO principals i dynamicColumns l'aplica.
-    // Aquests handlers només s'enganxen quan canReorderColumns és true (mai a la
-    // principal), però igualment fem early-return si no hi ha drag actiu.
+    // ── Column reordering via drag and drop ───────────────────────
+    // Only the DATA columns (dynamicColumns) are draggable; the title
+    // (sticky), the checkbox/actions, and "Modification" stay fixed. On drop,
+    // we rebuild the order and persist it to `activeView.visibleProperties` via
+    // `onUpdateView` (just like handleSort saves `sort`); the parent (handleUpdateView)
+    // it is saved as-is on non-main views, and dynamicColumns applies it.
+    // These handlers are only attached when canReorderColumns is true (never on the
+    // main view), but we still do an early return if there's no active drag.
     const handleColumnDragStart = useCallback((e, key) => {
         draggedColRef.current = key;
         setDraggedColumn(key);
         if (e.dataTransfer) {
             e.dataTransfer.effectAllowed = 'move';
-            // Firefox només inicia el drag si hi ha algun payload.
+            // Firefox only starts the drag if there is some payload.
             try { e.dataTransfer.setData('text/plain', key); } catch { /* no-op */ }
         }
         document.body.style.cursor = 'grabbing';
@@ -1227,14 +1229,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const handleColumnDragOver = useCallback((e, key) => {
         const dragged = draggedColRef.current;
         if (!dragged || dragged === key) return;
-        e.preventDefault();                 // permet el drop
+        e.preventDefault();                 // allows the drop
         if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-        // Costat (esquerra/dreta) segons el punt mitjà de la columna destí:
-        // permet inserir abans o després, i així portar-la fins al final.
+        // Side (left/right) based on the midpoint of the target column:
+        // allows inserting before or after, and thus moving it all the way to the end.
         const rect = e.currentTarget.getBoundingClientRect();
         const after = (e.clientX - rect.left) > rect.width / 2;
         dropAfterRef.current = after;
-        // Només actualitza l'indicador si canvia (evita re-renders redundants).
+        // Only updates the indicator if it changes (avoids redundant re-renders).
         setDragOverColumn(prev => (prev === key ? prev : key));
         setDropAfter(prev => (prev === after ? prev : after));
     }, []);
@@ -1246,22 +1248,22 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         clearColumnDrag();
         if (!dragged || dragged === targetKey || !activeView || !onUpdateView) return;
 
-        // Reordenem sobre `visibleProperties` si existeix: així el camp títol i
-        // qualsevol altra entrada que no sigui columna de dades es queden al seu
-        // lloc (el títol es pinta a part, però el conservem on era — sovint primer
-        // per convenció). Si la vista no en té (cap config), materialitzem l'ordre
-        // visible actual a partir de dynamicColumns.
+        // We reorder over `visibleProperties` if it exists: this way the title field and
+        // any other entry that isn't a data column stay in their
+        // place (the title is rendered separately, but we keep it where it was — often first
+        // by convention). If the view doesn't have one (no config), we materialize the order
+        // current visible from dynamicColumns.
         const hasVP = Array.isArray(activeView.visibleProperties) && activeView.visibleProperties.length > 0;
         const base = hasVP ? activeView.visibleProperties : dynamicColumns.map(([k]) => k);
         if (!base.includes(dragged) || !base.includes(targetKey)) return;
 
-        // Treu la columna arrossegada i reinsereix-la abans/després de la destí.
+        // Removes the dragged column and reinserts it before/after the target.
         const without = base.filter(k => k !== dragged);
         let insertAt = without.indexOf(targetKey);
         if (after) insertAt += 1;
         const newOrder = [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
 
-        // Sense canvi real → no desis (evita un PATCH inútil).
+        // No real change → don't save (avoids a useless PATCH).
         if (newOrder.length === base.length && newOrder.every((k, i) => k === base[i])) return;
 
         onUpdateView({ ...activeView, visibleProperties: newOrder });
@@ -1281,8 +1283,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (Array.isArray(mapped)) {
             // If we have an array of fallbacks, look for the first key that exists in the metadata
             if (!note?.metadata) return field;
-            // Object.prototype.hasOwnProperty.call evita falsos positius si
-            // metadata té una propietat anomenada "hasOwnProperty".
+            // Object.prototype.hasOwnProperty.call avoids false positives if
+            // metadata has a property called "hasOwnProperty".
             const existingKey = mapped.find(k => Object.prototype.hasOwnProperty.call(note.metadata, k));
             if (existingKey) return existingKey;
 
@@ -1364,8 +1366,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const currentValue = note.metadata?.[originalMetaKey];
         if (currentValue === newValue) return;
 
-        // 1. OPTIMISTIC: aplica el canvi local immediatament — l'usuari
-        //    veu el valor nou abans que el backend respongui (~200-450 ms).
+        // 1. OPTIMISTIC: applies the change locally right away — the user
+        //    sees the new value before the backend responds (~200-450 ms).
         setOptimisticPatches(prev => {
             const next = new Map(prev);
             const existing = next.get(noteId) || {};
@@ -1374,19 +1376,19 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         });
 
         try {
-            // 2. PATCH partial — el backend fa `metadata.update(request.metadata)`
-            //    i conserva title / content / altres camps intactes. Abans
-            //    enviàvem PUT amb `title + content + metadata` complets per
-            //    cada cel·la editada (potser MBs de body, doble latència de
-            //    serialització).
+            // 2. Partial PATCH — the backend does `metadata.update(request.metadata)`
+            //    and keeps title / content / other fields intact. Before
+            //    we used to send PUT with the full `title + content + metadata` for
+            //    each edited cell (potentially MBs of body, double the latency of
+            //    serialization).
             const response = await fetch(`/api/vault/pages/${noteId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ metadata: { [originalMetaKey]: newValue } })
             });
             if (!response.ok) {
-                // fetch només llança a errors de xarxa, no a 4xx/5xx → si no ho
-                // gestionem aquí, l'usuari no veu res però la cel·la no s'ha desat.
+                // fetch only throws on network errors, not on 4xx/5xx → if we don't
+                // handle it here, the user sees nothing but the cell hasn't been saved.
                 const payload = await response.json().catch(() => ({}));
                 throw new Error(payload?.detail || `HTTP ${response.status}`);
             }
@@ -1397,15 +1399,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     await propagateToParent(parentId, field, noteId, newValue);
                 }
             }
-            // Refresh in background — el cache del backend ja ha estat
-            // invalidat al PATCH. NO esperem aquí: l'usuari ja veu el canvi
-            // gràcies a l'optimistic patch, i quan arribi el nou `notes`
-            // prop, el `useEffect` netejarà l'override automàticament.
+            // Refresh in background — the backend cache has already been
+            // invalidated on PATCH. We do NOT wait here: the user already sees the change
+            // thanks to the optimistic patch, and when the new `notes`
+            // prop arrives, the `useEffect` will clean up the override automatically.
             if (onCellSaved) onCellSaved();
             else if (onUpdateView) onUpdateView(activeView);
         } catch (error) {
-            // 3. ROLLBACK: treu només el patch d'aquest camp (mantenim
-            //    altres patches pendents per a la mateixa nota intactes).
+            // 3. ROLLBACK: removes only this field's patch (we keep
+            //    other pending patches for the same note intact).
             setOptimisticPatches(prev => {
                 const next = new Map(prev);
                 const existing = next.get(noteId);
@@ -1423,22 +1425,22 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             // doesn't believe the change was persisted when it wasn't.
             notifyError('table-save-cell', error, t('table.save_cell_error', 'Error desant la cel·la'));
         }
-    // `propagateToParent` i `t` són capturats pel closure; afegir-los al
-    // dep array crearia un cicle de recreació amb `propagateToParent` (que
-    // a la vegada depèn de `handleCellSave`).
+    // `propagateToParent` and `t` are captured by the closure; adding them to the
+    // dep array would create a recreation cycle with `propagateToParent` (which
+    // in turn depends on `handleCellSave`).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [safeNotes, activeView, onUpdateView, onCellSaved]);
 
     // ---- PROPAGATION LOGIC TO PARENT ----
-    // `overrides` (Map<childId, value>) permet a l'enganxat en bloc passar els
-    // valors acabats d'escriure perquè el càlcul "tots els fills fets" no usi
-    // els valors antics dels germans (edicions individuals el deixen `null`).
+    // `overrides` (Map<childId, value>) allows bulk paste to pass the
+    // values that were just written so that the "all children done" calculation doesn't use
+    // the old values of the siblings (individual edits leave it as `null`).
     const propagateToParent = useCallback(async (parentId, changedField, changedChildId, newValue, overrides = null) => {
         const parent = safeNotes.find(n => n.id === parentId);
         if (!parent) return;
 
-        // Fills COMPLETS (no els filtrats per la vista): la decisió d'estat/dates
-        // del pare ha de veure tots els fills, també els amagats pel filtre.
+        // COMPLETE children (not those filtered by the view): the status/dates decision
+        // for the parent must see all children, including those hidden by the filter.
         const children = allChildrenByParent[parentId] || [];
         if (children.length === 0) return;
 
@@ -1499,9 +1501,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     }
                 } else {
                     // For simple date fields: min for "start" fields, max for "end" fields.
-                    // Coincidència per paraula sencera (separadors: espai, guió, subratllat
-                    // o inici/final de string) per evitar falsos positius com "Definició",
-                    // "Fixació" o "infinit".
+                    // Whole-word matching (separators: space, hyphen, underscore
+                    // or start/end of string) to avoid false positives like "Definition",
+                    // "Fixation" or "infinite".
                     const fieldLower = changedField.toLowerCase();
                     const isEndField = /(^|[\s_-])(end|fi|fin|final)([\s_-]|$)/i.test(fieldLower);
                     const dates = allDates.map(d => new Date(d)).filter(d => !isNaN(d));
@@ -1544,7 +1546,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 notes: safeNotes,
                 currentTableId: tableId,
             });
-            // Usar axios per coherència amb el dashboard i per garantir el port correcte
+            // Use axios for consistency with the dashboard and to ensure the correct port
             const res = await axios.post(`/api/vault/pages`, {
                 title,
                 content: '',
@@ -1554,7 +1556,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
             if (res.status === 200 || res.status === 201) {
                 setExpandedRows(prev => new Set([...prev, parentId]));
-                // Notificar al pare perquè recarregui les dades
+                // Notify the parent so it reloads the data
                 if (onUpdateView) onUpdateView(activeView);
                 toast.success(t('table.subitem_created'));
             }
@@ -1613,8 +1615,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     }, [newRowTitle, safeNotes, activeView, onUpdateView, schema, resolveNoteTableId]);
 
-    // Catàlegs compartits d'opcions (registry arrel): un camp amb
-    // config.catalog_ref hi resol la seva llista. Es carreguen un cop.
+    // Shared option catalogs (root registry): a field with
+    // config.catalog_ref resolves its list there. They are loaded once.
     const [sharedOptionCatalogs, setSharedOptionCatalogs] = useState({});
     useEffect(() => {
         const needsCatalogs = getSchemaFieldNames(schema)
@@ -1628,8 +1630,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [schema]);
 
-    // Catàleg ric d'un camp ({name,color,group}…), o [] si el camp deriva les
-    // opcions dels valors (sense catàleg explícit).
+    // Rich catalog of a field ({name,color,group}…), or [] if the field derives its
+    // options from the values (without an explicit catalog).
     const getCatalogOptions = (field) => {
         const config = getFieldConfig(schema, field);
         if (config?.catalog_ref) {
@@ -1641,8 +1643,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return [];
     };
 
-    // Mapa nom → color per pintar els xips. Només per a opcions de catàleg
-    // explícit: les derivades mantenen l'estil neutre del tema.
+    // Name → color map for painting the chips. Only for options from an explicit
+    // catalog: derived ones keep the theme's neutral style.
     const getOptionColorMap = (field) => {
         const map = {};
         for (const o of getCatalogOptions(field)) map[o.name] = o.color;
@@ -1653,13 +1655,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const catalog = getCatalogOptions(field);
         if (catalog.length > 0) return catalog.map((o) => o.name);
         const values = safeNotes
-            // `getMetaKey` itera els àlies (poden ser ARRAYS de fallbacks); la
-            // inline anterior coercia l'array a string i mai casava cap clau.
+            // `getMetaKey` iterates over the aliases (which can be ARRAYS of fallbacks); the
+            // previous inline code coerced the array to a string and never matched any key.
             .map(n => n.metadata?.[getMetaKey(n, field)])
             .filter(v => v !== undefined && v !== null && v !== '');
-        // multi_select desa un array per fila: cal APLANAR a valors individuals,
-        // no deduplicar arrays sencers (això mostrava "tag1tag2tag3" com una sola
-        // opció). Accepta també cadenes CSV per compatibilitat.
+        // multi_select saves an array per row: it must be FLATTENED into individual values,
+        // trick is to not deduplicate entire arrays (this used to show "tag1tag2tag3" as a single
+        // option). It also accepts CSV strings for compatibility.
         if (type === 'multi_select') {
             const flat = [];
             for (const v of values) {
@@ -1677,10 +1679,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return Array.from(new Set(values));
     };
 
-    // Persisteix el catàleg d'opcions d'un camp select/multi_select/status al
-    // schema (PATCH a la taula via el handler del dashboard). Resol el tableId
-    // de la vista i el fieldId immutable del schema. Si no hi ha handler o no
-    // es pot resoldre l'id, no fa res (el valor de la cel·la sí que es desa).
+    // Persists the option catalog of a select/multi_select/status field to the
+    // schema (PATCH to the table via the dashboard handler). Resolves the tableId
+    // view's registry and to the schema's immutable fieldId. If there's no handler or it's not
+    // possible to resolve the id, it does nothing (the cell's value is still saved).
     const updateFieldOptions = (field, nextOptions) => {
         if (!onUpdateFieldOptions || !Array.isArray(nextOptions)) return;
         const tableId = activeView?.table_id || (safeNotes.length > 0 ? resolveNoteTableId(safeNotes[0]) : null);
@@ -1689,16 +1691,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         onUpdateFieldOptions(tableId, fieldId, nextOptions);
     };
 
-    // Eliminació d'una opció estil Notion: la treu del catàleg I del valor de
-    // TOTES les files que la tenen. La reescriptura la fa UNA crida al
-    // servidor (mai N PATCHes des del client: esgoten el pool de BD i amaguen
-    // errors parcials — feedback_bulk_ops_server_side). El patch optimista fa
-    // que el canvi es vegi a l'instant a la taula.
+    // Notion-style deletion of an option: removes it from the catalog AND from the value of
+    // ALL rows that have it. The rewrite is done by A SINGLE call to the
+    // server (never N PATCHes from the client: they exhaust the DB pool and hide
+    // partial errors — feedback_bulk_ops_server_side). The optimistic patch does
+    // so the change shows up instantly in the table.
     const removeOptionEverywhere = async (field, type, optionValue) => {
         const tableId = activeView?.table_id || (safeNotes.length > 0 ? resolveNoteTableId(safeNotes[0]) : null);
         const fieldId = getFieldConfig(schema, field)?.id;
 
-        // Patch optimista sobre les files visibles que usen el valor.
+        // Optimistic patch over the visible rows that use the value.
         setOptimisticPatches(prev => {
             const next = new Map(prev);
             for (const n of safeNotes) {
@@ -1727,9 +1729,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     value: optionValue,
                 });
             } else {
-                // Sense taula/field id resolubles (p. ex. vista de carpeta
-                // llegada) no hi ha endpoint per-taula: només treu l'opció del
-                // catàleg local si n'hi ha.
+                // Without resolvable table/field id (e.g. folder view
+                // arrival) there is no per-table endpoint: it only removes the option from the
+                // local catalog if there is one.
                 const cfg = getFieldConfig(schema, field) || {};
                 if (Array.isArray(cfg.options) && cfg.options.length > 0) {
                     updateFieldOptions(field, normalizeOptions(cfg.options).filter(o => o.name !== optionValue));
@@ -1741,8 +1743,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     };
 
-    // Autors únics ja presents a la taula per a aquest camp (autocompletar).
-    // Dedup per nom|cognom1|cognom2; ignora autors completament buits.
+    // Unique authors already present in the table for this field (autocomplete).
+    // Dedup by nom|cognom1|cognom2; ignore authors that are completely empty.
     const getAutoriaSuggestions = (field) =>
         dedupeAuthors(safeNotes.map(n => n.metadata?.[getMetaKey(n, field)]));
 
@@ -1759,11 +1761,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 ? (String(tabRaw).trim() === '' ? '' : (Number.isFinite(Number(tabRaw)) ? Number(tabRaw) : tabRaw))
                 : tabRaw;
             handleCellSave(noteId, field, tabVal, originalMetaKey);
-            // Només columnes EDITABLES amb l'input genèric: fora els camps
-            // calculats (formula/rollup/virtuals), `files` (té editor propi) i
-            // `last_modified` (només lectura). Abans, Tab hi obria l'input de
-            // text i desava el valor calculat/serialitzat al frontmatter
-            // (corrupció) o deixava l'estat d'edició penjat sense editor.
+            // Only EDITABLE columns with the generic input: excluding the fields
+            // calculated (formula/rollup/virtual), `files` (has its own editor) and
+            // `last_modified` (read-only). Previously, Tab would open the generic input there
+            // text and saved the calculated/serialized value in the frontmatter
+            // (corruption) or would leave the editing state stuck with no editor.
             const columns = ['title', ...dynamicColumns.map(([k]) => k)].filter(c => {
                 if (c === 'title') return true;
                 const tCol = getFieldType(schema, c);
@@ -1784,17 +1786,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             const nextField = columns[nextIndex];
             const nextNote = safeNotes.find(n => n.id === nextNoteId);
-            // `getMetaKey` itera els àlies (que poden ser ARRAYS de fallbacks);
-            // l'expressió inline anterior coercia l'array a string i mai casava.
+            // `getMetaKey` iterates over the aliases (which can be ARRAYS of fallbacks);
+            // the previous inline expression coerced the array to a string and never matched.
             const nextOriginalMetaKey = nextNote ? getMetaKey(nextNote, nextField) : nextField;
             setEditingCell({ rowId: nextNoteId, field: nextField, originalMetaKey: nextOriginalMetaKey });
         }
     };
 
-    // evaluateFormula(formula, METADATA, TITLE, options): cal passar la metadata
-    // de la nota (no la nota sencera) i el títol per separat. Abans es passava
-    // (formula, note, opts) → els camps no resolien ({Preu}→'') i prop('title')
-    // tornava l'objecte d'opcions; ara {Preu}*{Quantitat} dona el resultat real.
+    // evaluateFormula(formula, METADATA, TITLE, options): the metadata must be passed
+    // of the note (not the whole note) and the title separately. Previously, it would pass
+    // (formula, note, opts) → fields wouldn't resolve ({Preu}→'') and prop('title')
+    // used to return the options object; now {Preu}*{Quantitat} gives the actual result.
     const calculateFormula = useCallback((formula, note) => evaluateFormula(
         formula,
         note?.metadata || {},
@@ -1802,10 +1804,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         { notes: safeNotes, currentTableId: resolveNoteTableId(note), schema },
     ), [safeNotes, resolveNoteTableId, schema]);
 
-    // evaluateRollup(values, aggregation) agrega una llista de valors JA recollits.
-    // Abans es cridava (config, note, opts) → `values.map` petava ("values.map is
-    // not a function"). Aquí recollim els valors dels registres relacionats (pels
-    // ids de `relationField`, buscats a allNotes) i després agreguem.
+    // evaluateRollup(values, aggregation) aggregates a list of values that have ALREADY been collected.
+    // It used to be called as (config, note, opts) → `values.map` would blow up ("values.map is
+    // not a function"). Here we collect the values from the related records (for the
+    // ids in `relationField`, looked up in allNotes) and then we aggregate.
     const calculateRollup = useCallback((config, note) => {
         const relationField = config?.relationField;
         const aggregation = config?.aggregation || 'count_values';
@@ -1845,8 +1847,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const isDataImage = lower.startsWith('data:image/');
         if (!isDataImage && !hasImageExtension) return '';
 
-        // Les URLs servides porten el vault actiu (withActiveVault) perquè la
-        // miniatura `<img>` nativa resolgui el vault correcte sense capçalera.
+        // Served URLs carry the active vault (withActiveVault) so that the
+        // native `<img>` thumbnail resolves the correct vault without a header.
         if (value.startsWith('/api/vault/assets/')) return withActiveVault(value);
         if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:image/')) return value;
 
@@ -1857,7 +1859,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const assetsIdx = value.indexOf('/Assets/');
         if (assetsIdx >= 0) return withActiveVault(`/api/vault/assets/${value.slice(assetsIdx + '/Assets/'.length)}`);
 
-        // Fallback: path relatiu dins del vault (ex: "Articles/foo.png") → servir des de /api/vault/assets/
+        // Fallback: relative path inside the vault (e.g. "Articles/foo.png") → serve from /api/vault/assets/
         if (!value.startsWith('/') && !value.includes('://')) {
             return withActiveVault(`/api/vault/assets/${value.replace(/^\.\//, '')}`);
         }
@@ -1867,15 +1869,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
     const isImageField = useCallback((field, fieldType) => {
         if (fieldType === 'files') return true;
-        // Tipus `image` explícit: sempre miniatura, independentment del nom (el
-        // render value-gateja amb la URL servible, igual que els camps inferits).
+        // Explicit `image` type: always a thumbnail, regardless of the name (the
+        // render value-gates with the servable URL, same as inferred fields).
         if (fieldType === 'image') return true;
-        // Només inferim imatge pel NOM en camps de text (o sense tipus declarat):
-        // un camp explícitament number/date/select/relation/url/etc. mai és una
-        // imatge inferida. Abans aquí es bloquejava QUALSEVOL camp amb tipus
-        // declarat, cosa que també excloïa "Imatge" (tipus text) — ara només
-        // l'exclusió per nom ([[isImageFieldName]]) separa "Imatge" (ruta) de
-        // "Imatge Alt Text" (prosa). El render value-gateja amb la URL servible.
+        // We only infer image by NAME in text fields (or fields with no declared type):
+        // a field explicitly typed number/date/select/relation/url/etc. is never an
+        // inferred image. Previously, this blocked ANY field with a declared
+        // type, which also excluded "Imatge" (text type) — now only
+        // the exclusion by name ([[isImageFieldName]]) separates "Imatge" (path) from
+        // "Image Alt Text" (prose). The render value-gates on the servable URL.
         if (fieldType && fieldType !== 'text') return false;
         return isImageFieldName(field);
     }, []);
@@ -1883,13 +1885,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const urlToVaultPath = useCallback((url) => {
         if (!url) return '';
         const prefix = '/api/vault/assets/';
-        // Treu el query-param de vault (`?vault=…`) perquè el valor DESAT quedi net.
+        // Strips the vault query-param (`?vault=…`) so the SAVED value stays clean.
         if (url.startsWith(prefix)) return url.slice(prefix.length).split('?')[0];
         return url;
     }, []);
 
     const getImagePreviewUrlFromValue = useCallback((rawValue) => {
-        // Camp imatge COMPOST {src, alt, …}: extreu la ruta.
+        // COMPOSITE image field {src, alt, …}: extracts the path.
         if (rawValue && typeof rawValue === 'object' && !Array.isArray(rawValue)) {
             return toImagePreviewUrl(getImageSrc(rawValue));
         }
@@ -1980,12 +1982,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         return { relatedTableId, relatedNotes, displayMap };
     };
 
-    // ── Graella: copiar / enganxar / navegació ───────────────────────────
+    // ── Grid: copy / paste / navigation ───────────────────────────
     const openMediaPicker = useCallback((note, key, fieldType) => {
         const noteTableId = activeView?.table_id || resolveNoteTableId(note);
         const metaKey = getMetaKey(note, key);
         const cfg = fieldType === 'files' ? (getFieldConfig(schema, key) || {}) : null;
-        const isImg = fieldType !== 'files'; // camp imatge detectat pel nom (no `files`)
+        const isImg = fieldType !== 'files'; // image field detected by name (not `files`)
         setMediaPickerCell({
             rowId: note.id, field: key, originalMetaKey: metaKey, tableId: noteTableId,
             fileField: cfg
@@ -1998,7 +2000,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeView, resolveNoteTableId, schema]);
 
-    // Recull els valors crus del rang seleccionat → matriu 2D de cel·les.
+    // Collects the raw values from the selected range → 2D matrix of cells.
     const getRangeCells = useCallback(() => {
         if (!selectionRect) return [];
         const { r0, c0, r1, c1 } = selectionRect;
@@ -2035,10 +2037,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         toast.success(t('table.cells_copied', { count: n, defaultValue: `${n} cel·la(es) copiada(es)` }));
     }, [getRangeCells, idToTitle, t]);
 
-    // Propaga als pares (auto-completar/dates) després d'un enganxat en bloc:
-    // replica el que `handleCellSave` fa per a edicions individuals, agregat
-    // per (pare, camp) i amb `overrides` perquè el càlcul "tots els fills fets"
-    // usi els valors acabats d'enganxar, no els antics.
+    // Propagates to parents (autocomplete/dates) after a bulk paste:
+    // replicates what `handleCellSave` does for individual edits, aggregated
+    // by (parent, field) and with `overrides` so the "all children done" calculation
+    // uses the just-pasted values, not the old ones.
     const propagateBulkToParents = useCallback(async (succeeded) => {
         const groups = new Map(); // `${parentId}::${field}` → { parentId, field, overrides, sampleChild, sampleValue }
         for (const u of succeeded) {
@@ -2059,17 +2061,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     }, [noteById, schema, propagateToParent]);
 
-    // Escriptura en bloc: 1 patch optimista + 1 PATCH per PÀGINA (agrupant les
-    // claus de metadata), amb concurrència limitada per no inundar el backend
-    // en seleccions grans, + propagació als pares + 1 sol refetch.
+    // Bulk write: 1 optimistic patch + 1 PATCH per PAGE (grouping the
+    // metadata keys), with limited concurrency to avoid flooding the backend
+    // on large selections, + propagation to parents + a single refetch.
     const applyBulkCellUpdates = useCallback(async (updates) => {
         if (!updates || updates.length === 0) return;
-        // Dedupe per id+key (l'última guanya).
+        // Dedupe by id+key (last one wins).
         const map = new Map();
         for (const u of updates) map.set(`${u.id}::${u.key}`, u);
         const finalUpdates = [...map.values()];
 
-        // Patch optimista: totes les claus de cada pàgina alhora.
+        // Optimistic patch: all keys of each page at once.
         setOptimisticPatches(prev => {
             const next = new Map(prev);
             for (const u of finalUpdates) {
@@ -2079,7 +2081,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             return next;
         });
 
-        // Agrupa per pàgina → 1 PATCH per pàgina amb múltiples claus.
+        // Groups by page → 1 PATCH per page with multiple keys.
         const byPage = new Map();
         for (const u of finalUpdates) {
             const m = byPage.get(u.id) || {};
@@ -2088,7 +2090,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
         const pageEntries = [...byPage.entries()];
 
-        // Concurrència limitada (chunks) per evitar una allau de requests.
+        // Limited concurrency (chunks) to avoid a flood of requests.
         const CHUNK = 20;
         const failedPageIds = new Set();
         for (let i = 0; i < pageEntries.length; i += CHUNK) {
@@ -2103,7 +2105,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             results.forEach((res, j) => { if (res.status === 'rejected') failedPageIds.add(slice[j][0]); });
         }
 
-        // Rollback de les pàgines que han fallat.
+        // Rollback of the pages that failed.
         if (failedPageIds.size > 0) {
             setOptimisticPatches(prev => {
                 const next = new Map(prev);
@@ -2120,7 +2122,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             notifyError('table-bulk-paste', new Error(`${failedPageIds.size} pages failed`), t('table.paste_error', { count: failedPageIds.size, defaultValue: `Error desant ${failedPageIds.size} pàgina(es)` }));
         }
 
-        // Propaga als pares per als fills desats correctament (status/dates).
+        // Propagates to parents for correctly saved children (status/dates).
         const succeeded = finalUpdates.filter(u => !failedPageIds.has(u.id));
         await propagateBulkToParents(succeeded);
 
@@ -2128,7 +2130,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         else if (onUpdateView) onUpdateView(activeView);
     }, [onCellSaved, onUpdateView, activeView, t, propagateBulkToParents]);
 
-    // Context de coerció per a una columna (opcions select/relation).
+    // Coercion context for a column (select/relation options).
     const coercionCtxFor = useCallback((col) => {
         if (col.type === 'select' || col.type === 'status' || col.type === 'multi_select') {
             return { options: getAvailableOptions(col.key, col.type), idToTitle };
@@ -2202,10 +2204,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         applyBulkCellUpdates(updates);
     }, [noteById, applyBulkCellUpdates]);
 
-    // Mou el cursor (dRow/dCol) dins els límits; `extend` fixa l'àncora.
-    // Tots els valors canviants (activeCell, navRows, etc.) es llegeixen via
-    // refs per evitar reconstruir el callback —i re-registrar el listener
-    // de teclat— a cada tecla premuda.
+    // Moves the cursor (dRow/dCol) within the limits; `extend` fixes the anchor.
+    // All changing values (activeCell, navRows, etc.) are read via
+    // refs to avoid rebuilding the callback — and re-registering the listener
+    // keyboard— on every key pressed.
     const moveCursor = useCallback((dRow, dCol, extend) => {
         const prev = activeCellRef.current;
         const currentAnchor = anchorCellRef.current;
@@ -2225,14 +2227,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const target = rows[nr];
         const col = cols[nc];
         if (!target || !col) return;
-        // Scroll vertical només si canviem de fila (evita recalcular en moviments
+        // Vertical scroll only if we change rows (avoids recalculating on
         // purament horitzontals).
         if (nr !== rIdx && target.descriptorIndex != null && rowVirtualizer?.scrollToIndex) {
             rowVirtualizer.scrollToIndex(target.descriptorIndex, { align: 'auto' });
         }
-        // Scroll horitzontal: fa visible la columna destí quan surt del viewport.
-        // La col 0 és el `title`, sticky → sempre visible, no cal scroll-la. La
-        // suma d'offsets comença a i=1 perquè l'amplada del títol ja és dins stickyW.
+        // Horizontal scroll: makes the destination column visible when it leaves the viewport.
+        // Column 0 is the `title`, sticky → always visible, no need to scroll it. The
+        // offset sum starts at i=1 because the title width is already inside stickyW.
         const container = tableContainerRef.current;
         if (container && nc > 0) {
             const widths = columnWidthsRef.current;
@@ -2253,15 +2255,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         setActiveCell({ rowId: target.id, field: col.key });
     }, [sortedNotes.length, visibleRowsCount, handleLoadMoreRows, rowVirtualizer]);
 
-    // Obre l'editor de la cel·la activa (Enter / teclejar / segon clic).
+    // Opens the active cell's editor (Enter / typing / second click).
     const beginEditActive = useCallback((initialChar = null) => {
         const cell = activeCellRef.current;
         if (!cell) return;
         const note = safeNotes.find(n => n.id === cell.rowId);
         if (!note) return;
-        // El títol s'edita inline al seu propi <td> (no via renderCellContent).
+        // The title is edited inline in its own <td> (not via renderCellContent).
         if (cell.field === 'title') {
-            titlePreviewRef.current?.close(); // no tapar l'input amb el pop-up
+            titlePreviewRef.current?.close(); // don't cover the input with the pop-up
             setEditInitial(initialChar);
             setEditingCell({ rowId: note.id, field: 'title', originalMetaKey: 'title' });
             return;
@@ -2280,15 +2282,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         setEditingCell({ rowId: note.id, field: cell.field, originalMetaKey: metaKey });
     }, [safeNotes, schema, isImageField, openMediaPicker, handleCellSave]);
 
-    // Desa el títol (camp `note.title`, no metadata) amb el mateix patró
-    // optimista que handleCellSave: override immediat + PATCH { title }.
+    // Saves the title (field `note.title`, not metadata) with the same pattern
+    // optimistic than handleCellSave: immediate override + PATCH { title }.
     const saveTitle = useCallback(async (noteId, newTitle) => {
         setEditingCell(null);
         setEditInitial(null);
         const note = noteById.get(noteId);
         if (!note) return;
         const trimmed = String(newTitle ?? '').trim();
-        if (trimmed === '' || trimmed === note.title) return; // no-op (buit no esborra el títol)
+        if (trimmed === '' || trimmed === note.title) return; // no-op (empty doesn't clear the title)
         setOptimisticTitles(prev => new Map(prev).set(noteId, trimmed));
         try {
             const response = await fetch(`/api/vault/pages/${noteId}`, {
@@ -2302,15 +2304,15 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             if (onCellSaved) onCellSaved();
         } catch (error) {
-            // Mateix patró que handleCellSave: rollback de l'override optimista i
-            // notifyError (registra context + missatge del backend) en lloc d'un
-            // toast genèric, per poder diagnosticar 4xx/5xx i payload.detail.
+            // Same pattern as handleCellSave: rollback of the optimistic override and
+            // notifyError (logs context + backend message) instead of a
+            // generic toast, so we can diagnose 4xx/5xx and payload.detail.
             setOptimisticTitles(prev => { const n = new Map(prev); n.delete(noteId); return n; });
             notifyError('table-save-title', error, t('table.title_save_error', { defaultValue: 'No s\'ha pogut desar el títol' }));
         }
     }, [noteById, onCellSaved, t]);
 
-    // Després de desar amb Enter, baixa el cursor una fila (estil Excel).
+    // After saving with Enter, moves the cursor down one row (Excel style).
     const advanceCursorAfterEdit = useCallback((rowId, field) => {
         const r = navRowIndexById.get(rowId);
         const c = colIndexByKey.get(field);
@@ -2325,10 +2327,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     }, [navRowIndexById, colIndexByKey, navRows, rowVirtualizer]);
 
-    // Navegació de teclat de la graella (a nivell de finestra: les files
-    // virtualitzades es desmunten, no podem dependre del focus DOM per cel·la).
-    // Tots els valors canviants s'accedeixen via refs per evitar desregistrar
-    // i re-registrar el listener a cada tecla premuda (principal causa de lag).
+    // Grid keyboard navigation (at the window level: the rows
+    // are virtualized and unmount, so we can't rely on DOM focus per cell).
+    // All changing values are accessed via refs to avoid unregistering
+    // and re-registering the listener on every keypress (main cause of lag).
     const handleCopyCellsRef = useRef(handleCopyCells);
     handleCopyCellsRef.current = handleCopyCells;
     const handlePasteCellsRef = useRef(handlePasteCells);
@@ -2341,14 +2343,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     clearActiveCellsRef.current = clearActiveCells;
     const schemaRef = useRef(schema);
     schemaRef.current = schema;
-    // Refs per a les dreceres d'acció de fila (handler muntat un sol cop).
+    // Refs for the row action shortcuts (handler mounted only once).
     const rowActionsRef = useRef({});
     rowActionsRef.current = { noteById, onNoteSelect, onOpenParallel, onDeletePage, hasOpenableResource, handleOpenExternalResource };
 
-    // ── Pont de navegació amb l'editor (només quan la taula està incrustada) ──
-    // Callbacks de sortida + límits de la graella, llegits via ref pel listener
-    // global (muntat un sol cop). Quan no s'incrusta, onExit* són null i el
-    // comportament és el de sempre (les fletxes claven als extrems).
+    // ── Navigation bridge with the editor (only when the table is embedded) ──
+    // Exit callbacks + grid limits, read via ref by the global
+    // listener (mounted only once). When not embedded, onExit* are null and the
+    // behavior is the usual one (arrows stick at the edges).
     const onExitTopRef = useRef(null); onExitTopRef.current = onExitTop;
     const onExitBottomRef = useRef(null); onExitBottomRef.current = onExitBottom;
     const onEscapeRef = useRef(null); onEscapeRef.current = onEscape;
@@ -2359,16 +2361,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         allLoaded: sortedNotes.length <= visibleRowsCount,
     };
 
-    // Exposa a qui incrusta una API per "entrar" a la taula amb el teclat. En
-    // fixar l'activeCell i treure el focus de l'editor (→ <body>), el listener
-    // global de sota recull les fletxes (vegeu el guard `t === document.body`).
+    // Exposes an API to whoever embeds it, to "enter" the table via the keyboard. In
+    // set the activeCell and remove focus from the editor (→ <body>), the listener
+    // global listener below catches the arrow keys (see the guard `t === document.body`).
     useEffect(() => {
         if (!registerNavApi) return undefined;
         const focusEdge = (which) => {
             const rows = navRowsRef.current;
             const cols = gridColumnsRef.current;
             if (!rows.length || !cols.length) return false;
-            claimKeyboard(); // entrar-hi des de l'editor fa nostra la propietat del teclat
+            claimKeyboard(); // entering it from the editor makes the keyboard property ours
             const row = which === 'last' ? rows[rows.length - 1] : rows[0];
             const col = cols[0];
             setAnchorCell(null);
@@ -2388,21 +2390,21 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
     useEffect(() => {
         const onKey = (e) => {
-            // No segrestar tecles que no són per a la graella. Sense aquests
-            // guards, amb una cel·la activa i un modal obert a sobre, cada
-            // fletxa movia el cursor sota el modal i el preventDefault matava
-            // el scroll natiu del modal; i una lletra o ⌫ amb focus al <body>
-            // editava o buidava cel·les invisiblement (pèrdua de dades).
-            if (e.defaultPrevented) return; // ja gestionada aigües amunt (p.ex. scroll del modal)
+            // Don't hijack keys that aren't meant for the grid. Without these
+            // guards, with an active cell and a modal open on top, every
+            // arrow moved the cursor under the modal and the preventDefault killed
+            // the modal's native scroll; and a letter or ⌫ with focus on <body>
+            // would edit or clear cells invisibly (data loss).
+            if (e.defaultPrevented) return; // already handled upstream (e.g. modal scroll)
             if (document.body.classList.contains('gnosi-modal-open')) return;
-            // Només la instància PROPIETÀRIA del teclat processa l'event: amb
-            // diverses taules muntades (panell dividit, embeds), totes rebien
-            // cada tecla i ⌫/⌘V actuava sobre graelles que l'usuari no tocava.
+            // Only the OWNER instance of the keyboard processes the event: with
+            // several mounted tables (split panel, embeds), all of them received
+            // each key and ⌫/⌘V would act on grids the user wasn't touching.
             if (_gridKeyboardOwner !== gridInstanceIdRef.current) return;
             const t = e.target;
-            // Tecles originades fora de la taula (focus dins d'un modal, el
-            // sidebar…): no són nostres. El <body> sí (la navegació normal de
-            // cel·les no deixa el focus dins del contenidor: files virtuals).
+            // Keys originating outside the table (focus inside a modal, the
+            // sidebar…): aren't ours. The <body> is (normal navigation of
+            // cells doesn't leave the focus inside the container: virtual rows).
             if (t instanceof Element && t !== document.body && tableContainerRef.current && !tableContainerRef.current.contains(t)) return;
             const cell = activeCellRef.current;
             if (!cell || editingCellRef.current) return;
@@ -2411,16 +2413,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             const inputType = (el && el.getAttribute) ? (el.getAttribute('type') || '') : '';
             const isTextInput = (tag === 'INPUT' && !['checkbox', 'radio', 'button', 'submit'].includes(inputType)) || tag === 'TEXTAREA' || el?.isContentEditable;
             if (isTextInput) return;
-            // Les cel·les-checkbox són `<td tabIndex=0>` amb el seu propi
-            // onKeyDown (Espai/Enter alternen). Si una té el focus, deixem-li
-            // gestionar aquestes tecles per no alternar dues vegades.
+            // Checkbox cells are `<td tabIndex=0>` with their own
+            // onKeyDown (Space/Enter toggle). If one has focus, we let it
+            // handle these keys so we don't toggle it twice.
             if (tag === 'TD' && (e.key === ' ' || e.key === 'Enter')) return;
 
             const meta = e.metaKey || e.ctrlKey;
             if (meta && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); handleCopyCellsRef.current(); return; }
             if (meta && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); handlePasteCellsRef.current(); return; }
-            // ⌘/Ctrl+⌫ → elimina la fila del cursor (deliberat: ⌫ a soles buida
-            // la cel·la). Només si no hi ha selecció múltiple de files.
+            // ⌘/Ctrl+⌫ → deletes the cursor's row (deliberate: ⌫ alone clears
+            // the cell). Only if there's no multiple row selection.
             if (meta && (e.key === 'Backspace' || e.key === 'Delete')) {
                 const { onDeletePage, noteById } = rowActionsRef.current;
                 if (onDeletePage && selectedIdsRef.current.size === 0) {
@@ -2429,11 +2431,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 }
                 return;
             }
-            if (meta) return; // deixa ⌘A/⌘O als seus listeners
+            if (meta) return; // leaves ⌘A/⌘O to its own listeners
 
-            // Dreceres d'acció sobre la fila del cursor (Alt+lletra; via e.code
-            // perquè a Mac Alt+lletra produeix caràcters especials). No xoquen
-            // amb el teclejar-per-editar (que ignora altKey).
+            // Action shortcuts on the cursor's row (Alt+letter; via e.code
+            // because on Mac Alt+letter produces special characters). They don't clash
+            // with type-to-edit (which ignores altKey).
             if (e.altKey && !e.shiftKey) {
                 const { noteById, onNoteSelect, onOpenParallel, hasOpenableResource, handleOpenExternalResource } = rowActionsRef.current;
                 const n = noteById.get(cell.rowId);
@@ -2445,7 +2447,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             switch (e.key) {
                 case 'ArrowUp':
                     e.preventDefault();
-                    // A la primera fila, ↑ surt cap a l'editor (sobre la vista).
+                    // On the first row, ↑ exits to the editor (above the view).
                     if (onExitTopRef.current && !e.shiftKey && cell.rowId === tableEdgeRef.current.firstRowId) {
                         setActiveCell(null); setAnchorCell(null); onExitTopRef.current();
                     } else {
@@ -2454,8 +2456,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     break;
                 case 'ArrowDown':
                     e.preventDefault();
-                    // A l'última fila (i sense més per carregar), ↓ surt cap a
-                    // l'editor (sota la vista).
+                    // On the last row (and nothing left to load), ↓ exits to
+                    // the editor (below the view).
                     if (onExitBottomRef.current && !e.shiftKey && cell.rowId === tableEdgeRef.current.lastRowId && tableEdgeRef.current.allLoaded) {
                         setActiveCell(null); setAnchorCell(null); onExitBottomRef.current();
                     } else {
@@ -2467,10 +2469,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 case 'Tab': e.preventDefault(); moveCursorRef.current(0, e.shiftKey ? -1 : 1, false); break;
                 case 'Enter': e.preventDefault(); beginEditActiveRef.current(null); break;
                 case ' ':
-                    e.preventDefault(); // evita scroll de la pàgina mentre navegues per cel·les
+                    e.preventDefault(); // prevents page scroll while navigating between cells
                     if (getFieldType(schemaRef.current, cell.field) === 'checkbox') { beginEditActiveRef.current(null); break; }
-                    // Quick Look: Espai sobre la cel·la del títol obre/tanca el
-                    // pop-up de previsualització, ancorat a la cel·la activa.
+                    // Quick Look: Space on the title cell opens/closes the
+                    // preview pop-up, anchored to the active cell.
                     if (cell.field === 'title') {
                         const tp = titlePreviewRef.current;
                         if (tp?.active && tp.active.pageId === cell.rowId && tp.active.viaKeyboard) {
@@ -2506,7 +2508,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, []); // muntat una sola vegada; tots els valors accedits via refs
+    }, []); // mounted only once; all values accessed via refs
 
     const renderCellContent = (value, type, noteId, field, originalMetaKey) => {
         const isEditing = editingCell?.rowId === noteId && editingCell?.field === field;
@@ -2514,8 +2516,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         const isManual = note?.metadata?.[`${originalMetaKey}_manual`];
         const isImageLikeField = isImageField(field, type);
 
-        // Botó d'acció: el camp no té valor, sempre mostra el botó. En clicar
-        // dispara l'acció configurada (ara mateix `translate_row`).
+        // Action button: the field has no value, always shows the button. Clicking it
+        // triggers the configured action (currently `translate_row`).
         if (type === 'button') {
             const cfg = getFieldConfig(schema, field) || {};
             const action = cfg.button_action || 'translate_row';
@@ -2539,13 +2541,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             );
         }
 
-        // Camps de sistema (només lectura): Creat/Editat el (timestamps del
-        // fitxer) i Creat/Editat per (autoria). En mode personal l'autor és
-        // l'usuari únic; si la pàgina porta el valor desat (p. ex. d'un import),
+        // System fields (read-only): Created/Edited on (timestamps from the
+        // file) and Created/Edited by (authorship). In personal mode, the author is
+        // the sole user; if the page carries a saved value (e.g. from an import),
         // es respecta.
         if (type === 'created_time' || type === 'last_edited_time') {
-            // Prioritza el timestamp del fitxer; cau a la marca estampada al
-            // frontmatter (created_at/last_edited_at) i, finalment, al camp.
+            // Prioritizes the file's timestamp; falls back to the mark stamped in the
+            // frontmatter (created_at/last_edited_at) and, finally, to the field.
             const iso = type === 'created_time'
                 ? (note?.created_time || note?.metadata?.created_at || note?.metadata?.[field])
                 : (note?.last_modified || note?.metadata?.last_edited_at || note?.metadata?.[field]);
@@ -2554,25 +2556,25 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             return <span className="text-sm text-[var(--text-tertiary)]">{label || '—'}</span>;
         }
         if (type === 'created_by' || type === 'last_edited_by') {
-            // Autoria REAL estampada per pàgina (clau canònica), amb fallbacks.
+            // REAL authorship stamped per page (canonical key), with fallbacks.
             const canonical = note?.metadata?.[type];
             const stored = canonical || (value && String(value).trim()) || note?.metadata?.[field];
             const who = stored || currentUser?.name || currentUser?.email || '—';
             return <span className="text-sm text-[var(--text-secondary)]">{who}</span>;
         }
 
-        // Xarxa de seguretat: mai obrir l'editor genèric sobre un camp CALCULAT
-        // (formula/rollup/virtual) — desaria el valor derivat al frontmatter.
-        // Es neteja l'estat d'edició fantasma i se segueix amb el render de lectura.
+        // Safety net: never open the generic editor on a CALCULATED field
+        // (formula/rollup/virtual) — would save the derived value in the frontmatter.
+        // The phantom editing state is cleared and we proceed with the read-only render.
         if (isEditing && isComputedType(type)) {
             setTimeout(() => setEditingCell(null), 0);
         } else if (isEditing) {
             if (type === 'status' || type === 'select') {
                 const options = getAvailableOptions(field, type);
-                // `status` és catàleg ESTRICTE (com Notion): ni crear opcions
-                // inline des de la cel·la ni eliminar-les — es gestionen des
-                // de l'editor d'opcions del modal de Camps. Els camps amb
-                // catàleg compartit (catalog_ref) també: s'edita al catàleg.
+                // `status` is a STRICT catalog (like Notion): you can neither create options
+                // inline from the cell nor delete them — they're managed from
+                // the options editor in the Fields modal. Fields with
+                // a shared catalog (catalog_ref) too: edited in the catalog.
                 const isStrict = type === 'status' || Boolean(getFieldConfig(schema, field)?.catalog_ref);
                 return (
                     <InlineSelectPicker
@@ -2639,8 +2641,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
 
             if (type === 'number') {
-                // Desa un número real (no una cadena) perquè agregacions i
-                // ordenacions siguin fiables; buit es desa com a ''.
+                // Saves a real number (not a string) so that aggregations and
+                // sorting is reliable; empty is saved as ''.
                 const saveNumber = (raw) => {
                     const s = String(raw).trim();
                     const n = s === '' ? '' : (Number.isFinite(Number(s)) ? Number(s) : s);
@@ -2678,8 +2680,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             );
         }
 
-        // Formula/rollup mostren sempre el seu xip (amb "0" si cal), no el guió:
-        // així un resultat buit i un resultat 0 es rendereixen igual.
+        // Formula/rollup always show their chip (with "0" if needed), not the dash:
+        // so an empty result and a 0 result render the same.
         const isEmptyValue = value === undefined || value === null || value === '';
         if (isEmptyValue && type !== 'formula' && type !== 'rollup') {
             if (type === 'checkbox') {
@@ -2706,9 +2708,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 );
             }
             case 'virtual': {
-                // Camp derivat injectat pel backend (read-only). Booleans
-                // (is_hub/is_orphan) → checkbox; numèrics (Progrés %, centralitat…)
-                // → formatNumber amb el format del camp.
+                // Derived field injected by the backend (read-only). Booleans
+                // (is_hub/is_orphan) → checkbox; numeric ones (Progress %, centrality…)
+                // → formatNumber with the field's format.
                 if (typeof value === 'boolean' || value === 'true' || value === 'false') {
                     return (value && value !== 'false')
                         ? <CheckSquare size={16} className="text-indigo-500" />
@@ -2725,7 +2727,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             case 'datetime': {
                 const parsed = new Date(value);
                 if (isNaN(parsed.getTime())) {
-                    // Valor corrupte: mostrem el text cru en comptes de "Invalid Date".
+                    // Corrupt value: we show the raw text instead of "Invalid Date".
                     return <span className="truncate max-w-[200px] block text-[var(--text-tertiary)]" title={String(value)}>{String(value)}</span>;
                 }
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
@@ -2739,8 +2741,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             case 'period': {
                 const [start, end] = String(value).split('/');
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
-                // Mode 'locale' → compacte (dia + mes curt, sense any) per no inflar
-                // el xip; un format explícit (DD/MM/YYYY…) es respecta tal qual.
+                // 'locale' mode → compact (day + short month, no year) to avoid inflating
+                // the chip; an explicit format (DD/MM/YYYY…) is respected as-is.
                 const fmtPeriodDate = (d) => {
                     if (!d) return '?';
                     if (fmt.dateFormat && fmt.dateFormat !== 'locale') return formatDate(d, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale });
@@ -2760,8 +2762,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             case 'status':
             case 'select': {
-                // Color de catàleg (si l'opció en té): xip pintat; si no,
-                // l'estil neutre del tema de sempre.
+                // Catalog color (if the option has one): colored chip; if not,
+                // the theme's usual neutral style.
                 const chipStyle = optionChipStyle(getOptionColorMap(field)[value]);
                 return (
                     <div className="flex items-center gap-1.5">
@@ -2777,8 +2779,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             case 'multi_select':
             case 'relation': {
-                // String() + filter(Boolean) com al kanban i la galeria: un array
-                // amb booleans/buits pintava pills buides i passava title={false}.
+                // String() + filter(Boolean) like in the kanban and the gallery: an array
+                // with booleans/empties it rendered empty pills and passed title={false}.
                 const items = (Array.isArray(value) ? value : String(value).split(',')).map(s => String(s).trim()).filter(Boolean);
                 const displayMap = type === 'relation' ? getRelationContext(field).displayMap : idToTitle;
                 const colorMap = type === 'multi_select' ? getOptionColorMap(field) : {};
@@ -2864,7 +2866,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     }
                     return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: '+ Imatge' })}</span>;
                 }
-                // Un booleà (camp Notion sense tipar a l'esquema) no és títol vàlid.
+                // A boolean (a Notion field with no type in the schema) is not a valid title.
                 return <span className="truncate max-w-[200px] block" title={typeof value === 'boolean' ? undefined : value}>{value}</span>;
         }
     };
@@ -2885,10 +2887,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }).filter(v => v !== undefined && v !== null && v !== '');
         if (func === 'count') return values.length;
         if (type === 'number' || field === 'size' || type === 'formula' || type === 'rollup') {
-            // Parse tolerant amb el decimal de COMA (locale ca/es): "0,25" → 0.25.
-            // `Number("0,25")` és NaN, així que la suma/mitjana/min/max d'una
-            // columna number en format català excloïa els valors amb coma (total
-            // i mitjana falsos: comptava menys files de les que hi ha).
+            // Tolerant parsing with the COMMA decimal (locale ca/es): "0,25" → 0.25.
+            // `Number("0,25")` is NaN, so the sum/average/min/max of a
+            // number column in Catalan format excluded values with a comma (total
+            // and average were wrong: it counted fewer rows than there actually are).
             const nums = values.map(v => {
                 const t = String(v).trim();
                 return /^-?\d+,\d+$/.test(t) ? Number(t.replace(',', '.')) : Number(t);
@@ -2925,21 +2927,21 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     };
 
     // ---- RENDER A ROW (parent or child note) ----
-    // `rootRowId` propaga l'id del root note per recursió: tots els
-    // `<tr>`s d'un mateix root (pare + children expandits + nou-subitem)
-    // duen `data-row-id={rootRowId}`. Això permet al `measureElement`
-    // del virtualizer sumar les seves alçades reals per saber l'espai
-    // ocupat per l'expansió completa, no només el pare.
-    // Renderitza un sol `<tr>` (root o child). Per virtualizacio 1:1
-    // entre virtual items i `<tr>`, aquesta funcio NO renderitza ni la
-    // recursio a children ni el form de nou subitem: aquests es generen
-    // com a descriptors separats (vegeu `rowDescriptors` mes avall) i
-    // tenen els seus propis renderers.
+    // `rootRowId` propagates the root note's id through recursion: all
+    // `<tr>`s from the same root (parent + expanded children + new-subitem)
+    // carry `data-row-id={rootRowId}`. This lets the `measureElement`
+    // of the virtualizer sum their actual heights, to know the space
+    // taken up by the full expansion, not just the parent.
+    // Renders a single `<tr>` (root or child). For 1:1 virtualization
+    // between virtual items and `<tr>`, this function does NOT render either the
+    // recursion into children nor the new-subitem form: these are generated
+    // as separate descriptors (see `rowDescriptors` further below) and
+    // have their own renderers.
     const renderRow = (note, isChild = false, depth = 0, rowPath = '0', virtualItem = null) => {
         const hasChildren = (childrenMap[note.id]?.length > 0);
         const isExpanded = expandedRows.has(note.id);
-        // El títol és una cel·la navegable de la graella (col 0): estat del cursor
-        // i de l'editor inline.
+        // The title is a navigable cell of the grid (col 0): cursor state
+        // and of the inline editor.
         const titleSel = getCellSelState(note.id, 'title');
         const isEditingTitle = editingCell?.rowId === note.id && editingCell?.field === 'title';
         const selectTitleCell = (e) => {
@@ -2951,11 +2953,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             setActiveCell({ rowId: note.id, field: 'title' });
             setAnchorCell(null);
         };
-        // Obre l'editor inline del títol (paral·lel a `openEditor` de les
-        // cel·les de metadades). El títol viu a note.title → originalMetaKey
-        // 'title' i camí d'escriptura propi (saveTitle).
+        // Opens the inline title editor (parallel to `openEditor` for
+        // metadata cells). The title lives in note.title → originalMetaKey
+        // 'title' and has its own write path (saveTitle).
         const openTitleEditor = () => {
-            titlePreviewRef.current?.close(); // no tapar l'input amb el pop-up
+            titlePreviewRef.current?.close(); // don't cover the input with the pop-up
             setEditInitial(null);
             setActiveCell({ rowId: note.id, field: 'title' });
             setAnchorCell(null);
@@ -2976,21 +2978,21 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     onDoubleClick={() => onNoteSelect(note.id)}
                     draggable
                     onDragStart={(e) => {
-                        // No segrestar la selecció de text dins d'editors inline.
+                        // Don't hijack text selection inside inline editors.
                         if (editingCell || e.target.closest?.('input, textarea, button, a, label, select, [contenteditable="true"]')) {
                             e.preventDefault();
                             return;
                         }
-                        // Mateix protocol que la sidebar: el llenç (page-card) i
-                        // l'editor (wikilink) ja accepten aquest tipus.
+                        // Same protocol as the sidebar: the canvas (page-card) and
+                        // the editor (wikilink) already accept this type.
                         e.dataTransfer.setData('application/gnosi-note', JSON.stringify({ id: note.id, title: note.title }));
                         e.dataTransfer.effectAllowed = 'copy';
                     }}
                 >
-                    {/* Acció cel·la */}
+                    {/* Cell action */}
                     <td className={`w-10 px-2 sticky left-0 z-20 hover:z-50 text-center align-top pt-2.5 ${isSelected(note.id) ? 'bg-indigo-50 dark:bg-indigo-950' : isChild ? 'bg-[var(--bg-secondary)]' : 'bg-[var(--bg-primary)]'}`}>
                         <div className="flex items-center justify-center gap-0.5">
-                            {/* Checkbox de selecció */}
+                            {/* Selection checkbox */}
                             <label
                                 className={`cursor-pointer inline-flex items-center shrink-0 ${isSelected(note.id) || selectedIds.size > 0 ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}
                                 onClick={(e) => e.stopPropagation()}
@@ -3035,17 +3037,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 </button>
                             )}
                             {isTranslatableTable && !isListView && !note.metadata?.translation_lang && (() => {
-                                // Salvaguarda d'action_rules: botó VISIBLE però
-                                // desactivat amb el motiu (p. ex. esborranys),
-                                // en lloc d'amagar-lo. El backend revalida (409).
+                                // action_rules safeguard: button VISIBLE but
+                                // disabled with the reason (e.g. drafts),
+                                // instead of hiding it. The backend revalidates (409).
                                 const gate = checkActionRequires(schema, note.metadata || {}, 'translate_row', actionRules);
                                 return (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (!gate.ok) return;
-                                            // Reutilitza el mateix flux que el camp `button`:
-                                            // obre TranslateLanguagesModal en mode fila (subitems).
+                                            // Reuses the same flow as the `button` field:
+                                            // opens TranslateLanguagesModal in row mode (subitems).
                                             setPendingAction({
                                                 noteId: note.id,
                                                 fieldConfig: { button_action: 'translate_row' },
@@ -3130,10 +3132,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                             ${titleSel.isActive ? 'shadow-[inset_0_0_0_2px_var(--gnosi-primary)]' : ''}`}
                         onClick={(e) => {
                             e.stopPropagation();
-                            // Mateix model que la resta de cel·les: clic sobre la cel·la
-                            // ja activa (sense Shift) obre l'editor inline del títol; si no,
-                            // només mou el cursor. Obrir la fitxa = botons de l'esquerra
-                            // o Alt+O (ja no el clic/doble-clic al títol).
+                            // Same model as the rest of the cells: clicking the
+                            // already-active cell (without Shift) opens the inline title editor; otherwise,
+                            // it just moves the cursor. Opening the record = buttons on the left
+                            // or Alt+O (no longer click/double-click on the title).
                             const alreadyActive = !e.shiftKey && activeCell && activeCell.rowId === note.id && activeCell.field === 'title';
                             if (alreadyActive) { openTitleEditor(); return; }
                             selectTitleCell(e);
@@ -3223,13 +3225,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         const originalMetaKey = getMetaKey(note, key);
                         const val = note.metadata?.[originalMetaKey];
                         const isCheckbox = type === 'checkbox';
-                        // Mateixa lògica de "marcat" que el render: truthy, però sense
-                        // confondre la cadena 'false' amb un valor vertader.
+                        // Same "checked" logic as the render: truthy, but without
+                        // confusing the string 'false' with a truthy value.
                         const checkboxChecked = !!val && val !== 'false';
                         const toggleCheckbox = () => handleCellSave(note.id, key, !checkboxChecked, originalMetaKey);
                         const sel = getCellSelState(note.id, key);
-                        // Clic = posa el cursor (selecciona); segon clic / doble-clic /
-                        // Enter / teclejar = edita. Així ⌘C copia la cel·la, no el text d'un input.
+                        // Click = places the cursor (selects); second click / double-click /
+                        // Enter / typing = edit. This way ⌘C copies the cell, not an input's text.
                         const selectCell = () => { setActiveCell({ rowId: note.id, field: key }); setAnchorCell(null); };
                         const openEditor = () => { setEditInitial(null); setActiveCell({ rowId: note.id, field: key }); setAnchorCell(null); setEditingCell({ rowId: note.id, field: key, originalMetaKey }); };
                         return (
@@ -3246,7 +3248,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 } : undefined}
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    // Shift+clic estén la selecció rectangular des de la cel·la activa.
+                                    // Shift+click extends the rectangular selection from the active cell.
                                     if (e.shiftKey && activeCell) {
                                         if (!anchorCell) setAnchorCell(activeCell);
                                         setActiveCell({ rowId: note.id, field: key });
@@ -3293,9 +3295,9 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         );
     };
 
-    // Renderitza el `<tr>` del formulari "nou subitem". Es un descriptor
-    // virtual independent del seu pare; aixi virtualizer es manté 1:1
-    // amb els `<tr>`s.
+    // Renders the `<tr>` of the "new subitem" form. It is a descriptor
+    // virtual, independent from its parent; this way the virtualizer stays 1:1
+    // with the `<tr>`s.
     const renderNewSubitemRow = (parentNote, depth = 1, virtualItem = null) => (
         <tr
             key={`new-sub-${parentNote.id}`}
@@ -3347,13 +3349,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         </tr>
     );
 
-    // Navegació per teclat DES de la capçalera d'un grup (mode separat):
-    //   ↑/↓   → capçalera anterior/següent
-    //   Enter → commuta plegat; si queda desplegat, cursor a la primera fila
-    //   →     → si desplegat, cursor a la primera fila (mode cel·la, sense plegar)
-    //   Esc   → treu el focus (torna al mode cel·la amb cursor buit)
-    // No afecta el listener global de la graella: el botó fa preventDefault +
-    // stopPropagation i el guard `defaultPrevented` del window-keydown surt.
+    // Keyboard navigation FROM a group header (separated mode):
+    //   ↑/↓   → previous/next header
+    //   Enter → toggles collapsed; if left expanded, cursor to the first row
+    //   →     → if expanded, cursor on the first row (cell mode, no collapsing)
+    //   Esc   → removes focus (returns to cell mode with an empty cursor)
+    // Doesn't affect the grid's global listener: the button does preventDefault +
+    // stopPropagation and the `defaultPrevented` guard of the window-keydown exits.
     const handleGroupHeaderKeyDown = (e, d) => {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         switch (e.key) {
@@ -3373,8 +3375,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 const wasCollapsed = !expandedGroups.has(d.groupKey);
                 toggleGroup(d.groupKey);
                 if (wasCollapsed) {
-                    // El cursor a la primera fila es retarda al re-render (el
-                    // descriptor de files només existeix quan el grup és obert).
+                    // The cursor on the first row is delayed until the re-render (the
+                    // rows descriptor only exists when the group is open).
                     pendingEnterGroupDescRef.current = d.descriptorIndex;
                 } else {
                     focusFirstRowOfGroup(d.descriptorIndex);
@@ -3389,10 +3391,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }
     };
 
-    // Capçalera de grup (agrupació de files): un `<tr>` virtual amb una sola
-    // cel·la `colSpan` que abasta tota la taula. El contingut (chevron +
-    // punt de color + nom + comptador) va dins un `<div sticky left-0>` perquè
-    // es mantingui visible en fer scroll horitzontal, com la columna de títol.
+    // Group header (row grouping): a virtual `<tr>` with a single
+    // cell with `colSpan` spanning the whole table. The content (chevron +
+    // color dot + name + counter) goes inside a `<div sticky left-0>` so that
+    // it stays visible when scrolling horizontally, like the title column.
     const renderGroupHeader = (d, virtualItem) => {
         const collapsed = !expandedGroups.has(d.groupKey);
         return (
@@ -3425,8 +3427,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         );
     };
 
-    // Peu de grup: subtotals per columna calculats sobre les notes del grup,
-    // amb les MATEIXES agregacions que l'usuari ha triat al peu de la taula.
+    // Group footer: per-column subtotals computed over the group's notes,
+    // with the SAME aggregations the user chose in the table footer.
     const renderGroupFooter = (d, virtualItem) => {
         const aggCell = (field, type) => {
             const func = aggregations[field];
@@ -3477,11 +3479,11 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     />
                 )}
 
-                {/* `maxHeight`: mode adaptatiu (embed). El scroller pren l'alçada
-                    del contingut i només fa scroll quan supera el màxim — la
-                    virtualització segueix funcionant perquè max-height és una
-                    fita real. Sense `maxHeight` (taula a pantalla completa)
-                    s'usa `flex-1` per omplir l'alçada del pare. */}
+                {/* `maxHeight`: adaptive mode (embed). The scroller takes the height
+                    of the content and only scrolls once it exceeds the maximum — 
+                    virtualization keeps working because max-height is a real
+                    bound. Without `maxHeight` (full-screen table)
+                    `flex-1` is used to fill the parent's height. */}
                 <div
                     ref={tableContainerRef}
                     onPointerDownCapture={claimKeyboard}
@@ -3531,13 +3533,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                             onDrop={canReorderColumns ? (e) => handleColumnDrop(e, key) : undefined}
                                             className={`py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)] ${draggedColumn === key ? 'opacity-40' : ''}`}
                                         >
-                                            {/* Indicador de drop: línia vertical al costat on caurà la columna. */}
+                                            {/* Drop indicator: vertical line on the side where the column will land. */}
                                             {dragOverColumn === key && draggedColumn && draggedColumn !== key && (
                                                 <div className={`pointer-events-none absolute top-0 bottom-0 ${dropAfter ? 'right-0' : 'left-0'} w-0.5 bg-[var(--gnosi-primary)] z-40`} />
                                             )}
-                                            {/* Només aquest div és arrossegable: el tirador de resize (germà, fora
-                                                d'aquest subarbre) no inicia mai una reordenació de columnes. A la
-                                                vista principal canReorderColumns és false → sense drag (no persistiria). */}
+                                            {/* Only this div is draggable: the resize handle (a sibling, outside
+                                                this subtree) never starts a column reorder. In the
+                                                main view canReorderColumns is false → no drag (it would not persist). */}
                                             <div
                                                 draggable={canReorderColumns}
                                                 onDragStart={canReorderColumns ? (e) => handleColumnDragStart(e, key) : undefined}
@@ -3583,7 +3585,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                             </thead>
                         )}
                         <tbody>
-                            {/* Spacer superior pel padding del virtualizer. */}
+                            {/* Top spacer for the virtualizer's padding. */}
                             {virtPaddingTop > 0 && (
                                 <tr aria-hidden="true">
                                     <td colSpan={dynamicColumns.length + 3} style={{ height: virtPaddingTop, padding: 0, border: 0 }} />
@@ -3665,7 +3667,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                 onChange={(e) => setAggregations({ ...aggregations, title: e.target.value })}
                                             >
                                                 <option value="none">({t('table.none')})</option>
-                                                <option value="count">Count</option>
+                                                <option value="count">{t('table.agg_count', 'Recompte')}</option>
                                             </select>
                                             {aggregations['title'] && aggregations['title'] !== 'none' && (
                                                 <span className="text-[var(--text-primary)] font-bold">{calculateAggregation('title', 'title')}</span>
@@ -3681,13 +3683,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                     onChange={(e) => setAggregations({ ...aggregations, [key]: e.target.value })}
                                                 >
                                                     <option value="none">({t('table.none')})</option>
-                                                    <option value="count">Count</option>
+                                                    <option value="count">{t('table.agg_count', 'Recompte')}</option>
                                                     {(type === 'number' || type === 'formula' || type === 'rollup') && (
                                                         <>
-                                                            <option value="sum">Sum</option>
-                                                            <option value="avg">Avg</option>
-                                                            <option value="min">Min</option>
-                                                            <option value="max">Max</option>
+                                                            <option value="sum">{t('view.agg_sum', 'Suma')}</option>
+                                                            <option value="avg">{t('view.agg_avg', 'Mitjana')}</option>
+                                                            <option value="min">{t('view.agg_min', 'Mínim')}</option>
+                                                            <option value="max">{t('view.agg_max', 'Màxim')}</option>
                                                         </>
                                                     )}
                                                     {(type === 'date' || type === 'datetime' || type === 'period') && (
@@ -3712,7 +3714,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                     onChange={(e) => setAggregations({ ...aggregations, last_modified: e.target.value })}
                                                 >
                                                     <option value="none">({t('table.none')})</option>
-                                                    <option value="count">Count</option>
+                                                    <option value="count">{t('table.agg_count', 'Recompte')}</option>
                                                     <option value="earliest">{t('table.earliest')}</option>
                                                     <option value="latest">{t('table.latest')}</option>
                                                 </select>
@@ -3792,12 +3794,12 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             )}
 
             <InsertContentModal
-                // key per FILA: reobrir el modal sobre una altra fila REMUNTA la
-                // instància (estat i promeses en curs moren amb el seu context).
-                // Sense això, una pujada llarga iniciada en una fila sobreviu a
-                // tancar/reobrir i qualsevol lectura de props "actuals" pot
-                // inserir el resultat a la fila equivocada (vist 2026-06-09:
-                // adjunt d'«El camí de tornada» escrit a «Un viaje inexperado»).
+                // key per ROW: reopening the modal on another row REMOUNTS the
+                // instance (state and in-flight promises die with their context).
+                // Without this, a long upload started on one row survives to
+                // closing/reopening and any reading of "current" props can
+                // insert the result into the wrong row (seen on 2026-06-09:
+                // attachment of «El camí de tornada» written to «Un viaje inexperado»).
                 key={mediaPickerCell?.rowId || 'closed'}
                 open={Boolean(mediaPickerCell)}
                 tableId={mediaPickerCell?.tableId || ''}
@@ -3809,7 +3811,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 onInsert={(result) => {
                     if (!mediaPickerCell) return;
                     const { rowId, field, originalMetaKey } = mediaPickerCell;
-                    // Només metadades (alt/títol/…): conserva el src actual del camp.
+                    // Metadata only (alt/title/…): keeps the field's current src.
                     if (result?.metadataOnly) {
                         const note = safeNotes.find(n => n.id === rowId);
                         const currentSrc = getImageSrc(note?.metadata?.[originalMetaKey]);
@@ -3819,10 +3821,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         setMediaPickerCell(null);
                         return;
                     }
-                    // Multi-fitxer (camp `files`): afegeix TOTES les URLs d'una sola
-                    // vegada (evita la cursa d'afegir-les una a una via N onInsert),
-                    // DEDUPLICANT amb la clau canònica (file:// ≡ absoluta ≡ ~/ ≡
-                    // servida): repetir un enllaç/pujada no duplica entrades.
+                    // Multi-file (`files` field): adds ALL the URLs in a single
+                    // go (avoids the race of adding them one by one via N onInsert),
+                    // DEDUPLICATING with the canonical key (file:// ≡ absolute ≡ ~/ ≡
+                    // served): repeating a link/upload does not duplicate entries.
                     if (Array.isArray(result?.urls) && result.urls.length && getFieldType(schema, field) === 'files') {
                         const note = safeNotes.find(n => n.id === rowId);
                         const existing = note?.metadata?.[originalMetaKey];
@@ -3846,14 +3848,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     }
                     const newPath = urlToVaultPath(result?.url || '');
                     let value = newPath;
-                    // Els camps `files` són multi-fitxer: afegim a la llista existent.
-                    // (Els camps d'imatge detectats pel nom són d'un sol valor → reemplacen.)
+                    // `files` fields are multi-file: we append to the existing list.
+                    // (Image fields detected by name are single-valued → they replace.)
                     if (newPath && getFieldType(schema, field) === 'files') {
                         const note = safeNotes.find(n => n.id === rowId);
                         const existing = note?.metadata?.[originalMetaKey];
                         const arr = (Array.isArray(existing) ? existing : (existing ? [existing] : []))
                             .map(v => String(v ?? '')).filter(v => v.trim() !== '');
-                        // Mateix fitxer ja present (en qualsevol format) → no dupliquis.
+                        // Same file already present (in any format) → don't duplicate it.
                         const newKey = fileTargetKey(newPath);
                         if (arr.some(v => fileTargetKey(v) === newKey)) {
                             setMediaPickerCell(null);
@@ -3862,7 +3864,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         const next = [...arr, newPath];
                         value = next.length === 1 ? next[0] : next;
                     } else if (newPath) {
-                        // Camp imatge: valor compost {src, alt, title, …} si hi ha metadades.
+                        // Image field: composite value {src, alt, title, …} when metadata is present.
                         value = buildImageValue(newPath, result?.imageMeta || {});
                     }
                     handleCellSave(rowId, field, value, originalMetaKey);

@@ -120,7 +120,7 @@ class ContactResponse(ContactBase):
     created_at: datetime
     updated_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at", "updated_at", "last_synced_at")

@@ -39,8 +39,8 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
         onClose();
     };
 
-    // Lògica rica de teclat: Esc tanca, Enter envia el formulari (acció
-    // primària "Add Stream"), Tab focus-trap, restauració de focus. Veure
+    // Rich keyboard logic: Esc closes, Enter submits the form (primary
+    // action "Add Stream"), Tab focus-trap, focus restoration. See
     // useModalKeyboard.
     useModalKeyboard({
         isOpen,

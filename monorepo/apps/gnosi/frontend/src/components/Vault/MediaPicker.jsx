@@ -1,17 +1,18 @@
 /**
  * MediaPicker.jsx
  *
- * Picker reutilitzable de mitjans dins del vault. Permet navegar pels roots
- * disponibles (Images, Assets, Biblioteca, Vault) i seleccionar un fitxer
- * (imatge, vídeo, PDF...). El callback `onSelect(item)` rep l'objecte
- * complet retornat per `/api/vault/media`, incloent la `url` ja preparada
- * per inserir al BlockEditor.
+ * Reusable media picker within the vault. Allows navigating the available
+ * roots (Images, Assets, Biblioteca, Vault) and selecting a file
+ * (image, video, PDF...). The `onSelect(item)` callback receives the
+ * full object returned by `/api/vault/media`, including the `url` already
+ * prepared for inserting into the BlockEditor.
  *
- * Disseny modal: muntat dins d'altres components (típicament
- * InsertContentModal, pestanya "Vault").
+ * Modal design: mounted inside other components (typically
+ * InsertContentModal, "Vault" tab).
  */
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import {
     Image as ImageIcon, Folder, FolderOpen, ChevronRight, ChevronDown,
     FileText, Film, Music, File as FileIcon, Library, Database, Search, X,
@@ -41,6 +42,7 @@ function KindIcon({ kind, size = 14 }) {
 }
 
 const TreeNode = React.memo(function TreeNode({ node, depth, root, activePath, onSelectFolder }) {
+    const { t } = useTranslation();
     const [expanded, setExpanded] = useState(false);
     const [children, setChildren] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -79,7 +81,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, root, activePath, o
                     type="button"
                     onClick={toggle}
                     className={`shrink-0 w-6 flex items-center justify-center ${node.has_children ? 'cursor-pointer' : 'cursor-default'}`}
-                    aria-label={expanded ? 'Collapse' : 'Expand'}
+                    aria-label={expanded ? t('common.collapse', 'Collapse') : t('common.expand', 'Expand')}
                 >
                     {node.has_children ? (
                         loading ? <span className="text-[var(--text-tertiary)] text-xs">…</span>
@@ -118,17 +120,18 @@ const TreeNode = React.memo(function TreeNode({ node, depth, root, activePath, o
 });
 
 export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
+    const { t } = useTranslation();
     const [roots, setRoots] = useState([]);
     const [activeRoot, setActiveRoot] = useState('images');
     const [tree, setTree] = useState([]);
-    // activePath: '' = arrel del root (recursiu), null = encara cap selecció,
-    // 'subfolder' = només els fitxers d'aquesta subcarpeta.
+    // activePath: '' = root of the root (recursive), null = no selection yet,
+    // 'subfolder' = only the files in that subfolder.
     const [activePath, setActivePath] = useState(null);
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
 
-    // Carrega els roots disponibles un cop
+    // Loads the available roots once
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -148,7 +151,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Recarrega l'arbre quan canvia el root actiu
+    // Reload the tree when the active root changes
     useEffect(() => {
         let cancelled = false;
         (async () => {
@@ -169,7 +172,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
         return () => { cancelled = true; };
     }, [activeRoot]);
 
-    // Recarrega els fitxers quan canvia el path actiu
+    // Reloads the files when the active path changes
     const fetchItems = useCallback(async () => {
         if (activePath === null) {
             setItems([]);
@@ -179,17 +182,17 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
         try {
             const params = { root: activeRoot, limit: 200, offset: 0 };
             if (activePath) params.album = activePath;
-            // Recursiu pot trigar la primera vegada (vault gran).
+            // Recursive can take a while the first time (large vault).
             const res = await axios.get('/api/vault/media', { params, timeout: 300000 });
             setItems(res.data?.items || []);
         } catch (err) {
             console.error('Error carregant fitxers:', err);
-            toast.error('No s\'han pogut carregar els fitxers');
+            toast.error(t('media_picker.load_error', 'No s\'han pogut carregar els fitxers'));
             setItems([]);
         } finally {
             setLoading(false);
         }
-    }, [activeRoot, activePath]);
+    }, [activeRoot, activePath, t]);
 
     useEffect(() => { fetchItems(); }, [fetchItems]);
 
@@ -205,7 +208,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
 
     return (
         <div className="flex flex-col h-full bg-[var(--bg-primary)] rounded-2xl overflow-hidden border border-[var(--border-primary)]">
-            {/* Header amb tabs de root */}
+            {/* Header with root tabs */}
             <div className="flex items-center gap-2 p-3 border-b border-[var(--border-primary)] bg-[var(--bg-secondary)]">
                 {roots.map(r => {
                     const Icon = ROOT_ICONS[r.key] || Folder;
@@ -231,7 +234,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={14} />
                     <input
                         type="text"
-                        placeholder="Filtrar..."
+                        placeholder={t('media_picker.filter_placeholder', 'Filtrar...')}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-8 pr-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-md text-xs w-44 outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/30"
@@ -242,7 +245,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                         type="button"
                         onClick={onCancel}
                         className="p-1.5 rounded-md hover:bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]"
-                        aria-label="Tanca"
+                        aria-label={t('common.close', 'Tanca')}
                     >
                         <X size={16} />
                     </button>
@@ -258,10 +261,10 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                             activePath === '' ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'
                         }`}
-                        title="Llistat recursiu — pot trigar la primera vegada"
+                        title={t('media_picker.recursive_hint', 'Llistat recursiu — pot trigar la primera vegada')}
                     >
                         <ImageIcon size={14} />
-                        Tot el contingut
+                        {t('media_picker.all_content', 'Tot el contingut')}
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-1 opacity-50" />
                     {tree.map(node => (
@@ -276,22 +279,22 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                     ))}
                 </aside>
 
-                {/* Grid de fitxers */}
+                {/* File grid */}
                 <div className="flex-1 overflow-y-auto p-3">
                     {activePath === null ? (
                         <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] gap-2">
                             <Folder size={48} className="opacity-20" />
-                            <p className="text-xs">Tria una carpeta o «Tot el contingut»</p>
+                            <p className="text-xs">{t('media_picker.pick_folder_hint', 'Tria una carpeta o «Tot el contingut»')}</p>
                         </div>
                     ) : loading ? (
                         <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] gap-2">
                             <ImageIcon size={48} className="opacity-20 animate-pulse" />
-                            <p className="text-xs">Indexant…</p>
+                            <p className="text-xs">{t('media_picker.indexing', 'Indexant…')}</p>
                         </div>
                     ) : filteredItems.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] gap-2">
                             <FileIcon size={48} className="opacity-10" />
-                            <p className="text-xs">No s'han trobat fitxers</p>
+                            <p className="text-xs">{t('media_picker.no_files', 'No s\'han trobat fitxers')}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

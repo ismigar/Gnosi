@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Search, FileText, Hash, FolderClosed, Star, X, Database } from 'lucide-react';
 import { isCalendarPage } from './schemaUtils';
 import { normalizeForSearch } from '../../utils/vaultFilters';
@@ -6,10 +7,10 @@ import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { IconRenderer } from './IconRenderer';
 
 /**
- * Cerca global amb operadors estil Obsidian + cerques desades.
- * Operadors suportats (combinables): `tag:a/b` (jeràrquic, casa descendents),
- * `path:Carpeta`, `title:text`, `is:database`, i regex amb `/patró/flags`.
- * Els termes lliures casen amb el títol. Les cerques es desen a localStorage.
+ * Global search with Obsidian-style operators + saved searches.
+ * Supported operators (combinable): `tag:a/b` (hierarchical, matches descendants),
+ * `path:Folder`, `title:text`, `is:database`, and regex with `/pattern/flags`.
+ * Free terms match the title. Searches are saved to localStorage.
  */
 
 const SAVED_KEY = 'gnosi.savedSearches';
@@ -23,16 +24,16 @@ const persistSaved = (list) => {
 const splitTags = (raw) => {
     if (!raw) return [];
     const arr = Array.isArray(raw) ? raw : String(raw).split(',');
-    // normalizeForSearch (minúscules + sense accents) i no toLowerCase pelat:
-    // així `tag:etica` troba "Ètica", coherent amb la resta de la cerca.
+    // normalizeForSearch (lowercase + accent-stripped) and not plain toLowerCase:
+    // this way `tag:etica` finds "Ètica", consistent with the rest of the search.
     return arr.map((t) => normalizeForSearch(String(t).replace(/^#/, '').trim())).filter(Boolean);
 };
 
-// Camp semàntic d'etiquetes d'una taula — mirall de option_catalogs.find_role_prop
-// (backend): rol explícit `config.role === 'tags'` o, si no n'hi ha, heurístic de
-// NOM (tags/tag/etiquetes/etiquetas/labels, normalitzat sense accents) restringit
-// a multi_select. És la mateixa font que alimenta la pàgina d'Etiquetes
-// (/api/vault/tags), així el `tag:` de la cerca veu els mateixos tags que ella.
+// Semantic tags field of a table — mirrors option_catalogs.find_role_prop
+// (backend): explicit role `config.role === 'tags'`, or, if there isn't one, a heuristic based on
+// NAME (tags/tag/etiquetes/etiquetas/labels, normalized without accents) restricted
+// on multi_select. It's the same source that feeds the Tags page
+// (/api/vault/tags), so the search's `tag:` sees the same tags that it does.
 const TAG_FIELD_NAMES = new Set(['tags', 'tag', 'etiquetes', 'etiquetas', 'labels']);
 const findTagsField = (table) => {
     const props = table?.properties || [];
@@ -41,10 +42,10 @@ const findTagsField = (table) => {
     return props.find((p) => TAG_FIELD_NAMES.has(normalizeForSearch(p?.name)) && p?.type === 'multi_select') || null;
 };
 
-// Tags d'una nota: frontmatter `tags` (estil Obsidian) + el valor del camp
-// semàntic d'etiquetes de la seva taula (les dues fonts que unifica la pàgina
-// d'Etiquetes). Abans només es llegia `metadata.tags` (clau minúscula), així que
-// `tag:` no casava MAI amb les taules importades de Notion (camp "Tags").
+// Tags of a note: `tags` frontmatter (Obsidian style) + the value of the
+// semantic tags field of its table (the two sources that the Tags page unifies
+// ). Previously only `metadata.tags` (lowercase key) was read, so
+// `tag:` NEVER matched tables imported from Notion (the "Tags" field).
 const noteTags = (note, tagFieldsByTable) => {
     const meta = note?.metadata || {};
     const tags = splitTags(meta.tags);
@@ -66,7 +67,7 @@ const parseQuery = (query) => {
     let regex = null;
     for (const tok of tokens) {
         const reMatch = tok.match(/^\/(.+)\/([a-z]*)$/i);
-        if (reMatch) { try { regex = new RegExp(reMatch[1], reMatch[2] || 'i'); } catch { /* regex invàlid: ignora */ } continue; }
+        if (reMatch) { try { regex = new RegExp(reMatch[1], reMatch[2] || 'i'); } catch { /* invalid regex: ignore */ } continue; }
         const opMatch = tok.match(/^(tag|path|title|is):(.+)$/i);
         if (opMatch) { ops[opMatch[1].toLowerCase()].push(opMatch[2].toLowerCase()); continue; }
         terms.push(tok);
@@ -81,8 +82,8 @@ const matchNote = (note, parsed, tagFieldsByTable) => {
     const folder = String(note.folder || note.path || '').toLowerCase();
     const tags = noteTags(note, tagFieldsByTable);
 
-    // tag: (jeràrquic — casa el tag exacte o qualsevol descendent a/b/c).
-    // Es normalitza també el valor de l'operador (sense accents), com els tags.
+    // tag: (hierarchical — matches the exact tag or any descendant a/b/c).
+    // The operator's value is also normalized (accents stripped), like the tags.
     for (const tg of ops.tag) {
         const tgn = normalizeForSearch(tg);
         if (!tags.some((t) => t === tgn || t.startsWith(tgn + '/'))) return false;
@@ -94,7 +95,7 @@ const matchNote = (note, parsed, tagFieldsByTable) => {
         if (isv === 'page' && note.is_database) return false;
     }
     if (regex && !(regex.test(title) || regex.test(folder))) return false;
-    // Termes lliures: casen amb títol (o tag; els tags ja venen normalitzats).
+    // Free terms: match the title (or tag; tags already come normalized).
     for (const term of terms) {
         const tn = normalizeForSearch(term);
         if (!titleNorm.includes(tn) && !tags.some((t) => t.includes(tn))) return false;
@@ -103,6 +104,7 @@ const matchNote = (note, parsed, tagFieldsByTable) => {
 };
 
 export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect, tables = [] }) {
+    const { t } = useTranslation();
     const [query, setQuery] = useState('');
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [saved, setSaved] = useState(loadSaved);
@@ -112,7 +114,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
 
     useModalKeyboard({ isOpen, onClose, containerRef: panelRef, trapFocus: true });
 
-    // Camp d'etiquetes per taula, resolt un sol cop (O(taules), no O(notes)).
+    // Tag field per table, resolved once (O(tables), not O(notes)).
     const tagFieldsByTable = React.useMemo(() => {
         const m = new Map();
         (tables || []).forEach((t) => {
@@ -131,10 +133,10 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
         }).slice(0, 30);
     }, [query, allNotes, tagFieldsByTable]);
 
-    // Títol de la BD d'origen d'una fila. Tres camins, per ordre de fiabilitat:
-    // 1) resolved_table_id → nom al registre de taules; 2) avantpassat amb
-    // is_database (pàgines-BD wiki); 3) últim segment del folder BD/… (les
-    // files de BD tenen parent_id nul i el seu table_id pot no ser al registre).
+    // Title of a row's source DB. Three paths, in order of reliability:
+    // 1) resolved_table_id → name in the table registry; 2) ancestor with
+    // is_database (wiki DB-pages); 3) last segment of the BD/… folder (the
+    // DB rows have null parent_id and their table_id might not be in the registry).
     const getSourceDbTitle = React.useMemo(() => {
         const byId = new Map(allNotes.map((n) => [n.id, n]));
         const tableNameById = new Map((tables || []).map((t) => [t.id, t.name]));
@@ -236,13 +238,13 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder="Cerca…  tag:a/b  path:Carpeta  title:text  /regex/"
+                        placeholder={t('globalsearch.search_placeholder', 'Cerca…  tag:a/b  path:Carpeta  title:text  /regex/')}
                         className="w-full bg-transparent border-none focus:ring-0 text-lg px-3 py-1 outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                     />
                     {query.trim() && (
                         <button
                             onClick={saveCurrent}
-                            title={isSaved ? 'Cerca desada' : 'Desa aquesta cerca'}
+                            title={isSaved ? t('globalsearch.search_saved', 'Cerca desada') : t('globalsearch.save_search', 'Desa aquesta cerca')}
                             className={`shrink-0 mr-2 p-1 rounded hover:bg-[var(--bg-secondary)] ${isSaved ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
                         >
                             <Star size={16} fill={isSaved ? 'currentColor' : 'none'} />
@@ -256,12 +258,12 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         <div className="px-4 py-6">
                             {saved.length > 0 ? (
                                 <>
-                                    <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">Cerques desades</div>
+                                    <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">{t('globalsearch.saved_searches_heading', 'Cerques desades')}</div>
                                     <div className="flex flex-wrap gap-2">
                                         {saved.map((s) => (
                                             <span key={s.query} className="group inline-flex items-center gap-1.5 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] py-1 pl-3 pr-1.5 text-sm">
                                                 <button className="text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)]" onClick={() => setQuery(s.query)}>{s.label}</button>
-                                                <button className="rounded-full p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]" onClick={() => removeSaved(s.query)} title="Treu">
+                                                <button className="rounded-full p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]" onClick={() => removeSaved(s.query)} title={t('globalsearch.remove_saved', 'Treu')}>
                                                     <X size={12} />
                                                 </button>
                                             </span>
@@ -270,12 +272,12 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                 </>
                             ) : (
                                 <div className="py-6 text-center text-[var(--text-secondary)] text-sm">
-                                    Cerca per títol o amb operadors: <code className="text-[var(--gnosi-primary)]">tag:</code> <code className="text-[var(--gnosi-primary)]">path:</code> <code className="text-[var(--gnosi-primary)]">title:</code> <code className="text-[var(--gnosi-primary)]">/regex/</code>
+                                    {t('globalsearch.operators_hint', 'Cerca per títol o amb operadors:')} <code className="text-[var(--gnosi-primary)]">tag:</code> <code className="text-[var(--gnosi-primary)]">path:</code> <code className="text-[var(--gnosi-primary)]">title:</code> <code className="text-[var(--gnosi-primary)]">/regex/</code>
                                 </div>
                             )}
                         </div>
                     ) : filteredNotes.length === 0 ? (
-                        <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">No s'ha trobat cap resultat per "{query}"</div>
+                        <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">{t('globalsearch.no_results', 'No s\'ha trobat cap resultat per "{{query}}"', { query })}</div>
                     ) : (
                         <div className="p-2 space-y-1">
                             {filteredNotes.map((note, index) => {
@@ -294,7 +296,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                             ) : getIcon(note.folder)}
                                             <div>
                                                 <h3 className={`text-sm font-medium ${isSelected ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>
-                                                    {note.title || note.id || 'Sense Títol'}
+                                                    {note.title || note.id || t('common.untitled', 'Sense Títol')}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
                                                     {sourceDb ? (

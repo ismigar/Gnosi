@@ -148,7 +148,7 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                             if "messages" in state_update:
                                 messages = state_update["messages"]
                                 for msg in messages:
-                                    # Determinar el tipus de contingut per enviar al frontend
+                                    # Determine the type of content to send to the frontend
                                     payload = {
                                         "type": "message",
                                         "role": "ai" if msg.type == "ai" else "user",

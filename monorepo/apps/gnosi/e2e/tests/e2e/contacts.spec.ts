@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 /**
- * Contacts E2E: route loads, list/empty state visible, "Nou Contacte" button exists.
+ * Contacts E2E: route loads, list/empty state visible, "New Contact" button exists.
  */
 
 test.describe('Contacts', () => {
@@ -29,8 +29,8 @@ test.describe('Contacts', () => {
 
     const main = page.locator('#root');
     await expect(main).toBeVisible();
-    // expect.poll: mateix motiu que a vault.spec.ts — el check d'un sol tret
-    // queia dins la finestra de «Carregant…» quan Vite va saturat.
+    // expect.poll: same reason as in vault.spec.ts — the one-shot check
+    // fell within the «Carregant…» window when Vite got saturated.
     await expect
       .poll(async () => ((await main.textContent()) ?? '').length, {
         message: 'contacts page should render content',

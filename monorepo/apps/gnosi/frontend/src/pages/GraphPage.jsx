@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useTranslation, Trans } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import toast from '../lib/toast';
 import { RefreshCw, Check } from 'lucide-react';
@@ -26,12 +26,12 @@ function GraphPage() {
     const [graphData, setGraphData] = useState(null);
     const [graphInstance, setGraphInstance] = useState(null);
     const [rendererInstance, setRendererInstance] = useState(null);
-    // El tema del graf segueix la classe `.dark` de l'app (commutador manual),
-    // no `prefers-color-scheme` del sistema, que ignorava el toggle i deixava
-    // els overlays (recompte de nodes, llegenda, minimap…) clars en mode fosc.
+    // The graph theme follows the app's `.dark` class (manual switch),
+    // not the system's `prefers-color-scheme`, which ignored the toggle and left
+    // the overlays (node count, legend, minimap…) light-colored in dark mode.
     const [isDarkMode, setIsDarkMode] = useState(() => document.documentElement.classList.contains('dark'));
 
-    // Layout igraph FR calculat al backend. FA2 desactivat per defecte.
+    // igraph FR layout computed on the backend. FA2 disabled by default.
     const isPhysicsEnabled = false;
 
     // Filter State
@@ -48,7 +48,7 @@ function GraphPage() {
     // Visibility & Configuration (from config.graph)
     const [visibleDatabases, setVisibleDatabases] = useState([]);
     const [visibleTables, setVisibleTables] = useState([]);
-    // Un cop sembrades les fonts (1a càrrega), una selecció buida = "no mostris res".
+    // Once the sources are seeded (1st load), an empty selection = "show nothing".
     const [sourcesInitialized, setSourcesInitialized] = useState(false);
     const [visibleFields, setVisibleFields] = useState([]); // Array of "tableId:fieldName"
     const [graphTableFiltersSettings, setGraphTableFiltersSettings] = useState([]); // Which tables HAVE a toggle
@@ -59,8 +59,8 @@ function GraphPage() {
     // Map of "tableId:fieldName" -> Set of active values
     const [fieldFilters, setFieldFilters] = useState({});
     const [availableTables, setAvailableTables] = useState([]);
-    // Mapa id→títol (totes les pàgines) per mostrar el títol de les pàgines
-    // relacionades als filtres de camps de tipus referència, en comptes de l'id.
+    // id→title map (all pages) to show the title of the pages
+    // related to reference-type field filters, instead of the id.
     const [idTitleMap, setIdTitleMap] = useState({});
 
     // Visualization State
@@ -83,7 +83,7 @@ function GraphPage() {
     const [isSyncing, setIsSyncing] = useState(false);
 
     // Physics State - Real (Debounced for ForceAtlas2)
-    // Inicials iguals als UI per evitar restart brusc als 300ms
+    // Initial values matching the UI's to avoid an abrupt restart at 300ms
     const [gravity, setGravity] = useState(0.1);
     const [repulsion, setRepulsion] = useState(2000);
     const [friction, setFriction] = useState(1.0);
@@ -217,7 +217,7 @@ function GraphPage() {
             .catch(err => console.error("Error loading config:", err));
     };
 
-    // Re-fetch quan els modals de Settings emeten l'event (sense reload).
+    // Re-fetch when the Settings modals emit the event (without reloading).
     useConfigChanged(fetchConfigData);
 
     useEffect(() => {
@@ -230,15 +230,15 @@ function GraphPage() {
             .then(data => setAvailableTables(data))
             .catch(e => console.error("Error fetching tables for filters:", e));
 
-        // Mapa id→títol global per resoldre els valors dels camps de tipus
-        // referència als filtres (mostrar el títol de la pàgina, no l'id).
+        // Global id→title map to resolve the values of reference-type
+        // fields in filters (show the page title, not the id).
         fetch('/api/vault/global-index')
             .then(r => (r.ok ? r.json() : {}))
             .then(data => setIdTitleMap(data && typeof data === 'object' ? data : {}))
             .catch(e => console.error("Error fetching global index for filters:", e));
 
-        // Observa la classe `.dark` de documentElement perquè els overlays i el
-        // canvas del graf segueixin el tema de l'app en viu (no l'OS).
+        // Watches the `.dark` class on documentElement so that overlays and the
+        // graph canvas follow the app's theme live (not the OS).
         const root = document.documentElement;
         const syncTheme = () => setIsDarkMode(root.classList.contains('dark'));
         syncTheme();
@@ -281,14 +281,14 @@ function GraphPage() {
             setFieldFilters(initialFilters);
         }
 
-        // graph_table_filters explícit té prioritat; si no n'hi ha, derivem de visible_tables
-        // (tota taula activada al settings apareix com toggle al sidebar del graf)
+        // explicit graph_table_filters takes priority; if there isn't one, we derive it from visible_tables
+        // (every table enabled in settings appears as a toggle in the graph sidebar)
         const tableFilters = g.graph_table_filters?.length > 0
             ? g.graph_table_filters
             : (g.visible_tables || []);
         setGraphTableFiltersSettings(tableFilters);
-        // Wiki: un cop sembrades les fonts, només si 'wiki' hi és explícitament;
-        // abans de sembrar mantenim el llegat (buit = tot visible).
+        // Wiki: once the sources are seeded, only if 'wiki' is explicitly present;
+        // before seeding we preserve the legacy value (empty = everything visible).
         const wikiVisible = seeded
             ? g.visible_databases?.includes('wiki')
             : (!g.visible_databases?.length || g.visible_databases.includes('wiki'));
@@ -299,10 +299,10 @@ function GraphPage() {
         if (g.edge_thickness) setEdgeThickness(g.edge_thickness);
     }, [config]);
 
-    // Sembra única de fonts: la primera vegada (config sense `sources_initialized`)
-    // marquem TOTES les fonts amb contingut com a visibles i ho persistim. A partir
-    // d'aquí, desactivar-les totes a Configuració deixa el graf BUIT (en comptes de
-    // mostrar-ho tot). Així un usuari nou no veu un graf en blanc per defecte.
+    // One-time source seeding: the first time (config without `sources_initialized`)
+    // we mark ALL sources with content as visible and persist it. From
+    // then on, disabling them all in Settings leaves the graph EMPTY (instead of
+    // showing everything). This way a new user doesn't see a blank graph by default.
     useEffect(() => {
         if (!config?.graph || config.graph.sources_initialized) return;
         const nodes = graphData?.nodes;
@@ -326,8 +326,8 @@ function GraphPage() {
 
         const seededDbs = [...dbSet];
         const seededTables = [...tableSet];
-        // Si no hem derivat cap font, no marquem com inicialitzat (evita un graf
-        // permanentment buit si el graf ve sense classificació).
+        // If we haven't derived any source, we don't mark it as initialized (this avoids a
+        // permanently empty graph if the graph comes without classification).
         if (seededDbs.length === 0 && seededTables.length === 0) return;
 
         setVisibleDatabases(seededDbs);
@@ -349,11 +349,11 @@ function GraphPage() {
             .catch(e => console.error('Error sembrant les fonts del graf:', e));
     }, [config, graphData]);
 
-    // (Eliminat l'antic polling d'auto-refresc cada 30s: cridava
-    // `POST /api/sync` i `GET /api/graph/version`, dos endpoints que ja no
-    // existeixen al backend natiu — només produïen un 404 repetit a la consola
-    // i no refrescaven res. El graf es recarrega en entrar i en canviar la
-    // configuració/filtres.)
+    // (Removed the old 30s auto-refresh polling: it called
+    // `POST /api/sync` and `GET /api/graph/version`, two endpoints that no longer
+    // exist in the native backend — they only produced a repeated 404 in the console
+    // and refreshed nothing. The graph reloads when entering and when changing the
+    // settings/filters.)
 
 
 
@@ -434,7 +434,7 @@ function GraphPage() {
     }), [activeClusters, activeKinds, activeProjects, similarity, hideIsolated, onlyIsolated, selectedNode, depth, searchTerm, timelineDate, pathResult, visibleDatabases, visibleTables, sourcesInitialized, activeTableFilters, fieldFilters, graphTableFiltersSettings, activeMediaTags]);
     
     // Efficiently calculate filtered counts as derived state (Clean v6)
-    // Només comptem edges "link" (wikilinks) per mantenir coherència amb el que es renderitza.
+    // We only count "link" edges (wikilinks) to stay consistent with what's rendered.
     const memoizedGraph = useMemo(() => {
         if (!graphData?.nodes) return null;
         const g = new Graph();
@@ -452,7 +452,7 @@ function GraphPage() {
         return { filteredNodesCount: visibleNodes.size, filteredEdgesCount: visibleEdges.size };
     }, [memoizedGraph, filters]);
 
-    // Pre-computa els valors disponibles per cada camp configurat — O(nodes × camps) un sol cop per càrrega
+    // Precomputes the available values for each configured field — O(nodes × fields) once per load
     const fieldValuesByKey = useMemo(() => {
         const result = {};
         visibleFields.forEach(fieldKey => {
@@ -469,9 +469,9 @@ function GraphPage() {
         return result;
     }, [graphData, visibleFields]);
 
-    // Mapa combinat id→títol: global-index + etiquetes dels nodes del graf (cobreix
-    // pàgines presents al graf que potser no són a l'índex). Per resoldre el títol
-    // de les pàgines relacionades als filtres de camps de tipus referència.
+    // Combined id→title map: global-index + graph node labels (covers
+    // pages present in the graph that might not be in the index). Used to resolve the title
+    // of related pages in reference-type field filters.
     const idLabelResolver = useMemo(() => {
         const m = { ...idTitleMap };
         for (const n of (graphData?.nodes || [])) {
@@ -484,11 +484,11 @@ function GraphPage() {
         return m;
     }, [idTitleMap, graphData]);
 
-    // Nom de recanvi per a les taules que NO són al registry (BDs inline de
-    // l'import de Notion, sense pàgina-BD pròpia al vault): l'últim segment de
-    // CARPETA del `path` de les seves files ("BD/Cervell Digital/Titulacions/
-    // x.md" → "Titulacions"). Sense això, el Filtre de Taules i el de Camps
-    // mostraven l'id hexadecimal cru (13 entrades inusables al vault real).
+    // Fallback name for tables that are NOT in the registry (inline DBs from
+    // the Notion import, without their own DB page in the vault): the last segment of
+    // the FOLDER of the `path` of their rows ("BD/Cervell Digital/Titulacions/
+    // x.md" → "Titulacions"). Without this, the Table Filter and the Field Filter
+    // showed the raw hexadecimal id (13 unusable entries in the real vault).
     const folderNameByTableId = useMemo(() => {
         const m = new Map();
         for (const n of (graphData?.nodes || [])) {
@@ -500,10 +500,10 @@ function GraphPage() {
         return m;
     }, [graphData]);
 
-    // Etiqueta a mostrar per a un valor de filtre: si és l'id d'una pàgina coneguda
-    // → el seu títol; si sembla un id (UUID/Notion) sense resoldre (relació penjada)
-    // → forma escurçada en comptes del UUID sencer; si no → el valor tal qual
-    // (p. ex. opcions de select com "Acabada").
+    // Label to display for a filter value: if it's the id of a known page
+    // → its title; if it looks like an unresolved id (UUID/Notion) (dangling relation)
+    // → shortened form instead of the full UUID; otherwise → the value as-is
+    // (e.g. select options like "Finished").
     const displayFieldValue = (val) => {
         const s = String(val);
         if (idLabelResolver[s]) return idLabelResolver[s];
@@ -516,29 +516,29 @@ function GraphPage() {
         return (
             <div className="flex h-screen items-center justify-center bg-gray-50 flex-col gap-4">
                 <div className="text-4xl animate-bounce">🧠</div>
-                <div className="text-xl font-medium text-gray-600 animate-pulse">Carregant el Cervell Digital...</div>
-                <div className="text-sm text-gray-400">Connectant neurones...</div>
+                <div className="text-xl font-medium text-gray-600 animate-pulse">{t('graph.loading.title', 'Carregant el Cervell Digital...')}</div>
+                <div className="text-sm text-gray-400">{t('graph.loading.subtitle', 'Connectant neurones...')}</div>
             </div>
         );
     }
 
 
 
-    // El graf es computa sota demanda des de GET /api/graph; no hi ha cap
-    // endpoint /api/sync al backend natiu (els syncs són per servei). Aquí
-    // només refresquem el graf: validem que /api/graph respon i recarreguem.
+    // The graph is computed on demand from GET /api/graph; there is no
+    // endpoint /api/sync on the native backend (syncs are per service). Here
+    // we only refresh the graph: we verify that /api/graph responds and reload.
     const handleSync = async () => {
         if (isSyncing) return;
         setIsSyncing(true);
-        const toastId = toast.loading('Actualitzant el graf...');
+        const toastId = toast.loading(t('graph.sync.updating', 'Actualitzant el graf...'));
         try {
             const res = await fetch('/api/graph');
             if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
-            toast.success('Graf actualitzat!', { id: toastId });
+            toast.success(t('graph.sync.success', 'Graf actualitzat!'), { id: toastId });
             window.location.reload();
         } catch (e) {
             console.error(e);
-            toast.error('Error en actualitzar el graf', { id: toastId });
+            toast.error(t('graph.sync.error', 'Error en actualitzar el graf'), { id: toastId });
         } finally {
             setIsSyncing(false);
         }
@@ -606,9 +606,9 @@ function GraphPage() {
                     }
                 >
                     {/* Table Filters */}
-                    <CollapsibleSection title="Filtre de Taules" badge={activeTableFilters.size} defaultOpen={true}>
+                    <CollapsibleSection title={t('graph.filters.tables_title', 'Filtre de Taules')} badge={activeTableFilters.size} defaultOpen={true}>
                         <div className="filter-list">
-                            {/* Wiki: només si visible_databases és buit o inclou 'wiki' */}
+                            {/* Wiki: only if visible_databases is empty or includes 'wiki' */}
                             {(visibleDatabases.length === 0 || visibleDatabases.includes('wiki')) && <div className="filter-item-advanced">
                                 <input
                                     type="checkbox"
@@ -626,7 +626,7 @@ function GraphPage() {
                                     <span className="custom-checkbox" style={{ backgroundColor: '#9C27B0', opacity: activeTableFilters.has('__wiki__') ? 1 : 0.3 }}>
                                         {activeTableFilters.has('__wiki__') && <Check size={10} color="white" />}
                                     </span>
-                                    <span className="filter-label-text">📄 Pàgines Wiki</span>
+                                    <span className="filter-label-text">📄 {t('graph.filters.wiki_pages', 'Pàgines Wiki')}</span>
                                 </label>
                             </div>}
                             {/* Configured table filters */}
@@ -661,7 +661,7 @@ function GraphPage() {
 
                     {/* Media Tags Filters (New) */}
                     {graphData?.nodes?.some(n => n.kind === 'media') && (
-                        <CollapsibleSection title="Filtre de Tags de Fotos" badge={activeMediaTags.size} defaultOpen={true}>
+                        <CollapsibleSection title={t('graph.filters.media_tags_title', 'Filtre de Tags de Fotos')} badge={activeMediaTags.size} defaultOpen={true}>
                             <div className="filter-list">
                                 {mediaTagsList.map(tag => (
                                     <div key={tag} className="filter-item-advanced">
@@ -686,7 +686,7 @@ function GraphPage() {
                                     </div>
                                 ))}
                                 {Array.from(new Set(graphData.nodes.filter(n => n.kind === 'media').flatMap(n => n.metadata?.tags || []))).length === 0 && (
-                                    <p style={{ fontSize: '0.75rem', color: '#888', margin: '10px 0' }}>Cap etiqueta trobada en fotos</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#888', margin: '10px 0' }}>{t('graph.filters.no_tags_found', 'Cap etiqueta trobada en fotos')}</p>
                                 )}
                             </div>
                         </CollapsibleSection>
@@ -694,7 +694,7 @@ function GraphPage() {
 
                     {/* Field Value Filters (dynamic) */}
                     {visibleFields.length > 0 && (
-                        <CollapsibleSection title="Filtre de Camps" badge={visibleFields.length} defaultOpen={true}>
+                        <CollapsibleSection title={t('graph.filters.fields_title', 'Filtre de Camps')} badge={visibleFields.length} defaultOpen={true}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                                 {visibleFields.map(fieldKey => {
                                     if (!fieldKey || !fieldKey.includes(':')) return null;
@@ -706,13 +706,13 @@ function GraphPage() {
                                         tableName = table.name;
                                     } else {
                                         // Specific system entity labels
-                                        if (tableId === 'wiki') tableName = 'Wiki';
-                                        else if (tableId === 'drawings') tableName = 'Dibuixos';
-                                        else if (tableId === 'images') tableName = 'Imatges';
-                                        else if (tableId === 'assets') tableName = 'Adjunts';
-                                        else if (tableId.startsWith('calendar:')) tableName = 'Calendari';
-                                        else if (tableId.startsWith('contact:')) tableName = 'Contacte';
-                                        else if (tableId.startsWith('mail:')) tableName = 'Mail';
+                                        if (tableId === 'wiki') tableName = t('graph.entities.wiki', 'Wiki');
+                                        else if (tableId === 'drawings') tableName = t('graph.entities.drawings', 'Dibuixos');
+                                        else if (tableId === 'images') tableName = t('graph.entities.images', 'Imatges');
+                                        else if (tableId === 'assets') tableName = t('graph.entities.attachments', 'Adjunts');
+                                        else if (tableId.startsWith('calendar:')) tableName = t('graph.entities.calendar', 'Calendari');
+                                        else if (tableId.startsWith('contact:')) tableName = t('graph.entities.contact', 'Contacte');
+                                        else if (tableId.startsWith('mail:')) tableName = t('graph.entities.mail', 'Mail');
                                         else if (folderNameByTableId.get(tableId)) tableName = folderNameByTableId.get(tableId);
                                     }
 
@@ -726,7 +726,7 @@ function GraphPage() {
                                             </h5>
                                             {sortedValues.length === 0 ? (
                                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                                    Sense valors (el graf està buit)
+                                                    {t('graph.filters.no_values', 'Sense valors (el graf està buit)')}
                                                 </p>
                                             ) : (
                                             <div className="filter-list" style={{ maxHeight: '150px', overflowY: 'auto' }}>
@@ -771,15 +771,19 @@ function GraphPage() {
                     {/* Info message when no filters are configured */}
                     {graphTableFiltersSettings.length === 0 && visibleFields.length === 0 && (
                         <div style={{ padding: '15px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                            <p>No hi ha filtres configurats.</p>
-                            <p style={{ marginTop: '5px' }}>Ves a <strong>Configuració → Graf</strong> per seleccionar taules i camps.</p>
+                            <p>{t('graph.filters.none_configured', 'No hi ha filtres configurats.')}</p>
+                            <p style={{ marginTop: '5px' }}>
+                                <Trans i18nKey="graph.filters.none_configured_hint">
+                                    Ves a <strong>Configuració → Graf</strong> per seleccionar taules i camps.
+                                </Trans>
+                            </p>
                         </div>
                     )}
 
                     {selectedNode && (
                         <div className="section">
                             <div id="depth-controls" className="depth-controls" style={{ display: 'block' }}>
-                                <p>Mostrant veïns de:</p>
+                                <p>{t('graph.selection.showing_neighbors_of', 'Mostrant veïns de:')}</p>
                                 <strong>
                                     {graphInstance ? (graphInstance.getNodeAttribute(selectedNode, 'label') || selectedNode) : selectedNode}
                                 </strong>
@@ -796,7 +800,7 @@ function GraphPage() {
                                     />
                                     <span id="depth-label">{depth}</span>
                                 </div>
-                                <button id="clear-selection-btn" onClick={() => setSelectedNode(null)}>Neteja la selecció</button>
+                                <button id="clear-selection-btn" onClick={() => setSelectedNode(null)}>{t('graph.selection.clear', 'Neteja la selecció')}</button>
                             </div>
                         </div>
                     )}

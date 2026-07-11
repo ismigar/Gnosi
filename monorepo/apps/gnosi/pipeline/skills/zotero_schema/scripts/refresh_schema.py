@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Descarrega `schema.json` del repo zotero/zotero-schema i el desa pinned.
+"""Downloads `schema.json` from the zotero/zotero-schema repo and saves it pinned.
 
-Manual, no s'executa en runtime ni en CI. Quan vols pujar la versió:
+Manual, not run at runtime or in CI. When you want to bump the version:
 
     python3 refresh_schema.py [--ref <branch|sha>]
 
-Si no es passa `--ref`, baixa la versió actual de `master`. Acaba mostrant
-el SHA del commit i la nova versió, perquè els puguis registrar al
-`SKILL.md` i regenerar les constants amb `build_constants.py`.
+If `--ref` isn't passed, it downloads the current version from `master`. It finishes by showing
+the commit SHA and the new version, so you can record them in
+`SKILL.md` and regenerate the constants with `build_constants.py`.
 """
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ REPO = "zotero/zotero-schema"
 
 
 def gh(cmd: list[str]) -> str:
-    """Wrapper a `gh api` que retorna stdout o aborta amb stderr."""
+    """Wrapper around `gh api` that returns stdout or aborts with stderr."""
     r = subprocess.run(["gh", "api", *cmd], capture_output=True, text=True, timeout=30)
     if r.returncode != 0:
         print(f"ERROR gh api: {r.stderr.strip()}", file=sys.stderr)
@@ -36,7 +36,7 @@ def main() -> int:
                         help="Branch o SHA del commit (default: master)")
     args = parser.parse_args()
 
-    # Resol el SHA real del commit que toca schema.json
+    # Resolves the actual SHA of the commit that touches schema.json
     commits = json.loads(gh([
         f"repos/{REPO}/commits?path=schema.json&sha={args.ref}&per_page=1",
     ]))
@@ -46,7 +46,7 @@ def main() -> int:
     sha = commits[0]["sha"]
     date = commits[0]["commit"]["committer"]["date"]
 
-    # Descarrega contingut a la versió pinned
+    # Downloads content at the pinned version
     content_obj = json.loads(gh([f"repos/{REPO}/contents/schema.json?ref={sha}"]))
     import base64
     raw = base64.b64decode(content_obj["content"])

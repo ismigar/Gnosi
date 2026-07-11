@@ -1,19 +1,20 @@
-"""Tests del bulk update — només la lògica pura del patch.
+"""Tests for the bulk update — only the pure patch logic.
 
-L'endpoint `/bulk-update-metadata` és principalment un loop que crida
-`save_page_md`. Aquí valido la lògica del **merge** que es repeteix
-per cada pàgina (updates + remove + comparació `dict`).
+The `/bulk-update-metadata` endpoint is mainly a loop that calls
+`save_page_md`. Here I validate the **merge** logic that repeats
+for each page (updates + remove + `dict` comparison).
 
-NO testa l'endpoint sencer ni el filesystem; cal entorn FastAPI per això.
+Does NOT test the whole endpoint or the filesystem; a FastAPI environment is needed for that.
 """
 from __future__ import annotations
 
 
 def _apply_patch(md: dict, updates: dict | None, remove: list | None) -> dict:
-    """Replica la lògica del `_apply` interna a `bulk_update_metadata`.
+    """Replicates the internal `_apply` logic in `bulk_update_metadata`.
 
-    Aquesta funció no importa de `vault_routes` per evitar arrossegar FastAPI.
-    Si el codi de `vault_routes._apply` canvia, cal actualitzar aquesta còpia.
+    This function doesn't import from `vault_routes` to avoid dragging in FastAPI.
+    If `vault_routes._apply`'s code changes, this copy must be updated.
+    
     """
     out = dict(md)
     for k, v in (updates or {}).items():
@@ -75,7 +76,7 @@ def test_updates_and_remove_together():
 
 
 def test_update_remove_collision_remove_wins():
-    """Si una clau és tant a updates com a remove, prevaleix remove."""
+    """If a key is in both updates and remove, remove takes precedence."""
     md = {'X': 'old'}
     out = _apply_patch(md, {'X': 'new'}, ['X'])
     assert out == {}
@@ -85,11 +86,11 @@ def test_empty_patch_returns_clone():
     md = {'A': 1}
     out = _apply_patch(md, {}, [])
     assert out == {'A': 1}
-    assert out is not md  # còpia, no mutació
+    assert out is not md  # copy, not mutation
 
 
 def test_falsy_zero_keeps_value():
-    """`0` no és buit — s'ha de mantenir."""
+    """`0` is not empty — it must be kept."""
     md = {'Count': 1}
     out = _apply_patch(md, {'Count': 0}, [])
     assert out == {'Count': 0}

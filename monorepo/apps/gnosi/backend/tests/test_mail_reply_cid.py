@@ -1,23 +1,23 @@
-"""Tests del flux «imatges citades» en respondre/reenviar correus.
+"""Tests for the «quoted images» flow when replying to/forwarding emails.
 
-El quotedHtml d'un reply/forward referencia les imatges inline del missatge
-original com a URL /api/mail/messages/{id}/cid/{cid} (o cid: cru en cossos
-generats fora del viewer); sense la part MIME corresponent al correu nou, el
-destinatari les veia trencades.
+A reply/forward's quotedHtml references the original message's inline
+images as URL /api/mail/messages/{id}/cid/{cid} (or a raw cid: in bodies
+generated outside the viewer); without the corresponding MIME part in the new
+email, the recipient would see them broken.
 
 What we cover:
     - find_cid_srcs / rewrite_cid_srcs / find_mail_cid_refs /
-      rewrite_mail_cid_srcs (helpers purs sobre el cos HTML)
-    - extract_inline_parts_from_mime: recuperar parts per Content-ID d'un
-      missatge MIME cru (camí IMAP)
-    - _embed_quoted_cid_images (mail_routes): orquestració amb el collector
-      mockejat — URLs /cid/ (reply i /send), cid: crus, resolució parcial,
-      original no trobat, errors de transport (mai bloquegen l'enviament)
-    - microsoft_get_inline_parts: mapping d'adjunts Graph per contentId
+      rewrite_mail_cid_srcs (pure helpers over the HTML body)
+    - extract_inline_parts_from_mime: recover parts by Content-ID from a
+      raw MIME message (IMAP path)
+    - _embed_quoted_cid_images (mail_routes): orchestration with the
+      mocked collector — /cid/ URLs (reply and /send), raw cid:, partial
+      resolution, original not found, transport errors (never block sending)
+    - microsoft_get_inline_parts: mapping of Graph attachments by contentId
 
 What we deliberately do NOT cover here:
-    - Enviaments reals (necessiten comptes; vegeu la directiva
-      mail_inline_images_cid.md, pla de test)
+    - Real sends (need accounts; see the directive
+      mail_inline_images_cid.md, test plan)
 
 Run inside the backend container:
     docker exec gnosi_backend python -m pytest backend/tests/test_mail_reply_cid.py -v
@@ -49,7 +49,7 @@ def test_find_cid_srcs_basic_and_quotes():
     body = (
         '<img src="cid:abc@mail.example">'
         "<img src='cid:def@mail.example'>"
-        '<img src="cid:abc@mail.example">'  # duplicat → un sol cid
+        '<img src="cid:abc@mail.example">'  # duplicate → a single cid
     )
     assert find_cid_srcs(body) == {"abc@mail.example", "def@mail.example"}
 
@@ -68,8 +68,8 @@ def test_rewrite_cid_srcs_maps_and_keeps_unknown():
     body = '<img src="cid:old1"><img src=\'cid:old2\'><img src="cid:old3">'
     out = rewrite_cid_srcs(body, {"old1": "new1", "old2": "new2"})
     assert 'src="cid:new1"' in out
-    assert "src='cid:new2'" in out  # conserva l'estil de cometes
-    assert 'src="cid:old3"' in out  # sense mapping → intacte
+    assert "src='cid:new2'" in out  # preserves the quote style
+    assert 'src="cid:old3"' in out  # no mapping → unchanged
     assert "old1" not in out and "old2" not in out
 
 
@@ -89,7 +89,7 @@ QUOTED_URL = (
 def test_find_mail_cid_refs_parses_url_query_and_dedups():
     body = f'<p>citat</p><img src="{QUOTED_URL}"><img src="{QUOTED_URL}">'
     refs = find_mail_cid_refs(body)
-    assert len(refs) == 1  # mateixa URL → una sola ref
+    assert len(refs) == 1  # same URL → a single ref
     ref = refs[0]
     assert ref["url"] == QUOTED_URL
     assert ref["message_id"] == "imap_777"
@@ -119,14 +119,14 @@ def test_rewrite_mail_cid_srcs_by_literal_url():
     body = f'<img src="{QUOTED_URL}"><img src="/api/mail/messages/m2/cid/k@k">'
     out = rewrite_mail_cid_srcs(body, {QUOTED_URL: "nou@gnosi.local"})
     assert 'src="cid:nou@gnosi.local"' in out
-    assert '/api/mail/messages/m2/cid/k@k' in out  # sense mapping → intacte
+    assert '/api/mail/messages/m2/cid/k@k' in out  # no mapping → unchanged
     assert QUOTED_URL not in out
 
 
-# ── extract_inline_parts_from_mime (camí IMAP) ───────────────────────────────
+# ── extract_inline_parts_from_mime (IMAP path) ───────────────────────────────
 
 def _raw_original(cids=("orig1@mx", "orig2@mx")):
-    """Missatge MIME real amb una part inline per cada cid."""
+    """Real MIME message with one inline part per cid."""
     body = "".join(f'<img src="cid:{c}">' for c in cids)
     inline = [
         {"filename": f"img{i}.png", "content_type": "image/png",
@@ -158,11 +158,11 @@ def test_extract_parts_ignores_unwanted_and_missing():
     assert extract_inline_parts_from_mime(raw, set()) == {}
 
 
-# ── _embed_quoted_cid_images (orquestració a mail_routes) ────────────────────
+# ── _embed_quoted_cid_images (orchestration in mail_routes) ──────────────────
 
 def _embed(monkeypatch, body, inline_images, collected, raises=False,
            source_message_id="msg1", source_folder="Arxiu"):
-    """Executa _embed_quoted_cid_images amb el collector substituït."""
+    """Runs _embed_quoted_cid_images with the collector substituted."""
     from backend.api import mail_routes
 
     calls = []
@@ -200,7 +200,7 @@ def test_embed_attaches_and_rewrites(monkeypatch):
 
 
 def test_embed_api_url_uses_embedded_context(monkeypatch):
-    """La URL /cid/ mana: email, missatge i folder surten del seu query."""
+    """The /cid/ URL rules: email, message and folder come from its query."""
     body = f'<p>resposta</p><img src="{QUOTED_URL}">'
     inline = []
     collected = {"logo123@original.example": {
@@ -211,7 +211,7 @@ def test_embed_api_url_uses_embedded_context(monkeypatch):
     new_cid = inline[0]["content_id"]
     assert f'src="cid:{new_cid}"' in new_body
     assert "/api/mail/messages/" not in new_body
-    # el fetch va al compte/missatge/carpeta de la URL, no als del reply
+    # the fetch goes to the account/message/folder from the URL, not those of the reply
     assert calls[0]["email"] == "compte@example.com"
     assert calls[0]["message_id"] == "imap_777"
     assert calls[0]["folder"] == "Clients"
@@ -219,7 +219,7 @@ def test_embed_api_url_uses_embedded_context(monkeypatch):
 
 
 def test_embed_api_url_without_source_message(monkeypatch):
-    """/send (draft reprès): URLs /cid/ es resolen; cid: crus queden intactes."""
+    """/send (resumed draft): /cid/ URLs get resolved; raw cid: are left intact."""
     from backend.api import mail_routes
 
     body = f'<img src="{QUOTED_URL}"><img src="cid:orfe@mx">'
@@ -238,12 +238,12 @@ def test_embed_api_url_without_source_message(monkeypatch):
 
     assert len(inline) == 1
     assert "/api/mail/messages/" not in new_body
-    assert 'src="cid:orfe@mx"' in new_body  # sense missatge d'origen → intacte
+    assert 'src="cid:orfe@mx"' in new_body  # no source message → unchanged
     assert calls[0]["wanted"] == {"logo123@original.example"}
 
 
 def test_embed_groups_api_urls_per_source_message(monkeypatch):
-    """Dues imatges del mateix missatge citat → un sol fetch amb els dos cids."""
+    """Two images from the same quoted message → a single fetch with both cids."""
     body = ('<img src="/api/mail/messages/m9/cid/a%40x?email=c%40d.e&amp;folder=F">'
             '<img src="/api/mail/messages/m9/cid/b%40x?email=c%40d.e&amp;folder=F">')
     inline = []
@@ -261,13 +261,13 @@ def test_embed_groups_api_urls_per_source_message(monkeypatch):
 
 
 def test_embed_skips_own_fresh_cids(monkeypatch):
-    """Els cid acabats de generar per extract_vault_inline_images no es refetchen."""
+    """cids just generated by extract_vault_inline_images are not refetched."""
     body = '<img src="cid:nou@gnosi.local">'
     inline = [{"filename": "x.png", "content_type": "image/png",
                "data": PNG_BYTES, "content_id": "nou@gnosi.local"}]
     new_body, calls = _embed(monkeypatch, body, inline, {})
     assert new_body == body
-    assert calls == []  # cap residual → no es crida el collector
+    assert calls == []  # no residual → the collector is not called
     assert len(inline) == 1
 
 
@@ -299,7 +299,7 @@ def test_embed_transport_error_keeps_body(monkeypatch):
 
 
 def test_embed_end_to_end_mime(monkeypatch):
-    """Reply complet: cos amb cid citat → MIME amb cada cid: amb la seva part."""
+    """Full reply: body with a quoted cid → MIME with each cid: having its part."""
     import re
 
     body = '<p>gràcies!</p><blockquote><img src="cid:orig1@mx"></blockquote>'
@@ -328,7 +328,7 @@ def test_microsoft_inline_parts_filters_and_decodes(monkeypatch):
          "contentBytes": base64.b64encode(b"zz").decode()},
         {"name": "sense-cid.pdf", "contentType": "application/pdf",
          "contentBytes": base64.b64encode(b"pdf").decode()},
-        {"contentId": "ref@mx", "name": "referenceAttachment"},  # sense contentBytes
+        {"contentId": "ref@mx", "name": "referenceAttachment"},  # no contentBytes
     ]}
     monkeypatch.setattr(ms, "_authed_get", lambda email, path, **kw: payload)
 

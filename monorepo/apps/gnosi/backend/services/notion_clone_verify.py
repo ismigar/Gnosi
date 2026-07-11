@@ -1,11 +1,11 @@
-"""Verificació de salut d'un clon de Notion (Notion ↔ clon al vault).
+"""Health check of a Notion clone (Notion ↔ vault clone).
 
-Després de clonar, dóna confiança per abandonar Notion: compara el recompte de files per BD,
-detecta cossos buits (MCP fallit), relacions òrfenes (BD no seleccionades), vistes recreades i
-adjunts que falten al disc. PUR → testejable; la capa d'endpoint hi posa els recomptes de Notion,
-llegeix les pàgines del clon i comprova els fitxers d'Assets.
+After cloning, it gives confidence to abandon Notion: compares row counts per DB,
+detects empty bodies (failed MCP), orphaned relations (unselected DBs), recreated views and
+missing attachments on disk. PURE → testable; the endpoint layer supplies the Notion counts,
+reads the clone's pages and checks the Assets files.
 
-cf. directiva `notion_exact_clone.md`.
+cf. directive `notion_exact_clone.md`.
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ _WIKILINK_RE = re.compile(r"\[\[(?:[^\]|]*\|)?([^\]|]+)\]\]")
 
 
 def relation_ids(value: Any) -> List[str]:
-    """Valor d'un camp relació → ids nets (accepta `[[Títol|id]]`, `[[id]]` o id pelat)."""
+    """Value of a relation field → clean ids (accepts `[[Title|id]]`, `[[id]]`, or bare id)."""
     items = value if isinstance(value, list) else ([value] if value else [])
     out: List[str] = []
     for v in items:
@@ -28,11 +28,12 @@ def relation_ids(value: Any) -> List[str]:
 
 
 def verify_clone(notion_counts: Dict[str, int], clone_pages: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Informe de salut del clon.
+    """Clone health report.
 
-    `notion_counts`: {clone_table_id: nombre de files a Notion d'aquella BD}.
+    `notion_counts`: {clone_table_id: number of rows in Notion for that DB}.
     `clone_pages`: [{id, table_id, body_empty: bool, view_count: int, relations: [ids],
-                     missing_assets: [rutes]}] llegides del vault clonat.
+                     missing_assets: [paths]}] read from the cloned vault.
+    
     """
     all_ids = {p.get("id") for p in clone_pages}
     by_table: Dict[Any, List[Dict[str, Any]]] = {}

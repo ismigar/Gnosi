@@ -1,4 +1,4 @@
-"""Tests dels helpers PURS del cinturó d'eines de coneixement (sense backend)."""
+"""Tests for the PURE helpers of the knowledge toolbelt (no backend)."""
 import sys
 from pathlib import Path
 
@@ -15,7 +15,7 @@ def test_frontmatter_has_title_and_id():
     assert "title: La meva nota" in fm
     assert "id:" in fm
     assert "tags:" in fm
-    # respecta un id existent
+    # respects an existing id
     fm2 = build_page_frontmatter("X", {"id": "fixed-123"})
     assert "fixed-123" in fm2
 
@@ -32,7 +32,7 @@ def test_cornell_structure():
 
 def test_cornell_empty_cues():
     md = build_cornell_note("T", cues=[], notes="n", summary="s")
-    assert "_—_" in md  # placeholder quan no hi ha pistes
+    assert "_—_" in md  # placeholder when there are no clues
 
 
 def test_rank_link_candidates_orders_by_overlap():
@@ -45,8 +45,8 @@ def test_rank_link_candidates_orders_by_overlap():
     ranked = rank_link_candidates(page, cands, top_k=5)
     titles = [r["title"] for r in ranked]
     assert "Routing de models" in titles
-    assert "Recepta de pa" not in titles  # sense solapament → fora
-    # el de més solapament va primer
+    assert "Recepta de pa" not in titles  # no overlap → excluded
+    # the one with the most overlap goes first
     assert ranked[0]["title"] == "Routing de models"
     assert all("score" in r for r in ranked)
 

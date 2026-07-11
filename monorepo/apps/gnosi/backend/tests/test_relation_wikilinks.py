@@ -1,9 +1,9 @@
-"""Round-trip dels wikilinks de relació al frontmatter.
+"""Round-trip of relation wikilinks in the frontmatter.
 
-Format canònic d'un ítem de camp relació: "[[Títol|id]]" — el valor és
-exactament un wikilink (Obsidian l'indexa) i l'id viu a l'àlies (mana sempre).
-En llegir es despulla a id; en desar es decora amb el títol actual. Els camps
-de relació es reconeixen per l'ESQUEMA (no per cap prefix al nom). Vegeu
+Canonical format of a relation-field item: "[[Title|id]]" — the value is
+exactly a wikilink (Obsidian indexes it) and the id lives in the alias (which always wins).
+On read it's stripped down to the id; on save it's decorated with the current title. Relation
+fields are recognized by SCHEMA (not by any prefix in the name). See
 docs/dev_memory/directives/relation_wikilinks_frontmatter.md.
 """
 
@@ -27,7 +27,7 @@ RID2 = "a70d2f6f-d943-4f3a-8256-8517be6c839a"
 TITLE = "A favor de la teodicea"
 TITLE2 = "Dues tradicions del mal"
 
-# Conjunt d'esquema reutilitzat: el camp `X` és de relació.
+# Reused schema set: field `X` is a relation.
 RK_X = {"X"}
 
 
@@ -44,7 +44,7 @@ def test_strip_scalar_value():
 
 
 def test_strip_does_not_touch_non_relation_keys():
-    """Sense esquema NO es despulla res: un wikilink en un camp de text es manté."""
+    """Without a schema, NOTHING is stripped: a wikilink in a text field is kept as-is."""
     wikilink = f"[[Filosofia|{RID}]]"
     md = {"Notes": [wikilink], "Cita": wikilink}
     out = strip_relation_wikilinks(md)
@@ -53,7 +53,7 @@ def test_strip_does_not_touch_non_relation_keys():
 
 
 def test_strip_recognizes_relation_by_schema():
-    """Es reconeix com a relació via l'esquema (nom + àlies de la property)."""
+    """It's recognized as a relation via the schema (property name + alias)."""
     rk = relation_keys_from_table(
         {"properties": [{"type": "relation", "name": "Àrees", "aliases": ["Àrees (antic)"]}]}
     )
@@ -63,7 +63,7 @@ def test_strip_recognizes_relation_by_schema():
 
 
 def test_strip_schema_does_not_touch_text_field_with_wikilink():
-    """Un camp de text amb wikilink no es despulla encara que passem esquema."""
+    """A text field with a wikilink isn't stripped even if we pass a schema."""
     rk = relation_keys_from_table(
         {"properties": [{"type": "relation", "name": "Àrees"}]}
     )
@@ -103,7 +103,7 @@ def test_decorate_refreshes_stale_title():
 
 
 def test_decorate_preserves_decorated_item_when_index_cold():
-    """Amb l'índex fred no es perd l'últim títol bo conegut."""
+    """With the cold index, the last known-good title isn't lost."""
     item = f"[[Títol vell|{RID}]]"
     md = {"X": [item]}
     decorate_relation_wikilinks(md, relation_keys=RK_X, id_to_title=lambda _: None)
@@ -111,7 +111,7 @@ def test_decorate_preserves_decorated_item_when_index_cold():
 
 
 def test_decorate_heals_title_only_wikilink_when_unique():
-    """Una edició manual a Obsidian ([[Títol]]) es canonicalitza en desar."""
+    """A manual edit in Obsidian ([[Title]]) gets canonicalized on save."""
     md = {"X": [f"[[{TITLE}]]"]}
     decorate_relation_wikilinks(
         md,
@@ -140,35 +140,35 @@ def test_decorate_is_idempotent():
 
 
 def test_decorate_only_acts_on_schema_relation_keys():
-    """Només es decora un camp si ve a l'esquema; els altres no es toquen."""
+    """A field is only decorated if it's in the schema; others are left untouched."""
     md = {"Relacionats": [RID], "Notes": [RID]}
     decorate_relation_wikilinks(
         md, relation_keys={"Relacionats"}, id_to_title={RID: TITLE}.get
     )
     assert md["Relacionats"] == [f"[[{TITLE}|{RID}]]"]
-    assert md["Notes"] == [RID]  # camp no-relació intacte
+    assert md["Notes"] == [RID]  # non-relation field intact
 
 
 def test_yaml_roundtrip_of_decorated_values():
-    """PyYAML ha d'encomillar sol els valors que comencen per '['."""
+    """PyYAML must automatically quote values that start with '['."""
     md = {"X": [f"[[{TITLE}|{RID}]]"]}
     dumped = yaml.dump(md, default_flow_style=False, sort_keys=False, allow_unicode=True)
     loaded = yaml.safe_load(dumped)
     assert loaded == md
 
 
-# ------------------------------------------------------------ integració
+# ------------------------------------------------------------ integration
 
 @pytest.fixture()
 def vault(tmp_path: Path) -> Path:
-    """Vault mínim amb `.gnosi/` perquè `persist_sidecar_from` el detecti."""
+    """Minimal vault with `.gnosi/` so that `persist_sidecar_from` detects it."""
     (tmp_path / ".gnosi").mkdir()
     return tmp_path
 
 
 @pytest.fixture()
 def warm_index(monkeypatch):
-    """Simula l'índex d'enllaços calent amb dos títols coneguts."""
+    """Simulates the warm link index with two known titles."""
     monkeypatch.setattr(vr, "_link_index_built", True)
     monkeypatch.setattr(
         vr,
@@ -186,7 +186,7 @@ TABLE_ID = "tbl-relacio-test"
 
 @pytest.fixture()
 def relation_table(monkeypatch):
-    """Mockeja el registry perquè `Extractes i notes` i `Àrees` siguin relacions."""
+    """Mocks the registry so that `Extractes i notes` and `Àrees` are relations."""
     table = {
         "id": TABLE_ID,
         "properties": [
@@ -209,7 +209,7 @@ def test_save_decorates_and_parse_strips(vault: Path, warm_index, relation_table
     raw = f.read_text(encoding="utf-8")
     assert f"[[{TITLE}|{RID}]]" in raw
     assert f"[[{TITLE2}|{RID2}]]" in raw
-    # El cos no porta seccions de relació.
+    # The body doesn't carry relation sections.
     assert "# Extractes i notes" not in raw
 
     md, body = parse_frontmatter(raw, f)
@@ -224,13 +224,13 @@ def test_save_with_cold_index_keeps_bare_ids(vault: Path, relation_table, monkey
                      "Àrees": [RID]}, "cos")
     raw = f.read_text(encoding="utf-8")
     assert RID in raw
-    assert "[[" not in raw.split("---")[1]  # frontmatter sense wikilinks
+    assert "[[" not in raw.split("---")[1]  # frontmatter without wikilinks
     md, _ = parse_frontmatter(raw, f)
     assert md["Àrees"] == [RID]
 
 
 def test_save_heals_obsidian_title_only_edit(vault: Path, warm_index, relation_table):
-    """Si Obsidian deixa '[[Títol]]' al camp de relació, la desada el canonicalitza."""
+    """If Obsidian leaves '[[Title]]' in the relation field, saving canonicalizes it."""
     f = vault / "recurs.md"
     save_page_md(
         f,

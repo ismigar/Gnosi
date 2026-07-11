@@ -1,27 +1,28 @@
 import React, { useMemo } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { BarChart3 } from 'lucide-react';
 import { getMetaValue, getFieldType } from './schemaUtils';
 
 /**
  * VaultChart
- * Vista de gràfics sobre una base de dades del Vault (estil "Charts" de Notion).
- * Agrega les files per un camp de categoria (`xField`) i hi aplica una funció
- * (`aggregation`) sobre un camp numèric (`yField`) o un recompte. Renderitza amb
- * SVG propi (sense dependències): barres verticals/horitzontals, línia o pastís.
+ * Chart view over a Vault database (Notion "Charts" style).
+ * Aggregates rows by a category field (`xField`) and applies a function
+ * (`aggregation`) over a numeric field (`yField`) or a count. Renders with
+ * its own SVG (no dependencies): vertical/horizontal bars, line, or pie.
  *
- * La configuració viu a `activeView` (registry, format lliure):
+ * The configuration lives in `activeView` (registry, free-form):
  *   { type:'chart', chartType:'bar'|'hbar'|'line'|'pie'|'donut',
- *     xField:'<camp>', yField:'<camp>', aggregation:'count'|'sum'|'avg'|'min'|'max' }
+ *     xField:'<field>', yField:'<field>', aggregation:'count'|'sum'|'avg'|'min'|'max' }
  */
 
-// Paleta de categories (consistents entre render).
+// Category palette (consistent across renders).
 const PALETTE = [
     '#6366f1', '#22c55e', '#f59e0b', '#ef4444', '#06b6d4',
     '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16',
     '#3b82f6', '#a855f7',
 ];
 
-// Converteix un valor a número (admet coma decimal: "12,5" → 12.5).
+// Converts a value to a number (accepts decimal comma: "12,5" → 12.5).
 const toNum = (v) => {
     if (v === null || v === undefined || v === '') return null;
     if (typeof v === 'number') return Number.isFinite(v) ? v : null;
@@ -30,16 +31,18 @@ const toNum = (v) => {
     return Number.isFinite(n) ? n : null;
 };
 
-// Normalitza el valor d'una categoria a una o més etiquetes (string).
-const categoryLabels = (raw) => {
-    if (raw === null || raw === undefined || raw === '') return ['(buit)'];
+// Normalizes a category's value into one or more labels (string).
+// `emptyLabel` is threaded in from the component (translated fallback for
+// null/blank categories) since this helper lives outside the component body.
+const categoryLabels = (raw, emptyLabel) => {
+    if (raw === null || raw === undefined || raw === '') return [emptyLabel];
     if (Array.isArray(raw)) {
         const out = raw.map((x) => (x && typeof x === 'object' ? String(x.name ?? '') : String(x))).filter((s) => s !== '');
-        return out.length ? out : ['(buit)'];
+        return out.length ? out : [emptyLabel];
     }
-    if (typeof raw === 'object') return [String(raw.name ?? raw.title ?? '(buit)')];
+    if (typeof raw === 'object') return [String(raw.name ?? raw.title ?? emptyLabel)];
     const s = String(raw).trim();
-    return s ? [s] : ['(buit)'];
+    return s ? [s] : [emptyLabel];
 };
 
 const aggregate = (values, fn) => {
@@ -62,6 +65,7 @@ const fmtNum = (n) => {
 };
 
 export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
+    const { t } = useTranslation();
     const chartType = String(activeView?.chartType || 'bar').toLowerCase();
     const xField = activeView?.xField || '';
     const yField = activeView?.yField || '';
@@ -69,10 +73,11 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
 
     const data = useMemo(() => {
         if (!xField) return [];
-        const buckets = new Map(); // label → array de valors (per agregar)
+        const emptyLabel = t('chart.empty_category', '(buit)');
+        const buckets = new Map(); // label → array of values (to aggregate)
         for (const note of notes) {
             const rawCat = getMetaValue(note, schema, xField);
-            const labels = categoryLabels(rawCat);
+            const labels = categoryLabels(rawCat, emptyLabel);
             const rawVal = yField ? getMetaValue(note, schema, yField) : null;
             const num = yField ? toNum(rawVal) : null;
             for (const label of labels) {
@@ -84,9 +89,9 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
             label,
             value: aggregate(yField ? vals : vals, aggregation),
         }));
-        // Ordena descendent per valor (com Notion) excepte si l'eix X és
-        // temporal (date/datetime/period: l'ordre lexicogràfic ISO és
-        // cronològic; un period "inici/fi" ordena pel seu inici).
+        // Sorts descending by value (like Notion) unless the X axis is
+        // temporal (date/datetime/period: the ISO lexicographic order is
+        // chronological; a "start/end" period sorts by its start).
         const xType = getFieldType(schema, xField);
         if (xType === 'date' || xType === 'datetime' || xType === 'period') {
             rows.sort((a, b) => String(a.label).localeCompare(String(b.label)));
@@ -94,37 +99,45 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
             rows.sort((a, b) => b.value - a.value);
         }
         return rows;
-    }, [notes, schema, xField, yField, aggregation]);
+    }, [notes, schema, xField, yField, aggregation, t]);
 
     if (!xField) {
         return (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center text-[var(--text-tertiary)]">
                 <BarChart3 size={40} className="opacity-40" />
                 <div className="max-w-sm text-sm">
-                    Configura el gràfic: tria un camp d'<strong>agrupació</strong> (eix X) i, opcionalment,
-                    un camp de <strong>valor</strong> i una funció d'agregació al menú de la vista.
+                    <Trans
+                        i18nKey="chart.configure_hint"
+                        defaults="Configura el gràfic: tria un camp d'<field>agrupació</field> (eix X) i, opcionalment, un camp de <value>valor</value> i una funció d'agregació al menú de la vista."
+                        components={{ field: <strong />, value: <strong /> }}
+                    />
                 </div>
             </div>
         );
     }
 
     if (data.length === 0) {
-        return <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">Cap dada per mostrar.</div>;
+        return <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">{t('chart.no_data', 'Cap dada per mostrar.')}</div>;
     }
 
     const maxVal = Math.max(...data.map((d) => d.value), 0) || 1;
-    // El pastís només pot representar valors POSITIUS: una fracció negativa fa
-    // retrocedir l'angle (arcs solapats) i un total ≤ 0 genera fraccions
-    // desorbitades (arcs de més d'una volta). S'exclouen els ≤ 0 i el total es
-    // recalcula sobre el subconjunt representat.
+    // The pie chart can only represent POSITIVE values: a negative fraction causes
+    // push the angle backward (overlapping arcs) and a total ≤ 0 generates fractions
+    // wild swings (arcs of more than one full turn). Values ≤ 0 are excluded and the total is
+    // recalculates over the represented subset.
     const pieData = data.filter((d) => d.value > 0);
     const pieTotal = pieData.reduce((a, d) => a + d.value, 0) || 1;
-    const yLabel = yField ? `${aggregation}(${yField})` : 'recompte';
+    const yLabel = yField ? `${aggregation}(${yField})` : t('chart.count_label', 'recompte');
 
     return (
         <div className="vault-chart overflow-auto p-4">
             <div className="mb-3 text-xs font-medium text-[var(--text-tertiary)]">
-                {yLabel} per <strong className="text-[var(--text-secondary)]">{xField}</strong>
+                <Trans
+                    i18nKey="chart.axis_summary"
+                    defaults="{{yLabel}} per <field>{{xField}}</field>"
+                    values={{ yLabel, xField }}
+                    components={{ field: <strong className="text-[var(--text-secondary)]" /> }}
+                />
             </div>
             {(chartType === 'bar') && <VerticalBars data={data} maxVal={maxVal} />}
             {(chartType === 'hbar') && <HorizontalBars data={data} maxVal={maxVal} />}
@@ -132,7 +145,7 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
             {(chartType === 'pie' || chartType === 'donut') && (
                 pieData.length > 0
                     ? <PieChart data={pieData} total={pieTotal} donut={chartType === 'donut'} />
-                    : <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">Cap dada per mostrar.</div>
+                    : <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">{t('chart.no_data', 'Cap dada per mostrar.')}</div>
             )}
         </div>
     );
@@ -198,7 +211,7 @@ function HorizontalBars({ data, maxVal }) {
     );
 }
 
-// ── Línia ───────────────────────────────────────────────────────────────────
+// ── Line ───────────────────────────────────────────────────────────────────
 function LineChart({ data, maxVal }) {
     const W = Math.max(320, data.length * 70);
     const H = 280;
@@ -228,7 +241,7 @@ function LineChart({ data, maxVal }) {
     );
 }
 
-// ── Pastís / Donut ──────────────────────────────────────────────────────────
+// ── Pie / Donut ──────────────────────────────────────────────────────────
 function PieChart({ data, total, donut }) {
     const size = 240;
     const cx = size / 2;

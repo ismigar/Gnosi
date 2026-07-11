@@ -19,7 +19,7 @@ class Notification(Base):
     message = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False)
 
-    # `timezone=True` perquè SQLAlchemy persisteixi l'offset i el response
+    # `timezone=True` so that SQLAlchemy persists the offset and the response
     # ISO inclogui `+00:00`. Vegeu backend/models/_datetime_utils.py.
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
@@ -39,7 +39,7 @@ class NotificationResponse(NotificationBase):
     is_read: bool
     created_at: datetime
 
-    # Pydantic v2: ConfigDict en lloc de class Config
+    # Pydantic v2: ConfigDict instead of class Config
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at")

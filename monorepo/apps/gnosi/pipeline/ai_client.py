@@ -136,7 +136,7 @@ def call_ai_client(
     use_cache: bool = True,
 ) -> str:
     """
-    Call AI with caching. Uses specified provider or primary provider.
+        Call AI with caching. Uses specified provider or primary provider.
 
     Args:
         prompt: The prompt to send
@@ -144,11 +144,12 @@ def call_ai_client(
         timeout: Timeout in seconds
         provider: Specific provider to use (or None for primary)
         use_cache: Read/write the prompt-hash cache. Set False for
-            non-deterministic generation (p.ex. l'editor de l'usuari), on
-            repetir el mateix prompt ha de tornar text nou, no el cachejat.
+            non-deterministic generation (e.g. the user's editor), where
+            repeating the same prompt must return new text, not the cached one.
 
     Returns:
         AI response content
+    
     """
     # 1. Check cache
     prompt_hash = hashlib.sha256(prompt.encode("utf-8")).hexdigest()

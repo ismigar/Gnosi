@@ -1,14 +1,14 @@
-"""Guarda anti-pèrdua de `save_page_md`: MAI escriure un `.md` sense `id`.
+"""Anti-data-loss guard in `save_page_md`: NEVER write a `.md` without `id`.
 
-Regressió "frontmatter mutilat". Una nota sense `id` al frontmatter s'indexa
-pel nom de fitxer (`metadata.get("id") or file_path.stem`), de manera que tots
-els wikilinks per UUID que hi apunten passen a fer 404 silenciosament.
-Vegeu la red flag a `docs/dev_memory/directives/wikilink_interactions.md`.
+Regression test for the "mutilated frontmatter" bug. A note without `id` in the frontmatter gets indexed
+by its file name (`metadata.get("id") or file_path.stem`), so all
+UUID wikilinks pointing to it silently start returning 404.
+See the red flag in `docs/dev_memory/directives/wikilink_interactions.md`.
 
-El bug real: `parse_frontmatter` torna `{}` en llegir un fitxer truncat/online
--only d'OneDrive; un PATCH de reparent hi afegeix només `parent_id` i el
-desa → frontmatter amb només `parent_id`. La guarda a `save_page_md` recupera
-l'`id` del disc (frontmatter o regex) o en genera un de nou.
+The actual bug: `parse_frontmatter` returns `{}` when reading a truncated/online
+-only OneDrive file; a reparent PATCH then adds only `parent_id` and
+saves it → frontmatter with only `parent_id`. The guard in `save_page_md` recovers
+the `id` from disk (frontmatter or regex) or generates a new one.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ UUID_RE = re.compile(
 
 @pytest.fixture()
 def vault(tmp_path: Path) -> Path:
-    """Vault mínim amb `.gnosi/` perquè `persist_sidecar_from` el detecti."""
+    """Minimal vault with `.gnosi/` so that `persist_sidecar_from` detects it."""
     (tmp_path / ".gnosi").mkdir()
     return tmp_path
 
@@ -52,23 +52,23 @@ def test_normal_write_keeps_id(vault: Path):
 
 
 def test_recovers_id_from_disk_when_caller_drops_it(vault: Path):
-    """El cas EXACTE del bug: PATCH reparent amb metadata sense `id`."""
+    """The EXACT case of the bug: reparent PATCH with metadata missing `id`."""
     f = vault / "nota.md"
     save_page_md(
         f,
         {"id": "22222222-2222-4222-8222-222222222222", "title": "Orig", "parent_id": "P1"},
         "cos",
     )
-    # Caller buggy: metadata només amb parent_id (id perdut per parse→{}).
+    # Buggy caller: metadata with only parent_id (id lost due to parse→{}).
     save_page_md(f, {"parent_id": "P2"}, "cos2")
     _id, _title, _parent = _read_fm(f)
-    assert _id == "22222222-2222-4222-8222-222222222222"  # recuperat del disc
-    assert _parent == "P2"  # el canvi demanat s'aplica
-    assert _title  # title no buit
+    assert _id == "22222222-2222-4222-8222-222222222222"  # recovered from disk
+    assert _parent == "P2"  # the requested change is applied
+    assert _title  # non-empty title
 
 
 def test_recovers_id_when_yaml_corrupt(vault: Path):
-    """Frontmatter amb YAML invàlid però amb `id:` extraïble (regex/fallback)."""
+    """Frontmatter with invalid YAML but with an extractable `id:` (regex/fallback)."""
     f = vault / "nota.md"
     f.write_text(
         "---\nid: 33333333-3333-4333-8333-333333333333\n\tbroken: : :\n---\ncos antic\n",
@@ -81,7 +81,7 @@ def test_recovers_id_when_yaml_corrupt(vault: Path):
 
 
 def test_generates_uuid_when_unrecoverable(vault: Path):
-    """Cap `id` recuperable → genera un uuid nou. MAI escriu sense `id`."""
+    """No recoverable `id` → generates a new uuid. NEVER writes without `id`."""
     f = vault / "nova.md"  # no existeix
     save_page_md(f, {"parent_id": "P4"}, "cos")
     _id, _title, _parent = _read_fm(f)
@@ -90,7 +90,7 @@ def test_generates_uuid_when_unrecoverable(vault: Path):
 
 
 def test_never_writes_empty_frontmatter(vault: Path):
-    """Ni amb metadata totalment buit el `.md` queda sense `id`."""
+    """Even with completely empty metadata, the `.md` never ends up without an `id`."""
     f = vault / "buida.md"
     save_page_md(f, {}, "cos")
     _id, _title, _parent = _read_fm(f)

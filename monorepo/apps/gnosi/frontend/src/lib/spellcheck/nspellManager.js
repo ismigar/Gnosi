@@ -1,34 +1,34 @@
 import { SUPPORTED_LANGS } from './detectLang';
 
-// Gestor de correctors basat en Hunspell compilat a WebAssembly (hunspell-asm).
-// Es va triar Hunspell-WASM en lloc de nspell perquè el diccionari català
+// Spell-checker manager based on Hunspell compiled to WebAssembly (hunspell-asm).
+// Hunspell-WASM was chosen over nspell because the Catalan dictionary
 // (~210k arrels, FLAG long) fa petar nspell («Too many properties to enumerate»);
-// Hunspell el gestiona nativament i ràpid (~200 ms). El WASM va incrustat al
-// bundle del navegador → funciona igual en dev, Electron i web estàtica.
+// Hunspell handles it natively and fast (~200 ms). The WASM is embedded in the
+// browser bundle → it works the same in dev, Electron, and static web.
 //
-// Els diccionaris Hunspell (.aff/.dic) es serveixen com a assets estàtics des de
-// /public/dictionaries i es carreguen de forma mandrosa. Tot viu al client.
+// The Hunspell dictionaries (.aff/.dic) are served as static assets from
+// /public/dictionaries and are loaded lazily. Everything lives on the client.
 
 const PERSONAL_KEY = 'gnosi_spell_personal';
 
-let factoryPromise = null;      // Promise<HunspellFactory> (mòdul WASM, una sola vegada)
+let factoryPromise = null;      // Promise<HunspellFactory> (WASM module, only once)
 const cache = new Map();        // lang -> Promise<adapter|null>
 const instances = new Map();    // lang -> adapter (ja resolt)
 
 function getFactory() {
-    // Import dinàmic: el WASM d'Hunspell (~640 kB gzip) només es baixa quan el
-    // corrector s'activa realment, no al carregar l'editor.
+    // Dynamic import: the Hunspell WASM (~640 kB gzip) is only downloaded when the
+    // the checker actually activates, not when the editor loads.
     //
-    // No usem el `loadModule` del paquet: la seva entrada ESM fa
-    // `import * as runtime from './lib/node/hunspell'` sobre un mòdul Emscripten
-    // CJS; en fer-ne bundle, el namespace no és cridable («runtimeModule is not
-    // a function»). Repliquem el loader important DIRECTAMENT el factory del
+    // We don't use the package's `loadModule`: its ESM entry does
+    // `import * as runtime from './lib/node/hunspell'` on top of an Emscripten module
+    // CJS; when bundled, the namespace isn't callable ("runtimeModule is not
+    // a function»). We replicate the loader, importing the factory DIRECTLY from the
     // navegador i desembolcallant `.default`.
     if (!factoryPromise) {
-        // Fem servir el build CJS: replica el camí que funciona a Node (els
-        // `require` interns es converteixen correctament, inclòs nanoid, i el
-        // camp `browser` del paquet remapa el runtime node→navegador). El build
-        // ESM del paquet, en canvi, es trenca en fer-ne bundle.
+        // We use the CJS build instead: it replicates the path that works in Node (the
+        // internal `require`s get converted correctly, including nanoid, and the
+        // the package's `browser` field remaps the node→browser runtime). The build
+        // the package's ESM, however, breaks when it's bundled.
         factoryPromise = import('hunspell-asm/dist/cjs/index.js').then((m) => {
             const loadModule = m.loadModule || m.default?.loadModule || m.default;
             return loadModule();
@@ -37,7 +37,7 @@ function getFactory() {
     return factoryPromise;
 }
 
-/** Paraules afegides per l'usuari («Afegeix al diccionari»), compartides entre idiomes. */
+/** Words added by the user ("Add to dictionary"), shared across languages. */
 export function getPersonalWords() {
     try {
         const raw = localStorage.getItem(PERSONAL_KEY);
@@ -52,13 +52,13 @@ function savePersonalWords(words) {
     try {
         localStorage.setItem(PERSONAL_KEY, JSON.stringify([...new Set(words)]));
     } catch {
-        /* quota plena o mode privat: no és crític */
+        /* quota full or private mode: not critical */
     }
 }
 
 /**
- * Afegeix una paraula al diccionari personal i a tots els correctors ja
- * carregats. Persisteix a localStorage perquè sobrevisqui a recàrregues.
+ * Adds a word to the personal dictionary and to all spell checkers already
+ * loaded. Persists it to localStorage so it survives reloads.
  */
 export function addPersonalWord(word) {
     const w = (word || '').trim();
@@ -73,7 +73,7 @@ export function addPersonalWord(word) {
     }
 }
 
-/** Embolcalla una instància Hunspell amb l'API que espera el plugin (correct/suggest/add). */
+/** Wraps a Hunspell instance with the API the plugin expects (correct/suggest/add). */
 function makeAdapter(hs) {
     return {
         correct: (w) => {
@@ -89,10 +89,10 @@ function makeAdapter(hs) {
 }
 
 /**
- * Carrega (o retorna de la caché) el corrector d'un idioma. Retorna una promesa
- * amb un adapter { correct, suggest, add }, o `null` si l'idioma no està suportat
- * o falla la càrrega (mai llança: el corrector és una millora, no ha de trencar
- * l'editor).
+ * Loads (or returns from cache) the spell checker for a language. Returns a promise
+ * with an adapter { correct, suggest, add }, or `null` if the language isn't supported
+ * or the load fails (never throws: the spell checker is an enhancement, it must not break
+ * the editor).
  */
 export function loadSpeller(lang) {
     if (!SUPPORTED_LANGS.includes(lang)) return Promise.resolve(null);
@@ -120,7 +120,7 @@ export function loadSpeller(lang) {
             instances.set(lang, adapter);
             return adapter;
         } catch (err) {
-            cache.delete(lang); // permet reintentar més tard
+            cache.delete(lang); // allows retrying later
             console.warn(`[spellcheck] no s'ha pogut carregar el diccionari «${lang}»:`, err);
             return null;
         }
@@ -130,7 +130,7 @@ export function loadSpeller(lang) {
     return promise;
 }
 
-/** Instància ja resolta (síncron), o `null` si encara no s'ha carregat. */
+/** Already-resolved instance (synchronous), or `null` if it hasn't loaded yet. */
 export function getReadySpeller(lang) {
     return instances.get(lang) || null;
 }

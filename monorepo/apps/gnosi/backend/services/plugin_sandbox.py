@@ -1,24 +1,24 @@
-"""Sandbox de dades: executa un plugin de tercers dins d'un Node capat (fase 3).
+"""Data sandbox: runs a third-party plugin inside a restricted Node (phase 3).
 
-Arrenca `plugin_runtime/runner.mjs` amb `node --permission` (bloqueja fs-write,
-child_process i worker) i li passa un esdeveniment. El plugin només pot tocar el
-vault via RPC sobre stdio; aquí es valida CADA crida contra els permisos que
-l'usuari ha concedit (`plugin_system.has_permission`).
+Launches `plugin_runtime/runner.mjs` with `node --permission` (blocks fs-write,
+child_process and worker) and passes it an event. The plugin can only touch the
+vault via RPC over stdio; here EVERY call is validated against the permissions
+the user has granted (`plugin_system.has_permission`).
 
-Disseny:
-  * Comunicació newline-JSON amb el subprocés (protocol a runner.mjs).
-  * Blocking I/O amb un thread lector de stdout: aquest mòdul ja s'invoca des
-    d'un thread daemon de `plugin_events.emit`, així que bloquejar és correcte.
-  * Timeout de paret dur: si el plugin no acaba a temps, es mata el procés.
-  * Els handlers del host (readPage/writePage/queryDB/fetch) s'INJECTEN des de la
-    capa de rutes per no importar vault_routes aquí (evita import circular).
+Design:
+  * Newline-JSON communication with the subprocess (protocol in runner.mjs).
+  * Blocking I/O with a stdout-reading thread: this module is already invoked
+    from a daemon thread of `plugin_events.emit`, so blocking is fine.
+  * Hard wall-clock timeout: if the plugin doesn't finish in time, the process is killed.
+  * The host handlers (readPage/writePage/queryDB/fetch) are INJECTED from the
+    routes layer so as not to import vault_routes here (avoids a circular import).
 
-Bloqueig de xarxa: el model de permisos de Node NO gita xarxa directament, però
-el runner el fa DUR quan no hi ha permís `network` — un hook ESM síncron
-(`module.registerHooks`) rebutja tot `import` de mòduls de xarxa i es neutralitzen
-els globals (fetch/WebSocket/…). Amb child_process/worker/addons ja bloquejats per
-`--permission`, un plugin ESM no pot obrir cap connexió. fs-write i exec SÍ queden
-bloquejats de debò per `--permission`.
+Network blocking: Node's permission model does NOT gate network access directly,
+but the runner makes it HARD when there's no `network` permission — a synchronous
+ESM hook (`module.registerHooks`) rejects every `import` of network modules and
+neutralizes the globals (fetch/WebSocket/…). With child_process/worker/addons
+already blocked by `--permission`, an ESM plugin cannot open any connection.
+fs-write and exec ARE genuinely blocked by `--permission`.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 _RUNNER = Path(__file__).parent / "plugin_runtime" / "runner.mjs"
 _DEFAULT_TIMEOUT_S = 15.0
 
-# Mètode RPC → permís requerit. Un mètode sense entrada aquí es denega per
+# RPC method → required permission. A method without an entry here is denied by
 # defecte (fail-closed).
 _METHOD_PERMISSION: Dict[str, str] = {
     "vault.readPage": "vault:read",
@@ -51,14 +51,14 @@ _METHOD_PERMISSION: Dict[str, str] = {
     "network.fetch": "network",
 }
 
-# Handlers del host, injectats des de les rutes. Signatura: (args, plugin_id) -> Any.
-# El plugin_id permet als handlers de `settings` saber a QUIN plugin pertoquen.
-# Poden llançar; l'error es reenvia al plugin com a rebuig de la promesa.
+# Host handlers, injected from the routes. Signature: (args, plugin_id) -> Any.
+# The plugin_id lets `settings` handlers know WHICH plugin they belong to.
+# They may raise; the error is forwarded to the plugin as a promise rejection.
 _host_handlers: Dict[str, Callable[[Dict[str, Any]], Any]] = {}
 
 
 def set_host_handlers(handlers: Dict[str, Callable[[Dict[str, Any]], Any]]) -> None:
-    """Injecta les implementacions reals de vault.*/network.* des de les rutes."""
+    """Injects the real implementations of vault.*/network.* from the routes."""
     global _host_handlers
     _host_handlers = dict(handlers or {})
 
@@ -76,11 +76,12 @@ def run_event(
     *,
     timeout_s: float = _DEFAULT_TIMEOUT_S,
 ) -> Dict[str, Any]:
-    """Executa `onEvent` d'un plugin al sandbox. Retorna un resum del resultat.
+    """Runs a plugin's `onEvent` in the sandbox. Returns a summary of the result.
 
-    Bloquejant. Pensat per córrer dins del thread d'esdeveniment de
-    `plugin_events`. Mai llança per culpa del plugin: encapsula els errors al
-    dict de retorn (`{ok, error?, logs, rpc_count}`).
+    Blocking. Meant to run inside `plugin_events`'s event thread. Never raises
+    because of the plugin: it wraps errors in the return dict
+    (`{ok, error?, logs, rpc_count}`).
+    
     """
     pid = manifest["id"]
     backend_entry = manifest.get("backend")
@@ -111,7 +112,7 @@ def run_event(
     env = dict(os.environ)
     env["GNOSI_PLUGIN_MAIN"] = str(main_path)
     env["GNOSI_PLUGIN_NET"] = net
-    # No filtrem tot l'env (node en necessita part), però traiem secrets obvis.
+    # We don't filter out the whole env (node needs part of it), but we strip obvious secrets.
     for k in list(env.keys()):
         if any(s in k.upper() for s in ("SECRET", "TOKEN", "PASSWORD", "API_KEY")):
             env.pop(k, None)
@@ -153,7 +154,7 @@ def run_event(
         except Exception:  # noqa: BLE001
             pass
 
-    # Envia l'esdeveniment i llegeix el diàleg RPC fins a done/error/EOF.
+    # Sends the event and reads the RPC dialogue until done/error/EOF.
     _write({"type": "event", "event": {"name": event_name, "payload": payload}})
     try:
         for line in proc.stdout:  # type: ignore[union-attr]

@@ -27,12 +27,12 @@ class RuleEngine:
         self._lookup_cache: Dict[Tuple[str, str, str], Any] = {}
         self._query_cache: Dict[Tuple[str, str, Optional[str]], Any] = {}
         self._current_note_id: Optional[str] = None
-        # L'instància de RuleEngine és cachejada per vault a vault_routes.py i
-        # compartida entre requests. Sense lock, dos `process_updates` concurrents
-        # es trepitgen `_current_note_id` i les caches `_lookup_cache`/`_query_cache`
-        # → fórmules retornen valors d'una altra nota. El lock serialitza
-        # l'evaluació; com que això només passa en saves (no reads), no és coll
-        # d'ampolla pràctic.
+        # The RuleEngine instance is cached per vault in vault_routes.py and
+        # shared between requests. Without a lock, two concurrent `process_updates`
+        # would clobber `_current_note_id` and the `_lookup_cache`/`_query_cache` caches
+        # → formulas return values from another note. The lock serializes
+        # the evaluation; since this only happens on saves (not reads), it isn't a
+        # practical bottleneck.
         self._eval_lock = threading.Lock()
 
     def _setup_evaluator(self):
@@ -215,13 +215,13 @@ class RuleEngine:
         if not expression:
             return deps
 
-        # Placeholder syntax: {Camp Amb Espais}
+        # Placeholder syntax: {Field With Spaces}
         for raw in re.findall(r"\{([^}]+)\}", expression):
             name = (raw or "").strip()
             if name in known_fields and name != field_name:
                 deps.add(name)
 
-        # prop("camp") or prop('camp')
+        # prop("field") or prop('field')
         for raw in re.findall(r"prop\(\s*['\"]([^'\"]+)['\"]\s*\)", expression):
             name = (raw or "").strip()
             if name in known_fields and name != field_name:
@@ -246,7 +246,7 @@ class RuleEngine:
         parsed_expression = expression
         placeholder_index = 0
 
-        # Support frontend syntax with placeholders like {Camp}.
+        # Support frontend syntax with placeholders like {Field}.
         token_names: List[str] = []
         for raw in re.findall(r"\{([^}]+)\}", expression):
             field_name = (raw or "").strip()
@@ -406,11 +406,11 @@ class RuleEngine:
 
     @staticmethod
     def _is_truthy_checkbox(value: Any) -> bool:
-        # Paritat 1:1 amb els altres TRES conjunts de veritat de checkbox —
+        # 1:1 parity with the other THREE checkbox sources of truth —
         # asBool (vaultFilters.js), FILTER_TRUTHY (DbViewEmbed) i _TRUTHY
-        # (view_snapshot) — que inclouen "sí" ACCENTUAT i en reclamen la
-        # paritat amb aquesta funció. Sense "sí", una casella desada en
-        # català comptava com a marcada a filtres/vistes/snapshot però NO al
+        # (view_snapshot) — which include the ACCENTED "sí" and require
+        # parity with this function. Without "sí", a checkbox saved in
+        # Catalan counted as checked in filters/views/snapshot but NOT in the
         # rollup percent_checked (percentatge infravalorat en silenci).
         if isinstance(value, bool):
             return value
@@ -531,14 +531,14 @@ class RuleEngine:
             return len(unique_tokens)
 
         if aggregation == "percent_checked":
-            # Denominador = TOTS els registres relacionats (com Notion i com el
-            # càlcul en viu del frontend `evaluateRollup`, que divideix per
-            # `values.length`), NO només els que tenen la casella amb valor.
-            # Una casella no marcada sovint es desa com a absent/buida; usar
-            # `len(non_empty)` l'excloïa del denominador, inflant el percentatge
-            # i fent-lo divergir del valor mostrat en viu (p. ex. 2 de 4 → 66,67%
-            # persistit vs 50% en viu). Vegeu `_is_truthy_checkbox` per la
-            # paritat de la condició "marcada".
+            # Denominator = ALL related records (like Notion and like the
+            # frontend's live calculation `evaluateRollup`, which divides by
+            # `values.length`), NOT just the ones whose checkbox has a value.
+            # An unchecked checkbox is often saved as absent/empty; using
+            # `len(non_empty)` excluded it from the denominator, inflating the percentage
+            # and making it diverge from the value shown live (e.g. 2 of 4 → 66,67%
+            # persisted vs 50% live). See `_is_truthy_checkbox` for the
+            # parity with the "checked" condition.
             if not flat_values:
                 return with_fallback(0)
             checked = sum(1 for value in flat_values if self._is_truthy_checkbox(value))
@@ -624,8 +624,8 @@ class RuleEngine:
                 metadata = self._parse_metadata(record_path)
                 val = metadata.get(property_name)
                 self._lookup_cache[cache_key] = val
-                # Sempre append el resultat cacheado (incl. falsy: 0, "", False). Solo skip None.
-                # Sense això, 1a crida omitia falsy vals; 2a crida (cache hit) els incloïa → non-deterministic.
+                # Always append the cached result (incl. falsy: 0, "", False). Only skip None.
+                # Without this, the 1st call omitted falsy values; the 2nd call (cache hit) included them → non-deterministic.
                 if val is not None:
                     if isinstance(val, list):
                         results.extend(val)
@@ -637,10 +637,10 @@ class RuleEngine:
         
         # Return list if multiple, else single value
         if not results: return None
-        # Remove duplicates while preserving order. Els camps imatge compostos són dicts
-        # (no-hashables): si el primer valor és un dict, mantenim la llista tal qual; si és
-        # escalar però n'hi ha un de dict més enrere, `dict.fromkeys` petaria amb TypeError,
-        # així que fem dedup manual per igualtat com a fallback.
+        # Remove duplicates while preserving order. Composite image fields are dicts
+        # (non-hashable): if the first value is a dict, we keep the list as is; if it's
+        # scalar but there's a dict further back, `dict.fromkeys` would blow up with a TypeError,
+        # so we do manual dedup by equality as a fallback.
         if isinstance(results[0], dict):
             unique_results = list(results)
         else:
@@ -807,9 +807,9 @@ class RuleEngine:
         if match:
             try:
                 meta = yaml.safe_load(match.group(1)) or {}
-                # Lookups/rollups segueixen camps de relació d'altres files: cal
-                # despullar '[[Títol|id]]' → id. La detecció dels camps de
-                # relació és per ESQUEMA (no per cap prefix al nom).
+                # Lookups/rollups follow relation fields from other rows: we need to
+                # strip '[[Title|id]]' → id. Detection of relation
+                # fields is SCHEMA-based (not based on any prefix in the name).
                 tid = meta.get("table_id") or meta.get("database_table_id")
                 rel_keys = relation_keys_from_table(
                     self._resolve_table_by_id(tid)) if tid else None
@@ -824,7 +824,7 @@ class RuleEngine:
             return self._process_updates_locked(note_id, old_metadata, request_metadata)
 
     def _process_updates_locked(self, note_id: str, old_metadata: Dict[str, Any], request_metadata: Dict[str, Any]) -> Dict[str, Any]:
-        """Implementació real de process_updates. Cridada amb el lock pres."""
+        """Actual implementation of process_updates. Called with the lock held."""
         # Registry can change at runtime when schema is edited from frontend.
         # Reload per update to keep formula definitions fresh.
         self.registry = self._load_registry()
@@ -866,7 +866,7 @@ class RuleEngine:
         for auto in automations:
             try:
                 if self._automation_triggered(auto.get("trigger", {}), old_metadata, updated_metadata):
-                    # Suporta una sola `action` o una llista `actions` (estil Notion).
+                    # Supports a single `action` or a list of `actions` (Notion style).
                     actions = auto.get("actions")
                     if not isinstance(actions, list):
                         actions = [auto.get("action", {})]
@@ -878,14 +878,15 @@ class RuleEngine:
         return updated_metadata
 
     def _automation_triggered(self, trigger: Dict[str, Any], old_metadata: Dict[str, Any], meta: Dict[str, Any]) -> bool:
-        """Decideix si una automatització s'ha de disparar.
+        """Decides whether an automation should fire.
 
-        Tipus de trigger:
-          - `always`: cada desat.
-          - `property_change`: quan una propietat canvia. Condicions opcionals:
-              `to` (valor final ha de coincidir), `from` (valor previ ha de
-              coincidir), `equals` (valor actual ha de coincidir, encara que no
-              hagi canviat).
+        Trigger types:
+          - `always`: every save.
+          - `property_change`: when a property changes. Optional conditions:
+              `to` (final value must match), `from` (previous value must
+              match), `equals` (current value must match, even if it
+              hasn't changed).
+        
         """
         ttype = trigger.get("type", "property_change")
         if ttype == "always":
@@ -896,23 +897,23 @@ class RuleEngine:
                 return False
             old_val = old_metadata.get(prop)
             new_val = meta.get(prop)
-            # `equals`: dispara si el valor actual coincideix (independent del canvi).
+            # `equals`: fires if the current value matches (regardless of the change).
             if "equals" in trigger:
                 return str(new_val) == str(trigger.get("equals"))
             changed = old_val != new_val
             if not changed:
                 return False
-            # Comparar valores reals, no strings: None i "" són equivalents (value era buit).
-            # Sense això, `str(None)="None"` vs `str("")=""` no casava → automation no disparava.
+            # Compare actual values, not strings: None and "" are equivalent (the value was empty).
+            # Without this, `str(None)="None"` vs `str("")=""` didn't match → the automation wouldn't fire.
             if "to" in trigger:
                 expected_new = trigger.get("to")
-                # None i "" considerades equivalents per "empty".
+                # None and "" considered equivalent for "empty".
                 if not ((new_val is None or new_val == "") and (expected_new is None or expected_new == "")):
                     if str(new_val) != str(expected_new):
                         return False
             if "from" in trigger:
                 expected_old = trigger.get("from")
-                # None i "" considerades equivalents per "empty".
+                # None and "" considered equivalent for "empty".
                 if not ((old_val is None or old_val == "") and (expected_old is None or expected_old == "")):
                     if str(old_val) != str(expected_old):
                         return False
@@ -920,17 +921,18 @@ class RuleEngine:
         return False
 
     def _apply_automation_action(self, action: Dict[str, Any], meta: Dict[str, Any]) -> None:
-        """Aplica una acció d'automatització sobre `meta` (in-place).
+        """Applies an automation action to `meta` (in-place).
 
-        Tipus suportats: update_property (expressió), set_property (valor literal),
-        set_today (data d'avui), clear_property (buida), append_text (afegeix
-        text), increment (suma numèrica). Respecta sempre els overrides manuals.
+        Supported types: update_property (expression), set_property (literal value),
+        set_today (today's date), clear_property (empties it), append_text (appends
+        text), increment (numeric addition). Always respects manual overrides.
+        
         """
         atype = action.get("type", "update_property")
         target = action.get("target_property") or action.get("target")
         if not target:
             return
-        # No sobreescriguis mai un camp que l'usuari ha editat manualment.
+        # Never overwrite a field that the user has manually edited.
         if meta.get(f"{target}_manual"):
             return
 
@@ -967,7 +969,7 @@ class RuleEngine:
                 by = float(action.get("by", 1))
                 current = float(meta.get(target) or 0)
                 val = current + by
-                # Manté int si no hi ha decimals.
+                # Keeps int if there are no decimals.
                 meta[target] = int(val) if val == int(val) else val
                 self.evaluator.names[target] = meta[target]
             except (ValueError, TypeError):

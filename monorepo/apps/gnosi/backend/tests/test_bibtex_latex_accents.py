@@ -1,9 +1,9 @@
-r"""`_decode_latex_accents` no ha de corrompre les comandes LaTeX de paraula.
+r"""`_decode_latex_accents` must not corrupt word-based LaTeX commands.
 
-L'antic regex `\([cvuH])\{?(\w)\}?` (clau OPCIONAL) casava comandes com
-`\url{…}`, `\cite{…}` o `\verbatim` i les convertia en text accentuat brossa
-(`\url` → `r̆l`, perquè `\u`+`r` es llegia com a breve). Els accents braced
-(`\c{c}`, `\v{S}`…) han de seguir funcionant.
+The old regex `\([cvuH])\{?(\w)\}?` (OPTIONAL brace) matched commands like
+`\url{…}`, `\cite{…}` or `\verbatim` and turned them into garbled accented text
+(`\url` → `r̆l`, because `\u`+`r` was read as a breve). Braced accents
+(`\c{c}`, `\v{S}`…) must keep working.
 """
 from backend.services.references_io import _decode_latex_accents as dec
 
@@ -22,7 +22,7 @@ def test_accents_simbol_sense_clau():
 
 
 def test_comandes_latex_no_es_corrompen():
-    # Abans: '\\url{…}' → 'r̆l{…}', '\\cite{…}' → 'i̧te{…}', '\\verbatim' → 'ěrbatim'
+    # Before: '\\url{…}' → 'r̆l{…}', '\\cite{…}' → 'i̧te{…}', '\\verbatim' → 'ěrbatim'
     assert dec(r"\url{http://ex.com}") == r"\url{http://ex.com}"
     assert dec(r"\cite{key2020}") == r"\cite{key2020}"
     assert dec(r"\verbatim text") == r"\verbatim text"

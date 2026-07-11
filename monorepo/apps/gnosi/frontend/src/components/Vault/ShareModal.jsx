@@ -13,8 +13,8 @@ const PERMISSIONS = [
 ];
 
 /**
- * Modal "Compartir" estil Notion: crea/llista/revoca enllaços públics d'una
- * pàgina. L'enllaç apunta a `/s/{token}`, accessible sense sessió.
+ * Notion-style "Share" modal: creates/lists/revokes public links for a
+ * page. The link points to `/s/{token}`, accessible without a session.
  */
 export function ShareModal({ pageId, pageTitle, open, onClose }) {
     const { t, i18n } = useTranslation();

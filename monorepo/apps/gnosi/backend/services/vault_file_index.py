@@ -1,39 +1,39 @@
-"""vault_file_index.py — Índex de noms de fitxers/carpetes del Vault.
+"""vault_file_index.py — Vault file/folder name index.
 
-Per què existeix
+Why it exists
 ----------------
-El picker "Seleccionar fitxer o carpeta" cerca per `/api/system/search`, que
-delegava a Spotlight (`mdfind`) via el `host_open_helper`. Però el helper, com
-a dimoni de llarga durada, NO veu de forma fiable `~/Library/CloudStorage`
-(OneDrive): el File Provider d'OneDrive es ranceja per al seu context i `mdfind`
-torna buit per a tot el Vault (símptoma: "no troba" fitxers com "Ética de Kant").
-Un kickstart del helper NO ho arregla.
+The "Select file or folder" picker searches via `/api/system/search`, which
+delegated to Spotlight (`mdfind`) via the `host_open_helper`. But the helper, as
+a long-running daemon, does NOT reliably see `~/Library/CloudStorage`
+(OneDrive): OneDrive's File Provider goes stale for its context and `mdfind`
+returns empty for the whole Vault (symptom: it "can't find" files like "Ética de Kant").
+A kickstart of the helper does NOT fix it.
 
-El contenidor del backend té tot HOME muntat (`${HOME}:${HOME}:ro`) i llegeix
-`~/Library/CloudStorage` de forma fiable amb `os.walk` (inclosos els fitxers
-ONLINE-ONLY, que també hi surten). Per això mantenim aquí un índex de noms en
-memòria, construït en segon pla, que cobreix TOTA la CloudStorage (OneDrive,
-Google Drive…), no només el Vault — vegeu `_index_roots`.
+The backend container has all of HOME mounted (`${HOME}:${HOME}:ro`) and reliably
+reads `~/Library/CloudStorage` with `os.walk` (including ONLINE-ONLY files,
+which also show up there). That's why we keep an in-memory name index here,
+built in the background, that covers ALL of CloudStorage (OneDrive,
+Google Drive…), not just the Vault — see `_index_roots`.
 
-Per què UNIÓ i no REPLACE (clau per als online-only)
+Why MERGE and not REPLACE (key for online-only files)
 ---------------------------------------------------
-`os.walk` sobre OneDrive és **intermitent**: normalment retorna l'arbre sencer
-(~110k entrades, ~15s, amb tots els online-only), però de tant en tant el File
-Provider serveix llistats de carpeta buits/no hidratats i el walk torna una
-fracció (p.ex. 37k, 1s). Si l'índex fes REPLACE, un walk parcial **encongiria**
-l'índex i la cerca deixaria de trobar els online-only fins al proper walk
-complet. Per això cada build **fusiona** (unió per ruta) en comptes de
-substituir: un walk parcial mai treu res; quan passa un walk complet, l'índex
-ja té tot. Les entrades realment desaparegudes es purguen per `last_seen`, però
-NOMÉS després d'un walk substancial (mai per un de parcial).
+`os.walk` over OneDrive is **intermittent**: it usually returns the whole tree
+(~110k entries, ~15s, with all online-only files), but every so often the File
+Provider serves empty/non-hydrated folder listings and the walk returns a
+fraction (e.g. 37k, 1s). If the index did REPLACE, a partial walk would **shrink**
+the index and search would stop finding the online-only files until the next
+full walk. That's why each build **merges** (union by path) instead of
+replacing: a partial walk never removes anything; when a full walk happens, the index
+already has everything. Entries that have truly disappeared are pruned by `last_seen`, but
+ONLY after a substantial walk (never after a partial one).
 
-Disseny (emmirallant `vault_routes` page/link index)
+Design (mirroring the `vault_routes` page/link index)
 ----------------------------------------------------
-* Build en un **thread** (no asyncio): I/O-bound sobre un muntatge cloud.
-* **Càrrega de disc primer** (mil·lisegons) + rebuild en segon pla → la cerca
-  està disponible a l'instant després d'un reinici i la coberta s'acumula.
-* Swap atòmic sota un lock → les consultes mai veuen un índex a mig construir.
-* Cache al volum local `/app/data/cache/` (MAI a OneDrive).
+* Build in a **thread** (not asyncio): I/O-bound over a cloud mount.
+* **Load from disk first** (milliseconds) + background rebuild → search
+  is available instantly after a restart and coverage accumulates.
+* Atomic swap under a lock → queries never see a half-built index.
+* Cache in the local volume `/app/data/cache/` (NEVER in OneDrive).
 """
 
 import json
@@ -47,29 +47,29 @@ from typing import Any, Dict, List
 
 log = logging.getLogger(__name__)
 
-# ── Configuració ──
+# ── Configuration ──
 _VAULT_INTERNAL = os.environ.get("DIGITAL_BRAIN_VAULT_PATH") or "/vault"
 _VAULT_HOST = os.environ.get("VAULT_HOST_PATH") or ""
 _LOCAL_DATA = Path(os.environ.get("GNOSI_LOCAL_DATA") or "/app/data")
 _CACHE_PATH = _LOCAL_DATA / "cache" / "vault_file_index.json"
-# Refresc periòdic (segons). El walk és metadata-only (no baixa fitxers).
+# Periodic refresh (seconds). The walk is metadata-only (it doesn't download files).
 _REFRESH_SECONDS = int(os.environ.get("GNOSI_FILE_INDEX_REFRESH_SECONDS", "600"))
-# Una entrada no vista en cap walk durant aquest temps es considera esborrada i
-# es purga — però NOMÉS en un walk substancial (vegeu _PRUNE_MIN_RATIO).
+# An entry not seen in any walk during this time is considered deleted and
+# is pruned — but ONLY in a substantial walk (see _PRUNE_MIN_RATIO).
 _STALE_SECONDS = int(os.environ.get("GNOSI_FILE_INDEX_STALE_SECONDS", str(7 * 24 * 3600)))
-# Només purguem si el walk actual ha vist com a mínim aquesta fracció de l'índex
-# previ (= walk "complet"); així un walk parcial intermitent no esborra res.
+# We only prune if the current walk has seen at least this fraction of the index
+# previous (= a "complete" walk); this way an intermittent partial walk doesn't delete anything.
 _PRUNE_MIN_RATIO = 0.6
 
-# Carpetes que mai s'indexen (soroll o ocultes). Mateix criteri que la cerca.
+# Folders that are never indexed (noise or hidden). Same criteria as search.
 _SKIP_DIRS = {
     "node_modules", ".git", "__pycache__", ".cache", ".local", ".npm",
     ".Trash", "Trash", ".obsidian", ".gnosi", ".Dashboards",
 }
 
-# ── Estat (protegit per _lock) ──
-# Dict ruta(host) → {"name","name_norm","is_dir","last_seen"}. Dict (no llista)
-# per fusionar walks per ruta sense duplicats.
+# ── State (protected by _lock) ──
+# Dict path(host) → {"name","name_norm","is_dir","last_seen"}. Dict (not a list)
+# to merge walks by path without duplicates.
 _lock = threading.Lock()
 _by_path: Dict[str, Dict[str, Any]] = {}
 _built_at: float = 0.0
@@ -78,36 +78,37 @@ _thread_started = False
 
 
 def _norm(s: str) -> str:
-    """Normalitza per a comparació: NFC (macOS desa en NFD) + casefold."""
+    """Normalize for comparison: NFC (macOS stores in NFD) + casefold."""
     return unicodedata.normalize("NFC", s).casefold()
 
 
 def _to_host(internal_path: str) -> str:
-    """Mapeja una ruta interna del contenidor a la ruta HOST (la que veu Finder
-    i que el frontend pot obrir). Només el Vault es munta a `/vault`."""
+    """Maps an internal container path to the HOST path (the one Finder
+    sees and that the frontend can open). Only the Vault is mounted at `/vault`."""
     if _VAULT_HOST and internal_path.startswith(_VAULT_INTERNAL):
         return _VAULT_HOST + internal_path[len(_VAULT_INTERNAL):]
     return internal_path
 
 
 def _index_roots() -> List[str]:
-    """Arrels a indexar (rutes HOST, accessibles al contenidor via el mount HOME
-    `ro`). Indexem TOT `~/Library/CloudStorage` (OneDrive, Google Drive…), no
-    només el Vault: el helper (mdfind) no veu de forma fiable CAP carpeta de
-    CloudStorage des del seu context, així que tot el que hi viu (Vault,
-    Biblioteca, Documents/ESS, etc.) ha d'anar a l'índex. La resta de HOME
-    (Documents/Downloads LOCALS, fora de CloudStorage) la cobreix el helper.
+    """Roots to index (HOST paths, accessible in the container via the HOME
+    `ro` mount). We index ALL of `~/Library/CloudStorage` (OneDrive, Google Drive…), not
+    just the Vault: the helper (mdfind) does not reliably see ANY CloudStorage
+    folder from its context, so everything that lives there (Vault,
+    Biblioteca, Documents/ESS, etc.) must go into the index. The rest of HOME
+    (LOCAL Documents/Downloads, outside CloudStorage) is covered by the helper.
 
-    Per què va caldre: l'usuari cercava `Presentación vivienda cooperativa.pdf`
-    (a `OneDrive-UNED/Documents/ESS/`, fora del Vault) i no sortia perquè
-    l'índex només cobria Vault + Biblioteca.
+    Why this was needed: the user was searching for `Presentación vivienda cooperativa.pdf`
+    (in `OneDrive-UNED/Documents/ESS/`, outside the Vault) and it wasn't showing up because
+    the index only covered Vault + Biblioteca.
+    
     """
     home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
     cloudstorage = os.path.join(home, "Library", "CloudStorage")
     if Path(cloudstorage).is_dir():
         return [cloudstorage]
-    # Fallback (layouts sense CloudStorage o fora de Docker): el Vault (la
-    # Biblioteca viu a dins des del disseny vault-first pur).
+    # Fallback (layouts without CloudStorage or outside Docker): the Vault (the
+    # Biblioteca lives inside since the pure vault-first design).
     roots: List[str] = []
     if Path(_VAULT_INTERNAL).is_dir():
         roots.append(_VAULT_INTERNAL)
@@ -115,10 +116,10 @@ def _index_roots() -> List[str]:
 
 
 def _walk() -> List[Dict[str, Any]]:
-    """Recorre les arrels i retorna la llista plana d'entrades (pot ser parcial
-    si el File Provider serveix llistats incomplets en aquest moment). Les rutes
-    es retornen sempre com a HOST (via `_to_host`, que només mapeja el prefix
-    `/vault` del fallback; les arrels de CloudStorage ja són host)."""
+    """Walks the roots and returns the flat list of entries (may be partial
+    if the File Provider serves incomplete listings at this moment). The paths
+    are always returned as HOST (via `_to_host`, which only maps the fallback's
+    `/vault` prefix; the CloudStorage roots are already host)."""
     out: List[Dict[str, Any]] = []
     for root in _index_roots():
         for dirpath, dirs, files in os.walk(root, followlinks=False):
@@ -144,7 +145,7 @@ def _walk() -> List[Dict[str, Any]]:
 
 
 def _save_to_disk(by_path: Dict[str, Dict[str, Any]]) -> None:
-    """Persisteix l'índex al volum local (escriptura atòmica). Format compacte
+    """Persists the index to the local volume (atomic write). Compact format
     [name, path, is_dir, last_seen]."""
     try:
         _CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -164,8 +165,8 @@ def _save_to_disk(by_path: Dict[str, Dict[str, Any]]) -> None:
 
 
 def _load_from_disk() -> bool:
-    """Carrega l'índex del cache de disc. Retorna True si ha carregat alguna cosa.
-    Tolera el format antic (v1, sense last_seen)."""
+    """Loads the index from the disk cache. Returns True if it loaded something.
+    Tolerates the old format (v1, without last_seen)."""
     global _by_path, _built_at
     try:
         if not _CACHE_PATH.exists():
@@ -192,9 +193,9 @@ def _load_from_disk() -> bool:
 
 
 def build_index() -> int:
-    """Construeix/refresca l'índex recorrent les arrels i FUSIONANT (unió) amb
-    l'índex actual. Mai encongeix per un walk parcial. Retorna el nombre
-    d'entrades. Idempotent: si ja s'està construint, és un no-op."""
+    """Builds/refreshes the index by walking the roots and MERGING (union) with
+    the current index. Never shrinks due to a partial walk. Returns the number
+    of entries. Idempotent: if it's already building, it's a no-op."""
     global _by_path, _built_at, _building
     with _lock:
         if _building:
@@ -205,14 +206,14 @@ def build_index() -> int:
         new_entries = _walk()
         now = time.time()
         with _lock:
-            merged = dict(_by_path)  # còpia per fusionar fora del lock
+            merged = dict(_by_path)  # copy to merge outside the lock
         prev_n = len(merged)
         for e in new_entries:
             e2 = dict(e)
             e2["last_seen"] = now
             merged[e2["path"]] = e2
-        # Purga d'entrades desaparegudes NOMÉS si aquest walk ha estat
-        # substancial (evita esborrar res per un walk parcial intermitent).
+        # Pruning of disappeared entries ONLY if this walk has been
+        # substantial (avoids deleting anything due to an intermittent partial walk).
         substantial = prev_n == 0 or len(new_entries) >= _PRUNE_MIN_RATIO * prev_n
         pruned = 0
         if substantial:
@@ -236,9 +237,9 @@ def build_index() -> int:
 
 
 def query(q: str, limit: int = 200, include_files: bool = True) -> List[Dict[str, Any]]:
-    """Cerca a l'índex. Matching token-AND amb normalització NFC: una entrada
-    casa si TOTS els tokens de la query són subcadena del nom normalitzat (com
-    `mdfind -name`, però independent del helper). Instantani (en memòria)."""
+    """Searches the index. Token-AND matching with NFC normalization: an entry
+    matches if ALL the tokens of the query are a substring of the normalized name (like
+    `mdfind -name`, but independent of the helper). Instant (in memory)."""
     qn = _norm(q.strip())
     if len(qn) < 2:
         return []
@@ -260,13 +261,13 @@ def query(q: str, limit: int = 200, include_files: bool = True) -> List[Dict[str
 
 
 def is_ready() -> bool:
-    """True si l'índex té entrades (consultable)."""
+    """True if the index has entries (queryable)."""
     with _lock:
         return bool(_by_path)
 
 
 def status() -> Dict[str, Any]:
-    """Estat per a diagnòstic / endpoint."""
+    """Status for diagnostics / endpoint."""
     with _lock:
         return {
             "ready": bool(_by_path),
@@ -278,8 +279,8 @@ def status() -> Dict[str, Any]:
 
 
 def kickoff_file_index_rebuild() -> None:
-    """Arrenca l'índex: càrrega de disc (ràpid) + thread de fons que el
-    construeix i el refresca cada `_REFRESH_SECONDS`. Idempotent."""
+    """Starts the index: disk load (fast) + background thread that
+    builds it and refreshes it every `_REFRESH_SECONDS`. Idempotent."""
     global _thread_started
     with _lock:
         if _thread_started:

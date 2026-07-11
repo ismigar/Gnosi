@@ -1,9 +1,9 @@
-"""Els bucles de paginació de Notion no han de penjar amb respostes malformades.
+"""Notion's pagination loops must not hang on malformed responses.
 
-Feien `if not has_more: break; cursor = next_cursor`. Si l'API (via Cloudflare)
-torna `has_more=True` amb `next_cursor` buit O repetit, el `while True` girava
-per sempre penjant el fil del clon. `_next_cursor` atura la paginació en aquests
-casos.
+They did `if not has_more: break; cursor = next_cursor`. If the API (via Cloudflare)
+returns `has_more=True` with an empty OR repeated `next_cursor`, the `while True` spun
+forever, hanging the clone's thread. `_next_cursor` stops pagination in these
+cases.
 """
 import pytest
 
@@ -18,15 +18,15 @@ def test_next_cursor_advances():
     assert NotionClient._next_cursor({"has_more": True, "next_cursor": "c2"}, "c1") == "c2"
 
 
-@pytest.mark.parametrize("bad", [None, "", "c1"])  # buit, absent-equivalent, repetit
+@pytest.mark.parametrize("bad", [None, "", "c1"])  # empty, absent-equivalent, repeated
 def test_next_cursor_defensive_stop(bad):
-    # has_more=True però cursor no avança → aturar (no bucle infinit).
+    # has_more=True but cursor doesn't advance → stop (no infinite loop).
     assert NotionClient._next_cursor({"has_more": True, "next_cursor": bad}, "c1") is None
 
 
 def test_pagination_loop_terminates_on_malformed_response(monkeypatch):
-    # _request sempre diu "hi ha més" però mai dona un cursor nou → sense la
-    # guarda, search_databases giraria per sempre. Amb la guarda, retorna.
+    # _request always says "there's more" but never returns a new cursor → without the
+    # guard, search_databases would spin forever. With the guard, it returns.
     client = NotionClient(token="x")
     calls = {"n": 0}
 
@@ -37,5 +37,5 @@ def test_pagination_loop_terminates_on_malformed_response(monkeypatch):
 
     monkeypatch.setattr(client, "_request", fake_request)
     out = client.search_databases()
-    assert out == [{"id": "a"}]  # una pàgina, després para
+    assert out == [{"id": "a"}]  # one page, then stops
     assert calls["n"] == 1

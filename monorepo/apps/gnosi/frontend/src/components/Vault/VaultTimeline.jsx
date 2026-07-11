@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef, useCallback } from 'react';
+import { useTranslation, Trans } from 'react-i18next';
 import { useTitlePreview } from './useTitlePreview';
 import { FileText, Calendar, Clock, Link as LinkIcon, CheckSquare, ChevronLeft, ChevronRight, ArrowRight, Plus } from 'lucide-react';
 import { useVaultViewData } from '../../hooks/useVaultViewData';
@@ -13,28 +14,28 @@ import { useVaultSelection } from '../../hooks/useVaultSelection';
 import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 
-// `new Date('YYYY-MM-DD')` interpreta la data com a mitjanit UTC: en zones
-// UTC− la barra es pinta (i el round-trip de `handleUpdateDates`, que
-// serialitza amb getters LOCALS, re-desa) el dia ANTERIOR. Les dates sense
-// hora es parsegen com a LOCALS afegint-hi 'T00:00:00'.
+// `new Date('YYYY-MM-DD')` interprets the date as UTC midnight: in zones
+// UTC− the bar is painted (and the round-trip of `handleUpdateDates`, which
+// serializes with LOCAL getters, re-saves) the PREVIOUS day. Dates without
+// time are parsed as LOCAL by appending 'T00:00:00'.
 const parseLocalDate = (v) => {
     const s = String(v ?? '').trim();
     return /^\d{4}-\d{2}-\d{2}$/.test(s) ? new Date(`${s}T00:00:00`) : new Date(v);
 };
 
 // ── Jerarquia tasca/subtasca (estil MS Project) ─────────────────────────────
-// Clau plegada (minúscules, sense accents ni símbols) per casar noms de camp.
+// Folded key (lowercase, no accents or symbols) to match field names.
 const foldKey = (k) => String(k ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
-// Noms (plegats) de camps RELACIÓ que apunten al pare del registre. Cobrim el
-// parent_id nadiu del vault i els àlies habituals dels imports de Notion
-// ("ítem principal" a Tasques, "Parent item"…).
+// Folded names of RELATION fields that point to the record's parent. We cover
+// the vault's native parent_id and the usual aliases from Notion imports
+// ("main item" in Tasques, "Parent item"…).
 const PARENT_FIELD_ALIASES = new Set([
     'itemprincipal', 'parentitem', 'parent', 'pare', 'mare',
     'tascamare', 'tareapadre', 'tascaprincipal', 'tareaprincipal', 'parenttask',
 ]);
 
-// Id del pare d'una nota: parent_id/source_parent_id directes o el PRIMER id
-// d'un camp relació amb nom d'àlies de pare.
+// A note's parent id: direct parent_id/source_parent_id, or the FIRST id
+// of a relation field whose name is a parent alias.
 const resolveParentId = (note, schema, getEntriesFn) => {
     const md = note.metadata || {};
     const direct = md.parent_id || note.parent_id || md.source_parent_id;
@@ -50,12 +51,13 @@ const resolveParentId = (note, schema, getEntriesFn) => {
 };
 
 export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, idToTitle = {}, activeView = {}, onUpdateView, onEditSchema, onCreateRecord, onDeleteSelected, onDeletePage, searchTerm: externalSearchTerm }) {
-    // Previsualització del contingut en passar el ratolí pel títol (label) d'una fila.
+    const { t } = useTranslation();
+    // Content preview when hovering over a row's title (label).
     const titlePreview = useTitlePreview({ onOpenPage: onNoteSelect });
     const scrollContainerRef = useRef(null);
 
-    // Color de cada barra segons un camp (activeView.colorField): usa el color de
-    // l'opció corresponent (paleta de l'esquema). Sense colorField, color únic.
+    // Each bar's color from a field (activeView.colorField): uses the color of
+    // the matching option (schema palette). Without colorField, a single color.
     const colorField = activeView?.colorField || '';
     const barColorMap = (() => {
         if (!colorField) return null;
@@ -78,12 +80,12 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
     const setSearchTerm = externalSearchTerm !== undefined ? () => { } : setInternalSearchTerm;
 
-    // ---- LÒGICA DE DADES UNIFICADA (FITRES, SORT, SEARCH) ----
-    // L'ordre es resol amb `resolveViewSorts` (clau `sorts` — la que persisteixen
-    // l'import de Notion i el modal — amb fallback a la llegada `sort`).
-    // Memoitzat: `resolveViewSorts` retorna sempre un array NOU i sense el
-    // useMemo els memos aigües avall (sortedPages, chartData) es recalculaven
-    // a CADA render.
+    // ---- UNIFIED DATA LOGIC (FILTERS, SORT, SEARCH) ----
+    // Sorting is resolved with `resolveViewSorts` (the `sorts` key — the one persisted by
+    // the Notion import and the modal — with fallback to the legacy `sort`).
+    // Memoized: `resolveViewSorts` always returns a NEW array and without the
+    // useMemo the downstream memos (sortedPages, chartData) were recomputed
+    // on EVERY render.
     const hasExplicitSorts = useMemo(() => resolveViewSorts(activeView).length > 0, [activeView]);
     const viewConfig = useMemo(() => ({
         filters: resolveViewFilters(activeView),
@@ -116,9 +118,9 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     });
 
     const datePropertyFound = useMemo(() => {
-        // Prioritza el camp d'inici triat a la vista (`dateField`); si no n'hi
-        // ha, cau al primer camp temporal de l'esquema. Un `period` (rang
-        // inici→fi en un sol camp) també és vàlid com a eix d'inici.
+        // Prefers the start field chosen in the view (`dateField`); if there
+        // has one, it falls back to the schema's first temporal field. A `period` (range
+        // start→end in a single field) is also valid as the start axis.
         if (activeView?.dateField && getSchemaFieldNames(schema).includes(activeView.dateField)) {
             return activeView.dateField;
         }
@@ -128,24 +130,24 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
     }, [schema, activeView?.dateField]);
 
     const endPropertyFound = useMemo(() => {
-        // Prioritza el camp de fi triat a la vista (`endDateField`).
+        // Prioritizes the end field chosen in the view (`endDateField`).
         if (activeView?.endDateField && getSchemaFieldNames(schema).includes(activeView.endDateField)) {
             return activeView.endDateField;
         }
         const endKeys = ['due_date', 'end_date', 'data de venciment', 'venciment'];
         const dateLike = ['date', 'datetime', 'period'];
-        // Només considerar el camp com a data de fi si està declarat com a data al
-        // schema. Així evitem que un camp text amb nom "end_date" es parsegi com
-        // a data al Gantt.
+        // Only treat the field as an end date if it is declared as a date in the
+        // schema. This prevents a text field named "end_date" from being parsed as
+        // to date in the Gantt.
         return getSchemaFieldNames(schema).find(k => {
             if (!endKeys.includes(k.toLowerCase())) return false;
             return dateLike.includes(getFieldType(schema, k));
         });
     }, [schema, activeView?.endDateField]);
 
-    // Format de data configurat (Settings) — el mateix que respecten la taula i
-    // les targetes (galeria/feed/kanban). Sense això el Gantt mostrava les dates
-    // amb `toLocaleDateString()` (format del NAVEGADOR), ignorant la config.
+    // Configured date format (Settings) — the same one respected by the table and
+    // the cards (gallery/feed/kanban). Without this the Gantt showed dates
+    // with `toLocaleDateString()` (the BROWSER's format), ignoring the config.
     const localeSettings = useLocaleSettings();
     const tlDateFmt = useMemo(
         () => resolveFieldFormat(getFieldConfig(schema, datePropertyFound), localeSettings),
@@ -156,16 +158,16 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         [tlDateFmt]
     );
 
-    // Lògica de dades per al Gantt
+    // Data logic for the Gantt
     const { chartData, timeScale } = useMemo(() => {
         const processedNotes = sortedAndFilteredNotes.map(note => {
             let startDateStr = note.last_modified;
             let endDateStr = null;
 
             if (datePropertyFound) {
-                // Claus normalitzades (sense espais ni símbols) perquè casin amb
-                // `schemaKeyNorm` — amb les claus originals ("date added") el
-                // lookup no casava mai i l'àlies era codi mort.
+                // Normalized keys (no spaces or symbols) so they match
+                // `schemaKeyNorm` — with the original keys ("date added") the
+                // lookup never matched and the alias was dead code.
                 const aliasMap = {
                     dateadded: "created_time",
                     datemodified: "last_edited_time"
@@ -177,8 +179,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
                 const rawStart = note.metadata?.[metaKey];
                 if (getFieldType(schema, datePropertyFound) === 'period') {
-                    // Un `period` porta inici I fi en un sol valor ("inici/fi"):
-                    // el descomponem en comptes de passar-lo cru a new Date().
+                    // A `period` carries start AND end in a single value ("start/end"):
+                    // we decompose it instead of passing it raw to new Date().
                     const { start: ps, end: pe } = parsePeriod(rawStart);
                     if (ps && !isNaN(parseLocalDate(ps).getTime())) startDateStr = ps;
                     if (pe && !isNaN(parseLocalDate(pe).getTime())) endDateStr = pe;
@@ -188,7 +190,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     }
                     if (endPropertyFound && note.metadata?.[endPropertyFound]) {
                         const rawEnd = note.metadata[endPropertyFound];
-                        // El camp de fi també podria ser un període: n'agafem el final.
+                        // The end field could also be a period: we take its end.
                         endDateStr = getFieldType(schema, endPropertyFound) === 'period'
                             ? (parsePeriod(rawEnd).end || parsePeriod(rawEnd).start)
                             : rawEnd;
@@ -198,8 +200,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
             const start = parseLocalDate(startDateStr);
             let end = endDateStr ? parseLocalDate(endDateStr) : new Date(start.getTime() + 24 * 60 * 60 * 1000);
-            // Fi invàlid O invertit (end < start, dada corrupta): barra d'un dia
-            // en lloc de percentatges negatius que trenquen el layout.
+            // Invalid OR inverted end (end < start, corrupt data): one-day bar
+            // instead of negative percentages that break the layout.
             if (isNaN(end.getTime()) || end < start) {
                 end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
             }
@@ -226,9 +228,9 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         }
 
         // ── Jerarquia tasca/subtasca (estil MS Project) ──
-        // Les subtasques (parent_id o relació d'àlies "ítem principal"…) es
-        // pinten indentades sota el seu pare, i el pare esdevé una barra RESUM
-        // que envolta les filles (min inici, max fi), com a MS Project.
+        // Subtasks (parent_id or an "ítem principal" alias relation…) are
+        // drawn indented under their parent, and the parent becomes a SUMMARY bar
+        // spanning its children (min start, max end), like MS Project.
         const byId = new Map(processedNotes.map(n => [n.id, n]));
         const childrenOf = new Map();
         const roots = [];
@@ -242,7 +244,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             }
         });
 
-        // Abast resum de cada node (recursiu, amb guard de cicles).
+        // Summary span of each node (recursive, with a cycle guard).
         const summarize = (n, seen) => {
             if (seen.has(n.id)) return { start: n.start, end: n.end };
             seen.add(n.id);
@@ -260,9 +262,9 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         };
         roots.forEach(r => summarize(r, new Set()));
 
-        // Aplana: pare seguit de les seves filles (les filles, cronològiques).
-        // Ordre d'arrels: el de la vista si és explícit; si no, cronològic pel
-        // seu abast resum.
+        // Flattens: parent followed by its children (children in chronological order).
+        // Root order: the view's, if explicit; otherwise chronological by
+        // its summary scope.
         const orderedRoots = hasExplicitSorts ? roots : [...roots].sort((a, b) => (a.summaryStart ?? a.start) - (b.summaryStart ?? b.start));
         const flat = [];
         const pushTree = (n, depth, seen) => {
@@ -294,11 +296,11 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         const note = chartData.find(n => n.id === noteId);
         if (!note) return;
 
-        // Serialitza un Date en hora LOCAL segons el tipus del camp. MAI
-        // `toISOString()` (UTC): en una zona UTC+ desplaçaria el DIA (camp
-        // `date`: la mitjanit local cau al dia anterior en UTC) o l'HORA
-        // (`datetime`), i embrutaria el camp amb un datetime UTC. Mateix arreglat
-        // que al calendari i a l'editor de dates.
+        // Serializes a Date in LOCAL time according to the field type. NEVER
+        // `toISOString()` (UTC): in a UTC+ zone it would shift the DAY (a
+        // `date`: local midnight falls on the previous day in UTC) or the TIME
+        // (`datetime`), and would dirty the field with a UTC datetime. Same fix
+        // than in the calendar and in the date editor.
         const pad = (n) => String(n).padStart(2, '0');
         const fmtDay = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         const fmtForField = (d, field) =>
@@ -306,13 +308,13 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 ? `${fmtDay(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
                 : fmtDay(d);
 
-        // NOMÉS els camps de data de la vista: el PATCH del backend fusiona el
-        // metadata, així no esclafem claus editades entremig (p. ex. el
-        // `predecessor_ids` que handleAddPredecessor acaba de desar i que
-        // chartData encara no reflecteix). Un camp d'inici `period` porta
-        // inici i fi junts i es reserialitza "inici/fi" (abans s'hi escrivia un
-        // toISOString() que destruïa el rang); un camp de FI `period` (config
-        // atípica) es deixa intacte.
+        // ONLY the view's date fields: the backend PATCH merges the
+        // metadata, so we don't clobber keys edited in between (e.g. the
+        // `predecessor_ids` that handleAddPredecessor has just saved and that
+        // chartData doesn't yet reflect). A `period` start field carries
+        // start and end together and it's reserialized as "start/end" (before it used to write a
+        // toISOString() that destroyed the range); an END field of type `period` (an
+        // atypical config) is left untouched.
         const buildDateMetadata = (start, end) => {
             const md = {};
             if (datePropertyFound) {
@@ -326,20 +328,20 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
             return md;
         };
 
-        // Recursivitat per successores
+        // Recursion for successors
         const updatedNotes = recalculateSuccessors(noteId, newStart, newEnd, chartData);
 
-        // Desem la nota ARRELADA (abans es construïa el seu metadata i no
-        // s'enviava mai: només es movien les successores) i després les afectades.
+        // We save the ROOT note (previously its metadata was built and
+        // never sent: only the successors were moved) and then the affected ones.
         await onUpdateNote(noteId, { metadata: buildDateMetadata(newStart, newEnd) });
         for (const updatedNote of updatedNotes) {
             await onUpdateNote(updatedNote.id, { metadata: buildDateMetadata(updatedNote.start, updatedNote.end) });
         }
     };
 
-    // `visited` talla els CICLES de dependències (A→B→A): sense el guard, la
-    // recursió empenyia les dates endavant indefinidament fins a rebentar la
-    // pila (RangeError) i tombar la vista.
+    // `visited` breaks dependency CYCLES (A→B→A): without the guard, the
+    // recursion pushed the dates forward indefinitely until it blew the
+    // stack (RangeError) and crash the view.
     const recalculateSuccessors = (updatedNoteId, newStart, newEnd, allProcessedNotes, visited = new Set([updatedNoteId])) => {
         const affected = [];
         const note = allProcessedNotes.find(n => n.id === updatedNoteId);
@@ -372,8 +374,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         return unique;
     };
 
-    // Successores transitives d'una nota: s'exclouen del selector d'antecessores
-    // perquè triar-ne una crearia un cicle de dependències.
+    // A note's transitive successors: excluded from the predecessor picker
+    // because picking one would create a dependency cycle.
     const collectTransitiveSuccessors = (rootId) => {
         const out = new Set();
         const stack = [rootId];
@@ -422,8 +424,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         }
     };
 
-    // Candidates a antecessora: tothom excepte la nota mateixa i les seves
-    // successores (directes o transitives) — triar-ne una crearia un cicle.
+    // Candidates for ancestor: everyone except the note itself and its
+    // successors (direct or transitive) — choosing one would create a cycle.
     const predecessorCandidates = selectingPredecessorFor
         ? (() => {
             const excluded = collectTransitiveSuccessors(selectingPredecessorFor);
@@ -431,22 +433,27 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
         })()
         : [];
 
-    // Amplada de l'escala segons el zoom: mateix rang temporal repartit en més
-    // píxels = barres més amples. Abans `zoomLevel` només estilava el botó.
+    // Scale width from the zoom level: the same time range spread over more
+    // pixels = wider bars. Previously `zoomLevel` only styled the button.
     const scaleMinWidth = zoomLevel === 'day' ? '12000px' : zoomLevel === 'week' ? '6000px' : '3000px';
 
     return (
         <div className="w-full h-full flex flex-col bg-[var(--bg-primary)] overflow-hidden relative">
-            {/* Selector de Predecessores Overlay */}
+            {/* Predecessors Selector Overlay */}
             {selectingPredecessorFor && (
                 <div className="absolute inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
                     <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                             <ArrowRight size={20} className="text-[var(--gnosi-primary)]" />
-                            Selecciona una Antecessora
+                            {t('timeline.select_predecessor', 'Selecciona una Antecessora')}
                         </h3>
                         <p className="text-sm text-[var(--text-secondary)] mb-4">
-                            Tria quin registre ha de finalitzar abans que <strong>{idToTitle[selectingPredecessorFor]}</strong> pugui començar.
+                            <Trans
+                                i18nKey="timeline.predecessor_prompt"
+                                defaults="Tria quin registre ha de finalitzar abans que <bold>{{name}}</bold> pugui començar."
+                                values={{ name: idToTitle[selectingPredecessorFor] }}
+                                components={{ bold: <strong /> }}
+                            />
                         </p>
                         <div className="max-h-64 overflow-y-auto border border-[var(--border-primary)] rounded-lg">
                             {predecessorCandidates.map(n => (
@@ -476,7 +483,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 </div>
             )}
 
-            {/* BARRA D'EINES UNIFICADA */}
+            {/* UNIFIED TOOLBAR */}
             {externalSearchTerm === undefined && (
                 <VaultViewToolbar
                     search={searchTerm}
@@ -540,7 +547,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     {/* Time Scale Header */}
                     <div className="sticky top-0 z-10 flex min-w-full bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] h-10 shadow-sm">
                         <div className="w-64 shrink-0 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center px-4 font-bold text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">
-                            Títol del Registre
+                            {t('timeline.col_title', 'Títol del Registre')}
                         </div>
                         <div className="flex-1 relative" style={{ minWidth: scaleMinWidth }}>
                             {timeScale?.months.map((month, idx) => {
@@ -581,8 +588,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                         {/* Rows */}
                         <div className="relative z-0">
                             {chartData.map((note) => {
-                                // Els pares es pinten com a barra RESUM del seu abast
-                                // (min inici → max fi de les filles), com a MS Project.
+                                // Parents are drawn as a SUMMARY bar of their span
+                                // (min start → max end of the children), like MS Project.
                                 const barStart = note.isParent ? (note.summaryStart ?? note.start) : note.start;
                                 const barEnd = note.isParent ? (note.summaryEnd ?? note.end) : note.end;
                                 const startPos = calculatePosition(barStart);
@@ -666,8 +673,8 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
                                             {note.isParent ? (
                                                 // Barra RESUM (estil MS Project): prima i fosca,
-                                                // amb topalls en rombe als extrems; abasta totes
-                                                // les subtasques.
+                                                // with diamond-shaped caps at the ends; it spans all
+                                                // the subtasks.
                                                 <div
                                                     onClick={() => onNoteSelect(note.id)}
                                                     className="absolute h-2 rounded-[2px] cursor-pointer group/bar"
@@ -732,15 +739,15 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded bg-[var(--gnosi-primary)]" />
-                        <span>Pàgina / Tarea</span>
+                        <span>{t('timeline.legend_page', 'Pàgina / Tarea')}</span>
                     </div>
                     <div className="flex items-center gap-1.5 font-bold text-[var(--gnosi-primary)]">
                         <ArrowRight size={10} />
-                        <span>Dependències actives ({chartData.length} registres)</span>
+                        <span>{t('timeline.active_deps', 'Dependències actives ({{count}} registres)', { count: chartData.length })}</span>
                     </div>
                 </div>
                 <div>
-                    Cronograma interactiu amb dependències automàtiques.
+                    {t('timeline.footer_hint', 'Cronograma interactiu amb dependències automàtiques.')}
                 </div>
             </div>
 

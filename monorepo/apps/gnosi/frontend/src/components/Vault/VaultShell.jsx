@@ -65,7 +65,7 @@ export const VaultShell = ({
 
             {/* Main Area */}
             <main className="flex-1 flex flex-col min-w-0 bg-[var(--bg-primary)] relative transition-colors duration-300">
-                {/* Top Bar Minimalista (Accions de pàgina) */}
+                {/* Minimal Top Bar (Page actions) */}
                 <header className="h-12 flex items-center justify-between px-4 shrink-0 z-20 border-b border-[var(--border-primary)]">
                     <div className="flex items-center gap-1 overflow-hidden">
 

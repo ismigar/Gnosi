@@ -1,10 +1,10 @@
-"""OneDriveProvider: vault sobre OneDrive amb Files On-Demand.
+"""OneDriveProvider: vault over OneDrive with Files On-Demand.
 
-Encapsula la detecció de fitxers online-only i la crida al daemon que
-viu al host (`sh/onedrive_warmup_daemon.py`) per disparar la baixada
-del File Provider de macOS.
+Encapsulates detection of online-only files and the call to the daemon that
+lives on the host (`sh/onedrive_warmup_daemon.py`) to trigger the download
+from the macOS File Provider.
 
-Vegeu `docs/dev_memory/directives/files_provider_abstraction.md`.
+See `docs/dev_memory/directives/files_provider_abstraction.md`.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ log = logging.getLogger(__name__)
 
 
 class OneDriveProvider(FilesProvider):
-    """Detecció + materialització per a OneDrive (File Provider macOS)."""
+    """Detection + materialization for OneDrive (macOS File Provider)."""
 
     name = "onedrive"
 
@@ -38,23 +38,23 @@ class OneDriveProvider(FilesProvider):
             "ONEDRIVE_WARMUP_URL",
             "http://host.docker.internal:5009/warmup",
         )
-        # Mode de materialització:
-        #   "daemon" (default) → crida el daemon HTTP del host (cas Docker, on
-        #                        el backend NO té accés directe al File Provider).
-        #   "direct"           → llegeix el fitxer directament EN PROCÉS. A macOS
-        #                        això NO funciona des del backend NATIU: uvicorn
-        #                        corre sota launchd i el File Provider d'OneDrive
-        #                        torna EDEADLK (errno 11) instantani a qualsevol
-        #                        procés de launchd. Es manté per compatibilitat/
-        #                        diagnòstic, però en natiu useu "open".
+        # Materialization mode:
+        #   "daemon" (default) → calls the host's HTTP daemon (Docker case, where
+        #                        the backend does NOT have direct access to the File Provider).
+        #   "direct"           → reads the file directly IN-PROCESS. On macOS
+        #                        this does NOT work from the NATIVE backend: uvicorn
+        #                        runs under launchd and OneDrive's File Provider
+        #                        returns EDEADLK (errno 11) instantly for any
+        #                        a launchd process. Kept for compatibility/
+        #                        diagnostics, but in native use "open".
         #   "open"             → materialitza via LaunchServices (`open -g -j -a
-        #                        <app>`), que llança una app GUI a la sessió Aqua
-        #                        de l'usuari; l'app llegeix el fitxer en el context
-        #                        correcte i OneDrive el baixa. És el mode per al
+        #                        <app>`), which launches a GUI app in the Aqua session
+        #                        of the user; the app reads the file in the context
+        #                        correct one, and OneDrive downloads it. It's the mode for the
         #                        runtime NATIU. Cf. feedback_onedrive_warmup_native.
         self.warmup_mode = os.environ.get("ONEDRIVE_WARMUP_MODE", "daemon").strip().lower()
-        # App GUI que LaunchServices obre per disparar la baixada (mode "open").
-        # Preview llegeix imatges/PDF; qualsevol app que llegeixi el fitxer val.
+        # GUI app that LaunchServices opens to trigger the download ("open" mode).
+        # Preview reads images/PDF; any app that reads the file works.
         self._warmup_open_app = os.environ.get("ONEDRIVE_WARMUP_OPEN_APP", "Preview").strip()
         self.warmup_timeout_s = (
             warmup_timeout_s
@@ -63,34 +63,34 @@ class OneDriveProvider(FilesProvider):
         )
         self.vault_host_path = vault_host_path or os.environ.get("VAULT_HOST_PATH")
         self.container_root = Path(container_root)
-        # Roots muntats IDENTITAT al contenidor (mateixa ruta host ↔
-        # contenidor, veure docker-compose): els seus paths no necessiten
-        # traducció — es passen tal qual al daemon, que valida contra la
-        # seva pròpia allowlist (multi-root des del 2026-05-18). HOME cobreix
-        # adjunts `~/...` fora del vault (p. ex. Documents/); la Biblioteca
-        # viu DINS del vault (vault-first pur) i va pel mount del vault.
-        # Es descarta "/" (un env mal configurat convertiria TOT el sistema
-        # de fitxers en identity root; el daemon ho rebutjaria igualment,
-        # però no hi deleguem la validació). `resolve()` als roots perquè la
-        # comparació amb el candidat (també resolt) sigui consistent si hi
-        # ha symlinks pel camí.
+        # Roots mounted IDENTICALLY in the container (same host path ↔
+        # container, see docker-compose): their paths don't need
+        # translation — they're passed as-is to the daemon, which validates against its
+        # own allowlist (multi-root since 2026-05-18). HOME covers
+        # attachments `~/...` outside the vault (e.g. Documents/); the Biblioteca
+        # lives INSIDE the vault (pure vault-first) and goes through the vault mount.
+        # We discard "/" (a misconfigured env var would turn the WHOLE system
+        # of files in identity root; the daemon would reject it anyway,
+        # but we don't delegate validation to it). `resolve()` on the roots so that the
+        # comparison with the candidate (also resolved) is consistent if there
+        # are symlinks along the way.
         self.identity_roots = [
             Path(p).resolve() for p in (
                 os.environ.get("HOME_HOST_PATH"),
             ) if p and p.rstrip("/")
         ]
 
-        # Serialitzem warmups: OneDrive baixa més de pressa quan no rep
-        # peticions concurrents, i evitem que un sol client (50 thumbs
-        # alhora) sature el daemon. Creació lazy (al primer ús de
-        # `materialize`) perquè `asyncio.Semaphore()` a Python 3.9
-        # requereix event loop al constructor — i aquest provider es
-        # pot instanciar abans que existeixi cap loop (p. ex. tests
-        # síncrons o startup mòdul).
+        # We serialize warmups: OneDrive downloads faster when it doesn't receive
+        # concurrent requests, and we prevent a single client (50 thumbs
+        # at the same time) overload the daemon. Lazy creation (on first use of
+        # `materialize`) because `asyncio.Semaphore()` in Python 3.9
+        # requires an event loop in the constructor — and this provider
+        # can be instantiated before any loop exists (e.g. tests
+        # synchronous contexts or module startup).
         self._max_concurrent_warmups = max_concurrent_warmups
         self._semaphore: Optional[asyncio.Semaphore] = None
-        # Coalesce: si dues peticions volen el mateix fitxer alhora,
-        # només cridem el daemon una vegada.
+        # Coalesce: if two requests want the same file at the same time,
+        # we only call the daemon once.
         self._inflight: Dict[str, asyncio.Future] = {}
 
     def _get_semaphore(self) -> asyncio.Semaphore:
@@ -110,28 +110,28 @@ class OneDriveProvider(FilesProvider):
         container_path: Path,
         stat_result: Optional[os.stat_result] = None,
     ) -> bool:
-        """True si el fitxer existeix però `st_blocks == 0` (placeholder
-        del File Provider de macOS no materialitzat)."""
+        """True if the file exists but `st_blocks == 0` (placeholder
+        from the macOS File Provider not yet materialized)."""
         if stat_result is None:
             try:
                 stat_result = container_path.stat()
             except OSError:
                 return False
-        # `getattr` amb default 1 perquè en sistemes que no exposen
-        # st_blocks (p. ex. alguns FUSE) no volem disparar warmup.
+        # `getattr` with default 1 because on systems that don't expose
+        # st_blocks (e.g. some FUSE) we don't want to trigger warmup.
         return getattr(stat_result, "st_blocks", 1) == 0
 
     async def _materialize_direct(self, container_path: Path) -> bool:
-        """Materialitza llegint el fitxer directament: a macOS, accedir a un
-        placeholder dataless del File Provider en dispara la baixada on-access.
-        Mode per al runtime NATIU (el backend té accés directe al vault, a
-        diferència de Docker). Evita el daemon HTTP i el seu Full Disk Access."""
+        """Materializes by reading the file directly: on macOS, accessing a
+        dataless placeholder from the File Provider triggers the on-access download.
+        Mode for the NATIVE runtime (the backend has direct access to the vault, as
+        opposed to Docker). Avoids the HTTP daemon and its Full Disk Access."""
         def _read() -> bool:
             import time as _t
             for attempt in range(6):
                 try:
                     with open(container_path, "rb") as f:
-                        f.read(65536)  # tocar-lo n'hi ha prou: macOS baixa tot el fitxer
+                        f.read(65536)  # touching it is enough: macOS downloads the whole file
                     return True
                 except OSError as e:
                     # 35 EAGAIN / 11 EDEADLK: baixada en curs → backoff i reintenta.
@@ -153,9 +153,9 @@ class OneDriveProvider(FilesProvider):
             return 0
 
     async def _open_and_wait(self, container_path: Path) -> bool:
-        """Dispara `open -g -j -a <app>` i sondeja `st_blocks` fins que el
-        fitxer estigui materialitzat o s'exhaureixi el timeout. `-g` no porta
-        l'app a primer pla i `-j` la llança oculta: no roba el focus."""
+        """Triggers `open -g -j -a <app>` and polls `st_blocks` until the
+        file is materialized or the timeout runs out. `-g` doesn't bring
+        the app to the foreground and `-j` launches it hidden: it doesn't steal focus."""
         if self._blocks(container_path) > 0:
             return True
         app = self._warmup_open_app
@@ -175,8 +175,8 @@ class OneDriveProvider(FilesProvider):
                 app, container_path, (err or b"").decode(errors="replace").strip(),
             )
             return False
-        # LaunchServices retorna immediatament; l'app manté el document obert i
-        # OneDrive baixa en segon pla (pot trigar desenes de segons). Sondegem.
+        # LaunchServices returns immediately; the app keeps the document open and
+        # OneDrive downloads in the background (it can take tens of seconds). We poll.
         waited = 0.0
         while waited < self.warmup_timeout_s:
             await asyncio.sleep(1.0)
@@ -196,9 +196,9 @@ class OneDriveProvider(FilesProvider):
         return False
 
     async def _close_helper_doc(self, container_path: Path) -> None:
-        """Tanca NOMÉS el document que hem obert nosaltres a l'app helper
-        (per ruta), alliberant el handle sense tocar les finestres de l'usuari.
-        Best-effort: qualsevol error s'ignora."""
+        """Closes ONLY the document we opened ourselves in the helper app
+        (by path), releasing the handle without touching the user's windows.
+        Best-effort: any error is ignored."""
         app = self._warmup_open_app
         posix = json.dumps(str(container_path))  # literal AppleScript segur
         script = (
@@ -216,9 +216,9 @@ class OneDriveProvider(FilesProvider):
             pass
 
     async def _materialize_via_open(self, container_path: Path) -> bool:
-        """Mode "open" (natiu): materialitza via LaunchServices. Coalesça
-        peticions concurrents del mateix fitxer i serialitza amb el semàfor
-        (OneDrive baixa més ràpid sense concurrència)."""
+        """Mode "open" (native): materializes via LaunchServices. Coalesces
+        concurrent requests for the same file and serializes them with the semaphore
+        (OneDrive downloads faster without concurrency)."""
         key = str(container_path)
         inflight = self._inflight.get(key)
         if inflight is not None:
@@ -242,10 +242,10 @@ class OneDriveProvider(FilesProvider):
             self._inflight.pop(key, None)
 
     async def materialize(self, container_path: Path) -> bool:
-        """Materialitza un fitxer online-only. En mode "open" (natiu) el
-        delega a LaunchServices; en "direct" el llegeix en procés (no funciona
-        sota launchd); en "daemon" (Docker) crida el daemon del host
-        (`sh/onedrive_warmup_daemon.py`). Retorna True si s'ha materialitzat."""
+        """Materializes an online-only file. In "open" mode (native) it
+        delegates to LaunchServices; in "direct" it reads it in-process (doesn't work
+        under launchd); in "daemon" (Docker) it calls the host daemon
+        (`sh/onedrive_warmup_daemon.py`). Returns True if it was materialized."""
         if self.warmup_mode == "open":
             return await self._materialize_via_open(container_path)
         if self.warmup_mode == "direct":
@@ -257,14 +257,14 @@ class OneDriveProvider(FilesProvider):
             rel = container_path.relative_to(self.container_root)
             host_path = str(Path(self.vault_host_path) / rel)
         except ValueError:
-            # Fora de /vault: pot ser un mount identitat (Biblioteca, HOME),
-            # on la ruta del contenidor JA és la ruta del host. Abans aquest
-            # branch retornava False en silenci (DEBUG) i els PDFs de
-            # Biblioteca quedaven en 503 "warmup pending" indefinidament.
-            # `resolve()` col·lapsa `..` i symlinks ABANS del check: sense
-            # això, un `<root>/../x` passaria el prefix textual (el daemon
-            # re-valida amb resolve()+allowlist, però no deleguem la
-            # normalització).
+            # Outside /vault: it can be an identity mount (Biblioteca, HOME),
+            # where the container path IS ALREADY the host path. Previously this
+            # branch silently returned False (DEBUG) and the PDFs from
+            # Biblioteca stayed at 503 "warmup pending" indefinitely.
+            # `resolve()` collapses `..` and symlinks BEFORE the check: without
+            # this, a `<root>/../x` would pass the textual prefix (the daemon
+            # re-validates with resolve()+allowlist, but we don't delegate
+            # normalization).
             resolved = container_path.resolve()
             if not any(self._is_under(resolved, root) for root in self.identity_roots):
                 log.warning(
@@ -314,11 +314,11 @@ class OneDriveProvider(FilesProvider):
                     fut.set_result(False)
                     return False
         finally:
-            # Si el task propietari és CANCEL·LAT (p. ex. l'asyncio.wait_for
-            # de bulk_warm_previews, o un shutdown), CancelledError és
-            # BaseException i NO passa per l'except d'amunt: el Future
-            # quedaria orfe i els waiters coalescits (`await inflight`)
-            # penjarien per sempre. set_result(False), no cancel(): cancel·lar
+            # If the owner task is CANCELLED (e.g. the asyncio.wait_for
+            # from bulk_warm_previews, or a shutdown), CancelledError is
+            # BaseException and does NOT go through the except above: the Future
+            # would be left orphaned and the coalesced waiters (`await inflight`)
+            # would hang forever. set_result(False), not cancel(): cancelling
             # propagaria CancelledError a waiters innocents.
             if not fut.done():
                 fut.set_result(False)

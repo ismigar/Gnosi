@@ -1,12 +1,12 @@
-"""Capa d'IA per compondre publicacions de xarxes socials.
+"""AI layer for composing social media posts.
 
-Donat un contingut origen (títol + cos + URL opcional) i una llista de xarxes,
-genera UNA proposta de text adaptada a cada xarxa: respecta el límit de
-caràcters, el to configurat i els hashtags per defecte, i —important— escriu
-SEMPRE en el MATEIX IDIOMA que el contingut original (mai tradueix).
+Given source content (title + body + optional URL) and a list of networks,
+it generates ONE text proposal adapted to each network: it respects the
+character limit, the configured tone, and the default hashtags, and —importantly—
+it ALWAYS writes in the SAME LANGUAGE as the original content (it never translates).
 
-No publica res: només genera propostes perquè l'usuari les revisi/editi.
-La publicació efectiva la fa `social_clients` via l'endpoint `/api/social/publish`.
+It doesn't publish anything: it only generates proposals for the user to review/edit.
+The actual publishing is done by `social_clients` via the `/api/social/publish` endpoint.
 """
 import re
 import logging
@@ -14,7 +14,7 @@ from typing import Dict, List, Optional, Any
 
 log = logging.getLogger(__name__)
 
-# Nom de l'idioma EN EL PROPI IDIOMA perquè el model l'ancori bé.
+# Language name IN THE LANGUAGE ITSELF so the model anchors to it well.
 LANG_NAMES = {
     "ca": "català",
     "es": "español",
@@ -30,10 +30,11 @@ LANG_NAMES = {
 
 
 def detect_lang(text: str) -> str:
-    """Detecta l'idioma ISO 639-1 del contingut origen (defecte: 'ca').
+    """Detects the ISO 639-1 language of the source content (default: 'ca').
 
-    Reaprofita la heurística de la skill translate_row (funció pura, sense
-    dependència del backend). Degrada a 'ca' si no és importable.
+    Reuses the heuristic from the translate_row skill (a pure function, with no
+    dependency on the backend). Falls back to 'ca' if it can't be imported.
+    
     """
     try:
         from pipeline.skills.translate_row.scripts.translate_text import detect_source_lang
@@ -56,7 +57,7 @@ def build_prompt(
     hint: str,
     variation: int = 0,
 ) -> str:
-    """Construeix el prompt per a una xarxa concreta."""
+    """Builds the prompt for a specific network."""
     lang_name = LANG_NAMES.get(source_lang, source_lang)
     parts: List[str] = [
         f"Ets un community manager expert. Redacta UNA sola publicació per a {network}.",
@@ -84,9 +85,9 @@ def build_prompt(
 
 
 def _clean_output(raw: str) -> str:
-    """Neteja la sortida del model: espais i cometes embolcall habituals."""
+    """Cleans up the model output: common wrapping spaces and quotes."""
     text = (raw or "").strip()
-    # Treu un embolcall complet de cometes (" ... " o ' ... ' o ``` ... ```).
+    # Strips a full wrapper of quotes (" ... " or ' ... ' or ``` ... ```).
     for fence in ("```", '"""', "'''"):
         if text.startswith(fence) and text.endswith(fence) and len(text) > 2 * len(fence):
             text = text[len(fence):-len(fence)].strip()
@@ -96,7 +97,7 @@ def _clean_output(raw: str) -> str:
 
 
 def _extract_hashtags(text: str) -> List[str]:
-    """Extreu els hashtags del text (per mostrar-los a part a la UI)."""
+    """Extracts the hashtags from the text (to show them separately in the UI)."""
     return re.findall(r"#\w+", text or "")
 
 
@@ -113,9 +114,10 @@ def compose_one(
     hint: str = "",
     variation: int = 0,
 ) -> Dict[str, Any]:
-    """Genera la proposta per a UNA xarxa. Síncron (l'endpoint l'envolta en to_thread).
+    """Generates the proposal for ONE network. Synchronous (the endpoint wraps it in to_thread).
 
-    Retorna {text, hashtags, char_count, over_limit, provider}.
+    Returns {text, hashtags, char_count, over_limit, provider}.
+    
     """
     from pipeline.ai_client import call_ai_with_fallback
 

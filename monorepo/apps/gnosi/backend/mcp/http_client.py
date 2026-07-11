@@ -1,11 +1,11 @@
-"""Client MCP sobre HTTP (streamable) amb Bearer OAuth.
+"""MCP client over HTTP (streamable) with Bearer OAuth.
 
-Complement de `DockerMCPClient` (stdio): per a MCP allotjats com el de Notion
-(`mcp.notion.com`), que parlen JSON-RPC sobre HTTP i autentiquen amb `Authorization: Bearer`.
-Gestiona resposta `application/json` i `text/event-stream` (streamable HTTP).
+Complement to `DockerMCPClient` (stdio): for hosted MCPs like Notion's
+(`mcp.notion.com`), which speak JSON-RPC over HTTP and authenticate with `Authorization: Bearer`.
+Handles `application/json` and `text/event-stream` responses (streamable HTTP).
 
-⚠️ Endpoint/scope/nom-de-tool exactes de l'MCP de Notion → verificar a la implementació real
-(config per env). cf. directiva `notion_mcp_oauth_views.md`.
+⚠️ Exact endpoint/scope/tool-name for Notion's MCP → verify in the actual implementation
+(config per env). cf. directive `notion_mcp_oauth_views.md`.
 """
 from __future__ import annotations
 
@@ -17,15 +17,15 @@ log = logging.getLogger(__name__)
 
 
 def _retry_after_seconds(value: Optional[str], attempt: int) -> float:
-    """Segons a esperar davant un 429, tolerant amb el format de `Retry-After`
-    (segons O data HTTP). Backoff per defecte i cap a 10s. Delega al helper
-    compartit `backend.utils.http_retry` (mateixa lògica que el clon de Notion)."""
+    """Seconds to wait when facing a 429, tolerant of the `Retry-After`
+    format (seconds OR HTTP date). Default backoff up to 10s. Delegates to the
+    shared helper `backend.utils.http_retry` (same logic as the Notion clone)."""
     from backend.utils.http_retry import retry_after_seconds
     return retry_after_seconds(value, default=1.5 * (attempt + 1), cap=10.0)
 
 
 def _parse_sse(text: str) -> Dict[str, Any]:
-    """Extreu el primer payload JSON-RPC d'un cos SSE (línies `data: {...}`)."""
+    """Extracts the first JSON-RPC payload from an SSE body (`data: {...}` lines)."""
     for line in text.splitlines():
         line = line.strip()
         if line.startswith("data:"):
@@ -39,7 +39,7 @@ def _parse_sse(text: str) -> Dict[str, Any]:
 
 
 class HttpMCPClient:
-    """Client JSON-RPC MCP mínim sobre HTTP. Síncron (pensat per a `asyncio.to_thread`)."""
+    """Minimal JSON-RPC MCP client over HTTP. Synchronous (intended for `asyncio.to_thread`)."""
 
     def __init__(self, base_url: str, token: str, *, timeout: float = 60.0):
         self.base_url = base_url
@@ -53,8 +53,8 @@ class HttpMCPClient:
             "Authorization": f"Bearer {self.token}",
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
-            # mcp.notion.com és darrere Cloudflare i BLOQUEJA (error 1010) el User-Agent
-            # per defecte de Python (urllib/httpx). Cal un UA de navegador per passar.
+            # mcp.notion.com is behind Cloudflare and BLOCKS (error 1010) the User-Agent
+            # default in Python (urllib/httpx). A browser UA is needed to get through.
             "User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"),
         }
@@ -78,7 +78,7 @@ class HttpMCPClient:
                 time.sleep(_retry_after_seconds(resp.headers.get("Retry-After"), attempt))
                 last = resp
                 continue
-            if resp.status_code == 401:  # token caducat → el caller (notion_mcp) el renova
+            if resp.status_code == 401:  # expired token → the caller (notion_mcp) renews it
                 raise RuntimeError("MCP 401 invalid_token")
             resp.raise_for_status()
             ctype = resp.headers.get("content-type", "")
@@ -98,7 +98,7 @@ class HttpMCPClient:
             "capabilities": {},
             "clientInfo": {"name": "gnosi-host", "version": "1.0"},
         })
-        # notificació "initialized" (best-effort)
+        # "initialized" notification (best-effort)
         try:
             self._rpc("notifications/initialized", {})
         except Exception:
