@@ -496,7 +496,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                 } catch (err) {
                     setLoading(false);
                     setConfirmConfig({ isOpen: false });
-                    console.error("Error buidant carpeta:", err);
+                    console.error("Error emptying folder:", err);
                     toast.error(`${t('mail.error_prefix', 'Error')}: ${err.message || t('mail.empty_folder_fallback_error', "No s'ha pogut buidar")}`);
                 }
             }

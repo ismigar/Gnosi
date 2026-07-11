@@ -709,7 +709,7 @@ export function DbViewEmbed({ block }) {
                         setView(null);
                         setRawRecords([]);
                         setTemplates([]);
-                        setError(`Vista "${viewId.slice(0, 8)}..." no trobada al registry.`);
+                        setError(t('errors.view_not_found_registry', 'Vista "{{id}}..." no trobada al registry.', { id: viewId.slice(0, 8) }));
                         setLoading(false);
                     }
                     return;
@@ -1123,7 +1123,7 @@ export function DbViewEmbed({ block }) {
         return (
             <div className="my-4 p-4 flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
                 <Loader2 size={14} className="animate-spin" />
-                Carregant vista...
+                {t('views_header.loading_view', 'Carregant vista...')}
             </div>
         );
     }

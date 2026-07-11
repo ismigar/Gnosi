@@ -53,7 +53,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             const res = await axios.get(`/api/vault/pages/${pageId}/comments`);
             setComments(res.data?.comments || []);
         } catch (err) {
-            console.error('Error carregant comentaris:', err);
+            console.error('Error loading comments:', err);
             toast.error(t('errors.comments_load', { defaultValue: 'No s\'han pogut carregar els comentaris' }));
         } finally {
             setLoading(false);
@@ -93,7 +93,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setComments(prev => [...prev, res.data]);
             setDraft('');
         } catch (err) {
-            console.error('Error afegint comentari:', err);
+            console.error('Error adding comment:', err);
             notifyMutationError(err, 'errors.comment_add', 'Error afegint el comentari');
         } finally {
             setSubmitting(false);
@@ -109,7 +109,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setEditingId(null);
             setEditDraft('');
         } catch (err) {
-            console.error('Error editant comentari:', err);
+            console.error('Error editing comment:', err);
             notifyMutationError(err, 'errors.comment_edit', 'Error editant el comentari');
         }
     };
@@ -121,7 +121,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             });
             setComments(prev => prev.map(c => (c.id === comment.id ? res.data : c)));
         } catch (err) {
-            console.error('Error canviant estat del comentari:', err);
+            console.error('Error changing comment status:', err);
             notifyMutationError(err, 'errors.comment_resolve', 'Error actualitzant el comentari');
         }
     };
@@ -133,7 +133,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             await axios.delete(`/api/vault/pages/${pageId}/comments/${target.id}`);
             setComments(prev => prev.filter(c => c.id !== target.id));
         } catch (err) {
-            console.error('Error eliminant comentari:', err);
+            console.error('Error deleting comment:', err);
             notifyMutationError(err, 'errors.comment_delete', 'Error eliminant el comentari');
         } finally {
             setDeleteTarget(null);

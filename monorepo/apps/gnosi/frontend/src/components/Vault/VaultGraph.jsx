@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../GraphViewer';
 import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target } from 'lucide-react';
 import { matchesFilters, matchesSearch } from '../../utils/vaultFilters';
@@ -17,6 +18,7 @@ export function VaultGraph({
     isDarkMode = false,
     onNodeClick
 }) {
+    const { t } = useTranslation();
     const [graphData, setGraphData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [config, setConfig] = useState(null);
@@ -34,7 +36,7 @@ export function VaultGraph({
                 setGraphData(graphRes.data);
                 setConfig(configRes.data);
             } catch (err) {
-                console.error("Error carregant dades del graf:", err);
+                console.error("Error loading graph data:", err);
             } finally {
                 setLoading(false);
             }
@@ -72,7 +74,7 @@ export function VaultGraph({
             <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50">
                 <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                    <span className="text-sm text-gray-500">Construint graf...</span>
+                    <span className="text-sm text-gray-500">{t('graph.vault_embed.building', 'Construint graf...')}</span>
                 </div>
             </div>
         );
@@ -112,7 +114,7 @@ export function VaultGraph({
                 <button 
                     onClick={() => viewerRef.current?.center()}
                     className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-                    title="Centrar"
+                    title={t('graph.vault_embed.center_tooltip', 'Centrar')}
                 >
                     <Target size={18} />
                 </button>

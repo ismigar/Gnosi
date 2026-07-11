@@ -151,7 +151,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     ('store' in data || 'document' in data || 'session' in data);
 
                 if (!isEmptyInitial && !isTldrawSnapshot) {
-                    console.error(`Dibuix ${drawingId} amb format no compatible amb tldraw (legacy .excalidraw?)`);
+                    console.error(`Drawing ${drawingId} has a format incompatible with tldraw (legacy .excalidraw?)`);
                     setLoadState('incompatible');
                     return;
                 }
@@ -159,7 +159,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                     if (isTldrawSnapshot) loadSnapshot(store, data);
                     setLoadState('ready');
                 } catch (e) {
-                    console.error("Error aplicant el snapshot del dibuix:", e);
+                    console.error("Error applying drawing snapshot:", e);
                     setLoadState('incompatible');
                 }
             })
@@ -171,7 +171,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 } else {
                     // 500, network, OneDrive online-only file... the drawing
                     // exists but we couldn't read it: we block saving.
-                    console.error("Error carregant dibuix:", err);
+                    console.error("Error loading drawing:", err);
                     setLoadState('error');
                 }
             });
@@ -193,7 +193,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             });
             onSaveSuccess?.();
         } catch (err) {
-            console.error("Error al desar el dibuix:", err);
+            console.error("Error saving drawing:", err);
         }
     }, [drawingId, store, title, onSaveSuccess, loadState]);
 
@@ -347,7 +347,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
 
                 toast.success(t('tldraw.page_added', { title: noteData.title }));
             } catch (err) {
-                console.error("Error afegint pàgina al dibuix:", err);
+                console.error("Error adding page to drawing:", err);
                 toast.error(t('tldraw.add_page_error'));
             }
         };
@@ -412,7 +412,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
             insertPageOnCanvas(page.id, page.title || 'Nova nota');
             toast.success(t('tldraw.note_created'));
         } catch (err) {
-            console.error('Error creant nota al llenç:', err);
+            console.error('Error creating note on canvas:', err);
             toast.error(t('tldraw.create_note_error'));
         }
     }, [insertPageOnCanvas, t]);
@@ -483,7 +483,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 ? t('tldraw.recognized_corrected')
                 : t('tldraw.recognized'));
         } catch (err) {
-            console.error('Error reconeixent escriptura a mà:', err);
+            console.error('Error recognizing handwriting:', err);
             const status = err?.response?.status;
             if (status === 503) {
                 toast.error(t('tldraw.engine_unavailable'));

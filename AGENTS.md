@@ -74,7 +74,9 @@ Projects/
 
 ## Code Style Summary
 
-**Documentation language:** ALL code documentation (comments, docstrings, JSDoc) in **English** — the repo is public on GitHub. User-facing text stays multilingual via i18n; identifiers/test data in another language are left as-is. See `docs/dev_memory/directives/english_code_documentation.md`.  
+**Language & i18n (repo is PUBLIC on GitHub — enforce on EVERY change; see `docs/dev_memory/directives/i18n_and_english_standardization.md`):**
+- **Code in English:** ALL comments, docstrings, JSDoc **and developer logs** (`console.error/warn/log`, `logger`) in English. Identifiers, stored/compared values, and test data in another language are left as-is. Directive: `english_code_documentation.md`.
+- **UI via i18n, never hard-coded:** every user-visible string goes through `react-i18next` — `t('namespace.key', 'default')`, with the key added to **all 4 locales** (`frontend/src/locales/{ca,en,es,fr}/translation.json`). Never leave a `t()` key missing from the locales (it would render the raw default in every language). Directive: `i18n_hardcoded_ui_strings.md`. Exceptions: language endonyms (Español/Català/Français) and persisted/compared data values stay literal.  
 **TypeScript:** `camelCase` (vars), `PascalCase` (components), `UPPER_SNAKE_CASE` (constants). ESLint flat config. Strict types—no `any`.  
 **Python:** `snake_case` (funcs), `PascalCase` (classes). Google docstrings. Import order: stdlib → 3rd-party → local. `get_logger(__name__)` not `print()`.
 

@@ -88,7 +88,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
             if (onTranslated) onTranslated(res.data);
             onClose();
         } catch (err) {
-            console.error('Error sol·licitant traducció:', err);
+            console.error('Error requesting translation:', err);
             const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('translate.error', 'Error iniciant la traducció')}: ${msg}`);
         } finally {

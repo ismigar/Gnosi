@@ -129,7 +129,13 @@
     "restore": "Restaurar",
     "document": "document",
     "error": "Error",
-    "unknown": "desconegut"
+    "unknown": "desconegut",
+    "prompt_modal_title": "Introdueix un valor",
+    "ok": "D'acord",
+    "cancel_short": "Cancel·la",
+    "confirm_modal_title": "Confirmar acció",
+    "confirm_modal_message": "N'estàs segur que vols procedir amb aquesta acció?",
+    "confirm": "Confirmar"
   },
   "calendar": {
     "title": "Calendari",
@@ -292,7 +298,8 @@
     "duration_updated": "Durada actualitzada!",
     "resize_event_error": "Error redimensionant l'esdeveniment.",
     "more_suffix": "més",
-    "reminder_before": "Avís {{value}} abans"
+    "reminder_before": "Avís {{value}} abans",
+    "close_panel": "Tancar panell"
   },
   "sidebar": {
     "my_vault": "El meu Coneixement",
@@ -354,7 +361,9 @@
     "toggle_navigation": "Toggle navigation",
     "logged_out": "Sessió tancada.",
     "logout_tooltip_title": "{{user}} — Tancar sessió",
-    "logout_tooltip_label": "Tancar sessió ({{user}})"
+    "logout_tooltip_label": "Tancar sessió ({{user}})",
+    "vault_menu_active": "VAULT ACTIU",
+    "vault_menu_new": "Nou vault"
   },
   "shell": {
     "go_back": "Enrere",
@@ -603,7 +612,9 @@
     "details_link": "Detalls →",
     "summary_link": "Resum →",
     "history_link": "Historial →",
-    "managed_in_vault": "Gestionat al Vault"
+    "managed_in_vault": "Gestionat al Vault",
+    "error_prefix": "Error",
+    "view_graph": "Veure Graf"
   },
   "errors": {
     "load_pages": "Error carregant pàgines",
@@ -654,7 +665,8 @@
     "delete_only_view": "No es pot eliminar l'única vista.",
     "delete_contact": "Error al eliminar el contacte: ",
     "tags_load": "No s'han pogut carregar els tags",
-    "import_notes": "Error important: {{error}}"
+    "import_notes": "Error important: {{error}}",
+    "view_not_found_registry": "Vista \"{{id}}...\" no trobada al registry."
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -880,7 +892,19 @@
     "mermaid_edit": "Edita",
     "mermaid_rendering": "Renderitzant diagrama…",
     "link_url_placeholder": "https://exemple.com",
-    "embed_url_placeholder": "https://… (imatge, vídeo, fitxer)"
+    "embed_url_placeholder": "https://… (imatge, vídeo, fitxer)",
+    "spellcheck_no_suggestions": "Cap suggeriment",
+    "spellcheck_add_to_dictionary": "Afegeix al diccionari",
+    "spellcheck_ignore_word": "Ignora aquesta paraula",
+    "presentation_fullscreen": "Pantalla completa",
+    "presentation_exit": "Surt (Esc)",
+    "synced_block_label": "Bloc sincronitzat",
+    "synced_done": "Fet",
+    "synced_placeholder": "Contingut compartit (Markdown)…",
+    "synced_empty": "Bloc sincronitzat buit — clica «Edita» per afegir-hi contingut.",
+    "date_reminder_tooltip": "Recordatori: {{date}} a les {{time}}",
+    "date_reminder_label": "Recordatori (opcional)",
+    "date_reminder_clear": "Treu"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -965,7 +989,11 @@
     "delete_view_confirm": "Eliminar la vista \"{{name}}\" a TOT arreu? Desapareixerà de totes les pàgines.",
     "rename_view_title": "Reanomenar vista",
     "new_view_name_label": "Nou nom de la vista",
-    "new_options": "Opcions de creació"
+    "new_options": "Opcions de creació",
+    "loading_view": "Carregant vista...",
+    "configure_view_tooltip": "Configurar Vista",
+    "wip_tooltip": "En desenvolupament per propera iteració",
+    "soon_badge": "Aviat"
   },
   "icon_picker": {
     "tabs": {
@@ -989,7 +1017,8 @@
       "upload_success": "Icona pujada correctament",
       "upload_error": "Error al pujar la icona",
       "import_success": "Icona importada correctament",
-      "import_error": "Error important la icona des de URL"
+      "import_error": "Error important la icona des de URL",
+      "upload_timeout": "Temps d'espera esgotat (Timeout)"
     }
   },
   "cover_picker": {
@@ -1772,7 +1801,12 @@
     "scheduled_tasks_hint": "Configura tasques automàtiques del sistema.",
     "last_run": "Última execució:",
     "keychain_migration_title": "Migració des de .env_shared",
-    "keychain_migration_hint": "Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament."
+    "keychain_migration_hint": "Si tens claus al fitxer .env_shared, pots migrar-les al Keychain automàticament.",
+    "api_keys_hint": "Les teves claus API s'emmagatzemen de forma segura al Keychain del teu ordinador. Aquesta pestanya mostra quines claus estan configurades.",
+    "credential_save_error": "Error guardant: {{message}}",
+    "keychain_migration_error": "Error migrant: {{message}}",
+    "credential_configured": "Configurat",
+    "credential_placeholder": "Introdueix la clau per a {{name}}"
   },
   "contacts": {
     "title": "Contactes",
@@ -2256,7 +2290,15 @@
     "undo_success": "Acció desfeta",
     "undo_error": "No s'ha pogut desfer",
     "undo_label_trashed": "Eliminat",
-    "undo_label_archived": "Arxivat"
+    "undo_label_archived": "Arxivat",
+    "file_attached": "Adjuntat: {{name}}",
+    "insert_image_error": "Error inserint imatge",
+    "tag_name_placeholder": "Nom de l'etiqueta...",
+    "no_tags": "Cap etiqueta",
+    "delete_tag_tooltip": "Elimina etiqueta",
+    "new_tag": "Nova etiqueta",
+    "usual_group": "Grup habitual",
+    "add_all_group": "Afegir tots: {{emails}}"
   },
   "subs_section_title": "Fonts d'Informació",
   "subs_btn_reload": "Recarregar",
@@ -2646,7 +2688,8 @@
     "search": "Cerca",
     "source_label": "Font",
     "title": "Omplir metadades",
-    "type_label": "Tipus"
+    "type_label": "Tipus",
+    "not_native": "el tipus no els porta nativament"
   },
   "vault": {
     "moved_to_trash": "mogut a la paperera",
@@ -2685,7 +2728,8 @@
       "confirm_purge": "Estàs segur que vols eliminar tot l'historial de versions d'aquesta pàgina? Aquesta acció no es pot desfer.",
       "confirm_restore_title": "Restaurar versió",
       "confirm_purge_title": "Purgar historial",
-      "purge_success": "Historial purgat correctament"
+      "purge_success": "Historial purgat correctament",
+      "close": "Tancar historial"
     },
     "recent": {
       "title": "Pàgines recents",
@@ -2964,7 +3008,8 @@
     "back": "Enrere",
     "loading": "Carregant…",
     "no_src": "No hi ha cap PDF per mostrar",
-    "open_external": "Obre amb l'app del sistema"
+    "open_external": "Obre amb l'app del sistema",
+    "open_external_error": "No s'ha pogut obrir externament: {{message}}"
   },
   "pdf_quotes": {
     "copied": "Quote copiada al portaretalls. Pega-la al document.",
@@ -3031,7 +3076,15 @@
     "publish_now": "Publicar Ara",
     "scheduler_title": "Programar Post",
     "scheduler_will_publish": "Es publicarà el:",
-    "scheduler_confirm": "Confirmar"
+    "scheduler_confirm": "Confirmar",
+    "column_empty": "No hi ha posts recents",
+    "with_ai": "Amb IA",
+    "new_post": "Nou post",
+    "streams_loading": "Carregant streams...",
+    "add_stream": "Afegir stream",
+    "status_published": "Publicat",
+    "history_loading": "Carregant historial...",
+    "history_empty": "Encara no hi ha posts a l'historial."
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
@@ -3226,6 +3279,27 @@
       "outbound": "Distribuir atracció per grau",
       "outbound_hint": "Comprimeix hubs (off = radial tipus Obsidian)",
       "note": "Nota: Canviar aquests valors reiniciarà la simulació física."
+    },
+    "sync_tooltip": "Sincronitzar",
+    "toggle_panel_tooltip": "Mostra / amaga panell",
+    "hide_connections": "Amaga Connexions",
+    "show_connections": "Mostra Connexions",
+    "controls": {
+      "fullscreen": "Pantalla Completa",
+      "recenter": "Recentrar",
+      "zoom_in": "Ampliar",
+      "zoom_out": "Allunyar"
+    },
+    "node_panel": {
+      "close": "Tancar detalls",
+      "loading": "Carregant... ⏳",
+      "updated": "Actualitzat: {{date}}",
+      "loading_content": "Acabant de carregar contingut...",
+      "no_content": "Sense contingut..."
+    },
+    "vault_embed": {
+      "building": "Construint graf...",
+      "center_tooltip": "Centrar"
     }
   },
   "auth": {
@@ -3264,7 +3338,10 @@
     "col_title": "Títol del Registre",
     "legend_page": "Pàgina / Tarea",
     "active_deps": "Dependències actives ({{count}} registres)",
-    "footer_hint": "Cronograma interactiu amb dependències automàtiques."
+    "footer_hint": "Cronograma interactiu amb dependències automàtiques.",
+    "until": "Fins al {{date}}",
+    "no_data": "No hi ha dades per mostrar al cronograma.",
+    "add_predecessor": "Afegir antecessora"
   },
   "home": {
     "subtitle": "El teu ecosistema de coneixement personal",
@@ -3385,7 +3462,11 @@
     "page_error": "No s'ha pogut corregir la pàgina",
     "confirm_title": "Corregir tota la pàgina amb IA",
     "confirm_message": "Es reemplaçarà el contingut de la pàgina amb la versió corregida. Podràs desfer-ho amb Ctrl/Cmd+Z.",
-    "confirm_button": "Corregeix"
+    "confirm_button": "Corregeix",
+    "selection_error": "No s'ha pogut corregir",
+    "correcting_page": "Corregint la pàgina amb IA…",
+    "button": "Corregeix (IA)",
+    "correcting": "Corregint amb IA…"
   },
   "folder_picker": {
     "go_up": "Pujar un nivell (Up)",
@@ -3467,7 +3548,11 @@
     "new_tab_tooltip": "Nova pestanya o cerca ràpida ({{shortcut}}). Canviar pestanya: {{tabShortcut}}",
     "search_placeholder": "Cerca pàgines i taules...",
     "no_results": "Sense resultats",
-    "open_table_parallel": "Obrir taula en paral·lel"
+    "open_table_parallel": "Obrir taula en paral·lel",
+    "workspaces_title": "Espais de Treball",
+    "new_workspace": "Nou Workspace",
+    "workspaces_save_placeholder": "Desa les {{count}} pestanyes obertes com a…",
+    "workspaces_empty": "Cap espai desat encara."
   },
   "drawings": {
     "load_error": "Error carregant dibuixos",
@@ -3500,5 +3585,6 @@
     "link_invalid": "Aquest enllaç no és vàlid o ha caducat.",
     "load_error": "No s'ha pogut carregar la pàgina compartida.",
     "readonly_badge": "Compartit · només lectura"
-  }
+  },
+  "reader_podcast_error_prefix": "Error"
 }

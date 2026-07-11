@@ -21,7 +21,7 @@ export function VaultTagsView({ onPageSelect }) {
             const res = await axios.get('/api/vault/tags');
             setTags(res.data?.tags || []);
         } catch (err) {
-            console.error('Error carregant els tags:', err);
+            console.error('Error loading tags:', err);
             toast.error(t('errors.tags_load', { defaultValue: 'No s\'han pogut carregar els tags' }));
         } finally {
             setLoading(false);

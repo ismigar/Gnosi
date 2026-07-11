@@ -44,7 +44,7 @@ export function VaultTrashView({ onAfterChange }) {
             setItems(res.data?.items || []);
             setRetentionDays(res.data?.retention_days || 90);
         } catch (err) {
-            console.error('Error carregant la paperera:', err);
+            console.error('Error loading trash:', err);
             toast.error(t('trash.load_error', "No s'ha pogut carregar la paperera"));
         } finally {
             setLoading(false);
@@ -73,7 +73,7 @@ export function VaultTrashView({ onAfterChange }) {
             if (err?.response?.status === 409) {
                 toast.error(t('trash.restore_conflict_error', "Ja existeix un fitxer al destí original"));
             } else {
-                console.error('Error restaurant:', err);
+                console.error('Error restoring:', err);
                 toast.error(t('errors.restore_page'));
             }
         }
@@ -92,7 +92,7 @@ export function VaultTrashView({ onAfterChange }) {
             await fetchTrash();
             onAfterChange?.();
         } catch (err) {
-            console.error('Error purgant:', err);
+            console.error('Error purging:', err);
             toast.error(t('trash.purge_error', "No s'ha pogut purgar"));
             setPurgeTarget(null);
         }
@@ -116,7 +116,7 @@ export function VaultTrashView({ onAfterChange }) {
             await fetchTrash();
             onAfterChange?.();
         } catch (err) {
-            console.error('Error buidant:', err);
+            console.error('Error emptying:', err);
             toast.error(t('trash.empty_all_error', "No s'ha pogut buidar la paperera"));
         }
     };

@@ -520,10 +520,10 @@ export function PluginsSettings() {
                             <Icon size={18} style={{ color: '#6366f1', flexShrink: 0 }} />
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #0f172a)' }}>
-                                    {plugin.name}
+                                    {tp(`${plugin.id}.name`, { defaultValue: plugin.name })}
                                 </div>
                                 <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                                    {plugin.description}
+                                    {tp(`${plugin.id}.desc`, { defaultValue: plugin.description })}
                                 </div>
                             </div>
                             {ConfigPanel && enabled && (

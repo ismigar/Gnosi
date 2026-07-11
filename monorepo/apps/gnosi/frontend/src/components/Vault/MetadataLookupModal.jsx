@@ -54,10 +54,10 @@ const SOURCE_LABELS = {
     url: 'Open Graph / meta tags (URL)',
 };
 
-// Mapeig de l'idioma de la UI (react-i18next: ca / es / en / fr, o variants
-// regionals com en-US) al codi de locale de `ZOTERO_TYPE_LABELS`. Mateix patró
-// que `GNOSI_TO_ZOTERO_LOCALE` a ZoteroReaderTab. Si l'idioma no hi és, fallback
-// a 'en-US' (sempre present al schema). Vegeu build_constants.py::LOCALES.
+// Maps the UI language (react-i18next: ca / es / en / fr, or regional
+// variants like en-US) to the locale code in `ZOTERO_TYPE_LABELS`. Same pattern
+// as `GNOSI_TO_ZOTERO_LOCALE` in ZoteroReaderTab. If the language is not present,
+// fall back to 'en-US' (always in the schema). See build_constants.py::LOCALES.
 const UI_LANG_TO_ZOTERO_LOCALE = {
     ca: 'ca-AD',
     es: 'es-ES',
@@ -65,8 +65,8 @@ const UI_LANG_TO_ZOTERO_LOCALE = {
     fr: 'fr-FR',
 };
 
-/** Retorna el label traduït del tipus Zotero segons l'idioma actiu de la UI.
- *  Cau a la clau canònica (`zoteroType`) si el tipus no té label al locale. */
+/** Returns the translated Zotero-type label according to the UI's active language.
+ *  Falls back to the canonical key (`zoteroType`) if the type has no label in the locale. */
 function zoteroTypeLabel(zoteroType, uiLanguage) {
     if (!zoteroType) return null;
     const base = String(uiLanguage || 'ca').split('-')[0];
@@ -304,7 +304,7 @@ export const MetadataLookupModal = ({
     const hintCls = "text-[10px] text-red-500 mt-0.5";
 
     const allSelected = fieldEntries.length > 0 && fieldEntries.every(([k]) => selectedFields[k]);
-    // Label del tipus Zotero en l'idioma actiu de la UI (abans sempre ca-AD).
+    // Zotero-type label in the UI's active language (previously always ca-AD).
     const typeLabel = zoteroTypeLabel(zoteroType, i18n?.language);
 
     return ReactDOM.createPortal(
@@ -516,7 +516,7 @@ export const MetadataLookupModal = ({
                                                 <tr className="bg-[var(--bg-secondary)]/40">
                                                     <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-tertiary)] tracking-wide">
                                                         {t('metadata_lookup.other_fields', { defaultValue: 'Altres camps' })}
-                                                        <span className="ml-1 font-normal normal-case">({otherEntries.length}) — el tipus no els porta nativament</span>
+                                                        <span className="ml-1 font-normal normal-case">({otherEntries.length}) — {t('metadata_lookup.not_native', 'el tipus no els porta nativament')}</span>
                                                     </td>
                                                 </tr>
                                             )}

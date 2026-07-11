@@ -3,6 +3,7 @@ import { BlockNoteView } from "@blocknote/mantine";
 import { useCreateBlockNote } from "@blocknote/react";
 import "@blocknote/mantine/style.css";
 import "@blocknote/core/fonts/inter.css";
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../hooks/useTheme';
 import { toast } from '../../lib/toast';
 
@@ -16,6 +17,7 @@ async function uploadFileToVault(file) {
 }
 
 export default function MailBlockEditor({ initialContent, onChange, editorRef, minHeight = "200px", onAttachFile, autoFocus = false, prependEmptyLines = 0 }) {
+    const { t } = useTranslation();
     const { effectiveTheme } = useTheme();
     // Ref so that uploadFile (captured only once by useCreateBlockNote)
     // always sees the current onAttachFile.
@@ -28,7 +30,7 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
             // recipient → redirect it to the real attachments and abort the insertion.
             if (!file.type.startsWith('image/') && onAttachFileRef.current) {
                 onAttachFileRef.current(file);
-                toast(`Adjuntat: ${file.name}`, { icon: '📎' });
+                toast(t('mail.file_attached', 'Adjuntat: {{name}}', { name: file.name }), { icon: '📎' });
                 throw new Error('Fitxer desviat als adjunts');
             }
             return uploadFileToVault(file);
@@ -90,14 +92,14 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
                         'after'
                     );
                 } catch {
-                    toast.error('Error inserint imatge');
+                    toast.error(t('mail.insert_image_error', 'Error inserint imatge'));
                 }
             } else if (onAttachFile) {
                 onAttachFile(file);
-                toast(`Adjuntat: ${file.name}`, { icon: '📎' });
+                toast(t('mail.file_attached', 'Adjuntat: {{name}}', { name: file.name }), { icon: '📎' });
             }
         }
-    }, [editor, onAttachFile]);
+    }, [editor, onAttachFile, t]);
 
     const handleDrop = useCallback((e) => {
         if (!e.dataTransfer.types.includes('Files')) return;

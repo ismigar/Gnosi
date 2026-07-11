@@ -965,7 +965,7 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
             // Defensive: if item.text is not a string, we do NOT toString it
             // (it would return "[object Object]" and overwrite the note on disk).
             if (typeof item.text !== "string") {
-                console.warn("inlineContentToMarkdown: item.text no és string", item);
+                console.warn("inlineContentToMarkdown: item.text is not a string", item);
                 return "";
             }
             let text = item.text;

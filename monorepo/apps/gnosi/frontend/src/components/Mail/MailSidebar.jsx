@@ -143,13 +143,13 @@ export default function MailSidebar({
                             onClick={() => { setEditingView(view); setShowEditor(true); setViewMenuId(null); }}
                             className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
-                            <Pencil size={13} /> Editar
+                            <Pencil size={13} /> {t('common.edit', 'Editar')}
                         </button>
                         <button
                             onClick={() => handleDeleteView(view)}
                             className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-red-500 hover:bg-[var(--bg-secondary)] transition-colors"
                         >
-                            <DeleteIcon size={13} /> Eliminar
+                            <DeleteIcon size={13} /> {t('common.delete', 'Eliminar')}
                         </button>
                     </div>
                 )}
@@ -277,7 +277,7 @@ export default function MailSidebar({
                             onClick={() => setShowTags(v => !v)}
                             className="w-full flex items-center gap-1.5 px-3 mb-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider hover:text-[var(--text-primary)] transition-colors"
                         >
-                            <span className="flex-1 text-left">Etiquetes</span>
+                            <span className="flex-1 text-left">{t('mail.labels', 'Etiquetes')}</span>
                             <ChevronDown size={11} className={`transition-transform ${showTags ? '' : '-rotate-90'}`} />
                         </button>
                         {showTags && (
@@ -296,7 +296,7 @@ export default function MailSidebar({
                                     </button>
                                 ))}
                                 {tags.length === 0 && (
-                                    <div className="px-3 py-1 text-[12px] text-[var(--text-secondary)]">Cap etiqueta</div>
+                                    <div className="px-3 py-1 text-[12px] text-[var(--text-secondary)]">{t('mail.no_tags', 'Cap etiqueta')}</div>
                                 )}
                             </>
                         )}

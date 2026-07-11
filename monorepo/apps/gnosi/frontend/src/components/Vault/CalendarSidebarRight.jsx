@@ -689,7 +689,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 });
                 if (!silent) onClose?.();
             } catch (err) {
-                console.error('Error actualitzant event de Google:', err);
+                console.error('Error updating Google event:', err);
                 setSaveError(true);
                 if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
                 if (silent && snapshot) lastSavedData.current = snapshot;
@@ -737,7 +737,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         // delete it so it doesn't remain duplicated.
                         if (createdIdRef.current) {
                             try { await axios.delete(`/api/vault/pages/${createdIdRef.current}`); }
-                            catch (delErr) { console.error('Error netejant cita duplicada al Vault:', delErr); }
+                            catch (delErr) { console.error('Error cleaning up duplicate appointment in Vault:', delErr); }
                             createdIdRef.current = null;
                         }
                     }
@@ -747,7 +747,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 onSaved?.();
                 if (!silent) onClose?.();
             } catch (err) {
-                console.error('Error desant event a Google Calendar:', err);
+                console.error('Error saving event to Google Calendar:', err);
                 setSaveError(true);
                 if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
                 if (silent && snapshot) lastSavedData.current = snapshot;
@@ -915,7 +915,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 if (googleRef.current?.id) {
                     try {
                         await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
-                    } catch (delErr) { console.error('Error netejant cita duplicada a Google:', delErr); }
+                    } catch (delErr) { console.error('Error cleaning up duplicate appointment in Google:', delErr); }
                     googleRef.current = null;
                 }
                 if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
@@ -929,7 +929,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 endType, endCount, untilDate, description, attendees, travelTime
             });
         } catch (err) {
-            console.error('Error desant event:', err);
+            console.error('Error saving event:', err);
             setSaveError(true);
             if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
             if (silent && snapshot) lastSavedData.current = snapshot;
@@ -951,7 +951,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 onSaved?.();
                 onClose?.();
             } catch (err) {
-                console.error('Error eliminant event de Google:', err);
+                console.error('Error deleting Google event:', err);
                 toast.error(t('calendar.event_delete_error', 'Error eliminant la cita.'));
             } finally {
                 setDeleting(false);
@@ -975,7 +975,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 onSaved?.();
                 onClose?.();
             } catch (err) {
-                console.error('Error eliminant event de Google:', err);
+                console.error('Error deleting Google event:', err);
                 toast.error(t('calendar.event_delete_error', 'Error eliminant la cita.'));
             } finally {
                 setDeleting(false);
@@ -1031,7 +1031,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             onSaved?.();
             onClose?.();
         } catch (err) {
-            console.error('Error eliminant event:', err);
+            console.error('Error deleting event:', err);
             const errorMsg = err.response?.data?.detail || err.message || '';
             toast.error(`${t('calendar.event_delete_error', 'Error eliminant la cita.')} ${errorMsg}`);
         } finally {
@@ -1072,7 +1072,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-tertiary)]">
                 <div className="flex items-center gap-2">
-                    <button onClick={() => { flushSaveRef.current(); onClose?.(); }} className="gnosi-close-btn" aria-label="Tancar panell">
+                    <button onClick={() => { flushSaveRef.current(); onClose?.(); }} className="gnosi-close-btn" aria-label={t('calendar.close_panel', 'Tancar panell')}>
                         <X />
                     </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">

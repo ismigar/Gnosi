@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Pencil, X } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 
@@ -11,16 +12,20 @@ export const PromptModal = ({
     isOpen,
     onClose,
     onSubmit,
-    title = "Introdueix un valor",
+    title,
     message = "",
     label = "",
     placeholder = "",
     defaultValue = "",
-    confirmText = "D'acord",
-    cancelText = "Cancel·la",
+    confirmText,
+    cancelText,
     inputType = "text",
     required = true,
 }) => {
+    const { t } = useTranslation();
+    const resolvedTitle = title ?? t('common.prompt_modal_title', 'Introdueix un valor');
+    const resolvedConfirmText = confirmText ?? t('common.ok', "D'acord");
+    const resolvedCancelText = cancelText ?? t('common.cancel_short', 'Cancel·la');
     const modalRef = useRef(null);
     const inputRef = useRef(null);
     const [value, setValue] = useState(defaultValue);
@@ -45,7 +50,7 @@ export const PromptModal = ({
             setIsSubmitting(true);
             await onSubmit(v);
         } catch (err) {
-            console.error('[PromptModal] Error en onSubmit:', err);
+            console.error('[PromptModal] Error in onSubmit:', err);
         } finally {
             setIsSubmitting(false);
         }
@@ -88,7 +93,7 @@ export const PromptModal = ({
                         onClick={onClose}
                         disabled={isSubmitting}
                         className="gnosi-close-btn"
-                        aria-label="Tancar"
+                        aria-label={t('common.close', 'Tanca')}
                     >
                         <X />
                     </button>
@@ -96,7 +101,7 @@ export const PromptModal = ({
 
                 <div>
                     <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-2">
-                        {title}
+                        {resolvedTitle}
                     </h3>
                     {message && (
                         <p className="text-sm text-[var(--text-secondary)] leading-relaxed mb-4">
@@ -129,7 +134,7 @@ export const PromptModal = ({
                         disabled={isSubmitting}
                         className="px-4 py-2 font-medium text-[var(--text-secondary)] border border-[var(--border-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors focus:ring-2 focus:ring-[var(--border-primary)] outline-none"
                     >
-                        {cancelText}
+                        {resolvedCancelText}
                     </button>
                     <button
                         type="button"
@@ -137,7 +142,7 @@ export const PromptModal = ({
                         disabled={isSubmitting || (required && !(value || '').trim())}
                         className="px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-colors focus:ring-2 focus:ring-offset-1 outline-none bg-[var(--gnosi-blue)] hover:opacity-90 focus:ring-[var(--gnosi-blue)]/50 disabled:opacity-50"
                     >
-                        {isSubmitting ? '...' : confirmText}
+                        {isSubmitting ? '...' : resolvedConfirmText}
                     </button>
                 </div>
             </div>

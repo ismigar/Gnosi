@@ -129,7 +129,13 @@
     "restore": "Restaurar",
     "document": "documento",
     "error": "Error",
-    "unknown": "desconocido"
+    "unknown": "desconocido",
+    "prompt_modal_title": "Introduce un valor",
+    "ok": "Aceptar",
+    "cancel_short": "Cancelar",
+    "confirm_modal_title": "Confirmar acción",
+    "confirm_modal_message": "¿Seguro que quieres proceder con esta acción?",
+    "confirm": "Confirmar"
   },
   "calendar": {
     "title": "Calendario",
@@ -292,7 +298,8 @@
     "duration_updated": "¡Duración actualizada!",
     "resize_event_error": "Error al redimensionar el evento.",
     "more_suffix": "más",
-    "reminder_before": "Aviso {{value}} antes"
+    "reminder_before": "Aviso {{value}} antes",
+    "close_panel": "Cerrar panel"
   },
   "sidebar": {
     "my_vault": "Mi Conocimiento",
@@ -354,7 +361,9 @@
     "toggle_navigation": "Alternar navegación",
     "logged_out": "Sesión cerrada.",
     "logout_tooltip_title": "{{user}} — Cerrar sesión",
-    "logout_tooltip_label": "Cerrar sesión ({{user}})"
+    "logout_tooltip_label": "Cerrar sesión ({{user}})",
+    "vault_menu_active": "VAULT ACTIVO",
+    "vault_menu_new": "Nuevo vault"
   },
   "shell": {
     "go_back": "Atrás",
@@ -603,7 +612,9 @@
     "details_link": "Detalles →",
     "summary_link": "Resumen →",
     "history_link": "Historial →",
-    "managed_in_vault": "Gestionado en el Vault"
+    "managed_in_vault": "Gestionado en el Vault",
+    "error_prefix": "Error",
+    "view_graph": "Ver Grafo"
   },
   "errors": {
     "load_pages": "Error cargando páginas",
@@ -654,7 +665,8 @@
     "delete_only_view": "No se puede eliminar la única vista.",
     "delete_contact": "Error al eliminar el contacto: ",
     "tags_load": "No se han podido cargar las etiquetas",
-    "import_notes": "Error al importar: {{error}}"
+    "import_notes": "Error al importar: {{error}}",
+    "view_not_found_registry": "Vista \"{{id}}...\" no encontrada en el registry."
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -881,7 +893,19 @@
     "mermaid_edit": "Editar",
     "mermaid_rendering": "Renderizando diagrama…",
     "link_url_placeholder": "https://ejemplo.com",
-    "embed_url_placeholder": "https://… (imagen, vídeo, archivo)"
+    "embed_url_placeholder": "https://… (imagen, vídeo, archivo)",
+    "spellcheck_no_suggestions": "Sin sugerencias",
+    "spellcheck_add_to_dictionary": "Añadir al diccionario",
+    "spellcheck_ignore_word": "Ignorar esta palabra",
+    "presentation_fullscreen": "Pantalla completa",
+    "presentation_exit": "Salir (Esc)",
+    "synced_block_label": "Bloque sincronizado",
+    "synced_done": "Hecho",
+    "synced_placeholder": "Contenido compartido (Markdown)…",
+    "synced_empty": "Bloque sincronizado vacío: haz clic en «Editar» para añadir contenido.",
+    "date_reminder_tooltip": "Recordatorio: {{date}} a las {{time}}",
+    "date_reminder_label": "Recordatorio (opcional)",
+    "date_reminder_clear": "Quitar"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -972,7 +996,11 @@
     "delete_view_confirm": "¿Eliminar la vista \"{{name}}\" en TODAS partes? Desaparecerá de todas las páginas.",
     "rename_view_title": "Renombrar vista",
     "new_view_name_label": "Nuevo nombre de la vista",
-    "new_options": "Opciones de creación"
+    "new_options": "Opciones de creación",
+    "loading_view": "Cargando vista...",
+    "configure_view_tooltip": "Configurar Vista",
+    "wip_tooltip": "En desarrollo para una próxima iteración",
+    "soon_badge": "Pronto"
   },
   "fs_picker": {
     "title_any": "Seleccionar archivo o carpeta",
@@ -1733,7 +1761,12 @@
     "scheduled_tasks_hint": "Configura las tareas automáticas del sistema.",
     "last_run": "Última ejecución:",
     "keychain_migration_title": "Migración desde .env_shared",
-    "keychain_migration_hint": "Si tienes claves en el archivo .env_shared, puedes migrarlas al Keychain automáticamente."
+    "keychain_migration_hint": "Si tienes claves en el archivo .env_shared, puedes migrarlas al Keychain automáticamente.",
+    "api_keys_hint": "Tus claves API se almacenan de forma segura en el Keychain de tu ordenador. Esta pestaña muestra qué claves están configuradas.",
+    "credential_save_error": "Error al guardar: {{message}}",
+    "keychain_migration_error": "Error al migrar: {{message}}",
+    "credential_configured": "Configurado",
+    "credential_placeholder": "Introduce la clave para {{name}}"
   },
   "contacts": {
     "title": "Contactos",
@@ -2217,7 +2250,15 @@
     "undo_success": "Acción deshecha",
     "undo_error": "No se ha podido deshacer",
     "undo_label_trashed": "Eliminado",
-    "undo_label_archived": "Archivado"
+    "undo_label_archived": "Archivado",
+    "file_attached": "Adjuntado: {{name}}",
+    "insert_image_error": "Error al insertar imagen",
+    "tag_name_placeholder": "Nombre de la etiqueta...",
+    "no_tags": "Sin etiquetas",
+    "delete_tag_tooltip": "Eliminar etiqueta",
+    "new_tag": "Nueva etiqueta",
+    "usual_group": "Grupo habitual",
+    "add_all_group": "Añadir todos: {{emails}}"
   },
   "subs_section_title": "Fuentes de información",
   "subs_btn_reload": "Recargar",
@@ -2607,7 +2648,8 @@
     "search": "Buscar",
     "source_label": "Fuente",
     "title": "Rellenar metadatos",
-    "type_label": "Tipo"
+    "type_label": "Tipo",
+    "not_native": "el tipo no los lleva de forma nativa"
   },
   "vault": {
     "moved_to_trash": "movido a la papelera",
@@ -2646,7 +2688,8 @@
       "confirm_purge": "¿Estás seguro de que quieres eliminar todo el historial de versiones de esta página? Esta acción no se puede deshacer.",
       "confirm_restore_title": "Restaurar versión",
       "confirm_purge_title": "Purgar historial",
-      "purge_success": "Historial purgado correctamente"
+      "purge_success": "Historial purgado correctamente",
+      "close": "Cerrar historial"
     },
     "recent": {
       "title": "Páginas recientes",
@@ -2889,7 +2932,8 @@
       "upload_success": "Icono subido correctamente",
       "upload_error": "Error al subir el icono",
       "import_success": "Icono importado correctamente",
-      "import_error": "Error al importar el icono desde la URL"
+      "import_error": "Error al importar el icono desde la URL",
+      "upload_timeout": "Tiempo de espera agotado (Timeout)"
     }
   },
   "cover_picker": {
@@ -2978,7 +3022,8 @@
     "back": "Atrás",
     "loading": "Cargando…",
     "no_src": "No hay ningún PDF para mostrar",
-    "open_external": "Abrir con la app del sistema"
+    "open_external": "Abrir con la app del sistema",
+    "open_external_error": "No se ha podido abrir externamente: {{message}}"
   },
   "pdf_quotes": {
     "copied": "Cita copiada al portapapeles. Pégala en el documento.",
@@ -3045,7 +3090,15 @@
     "publish_now": "Publicar Ahora",
     "scheduler_title": "Programar Post",
     "scheduler_will_publish": "Se publicará el:",
-    "scheduler_confirm": "Confirmar"
+    "scheduler_confirm": "Confirmar",
+    "column_empty": "No hay publicaciones recientes",
+    "with_ai": "Con IA",
+    "new_post": "Nueva publicación",
+    "streams_loading": "Cargando streams...",
+    "add_stream": "Añadir stream",
+    "status_published": "Publicado",
+    "history_loading": "Cargando historial...",
+    "history_empty": "Aún no hay publicaciones en el historial."
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
@@ -3240,6 +3293,27 @@
       "outbound": "Distribuir atracción por grado",
       "outbound_hint": "Comprime hubs (off = radial estilo Obsidian)",
       "note": "Nota: Cambiar estos valores reiniciará la simulación física."
+    },
+    "sync_tooltip": "Sincronizar",
+    "toggle_panel_tooltip": "Mostrar / ocultar panel",
+    "hide_connections": "Ocultar Conexiones",
+    "show_connections": "Mostrar Conexiones",
+    "controls": {
+      "fullscreen": "Pantalla Completa",
+      "recenter": "Recentrar",
+      "zoom_in": "Acercar",
+      "zoom_out": "Alejar"
+    },
+    "node_panel": {
+      "close": "Cerrar detalles",
+      "loading": "Cargando... ⏳",
+      "updated": "Actualizado: {{date}}",
+      "loading_content": "Terminando de cargar contenido...",
+      "no_content": "Sin contenido..."
+    },
+    "vault_embed": {
+      "building": "Construyendo grafo...",
+      "center_tooltip": "Centrar"
     }
   },
   "auth": {
@@ -3278,7 +3352,10 @@
     "col_title": "Título del Registro",
     "legend_page": "Página / Tarea",
     "active_deps": "Dependencias activas ({{count}} registros)",
-    "footer_hint": "Cronograma interactivo con dependencias automáticas."
+    "footer_hint": "Cronograma interactivo con dependencias automáticas.",
+    "until": "Hasta el {{date}}",
+    "no_data": "No hay datos para mostrar en el cronograma.",
+    "add_predecessor": "Añadir predecesora"
   },
   "home": {
     "subtitle": "Tu ecosistema de conocimiento personal",
@@ -3399,7 +3476,11 @@
     "page_error": "No se pudo corregir la página",
     "confirm_title": "Corregir toda la página con IA",
     "confirm_message": "Se reemplazará el contenido de la página con la versión corregida. Podrás deshacerlo con Ctrl/Cmd+Z.",
-    "confirm_button": "Corregir"
+    "confirm_button": "Corregir",
+    "selection_error": "No se ha podido corregir",
+    "correcting_page": "Corrigiendo la página con IA…",
+    "button": "Corregir (IA)",
+    "correcting": "Corrigiendo con IA…"
   },
   "folder_picker": {
     "go_up": "Subir un nivel (Up)",
@@ -3481,7 +3562,11 @@
     "new_tab_tooltip": "Nueva pestaña o búsqueda rápida ({{shortcut}}). Cambiar pestaña: {{tabShortcut}}",
     "search_placeholder": "Buscar páginas y tablas...",
     "no_results": "Sin resultados",
-    "open_table_parallel": "Abrir tabla en paralelo"
+    "open_table_parallel": "Abrir tabla en paralelo",
+    "workspaces_title": "Espacios de Trabajo",
+    "new_workspace": "Nuevo Workspace",
+    "workspaces_save_placeholder": "Guardar las {{count}} pestañas abiertas como…",
+    "workspaces_empty": "Aún no hay espacios guardados."
   },
   "drawings": {
     "load_error": "Error al cargar dibujos",
@@ -3514,5 +3599,6 @@
     "link_invalid": "Este enlace no es válido o ha caducado.",
     "load_error": "No se ha podido cargar la página compartida.",
     "readonly_badge": "Compartido · solo lectura"
-  }
+  },
+  "reader_podcast_error_prefix": "Error"
 }

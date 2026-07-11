@@ -295,7 +295,7 @@ export async function loadPlugins() {
             const res = await axios.get(`${API}/${encodeURIComponent(manifest.id)}/asset/${manifest.main}`, { responseType: 'text' });
             _mountPlugin(manifest, granted, res.data);
         } catch (e) {
-            console.warn(`[plugins] no s'ha pogut carregar ${manifest.id}:`, e?.message || e);
+            console.warn(`[plugins] could not load ${manifest.id}:`, e?.message || e);
         }
     }
     // Unmounts the ones that no longer apply (disabled or uninstalled).

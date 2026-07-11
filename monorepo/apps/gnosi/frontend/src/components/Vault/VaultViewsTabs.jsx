@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, Settings, LayoutTemplate, List, Calendar as CalendarIcon, Columns, FileImage, BarChart2, Hash, Layers, Globe, MapPin, AlignLeft } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
@@ -29,6 +30,7 @@ const viewLabels = {
 };
 
 export function VaultViewsTabs({ views, activeViewId, onSelectView, onAddView, onConfigureView }) {
+    const { t } = useTranslation();
     const [isAdding, setIsAdding] = useState(false);
 
     // Esc closes the add-view menu (dropdown).
@@ -69,7 +71,7 @@ export function VaultViewsTabs({ views, activeViewId, onSelectView, onAddView, o
                             if (view) onConfigureView(view);
                         }}
                         className="p-1 mr-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                        title="Configurar Vista"
+                        title={t('views_header.configure_view_tooltip', 'Configurar Vista')}
                     >
                         <Settings size={15} />
                     </button>
@@ -77,7 +79,7 @@ export function VaultViewsTabs({ views, activeViewId, onSelectView, onAddView, o
                 <button
                     onClick={() => setIsAdding(!isAdding)}
                     className="p-1 rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                    title="Afegir Vista"
+                    title={t('views_header.add_view', 'Afegir Vista')}
                 >
                     <Plus size={15} />
                 </button>
@@ -95,11 +97,11 @@ export function VaultViewsTabs({ views, activeViewId, onSelectView, onAddView, o
                                         onClick={() => handleAddClick(type)}
                                         className={`w-full flex items-center gap-2 px-3 py-1.5 text-sm transition-colors text-left ${isSupported ? 'text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]' : 'text-[var(--text-tertiary)] opacity-60 cursor-not-allowed'}`}
                                         disabled={!isSupported}
-                                        title={!isSupported ? "En desenvolupament per propera iteració" : ""}
+                                        title={!isSupported ? t('views_header.wip_tooltip', 'En desenvolupament per propera iteració') : ""}
                                     >
                                         <Icon size={14} className={isSupported ? 'text-[var(--text-tertiary)]' : 'text-[var(--border-primary)]'} />
-                                        <span>{label}</span>
-                                        {!isSupported && <span className="ml-auto text-[10px] bg-[var(--bg-tertiary)] px-1 rounded border border-[var(--border-primary)]">Aviat</span>}
+                                        <span>{t(`views_header.add_menu_${type}`, label)}</span>
+                                        {!isSupported && <span className="ml-auto text-[10px] bg-[var(--bg-tertiary)] px-1 rounded border border-[var(--border-primary)]">{t('views_header.soon_badge', 'Aviat')}</span>}
                                     </button>
                                 );
                             })}

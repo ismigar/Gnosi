@@ -82,7 +82,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, activeAlbum, onSele
         });
         setChildren(res.data || []);
       } catch (err) {
-        console.error('Error carregant subcarpetes:', err);
+        console.error('Error loading subfolders:', err);
         setChildren([]);
       } finally {
         setLoading(false);
@@ -683,7 +683,7 @@ export default function MediaCenter() {
       });
       setAlbums(res.data || []);
     } catch (err) {
-      console.error('Error carregant arbre:', err);
+      console.error('Error loading tree:', err);
     }
   }, [activeRoot]);
 
@@ -737,7 +737,7 @@ export default function MediaCenter() {
       setTotal(totalCount);
       setHasMore(items.length === PAGE_SIZE);
     } catch (err) {
-      console.error('Error carregant mitjans:', err);
+      console.error('Error loading media:', err);
       toast.error(t('media.load_error'));
     } finally {
       setLoading(false);
@@ -754,7 +754,7 @@ export default function MediaCenter() {
         const all = (res.data || []).filter(r => r.available);
         setRoots(all);
       } catch (err) {
-        console.error('No s\'han pogut carregar els roots:', err);
+        console.error('Could not load the roots:', err);
       }
     })();
     return () => { cancelled = true; };
@@ -784,7 +784,7 @@ export default function MediaCenter() {
       const r = await axios.get('/api/vault/media/views', { timeout: 15000 });
       setViews(Array.isArray(r.data) ? r.data : []);
     } catch (err) {
-      console.error('Error carregant vistes:', err);
+      console.error('Error loading views:', err);
     }
   }, []);
   useEffect(() => { fetchViews(); }, [fetchViews]);
@@ -823,7 +823,7 @@ export default function MediaCenter() {
       setActiveViewId(r.data.id);
       toast.success(t('media.view_saved'));
     } catch (err) {
-      console.error('Error desant vista:', err);
+      console.error('Error saving view:', err);
       toast.error(t('media.view_save_error'));
     }
   }, [activeRoot, activeAlbum, filters, sort, t]);
@@ -841,7 +841,7 @@ export default function MediaCenter() {
       setViews(prev => prev.map(v => v.id === activeViewId ? r.data : v));
       toast.success(t('media.view_updated'));
     } catch (err) {
-      console.error('Error actualitzant vista:', err);
+      console.error('Error updating view:', err);
       toast.error(t('media.view_update_error'));
     }
   }, [activeViewId, activeRoot, activeAlbum, filters, sort, views, t]);
@@ -864,7 +864,7 @@ export default function MediaCenter() {
           setViews(prev => prev.filter(v => v.id !== id));
           if (activeViewId === id) setActiveViewId(null);
         } catch (err) {
-          console.error('Error esborrant vista:', err);
+          console.error('Error deleting view:', err);
           toast.error(t('media.view_delete_error'));
         }
       },
@@ -901,7 +901,7 @@ export default function MediaCenter() {
       toast.success(t('media.upload_success'), { id: 'upload' });
       fetchMedia(true);
     } catch (err) {
-      console.error('Error pujant fitxer:', err);
+      console.error('Error uploading file:', err);
       toast.error(t('media.upload_error'), { id: 'upload' });
     } finally {
       setIsUploading(false);
@@ -953,7 +953,7 @@ export default function MediaCenter() {
       ));
     } catch (err) {
       if (axios.isCancel(err) || err?.name === 'CanceledError') return;
-      console.error('Error desant metadades:', err);
+      console.error('Error saving metadata:', err);
       setSaveStatus('error');
     }
   }, [activeRoot]);

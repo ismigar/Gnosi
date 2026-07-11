@@ -2445,7 +2445,7 @@ export function EditorInner({
                 'after',
             );
         } catch (err) {
-            console.warn('applyViewSection: no s\'ha pogut aplicar el bloc gnosi_view', err);
+            console.warn('applyViewSection: could not apply the gnosi_view block', err);
         } finally {
             pageViewAnchorRef.current = null;
         }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, Pencil, Check, Loader2 } from 'lucide-react';
 import { VaultMarkdown } from './VaultMarkdown';
 
@@ -33,6 +34,7 @@ const ensureSyncedSSE = () => {
     } catch { _sse = null; }
 };
 export default function SyncedBlock({ block }) {
+    const { t } = useTranslation();
     const syncId = String(block?.props?.sync_id || '').trim();
     const [content, setContent] = useState('');
     const [loading, setLoading] = useState(true);
@@ -85,33 +87,33 @@ export default function SyncedBlock({ block }) {
         <div className="bn-synced group/synced relative my-3 rounded-lg border-l-2 border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/5 py-2 pl-3 pr-3" contentEditable={false}>
             <div className="mb-1 flex items-center justify-between">
                 <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--gnosi-primary)]">
-                    <RefreshCw size={11} /> Bloc sincronitzat
+                    <RefreshCw size={11} /> {t('editor.synced_block_label', 'Bloc sincronitzat')}
                 </span>
                 {!editing ? (
                     <button onClick={() => setEditing(true)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-[var(--text-tertiary)] opacity-0 transition-opacity hover:text-[var(--gnosi-primary)] group-hover/synced:opacity-100">
-                        <Pencil size={12} /> Edita
+                        <Pencil size={12} /> {t('common.edit', 'Edita')}
                     </button>
                 ) : (
                     <button onClick={save} disabled={saving} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10">
-                        {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Fet
+                        {saving ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} {t('editor.synced_done', 'Fet')}
                     </button>
                 )}
             </div>
             {loading ? (
-                <div className="py-2 text-sm text-[var(--text-tertiary)]">Carregant…</div>
+                <div className="py-2 text-sm text-[var(--text-tertiary)]">{t('common.loading', 'Carregant…')}</div>
             ) : editing ? (
                 <textarea
                     value={draft}
                     onChange={(e) => setDraft(e.target.value)}
                     onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); } }}
-                    placeholder="Contingut compartit (Markdown)…"
+                    placeholder={t('editor.synced_placeholder', 'Contingut compartit (Markdown)…')}
                     autoFocus
                     className="h-32 w-full resize-y rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 font-mono text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                 />
             ) : content.trim() ? (
                 <div className="text-[var(--text-primary)]"><VaultMarkdown md={content} /></div>
             ) : (
-                <div className="py-1 text-sm italic text-[var(--text-tertiary)]">Bloc sincronitzat buit — clica «Edita» per afegir-hi contingut.</div>
+                <div className="py-1 text-sm italic text-[var(--text-tertiary)]">{t('editor.synced_empty', 'Bloc sincronitzat buit — clica «Edita» per afegir-hi contingut.')}</div>
             )}
         </div>
     );

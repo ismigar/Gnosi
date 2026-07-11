@@ -121,7 +121,7 @@ export function loadSpeller(lang) {
             return adapter;
         } catch (err) {
             cache.delete(lang); // allows retrying later
-            console.warn(`[spellcheck] no s'ha pogut carregar el diccionari «${lang}»:`, err);
+            console.warn(`[spellcheck] could not load dictionary "${lang}":`, err);
             return null;
         }
     })();

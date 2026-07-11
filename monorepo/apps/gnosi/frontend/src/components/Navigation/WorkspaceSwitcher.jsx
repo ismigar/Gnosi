@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { User, Briefcase, ChevronRight, Plus, Check } from 'lucide-react';
 import { useApi } from '../../hooks/use-api';
 import './WorkspaceSwitcher.css';
 
 export function WorkspaceSwitcher() {
+    const { t } = useTranslation();
     const { apiFetch } = useApi();
     const [workspaces, setWorkspaces] = useState([]);
     const [activeWorkspace, setActiveWorkspace] = useState(null);
@@ -68,7 +70,7 @@ export function WorkspaceSwitcher() {
 
             {isOpen && (
                 <div className="workspace-switcher__menu">
-                    <div className="workspace-switcher__menu-header">Espais de Treball</div>
+                    <div className="workspace-switcher__menu-header">{t('doc_tabs.workspaces_title', 'Espais de Treball')}</div>
                     {workspaces.map(ws => (
                         <button 
                             key={ws.id}
@@ -92,7 +94,7 @@ export function WorkspaceSwitcher() {
                         <div className="workspace-switcher__item-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--gnosi-blue)' }}>
                             <Plus size={16} />
                         </div>
-                        <span className="workspace-switcher__item-name">Nou Workspace</span>
+                        <span className="workspace-switcher__item-name">{t('doc_tabs.new_workspace', 'Nou Workspace')}</span>
                     </button>
                 </div>
             )}

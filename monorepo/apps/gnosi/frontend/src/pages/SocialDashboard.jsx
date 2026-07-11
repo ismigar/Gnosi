@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, LayoutDashboard, Calendar, History, Sparkles } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 import Column from '../components/social/Column';
@@ -16,11 +17,12 @@ const DEFAULT_STREAMS = [
 
 const TABS = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'calendar',  label: 'Calendari',  icon: Calendar },
-    { id: 'history',   label: 'Historial',  icon: History },
+    { id: 'calendar',  labelKey: 'social.tab_calendar', label: 'Calendari',  icon: Calendar },
+    { id: 'history',   labelKey: 'social.tab_history', label: 'Historial',  icon: History },
 ];
 
 const SocialDashboard = () => {
+    const { t } = useTranslation();
     const activeVaultName = useActiveVaultName();
     const [activeTab, setActiveTab] = useState('dashboard');
     const [showComposer, setShowComposer] = useState(false);
@@ -99,7 +101,7 @@ const SocialDashboard = () => {
             {/* Header with tab bar */}
             <header className="h-14 px-4 flex items-center justify-between border-b border-[var(--border-primary)] shrink-0 relative z-10 bg-[var(--bg-primary)]/80 backdrop-blur-sm">
                 <div className="flex items-center gap-1">
-                    {TABS.map(({ id, label, icon: Icon }) => (
+                    {TABS.map(({ id, label, labelKey, icon: Icon }) => (
                         <button
                             key={id}
                             onClick={() => setActiveTab(id)}
@@ -110,7 +112,7 @@ const SocialDashboard = () => {
                             }`}
                         >
                             <Icon size={15} strokeWidth={1.8} />
-                            <span>{label}</span>
+                            <span>{labelKey ? t(labelKey, label) : label}</span>
                         </button>
                     ))}
                     <div className="h-4 w-px bg-[var(--border-primary)] mx-2" />
@@ -126,14 +128,14 @@ const SocialDashboard = () => {
                             className="flex items-center gap-2 border border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 px-4 py-1.5 rounded-lg transition-all text-sm font-medium"
                         >
                             <Sparkles size={16} />
-                            <span>Amb IA</span>
+                            <span>{t('social.with_ai', 'Amb IA')}</span>
                         </button>
                         <button
                             onClick={() => setShowComposer(v => !v)}
                             className="flex items-center gap-2 bg-[var(--gnosi-blue)] hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-all shadow-lg text-sm font-medium"
                         >
                             <Plus size={16} />
-                            <span>{showComposer ? 'Tancar' : 'Nou post'}</span>
+                            <span>{showComposer ? t('common.close', 'Tanca') : t('social.new_post', 'Nou post')}</span>
                         </button>
                     </div>
                 )}
@@ -160,7 +162,7 @@ const SocialDashboard = () => {
                         <div className="flex-1 overflow-hidden">
                             {loading && Object.keys(streamData).length === 0 ? (
                                 <div className="flex justify-center items-center h-64 text-[var(--text-secondary)] animate-pulse">
-                                    Carregant streams...
+                                    {t('social.streams_loading', 'Carregant streams...')}
                                 </div>
                             ) : (
                                 <div className="flex gap-6 h-full pb-4 overflow-x-auto snap-x">
@@ -183,7 +185,7 @@ const SocialDashboard = () => {
                                         <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center group-hover:bg-[var(--bg-tertiary)] transition-colors">
                                             <Plus size={24} />
                                         </div>
-                                        <span className="font-medium">Afegir stream</span>
+                                        <span className="font-medium">{t('social.add_stream', 'Afegir stream')}</span>
                                     </button>
                                 </div>
                             )}

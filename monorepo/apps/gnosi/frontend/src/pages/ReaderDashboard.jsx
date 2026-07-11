@@ -253,7 +253,7 @@ const ReaderDashboard = () => {
                         clearInterval(pollingRef.current);
                         pollingRef.current = null;
                         if (error) {
-                            toast.error(`Error: ${error}`);
+                            toast.error(`${t('reader_podcast_error_prefix', 'Error')}: ${error}`);
                         } else if (result_filename) {
                             setPodcastUrl(`${API_BASE}/reader/podcast/latest?t=${Date.now()}`);
                             checkPodcast();
@@ -288,7 +288,7 @@ const ReaderDashboard = () => {
             ]);
             await Promise.all([fetchDisplayArticles(), fetchUnreadCounts()]);
         } catch (error) {
-            console.error("Error durant la sincronització:", error);
+            console.error("Error during synchronization:", error);
         } finally {
             setSyncing(false);
         }

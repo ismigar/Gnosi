@@ -168,7 +168,7 @@ export function SettingsModal({ isOpen, onClose }) {
             <div ref={modalRef} className="settings-modal" onMouseDown={(e) => e.stopPropagation()}>
                 <div className="settings-header">
                     <h2>{t('settings') || 'Settings'}</h2>
-                    <button className="gnosi-close-btn" onClick={onClose} aria-label="Tancar">
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label={t('common.close', 'Tanca')}>
                         <X />
                     </button>
                 </div>
@@ -362,7 +362,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                         {t('settings.scheduled_tasks_hint', 'Configura tasques automàtiques del sistema.')}
                                     </p>
                                     {schedulers.length === 0 ? (
-                                        <p>Carregant tasques...</p>
+                                        <p>{t('dashboard.loading_tasks', 'Carregant tasques...')}</p>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                             {schedulers.map(task => (
@@ -402,7 +402,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     }
                                                                 }}
                                                             />
-                                                            {task.enabled ? '✅ Actiu' : '⏸️ Inactiu'}
+                                                            {task.enabled ? `✅ ${t('dashboard.active', 'Actiu')}` : `⏸️ ${t('dashboard.inactive', 'Inactiu')}`}
                                                         </label>
                                                     </div>
                                                     <div style={{ marginTop: '10px', display: 'flex', gap: '10px', alignItems: 'center' }}>
@@ -441,10 +441,10 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     if (data.success) {
                                                                         toast.success(t('dashboard.task_started', 'Tasca iniciada correctament'), { id: t_id });
                                                                     } else {
-                                                                        toast.error(data.error || 'Error', { id: t_id });
+                                                                        toast.error(data.error || t('dashboard.error_prefix', 'Error'), { id: t_id });
                                                                     }
                                                                 } catch (err) {
-                                                                    toast.error('Error: ' + err.message, { id: t_id });
+                                                                    toast.error(`${t('dashboard.error_prefix', 'Error')}: ${err.message}`, { id: t_id });
                                                                 }
                                                             }}
                                                             style={{ padding: '5px 10px', background: 'var(--settings-btn-bg)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'var(--text-primary)' }}
@@ -468,8 +468,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                 <div className="settings-section">
                                     <h3>API Keys & Credentials</h3>
                                     <p style={{ marginBottom: '20px', color: 'var(--text-secondary)', fontSize: '0.9em' }}>
-                                        Les teves claus API s'emmagatzemen de forma segura al Keychain del teu ordinador.
-                                        Aquesta pestanya mostra quines claus estan configurades.
+                                        {t('settings.api_keys_hint', 'Les teves claus API s\'emmagatzemen de forma segura al Keychain del teu ordinador. Aquesta pestanya mostra quines claus estan configurades.')}
                                     </p>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {credentials.map(cred => (
@@ -495,7 +494,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                     <div style={{ display: 'flex', gap: '8px' }}>
                                                         {cred.has_value ? (
                                                             <>
-                                                                <span style={{ color: 'var(--status-success)', fontSize: '0.85em' }}>✓ Configurat</span>
+                                                                <span style={{ color: 'var(--status-success)', fontSize: '0.85em' }}>✓ {t('settings.credential_configured', 'Configurat')}</span>
                                                                 <button
                                                                     onClick={() => {
                                                                         setEditingCredential(cred.key);
@@ -503,7 +502,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                     }}
                                                                     style={{ padding: '5px 10px', background: 'var(--settings-btn-bg)', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85em', color: 'var(--text-primary)' }}
                                                                 >
-                                                                    Editar
+                                                                    {t('common.edit', 'Editar')}
                                                                 </button>
                                                             </>
                                                         ) : (
@@ -514,7 +513,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                 }}
                                                                 style={{ padding: '5px 10px', background: 'var(--gnosi-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', fontSize: '0.85em' }}
                                                             >
-                                                                + Afegir
+                                                                + {t('common.btn.add', 'Afegir')}
                                                             </button>
                                                         )}
                                                     </div>
@@ -526,7 +525,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                 type="password"
                                                                 value={credentialValue}
                                                                 onChange={(e) => setCredentialValue(e.target.value)}
-                                                                placeholder={`Introdueix la clau per a ${cred.name}`}
+                                                                placeholder={t('settings.credential_placeholder', 'Introdueix la clau per a {{name}}', { name: cred.name })}
                                                                 style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
                                                             />
                                                             <button
@@ -543,13 +542,13 @@ export function SettingsModal({ isOpen, onClose }) {
                                                                             loadCredentials();
                                                                         }
                                                                     } catch (err) {
-                                                                        toast.error('Error guardant: ' + err.message);
+                                                                        toast.error(t('settings.credential_save_error', 'Error guardant: {{message}}', { message: err.message }));
                                                                     }
                                                                 }}
                                                                 disabled={!credentialValue}
                                                                 style={{ padding: '8px 16px', background: 'var(--status-success)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white' }}
                                                             >
-                                                                Guardar
+                                                                {t('common.save', 'Guardar')}
                                                             </button>
                                                             <button
                                                                 onClick={() => {
@@ -580,7 +579,7 @@ export function SettingsModal({ isOpen, onClose }) {
                                                         loadCredentials();
                                                     }
                                                 } catch (err) {
-                                                    toast.error('Error migrant: ' + err.message);
+                                                    toast.error(t('settings.keychain_migration_error', 'Error migrant: {{message}}', { message: err.message }));
                                                 }
                                             }}
                                             style={{ padding: '10px 20px', background: 'var(--gnosi-primary)', border: 'none', borderRadius: '5px', cursor: 'pointer', color: 'white' }}

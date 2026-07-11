@@ -48,8 +48,8 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
             if (onSynced) onSynced(d);
             onClose();
         } catch (err) {
-            console.error('Error sincronitzant amb Drupal:', err);
-            const msg = err.response?.data?.detail || err.message || 'Error desconegut';
+            console.error('Error syncing with Drupal:', err);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('drupal.sync_error', 'Error sincronitzant amb Drupal')}: ${msg}`);
         } finally {
             setSubmitting(false);
@@ -82,7 +82,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                         <Globe size={18} className="text-[var(--gnosi-primary)]" />
                         {t('drupal.sync_title', 'Sincronitzar amb Drupal')}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label="Tancar" disabled={submitting}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={submitting}>
                         <X />
                     </button>
                 </div>
