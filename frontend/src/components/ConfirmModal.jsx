@@ -14,8 +14,11 @@ export const ConfirmModal = ({
     isDestructive = true
 }) => {
     const { t } = useTranslation();
-    const resolvedTitle = title ?? t('common.confirm_modal_title', 'Confirmar acció');
-    const resolvedMessage = message ?? t('common.confirm_modal_message', "N'estàs segur que vols procedir amb aquesta acció?");
+    // Localized fallbacks: callers may omit these props; default to i18n instead
+    // of hardcoded Catalan so the dialog is never partially untranslated. `??`
+    // (not `||`) so an explicit empty string from a caller is respected.
+    const resolvedTitle = title ?? t('common.confirm_action', 'Confirmar acció');
+    const resolvedMessage = message ?? t('common.confirm_action_msg', "N'estàs segur que vols procedir amb aquesta acció?");
     const resolvedConfirmText = confirmText ?? t('common.confirm', 'Confirmar');
     const resolvedCancelText = cancelText ?? t('common.cancel', 'Cancel·lar');
     const modalRef = useRef(null);

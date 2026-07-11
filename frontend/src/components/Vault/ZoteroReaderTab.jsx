@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
+import { uiLangToZoteroLocale } from './zoteroLocale';
 
 const HOST_URL = '/zotero-reader/host.html';
 
@@ -60,25 +61,13 @@ export function detectKindFromSrc(src) {
     return (m && KIND_BY_EXTENSION[m[1]]) || 'pdf';
 }
 
-// Mapping from react-i18next's language (ca / es / en / ...) to the
-// locale code Zotero uses (ca-AD / es-ES / en-US). If it isn't in the
-// mapeig, fallback a en-US.
-const GNOSI_TO_ZOTERO_LOCALE = {
-    ca: 'ca-AD',
-    es: 'es-ES',
-    en: 'en-US',
-};
-
 export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp }) {
     const { t, i18n } = useTranslation();
     const iframeRef = useRef(null);
     // Language for the Zotero viewer. We recalculate it when the user changes the
     // language in Gnosi (re-mounting the component via key is typical, but
     // we detect it here in case the app doesn't do a full re-mount).
-    const zoteroLanguage = useMemo(() => {
-        const base = (i18n?.language || 'ca').split('-')[0];
-        return GNOSI_TO_ZOTERO_LOCALE[base] || 'en-US';
-    }, [i18n?.language]);
+    const zoteroLanguage = useMemo(() => uiLangToZoteroLocale(i18n?.language), [i18n?.language]);
     const rawSrc = src || '';
     const kind = kindProp || detectKindFromSrc(rawSrc);
     const filename = useMemo(() => {
