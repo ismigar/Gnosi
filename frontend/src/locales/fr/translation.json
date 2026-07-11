@@ -102,7 +102,13 @@
     "restore": "Restaurer",
     "document": "document",
     "error": "Erreur",
-    "unknown": "inconnu"
+    "unknown": "inconnu",
+    "prompt_modal_title": "Saisissez une valeur",
+    "ok": "OK",
+    "cancel_short": "Annuler",
+    "confirm_modal_title": "Confirmer l'action",
+    "confirm_modal_message": "Êtes-vous sûr de vouloir poursuivre cette action ?",
+    "confirm": "Confirmer"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
@@ -896,7 +902,12 @@
     "scheduled_tasks_hint": "Configurez les tâches automatiques du système.",
     "last_run": "Dernière exécution :",
     "keychain_migration_title": "Migration depuis .env_shared",
-    "keychain_migration_hint": "Si vous avez des clés dans le fichier .env_shared, vous pouvez les migrer automatiquement vers le Keychain."
+    "keychain_migration_hint": "Si vous avez des clés dans le fichier .env_shared, vous pouvez les migrer automatiquement vers le Keychain.",
+    "api_keys_hint": "Vos clés API sont stockées en toute sécurité dans le Keychain de votre ordinateur. Cet onglet indique quelles clés sont configurées.",
+    "credential_save_error": "Erreur lors de l'enregistrement : {{message}}",
+    "keychain_migration_error": "Erreur lors de la migration : {{message}}",
+    "credential_configured": "Configuré",
+    "credential_placeholder": "Saisissez la clé pour {{name}}"
   },
   "schema": {
     "manage_properties_of": "Gérer les propriétés de",
@@ -1326,7 +1337,15 @@
     "undo_success": "Action annulée",
     "undo_error": "Impossible d'annuler",
     "undo_label_trashed": "Supprimé",
-    "undo_label_archived": "Archivé"
+    "undo_label_archived": "Archivé",
+    "file_attached": "Joint : {{name}}",
+    "insert_image_error": "Erreur lors de l'insertion de l'image",
+    "tag_name_placeholder": "Nom de l'étiquette...",
+    "no_tags": "Aucune étiquette",
+    "delete_tag_tooltip": "Supprimer l'étiquette",
+    "new_tag": "Nouvelle étiquette",
+    "usual_group": "Groupe habituel",
+    "add_all_group": "Tout ajouter : {{emails}}"
   },
   "subs_section_title": "Sources d'information",
   "subs_btn_reload": "Recharger",
@@ -1576,7 +1595,9 @@
     "toggle_navigation": "Basculer la navigation",
     "logged_out": "Session fermée.",
     "logout_tooltip_title": "{{user}} — Se déconnecter",
-    "logout_tooltip_label": "Se déconnecter ({{user}})"
+    "logout_tooltip_label": "Se déconnecter ({{user}})",
+    "vault_menu_active": "VAULT ACTIF",
+    "vault_menu_new": "Nouveau vault"
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement",
@@ -1637,7 +1658,11 @@
     "new_template": "Nouveau modèle",
     "new_from_source": "Créer depuis une source…",
     "default_badge": "Déf.",
-    "new_options": "Options de création"
+    "new_options": "Options de création",
+    "loading_view": "Chargement de la vue...",
+    "configure_view_tooltip": "Configurer la vue",
+    "wip_tooltip": "En développement pour une prochaine itération",
+    "soon_badge": "Bientôt"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -1688,7 +1713,8 @@
     "restore_page": "Restauration impossible",
     "delete_contact": "Erreur lors de la suppression du contact : ",
     "tags_load": "Impossible de charger les étiquettes",
-    "import_notes": "Erreur d'import : {{error}}"
+    "import_notes": "Erreur d'import : {{error}}",
+    "view_not_found_registry": "Vue « {{id}}... » introuvable dans le registry."
   },
   "notion_clone": "Cloner",
   "notion_cloning": "Clonage…",
@@ -1853,7 +1879,8 @@
     "duration_updated": "Durée mise à jour !",
     "resize_event_error": "Erreur lors du redimensionnement de l'événement.",
     "more_suffix": "de plus",
-    "reminder_before": "Rappel {{value}} avant"
+    "reminder_before": "Rappel {{value}} avant",
+    "close_panel": "Fermer le panneau"
   },
   "share": {
     "title": "Partager",
@@ -2328,7 +2355,19 @@
     "mermaid_edit": "Modifier",
     "mermaid_rendering": "Rendu du diagramme en cours…",
     "link_url_placeholder": "https://exemple.com",
-    "embed_url_placeholder": "https://… (image, vidéo, fichier)"
+    "embed_url_placeholder": "https://… (image, vidéo, fichier)",
+    "spellcheck_no_suggestions": "Aucune suggestion",
+    "spellcheck_add_to_dictionary": "Ajouter au dictionnaire",
+    "spellcheck_ignore_word": "Ignorer ce mot",
+    "presentation_fullscreen": "Plein écran",
+    "presentation_exit": "Quitter (Échap)",
+    "synced_block_label": "Bloc synchronisé",
+    "synced_done": "Terminé",
+    "synced_placeholder": "Contenu partagé (Markdown)…",
+    "synced_empty": "Bloc synchronisé vide — cliquez sur « Modifier » pour ajouter du contenu.",
+    "date_reminder_tooltip": "Rappel : {{date}} à {{time}}",
+    "date_reminder_label": "Rappel (facultatif)",
+    "date_reminder_clear": "Retirer"
   },
   "metadata_lookup": {
     "button": "Remplir",
@@ -2355,7 +2394,8 @@
     "search": "Rechercher",
     "source_label": "Source",
     "title": "Remplir les métadonnées",
-    "type_label": "Type"
+    "type_label": "Type",
+    "not_native": "le type ne les porte pas nativement"
   },
   "success": {
     "page_restored": "Page restaurée",
@@ -2415,7 +2455,8 @@
       "confirm_purge": "Voulez-vous vraiment supprimer tout l'historique des versions de cette page ? Cette action est irréversible.",
       "confirm_restore_title": "Restaurer la version",
       "confirm_purge_title": "Purger l'historique",
-      "purge_success": "Historique purgé avec succès"
+      "purge_success": "Historique purgé avec succès",
+      "close": "Fermer l'historique"
     },
     "recent": {
       "title": "Pages récentes",
@@ -2586,7 +2627,9 @@
     "total_approved_tools": "Total des outils approuvés",
     "approved_tools_history": "Historique des outils approuvés",
     "loading_history": "Chargement de l'historique...",
-    "no_approval_date": "Aucune date d'approbation"
+    "no_approval_date": "Aucune date d'approbation",
+    "error_prefix": "Erreur",
+    "view_graph": "Voir le graphe"
   },
   "media": {
     "title": "Gestionnaire de médias",
@@ -2864,7 +2907,8 @@
       "upload_success": "Icône téléversée avec succès",
       "upload_error": "Erreur lors du téléversement de l'icône",
       "import_success": "Icône importée avec succès",
-      "import_error": "Erreur lors de l'importation de l'icône depuis l'URL"
+      "import_error": "Erreur lors de l'importation de l'icône depuis l'URL",
+      "upload_timeout": "Délai d'attente dépassé (Timeout)"
     }
   },
   "cover_picker": {
@@ -3007,7 +3051,8 @@
     "back": "Retour",
     "loading": "Chargement…",
     "no_src": "Aucun PDF à afficher",
-    "open_external": "Ouvrir avec l'application système"
+    "open_external": "Ouvrir avec l'application système",
+    "open_external_error": "Impossible d'ouvrir en externe : {{message}}"
   },
   "pdf_quotes": {
     "copied": "Citation copiée dans le presse-papiers. Collez-la dans le document.",
@@ -3074,7 +3119,15 @@
     "publish_now": "Publier Maintenant",
     "scheduler_title": "Programmer la publication",
     "scheduler_will_publish": "Sera publié le :",
-    "scheduler_confirm": "Confirmer"
+    "scheduler_confirm": "Confirmer",
+    "column_empty": "Aucune publication récente",
+    "with_ai": "Avec l'IA",
+    "new_post": "Nouvelle publication",
+    "streams_loading": "Chargement des flux...",
+    "add_stream": "Ajouter un flux",
+    "status_published": "Publié",
+    "history_loading": "Chargement de l'historique...",
+    "history_empty": "Aucune publication dans l'historique pour l'instant."
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
@@ -3269,6 +3322,27 @@
       "outbound": "Répartir l'attraction par degré",
       "outbound_hint": "Compresse les hubs (off = radial style Obsidian)",
       "note": "Note : modifier ces valeurs redémarrera la simulation physique."
+    },
+    "sync_tooltip": "Synchroniser",
+    "toggle_panel_tooltip": "Afficher / masquer le panneau",
+    "hide_connections": "Masquer les connexions",
+    "show_connections": "Afficher les connexions",
+    "controls": {
+      "fullscreen": "Plein écran",
+      "recenter": "Recentrer",
+      "zoom_in": "Zoom avant",
+      "zoom_out": "Zoom arrière"
+    },
+    "node_panel": {
+      "close": "Fermer les détails",
+      "loading": "Chargement... ⏳",
+      "updated": "Mis à jour : {{date}}",
+      "loading_content": "Fin du chargement du contenu...",
+      "no_content": "Aucun contenu..."
+    },
+    "vault_embed": {
+      "building": "Construction du graphe...",
+      "center_tooltip": "Centrer"
     }
   },
   "auth": {
@@ -3307,7 +3381,10 @@
     "col_title": "Titre de l'enregistrement",
     "legend_page": "Page / Tâche",
     "active_deps": "Dépendances actives ({{count}} enregistrements)",
-    "footer_hint": "Chronologie interactive avec dépendances automatiques."
+    "footer_hint": "Chronologie interactive avec dépendances automatiques.",
+    "until": "Jusqu'au {{date}}",
+    "no_data": "Aucune donnée à afficher dans la chronologie.",
+    "add_predecessor": "Ajouter un prédécesseur"
   },
   "home": {
     "subtitle": "Votre écosystème de connaissances personnel",
@@ -3428,7 +3505,11 @@
     "page_error": "Impossible de corriger la page",
     "confirm_title": "Corriger toute la page avec l'IA",
     "confirm_message": "Le contenu de la page sera remplacé par la version corrigée. Vous pourrez annuler avec Ctrl/Cmd+Z.",
-    "confirm_button": "Corriger"
+    "confirm_button": "Corriger",
+    "selection_error": "Impossible de corriger",
+    "correcting_page": "Correction de la page avec l'IA…",
+    "button": "Corriger (IA)",
+    "correcting": "Correction avec l'IA…"
   },
   "folder_picker": {
     "go_up": "Monter d'un niveau (Up)",
@@ -3510,7 +3591,11 @@
     "new_tab_tooltip": "Nouvel onglet ou recherche rapide ({{shortcut}}). Changer d'onglet : {{tabShortcut}}",
     "search_placeholder": "Rechercher des pages et des tableaux...",
     "no_results": "Aucun résultat",
-    "open_table_parallel": "Ouvrir le tableau en parallèle"
+    "open_table_parallel": "Ouvrir le tableau en parallèle",
+    "workspaces_title": "Espaces de travail",
+    "new_workspace": "Nouvel espace de travail",
+    "workspaces_save_placeholder": "Enregistrer les {{count}} onglets ouverts sous…",
+    "workspaces_empty": "Aucun espace enregistré pour l'instant."
   },
   "drawings": {
     "load_error": "Erreur lors du chargement des dessins",
@@ -3543,5 +3628,6 @@
     "link_invalid": "Ce lien n'est pas valide ou a expiré.",
     "load_error": "Impossible de charger la page partagée.",
     "readonly_badge": "Partagé · lecture seule"
-  }
+  },
+  "reader_podcast_error_prefix": "Erreur"
 }

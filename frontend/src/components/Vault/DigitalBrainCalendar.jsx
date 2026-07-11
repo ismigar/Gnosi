@@ -457,7 +457,7 @@ export const DigitalBrainCalendar = ({
             toast.success(t('calendar.date_updated', 'Data actualitzada!'));
             onRefresh?.();
         } catch (error) {
-            console.error('Error movent event:', error);
+            console.error('Error moving event:', error);
             dropInfo.revert();
             toast.error(t('calendar.move_event_error', "Error movent l'esdeveniment."));
         }
@@ -523,7 +523,7 @@ export const DigitalBrainCalendar = ({
             toast.success(t('calendar.duration_updated', 'Durada actualitzada!'));
             onRefresh?.();
         } catch (error) {
-            console.error('Error redimensionant event:', error);
+            console.error('Error resizing event:', error);
             resizeInfo.revert();
             toast.error(t('calendar.resize_event_error', "Error redimensionant l'esdeveniment."));
         }

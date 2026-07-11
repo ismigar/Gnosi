@@ -60,7 +60,7 @@ const TreeNode = React.memo(function TreeNode({ node, depth, root, activePath, o
                 });
                 setChildren(res.data || []);
             } catch (err) {
-                console.error('Error carregant subcarpetes:', err);
+                console.error('Error loading subfolders:', err);
                 setChildren([]);
             } finally {
                 setLoading(false);
@@ -144,7 +144,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                     setActiveRoot(available[0].key);
                 }
             } catch (err) {
-                console.error('No s\'han pogut carregar els roots:', err);
+                console.error('Could not load the roots:', err);
             }
         })();
         return () => { cancelled = true; };
@@ -165,7 +165,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                 setActivePath(null);
                 setItems([]);
             } catch (err) {
-                console.error('Error carregant arbre:', err);
+                console.error('Error loading tree:', err);
                 if (!cancelled) setTree([]);
             }
         })();
@@ -186,7 +186,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
             const res = await axios.get('/api/vault/media', { params, timeout: 300000 });
             setItems(res.data?.items || []);
         } catch (err) {
-            console.error('Error carregant fitxers:', err);
+            console.error('Error loading files:', err);
             toast.error(t('media_picker.load_error', 'No s\'han pogut carregar els fitxers'));
             setItems([]);
         } finally {

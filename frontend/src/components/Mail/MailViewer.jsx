@@ -636,7 +636,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                 toast.error(t('mail.autofill_desktop_only', 'L\'omplert automàtic només està disponible en l\'aplicació d\'escriptori'));
             }
         } catch (error) {
-            console.error('Error carregant perfil per omplir formulari:', error);
+            console.error('Error loading profile to fill form:', error);
             window.open(url, '_blank');
         }
     };

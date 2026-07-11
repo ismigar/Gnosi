@@ -1134,7 +1134,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                         const tables = response.data?.tables || response.data || [];
                         setAllTables(tables);
                     } catch (err) {
-                        console.error('Error carregant taules per al modal:', err);
+                        console.error('Error loading tables for the modal:', err);
                     }
                 };
                 fetchTables();
@@ -1146,7 +1146,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     const response = await axios.get('/api/vault/option-catalogs');
                     setSharedCatalogs(response.data?.catalogs || {});
                 } catch (err) {
-                    console.error('Error carregant catàlegs compartits:', err);
+                    console.error('Error loading shared catalogs:', err);
                 }
             };
             fetchSharedCatalogs();
@@ -1157,7 +1157,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                     const response = await axios.get('/api/vault/virtual-fields');
                     setVirtualComputers(response.data?.computers || []);
                 } catch (err) {
-                    console.error('Error carregant catàleg de computadors virtuals:', err);
+                    console.error('Error loading virtual computers catalog:', err);
                 }
             };
             fetchVirtualComputers();

@@ -374,7 +374,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
         } catch (err) {
-            toast.error(`No s'ha pogut obrir externament: ${err.message}`);
+            toast.error(t('pdf.open_external_error', 'No s\'ha pogut obrir externament: {{message}}', { message: err.message }));
         }
     };
 

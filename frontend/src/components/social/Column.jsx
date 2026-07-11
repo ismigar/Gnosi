@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { MoreHorizontal } from 'lucide-react';
 import PostCard from './PostCard';
 
 const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
+    const { t } = useTranslation();
     return (
         <div className="min-w-[360px] max-w-[400px] glass-card rounded-xl flex flex-col h-full shrink-0 overflow-hidden shadow-2xl shadow-black/20">
             <div className="p-4 border-b border-[var(--border-primary)] font-semibold text-[var(--text-primary)] flex justify-between items-center bg-[var(--bg-secondary)]/50 backdrop-blur-md relative z-10">
@@ -46,7 +48,7 @@ const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
                         <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-2">
                             <span className="text-2xl opacity-50">{icon}</span>
                         </div>
-                        <p>No hi ha posts recents</p>
+                        <p>{t('social.column_empty', 'No hi ha posts recents')}</p>
                     </div>
                 )}
             </div>

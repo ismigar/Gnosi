@@ -768,7 +768,7 @@ export function VaultViewsHeader({
                                     className="w-full flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                 >
                                     <ViewIcon size={14} className="text-[var(--text-tertiary)]" />
-                                    <span className="capitalize">{vt.label}</span>
+                                    <span className="capitalize">{t(`view.type_${vt.id}`, vt.label)}</span>
                                 </button>
                              );
                         })}

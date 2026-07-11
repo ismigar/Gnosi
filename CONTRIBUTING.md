@@ -83,13 +83,15 @@ Stop everything with `docker-compose down`.
 
 ### Language
 
-**Write all code documentation in English** — comments, docstrings, and JSDoc. Gnosi is an
-open project and English is the shared language of the codebase, so anyone who clones the
-repository can read it. This applies to the *source-level documentation only*: user-facing
-text stays multilingual and is translated through the i18n system (never hard-code UI
-strings — add translation keys), and identifiers or test data that happen to be in another
-language are left as-is. In short: **comments and docstrings in English; product content
-through i18n.**
+**Write all code in English** — comments, docstrings, JSDoc, and developer logs
+(`console.*`, `logger`). Gnosi is an open project and English is the shared language of the
+codebase, so anyone who clones the repository can read it. **User-facing text, in contrast, is
+never hard-coded**: every visible string goes through the i18n system (`react-i18next` —
+`t('namespace.key', 'default')`) with the key added to all four locales
+(`frontend/src/locales/{ca,en,es,fr}/translation.json`). Identifiers, stored/compared values,
+test data, and language endonyms (Español/Català/Français) that happen to be in another
+language are left as-is. In short: **code and logs in English; product content through i18n.**
+See `docs/dev_memory/directives/i18n_and_english_standardization.md`.
 
 ### Python (backend, pipeline)
 

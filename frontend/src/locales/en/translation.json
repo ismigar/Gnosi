@@ -47,7 +47,8 @@
       "confirm_purge": "Are you sure you want to delete all version history for this page? This action cannot be undone.",
       "confirm_restore_title": "Restore version",
       "confirm_purge_title": "Purge history",
-      "purge_success": "History purged successfully"
+      "purge_success": "History purged successfully",
+      "close": "Close history"
     },
     "recent": {
       "title": "Recent Pages",
@@ -220,7 +221,13 @@
     "purge": "Purge",
     "restore": "Restore",
     "document": "document",
-    "unknown": "unknown"
+    "unknown": "unknown",
+    "prompt_modal_title": "Enter a value",
+    "ok": "OK",
+    "cancel_short": "Cancel",
+    "confirm_modal_title": "Confirm action",
+    "confirm_modal_message": "Are you sure you want to proceed with this action?",
+    "confirm": "Confirm"
   },
   "calendar": {
     "title": "Calendar",
@@ -383,7 +390,8 @@
     "duration_updated": "Duration updated!",
     "resize_event_error": "Error resizing the event.",
     "more_suffix": "more",
-    "reminder_before": "Reminder {{value}} before"
+    "reminder_before": "Reminder {{value}} before",
+    "close_panel": "Close panel"
   },
   "sidebar": {
     "my_vault": "My Knowledge",
@@ -445,7 +453,9 @@
     "toggle_navigation": "Toggle navigation",
     "logged_out": "Signed out.",
     "logout_tooltip_title": "{{user}} — Sign out",
-    "logout_tooltip_label": "Sign out ({{user}})"
+    "logout_tooltip_label": "Sign out ({{user}})",
+    "vault_menu_active": "ACTIVE VAULT",
+    "vault_menu_new": "New vault"
   },
   "shell": {
     "go_back": "Go back",
@@ -690,7 +700,9 @@
     "details_link": "Details →",
     "summary_link": "Summary →",
     "history_link": "History →",
-    "managed_in_vault": "Managed in the Vault"
+    "managed_in_vault": "Managed in the Vault",
+    "error_prefix": "Error",
+    "view_graph": "View Graph"
   },
   "errors": {
     "load_pages": "Error loading pages",
@@ -741,7 +753,8 @@
     "delete_only_view": "Cannot delete the only view.",
     "delete_contact": "Error deleting the contact: ",
     "tags_load": "Couldn't load the tags",
-    "import_notes": "Error importing: {{error}}"
+    "import_notes": "Error importing: {{error}}",
+    "view_not_found_registry": "View \"{{id}}...\" not found in the registry."
   },
   "success": {
     "view_duplicated": "View duplicated",
@@ -967,7 +980,19 @@
     "mermaid_edit": "Edit",
     "mermaid_rendering": "Rendering diagram…",
     "link_url_placeholder": "https://example.com",
-    "embed_url_placeholder": "https://… (image, video, file)"
+    "embed_url_placeholder": "https://… (image, video, file)",
+    "spellcheck_no_suggestions": "No suggestions",
+    "spellcheck_add_to_dictionary": "Add to dictionary",
+    "spellcheck_ignore_word": "Ignore this word",
+    "presentation_fullscreen": "Fullscreen",
+    "presentation_exit": "Exit (Esc)",
+    "synced_block_label": "Synced block",
+    "synced_done": "Done",
+    "synced_placeholder": "Shared content (Markdown)…",
+    "synced_empty": "Empty synced block — click «Edit» to add content.",
+    "date_reminder_tooltip": "Reminder: {{date}} at {{time}}",
+    "date_reminder_label": "Reminder (optional)",
+    "date_reminder_clear": "Clear"
   },
   "view_config": {
     "title": "Configure View",
@@ -1052,7 +1077,11 @@
     "delete_view_confirm": "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.",
     "rename_view_title": "Rename view",
     "new_view_name_label": "New view name",
-    "new_options": "Creation options"
+    "new_options": "Creation options",
+    "loading_view": "Loading view...",
+    "configure_view_tooltip": "Configure View",
+    "wip_tooltip": "In development for a future iteration",
+    "soon_badge": "Soon"
   },
   "fs_picker": {
     "title_any": "Select file or folder",
@@ -1882,7 +1911,12 @@
     "scheduled_tasks_hint": "Configure the system's automatic tasks.",
     "last_run": "Last run:",
     "keychain_migration_title": "Migration from .env_shared",
-    "keychain_migration_hint": "If you have keys in the .env_shared file, you can migrate them to the Keychain automatically."
+    "keychain_migration_hint": "If you have keys in the .env_shared file, you can migrate them to the Keychain automatically.",
+    "api_keys_hint": "Your API keys are stored securely in your computer's Keychain. This tab shows which keys are configured.",
+    "credential_save_error": "Error saving: {{message}}",
+    "keychain_migration_error": "Error migrating: {{message}}",
+    "credential_configured": "Configured",
+    "credential_placeholder": "Enter the key for {{name}}"
   },
   "contacts": {
     "title": "Contacts",
@@ -2366,7 +2400,15 @@
     "undo_success": "Action undone",
     "undo_error": "Could not undo",
     "undo_label_trashed": "Deleted",
-    "undo_label_archived": "Archived"
+    "undo_label_archived": "Archived",
+    "file_attached": "Attached: {{name}}",
+    "insert_image_error": "Error inserting image",
+    "tag_name_placeholder": "Tag name...",
+    "no_tags": "No tags",
+    "delete_tag_tooltip": "Delete tag",
+    "new_tag": "New tag",
+    "usual_group": "Usual group",
+    "add_all_group": "Add all: {{emails}}"
   },
   "subs_section_title": "Information sources",
   "subs_btn_reload": "Reload",
@@ -2755,7 +2797,8 @@
     "search": "Search",
     "source_label": "Source",
     "title": "Fill in metadata",
-    "type_label": "Type"
+    "type_label": "Type",
+    "not_native": "the type doesn't carry them natively"
   },
   "media": {
     "title": "Media Manager",
@@ -2990,7 +3033,8 @@
       "upload_success": "Icon uploaded successfully",
       "upload_error": "Error uploading the icon",
       "import_success": "Icon imported successfully",
-      "import_error": "Error importing the icon from URL"
+      "import_error": "Error importing the icon from URL",
+      "upload_timeout": "Timeout exceeded"
     }
   },
   "cover_picker": {
@@ -3078,7 +3122,8 @@
     "back": "Back",
     "loading": "Loading…",
     "no_src": "There is no PDF to display",
-    "open_external": "Open with the system app"
+    "open_external": "Open with the system app",
+    "open_external_error": "Could not open externally: {{message}}"
   },
   "pdf_quotes": {
     "copied": "Quote copied to the clipboard. Paste it into the document.",
@@ -3144,7 +3189,15 @@
     "publish_now": "Publish Now",
     "scheduler_title": "Schedule Post",
     "scheduler_will_publish": "It will publish on:",
-    "scheduler_confirm": "Confirm"
+    "scheduler_confirm": "Confirm",
+    "column_empty": "No recent posts",
+    "with_ai": "With AI",
+    "new_post": "New post",
+    "streams_loading": "Loading streams...",
+    "add_stream": "Add stream",
+    "status_published": "Published",
+    "history_loading": "Loading history...",
+    "history_empty": "No posts in the history yet."
   },
   "tags": {
     "empty": "No tags yet. Add some via the \"tags\" property.",
@@ -3339,6 +3392,27 @@
       "outbound": "Distribute attraction by degree",
       "outbound_hint": "Compresses hubs (off = Obsidian-style radial)",
       "note": "Note: Changing these values will restart the physics simulation."
+    },
+    "sync_tooltip": "Sync",
+    "toggle_panel_tooltip": "Show / hide panel",
+    "hide_connections": "Hide Connections",
+    "show_connections": "Show Connections",
+    "controls": {
+      "fullscreen": "Fullscreen",
+      "recenter": "Recenter",
+      "zoom_in": "Zoom in",
+      "zoom_out": "Zoom out"
+    },
+    "node_panel": {
+      "close": "Close details",
+      "loading": "Loading... ⏳",
+      "updated": "Updated: {{date}}",
+      "loading_content": "Finishing loading content...",
+      "no_content": "No content..."
+    },
+    "vault_embed": {
+      "building": "Building graph...",
+      "center_tooltip": "Center"
     }
   },
   "auth": {
@@ -3377,7 +3451,10 @@
     "col_title": "Record Title",
     "legend_page": "Page / Task",
     "active_deps": "Active dependencies ({{count}} records)",
-    "footer_hint": "Interactive timeline with automatic dependencies."
+    "footer_hint": "Interactive timeline with automatic dependencies.",
+    "until": "Until {{date}}",
+    "no_data": "No data to show in the timeline.",
+    "add_predecessor": "Add predecessor"
   },
   "home": {
     "subtitle": "Your personal knowledge ecosystem",
@@ -3498,7 +3575,11 @@
     "page_error": "Could not correct the page",
     "confirm_title": "Correct the whole page with AI",
     "confirm_message": "The page content will be replaced with the corrected version. You can undo it with Ctrl/Cmd+Z.",
-    "confirm_button": "Correct"
+    "confirm_button": "Correct",
+    "selection_error": "Could not correct",
+    "correcting_page": "Correcting the page with AI…",
+    "button": "Correct (AI)",
+    "correcting": "Correcting with AI…"
   },
   "folder_picker": {
     "go_up": "Go up one level (Up)",
@@ -3580,7 +3661,11 @@
     "new_tab_tooltip": "New tab or quick search ({{shortcut}}). Switch tab: {{tabShortcut}}",
     "search_placeholder": "Search pages and tables...",
     "no_results": "No results",
-    "open_table_parallel": "Open table in parallel"
+    "open_table_parallel": "Open table in parallel",
+    "workspaces_title": "Workspaces",
+    "new_workspace": "New Workspace",
+    "workspaces_save_placeholder": "Save the {{count}} open tabs as…",
+    "workspaces_empty": "No saved workspaces yet."
   },
   "drawings": {
     "load_error": "Error loading drawings",
@@ -3613,5 +3698,6 @@
     "link_invalid": "This link is invalid or has expired.",
     "load_error": "The shared page could not be loaded.",
     "readonly_badge": "Shared · read only"
-  }
+  },
+  "reader_podcast_error_prefix": "Error"
 }

@@ -346,7 +346,7 @@ function GraphPage() {
             }),
         })
             .then(() => setConfig(c => (c ? { ...c, graph: { ...c.graph, sources_initialized: true, visible_databases: seededDbs, visible_tables: seededTables } } : c)))
-            .catch(e => console.error('Error sembrant les fonts del graf:', e));
+            .catch(e => console.error('Error seeding the graph sources:', e));
     }, [config, graphData]);
 
     // (Removed the old 30s auto-refresh polling: it called

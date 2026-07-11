@@ -466,7 +466,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         {n.title || "Sense Títol"}
                                     </span>
                                     <span className="text-[10px] text-[var(--text-tertiary)]">
-                                        Fins al {fmtTLDate(n.end)}
+                                        {t('timeline.until', 'Fins al {{date}}', { date: fmtTLDate(n.end) })}
                                     </span>
                                 </button>
                             ))}
@@ -642,7 +642,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                     setSelectingPredecessorFor(note.id);
                                                 }}
                                                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[var(--gnosi-primary)]/10 rounded text-[var(--gnosi-primary)] transition-all"
-                                                title="Afegir antecessora"
+                                                title={t('timeline.add_predecessor', 'Afegir antecessora')}
                                             >
                                                 <Plus size={12} />
                                             </button>
@@ -729,7 +729,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 {chartData.length === 0 && (
                     <div className="w-full h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
                         <Calendar size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                        <p>No hi ha dades per mostrar al cronograma.</p>
+                        <p>{t('timeline.no_data', 'No hi ha dades per mostrar al cronograma.')}</p>
                     </div>
                 )}
             </div>

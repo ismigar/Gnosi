@@ -34,7 +34,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             const res = await axios.get(`/api/vault/pages/${pageId}/shares`);
             setShares(res.data?.shares || []);
         } catch (err) {
-            console.error('Error carregant enllaços compartits:', err);
+            console.error('Error loading shared links:', err);
             toast.error(t('errors.shares_load', { defaultValue: 'No s\'han pogut carregar els enllaços' }));
         } finally {
             setLoading(false);
@@ -70,7 +70,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             } catch { /* clipboard may be blocked; link is still listed */ }
             toast.success(t('share.created', { defaultValue: 'Enllaç creat i copiat' }));
         } catch (err) {
-            console.error('Error creant enllaç:', err);
+            console.error('Error creating link:', err);
             toast.error(t('errors.share_create', { defaultValue: 'Error creant l\'enllaç' }));
         } finally {
             setCreating(false);
@@ -94,7 +94,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             await axios.delete(`/api/vault/share/${target.token}`);
             setShares(prev => prev.filter(s => s.token !== target.token));
         } catch (err) {
-            console.error('Error revocant enllaç:', err);
+            console.error('Error revoking link:', err);
             toast.error(t('errors.share_revoke', { defaultValue: 'Error revocant l\'enllaç' }));
         } finally {
             setRevokeTarget(null);

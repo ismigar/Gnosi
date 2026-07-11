@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { Tag, Plus, Check, X, Pencil, Trash2 } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
@@ -17,6 +18,7 @@ function TagColorDot({ color, size = 10 }) {
 }
 
 function TagCreateForm({ onSave, onCancel }) {
+    const { t } = useTranslation();
     const [name, setName] = useState('');
     const [color, setColor] = useState(PRESET_COLORS[4]);
     const inputRef = useRef(null);
@@ -35,7 +37,7 @@ function TagCreateForm({ onSave, onCancel }) {
                 ref={inputRef}
                 value={name}
                 onChange={e => setName(e.target.value)}
-                placeholder="Nom de l'etiqueta..."
+                placeholder={t('mail.tag_name_placeholder', "Nom de l'etiqueta...")}
                 style={{
                     width: '100%', background: 'var(--bg-input, #1a1a1a)', border: '1px solid var(--border-subtle, #444)',
                     borderRadius: 4, color: 'var(--text-primary, #fff)', padding: '4px 8px', fontSize: 13, marginBottom: 6,
@@ -56,11 +58,11 @@ function TagCreateForm({ onSave, onCancel }) {
             <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
                 <button type="button" onClick={onCancel}
                     style={{ padding: '3px 10px', borderRadius: 4, border: '1px solid #444', background: 'transparent', color: '#aaa', cursor: 'pointer', fontSize: 12 }}>
-                    Cancel·la
+                    {t('common.cancel_short', 'Cancel·la')}
                 </button>
                 <button type="submit" disabled={!name.trim()}
                     style={{ padding: '3px 10px', borderRadius: 4, border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: 12 }}>
-                    Crea
+                    {t('common.create', 'Crea')}
                 </button>
             </div>
         </form>
@@ -68,6 +70,7 @@ function TagCreateForm({ onSave, onCancel }) {
 }
 
 export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onToggleTag, onCreateTag, onDeleteTag, anchorRect }) {
+    const { t } = useTranslation();
     const [showCreate, setShowCreate] = useState(false);
     const [confirmDelete, setConfirmDelete] = useState(null);
     const panelRef = useRef(null);
@@ -104,12 +107,12 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
             }}
         >
             <div style={{ padding: '8px 10px 4px', fontSize: 11, color: '#888', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Etiquetes
+                {t('mail.labels', 'Etiquetes')}
             </div>
 
             <div style={{ maxHeight: 220, overflowY: 'auto' }}>
                 {tags.length === 0 && !showCreate && (
-                    <div style={{ padding: '8px 10px', color: '#666', fontSize: 13 }}>Cap etiqueta</div>
+                    <div style={{ padding: '8px 10px', color: '#666', fontSize: 13 }}>{t('mail.no_tags', 'Cap etiqueta')}</div>
                 )}
                 {tags.map(tag => {
                     const isSelected = selectedTagIds.includes(tag.id);
@@ -128,7 +131,7 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
                                 <span style={{ display: 'flex', gap: 4 }} onClick={e => e.stopPropagation()}>
                                     <button onClick={() => { onDeleteTag(tag.id); setConfirmDelete(null); }}
                                         style={{ background: '#ef4444', border: 'none', borderRadius: 3, color: '#fff', cursor: 'pointer', padding: '1px 5px', fontSize: 11 }}>
-                                        Elimina
+                                        {t('common.delete', 'Elimina')}
                                     </button>
                                     <button onClick={() => setConfirmDelete(null)}
                                         style={{ background: 'transparent', border: 'none', color: '#888', cursor: 'pointer' }}>
@@ -139,7 +142,7 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
                                 <button
                                     onClick={e => { e.stopPropagation(); setConfirmDelete(tag.id); }}
                                     style={{ background: 'transparent', border: 'none', color: '#555', cursor: 'pointer', padding: 2, display: 'flex', alignItems: 'center' }}
-                                    title="Elimina etiqueta"
+                                    title={t('mail.delete_tag_tooltip', 'Elimina etiqueta')}
                                 >
                                     <Trash2 size={12} />
                                 </button>
@@ -163,7 +166,7 @@ export default function MailTagPicker({ tags, selectedTagIds = [], onClose, onTo
                         display: 'flex', alignItems: 'center', gap: 6, fontSize: 13,
                     }}
                 >
-                    <Plus size={13} /> Nova etiqueta
+                    <Plus size={13} /> {t('mail.new_tag', 'Nova etiqueta')}
                 </button>
             )}
         </div>

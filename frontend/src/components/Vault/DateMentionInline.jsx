@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { Calendar, Bell } from 'lucide-react';
 import i18n from '../../i18n';
 
@@ -15,7 +16,7 @@ import i18n from '../../i18n';
  */
 
 const fmtDate = (iso) => {
-    if (!iso) return 'Data';
+    if (!iso) return i18n.t('common.date', 'Data');
     try {
         const d = new Date(iso + (iso.length === 10 ? 'T00:00:00' : ''));
         return new Intl.DateTimeFormat(i18n.language, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
@@ -23,6 +24,7 @@ const fmtDate = (iso) => {
 };
 
 export default function DateMentionInline({ inlineContent, updateInlineContent }) {
+    const { t } = useTranslation();
     const date = String(inlineContent?.props?.date || '').trim();
     const time = String(inlineContent?.props?.time || '').trim();
     const [open, setOpen] = useState(false);
@@ -63,7 +65,7 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                 ref={chipRef}
                 contentEditable={false}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
-                title={time ? `Recordatori: ${fmtDate(date)} a les ${time}` : fmtDate(date)}
+                title={time ? t('editor.date_reminder_tooltip', 'Recordatori: {{date}} a les {{time}}', { date: fmtDate(date), time }) : fmtDate(date)}
                 className="mx-0.5 inline-flex cursor-pointer select-none items-center gap-1 rounded px-1.5 py-0.5 text-sm text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/8 hover:bg-[var(--gnosi-primary)]/15"
             >
                 <Calendar size={13} />
@@ -77,7 +79,7 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: 260, zIndex: 9999 }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-3 shadow-xl"
                 >
-                    <label className="mb-1 block text-xs font-semibold text-[var(--text-tertiary)]">Data</label>
+                    <label className="mb-1 block text-xs font-semibold text-[var(--text-tertiary)]">{t('common.date', 'Data')}</label>
                     <input
                         type="date"
                         value={draftDate}
@@ -85,7 +87,7 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                         className="mb-2 w-full rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                     />
                     <label className="mb-1 flex items-center gap-1 text-xs font-semibold text-[var(--text-tertiary)]">
-                        <Bell size={12} /> Recordatori (opcional)
+                        <Bell size={12} /> {t('editor.date_reminder_label', 'Recordatori (opcional)')}
                     </label>
                     <div className="flex items-center gap-2">
                         <input
@@ -96,13 +98,13 @@ export default function DateMentionInline({ inlineContent, updateInlineContent }
                         />
                         {draftTime && (
                             <button type="button" onClick={() => setDraftTime('')} className="text-xs text-[var(--text-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]">
-                                Treu
+                                {t('editor.date_reminder_clear', 'Treu')}
                             </button>
                         )}
                     </div>
                     <div className="mt-2 flex justify-end">
                         <button type="button" onMouseDown={(e) => { e.preventDefault(); save(); }} className="rounded px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10">
-                            Desa
+                            {t('common.save', 'Desa')}
                         </button>
                     </div>
                 </div>,

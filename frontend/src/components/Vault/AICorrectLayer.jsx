@@ -58,7 +58,7 @@ export default function AICorrectLayer({ editor, lang }) {
                 toast(t('ai_correct.no_correction', 'Cap correcció necessària'));
             }
         } catch (err) {
-            toast.error(err?.response?.data?.detail || 'No s\'ha pogut corregir');
+            toast.error(err?.response?.data?.detail || t('ai_correct.selection_error', 'No s\'ha pogut corregir'));
         } finally {
             busyRef.current = false; setBusy(false);
         }
@@ -68,7 +68,7 @@ export default function AICorrectLayer({ editor, lang }) {
     const correctPage = useCallback(async () => {
         if (!editor || busyRef.current) return;
         busyRef.current = true; setBusy(true);
-        const tid = toast.loading('Corregint la pàgina amb IA…');
+        const tid = toast.loading(t('ai_correct.correcting_page', 'Corregint la pàgina amb IA…'));
         try {
             const md = await editor.blocksToMarkdownLossy(editor.document);
             if (!md.trim()) { toast.dismiss(tid); return; }
@@ -125,13 +125,13 @@ export default function AICorrectLayer({ editor, lang }) {
                     style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 9998 }}
                     className="flex items-center gap-1 rounded-full bg-[var(--gnosi-primary)] px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:opacity-90"
                 >
-                    <Sparkles size={14} /> Corregeix (IA)
+                    <Sparkles size={14} /> {t('ai_correct.button', 'Corregeix (IA)')}
                 </button>, document.body)}
 
             {busy && createPortal(
                 <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10060 }}
                     className="flex items-center gap-2 rounded-lg bg-[var(--gnosi-primary)] px-3 py-2 text-sm text-white shadow-xl">
-                    <Loader2 size={16} className="animate-spin" /> Corregint amb IA…
+                    <Loader2 size={16} className="animate-spin" /> {t('ai_correct.correcting', 'Corregint amb IA…')}
                 </div>, document.body)}
 
             <ConfirmModal

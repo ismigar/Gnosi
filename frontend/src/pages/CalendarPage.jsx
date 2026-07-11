@@ -974,7 +974,7 @@ export default function CalendarPage() {
                                 savedCalendarSelectionRef.current = new Set(next);
                                 axios.put('/api/integrations/calendar_selection', {
                                     selection: Array.from(next)
-                                }).catch(err => console.error('Error desant la selecció de calendaris:', err));
+                                }).catch(err => console.error('Error saving calendar selection:', err));
                             }}
                             onRenameCalendar={handleRenameCalendar}
                             onUpdateColor={handleUpdateCalendarColor}
@@ -984,7 +984,7 @@ export default function CalendarPage() {
                                     await axios.put('/api/integrations/default_calendar', { source });
                                     setIntegrations(prev => ({ ...prev, default_calendar: source }));
                                 } catch (err) {
-                                    console.error('Error desant calendari predeterminat:', err);
+                                    console.error('Error saving default calendar:', err);
                                 }
                             }}
                             defaultCalendar={integrations?.default_calendar}

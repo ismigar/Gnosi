@@ -625,7 +625,7 @@ export default function VaultDashboard() {
                     ...prev,
                     [tableId]: { raw: tablePages.length, visible: fallbackVisible.length }
                 }));
-                console.warn('No s\'ha pogut carregar snapshot canònic de taula, fent servir càlcul local:', snapshotErr);
+                console.warn('Could not load canonical table snapshot, using local calculation:', snapshotErr);
             }
             return tablePages;
         } catch (err) {
@@ -821,7 +821,7 @@ export default function VaultDashboard() {
                 parent_id: newParentId,
                 metadata: { parent_id: newParentId },
             });
-            toast.success(t('success.page_moved') || 'Pàgina moguda');
+            toast.success(t('success.page_moved', 'Pàgina moguda'));
             void fetchPages();
             // Refreshes globalIndex so title-based wikilinks keep
             // resolving correctly (idToTitle is used in BlockEditor without
@@ -881,7 +881,7 @@ export default function VaultDashboard() {
             const res = await axios.get('/api/vault/global-index');
             setGlobalIndex(res.data);
         } catch (err) {
-            console.error("Error carregant índex global:", err);
+            console.error("Error loading global index:", err);
         }
         // The alias index is secondary: if it fails, title-based wikilinks
         // keep working (and `[[alias]]` still resolves via /resolve-by-title).
@@ -889,7 +889,7 @@ export default function VaultDashboard() {
             const aliasRes = await axios.get('/api/vault/alias-index');
             setAliasIndex(aliasRes.data || {});
         } catch (err) {
-            console.warn("Error carregant índex d'àlies:", err?.message || err);
+            console.warn("Error loading alias index:", err?.message || err);
         }
     };
 
@@ -916,7 +916,7 @@ export default function VaultDashboard() {
                 await fetchPagesByTable(activeTableId);
             }
         } catch (err) {
-            console.error("Error actualitzant vista:", err);
+            console.error("Error updating view:", err);
             toast.error(t('errors.save_view'));
         }
     };
@@ -946,7 +946,7 @@ export default function VaultDashboard() {
             setActiveViewId(newView.id);
             toast.success(t('success.view_duplicated'));
         } catch (err) {
-            console.error("Error duplicant vista:", err);
+            console.error("Error duplicating view:", err);
             toast.error(t('success.view_duplicated')); // Oops, I should have an error key for duplication failure
         }
     };
@@ -975,7 +975,7 @@ export default function VaultDashboard() {
             handleTabClose(viewToDelete.id);
             toast.success(t('success.view_deleted'));
         } catch (err) {
-            console.error("Error eliminant vista:", err);
+            console.error("Error deleting view:", err);
             toast.error(t('errors.delete_view'));
         } finally {
             setViewToDelete(null);
@@ -998,8 +998,8 @@ export default function VaultDashboard() {
             });
             await fetchRegistry();
         } catch (err) {
-            console.error("Error reordenant vistes:", err);
-            toast.error(t('errors.reorder_views') || 'Error reordenant vistes');
+            console.error("Error reordering views:", err);
+            toast.error(t('errors.reorder_views', 'Error reordenant vistes'));
             await fetchRegistry();
         }
     };
@@ -1013,7 +1013,7 @@ export default function VaultDashboard() {
         if (!view) return;
         // The main view is never hidden: there must always remain one anchor tab.
         if (isMainView(view, tableViews)) {
-            toast.error(t('errors.hide_main_view') || 'No es pot amagar la vista principal');
+            toast.error(t('errors.hide_main_view', 'No es pot amagar la vista principal'));
             return;
         }
         // If we hide the active view, we jump to the first visible one (or to the main one).
@@ -1026,7 +1026,7 @@ export default function VaultDashboard() {
             await axios.put(`/api/vault/views/${viewId}`, { ...view, hidden });
             await fetchRegistry();
         } catch (err) {
-            console.error("Error canviant la visibilitat de la vista:", err);
+            console.error("Error changing view visibility:", err);
             toast.error(t('errors.save_view'));
             await fetchRegistry();
         }
@@ -1100,7 +1100,7 @@ export default function VaultDashboard() {
             toast.success(t('success.record_created'));
             loadPage(res.data.id);
         } catch (err) {
-            console.error("Error creant el registre:", err);
+            console.error("Error creating the record:", err);
             toast.error(t('errors.record_create'));
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1132,7 +1132,7 @@ export default function VaultDashboard() {
             toast.success(t('success.record_created'));
             loadPage(res.data.id);
         } catch (err) {
-            console.error("Error creant el registre des d'una font:", err);
+            console.error("Error creating the record from a source:", err);
             toast.error(t('errors.record_create', { defaultValue: 'Error creant el registre' }));
         }
     }, [applySchemaDefaults, fetchPages, loadPage, t]);
@@ -1152,7 +1152,7 @@ export default function VaultDashboard() {
             await fetchPages();
             loadPage(res.data.id);
         } catch (err) {
-            console.error('Error obrint la nota diària:', err);
+            console.error('Error opening the daily note:', err);
             toast.error(t('errors.daily_note', { defaultValue: 'Error obrint la nota diària' }));
         }
     }, [fetchPages, loadPage, t]);
@@ -1992,7 +1992,7 @@ export default function VaultDashboard() {
                   .finally(() => viewCreationInProgressRef.current.delete(tableId));
             }
         } catch (err) {
-            console.error("Error obrint la taula:", err);
+            console.error("Error opening the table:", err);
             toast.error(t('errors.open_table')); // Add error.open_table if missing
         }
     };
@@ -2166,7 +2166,7 @@ export default function VaultDashboard() {
     const handleDeletePage = useCallback(async (pageId, pageTitle) => {
         if (!pageId) return;
         const id = pageId;
-        const title = pageTitle || t('common.untitled') || 'Sense títol';
+        const title = pageTitle || t('common.untitled', 'Sense títol');
 
         const removeFromState = () => {
             setPages(prev => prev.filter(page => page.id !== id));
@@ -2209,7 +2209,7 @@ export default function VaultDashboard() {
                 refreshAfterDelete();
                 toast.success(t('success.page_restored'));
             } catch (err) {
-                console.error('Error restaurant la pàgina:', err);
+                console.error('Error restoring the page:', err);
                 toast.error(t('errors.restore_page'));
             }
         };
@@ -2231,7 +2231,7 @@ export default function VaultDashboard() {
                         }}
                         className="px-2 py-0.5 rounded text-xs font-semibold bg-[var(--gnosi-primary)] text-white hover:opacity-90"
                     >
-                        {t('common.undo') || 'Desfer'}
+                        {t('common.undo', 'Desfer')}
                     </button>
                 </span>
             ), { duration: 8000 });
@@ -2240,10 +2240,10 @@ export default function VaultDashboard() {
             if (err?.response?.status === 404) {
                 removeFromState();
                 refreshAfterDelete();
-                toast.success(t('success.page_deleted_ghost') || 'Pàgina eliminada (era un fantasma del cache)');
+                toast.success(t('success.page_deleted_ghost', 'Pàgina eliminada (entrada fantasma del cache)'));
             } else {
-                console.error('Error movent la pàgina a la paperera:', err);
-                toast.error(t('errors.delete_page') || 'Error movent la pàgina a la paperera');
+                console.error('Error moving the page to trash:', err);
+                toast.error(t('errors.delete_page', 'Error eliminant pàgina'));
             }
         }
     }, [nestedPath, navigate, handleTabClose, fetchPages, fetchPagesByTable, activeTableId, t, tabs, pushToHistory]);

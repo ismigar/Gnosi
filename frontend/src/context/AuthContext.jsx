@@ -78,7 +78,7 @@ export function AuthProvider({ children }) {
             persistUser(me);
             return me;
         } catch (err) {
-            if (err.status !== 401) console.warn('auth/me ha fallat:', err);
+            if (err.status !== 401) console.warn('auth/me failed:', err);
             setUser(null);
             return null;
         }
@@ -129,7 +129,7 @@ export function AuthProvider({ children }) {
         try {
             await authFetch('/api/auth/logout', { method: 'POST' });
         } catch (err) {
-            console.warn('logout ha fallat (esborrem estat local igualment):', err);
+            console.warn('logout failed (clearing local state anyway):', err);
         }
         clearPersistedUser();
         setUser(null);

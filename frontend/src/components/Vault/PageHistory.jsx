@@ -118,7 +118,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
           <button 
             onClick={onClose}
             className="gnosi-close-btn"
-            aria-label="Tancar historial"
+            aria-label={t('vault.history.close', 'Tancar historial')}
           >
             <X />
           </button>

@@ -861,7 +861,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const handleSaveDeeplKey = async () => {
         const value = translateState.deepl_input.trim();
         if (!value) {
-            toast.error(t('translate_settings.error_deepl_required') || 'Introdueix una API key.');
+            toast.error(t('translate_settings.error_deepl_required', 'Introdueix una API key.'));
             return;
         }
         setTranslateState(s => ({ ...s, saving_deepl: true }));
@@ -870,7 +870,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setTranslateState(s => ({ ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false }));
         } catch (err) {
             console.error('Error saving DeepL API key:', err);
-            toast.error(t('translate_settings.deepl_save_error') || "No s'ha pogut desar la clau de DeepL.");
+            toast.error(t('translate_settings.deepl_save_error', "No s'ha pogut desar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
     };
@@ -882,7 +882,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
         } catch (err) {
             console.error('Error deleting DeepL API key:', err);
-            toast.error(t('translate_settings.deepl_delete_error') || "No s'ha pogut eliminar la clau de DeepL.");
+            toast.error(t('translate_settings.deepl_delete_error', "No s'ha pogut eliminar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
     };
@@ -898,7 +898,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         } catch (err) {
             console.error('Error saving Softcatalà URL:', err);
-            toast.error(t('translate_settings.softcatala_save_error') || "No s'ha pogut desar la URL de Softcatalà.");
+            toast.error(t('translate_settings.softcatala_save_error', "No s'ha pogut desar la URL de Softcatalà."));
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         }
     };
@@ -1062,14 +1062,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     await Promise.all(promises);
                     setSavingStatus('saved');
                 } catch (err) {
-                    console.error("Error guardant en tancar configuració:", err);
+                    console.error("Error saving while closing settings:", err);
                     setSavingStatus('error');
                 } finally {
                     setIsSaving(false);
                 }
             }
         } catch (globalErr) {
-            console.error("Error global crític a handleClose:", globalErr);
+            console.error("Critical global error in handleClose:", globalErr);
         } finally {
             // 5. We call the original onClose to close the modal ALWAYS, even if there are errors
             onClose();
@@ -1374,7 +1374,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
         // Critical safeguard: don't save integrations if they haven't been loaded from the server yet
         if (!integrationsLoadedRef.current) {
-            console.warn('[AutoSave] Ignorant desa: integrations encara no carregades.');
+            console.warn('[AutoSave] Ignoring save: integrations not loaded yet.');
             return;
         }
 
@@ -1564,7 +1564,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     setTimeout(() => setSavingStatus('idle'), 2000);
                 } catch (e) {
                     setSavingStatus('error');
-                    console.error("Error crític eliminant compte:", e);
+                    console.error("Critical error deleting account:", e);
                 }
                 setConfirmConfig(prev => ({ ...prev, isOpen: false }));
             }

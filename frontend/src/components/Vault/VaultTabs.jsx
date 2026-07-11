@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Plus, GripVertical, Settings2, X } from 'lucide-react';
 
 export function VaultTabs({ views, activeViewId, onViewChange, onAddView, onUpdateView }) {
+    const { t } = useTranslation();
     if (!views || views.length === 0) return null;
 
     return (
@@ -23,7 +25,7 @@ export function VaultTabs({ views, activeViewId, onViewChange, onAddView, onUpda
             <button
                 onClick={onAddView}
                 className="flex items-center justify-center w-8 h-8 rounded hover:bg-slate-200 text-slate-400 hover:text-slate-600 transition-colors ml-1"
-                title="Afegir Vista nova"
+                title={t('views_header.add_new_view', 'Afegir Vista nova')}
             >
                 <Plus size={18} />
             </button>

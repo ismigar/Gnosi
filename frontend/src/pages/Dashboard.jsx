@@ -1300,7 +1300,7 @@ function Dashboard() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">Veure Graf</span>
+                                                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">{t('dashboard.view_graph', 'Veure Graf')}</span>
                                                         <ExternalLink size={14} className="text-cyan-500" />
                                                     </div>
                                                 </div>

@@ -1,8 +1,10 @@
 import { useState, useRef, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Users } from 'lucide-react';
 import { useApi } from '../../hooks/use-api';
 
 export function AddressInput({ value, onChange, label, placeholder, accountEmail }) {
+    const { t } = useTranslation();
     const [suggestions, setSuggestions] = useState([]);
     const [groupSuggestions, setGroupSuggestions] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
@@ -89,7 +91,7 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
                     {suggestions.length > 0 && (
                         <>
                             <div className="px-3 py-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-                                Contactes
+                                {t('contacts.title', 'Contactes')}
                             </div>
                             {suggestions.map((s, i) => <SuggestionItem key={i} item={s} />)}
                         </>
@@ -97,14 +99,14 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
                     {groupSuggestions.length > 0 && (
                         <>
                             <div className="border-t border-[var(--border-primary)] mt-1 pt-1 px-3 py-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1">
-                                <Users size={10} /> Grup habitual
+                                <Users size={10} /> {t('mail.usual_group', 'Grup habitual')}
                             </div>
                             <button
                                 onMouseDown={() => handleSelectGroup(groupSuggestions.map(g => g.email))}
                                 className="w-full text-left px-4 py-2 hover:bg-[var(--bg-secondary)] transition-colors"
                             >
                                 <span className="text-[12px] text-[var(--gnosi-blue)] font-medium">
-                                    + Afegir tots: {groupSuggestions.map(g => g.email).join(', ')}
+                                    + {t('mail.add_all_group', 'Afegir tots: {{emails}}', { emails: groupSuggestions.map(g => g.email).join(', ') })}
                                 </span>
                             </button>
                             {groupSuggestions.map((s, i) => <SuggestionItem key={i} item={s} />)}

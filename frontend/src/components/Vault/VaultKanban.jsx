@@ -239,7 +239,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
         try {
             await onUpdateNote(id, { metadata: { [metaKey]: nextValue } });
         } catch (err) {
-            console.error('Error movent la targeta de columna:', err);
+            console.error('Error moving the column card:', err);
             setPendingMoves(prev => { const m = new Map(prev); m.delete(id); return m; });
         }
     };

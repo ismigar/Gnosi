@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { BookPlus, EyeOff, SpellCheck2 } from 'lucide-react';
 import { detectLang } from '../../lib/spellcheck/detectLang';
 import { loadSpeller, addPersonalWord } from '../../lib/spellcheck/nspellManager';
@@ -20,6 +21,7 @@ import {
  * be forced with `forcedLang`.
  */
 export default function SpellCheckLayer({ editor, enabled = true, pageId, forcedLang, onLangDetected }) {
+    const { t } = useTranslation();
     const spellerRef = useRef(null);
     const ignoredRef = useRef(new Set());
     const enabledRef = useRef(enabled);
@@ -161,7 +163,7 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
             </div>
             <div className="max-h-44 overflow-auto">
                 {menu.suggestions.length === 0 ? (
-                    <div className="px-3 py-1.5 text-xs italic text-[var(--text-tertiary)]">Cap suggeriment</div>
+                    <div className="px-3 py-1.5 text-xs italic text-[var(--text-tertiary)]">{t('editor.spellcheck_no_suggestions', 'Cap suggeriment')}</div>
                 ) : menu.suggestions.map((s) => (
                     <button
                         key={s}
@@ -177,13 +179,13 @@ export default function SpellCheckLayer({ editor, enabled = true, pageId, forced
                     onMouseDown={(e) => { e.preventDefault(); addToDictionary(); }}
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
                 >
-                    <BookPlus size={13} /> Afegeix al diccionari
+                    <BookPlus size={13} /> {t('editor.spellcheck_add_to_dictionary', 'Afegeix al diccionari')}
                 </button>
                 <button
                     onMouseDown={(e) => { e.preventDefault(); ignoreWord(); }}
                     className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
                 >
-                    <EyeOff size={13} /> Ignora aquesta paraula
+                    <EyeOff size={13} /> {t('editor.spellcheck_ignore_word', 'Ignora aquesta paraula')}
                 </button>
             </div>
         </div>,

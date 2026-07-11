@@ -1,5 +1,6 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
 import HomePage from './pages/HomePage';
 
@@ -40,14 +41,16 @@ import { LoginPage } from './components/Auth/LoginPage';
 // Fallback while the chunk for a lazy route is downloading. Discreet and centered,
 // reusing the auth bootstrap's style so there's no visual jump.
 function RouteFallback() {
+  const { t } = useTranslation();
   return (
     <div className="flex h-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
-      <div className="animate-pulse text-sm">Carregant…</div>
+      <div className="animate-pulse text-sm">{t('common.loading', 'Carregant…')}</div>
     </div>
   );
 }
 
 function App() {
+  const { t } = useTranslation();
   const { effectiveTheme } = useTheme();
   const { user, gnosiMode, loading } = useAuth();
   // Captures clicks on file:// everywhere and redirects them to the system shell
@@ -67,7 +70,7 @@ function App() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
-        <div className="animate-pulse text-sm">Carregant…</div>
+        <div className="animate-pulse text-sm">{t('common.loading', 'Carregant…')}</div>
       </div>
     );
   }

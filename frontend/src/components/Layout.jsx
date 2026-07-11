@@ -1,8 +1,10 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, Menu } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
 
 export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {}, onSync, isSyncing }) {
+  const { t } = useTranslation();
   const [isPanelOpen, setIsPanelOpen] = React.useState(true);
   const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
   const activeVaultName = useActiveVaultName();
@@ -28,7 +30,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           {onSync && (
             <button
               onClick={onSync}
-              title="Sincronitzar"
+              title={t('graph.sync_tooltip', 'Sincronitzar')}
               style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
             >
               <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
@@ -37,7 +39,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
 
           <button
             id="btn-toggle-panel"
-            title="Mostra / amaga panell"
+            title={t('graph.toggle_panel_tooltip', 'Mostra / amaga panell')}
             onClick={() => setIsPanelOpen(!isPanelOpen)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
           >
@@ -86,7 +88,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
             gap: '8px'
           }}
         >
-          {isBottomPanelOpen ? '▼ Amaga Connexions' : '▲ Mostra Connexions'}
+          {isBottomPanelOpen ? `▼ ${t('graph.hide_connections', 'Amaga Connexions')}` : `▲ ${t('graph.show_connections', 'Mostra Connexions')}`}
         </button>
         {isBottomPanelOpen && (
           <div style={{ maxHeight: '35vh', overflowY: 'auto' }}>

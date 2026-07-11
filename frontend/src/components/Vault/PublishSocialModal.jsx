@@ -59,7 +59,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 // Preselects the configured ones.
                 setSelected(new Set(list.filter((n) => n.configured).map((n) => n.id)));
             } catch (err) {
-                console.error('Error carregant xarxes:', err);
+                console.error('Error loading networks:', err);
                 toast.error(t('social.networks_error', 'No s\'han pogut carregar les xarxes.'));
             }
 
@@ -121,7 +121,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             setDrafts(Object.fromEntries(Object.entries(props).map(([net, p]) => [net, p.text || ''])));
             setStep('compose');
         } catch (err) {
-            console.error('Error generant publicacions:', err);
+            console.error('Error generating posts:', err);
             const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
             toast.error(`${t('social.compose_error', 'Error generant les propostes')}: ${msg}`);
         } finally {
