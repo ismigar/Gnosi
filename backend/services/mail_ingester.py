@@ -14,6 +14,7 @@ import email
 import email.utils
 from email.header import decode_header
 import os
+import re
 import logging
 from datetime import datetime, timezone
 from bs4 import BeautifulSoup
@@ -119,15 +120,48 @@ def get_email_body(msg):
     return html_body or text_body or ""
 
 
+# Tags que un email mai no ha de portar: executen codi, carreguen contingut
+# extern arbitrari o exfiltren dades. Encara que el render usi un iframe
+# sandbox, `<iframe>`/`<form>` NO els bloqueja `allow-same-origin allow-popups`;
+# i si algun dia s'hi afegís `allow-scripts`, `<script>`/`javascript:` tornarien
+# a ser executables. Es treuen a la sanització (defense-in-depth).
+_UNSAFE_TAGS = [
+    'script', 'style', 'meta', 'link', 'head',
+    'iframe', 'object', 'embed', 'applet',
+    'form', 'base', 'frame', 'frameset',
+]
+
+# Atributs que porten una URL i, per tant, poden dur un esquema perillós.
+_URL_ATTRS = ('href', 'src', 'action', 'formaction', 'poster', 'background', 'xlink:href', 'data')
+
+
+def _is_safe_url(value: str) -> bool:
+    """False si l'URL usa un esquema perillós (`javascript:`/`vbscript:`/`file:`,
+    o `data:` que NO sigui una imatge inline). Els URLs relatius/àncora i els
+    esquemes normals (http, https, mailto, tel…) són segurs."""
+    v = value or ''
+    if ':' not in v:
+        return True  # relatiu, àncora (#…), ruta (/…): segur
+    # Els navegadors ignoren espais/control chars DINS l'esquema (p. ex.
+    # "java\tscript:"): els traiem abans de comprovar-lo.
+    scheme = re.sub(r'[\s\x00-\x20]', '', v.split(':', 1)[0]).lower()
+    if scheme in ('javascript', 'vbscript', 'file'):
+        return False
+    if scheme == 'data':
+        return bool(re.match(r'^\s*data:image/', v, re.IGNORECASE))
+    return True
+
+
 def sanitize_html(raw_html):
     """
-    Clean HTML for safe rendering: remove scripts, styles,
-    tracking pixels, and unsafe attributes.
+    Clean HTML for safe rendering: remove scripts, styles, dangerous tags
+    (iframe/object/form/…), tracking pixels, event handlers and unsafe URL
+    schemes (javascript:/data:text/…).
     """
     soup = BeautifulSoup(raw_html, 'html.parser')
 
     # Remove dangerous/noisy tags
-    for tag in soup.find_all(['script', 'style', 'meta', 'link', 'head']):
+    for tag in soup.find_all(_UNSAFE_TAGS):
         tag.decompose()
 
     # Remove tracking pixels (img with 1x1 or hidden)
@@ -142,10 +176,13 @@ def sanitize_html(raw_html):
         if 'display:none' in style.replace(' ', '') or 'visibility:hidden' in style.replace(' ', ''):
             img.decompose()
 
-    # Remove event handler attributes (onclick, onload, etc.)
+    # Remove event handlers (on*), class/id, and any URL attribute whose value
+    # uses a dangerous scheme (javascript:/data:text/…).
     for tag in soup.find_all(True):
         for attr in list(tag.attrs):
             if attr.startswith('on') or attr in ('class', 'id'):
+                del tag[attr]
+            elif attr in _URL_ATTRS and not _is_safe_url(tag.get(attr, '')):
                 del tag[attr]
 
     return str(soup)
