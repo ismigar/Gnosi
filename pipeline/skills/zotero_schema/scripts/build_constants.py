@@ -35,8 +35,11 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
-# Locales que Gnosi exposa (han d'existir a schema.locales).
-LOCALES = ("ca-AD", "es-ES", "en-GB", "en-US")
+# Locales que Gnosi exposa (han d'existir a schema.locales). Han de cobrir tots
+# els idiomes de la UI (frontend/src/i18n.js: ca/es/en/fr) perquè els components
+# que mostren labels de tipus Zotero (p. ex. MetadataLookupModal) puguin seguir
+# l'idioma actiu. `fr-FR` afegit 2026-07-11 (la UI francesa queia a labels ca-AD).
+LOCALES = ("ca-AD", "es-ES", "en-GB", "en-US", "fr-FR")
 
 ROOT = Path(__file__).resolve().parents[4]  # monorepo/apps/gnosi
 SCHEMA_PATH = ROOT / "pipeline/skills/zotero_schema/schema.json"
