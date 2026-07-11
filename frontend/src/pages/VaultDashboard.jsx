@@ -2684,6 +2684,72 @@ export default function VaultDashboard() {
     const openPageTable = openPageTableId ? registry.tables?.find(t => t.id === openPageTableId) : null;
     const openPageIsTranslatableRecord = Boolean(openPageTable?.translation_enabled)
         && !currentOpenPage?.metadata?.translation_lang;
+
+    // Page-level actions, formerly the VaultShell top-bar "…" menu. They now
+    // render as inline icon buttons next to the page title (PageActionsBar,
+    // wired through BlockEditor). The gating/handlers are unchanged — the set is
+    // active-page-scoped and only the active pane's title shows the toolbar.
+    const pageActions = {
+        canFavorite: Boolean(currentActiveTab?.id),
+        isFavorite: currentActiveTab?.metadata?.favorite === true || currentActiveTab?.metadata?.favorite === 'true',
+        onToggleFavorite: () => {
+            if (!currentActiveTab?.id) return;
+            handleToggleFavorite(currentActiveTab.id);
+        },
+        canToggleEditLock: Boolean(currentActiveTab?.id) && viewMode === 'editor' && !currentActiveTab?.isPdf,
+        isEditLocked: Boolean(currentActiveTab?.id && editLockedByPageId[currentActiveTab.id]),
+        onToggleEditLock: () => {
+            if (!currentActiveTab?.id) return;
+            setEditLockedByPageId(prev => {
+                const next = { ...prev };
+                if (next[currentActiveTab.id]) {
+                    delete next[currentActiveTab.id];
+                } else {
+                    next[currentActiveTab.id] = true;
+                }
+                return next;
+            });
+        },
+        canToggleCodeView,
+        isCodeView: isCodeViewActive,
+        onToggleCodeView: () => {
+            if (!canToggleCodeView || !currentActiveTab?.id) return;
+            setCodeViewByTabId(prev => ({
+                ...prev,
+                [currentActiveTab.id]: !prev[currentActiveTab.id],
+            }));
+        },
+        canOpenHistory: Boolean(currentOpenPage),
+        onOpenHistory: () => {
+            if (!currentOpenPage) return;
+            setHistoryOpenSignal(prev => prev + 1);
+        },
+        canOpenComments: Boolean(currentOpenPage) && isPluginEnabled('page-comments'),
+        onOpenComments: () => {
+            if (!currentOpenPage) return;
+            setCommentsOpen(true);
+        },
+        canOpenShare: Boolean(currentOpenPage) && isPluginEnabled('share-links'),
+        onOpenShare: () => {
+            if (!currentOpenPage) return;
+            setShareOpen(true);
+        },
+        canTranslatePage,
+        translateLabel: openPageIsTranslatableRecord
+            ? t('shell.translate_record', 'Tradueix el registre')
+            : t('shell.translate_page', 'Tradueix la pàgina'),
+        onTranslatePage: () => {
+            if (!canTranslatePage || !currentOpenPage?.id) return;
+            setTranslatePageMode(openPageIsTranslatableRecord ? 'row' : 'page');
+            setTranslatePageModalId(currentOpenPage.id);
+        },
+        canDeleteCurrentPage: Boolean(currentOpenPage),
+        onDeleteCurrentPage: () => {
+            if (!currentOpenPage) return;
+            handleDeletePage(currentOpenPage.id, currentOpenPage.title || t('common.untitled'));
+        },
+    };
+
     const quickOpenItems = React.useMemo(() => {
         const pageItems = pages
             .filter(p => !p.metadata?.is_template)
@@ -3129,6 +3195,8 @@ export default function VaultDashboard() {
                 onDeletePage={handleDeletePage}
                 onCreateRecord={handleAddNewNote}
                 onOpenViewConfig={handleConfigureView}
+                pageActions={pageActions}
+                isActivePage={tab.id === activeTabId}
             />
         );
 
@@ -3278,66 +3346,11 @@ export default function VaultDashboard() {
         <VaultShell
             sidebarContent={sidebar}
             breadcrumbs={breadcrumbs}
-            isFavorite={tabs.find(t => t.id === activeTabId)?.metadata?.favorite === true}
-            onToggleFavorite={() => handleToggleFavorite(activeTabId)
-            }
             onSearch={() => setIsGlobalSearchOpen(true)}
             onBack={handleNavigationBack}
             onForward={handleNavigationForward}
             canGoBack={canGoBack}
             canGoForward={canGoForward}
-            canOpenHistory={Boolean(currentOpenPage)}
-            onOpenHistory={() => {
-                if (!currentOpenPage) return;
-                setHistoryOpenSignal(prev => prev + 1);
-            }}
-            canOpenComments={Boolean(currentOpenPage) && isPluginEnabled('page-comments')}
-            onOpenComments={() => {
-                if (!currentOpenPage) return;
-                setCommentsOpen(true);
-            }}
-            canOpenShare={Boolean(currentOpenPage) && isPluginEnabled('share-links')}
-            onOpenShare={() => {
-                if (!currentOpenPage) return;
-                setShareOpen(true);
-            }}
-            canDeleteCurrentPage={Boolean(currentOpenPage)}
-            onDeleteCurrentPage={() => {
-                if (!currentOpenPage) return;
-                handleDeletePage(currentOpenPage.id, currentOpenPage.title || t('common.untitled'));
-            }}
-            canToggleCodeView={canToggleCodeView}
-            isCodeView={isCodeViewActive}
-            onToggleCodeView={() => {
-                if (!canToggleCodeView || !currentActiveTab?.id) return;
-                setCodeViewByTabId(prev => ({
-                    ...prev,
-                    [currentActiveTab.id]: !prev[currentActiveTab.id],
-                }));
-            }}
-            canToggleEditLock={Boolean(currentActiveTab?.id) && viewMode === 'editor' && !currentActiveTab.isPdf}
-            isEditLocked={Boolean(currentActiveTab?.id && editLockedByPageId[currentActiveTab.id])}
-            onToggleEditLock={() => {
-                if (!currentActiveTab?.id) return;
-                setEditLockedByPageId(prev => {
-                    const next = { ...prev };
-                    if (next[currentActiveTab.id]) {
-                        delete next[currentActiveTab.id];
-                    } else {
-                        next[currentActiveTab.id] = true;
-                    }
-                    return next;
-                });
-            }}
-            canTranslatePage={canTranslatePage}
-            translateLabel={openPageIsTranslatableRecord
-                ? t('shell.translate_record', 'Tradueix el registre')
-                : t('shell.translate_page', 'Tradueix la pàgina')}
-            onTranslatePage={() => {
-                if (!canTranslatePage || !currentOpenPage?.id) return;
-                setTranslatePageMode(openPageIsTranslatableRecord ? 'row' : 'page');
-                setTranslatePageModalId(currentOpenPage.id);
-            }}
         >
             <div className="h-full bg-[var(--bg-primary)] flex flex-col min-w-0">
                 {(viewMode === 'editor' || viewMode === 'drawing') && (

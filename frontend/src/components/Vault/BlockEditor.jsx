@@ -79,6 +79,7 @@ import { EmbedRenderer } from './EmbedRenderer';
 import { WikilinkInline } from './WikilinkInline';
 import { CiteInline } from './CiteInline';
 import { CollaborationPresence } from './CollaborationPresence';
+import { PageActionsBar } from './PageActionsBar';
 import { CitePicker } from './CitePicker';
 import { MetadataLookupModal } from './MetadataLookupModal';
 import { BibliographyBlock } from './BibliographyBlock';
@@ -3391,7 +3392,7 @@ export function EditorInner({
     );
 };
 
-export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig }) {
+export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}, onUpdate, allTables = [], allNotes = [], onEditSchema, onAddSchemaOption, onCreateRecord, onDeletePage = () => {}, onOpenParallel = () => {}, onOpenPage = () => {}, onOpenInCurrentTab = null, onOpenInNewTab = null, idToTitle = {}, aliasIndex = {}, registry = { databases: [], tables: [], views: [] }, onRefreshNotes = () => {}, onUpdatePageMetadata, historyOpenSignal = 0, isCodeView = false, isEditLocked = false, referenceTableId = null, onOpenViewConfig, pageActions = null, isActivePage = true }) {
     const { t } = useTranslation();
     const { apiFetch, role } = useApi();
     const isViewerRole = role === 'viewer';
@@ -3426,6 +3427,19 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     }, [metadata]);
 
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+    // Width of the editor content pane, feeding the page-action toolbar's
+    // responsive overflow (so a narrow/split pane collapses actions into "…").
+    const contentRef = useRef(null);
+    const [contentWidth, setContentWidth] = useState(0);
+    useEffect(() => {
+        const el = contentRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return undefined;
+        const ro = new ResizeObserver(([entry]) => {
+            setContentWidth(entry.contentRect.width);
+        });
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
     const [isPageViewModalOpen, setIsPageViewModalOpen] = useState(false);
     const [pageViewPreselectedTable, setPageViewPreselectedTable] = useState('');
     const [pageViewEditingBlock, setPageViewEditingBlock] = useState(null);
@@ -4099,7 +4113,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
 
     return (
         <div className="w-full flex justify-center bg-[var(--bg-primary)] min-h-full transition-colors duration-300">
-            <div className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
+            <div ref={contentRef} className="max-w-7xl w-full flex flex-col min-h-full bg-[var(--bg-primary)] relative transition-colors duration-300">
                 <div 
                     className="relative w-full group/cover mt-4"
                     onMouseEnter={() => setIsHeaderHovered(true)}
@@ -4208,13 +4222,16 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                     }
                                 }}
                                 placeholder={t('editor.untitled')}
-                                className="flex-1 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden leading-tight break-words"
+                                className="flex-1 min-w-0 text-4xl font-bold border-none outline-none placeholder:[var(--text-tertiary)]/20 text-[var(--text-primary)] bg-transparent resize-none overflow-hidden leading-tight break-words"
                             />
                             <div className="flex items-center gap-2 shrink-0 animate-in fade-in duration-300 justify-end">
-                                {/* The MD/Normal toggle has been consolidated into the "page options" menu
-                                    of the VaultShell (MoreHorizontal button in the top bar)
-                                    because it collided with the page's long title and
-                                    duplicated the same function in the dropdown menu. */}
+                                {/* Page actions (history, comments, share, translate, code view,
+                                    lock, delete) live here as inline icon buttons — see PageActionsBar.
+                                    They used to sit in the VaultShell top-bar "…" menu; they were
+                                    moved next to the title so the actions are visible rather than
+                                    hidden. The title is `flex-1 min-w-0` and truncates, so the icons
+                                    never collide with a long title; on a narrow pane they spill into a
+                                    compact "…" overflow. Only the active pane renders them. */}
                                 {saveStatus === 'saving' && (
                                     <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[var(--gnosi-primary)]/5 text-[var(--gnosi-primary)]/60 text-[10px] font-bold uppercase tracking-wider">
                                         <Loader2 size={12} className="animate-spin" />
@@ -4249,6 +4266,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                 >
                                     <Sparkles size={12} /> IA
                                 </button>
+                                <PageActionsBar
+                                    pageActions={isActivePage ? pageActions : null}
+                                    containerWidth={contentWidth}
+                                />
                                 <CollaborationPresence pageId={noteFilename} />
                             </div>
                         </div>

@@ -1,57 +1,20 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Search, Star, MoreHorizontal, ChevronRight, ChevronLeft, PanelLeft, Trash2, History, Code2, Lock, Unlock, Languages, MessageSquare, Share2 } from 'lucide-react';
+import { Search, ChevronRight, ChevronLeft, PanelLeft } from 'lucide-react';
 import { AppHeader } from '../AppHeader';
 
 export const VaultShell = ({
     sidebarContent,
     breadcrumbs = [],
     onSearch,
-    isFavorite = false,
-    onToggleFavorite,
     onBack,
     onForward,
     canGoBack,
     canGoForward,
-    onOpenHistory,
-    canOpenHistory = false,
-    onOpenComments,
-    canOpenComments = false,
-    onOpenShare,
-    canOpenShare = false,
-    onDeleteCurrentPage,
-    canDeleteCurrentPage = false,
-    onToggleCodeView,
-    canToggleCodeView = false,
-    isCodeView = false,
-    onToggleEditLock,
-    canToggleEditLock = false,
-    isEditLocked = false,
-    onTranslatePage,
-    canTranslatePage = false,
-    translateLabel,
     children
 }) => {
     const { t } = useTranslation();
     const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-    const [isPageMenuOpen, setIsPageMenuOpen] = useState(false);
-    const pageMenuRef = useRef(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event) => {
-            if (pageMenuRef.current && !pageMenuRef.current.contains(event.target)) {
-                setIsPageMenuOpen(false);
-            }
-        };
-
-        if (isPageMenuOpen) {
-            document.addEventListener('mousedown', handleClickOutside);
-        }
-
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [isPageMenuOpen]);
 
     return (
         <div className="flex h-screen w-full overflow-hidden bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans selection:bg-indigo-100 italic-none transition-colors duration-300">
@@ -113,7 +76,11 @@ export const VaultShell = ({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-1 pr-2 relative" ref={pageMenuRef}>
+                    {/* Global controls only. Page-specific actions (favorite, history,
+                        comments, share, translate, code view, lock, delete) now live next
+                        to the page title inside the editor — see PageActionsBar — and, for
+                        tables, in the VaultViewsHeader. */}
+                    <div className="flex items-center gap-1 pr-2">
                         <button
                             onClick={onSearch}
                             className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
@@ -121,124 +88,6 @@ export const VaultShell = ({
                         >
                             <Search size={16} />
                         </button>
-                        <button
-                            onClick={onToggleFavorite}
-                            className={`p-1.5 rounded transition-colors ${isFavorite ? 'text-amber-500 hover:bg-amber-500/10' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title="Favorite"
-                        >
-                            <Star size={16} fill={isFavorite ? "currentColor" : "none"} />
-                        </button>
-                        <button
-                            onClick={() => setIsPageMenuOpen(prev => !prev)}
-                            className="p-1.5 text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded transition-colors"
-                            title={t('shell.page_options')}
-                        >
-                            <MoreHorizontal size={16} />
-                        </button>
-
-                        {isPageMenuOpen && (
-                            <div className="absolute right-0 top-[calc(100%+6px)] w-56 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[60] py-1 animate-in fade-in zoom-in-95 duration-200">
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canToggleEditLock && onToggleEditLock) {
-                                            onToggleEditLock();
-                                        }
-                                    }}
-                                    disabled={!canToggleEditLock}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 text-sm text-left disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed ${
-                                        isEditLocked
-                                            ? 'text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10'
-                                            : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
-                                    }`}
-                                >
-                                    {isEditLocked ? <Lock size={14} /> : <Unlock size={14} />}
-                                    <span>{isEditLocked
-                                        ? t('shell.unlock_edit', 'Desbloqueja per editar')
-                                        : t('shell.lock_edit', 'Bloqueja edició (només lectura)')
-                                    }</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canToggleCodeView && onToggleCodeView) {
-                                            onToggleCodeView();
-                                        }
-                                    }}
-                                    disabled={!canToggleCodeView}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                >
-                                    <Code2 size={14} />
-                                    <span>{isCodeView ? t('shell.switch_normal_view') : t('shell.switch_code_view')}</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canOpenHistory && onOpenHistory) {
-                                            onOpenHistory();
-                                        }
-                                    }}
-                                    disabled={!canOpenHistory}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                >
-                                    <History size={14} />
-                                    <span>{t('shell.view_history')}</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canOpenComments && onOpenComments) {
-                                            onOpenComments();
-                                        }
-                                    }}
-                                    disabled={!canOpenComments}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                >
-                                    <MessageSquare size={14} />
-                                    <span>{t('shell.view_comments', 'Comentaris')}</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canOpenShare && onOpenShare) {
-                                            onOpenShare();
-                                        }
-                                    }}
-                                    disabled={!canOpenShare}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                >
-                                    <Share2 size={14} />
-                                    <span>{t('shell.share_page', 'Comparteix')}</span>
-                                </button>
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canTranslatePage && onTranslatePage) {
-                                            onTranslatePage();
-                                        }
-                                    }}
-                                    disabled={!canTranslatePage}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                >
-                                    <Languages size={14} />
-                                    <span>{translateLabel || t('shell.translate_page', 'Tradueix la pàgina')}</span>
-                                </button>
-                                <div className="border-t border-[var(--border-primary)] my-1" />
-                                <button
-                                    onClick={() => {
-                                        setIsPageMenuOpen(false);
-                                        if (canDeleteCurrentPage && onDeleteCurrentPage) {
-                                            onDeleteCurrentPage();
-                                        }
-                                    }}
-                                    disabled={!canDeleteCurrentPage}
-                                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left text-red-600 hover:bg-red-500/10 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
-                                >
-                                    <Trash2 size={14} />
-                                    <span>{t('shell.delete_current_page')}</span>
-                                </button>
-                            </div>
-                        )}
                     </div>
                 </header>
 
