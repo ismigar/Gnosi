@@ -86,6 +86,13 @@ _FORBIDDEN_ATTRS = {
 # `open()` mode characters that imply writing (anything but pure read).
 _WRITE_OPEN_CHARS = set("wax+")
 
+# Introspection dunders that, inside a STRING LITERAL, enable the classic escape
+# via `str.format` (`"{0.__globals__[__builtins__]}".format(f)`) or
+# `operator.attrgetter("__globals__")` — the AST doesn't see them as an Attribute
+# node, so the per-attribute `.__globals__` check misses them. A legitimate tool
+# has no reason to carry these dunders inside a string.
+_FORBIDDEN_IN_STRINGS = {a for a in _FORBIDDEN_ATTRS if a.startswith("__")}
+
 
 # Keywords that suggest external write operations
 EXTERNAL_WRITE_KEYWORDS = [
@@ -189,6 +196,12 @@ class ToolValidator:
             # Access to a dangerous attribute (os.environ, x.__globals__, …).
             elif isinstance(node, ast.Attribute) and node.attr in _FORBIDDEN_ATTRS:
                 errors.append(f"Forbidden attribute access: .{node.attr}")
+            # Introspection dunder inside a STRING LITERAL: bypass via
+            # `str.format`/`attrgetter` that the AST doesn't see as an Attribute.
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                bad = next((d for d in _FORBIDDEN_IN_STRINGS if d in node.value), None)
+                if bad:
+                    errors.append(f"Forbidden introspection dunder in string literal: {bad}")
             # `open(...)` with a write mode (anything other than pure read).
             elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) \
                     and node.func.id == "open":
