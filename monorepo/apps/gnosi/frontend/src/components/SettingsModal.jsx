@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useApi } from '../hooks/use-api';
 import { X } from 'lucide-react';
 import toast from '../lib/toast';
-import { emitConfigChanged } from '../lib/configEvents';
+import { emitConfigChanged, emitVaultNameChanged } from '../lib/configEvents';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import './SettingsModal.css';
 
@@ -19,6 +19,9 @@ export function SettingsModal({ isOpen, onClose }) {
     const [editingCredential, setEditingCredential] = useState(null);
     const [credentialValue, setCredentialValue] = useState('');
     const [schedulers, setSchedulers] = useState([]);
+    const [activeVault, setActiveVault] = useState(null);
+    const [vaultNameDraft, setVaultNameDraft] = useState('');
+    const [renaming, setRenaming] = useState(false);
     const initializedRef = useRef(false);
     const skipNextAutosaveRef = useRef(false);
     const modalRef = useRef(null);
@@ -33,6 +36,7 @@ export function SettingsModal({ isOpen, onClose }) {
         loadEnvVars();
         loadSchedulers();
         loadCredentials();
+        loadActiveVault();
     }, [isOpen]);
 
     // Complex form with autosave and no single primary action: ONLY
@@ -100,6 +104,45 @@ export function SettingsModal({ isOpen, onClose }) {
             setCredentials(data);
         } catch (err) {
             console.error("Error loading credentials:", err);
+        }
+    };
+
+    const loadActiveVault = async () => {
+        try {
+            const res = await fetch('/api/vaults');
+            const data = await res.json();
+            const active = (data?.vaults || []).find(v => v.active) || null;
+            setActiveVault(active);
+            setVaultNameDraft(active?.name || '');
+        } catch (err) {
+            console.error("Error loading active vault:", err);
+        }
+    };
+
+    const handleRenameVault = async () => {
+        const name = (vaultNameDraft || '').trim();
+        if (!name || !activeVault) return;
+        if (name === activeVault.name) return;  // no change
+        setRenaming(true);
+        try {
+            const res = await fetch(`/api/vaults/${activeVault.id}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name }),
+            });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.detail || 'Error');
+            }
+            const data = await res.json();
+            setActiveVault(prev => ({ ...prev, name: data.name }));
+            try { localStorage.setItem('gnosi_active_vault_name', data.name); } catch {}
+            emitVaultNameChanged();  // refresh the header badge
+            toast.success(t('settings.general.vault_rename_success', 'Vault reanomenat'));
+        } catch (err) {
+            toast.error(t('settings.general.vault_rename_error', 'Error reanomenant el vault') + ': ' + err.message);
+        } finally {
+            setRenaming(false);
         }
     };
 
@@ -186,13 +229,40 @@ export function SettingsModal({ isOpen, onClose }) {
                         <>
                             {activeTab === 'general' && (
                                 <div className="settings-section">
-                                    <h3>Language</h3>
-                                    <select value={i18n.language} onChange={(e) => handleLanguageChange(e.target.value)}>
-                                        <option value="en">English</option>
-                                        <option value="es">Español</option>
-                                        <option value="ca">Català</option>
-                                        <option value="fr">Français</option>
-                                    </select>
+                                    {activeVault && (
+                                        <div className="form-group" style={{ marginBottom: '28px' }}>
+                                            <h3>{t('settings.general.vault_name', 'Nom del vault')}</h3>
+                                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9em', marginTop: 0 }}>
+                                                {t('settings.general.vault_name_hint', 'El nom amb què es mostra aquest vault a la capçalera i al commutador. No canvia la carpeta del disc.')}
+                                            </p>
+                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '10px' }}>
+                                                <input
+                                                    type="text"
+                                                    value={vaultNameDraft}
+                                                    onChange={(e) => setVaultNameDraft(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') handleRenameVault(); }}
+                                                    placeholder={activeVault.name}
+                                                    style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid var(--border-primary)', background: 'var(--settings-input-bg)', color: 'var(--text-primary)' }}
+                                                />
+                                                <button
+                                                    onClick={handleRenameVault}
+                                                    disabled={renaming || !vaultNameDraft.trim() || vaultNameDraft.trim() === activeVault.name}
+                                                    style={{ padding: '8px 16px', background: 'var(--gnosi-primary)', border: 'none', borderRadius: '4px', cursor: 'pointer', color: 'white', opacity: (renaming || !vaultNameDraft.trim() || vaultNameDraft.trim() === activeVault.name) ? 0.5 : 1 }}
+                                                >
+                                                    {renaming ? '…' : t('settings.general.vault_name_save', 'Renombrar')}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                    <div className="form-group">
+                                        <h3>Language</h3>
+                                        <select value={i18n.language} onChange={(e) => handleLanguageChange(e.target.value)}>
+                                            <option value="en">English</option>
+                                            <option value="es">Español</option>
+                                            <option value="ca">Català</option>
+                                            <option value="fr">Français</option>
+                                        </select>
+                                    </div>
                                 </div>
                             )}
 
