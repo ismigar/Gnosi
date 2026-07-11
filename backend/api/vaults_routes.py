@@ -45,6 +45,10 @@ class CreateVaultPayload(BaseModel):
     path: Optional[str] = None   # explicit path; defaults to a sibling of the main vault
 
 
+class RenameVaultPayload(BaseModel):
+    name: str
+
+
 def _default_vault_path() -> Path:
     return Path(load_params(strict_env=False).paths.get("VAULT"))
 
@@ -153,6 +157,33 @@ def create_vault(payload: CreateVaultPayload,
     except Exception:
         pass
     return {"id": v.id, "name": v.name, "path": str(path)}
+
+
+@router.patch("/{vault_id}", dependencies=[Depends(require_role("editor"))])
+def rename_vault(vault_id: str, payload: RenameVaultPayload,
+                 ctx: WorkspaceContext = Depends(get_workspace_context),
+                 db: Session = Depends(get_mgmt_db)):
+    """Change a vault's LOGICAL name (the DB row, not the disk folder).
+    Useful to rename the active vault without touching OneDrive. The name is what
+    shows up in the "Vault: {name}" header and the vault switcher."""
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Vault name is empty")
+    v = db.query(Vault).filter(Vault.id == vault_id, Vault.workspace_id == ctx.workspace_id).first()
+    if not v:
+        raise HTTPException(status_code=404, detail="Vault not found")
+    v.name = name
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error renaming the vault")
+    try:
+        from backend.services.active_vault_middleware import reset_vault_path_cache
+        reset_vault_path_cache()
+    except Exception:
+        pass
+    return {"id": v.id, "name": v.name, "path": v.path_override or ""}
 
 
 @router.delete("/{vault_id}", dependencies=[Depends(require_role("editor"))])

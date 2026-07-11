@@ -21,6 +21,7 @@
 import { useEffect, useRef } from 'react';
 
 const CONFIG_CHANGED = 'gnosi:config-changed';
+const VAULT_NAME_CHANGED = 'gnosi:vault-name-changed';
 
 export function emitConfigChanged() {
     window.dispatchEvent(new CustomEvent(CONFIG_CHANGED));
@@ -33,5 +34,22 @@ export function useConfigChanged(callback) {
         const handler = () => ref.current?.();
         window.addEventListener(CONFIG_CHANGED, handler);
         return () => window.removeEventListener(CONFIG_CHANGED, handler);
+    }, []);
+}
+
+// Vault-name-change event, specific to the active vault. SettingsModal emits it
+// after a successful rename; useActiveVaultName listens for it to refresh the
+// header badge ("Vault: {name}") without reloading the page.
+export function emitVaultNameChanged() {
+    window.dispatchEvent(new CustomEvent(VAULT_NAME_CHANGED));
+}
+
+export function useVaultNameChanged(callback) {
+    const ref = useRef(callback);
+    useEffect(() => { ref.current = callback; });
+    useEffect(() => {
+        const handler = () => ref.current?.();
+        window.addEventListener(VAULT_NAME_CHANGED, handler);
+        return () => window.removeEventListener(VAULT_NAME_CHANGED, handler);
     }, []);
 }
