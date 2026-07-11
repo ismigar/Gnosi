@@ -90,13 +90,13 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         if (!email) return;
         try {
             await axios.post(`/api/workspaces/${workspaceId}/members`, { email, role: newRole });
-            toast.success(t('workspace.member_added', { defaultValue: `Convidat ${email} com a ${newRole}` }));
+            toast.success(t('workspace.member_added', { email, newRole, defaultValue: 'Convidat {{email}} com a {{newRole}}' }));
             setNewEmail('');
             setShowAddForm(false);
             fetchMembers();
         } catch (e) {
             const msg = e?.response?.data?.detail || e?.message;
-            toast.error(t('workspace.add_failed', { defaultValue: `Error: ${msg}` }));
+            toast.error(t('workspace.add_failed', { msg, defaultValue: 'Error: {{msg}}' }));
         }
     };
 
@@ -281,7 +281,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                         <div className="flex items-center gap-2 text-sm font-semibold">
                             <Lock size={14} className="text-[var(--gnosi-primary)]" />
                             {t('workspace.vault_access_for', {
-                                defaultValue: `Accés a vaults — ${selectedMember.email || selectedMember.user_id}`,
+                                email: selectedMember.email || selectedMember.user_id,
+                                defaultValue: 'Accés a vaults — {{email}}',
                             })}
                         </div>
                         <button onClick={() => setSelectedMember(null)} className="text-[var(--text-tertiary)] p-1"><X size={14} /></button>

@@ -205,7 +205,18 @@
     "level": "Level",
     "time": "Time",
     "collapse": "Collapse",
-    "expand": "Expand"
+    "expand": "Expand",
+    "back": "Back",
+    "btn": {
+      "add": "Add",
+      "cancel": "Cancel",
+      "delete": "Delete",
+      "edit": "Edit",
+      "save_changes": "Save Changes"
+    },
+    "none": "None",
+    "purge": "Purge",
+    "restore": "Restore"
   },
   "calendar": {
     "title": "Calendar",
@@ -284,7 +295,23 @@
     "delete_series": "Entire series",
     "delete_series_desc": "Permanently deletes all repetitions (past and future).",
     "modify_series": "Entire series",
-    "modify_series_desc": "Applies the change to every repetition in the series."
+    "modify_series_desc": "Applies the change to every repetition in the series.",
+    "attendees": "Attendees",
+    "confirm_delete_event_title": "Delete event",
+    "following_deleted": "Series truncated from today.",
+    "instance_updated": "Instance updated!",
+    "next": "Next",
+    "prev": "Previous",
+    "recurrent_delete_msg": "This is a recurring event. What do you want to delete?",
+    "recurrent_delete_title": "Delete recurring event",
+    "recurrent_modify_msg": "This is a recurring event. How do you want to apply the changes?",
+    "recurrent_modify_title": "Modify recurring event",
+    "reminders_error": "Couldn't save the reminder settings",
+    "reminders_off": "Meeting reminders disabled",
+    "reminders_on": "Meeting reminders enabled",
+    "rsvp_error": "Error updating the response.",
+    "series_split_updated": "Series split and updated!",
+    "series_updated": "Series updated!"
   },
   "sidebar": {
     "my_vault": "My Knowledge",
@@ -336,7 +363,13 @@
     "sort_alpha_asc": "A → Z",
     "sort_alpha_desc": "Z → A",
     "sort_recent": "Most recent",
-    "sort_oldest": "Oldest"
+    "sort_oldest": "Oldest",
+    "daily_note": "Daily note",
+    "show_more_databases": "Show more databases",
+    "tags": "Tags",
+    "trash": "Trash",
+    "wiki_lock": "Lock dragging",
+    "wiki_unlock": "Unlock to reorder (drag&drop)"
   },
   "shell": {
     "go_back": "Go back",
@@ -354,7 +387,8 @@
     "translate_record": "Translate record",
     "view_comments": "Comments",
     "lock_edit": "Lock editing (read-only)",
-    "unlock_edit": "Unlock to edit"
+    "unlock_edit": "Unlock to edit",
+    "share_page": "Share"
   },
   "table": {
     "new_record": "New record",
@@ -396,7 +430,21 @@
     "translate_row": "Translate",
     "translation_stale": "The original changed — re-translate to update",
     "translation_badge": "Translation",
-    "change_image": "Change image"
+    "change_image": "Change image",
+    "cells_copied_one": "{{count}} cell copied",
+    "cells_copied_other": "{{count}} cells copied",
+    "paste_error_one": "Error saving {{count}} page",
+    "paste_error_other": "Error saving {{count}} pages",
+    "paste_skipped_one": "{{count}} cell skipped (incompatible type)",
+    "paste_skipped_other": "{{count}} cells skipped (incompatible type)",
+    "period_days_one": "{{count}} day",
+    "period_days_other": "{{count}} days",
+    "publish_social": "Publish to social",
+    "remove_option_error": "Error removing the option from the records",
+    "save_cell_error": "Error saving the cell",
+    "sync_drupal": "Sync with Drupal",
+    "sync_drupal_update": "Update on Drupal",
+    "title_save_error": "Couldn't save the title"
   },
   "dashboard": {
     "status_title": "System Status",
@@ -607,7 +655,9 @@
     "no_active_page": "No active page to resolve the view.",
     "view_missing_id": "View without view_id.",
     "load_view": "Error loading the view",
-    "delete_only_view": "Cannot delete the only view."
+    "delete_only_view": "Cannot delete the only view.",
+    "delete_contact": "Error deleting the contact: ",
+    "tags_load": "Couldn't load the tags"
   },
   "success": {
     "view_duplicated": "View duplicated",
@@ -781,7 +831,33 @@
     "loading_drawing_editor": "Loading drawing editor…",
     "error_title": "An error occurred",
     "error_hint": "There are unsupported blocks or an error occurred in the editor.",
-    "cover_alt": "Cover"
+    "cover_alt": "Cover",
+    "embed_change": "Change the file",
+    "embed_empty_subtitle": "Choose a file from the Vault, browse your disk, upload one or paste a URL",
+    "embed_empty_title": "Embedded frame",
+    "embed_insert": "Embed",
+    "embed_local_label": "Or upload a local file",
+    "embed_missing_subtitle": "The local file has been moved or deleted",
+    "embed_missing_title": "File not found",
+    "embed_paste_url": "External URL",
+    "embed_pick_file": "Choose file…",
+    "embed_relink": "Re-link",
+    "embed_url_label": "Embed from a URL",
+    "insert_link": "Insert link",
+    "link_local_help": "Paste an absolute path from your system, or choose a file/folder. A file:// link will be generated (nothing is uploaded).",
+    "link_local_mode_link": "Link (file://)",
+    "link_local_mode_upload": "Upload to Assets",
+    "link_local_pick_file": "File…",
+    "link_local_pick_folder": "Folder…",
+    "link_text_optional": "Displayed text (optional)",
+    "link_upload_drop_or_click": "or click to choose it",
+    "link_upload_drop_title": "Drag a file here",
+    "link_upload_help": "Select a file to upload it to the Vault's Assets. It will be accessible from any synced device.",
+    "link_upload_note_folder": "Folders cannot be uploaded; use the \"Link\" mode for folders.",
+    "local_open_clipboard": "Path copied: {{path}}\nOpen Finder and press Cmd+Shift+G to paste it.",
+    "open_in_new_tab": "Open in a new tab",
+    "upload_failed": "Error uploading the file",
+    "upload_unavailable": "File upload unavailable"
   },
   "view_config": {
     "title": "Configure View",
@@ -865,7 +941,8 @@
     "delete_view_title": "Delete view",
     "delete_view_confirm": "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.",
     "rename_view_title": "Rename view",
-    "new_view_name_label": "New view name"
+    "new_view_name_label": "New view name",
+    "new_options": "Creation options"
   },
   "fs_picker": {
     "title_any": "Select file or folder",
@@ -1547,7 +1624,8 @@
       "close": "Close",
       "save_changes": "Save Changes",
       "apply_and_reload": "Apply and reload"
-    }
+    },
+    "save_error": "Error saving the changes"
   },
   "contacts": {
     "title": "Contacts",
@@ -1591,7 +1669,9 @@
     "add_address": "Add address",
     "emails_section": "Emails",
     "phones_section": "Phones",
-    "addresses_section": "Addresses"
+    "addresses_section": "Addresses",
+    "fetch_gmail_avatar": "Get Gmail avatar",
+    "photo_url_hint": "Enter a direct URL to an image or use the Gmail button if possible."
   },
   "schema": {
     "manage_properties_of": "Manage properties of",
@@ -2039,7 +2119,12 @@
     "delete_physical": "Also delete the file (to Trash)",
     "trashed": "File moved to Trash",
     "deleted": "File deleted",
-    "delete_error": "Could not delete the file: {{msg}}"
+    "delete_error": "Could not delete the file: {{msg}}",
+    "duplicate": "This file is already in the list.",
+    "link_existing": "Link a local file (without copying)",
+    "open": "Open",
+    "upload_choose_folder": "Upload and choose the destination folder",
+    "upload_to": "Upload to {{folder}}"
   },
   "notion_clone": "Clone",
   "notion_cloning": "Cloning…",
@@ -2285,7 +2370,29 @@
   },
   "metadata_lookup": {
     "button": "Fill",
-    "button_title": "Fill metadata from DOI/ISBN/arXiv/URL"
+    "button_title": "Fill metadata from DOI/ISBN/arXiv/URL",
+    "applied_one": "Updated {{count}} field",
+    "applied_other": "Updated {{count}} fields",
+    "apply": "Apply selection",
+    "apply_failed": "Error applying the changes",
+    "create_title": "Create from a source",
+    "current": "Current",
+    "fetch_failed": "Error querying external sources",
+    "field": "Field",
+    "fix_invalid": "Fix the fields in red before searching",
+    "from_pdf": "Detect from a PDF",
+    "need_identifier": "A DOI, ISBN, arXiv id, PMID or URL is required",
+    "no_data": "No data found.",
+    "no_identifier": "A DOI, ISBN, arXiv id, PMID or URL is required",
+    "nothing_selected": "No field selected",
+    "other_fields": "Other fields",
+    "pdf_failed": "Error recognizing the PDF",
+    "proposed": "Proposed",
+    "relevant_for": "Fields of the type",
+    "search": "Search",
+    "source_label": "Source",
+    "title": "Fill in metadata",
+    "type_label": "Type"
   },
   "media": {
     "title": "Media Manager",
@@ -2549,5 +2656,171 @@
       "upload_success": "Cover uploaded successfully",
       "upload_error": "Error uploading the image"
     }
+  },
+  "citations": {
+    "bibliography": "Bibliography",
+    "empty": "This document doesn't have any citations yet.",
+    "loading": "Loading references…",
+    "missing": "Unresolved citations",
+    "refresh": "Refresh",
+    "refs": "citations"
+  },
+  "cite_picker": {
+    "hint_close": "close",
+    "hint_insert": "insert",
+    "hint_navigate": "navigate",
+    "loading": "Searching…",
+    "no_results": "No results. Try another term.",
+    "placeholder": "Search by citation key, title or author…"
+  },
+  "csl_picker": {
+    "empty": "No styles in the catalog",
+    "loading": "Loading…",
+    "no_match": "No style matches this filter",
+    "search_placeholder": "Search style…",
+    "upload": "Upload new .csl style",
+    "upload_failed": "Error uploading the style: {{detail}}",
+    "upload_hint": "Official catalog: github.com/citation-style-language/styles",
+    "uploaded": "Style \"{{title}}\" available"
+  },
+  "drupal": {
+    "media_updated": "Image updated.",
+    "push_media": "Re-upload the image",
+    "push_media_hint": "updates the image and its alt (by default, updating only touches the text)",
+    "scope_all": "The whole node",
+    "scope_all_hint": "the original and all translations / languages",
+    "scope_lang": "This language only",
+    "sync_created": "Node created in Drupal.",
+    "sync_error": "Error syncing with Drupal",
+    "sync_intro_create": "The node will be created in Drupal with the mapped fields.",
+    "sync_intro_update": "The node will be updated in Drupal according to the chosen scope.",
+    "sync_publish_hint": "The node is published to temenosismael.org.",
+    "sync_submit_create": "Create and sync",
+    "sync_submit_update": "Update",
+    "sync_title": "Sync with Drupal",
+    "sync_translations_one": "{{count}} translation.",
+    "sync_translations_other": "{{count}} translations.",
+    "sync_updated": "Node updated in Drupal."
+  },
+  "hovercard": {
+    "no_content": "This record has no written content.",
+    "view_on_web": "View the original on the web"
+  },
+  "outline": {
+    "open": "Page outline",
+    "title": "On this page"
+  },
+  "pdf": {
+    "back": "Back",
+    "loading": "Loading…",
+    "no_src": "There is no PDF to display",
+    "open_external": "Open with the system app"
+  },
+  "pdf_quotes": {
+    "copied": "Quote copied to the clipboard. Paste it into the document.",
+    "copy_failed": "Error copying the quote",
+    "copy_quote": "Copy as markdown quote",
+    "empty": "No highlights with text yet.",
+    "no_source": "No PDF associated with this Resource (attachment_path field or URL).",
+    "page_label": "p.",
+    "title": "PDF highlights"
+  },
+  "references_io": {
+    "export": "Export",
+    "export_failed": "Error exporting",
+    "export_title": "Export references",
+    "import": "Import",
+    "import_failed": "Error importing the file",
+    "import_partial_one": "{{count}} entry with an error",
+    "import_partial_other": "{{count}} entries with errors",
+    "import_skip_breakdown": "Duplicates detected: {{breakdown}}",
+    "import_title": "Import references (.bib / .ris)",
+    "imported": "{{created}} references imported · {{skipped}} already existed"
+  },
+  "social": {
+    "compose_error": "Error generating the proposals",
+    "from_record": "Source: \"{{title}}\". AI will suggest a text for each network in the same language.",
+    "generate": "Generate with AI",
+    "hint_ph": "Instruction for the AI (optional): tone, emphasis…",
+    "need_content": "Content is required to generate the posts.",
+    "networks_error": "The networks could not be loaded.",
+    "not_configured": "Not configured — connect it in Settings",
+    "nothing_to_publish": "There is no text to publish.",
+    "off": "Off",
+    "over_limit": "Exceeds the limit on: {{nets}}.",
+    "over_limit_hint": "Some text exceeds the limit. Shorten it before publishing.",
+    "pick_network": "Select at least one network.",
+    "pick_networks": "Networks to publish to",
+    "publish_error": "Error publishing",
+    "publish_submit": "Publish now",
+    "publish_title": "Publish to social media",
+    "published_none": "Could not publish to: {{nets}}.",
+    "published_ok": "Published to: {{nets}}.",
+    "published_partial": "Published to {{ok}}. Failed on {{err}}.",
+    "regen_error": "Error regenerating",
+    "regenerate": "Regenerate",
+    "schedule_error": "Error scheduling",
+    "schedule_future": "Choose a future date.",
+    "schedule_later": "Schedule for later",
+    "schedule_submit": "Schedule",
+    "scheduled_ok": "Post scheduled.",
+    "source_content_ph": "Content you want to share…",
+    "source_title_ph": "Title or topic (optional)"
+  },
+  "tags": {
+    "empty": "No tags yet. Add some via the \"tags\" property.",
+    "no_match": "No tag matches",
+    "search_placeholder": "Search tags…",
+    "summary": "{{tags}} tags · {{pages}} references"
+  },
+  "wikilink": {
+    "empty_page": "Empty page",
+    "open_new_tab": "Open in a new tab",
+    "open_parallel": "Open in parallel panel",
+    "open_same_tab": "Open here",
+    "preview_error": "Could not load the page",
+    "shortcut_click": "Click"
+  },
+  "workspace": {
+    "add_failed": "Error: {{msg}}",
+    "cant_remove_self": "You can't remove yourself",
+    "col_actions": "",
+    "col_email": "Email",
+    "col_joined": "Since",
+    "col_role": "Role",
+    "confirm_remove": "Remove this member?",
+    "confirm_remove_title": "Remove member",
+    "email_placeholder": "email@cooperativa.coop",
+    "empty": "No members yet. Invite someone to get started.",
+    "grant_access": "Grant",
+    "has_access": "Has access",
+    "invite": "Invite",
+    "manage_access": "Manage Vault access",
+    "member_added": "Invited {{email}} as {{newRole}}",
+    "members_fetch_failed": "Error loading members",
+    "members_title": "Members",
+    "no_active": "No active workspace selected.",
+    "no_vaults": "There are no Vaults in this workspace.",
+    "remove": "Remove",
+    "remove_failed": "Error removing member",
+    "role_update_failed": "Error changing role",
+    "vault_access_failed": "Error changing Vault access",
+    "vault_access_for": "Vault access — {{email}}"
+  },
+  "zotero_extras": {
+    "add_field": "Add field",
+    "duplicate_key": "This field already exists",
+    "new_key_placeholder": "new field",
+    "new_value_placeholder": "value",
+    "object_uneditable": "Structured value — edit the .md directly",
+    "promote_apply": "Apply",
+    "promote_column_placeholder": "Column name",
+    "promote_dialog": "Promote \"{{key}}\" as:",
+    "promote_done": "Field \"{{key}}\" promoted to column \"{{col}}\" ({{migrated}} pages migrated)",
+    "promote_failed": "Error promoting: {{err}}",
+    "promote_invalid": "Invalid column name",
+    "promote_to_column": "Promote to registry column",
+    "remove_field": "Delete this field",
+    "title": "Additional Zotero details"
   }
 }

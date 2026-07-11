@@ -115,7 +115,18 @@
     "level": "Nivell",
     "time": "Hora",
     "collapse": "Plega",
-    "expand": "Desplega"
+    "expand": "Desplega",
+    "back": "Tornar",
+    "btn": {
+      "add": "Afegir",
+      "cancel": "Cancel·lar",
+      "delete": "Eliminar",
+      "edit": "Editar",
+      "save_changes": "Guardar Canvis"
+    },
+    "none": "Cap",
+    "purge": "Purgar",
+    "restore": "Restaurar"
   },
   "calendar": {
     "title": "Calendari",
@@ -194,7 +205,23 @@
     "delete_series": "Tota la sèrie",
     "delete_series_desc": "Elimina permanentment totes les repeticions (passades i futures).",
     "modify_series": "Tota la sèrie",
-    "modify_series_desc": "Aplica el canvi a totes les repeticions de la sèrie."
+    "modify_series_desc": "Aplica el canvi a totes les repeticions de la sèrie.",
+    "attendees": "Convidats",
+    "confirm_delete_event_title": "Eliminar cita",
+    "following_deleted": "Sèrie truncada des d'avui.",
+    "instance_updated": "Instància actualitzada!",
+    "next": "Següent",
+    "prev": "Anterior",
+    "recurrent_delete_msg": "Aquesta és una cita repetitiva. Què vols eliminar?",
+    "recurrent_delete_title": "Esborrar cita recurrent",
+    "recurrent_modify_msg": "Aquesta és una cita repetitiva. Com vols aplicar els canvis?",
+    "recurrent_modify_title": "Modificar cita recurrent",
+    "reminders_error": "No s'ha pogut desar la configuració de recordatoris",
+    "reminders_off": "Recordatoris de reunions desactivats",
+    "reminders_on": "Recordatoris de reunions activats",
+    "rsvp_error": "Error actualitzant la resposta.",
+    "series_split_updated": "Sèrie dividida i actualitzada!",
+    "series_updated": "Sèrie actualitzada!"
   },
   "sidebar": {
     "my_vault": "El meu Coneixement",
@@ -246,7 +273,13 @@
     "nav_social": "Social",
     "nav_media": "Fotos",
     "nav_dashboard": "Tauler",
-    "nav_settings": "Configuració"
+    "nav_settings": "Configuració",
+    "daily_note": "Nota diària",
+    "show_more_databases": "Mostra més bases de dades",
+    "tags": "Etiquetes",
+    "trash": "Paperera",
+    "wiki_lock": "Bloqueja l'arrossegament",
+    "wiki_unlock": "Desbloqueja per reordenar (drag&drop)"
   },
   "shell": {
     "go_back": "Enrere",
@@ -264,7 +297,8 @@
     "lock_edit": "Bloqueja edició (només lectura)",
     "unlock_edit": "Desbloqueja per editar",
     "translate_record": "Tradueix el registre",
-    "view_comments": "Comentaris"
+    "view_comments": "Comentaris",
+    "share_page": "Comparteix"
   },
   "table": {
     "new_record": "Nou registre",
@@ -306,7 +340,25 @@
     "translate_row": "Traduir",
     "translation_stale": "L'original ha canviat — torna a traduir per actualitzar",
     "translation_badge": "Traducció",
-    "change_image": "Canviar imatge"
+    "change_image": "Canviar imatge",
+    "cells_copied_many": "{{count}} cel·les copiades",
+    "cells_copied_one": "{{count}} cel·la copiada",
+    "cells_copied_other": "{{count}} cel·les copiades",
+    "paste_error_many": "Error desant {{count}} pàgines",
+    "paste_error_one": "Error desant {{count}} pàgina",
+    "paste_error_other": "Error desant {{count}} pàgines",
+    "paste_skipped_many": "{{count}} cel·les omeses (tipus incompatible)",
+    "paste_skipped_one": "{{count}} cel·la omesa (tipus incompatible)",
+    "paste_skipped_other": "{{count}} cel·les omeses (tipus incompatible)",
+    "period_days_many": "{{count}} dies",
+    "period_days_one": "{{count}} dia",
+    "period_days_other": "{{count}} dies",
+    "publish_social": "Publicar a XXSS",
+    "remove_option_error": "Error eliminant l'opció dels registres",
+    "save_cell_error": "Error desant la cel·la",
+    "sync_drupal": "Sincronitzar amb Drupal",
+    "sync_drupal_update": "Actualitzar a Drupal",
+    "title_save_error": "No s'ha pogut desar el títol"
   },
   "dashboard": {
     "status_title": "Estat del Sistema",
@@ -517,7 +569,9 @@
     "no_active_page": "Sense pàgina activa per resoldre la vista.",
     "view_missing_id": "Vista sense view_id.",
     "load_view": "Error carregant la vista",
-    "delete_only_view": "No es pot eliminar l'única vista."
+    "delete_only_view": "No es pot eliminar l'única vista.",
+    "delete_contact": "Error al eliminar el contacte: ",
+    "tags_load": "No s'han pogut carregar els tags"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -691,7 +745,33 @@
     "loading_drawing_editor": "Carregant editor de dibuix…",
     "error_title": "S'ha produït un error",
     "error_hint": "Hi ha blocs no suportats o s'ha produït un error a l'editor.",
-    "cover_alt": "Portada"
+    "cover_alt": "Portada",
+    "embed_change": "Canvia el fitxer",
+    "embed_empty_subtitle": "Tria un fitxer del Vault, navega pel disc, puja'n un o enganxa una URL",
+    "embed_empty_title": "Frame incrustat",
+    "embed_insert": "Embed",
+    "embed_local_label": "O puja un fitxer local",
+    "embed_missing_subtitle": "El fitxer local s'ha mogut o esborrat",
+    "embed_missing_title": "Fitxer no trobat",
+    "embed_paste_url": "URL externa",
+    "embed_pick_file": "Tria fitxer…",
+    "embed_relink": "Re-vincula",
+    "embed_url_label": "Embed des d'una URL",
+    "insert_link": "Inserir enllaç",
+    "link_local_help": "Enganxa una ruta absoluta del teu sistema, o tria fitxer/carpeta. Es generarà un enllaç file:// (no es puja res).",
+    "link_local_mode_link": "Enllaçar (file://)",
+    "link_local_mode_upload": "Pujar a Assets",
+    "link_local_pick_file": "Fitxer…",
+    "link_local_pick_folder": "Carpeta…",
+    "link_text_optional": "Text mostrat (opcional)",
+    "link_upload_drop_or_click": "o fes clic per triar-lo",
+    "link_upload_drop_title": "Arrossega un fitxer aquí",
+    "link_upload_help": "Selecciona un fitxer per pujar-lo a Assets del vault. Quedarà accessible des de qualsevol dispositiu sincronitzat.",
+    "link_upload_note_folder": "Les carpetes no es poden pujar; usa el mode «Enllaçar» per a carpetes.",
+    "local_open_clipboard": "Ruta copiada: {{path}}\nObre Finder i fes Cmd+Maj+G per enganxar-la.",
+    "open_in_new_tab": "Obre en una nova pestanya",
+    "upload_failed": "Error pujant el fitxer",
+    "upload_unavailable": "Pujada de fitxers no disponible"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -775,7 +855,8 @@
     "delete_view_title": "Eliminar vista",
     "delete_view_confirm": "Eliminar la vista \"{{name}}\" a TOT arreu? Desapareixerà de totes les pàgines.",
     "rename_view_title": "Reanomenar vista",
-    "new_view_name_label": "Nou nom de la vista"
+    "new_view_name_label": "Nou nom de la vista",
+    "new_options": "Opcions de creació"
   },
   "icon_picker": {
     "tabs": {
@@ -1434,7 +1515,8 @@
       "close": "Tancar",
       "save_changes": "Guardar Canvis",
       "apply_and_reload": "Aplicar i recarregar"
-    }
+    },
+    "save_error": "Error desant els canvis"
   },
   "contacts": {
     "title": "Contactes",
@@ -1478,7 +1560,9 @@
     "sync_with_account": "Sincronització amb",
     "photo_url_label": "URL de la foto",
     "info_section": "Informació de contacte",
-    "details_section": "Detalls addicionals"
+    "details_section": "Detalls addicionals",
+    "fetch_gmail_avatar": "Obtenir avatar de Gmail",
+    "photo_url_hint": "Posa una URL directa a una imatge o fes servir el botó de Gmail si és possible."
   },
   "schema": {
     "manage_properties_of": "Gestionar propietats de",
@@ -1926,7 +2010,12 @@
     "delete_physical": "Eliminar també el fitxer (a la Paperera)",
     "trashed": "Fitxer mogut a la Paperera",
     "deleted": "Fitxer eliminat",
-    "delete_error": "No s'ha pogut eliminar el fitxer: {{msg}}"
+    "delete_error": "No s'ha pogut eliminar el fitxer: {{msg}}",
+    "duplicate": "Aquest fitxer ja és a la llista.",
+    "link_existing": "Enllaça un fitxer local (sense copiar)",
+    "open": "Obrir",
+    "upload_choose_folder": "Puja i tria la carpeta de destinació",
+    "upload_to": "Puja a {{folder}}"
   },
   "notion_clone": "Clonar",
   "notion_cloning": "Clonant…",
@@ -2172,7 +2261,30 @@
   },
   "metadata_lookup": {
     "button": "Omplir",
-    "button_title": "Omplir metadades des de DOI/ISBN/arXiv/URL"
+    "button_title": "Omplir metadades des de DOI/ISBN/arXiv/URL",
+    "applied_many": "S'han actualitzat {{count}} camps",
+    "applied_one": "S'ha actualitzat {{count}} camp",
+    "applied_other": "S'han actualitzat {{count}} camps",
+    "apply": "Aplica selecció",
+    "apply_failed": "Error aplicant els canvis",
+    "create_title": "Crear des d'una font",
+    "current": "Actual",
+    "fetch_failed": "Error consultant fonts externes",
+    "field": "Camp",
+    "fix_invalid": "Corregeix els camps en vermell abans de cercar",
+    "from_pdf": "Detectar des d'un PDF",
+    "need_identifier": "Cal un DOI, ISBN, arXiv id, PMID o URL",
+    "no_data": "No s'ha trobat cap dada.",
+    "no_identifier": "Cal un DOI, ISBN, arXiv id, PMID o URL",
+    "nothing_selected": "Cap camp seleccionat",
+    "other_fields": "Altres camps",
+    "pdf_failed": "Error reconeixent el PDF",
+    "proposed": "Proposat",
+    "relevant_for": "Camps del tipus",
+    "search": "Cerca",
+    "source_label": "Font",
+    "title": "Omplir metadades",
+    "type_label": "Tipus"
   },
   "vault": {
     "moved_to_trash": "mogut a la paperera",
@@ -2428,5 +2540,173 @@
     "reopen": "Reobre",
     "delete": "Esborra",
     "empty": "Selecciona text i clica «Comenta» per afegir-ne."
+  },
+  "citations": {
+    "bibliography": "Bibliografia",
+    "empty": "Aquest document encara no té cap cita.",
+    "loading": "Carregant referències…",
+    "missing": "Cites no resoltes",
+    "refresh": "Refresca",
+    "refs": "cites"
+  },
+  "cite_picker": {
+    "hint_close": "tancar",
+    "hint_insert": "inserir",
+    "hint_navigate": "navegar",
+    "loading": "Cercant…",
+    "no_results": "Cap resultat. Prova un altre terme.",
+    "placeholder": "Cerca per citation key, títol o autor…"
+  },
+  "csl_picker": {
+    "empty": "No hi ha estils al catàleg",
+    "loading": "Carregant…",
+    "no_match": "Cap estil amb aquest filtre",
+    "search_placeholder": "Cerca estil…",
+    "upload": "Pujar nou estil .csl",
+    "upload_failed": "Error pujant l'estil: {{detail}}",
+    "upload_hint": "Catàleg oficial: github.com/citation-style-language/styles",
+    "uploaded": "Estil «{{title}}» disponible"
+  },
+  "drupal": {
+    "media_updated": "Imatge actualitzada.",
+    "push_media": "Tornar a pujar la imatge",
+    "push_media_hint": "actualitza la imatge i el seu alt (per defecte, actualitzar només toca el text)",
+    "scope_all": "Tot el node",
+    "scope_all_hint": "l'original i totes les traduccions / idiomes",
+    "scope_lang": "Només aquest idioma",
+    "sync_created": "Node creat a Drupal.",
+    "sync_error": "Error sincronitzant amb Drupal",
+    "sync_intro_create": "Es crearà el node a Drupal amb els camps mapats.",
+    "sync_intro_update": "S'actualitzarà el node a Drupal segons l'abast triat.",
+    "sync_publish_hint": "El node es publica a temenosismael.org.",
+    "sync_submit_create": "Crear i sincronitzar",
+    "sync_submit_update": "Actualitzar",
+    "sync_title": "Sincronitzar amb Drupal",
+    "sync_translations_many": "{{count}} traduccions.",
+    "sync_translations_one": "{{count}} traducció.",
+    "sync_translations_other": "{{count}} traduccions.",
+    "sync_updated": "Node actualitzat a Drupal."
+  },
+  "hovercard": {
+    "no_content": "Aquest registre no té contingut escrit.",
+    "view_on_web": "Veure l'original a la web"
+  },
+  "outline": {
+    "open": "Índex de la pàgina",
+    "title": "En aquesta pàgina"
+  },
+  "pdf": {
+    "back": "Enrere",
+    "loading": "Carregant…",
+    "no_src": "No hi ha cap PDF per mostrar",
+    "open_external": "Obre amb l'app del sistema"
+  },
+  "pdf_quotes": {
+    "copied": "Quote copiada al portaretalls. Pega-la al document.",
+    "copy_failed": "Error copiant la quote",
+    "copy_quote": "Copia com a quote markdown",
+    "empty": "Cap subratllat amb text encara.",
+    "no_source": "No hi ha PDF associat a aquest Recurs (camp attachment_path o URL).",
+    "page_label": "p.",
+    "title": "Subratllats del PDF"
+  },
+  "references_io": {
+    "export": "Exportar",
+    "export_failed": "Error exportant",
+    "export_title": "Exportar referències",
+    "import": "Importar",
+    "import_failed": "Error important el fitxer",
+    "import_partial_many": "{{count}} entrades amb error",
+    "import_partial_one": "{{count}} entrada amb error",
+    "import_partial_other": "{{count}} entrades amb error",
+    "import_skip_breakdown": "Duplicats detectats: {{breakdown}}",
+    "import_title": "Importar referències (.bib / .ris)",
+    "imported": "{{created}} referències importades · {{skipped}} ja existien"
+  },
+  "social": {
+    "compose_error": "Error generant les propostes",
+    "from_record": "Origen: «{{title}}». La IA en proposarà un text per xarxa en el mateix idioma.",
+    "generate": "Generar amb IA",
+    "hint_ph": "Instrucció per a la IA (opcional): to, èmfasi…",
+    "need_content": "Cal un contingut per generar les publicacions.",
+    "networks_error": "No s'han pogut carregar les xarxes.",
+    "not_configured": "No configurada — connecta-la a Configuració",
+    "nothing_to_publish": "No hi ha cap text per publicar.",
+    "off": "off",
+    "over_limit": "Excedeix el límit a: {{nets}}.",
+    "over_limit_hint": "Algun text supera el límit. Escurça'l abans de publicar.",
+    "pick_network": "Selecciona almenys una xarxa.",
+    "pick_networks": "Xarxes on publicar",
+    "publish_error": "Error publicant",
+    "publish_submit": "Publica ara",
+    "publish_title": "Publicar a XXSS",
+    "published_none": "No s'ha pogut publicar a: {{nets}}.",
+    "published_ok": "Publicat a: {{nets}}.",
+    "published_partial": "Publicat a {{ok}}. Ha fallat a {{err}}.",
+    "regen_error": "Error regenerant",
+    "regenerate": "Regenerar",
+    "schedule_error": "Error programant",
+    "schedule_future": "Tria una data futura.",
+    "schedule_later": "Programar per a més tard",
+    "schedule_submit": "Programar",
+    "scheduled_ok": "Publicació programada.",
+    "source_content_ph": "Contingut que vols difondre…",
+    "source_title_ph": "Títol o tema (opcional)"
+  },
+  "tags": {
+    "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
+    "no_match": "Cap etiqueta coincideix",
+    "search_placeholder": "Cerca etiquetes…",
+    "summary": "{{tags}} etiquetes · {{pages}} referències"
+  },
+  "wikilink": {
+    "empty_page": "Pàgina buida",
+    "open_new_tab": "Obrir en una nova pestanya",
+    "open_parallel": "Obrir en panell paral·lel",
+    "open_same_tab": "Obrir aquí",
+    "preview_error": "No s'ha pogut carregar la pàgina",
+    "shortcut_click": "Clic"
+  },
+  "workspace": {
+    "add_failed": "Error: {{msg}}",
+    "cant_remove_self": "No pots eliminar-te a tu mateix",
+    "col_actions": "",
+    "col_email": "Email",
+    "col_joined": "Des de",
+    "col_role": "Rol",
+    "confirm_remove": "Eliminar aquest membre?",
+    "confirm_remove_title": "Eliminar membre",
+    "email_placeholder": "email@cooperativa.coop",
+    "empty": "Cap membre encara. Convida algú per començar.",
+    "grant_access": "Concedeix",
+    "has_access": "Té accés",
+    "invite": "Convida",
+    "manage_access": "Gestiona accés a vaults",
+    "member_added": "Convidat {{email}} com a {{newRole}}",
+    "members_fetch_failed": "Error carregant membres",
+    "members_title": "Membres",
+    "no_active": "Cap workspace actiu seleccionat.",
+    "no_vaults": "No hi ha vaults a aquest workspace.",
+    "remove": "Elimina",
+    "remove_failed": "Error eliminant membre",
+    "role_update_failed": "Error canviant rol",
+    "vault_access_failed": "Error canviant accés a vault",
+    "vault_access_for": "Accés a vaults — {{email}}"
+  },
+  "zotero_extras": {
+    "add_field": "Afegeix camp",
+    "duplicate_key": "Aquest camp ja existeix",
+    "new_key_placeholder": "nou camp",
+    "new_value_placeholder": "valor",
+    "object_uneditable": "Valor estructurat — edita el .md directament",
+    "promote_apply": "Aplica",
+    "promote_column_placeholder": "Nom de la columna",
+    "promote_dialog": "Promou «{{key}}» com a:",
+    "promote_done": "Camp «{{key}}» promogut a columna «{{col}}» ({{migrated}} pàgines migrades)",
+    "promote_failed": "Error promovent: {{err}}",
+    "promote_invalid": "Nom de columna invàlid",
+    "promote_to_column": "Promou a columna del registry",
+    "remove_field": "Esborra aquest camp",
+    "title": "Detalls Zotero addicionals"
   }
 }
