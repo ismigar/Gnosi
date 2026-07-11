@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { Search, X, Loader2, Check } from 'lucide-react';
 import { toast } from '../../lib/toast';
 import { LABEL_TO_ZOTERO_TYPE, ZOTERO_TYPE_LABELS, ZOTERO_TO_CSL_TYPE } from './zoteroSchema';
+import { uiLangToZoteroLocale } from './zoteroLocale';
 import { isFieldRelevantForType } from './recursosZoteroMapping';
 import { validateIdentifier } from './identifierValidators';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
@@ -54,26 +55,12 @@ const SOURCE_LABELS = {
     url: 'Open Graph / meta tags (URL)',
 };
 
-// Mapeig de l'idioma de la UI (react-i18next: ca / es / en / fr, o variants
-// regionals com en-US) al codi de locale de `ZOTERO_TYPE_LABELS`. Mateix patró
-// que `GNOSI_TO_ZOTERO_LOCALE` a ZoteroReaderTab. Si l'idioma no hi és, fallback
-// a 'en-US' (sempre present al schema). Vegeu build_constants.py::LOCALES.
-const UI_LANG_TO_ZOTERO_LOCALE = {
-    ca: 'ca-AD',
-    es: 'es-ES',
-    en: 'en-US',
-    fr: 'fr-FR',
-};
-
-/** Retorna el label traduït del tipus Zotero segons l'idioma actiu de la UI.
- *  Cau a la clau canònica (`zoteroType`) si el tipus no té label al locale. */
+/** Returns the translated Zotero item-type label for the active UI language.
+ *  Falls back to the canonical key (`zoteroType`) if the locale has no label. */
 function zoteroTypeLabel(zoteroType, uiLanguage) {
     if (!zoteroType) return null;
-    const base = String(uiLanguage || 'ca').split('-')[0];
-    const locale = UI_LANG_TO_ZOTERO_LOCALE[base] || 'en-US';
-    return ZOTERO_TYPE_LABELS[locale]?.[zoteroType]
-        || ZOTERO_TYPE_LABELS['en-US']?.[zoteroType]
-        || zoteroType;
+    const locale = uiLangToZoteroLocale(uiLanguage);
+    return ZOTERO_TYPE_LABELS[locale]?.[zoteroType] || zoteroType;
 }
 
 export const MetadataLookupModal = ({
