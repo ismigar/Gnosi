@@ -88,7 +88,18 @@
       "unsaved_changes": "Modifications non enregistrées...",
       "error_saving": "Erreur lors de l'enregistrement",
       "error_connection": "Erreur de connexion"
-    }
+    },
+    "back": "Retour",
+    "btn": {
+      "add": "Ajouter",
+      "cancel": "Annuler",
+      "delete": "Supprimer",
+      "edit": "Modifier",
+      "save_changes": "Enregistrer les modifications"
+    },
+    "none": "Aucun",
+    "purge": "Purger",
+    "restore": "Restaurer"
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
@@ -734,7 +745,8 @@
     "profile": {
       "title": "Profil utilisateur",
       "desc": "Votre identité numérique et vos coordonnées."
-    }
+    },
+    "save_error": "Erreur lors de l'enregistrement des modifications"
   },
   "schema": {
     "manage_properties_of": "Gérer les propriétés de",
@@ -1206,7 +1218,25 @@
     "latest": "Le plus récent",
     "no_notes": "Il n'y a pas encore de notes dans la Connaissance.",
     "showing_records": "Affichage de {{count}} sur {{total}} enregistrements",
-    "show_more_count": "Afficher {{count}} de plus"
+    "show_more_count": "Afficher {{count}} de plus",
+    "cells_copied_many": "{{count}} cellules copiées",
+    "cells_copied_one": "{{count}} cellule copiée",
+    "cells_copied_other": "{{count}} cellules copiées",
+    "paste_error_many": "Erreur en enregistrant {{count}} pages",
+    "paste_error_one": "Erreur en enregistrant {{count}} page",
+    "paste_error_other": "Erreur en enregistrant {{count}} pages",
+    "paste_skipped_many": "{{count}} cellules ignorées (type incompatible)",
+    "paste_skipped_one": "{{count}} cellule ignorée (type incompatible)",
+    "paste_skipped_other": "{{count}} cellules ignorées (type incompatible)",
+    "period_days_many": "{{count}} jours",
+    "period_days_one": "{{count}} jour",
+    "period_days_other": "{{count}} jours",
+    "publish_social": "Publier sur les réseaux",
+    "remove_option_error": "Erreur en supprimant l'option des fiches",
+    "save_cell_error": "Erreur en enregistrant la cellule",
+    "sync_drupal": "Synchroniser avec Drupal",
+    "sync_drupal_update": "Mettre à jour sur Drupal",
+    "title_save_error": "Impossible d'enregistrer le titre"
   },
   "feed": {
     "updated_at": "Mis à jour le {{date}}",
@@ -1224,7 +1254,12 @@
     "delete_physical": "Supprimer aussi le fichier (Corbeille)",
     "trashed": "Fichier déplacé vers la Corbeille",
     "deleted": "Fichier supprimé",
-    "delete_error": "Impossible de supprimer le fichier : {{msg}}"
+    "delete_error": "Impossible de supprimer le fichier : {{msg}}",
+    "duplicate": "Ce fichier est déjà dans la liste.",
+    "link_existing": "Lier un fichier local (sans copier)",
+    "open": "Ouvrir",
+    "upload_choose_folder": "Téléverser et choisir le dossier de destination",
+    "upload_to": "Téléverser dans {{folder}}"
   },
   "sidebar": {
     "nav_vault": "Ma connaissance",
@@ -1276,7 +1311,13 @@
     "confirm_delete_db_title": "Supprimer la base de données",
     "confirm_delete_db_msg": "Voulez-vous vraiment supprimer la base de données (et toutes ses tables) ? Cette action est irréversible.",
     "confirm_delete_table_title": "Supprimer la table",
-    "confirm_delete_table_msg": "Voulez-vous vraiment supprimer la table ? Cette action est irréversible."
+    "confirm_delete_table_msg": "Voulez-vous vraiment supprimer la table ? Cette action est irréversible.",
+    "daily_note": "Note du jour",
+    "show_more_databases": "Afficher plus de bases de données",
+    "tags": "Étiquettes",
+    "trash": "Corbeille",
+    "wiki_lock": "Verrouiller le glisser-déposer",
+    "wiki_unlock": "Déverrouiller pour réorganiser (drag&drop)"
   },
   "shell": {
     "translate_record": "Traduire l'enregistrement",
@@ -1294,7 +1335,8 @@
     "hide_sidebar": "Masquer la barre latérale",
     "show_sidebar": "Afficher la barre latérale",
     "lock_edit": "Verrouiller l'édition (lecture seule)",
-    "unlock_edit": "Déverrouiller pour modifier"
+    "unlock_edit": "Déverrouiller pour modifier",
+    "share_page": "Partager"
   },
   "views_header": {
     "manage_views": "Vues",
@@ -1335,7 +1377,8 @@
     "fields": "Champs",
     "new_template": "Nouveau modèle",
     "new_from_source": "Créer depuis une source…",
-    "default_badge": "Déf."
+    "default_badge": "Déf.",
+    "new_options": "Options de création"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -1383,7 +1426,9 @@
     "record_create": "Erreur lors de la création de l'enregistrement",
     "add_schema_option": "Impossible d'enregistrer l'option dans le schéma",
     "load_registry": "Erreur lors du chargement du registre des bases de données",
-    "restore_page": "Restauration impossible"
+    "restore_page": "Restauration impossible",
+    "delete_contact": "Erreur lors de la suppression du contact : ",
+    "tags_load": "Impossible de charger les étiquettes"
   },
   "notion_clone": "Cloner",
   "notion_cloning": "Clonage…",
@@ -1464,7 +1509,23 @@
       "free_slots": "Créneaux libres",
       "copy_text": "Copier le texte",
       "sync_info": "L'outil se synchronise en temps réel avec vos calendriers externes et vos tables Gnosi."
-    }
+    },
+    "attendees": "Participants",
+    "confirm_delete_event_title": "Supprimer l'événement",
+    "following_deleted": "Série tronquée à partir d'aujourd'hui.",
+    "instance_updated": "Instance mise à jour !",
+    "next": "Suivant",
+    "prev": "Précédent",
+    "recurrent_delete_msg": "Il s'agit d'un événement récurrent. Que voulez-vous supprimer ?",
+    "recurrent_delete_title": "Supprimer l'événement récurrent",
+    "recurrent_modify_msg": "Il s'agit d'un événement récurrent. Comment voulez-vous appliquer les modifications ?",
+    "recurrent_modify_title": "Modifier l'événement récurrent",
+    "reminders_error": "Impossible d'enregistrer la configuration des rappels",
+    "reminders_off": "Rappels de réunion désactivés",
+    "reminders_on": "Rappels de réunion activés",
+    "rsvp_error": "Erreur lors de la mise à jour de la réponse.",
+    "series_split_updated": "Série divisée et mise à jour !",
+    "series_updated": "Série mise à jour !"
   },
   "share": {
     "title": "Partager",
@@ -1887,11 +1948,60 @@
     "invalid_json_warning": "Structure JSON invalide",
     "valid_json_autosave_hint": "JSON valide. Synchronisation dynamique et enregistrement automatique actifs.",
     "transclusions": "Transclusions",
-    "referenced_block": "Bloc référencé"
+    "referenced_block": "Bloc référencé",
+    "embed_change": "Changer le fichier",
+    "embed_empty_subtitle": "Choisissez un fichier du Vault, parcourez le disque, téléversez-en un ou collez une URL",
+    "embed_empty_title": "Cadre intégré",
+    "embed_insert": "Embed",
+    "embed_local_label": "Ou téléversez un fichier local",
+    "embed_missing_subtitle": "Le fichier local a été déplacé ou supprimé",
+    "embed_missing_title": "Fichier introuvable",
+    "embed_paste_url": "URL externe",
+    "embed_pick_file": "Choisir un fichier…",
+    "embed_relink": "Relier à nouveau",
+    "embed_url_label": "Embed depuis une URL",
+    "insert_link": "Insérer un lien",
+    "link_local_help": "Collez un chemin absolu de votre système, ou choisissez un fichier/dossier. Un lien file:// sera généré (rien n'est téléversé).",
+    "link_local_mode_link": "Lier (file://)",
+    "link_local_mode_upload": "Téléverser dans Assets",
+    "link_local_pick_file": "Fichier…",
+    "link_local_pick_folder": "Dossier…",
+    "link_text_optional": "Texte affiché (facultatif)",
+    "link_upload_drop_or_click": "ou cliquez pour le choisir",
+    "link_upload_drop_title": "Glissez un fichier ici",
+    "link_upload_help": "Sélectionnez un fichier pour le téléverser dans les Assets du Vault. Il sera accessible depuis n'importe quel appareil synchronisé.",
+    "link_upload_note_folder": "Les dossiers ne peuvent pas être téléversés ; utilisez le mode « Lier » pour les dossiers.",
+    "local_open_clipboard": "Chemin copié : {{path}}\nOuvrez le Finder et faites Cmd+Maj+G pour le coller.",
+    "open_in_new_tab": "Ouvrir dans un nouvel onglet",
+    "upload_failed": "Erreur lors du téléversement du fichier",
+    "upload_unavailable": "Téléversement de fichiers non disponible"
   },
   "metadata_lookup": {
     "button": "Remplir",
-    "button_title": "Remplir les métadonnées depuis DOI/ISBN/arXiv/URL"
+    "button_title": "Remplir les métadonnées depuis DOI/ISBN/arXiv/URL",
+    "applied_many": "{{count}} champs mis à jour",
+    "applied_one": "{{count}} champ mis à jour",
+    "applied_other": "{{count}} champs mis à jour",
+    "apply": "Appliquer la sélection",
+    "apply_failed": "Erreur lors de l'application des modifications",
+    "create_title": "Créer à partir d'une source",
+    "current": "Actuel",
+    "fetch_failed": "Erreur lors de la consultation des sources externes",
+    "field": "Champ",
+    "fix_invalid": "Corrigez les champs en rouge avant de rechercher",
+    "from_pdf": "Détecter à partir d'un PDF",
+    "need_identifier": "Un DOI, ISBN, arXiv id, PMID ou URL est requis",
+    "no_data": "Aucune donnée trouvée.",
+    "no_identifier": "Un DOI, ISBN, arXiv id, PMID ou URL est requis",
+    "nothing_selected": "Aucun champ sélectionné",
+    "other_fields": "Autres champs",
+    "pdf_failed": "Erreur lors de la reconnaissance du PDF",
+    "proposed": "Proposé",
+    "relevant_for": "Champs du type",
+    "search": "Rechercher",
+    "source_label": "Source",
+    "title": "Remplir les métadonnées",
+    "type_label": "Type"
   },
   "success": {
     "page_restored": "Page restaurée",
@@ -2470,6 +2580,176 @@
     "sync_with_account": "Synchronisation avec",
     "photo_url_label": "URL de la photo",
     "info_section": "Informations de contact",
-    "details_section": "Détails supplémentaires"
+    "details_section": "Détails supplémentaires",
+    "fetch_gmail_avatar": "Obtenir l'avatar Gmail",
+    "photo_url_hint": "Saisissez une URL directe vers une image ou utilisez le bouton Gmail si possible."
+  },
+  "citations": {
+    "bibliography": "Bibliographie",
+    "empty": "Ce document n'a encore aucune citation.",
+    "loading": "Chargement des références…",
+    "missing": "Citations non résolues",
+    "refresh": "Actualiser",
+    "refs": "citations"
+  },
+  "cite_picker": {
+    "hint_close": "fermer",
+    "hint_insert": "insérer",
+    "hint_navigate": "naviguer",
+    "loading": "Recherche…",
+    "no_results": "Aucun résultat. Essayez un autre terme.",
+    "placeholder": "Rechercher par citation key, titre ou auteur…"
+  },
+  "csl_picker": {
+    "empty": "Aucun style dans le catalogue",
+    "loading": "Chargement…",
+    "no_match": "Aucun style avec ce filtre",
+    "search_placeholder": "Rechercher un style…",
+    "upload": "Téléverser un nouveau style .csl",
+    "upload_failed": "Erreur lors du téléversement du style : {{detail}}",
+    "upload_hint": "Catalogue officiel : github.com/citation-style-language/styles",
+    "uploaded": "Style « {{title}} » disponible"
+  },
+  "drupal": {
+    "media_updated": "Image mise à jour.",
+    "push_media": "Téléverser à nouveau l'image",
+    "push_media_hint": "met à jour l'image et son alt (par défaut, la mise à jour ne modifie que le texte)",
+    "scope_all": "Tout le nœud",
+    "scope_all_hint": "l'original et toutes les traductions / langues",
+    "scope_lang": "Cette langue uniquement",
+    "sync_created": "Nœud créé dans Drupal.",
+    "sync_error": "Erreur lors de la synchronisation avec Drupal",
+    "sync_intro_create": "Le nœud sera créé dans Drupal avec les champs mappés.",
+    "sync_intro_update": "Le nœud sera mis à jour dans Drupal selon la portée choisie.",
+    "sync_publish_hint": "Le nœud est publié sur temenosismael.org.",
+    "sync_submit_create": "Créer et synchroniser",
+    "sync_submit_update": "Mettre à jour",
+    "sync_title": "Synchroniser avec Drupal",
+    "sync_translations_many": "{{count}} traductions.",
+    "sync_translations_one": "{{count}} traduction.",
+    "sync_translations_other": "{{count}} traductions.",
+    "sync_updated": "Nœud mis à jour dans Drupal."
+  },
+  "hovercard": {
+    "no_content": "Cette fiche n'a aucun contenu rédigé.",
+    "view_on_web": "Voir l'original sur le web"
+  },
+  "outline": {
+    "open": "Plan de la page",
+    "title": "Sur cette page"
+  },
+  "pdf": {
+    "back": "Retour",
+    "loading": "Chargement…",
+    "no_src": "Aucun PDF à afficher",
+    "open_external": "Ouvrir avec l'application système"
+  },
+  "pdf_quotes": {
+    "copied": "Citation copiée dans le presse-papiers. Collez-la dans le document.",
+    "copy_failed": "Erreur lors de la copie de la citation",
+    "copy_quote": "Copier comme citation markdown",
+    "empty": "Aucun surlignage avec texte pour l'instant.",
+    "no_source": "Aucun PDF associé à cette Ressource (champ attachment_path ou URL).",
+    "page_label": "p.",
+    "title": "Surlignages du PDF"
+  },
+  "references_io": {
+    "export": "Exporter",
+    "export_failed": "Erreur lors de l'export",
+    "export_title": "Exporter les références",
+    "import": "Importer",
+    "import_failed": "Erreur lors de l'import du fichier",
+    "import_partial_many": "{{count}} entrées en erreur",
+    "import_partial_one": "{{count}} entrée en erreur",
+    "import_partial_other": "{{count}} entrées en erreur",
+    "import_skip_breakdown": "Doublons détectés : {{breakdown}}",
+    "import_title": "Importer les références (.bib / .ris)",
+    "imported": "{{created}} références importées · {{skipped}} existaient déjà"
+  },
+  "social": {
+    "compose_error": "Erreur lors de la génération des propositions",
+    "from_record": "Source : « {{title}} ». L'IA proposera un texte par réseau dans la même langue.",
+    "generate": "Générer avec l'IA",
+    "hint_ph": "Instruction pour l'IA (optionnel) : ton, emphase…",
+    "need_content": "Un contenu est nécessaire pour générer les publications.",
+    "networks_error": "Impossible de charger les réseaux.",
+    "not_configured": "Non configuré — connectez-le dans les Paramètres",
+    "nothing_to_publish": "Il n'y a aucun texte à publier.",
+    "off": "Off",
+    "over_limit": "Dépasse la limite sur : {{nets}}.",
+    "over_limit_hint": "Un texte dépasse la limite. Raccourcissez-le avant de publier.",
+    "pick_network": "Sélectionnez au moins un réseau.",
+    "pick_networks": "Réseaux où publier",
+    "publish_error": "Erreur lors de la publication",
+    "publish_submit": "Publier maintenant",
+    "publish_title": "Publier sur les réseaux sociaux",
+    "published_none": "Impossible de publier sur : {{nets}}.",
+    "published_ok": "Publié sur : {{nets}}.",
+    "published_partial": "Publié sur {{ok}}. Échec sur {{err}}.",
+    "regen_error": "Erreur lors de la régénération",
+    "regenerate": "Régénérer",
+    "schedule_error": "Erreur lors de la programmation",
+    "schedule_future": "Choisissez une date future.",
+    "schedule_later": "Programmer pour plus tard",
+    "schedule_submit": "Programmer",
+    "scheduled_ok": "Publication programmée.",
+    "source_content_ph": "Contenu que vous voulez diffuser…",
+    "source_title_ph": "Titre ou sujet (optionnel)"
+  },
+  "tags": {
+    "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
+    "no_match": "Aucune étiquette ne correspond",
+    "search_placeholder": "Rechercher etiquetas…",
+    "summary": "{{tags}} étiquettes · {{pages}} références"
+  },
+  "wikilink": {
+    "empty_page": "Page vide",
+    "open_new_tab": "Ouvrir dans un nouvel onglet",
+    "open_parallel": "Ouvrir dans un panneau parallèle",
+    "open_same_tab": "Ouvrir ici",
+    "preview_error": "Impossible de charger la page",
+    "shortcut_click": "Clic"
+  },
+  "workspace": {
+    "add_failed": "Erreur : {{msg}}",
+    "cant_remove_self": "Vous ne pouvez pas vous supprimer",
+    "col_actions": "",
+    "col_email": "E-mail",
+    "col_joined": "Depuis",
+    "col_role": "Rôle",
+    "confirm_remove": "Supprimer ce membre ?",
+    "confirm_remove_title": "Supprimer le membre",
+    "email_placeholder": "email@cooperativa.coop",
+    "empty": "Aucun membre pour l'instant. Invitez quelqu'un pour commencer.",
+    "grant_access": "Accorder",
+    "has_access": "A accès",
+    "invite": "Inviter",
+    "manage_access": "Gérer l'accès aux Vaults",
+    "member_added": "{{email}} invité en tant que {{newRole}}",
+    "members_fetch_failed": "Erreur lors du chargement des membres",
+    "members_title": "Membres",
+    "no_active": "Aucun espace de travail actif sélectionné.",
+    "no_vaults": "Aucun Vault dans cet espace de travail.",
+    "remove": "Supprimer",
+    "remove_failed": "Erreur lors de la suppression du membre",
+    "role_update_failed": "Erreur lors du changement de rôle",
+    "vault_access_failed": "Erreur lors du changement d'accès au Vault",
+    "vault_access_for": "Accès aux Vaults — {{email}}"
+  },
+  "zotero_extras": {
+    "add_field": "Ajouter un champ",
+    "duplicate_key": "Ce champ existe déjà",
+    "new_key_placeholder": "nouveau champ",
+    "new_value_placeholder": "valeur",
+    "object_uneditable": "Valeur structurée — modifiez le .md directement",
+    "promote_apply": "Appliquer",
+    "promote_column_placeholder": "Nom de la colonne",
+    "promote_dialog": "Promouvoir « {{key}} » comme :",
+    "promote_done": "Champ « {{key}} » promu en colonne « {{col}} » ({{migrated}} pages migrées)",
+    "promote_failed": "Erreur lors de la promotion : {{err}}",
+    "promote_invalid": "Nom de colonne invalide",
+    "promote_to_column": "Promouvoir en colonne du registry",
+    "remove_field": "Supprimer ce champ",
+    "title": "Détails Zotero supplémentaires"
   }
 }
