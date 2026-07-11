@@ -49,6 +49,26 @@ def _get_calendar_storage_path() -> Path:
     return p
 
 
+def _safe_calendar_path(vault_path: Optional[str]) -> Optional[Path]:
+    """Confina un `vault_path` REBUT DEL CLIENT al directori `Calendar/` del
+    vault actiu i en retorna el Path resolt; None si és buit, fora del directori
+    o un traversal (`..`, ruta absoluta arbitrària).
+
+    `patch_event`/`delete_event` reben `vault_path` del cos/query i hi feien
+    read+write / move-to-trash SENSE cap comprovació → un rol `editor` (o un
+    client compromès/CSRF) podia escriure o moure a la paperera QUALSEVOL fitxer
+    del sistema. `resolve()` col·lapsa els `..` de veritat, i el parent-check
+    garanteix que el resultat quedi dins de `Calendar/`."""
+    if not vault_path:
+        return None
+    try:
+        p = Path(vault_path).resolve()
+        root = _get_calendar_storage_path().resolve()
+    except Exception:
+        return None
+    return p if (p == root or root in p.parents) else None
+
+
 def _get_hidden_event_ids() -> set[str]:
     """Return the set of locally hidden event IDs."""
     session = get_mgmt_session()
@@ -369,9 +389,11 @@ async def patch_event(
     """Updates an existing event (Google Calendar or local vault)."""
     # Vault local
     if patch_data.get("provider") == "vault" or patch_data.get("vault_path"):
-        vault_path = patch_data.get("vault_path")
-        if vault_path:
-            p = Path(vault_path)
+        raw_vault_path = patch_data.get("vault_path")
+        if raw_vault_path:
+            p = _safe_calendar_path(raw_vault_path)
+            if p is None:
+                raise HTTPException(status_code=400, detail="vault_path no vàlid o fora del directori Calendar")
             if p.exists():
                 content = p.read_text(encoding="utf-8")
                 meta, body = get_frontmatter(content)
@@ -404,7 +426,9 @@ async def delete_event(
 ):
     """Deletes an event from Google Calendar or the vault."""
     if vault_path:
-        p = Path(vault_path)
+        p = _safe_calendar_path(vault_path)
+        if p is None:
+            raise HTTPException(status_code=400, detail="vault_path no vàlid o fora del directori Calendar")
         if p.exists():
             # We don't delete permanently: we move to the Vault trash
             # (recoverable), consistent with DELETE /api/vault/pages. It used to do
