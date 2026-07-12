@@ -4950,6 +4950,33 @@ async def _materialize_if_online_only(file_path: Path, label: str = "") -> None:
         log.debug(f"Warmup proactiu falla per {label or file_path}: {e}")
 
 
+async def _ensure_materialized_or_503(p: Path, label: str = "") -> None:
+    """File-insert flows: if the picked file is an online-only OneDrive/iCloud
+    placeholder, download it now (like Office/Adobe do on open) and WAIT for it.
+
+    Unlike `_materialize_if_online_only` (a best-effort warmup that swallows
+    failures), this reports a 503 when the file can't be materialized, so we
+    never register a file the reader won't be able to open afterwards.
+    """
+    provider = get_files_provider()
+    try:
+        st = p.stat()
+    except OSError:
+        return
+    if not provider.is_online_only(p, st):
+        return
+    log.info("☁️ Fitxer online-only en inserir (%s): materialitzant %s…", label, p.name)
+    ok = await provider.materialize(p)
+    if not ok:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "El fitxer és online-only i no s'ha pogut baixar de OneDrive/iCloud. "
+                "Comprova que el servei de núvol està en marxa i torna-ho a provar."
+            ),
+        )
+
+
 @router.get("/pages/{page_id}")
 async def get_page(page_id: str):
     """Returns the full content of a page by ID."""
@@ -9699,6 +9726,10 @@ async def register_local_file(body: dict):
     if p is None or not p.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
 
+    # Online-only file (OneDrive/iCloud placeholder) → download it now (like
+    # Office/Adobe) so the reader can actually open it afterwards.
+    await _ensure_materialized_or_503(p, "local-file/register")
+
     abs_path = str(p.resolve())
     with _LOCAL_LINKS_LOCK:
         mapping = _load_local_links()
@@ -9971,6 +10002,10 @@ async def link_existing_file(body: dict):
         raise HTTPException(status_code=404, detail=f"File not found: {file_path}")
     if not p.is_file():
         raise HTTPException(status_code=400, detail="Path is not a file")
+
+    # Online-only file (OneDrive/iCloud placeholder) → download it now (like
+    # Office/Adobe) before linking, so it's readable when served.
+    await _ensure_materialized_or_503(p, "link-existing-file")
 
     target_name = str(body.get("target_name", "")).strip()
     renamed = False

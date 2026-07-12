@@ -1943,6 +1943,8 @@
     "error": "Erreur lors de l'insertion : {{msg}}",
     "error_unreadable_file": "Impossible de lire le fichier. S'il est disponible uniquement en ligne (OneDrive ou iCloud), rendez-le disponible localement (Finder → « Toujours conserver sur cet appareil ») puis réessayez.",
     "error_upload_timeout": "Le téléversement a pris trop de temps. Si le fichier est disponible uniquement en ligne (OneDrive ou iCloud), rendez-le disponible localement puis réessayez.",
+    "error_unreadable_switch_local": "Ce fichier est disponible uniquement en ligne. Localisez-le dans « Disque local » et Gnosi le téléchargera automatiquement.",
+    "materializing": "Téléchargement du fichier depuis OneDrive si nécessaire… (peut prendre un moment)",
     "error_no_upload": "Aucun fichier n'a pu être téléversé",
     "error_no_url": "Impossible d'obtenir l'URL finale",
     "kind_image": "Image",
