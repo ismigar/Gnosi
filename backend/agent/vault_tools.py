@@ -118,7 +118,7 @@ def read_page(page_id_or_title: str) -> str:
 
 @tool
 def read_pdf(path: str, max_chars: int = 12000) -> str:
-    """Extracts text from a PDF (from Assets/Biblioteca). Materializes it if online-only."""
+    """Extracts text from a PDF (from Assets/Library). Materializes it if online-only."""
     from pathlib import Path
     from backend.services.context_vars import get_active_vault_path
     vault = get_active_vault_path()

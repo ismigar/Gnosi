@@ -500,7 +500,7 @@ async def create_agent_workflow(
             "Ets el Brain Agent (Gnosi Vault, Memòria Sobirana). Tens EINES per treballar amb "
             "les dades de l'usuari, no només cercar-les:\n"
             "- search_vault: cerca semàntica al vault.\n"
-            "- read_page(id_o_títol) / read_pdf(ruta): llegeix una nota o un PDF d'Assets/Biblioteca.\n"
+            "- read_page(id_o_títol) / read_pdf(ruta): llegeix una nota o un PDF d'Assets/Library.\n"
             "- create_page(title, content, folder): crea una nota nova.\n"
             "- propose_links(id_o_títol): proposa connexions [[...]] per a una pàgina.\n"
             "- summarize_to_cornell(source): resumeix una nota o PDF en una fitxa Cornell i la desa.\n"

@@ -67,7 +67,7 @@ class OneDriveProvider(FilesProvider):
         # container, see docker-compose): their paths don't need
         # translation — they're passed as-is to the daemon, which validates against its
         # own allowlist (multi-root since 2026-05-18). HOME covers
-        # attachments `~/...` outside the vault (e.g. Documents/); the Biblioteca
+        # attachments `~/...` outside the vault (e.g. Documents/); the Library
         # lives INSIDE the vault (pure vault-first) and goes through the vault mount.
         # We discard "/" (a misconfigured env var would turn the WHOLE system
         # of files in identity root; the daemon would reject it anyway,
@@ -257,10 +257,10 @@ class OneDriveProvider(FilesProvider):
             rel = container_path.relative_to(self.container_root)
             host_path = str(Path(self.vault_host_path) / rel)
         except ValueError:
-            # Outside /vault: it can be an identity mount (Biblioteca, HOME),
+            # Outside /vault: it can be an identity mount (Library, HOME),
             # where the container path IS ALREADY the host path. Previously this
             # branch silently returned False (DEBUG) and the PDFs from
-            # Biblioteca stayed at 503 "warmup pending" indefinitely.
+            # Library stayed at 503 "warmup pending" indefinitely.
             # `resolve()` collapses `..` and symlinks BEFORE the check: without
             # this, a `<root>/../x` would pass the textual prefix (the daemon
             # re-validates with resolve()+allowlist, but we don't delegate

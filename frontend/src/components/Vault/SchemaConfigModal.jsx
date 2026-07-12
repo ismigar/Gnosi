@@ -774,7 +774,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <div className="flex gap-2">
                             {[
                                 { value: 'assets',    label: 'Assets',    desc: t('schema.storage_assets_desc', 'Carpeta Assets del vault') },
-                                { value: 'biblioteca', label: 'Biblioteca', desc: t('schema.storage_biblioteca_desc', 'Biblioteca de referència compartida') },
+                                { value: 'library', label: 'Library', desc: t('schema.storage_library_desc', 'Library de referència compartida') },
                                 { value: 'free',      label: t('schema.storage_free', 'Lliure'), desc: t('schema.storage_free_desc', "L'usuari tria la carpeta o fitxer en cada adjunt") },
                             ].map(opt => (
                                 <button
@@ -795,7 +795,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
                             {{
                                 assets:    t('schema.storage_assets_desc', 'Carpeta Assets del vault'),
-                                biblioteca: t('schema.storage_biblioteca_desc', 'Biblioteca de referència compartida (OneDrive/Biblioteca)'),
+                                library: t('schema.storage_library_desc', 'Library de referència compartida (OneDrive/Library)'),
                                 free:      t('schema.storage_free_desc', "L'usuari tria la carpeta de destinació o el fitxer existent en cada adjunt"),
                             }[field.storage_folder || 'assets']}
                         </p>

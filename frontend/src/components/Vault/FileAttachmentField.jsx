@@ -6,7 +6,7 @@ import { filenameFromTarget, interpolateNamePattern, fileTargetKey } from '../..
 
 const STORAGE_LABELS = {
     assets:     'Assets',
-    biblioteca: 'Biblioteca',
+    library: 'Library',
     free:       'Lliure',
 };
 
@@ -163,7 +163,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 body: JSON.stringify({ file_path: path, target_name: resolvedName }),
             });
             if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error enllaçant fitxer');
-            // `url` carries the PORTABLE form (biblioteca/raw/~) when it exists;
+            // `url` carries the PORTABLE form (library/raw/~) when it exists;
             // `path` (absolute host path) is used as a last resort.
             const data = await res.json();
             appendValues([data.url || data.path]);

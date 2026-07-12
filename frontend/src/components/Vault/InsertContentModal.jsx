@@ -161,7 +161,7 @@ export const InsertContentModal = ({
     tableId = null,
     // When opened for a configured `files` field (not for inline content
     // or image fields detected by name), the upload and the link must respect
-    // the field's config: destination (`storageFolder`, e.g. 'biblioteca') and
+    // the field's config: destination (`storageFolder`, e.g. 'library') and
     // renamed according to `namePattern` interpolated with the row's metadata.
     fileField = null, // { propertyName, storageFolder, namePattern, fileMode } | null
     rowMetadata = {},
@@ -344,7 +344,7 @@ export const InsertContentModal = ({
                 if (evt.total) setUploadProgress(Math.round((evt.loaded / evt.total) * 100));
             },
         });
-        // Biblioteca/free return an absolute path (url=null); assets returns a served URL.
+        // Library/free return an absolute path (url=null); assets returns a served URL.
         return data?.url || data?.path;
     }, [tableId, isFieldUpload, fileField, resolvedName]);
 
@@ -605,10 +605,10 @@ export const InsertContentModal = ({
                                                 ? t('insert.drop_or_click_multi', { defaultValue: 'Arrossega fitxers aquí o clica per triar-ne (pots triar-ne diversos)' })
                                                 : t('insert.drop_or_click', { defaultValue: 'Arrossega un fitxer aquí o clica per triar-lo' })}</div>
                                             <div className="text-xs text-[var(--text-tertiary)]">
-                                                {isFieldUpload && fileField?.storageFolder === 'biblioteca'
+                                                {isFieldUpload && fileField?.storageFolder === 'library'
                                                     ? (resolvedName
-                                                        ? t('insert.upload_target_biblioteca_named', { defaultValue: 'Es desarà a Biblioteca com a «{{name}}»', name: resolvedName })
-                                                        : t('insert.upload_target_biblioteca', { defaultValue: 'El fitxer es desarà a Biblioteca' }))
+                                                        ? t('insert.upload_target_library_named', { defaultValue: 'Es desarà a Library com a «{{name}}»', name: resolvedName })
+                                                        : t('insert.upload_target_library', { defaultValue: 'El fitxer es desarà a Library' }))
                                                     : t('insert.upload_target', { defaultValue: 'El fitxer es copiarà dins el Vault (Assets/)' })}
                                             </div>
                                         </>
