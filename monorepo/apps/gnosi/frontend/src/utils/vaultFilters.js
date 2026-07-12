@@ -134,13 +134,16 @@ export function sortKey(value) {
  * so that the main view (useVaultViewData), embedded views
  * (DbViewEmbed.multiKeySort) and —ideally— the backend snapshot
  * (view_snapshot.multi_key_sort) sort EXACTLY the same way:
- *  - EMPTY values ALWAYS go last, regardless of direction
- *    (like Notion); without this a sparsely populated column made
- *    empty rows float to the top in ascending order.
+ *  - EMPTY values FOLLOW the direction (like Excel/Sheets): LAST in
+ *    ascending, FIRST in descending. Without this, a sparsely
+ *    populated column made empty rows float to the top in ascending
+ *    order, but pinning them last in BOTH directions was surprising
+ *    when toggling to descending.
  *  - if both values are NUMERIC, real numeric order (2 < 10, not "10" < "2").
  *  - otherwise, `localeCompare` with normalization (sortKey), locale 'ca' and
  *    'base' sensitivity (insensitive to accents/case).
- * The direction is applied ONLY to the non-empty part; the caller must not negate it.
+ * The direction is applied to BOTH the empty and non-empty parts; the caller
+ * must not negate it.
  *
  * @param {*} aRaw - field value of element A (scalar or array)
  * @param {*} bRaw - field value of element B
@@ -154,7 +157,10 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
     const bEmpty = bVal.trim() === '';
     if (aEmpty || bEmpty) {
         if (aEmpty && bEmpty) return 0;
-        return aEmpty ? 1 : -1; // empty values always last
+        // Empty values FOLLOW the direction: LAST in asc, FIRST in desc
+        // (Excel/Sheets convention). Both branches depend on `direction`.
+        const emptyFirst = direction === 'desc';
+        return aEmpty ? (emptyFirst ? -1 : 1) : (emptyFirst ? 1 : -1);
     }
     // We only treat the value as NUMERIC if the WHOLE string is a number
     // (NUM_RE, which EXCLUDES dates): `parseFloat`/`parseNumericValue` parse

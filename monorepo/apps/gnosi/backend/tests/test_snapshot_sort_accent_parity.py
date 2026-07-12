@@ -33,10 +33,20 @@ def test_base_insensible_a_accent_i_majuscula():
     assert _compare_field_values("Çelona", "celona", "asc") == 0
 
 
-def test_descendent_mante_els_buits_al_final():
-    # Empty values ALWAYS last, even in descending order (they are not reversed).
+def test_buits_segueixen_la_direccio_desc_primer():
+    # Empty values FOLLOW the direction: FIRST in desc, LAST in asc
+    # (Excel/Sheets convention).
     rows = [{"metadata": {"Nom": v}} for v in ["", "óptim", "", "abc"]]
     out = multi_key_sort(rows, [{"field": "Nom", "direction": "desc"}])
     noms = [r["metadata"]["Nom"] for r in out]
-    assert noms[-2:] == ["", ""]           # empty ones at the end
-    assert noms[:2] == ["óptim", "abc"]    # desc: ó (base o) > a
+    assert noms[:2] == ["", ""]            # empty ones first in desc
+    assert noms[-2:] == ["óptim", "abc"]   # desc: ó (base o) > a
+
+
+def test_buits_segueixen_la_direccio_asc_ultim():
+    # Empty values FOLLOW the direction: LAST in asc.
+    rows = [{"metadata": {"Nom": v}} for v in ["", "óptim", "", "abc"]]
+    out = multi_key_sort(rows, [{"field": "Nom", "direction": "asc"}])
+    noms = [r["metadata"]["Nom"] for r in out]
+    assert noms[:2] == ["abc", "óptim"]    # asc: a < ó (base o)
+    assert noms[-2:] == ["", ""]           # empty ones last in asc
