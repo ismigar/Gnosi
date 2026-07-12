@@ -26,6 +26,71 @@ import { fileUrlToSentinel } from './markdown-mapper';
 import { toast } from '../../lib/toast';
 import { interpolateNamePattern, toAssetPreviewUrl } from '../../lib/fileResource';
 
+/**
+ * Probe whether a File's bytes are actually readable, up front, before we try
+ * to upload it.
+ *
+ * A file that lives online-only on OneDrive / iCloud Drive (a "dataless"
+ * placeholder) can still be picked in a file dialog — its name and size come
+ * from local metadata — but reading its bytes blocks while the OS tries to
+ * hydrate it from the cloud, and fails with an OS-level "Operation timed out"
+ * if the provider can't serve it. Sending such a file surfaces a cryptic
+ * network/timeout error only after a long stall; reading a small slice with a
+ * short deadline lets us fail fast with an actionable message instead.
+ *
+ * Resolves if the slice is readable; throws `Error('unreadable-file')` if the
+ * read errors or exceeds `timeoutMs`. Reading a large *local* file is instant
+ * (only the 4 KB slice is read), so this adds no meaningful latency.
+ */
+const assertFileReadable = async (file, timeoutMs = 10000) => {
+    if (!file || typeof file.slice !== 'function') return;
+    const slice = file.slice(0, 4096);
+    const read = typeof slice.arrayBuffer === 'function'
+        ? slice.arrayBuffer()
+        : new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error || new Error('read error'));
+            reader.readAsArrayBuffer(slice);
+        });
+    let timer;
+    const guard = new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('unreadable-file')), timeoutMs);
+    });
+    try {
+        await Promise.race([read, guard]);
+    } catch {
+        throw new Error('unreadable-file');
+    } finally {
+        clearTimeout(timer);
+    }
+};
+
+/**
+ * Map an upload failure to a user-facing message. An online-only file
+ * (OneDrive / iCloud) is the common non-obvious cause: either the readability
+ * probe rejected (`unreadable-file`), or the transfer itself timed out because
+ * the browser couldn't hydrate the placeholder fast enough. Both get an
+ * actionable hint instead of a raw "timeout exceeded".
+ */
+const uploadErrorMessage = (e, t) => {
+    if (e?.message === 'unreadable-file') {
+        return t(
+            'insert.error_unreadable_file',
+            "No s'ha pogut llegir el fitxer. Si és online-only (OneDrive o iCloud), fes-lo disponible localment (Finder → «Mantén en aquest dispositiu») i torna-ho a provar.",
+        );
+    }
+    const code = e?.code;
+    const isTimeout = code === 'ECONNABORTED' || code === 'ETIMEDOUT' || /timeout/i.test(String(e?.message || ''));
+    if (isTimeout) {
+        return t(
+            'insert.error_upload_timeout',
+            "La pujada ha trigat massa. Si el fitxer és online-only (OneDrive o iCloud), fes-lo disponible localment i torna-ho a provar.",
+        );
+    }
+    return e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', 'Error desconegut');
+};
+
 const KIND_META = {
     image: { Icon: ImageIcon, label: 'Imatge' },
     video: { Icon: Video, label: 'Vídeo' },
@@ -249,6 +314,10 @@ export const InsertContentModal = ({
         : '';
 
     const performUpload = useCallback(async (file) => {
+        // Fail fast (with a clear message) if the file's bytes can't be read —
+        // e.g. an online-only OneDrive/iCloud placeholder the OS can't hydrate.
+        // Otherwise axios stalls and surfaces a cryptic timeout much later.
+        await assertFileReadable(file);
         const formData = new FormData();
         formData.append('file', file);
         let url;
@@ -317,7 +386,7 @@ export const InsertContentModal = ({
             onInsert?.({ urls, kind: 'file' });
             onClose?.();
         } catch (e) {
-            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', 'Error desconegut');
+            const msg = uploadErrorMessage(e, t);
             toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
         } finally {
             setBusy(false);
@@ -380,7 +449,7 @@ export const InsertContentModal = ({
             onInsert?.({ url: finalUrl, mode, kind: selected.kind, name: selected.name, imageMeta: imageField ? imgMeta : undefined });
             onClose?.();
         } catch (e) {
-            const msg = e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', 'Error desconegut');
+            const msg = uploadErrorMessage(e, t);
             toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
         } finally {
             setBusy(false);
