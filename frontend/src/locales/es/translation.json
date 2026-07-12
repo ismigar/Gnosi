@@ -2444,6 +2444,8 @@
     "error": "Error al insertar: {{msg}}",
     "error_unreadable_file": "No se ha podido leer el archivo. Si está solo en la nube (OneDrive o iCloud), haz que esté disponible localmente (Finder → «Mantener en este dispositivo») e inténtalo de nuevo.",
     "error_upload_timeout": "La subida ha tardado demasiado. Si el archivo está solo en la nube (OneDrive o iCloud), hazlo disponible localmente e inténtalo de nuevo.",
+    "error_unreadable_switch_local": "Este archivo está solo en la nube. Localízalo en «Disco local» y Gnosi lo descargará automáticamente.",
+    "materializing": "Descargando el archivo de OneDrive si hace falta… (puede tardar)",
     "error_no_upload": "No se ha podido subir ningún archivo",
     "error_no_url": "No se ha podido obtener la URL final",
     "kind_image": "Imagen",

@@ -352,14 +352,17 @@ export const InsertContentModal = ({
         // Configured `files` field: links by renaming on disk according to the pattern
         // (Zotero style), preserving the original destination. Otherwise, it only records
         // the file to serve it (inline content / image fields).
+        // The backend may materialize (download) an online-only file here, which
+        // can take tens of seconds — bypass the global 30s axios cap (see
+        // pageEtagInterceptor) so the request isn't aborted mid-download.
         if (isFieldUpload) {
             const { data } = await axios.post('/api/vault/link-existing-file', {
                 file_path: path,
                 target_name: resolvedName,
-            });
+            }, { timeout: 0 });
             return data?.url || data?.path;
         }
-        const { data } = await axios.post('/api/vault/local-file/register', { file_path: path });
+        const { data } = await axios.post('/api/vault/local-file/register', { file_path: path }, { timeout: 0 });
         return data?.url;
     }, [isFieldUpload, resolvedName]);
 
@@ -449,8 +452,16 @@ export const InsertContentModal = ({
             onInsert?.({ url: finalUrl, mode, kind: selected.kind, name: selected.name, imageMeta: imageField ? imgMeta : undefined });
             onClose?.();
         } catch (e) {
-            const msg = uploadErrorMessage(e, t);
-            toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
+            if (e?.message === 'unreadable-file') {
+                // Online-only file the browser can't read: switch to "Disc local",
+                // where the backend receives the path and can download it (like
+                // Office/Adobe). uploadFile is still set, so the "locate on disk"
+                // UI shows pre-filled and, once located, the backend materializes it.
+                setTab('local');
+                toast.error(t('insert.error_unreadable_switch_local', "Aquest fitxer és online-only. Localitza'l a «Disc local» i Gnosi el baixarà automàticament."));
+            } else {
+                toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg: uploadErrorMessage(e, t) }));
+            }
         } finally {
             setBusy(false);
         }
@@ -673,6 +684,12 @@ export const InsertContentModal = ({
                             )}
                         </div>
 
+                        {busy && (selected?.source === 'local' || selected?.source === 'local-folder') && (
+                            <div className="flex items-center gap-1.5 text-xs text-[var(--gnosi-primary)]">
+                                <Loader2 size={12} className="animate-spin" />
+                                {t('insert.materializing', { defaultValue: 'Baixant el fitxer de OneDrive si cal… (pot trigar)' })}
+                            </div>
+                        )}
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-2 text-sm">
                                 <span className="text-[var(--text-tertiary)] text-xs uppercase tracking-wider">{t('insert.mode', { defaultValue: 'Mode' })}</span>

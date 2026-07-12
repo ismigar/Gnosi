@@ -2484,6 +2484,8 @@
     "error": "Error inserint: {{msg}}",
     "error_unreadable_file": "No s'ha pogut llegir el fitxer. Si és online-only (OneDrive o iCloud), fes-lo disponible localment (Finder → «Mantén en aquest dispositiu») i torna-ho a provar.",
     "error_upload_timeout": "La pujada ha trigat massa. Si el fitxer és online-only (OneDrive o iCloud), fes-lo disponible localment i torna-ho a provar.",
+    "error_unreadable_switch_local": "Aquest fitxer és online-only. Localitza'l a «Disc local» i Gnosi el baixarà automàticament.",
+    "materializing": "Baixant el fitxer de OneDrive si cal… (pot trigar)",
     "error_no_upload": "No s'ha pogut pujar cap fitxer",
     "error_no_url": "No s'ha pogut obtenir la URL final",
     "kind_image": "Imatge",

@@ -2594,6 +2594,8 @@
     "error": "Error inserting: {{msg}}",
     "error_unreadable_file": "Couldn't read the file. If it's online-only (OneDrive or iCloud), make it available locally (Finder → \"Keep on this device\") and try again.",
     "error_upload_timeout": "The upload took too long. If the file is online-only (OneDrive or iCloud), make it available locally and try again.",
+    "error_unreadable_switch_local": "This file is online-only. Locate it in \"Local disk\" and Gnosi will download it automatically.",
+    "materializing": "Downloading the file from OneDrive if needed… (may take a while)",
     "error_no_upload": "No file could be uploaded",
     "error_no_url": "Could not obtain the final URL",
     "kind_image": "Image",
