@@ -1742,7 +1742,7 @@
       "active_suffix": " (actiu)",
       "dest_vault_label": "Vault destí:",
       "new_vault_name_label": "Nom:",
-      "clone_path_hint": "El clon es crea directament a …/Gnosi/{{name}} (vault separat, sense subcarpeta).",
+      "clone_path_hint": "El clon es crea directament a …/Gnosi/{{name}}.",
       "mcp_connected": "MCP connectat",
       "mcp_connect_title": "Connecta amb l'MCP allotjat de Notion (OAuth). IMPRESCINDIBLE per al clon: vistes incrustades, columnes i colors vénen de l'MCP.",
       "mcp_connect_button": "Connecta MCP (imprescindible)",
@@ -3584,7 +3584,6 @@
     "active_vault": "Vault actiu",
     "delete_tooltip": "Esborra aquest vault del registre",
     "new_vault": "Nou vault",
-    "description": "Clona Notion a un vault separat, verifica'l aïllat i adopta'l o descarta'l sense tocar el principal.",
     "delete_modal_title": "Esborrar vault",
     "delete_modal_message": "Esborrar el vault «{{name}}» del registre? No esborra cap fitxer del disc.",
     "delete_modal_confirm": "Esborrar"

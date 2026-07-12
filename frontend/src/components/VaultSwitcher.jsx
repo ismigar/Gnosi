@@ -107,9 +107,6 @@ export default function VaultSwitcher() {
                     </button>
                 )}
             </div>
-            <div style={{ marginTop: 8, fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
-                {t('vault_switcher.description', "Clona Notion a un vault separat, verifica'l aïllat i adopta'l o descarta'l sense tocar el principal.")}
-            </div>
             {error && <div style={{ marginTop: 6, color: '#e05252', fontSize: '0.8rem' }}>{error}</div>}
             <ConfirmModal
                 isOpen={!!confirmTarget}
