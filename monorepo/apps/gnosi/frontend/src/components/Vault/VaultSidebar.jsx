@@ -918,7 +918,15 @@ export const VaultSidebar = ({
     }, [databases.length]);
 
     return (
-        <div className="flex flex-col h-full select-none overflow-y-auto custom-scrollbar pb-8 bg-[var(--bg-primary)]">
+        <div
+            ref={wikiViewportRef}
+            onScroll={(e) => {
+                if (wikiVirtualizationEnabled) {
+                    setWikiScrollTop(e.currentTarget.scrollTop);
+                }
+            }}
+            className="flex flex-col h-full select-none overflow-y-auto custom-scrollbar pb-8 bg-[var(--bg-primary)]"
+        >
             <div className="px-3 pt-4 mb-2 flex items-center justify-between group cursor-pointer hover:bg-[var(--bg-secondary)] rounded mx-2 py-1.5 transition-colors">
                 <div className="flex items-center gap-2">
                     <div className="w-5 h-5 bg-gnosi/10 rounded flex items-center justify-center text-gnosi font-bold text-[10px]">G</div>
@@ -1350,17 +1358,7 @@ export const VaultSidebar = ({
             </div>
             {isWorkspaceExpanded && (
                 <div
-                    ref={wikiViewportRef}
-                    onScroll={(e) => {
-                        if (wikiVirtualizationEnabled) {
-                            setWikiScrollTop(e.currentTarget.scrollTop);
-                        }
-                    }}
-                    // shrink-0: without this, the sidebar's flex-column shrinks
-                    // this section to height:0 when DATA is expanded and the
-                    // total content exceeds the sidebar's viewport (which has
-                    // overflow-y-auto). Visible result: the WIKI looks empty.
-                    className="px-2 space-y-0.5 max-h-[42vh] overflow-y-auto custom-scrollbar shrink-0"
+                    className="px-2 space-y-0.5"
                 >
                     {isRegistryLoading ? (
                         <div className="px-3 py-2 text-xs text-[var(--text-secondary)]/60">{t('common.loading')}</div>
