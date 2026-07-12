@@ -8768,7 +8768,9 @@ def purge_expired_trash(now: Optional[datetime] = None) -> Dict[str, Any]:
 @router.post("/upload-cover", dependencies=[Depends(require_role("editor"))])
 async def upload_cover(file: UploadFile = File(...)):
     """Uploads an image to the Assets/Covers folder and returns the URL."""
-    return _upload_image_to_assets_subdir(file, "Covers")
+    # Offload the blocking write to a worker thread (see upload_asset) so a cold
+    # OneDrive folder can't freeze the event loop during materialization.
+    return await asyncio.to_thread(_upload_image_to_assets_subdir, file, "Covers")
 
 
 @router.post("/upload-icon", dependencies=[Depends(require_role("editor"))])
@@ -8929,7 +8931,16 @@ async def upload_asset(
         target_dir = get_p("ASSETS") / subdir
 
     try:
-        relative_path = _save_uploaded_file_to_assets(file, target_dir, target_name or "")
+        # Offload the blocking write to a worker thread. On a cold OneDrive
+        # subtree the mkdir + copy can block for tens of seconds while the folder
+        # materializes; doing it inline on the event loop freezes the whole
+        # backend (every other request stalls until the loop is released).
+        # asyncio.to_thread propagates the active-vault contextvar, so the
+        # get_p("VAULT") inside _save_uploaded_file_to_assets still resolves the
+        # correct vault from the worker thread.
+        relative_path = await asyncio.to_thread(
+            _save_uploaded_file_to_assets, file, target_dir, target_name or ""
+        )
     except Exception as e:
         log.error(f"Error uploading asset: {e}")
         raise HTTPException(status_code=500, detail="Could not save file")
@@ -9901,7 +9912,12 @@ async def upload_property_file(
 
     target_dir, url_type = _resolve_storage_dir(effective_storage, table, database, property_clean)
     try:
-        dest_path = Path(_save_uploaded_file_to_dir(file, target_dir, target_name))
+        # Offload the blocking write to a worker thread (see upload_asset): a cold
+        # OneDrive folder can block the copy for tens of seconds, and running it
+        # inline would freeze the event loop for every other request.
+        dest_path = Path(
+            await asyncio.to_thread(_save_uploaded_file_to_dir, file, target_dir, target_name)
+        )
     except Exception as e:
         log.error(f"Error uploading property file: {e}")
         raise HTTPException(status_code=500, detail="Could not save file")
