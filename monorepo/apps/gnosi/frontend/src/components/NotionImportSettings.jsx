@@ -607,7 +607,7 @@ export default function NotionImportSettings() {
                                     </label>
                                 )}
                                 <span style={{ fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
-                                    {t('settings.notion.clone_path_hint', 'El clon es crea directament a …/Gnosi/{{name}} (vault separat, sense subcarpeta).', { name: cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?') })}
+                                    {t('settings.notion.clone_path_hint', 'El clon es crea directament a …/Gnosi/{{name}}.', { name: cloneVaultId === '__new__' ? (newVaultName.trim() || 'Notion') : (vaults.find(v => v.id === cloneVaultId)?.name || '?') })}
                                 </span>
                             </div>
 

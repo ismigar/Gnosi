@@ -841,7 +841,7 @@
       "active_suffix": " (actif)",
       "dest_vault_label": "Vault de destination :",
       "new_vault_name_label": "Nom :",
-      "clone_path_hint": "Le clone est créé directement dans …/Gnosi/{{name}} (vault séparé, sans sous-dossier).",
+      "clone_path_hint": "Le clone est créé directement dans …/Gnosi/{{name}}.",
       "mcp_connected": "MCP connecté",
       "mcp_connect_title": "Connectez-vous au MCP hébergé de Notion (OAuth). ESSENTIEL pour le clone : les vues intégrées, colonnes et couleurs proviennent du MCP.",
       "mcp_connect_button": "Connecter MCP (indispensable)",

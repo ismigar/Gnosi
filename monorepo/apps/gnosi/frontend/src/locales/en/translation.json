@@ -1852,7 +1852,7 @@
       "active_suffix": " (active)",
       "dest_vault_label": "Destination vault:",
       "new_vault_name_label": "Name:",
-      "clone_path_hint": "The clone is created directly at …/Gnosi/{{name}} (separate vault, no subfolder).",
+      "clone_path_hint": "The clone is created directly at …/Gnosi/{{name}}.",
       "mcp_connected": "MCP connected",
       "mcp_connect_title": "Connect with Notion's hosted MCP (OAuth). ESSENTIAL for the clone: embedded views, columns and colors come from the MCP.",
       "mcp_connect_button": "Connect MCP (required)",
@@ -3697,7 +3697,6 @@
     "active_vault": "Active vault",
     "delete_tooltip": "Remove this vault from the registry",
     "new_vault": "New vault",
-    "description": "Clone Notion into a separate vault, verify it in isolation, and adopt or discard it without touching the main one.",
     "delete_modal_title": "Delete vault",
     "delete_modal_message": "Remove the vault \"{{name}}\" from the registry? This does not delete any files from disk.",
     "delete_modal_confirm": "Delete"
