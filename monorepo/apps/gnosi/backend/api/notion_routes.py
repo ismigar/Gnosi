@@ -506,12 +506,12 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
 
     def save_asset(url, prop, table):
         """Downloads an attachment to its place according to the field's config (like the native save):
-        · file field with `storage_folder='biblioteca'` → Biblioteca folder INSIDE the
-          clone's vault (self-contained), portable value `/api/vault/biblioteca/<file>`.
+        · file field with `storage_folder='library'` → Library folder INSIDE the
+          clone's vault (self-contained), portable value `/api/vault/library/<file>`.
         · everything else (Assets by default, body images, icons/covers) → Assets/[subfolder/]<Table>/<Field|_body>/."""
         from backend.services.notion_attachments import download_to, download_file
         # `prop` is the field's NAME (or None for cos/_icones/_portades). Look it up in the schema to
-        # read its storage_folder; only real file fields can go to Biblioteca.
+        # read its storage_folder; only real file fields can go to Library.
         prop_dict = next((p for p in (table.get("properties") or []) if p.get("name") == prop), None) if prop else None
         storage = str((vault_routes._property_config_value(prop_dict, "storage_folder") if prop_dict else "") or "").strip().lower()
         # Short timeout: on a slow network, a file that doesn't download within 15s is skipped (better a
@@ -519,13 +519,13 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         # TOTAL budget per file: generous enough for large PDFs (20-30 MB at ~400KB/s),
         # but capped so a degraded S3 doesn't stall the clone forever (2026-07-01).
         DL_TIMEOUT = 90.0
-        if storage == "biblioteca":
+        if storage == "library":
             # INSIDE the clone's vault (self-contained: deleting the vault takes everything with it).
-            # The vault-first resolution of get_p("BIBLIOTECA") will find it from now on;
-            # vaults with a legacy (sibling) Biblioteca are unaffected (read fallback).
-            biblio = vault / "Biblioteca"
+            # The vault-first resolution of get_p("LIBRARY") will find it from now on;
+            # vaults with a legacy (sibling) Library are unaffected (read fallback).
+            biblio = vault / "Library"
             fname = download_file(url, biblio, timeout=DL_TIMEOUT)
-            return f"/api/vault/biblioteca/{fname}" if fname else None
+            return f"/api/vault/library/{fname}" if fname else None
         clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731
         leaf = clean(table.get("name"), "Taula")
         sub = clean(prop, "") if prop else "_cos"

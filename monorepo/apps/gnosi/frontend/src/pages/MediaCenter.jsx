@@ -225,7 +225,7 @@ const Thumb = React.memo(function Thumb({ src, alt, viewMode, kind }) {
 const ROOT_META = {
   images: { Icon: ImageIcon, labelKey: 'media.root_images', allLabelKey: 'media.all_images' },
   assets: { Icon: Folder, labelKey: 'media.root_assets', allLabelKey: 'media.all_assets' },
-  biblioteca: { Icon: Library, labelKey: 'media.root_biblioteca', allLabelKey: 'media.all_biblioteca' },
+  library: { Icon: Library, labelKey: 'media.root_library', allLabelKey: 'media.all_library' },
   vault: { Icon: Database, labelKey: 'media.root_vault', allLabelKey: 'media.all_vault' },
 };
 
@@ -639,7 +639,7 @@ export default function MediaCenter() {
   const [selectedPhoto, setSelectedPhoto] = useState(null);
   const [editingMetadata, setEditingMetadata] = useState({ tags: [], description: '' });
 
-  // Multi-root: the gallery can look at Images/ (default), Assets/, Biblioteca/
+  // Multi-root: the gallery can look at Images/ (default), Assets/, Library/
   // or the whole Vault. Available roots come from the backend.
   const [roots, setRoots] = useState([]);
   const [activeRoot, setActiveRoot] = useState('images');
@@ -1161,7 +1161,7 @@ export default function MediaCenter() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar Albums */}
         <aside className="w-64 bg-[var(--bg-primary)] border-r border-[var(--border-primary)] p-4 flex flex-col gap-2 overflow-y-auto">
-          {/* Root tabs: Images, Assets, Biblioteca, Vault */}
+          {/* Root tabs: Images, Assets, Library, Vault */}
           {roots.length > 1 && (
             <>
               <p className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-tertiary)] px-2 mb-1">{t('media.origin')}</p>

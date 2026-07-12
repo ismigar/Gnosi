@@ -95,12 +95,12 @@ def _index_roots() -> List[str]:
     `ro` mount). We index ALL of `~/Library/CloudStorage` (OneDrive, Google Drive…), not
     just the Vault: the helper (mdfind) does not reliably see ANY CloudStorage
     folder from its context, so everything that lives there (Vault,
-    Biblioteca, Documents/ESS, etc.) must go into the index. The rest of HOME
+    Library, Documents/ESS, etc.) must go into the index. The rest of HOME
     (LOCAL Documents/Downloads, outside CloudStorage) is covered by the helper.
 
     Why this was needed: the user was searching for `Presentación vivienda cooperativa.pdf`
     (in `OneDrive-UNED/Documents/ESS/`, outside the Vault) and it wasn't showing up because
-    the index only covered Vault + Biblioteca.
+    the index only covered Vault + Library.
     
     """
     home = os.environ.get("HOME_HOST_PATH") or os.path.expanduser("~")
@@ -108,7 +108,7 @@ def _index_roots() -> List[str]:
     if Path(cloudstorage).is_dir():
         return [cloudstorage]
     # Fallback (layouts without CloudStorage or outside Docker): the Vault (the
-    # Biblioteca lives inside since the pure vault-first design).
+    # Library lives inside since the pure vault-first design).
     roots: List[str] = []
     if Path(_VAULT_INTERNAL).is_dir():
         roots.append(_VAULT_INTERNAL)

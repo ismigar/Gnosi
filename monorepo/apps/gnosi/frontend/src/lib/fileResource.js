@@ -382,9 +382,9 @@ export function parseFileEntries(value) {
 /**
  * Canonical key for a `files` field entry, for DEDUPLICATION: the same
  * file expressed as a `file://` URL-encoded, absolute path (from either
- * of the two Macs), `~/<rel>`, or served URL (`/api/vault/biblioteca|raw|assets/`)
+ * of the two Macs), `~/<rel>`, or served URL (`/api/vault/library|raw|assets/`)
  * must produce the SAME key. Doesn't touch disk: only normalizes the text.
- * Genuinely different files (e.g. different names inside Biblioteca) produce
+ * Genuinely different files (e.g. different names inside Library) produce
  * different keys.
  */
 export function fileTargetKey(value) {
@@ -397,7 +397,7 @@ export function fileTargetKey(value) {
         try { s = decodeURIComponent(s); } catch { /* stays as-is */ }
     }
     s = s.split('?')[0].split('#')[0].replace(/\\/g, '/');
-    const served = s.match(/^\/api\/vault\/(biblioteca|raw|assets)\/(.+)$/);
+    const served = s.match(/^\/api\/vault\/(library|raw|assets)\/(.+)$/);
     if (served) {
         let rel = served[2];
         try { rel = decodeURIComponent(rel); } catch { /* stays as-is */ }
@@ -408,9 +408,9 @@ export function fileTargetKey(value) {
     // Strip the concrete HOME: /Users/<user>/x and ~/x → /x (both Macs
     // share the same structure under the home).
     s = s.replace(/^~\//, '/').replace(/^\/Users\/[^/]+\//, '/');
-    // Unifies any reference to Biblioteca with the served form.
-    const bib = s.match(/(?:^|\/)Biblioteca\/(.+)$/);
-    if (bib) return `biblioteca/${bib[1].toLowerCase()}`;
+    // Unifies any reference to Library with the served form.
+    const bib = s.match(/(?:^|\/)Library\/(.+)$/);
+    if (bib) return `library/${bib[1].toLowerCase()}`;
     return s.toLowerCase();
 }
 

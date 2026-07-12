@@ -49,7 +49,7 @@ def filename_for(url: str, *, default_ext: str = "") -> str:
 
 def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optional[str]:
     """Downloads `url` to `dest_dir` (creating it) and returns the NAME of the created file (or None if it's not remote
-    or fails). It doesn't compute any relative path → used for destinations OUTSIDE the vault (e.g. Biblioteca,
+    or fails). It doesn't compute any relative path → used for destinations OUTSIDE the vault (e.g. Library,
     a sibling of the vault)."""
     if not is_remote(url):
         return None

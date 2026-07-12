@@ -41,12 +41,12 @@ _PERSIST_DIR = Path("/app/data/media_cache")
 #
 # - "images"     → Images/ (historical gallery, default behavior for back-compat)
 # - "assets"     → Assets/ (media inserted into pages via /assets/upload)
-# - "biblioteca" → Biblioteca/ (sibling folder of the vault, not inside)
+# - "library" → Library/ (sibling folder of the vault, not inside)
 # - "vault"      → the whole vault, excludes system folders (.git, .gnosi, DB)
 MEDIA_ROOTS: Dict[str, Dict[str, Any]] = {
     "images": {"label": "Imatges (Galeria)", "url_prefix": "/api/vault/images/"},
     "assets": {"label": "Assets de pàgines", "url_prefix": "/api/vault/assets/"},
-    "biblioteca": {"label": "Biblioteca", "url_prefix": "/api/vault/biblioteca/"},
+    "library": {"label": "Library", "url_prefix": "/api/vault/library/"},
     "vault": {"label": "Tot el Vault", "url_prefix": "/api/vault/raw/"},
 }
 
@@ -89,7 +89,7 @@ class MediaService:
 
     def _root_dir(self, root: str = "images") -> Optional[Path]:
         """Resolves the root key to an absolute Path. Creates Images/ if needed
-        (back-compat) but does NOT create the other folders — if Biblioteca or Assets
+        (back-compat) but does NOT create the other folders — if Library or Assets
         don't exist, we return None and the caller will respond with an empty list.
         
         """
@@ -104,13 +104,13 @@ class MediaService:
             return d
         if root == "assets":
             return base / "Assets"
-        if root == "biblioteca":
+        if root == "library":
             # Vault-first resolution with legacy fallback (same rule as
-            # get_p("BIBLIOTECA")): previously `base.parent/Biblioteca` was computed here
+            # get_p("LIBRARY")): previously `base.parent/Library` was computed here
             # directly, and for child vaults (e.g. Principal) it pointed to a
             # wrong folder → the picker came out empty.
-            from backend.services.biblioteca_paths import resolve_biblioteca
-            return resolve_biblioteca(base)
+            from backend.services.library_paths import resolve_library
+            return resolve_library(base)
         if root == "vault":
             return base
         log.warning(f"Root desconegut: {root!r}")
@@ -707,7 +707,7 @@ class MediaService:
 
         `album` can be a relative path with subdirectories (`Pueblo/Sierra`).
         Always scans the given directory recursively.
-        `root` selects the root folder: images|assets|biblioteca|vault.
+        `root` selects the root folder: images|assets|library|vault.
 
         Accepted filters (all optional, csv where applicable):
         - kinds: image,video,audio,pdf,other
@@ -945,7 +945,7 @@ class MediaService:
         try:
             rel_path = path.relative_to(v_path)
         except ValueError:
-            # The root can be outside VAULT (Biblioteca is a sibling). In this
+            # The root can be outside VAULT (Library is a sibling). In this
             # case we use the full path as reference; we compute the URL
             # from the specific root.
             rel_path = path

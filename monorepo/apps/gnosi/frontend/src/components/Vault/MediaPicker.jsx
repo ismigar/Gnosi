@@ -2,7 +2,7 @@
  * MediaPicker.jsx
  *
  * Reusable media picker within the vault. Allows navigating the available
- * roots (Images, Assets, Biblioteca, Vault) and selecting a file
+ * roots (Images, Assets, Library, Vault) and selecting a file
  * (image, video, PDF...). The `onSelect(item)` callback receives the
  * full object returned by `/api/vault/media`, including the `url` already
  * prepared for inserting into the BlockEditor.
@@ -22,7 +22,7 @@ import { toast } from '../../lib/toast';
 const ROOT_ICONS = {
     images: ImageIcon,
     assets: Folder,
-    biblioteca: Library,
+    library: Library,
     vault: Database,
 };
 

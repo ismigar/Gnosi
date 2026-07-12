@@ -127,10 +127,10 @@ def _table_by_id(table_id: str) -> Optional[dict]:
     return None
 
 # Library resolution (vault-first + legacy fallback): a single source of truth,
-# shared with media_service and the Notion clone. See services/biblioteca_paths.py.
-from backend.services.biblioteca_paths import (  # noqa: E402
-    biblioteca_roots as _biblioteca_roots,
-    resolve_biblioteca as _resolve_biblioteca,
+# shared with media_service and the Notion clone. See services/library_paths.py.
+from backend.services.library_paths import (  # noqa: E402
+    library_roots as _library_roots,
+    resolve_library as _resolve_library,
 )
 
 
@@ -142,8 +142,8 @@ def get_p(key: str) -> Path:
     # LIBRARY is resolved separately (vault-first with legacy fallback) and BEFORE the dict:
     # putting it in the mapping would trigger a stat() on OneDrive on EVERY call to get_p for
     # any key (the whole dict gets evaluated); this way the cost is only paid when it's requested.
-    if key == "BIBLIOTECA":
-        return _resolve_biblioteca(base)
+    if key == "LIBRARY":
+        return _resolve_library(base)
 
     # Local-only data root (Docker volume, never on cloud-synced storage).
     # Resolved from env to match paths_config.py.
@@ -155,7 +155,7 @@ def get_p(key: str) -> Path:
         "VAULT": base,
         "ASSETS": base / "Assets",
         # (LIBRARY is resolved in get_p, BEFORE this dict: vault-first with
-        # fallback a la llegada germana — vegeu _biblioteca_roots/_resolve_biblioteca.)
+        # fallback a la llegada germana — vegeu _library_roots/_resolve_library.)
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
         "REGISTRY": base / "BD" / "vault_db_registry.json",
@@ -2307,12 +2307,12 @@ def _persist_metadata_assets(metadata: dict) -> dict:
         if not prop_name:
             continue
 
-        # Fields with a destination outside Assets (storage_folder 'biblioteca' or 'free') do NOT
+        # Fields with a destination outside Assets (storage_folder 'library' or 'free') do NOT
         # must be ingested into Assets: the file already lives in its place (e.g. the
-        # Biblioteca) and the value is an absolute path that must be preserved as-is.
+        # Library) and the value is an absolute path that must be preserved as-is.
         # Without this guard, saving the page would copy the file to
         # Assets/<DB>/<Table>/<Property>/ and the value was being rewritten — nullifying the
-        # the field's config (which is why a 'biblioteca' field always ended up in Assets).
+        # the field's config (which is why a 'library' field always ended up in Assets).
         configured_storage = str(_property_config_value(prop, "storage_folder") or "").strip()
         if configured_storage and configured_storage != "assets":
             continue
@@ -8993,9 +8993,9 @@ async def get_asset(asset_path: str):
 
 # --- Media Manager (ADVANCED ARCHIVE) ---
 
-# Valid roots: the UI sends ?root=images|assets|biblioteca|vault. The
+# Valid roots: the UI sends ?root=images|assets|library|vault. The
 # response from /media/roots indicates which ones have a folder on disk.
-_VALID_MEDIA_ROOTS = {"images", "assets", "biblioteca", "vault"}
+_VALID_MEDIA_ROOTS = {"images", "assets", "library", "vault"}
 
 
 def _validate_root(root: str) -> str:
@@ -9007,7 +9007,7 @@ def _validate_root(root: str) -> str:
 @router.get("/media/roots")
 async def get_media_roots():
     """Returns the roots available for media search (Images, Assets,
-    Biblioteca, Vault). Each element indicates `available` based on whether the folder
+    Library, Vault). Each element indicates `available` based on whether the folder
     currently exists on disk."""
     return media_service.get_roots()
 
@@ -9323,9 +9323,9 @@ async def serve_vault_image(image_path: str):
 # --- File servers for the multi-root roots ---
 #
 # `/images/...` already existed (historical gallery with OneDrive warmup). To make
-# the multi-root search can return servable URLs for Assets/Biblioteca/Vault,
+# the multi-root search can return servable URLs for Assets/Library/Vault,
 # we add:
-#   - /biblioteca/{path}   → serves Biblioteca/ (sibling of the vault)
+#   - /library/{path}   → serves Library/ (sibling of the vault)
 #   - /raw/{path}          → serves any path inside VAULT/
 # They validate strict containment (`is_relative_to`) to prevent escapes
 # such as `../` or similar names (e.g. `Assets-secret/`). Without Cache-Control
@@ -9405,13 +9405,13 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
         )
 
 
-@router.get("/biblioteca/{rel_path:path}")
-async def serve_biblioteca_file(rel_path: str):
-    """Serves Biblioteca with vault-first resolution and fallback to the legacy (sibling) one:
-    old `/api/vault/biblioteca/<rel>` links keep working even if the
-    vault has its own Biblioteca, and vice versa."""
+@router.get("/library/{rel_path:path}")
+async def serve_library_file(rel_path: str):
+    """Serves Library with vault-first resolution and fallback to the legacy (sibling) one:
+    old `/api/vault/library/<rel>` links keep working even if the
+    vault has its own Library, and vice versa."""
     from backend.services.context_vars import get_active_vault_path
-    roots = _biblioteca_roots(get_active_vault_path())
+    roots = _library_roots(get_active_vault_path())
     for root in roots[:-1]:
         try:
             if (root / rel_path).exists():   # the actual containment is done in _serve_*
@@ -9450,13 +9450,13 @@ _THUMB_DAEMON_URL = os.environ.get(
     "http://host.docker.internal:5009/thumb",
 )
 _THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
-# Roots exposed to thumbs. All of them live inside /vault; `biblioteca` isn't there
-# because no frontend consumer requests thumbs for Biblioteca (the PDFs
+# Roots exposed to thumbs. All of them live inside /vault; `library` isn't there
+# because no frontend consumer requests thumbs for Library (the PDFs
 # in `files` fields are shown with an icon). If it's ever needed, it's enough to
-# add `"biblioteca": ("BIBLIOTECA", None)` here: the rest of the chain already
+# add `"library": ("LIBRARY", None)` here: the rest of the chain already
 # supports it — the daemon accepts multiple roots (allowlist OneDrive-UNED,
 # 2026-05-18) and `_container_to_host_path` passes the mounts as-is
-# identity like Biblioteca or HOME (2026-06-10).
+# identity like Library or HOME (2026-06-10).
 _THUMB_ROOTS_MAP = {
     "images": ("IMAGES", "Images"),
     "raw": ("VAULT", None),
@@ -9867,10 +9867,10 @@ def _resolve_storage_dir(storage_folder: str, table, database, property_name: st
 
     Returns (target_dir, url_prefix_type) where url_prefix_type is 'assets' or 'absolute'.
     """
-    if storage_folder == "biblioteca":
-        biblioteca = get_p("BIBLIOTECA")
-        biblioteca.mkdir(parents=True, exist_ok=True)
-        return biblioteca, "absolute"
+    if storage_folder == "library":
+        library = get_p("LIBRARY")
+        library.mkdir(parents=True, exist_ok=True)
+        return library, "absolute"
     # Default: assets (nested per DB/Table/Property)
     return _property_assets_dir(table, database, property_name), "assets"
 
@@ -9890,19 +9890,19 @@ def _file_response_payload(dest_path: Path, url_prefix_type: str) -> dict:
             url = f"/api/vault/assets/{rel}"
         return {"path": rel, "url": url, "storage": "assets"}
     else:
-        # Biblioteca: in addition to the absolute path (compat / open in Finder), we return
-        # a served relative URL `/api/vault/biblioteca/<rel>`. The frontend saves
+        # Library: in addition to the absolute path (compat / open in Finder), we return
+        # a served relative URL `/api/vault/library/<rel>`. The frontend saves
         # `data.url || data.path` → NEW attachments stay PORTABLE across
         # construction (no user/cloud in the saved value); the container serves them
-        # via serve_biblioteca_file, and open/delete re-root them to the current machine.
+        # via serve_library_file, and open/delete re-root them to the current machine.
         # It's tried against ALL roots (inside the vault and the legacy one): the same
         # URL form is served with fallback, so the saved value doesn't distinguish layouts.
         from backend.services.context_vars import get_active_vault_path
         url = None
-        for root in _biblioteca_roots(get_active_vault_path()):
+        for root in _library_roots(get_active_vault_path()):
             try:
                 rel = str(dest_path.relative_to(root)).replace("\\", "/")
-                url = f"/api/vault/biblioteca/{rel}"
+                url = f"/api/vault/library/{rel}"
                 break
             except ValueError:
                 continue
@@ -9917,8 +9917,8 @@ async def upload_property_file(
     target_name: str = Query(default=""),
     file: UploadFile = File(...),
 ):
-    """Upload a file for a property. Routes to Assets/, Biblioteca/ or a free path
-    depending on the storage_folder parameter (assets | biblioteca | free).
+    """Upload a file for a property. Routes to Assets/, Library/ or a free path
+    depending on the storage_folder parameter (assets | library | free).
 
     `target_name` (optional): base name already interpolated from the field's pattern
     (e.g. "Authors - Year - Title"). If provided, the file is saved with
@@ -9935,7 +9935,7 @@ async def upload_property_file(
     # The destination (storage_folder) is authoritative from the property's config in the
     # registry, not from the query param: the frontend could send it out of sync (session with
     # an old in-memory schema, divergent upload paths...) and this caused a
-    # field configured as 'biblioteca' to end up saving to Assets. If the property doesn't have
+    # field configured as 'library' to end up saving to Assets. If the property doesn't have
     # has none configured, we fall back to the query param value.
     target_prop = _find_table_property(table, property_clean)
     configured_storage = str(_property_config_value(target_prop, "storage_folder") or "").strip()
@@ -10044,10 +10044,10 @@ async def link_existing_file(body: dict):
     # absolute as a last resort.
     portable: Optional[str] = None
     from backend.services.context_vars import get_active_vault_path
-    for _broot in _biblioteca_roots(get_active_vault_path()):
+    for _broot in _library_roots(get_active_vault_path()):
         try:
             rel = p.relative_to(_broot)
-            portable = f"/api/vault/biblioteca/{str(rel).replace(os.sep, '/')}"
+            portable = f"/api/vault/library/{str(rel).replace(os.sep, '/')}"
             break
         except Exception:
             continue
@@ -10119,10 +10119,10 @@ async def delete_physical_file(body: dict):
         vault_path = (get_p("VAULT").resolve() / "Assets" / target[len("/api/vault/assets/"):])
     elif target.startswith("Assets/"):
         vault_path = get_p("VAULT").resolve() / target
-    elif target.startswith("/api/vault/biblioteca/"):
+    elif target.startswith("/api/vault/library/"):
         # New library attachments (portable): re-rooted to the current root.
         # Goes before the catch-all "/" because this form also starts with "/".
-        host_path = get_p("BIBLIOTECA") / urllib.parse.unquote(target[len("/api/vault/biblioteca/"):])
+        host_path = get_p("LIBRARY") / urllib.parse.unquote(target[len("/api/vault/library/"):])
     elif target == "~" or target.startswith("~/"):
         # Portable value `~/<rel>`: the host's HOME, never the container's.
         host_path = Path(_expand_host_tilde(target))
@@ -12478,7 +12478,7 @@ def _try_host_trash_helper(target: str, timeout: float = 20.0) -> "tuple[bool, s
     """Asks host_open_helper to move `target` to the Mac Trash.
 
     Needed because the container mounts HOME read-only and cannot delete files from
-    OneDrive/Biblioteca. Returns (ok, error_detail).
+    OneDrive/Library. Returns (ok, error_detail).
     
     """
     try:
@@ -12708,7 +12708,7 @@ async def open_resource(payload: OpenResourceRequest):
 def _host_home_path() -> Path:
     """HOST's HOME (not the container's). Inside Docker the process's HOME is
     /root, so `Path.expanduser()` does NOT work to resolve `~/...` values.
-    Order: HOME_HOST_PATH (docker-compose) → home derived from BIBLIOTECA
+    Order: HOME_HOST_PATH (docker-compose) → home derived from LIBRARY
     (/Users/<actual>/Library/...) → process home (local environment without Docker).
     
     """
@@ -12716,7 +12716,7 @@ def _host_home_path() -> Path:
     if env_home:
         return Path(env_home)
     try:
-        b = get_p("BIBLIOTECA")
+        b = get_p("LIBRARY")
         if len(b.parts) >= 3 and b.parts[1] == "Users":
             return Path(b.parts[0]) / b.parts[1] / b.parts[2]
     except Exception:
@@ -12746,8 +12746,8 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     stable across machines because the vault and its siblings are synced.
 
     Strategies, in order, returning the first candidate that EXISTS:
-      1. Served form `/api/vault/biblioteca/<rel>` → Biblioteca root.
-      2. Under the cloud root (vault's sibling): covers Biblioteca,
+      1. Served form `/api/vault/library/<rel>` → Library root.
+      2. Under the cloud root (vault's sibling): covers Library,
          Documents and any synced sibling folder.
       3. Swap of the macOS home `/Users/<someone>` for the current host home:
          covers files outside the cloud (Desktop, Downloads…).
@@ -12758,13 +12758,13 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
     """
     s = (raw or "").strip()
     # (1) Served relative form (new library attachments, already portable). It's tried
-    # against ALL roots (inside the vault and legacy), like serve_biblioteca_file does.
-    m_rel = re.match(r"^/api/vault/biblioteca/(.+)$", s)
+    # against ALL roots (inside the vault and legacy), like serve_library_file does.
+    m_rel = re.match(r"^/api/vault/library/(.+)$", s)
     if m_rel:
         try:
             from backend.services.context_vars import get_active_vault_path
             rel = urllib.parse.unquote(m_rel.group(1))
-            for _broot in _biblioteca_roots(get_active_vault_path()):
+            for _broot in _library_roots(get_active_vault_path()):
                 cand = _broot / rel
                 if cand.exists():
                     return cand
@@ -12783,7 +12783,7 @@ def _reroot_attachment_under_current_host(raw: str) -> Optional[Path]:
         # Cloud root (e.g. `.../OneDrive-UNED`) in HOST path: the grandparent of the
         # active vault (…/OneDrive-UNED/Gnosi/<vault>). Derived from the host env —
         # not of get_active_vault_path(), which inside Docker would return /vault(s).
-        # (It used to anchor to the LEGACY sibling Biblioteca; the Biblioteca now lives
+        # (It used to anchor to the LEGACY sibling Library; the Library now lives
         # INSIDE the vault and no longer serves as a cloud anchor.)
         _vrh = (os.environ.get("VAULTS_ROOT_HOST_PATH") or "").strip()
         if _vrh:
@@ -12838,7 +12838,7 @@ def _resolve_stored_file_target(raw: str) -> Optional[Path]:
     """Resolves the SAVED VALUE of a files field to a local path on THIS
     machine, accepting all historical and new formats: `file://`
     (URL-encoded or not), `~/<rel>` (host HOME), absolute path (from this or
-    the other Mac) and `/api/vault/biblioteca/<rel>`.
+    the other Mac) and `/api/vault/library/<rel>`.
 
     If the value doesn't exist as-is, re-roots with
     `_reroot_attachment_under_current_host`. Returns None if no candidate
@@ -12905,7 +12905,7 @@ async def open_local_path(payload: dict = Body(...)):
     if not path.exists():
         # Portability across machines/clouds: the link can come from another Mac
         # (a different macOS user) or a different provider (Dropbox/iCloud...). If
-        # the saved path doesn't exist here, we re-root the segment under Biblioteca to
+        # the saved path doesn't exist here, we re-root the segment under Library to
         # this machine's root before giving up.
         rerooted = _reroot_attachment_under_current_host(raw)
         if rerooted is not None:
