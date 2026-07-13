@@ -425,6 +425,7 @@ export const INTERNAL_METADATA_KEYS = new Set([
     'title', 'table_id', 'database_id', 'database_table_id', 'id',
     'parent_id', 'source_id', 'resolved_table_id', 'last_modified',
     'created_time', 'last_edited_time', 'last_edited_at', 'last_edited_by',
+    'created_by', 'created_at',
     'source_parent_id', 'is_default_template', 'is_template', 'is_dashboard',
     'path', 'filename', 'description', 'cover', 'cover_manual', 'icon',
 ]);
