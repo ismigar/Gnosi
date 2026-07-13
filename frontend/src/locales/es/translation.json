@@ -1011,7 +1011,7 @@
     "title_file": "Seleccionar archivo",
     "title_folder": "Seleccionar carpeta",
     "close": "Cerrar",
-    "real_path": "Ruta real en el Mac:",
+    "real_path": "Ruta real en el ordenador:",
     "go_up_tip": "Ir atrás (⌫)",
     "go_up_aria": "Subir un nivel",
     "up": "Arriba",
@@ -1019,10 +1019,10 @@
     "vault": "Vault",
     "home": "Home",
     "root": "Root (/)",
-    "search_folders_placeholder": "Busca carpetas en todo el Mac (≥2 caracteres)...",
-    "search_placeholder": "Busca en todo el Mac (≥2 caracteres)...",
+    "search_folders_placeholder": "Busca carpetas en todo el ordenador (≥2 caracteres)...",
+    "search_placeholder": "Busca en todo el ordenador (≥2 caracteres)...",
     "list_aria": "Carpetas y archivos",
-    "searching": "Buscando en todo el Mac...",
+    "searching": "Buscando en todo el ordenador...",
     "loading": "Cargando...",
     "no_results": "Ningún resultado para “{{query}}”",
     "no_files_folders": "No se han encontrado archivos ni carpetas",
@@ -1030,7 +1030,16 @@
     "too_many": "Demasiados resultados — afina la búsqueda para ver más",
     "keyboard_hints": "↑↓ navega · ↵ abre · ⌫ arriba · ⇥ cambia sección",
     "connection_error": "Error de conexión",
-    "select_this_folder": "Seleccionar esta carpeta"
+    "select_this_folder": "Seleccionar esta carpeta",
+    "errors": {
+      "invalid_path": "Ruta no válida",
+      "no_roots": "Servidor mal configurado: ninguna ubicación permitida",
+      "outside_roots": "La ruta está fuera de las ubicaciones permitidas",
+      "not_found": "La ruta no existe",
+      "not_a_directory": "No es una carpeta",
+      "permission_denied": "Permiso denegado. Comprueba los permisos de la carpeta.",
+      "access_error": "No se ha podido acceder a la ruta"
+    }
   },
   "settings": {
     "close_settings": "Cerrar configuración",

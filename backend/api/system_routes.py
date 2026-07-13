@@ -149,7 +149,7 @@ async def browse_directory(body: BrowseRequest = Body(...)):
     """Browse directory contents for the folder/file picker.
 
     Security: admin-only. The picker is meant to let the operator pick ANY
-    file or folder on the host (see the "search the whole Mac" box and the
+    file or folder on the host (see the whole-computer search box and the
     Root shortcut in the UI), so navigation is anchored on three roots — the
     ACTIVE vault, the current user's home, and "/" — with the admin gate as
     the trust boundary. Non-existent / non-directory targets are still rejected.
@@ -201,25 +201,25 @@ async def browse_directory(body: BrowseRequest = Body(...)):
     try:
         target = Path(target_path).resolve()
     except Exception:
-        return {"error": "Invalid path", "roots": roots}
+        return {"error": "Invalid path", "error_code": "invalid_path", "roots": roots}
 
     # Containment check. "/" is an allowed root (admin-only endpoint, picker is
     # meant to browse the whole host), so in practice this validates that the
     # target is an absolute, existing path rather than caging it — the admin gate
     # is the boundary. Fail-closed if no roots resolved.
     if not allowed_roots:
-        return {"error": "Server misconfigured: no allowed roots resolved", "roots": roots}
+        return {"error": "Server misconfigured: no allowed roots resolved", "error_code": "no_roots", "roots": roots}
 
     if not any(
         target == root or target.is_relative_to(root) for root in allowed_roots
     ):
-        return {"error": "Path is outside of allowed roots", "roots": roots}
+        return {"error": "Path is outside of allowed roots", "error_code": "outside_roots", "roots": roots}
 
     if not target.exists():
-        return {"error": "Path does not exist", "roots": roots}
+        return {"error": "Path does not exist", "error_code": "not_found", "roots": roots}
 
     if not target.is_dir():
-        return {"error": "Not a directory", "roots": roots}
+        return {"error": "Not a directory", "error_code": "not_a_directory", "roots": roots}
 
     # ── Friendly Routes (Host Mapping) ──
     # In Docker the vault is mounted at an internal path (/vault) that differs
@@ -256,11 +256,13 @@ async def browse_directory(body: BrowseRequest = Body(...)):
                 if len(directories) + len(files) >= 400:
                     break
     except PermissionError:
-        # If the root directory lacks permission
-        return {"error": f"Permission denied at {target}. Check macroscopic Mac permissions.", "current_path": str(target), "display_path": display_path, "roots": roots}
+        # If the directory lacks permission. `error` is an English fallback; the
+        # frontend shows the localized `error_code` message (OS-neutral).
+        return {"error": f"Permission denied at {target}. Check the folder permissions.", "error_code": "permission_denied", "current_path": str(target), "display_path": display_path, "roots": roots}
     except Exception as e:
         return {
             "error": safe_error_detail(e, "POST /browse access path"),
+            "error_code": "access_error",
             "current_path": str(target),
             "display_path": display_path,
             "roots": roots,

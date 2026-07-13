@@ -1058,7 +1058,7 @@
     "title_file": "Seleccionar fitxer",
     "title_folder": "Seleccionar carpeta",
     "close": "Tancar",
-    "real_path": "Ruta real al Mac:",
+    "real_path": "Ruta real a l'ordinador:",
     "go_up_tip": "Anar enrere (⌫)",
     "go_up_aria": "Pujar un nivell",
     "up": "Amunt",
@@ -1066,10 +1066,10 @@
     "vault": "Vault",
     "home": "Home",
     "root": "Root (/)",
-    "search_folders_placeholder": "Cerca carpetes a tot el Mac (≥2 caràcters)...",
-    "search_placeholder": "Cerca a tot el Mac (≥2 caràcters)...",
+    "search_folders_placeholder": "Cerca carpetes a tot l'ordinador (≥2 caràcters)...",
+    "search_placeholder": "Cerca a tot l'ordinador (≥2 caràcters)...",
     "list_aria": "Carpetes i fitxers",
-    "searching": "Cercant a tot el Mac...",
+    "searching": "Cercant a tot l'ordinador...",
     "loading": "Carregant...",
     "no_results": "Cap resultat per a “{{query}}”",
     "no_files_folders": "No s'han trobat fitxers ni carpetes",
@@ -1077,7 +1077,16 @@
     "too_many": "Massa resultats — afina la cerca per veure'n més",
     "keyboard_hints": "↑↓ navega · ↵ obre · ⌫ amunt · ⇥ canvia secció",
     "connection_error": "Error de connexió",
-    "select_this_folder": "Seleccionar aquesta carpeta"
+    "select_this_folder": "Seleccionar aquesta carpeta",
+    "errors": {
+      "invalid_path": "Ruta no vàlida",
+      "no_roots": "Servidor mal configurat: cap ubicació permesa",
+      "outside_roots": "La ruta és fora de les ubicacions permeses",
+      "not_found": "La ruta no existeix",
+      "not_a_directory": "No és una carpeta",
+      "permission_denied": "Permís denegat. Comprova els permisos de la carpeta.",
+      "access_error": "No s'ha pogut accedir a la ruta"
+    }
   },
   "settings": {
     "close_settings": "Tancar configuració",

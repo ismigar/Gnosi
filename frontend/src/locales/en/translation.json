@@ -1092,7 +1092,7 @@
     "title_file": "Select file",
     "title_folder": "Select folder",
     "close": "Close",
-    "real_path": "Real path on the Mac:",
+    "real_path": "Real path on this computer:",
     "go_up_tip": "Go back (⌫)",
     "go_up_aria": "Go up one level",
     "up": "Up",
@@ -1100,10 +1100,10 @@
     "vault": "Vault",
     "home": "Home",
     "root": "Root (/)",
-    "search_folders_placeholder": "Search folders across the Mac (≥2 characters)...",
-    "search_placeholder": "Search across the Mac (≥2 characters)...",
+    "search_folders_placeholder": "Search folders across the computer (≥2 characters)...",
+    "search_placeholder": "Search across the computer (≥2 characters)...",
     "list_aria": "Folders and files",
-    "searching": "Searching the whole Mac...",
+    "searching": "Searching the whole computer...",
     "loading": "Loading...",
     "no_results": "No results for “{{query}}”",
     "no_files_folders": "No files or folders found",
@@ -1111,7 +1111,16 @@
     "too_many": "Too many results — refine the search to see more",
     "keyboard_hints": "↑↓ navigate · ↵ open · ⌫ up · ⇥ switch section",
     "connection_error": "Connection error",
-    "select_this_folder": "Select this folder"
+    "select_this_folder": "Select this folder",
+    "errors": {
+      "invalid_path": "Invalid path",
+      "no_roots": "Server misconfigured: no allowed locations",
+      "outside_roots": "The path is outside the allowed locations",
+      "not_found": "The path does not exist",
+      "not_a_directory": "Not a folder",
+      "permission_denied": "Permission denied. Check the folder permissions.",
+      "access_error": "Could not access the path"
+    }
   },
   "settings": {
     "close_settings": "Close settings",

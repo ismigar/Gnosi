@@ -144,7 +144,7 @@
     "title_file": "Sélectionner un fichier",
     "title_folder": "Sélectionner un dossier",
     "close": "Fermer",
-    "real_path": "Chemin réel sur le Mac :",
+    "real_path": "Chemin réel sur l'ordinateur :",
     "go_up_tip": "Revenir (⌫)",
     "go_up_aria": "Monter d'un niveau",
     "up": "Haut",
@@ -152,10 +152,10 @@
     "vault": "Vault",
     "home": "Home",
     "root": "Root (/)",
-    "search_folders_placeholder": "Rechercher des dossiers sur tout le Mac (≥2 caractères)...",
-    "search_placeholder": "Rechercher sur tout le Mac (≥2 caractères)...",
+    "search_folders_placeholder": "Rechercher des dossiers sur tout l'ordinateur (≥2 caractères)...",
+    "search_placeholder": "Rechercher sur tout l'ordinateur (≥2 caractères)...",
     "list_aria": "Dossiers et fichiers",
-    "searching": "Recherche sur tout le Mac...",
+    "searching": "Recherche sur tout l'ordinateur...",
     "loading": "Chargement...",
     "no_results": "Aucun résultat pour « {{query}} »",
     "no_files_folders": "Aucun fichier ni dossier trouvé",
@@ -163,7 +163,16 @@
     "too_many": "Trop de résultats — affinez la recherche pour en voir plus",
     "keyboard_hints": "↑↓ naviguer · ↵ ouvrir · ⌫ remonter · ⇥ changer de section",
     "connection_error": "Erreur de connexion",
-    "select_this_folder": "Sélectionner ce dossier"
+    "select_this_folder": "Sélectionner ce dossier",
+    "errors": {
+      "invalid_path": "Chemin non valide",
+      "no_roots": "Serveur mal configuré : aucun emplacement autorisé",
+      "outside_roots": "Le chemin est en dehors des emplacements autorisés",
+      "not_found": "Le chemin n'existe pas",
+      "not_a_directory": "Ce n'est pas un dossier",
+      "permission_denied": "Permission refusée. Vérifiez les autorisations du dossier.",
+      "access_error": "Impossible d'accéder au chemin"
+    }
   },
   "settings": {
     "close_settings": "Fermer la configuration",

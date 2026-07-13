@@ -55,7 +55,9 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
             // so the shortcuts stay populated even when the initial path is bad.
             if (data.roots) setRoots(data.roots);
             if (data.error) {
-                setError(data.error);
+                // Prefer the localized message keyed by `error_code`; fall back to
+                // the raw English `error` for anything unmapped.
+                setError(data.error_code ? t('fs_picker.errors.' + data.error_code, data.error) : data.error);
                 // Even if there's a permissions error, we show the path where we failed
                 if (data.display_path) setDisplayPath(data.display_path);
                 if (data.current_path) setCurrentPath(data.current_path);

@@ -31,6 +31,12 @@ const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '
 export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath = '', mode = 'folder', initialQuery = '' }) {
     const { t } = useTranslation();
     const tn = useCallback((k, opts) => t('fs_picker.' + k, opts), [t]);
+    // Localize a backend error: prefer the i18n message keyed by `error_code`,
+    // falling back to the raw English `error` string for anything unmapped.
+    const localizeError = useCallback(
+        (data) => (data.error_code ? tn('errors.' + data.error_code, data.error) : data.error),
+        [tn],
+    );
     const [currentPath, setCurrentPath] = useState(initialPath || '');
     const [displayPath, setDisplayPath] = useState('');
     const [directories, setDirectories] = useState([]);
@@ -100,7 +106,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 });
                 const data = await res.json();
                 if (data.error) {
-                    setError(data.error);
+                    setError(localizeError(data));
                 }
                 setSearchResults(Array.isArray(data.results) ? data.results : []);
                 setSearchTruncated(!!data.truncated);
@@ -112,7 +118,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
             }
         }, 300);
         return () => clearTimeout(handle);
-    }, [isOpen, searchQuery, tn]);
+    }, [isOpen, searchQuery, tn, localizeError]);
 
     // When changing folder or search results, re-highlights the
     // first element (or none, if the list is empty). This way ↑↓ and Enter always
@@ -148,7 +154,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
             // so keep the shortcuts populated even when the initial path is bad.
             if (data.roots) setRoots(data.roots);
             if (data.error) {
-                setError(data.error);
+                setError(localizeError(data));
                 if (data.display_path) setDisplayPath(data.display_path);
                 if (data.current_path) setCurrentPath(data.current_path);
             } else {
