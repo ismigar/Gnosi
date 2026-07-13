@@ -2268,6 +2268,8 @@
     "mentions_linked": "Mentions liées : {{count}} dans {{notes}} note(s)",
     "no_backlinks": "Rien ne référence encore cette page.",
     "no_outgoing_links": "Aucun lien sortant détecté.",
+    "no_relations": "Aucune relation de schéma avec cette page.",
+    "relations": "Relations",
     "no_pending_mentions": "Il n'y avait aucune mention en attente à lier.",
     "no_snippet": "Aucun extrait disponible",
     "no_unlinked_mentions": "Aucune mention en attente à convertir en lien.",

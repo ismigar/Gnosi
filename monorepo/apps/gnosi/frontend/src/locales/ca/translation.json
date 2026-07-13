@@ -772,6 +772,8 @@
     "linked_by": "Enllaçat per",
     "loading_backlinks": "Carregant backlinks...",
     "no_backlinks": "Ningú referencia aquesta pàgina encara.",
+    "relations": "Relacions",
+    "no_relations": "Cap relació d'esquema amb aquesta pàgina.",
     "unlinked_mentions": "Mencions sense enllaç",
     "linking": "Enllaçant...",
     "link_all": "Enllaçar totes",

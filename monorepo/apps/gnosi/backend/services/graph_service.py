@@ -478,6 +478,15 @@ class GraphService:
                 "id": f"e_{u}_{v}",
                 "source": u,
                 "target": v,
+                # `source`/`target` follow nx's undirected adjacency iteration order
+                # (driven by node-insertion order) and DO NOT encode link direction.
+                # `src`/`dst` carry the real semantic direction (the page whose body
+                # or metadata produced the edge → the referenced page). Consumers that
+                # need direction (e.g. outgoing vs incoming counts) must read src/dst,
+                # never source/target. See feedback_links_panel_vs_graph_divergence.
+                "src": edge_attrs.get("src", u),
+                "dst": edge_attrs.get("dst", v),
+                "directed": edge_attrs.get("directed", False),
                 "color": edge_attrs.get("color", "#cbd5e1"),
                 "size": edge_attrs.get("size", 1),
                 "dashed": edge_attrs.get("dashed", False),
@@ -814,7 +823,8 @@ class GraphService:
             # Vault structural parent
             parent_id = metadata.get("parent_id")
             if parent_id and G.has_node(parent_id):
-                G.add_edge(parent_id, node_id, kind="structural", color="#94a3b8", size=1)
+                G.add_edge(parent_id, node_id, kind="structural", color="#94a3b8", size=1,
+                           src=parent_id, dst=node_id, directed=True)
 
             tid = metadata.get("table_id") or metadata.get("database_table_id")
             rel_keys = rel_keys_by_table.get(tid)
@@ -825,7 +835,8 @@ class GraphService:
                     for t in targets:
                         t_id = strip_item(t)  # `[[Title|id]]` → id (or id as-is)
                         if isinstance(t_id, str) and G.has_node(t_id):
-                            G.add_edge(node_id, t_id, kind="relation", color="#6366f1", size=1.5)
+                            G.add_edge(node_id, t_id, kind="relation", color="#6366f1", size=1.5,
+                                       src=node_id, dst=t_id, directed=True)
 
         # 2. Wikipedia-style links from cached link data (NO NEW FILE READS!)
         # Generic Notion titles that must NOT become hubs (export artifacts)
@@ -891,9 +902,11 @@ class GraphService:
                             G.edges[node_id, resolved]["size"] = 1.5
                         continue
                     if is_db_view:
-                        G.add_edge(node_id, resolved, kind="relation", color="#6366f1", size=1.5)
+                        G.add_edge(node_id, resolved, kind="relation", color="#6366f1", size=1.5,
+                                   src=node_id, dst=resolved, directed=True)
                     else:
-                        G.add_edge(node_id, resolved, kind="link", color="#10b981", size=1.2)
+                        G.add_edge(node_id, resolved, kind="link", color="#10b981", size=1.2,
+                                   src=node_id, dst=resolved, directed=True)
 
     
     def _add_suggestion_edges(self, G: nx.Graph):
