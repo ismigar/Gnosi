@@ -3720,6 +3720,11 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     # citable, not just the one coming from the metadata lookup.
     metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
 
+    # Create-from-source: fill the structured `Autoría` column (never the legacy
+    # `Authors` text one) so the import populates the field the user maintains
+    # instead of a duplicate. After the Citation Key so it still sees `Authors`.
+    metadata = _fill_autoria_from_authors(metadata, _table_for_meta)
+
     is_template = metadata.get("is_template") is True
     is_dashboard = metadata.get("is_dashboard") is True
     is_daily = str(metadata.get("note_type") or "").strip().lower() == "daily"
@@ -6174,6 +6179,76 @@ def _ensure_recursos_citation_key(
     ck = generate_citation_key(authors, year, title or "", _existing_citation_keys())
     if ck:
         metadata[ck_name] = ck
+    return metadata
+
+
+def _reference_autoria_prop(table: Optional[dict]) -> Optional[dict]:
+    """Returns the table's first `autoria`-type property (structured author
+    list), or None when the table doesn't have one."""
+    for p in (table or {}).get("properties", []) or []:
+        if p.get("type") == "autoria":
+            return p
+    return None
+
+
+def _authors_string_to_autoria(authors: str) -> list:
+    """`"Cognom, Nom; …"` (canonical Recursos author string) → structured
+    `autoria` list `[{"nom","cognom1","cognom2"}]`.
+
+    Splits authors on ';'. For each author the text before the first comma is
+    the family name(s) (first token → `cognom1`, the rest → `cognom2`) and the
+    text after the comma is the given name(s) → `nom`. An author without a comma
+    is treated as a single family/institution name (`cognom1`)."""
+    out: list = []
+    for part in str(authors or "").split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        if "," in part:
+            family, given = part.split(",", 1)
+        else:
+            family, given = part, ""
+        fam_tokens = family.strip().split()
+        author = {
+            "nom": given.strip(),
+            "cognom1": fam_tokens[0] if fam_tokens else "",
+            "cognom2": " ".join(fam_tokens[1:]) if len(fam_tokens) > 1 else "",
+        }
+        if author["nom"] or author["cognom1"] or author["cognom2"]:
+            out.append(author)
+    return out
+
+
+def _fill_autoria_from_authors(metadata: dict, table: Optional[dict]) -> dict:
+    """Routes an imported `Authors` string into the table's `autoria` field.
+
+    Create-from-source (PDF/DOI/ISBN/arXiv/PubMed/…) runs metadata through the
+    canonical Zotero→Recursos mapper, which only knows the legacy text column
+    `Authors`. When the references table has an `autoria`-type property (the
+    structured field the user actually maintains), populate THAT instead so the
+    import fills the real column rather than the deprecated text one — the
+    feature must never leave the record's primary author field empty nor surface
+    a stray legacy column.
+
+    Gate EXCLUSIVE to designation (like `_ensure_recursos_citation_key`): only
+    acts on the designated references table. Idempotent: only fills when the
+    `autoria` cell is empty and an `Authors` value is present, and drops the
+    consumed `Authors` key so the legacy column is left untouched (empty).
+    Mutates and returns `metadata`."""
+    ref_id = get_reference_table_id()
+    if not ref_id or get_table_id(metadata) != ref_id:
+        return metadata
+    prop = _reference_autoria_prop(table)
+    if not prop:
+        return metadata
+    name = prop.get("name")
+    if not name or metadata.get(name) not in (None, "", []):
+        return metadata
+    parsed = _authors_string_to_autoria(metadata.get("Authors"))
+    if not parsed:
+        return metadata
+    metadata[name] = parsed
+    metadata.pop("Authors", None)
     return metadata
 
 

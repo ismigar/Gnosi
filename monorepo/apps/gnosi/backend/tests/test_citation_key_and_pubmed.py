@@ -291,3 +291,93 @@ def test_zotero_item_book_container():
     assert out["Item Type"] == "bookSection"
     assert out["Llibre/Revista"] == "The Book"
     assert out["Any"] == 1999
+
+
+# --- Create-from-source: Authors (text) → Autoría (structured) --------------
+
+from backend.api.vault_routes import (  # noqa: E402
+    _authors_string_to_autoria,
+    _fill_autoria_from_authors,
+    _reference_autoria_prop,
+)
+
+_AUTORIA_TABLE = {
+    "id": "tbl-ref",
+    "properties": [
+        {"id": "fld_00000001", "name": "Autoría", "type": "autoria"},
+        {"id": "fld_00000002", "name": "Authors", "type": "text"},
+        {"id": "fld_00000003", "name": "Title", "type": "title"},
+    ],
+}
+
+
+def test_authors_string_to_autoria_single_surname():
+    assert _authors_string_to_autoria("Turing, Alan M.") == [
+        {"nom": "Alan M.", "cognom1": "Turing", "cognom2": ""}
+    ]
+
+
+def test_authors_string_to_autoria_two_surnames():
+    assert _authors_string_to_autoria("García Fernández, Ismael") == [
+        {"nom": "Ismael", "cognom1": "García", "cognom2": "Fernández"}
+    ]
+
+
+def test_authors_string_to_autoria_multiple():
+    out = _authors_string_to_autoria("Turing, Alan; Turkle, Sherry")
+    assert out == [
+        {"nom": "Alan", "cognom1": "Turing", "cognom2": ""},
+        {"nom": "Sherry", "cognom1": "Turkle", "cognom2": ""},
+    ]
+
+
+def test_authors_string_to_autoria_institution_no_comma():
+    assert _authors_string_to_autoria("WHO") == [
+        {"nom": "", "cognom1": "WHO", "cognom2": ""}
+    ]
+
+
+def test_authors_string_to_autoria_empty():
+    assert _authors_string_to_autoria("") == []
+    assert _authors_string_to_autoria(None) == []
+
+
+def test_reference_autoria_prop_detection():
+    assert _reference_autoria_prop(_AUTORIA_TABLE)["name"] == "Autoría"
+    assert _reference_autoria_prop({"properties": [{"name": "Authors", "type": "text"}]}) is None
+    assert _reference_autoria_prop(None) is None
+
+
+def test_fill_autoria_routes_authors_to_structured(monkeypatch):
+    monkeypatch.setattr("backend.api.vault_routes.get_reference_table_id", lambda: "tbl-ref")
+    md = {"table_id": "tbl-ref", "Authors": "Turing, Alan M.", "Title": "X"}
+    out = _fill_autoria_from_authors(md, _AUTORIA_TABLE)
+    assert out["Autoría"] == [{"nom": "Alan M.", "cognom1": "Turing", "cognom2": ""}]
+    # Legacy text column is left untouched (empty / absent).
+    assert "Authors" not in out
+
+
+def test_fill_autoria_noop_when_not_reference_table(monkeypatch):
+    monkeypatch.setattr("backend.api.vault_routes.get_reference_table_id", lambda: "other-tbl")
+    md = {"table_id": "tbl-ref", "Authors": "Turing, Alan M."}
+    out = _fill_autoria_from_authors(md, _AUTORIA_TABLE)
+    assert out.get("Authors") == "Turing, Alan M."
+    assert "Autoría" not in out
+
+
+def test_fill_autoria_noop_when_no_autoria_field(monkeypatch):
+    monkeypatch.setattr("backend.api.vault_routes.get_reference_table_id", lambda: "tbl-ref")
+    table = {"id": "tbl-ref", "properties": [{"name": "Authors", "type": "text"}]}
+    md = {"table_id": "tbl-ref", "Authors": "Turing, Alan M."}
+    out = _fill_autoria_from_authors(md, table)
+    assert out.get("Authors") == "Turing, Alan M."
+
+
+def test_fill_autoria_preserves_existing_value(monkeypatch):
+    monkeypatch.setattr("backend.api.vault_routes.get_reference_table_id", lambda: "tbl-ref")
+    existing = [{"nom": "Sherry", "cognom1": "Turkle", "cognom2": ""}]
+    md = {"table_id": "tbl-ref", "Autoría": existing, "Authors": "Turing, Alan M."}
+    out = _fill_autoria_from_authors(md, _AUTORIA_TABLE)
+    # Does not overwrite a value the caller already provided.
+    assert out["Autoría"] == existing
+    assert out["Authors"] == "Turing, Alan M."
