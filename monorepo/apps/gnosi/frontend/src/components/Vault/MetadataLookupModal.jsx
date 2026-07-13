@@ -53,6 +53,7 @@ const SOURCE_LABELS = {
     pubmed: 'PubMed (PMID)',
     web: 'Zotero translation-server (web)',
     url: 'Open Graph / meta tags (URL)',
+    pdf: 'PDF',
 };
 
 /** Returns the translated Zotero item-type label for the active UI language.

@@ -6376,30 +6376,135 @@ def _identifiers_from_text(text: str) -> dict:
     return found
 
 
+def _pdf_embedded_metadata(data: bytes) -> dict:
+    """Best-effort bibliographic metadata from a PDF's document-info dictionary.
+
+    Reads `/Title`, `/Author` and the year from `/CreationDate`. These fields
+    exist even in scanned PDFs with no text layer, so they let us register a
+    source that carries no DOI/ISBN/arXiv. Returns `{}` when pypdf is missing or
+    the PDF exposes nothing usable.
+    """
+    try:
+        from pypdf import PdfReader
+    except ImportError:
+        return {}
+    import io
+    try:
+        info = PdfReader(io.BytesIO(data)).metadata
+    except Exception as e:
+        log.warning(f"PDF metadata unreadable: {e}")
+        return {}
+    if not info:
+        return {}
+    out: dict = {}
+    try:
+        title = (info.title or "").strip()
+        if title:
+            out['title'] = title
+        author = (info.author or "").strip()
+        if author:
+            out['author'] = author
+        m = re.search(r'\d{4}', str(info.creation_date_raw or ""))
+        if m:
+            out['year'] = m.group(0)
+    except Exception as e:  # malformed document-info values
+        log.warning(f"PDF metadata fields unreadable: {e}")
+    return out
+
+
+def _title_from_filename(filename: str) -> str:
+    """Human-readable title guessed from a PDF filename (last-resort source).
+
+    Strips any path and the `.pdf` extension and turns underscores into spaces.
+    Hyphens are kept (they are often part of real titles). Returns '' for an
+    empty or extension-only name.
+    """
+    if not filename:
+        return ""
+    stem = filename.rsplit('/', 1)[-1].rsplit('\\', 1)[-1]
+    stem = re.sub(r'\.pdf$', '', stem, flags=re.IGNORECASE)
+    stem = re.sub(r'_+', ' ', stem)
+    return re.sub(r'\s+', ' ', stem).strip()
+
+
+def _pdf_fallback_to_recursos(data: bytes, filename: str, ids: Optional[dict] = None) -> dict:
+    """Minimal Recursos record for a PDF whose external lookup yielded nothing.
+
+    Builds a Zotero `document` item from the PDF's embedded metadata (falling
+    back to the filename for the title) and runs it through the same mapper +
+    Citation Key pipeline as the identifier lookups, so the reference is
+    registrable and citable even without (a resolvable) DOI/ISBN/arXiv/PMID.
+    Any identifier that WAS detected in the text (`ids`) is still carried onto
+    the record so it is not lost when the online source is unreachable. Returns
+    `{}` when not even a title can be derived.
+    """
+    meta = _pdf_embedded_metadata(data)
+    title = meta.get('title') or _title_from_filename(filename)
+    if not title:
+        return {}
+    item: dict = {'itemType': 'document', 'title': title}
+    if (ids or {}).get('doi'):
+        item['DOI'] = ids['doi']
+    if (ids or {}).get('arxiv'):
+        # No native Zotero field for the arXiv id; the canonical abstract URL
+        # keeps the pointer to the source without inventing a column.
+        item['url'] = f"https://arxiv.org/abs/{ids['arxiv']}"
+    author = meta.get('author')
+    if author:
+        # Normalize common multi-author separators to ';' so the shared parser
+        # (which only splits on ';') can pick out individual authors.
+        normalized = re.sub(r'\s+and\s+|\s*&\s*|[\r\n]+', '; ', author, flags=re.IGNORECASE)
+        creators = []
+        for a in _parse_authors_to_csl(normalized):
+            c = {'creatorType': 'author'}
+            if a.get('family'):
+                c['lastName'] = a['family']
+            if a.get('given'):
+                c['firstName'] = a['given']
+            if c.get('lastName') or c.get('firstName'):
+                creators.append(c)
+        if creators:
+            item['creators'] = creators
+    if meta.get('year'):
+        item['date'] = meta['year']
+    from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
+    return _inject_citation_key(zotero_item_to_recursos(item))
+
+
 @router.post("/recognize-pdf", dependencies=[Depends(require_role("editor"))])
 async def recognize_pdf(file: UploadFile = File(...)):
-    """Detects a PDF's reference: extracts text → DOI/arXiv → external lookup.
+    """Detects a PDF's reference, with a metadata fallback for id-less sources.
+
+    Strategy:
+      1. Extract the first pages' text and look for a DOI/arXiv. If found, run
+         the external lookup (CrossRef/arXiv) — the richest result.
+      2. Otherwise (or if that lookup returns nothing) build a minimal record
+         from the PDF's own document-info (`/Title`, `/Author`, `/CreationDate`)
+         or the filename, so a scanned book / paper with no DOI/ISBN/arXiv can
+         still be created and cited.
 
     Response: { identifiers, source, suggested, error }. The `suggested` already
-    carries a `Citation Key` (via `lookup_metadata`). Doesn't write anything to the Vault.
-    
+    carries a `Citation Key`. Never writes anything to the Vault.
     """
     data = await file.read()
     text = await asyncio.to_thread(_extract_text_from_pdf, data)
-    if not text.strip():
-        return {"identifiers": {}, "source": None, "suggested": {},
-                "error": "No s'ha pogut extreure text del PDF (escanejat o pypdf absent)"}
-    ids = _identifiers_from_text(text)
-    if not ids:
-        return {"identifiers": {}, "source": None, "suggested": {},
-                "error": "No s'ha trobat cap DOI/arXiv al PDF"}
-    result = await lookup_metadata(ids)
-    return {
-        "identifiers": ids,
-        "source": result.get("source"),
-        "suggested": result.get("suggested", {}),
-        "error": result.get("error"),
-    }
+    ids = _identifiers_from_text(text) if text.strip() else {}
+    if ids:
+        result = await lookup_metadata(ids)
+        if result.get("suggested"):
+            return {
+                "identifiers": ids,
+                "source": result.get("source"),
+                "suggested": result.get("suggested", {}),
+                "error": result.get("error"),
+            }
+    # No identifier found (or the lookup came back empty): register from the
+    # PDF's own metadata / filename instead of failing. Any detected id is kept.
+    fallback = await asyncio.to_thread(_pdf_fallback_to_recursos, data, file.filename or "", ids)
+    if fallback:
+        return {"identifiers": ids, "source": "pdf", "suggested": fallback, "error": None}
+    return {"identifiers": ids, "source": None, "suggested": {},
+            "error": "No s'ha pogut extreure cap metadada del PDF"}
 
 
 # ---------------------------------------------------------------------------
