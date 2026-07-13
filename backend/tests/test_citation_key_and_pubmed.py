@@ -16,6 +16,9 @@ from backend.api.vault_routes import (
     _pubmed_author_to_canonical,
     _pubmed_to_recursos,
     _identifiers_from_text,
+    _pdf_embedded_metadata,
+    _pdf_fallback_to_recursos,
+    _title_from_filename,
     _zotero_creators_to_authors,
     _zotero_item_to_recursos,
 )
@@ -148,6 +151,98 @@ def test_pdf_text_arxiv_requires_prefix():
 
 def test_pdf_text_none():
     assert _identifiers_from_text("No identifiers here at all.") == {}
+
+
+# --- P4b: id-less PDF fallback (register from embedded metadata / filename) --
+
+
+def _make_pdf(*, title=None, author=None, creation_date=None) -> bytes:
+    """A minimal one-page PDF carrying the given document-info fields."""
+    import io
+
+    from pypdf import PdfWriter
+
+    w = PdfWriter()
+    w.add_blank_page(width=200, height=200)
+    meta = {}
+    if title is not None:
+        meta["/Title"] = title
+    if author is not None:
+        meta["/Author"] = author
+    if creation_date is not None:
+        meta["/CreationDate"] = creation_date
+    if meta:
+        w.add_metadata(meta)
+    buf = io.BytesIO()
+    w.write(buf)
+    return buf.getvalue()
+
+
+def test_title_from_filename_cleans_and_strips_extension():
+    assert _title_from_filename("Tras_la_virtud.pdf") == "Tras la virtud"
+    assert _title_from_filename("/var/data/Report.PDF") == "Report"  # path + case
+    assert _title_from_filename("e-learning-2020.pdf") == "e-learning-2020"  # hyphens kept
+    assert _title_from_filename("") == ""
+    assert _title_from_filename("   .pdf") == ""
+
+
+def test_pdf_embedded_metadata_reads_docinfo():
+    pdf = _make_pdf(
+        title="Crítica de la razón pura",
+        author="Immanuel Kant",
+        creation_date="D:20210517093000+02'00'",
+    )
+    assert _pdf_embedded_metadata(pdf) == {
+        "title": "Crítica de la razón pura",
+        "author": "Immanuel Kant",
+        "year": "2021",
+    }
+
+
+def test_pdf_embedded_metadata_unreadable_is_empty():
+    # Not a PDF → best-effort empty dict, never raises.
+    assert _pdf_embedded_metadata(b"not a pdf at all") == {}
+
+
+def test_pdf_fallback_uses_embedded_metadata():
+    pdf = _make_pdf(title="Paz por medios pacíficos", author="Johan Galtung",
+                    creation_date="D:19960101000000")
+    rec = _pdf_fallback_to_recursos(pdf, "Galtung - anything.pdf")
+    assert rec["Item Type"] == "document"
+    assert rec["Title"] == "Paz por medios pacíficos"
+    assert rec["Authors"] == "Galtung, Johan"
+    assert rec["Any"] == 1996
+    assert rec["Citation Key"] == "galtung1996"
+
+
+def test_pdf_fallback_multi_author_separators():
+    # '<a> and <b> & <c>' must split into three creators.
+    pdf = _make_pdf(title="Shared", author="John Smith and Jane Doe & WHO")
+    rec = _pdf_fallback_to_recursos(pdf, "x.pdf")
+    assert rec["Authors"] == "Smith, John; Doe, Jane; WHO"
+
+
+def test_pdf_fallback_title_from_filename_when_no_metadata():
+    # A scanned book with no document-info: the filename still yields a citable record.
+    pdf = _make_pdf()
+    rec = _pdf_fallback_to_recursos(pdf, "New_Age.pdf")
+    assert rec["Title"] == "New Age"
+    assert rec["Item Type"] == "document"
+    assert rec["Citation Key"]  # citable even with only a title
+
+
+def test_pdf_fallback_nothing_derivable_is_empty():
+    # No metadata and no filename → nothing to register.
+    assert _pdf_fallback_to_recursos(b"garbage", "") == {}
+
+
+def test_pdf_fallback_keeps_detected_identifiers():
+    # DOI detected in the text but the online lookup failed: the id must survive.
+    pdf = _make_pdf(title="Some paper")
+    rec = _pdf_fallback_to_recursos(pdf, "x.pdf", {"doi": "10.1234/abcd.5678"})
+    assert rec["DOI"] == "10.1234/abcd.5678"
+    rec = _pdf_fallback_to_recursos(pdf, "x.pdf", {"arxiv": "2103.00020"})
+    assert rec["URL"] == "https://arxiv.org/abs/2103.00020"
 
 
 # --- P2: Zotero item mapping (translation-server) -------------------------
