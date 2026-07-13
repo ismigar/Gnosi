@@ -27,42 +27,54 @@ import { toast } from '../../lib/toast';
 import { interpolateNamePattern, toAssetPreviewUrl } from '../../lib/fileResource';
 
 /**
- * Probe whether a File's bytes are actually readable, up front, before we try
- * to upload it.
+ * Ensure a File's bytes are readable before uploading, DOWNLOADING it first if
+ * it's an online-only cloud placeholder.
  *
  * A file that lives online-only on OneDrive / iCloud Drive (a "dataless"
- * placeholder) can still be picked in a file dialog — its name and size come
- * from local metadata — but reading its bytes blocks while the OS tries to
- * hydrate it from the cloud, and fails with an OS-level "Operation timed out"
- * if the provider can't serve it. Sending such a file surfaces a cryptic
- * network/timeout error only after a long stall; reading a small slice with a
- * short deadline lets us fail fast with an actionable message instead.
+ * placeholder) can be picked in a file dialog — name and size come from local
+ * metadata — but has no local bytes. In the browser, reading it blocks while
+ * the OS hydrates it from the cloud, and that read is itself what triggers the
+ * download. So we must NOT fail fast: a short deadline forced the user to retry
+ * (the first attempt kicked off the download, the second finally succeeded).
+ * Instead we poll a small slice until it becomes readable, giving the cloud
+ * time to hydrate it, and signal `onDownloading` the moment it's clearly not
+ * instant so the UI can show a "downloading" hint.
  *
- * Resolves if the slice is readable; throws `Error('unreadable-file')` if the
- * read errors or exceeds `timeoutMs`. Reading a large *local* file is instant
- * (only the 4 KB slice is read), so this adds no meaningful latency.
+ * A local file resolves on the first read (no delay). Resolves once readable;
+ * throws `Error('unreadable-file')` if it can't be read within `maxWaitMs`
+ * (cloud provider offline / the file truly can't be fetched).
  */
-const assertFileReadable = async (file, timeoutMs = 10000) => {
+const assertFileReadable = async (
+    file,
+    { onDownloading, maxWaitMs = 180000, pollMs = 2000 } = {},
+) => {
     if (!file || typeof file.slice !== 'function') return;
-    const slice = file.slice(0, 4096);
-    const read = typeof slice.arrayBuffer === 'function'
-        ? slice.arrayBuffer()
-        : new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = () => reject(reader.error || new Error('read error'));
-            reader.readAsArrayBuffer(slice);
-        });
-    let timer;
-    const guard = new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error('unreadable-file')), timeoutMs);
+    // One slice read → true if readable, false on error/timeout. Each attempt
+    // re-triggers the OS hydration of the placeholder.
+    const tryReadSlice = (timeoutMs) => new Promise((resolve) => {
+        let settled = false;
+        const done = (ok) => { if (!settled) { settled = true; resolve(ok); } };
+        const slice = file.slice(0, 4096);
+        const p = typeof slice.arrayBuffer === 'function'
+            ? slice.arrayBuffer()
+            : new Promise((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = () => res();
+                reader.onerror = () => rej(reader.error || new Error('read error'));
+                reader.readAsArrayBuffer(slice);
+            });
+        p.then(() => done(true), () => done(false));
+        setTimeout(() => done(false), timeoutMs);
     });
-    try {
-        await Promise.race([read, guard]);
-    } catch {
-        throw new Error('unreadable-file');
-    } finally {
-        clearTimeout(timer);
+    const start = performance.now();
+    let announced = false;
+    for (;;) {
+        if (await tryReadSlice(4000)) return;
+        if (performance.now() - start >= maxWaitMs) throw new Error('unreadable-file');
+        // First failed read → not instantly readable → it's online-only and the
+        // download has been kicked off; tell the UI so it can show progress.
+        if (!announced) { announced = true; onDownloading?.(); }
+        await new Promise((r) => setTimeout(r, pollMs));
     }
 };
 
@@ -187,6 +199,9 @@ export const InsertContentModal = ({
     const [urlInput, setUrlInput] = useState('');
     const [uploadFile, setUploadFile] = useState(initialFile);
     const [uploadProgress, setUploadProgress] = useState(0);
+    // True while we wait for an online-only file to download from the cloud
+    // (OneDrive/iCloud) before uploading it — drives the "downloading" hint.
+    const [materializing, setMaterializing] = useState(false);
     const [pickerOpen, setPickerOpen] = useState(false);
     // Metadata for the composite image field (alt/title/caption/credit).
     const [imgMeta, setImgMeta] = useState({});
@@ -314,10 +329,15 @@ export const InsertContentModal = ({
         : '';
 
     const performUpload = useCallback(async (file) => {
-        // Fail fast (with a clear message) if the file's bytes can't be read —
-        // e.g. an online-only OneDrive/iCloud placeholder the OS can't hydrate.
-        // Otherwise axios stalls and surfaces a cryptic timeout much later.
-        await assertFileReadable(file);
+        // Online-only cloud placeholders (OneDrive/iCloud) have no local bytes:
+        // assertFileReadable triggers the download and waits for it (showing a
+        // "downloading" hint) so the upload works on the FIRST try. A local file
+        // passes through instantly.
+        try {
+            await assertFileReadable(file, { onDownloading: () => setMaterializing(true) });
+        } finally {
+            setMaterializing(false);
+        }
         const formData = new FormData();
         formData.append('file', file);
         let url;
@@ -684,7 +704,7 @@ export const InsertContentModal = ({
                             )}
                         </div>
 
-                        {busy && (selected?.source === 'local' || selected?.source === 'local-folder') && (
+                        {busy && (materializing || selected?.source === 'local' || selected?.source === 'local-folder') && (
                             <div className="flex items-center gap-1.5 text-xs text-[var(--gnosi-primary)]">
                                 <Loader2 size={12} className="animate-spin" />
                                 {t('insert.materializing', { defaultValue: 'Baixant el fitxer de OneDrive si cal… (pot trigar)' })}
