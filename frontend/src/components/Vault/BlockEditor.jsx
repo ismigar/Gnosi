@@ -3460,6 +3460,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     const [newPropName, setNewPropName] = useState("");
     const [incomingLinks, setIncomingLinks] = useState([]);
     const [incomingLinksLoading, setIncomingLinksLoading] = useState(false);
+    // Schema relations (metadata) connected to this page, both directions. Kept
+    // separate from wiki-links so the panel counts match /api/graph (link vs
+    // relation edges). See feedback_links_panel_vs_graph_divergence.
+    const [relatedPages, setRelatedPages] = useState([]);
     const [unlinkedMentions, setUnlinkedMentions] = useState([]);
     const [unlinkedMentionsLoading, setUnlinkedMentionsLoading] = useState(false);
     const [linkMentionsBusy, setLinkMentionsBusy] = useState(false);
@@ -3968,34 +3972,62 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
         const loadIncomingLinks = async () => {
             if (!noteFilename) {
                 setIncomingLinks([]);
+                setRelatedPages([]);
                 return;
             }
 
+            const selfId = String(noteFilename || '').trim();
             setIncomingLinksLoading(true);
             try {
-                const response = await axios.get('/api/vault/backlinks', {
-                    params: { id: noteFilename },
-                    signal: controller.signal,
-                });
+                // Wiki backlinks (with kind) + outgoing schema relations, in parallel.
+                const [backlinksRes, outlinksRes] = await Promise.all([
+                    axios.get('/api/vault/backlinks', {
+                        params: { id: noteFilename },
+                        signal: controller.signal,
+                    }),
+                    axios.get('/api/vault/outlinks', {
+                        params: { id: noteFilename },
+                        signal: controller.signal,
+                    }).catch((err) => {
+                        if (axios.isCancel?.(err)) throw err;
+                        return { data: { relations: [] } };
+                    }),
+                ]);
                 if (controller.signal.aborted) return;
 
-                const dedup = new Map();
-                for (const item of Array.isArray(response?.data) ? response.data : []) {
+                // Split backlinks: wiki-links → "entrants"; relations → "Relacions".
+                const incomingDedup = new Map();
+                const relationsDedup = new Map();
+                const addRelation = (id, title) => {
+                    if (!id || id === selfId || relationsDedup.has(id)) return;
+                    relationsDedup.set(id, { id, title: String(title || idToTitle?.[id] || id) });
+                };
+                for (const item of Array.isArray(backlinksRes?.data) ? backlinksRes.data : []) {
                     const id = String(item?.id || '').trim();
-                    if (!id || id === String(noteFilename || '').trim() || dedup.has(id)) continue;
-                    dedup.set(id, {
-                        id,
-                        title: String(item?.title || idToTitle?.[id] || id),
-                    });
+                    if (!id || id === selfId) continue;
+                    const title = String(item?.title || idToTitle?.[id] || id);
+                    if (item?.kind === 'relation') {
+                        addRelation(id, title);
+                    } else if (!incomingDedup.has(id)) {
+                        incomingDedup.set(id, { id, title });
+                    }
+                }
+                // Merge outgoing schema relations (same undirected relation edge in the graph).
+                for (const item of Array.isArray(outlinksRes?.data?.relations) ? outlinksRes.data.relations : []) {
+                    addRelation(String(item?.id || '').trim(), item?.title);
                 }
 
                 setIncomingLinks(
-                    Array.from(dedup.values()).sort((a, b) => a.title.localeCompare(b.title))
+                    Array.from(incomingDedup.values()).sort((a, b) => a.title.localeCompare(b.title))
+                );
+                setRelatedPages(
+                    Array.from(relationsDedup.values()).sort((a, b) => a.title.localeCompare(b.title))
                 );
             } catch (error) {
                 if (controller.signal.aborted || error?.name === 'CanceledError' || axios.isCancel?.(error)) return;
                 logError('load-backlinks', error);
                 setIncomingLinks([]);
+                setRelatedPages([]);
             } finally {
                 if (!controller.signal.aborted) {
                     setIncomingLinksLoading(false);
@@ -4616,7 +4648,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             {t('editor.links_and_mentions')}
                                         </div>
                                         <div className="text-[11px] text-[var(--text-tertiary)]/80 truncate">
-                                            {t('editor.outgoing')} {outgoingLinks.length} · {t('editor.incoming')} {incomingLinks.length} · {t('editor.pending')} {unlinkedMentions.length}
+                                            {t('editor.outgoing')} {outgoingLinks.length} · {t('editor.incoming')} {incomingLinks.length} · {t('editor.relations')} {relatedPages.length} · {t('editor.pending')} {unlinkedMentions.length}
                                         </div>
                                     </div>
                                     {isLinksInfoOpen ? (
@@ -4686,6 +4718,30 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                             title={t('editor.open_parallel_tooltip')}
                                                         >
                                                             {formatIncomingLinkLabel(link)}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="rounded-xl border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-3 md:col-span-2">
+                                            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[var(--text-secondary)]/80 mb-2">
+                                                <Share2 size={13} className="text-[#6366f1]" />
+                                                {t('editor.relations')} ({relatedPages.length})
+                                            </div>
+                                            {relatedPages.length === 0 ? (
+                                                <div className="text-xs text-[var(--text-tertiary)]/70">{t('editor.no_relations')}</div>
+                                            ) : (
+                                                <div className="flex flex-wrap gap-1.5">
+                                                    {relatedPages.map((link) => (
+                                                        <button
+                                                            type="button"
+                                                            key={link.id}
+                                                            onClick={() => openLinkedPage(link.id)}
+                                                            className="px-2.5 py-1 text-xs rounded-full border border-[#6366f1]/30 bg-[#6366f1]/10 text-[#6366f1] hover:brightness-110 transition-all"
+                                                            title={t('editor.open_parallel_tooltip')}
+                                                        >
+                                                            {link.title}
                                                         </button>
                                                     ))}
                                                 </div>

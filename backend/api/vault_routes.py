@@ -10936,6 +10936,13 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
 # a page load take 30-60s the first time. With this index,
 # /backlinks is O(lookup) and /unlinked-mentions filters down to ~10-100 candidates.
 _outlinks_by_source: Dict[str, set] = {}
+# Per source: {ref -> "link" | "relation"}. Classifies each outgoing ref by ORIGIN:
+# body wikilinks/md-links → "link"; metadata (relation-ish) fields → "relation".
+# "relation" wins over "link" when a ref appears in both (mirrors the graph, which
+# adds metadata-relation edges before body-link edges). Lets the panel and the graph
+# agree on what is a wiki-link vs a schema relation. See
+# feedback_links_panel_vs_graph_divergence.
+_outlink_kinds_by_source: Dict[str, Dict[str, str]] = {}
 _backlinks_by_target: Dict[str, List[Dict[str, str]]] = {}
 _backlinks_by_target_title: Dict[str, List[Dict[str, str]]] = {}
 _tokens_by_source: Dict[str, frozenset] = {}
@@ -10944,7 +10951,8 @@ _link_index_lock = threading.RLock()
 _link_index_built = False
 _link_index_build_ts = 0.0
 _link_index_source_count = 0
-_LINK_INDEX_SCHEMA_VERSION = 1
+# v2: added per-ref kind classification (link vs relation) + stem-based resolution.
+_LINK_INDEX_SCHEMA_VERSION = 2
 
 
 _WIKILINK_RE = re.compile(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]")
@@ -10974,6 +10982,7 @@ def _save_link_index_to_disk() -> None:
                 "schema_version": _LINK_INDEX_SCHEMA_VERSION,
                 "built_ts": _link_index_build_ts,
                 "outlinks": {pid: sorted(refs) for pid, refs in _outlinks_by_source.items()},
+                "outlink_kinds": {pid: dict(kinds) for pid, kinds in _outlink_kinds_by_source.items()},
                 "tokens": {pid: sorted(toks) for pid, toks in _tokens_by_source.items()},
                 "meta": dict(_page_meta_by_id),
             }
@@ -10998,6 +11007,7 @@ def _load_link_index_from_disk() -> bool:
             log.info("link-index cache schema mismatch — ignorant")
             return False
         outlinks_raw = data.get("outlinks") or {}
+        outlink_kinds_raw = data.get("outlink_kinds") or {}
         tokens_raw = data.get("tokens") or {}
         meta_raw = data.get("meta") or {}
 
@@ -11005,6 +11015,9 @@ def _load_link_index_from_disk() -> bool:
             _outlinks_by_source.clear()
             for pid, refs in outlinks_raw.items():
                 _outlinks_by_source[pid] = set(refs)
+            _outlink_kinds_by_source.clear()
+            for pid, kinds in outlink_kinds_raw.items():
+                _outlink_kinds_by_source[pid] = dict(kinds)
             _tokens_by_source.clear()
             for pid, toks in tokens_raw.items():
                 _tokens_by_source[pid] = frozenset(toks)
@@ -11044,19 +11057,33 @@ def _normalize_ref_for_index(raw_ref: str) -> str:
     return base
 
 
-def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
-    """Returns a set of normalized refs (page_id or lowercased title) that this
-    document links to. Includes wikilinks `[[X]]`, MD links `[..](X)` and
-    metadata fields that look like ID references.
+def _extract_outlinks_with_kinds(metadata: Dict[str, Any], body: str) -> tuple:
+    """Returns ``(refs, kinds)`` for a document.
+
+    ``refs`` is a set of normalized refs (page_id or lowercased title) this
+    document points to (wikilinks ``[[X]]``, MD links ``[..](X)`` and metadata
+    fields that look like ID references). ``kinds`` maps each ref to ``"link"``
+    (came from the body) or ``"relation"`` (came from a metadata field). When a
+    ref appears in both, ``"relation"`` wins — mirroring the graph, which adds
+    metadata-relation edges before body-link edges.
     """
     refs: set = set()
+    kinds: Dict[str, str] = {}
 
-    def _add(value: Any):
+    def _mark(ref: str, kind: str):
+        if not ref:
+            return
+        refs.add(ref)
+        if kinds.get(ref) == "relation":
+            return  # relation wins over link
+        kinds[ref] = kind
+
+    def _add(value: Any, kind: str):
         if value is None:
             return
         if isinstance(value, list):
             for item in value:
-                _add(item)
+                _add(item, kind)
             return
         text = str(value).strip()
         if not text:
@@ -11065,35 +11092,44 @@ def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
         # not the literal string (a safeguard for callers that don't strip it).
         m = RELATION_WIKILINK_RE.match(text)
         if m:
-            _add(m.group("rid"))
+            _add(m.group("rid"), kind)
             if m.group("title"):
-                _add(m.group("title"))
+                _add(m.group("title"), kind)
             return
         m = TITLE_ONLY_WIKILINK_RE.match(text)
         if m:
-            _add(m.group("title"))
+            _add(m.group("title"), kind)
             return
         norm = _normalize_ref_for_index(text)
         if norm:
-            refs.add(norm)
-            refs.add(norm.lower())
+            _mark(norm, kind)
+            _mark(norm.lower(), kind)
 
+    # Metadata refs are schema relations (or relation-shaped values) → "relation".
     for val in metadata.values():
         if isinstance(val, (str, list)):
-            _add(val)
+            _add(val, "relation")
 
+    # Body refs are real wikilinks / md-links → "link".
     if body:
         for raw in _WIKILINK_RE.findall(body):
             base = str(raw or "").split("#", 1)[0].strip()
             if base:
-                refs.add(base)
-                refs.add(base.lower())
+                _mark(base, "link")
+                _mark(base.lower(), "link")
         for raw in _MDLINK_RE.findall(body):
             norm = _normalize_ref_for_index(raw)
             if norm:
-                refs.add(norm)
-                refs.add(norm.lower())
+                _mark(norm, "link")
+                _mark(norm.lower(), "link")
 
+    return refs, kinds
+
+
+def _extract_outlinks_from_doc(metadata: Dict[str, Any], body: str) -> set:
+    """Back-compat wrapper: returns only the set of refs (see
+    :func:`_extract_outlinks_with_kinds`)."""
+    refs, _ = _extract_outlinks_with_kinds(metadata, body)
     return refs
 
 
@@ -11125,34 +11161,60 @@ def _rebuild_backlinks_invertion_locked():
     by_target: Dict[str, List[Dict[str, str]]] = {}
     by_title: Dict[str, List[Dict[str, str]]] = {}
     title_to_ids: Dict[str, set] = {}
+    stem_to_ids: Dict[str, set] = {}
     for pid, meta in _page_meta_by_id.items():
         title = str(meta.get("title") or "").strip().lower()
         if title:
             title_to_ids.setdefault(title, set()).add(pid)
+        # Resolution parity with the graph (GraphService.resolve_link also matches
+        # by path stem / filename), so a wikilink written as [[filename]] resolves
+        # here too instead of silently falling into the unresolved title bucket.
+        node_path = str(meta.get("path") or "")
+        if node_path:
+            stem = Path(node_path).stem.strip().lower()
+            if stem:
+                stem_to_ids.setdefault(stem, set()).add(pid)
 
     for source_id, refs in _outlinks_by_source.items():
         source_meta = _page_meta_by_id.get(source_id) or {}
         source_title = source_meta.get("title") or source_id
-        seen_targets: set = set()
+        kinds = _outlink_kinds_by_source.get(source_id, {})
+        # Per source, resolve each ref then collapse to one entry per target with a
+        # single kind ("relation" wins over "link", mirroring the graph).
+        target_kind: Dict[str, str] = {}
+        unresolved_kind: Dict[str, str] = {}
         for raw in refs:
             ref_lower = raw.lower()
+            kind = kinds.get(raw) or kinds.get(ref_lower) or "link"
             target_ids = set()
             if raw in _page_meta_by_id:
                 target_ids.add(raw)
             for tid in title_to_ids.get(ref_lower, ()):  # match per title
                 target_ids.add(tid)
+            for tid in stem_to_ids.get(ref_lower, ()):  # match per filename stem
+                target_ids.add(tid)
 
-            for tid in target_ids:
-                if tid == source_id or tid in seen_targets:
-                    continue
-                seen_targets.add(tid)
-                by_target.setdefault(tid, []).append(
-                    {"id": source_id, "title": str(source_title)}
-                )
-            if not target_ids:
-                by_title.setdefault(ref_lower, []).append(
-                    {"id": source_id, "title": str(source_title)}
-                )
+            if target_ids:
+                for tid in target_ids:
+                    if tid == source_id:
+                        continue
+                    prev = target_kind.get(tid)
+                    if prev == "relation":
+                        continue
+                    target_kind[tid] = "relation" if kind == "relation" else (prev or kind)
+            else:
+                prev = unresolved_kind.get(ref_lower)
+                if prev != "relation":
+                    unresolved_kind[ref_lower] = "relation" if kind == "relation" else (prev or kind)
+
+        for tid, kind in target_kind.items():
+            by_target.setdefault(tid, []).append(
+                {"id": source_id, "title": str(source_title), "kind": kind}
+            )
+        for ref_lower, kind in unresolved_kind.items():
+            by_title.setdefault(ref_lower, []).append(
+                {"id": source_id, "title": str(source_title), "kind": kind}
+            )
 
     _backlinks_by_target.clear()
     _backlinks_by_target.update(by_target)
@@ -11173,6 +11235,7 @@ def _rebuild_link_index(persist: bool = True) -> None:
     docs = _iter_linkable_page_documents()
 
     new_outlinks: Dict[str, set] = {}
+    new_outlink_kinds: Dict[str, Dict[str, str]] = {}
     new_tokens: Dict[str, frozenset] = {}
     new_meta: Dict[str, Dict[str, Any]] = {}
 
@@ -11181,7 +11244,9 @@ def _rebuild_link_index(persist: bool = True) -> None:
             pid = _resolve_page_id_from_metadata(metadata, file_path)
             if not pid:
                 continue
-            new_outlinks[pid] = _extract_outlinks_from_doc(metadata, body)
+            refs, kinds = _extract_outlinks_with_kinds(metadata, body)
+            new_outlinks[pid] = refs
+            new_outlink_kinds[pid] = kinds
             new_tokens[pid] = _tokenize_body_for_mentions(body)
             new_meta[pid] = {
                 "title": str(metadata.get("title") or file_path.stem),
@@ -11193,6 +11258,8 @@ def _rebuild_link_index(persist: bool = True) -> None:
     with _link_index_lock:
         _outlinks_by_source.clear()
         _outlinks_by_source.update(new_outlinks)
+        _outlink_kinds_by_source.clear()
+        _outlink_kinds_by_source.update(new_outlink_kinds)
         _tokens_by_source.clear()
         _tokens_by_source.update(new_tokens)
         _page_meta_by_id.clear()
@@ -11329,7 +11396,7 @@ def update_link_index_for_page(file_path: Path) -> None:
     pid = _resolve_page_id_from_metadata(metadata, file_path)
     if not pid:
         return
-    new_refs = _extract_outlinks_from_doc(metadata, body)
+    new_refs, new_kinds = _extract_outlinks_with_kinds(metadata, body)
     new_tokens = _tokenize_body_for_mentions(body)
     new_title = str(metadata.get("title") or file_path.stem)
 
@@ -11337,6 +11404,7 @@ def update_link_index_for_page(file_path: Path) -> None:
         old_meta = _page_meta_by_id.get(pid) or {}
         old_title = str(old_meta.get("title") or "").strip().lower()
         _outlinks_by_source[pid] = new_refs
+        _outlink_kinds_by_source[pid] = new_kinds
         _tokens_by_source[pid] = new_tokens
         _page_meta_by_id[pid] = {"title": new_title, "path": str(file_path)}
         # If the source's title has changed, the text shown in the backlinks
@@ -11461,6 +11529,7 @@ def remove_from_link_index(page_id: str) -> None:
     pid = str(page_id).strip()
     with _link_index_lock:
         _outlinks_by_source.pop(pid, None)
+        _outlink_kinds_by_source.pop(pid, None)
         _tokens_by_source.pop(pid, None)
         _page_meta_by_id.pop(pid, None)
         _rebuild_backlinks_invertion_locked()
@@ -12117,7 +12186,8 @@ def get_backlinks(id: str):
                 continue
 
             found = False
-            # 1. Check Metadata
+            found_kind = "link"
+            # 1. Check Metadata → classified as "relation"
             for val in metadata.values():
                 if val == target_id:
                     found = True
@@ -12136,8 +12206,10 @@ def get_backlinks(id: str):
                 if isinstance(val, str) and _matches_target(val):
                     found = True
                     break
+            if found:
+                found_kind = "relation"
 
-            # 2. Check Body (WikiLinks and MD Links)
+            # 2. Check Body (WikiLinks and MD Links) → classified as "link"
             if not found:
                 # Obsidian style [[ID]] / [[Title]] / [[Title#Section|Alias]] (and ![[...]]).
                 wiki_links = re.findall(r"!?\[\[([^\]|]+(?:#[^\]|]+)?)(?:\|.*?)?\]\]", body)
@@ -12158,13 +12230,93 @@ def get_backlinks(id: str):
             if found:
                 seen_backlink_ids.add(current_id)
                 backlinks.append(
-                    {"id": current_id, "title": metadata.get("title") or file_path.stem}
+                    {"id": current_id, "title": metadata.get("title") or file_path.stem,
+                     "kind": found_kind}
                 )
         except Exception as e:
             log.warning(f"Error processing backlinks for {file_path.name}: {e}")
             continue
 
     return backlinks
+
+
+@router.get("/outlinks")
+def get_outlinks(id: str):
+    """Outgoing references of a page, resolved and split by kind.
+
+    Single source of truth for the editor's "Enllaços i mencions" panel so its
+    outgoing counts line up with /backlinks and /api/graph (same resolution:
+    id → title → filename stem; same link-vs-relation classification). Returns
+    ``{links, relations, unresolved}`` where ``links``/``relations`` are resolved
+    page refs and ``unresolved`` are wikilinks that point to no existing page.
+    See feedback_links_panel_vs_graph_divergence.
+    """
+    pid = str(id or "").strip()
+    empty = {"links": [], "relations": [], "unresolved": []}
+    if not pid or not _link_index_built:
+        return empty
+
+    with _link_index_lock:
+        if pid not in _outlinks_by_source:
+            return empty
+        refs = set(_outlinks_by_source.get(pid, set()))
+        kinds = dict(_outlink_kinds_by_source.get(pid, {}))
+        title_to_ids: Dict[str, set] = {}
+        stem_to_ids: Dict[str, set] = {}
+        for opid, meta in _page_meta_by_id.items():
+            t = str(meta.get("title") or "").strip().lower()
+            if t:
+                title_to_ids.setdefault(t, set()).add(opid)
+            p = str(meta.get("path") or "")
+            if p:
+                stem = Path(p).stem.strip().lower()
+                if stem:
+                    stem_to_ids.setdefault(stem, set()).add(opid)
+
+        # Group raw refs by their lowercased form (the index stores both the
+        # original-cased and lowercased variant of each ref).
+        by_lower: Dict[str, set] = {}
+        for raw in refs:
+            by_lower.setdefault(raw.lower(), set()).add(raw)
+
+        target_kind: Dict[str, str] = {}
+        unresolved: Dict[str, str] = {}  # lower → display title (links only)
+        for low, variants in by_lower.items():
+            kind = "relation" if any(
+                kinds.get(v) == "relation" for v in (variants | {low})
+            ) else "link"
+            target_ids: set = set()
+            for v in (variants | {low}):
+                if v in _page_meta_by_id:
+                    target_ids.add(v)
+            target_ids |= title_to_ids.get(low, set())
+            target_ids |= stem_to_ids.get(low, set())
+            target_ids.discard(pid)
+            if target_ids:
+                for tid in target_ids:
+                    prev = target_kind.get(tid)
+                    if prev == "relation":
+                        continue
+                    target_kind[tid] = "relation" if kind == "relation" else (prev or kind)
+            elif kind == "link":
+                # Unresolved wikilink to a non-existent page: keep the best-cased text.
+                display = max(variants, key=lambda s: (any(c.isupper() for c in s), len(s)))
+                unresolved[low] = display
+
+        links: List[Dict[str, str]] = []
+        relations: List[Dict[str, str]] = []
+        for tid, kind in target_kind.items():
+            meta = _page_meta_by_id.get(tid) or {}
+            entry = {"id": tid, "title": str(meta.get("title") or tid)}
+            (relations if kind == "relation" else links).append(entry)
+
+    links.sort(key=lambda x: str(x["title"]).lower())
+    relations.sort(key=lambda x: str(x["title"]).lower())
+    unresolved_list = sorted(
+        ({"title": v} for v in unresolved.values()),
+        key=lambda x: str(x["title"]).lower(),
+    )
+    return {"links": links, "relations": relations, "unresolved": unresolved_list}
 
 
 def _build_unlinked_mention_regex(target_title: str) -> Optional[re.Pattern]:

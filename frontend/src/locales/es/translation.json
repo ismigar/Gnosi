@@ -772,6 +772,8 @@
     "linked_by": "Enlazado por",
     "loading_backlinks": "Cargando backlinks...",
     "no_backlinks": "Nadie referencia esta página aún.",
+    "relations": "Relaciones",
+    "no_relations": "Ninguna relación de esquema con esta página.",
     "unlinked_mentions": "Menciones sin enlace",
     "linking": "Enlazando...",
     "link_all": "Enlazar todas",

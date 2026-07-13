@@ -860,6 +860,8 @@
     "linked_by": "Linked by",
     "loading_backlinks": "Loading backlinks...",
     "no_backlinks": "Nobody references this page yet.",
+    "relations": "Relations",
+    "no_relations": "No schema relations with this page.",
     "unlinked_mentions": "Unlinked mentions",
     "linking": "Linking...",
     "link_all": "Link all",
