@@ -41,6 +41,10 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     // Global search results. `null` = not currently searching (browse mode).
     const [searchResults, setSearchResults] = useState(null);
     const [searchTruncated, setSearchTruncated] = useState(false);
+    // Shortcut targets resolved by the backend (active vault, current user's
+    // home, root). `null` until the first browse response. Not hardcoded so the
+    // Vault shortcut follows the ACTIVE vault and Home follows the real user.
+    const [roots, setRoots] = useState(null);
     // Index of the highlighted element in the list (folders/files or search
     // results). Shared by keyboard (↑↓) and mouse (hover), same as the
     // canonical MultiSelectPills pattern: a single `highlightedIndex` for both.
@@ -140,6 +144,9 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 body: JSON.stringify({ path }),
             });
             const data = await res.json();
+            // The backend returns `roots` on every response (success or error),
+            // so keep the shortcuts populated even when the initial path is bad.
+            if (data.roots) setRoots(data.roots);
             if (data.error) {
                 setError(data.error);
                 if (data.display_path) setDisplayPath(data.display_path);
@@ -366,21 +373,23 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                     >
                         <span className="text-[var(--text-tertiary)]" style={{ fontSize: '0.75rem', fontWeight: 500, textTransform: 'uppercase' }}>{tn('shortcuts')}</span>
                         <button
-                            onClick={() => browse('/vault')}
+                            onClick={() => roots?.vault && browse(roots.vault)}
+                            disabled={!roots?.vault}
                             className="text-[var(--gnosi-primary)] hover:underline"
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.85rem' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: roots?.vault ? 'pointer' : 'default', opacity: roots?.vault ? 1 : 0.4, fontSize: '0.85rem' }}
                         >
                             <Home size={14} /> {tn('vault')}
                         </button>
                         <button
-                            onClick={() => browse('/Users/ismaelgarciafernandez')}
+                            onClick={() => roots?.home && browse(roots.home)}
+                            disabled={!roots?.home}
                             className="hover:underline"
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#a78bfa', fontSize: '0.85rem' }}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: roots?.home ? 'pointer' : 'default', opacity: roots?.home ? 1 : 0.4, color: '#a78bfa', fontSize: '0.85rem' }}
                         >
                             <Folder size={14} /> {tn('home')}
                         </button>
                         <button
-                            onClick={() => browse('/')}
+                            onClick={() => browse(roots?.root || '/')}
                             className="hover:underline"
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#f43f5e', fontSize: '0.85rem' }}
                         >

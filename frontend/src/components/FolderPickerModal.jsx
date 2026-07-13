@@ -14,6 +14,10 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+    // Shortcut targets resolved by the backend (active vault, current user's
+    // home, root). `null` until the first browse response — not hardcoded, so
+    // the Vault shortcut follows the ACTIVE vault and Home the real user.
+    const [roots, setRoots] = useState(null);
     const modalRef = useRef(null);
 
     useEffect(() => {
@@ -47,6 +51,9 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                 body: JSON.stringify({ path })
             });
             const data = await res.json();
+            // The backend returns `roots` on every response (success or error),
+            // so the shortcuts stay populated even when the initial path is bad.
+            if (data.roots) setRoots(data.roots);
             if (data.error) {
                 setError(data.error);
                 // Even if there's a permissions error, we show the path where we failed
@@ -108,21 +115,23 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                     <div style={{ padding: '8px 12px', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '12px', alignItems: 'center' }}>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: '500', textTransform: 'uppercase' }}>{t('fs_picker.shortcuts', 'Dreceres:')}</span>
                         <button
-                            onClick={() => browse('/vault')}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#60a5fa', fontSize: '0.85rem' }}
+                            onClick={() => roots?.vault && browse(roots.vault)}
+                            disabled={!roots?.vault}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: roots?.vault ? 'pointer' : 'default', opacity: roots?.vault ? 1 : 0.4, color: '#60a5fa', fontSize: '0.85rem' }}
                             className="hover:underline"
                         >
                             <Home size={14} /> {t('fs_picker.vault', 'Vault')}
                         </button>
                         <button
-                            onClick={() => browse('/Users/ismaelgarciafernandez')}
-                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#a78bfa', fontSize: '0.85rem' }}
+                            onClick={() => roots?.home && browse(roots.home)}
+                            disabled={!roots?.home}
+                            style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: roots?.home ? 'pointer' : 'default', opacity: roots?.home ? 1 : 0.4, color: '#a78bfa', fontSize: '0.85rem' }}
                             className="hover:underline"
                         >
                             <Folder size={14} /> {t('fs_picker.home', 'Home')}
                         </button>
                         <button
-                            onClick={() => browse('/')}
+                            onClick={() => browse(roots?.root || '/')}
                             style={{ display: 'flex', alignItems: 'center', gap: '4px', background: 'transparent', border: 'none', cursor: 'pointer', color: '#f43f5e', fontSize: '0.85rem' }}
                             className="hover:underline"
                         >
