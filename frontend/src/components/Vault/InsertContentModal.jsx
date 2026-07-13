@@ -40,13 +40,16 @@ import { interpolateNamePattern, toAssetPreviewUrl } from '../../lib/fileResourc
  * time to hydrate it, and signal `onDownloading` the moment it's clearly not
  * instant so the UI can show a "downloading" hint.
  *
- * A local file resolves on the first read (no delay). Resolves once readable;
- * throws `Error('unreadable-file')` if it can't be read within `maxWaitMs`
- * (cloud provider offline / the file truly can't be fetched).
+ * A local file resolves on the first read (no delay). When the cloud IS
+ * serving, reading triggers hydration and the poll succeeds within a few
+ * seconds. When the cloud provider is wedged/offline it can't be fetched at
+ * all, so we cap the wait at `maxWaitMs` and throw `Error('unreadable-file')`
+ * — the caller then redirects to "Disc local", where the backend can retry the
+ * download. (A long cap would just spin forever on a wedged OneDrive.)
  */
 const assertFileReadable = async (
     file,
-    { onDownloading, maxWaitMs = 180000, pollMs = 2000 } = {},
+    { onDownloading, maxWaitMs = 20000, pollMs = 2000 } = {},
 ) => {
     if (!file || typeof file.slice !== 'function') return;
     // One slice read → true if readable, false on error/timeout. Each attempt
