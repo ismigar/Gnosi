@@ -92,6 +92,17 @@ class OneDriveProvider(FilesProvider):
         # Coalesce: if two requests want the same file at the same time,
         # we only call the daemon once.
         self._inflight: Dict[str, asyncio.Future] = {}
+        # Auto-recovery: when a materialization fails after the full wait, the
+        # OneDrive sync engine is almost certainly wedged (the UNED account does
+        # this periodically — files stay dataless and every path times out).
+        # Restart it and retry, guarded by a cooldown so we never thrash.
+        self._auto_restart = os.environ.get(
+            "ONEDRIVE_AUTO_RESTART", "1"
+        ).strip().lower() not in ("0", "false", "no")
+        self._restart_cooldown_s = float(os.environ.get("ONEDRIVE_RESTART_COOLDOWN", "300"))
+        self._restart_wait_s = float(os.environ.get("ONEDRIVE_RESTART_WAIT", "30"))
+        self._first_warmup_timeout_s = float(os.environ.get("ONEDRIVE_WARMUP_FIRST_TIMEOUT", "30"))
+        self._last_onedrive_restart = 0.0
 
     def _get_semaphore(self) -> asyncio.Semaphore:
         if self._semaphore is None:
@@ -152,10 +163,12 @@ class OneDriveProvider(FilesProvider):
         except OSError:
             return 0
 
-    async def _open_and_wait(self, container_path: Path) -> bool:
-        """Triggers `open -g -j -a <app>` and polls `st_blocks` until the
-        file is materialized or the timeout runs out. `-g` doesn't bring
-        the app to the foreground and `-j` launches it hidden: it doesn't steal focus."""
+    async def _open_and_wait(self, container_path: Path, timeout_s: Optional[float] = None) -> bool:
+        """Triggers `open -g -j -a <app>` and polls `st_blocks` until the file
+        is materialized or `timeout_s` (default `warmup_timeout_s`) runs out.
+        `-g` doesn't bring the app to the foreground and `-j` launches it hidden:
+        it doesn't steal focus."""
+        limit = timeout_s if timeout_s is not None else self.warmup_timeout_s
         if self._blocks(container_path) > 0:
             return True
         app = self._warmup_open_app
@@ -178,7 +191,7 @@ class OneDriveProvider(FilesProvider):
         # LaunchServices returns immediately; the app keeps the document open and
         # OneDrive downloads in the background (it can take tens of seconds). We poll.
         waited = 0.0
-        while waited < self.warmup_timeout_s:
+        while waited < limit:
             await asyncio.sleep(1.0)
             waited += 1.0
             if self._blocks(container_path) > 0:
@@ -190,7 +203,7 @@ class OneDriveProvider(FilesProvider):
                 return True
         log.warning(
             "☁️ Materialització via open/%s no completada en %.0fs: %s",
-            app, self.warmup_timeout_s, container_path,
+            app, limit, container_path,
         )
         await self._close_helper_doc(container_path)
         return False
@@ -215,10 +228,47 @@ class OneDriveProvider(FilesProvider):
         except OSError:
             pass
 
+    async def _restart_onedrive(self) -> bool:
+        """Kill + relaunch OneDrive when a materialization has wedged. A failure
+        after the full wait almost always means OneDrive's sync engine is stuck
+        (files stay dataless and every path — the browser, `open -a` — times
+        out); a restart reliably unblocks it. Guarded by a cooldown so
+        concurrent/repeated failures don't thrash the client. Returns True if a
+        restart was performed (the caller should then retry)."""
+        if not self._auto_restart:
+            return False
+        import time
+        now = time.monotonic()
+        if now - self._last_onedrive_restart < self._restart_cooldown_s:
+            return False
+        self._last_onedrive_restart = now
+        log.warning("☁️♻️ Materialització encallada → reinicio OneDrive (kill + relaunch).")
+        try:
+            # SIGKILL: a wedged OneDrive ignores SIGTERM.
+            killer = await asyncio.create_subprocess_exec(
+                "/usr/bin/killall", "-9", "OneDrive",
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            )
+            await killer.communicate()
+            await asyncio.sleep(2.0)
+            launcher = await asyncio.create_subprocess_exec(
+                "/usr/bin/open", "-a", "OneDrive",
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            )
+            await launcher.communicate()
+        except OSError as e:
+            log.warning("☁️ No s'ha pogut reiniciar OneDrive: %r", e)
+            return False
+        # Give the client time to reconnect before the retry.
+        await asyncio.sleep(self._restart_wait_s)
+        log.info("☁️♻️ OneDrive reiniciat; reintentant la materialització.")
+        return True
+
     async def _materialize_via_open(self, container_path: Path) -> bool:
         """Mode "open" (native): materializes via LaunchServices. Coalesces
         concurrent requests for the same file and serializes them with the semaphore
-        (OneDrive downloads faster without concurrency)."""
+        (OneDrive downloads faster without concurrency). If the first (short)
+        attempt fails, OneDrive is likely wedged → restart it and retry once."""
         key = str(container_path)
         inflight = self._inflight.get(key)
         if inflight is not None:
@@ -230,7 +280,13 @@ class OneDriveProvider(FilesProvider):
         self._inflight[key] = fut
         try:
             async with self._get_semaphore():
-                ok = await self._open_and_wait(container_path)
+                # First try with a short window: a healthy OneDrive starts
+                # hydrating within seconds. If it fails, the sync engine is
+                # likely wedged → restart OneDrive and retry with the full window.
+                first = min(self._first_warmup_timeout_s, self.warmup_timeout_s)
+                ok = await self._open_and_wait(container_path, first)
+                if not ok and await self._restart_onedrive():
+                    ok = await self._open_and_wait(container_path, self.warmup_timeout_s)
             if not fut.done():
                 fut.set_result(ok)
             return ok
