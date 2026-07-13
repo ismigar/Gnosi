@@ -85,6 +85,15 @@ export const MetadataLookupModal = ({
     const firstInputRef = useRef(null);
     const pdfInputRef = useRef(null);
     const panelRef = useRef(null);
+    // Latest currentMetadata read through a ref so the seed effect below can
+    // depend only on `isOpen`. Callers frequently pass an inline object (or omit
+    // it, defaulting to a fresh `{}` every render); depending on its identity
+    // would re-run the seed effect on every keystroke, wiping the inputs and
+    // stealing focus back to the first field.
+    const currentMetadataRef = useRef(currentMetadata);
+    useEffect(() => {
+        currentMetadataRef.current = currentMetadata;
+    });
 
     // Common post-processing of a response (lookup by identifier or by PDF):
     // saves the result and pre-checks the fields that are currently empty.
@@ -115,21 +124,24 @@ export const MetadataLookupModal = ({
         if (data?.error) toast.error(data.error);
     }, [currentMetadata, mode, onCreate, onClose, t]);
 
-    // Detect current identifiers on open
+    // Detect current identifiers on open. Depends ONLY on `isOpen` so it seeds
+    // the fields on the open transition and never re-runs while the user types
+    // (see currentMetadataRef above for why the identity dependency is unsafe).
     useEffect(() => {
         if (!isOpen) return;
-        setDoi(String(currentMetadata?.DOI || '').trim());
-        setIsbn(String(currentMetadata?.ISBN || '').trim());
+        const cm = currentMetadataRef.current || {};
+        setDoi(String(cm.DOI || '').trim());
+        setIsbn(String(cm.ISBN || '').trim());
         setArxivId('');
-        setPmid(String(currentMetadata?.PMID || '').trim());
-        setUrl(String(currentMetadata?.URL || '').trim());
+        setPmid(String(cm.PMID || '').trim());
+        setUrl(String(cm.URL || '').trim());
         setResult(null);
         setSelectedFields({});
         const id = requestAnimationFrame(() => {
             try { firstInputRef.current?.focus(); } catch { /* ignore */ }
         });
         return () => cancelAnimationFrame(id);
-    }, [isOpen, currentMetadata]);
+    }, [isOpen]);
 
     const handleSearch = useCallback(async () => {
         const payload = {
