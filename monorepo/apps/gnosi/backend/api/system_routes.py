@@ -146,65 +146,90 @@ async def get_graph_viz():
 
 @router.post("/browse", dependencies=[Depends(require_role("admin"))])
 async def browse_directory(body: BrowseRequest = Body(...)):
-    """Browse directory contents for folder picker.
+    """Browse directory contents for the folder/file picker.
 
-    Security: this endpoint can list arbitrary directories, which is a
-    potential information-disclosure vector if exposed without auth. We
-    require admin and constrain navigation to a small allow-list of roots
-    (the vault and the home directory mount).
+    Security: admin-only. The picker is meant to let the operator pick ANY
+    file or folder on the host (see the "search the whole Mac" box and the
+    Root shortcut in the UI), so navigation is anchored on three roots — the
+    ACTIVE vault, the current user's home, and "/" — with the admin gate as
+    the trust boundary. Non-existent / non-directory targets are still rejected.
     """
+    from backend.services.context_vars import get_active_vault_path
+
     target_path = body.path
 
-    # Allow-list of roots that can be browsed. Anything outside is rejected.
-    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    # ── Navigable roots ──
+    # These three are ALSO returned (in `roots`) so the frontend shortcut
+    # buttons point at exactly what this endpoint accepts.
+    #   • Vault → the ACTIVE vault, resolved per-request (X-Vault-Id / cookie),
+    #     so switching vaults moves the shortcut with it. NOT a static env path
+    #     (that would pin the shortcut to Principal regardless of the active vault).
+    #   • Home  → the current user's home (host mount in Docker, real $HOME natively).
+    #   • Root  → "/", so the picker can reach any file on the machine.
+    try:
+        _vp = get_active_vault_path()
+        vault_internal = str(_vp) if _vp else ""
+    except Exception:
+        vault_internal = ""
+    if not vault_internal:
+        # Fallback if there's no active-vault context (e.g. no cookie yet).
+        vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
     home_internal = os.getenv("HOME_HOST_PATH") or os.path.expanduser("~")
+
+    # Shortcut targets for the frontend. Internal paths (what `browse` accepts);
+    # Docker maps them to host paths for display via the mapping block below.
+    # Returned on EVERY response — including errors — so the shortcuts are always
+    # available to recover from a bad/stale initial path.
+    roots = {
+        "vault": vault_internal or None,
+        "home": home_internal or None,
+        "root": "/",
+    }
+
     allowed_roots = []
-    for raw in (vault_internal, home_internal):
+    for raw in (vault_internal, home_internal, "/"):
         if raw:
             try:
                 allowed_roots.append(Path(raw).resolve())
             except Exception:
                 pass
-    # Sensible fallback: vault parent (so the picker can step up one level)
-    try:
-        if vault_internal:
-            allowed_roots.append(Path(vault_internal).resolve().parent)
-    except Exception:
-        pass
 
     if not target_path:
-        # Default to the vault root, not "/"
+        # Default to the active vault root, not "/"
         target_path = vault_internal or home_internal or "/"
 
     try:
         target = Path(target_path).resolve()
     except Exception:
-        return {"error": "Invalid path"}
+        return {"error": "Invalid path", "roots": roots}
 
-    # Containment check — prevents `/etc`, `/root`, traversal, etc.
-    # If we couldn't build any allowed roots, deny by default (fail-closed)
-    # rather than open the filesystem to arbitrary browsing.
+    # Containment check. "/" is an allowed root (admin-only endpoint, picker is
+    # meant to browse the whole host), so in practice this validates that the
+    # target is an absolute, existing path rather than caging it — the admin gate
+    # is the boundary. Fail-closed if no roots resolved.
     if not allowed_roots:
-        return {"error": "Server misconfigured: no allowed roots resolved"}
+        return {"error": "Server misconfigured: no allowed roots resolved", "roots": roots}
 
     if not any(
         target == root or target.is_relative_to(root) for root in allowed_roots
     ):
-        return {"error": "Path is outside of allowed roots"}
+        return {"error": "Path is outside of allowed roots", "roots": roots}
 
     if not target.exists():
-        return {"error": "Path does not exist"}
+        return {"error": "Path does not exist", "roots": roots}
 
     if not target.is_dir():
-        return {"error": "Not a directory"}
+        return {"error": "Not a directory", "roots": roots}
 
     # ── Friendly Routes (Host Mapping) ──
-    vault_internal = os.getenv("DIGITAL_BRAIN_VAULT_PATH") or ""
+    # In Docker the vault is mounted at an internal path (/vault) that differs
+    # from what Finder shows (VAULT_HOST_PATH); map it back for display. Natively
+    # internal == host, so this is a no-op.
     vault_host = os.getenv("VAULT_HOST_PATH") or ""
     home_host = os.getenv("HOME_HOST_PATH")
 
     display_path = str(target)
-    if vault_host and str(target).startswith(vault_internal):
+    if vault_host and vault_internal and str(target).startswith(vault_internal):
         display_path = str(target).replace(vault_internal, vault_host, 1)
     elif home_host and str(target).startswith(home_host):
         # If the internal path matches the host's (like HOME)
@@ -232,12 +257,13 @@ async def browse_directory(body: BrowseRequest = Body(...)):
                     break
     except PermissionError:
         # If the root directory lacks permission
-        return {"error": f"Permission denied at {target}. Check macroscopic Mac permissions.", "current_path": str(target), "display_path": display_path}
+        return {"error": f"Permission denied at {target}. Check macroscopic Mac permissions.", "current_path": str(target), "display_path": display_path, "roots": roots}
     except Exception as e:
         return {
             "error": safe_error_detail(e, "POST /browse access path"),
             "current_path": str(target),
             "display_path": display_path,
+            "roots": roots,
         }
 
     directories.sort(key=lambda s: s.lower())
@@ -248,6 +274,7 @@ async def browse_directory(body: BrowseRequest = Body(...)):
         "display_path": display_path,
         "directories": directories,
         "files": files,
+        "roots": roots,
     }
 
 
