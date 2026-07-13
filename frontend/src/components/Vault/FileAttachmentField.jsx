@@ -91,22 +91,21 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 const formData = new FormData();
                 formData.append('file', file);
                 formData.append('dest_folder', folderPath);
-                const res = await apiFetch(
+                // `apiFetch` (useApi) already parses the JSON and throws on non-ok,
+                // so `data` is the parsed body — do NOT treat it as a raw Response.
+                const data = await apiFetch(
                     `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=free${nameQuery}`,
                     { method: 'POST', body: formData },
                 );
-                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
-                appendValues([(await res.json()).path]);
+                appendValues([data.path]);
             } else {
                 setLoading(true); setError('');
                 const formData = new FormData();
                 formData.append('file', file);
-                const res = await apiFetch(
+                const data = await apiFetch(
                     `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=${storageFolder}${nameQuery}`,
                     { method: 'POST', body: formData },
                 );
-                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
-                const data = await res.json();
                 appendValues([data.url || data.path]);
             }
         } catch (e) {
@@ -136,12 +135,10 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 const formData = new FormData();
                 formData.append('file', file);
                 if (isFree) formData.append('dest_folder', destFolder);
-                const res = await apiFetch(
+                const data = await apiFetch(
                     `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=${sf}${nameQuery}`,
                     { method: 'POST', body: formData },
                 );
-                if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error pujant fitxer');
-                const data = await res.json();
                 newRaws.push(data.url || data.path);
             }
             appendValues(newRaws);
@@ -157,15 +154,13 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
         if (!path) return; // cancel·lat
         setLoading(true); setError('');
         try {
-            const res = await apiFetch('/api/vault/link-existing-file', {
+            const data = await apiFetch('/api/vault/link-existing-file', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ file_path: path, target_name: resolvedName }),
             });
-            if (!res.ok) throw new Error((await res.json().catch(() => ({}))).detail || 'Error enllaçant fitxer');
             // `url` carries the PORTABLE form (library/raw/~) when it exists;
             // `path` (absolute host path) is used as a last resort.
-            const data = await res.json();
             appendValues([data.url || data.path]);
         } catch (e) {
             setError(e.message);
