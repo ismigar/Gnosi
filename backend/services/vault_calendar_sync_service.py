@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict, Any, Set
 from backend.services.google_calendar_service import get_google_calendar_service
 from backend.config.app_config import load_params
-from backend.utils.safe_io import safe_write_text
+from backend.utils.safe_io import guard_windows_reserved, safe_write_text
 
 log = logging.getLogger(__name__)
 
@@ -103,6 +103,9 @@ class VaultCalendarSyncService:
                 else:
                     calendar_slug = "".join([c for c in summary if c.isalnum() or c in (' ', '-', '_')]).strip().replace(" ", "_").lower()
                     if not calendar_slug: calendar_slug = calendar_id.replace("@", "_").replace(".", "_")
+                    # A third-party shared calendar named e.g. "CON" would create a
+                    # Windows/OneDrive-blocked folder.
+                    calendar_slug = guard_windows_reserved(calendar_slug)
                 
                 calendar_folder = account_base_folder / calendar_slug
                 calendar_folder.mkdir(parents=True, exist_ok=True)

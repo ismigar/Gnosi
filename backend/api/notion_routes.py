@@ -29,6 +29,7 @@ from backend.services import notion_mcp_md
 from backend.services import notion_clone
 from backend.services.integration_manager import integration_manager
 from backend.api import vault_routes
+from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
 from backend.config.logger_config import get_logger
 
 log = get_logger(__name__)
@@ -261,7 +262,9 @@ async def list_loose_pages():
 
 
 def _sanitize_folder(name: str) -> str:
-    return re.sub(r"[^\w\s\-/À-ÿ]", "", str(name or "")).strip() or "Notion"
+    # Per-segment OneDrive sanitation (keeps `/` for nesting): forbidden chars,
+    # trailing dot/space per segment, Windows reserved names, `..` traversal.
+    return sanitize_rel_folder(name, fallback="Notion")
 
 
 # ---------------------------------------------------------------------------
@@ -367,7 +370,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
     rest = NotionClient(token)
     folder_by_table: dict = {}
     # Optional subfolder: empty ("") = the clone goes DIRECTLY to the vault root (no wrapper).
-    tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
+    tf = sanitize_rel_folder(target_folder)
 
     # DEDUPE RE-CLON (incident 2026-07-04, 907 duplicats): els ids del clon són deterministes
     # (uuid5 de l'id de Notion), així que re-clonar sobre un vault que ja té un clon ha de
@@ -479,7 +482,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         meta["title"] = page.get("title") or "Sense títol"
         meta["id"] = page.get("id") or str(uuid.uuid4())
         meta = {k: v for k, v in meta.items() if v is not None}
-        safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", meta["title"]).strip()[:120] or "Sense títol"
+        safe = sanitize_vault_title(meta["title"])
         target_dir = vault / folder
         target_dir.mkdir(parents=True, exist_ok=True)
         # Re-clon: si ja hi ha un fitxer amb aquest id (frontmatter), es SOBREESCRIU al mateix
@@ -526,7 +529,9 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
             biblio = vault / "Library"
             fname = download_file(url, biblio, timeout=DL_TIMEOUT)
             return f"/api/vault/library/{fname}" if fname else None
-        clean = lambda s, d: (re.sub(r"[^\w\s\-.()À-ÿ]", "", str(s)).strip() or d)  # noqa: E731
+        # Folder segments (table/field name): OneDrive forbids trailing dots/spaces
+        # and reserved names also on FOLDERS, hence sanitize_vault_title per segment.
+        clean = lambda s, d: sanitize_vault_title(s, fallback=d)  # noqa: E731
         leaf = clean(table.get("name"), "Taula")
         sub = clean(prop, "") if prop else "_cos"
         dest = vault / "Assets"
@@ -675,7 +680,7 @@ def _run_verify_sync(token: str, database_ids, target_folder="") -> dict:
     rel_keys_by_table = {t.get("id"): relation_keys_from_table(t) for t in reg.get("tables", [])}
 
     pages = []
-    tf = re.sub(r"[^\w\s\-/À-ÿ]", "", str(target_folder or "")).strip()
+    tf = sanitize_rel_folder(target_folder)
     folder = (vault / tf) if tf else vault   # empty = vault root
     for md in folder.rglob("*.md"):
         try:
