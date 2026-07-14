@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 import yaml
 from pathlib import Path
 from backend.config.paths_config import get_paths
-from backend.utils.safe_io import safe_write_text
+from backend.utils.safe_io import guard_windows_reserved, safe_write_text
 
 from backend.models.contact import Contact, ContactType, ContactSource
 from backend.services.google_contacts_service import (
@@ -652,6 +652,9 @@ class ContactsSyncEngine:
                     clean_name = "".join([c for c in contact.name if c.isalnum() or c in (' ', '-', '_')]).strip()
                     if not clean_name:
                         clean_name = f"Unknown_{contact.id}"
+                    # Windows blocks by the part before the FIRST dot: a contact
+                    # named "CON" would yield CON.contact.md, rejected by OneDrive.
+                    clean_name = guard_windows_reserved(clean_name)
                     
                     filename = f"{clean_name}.contact.md"
                     file_path = contacts_folder / filename

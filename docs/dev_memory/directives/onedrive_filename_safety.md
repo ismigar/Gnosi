@@ -1,6 +1,6 @@
 # Directiva: Noms de fitxer segurs per OneDrive (i Windows)
 
-**Última actualització:** 2026-05-08
+**Última actualització:** 2026-07-14
 
 ## Problema
 
@@ -11,6 +11,11 @@ conté caràcters prohibits o un format invàlid:
 - Control chars: `\x00–\x1f` (inclou `\r`, `\n`, `\t`)
 - Espais inicials/finals al nom
 - Acabar en `.` o començar en `:`
+- **Noms de dispositiu reservats de Windows**: `CON`, `PRN`, `AUX`, `NUL`,
+  `COM0-9`, `LPT0-9` — bloquejats amb QUALSEVOL extensió (`CON.md` també),
+  perquè Windows compara el tram fins al PRIMER punt.
+- **Cada SEGMENT de carpeta compta**: una carpeta que acaba en `.` o espai és
+  igual d'invàlida que un fitxer.
 
 Quan passa, OneDrive mostra un popup com "¿Cambiar el nombre de N elementos?"
 i suggereix substituir per `_`.
@@ -31,13 +36,43 @@ message_id = msg.get("Message-ID", "").strip("<>")
 ## Política
 
 1. **Mai** generar paths/noms a partir de strings d'entrada externa (mail
-   headers, títols Notion, valors d'usuari) sense passar-los per
-   `sanitize_filename_component()` de `backend/utils/safe_io.py`.
+   headers, títols Notion, noms de fitxer pujats, valors d'usuari, noms de
+   calendaris/contactes de Google) sense passar-los per un dels helpers
+   canònics de `backend/utils/safe_io.py`:
+   - `sanitize_vault_title(title, fallback, max_len)` — títol humà → base de
+     nom de fitxer (SENSE slugificar: preserva accents, majúscules i espais).
+   - `sanitize_rel_folder(path, fallback)` — ruta relativa `A/B/C`: saneja
+     CADA segment, elimina `..`/buits (traversal) i conserva el `/`.
+   - `sanitize_path_segment(value, fallback)` — un segment amb whitelist
+     estricta (àlbums de media, noms de fitxer pujats).
+   - `sanitize_filename_component(value)` — ids tipus Message-ID (elimina
+     TOT el whitespace).
+   - `guard_windows_reserved(name)` — l'apliquen tots els anteriors; útil sol
+     quan el nom ja està netejat per una altra via (slugs de calendari,
+     contactes).
 2. **Mai** confiar en `.strip(...)`: si l'input pot dur control chars o
    espais barrejats amb el contingut a netejar, fes el sanejament regex.
 3. La regex canònica és `r'[<>:"/\\|?*\x00-\x1f]'` → `''` + strip d'espais
    externs. Per a Message-ID concretament, també `\s+` → `''` perquè
    els headers folded poden dur whitespace al mig.
+4. **Truncar ABANS de l'strip final**: `strip()[:N]` pot deixar el tall en un
+   espai o exposar un punt com a últim caràcter. L'ordre correcte és
+   `[:N].rstrip(" .")` (els helpers ja ho fan).
+5. **No duplicar sanejadors inline**: l'auditoria del 2026-07-14 va trobar 6+
+   còpies del mateix regex a `vault_routes`, `notion_routes`, `public_routes`
+   i `agent/vault_tools`, cadascuna amb un gap diferent. Tots deleguen ara als
+   helpers de `safe_io`. Tests de regressió a
+   `backend/tests/test_onedrive_filename_safety.py`.
+
+## Cas observat (2026-07-14) — auditoria completa
+
+El clon de Notion posava el TÍTOL CRU de la BD de Notion com a carpeta física
+(`notion_clone.py`: `table["folder"] = f"{tf}/{nom}"` → `mkdir`), sense cap
+sanejament: un títol amb `:`/`"` trencava la sync i un `/` o `..` era path
+traversal real. També: `PUT /tables` acceptava `folder` tal qual del payload,
+l'importador Markdown i l'agent IA usaven whitelists que deixaven passar `\n`
+interiors (via `\s`), i cap sanejador bloquejava els noms reservats de
+Windows. Tot corregit delegant als helpers canònics.
 
 ## Migració
 

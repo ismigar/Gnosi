@@ -26,6 +26,7 @@ from backend.data.management_db import get_mgmt_db
 from backend.models.management import ApiToken
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.context_vars import get_active_vault_path
+from backend.utils.safe_io import sanitize_vault_title
 
 router = APIRouter()
 
@@ -135,8 +136,7 @@ def revoke_token(
 # ───────────────────────── Public API (PAT) ─────────────────────────
 
 def _sanitize_filename(title: str) -> str:
-    clean = re.sub(r"[^\w\s\-.,()À-ÿ]", "", title).strip() or "Sense títol"
-    return clean[:120]
+    return sanitize_vault_title(title)
 
 
 def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -> dict:

@@ -58,6 +58,8 @@ from backend.utils.safe_io import (
     file_etag,
     file_mtime_ns,
     sanitize_path_segment,
+    sanitize_rel_folder,
+    sanitize_vault_title,
 )
 from backend.utils.errors import safe_error_detail
 import asyncio
@@ -1645,13 +1647,7 @@ _sanitize_asset_segment = sanitize_path_segment
 
 def _sanitize_filename_base(title: str) -> str:
     """Sanitize a title into a filesystem-safe filename base (without extension)."""
-    safe = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "", str(title or "")).strip()
-    safe = re.sub(r"\s+", " ", safe)
-    if not safe:
-        safe = "Untitled"
-    if len(safe) > 200:
-        safe = safe[:200].strip()
-    return safe
+    return sanitize_vault_title(title, fallback="Untitled", max_len=200)
 
 
 def _resolve_unique_filename(
@@ -11800,7 +11796,7 @@ async def import_markdown(body: ImportRequest):
     vault = get_active_vault_path()
     if not vault:
         raise HTTPException(status_code=503, detail="No hi ha cap vault actiu")
-    folder = re.sub(r"[^\w\s\-/À-ÿ]", "", str(body.folder or "Importades")).strip() or "Importades"
+    folder = sanitize_rel_folder(body.folder, fallback="Importades")
     target_dir = Path(vault) / folder
     target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -11818,7 +11814,7 @@ async def import_markdown(body: ImportRequest):
             meta.setdefault("title", meta.get("title") or stem)
             if not meta.get("id"):
                 meta["id"] = str(uuid.uuid4())
-            safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", stem).strip()[:120] or "Sense títol"
+            safe = sanitize_vault_title(stem)
             path = target_dir / f"{safe}.md"
             if path.exists():
                 path = target_dir / f"{safe} {meta['id'][:8]}.md"
@@ -13388,9 +13384,14 @@ def _create_table_locked(table: dict):
     if "id" not in table:
         table["id"] = str(uuid.uuid4())
 
-    # Ensure and normalize the folder property
+    # Ensure and normalize the folder property. `sanitize_rel_folder` on top of the
+    # path normalization: the name may come verbatim from the API payload (or from a
+    # Notion title) and OneDrive rejects `<>:"|?*`, trailing dots/spaces per segment,
+    # and Windows reserved device names; it also drops `..` traversal segments.
     folder_raw = table.get("folder") or table.get("name", "untitled_table")
-    table["folder"] = _normalize_rel_folder(folder_raw)
+    table["folder"] = sanitize_rel_folder(
+        _normalize_rel_folder(folder_raw), fallback="untitled_table"
+    )
 
     # If already exists, update it (upsert)
     existing_idx = next(
@@ -13543,9 +13544,13 @@ def _rename_table_locked(table_id: str, data: dict):
             if "name" in data:
                 t["name"] = data["name"]
                 if not t.get("folder"):
-                    t["folder"] = data["name"]
+                    t["folder"] = sanitize_vault_title(data["name"], fallback="untitled_table")
             if "folder" in data:
-                t["folder"] = data["folder"]
+                # Direct pass-through from the API payload → per-segment OneDrive
+                # sanitation (forbidden chars, trailing dot/space, reserved names, `..`).
+                t["folder"] = sanitize_rel_folder(
+                    data["folder"], fallback=t.get("folder") or "untitled_table"
+                )
             new_name = str(t.get("name") or "").strip()
 
             # If the name has changed, moves both asset folders so the

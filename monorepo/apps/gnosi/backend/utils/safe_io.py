@@ -115,6 +115,29 @@ def safe_write_json(path: PathLike, obj: Any, **dumps_kwargs: Any) -> None:
 # docs/dev_memory/directives/onedrive_filename_safety.md.
 _FILENAME_FORBIDDEN_RE = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
 
+# Windows reserved device names: invalid as a file OR folder name even with an
+# extension (`CON.md` is also blocked). Comparison is against the part up to
+# the FIRST dot, case-insensitive.
+_WINDOWS_RESERVED_NAMES = frozenset(
+    {"CON", "PRN", "AUX", "NUL"}
+    | {f"COM{i}" for i in range(0, 10)}
+    | {f"LPT{i}" for i in range(0, 10)}
+)
+
+
+def guard_windows_reserved(name: str) -> str:
+    """Prefix `_` if the name clashes with a Windows reserved device (CON, NUL…).
+
+    Windows/OneDrive blocks the name when the part BEFORE the first dot is a
+    reserved device name, with any extension (`nul`, `CON.md`, `com1.contact.md`).
+    """
+    if not name:
+        return name
+    stem = str(name).split(".", 1)[0].rstrip(" ")
+    if stem.upper() in _WINDOWS_RESERVED_NAMES:
+        return "_" + name
+    return name
+
 
 def sanitize_filename_component(value: str) -> str:
     """Return `value` cleaned for use inside a single path component.
@@ -122,7 +145,7 @@ def sanitize_filename_component(value: str) -> str:
     Removes: reserved chars (`<>:"/\\|?*`), control chars, and any whitespace
     (including `\\r\\n` which appears in folded Message-ID headers). Strip
     external `.` and spaces. Suitable for Message-IDs, slugs, titles.
-    
+
     """
     if value is None:
         return ""
@@ -132,7 +155,7 @@ def sanitize_filename_component(value: str) -> str:
     cleaned = re.sub(r"\s+", "", cleaned)
     # External strip of chars that Windows doesn't accept at the start/end of a name
     cleaned = cleaned.strip(" .")
-    return cleaned
+    return guard_windows_reserved(cleaned)
 
 
 def sanitize_path_segment(value: str, fallback: str) -> str:
@@ -147,14 +170,55 @@ def sanitize_path_segment(value: str, fallback: str) -> str:
     See docs/dev_memory/directives/media_upload_path_safety.md: this
     sanitizer is NOT the only defense against traversal — the caller must
     still contain the final destination within its own root.
-    
+
     """
     cleaned = re.sub(r"[\\/]+", " ", str(value or "")).strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
-    cleaned = re.sub(r"[^\w\-. ]", "", cleaned, flags=re.UNICODE).strip()
-    if not cleaned or set(cleaned) <= {"."}:
+    cleaned = re.sub(r"[^\w\-. ]", "", cleaned, flags=re.UNICODE)
+    # Truncate BEFORE the final strip: if the cut lands on a space, or exposes a
+    # dot as the last character, OneDrive would reject the name.
+    cleaned = cleaned[:120].strip().rstrip(" .")
+    if not cleaned:
         return fallback
-    return cleaned[:120]
+    return guard_windows_reserved(cleaned)
+
+
+def sanitize_vault_title(title: str, fallback: str = "Sense títol", max_len: int = 120) -> str:
+    """Human title → OneDrive/Windows-safe filename base, WITHOUT slugifying.
+
+    Preserves accents, case and interior spaces (cf. test_pipeline_naming:
+    never slugify names). Only removes what OneDrive/Windows forbids:
+    `<>:"/\\|?*`, control chars (`\\n`/`\\t` collapsed to a space), trailing
+    spaces/dots (also AFTER truncating) and reserved device names.
+    """
+    # Collapse whitespace FIRST (so `\n`/`\t` become a word separator instead of
+    # being silently deleted as control chars), then drop the forbidden chars.
+    safe = re.sub(r"\s+", " ", str(title or ""))
+    safe = _FILENAME_FORBIDDEN_RE.sub("", safe)
+    safe = re.sub(r" {2,}", " ", safe).strip()
+    safe = safe[:max_len].rstrip(" .")
+    if not safe:
+        return fallback
+    return guard_windows_reserved(safe)
+
+
+def sanitize_rel_folder(path: str, fallback: str = "") -> str:
+    """Relative multi-segment path (`A/B/C`) → every segment OneDrive-safe.
+
+    Each segment goes through the same rules as `sanitize_vault_title` (an
+    intermediate segment is also a real folder: it cannot end in a space or a
+    dot nor be a reserved name). Empty segments and dots-only segments
+    (`.`/`..`, traversal) are dropped. Returns `fallback` if none survive.
+    """
+    segments = []
+    for seg in re.split(r"[\\/]+", str(path or "")):
+        s = re.sub(r"\s+", " ", seg)
+        s = _FILENAME_FORBIDDEN_RE.sub("", s)
+        s = re.sub(r" {2,}", " ", s).strip().rstrip(" .")
+        if not s:
+            continue
+        segments.append(guard_windows_reserved(s))
+    return "/".join(segments) or fallback
 
 
 def file_mtime_ns(path: PathLike) -> Optional[int]:

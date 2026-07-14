@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional
 from backend.services.notion_importer import (
     map_database_schema, page_to_values, _page_title, _emoji_icon,
 )
+from backend.utils.safe_io import sanitize_vault_title
 from backend.services import notion_view_recreator as nvr
 
 _CLONE_NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000003")
@@ -295,7 +296,11 @@ def clone_workspace(
                     tgt = p.get("relation_database_id")
                     if p.get("type") == "relation" and tgt and tgt not in _sel_clone_ids:
                         p["relation_database_id"] = clone_table_id(tgt)
-            _tname = table.get('name') or 'Taula'
+            # The folder is a REAL path segment: the raw Notion DB title can carry
+            # OneDrive-forbidden chars (`<>:"/\|?*`), trailing dots/spaces or even
+            # `/`/`..` (path traversal via mkdir). The registry keeps the raw name in
+            # table["name"]; only the folder is sanitized.
+            _tname = sanitize_vault_title(table.get('name'), fallback='Taula')
             # Without a subfolder (empty target_folder) → the table hangs directly from the vault root.
             table["folder"] = f"{target_folder}/{_tname}" if target_folder else _tname
             write_table(table)

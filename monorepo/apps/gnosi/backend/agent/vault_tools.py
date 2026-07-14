@@ -17,6 +17,8 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
+from backend.utils.safe_io import sanitize_rel_folder, sanitize_vault_title
+
 try:
     from langchain_core.tools import tool
 except Exception:  # allows importing the pure helpers without langchain (for tests)
@@ -159,13 +161,12 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
     fm_str = build_page_frontmatter(title, metadata)
     page_id = re.search(r'(^|\n)id:\s*["\']?([\w-]+)', fm_str)
     page_id = page_id.group(2) if page_id else ""
-    safe = re.sub(r"[^\w\s\-.,()À-ÿ]", "", title).strip()[:120] or "Sense títol"
-    folder_safe = re.sub(r"[^\w\s\-/À-ÿ]", "", folder).strip() or "Importades"
-    # `folder` comes from the LLM (prompt-injectable). The sanitization strips dots but
-    # KEEPS the slashes: a "../../etc" becomes "///etc", and `vault / "///etc"`
-    # becomes ABSOLUTE (/etc) by discarding the vault prefix → the .md gets written
-    # OUTSIDE the vault. Containment: if the resolved destination escapes the vault, it falls back to the
-    # default folder (same pattern as read_pdf/_safe_directive_path).
+    safe = sanitize_vault_title(title)
+    folder_safe = sanitize_rel_folder(folder, fallback="Importades")
+    # `folder` comes from the LLM (prompt-injectable). `sanitize_rel_folder` already
+    # drops `..`/empty segments, but keep the belt-and-braces containment check: if the
+    # resolved destination escapes the vault, it falls back to the default folder
+    # (same pattern as read_pdf/_safe_directive_path).
     vault_root = vault.resolve()
     target_dir = (vault / folder_safe).resolve()
     if target_dir != vault_root and vault_root not in target_dir.parents:
