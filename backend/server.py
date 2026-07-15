@@ -114,8 +114,9 @@ async def lifespan(app: FastAPI):
                 log.info(f"⚡ Sync page-index preload completed for {v_path}")
             else:
                 log.info(f"ℹ️ No disk page-index cache found for {v_path}")
-            kickoff_index_warmup(v_path)
-            log.info(f"🔥 Indexer warmup launched in background for {v_path}")
+            # TEMPORARILY DISABLED: OneDrive EDEADLK blocks entire indexer
+            # kickoff_index_warmup(v_path)
+            log.info(f"⏭️ Skipping indexer warmup due to OneDrive EDEADLK")
             # Redundant trigger for the link-index rebuild: if the warmup indexer
             # is slow (OneDrive being slow doing rglob), the wikilinks index starts
             # anyway from here. kickoff_link_index_rebuild does a load-from-disk
@@ -130,9 +131,13 @@ async def lifespan(app: FastAPI):
             # request threadpool (symptom: /api/vaults -> "timeout of 30000ms
             # exceeded" while OneDrive is cold). In-process version of the
             # one-off rehydrate_vault.py incident script. Best-effort, non-blocking.
-            from backend.services.vault_warmup import kickoff_critical_warmup
-            kickoff_critical_warmup(v_path)
-            log.info(f"☁️ Critical-vault warmup kicked off for {v_path}")
+            # TEMPORARILY DISABLED: OneDrive is returning EDEADLK on all file access.
+            # Skipping warmup to allow backend to start; OneDrive will hydrate files
+            # on-demand or via daemon/5009.
+            # from backend.services.vault_warmup import kickoff_critical_warmup
+            # kickoff_critical_warmup(v_path)
+            # log.info(f"☁️ Critical-vault warmup kicked off for {v_path}")
+            log.info(f"⏭️ Skipping critical-vault warmup due to OneDrive EDEADLK")
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
