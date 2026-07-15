@@ -57,6 +57,13 @@ updates:
     labels:
       - "dependencies"
       - "backend"
+    ignore:
+      # numpy: aquest Mac Intel té torch capat a 2.2.2, incompatible amb
+      # numpy 2.x. El venv fixa numpy 1.26.x a propòsit (amb transformers
+      # 4.44 / sentence-transformers 3.0). No volem PRs de major (2.x+)
+      # que trencarien el stack ML. Vegis PR #749 (tancat).
+      - dependency-name: "numpy"
+        update-types: ["version-update:semver-major"]
 
   # Git submodules (especialment zotero/reader)
   - package-ecosystem: "gitsubmodule"
