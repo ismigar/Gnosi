@@ -1106,9 +1106,15 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     ai: { 
                         ...prev.ai, 
                         agents: cfg.ai?.agents || [], 
-                        active_agent_id: cfg.ai?.active_agent_id || '' 
+                        active_agent_id: cfg.ai?.active_agent_id || ''
                     }
                 }));
+                // Sync the backend-persisted theme into the localStorage channel the
+                // theme engine reads, so the saved preference survives a reload.
+                if (cfg.settings?.theme && cfg.settings.theme !== localStorage.getItem('db-theme')) {
+                    localStorage.setItem('db-theme', cfg.settings.theme);
+                    window.dispatchEvent(new Event('db-theme-changed'));
+                }
             }
         } catch (err) { console.error("Error loading config:", err); }
     };
@@ -2069,7 +2075,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                             { id: 'dark', label: tn('appearance.theme_dark'), icon: Monitor, bg: '#000000' },
                                             { id: 'system', label: tn('appearance.theme_system'), icon: Monitor, bg: 'linear-gradient(135deg, #fff 50%, #000 50%)' }
                                         ].map(opt => (
-                                            <button key={opt.id} onClick={() => setDraft({...draft, settings: {...draft.settings, theme: opt.id}})} style={{
+                                            <button key={opt.id} onClick={() => {
+                                                setDraft({...draft, settings: {...draft.settings, theme: opt.id}});
+                                                // Wire the selector into the theme engine (useTheme / index.html bootstrap
+                                                // read localStorage['db-theme'] and react to the 'db-theme-changed' event).
+                                                localStorage.setItem('db-theme', opt.id);
+                                                window.dispatchEvent(new Event('db-theme-changed'));
+                                            }} style={{
                                                 padding: '12px', borderRadius: '24px', border: `2px solid ${draft.settings.theme === opt.id ? 'var(--gnosi-blue)' : 'var(--settings-border)'}`,
                                                 background: draft.settings.theme === opt.id ? 'rgba(59, 130, 246, 0.05)' : 'transparent', cursor: 'pointer', transition: 'all 0.3s'
                                             }}>
