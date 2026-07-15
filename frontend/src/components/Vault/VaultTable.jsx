@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle } from 'lucide-react';
+import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
@@ -320,6 +320,7 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { TranslateLanguagesModal } from './TranslateLanguagesModal';
 import { SyncDrupalModal } from './SyncDrupalModal';
 import { PublishSocialModal } from './PublishSocialModal';
+import { ProcessResourceModal } from './ProcessResourceModal';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
@@ -589,6 +590,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         () => getSchemaFieldNames(schema).some((name) => {
             const cfg = getFieldConfig(schema, name);
             return cfg?.system === true && /xxss|social/i.test(name);
+        }),
+        [schema]
+    );
+    // Shows the "Process resource" (LLM Wiki) button when the table has the
+    // feature enabled. Designating a Cervell adds a `system` "Processat pel
+    // Cervell" date column to the references table (see ensure_llm_wiki_column),
+    // so the signal lives in the schema like Drupal/XXSS.
+    const isLlmWikiTable = useMemo(
+        () => getSchemaFieldNames(schema).some((name) => {
+            const cfg = getFieldConfig(schema, name);
+            return cfg?.system === true && /processat pel cervell/i.test(name);
         }),
         [schema]
     );
@@ -3107,6 +3119,31 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     </button>
                                 );
                             })()}
+                            {isLlmWikiTable && !isListView && !note.metadata?.translation_lang && (() => {
+                                // Guard "only once": the button is disabled once the
+                                // row carries a `Processat pel Cervell` date. The
+                                // backend re-checks and returns 409 otherwise.
+                                const processed = note.metadata?.['Processat pel Cervell'] || note.metadata?.['processat pel cervell'];
+                                const ok = !processed;
+                                const label = ok
+                                    ? t('table.process_resource', 'Processar recurs (Cervell)')
+                                    : t('table.process_resource_done', 'Ja processat el {{date}}', { date: processed });
+                                return (
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            if (!ok) return;
+                                            setPendingAction({ noteId: note.id, action: 'process_resource' });
+                                        }}
+                                        disabled={!ok}
+                                        className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
+                                        title={label}
+                                    >
+                                        <BrainCircuit size={14} />
+                                        <span className="row-action-tooltip">{label}</span>
+                                    </button>
+                                );
+                            })()}
                             {!isListView && onDeletePage && (
                                 <button
                                     onClick={(e) => {
@@ -3776,6 +3813,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     noteId={pendingAction.noteId}
                     recordMetadata={noteById.get(pendingAction.noteId)?.metadata || {}}
                     onPublished={() => { setPendingAction(null); onTranslated?.({}); }}
+                />
+            )}
+
+            {pendingAction && pendingAction.action === 'process_resource' && (
+                <ProcessResourceModal
+                    isOpen={true}
+                    onClose={() => setPendingAction(null)}
+                    noteId={pendingAction.noteId}
+                    title={noteById.get(pendingAction.noteId)?.title || ''}
+                    onProcessed={() => { setPendingAction(null); onTranslated?.({}); }}
                 />
             )}
 

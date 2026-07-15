@@ -5,7 +5,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import 'katex/dist/katex.min.css';
 import { WikilinkInline } from './WikilinkInline';
-import { WIKILINK_HREF_SENTINEL, STYLE_HREF_SENTINEL, convertWikilinksToMd, convertInlineHtmlToMd, decodeStylePayload, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
+import { WIKILINK_HREF_SENTINEL, STYLE_HREF_SENTINEL, CITE_HREF_SENTINEL, convertWikilinksToMd, convertInlineHtmlToMd, decodeStylePayload, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
+import { openCitation } from '../../lib/fileResource';
 
 /* -------------------------------------------------------------------------- */
 /*  Equations inherited from Notion                                              */
@@ -108,6 +109,20 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                             .map(c => (typeof c === 'string' ? c : (c?.props?.children || '')))
                             .join('') || target;
                         return <WikilinkInline title={text} target={target} />;
+                    }
+                    // Citation deep link: `gnosi-cite:?res=<id>&page=N` → open the
+                    // source resource's document at that page (NotebookLM-style).
+                    if (typeof href === 'string' && href.startsWith(CITE_HREF_SENTINEL)) {
+                        const qs = new URLSearchParams(href.slice(CITE_HREF_SENTINEL.length).replace(/^\?/, ''));
+                        const res = qs.get('res');
+                        const page = qs.get('page');
+                        return (
+                            <a
+                                href="#cite"
+                                className="text-[var(--gnosi-primary)] hover:underline cursor-pointer"
+                                onClick={(e) => { e.preventDefault(); if (res) openCitation(res, page); }}
+                            >{children}</a>
+                        );
                     }
                     return <a href={href} className="text-[var(--gnosi-primary)] hover:underline" {...rest}>{children}</a>;
                 },
