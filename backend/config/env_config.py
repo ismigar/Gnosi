@@ -27,6 +27,21 @@ def _is_docker() -> bool:
     return Path("/.dockerenv").exists() or bool(os.environ.get("DOCKER_CONTAINER"))
 
 
+def default_host_helper_url(path: str) -> str:
+    """Default URL for the host helper services (host_open_helper, port 5099).
+
+    The helper always runs on the HOST: a backend inside Docker reaches it via
+    `host.docker.internal`, a native backend on plain loopback. Leaving the
+    Docker hostname as the unconditional default made native installs silently
+    lose the helper (Spotlight search degraded to os.walk, moving attachments
+    to the macOS Trash returned 502) — same failure family as the warmup-mode
+    autodetection in files_provider/onedrive.py (PR #838). The per-endpoint
+    `GNOSI_HOST_*_HELPER_URL` env vars still override this default.
+    """
+    host = "host.docker.internal" if _is_docker() else "127.0.0.1"
+    return f"http://{host}:5099{path}"
+
+
 def _load_keychain():
     """Load credentials from Keychain if available. Skipped in Docker (env vars come from env_file)."""
     global _keychain_loaded
