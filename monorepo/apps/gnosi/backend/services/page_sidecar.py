@@ -13,6 +13,7 @@ The user opens the `.md` in any editor and only sees semantic metadata.
 from __future__ import annotations
 
 import json
+import os
 from functools import lru_cache
 from pathlib import Path
 from typing import Optional, Tuple
@@ -97,6 +98,21 @@ def read_sidecar(vault_root: Path, page_id: str) -> dict:
         return {}
     path = sidecar_path_for(vault_root, page_id)
     if not path.exists():
+        return {}
+    # Guard against dataless / online-only files on cloud filesystems (OneDrive).
+    # Reading a dataless file synchronously blocks on the File Provider download;
+    # if OneDrive's hydration is broken it raises EDEADLK (errno 11) or hangs the
+    # calling thread indefinitely, which starves the request threadpool and makes
+    # the sidebar spin forever on "loading". A `stat()` is metadata-only and never
+    # blocks: st_blocks == 0 means the content isn't materialized locally, so we
+    # skip it and fall back to defaults (generic icon) instead of hanging. Once
+    # OneDrive materializes the file (st_blocks > 0) it gets read normally again.
+    try:
+        if os.stat(path).st_blocks == 0:
+            log.warning(f"Sidecar {path} és dataless (online-only/corrupte); s'ignora")
+            return {}
+    except OSError as e:
+        log.warning(f"No s'ha pogut fer stat del sidecar {path}: {e}")
         return {}
     try:
         with path.open("r", encoding="utf-8") as f:
