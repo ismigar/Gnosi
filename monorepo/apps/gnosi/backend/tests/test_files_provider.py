@@ -217,10 +217,25 @@ def test_onedrive_is_online_only_returns_false_on_stat_error(tmp_path):
     assert p.is_online_only(tmp_path / "nope.jpg") is False
 
 
-def test_onedrive_default_warmup_url(monkeypatch):
+def test_onedrive_default_warmup_url_docker(monkeypatch):
+    """In Docker the warmup default targets the host daemon in daemon mode."""
+    monkeypatch.setattr("backend.services.files_provider.onedrive._is_docker", lambda: True)
     p = OneDriveProvider()
     assert p.warmup_url == "http://host.docker.internal:5009/warmup"
+    assert p.warmup_mode == "daemon"
     assert p.warmup_timeout_s == 100.0
+
+
+def test_onedrive_default_warmup_native_macos(monkeypatch):
+    """On native macOS (no Docker) the default is LaunchServices "open" mode and
+    the daemon URL — used only if forced back to daemon — is the loopback one.
+    This is what lets native installs work without exporting ONEDRIVE_WARMUP_MODE."""
+    monkeypatch.setattr("backend.services.files_provider.onedrive._is_docker", lambda: False)
+    monkeypatch.setattr("backend.services.files_provider.onedrive.sys.platform", "darwin")
+    monkeypatch.delenv("ONEDRIVE_WARMUP_MODE", raising=False)
+    p = OneDriveProvider()
+    assert p.warmup_mode == "open"
+    assert p.warmup_url == "http://127.0.0.1:5009/warmup"
 
 
 def test_onedrive_env_vars_override(monkeypatch):
