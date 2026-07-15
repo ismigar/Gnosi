@@ -8,6 +8,7 @@ import os
 import unicodedata
 import psutil
 from pathlib import Path
+from backend.config.env_config import default_host_helper_url
 from backend.data.management_db import get_mgmt_db
 from backend.models.notification import Notification, NotificationResponse
 from backend.services.graph_service import GraphService
@@ -291,20 +292,21 @@ _SEARCH_SKIP_DIR_NAMES = {
 }
 
 
-_HOST_SEARCH_HELPER_URL = os.getenv(
-    "GNOSI_HOST_SEARCH_HELPER_URL",
-    "http://host.docker.internal:5099/search",
+_HOST_SEARCH_HELPER_URL = (
+    os.getenv("GNOSI_HOST_SEARCH_HELPER_URL")
+    or default_host_helper_url("/search")
 )
 
 
 def _search_via_host_helper(query: str, limit: int, roots: list, timeout: float = 10.0):
     """Delegate the search to Spotlight (`mdfind`) via the host helper.
 
-    The backend runs inside Docker and doesn't have `mdfind`; the `host_open_helper`
-    (pipeline/skills/host_open_helper/) listens on 127.0.0.1:5099 on the host and
-    exposes `/search`. Spotlight has a live index of the disk and returns in
-    milliseconds, while the container's `os.walk` over OneDrive
-    takes seconds.
+    The `host_open_helper` (pipeline/skills/host_open_helper/) listens on
+    127.0.0.1:5099 on the host and exposes `/search`; the backend reaches it on
+    loopback (native) or via `host.docker.internal` (Docker) — see
+    default_host_helper_url(). Spotlight has a live index of the disk and
+    returns in milliseconds, while a raw `os.walk` over OneDrive (the only
+    option inside a container, which lacks `mdfind`) takes seconds.
 
     Returns the helper's response dict (`results`/`truncated` keys), or
     `None` if the helper is unavailable or fails — so the caller can

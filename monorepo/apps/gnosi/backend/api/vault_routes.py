@@ -39,6 +39,7 @@ try:
 except Exception:
     Image = None
 from backend.config.app_config import load_params
+from backend.config.env_config import default_host_helper_url
 from backend.services.rule_engine import RuleEngine
 log = logging.getLogger(__name__)
 
@@ -13214,9 +13215,9 @@ def _sort_key_name(item):
     return (order_val, normalized_name)
 
 
-_HOST_OPEN_HELPER_URL = os.environ.get(
-    "GNOSI_HOST_OPEN_HELPER_URL",
-    "http://host.docker.internal:5099/open",
+_HOST_OPEN_HELPER_URL = (
+    os.environ.get("GNOSI_HOST_OPEN_HELPER_URL")
+    or default_host_helper_url("/open")
 )
 
 _HOST_TRASH_HELPER_URL = os.environ.get(
@@ -13261,8 +13262,9 @@ def _try_host_open_helper(target: str, timeout: float = 2.0) -> bool:
     Gnosi's backend usually runs inside a Linux Docker container that does NOT
     have access to the host's graphical system (Finder/Explorer). The helper
     `host_open_helper` (see pipeline/skills/host_open_helper/) listens on
-    127.0.0.1:5099 on the host and the container contacts it via
-    `host.docker.internal:5099`. If it's not available, we fall back to the
+    127.0.0.1:5099 on the host; the backend reaches it on loopback (native) or
+    via `host.docker.internal` (Docker) — see default_host_helper_url().
+    If it's not available, we fall back to the
     local `subprocess` (which works if the backend runs directly on the
     host, not in Docker).
     

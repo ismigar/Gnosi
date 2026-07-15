@@ -6,12 +6,20 @@
 > Backend (uvicorn `:5002`) i frontend (vite `:5173`) s'executen al host via LaunchAgents
 > `com.gnosi.backend` / `com.gnosi.frontend` (scripts a `~/.gnosi-local/run-*.sh`, venv
 > `~/.gnosi-local/venv`, dades `~/.gnosi-local/data`). Això elimina l'`EDEADLK` del vault
-> OneDrive: es llegeix natiu, com Obsidian. **Docker queda com a FALLBACK aturat** (agents
-> `boot`/`docker-watchdog` → `.plist.disabled`; restaurar: `docker compose start` + renombrar).
+> OneDrive: es llegeix natiu, com Obsidian. **Docker ja NO és cap fallback local en aquest
+> Mac** (Docker Desktop desinstal·lat, imatges i agents `boot`/`docker-watchdog` esborrats;
+> tornar-hi = reinstal·lar Docker Desktop + `docker compose up -d --build`). **Docker segueix
+> sent un MODE DE DESPLEGAMENT suportat a elecció de l'usuari** (self-host: `docker-compose.yml`
+> + `Dockerfile.*` a `monorepo/apps/gnosi/`, vigilats per CI `.github/workflows/docker-build.yml`:
+> build + smoke test per PR i setmanal). **El codi ha de funcionar en TOTS DOS modes**: mai
+> defaults només-Docker (`host.docker.internal`) ni rutes natives clavades — autodetecció via
+> `_is_docker()` (`backend/config/env_config.py`; vegeu `default_host_helper_url()` i
+> `files_provider/onedrive.py::_default_warmup_mode()`).
 > Gotcha Mac Intel: torch capat a 2.2.2 → deps ML fixades al venv (numpy 1.26 / transformers
 > 4.44 / sentence-transformers 3.0). Runbook complet a
 > `docs/dev_memory/directives/environment_integrity.md` (secció "PROJECTE: migrar Gnosi a NATIU")
-> i memòria `gnosi_native_migration_plan`. **Les mencions a Docker d'aquest fitxer són ara per al fallback.**
+> i memòria `gnosi_native_migration_plan`. **Les mencions a Docker d'aquest fitxer apliquen al
+> mode de desplegament Docker (self-host), no al dev local per defecte.**
 
 ## The Central Loop
 1. **Consult/Create Directive:** Search `pipeline/skills/` → `docs/dev_memory/directives/` (especially `environment_integrity.md`) → create new directive (never code without a plan).
