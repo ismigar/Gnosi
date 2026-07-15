@@ -82,6 +82,57 @@ frontmatter, calcula el `new_id` net amb `sanitize_filename_component`,
 renomena `.md` + `.html`, reescriu el frontmatter i actualitza la taula
 `mail_message_tags`. Mode dry-run per defecte.
 
+## Migració legacy (2026-07-14)
+
+`pipeline/sandbox/scan_onedrive_invalid_names.py` — script idempotent que
+recorre TOT el vault actiu (`DIGITAL_BRAIN_VAULT_PATH` o
+`~/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal`) i detecta, a CADA
+component de ruta (fitxers I carpetes): caràcters reservats, control chars,
+espai inicial, espai/punt final i noms de dispositiu reservats de Windows.
+Mode dry-run per defecte; `--apply` renombra (amb `--yes` per saltar la
+confirmació). Detalls:
+
+- El nom corregit surt dels helpers canònics de `safe_io`
+  (`sanitize_vault_title` amb `max_len=240` + `guard_windows_reserved`),
+  importats amb `sys.path` sobre `monorepo/apps/gnosi` — NO duplica la lògica.
+  Col·lisions → sufix ` (2)`, ` (3)`… (comparació case-insensitive, APFS).
+- Renombra de les fulles cap a l'arrel: primer fitxers, després carpetes de
+  més profunda a més soma, perquè cap rename invalidi rutes pendents.
+- **Seguretat d'enllaços** (un rename podria trencar-los; el script ho evita):
+  - Pàgines AMB `id:` al frontmatter → segures (els enllaços `[[Títol|id]]` i
+    les relacions resolen per id, no per nom de fitxer).
+  - Pàgines SENSE `id:`/`title:` → el backend usa l'STEM del fitxer com a
+    identitat (`metadata.get("id") or file_path.stem`), així que renombrar-les
+    canviaria el seu id i trencaria els backlinks entrants. Abans de renombrar
+    un `.md` així, el script INJECTA `id:`/`title:` amb l'STEM VELL al
+    frontmatter (creant-lo si no n'hi ha): la identitat es preserva literal i
+    el nom de fitxer passa a ser només una etiqueta. Si el contingut és
+    online-only (EDEADLK) i no es pot llegir, el rename es SALTA i es reporta.
+    El dry-run mostra un «Link-safety preview» amb l'estat de cada `.md`.
+  - Referències per RUTA (`![](Assets/…)`, valors de camps d'arxiu, icones a
+    `.gnosi/page_meta`, dashboards) → després dels renames, el script reescriu
+    totes les rutes velles (literal i percent-encoded) a tots els `.md`/`.json`
+    del vault (primer les parelles de fitxer, després els prefixos de carpeta:
+    l'ordre importa perquè el patró del fitxer duu la ruta ORIGINAL sencera).
+- Si es renombra una CARPETA, el script reescriu els camps `folder` afectats
+  de `BD/vault_db_registry.json` (entrades `databases` i `tables`, incloent
+  folders de taula relatius a la seva BD). Després de QUALSEVOL rename cal
+  reiniciar el backend perquè l'índex de pàgines remapi id→ruta
+  (`launchctl kickstart -k gui/$UID/com.gnosi.backend`).
+- **EDEADLK-safe**: l'escaneig només fa `os.scandir` (mai llegeix contingut);
+  qualsevol `OSError errno 11/35` es registra com a "online-only, no
+  escaneable" i continua. Si el registry mateix és dataless en `--apply`,
+  avisa (materialitzar via daemon :5009) i el rename queda fet — re-executar
+  amb `--apply` reintenta només el registry (idempotent).
+- `.Trash` queda EXCLÒS del renombrat (es reporta a part).
+- Abans d'`--apply`: **pausar OneDrive** (el script ho recorda i demana
+  confirmació) per evitar conflictes de sync o que l'altre Mac ressusciti
+  còpies velles a mig rename.
+
+Primer dry-run (2026-07-14): vegeu el resultat al final d'aquesta secció un
+cop executada la migració; el script es pot re-executar en qualsevol moment
+com a auditoria (si el vault és net, ho diu i acaba).
+
 ## Restriccions / Edge cases
 
 - **NO renomenar amb `mv` directament** sense passar per la migració: el
