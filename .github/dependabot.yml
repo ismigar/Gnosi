@@ -64,6 +64,12 @@ updates:
       # que trencarien el stack ML. Vegis PR #749 (tancat).
       - dependency-name: "numpy"
         update-types: ["version-update:semver-major"]
+      # groq: langchain-groq 1.x caps groq<1.0.0. A dependabot floor bump to
+      # groq>=1.5.0 (PR #647) made requirements.txt unresolvable on any CLEAN
+      # install (first catch of the docker-build CI guard). Skip majors until
+      # langchain-groq lifts the cap.
+      - dependency-name: "groq"
+        update-types: ["version-update:semver-major"]
 
   # Git submodules (especialment zotero/reader)
   - package-ecosystem: "gitsubmodule"

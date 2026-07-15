@@ -69,7 +69,7 @@ Prefer a single command, or deploying on a server?
 
 ```bash
 cd apps/gnosi
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
 This bundles the backend, frontend, and the Zotero translation-server together.
