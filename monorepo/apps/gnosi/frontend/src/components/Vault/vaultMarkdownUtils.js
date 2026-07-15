@@ -21,6 +21,12 @@ export const WIKILINK_HREF_SENTINEL = 'gnosi-wikilink:';
 // VaultMarkdown's `a` element render turns it back into a `<span>` with the color.
 // Defined here so that `wikilinkUrlTransform` (below) lets it pass through intact.
 export const STYLE_HREF_SENTINEL = 'gnosi-style:';
+
+// Citation deep link (NotebookLM-style): `[p. N](gnosi-cite:?res=<id>&page=N)`
+// stored in a Cervell note's body. Clicking it opens the source resource's PDF
+// at that page. Persisted in the .md (unlike the wikilink/style sentinels, which
+// are injected only at render time), so it must survive the URL transform.
+export const CITE_HREF_SENTINEL = 'gnosi-cite:';
 const WIKILINK_RE = /\[\[([^\][|#]+)(?:#([^\][|]+))?(?:\|([^\][]+))?\]\]/g;
 
 export const convertWikilinksToMd = (md) => {
@@ -49,7 +55,9 @@ export const convertWikilinksToMd = (md) => {
 // to the default.
 export const wikilinkUrlTransform = (url) => (
     typeof url === 'string'
-        && (url.startsWith(WIKILINK_HREF_SENTINEL) || url.startsWith(STYLE_HREF_SENTINEL))
+        && (url.startsWith(WIKILINK_HREF_SENTINEL)
+            || url.startsWith(STYLE_HREF_SENTINEL)
+            || url.startsWith(CITE_HREF_SENTINEL))
         ? url
         : defaultUrlTransform(url)
 );

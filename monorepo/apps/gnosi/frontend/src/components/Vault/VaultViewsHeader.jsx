@@ -29,6 +29,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 import { VIEW_TYPES, getViewIcon, isMainView, isViewHidden } from './viewConstants';
 import { ReferenceImportExport } from './ReferenceImportExport';
+import { BrainInbox } from './BrainInbox';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { matchesFilters } from '../../utils/vaultFilters';
 
@@ -246,6 +247,7 @@ export function VaultViewsHeader({
     templates = [],
     onClose,
     referenceTableId,
+    brainTableId,
     onReferencesImported,
 }) {
     const { t } = useTranslation();
@@ -435,6 +437,9 @@ export function VaultViewsHeader({
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
+                    {brainTableId && (
+                        <BrainInbox onAccepted={onReferencesImported} />
+                    )}
                     {referenceTableId && (
                         <ReferenceImportExport
                             tableId={referenceTableId}

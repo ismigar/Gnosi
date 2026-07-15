@@ -242,6 +242,72 @@ def _parse_cornell_json(text: str):
 
 
 # Exportable list for registering with the "brain" agent (factory.py)
+@tool
+def query_wiki(query: str, k: int = 5) -> str:
+    """Consulta el Cervell (LLM Wiki): retorna les notes de coneixement més
+    rellevants per a la pregunta, amb les seves fonts, per respondre SENSE
+    redescobrir-ho tot des de zero.
+
+    Aquesta és l'operació «Query» del patró LLM Wiki: en comptes de fer RAG sobre
+    les fonts crudes, llegeix el wiki ja compilat (taula Cervell). Usa'l ABANS de
+    respondre preguntes de coneixement per aprofitar les síntesis i cites ja fetes.
+    Retorna, per cada nota: títol, tipus, un extracte i les Fonts (recursos) que la
+    sostenen, perquè puguis citar-les.
+    """
+    from backend.services import llm_wiki_config
+    from backend.api.vault_routes import _get_pages_for_table, find_page_path
+
+    brain_id = llm_wiki_config.get_brain_table_id()
+    if not brain_id:
+        return ("No hi ha cap taula Cervell designada (Configuració → Plugins → "
+                "Cervell). No puc consultar el wiki de coneixement.")
+
+    base = _tokenize(query)
+    if not base:
+        return "La consulta és massa curta per cercar al Cervell."
+
+    scored: List[Dict[str, Any]] = []
+    for p in _get_pages_for_table(brain_id) or []:
+        meta = getattr(p, "metadata", None) or {}
+        if meta.get("is_template"):
+            continue
+        title = str(getattr(p, "title", "") or meta.get("title") or "")
+        path = getattr(p, "path", None)
+        body = ""
+        if path:
+            try:
+                raw = __import__("pathlib").Path(path).read_text(encoding="utf-8")
+                body = raw.split("---", 2)[2] if raw.startswith("---") else raw
+            except Exception:  # noqa: BLE001
+                body = ""
+        toks = _tokenize(f"{title} {body}")
+        inter = len(base & toks)
+        if inter == 0:
+            continue
+        fonts = meta.get("Fonts")
+        fonts = fonts if isinstance(fonts, list) else ([fonts] if fonts else [])
+        scored.append({
+            "title": title, "type": str(meta.get("Tipus") or ""),
+            "excerpt": body.strip()[:600], "fonts": [str(f) for f in fonts],
+            "score": inter,
+        })
+
+    if not scored:
+        return f"No he trobat cap nota al Cervell relacionada amb «{query}»."
+    scored.sort(key=lambda x: x["score"], reverse=True)
+
+    out = [f"Notes del Cervell rellevants per a «{query}»:\n"]
+    for n in scored[:max(1, k)]:
+        head = f"## {n['title']}" + (f" ({n['type']})" if n["type"] else "")
+        out.append(head)
+        if n["excerpt"]:
+            out.append(n["excerpt"])
+        if n["fonts"]:
+            out.append("Fonts: " + ", ".join(n["fonts"]))
+        out.append("")
+    return "\n".join(out)
+
+
 VAULT_KNOWLEDGE_TOOLS = [
-    read_page, read_pdf, create_page, propose_links, summarize_to_cornell,
+    read_page, read_pdf, create_page, propose_links, summarize_to_cornell, query_wiki,
 ]

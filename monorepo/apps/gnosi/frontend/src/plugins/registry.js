@@ -41,6 +41,12 @@ export const BUILTIN_PLUGINS = [
         description: 'Incrusta pàgines com a targetes vives al llenç de dibuix.',
         icon: 'LayoutDashboard',
     },
+    {
+        id: 'llm-wiki',
+        name: 'Cervell (LLM Wiki)',
+        description: 'Processa recursos amb IA per mantenir un wiki de coneixement enllaçat (estil Karpathy).',
+        icon: 'BrainCircuit',
+    },
 ];
 
 export const PLUGIN_IDS = BUILTIN_PLUGINS.map((p) => p.id);

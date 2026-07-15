@@ -6134,6 +6134,429 @@ async def clear_reference_table():
     return {"table_id": None, "configured": False}
 
 
+# ---------------------------------------------------------------------------
+# CERVELL (LLM Wiki) table designation. Mirrors the references-table pattern
+# but persists PER-VAULT (`<vault>/.gnosi/llm_wiki.json`), not install-wide.
+# See directive `llm_wiki_cervell.md` and service `llm_wiki_config.py`.
+# ---------------------------------------------------------------------------
+
+# Columns that make a table a CERVELL (LLM Wiki knowledge table). `Fonts` is a
+# relation to the references (Recursos) table so every note is traceable to the
+# sources that back it; `relation_database_id` is filled in at create/designate
+# time from the current references designation (empty if none yet). (name, type).
+_BRAIN_SCHEMA: list = [
+    ("Tipus", "select"),
+    ("Fonts", "relation"),
+    # Order of appearance of the idea WITHIN its source (1-based ordinal set by
+    # the ingest). Finer than a chapter: one chapter can yield several ideas.
+    # Sorting by it (filtered/grouped by Fonts) reads the resource sequentially.
+    ("Posició", "number"),
+    # Permanent notes (Zettelkasten layer 3): which READING notes of this same
+    # table they synthesize. Self-relation → the Cervell table itself.
+    ("Basada en", "relation"),
+    ("Estat de verificació", "select"),
+    ("Última revisió", "date"),
+    ("Tags", "multi_select"),
+]
+
+
+def _brain_property(name: str, ptype: str, brain_table_id: str = "") -> dict:
+    """Builds a seed property for the Cervell schema, wiring relations:
+    `Fonts` → the designated references table; `Basada en` → the Cervell table
+    itself (permanent notes point at the reading notes they synthesize)."""
+    prop = {"id": str(uuid.uuid4()), "name": name, "type": ptype}
+    if ptype == "relation":
+        if name == "Basada en":
+            if brain_table_id:
+                prop["relation_database_id"] = brain_table_id
+                prop["cardinality"] = "many-to-many"
+        else:
+            ref_id = get_reference_table_id()
+            if ref_id:
+                prop["relation_database_id"] = ref_id
+                # Zettelkasten: a reading note belongs to EXACTLY ONE resource; a
+                # resource has many notes ("Cervell many-to-one Recursos").
+                prop["cardinality"] = "many-to-one"
+    return prop
+
+
+def _ensure_default_db_group() -> None:
+    """Guarantees the `gnosi_vault_db` databases entry so tables created under
+    it (e.g. the Cervell) show up in the sidebar, which groups by
+    `registry.databases`. Folder "BD" — the Notion-clone convention — keeps the
+    physical resolution VAULT/BD/<table.folder> unchanged (the disabled global
+    bootstrap uses "Databases/Gnosi", which would MOVE existing tables)."""
+    with registry_mutation():
+        reg = load_registry()
+        dbs = reg.setdefault("databases", [])
+        if any(d.get("id") == "gnosi_vault_db" for d in dbs):
+            return
+        dbs.append({"id": "gnosi_vault_db", "name": "Gnosi Vault", "folder": "BD"})
+        save_registry(reg)
+        log.info("🧠 Grup de BD `gnosi_vault_db` creat al registry (sidebar)")
+
+
+def ensure_brain_table_schema(table_id: str) -> int:
+    """Adds to the Cervell table whichever knowledge columns it's missing
+    (idempotent). Returns the number of columns added."""
+    if not table_id:
+        return 0
+    added = 0
+    with registry_mutation():
+        reg = load_registry()
+        table = next(
+            (t for t in reg.get("tables", []) or [] if t.get("id") == table_id), None
+        )
+        if not table:
+            return 0
+        props = table.setdefault("properties", [])
+        existing = {str(p.get("name") or "").lower().replace(" ", "") for p in props}
+        for name, ptype in _BRAIN_SCHEMA:
+            norm = name.lower().replace(" ", "")
+            if norm not in existing:
+                props.append(_brain_property(name, ptype, brain_table_id=table_id))
+                existing.add(norm)
+                added += 1
+        # Repair pass on the relations of PRE-EXISTING columns: tables created
+        # before a schema refinement keep old wiring (e.g. Fonts one-to-many
+        # predates the Zettelkasten many-to-one rule). "Ensure" = add + normalize.
+        repaired = 0
+        ref_id = get_reference_table_id()
+        for p in props:
+            if p.get("type") != "relation":
+                continue
+            pname = str(p.get("name") or "").lower().replace(" ", "")
+            if pname == "fonts":
+                if p.get("cardinality") != "many-to-one":
+                    p["cardinality"] = "many-to-one"
+                    repaired += 1
+                if ref_id and not p.get("relation_database_id"):
+                    p["relation_database_id"] = ref_id
+                    repaired += 1
+            elif pname == "basadaen":
+                if not p.get("relation_database_id"):
+                    p["relation_database_id"] = table_id
+                    repaired += 1
+                if p.get("cardinality") != "many-to-many":
+                    p["cardinality"] = "many-to-many"
+                    repaired += 1
+        if added or repaired:
+            save_registry(reg)
+            log.info(f"🧠 Esquema del Cervell: +{added} columnes, {repaired} reparacions a {table_id}")
+    return added
+
+
+@router.get("/brain-table")
+async def get_brain_table():
+    """Status of the designated Cervell (LLM Wiki) table (for Settings and
+    the frontend's gating). Per-vault designation resolved in the active vault."""
+    from backend.services import llm_wiki_config as bw
+
+    tid = bw.get_brain_table_id()
+    t = _table_by_id(tid) if tid else None
+    return {"table_id": tid, "configured": bool(tid),
+            "name": t.get("name") if t else None}
+
+
+@router.post("/brain-table", dependencies=[Depends(require_role("editor"))])
+async def set_brain_table(payload: dict = Body(...)):
+    """Designates an existing table as the Cervell and guarantees its
+    knowledge schema (Tipus, Fonts, verification status, ...)."""
+    from backend.services import llm_wiki_config as bw
+
+    table_id = str((payload or {}).get("table_id") or "").strip()
+    if not table_id:
+        raise HTTPException(status_code=400, detail="table_id és obligatori")
+    if not _table_by_id(table_id):
+        raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+    _ensure_default_db_group()
+    added = ensure_brain_table_schema(table_id)
+    bw.set_brain_table_id(table_id)
+    # The "Processar recurs" button lives on the references (Recursos) rows, so
+    # ensure that table carries the visible processed-date column.
+    ref_id = get_reference_table_id()
+    if ref_id:
+        ensure_llm_wiki_column(ref_id)
+    t = _table_by_id(table_id)
+    return {"table_id": table_id, "configured": True,
+            "name": t.get("name") if t else None, "columns_added": added}
+
+
+@router.post("/brain-table/create", dependencies=[Depends(require_role("editor"))])
+async def create_brain_table(payload: dict = Body(default=None)):
+    """Creates a new Cervell table pre-seeded with the knowledge schema and
+    designates it."""
+    from backend.services import llm_wiki_config as bw
+
+    name = str((payload or {}).get("name") or "").strip() or "Cervell"
+    # Mint the table id upfront: the `Basada en` self-relation needs it while
+    # building the seed properties (create_table keeps an explicit id).
+    new_id = str(uuid.uuid4())
+    table = {
+        "id": new_id,
+        "name": name,
+        "database_id": "gnosi_vault_db",
+        "properties": [_brain_property(n, tp, brain_table_id=new_id) for n, tp in _BRAIN_SCHEMA],
+    }
+    created = await create_table(table)
+    _ensure_default_db_group()
+    bw.set_brain_table_id(created["id"])
+    ref_id = get_reference_table_id()
+    if ref_id:
+        ensure_llm_wiki_column(ref_id)
+    return {"table_id": created["id"], "configured": True,
+            "name": created.get("name"), "created": True}
+
+
+@router.delete("/brain-table", dependencies=[Depends(require_role("editor"))])
+async def clear_brain_table():
+    """Disables the Cervell (removes the designation). Doesn't delete any table."""
+    from backend.services import llm_wiki_config as bw
+
+    bw.set_brain_table_id("")
+    return {"table_id": None, "configured": False}
+
+
+# ---------------------------------------------------------------------------
+# LLM Wiki (Cervell) ingest: the "Processar recurs" per-row action on the
+# references (Recursos) table. Async job (reader.py pattern). See directive
+# `llm_wiki_cervell.md` and service `llm_wiki.py`.
+# ---------------------------------------------------------------------------
+
+# Visible `date` system column on the references table: the ingest date, which
+# is both the "only once" guard and the signal the frontend derives the button
+# from (mirrors the Drupal NID / XXSS system columns).
+LLM_WIKI_PROCESSED_COL = "Processat pel Cervell"
+
+
+def ensure_llm_wiki_column(reference_table_id: str) -> bool:
+    """Adds the `Processat pel Cervell` (date, system) column to the references
+    table if missing. Idempotent. Returns True if it added the column."""
+    if not reference_table_id:
+        return False
+    with registry_mutation():
+        reg = load_registry()
+        table = next((t for t in reg.get("tables", []) or []
+                      if t.get("id") == reference_table_id), None)
+        if not table:
+            return False
+        props = table.setdefault("properties", [])
+        norm = LLM_WIKI_PROCESSED_COL.lower().replace(" ", "")
+        if any(str(p.get("name") or "").lower().replace(" ", "") == norm for p in props):
+            return False
+        props.append({
+            "id": str(uuid.uuid4()), "name": LLM_WIKI_PROCESSED_COL,
+            "type": "date", "system": True,
+        })
+        save_registry(reg)
+        log.info("🧠 Columna «%s» afegida a la taula Recursos %s",
+                 LLM_WIKI_PROCESSED_COL, reference_table_id)
+        return True
+
+
+def _resource_processed_value(metadata: dict) -> str:
+    """The `Processat pel Cervell` value in a row's metadata, or ''."""
+    for k in (LLM_WIKI_PROCESSED_COL, LLM_WIKI_PROCESSED_COL.lower()):
+        v = (metadata or {}).get(k)
+        if v not in (None, "", [], {}):
+            return str(v)
+    return ""
+
+
+def mark_resource_processed(page_id: str, date_str: str) -> bool:
+    """Writes the ingest date to a resource row's `Processat pel Cervell` column
+    (direct disk write; called from the ingest worker thread)."""
+    path = find_page_path(page_id)
+    if not path or not path.exists():
+        return False
+    raw = path.read_text(encoding="utf-8")
+    metadata, body = parse_frontmatter(raw, path)
+    metadata[LLM_WIKI_PROCESSED_COL] = date_str
+    save_page_md(path, metadata, body)
+    register_page_in_index(path)
+    return True
+
+
+@router.post("/llm-wiki/process", dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_process(payload: dict = Body(...)):
+    """Starts an LLM Wiki ingest of one resource row (async; poll status).
+
+    Guard "only once": refuses (409) if the row already carries a
+    `Processat pel Cervell` date, unless `force` is set. Refuses (409) if an
+    ingest for this row is already running."""
+    from backend.services import llm_wiki, llm_wiki_config
+
+    item_id = str((payload or {}).get("item_id") or "").strip()
+    if not item_id:
+        raise HTTPException(status_code=400, detail="item_id és obligatori")
+    force = bool((payload or {}).get("force"))
+    language = str((payload or {}).get("language") or "català").strip() or "català"
+
+    brain_table_id = llm_wiki_config.get_brain_table_id()
+    if not brain_table_id:
+        raise HTTPException(status_code=400,
+                            detail="No hi ha cap taula Cervell designada (Configuració → Plugins → Cervell)")
+    if not _table_by_id(brain_table_id):
+        raise HTTPException(status_code=400, detail="La taula Cervell designada no existeix")
+
+    if llm_wiki.is_running(item_id):
+        raise HTTPException(status_code=409, detail="Aquest recurs ja s'està processant")
+
+    path = find_page_path(item_id)
+    if not path or not path.exists():
+        raise HTTPException(status_code=404, detail=f"Recurs {item_id} no trobat")
+    metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    if not force and _resource_processed_value(metadata):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Ja processat el {_resource_processed_value(metadata)}. Usa force per reprocessar.",
+        )
+
+    title = str(metadata.get("title") or path.stem)
+    vault_root = get_p("VAULT")
+    llm_wiki.start_ingest(item_id, title, metadata, body, brain_table_id, vault_root, language)
+    return {"status": "started", "item_id": item_id}
+
+
+@router.get("/llm-wiki/status/{item_id}", dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_status(item_id: str):
+    """Non-blocking status of a resource's ongoing/last ingest (for polling)."""
+    from backend.services import llm_wiki
+
+    return llm_wiki.get_job_status(item_id)
+
+
+@router.get("/llm-wiki/lint", dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_lint(suggest: bool = Query(default=True)):
+    """Runs the deterministic Cervell health-check (orphans, stale notes, missing
+    cross-references, resources due for re-processing) and, unless `suggest=false`,
+    an LLM pass proposing permanent notes (degrades to 0 without a provider)."""
+    from backend.services import llm_wiki_config, llm_wiki_lint, llm_wiki_suggestions
+
+    brain_table_id = llm_wiki_config.get_brain_table_id()
+    if not brain_table_id:
+        raise HTTPException(status_code=400, detail="No hi ha cap taula Cervell designada")
+    ref_id = get_reference_table_id()
+    report = await asyncio.to_thread(llm_wiki_lint.run_lint, brain_table_id, ref_id)
+    if suggest:
+        report["suggestions_queued"] = await asyncio.to_thread(
+            llm_wiki_suggestions.generate_suggestions, brain_table_id
+        )
+    report["suggestions_pending"] = len(llm_wiki_suggestions.load_queue())
+    return report
+
+
+@router.get("/llm-wiki/suggestions", dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_list_suggestions():
+    """Pending permanent-note suggestions (the «Bústia del Cervell»)."""
+    from backend.services import llm_wiki_suggestions
+
+    return {"suggestions": await asyncio.to_thread(llm_wiki_suggestions.load_queue)}
+
+
+@router.post("/llm-wiki/suggestions/{suggestion_id}/accept",
+             dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_accept_suggestion(suggestion_id: str, payload: dict = Body(default=None)):
+    """Creates the permanent note from a suggestion — the ONLY path that writes
+    one (user-confirmed; optional edited `title`/`draft_md` in the body)."""
+    from backend.services import llm_wiki_config, llm_wiki_suggestions
+
+    brain_table_id = llm_wiki_config.get_brain_table_id()
+    if not brain_table_id:
+        raise HTTPException(status_code=400, detail="No hi ha cap taula Cervell designada")
+    edited_title = str((payload or {}).get("title") or "").strip() or None
+    edited_draft = (payload or {}).get("draft_md")
+    try:
+        result = await asyncio.to_thread(
+            llm_wiki_suggestions.accept_suggestion, suggestion_id, brain_table_id,
+            edited_title, edited_draft if isinstance(edited_draft, str) else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    return result
+
+
+@router.post("/llm-wiki/suggestions/{suggestion_id}/reject",
+             dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_reject_suggestion(suggestion_id: str):
+    """Discards a pending suggestion (no note is created)."""
+    from backend.services import llm_wiki_suggestions
+
+    sug = await asyncio.to_thread(llm_wiki_suggestions.pop_suggestion, suggestion_id)
+    if not sug:
+        raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
+    return {"rejected": suggestion_id}
+
+
+# --- Accessible editing of the Bústia (F6): pick-a-variant, dictation with
+# --- intent reconstruction, personal glossary. See `llm_wiki_assist.py`.
+
+@router.post("/llm-wiki/suggestions/{suggestion_id}/reformulate",
+             dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_reformulate(suggestion_id: str):
+    """Labeled variants of a suggestion's draft, to pick with one click."""
+    from backend.services import llm_wiki_assist, llm_wiki_suggestions
+
+    sug = await asyncio.to_thread(llm_wiki_suggestions.get_suggestion, suggestion_id)
+    if not sug:
+        raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
+    try:
+        variants = await asyncio.to_thread(llm_wiki_assist.reformulate, sug)
+    except Exception as exc:  # noqa: BLE001 — provider/auth/parse failures are all "AI unavailable" here
+        log.warning(f"llm-wiki reformulate unavailable: {exc}")
+        raise HTTPException(status_code=503, detail="IA no disponible per reformular (revisa la clau d'API a Configuració → IA)")
+    return {"variants": variants}
+
+
+@router.post("/llm-wiki/suggestions/{suggestion_id}/dictate",
+             dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_dictate(suggestion_id: str, audio: UploadFile = File(...)):
+    """Dictated edit for a suggestion: transcribe (faster-whisper) and
+    reconstruct the intent with the note's context + personal glossary.
+    The result is a PROPOSAL («Volies dir…?») — the frontend never applies it
+    without the user's confirmation."""
+    import tempfile
+
+    from backend.services import llm_wiki_assist, llm_wiki_suggestions, transcription
+
+    sug = await asyncio.to_thread(llm_wiki_suggestions.get_suggestion, suggestion_id)
+    if not sug:
+        raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
+    if not transcription.is_available():
+        raise HTTPException(status_code=503,
+                            detail="Transcripció no disponible (faster-whisper no instal·lat)")
+    data = await audio.read()
+    if not data:
+        raise HTTPException(status_code=400, detail="Àudio buit")
+    with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
+        tmp.write(data)
+        tmp_path = tmp.name
+    try:
+        result = await asyncio.to_thread(transcription.transcribe, tmp_path)
+    finally:
+        try:
+            Path(tmp_path).unlink(missing_ok=True)
+        except OSError:
+            pass
+    transcript = (result or {}).get("text") or ""
+    if not transcript.strip():
+        raise HTTPException(status_code=400,
+                            detail="No s'ha entès cap paraula del dictat; torna-ho a provar")
+    return await asyncio.to_thread(llm_wiki_assist.correct_dictation, sug, transcript)
+
+
+@router.post("/llm-wiki/glossary", dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_glossary_learn(payload: dict = Body(...)):
+    """Stores a user-confirmed correction pair (heard → meant): the personal
+    glossary the dictation corrector learns from."""
+    from backend.services import llm_wiki_assist
+
+    heard = str((payload or {}).get("heard") or "")
+    meant = str((payload or {}).get("meant") or "")
+    count = await asyncio.to_thread(llm_wiki_assist.learn_pair, heard, meant)
+    return {"pairs": count}
+
+
 def _ensure_recursos_citation_key(
     metadata: dict, table: Optional[dict] = None, *, regenerate: bool = False
 ) -> dict:

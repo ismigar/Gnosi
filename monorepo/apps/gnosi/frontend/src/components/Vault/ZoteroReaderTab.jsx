@@ -61,7 +61,7 @@ export function detectKindFromSrc(src) {
     return (m && KIND_BY_EXTENSION[m[1]]) || 'pdf';
 }
 
-export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp }) {
+export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp, location: locationProp }) {
     const { t, i18n } = useTranslation();
     const iframeRef = useRef(null);
     // Language for the Zotero viewer. We recalculate it when the user changes the
@@ -87,6 +87,10 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     // guarantee idempotency via initSentRef.
     const hostReadyRef = useRef(false);
     const initSentRef = useRef(false);
+    // Deep-link target (e.g. a citation's page). Kept as a ref so `init` can
+    // read the freshest value without re-sending init (idempotency), and an
+    // effect below re-navigates when it changes on an already-open reader.
+    const locationRef = useRef(locationProp || null);
     // Live annotations during the session. We store them as a ref (not state)
     // because we no longer render them ourselves — the Zotero reader does
     // all of it, we only persist. ESLint doesn't complain about unused variables
@@ -192,6 +196,9 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                 kind,
                 language: zoteroLanguage,
                 annotations: annotationsRef.current,
+                // NotebookLM-style deep link: jump to this location (e.g. a
+                // citation's page) once the reader is initialized.
+                location: locationRef.current || null,
                 options: {
                     authorName: 'User',
                     readOnly: false,
@@ -203,6 +210,22 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     useEffect(() => {
         sendInitIfReady();
     }, [sendInitIfReady]);
+
+    // Deep-link navigation: when the target location changes on an
+    // already-ready reader (e.g. clicking a second citation while the same
+    // PDF is open), tell the iframe to jump. On first open, `init` carries
+    // the location, so this only fires for subsequent jumps.
+    useEffect(() => {
+        locationRef.current = locationProp || null;
+        if (!locationProp || !readerReady) return;
+        const iframeWin = iframeRef.current?.contentWindow;
+        if (!iframeWin) return;
+        iframeWin.postMessage({
+            target: 'zotero-reader',
+            type: 'navigate',
+            location: locationProp,
+        }, window.location.origin);
+    }, [locationProp, readerReady]);
 
     // --- Listener for the iframe's postMessage ---
     // Origin guard: the handler must only accept messages that come
@@ -505,10 +528,17 @@ export function ZoteroReaderPage() {
     const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
     const rawSrc = params.get('src') || '';
     const kindParam = params.get('kind') || undefined;
+    // Deep link: `?page=N` opens the document at that 1-based page.
+    const pageParam = params.get('page');
+    const locationParam = useMemo(
+        () => (pageParam ? { pageNumber: String(pageParam) } : null),
+        [pageParam]
+    );
     return (
         <ZoteroReaderTab
             src={rawSrc}
             kind={kindParam}
+            location={locationParam}
             onClose={() => navigate(-1)}
         />
     );

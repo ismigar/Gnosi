@@ -457,21 +457,24 @@ async function openViaSystem(target, t) {
  * @param {function} [opts.navigate]  `useNavigate()` (fallback outside the Vault).
  * @param {function} [opts.t]      i18next's `t` (clipboard messages).
  */
-export function openFileResource(target, { title, navigate, t = (k, o) => (o?.defaultValue ?? k) } = {}) {
+export function openFileResource(target, { title, navigate, location, t = (k, o) => (o?.defaultValue ?? k) } = {}) {
     if (!target) return;
     const src = String(target).trim();
 
     const docKind = documentKindForHref(src);
     if (docKind) {
         const evt = new CustomEvent('gnosi:open-pdf', {
-            detail: { src, title: title || filenameFromTarget(src), kind: docKind },
+            // `location` (e.g. {pageNumber:'12'}) drives a NotebookLM-style jump
+            // to the exact spot of a citation. Omitted → opens at the start.
+            detail: { src, title: title || filenameFromTarget(src), kind: docKind, location: location || null },
             cancelable: true,
         });
         const handled = !window.dispatchEvent(evt);
         if (!handled) {
-            const qs = new URLSearchParams({ src, kind: docKind }).toString();
-            if (navigate) navigate(`/vault/pdf?${qs}`);
-            else window.open(`/vault/pdf?${qs}`, '_blank', 'noopener');
+            const qs = new URLSearchParams({ src, kind: docKind });
+            if (location?.pageNumber) qs.set('page', String(location.pageNumber));
+            if (navigate) navigate(`/vault/pdf?${qs.toString()}`);
+            else window.open(`/vault/pdf?${qs.toString()}`, '_blank', 'noopener');
         }
         return;
     }
@@ -484,4 +487,46 @@ export function openFileResource(target, { title, navigate, t = (k, o) => (o?.de
     // Local file of a type not supported by the viewer → OS app.
     const fileUrl = /^file:\/\//i.test(src) ? src : `file://${src}`;
     openViaSystem(fileUrl, t);
+}
+
+// Attachment keys a Recursos row may carry a document under (mirrors
+// VaultTable's hasOpenableResource). Values may be strings, arrays, or
+// `[[Title|id]]`-decorated; we pick the first that looks like a document.
+const DOC_ATTACHMENT_KEYS = [
+    'files', 'Files', 'Fitxers', 'Adjunts', 'attachments', 'adjuntos',
+    "Ruta de l'arxiu", 'ruta_arxiu', 'file_path', 'path', 'URL', 'url',
+];
+
+/** First document-kind attachment path in a resource's metadata, or ''. */
+export function findDocAttachment(metadata = {}) {
+    for (const key of DOC_ATTACHMENT_KEYS) {
+        const raw = metadata[key];
+        const candidates = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+        for (const c of candidates) {
+            const val = String(c || '').trim().replace(/^\[\[/, '').replace(/\]\]$/, '').split('|')[0].trim();
+            if (val && documentKindForHref(val)) return val;
+        }
+    }
+    return '';
+}
+
+/**
+ * NotebookLM-style citation click: open the source resource's document at a
+ * specific page. `resourceId` is the Recursos row id; `page` is 1-based.
+ * Falls back to a toast if the resource has no viewable document attachment.
+ */
+export async function openCitation(resourceId, page, { navigate, t = (k, o) => (o?.defaultValue ?? k) } = {}) {
+    const location = page ? { pageNumber: String(page) } : null;
+    try {
+        const res = await fetch(`/api/vault/pages/${encodeURIComponent(resourceId)}`, { credentials: 'include' });
+        if (res.ok) {
+            const data = await res.json();
+            const meta = data?.metadata || data || {};
+            const src = findDocAttachment(meta);
+            if (src) { openFileResource(src, { location, navigate, t }); return; }
+        }
+    } catch {
+        // fall through to the fallback below
+    }
+    toast.error(t('pdf.cite_no_doc', { defaultValue: 'El recurs no té cap document per obrir a la cita.' }));
 }

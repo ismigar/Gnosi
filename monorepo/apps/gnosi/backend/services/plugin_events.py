@@ -37,6 +37,7 @@ KNOWN_EVENTS = {
     "page:deleted",
     "import:finished",
     "clone:finished",
+    "llm-wiki:ingested",
 }
 
 # Internal subscribers (non-plugins): e.g. tests or the backend's own services.

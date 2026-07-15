@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound } from 'lucide-react';
+import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 
-const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard };
+const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit };
 
 const SELECT_STYLE = {
     width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
@@ -102,6 +102,153 @@ function DailyNotesConfig() {
                         </select>
                     )}
                 </label>
+            )}
+        </div>
+    );
+}
+
+/**
+ * Configuration for the llm-wiki plugin: designates which table plays the
+ * "Cervell" (LLM Wiki knowledge base) role. Mirrors the References designation
+ * but per-vault (`<vault>/.gnosi/llm_wiki.json`). The backend guarantees the
+ * knowledge schema (Tipus, Fonts→Recursos, verification status, ...).
+ */
+function LlmWikiConfig() {
+    const { t } = useTranslation();
+    const tp = (k, opts) => t('settings.plugins.' + k, opts);
+    const [tables, setTables] = useState([]);
+    const [brain, setBrain] = useState({ table_id: null, configured: false, name: null });
+    const [busy, setBusy] = useState(false);
+    const [lint, setLint] = useState(null);
+    const [lintBusy, setLintBusy] = useState(false);
+    const [pendingSuggestions, setPendingSuggestions] = useState(0);
+
+    const reload = () => Promise.all([
+        axios.get('/api/vault/tables').then((r) => (Array.isArray(r.data) ? r.data : [])).catch(() => []),
+        axios.get('/api/vault/brain-table').then((r) => r.data || {}).catch(() => ({})),
+        axios.get('/api/vault/llm-wiki/suggestions').then((r) => (r.data?.suggestions || []).length).catch(() => 0),
+    ]).then(([tbls, b, pending]) => { setTables(tbls); setBrain(b); setPendingSuggestions(pending); });
+
+    const runLint = async () => {
+        setLintBusy(true);
+        try {
+            const r = await axios.get('/api/vault/llm-wiki/lint');
+            setLint(r.data || null);
+        } catch (err) {
+            console.error('llm-wiki lint error:', err);
+        } finally { setLintBusy(false); }
+    };
+
+    useEffect(() => { reload(); return undefined; }, []);
+
+    const onPick = async (tableId) => {
+        setBusy(true);
+        try {
+            if (!tableId) {
+                await axios.delete('/api/vault/brain-table');
+            } else {
+                await axios.post('/api/vault/brain-table', { table_id: tableId });
+            }
+            await reload();
+        } catch (err) {
+            console.error('Set brain table error:', err);
+        } finally { setBusy(false); }
+    };
+
+    const onCreate = async () => {
+        setBusy(true);
+        try {
+            await axios.post('/api/vault/brain-table/create', {});
+            await reload();
+        } catch (err) {
+            console.error('Create brain table error:', err);
+        } finally { setBusy(false); }
+    };
+
+    return (
+        <div style={{
+            marginTop: 8, padding: '12px 14px', borderRadius: 10,
+            border: '1px dashed var(--border-primary, #e2e8f0)',
+            background: 'var(--bg-primary, #fff)',
+            display: 'flex', flexDirection: 'column', gap: 12,
+        }}>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                {tp('llm_wiki_intro', { defaultValue: 'Tria quina taula fa de Cervell (base de coneixement). Les notes generades s\'hi guarden, enllaçades als recursos font.' })}
+            </div>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                    {tp('llm_wiki_table', { defaultValue: 'Taula del Cervell' })}
+                </span>
+                <select
+                    style={SELECT_STYLE}
+                    value={brain.table_id || ''}
+                    disabled={busy}
+                    onChange={(e) => onPick(e.target.value)}
+                >
+                    <option value="">{tp('llm_wiki_none', { defaultValue: 'Cap (desactivat)' })}</option>
+                    {tables.map((tbl) => (
+                        <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
+                    ))}
+                </select>
+            </label>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <button
+                    type="button"
+                    onClick={onCreate}
+                    disabled={busy}
+                    style={{
+                        padding: '8px 14px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
+                        border: '1px solid var(--border-primary, #e2e8f0)',
+                        background: 'var(--bg-secondary, #f8fafc)', fontWeight: 600,
+                        color: 'var(--text-primary, #0f172a)', fontSize: 13, opacity: busy ? 0.6 : 1,
+                    }}
+                >
+                    {tp('llm_wiki_create', { defaultValue: 'Crea una taula Cervell' })}
+                </button>
+                <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                    {brain.configured
+                        ? tp('llm_wiki_active', { name: brain.name, defaultValue: `Actiu a «${brain.name}»` })
+                        : tp('llm_wiki_inactive', { defaultValue: 'Cap taula designada encara.' })}
+                    {brain.configured && pendingSuggestions > 0 && (
+                        <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--gnosi-primary, #6366f1)' }}>
+                            {tp('llm_wiki_pending', { count: pendingSuggestions, defaultValue: '{{count}} suggeriments pendents a la Bústia' })}
+                        </span>
+                    )}
+                </span>
+            </div>
+
+            {brain.configured && (
+                <div style={{ borderTop: '1px solid var(--border-primary, #e2e8f0)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <button
+                            type="button"
+                            onClick={runLint}
+                            disabled={lintBusy}
+                            style={{
+                                padding: '8px 14px', borderRadius: 8, cursor: lintBusy ? 'default' : 'pointer',
+                                border: '1px solid var(--border-primary, #e2e8f0)',
+                                background: 'var(--bg-secondary, #f8fafc)', fontWeight: 600,
+                                color: 'var(--text-primary, #0f172a)', fontSize: 13, opacity: lintBusy ? 0.6 : 1,
+                            }}
+                        >
+                            {tp('llm_wiki_lint_run', { defaultValue: 'Revisar el Cervell (lint)' })}
+                        </button>
+                        {lintBusy && <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('llm_wiki_lint_running', { defaultValue: 'Revisant…' })}</span>}
+                    </div>
+                    {lint && (
+                        <div style={{ fontSize: 12, color: 'var(--text-secondary, #475569)', lineHeight: 1.6 }}>
+                            <div style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)', marginBottom: 4 }}>
+                                {tp('llm_wiki_lint_summary', { count: lint.note_count, defaultValue: '{{count}} notes revisades' })}
+                            </div>
+                            <div>• {tp('llm_wiki_lint_orphans', { count: lint.counts?.orphans || 0, defaultValue: '{{count}} òrfenes (cap altra nota hi enllaça)' })}</div>
+                            <div>• {tp('llm_wiki_lint_stale', { count: lint.counts?.stale || 0, defaultValue: '{{count}} sense revisar fa temps' })}</div>
+                            <div>• {tp('llm_wiki_lint_xref', { count: lint.counts?.missing_xref || 0, defaultValue: '{{count}} referències creuades que falten' })}</div>
+                            <div>• {tp('llm_wiki_lint_reprocess', { count: lint.counts?.reprocess || 0, defaultValue: '{{count}} recursos modificats després de processar-se' })}</div>
+                        </div>
+                    )}
+                </div>
             )}
         </div>
     );
@@ -482,7 +629,7 @@ function ThirdPartyPlugins() {
  * Plugin configuration panel: enables/disables the optional features
  * (internal registry). State is persisted per vault in `.gnosi/plugins.json`.
  */
-const CONFIGURABLE = { 'daily-notes': DailyNotesConfig };
+const CONFIGURABLE = { 'daily-notes': DailyNotesConfig, 'llm-wiki': LlmWikiConfig };
 
 export function PluginsSettings() {
     const { t } = useTranslation();

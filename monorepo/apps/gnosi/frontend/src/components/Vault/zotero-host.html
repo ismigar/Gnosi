@@ -143,7 +143,7 @@
             return texts.length > 0 ? texts : undefined;
         }
 
-        async function init({ pdfUrl, kind, annotations, options, language }) {
+        async function init({ pdfUrl, kind, annotations, options, language, location }) {
             try {
                 await waitForCreateReader();
                 if (!pdfUrl) throw new Error('Missing pdfUrl');
@@ -227,6 +227,14 @@
                     await reader.initializedPromise;
                 }
                 post({ type: 'ready' });
+                // NotebookLM-style deep link: if the parent asked to open at a
+                // specific location (e.g. a citation's page), jump there once the
+                // reader is initialized. `reader.navigate` accepts {pageNumber}
+                // (1-based, string), {annotationID}, or a position.
+                if (location) {
+                    try { reader.navigate && reader.navigate(location, { behavior: 'auto' }); }
+                    catch (e) { console.warn('navigate on init failed', e); }
+                }
             } catch (err) {
                 showError('Init error: ' + (err && err.message ? err.message : String(err)));
             }
@@ -242,6 +250,11 @@
             if (data.target !== 'zotero-reader') return;
             if (data.type === 'init') {
                 init(data.payload || {});
+            } else if (data.type === 'navigate' && reader) {
+                // Jump to a location in an already-open document (a citation
+                // clicked while the reader tab was already showing this PDF).
+                try { reader.navigate && reader.navigate(data.location || {}, { behavior: 'smooth' }); }
+                catch (err) { console.warn('navigate failed', err); }
             } else if (data.type === 'set-annotations' && reader) {
                 try { reader.setAnnotations && reader.setAnnotations(data.annotations || []); }
                 catch (err) { console.warn('set-annotations failed', err); }

@@ -453,6 +453,15 @@ export default function VaultDashboard() {
     }, []);
     useEffect(() => { refreshReferenceTable(); }, [refreshReferenceTable]);
 
+    // Id of the Cervell (LLM Wiki) table — gates the «Bústia del Cervell»
+    // (pending permanent-note suggestions) in that table's header.
+    const [brainTableId, setBrainTableId] = useState(null);
+    useEffect(() => {
+        axios.get('/api/vault/brain-table')
+            .then(({ data }) => setBrainTableId(data?.table_id || null))
+            .catch(() => { /* no designation → gating disabled */ });
+    }, []);
+
     const applySchemaDefaults = useCallback((tableId, metadata = {}, title = 'Nou') => {
         if (!tableId) return metadata;
         const tableSchema = getSchemaFromTableId(tableId);
@@ -1375,7 +1384,7 @@ export default function VaultDashboard() {
         // so the interceptor knows we've handled it (no need to navigate to
         // /vault/pdf?src=... as a fallback).
         const handleOpenPdf = (e) => {
-            const { src, title, kind } = e.detail || {};
+            const { src, title, kind, location } = e.detail || {};
             if (!src) return;
             e.preventDefault();
             // PDF / EPUB / snapshot HTML share a tab prefix (see
@@ -1398,9 +1407,11 @@ export default function VaultDashboard() {
                 // WE REFRESH the origin to the actual place it was just reopened from;
                 // otherwise, "Back" would return to the first place it was opened.
                 if (prev.some(t => t.id === id)) {
-                    return prev.map(t => (t.id === id ? { ...t, origin } : t));
+                    // Reopening the same document: refresh origin AND the deep-link
+                    // location so clicking a different citation re-navigates.
+                    return prev.map(t => (t.id === id ? { ...t, origin, location: location || null } : t));
                 }
-                return [...prev, { id, title: title || t('common.document', 'document'), isPdf: true, src, kind: kind || 'pdf', origin }];
+                return [...prev, { id, title: title || t('common.document', 'document'), isPdf: true, src, kind: kind || 'pdf', origin, location: location || null }];
             });
             setActiveTabId(id);
             setViewMode('editor');
@@ -2975,6 +2986,7 @@ export default function VaultDashboard() {
                     src={tab.src}
                     title={tab.title}
                     kind={tab.kind || 'pdf'}
+                    location={tab.location || null}
                     // "Back" button of the viewer → closes the document and returns to
                     // it was opened from (handleTabClose honors `tab.origin`).
                     onClose={() => handleTabClose(tab.id)}
@@ -3003,6 +3015,7 @@ export default function VaultDashboard() {
                         recordCount={paneNotes.length}
                         notes={paneNotes}
                         referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
+                        brainTableId={brainTableId && brainTableId === tableId ? tableId : undefined}
                         onReferencesImported={fetchPages}
                         onCreateFromSource={() => setCreateSourceTableId(tableId)}
                         views={displayViews}
@@ -3231,6 +3244,7 @@ export default function VaultDashboard() {
                     recordCount={paneNotes.length}
                     notes={paneNotes}
                     referenceTableId={refTableId && refTableId === tableId ? tableId : undefined}
+                    brainTableId={brainTableId && brainTableId === tableId ? tableId : undefined}
                     onReferencesImported={fetchPages}
                     onCreateFromSource={() => setCreateSourceTableId(tableId)}
                     views={displayViews}
@@ -3460,6 +3474,7 @@ export default function VaultDashboard() {
                                         recordCount={(tableNotes || []).length}
                                         notes={tableNotes || []}
                                         referenceTableId={refTableId && refTableId === activeTableId ? activeTableId : undefined}
+                                        brainTableId={brainTableId && brainTableId === activeTableId ? activeTableId : undefined}
                                         onReferencesImported={fetchPages}
                                         onCreateFromSource={() => setCreateSourceTableId(activeTableId)}
                                         views={displayViews}
