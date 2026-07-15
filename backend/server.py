@@ -124,6 +124,15 @@ async def lifespan(app: FastAPI):
             # from the first instant.
             kickoff_link_index_rebuild()
             log.info("🔗 Link-index rebuild kickstarted at lifespan startup")
+            # Proactively materialize the vault's CRITICAL online-only files
+            # (BD/ registry + .gnosi/page_meta/) so the first request burst
+            # doesn't block on OneDrive on-access downloads and starve the
+            # request threadpool (symptom: /api/vaults -> "timeout of 30000ms
+            # exceeded" while OneDrive is cold). In-process version of the
+            # one-off rehydrate_vault.py incident script. Best-effort, non-blocking.
+            from backend.services.vault_warmup import kickoff_critical_warmup
+            kickoff_critical_warmup(v_path)
+            log.info(f"☁️ Critical-vault warmup kicked off for {v_path}")
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
