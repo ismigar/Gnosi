@@ -13,12 +13,49 @@ import asyncio
 import json
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Dict, Optional
 
 from .base import FilesProvider
 
 log = logging.getLogger(__name__)
+
+
+def _is_docker() -> bool:
+    """True when running inside a container. Same heuristic as
+    `config.env_config._is_docker` / `security.keychain_manager` (replicated to
+    keep files_provider self-contained)."""
+    return Path("/.dockerenv").exists() or bool(os.environ.get("DOCKER_CONTAINER"))
+
+
+def _default_warmup_mode() -> str:
+    """Warmup mode when `ONEDRIVE_WARMUP_MODE` is unset, auto-detected by runtime.
+
+    - Docker → "daemon": the backend can't reach the macOS File Provider, so it
+      delegates to the host's HTTP warmup daemon (`host.docker.internal:5009`).
+    - Native macOS → "open": materialize via LaunchServices (`open -g -j -a`),
+      the only mode that works from a launchd process (see the class docstring).
+    - Other native (Linux self-host, etc.) → "daemon": no LaunchServices; a
+      File-Provider vault there is unusual (it'd normally resolve to LocalProvider).
+
+    This makes native installs work WITHOUT the operator remembering to export
+    `ONEDRIVE_WARMUP_MODE=open`: forgetting it used to leave every provider
+    (OneDrive/iCloud/GDrive/Nextcloud all subclass this) hitting the unreachable
+    Docker daemon and failing every materialization with a ConnectError.
+    """
+    if not _is_docker() and sys.platform == "darwin":
+        return "open"
+    return "daemon"
+
+
+def _default_warmup_url() -> str:
+    """Daemon URL when `ONEDRIVE_WARMUP_URL` is unset. Only used in "daemon"
+    mode. In Docker the daemon lives on the host (`host.docker.internal`); when
+    a native process runs in daemon mode it's the loopback daemon."""
+    if _is_docker():
+        return "http://host.docker.internal:5009/warmup"
+    return "http://127.0.0.1:5009/warmup"
 
 
 class OneDriveProvider(FilesProvider):
@@ -36,10 +73,11 @@ class OneDriveProvider(FilesProvider):
     ) -> None:
         self.warmup_url = warmup_url or os.environ.get(
             "ONEDRIVE_WARMUP_URL",
-            "http://host.docker.internal:5009/warmup",
+            _default_warmup_url(),
         )
-        # Materialization mode:
-        #   "daemon" (default) → calls the host's HTTP daemon (Docker case, where
+        # Materialization mode (default auto-detected by _default_warmup_mode():
+        # "open" on native macOS, "daemon" in Docker; ONEDRIVE_WARMUP_MODE overrides):
+        #   "daemon"           → calls the host's HTTP daemon (Docker case, where
         #                        the backend does NOT have direct access to the File Provider).
         #   "direct"           → reads the file directly IN-PROCESS. On macOS
         #                        this does NOT work from the NATIVE backend: uvicorn
@@ -52,7 +90,9 @@ class OneDriveProvider(FilesProvider):
         #                        of the user; the app reads the file in the context
         #                        correct one, and OneDrive downloads it. It's the mode for the
         #                        runtime NATIU. Cf. feedback_onedrive_warmup_native.
-        self.warmup_mode = os.environ.get("ONEDRIVE_WARMUP_MODE", "daemon").strip().lower()
+        self.warmup_mode = (
+            os.environ.get("ONEDRIVE_WARMUP_MODE") or _default_warmup_mode()
+        ).strip().lower()
         # GUI app that LaunchServices opens to trigger the download ("open" mode).
         # Preview reads images/PDF; any app that reads the file works.
         self._warmup_open_app = os.environ.get("ONEDRIVE_WARMUP_OPEN_APP", "Preview").strip()
