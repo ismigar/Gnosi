@@ -75,7 +75,8 @@ def test_tools_exported():
     names = [getattr(t, "name", getattr(t, "__name__", "")) for t in VAULT_KNOWLEDGE_TOOLS]
     assert any("read_page" in n for n in names)
     assert any("create_page" in n for n in names)
-    assert len(VAULT_KNOWLEDGE_TOOLS) == 5
+    assert any("query_wiki" in n for n in names)
+    assert len(VAULT_KNOWLEDGE_TOOLS) == 6
 
 
 if __name__ == "__main__":
