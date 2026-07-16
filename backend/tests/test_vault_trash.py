@@ -18,14 +18,15 @@ Coverage:
 - restore rejects a malicious `original_path` with 400 (path traversal).
 - purge endpoint removes the trash entry.
 - soft-deleted pages don't appear in GET /api/vault/pages.
-- purge_expired_trash() helper purges entries older than the retention.
+
+The `purge_expired_trash()` cron helper is covered hermetically (no live
+backend) in `test_vault_trash_purge.py`.
 """
 from __future__ import annotations
 
 import json
 import os
 import uuid
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -244,28 +245,3 @@ def test_purge_endpoint_removes_trash_entry():
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "purged"
     assert not (TRASH_ROOT / pid).exists()
-
-
-def test_purge_expired_helper_respects_retention_days():
-    """Direct test of `purge_expired_trash` — used by the cron task."""
-    from backend.api.vault_routes import purge_expired_trash
-
-    old_pid = _make_page("pytest-trash-expired")
-    fresh_pid = _make_page("pytest-trash-fresh")
-    try:
-        requests.delete(f"{BACKEND}/api/vault/pages/{old_pid}", timeout=10).raise_for_status()
-        requests.delete(f"{BACKEND}/api/vault/pages/{fresh_pid}", timeout=10).raise_for_status()
-
-        # Force old_pid to look like it was deleted 100 days ago.
-        old_sidecar_path = TRASH_ROOT / old_pid / "_trash.json"
-        data = json.loads(old_sidecar_path.read_text(encoding="utf-8"))
-        data["deleted_at"] = (datetime.now(timezone.utc) - timedelta(days=100)).isoformat()
-        old_sidecar_path.write_text(json.dumps(data), encoding="utf-8")
-
-        result = purge_expired_trash()
-        assert result["purged_count"] >= 1
-        assert not (TRASH_ROOT / old_pid).exists()
-        assert (TRASH_ROOT / fresh_pid).exists()
-    finally:
-        _safe_purge(old_pid)
-        _safe_purge(fresh_pid)
