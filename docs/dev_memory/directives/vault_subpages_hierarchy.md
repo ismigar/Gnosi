@@ -15,11 +15,16 @@ soltes del Wiki (símptoma observat: "Wiki inflat" amb 109 subpàgines aplanades
    - `GET /pages/by-table/{id}` decideix pertinença **per prefix de carpeta primer** (fast-path,
      `vault_routes.py` ~3394); el metadata només és fallback. Un `.md` dins la carpeta de la
      taula ES CONVERTEIX en fila de la graella → contaminació. No moure-hi mai subpàgines.
-3. **L'enganxada a l'arbre la fa el FRONTEND (builder de `VaultSidebar.jsx`):** una pàgina amb
-   `parent_id` i sense marcador de secció propi (ni `table_id`, ni dashboard) s'ha d'adjuntar a
-   l'arbre on visqui el seu pare (fila de taula → `dataChildrenMap[taula].children[pare]`;
-   wiki → `childrenMap[pare]`; dashboard → `dashboardChildrenMap[pare]`), resolent cadenes de
-   pares (subpàgina de subpàgina) amb memoïtzació i guarda de cicles.
+3. **L'enganxada a l'arbre la fa el FRONTEND (builder de `VaultSidebar.jsx`):** la SECCIÓ d'una
+   pàgina la decideixen els seus marcadors PROPIS, mai el pare per a dades (criteri del
+   mantenidor, 2026-07-16): una pàgina sense `table_id` ni carpeta `BD/` és **WIKI encara que
+   pengi d'una fila de BD** — la fila l'enllaça, però només els membres reals de la taula
+   pertanyen a DADES ("Pla de futur i cures" no tenia propietats: no pot ser d'una BD). Al
+   sidebar es nia sota el pare només si el pare també renderitza al wiki
+   (`childrenMap[pare]`); si el pare és una fila, aflora a l'ARREL del wiki (el pare no
+   renderitza mai a l'arbre wiki i la niaria en un node invisible). Les subpàgines de
+   taulells SÍ hereten secció (dashboard → `dashboardChildrenMap[pare]`). Cadenes de pares
+   resoltes amb memoïtzació i guarda de cicles.
 
 ## Clon de Notion (`services/notion_clone.py`, passada 4)
 
