@@ -42,6 +42,20 @@ def default_host_helper_url(path: str) -> str:
     return f"http://{host}:5099{path}"
 
 
+def default_ollama_base_url() -> str:
+    """Default base URL for a host-side Ollama daemon (port 11434).
+
+    Same autodetection rationale as `default_host_helper_url`: Ollama runs on the
+    HOST, so a Docker backend reaches it via `host.docker.internal` while a native
+    backend must use loopback. `OLLAMA_BASE_URL` overrides the default.
+    """
+    override = os.environ.get("OLLAMA_BASE_URL")
+    if override:
+        return override.rstrip("/")
+    host = "host.docker.internal" if _is_docker() else "127.0.0.1"
+    return f"http://{host}:11434"
+
+
 def _load_keychain():
     """Load credentials from Keychain if available. Skipped in Docker (env vars come from env_file)."""
     global _keychain_loaded

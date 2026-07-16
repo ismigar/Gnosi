@@ -15,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional
 # ---------------------------------------------------------------------------
 # Default registry (the old hardcoded stacks, now as DATA)
 # One entry: provider, model_id, is_local, enabled, priority (lower=preferred),
-# cost_in/out (USD per 1k tokens; 0 = local), context_window, quality (1..3),
+# cost_in/out (USD per 1M tokens; 0 = local), context_window, quality (1..3),
 # tags (capacitats: "code", "vision", "long", "tools"...), monthly_quota? (tokens).
 # ---------------------------------------------------------------------------
 DEFAULT_REGISTRY: List[Dict[str, Any]] = [

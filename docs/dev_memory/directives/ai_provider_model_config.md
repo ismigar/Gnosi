@@ -157,6 +157,47 @@ README.md
 
 --
 
+## Model Catalog for the Router Registry (implemented 2026-07-16)
+
+The router registry UI (Models del router) no longer asks the user to remember
+provider/model ids: hierarchical dropdowns Provider → Model auto-fill cost,
+context window, capabilities and quality, all editable afterwards.
+
+- **Primary source**: models.dev `api.json` (open-source database used by the
+  OpenCode harness; no API key). Transformed to a compact schema in
+  `backend/agent/model_catalog.py` (pure `build_catalog`, unit-tested).
+- **Layers**: remote fetch (24h TTL) → disk cache in `GNOSI_LOCAL_DATA/cache`
+  or `~/.cache/gnosi` (never the vault/OneDrive) → vendored snapshot
+  `backend/data/model_catalog.json` (zero-network fallback; regenerate with
+  `python -m backend.scripts.refresh_model_catalog`).
+- **Live overlay**: models actually installed in Ollama via `GET /api/tags`
+  (autodetected base URL, Docker vs native).
+- **Endpoint**: `GET /api/ai/model-catalog` (async, loader runs in a thread).
+- Costs are USD per **1M tokens** across registry, catalog and UI.
+
+### Restrictions / Edge Cases
+- Do not scrape artificialanalysis.ai → fragile HTML and it HAS an official
+  Data API (key required, 1k req/day) → if quality benchmarks are ever needed,
+  integrate their API as optional enrichment instead.
+- Do not fetch the remote catalog inline in an async endpoint → blocks the
+  event loop → wrap the sync loader in `asyncio.to_thread` (same lesson as
+  uploads, PR #813).
+- `backend/data/*.json` is gitignored → a vendored JSON there silently drops
+  out of the repo → keep the explicit `!backend/data/model_catalog.json`
+  exception in `monorepo/apps/gnosi/.gitignore`.
+- Do not default Ollama to `host.docker.internal` → breaks native installs →
+  use `env_config.default_ollama_base_url()` (autodetects Docker vs native).
+- Registry rows whose provider/model are not in the catalog must render as an
+  extra option / free-text ("Personalitzat…") → otherwise saved values blank
+  out visually and a save would destroy them.
+- Capability tags (`fast/code/vision/long/tools/reasoning`) are DATA matched
+  verbatim by `model_router.py` → never translate them in the UI.
+- i18n wrappers with a `(key, opts)` signature swallow a third argument → for
+  interpolated defaults pass `{ defaultValue, ...vars }` as the second arg
+  (the `{{source}}` hint bug found in browser QA).
+
+--
+
 ## Notes
 - Adapt module names according to repository conventions.
 - Keep documentation and examples up to date.

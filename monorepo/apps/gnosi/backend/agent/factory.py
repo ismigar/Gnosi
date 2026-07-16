@@ -171,9 +171,13 @@ def get_llm(
             log.debug(f"Instantiating ChatOllama with model {model or 'llama3.2'}")
             # ChatOllama IGNORES `timeout=` directly (model_config extra="ignore"); the
             # network timeout must be passed via client_kwargs → ollama's httpx client.
+            # Autodetected default: host.docker.internal only inside Docker, loopback
+            # native — a fixed Docker hostname silently broke native installs
+            # (same family as default_host_helper_url, PR #838).
+            from backend.config.env_config import default_ollama_base_url
             return ChatOllama(
                 model=model or "llama3.2",
-                base_url=base_url or "http://host.docker.internal:11434",
+                base_url=base_url or default_ollama_base_url(),
                 client_kwargs={"timeout": timeout if timeout is not None else 60},
             )
 
