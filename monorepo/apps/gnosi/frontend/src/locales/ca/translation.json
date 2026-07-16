@@ -1561,7 +1561,7 @@
     },
     "ai": {
       "providers_section": "Proveïdors de Models",
-      "connect_model": "Connectar Model",
+      "connect_provider": "Connectar proveïdor",
       "enable_provider": "Activar proveïdor {{name}}",
       "inactive": "INACTIU",
       "credentials_ok": "✓ Credencials configurades",

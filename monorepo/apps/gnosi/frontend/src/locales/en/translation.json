@@ -1608,7 +1608,7 @@
       "agent_name": "Agent Name",
       "icon_label": "Icon",
       "providers_section": "Model Providers",
-      "connect_model": "Connect Model",
+      "connect_provider": "Connect Provider",
       "enable_provider": "Enable provider {{name}}",
       "inactive": "INACTIVE",
       "credentials_ok": "✓ Credentials configured",

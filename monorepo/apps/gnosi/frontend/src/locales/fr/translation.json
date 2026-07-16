@@ -244,7 +244,7 @@
       "agent_name": "Nom de l'agent",
       "icon_label": "Icône",
       "providers_section": "Fournisseurs de modèles",
-      "connect_model": "Connecter un modèle",
+      "connect_provider": "Connecter un fournisseur",
       "enable_provider": "Activer le fournisseur {{name}}",
       "inactive": "INACTIF",
       "credentials_ok": "✓ Identifiants configurés",

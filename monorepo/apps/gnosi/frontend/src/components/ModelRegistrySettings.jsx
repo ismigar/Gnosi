@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Cpu, Plus, Trash2, Save, Server, Cloud, List } from 'lucide-react';
+import { Plus, Trash2, Save, Server, Cloud, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 /**
@@ -215,24 +215,21 @@ export default function ModelRegistrySettings() {
     };
 
     return (
-        <div style={{ marginTop: 32, padding: 24, borderRadius: 24, border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' }}>
+        <div style={{ padding: 24, borderRadius: 24, border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)' }}>
+            {/* Section title/icon live in GlobalSettingsModal's <Section> wrapper */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                    <Cpu size={20} />
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 900, fontSize: '1.05rem', color: 'var(--text-primary)' }}>{ta('title', 'Models del router')}</div>
-                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                            {ta('subtitle', "Registra els models (locals o remots); l'orquestrador tria segons la petició, tokens i cost.")}
-                        </div>
-                        {catalog && (
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
-                                {ta('catalog_hint', {
-                                    defaultValue: 'Catàleg de models actualitzat automàticament (font: {{source}}).',
-                                    source: catalog.source || 'models.dev',
-                                })}
-                            </div>
-                        )}
+                <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {ta('subtitle', "Registra els models (locals o remots); l'orquestrador tria segons la petició, tokens i cost.")}
                     </div>
+                    {catalog && (
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
+                            {ta('catalog_hint', {
+                                defaultValue: 'Catàleg de models actualitzat automàticament (font: {{source}}).',
+                                source: catalog.source || 'models.dev',
+                            })}
+                        </div>
+                    )}
                 </div>
                 <button className="btn-gnosi-primary" onClick={addRow}
                     style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>

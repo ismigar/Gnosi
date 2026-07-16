@@ -43,15 +43,23 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
     if not api_key and provider not in ["ollama", "local", "generic"]:
         return {"success": False, "error": f"Falta la clau API per validar el proveïdor {provider.capitalize()}."}
 
-    # Default models for validation
+    # Ping model: explicit payload > cheapest model from the live catalog >
+    # legacy hardcoded fallback. The hardcoded ids rot (providers retire them —
+    # e.g. OpenRouter dropped its gpt-4o-mini alias) and then the ping fails
+    # even with a valid key; the catalog tracks what actually exists.
     default_models = {
         "openai": "gpt-4o-mini",
-        "anthropic": "claude-3-5-sonnet-latest",
+        "anthropic": "claude-3-5-haiku-latest",
         "groq": "llama-3.3-70b-versatile",
         "google": "gemini-1.5-flash",
         "openrouter": "openai/gpt-4o-mini"
     }
-    target_model = payload.model or default_models.get(provider)
+    target_model = payload.model
+    if not target_model:
+        from backend.agent.model_catalog import ping_model_for
+        target_model = await asyncio.to_thread(ping_model_for, provider)
+    if not target_model:
+        target_model = default_models.get(provider)
 
     try:
         # timeout=10 is applied when building the client (REAL network timeout). It can NOT be
@@ -79,7 +87,10 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
         return {"success": True, "response": response.content}
     except Exception as e:
         error_msg = str(e)
-        if "API key" in error_msg:
+        # Groq/OpenAI SDKs raise AuthenticationError/401 without the literal
+        # words "API key" — without this match a bad key surfaced as a cryptic
+        # "Internal error [hash]" instead of the actionable message.
+        if any(marker in error_msg for marker in ("API key", "AuthenticationError", "401", "Unauthorized")):
             return {"success": False, "error": f"Clau API invàlida per a {provider.capitalize()}."}
         return {"success": False, "error": safe_error_detail(e, context=f"POST /ai/providers/{provider}/validate")}
 
