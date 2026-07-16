@@ -2233,7 +2233,9 @@
     "softcatala_desc": "Endpoint for Softcatalà's translator (Catalan). Stored in .env_shared. Empty = use default.",
     "softcatala_saved": "Softcatalà URL updated.",
     "softcatala_save_error": "Couldn't save the Softcatalà URL.",
-    "usage_hint": "These values are consumed by the /api/vault/skills/translate-row endpoint. After saving the DeepL key you may need to restart the backend so the Keychain reloads."
+    "usage_hint": "These values are consumed by the /api/vault/skills/translate-row endpoint. After saving the DeepL key you may need to restart the backend so the Keychain reloads.",
+    "autosaving": "Saving…",
+    "autosaved": "Saved"
   },
   "mail": {
     "all_accounts": "All accounts",

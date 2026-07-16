@@ -1164,7 +1164,9 @@
     "softcatala_desc": "Endpoint du traducteur Softcatalà (catalan). Stocké dans .env_shared. Vide = défaut.",
     "softcatala_saved": "URL Softcatalà mise à jour.",
     "softcatala_save_error": "Impossible d'enregistrer l'URL Softcatalà.",
-    "usage_hint": "Ces valeurs sont utilisées par l'endpoint /api/vault/skills/translate-row. Après l'enregistrement de la clé DeepL, redémarre le backend pour que le Trousseau soit rechargé."
+    "usage_hint": "Ces valeurs sont utilisées par l'endpoint /api/vault/skills/translate-row. Après l'enregistrement de la clé DeepL, redémarre le backend pour que le Trousseau soit rechargé.",
+    "autosaving": "Enregistrement…",
+    "autosaved": "Enregistré"
   },
   "mail": {
     "all_accounts": "Tous les comptes",
