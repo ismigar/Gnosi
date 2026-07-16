@@ -88,6 +88,32 @@ def get_engine_for_path(vault_path: Path):
         return _engines[v_str], _sessionmakers[v_str]
 
 
+def vault_db_path_for(vault_path) -> Path:
+    """Local path of a vault's per-vault SQLite DB (same naming as
+    `get_engine_for_path`, without creating anything)."""
+    import hashlib as _hashlib
+    from backend.config.app_config import load_params as _load_params
+
+    local_data = _load_params(strict_env=False).paths.get("LOCAL_DATA") or Path("/app/data")
+    vault_hash = _hashlib.sha1(str(vault_path).encode("utf-8")).hexdigest()[:12]
+    return Path(local_data) / "system" / "vault_dbs" / f"gnosi_vault_{vault_hash}.db"
+
+
+def dispose_engine_for_path(vault_path) -> None:
+    """Closes and forgets the engine of a vault (vault deletion). Without this,
+    the pooled connections keep the deleted DB file alive and a re-created
+    vault at the same path would silently reuse the stale engine."""
+    v_str = str(vault_path)
+    with _lock:
+        engine_obj = _engines.pop(v_str, None)
+        _sessionmakers.pop(v_str, None)
+    if engine_obj is not None:
+        try:
+            engine_obj.dispose()
+        except Exception:  # noqa: BLE001
+            pass
+
+
 # Proxy object for the legacy 'engine' variable to avoid breaking imports
 # But it's better to avoid global engine access if possible.
 # Since existing code might use 'engine', we'll provide a warning or a default.

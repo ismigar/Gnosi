@@ -220,9 +220,49 @@ def delete_vault(vault_id: str,
                 shutil.rmtree(p)
         except Exception:  # noqa: BLE001
             pass
+    _purge_vault_artifacts(vpath, delete_files=delete_files)
     try:
         from backend.services.active_vault_middleware import reset_vault_path_cache
         reset_vault_path_cache()
     except Exception:
         pass
     return {"status": "success", "deleted": vault_id}
+
+
+def _purge_vault_artifacts(vpath: Optional[Path], delete_files: bool) -> None:
+    """Removes the LOCAL leftovers of a deleted vault (best-effort).
+
+    Without this, deleting a vault left behind: the per-vault page/id-title
+    cache JSONs under `local_data/cache/`, the per-vault SQLite (mail/reader/
+    annotations) under `local_data/system/vault_dbs/`, the pooled engine in
+    memory, and up to 7 days of stale entries in the file-search index.
+
+    The SQLite DB holds USER DATA (not a cache), so it's only deleted together
+    with the files (`delete_files=true`); a vault whose folder is kept on disk
+    can be re-registered later and must find its data intact.
+    """
+    if not vpath:
+        return
+    v_str = str(vpath)
+    try:
+        from backend.api.vault_routes import purge_vault_caches
+        purge_vault_caches(v_str)
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        from backend.data.db import dispose_engine_for_path, vault_db_path_for
+        dispose_engine_for_path(v_str)
+        if delete_files:
+            db_path = vault_db_path_for(v_str)
+            # SQLite side files too: a later vault at the same path must not
+            # recover journal state from the deleted one.
+            for suffix in ("", "-wal", "-shm"):
+                Path(str(db_path) + suffix).unlink(missing_ok=True)
+    except Exception:  # noqa: BLE001
+        pass
+    if delete_files:
+        try:
+            from backend.services.vault_file_index import remove_subtree
+            remove_subtree(v_str)
+        except Exception:  # noqa: BLE001
+            pass
