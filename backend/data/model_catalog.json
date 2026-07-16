@@ -1,7 +1,7 @@
 {
  "schema": 1,
  "source": "models.dev",
- "generated_at": "2026-07-16T15:01:34+00:00",
+ "generated_at": "2026-07-16T16:05:21+00:00",
  "providers": [
   {
    "id": "groq",
@@ -2048,21 +2048,6 @@
      "release_date": "2026-07-10"
     },
     {
-     "id": "~openai/gpt-latest",
-     "name": "OpenAI GPT Latest",
-     "cost_in": 5.0,
-     "cost_out": 30.0,
-     "context_window": 1050000,
-     "tags": [
-      "vision",
-      "long",
-      "tools",
-      "reasoning"
-     ],
-     "quality": 3,
-     "release_date": "2026-07-09"
-    },
-    {
      "id": "openai/gpt-5.6-terra-pro",
      "name": "GPT-5.6 Terra Pro",
      "cost_in": 2.5,
@@ -2299,21 +2284,6 @@
      "release_date": "2026-06-30"
     },
     {
-     "id": "~anthropic/claude-sonnet-latest",
-     "name": "Anthropic Claude Sonnet Latest",
-     "cost_in": 2.0,
-     "cost_out": 10.0,
-     "context_window": 1000000,
-     "tags": [
-      "vision",
-      "long",
-      "tools",
-      "reasoning"
-     ],
-     "quality": 3,
-     "release_date": "2026-06-30"
-    },
-    {
      "id": "nex-agi/nex-n2-mini",
      "name": "Nex-N2-Mini",
      "cost_in": 0.025,
@@ -2363,8 +2333,8 @@
     {
      "id": "z-ai/glm-5.2",
      "name": "GLM-5.2",
-     "cost_in": 0.8652,
-     "cost_out": 2.7192,
+     "cost_in": 0.9394,
+     "cost_out": 2.9524,
      "context_window": 1048576,
      "tags": [
       "long",
@@ -2389,8 +2359,8 @@
     {
      "id": "moonshotai/kimi-k2.7-code",
      "name": "Kimi K2.7 Code",
-     "cost_in": 0.719,
-     "cost_out": 3.49,
+     "cost_in": 0.75,
+     "cost_out": 3.5,
      "context_window": 262144,
      "tags": [
       "code",
@@ -2600,8 +2570,8 @@
     {
      "id": "qwen/qwen3.7-max",
      "name": "Qwen3.7 Max",
-     "cost_in": 1.25,
-     "cost_out": 3.75,
+     "cost_in": 1.475,
+     "cost_out": 4.425,
      "context_window": 1000000,
      "tags": [
       "long",
@@ -2610,22 +2580,6 @@
      ],
      "quality": 3,
      "release_date": "2026-05-21"
-    },
-    {
-     "id": "~google/gemini-flash-latest",
-     "name": "Google Gemini Flash Latest",
-     "cost_in": 1.5,
-     "cost_out": 9.0,
-     "context_window": 1048576,
-     "tags": [
-      "fast",
-      "vision",
-      "long",
-      "tools",
-      "reasoning"
-     ],
-     "quality": 3,
-     "release_date": "2026-05-19"
     },
     {
      "id": "google/gemini-3.5-flash",
@@ -2838,11 +2792,73 @@
      "release_date": "2026-04-27"
     },
     {
+     "id": "~openai/gpt-latest",
+     "name": "OpenAI GPT Latest",
+     "cost_in": 5.0,
+     "cost_out": 30.0,
+     "context_window": 1050000,
+     "tags": [
+      "vision",
+      "long",
+      "tools",
+      "reasoning"
+     ],
+     "quality": 3,
+     "release_date": "2026-04-27"
+    },
+    {
      "id": "~moonshotai/kimi-latest",
      "name": "MoonshotAI Kimi Latest",
      "cost_in": 0.66,
      "cost_out": 3.41,
      "context_window": 262144,
+     "tags": [
+      "vision",
+      "long",
+      "tools",
+      "reasoning"
+     ],
+     "quality": 3,
+     "release_date": "2026-04-27"
+    },
+    {
+     "id": "~google/gemini-pro-latest",
+     "name": "Google Gemini Pro Latest",
+     "cost_in": 2.0,
+     "cost_out": 12.0,
+     "context_window": 1048576,
+     "tags": [
+      "fast",
+      "vision",
+      "long",
+      "tools",
+      "reasoning"
+     ],
+     "quality": 3,
+     "release_date": "2026-04-27"
+    },
+    {
+     "id": "~google/gemini-flash-latest",
+     "name": "Google Gemini Flash Latest",
+     "cost_in": 1.5,
+     "cost_out": 9.0,
+     "context_window": 1048576,
+     "tags": [
+      "fast",
+      "vision",
+      "long",
+      "tools",
+      "reasoning"
+     ],
+     "quality": 3,
+     "release_date": "2026-04-27"
+    },
+    {
+     "id": "~anthropic/claude-sonnet-latest",
+     "name": "Anthropic Claude Sonnet Latest",
+     "cost_in": 2.0,
+     "cost_out": 10.0,
+     "context_window": 1000000,
      "tags": [
       "vision",
       "long",
@@ -3018,8 +3034,8 @@
     {
      "id": "moonshotai/kimi-k2.6",
      "name": "Kimi K2.6",
-     "cost_in": 0.66,
-     "cost_out": 3.41,
+     "cost_in": 0.95,
+     "cost_out": 4.0,
      "context_window": 262144,
      "tags": [
       "vision",
@@ -3674,22 +3690,6 @@
      "release_date": "2026-02-23"
     },
     {
-     "id": "~google/gemini-pro-latest",
-     "name": "Google Gemini Pro Latest",
-     "cost_in": 2.0,
-     "cost_out": 12.0,
-     "context_window": 1048576,
-     "tags": [
-      "fast",
-      "vision",
-      "long",
-      "tools",
-      "reasoning"
-     ],
-     "quality": 3,
-     "release_date": "2026-02-19"
-    },
-    {
      "id": "google/gemini-3.1-pro-preview-customtools",
      "name": "Gemini 3.1 Pro Preview Custom Tools",
      "cost_in": 2.0,
@@ -3843,7 +3843,7 @@
     {
      "id": "qwen/qwen3-coder-next",
      "name": "Qwen3 Coder Next",
-     "cost_in": 0.12,
+     "cost_in": 0.11,
      "cost_out": 0.8,
      "context_window": 262144,
      "tags": [
