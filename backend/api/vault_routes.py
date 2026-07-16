@@ -234,6 +234,32 @@ def _clear_page_index_cache():
         log.info("♻️ Page index cache cleared.")
 
 
+def purge_vault_caches(v_str: str) -> None:
+    """Drops every per-vault cache (memory + disk) of ONE vault.
+
+    Called on vault DELETION. `_clear_page_index_cache` wipes ALL vaults and
+    leaves the disk files behind; here we surgically remove just the deleted
+    vault's state so nothing survives under `local_data/cache/`.
+    """
+    if not v_str:
+        return
+    with _page_index_lock:
+        _page_index_entries.pop(v_str, None)
+        _page_index_initialized.pop(v_str, None)
+        _page_id_to_path.pop(v_str, None)
+        _bump_page_index_version(v_str)
+    with _id_title_lock:
+        _id_title_cache.pop(v_str, None)
+    for path_fn in (get_page_index_cache_path, _get_id_title_cache_path):
+        try:
+            p = path_fn(v_str)
+            if p:
+                Path(p).unlink(missing_ok=True)
+        except Exception:  # noqa: BLE001
+            pass
+    log.info(f"♻️ Per-vault caches purged for deleted vault: {v_str}")
+
+
 def sync_to_google_calendar_if_needed(
     metadata: dict, background_tasks: BackgroundTasks
 ):

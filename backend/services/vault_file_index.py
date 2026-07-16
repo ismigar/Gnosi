@@ -236,6 +236,32 @@ def build_index() -> int:
             _building = False
 
 
+def remove_subtree(root: str) -> int:
+    """Drops every entry under `root` (inclusive) from the index and persists.
+
+    Needed when a vault is DELETED: the merge-only build keeps stale entries
+    until the 7-day `last_seen` prune, so a removed vault kept polluting the
+    picker/search for a week. Returns the number of entries removed.
+    """
+    root = str(root).rstrip("/")
+    if not root:
+        return 0
+    prefix = root + "/"
+    global _by_path
+    with _lock:
+        before = len(_by_path)
+        _by_path = {
+            p: e for p, e in _by_path.items()
+            if p != root and not p.startswith(prefix)
+        }
+        removed = before - len(_by_path)
+        snapshot = dict(_by_path)
+    if removed:
+        _save_to_disk(snapshot)
+        log.info(f"🗂️ vault file-index: removed {removed} entries under {root}")
+    return removed
+
+
 def query(q: str, limit: int = 200, include_files: bool = True) -> List[Dict[str, Any]]:
     """Searches the index. Token-AND matching with NFC normalization: an entry
     matches if ALL the tokens of the query are a substring of the normalized name (like
