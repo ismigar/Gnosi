@@ -8,8 +8,6 @@ name: Refresh vendor files
 #     (descarregats de citation-style-language/styles)
 #   - CSL Locales a `frontend/public/csl/locales/*.xml`
 #     (de citation-style-language/locales)
-#   - Zotero translations `.ftl` a `frontend/public/zotero-reader/locales/`
-#     (de zotero/zotero al commit pinned al submodule)
 #   - Catàleg de models vendored a `backend/data/model_catalog.json`
 #     (snapshot de models.dev/api.json; fallback offline del router — el
 #     runtime ja es refresca sol diàriament, això manté fresc el zero-network)
@@ -70,38 +68,14 @@ jobs:
             fi
           done
 
-      - name: Re-download Zotero translations
-        run: |
-          set -e
-          # El commit hash del submodule defineix la versió alineada;
-          # si no l'agafem aquí, descarreguem del HEAD que pot ser
-          # incoherent. Sense `submodules: true` no tenim
-          # .zotero-locale-commit del submodule, així que llegim de master.
-          COMMIT=$(curl -sS -f "https://api.github.com/repos/zotero/reader/contents/.zotero-locale-commit?ref=master" \
-            | python3 -c "import json,sys,base64; print(base64.b64decode(json.load(sys.stdin)['content']).decode().strip())")
-          if [ -z "$COMMIT" ]; then
-            echo "No s'ha pogut llegir el commit hash del Zotero locale" >&2
-            exit 1
-          fi
-          echo "Zotero locale commit: $COMMIT"
-          cd monorepo/apps/gnosi/frontend/public/zotero-reader/locales
-          for lang in en-US ca-AD es-ES; do
-            for file in zotero.ftl reader.ftl; do
-              url="https://raw.githubusercontent.com/zotero/zotero/$COMMIT/chrome/locale/$lang/zotero/$file"
-              mkdir -p "$lang"
-              if curl -sS -f -L --retry 3 -o "$lang/$file.new" "$url"; then
-                if [ -f "$lang/$file" ] && cmp -s "$lang/$file" "$lang/$file.new"; then
-                  rm "$lang/$file.new"
-                else
-                  mv "$lang/$file.new" "$lang/$file"
-                  echo "Updated: $lang/$file"
-                fi
-              else
-                echo "WARN: $url failed, skipping" >&2
-                rm -f "$lang/$file.new"
-              fi
-            done
-          done
+      # NOTA: l'antic step "Re-download Zotero translations" es va eliminar
+      # (2026-07-16): refrescava `frontend/public/zotero-reader/locales/`, un
+      # directori que ja NO existeix al repo — el reader upstream viu ara al
+      # submodule `frontend/vendor/zotero-reader` (les seves locales vénen
+      # d'allà) i al repo només queden els overlays PROPIS a
+      # `frontend/src/components/Vault/zotero-locale-overlays/`. El `cd` a un
+      # directori inexistent feia fallar el workflow SENCER cada dilluns des
+      # del 2026-06-15 (5 runs seguits) i cap step posterior s'executava.
 
       - name: Regenerate vendored model catalog (models.dev)
         run: |
@@ -116,7 +90,7 @@ jobs:
         id: cpr
         uses: peter-evans/create-pull-request@v8
         with:
-          commit-message: "chore(vendor): refresh CSL styles, locales, Zotero translations i model catalog"
+          commit-message: "chore(vendor): refresh CSL styles, locales i model catalog"
           title: "chore(vendor): refresh vendor files (weekly)"
           body: |
             Refresca automàtica dels fitxers de tercers descarregats fora
@@ -126,8 +100,6 @@ jobs:
               (citation-style-language/styles@master)
             - `monorepo/apps/gnosi/frontend/public/csl/locales/*.xml`
               (citation-style-language/locales@master)
-            - `monorepo/apps/gnosi/frontend/public/zotero-reader/locales/<lang>/*.ftl`
-              (zotero/zotero al commit pinned per `zotero/reader`)
             - `monorepo/apps/gnosi/backend/data/model_catalog.json`
               (snapshot compacte de models.dev/api.json — fallback offline
               del catàleg de models del router)
