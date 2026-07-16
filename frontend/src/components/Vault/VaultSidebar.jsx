@@ -740,12 +740,14 @@ export const VaultSidebar = ({
             return page.is_database || (!!t && t !== 'wiki') || page.folder?.startsWith('BD/');
         };
 
-        // Section where a page lives: its own markers first (dashboard / data) and, if it has
-        // none, its PARENT's (parent_id chain, memoized and cycle-proof). This way
-        // a subpage without table_id that hangs off a row (the file lives in Wiki/, cf.
-        // directive vault_subpages_hierarchy.md) attaches to the parent table's tree, and
-        // a subpage of a dashboard goes to the dashboard's — previously they fell into the childrenMap of the
-        // wiki under a parent that never renders there (invisible).
+        // Section where a page lives: its OWN markers decide (dashboard / data).
+        // DB membership is a property of the page itself (table_id / BD/ folder),
+        // NEVER inherited from the parent: a page without properties that hangs
+        // off a DB row is still a WIKI page (cf. directive
+        // vault_subpages_hierarchy.md — the row links it, but only real table
+        // members belong to DADES). Dashboard subpages do inherit (parent_id
+        // chain, memoized and cycle-proof): a dashboard's subpage renders in
+        // the dashboard tree, not as loose wiki.
         const sectionCache = {};
         const sectionOf = (page, visiting) => {
             if (!page) return { kind: 'wiki' };
@@ -766,7 +768,8 @@ export const VaultSidebar = ({
                 // Without a resolvable table, the previous behavior is kept: it's shown nowhere.
                 sec = { kind: 'data', tableId: tableId || null };
             } else if (page.parent_id && pagesById[page.parent_id]) {
-                sec = sectionOf(pagesById[page.parent_id], seen);
+                const psec = sectionOf(pagesById[page.parent_id], seen);
+                sec = psec.kind === 'data' ? { kind: 'wiki' } : psec;
             } else {
                 sec = { kind: 'wiki' };
             }
@@ -818,13 +821,15 @@ export const VaultSidebar = ({
                 return;
             }
 
-            if (parent) {
+            if (parent && sectionOf(parent).kind === 'wiki') {
                 if (!computedChildrenMap[p.parent_id]) computedChildrenMap[p.parent_id] = [];
                 computedChildrenMap[p.parent_id].push(p);
             } else {
-                // Without parent_id or with a nonexistent parent: wiki root. Previously, an
-                // orphaned parent_id hid the page forever (childrenMap of a parent that
-                // doesn't render); now at least it's visible and can be relocated.
+                // Wiki root: no parent_id, a nonexistent parent (an orphaned
+                // parent_id used to hide the page forever in the childrenMap of
+                // a parent that doesn't render), or a parent that lives in
+                // another section (a DB row): the page is wiki but its parent
+                // never renders in the wiki tree, so it surfaces at the root.
                 computedRootPages.push(p);
             }
         });
