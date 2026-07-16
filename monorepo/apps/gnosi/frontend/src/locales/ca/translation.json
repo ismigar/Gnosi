@@ -3248,6 +3248,12 @@
       "success": "Graf actualitzat!",
       "error": "Error en actualitzar el graf"
     },
+    "partial_warning": {
+      "title": "Graf parcial",
+      "message_one": "No s'ha pogut llegir {{count}} carpeta del vault (el núvol encara sincronitza); el graf es mostra incomplet.",
+      "message_other": "No s'han pogut llegir {{count}} carpetes del vault (el núvol encara sincronitza); el graf es mostra incomplet.",
+      "retry": "Reintenta"
+    },
     "filters": {
       "tables_title": "Filtre de Taules",
       "wiki_pages": "Pàgines Wiki",
@@ -3334,7 +3340,8 @@
     },
     "vault_embed": {
       "building": "Construint graf...",
-      "center_tooltip": "Centrar"
+      "center_tooltip": "Centrar",
+      "filters_applied": "Filtres de vista aplicats ({{n}})"
     }
   },
   "auth": {

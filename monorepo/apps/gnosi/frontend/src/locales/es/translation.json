@@ -3262,6 +3262,12 @@
       "success": "¡Grafo actualizado!",
       "error": "Error al actualizar el grafo"
     },
+    "partial_warning": {
+      "title": "Grafo parcial",
+      "message_one": "No se ha podido leer {{count}} carpeta del vault (la nube aún está sincronizando); el grafo se muestra incompleto.",
+      "message_other": "No se han podido leer {{count}} carpetas del vault (la nube aún está sincronizando); el grafo se muestra incompleto.",
+      "retry": "Reintentar"
+    },
     "filters": {
       "tables_title": "Filtro de Tablas",
       "wiki_pages": "Páginas Wiki",
@@ -3348,7 +3354,8 @@
     },
     "vault_embed": {
       "building": "Construyendo grafo...",
-      "center_tooltip": "Centrar"
+      "center_tooltip": "Centrar",
+      "filters_applied": "Filtros de vista aplicados ({{n}})"
     }
   },
   "auth": {

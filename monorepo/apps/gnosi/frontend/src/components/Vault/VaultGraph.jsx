@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { GraphViewer } from '../GraphViewer';
-import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target } from 'lucide-react';
+import { Loader2, Settings2, Maximize2, ZoomIn, ZoomOut, Target, AlertTriangle } from 'lucide-react';
 import { matchesFilters, matchesSearch } from '../../utils/vaultFilters';
 import { useConfigChanged } from '../../lib/configEvents';
 
@@ -24,23 +24,25 @@ export function VaultGraph({
     const [config, setConfig] = useState(null);
     const viewerRef = useRef(null);
 
-    // Load graph data and configuration
+    // Load graph data and configuration. Defined outside the effect so the
+    // partial-graph warning's retry button can re-trigger a full fetch.
+    const fetchData = async () => {
+        try {
+            setLoading(true);
+            const [graphRes, configRes] = await Promise.all([
+                axios.get('/api/graph'),
+                axios.get('/api/config')
+            ]);
+            setGraphData(graphRes.data);
+            setConfig(configRes.data);
+        } catch (err) {
+            console.error("Error loading graph data:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchData = async () => {
-            try {
-                setLoading(true);
-                const [graphRes, configRes] = await Promise.all([
-                    axios.get('/api/graph'),
-                    axios.get('/api/config')
-                ]);
-                setGraphData(graphRes.data);
-                setConfig(configRes.data);
-            } catch (err) {
-                console.error("Error loading graph data:", err);
-            } finally {
-                setLoading(false);
-            }
-        };
         fetchData();
     }, []);
 
@@ -125,8 +127,28 @@ export function VaultGraph({
                 <div className="absolute top-4 left-4 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-full flex items-center gap-2 pointer-events-none">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                     <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                        Filtres de vista aplicats ({view.filters?.length || 0})
+                        {t('graph.vault_embed.filters_applied', 'Filtres de vista aplicats ({{n}})', { n: view.filters?.length || 0 })}
                     </span>
+                </div>
+            )}
+
+            {/* Partial-graph warning: unreadable vault dirs were skipped by the
+                backend (wedged cloud subtrees); retry re-attempts a full build. */}
+            {graphData?.partial && (
+                <div
+                    className="absolute top-4 right-4 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded-full flex items-center gap-2 shadow-sm"
+                    title={(graphData.skipped_dirs || []).join('\n')}
+                >
+                    <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                    <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
+                        {t('graph.partial_warning.title', 'Graf parcial')}
+                    </span>
+                    <button
+                        onClick={fetchData}
+                        className="text-xs font-semibold text-amber-700 dark:text-amber-300 underline hover:no-underline"
+                    >
+                        {t('graph.partial_warning.retry', 'Reintenta')}
+                    </button>
                 </div>
             )}
         </div>

@@ -3361,6 +3361,12 @@
       "success": "Graph updated!",
       "error": "Error updating the graph"
     },
+    "partial_warning": {
+      "title": "Partial graph",
+      "message_one": "{{count}} vault folder could not be read (cloud still syncing); the graph is incomplete.",
+      "message_other": "{{count}} vault folders could not be read (cloud still syncing); the graph is incomplete.",
+      "retry": "Retry"
+    },
     "filters": {
       "tables_title": "Table Filter",
       "wiki_pages": "Wiki Pages",
@@ -3447,7 +3453,8 @@
     },
     "vault_embed": {
       "building": "Building graph...",
-      "center_tooltip": "Center"
+      "center_tooltip": "Center",
+      "filters_applied": "View filters applied ({{n}})"
     }
   },
   "auth": {
