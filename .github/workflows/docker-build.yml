@@ -29,7 +29,7 @@ jobs:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # The backend image is large (torch et al.); the stock runner disk can
       # run out mid-build. Drop preinstalled toolchains we never use.
@@ -77,6 +77,6 @@ jobs:
       run:
         working-directory: monorepo/apps/gnosi
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build frontend image
         run: docker build -f Dockerfile.frontend -t gnosi-frontend:ci .
