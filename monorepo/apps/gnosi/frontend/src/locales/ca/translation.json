@@ -2123,7 +2123,9 @@
     "softcatala_desc": "Endpoint del servei de traducció de Softcatalà (català). Es desa a .env_shared. Buida = usa el default.",
     "softcatala_saved": "URL de Softcatalà actualitzada.",
     "softcatala_save_error": "No s'ha pogut desar la URL de Softcatalà.",
-    "usage_hint": "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui."
+    "usage_hint": "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui.",
+    "autosaving": "Desant…",
+    "autosaved": "Desat"
   },
   "mail": {
     "all_accounts": "Totes les comptes",

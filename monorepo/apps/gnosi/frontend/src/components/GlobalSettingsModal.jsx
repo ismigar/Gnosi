@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
     X, Globe, Palette, RefreshCw, Info, ExternalLink, Monitor, BookOpen,
-    Save, Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
+    Check, FolderOpen, Database, Cpu, Zap, Settings as SettingsIcon,
     Sliders, Calendar, Mail, Trash2, Plus, Users, Rss, Share2, Inbox,
     ChevronRight, Search, FileUp, Shield, Activity, Bot, FileText,
     PenTool, Image, Paperclip, Eye, EyeOff, User, Languages, Loader2
@@ -124,6 +124,26 @@ export const FormGroup = ({ label, children, description, horizontal = false }) 
         <div style={{ flex: horizontal ? '0 0 auto' : 'none' }}>
             {children}
         </div>
+    </div>
+);
+
+// Inline autosave status for the Translate tab inputs: a spinner while a
+// debounced save is in flight, a transient check once it lands, nothing idle.
+// Fixed width so the input doesn't shift as the indicator appears.
+const TranslateSaveIndicator = ({ saving, saved, t }) => (
+    <div
+        aria-live="polite"
+        style={{
+            width: '86px', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '5px',
+            fontSize: '0.78rem', fontWeight: 600,
+            color: saved ? 'var(--status-success)' : 'var(--text-secondary)',
+        }}
+    >
+        {saving && <Loader2 size={14} className="animate-spin" />}
+        {!saving && saved && <Check size={14} />}
+        {saving
+            ? (t('translate_settings.autosaving') || 'Desant…')
+            : (saved ? (t('translate_settings.autosaved') || 'Desat') : null)}
     </div>
 );
 
@@ -358,7 +378,14 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         loading: false,
         saving_deepl: false,
         saving_softcatala: false,
+        saved_deepl: false,        // transient "saved" indicator after a successful autosave
+        saved_softcatala: false,
     });
+    // Autosave plumbing for the Translate tab: debounce timers + the last
+    // persisted Softcatalà URL (so loading the tab never triggers a save).
+    const deeplAutoSaveRef = useRef(null);
+    const softcatalaAutoSaveRef = useRef(null);
+    const softcatalaBaselineRef = useRef(null); // null = not loaded yet
 
     const systemEntities = useMemo(() => [
         { 
@@ -847,6 +874,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             axios.get('/api/env').then(r => r.data || {}).catch(() => ({})),
         ]).then(([cred, env]) => {
             if (cancelled) return;
+            // Baseline BEFORE state so the autosave effect triggered by this
+            // setState sees the loaded value as already persisted.
+            softcatalaBaselineRef.current = env?.SOFTCATALA_API_URL || '';
             setTranslateState(s => ({
                 ...s,
                 deepl_has_value: !!cred?.has_value,
@@ -858,22 +888,33 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         return () => { cancelled = true; };
     }, [activeTab, isOpen]);
 
-    const handleSaveDeeplKey = async () => {
-        const value = translateState.deepl_input.trim();
-        if (!value) {
-            toast.error(t('translate_settings.error_deepl_required', 'Introdueix una API key.'));
-            return;
-        }
-        setTranslateState(s => ({ ...s, saving_deepl: true }));
+    // Autosave the DeepL key: debounced after the user types/pastes it. On
+    // success the input is cleared (the key is never echoed back) — but only
+    // if the user hasn't typed more in the meantime.
+    const saveDeeplKey = useCallback(async (value) => {
+        setTranslateState(s => ({ ...s, saving_deepl: true, saved_deepl: false }));
         try {
             await axios.post('/api/credentials/', { key: 'deepl_api_key', value });
-            setTranslateState(s => ({ ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false }));
+            setTranslateState(s => (
+                s.deepl_input.trim() === value
+                    ? { ...s, deepl_has_value: true, deepl_input: '', saving_deepl: false, saved_deepl: true }
+                    : { ...s, deepl_has_value: true, saving_deepl: false } // user kept typing: the next debounce will re-save
+            ));
         } catch (err) {
             console.error('Error saving DeepL API key:', err);
             toast.error(t('translate_settings.deepl_save_error', "No s'ha pogut desar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
-    };
+    }, [t]);
+
+    useEffect(() => {
+        if (activeTab !== 'translate' || !isOpen) return;
+        const value = translateState.deepl_input.trim();
+        if (!value) return; // empty input never saves (deletion has its own button)
+        clearTimeout(deeplAutoSaveRef.current);
+        deeplAutoSaveRef.current = setTimeout(() => saveDeeplKey(value), 1200);
+        return () => clearTimeout(deeplAutoSaveRef.current);
+    }, [translateState.deepl_input, activeTab, isOpen, saveDeeplKey]);
 
     const handleDeleteDeeplKey = async () => {
         setTranslateState(s => ({ ...s, saving_deepl: true }));
@@ -887,21 +928,33 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         }
     };
 
-    const handleSaveSoftcatalaUrl = async () => {
-        const value = translateState.softcatala_url.trim();
-        setTranslateState(s => ({ ...s, saving_softcatala: true }));
+    // Autosave the Softcatalà URL: debounced, skipped until the initial load
+    // sets the baseline and whenever the value matches what's persisted.
+    const saveSoftcatalaUrl = useCallback(async (value) => {
+        setTranslateState(s => ({ ...s, saving_softcatala: true, saved_softcatala: false }));
         try {
             // Empty string → reset to default. We send an empty string to
             // overwrite, and if the user wanted to remove it, the backend
             // persists as `SOFTCATALA_API_URL=` (the skill falls back to the default).
             await axios.post('/api/env', { SOFTCATALA_API_URL: value });
-            setTranslateState(s => ({ ...s, saving_softcatala: false }));
+            softcatalaBaselineRef.current = value;
+            setTranslateState(s => ({ ...s, saving_softcatala: false, saved_softcatala: true }));
         } catch (err) {
             console.error('Error saving Softcatalà URL:', err);
             toast.error(t('translate_settings.softcatala_save_error', "No s'ha pogut desar la URL de Softcatalà."));
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         }
-    };
+    }, [t]);
+
+    useEffect(() => {
+        if (activeTab !== 'translate' || !isOpen) return;
+        if (softcatalaBaselineRef.current === null) return; // initial load not done yet
+        const value = translateState.softcatala_url.trim();
+        if (value === softcatalaBaselineRef.current) return; // nothing new to persist
+        clearTimeout(softcatalaAutoSaveRef.current);
+        softcatalaAutoSaveRef.current = setTimeout(() => saveSoftcatalaUrl(value), 800);
+        return () => clearTimeout(softcatalaAutoSaveRef.current);
+    }, [translateState.softcatala_url, activeTab, isOpen, saveSoftcatalaUrl]);
 
     useEffect(() => {
         try { localStorage.setItem('gnosi_mail_sync_errors', JSON.stringify([...syncErrorAccounts])); } catch { /* quota */ }
@@ -3822,11 +3875,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     </button>
                                                 </div>
                                             )}
-                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+                                            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                                 <div style={{ flex: 1 }}>
                                                     <PasswordInput
                                                         value={translateState.deepl_input}
-                                                        onChange={e => setTranslateState(s => ({ ...s, deepl_input: e.target.value }))}
+                                                        onChange={e => setTranslateState(s => ({ ...s, deepl_input: e.target.value, saved_deepl: false }))}
                                                         placeholder={translateState.deepl_has_value
                                                             ? (t('translate_settings.deepl_placeholder_replace') || 'Introdueix una clau nova per substituir')
                                                             : (t('translate_settings.deepl_placeholder') || 'Enganxa la teva DeepL API key…')}
@@ -3834,22 +3887,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         autoComplete="new-password"
                                                     />
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={handleSaveDeeplKey}
-                                                    disabled={translateState.saving_deepl || !translateState.deepl_input.trim()}
-                                                    className="btn-gnosi-primary"
-                                                    style={{
-                                                        padding: '0 22px', borderRadius: '12px', border: 'none',
-                                                        background: 'var(--gnosi-blue)', color: '#fff', fontWeight: 700,
-                                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                                                        opacity: (translateState.saving_deepl || !translateState.deepl_input.trim()) ? 0.5 : 1,
-                                                    }}
-                                                >
-                                                    {translateState.saving_deepl && <Loader2 size={14} className="animate-spin" />}
-                                                    <Save size={14} />
-                                                    {t('common.save') || 'Desar'}
-                                                </button>
+                                                <TranslateSaveIndicator saving={translateState.saving_deepl} saved={translateState.saved_deepl} t={t} />
                                             </div>
                                         </div>
                                     </FormGroup>
@@ -3859,31 +3897,16 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         label={t('translate_settings.softcatala_label')}
                                         description={t('translate_settings.softcatala_desc') || "Endpoint del servei de traducció de Softcatalà (català). Es desa a .env_shared. Buida = usa el default."}
                                     >
-                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'stretch' }}>
+                                        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                             <input
                                                 type="text"
                                                 className="gnosi-input"
                                                 value={translateState.softcatala_url}
-                                                onChange={e => setTranslateState(s => ({ ...s, softcatala_url: e.target.value }))}
+                                                onChange={e => setTranslateState(s => ({ ...s, softcatala_url: e.target.value, saved_softcatala: false }))}
                                                 placeholder="https://www.softcatala.org/api/traductor/traduir"
                                                 style={{ flex: 1 }}
                                             />
-                                            <button
-                                                type="button"
-                                                onClick={handleSaveSoftcatalaUrl}
-                                                disabled={translateState.saving_softcatala}
-                                                className="btn-gnosi-primary"
-                                                style={{
-                                                    padding: '0 22px', borderRadius: '12px', border: 'none',
-                                                    background: 'var(--gnosi-blue)', color: '#fff', fontWeight: 700,
-                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
-                                                    opacity: translateState.saving_softcatala ? 0.5 : 1,
-                                                }}
-                                            >
-                                                {translateState.saving_softcatala && <Loader2 size={14} className="animate-spin" />}
-                                                <Save size={14} />
-                                                {t('common.save') || 'Desar'}
-                                            </button>
+                                            <TranslateSaveIndicator saving={translateState.saving_softcatala} saved={translateState.saved_softcatala} t={t} />
                                         </div>
                                     </FormGroup>
 

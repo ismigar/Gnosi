@@ -2083,7 +2083,9 @@
     "softcatala_desc": "Endpoint del servicio de traducción de Softcatalà (catalán). Se guarda en .env_shared. Vacío = usa el default.",
     "softcatala_saved": "URL de Softcatalà actualizada.",
     "softcatala_save_error": "No se ha podido guardar la URL de Softcatalà.",
-    "usage_hint": "Estos valores los consume el endpoint /api/vault/skills/translate-row. Tras guardar la clave de DeepL puede ser necesario reiniciar el backend para que se recargue el Keychain."
+    "usage_hint": "Estos valores los consume el endpoint /api/vault/skills/translate-row. Tras guardar la clave de DeepL puede ser necesario reiniciar el backend para que se recargue el Keychain.",
+    "autosaving": "Guardando…",
+    "autosaved": "Guardado"
   },
   "mail": {
     "all_accounts": "Todas las cuentas",
