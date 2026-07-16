@@ -1180,6 +1180,20 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // balanced parentheses and escaped characters, as CommonMark does.
     protectedText = sanitizeLinkDestinations(protectedText);
 
+    // A CommonMark type-6 HTML block only ends at a BLANK line. Cloned/legacy
+    // content often has `</table>` immediately followed by more markdown
+    // (headings, list items with links); without a blank line the parser
+    // swallows everything after `</table>` into the HTML block and that
+    // markdown renders as raw text (`[PDF](http://…)` literal). Ensuring a
+    // blank line after `</table>` closes the HTML block where the author
+    // visibly intended it to end. Inline `<table>…</table>` on ONE line never
+    // opens a type-6 block mid-paragraph, so requiring the tag alone on its
+    // line avoids touching inline HTML.
+    protectedText = protectedText.replace(
+        /(^[ \t]*<\/table>[ \t]*)\n(?![ \t]*\n)/gm,
+        '$1\n\n',
+    );
+
     // Sanitization of unpaired `[[`: if the page has a `[[xxx` that
     // doesn't find its `]]`, the wikilink regex can capture hundreds of
     // characters of text (including a well-formed wikilink inside), creating a

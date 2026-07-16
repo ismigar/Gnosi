@@ -77,6 +77,23 @@ Opcions descartades: (a) escapat complet estil remark-stringify cru → massa po
 - **Taules**: les cel·les es re-llegeixen crues (parser GFM propi), com toggle/callout →
   `escape=false`. Només escapen `|` (`\|`). NO afegir-hi escapat d'èmfasi/codi.
 
+## Blocs HTML tipus 6 (`<table>`) es mengen el markdown posterior (fix 2026-07-16)
+
+- **Símptoma:** enllaços `[text](url)` (i altres marques) es mostren com a text CRU a
+  l'editor en tot el que ve DESPRÉS d'una taula HTML (`<table header-row="true">`,
+  format del clon de Notion / serialitzador antic). Els wikilinks/mencions no ho
+  semblen perquè es converteixen en un post-procés sobre nodes de text.
+- **Causa:** per CommonMark, un bloc HTML tipus 6 (obert per `<table …>`) NOMÉS acaba
+  en línia EN BLANC. `</table>` seguit immediatament de més markdown fa que el parser
+  s'empassi la resta dins del bloc HTML.
+- **Fix:** `parsePlainMarkdownBlock` normalitza abans de parsejar: insereix línia en
+  blanc després de `</table>` (regex ancorada a línia: `/(^[ \t]*<\/table>[ \t]*)\n(?![ \t]*\n)/gm`).
+  Només tags SOLS a la seva línia — un `<table>…</table>` inline en un paràgraf no obre
+  bloc tipus 6 i no s'ha de tocar.
+- **QA de referència:** pàgina amb `[A](u)` + taula sense blanc + `- [B](u)` + taula amb
+  blanc + `- [C](u)` → els tres han de renderitzar com a enllaç ("Pla de futur i cures"
+  n'era el cas real: 6/9 enllaços crus).
+
 ## Limitació PREEXISTENT (fora d'abast d'aquest fix)
 
 El round-trip de paràgrafs amb **salts tous interns** (`\n` dins d'un node de text, p. ex.
