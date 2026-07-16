@@ -235,6 +235,31 @@ def _live_ollama_models() -> Optional[List[Dict[str, Any]]]:
     return models
 
 
+def pick_ping_model(catalog: Dict[str, Any], provider_id: str) -> Optional[str]:
+    """Cheapest chat model of a provider (PURE) — used by the credential "test
+    ping", which only needs a live round-trip, not quality. Ties keep the first
+    (= newest, models are sorted newest-first); unknown provider → None."""
+    for provider in catalog.get("providers", []):
+        if provider.get("id") != provider_id:
+            continue
+        models = provider.get("models") or []
+        if not models:
+            return None
+        best = min(models, key=lambda m: (float(m.get("cost_in") or 0)
+                                          + float(m.get("cost_out") or 0)) / 2)
+        return best.get("id")
+    return None
+
+
+def ping_model_for(provider_id: str) -> Optional[str]:
+    """Catalog-backed ping model. Blocking (may hit disk/network via
+    load_catalog): call via asyncio.to_thread from async endpoints."""
+    try:
+        return pick_ping_model(load_catalog(), (provider_id or "").strip().lower())
+    except Exception:
+        return None
+
+
 def merge_ollama_overlay(catalog: Dict[str, Any],
                          live_models: Optional[List[Dict[str, Any]]]) -> Dict[str, Any]:
     """Replace/insert the ollama provider with the live local model list (PURE)."""

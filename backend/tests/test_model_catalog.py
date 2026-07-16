@@ -7,6 +7,7 @@ from backend.agent.model_catalog import (
     CATALOG_PROVIDERS,
     build_catalog,
     merge_ollama_overlay,
+    pick_ping_model,
     _infer_quality,
     _infer_tags,
 )
@@ -91,6 +92,24 @@ def test_infer_quality_buckets():
     # reasoning bumps cheap models to at least 2, expensive ones to 3
     assert _infer_quality({"cost": {"input": 0.1, "output": 0.4}, "reasoning": True}) == 2
     assert _infer_quality({"cost": {"input": 2, "output": 8}, "reasoning": True}) == 3
+
+
+def test_pick_ping_model_cheapest_wins():
+    catalog = {"providers": [
+        {"id": "groq", "models": [
+            {"id": "big", "cost_in": 3.0, "cost_out": 15.0},
+            {"id": "cheap-new", "cost_in": 0.05, "cost_out": 0.08},
+            {"id": "cheap-old", "cost_in": 0.05, "cost_out": 0.08},
+        ]},
+        {"id": "empty", "models": []},
+        {"id": "ollama", "models": [{"id": "llama3.2:latest", "cost_in": 0, "cost_out": 0}]},
+    ]}
+    # cheapest wins; tie keeps the first entry (newest, list is sorted newest-first)
+    assert pick_ping_model(catalog, "groq") == "cheap-new"
+    # local models cost 0 → the installed one is picked
+    assert pick_ping_model(catalog, "ollama") == "llama3.2:latest"
+    assert pick_ping_model(catalog, "empty") is None
+    assert pick_ping_model(catalog, "unknown") is None
 
 
 def test_merge_ollama_overlay_replaces_and_orders():

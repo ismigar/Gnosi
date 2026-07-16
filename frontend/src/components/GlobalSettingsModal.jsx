@@ -3691,7 +3691,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                     display: 'flex', alignItems: 'center', gap: '10px'
                                                 }}
                                             >
-                                                <Plus size={18} /> {tn('ai.connect_model')}
+                                                <Plus size={18} /> {tn('ai.connect_provider')}
                                             </button>
                                         }
                                     >
@@ -3817,8 +3817,12 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         </div>
                                     </Section>
 
-                                    {/* Router model registry (data-driven + budget) */}
-                                    <ModelRegistrySettings />
+                                    {/* Router model registry (data-driven + budget): its own
+                                        sibling section — without this header it visually read
+                                        as part of "Agents de Cognició" */}
+                                    <Section title={tn('ai.model_registry.title')} icon={Cpu}>
+                                        <ModelRegistrySettings />
+                                    </Section>
                                 </>
                             )}
 
