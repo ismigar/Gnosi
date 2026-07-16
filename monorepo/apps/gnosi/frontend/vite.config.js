@@ -75,6 +75,62 @@ function resolveDevHttps(env) {
   return https;
 }
 
+// ── HTTP → HTTPS redirect on the same port ─────────────────────────────────
+// When the dev server runs in HTTPS, a plain-HTTP request (http://localhost:5173)
+// dies during the TLS handshake BEFORE reaching any middleware — the browser
+// shows "Empty reply". The only way to redirect is to sniff the protocol at the
+// socket level: a TLS ClientHello always starts with byte 0x16; anything else
+// is plain HTTP, so we answer a 307 redirect directly on the raw socket.
+// (Same technique as the `httpolyglot` package.)
+function httpToHttpsRedirectPlugin() {
+  return {
+    name: "gnosi:http-to-https-redirect",
+    apply: "serve",
+    configureServer(server) {
+      const httpServer = server.httpServer;
+      // Only relevant when Vite actually created an HTTPS server.
+      if (!httpServer || !server.config.server.https) return;
+
+      // Take over the raw TCP 'connection' listeners installed by tls.Server
+      // so we can peek at the first byte before the TLS machinery does.
+      const tlsListeners = httpServer.listeners("connection").slice();
+      httpServer.removeAllListeners("connection");
+      httpServer.on("connection", (socket) => {
+        // Peek in PAUSED mode (read()/'readable', never 'data'): flowing mode
+        // would detach the data from the native handle and the TLS wrap — which
+        // reads from the handle, not the JS stream buffer — would lose the
+        // ClientHello and the handshake would hang forever.
+        const sniff = () => {
+          const chunk = socket.read();
+          if (chunk === null) {
+            socket.once("readable", sniff);
+            return;
+          }
+          if (chunk[0] === 0x16) {
+            // TLS handshake → put the bytes back and hand off to the TLS server.
+            socket.unshift(chunk);
+            for (const listener of tlsListeners) listener.call(httpServer, socket);
+            return;
+          }
+          // Plain HTTP → minimal parse of the request line + Host header,
+          // then redirect to the same URL over HTTPS.
+          const head = chunk.toString("latin1");
+          const requestPath = head.split("\r\n")[0]?.split(" ")[1] || "/";
+          const hostHeader = head.match(/\r\nhost:\s*([^\r\n]+)/i)?.[1]?.trim();
+          const host = hostHeader || `localhost:${server.config.server.port}`;
+          socket.end(
+            "HTTP/1.1 307 Temporary Redirect\r\n" +
+              `Location: https://${host}${requestPath}\r\n` +
+              "Connection: close\r\n" +
+              "Content-Length: 0\r\n\r\n",
+          );
+        };
+        sniff();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = { ...loadEnv(mode, process.cwd(), ""), ...process.env };
 
@@ -82,7 +138,7 @@ export default defineConfig(({ mode }) => {
   const frontendPort = env.VITE_FRONTEND_PORT || "5173";
 
   return {
-    plugins: [react()],
+    plugins: [react(), httpToHttpsRedirectPlugin()],
     base: env.VITE_BASE_PATH || "./",
     // App version injected into the UI (shown in the Control Center). Source
     // single source: frontend/package.json → see src/lib/version.js and
