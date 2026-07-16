@@ -4,8 +4,13 @@
 
 > ⚠️ **ARQUITECTURA ACTUALITZADA (2026-06-17): Gnosi corre NATIU, sense Docker.**
 > Backend (uvicorn `:5002`) i frontend (vite `:5173`) s'executen al host via LaunchAgents
-> `com.gnosi.backend` / `com.gnosi.frontend` (scripts a `~/.gnosi-local/run-*.sh`, venv
-> `~/.gnosi-local/venv`, dades `~/.gnosi-local/data`). Això elimina l'`EDEADLK` del vault
+> `com.gnosi.backend-native` / `com.gnosi.frontend-native` (scripts **in-repo**
+> `monorepo/apps/gnosi/sh/run_native_dev.sh` / `run_native_frontend.sh`, venv
+> `monorepo/apps/gnosi/.venv`, dades `monorepo/apps/gnosi/local_data`, logs
+> `~/Library/Logs/Gnosi/*-native.{log,err}`; agents auxiliars `host-open-helper`,
+> `onedrive-warmup`, `native-watchdog`). uvicorn porta `--reload --reload-dir backend`:
+> el codi backend es recarrega sol, però els canvis de pip demanen
+> `launchctl kickstart -k gui/$UID/com.gnosi.backend-native`. Això elimina l'`EDEADLK` del vault
 > OneDrive: es llegeix natiu, com Obsidian. **Docker ja NO és cap fallback local en aquest
 > Mac** (Docker Desktop desinstal·lat, imatges i agents `boot`/`docker-watchdog` esborrats;
 > tornar-hi = reinstal·lar Docker Desktop + `docker compose up -d --build`). **Docker segueix
@@ -15,8 +20,10 @@
 > defaults només-Docker (`host.docker.internal`) ni rutes natives clavades — autodetecció via
 > `_is_docker()` (`backend/config/env_config.py`; vegeu `default_host_helper_url()` i
 > `files_provider/onedrive.py::_default_warmup_mode()`).
-> Gotcha Mac Intel: torch capat a 2.2.2 → deps ML fixades al venv (numpy 1.26 / transformers
-> 4.44 / sentence-transformers 3.0). Runbook complet a
+> Gotcha NOMÉS Mac Intel: torch capat a 2.2.2 → deps ML fixades al venv (numpy 1.26 /
+> transformers 4.44 / sentence-transformers 3.0). A Apple Silicon NO aplica: el venv porta
+> l'stack modern (torch 2.12 / numpy 2.4 / transformers 5.12) — verifica sempre amb
+> `pip list` del venv real abans de tocar deps ML. Runbook complet a
 > `docs/dev_memory/directives/environment_integrity.md` (secció "PROJECTE: migrar Gnosi a NATIU")
 > i memòria `gnosi_native_migration_plan`. **Les mencions a Docker d'aquest fitxer apliquen al
 > mode de desplegament Docker (self-host), no al dev local per defecte.**
@@ -39,7 +46,7 @@ A second `apps/gnosi/...` tree at the repo root used to exist as an obsolete mir
 | **Directives** | `docs/dev_memory/directives/` | Staging area: SOPs, logic, warnings—no code blocks |
 | **Construction** | `pipeline/sandbox/` | Idempotent Python scripts; use `.env_shared` for secrets |
 | **You** | Librarian | Link intention→execution. Delegate to Python. Keep memory updated |
-| **Runtime** | Natiu (recomanat) | Backend `uvicorn` :5002 + frontend `vite` :5173 (LaunchAgents `com.gnosi.backend`/`frontend`). Docker és **opcional** (self-host en servidor) |
+| **Runtime** | Natiu (recomanat) | Backend `uvicorn` :5002 + frontend `vite` :5173 (LaunchAgents `com.gnosi.backend-native`/`frontend-native`). Docker és **opcional** (self-host en servidor) |
 
 ## Self-Correction Protocol (CRITICAL)
 
