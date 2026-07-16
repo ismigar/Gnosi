@@ -1040,6 +1040,26 @@ def _ensure_default_registry_structure_locked():
     if "views" not in registry or not isinstance(registry["views"], list):
         registry["views"] = []
 
+    # Clobber guard (2026-07-14 incident): a device that reads the registry as
+    # empty (dataless/unsynced OneDrive file) must NOT seed the default structure
+    # over a vault that shows signs of an existing registry (backups, conflict
+    # copies, non-empty table folders in BD/). Seeding here would overwrite the
+    # real schema+views and propagate through cloud sync to every other device.
+    reg_path = get_p("REGISTRY")
+    if (
+        not registry["databases"]
+        and not registry["tables"]
+        and reg_path
+        and str(reg_path) not in _registry_seen_nondegenerate
+        and _degenerate_overwrite_is_risky(reg_path)
+    ):
+        log.error(
+            "🛑 Default registry seed aborted: the registry reads empty but the "
+            f"vault shows existing data next to {reg_path}. Leaving the file "
+            "untouched (likely a cloud-sync misread; restore from a .bak-* if needed)."
+        )
+        return
+
     changed = False
 
     db = next(
@@ -13012,6 +13032,72 @@ _registry_cache_ttl_seconds = 30  # serve from cache without stat() if recent
 # during this process lifetime. Avoids redundant FUSE stat() calls on every read.
 _registry_ensured_tables: set = set()
 
+# Registry paths (str of get_p("REGISTRY")) this process has ever seen NON-degenerate,
+# read from disk or written. A degenerate save on such a path is a deliberate mutation
+# (e.g. the user deleted the last database); on a path never seen non-degenerate it is
+# far more likely a misread being written back. 2026-07-14 incident: a second Mac read
+# the OneDrive registry as a dataless placeholder (→ empty), reseeded the default
+# structure and clobbered 16 tables / 797 views on the shared vault.
+_registry_seen_nondegenerate: set = set()
+
+
+def _registry_is_degenerate(data) -> bool:
+    """True when the payload carries no structure at all (no databases and no
+    tables): either a genuinely fresh vault or a misread of an existing registry
+    (unsynced/dataless file on cloud storage)."""
+    return not isinstance(data, dict) or (
+        not data.get("databases") and not data.get("tables")
+    )
+
+
+def _degenerate_overwrite_is_risky(reg_path) -> bool:
+    """Signals that `reg_path` belongs to a vault that ALREADY had a real registry,
+    so writing a degenerate/default one over it would destroy the schema+views.
+
+    Only consulted when this process never saw a non-degenerate registry for the
+    path. Directory listings keep working even when the registry file itself is an
+    unreadable cloud placeholder — hence the BD/ scan as a fallback signal.
+    """
+    try:
+        if reg_path.exists():
+            try:
+                previous = json.loads(reg_path.read_text(encoding="utf-8"))
+            except Exception:
+                # Exists but unreadable (dataless OneDrive placeholder, half-synced
+                # file): assume it is the good copy and refuse to replace it.
+                return True
+            if not _registry_is_degenerate(previous):
+                return True
+    except Exception:
+        # Wedged FS: blocking a seed is harmless, clobbering a registry is not.
+        return True
+
+    # Backups / conflict copies next to the registry, or non-empty table folders
+    # inside BD/, imply this vault already had real structure even if the registry
+    # file itself is missing or reads empty right now.
+    try:
+        bd_dir = reg_path.parent
+        if not bd_dir.is_dir():
+            return False
+        for entry in bd_dir.iterdir():
+            name = entry.name
+            if entry.is_file():
+                # vault_db_registry.bak-* backups and OneDrive conflict copies
+                # (vault_db_registry-<Device> (N).json) both imply a prior registry.
+                if name.startswith("vault_db_registry") and name != reg_path.name:
+                    return True
+                continue
+            if name.startswith("."):
+                continue  # .trash / .history scaffolding is not table data
+            try:
+                if next(entry.iterdir(), None) is not None:
+                    return True
+            except Exception:
+                return True
+    except Exception:
+        return True
+    return False
+
 # Serializes the ENTIRE load→modify→save cycle of the central registry
 # (vault_db_registry.json). Same systemic pattern as #728/#729/#743 (daily
 # note, comments, plugins): without this, two concurrent mutations read the
@@ -13116,6 +13202,11 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
     `_registry_mutation_lock` held (which `load_registry` does)."""
     data = json.loads(registry_path.read_text(encoding="utf-8"))
 
+    # Remember that this path once held real structure: a later degenerate save
+    # is then a deliberate mutation, not a misread (see save_registry guard).
+    if not _registry_is_degenerate(data):
+        _registry_seen_nondegenerate.add(_ck)
+
     changed = False
     tables = data.get("tables", [])
     # 1. Cleanup: Delete default taula_1 if it exists
@@ -13183,6 +13274,24 @@ def save_registry(data):
         # Reentrant lock: a standalone save (outside a registry_mutation()) also doesn't
         # must not interleave with a cycle's write+cache refresh.
         with _registry_mutation_lock:
+            # Clobber guard (2026-07-14 incident): refuse to replace a registry with
+            # a degenerate one (no databases and no tables) unless this process has
+            # actually seen the registry non-degenerate — i.e. the emptiness comes
+            # from deliberate mutations, not from a cloud-sync misread of the file.
+            _ck = str(reg_path)
+            if _registry_is_degenerate(data):
+                if (
+                    _ck not in _registry_seen_nondegenerate
+                    and _degenerate_overwrite_is_risky(reg_path)
+                ):
+                    log.error(
+                        "🛑 Refused to overwrite the registry with an empty structure: "
+                        f"{reg_path} shows prior data that this process never managed "
+                        "to read (likely a dataless/unsynced file). Leaving it intact."
+                    )
+                    return
+            else:
+                _registry_seen_nondegenerate.add(_ck)
             # Atomic write — registry lives on cloud-synced storage, so any
             # half-flushed write would propagate to other devices and corrupt the
             # central config. safe_write_json does tmp + fsync + rename.
