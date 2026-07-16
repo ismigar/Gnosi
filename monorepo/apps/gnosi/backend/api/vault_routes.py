@@ -9174,6 +9174,23 @@ def _remove_page_from_index_cache(page_id: str, old_path: Optional[Path] = None)
     # Keeps the PathResolver in sync (rule_engine.find_path and the listing
     # of files from /unlinked-mentions read from there, not from this index).
     path_resolver.remove_file(v_path, page_id, old_path or (Path(path_str) if path_str else None))
+    # Surgical removal from the derived caches too. Without this, the
+    # soft-deleted page keeps showing up in `/global-index` (and thus in the
+    # `[[` wikilink autocomplete) until their 60s TTLs expire — and with
+    # stale-while-revalidate the FIRST fetch after the TTL still returns
+    # the stale copy.
+    removed_paths = {str(old_path)} if old_path else set()
+    if path_str:
+        removed_paths.add(path_str)
+    with _iter_docs_lock:
+        _dc_entry = _iter_docs_cache.get(v_str)
+        docs = _dc_entry.get("docs") if _dc_entry else None
+        if docs is not None and removed_paths:
+            _dc_entry["docs"] = [d for d in docs if str(d[0]) not in removed_paths]
+    with _id_title_lock:
+        _it_entry = _id_title_cache.get(v_str)
+        if _it_entry:
+            _it_entry.get("index", {}).pop(page_id, None)
     # Any delete/restore changes the composition of visible pages;
     # invalidates the response micro-cache to avoid a stale `/by-table`.
     _pages_cache_invalidate_all()
@@ -9208,6 +9225,33 @@ def _add_page_to_index_cache(file_path: Path) -> None:
     # out of the file list until the full rescan (600s cooldown) and
     # /unlinked-mentions i rule_engine.find_path no la veien.
     path_resolver.add_file(v_path, new_id, file_path)
+    # Derived caches too (symmetric to `_remove_page_from_index_cache`): the
+    # restored page must reappear in `/global-index` (the `[[` autocomplete)
+    # without waiting for the 60s TTL + stale-while-revalidate cycle.
+    try:
+        raw_content = file_path.read_text(encoding="utf-8", errors="ignore")
+        metadata, body = parse_frontmatter(raw_content, file_path)
+        path_str = str(file_path)
+        with _iter_docs_lock:
+            _dc_entry = _iter_docs_cache.get(v_str)
+            docs = _dc_entry.get("docs") if _dc_entry else None
+            if docs is not None:
+                new_doc = (file_path, metadata, body, _is_dashboard_file_path(file_path))
+                for i, doc in enumerate(docs):
+                    if str(doc[0]) == path_str:
+                        docs[i] = new_doc
+                        break
+                else:
+                    docs.append(new_doc)
+        if new_id:
+            with _id_title_lock:
+                _it_entry = _id_title_cache.get(v_str)
+                if _it_entry:
+                    _it_entry.get("index", {})[str(new_id)] = str(
+                        metadata.get("title") or file_path.stem
+                    )
+    except Exception as e:
+        log.debug(f"Derived-cache update after add failed for {file_path}: {e}")
     _pages_cache_invalidate_all()
 
 
@@ -11371,7 +11415,11 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
                 all_files = list(vault_path.rglob("*.md"))
 
             for file_path in all_files:
-                if ".history" in file_path.parts:
+                # Skip version snapshots (.history) and soft-deleted pages
+                # (.trash): trashed pages must not appear in the global
+                # id→title index — otherwise they show up in the `[[`
+                # wikilink autocomplete until they are purged.
+                if ".history" in file_path.parts or ".trash" in file_path.parts:
                     continue
                 try:
                     raw_content = _get_body_for_path(file_path)
