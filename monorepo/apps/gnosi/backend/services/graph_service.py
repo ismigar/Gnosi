@@ -1,5 +1,7 @@
 import os
+import errno
 import json
+import subprocess
 import yaml
 import re
 import hashlib
@@ -74,19 +76,79 @@ _KIND_PATTERNS = (
     (re.compile(r"(^|[\s_\-])(mail|email)\w{0,4}(?=[\s_\-]|$)", re.IGNORECASE), "mail"),
 )
 
-def get_markdown_files_efficient(root_path: Path) -> List[Path]:
-    """Efficiently finds all .md files skipping IGNORED_DIRS."""
+# Throttle for best-effort directory warmups: one `open` per wedged path every
+# _DIR_WARMUP_THROTTLE_S seconds, so repeated graph rebuilds while OneDrive is
+# stuck don't spawn a Finder window per rebuild.
+_DIR_WARMUP_REQUESTED: Dict[str, float] = {}
+_DIR_WARMUP_THROTTLE_S = 300.0
+
+
+def _request_dir_warmup(dir_path: Path) -> None:
+    """Best-effort: ask LaunchServices to open a wedged online-only directory.
+
+    A process running under launchd cannot trigger OneDrive's on-access
+    materialization (the File Provider returns EDEADLK instantly — see
+    feedback_onedrive_warmup_native and files_provider/onedrive.py). Opening the
+    directory from the user's Aqua session (Finder, via `open -g -j`) does
+    hydrate it, which is the same mechanism ONEDRIVE_WARMUP_MODE=open uses for
+    files. Fire-and-forget: we never wait for hydration here; the next graph
+    rebuild simply picks the directory up once it's readable.
+
+    Only runs when the effective warmup mode is "open" (native macOS); in
+    "daemon" mode (Docker) the backend has no LaunchServices access, and the
+    walk's skip+log behaviour is already the correct degradation.
+    """
+    try:
+        from backend.services.files_provider.onedrive import _default_warmup_mode
+        mode = (os.environ.get("ONEDRIVE_WARMUP_MODE") or _default_warmup_mode()).strip().lower()
+        if mode != "open":
+            return
+        key = str(dir_path)
+        now = time.monotonic()
+        if now - _DIR_WARMUP_REQUESTED.get(key, 0.0) < _DIR_WARMUP_THROTTLE_S:
+            return
+        _DIR_WARMUP_REQUESTED[key] = now
+        # `-g` keeps Finder in the background, `-j` launches hidden: no focus steal.
+        subprocess.Popen(
+            ["/usr/bin/open", "-g", "-j", key],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        log.info(f"☁️ Requested Finder warmup for wedged directory {dir_path}")
+    except Exception as e:
+        log.debug(f"Directory warmup request failed for {dir_path}: {e}")
+
+
+def get_markdown_files_efficient(root_path: Path, skipped_dirs: Optional[List[str]] = None) -> List[Path]:
+    """Efficiently finds all .md files skipping IGNORED_DIRS.
+
+    Unreadable directories are skipped (and logged) instead of aborting the
+    whole walk: on OneDrive, listing a non-materialized subtree from a launchd
+    process raises EDEADLK (errno 11) / EAGAIN — one wedged folder used to turn
+    the entire scan (and GET /api/graph) into a 500. Skipped paths are appended
+    to ``skipped_dirs`` when provided, so callers can flag the result as
+    partial instead of caching it as complete, and a background hydration of
+    the wedged directory is requested (see _request_dir_warmup).
+    """
     md_files = []
     try:
         for entry in os.scandir(root_path):
             if entry.is_dir():
                 if entry.name in IGNORED_DIRS or entry.name.startswith("."):
                     continue
-                md_files.extend(get_markdown_files_efficient(Path(entry.path)))
+                md_files.extend(get_markdown_files_efficient(Path(entry.path), skipped_dirs))
             elif entry.is_file() and entry.name.endswith(".md") and not entry.name.startswith("."):
                 md_files.append(Path(entry.path))
     except (PermissionError, FileNotFoundError):
         pass
+    except OSError as e:
+        # Cloud-FS wedged subtree (or any other listing failure): skip it and
+        # keep walking so the rest of the vault still reaches the graph.
+        log.warning(f"Skipping unreadable directory {root_path}: {e}")
+        if skipped_dirs is not None:
+            skipped_dirs.append(str(root_path))
+        if e.errno in (errno.EDEADLK, errno.EAGAIN):
+            _request_dir_warmup(root_path)
     return md_files
 
 
@@ -427,7 +489,9 @@ class GraphService:
         # files after a restart (mtime invalidation is still preserved).
         GraphService._load_node_cache()
         GraphService._load_layout_cache()
-        page_nodes = self._add_page_nodes(G)
+        page_nodes, skipped_dirs = self._add_page_nodes(G)
+        # Per-file node cache stays valid even on a partial scan: it only holds
+        # files that were actually read, keyed by path with mtime invalidation.
         GraphService._save_node_cache()
         self._add_contact_nodes(G)
         self._add_structural_edges(G, page_nodes)
@@ -449,7 +513,11 @@ class GraphService:
             log.info(f"Layout computed in {time.time() - t0:.2f}s")
             GraphService._LAYOUT_CACHE = pos
             GraphService._LAYOUT_HASH = graph_hash
-            GraphService._save_layout_cache()
+            if not skipped_dirs:
+                # Don't persist a partial graph's layout: it would clobber the
+                # complete layout on disk and force a recompute at next cold
+                # start once OneDrive recovers. In-memory reuse is still fine.
+                GraphService._save_layout_cache()
 
         nodes = []
         for node_id in G.nodes():
@@ -521,7 +589,22 @@ class GraphService:
                 "kinds": legend_kinds
             }
         }
-        
+
+        if skipped_dirs:
+            # PARTIAL graph: one or more vault subtrees could not be listed
+            # (wedged online-only OneDrive dirs). Serve what we have — far
+            # better than a 500 — but DON'T store it in the TTL cache: the
+            # next request retries a full build instead of pinning an
+            # incomplete (possibly near-empty) graph for _GRAPH_CACHE_TTL.
+            result["partial"] = True
+            result["skipped_dirs"] = skipped_dirs
+            log.warning(
+                f"Graph built PARTIALLY: {len(skipped_dirs)} unreadable dir(s) "
+                f"skipped ({', '.join(skipped_dirs[:5])}"
+                f"{'…' if len(skipped_dirs) > 5 else ''}); result not cached"
+            )
+            return result
+
         GraphService._graph_cache = result
         GraphService._last_graph_time = time.time()  # time AFTER the build, not before
         return result
@@ -578,12 +661,19 @@ class GraphService:
                        size=11,
                        metadata=view)
 
-    def _add_page_nodes(self, G: nx.Graph) -> List[Dict[str, Any]]:
+    def _add_page_nodes(self, G: nx.Graph) -> Tuple[List[Dict[str, Any]], List[str]]:
+        """Adds one node per vault .md file.
+
+        Returns ``(page_nodes, skipped_dirs)``: ``skipped_dirs`` holds the
+        vault-relative paths of directories the scan could not list (wedged
+        OneDrive subtrees) — non-empty means the graph is PARTIAL and must not
+        be cached as the complete graph.
+        """
         cfg = load_params(strict_env=False)
         vault_path = cfg.paths.get("VAULT")
         page_nodes = []
         if not vault_path or not vault_path.exists():
-            return []
+            return [], []
 
         # Build folder→table_id lookup so BD page nodes get table_id even without frontmatter
         folder_to_table_id: dict = {}
@@ -595,8 +685,16 @@ class GraphService:
                 folder_to_db_id[folder] = t.get("database_id", "")
 
         # Recursive scan for all .md files - EFFICIENT VERSION
-        all_md_files = get_markdown_files_efficient(vault_path)
-        
+        skipped_abs: List[str] = []
+        all_md_files = get_markdown_files_efficient(vault_path, skipped_abs)
+        # Vault-relative paths: nicer for logs/clients, no host paths leaked.
+        skipped_dirs: List[str] = []
+        for d in skipped_abs:
+            try:
+                skipped_dirs.append(str(Path(d).relative_to(vault_path)))
+            except ValueError:
+                skipped_dirs.append(d)
+
         for file_path in all_md_files:
             path_str = str(file_path.relative_to(vault_path))
             mtime = os.path.getmtime(file_path)
@@ -714,8 +812,8 @@ class GraphService:
                 "section_links": cache_entry.get("section_links", {}),
                 "table_id": inferred_table_id,
             })
-                
-        return page_nodes
+
+        return page_nodes, skipped_dirs
 
     def _add_contact_nodes(self, G: nx.Graph):
         """Adds contacts from management.sqlite (local DB, NOT the vault).
@@ -1026,7 +1124,15 @@ class GraphService:
                 vault_path = cfg.paths.get("VAULT")
 
                 if vault_path and vault_path.exists():
-                    all_md = get_markdown_files_efficient(vault_path)
+                    skipped_dirs: List[str] = []
+                    all_md = get_markdown_files_efficient(vault_path, skipped_dirs)
+                    if skipped_dirs and GraphService._node_count_cache:
+                        # Partial scan (wedged OneDrive subtree): keep serving
+                        # the previous count instead of caching a lower one.
+                        # Refresh the timestamp so the 2s poll doesn't rescan
+                        # the vault on every call while it's wedged.
+                        GraphService._last_count_time = now
+                        return GraphService._node_count_cache
                     md_count = len(all_md)
 
                     img_path = vault_path / "Images"
