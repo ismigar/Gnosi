@@ -1814,9 +1814,8 @@
         "title": "Router models",
         "subtitle": "Register the models (local or remote); the orchestrator picks one depending on the request, tokens, and cost.",
         "add_model": "Add model",
-        "col_where": "Where",
         "col_quality": "Quality",
-        "col_cost": "Cost in/out",
+        "col_cost": "Cost in/out ($/M)",
         "col_context": "Context",
         "col_capabilities": "Capabilities",
         "col_active": "Active",
@@ -1834,7 +1833,10 @@
         "saving": "Saving…",
         "save_models": "Save models",
         "saved": "✓ Saved",
-        "remove_model": "Remove"
+        "remove_model": "Remove",
+        "custom_option": "Custom…",
+        "back_to_list": "Back to the list",
+        "catalog_hint": "Model catalog refreshed automatically (source: {{source}})."
       }
     },
     "footer": {

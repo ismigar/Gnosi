@@ -1664,9 +1664,8 @@
         "title": "Modelos del enrutador",
         "subtitle": "Registra los modelos (locales o remotos); el orquestador elige uno según la petición, los tokens y el coste.",
         "add_model": "Añadir modelo",
-        "col_where": "Dónde",
         "col_quality": "Calidad",
-        "col_cost": "Coste in/out",
+        "col_cost": "Coste in/out ($/M)",
         "col_context": "Contexto",
         "col_capabilities": "Capacidades",
         "col_active": "Activo",
@@ -1684,7 +1683,10 @@
         "saving": "Guardando…",
         "save_models": "Guardar modelos",
         "saved": "✓ Guardado",
-        "remove_model": "Quitar"
+        "remove_model": "Quitar",
+        "custom_option": "Personalizado…",
+        "back_to_list": "Volver a la lista",
+        "catalog_hint": "Catálogo de modelos actualizado automáticamente (fuente: {{source}})."
       }
     },
     "footer": {

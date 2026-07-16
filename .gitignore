@@ -10,6 +10,8 @@ venv/
 # Data
 backend/data/*.db
 backend/data/*.json
+# vendored snapshot, IS versioned (regenerate: python -m backend.scripts.refresh_model_catalog)
+!backend/data/model_catalog.json
 backend/data/logs/
 # Dades locals del runtime NATIU (chroma, sqlite, index, cache) — mai al repo
 local_data/

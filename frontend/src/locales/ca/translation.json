@@ -1704,9 +1704,8 @@
         "title": "Models del router",
         "subtitle": "Registra els models (locals o remots); l'orquestrador tria segons la petició, tokens i cost.",
         "add_model": "Afegir model",
-        "col_where": "On",
         "col_quality": "Qualitat",
-        "col_cost": "Cost in/out",
+        "col_cost": "Cost in/out ($/M)",
         "col_context": "Context",
         "col_capabilities": "Capacitats",
         "col_active": "Actiu",
@@ -1724,7 +1723,10 @@
         "saving": "Desant…",
         "save_models": "Desar models",
         "saved": "✓ Desat",
-        "remove_model": "Treure"
+        "remove_model": "Treure",
+        "custom_option": "Personalitzat…",
+        "back_to_list": "Tornar a la llista",
+        "catalog_hint": "Catàleg de models actualitzat automàticament (font: {{source}})."
       }
     },
     "footer": {

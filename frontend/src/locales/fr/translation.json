@@ -385,9 +385,8 @@
         "title": "Modèles du routeur",
         "subtitle": "Enregistrez les modèles (locaux ou distants) ; l'orchestrateur en choisit un selon la requête, les tokens et le coût.",
         "add_model": "Ajouter un modèle",
-        "col_where": "Où",
         "col_quality": "Qualité",
-        "col_cost": "Coût in/out",
+        "col_cost": "Coût in/out ($/M)",
         "col_context": "Contexte",
         "col_capabilities": "Capacités",
         "col_active": "Actif",
@@ -405,7 +404,10 @@
         "saving": "Enregistrement…",
         "save_models": "Enregistrer les modèles",
         "saved": "✓ Enregistré",
-        "remove_model": "Retirer"
+        "remove_model": "Retirer",
+        "custom_option": "Personnalisé…",
+        "back_to_list": "Revenir à la liste",
+        "catalog_hint": "Catalogue de modèles mis à jour automatiquement (source : {{source}})."
       }
     },
     "footer": {

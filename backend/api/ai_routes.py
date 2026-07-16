@@ -239,6 +239,16 @@ async def get_model_registry():
     }
 
 
+@router.get("/model-catalog")
+async def get_model_catalog(refresh: bool = False):
+    """Provider → model catalog (ids + cost/context/capabilities) feeding the
+    registry UI dropdowns. Sources: models.dev (day-cached) → disk cache →
+    vendored JSON, plus the live Ollama model list. to_thread: the loader does
+    blocking I/O (disk + short HTTP fetches) and must not freeze the event loop."""
+    from backend.agent.model_catalog import load_catalog
+    return await asyncio.to_thread(load_catalog, refresh)
+
+
 @router.put("/models", dependencies=[Depends(require_role("admin"))])
 async def set_model_registry(payload: ModelsPayload):
     """Saves the model registry and the budget policy to params.yaml."""
