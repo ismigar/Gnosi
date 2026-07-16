@@ -63,7 +63,7 @@ email-validator==2.3.0
 # OPUS-MT models (Marian) for translate_row skill — used only on demand
 # (es↔fr lazy load + auto-unload). Torch and transformers come transitively
 # from sentence-transformers.
-sentencepiece>=0.2.1
+sentencepiece>=0.2.2
 # py-spy: stack trace en viu del backend sense aturar-lo (diagnòstic de penjades
 # de l'event loop). Ús: docker exec gnosi_backend py-spy dump --pid 1
 py-spy>=0.3.14
