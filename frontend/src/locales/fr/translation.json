@@ -3291,6 +3291,12 @@
       "success": "Graphe mis à jour !",
       "error": "Erreur lors de la mise à jour du graphe"
     },
+    "partial_warning": {
+      "title": "Graphe partiel",
+      "message_one": "{{count}} dossier du vault n'a pas pu être lu (le nuage synchronise encore) ; le graphe est incomplet.",
+      "message_other": "{{count}} dossiers du vault n'ont pas pu être lus (le nuage synchronise encore) ; le graphe est incomplet.",
+      "retry": "Réessayer"
+    },
     "filters": {
       "tables_title": "Filtre de tables",
       "wiki_pages": "Pages Wiki",
@@ -3377,7 +3383,8 @@
     },
     "vault_embed": {
       "building": "Construction du graphe...",
-      "center_tooltip": "Centrer"
+      "center_tooltip": "Centrer",
+      "filters_applied": "Filtres de vue appliqués ({{n}})"
     }
   },
   "auth": {

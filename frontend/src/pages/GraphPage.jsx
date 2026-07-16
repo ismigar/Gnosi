@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import toast from '../lib/toast';
-import { RefreshCw, Check } from 'lucide-react';
+import { RefreshCw, Check, AlertTriangle } from 'lucide-react';
 import { Layout } from '../components/Layout';
 import { Sidebar } from '../components/Sidebar';
 import { CollapsibleSection } from '../components/CollapsibleSection';
@@ -822,6 +822,31 @@ function GraphPage() {
             containerStyle={{ display: 'block' }}
         >
             <div style={{ height: '100%', position: 'relative', minHeight: '600px' }}>
+                {/* Partial-graph warning: the backend skipped unreadable vault dirs
+                    (wedged online-only OneDrive subtrees) and served what it could.
+                    The result is NOT cached server-side, so a retry re-attempts a
+                    full build. Tooltip lists the skipped folders for diagnosis. */}
+                {graphData?.partial && (
+                    <div
+                        className="absolute top-4 left-1/2 -translate-x-1/2 z-30 max-w-xl px-4 py-2 bg-amber-50 dark:bg-amber-900/40 border border-amber-300 dark:border-amber-700 rounded-lg shadow-md flex items-center gap-3"
+                        title={(graphData.skipped_dirs || []).join('\n')}
+                    >
+                        <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                        <span className="text-sm text-amber-800 dark:text-amber-200">
+                            <strong>{t('graph.partial_warning.title', 'Graf parcial')}:</strong>{' '}
+                            {t('graph.partial_warning.message', {
+                                count: (graphData.skipped_dirs || []).length,
+                                defaultValue: "No s'han pogut llegir {{count}} carpetes del vault (el núvol encara sincronitza); el graf es mostra incomplet.",
+                            })}
+                        </span>
+                        <button
+                            onClick={() => fetchGraphData()}
+                            className="shrink-0 px-2.5 py-1 text-xs font-medium rounded-md bg-amber-600 hover:bg-amber-700 text-white"
+                        >
+                            {t('graph.partial_warning.retry', 'Reintenta')}
+                        </button>
+                    </div>
+                )}
                 <GraphViewer
                     ref={graphViewerRef}
                     graphData={graphData}
