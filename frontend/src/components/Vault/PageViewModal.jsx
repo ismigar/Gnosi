@@ -169,6 +169,270 @@ function RelationValuePicker({ value, onChange, options, loading, thisLabel, pla
     );
 }
 
+// --- Complex filter tree (Notion-style nested AND/OR groups) ---------------
+// The view stores a `filterTree` root group `{ conjunction, rules }` whose rules
+// are leaf rules `{ field, operator, value }` OR nested groups (arbitrary depth).
+// The legacy flat `filters` array survives as a back-compat mirror. Evaluation
+// parity lives in vaultFilters.matchesFilterNode / DbViewEmbed.applyFilterNode /
+// backend view_snapshot.apply_filter_node. Max nesting depth for the UI (the
+// engines support any depth, but the editor caps it to stay readable).
+const MAX_FILTER_DEPTH = 3;
+const NO_VALUE_OPS = ['is_empty', 'is_not_empty'];
+
+const isFilterGroup = (node) => !!node && Array.isArray(node.rules);
+const emptyFilterTree = () => ({ conjunction: 'and', rules: [] });
+
+// Builds the editor's tree from a view/section-like source, preferring the
+// nested `filterTree` and falling back to the legacy flat `filters` (AND). Deep
+// clones so edits don't mutate the loaded object.
+function treeFromSource(src) {
+    if (isFilterGroup(src?.filterTree)) return cloneFilterNode(src.filterTree);
+    const flat = Array.isArray(src?.filters) ? src.filters : [];
+    return { conjunction: 'and', rules: flat.map(f => ({ ...f })) };
+}
+
+function cloneFilterNode(node) {
+    if (isFilterGroup(node)) {
+        return { conjunction: node.conjunction === 'or' ? 'or' : 'and', rules: node.rules.map(cloneFilterNode) };
+    }
+    return { ...node };
+}
+
+// Flattens the tree to its leaf rules (used to prefetch relation options and to
+// detect a `this`-context filter).
+function collectLeafRules(node) {
+    if (!node) return [];
+    if (isFilterGroup(node)) return node.rules.flatMap(collectLeafRules);
+    return node.field ? [node] : [];
+}
+
+// Sanitizes for persistence: drops leaf rules without a field, normalizes the
+// value (null for is_empty/is_not_empty), and prunes empty sub-groups. The root
+// group is always returned (possibly with 0 rules = "no filter").
+function sanitizeFilterTree(node, isRoot = true) {
+    if (isFilterGroup(node)) {
+        const rules = node.rules
+            .map(child => sanitizeFilterTree(child, false))
+            .filter(Boolean);
+        const group = { conjunction: node.conjunction === 'or' ? 'or' : 'and', rules };
+        if (!isRoot && rules.length === 0) return null; // prune empty sub-groups
+        return group;
+    }
+    if (!node?.field) return null;
+    return {
+        field: node.field,
+        operator: node.operator || 'equals',
+        value: NO_VALUE_OPS.includes(node.operator) ? null : (node.value || ''),
+    };
+}
+
+// Returns the leaf rules IFF the tree is a single-level AND of only leaf rules
+// (the legacy shape); otherwise null. Used to mirror `filters` for old readers.
+function flatAndRules(tree) {
+    if (!isFilterGroup(tree) || tree.conjunction !== 'and') return null;
+    if (tree.rules.some(isFilterGroup)) return null;
+    return tree.rules;
+}
+
+/**
+ * Value control for a single filter rule; matches the field type (checkbox →
+ * checkbox, number → numeric input, date → date picker, relation → picker).
+ */
+function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
+    const inputCls = 'text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40';
+    if (NO_VALUE_OPS.includes(rule.operator)) {
+        // is_empty / is_not_empty: no value is needed.
+        return <input className={inputCls} value="" placeholder="—" disabled />;
+    }
+    const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
+    if (isRelation) {
+        return (
+            <RelationValuePicker
+                value={rule.value || ''}
+                onChange={v => onValue(v)}
+                options={relOpts || []}
+                loading={relOpts === undefined}
+                thisLabel={t('view.filter_this', { defaultValue: 'Aquesta pàgina' })}
+                placeholder={t('view.filter_pick', { defaultValue: 'Tria…' })}
+            />
+        );
+    }
+    const ftype = meta?.type;
+    if (ftype === 'checkbox') {
+        // Checked = filters for marked records ('true'); unmarked = for not
+        // checked ('false', which the engine also matches with empty values).
+        const checked = rule.value === 'true';
+        return (
+            <label className={`${inputCls} flex items-center gap-2 cursor-pointer`}>
+                <input
+                    type="checkbox"
+                    className="accent-[var(--gnosi-primary)] cursor-pointer"
+                    checked={checked}
+                    onChange={e => onValue(e.target.checked ? 'true' : 'false')}
+                />
+                <span className="text-[var(--text-secondary)]">{checked ? t('view.checked', 'Marcat') : t('view.unchecked', 'Sense marcar')}</span>
+            </label>
+        );
+    }
+    if (ftype === 'number') {
+        return (
+            <input
+                type="number"
+                className={inputCls}
+                value={rule.value || ''}
+                onChange={e => onValue(e.target.value)}
+                placeholder={t('view.value_ph', 'Valor')}
+            />
+        );
+    }
+    if (ftype === 'date' || ftype === 'datetime') {
+        return (
+            <input
+                type={ftype === 'datetime' ? 'datetime-local' : 'date'}
+                className={inputCls}
+                value={rule.value || ''}
+                onChange={e => onValue(e.target.value)}
+            />
+        );
+    }
+    return (
+        <input
+            className={inputCls}
+            value={rule.value || ''}
+            onChange={e => onValue(e.target.value)}
+            placeholder={t('view.value_this_ph', 'this o valor')}
+        />
+    );
+}
+
+/** A single leaf rule row: field select + operator select + value control + delete. */
+function FilterRuleRow({ rule, onChange, onRemove, ctx }) {
+    const { tableFields, fieldMeta, fieldLabel, relationCache, defaultFilterValue, t } = ctx;
+    const meta = fieldMeta[rule.field];
+    const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
+    const relOpts = isRelation ? relationCache[meta.relation_database_id] : null;
+    return (
+        <div className="flex gap-2 items-center">
+            <select
+                className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
+                value={rule.field}
+                onChange={e => {
+                    // Changing the field resets the value to the new type's default
+                    // (a relation id makes no sense in a text field, etc.).
+                    const field = e.target.value;
+                    onChange({ ...rule, field, value: defaultFilterValue(field) });
+                }}
+            >
+                {tableFields.map(tf => (
+                    <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
+                ))}
+            </select>
+            <select
+                className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
+                value={rule.operator}
+                onChange={e => onChange({ ...rule, operator: e.target.value })}
+            >
+                {FILTER_OPERATORS.map(op => (
+                    <option key={op.value} value={op.value}>{t(`view.op_${op.value}`, op.label)}</option>
+                ))}
+            </select>
+            <FilterValueControl rule={rule} meta={meta} relOpts={relOpts} onValue={v => onChange({ ...rule, value: v })} t={t} />
+            <button
+                onClick={onRemove}
+                className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
+                title={t('view.delete', 'Eliminar')}
+            >
+                <Trash2 size={14} />
+            </button>
+        </div>
+    );
+}
+
+/**
+ * Recursive editor for a filter group. Renders a per-row conjunction control
+ * (Notion-style: first row "On"/Where, second row an And/Or selector shared by
+ * the whole group, the rest static), each child (leaf rule or nested group),
+ * and footer buttons to add a rule or a sub-group.
+ */
+function FilterGroupEditor({ node, onChange, onRemove, depth, ctx }) {
+    const { tableFields, defaultFilterValue, t } = ctx;
+    const firstField = tableFields[0]?.name || 'title';
+    const rules = node.rules || [];
+    const conj = node.conjunction === 'or' ? 'or' : 'and';
+
+    const updateChild = (i, child) => onChange({ ...node, rules: rules.map((r, idx) => (idx === i ? child : r)) });
+    const removeChild = (i) => onChange({ ...node, rules: rules.filter((_, idx) => idx !== i) });
+    const addRule = () => onChange({ ...node, rules: [...rules, { field: firstField, operator: 'equals', value: defaultFilterValue(firstField) }] });
+    const addGroup = () => onChange({ ...node, rules: [...rules, { conjunction: 'and', rules: [{ field: firstField, operator: 'equals', value: defaultFilterValue(firstField) }] }] });
+    const setConjunction = (c) => onChange({ ...node, conjunction: c });
+
+    const isNested = depth > 0;
+    return (
+        <div className={isNested ? 'rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-2 space-y-2' : 'space-y-2'}>
+            {isNested && (
+                <div className="flex justify-between items-center">
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">{t('view.filter_group', 'Grup de filtres')}</span>
+                    <button
+                        onClick={onRemove}
+                        className="text-[var(--text-tertiary)] hover:text-red-500 p-0.5"
+                        title={t('view.delete_group', 'Eliminar grup')}
+                    >
+                        <Trash2 size={13} />
+                    </button>
+                </div>
+            )}
+            {rules.map((child, i) => {
+                // The conjunction prefix mirrors Notion: row 0 = "On"/Where,
+                // row 1 = And/Or selector (drives the whole group), row 2+ = static.
+                const prefix = i === 0 ? (
+                    <span className="text-xs text-[var(--text-tertiary)] w-16 shrink-0 pl-1">{t('view.filter_where', 'On')}</span>
+                ) : i === 1 ? (
+                    <select
+                        className="text-xs border border-[var(--border-primary)] rounded px-1.5 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-16 shrink-0"
+                        value={conj}
+                        onChange={e => setConjunction(e.target.value)}
+                    >
+                        <option value="and">{t('view.conj_and', 'I')}</option>
+                        <option value="or">{t('view.conj_or', 'O')}</option>
+                    </select>
+                ) : (
+                    <span className="text-xs text-[var(--text-secondary)] w-16 shrink-0 pl-1">{conj === 'or' ? t('view.conj_or', 'O') : t('view.conj_and', 'I')}</span>
+                );
+                return (
+                    <div key={i} className="flex gap-2 items-start">
+                        <div className="pt-1.5">{prefix}</div>
+                        <div className="flex-1 min-w-0">
+                            {isFilterGroup(child) ? (
+                                <FilterGroupEditor node={child} onChange={c => updateChild(i, c)} onRemove={() => removeChild(i)} depth={depth + 1} ctx={ctx} />
+                            ) : (
+                                <FilterRuleRow rule={child} onChange={c => updateChild(i, c)} onRemove={() => removeChild(i)} ctx={ctx} />
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+            <div className="flex gap-2 pl-1">
+                <button
+                    onClick={addRule}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20"
+                >
+                    <Plus size={12} />
+                    {t('view.add_filter', 'Afegir filtre')}
+                </button>
+                {depth < MAX_FILTER_DEPTH && (
+                    <button
+                        onClick={addGroup}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)]"
+                    >
+                        <Plus size={12} />
+                        {t('view.add_group', 'Afegir grup')}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null, mode = 'embed', editingView = null, initialTab = null }) {
     const { t } = useTranslation();
 
@@ -195,7 +459,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     // would only show the title. They are merged into `tableFields`.
     const [discoveredFields, setDiscoveredFields] = useState([]);
     const [viewType, setViewType] = useState('table');
-    const [filters, setFilters] = useState([]);
+    // Complex filter tree (root AND/OR group with nested rules/groups). The
+    // legacy flat `filters` array is derived on save for back-compat.
+    const [filterTree, setFilterTree] = useState(emptyFilterTree);
     // Ordered list of sort criteria; the first element has the highest
     // priority (e.g.: sort by `Estat` asc; ties broken by `Data` desc).
     const [sorts, setSorts] = useState([]);
@@ -293,7 +559,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
     useEffect(() => {
         if (!isOpen) return;
         const targets = new Set();
-        filters.forEach(f => {
+        collectLeafRules(filterTree).forEach(f => {
             const meta = fieldMeta[f.field];
             if (meta?.type === 'relation' && meta.relation_database_id) targets.add(meta.relation_database_id);
         });
@@ -310,7 +576,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setRelationCache(prev => ({ ...prev, [tid]: [] }));
             }
         });
-    }, [isOpen, filters, fieldMeta, apiFetch, relationCache, t]);
+    }, [isOpen, filterTree, fieldMeta, apiFetch, relationCache, t]);
 
     // Reads the per-type options of a view (registry or inline section) into the
     // modal's state, tolerating both naming conventions (camelCase from the
@@ -375,7 +641,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         ? editingView.visibleProperties
                         : ['title']
                 );
-                setFilters(Array.isArray(editingView.filters) ? editingView.filters : []);
+                setFilterTree(treeFromSource(editingView));
                 if (Array.isArray(editingView.sorts) && editingView.sorts.length) {
                     setSorts(editingView.sorts);
                 } else if (editingView.sort && editingView.sort.field) {
@@ -392,7 +658,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 setViewType('table');
                 setViewName('');
                 setVisibleProperties(['title']);
-                setFilters([]);
+                setFilterTree(emptyFilterTree());
                 setSorts([]);
                 setResultSnapshot(true);
                 setResultSnapshotLimit(500);
@@ -441,7 +707,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         setSourceTableId(String(v.table_id || ''));
                         setViewType(String(v.type || 'table'));
                         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
-                        setFilters(Array.isArray(v.filters) ? v.filters : []);
+                        setFilterTree(treeFromSource(v));
                         setResultSnapshot(v.resultSnapshot !== false);
                         setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
                         applyTypeOptions(v);
@@ -474,7 +740,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
             setSelectedExistingViewId('');
             setSourceTableId(inline?.source_table_id || preselectedTableId || '');
             setViewType(inline?.type || 'table');
-            setFilters(Array.isArray(inline?.filters) ? inline.filters : []);
+            setFilterTree(treeFromSource(inline || {}));
             setSorts(Array.isArray(inline?.sorts) ? inline.sorts : []);
             setVisibleProperties(Array.isArray(inline?.visibleProperties) && inline.visibleProperties.length ? inline.visibleProperties : ['title']);
             setResultSnapshot(inline?.resultSnapshot !== false);
@@ -491,7 +757,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setViewName('');
         setVisibleProperties(['title']);
         setViewType('table');
-        setFilters([]);
+        setFilterTree(emptyFilterTree());
         setSorts([]);
         setResultSnapshot(true);
         setResultSnapshotLimit(500);
@@ -591,7 +857,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         if (!v) return;
         setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
         setViewType(v.type || 'table');
-        setFilters(Array.isArray(v.filters) ? v.filters : []);
+        setFilterTree(treeFromSource(v));
         setResultSnapshot(v.resultSnapshot !== false);
         setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
         applyTypeOptions(v);
@@ -703,27 +969,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         fieldMeta[fieldName]?.type === 'checkbox' ? 'false' : ''
     );
 
-    const addFilter = () => {
-        const firstField = tableFields[0]?.name || 'title';
-        setFilters(prev => [...prev, { field: firstField, operator: 'equals', value: defaultFilterValue(firstField) }]);
-    };
-
-    const updateFilter = (idx, patch) => {
-        setFilters(prev => prev.map((f, i) => {
-            if (i !== idx) return f;
-            // If the field changes, the previous value may not make sense for the new
-            // type (e.g. a relation id in a text field); we reset it
-            // to the new type's default value.
-            const next = { ...f, ...patch };
-            if (patch.field !== undefined && patch.field !== f.field) next.value = defaultFilterValue(patch.field);
-            return next;
-        }));
-    };
-
-    const removeFilter = (idx) => {
-        setFilters(prev => prev.filter((_, i) => i !== idx));
-    };
-
     const addSort = () => {
         const firstField = tableFields[0]?.name || 'title';
         setSorts(prev => [...prev, { field: firstField, direction: 'asc' }]);
@@ -805,15 +1050,17 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setSaving(true);
         setError('');
         try {
-            // Sanitize the filters: discard rows without a field; for operators
-            // that don't require a value, we leave null.
-            const cleanFilters = filters
-                .filter(f => f.field)
-                .map(f => ({
-                    field: f.field,
-                    operator: f.operator || 'equals',
-                    value: ['is_empty', 'is_not_empty'].includes(f.operator) ? null : (f.value || ''),
-                }));
+            // Sanitize the filter tree: drop rules without a field, null out the
+            // value for is_empty/is_not_empty, prune empty sub-groups. `cleanTree`
+            // is the source of truth (complex AND/OR groups); `cleanFilters` is a
+            // flat AND mirror kept ONLY when the tree is a simple single-level AND
+            // of leaf rules — otherwise `[]`, so old readers don't misinterpret a
+            // complex filter as a flat one (they fall back to `filterTree`).
+            const cleanTree = sanitizeFilterTree(filterTree);
+            const flat = flatAndRules(cleanTree);
+            const cleanFilters = flat ? flat.map(f => ({ ...f })) : [];
+            const filterTreeBody = cleanTree.rules.length ? cleanTree : null;
+            const leafRules = collectLeafRules(cleanTree);
 
             const cleanSorts = sorts
                 .filter(s => s.field)
@@ -833,6 +1080,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     name: (viewName || editingView?.name || 'Vista').trim(),
                     type: viewType,
                     filters: cleanFilters,
+                    filterTree: filterTreeBody,
                     sort: sortConfig,
                     sorts: cleanSorts,
                     visibleProperties,
@@ -888,7 +1136,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     // was never upserted to the registry and DbViewEmbed —which prefers the
                     // view from the registry to the section— it kept rendering the old type.
                     type: viewType,
-                    filters: cleanFilters,
+                    filterTree: cleanTree,
                     sorts: cleanSorts,
                     visibleProperties,
                     resultSnapshot,
@@ -902,7 +1150,10 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 });
                 const oldPropsJson = JSON.stringify({
                     type: String(original?.view_type || original?.type || 'table').toLowerCase(),
-                    filters: original?.filters || [],
+                    // Normalize the original's filters through the same tree pipeline
+                    // so a simple flat filter doesn't read as "modified" just because
+                    // the new shape is a tree.
+                    filterTree: sanitizeFilterTree(treeFromSource(original || {})),
                     sorts: original?.sorts || (original?.sort ? [original.sort] : []),
                     visibleProperties: original?.visibleProperties || ['title'],
                     resultSnapshot: original?.resultSnapshot !== false,
@@ -921,6 +1172,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                         table_id: sourceTableId,
                         type: viewType,
                         filters: cleanFilters,
+                        filterTree: filterTreeBody,
                         sort: sortConfig,
                         sorts: cleanSorts,
                         visibleProperties,
@@ -942,6 +1194,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     name: (viewName || heading || 'Vista').trim(),
                     type: viewType,
                     filters: cleanFilters,
+                    filterTree: filterTreeBody,
                     sort: sortConfig,
                     sorts: cleanSorts,
                     visibleProperties,
@@ -953,7 +1206,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                     // and only lives inside embeds (isPageEmbedView). Without
                     // "this", the "also save to the views" checkbox is respected
                     // of the table" and remains as a normal tab.
-                    ...(cleanFilters.some(f => f?.value === 'this') ? { embedded: true } : {}),
+                    ...(leafRules.some(f => f?.value === 'this') ? { embedded: true } : {}),
                 };
                 const created = await apiFetch('/api/vault/views', {
                     method: 'POST',
@@ -973,6 +1226,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 source_table_id: sourceTableId,
                 view_id: viewId,
                 filters: cleanFilters,
+                filterTree: filterTreeBody,
                 sort: sortConfig,
                 sorts: cleanSorts,
                 visible_properties: visibleProperties,
@@ -1009,6 +1263,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 source_table_id: sourceTableId,
                 view_type: viewType,
                 filters: cleanFilters,
+                filterTree: filterTreeBody,
                 sorts: cleanSorts,
                 visible_properties: visibleProperties,
             });
@@ -1680,131 +1935,18 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
                     {activeTab === 'filters' && (
                         <div>
-                            <div className="flex justify-between items-center mb-3">
-                                <p className="text-xs text-[var(--text-secondary)]">
-                                    {t('view.filters_intro', 'Tots els filtres es combinen amb AND. Valor "this" = ID d\'aquesta pàgina.')}
-                                </p>
-                                <button
-                                    onClick={addFilter}
-                                    disabled={!selectedTable}
-                                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20 disabled:opacity-40"
-                                >
-                                    <Plus size={12} />
-                                    {t('view.add_filter', 'Afegir filtre')}
-                                </button>
-                            </div>
+                            <p className="text-xs text-[var(--text-secondary)] mb-3">
+                                {t('view.filters_intro_groups', 'Combina filtres amb I/O i agrupa\'ls per fer condicions complexes. Valor "this" = ID d\'aquesta pàgina.')}
+                            </p>
                             {!selectedTable ? (
                                 <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
-                            ) : filters.length === 0 ? (
-                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_filters', 'Cap filtre. Es mostraran totes les files.')}</p>
                             ) : (
-                                <div className="space-y-2">
-                                    {filters.map((f, idx) => {
-                                        const noValue = ['is_empty', 'is_not_empty'].includes(f.operator);
-                                        const meta = fieldMeta[f.field];
-                                        const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
-                                        const relOpts = isRelation ? relationCache[meta.relation_database_id] : null;
-                                        return (
-                                            <div key={idx} className="flex gap-2 items-center">
-                                                <select
-                                                    className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
-                                                    value={f.field}
-                                                    onChange={e => updateFilter(idx, { field: e.target.value })}
-                                                >
-                                                    {tableFields.map(tf => (
-                                                        <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
-                                                    ))}
-                                                </select>
-                                                <select
-                                                    className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
-                                                    value={f.operator}
-                                                    onChange={e => updateFilter(idx, { operator: e.target.value })}
-                                                >
-                                                    {FILTER_OPERATORS.map(op => (
-                                                        <option key={op.value} value={op.value}>{t(`view.op_${op.value}`, op.label)}</option>
-                                                    ))}
-                                                </select>
-                                                {(() => {
-                                                    // The value control matches the field type: a checkbox
-                                                    // is filtered with a checkbox (just like the field), a number with
-                                                    // a numeric input, a date with a date picker, and a
-                                                    // relation with its picker.
-                                                    const inputCls = 'text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40';
-                                                    if (noValue) {
-                                                        // is_empty / is_not_empty: no value is needed.
-                                                        return <input className={inputCls} value="" placeholder="—" disabled />;
-                                                    }
-                                                    if (isRelation) {
-                                                        return (
-                                                            <RelationValuePicker
-                                                                value={f.value || ''}
-                                                                onChange={v => updateFilter(idx, { value: v })}
-                                                                options={relOpts || []}
-                                                                loading={relOpts === undefined}
-                                                                thisLabel={t('view.filter_this', { defaultValue: 'Aquesta pàgina' })}
-                                                                placeholder={t('view.filter_pick', { defaultValue: 'Tria…' })}
-                                                            />
-                                                        );
-                                                    }
-                                                    const ftype = meta?.type;
-                                                    if (ftype === 'checkbox') {
-                                                        // Same control as the field: a checkbox. Checked = filters
-                                                        // for marked records ('true'); unmarked = for not
-                                                        // checked ('false', which the engine also matches with empty values).
-                                                        const checked = f.value === 'true';
-                                                        return (
-                                                            <label className={`${inputCls} flex items-center gap-2 cursor-pointer`}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    className="accent-[var(--gnosi-primary)] cursor-pointer"
-                                                                    checked={checked}
-                                                                    onChange={e => updateFilter(idx, { value: e.target.checked ? 'true' : 'false' })}
-                                                                />
-                                                                <span className="text-[var(--text-secondary)]">{checked ? t('view.checked', 'Marcat') : t('view.unchecked', 'Sense marcar')}</span>
-                                                            </label>
-                                                        );
-                                                    }
-                                                    if (ftype === 'number') {
-                                                        return (
-                                                            <input
-                                                                type="number"
-                                                                className={inputCls}
-                                                                value={f.value || ''}
-                                                                onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                                placeholder={t('view.value_ph', 'Valor')}
-                                                            />
-                                                        );
-                                                    }
-                                                    if (ftype === 'date' || ftype === 'datetime') {
-                                                        return (
-                                                            <input
-                                                                type={ftype === 'datetime' ? 'datetime-local' : 'date'}
-                                                                className={inputCls}
-                                                                value={f.value || ''}
-                                                                onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                            />
-                                                        );
-                                                    }
-                                                    return (
-                                                        <input
-                                                            className={inputCls}
-                                                            value={f.value || ''}
-                                                            onChange={e => updateFilter(idx, { value: e.target.value })}
-                                                            placeholder={t('view.value_this_ph', 'this o valor')}
-                                                        />
-                                                    );
-                                                })()}
-                                                <button
-                                                    onClick={() => removeFilter(idx)}
-                                                    className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
-                                                    title={t('view.delete', 'Eliminar')}
-                                                >
-                                                    <Trash2 size={14} />
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                                <FilterGroupEditor
+                                    node={filterTree}
+                                    onChange={setFilterTree}
+                                    depth={0}
+                                    ctx={{ tableFields, fieldMeta, fieldLabel, relationCache, defaultFilterValue, t }}
+                                />
                             )}
                         </div>
                     )}

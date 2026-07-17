@@ -7,6 +7,7 @@ the frontend (DbViewEmbed).
 from backend.services.view_snapshot import (
     _parse_numeric_value,
     apply_filter,
+    apply_filter_node,
     compact_view_fences,
     inject_view_snapshots,
     multi_key_sort,
@@ -141,6 +142,69 @@ def test_sort_comma_decimal_numeric_order():
     ]
     asc = [r["id"] for r in multi_key_sort(rows, [{"field": "Preu", "direction": "asc"}])]
     assert asc == ["3", "2", "1"]
+
+
+# --- apply_filter_node (nested AND/OR groups, Notion-style) -----------------
+def test_filter_node_leaf_delegates_to_apply_filter():
+    # A bare leaf rule behaves exactly like apply_filter.
+    leaf = {"field": "Any", "operator": "equals", "value": "2020"}
+    assert apply_filter_node({"Any": "2020"}, PAGE, leaf) is True
+    assert apply_filter_node({"Any": "2021"}, PAGE, leaf) is False
+
+
+def test_filter_node_empty_group_matches_all():
+    assert apply_filter_node({"Any": "2020"}, PAGE, {"conjunction": "and", "rules": []}) is True
+    assert apply_filter_node({}, PAGE, {"conjunction": "or", "rules": []}) is True
+
+
+def test_filter_node_and_or_conjunctions():
+    meta = {"Estat": "Fet", "Tipus": "Recordatori"}
+    r_estat = {"field": "Estat", "operator": "equals", "value": "Fet"}
+    r_tipus = {"field": "Tipus", "operator": "equals", "value": "Accionable"}
+    # AND: both must hold → false because Tipus differs.
+    assert apply_filter_node(meta, PAGE, {"conjunction": "and", "rules": [r_estat, r_tipus]}) is False
+    # OR: at least one holds → true because Estat matches.
+    assert apply_filter_node(meta, PAGE, {"conjunction": "or", "rules": [r_estat, r_tipus]}) is True
+
+
+def test_filter_node_nested_groups():
+    # (Estat != Fet) AND (Tipus is empty OR Tipus == Safata d'entrada)
+    tree = {
+        "conjunction": "and",
+        "rules": [
+            {"field": "Estat", "operator": "not_equals", "value": "Fet"},
+            {
+                "conjunction": "or",
+                "rules": [
+                    {"field": "Tipus", "operator": "is_empty"},
+                    {"field": "Tipus", "operator": "equals", "value": "Safata d'entrada"},
+                ],
+            },
+        ],
+    }
+    assert apply_filter_node({"Estat": "Pendent", "Tipus": []}, PAGE, tree) is True
+    assert apply_filter_node({"Estat": "Pendent", "Tipus": "Safata d'entrada"}, PAGE, tree) is True
+    assert apply_filter_node({"Estat": "Pendent", "Tipus": "Altre"}, PAGE, tree) is False
+    assert apply_filter_node({"Estat": "Fet", "Tipus": []}, PAGE, tree) is False
+
+
+def test_resolve_rows_prefers_filter_tree_over_flat():
+    rows = [
+        {"id": A, "title": "Alpha", "metadata": {"Estat": "Pendent"}},
+        {"id": B, "title": "Bèta", "metadata": {"Estat": "Fet"}},
+    ]
+    view = {
+        # Flat `filters` (legacy) must be IGNORED when a filterTree is present.
+        "filters": [{"field": "Estat", "operator": "equals", "value": "Fet"}],
+        "filterTree": {
+            "conjunction": "or",
+            "rules": [
+                {"field": "Estat", "operator": "equals", "value": "Pendent"},
+                {"field": "Estat", "operator": "equals", "value": "Fet"},
+            ],
+        },
+    }
+    assert set(resolve_row_ids(rows, view, PAGE)) == {A, B}
 
 
 # --- resolve_row_ids --------------------------------------------------------

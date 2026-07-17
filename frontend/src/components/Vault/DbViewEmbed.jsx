@@ -154,6 +154,30 @@ function applyFilter(row, pageId, f) {
     return true;
 }
 
+// A node is a GROUP (not a leaf rule) when it carries a `rules` array. Parity
+// with vaultFilters.isFilterGroup / backend view_snapshot._is_filter_group.
+function isFilterGroup(node) {
+    return !!node && Array.isArray(node.rules);
+}
+
+// Recursively evaluates a filter NODE — a leaf rule { field, operator, value }
+// or a group { conjunction, rules: [...] } whose children may themselves be
+// groups (arbitrary nesting, like Notion). An empty group matches everything.
+// 1:1 parity with vaultFilters.matchesFilterNode and the backend's
+// view_snapshot.apply_filter_node.
+function applyFilterNode(row, pageId, node) {
+    if (!node) return true;
+    if (isFilterGroup(node)) {
+        const rules = node.rules;
+        if (!rules || rules.length === 0) return true;
+        const useOr = String(node.conjunction || 'and').toLowerCase() === 'or';
+        return useOr
+            ? rules.some(child => applyFilterNode(row, pageId, child))
+            : rules.every(child => applyFilterNode(row, pageId, child));
+    }
+    return applyFilter(row, pageId, node);
+}
+
 function multiKeySort(rows, sorts) {
     // Comparator shared with the main view (vaultFilters.compareFieldValues):
     // empties last, numeric order for numbers, and normalized localeCompare for
@@ -848,10 +872,18 @@ export function DbViewEmbed({ block }) {
     // `this` value → pageId) and sorted. Reacts when switching tabs
     // without a refetch (same table).
     const allRows = useMemo(() => {
-        const filters = (effectiveView?.filters && effectiveView.filters.length > 0)
-            ? effectiveView.filters
-            : (effectiveView?.filter ? [effectiveView.filter] : []);
-        const filtered = rawRecords.filter(r => filters.every(f => applyFilter(r, pageId, f)));
+        // Prefer the nested `filterTree` (complex AND/OR groups); fall back to the
+        // legacy flat `filters`/`filter` (AND). Parity with the main view
+        // (viewMatchesFilters) and the backend snapshot (resolve_rows).
+        const tree = isFilterGroup(effectiveView?.filterTree)
+            ? effectiveView.filterTree
+            : {
+                conjunction: 'and',
+                rules: (effectiveView?.filters && effectiveView.filters.length > 0)
+                    ? effectiveView.filters
+                    : (effectiveView?.filter ? [effectiveView.filter] : []),
+            };
+        const filtered = rawRecords.filter(r => applyFilterNode(r, pageId, tree));
         const sorts = (effectiveView?.sorts && effectiveView.sorts.length > 0)
             ? effectiveView.sorts
             : (effectiveView?.sort ? [effectiveView.sort] : []);

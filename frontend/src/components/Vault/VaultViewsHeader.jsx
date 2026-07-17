@@ -31,7 +31,7 @@ import { VIEW_TYPES, getViewIcon, isMainView, isViewHidden } from './viewConstan
 import { ReferenceImportExport } from './ReferenceImportExport';
 import { BrainInbox } from './BrainInbox';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
-import { matchesFilters } from '../../utils/vaultFilters';
+import { viewMatchesFilters, isFilterGroup } from '../../utils/vaultFilters';
 
 function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigure }) {
     const { t } = useTranslation();
@@ -278,18 +278,25 @@ export function VaultViewsHeader({
 
     // Record count of the ACTIVE view (not of the whole table). If the view
     // has filters, only the records matching them; if it has none, it equals
-    // the total. It reuses `matchesFilters` (the same pure function applied by
-    // VaultTable via useVaultViewData) so the badge and the table don't diverge.
+    // the total. It reuses `viewMatchesFilters` (the same pure function applied by
+    // VaultTable via useVaultViewData) so the badge and the table don't diverge —
+    // this also covers the nested `filterTree` (complex AND/OR groups).
     // Search is deliberately left out: it is transient and already reflected by
     // the "Showing X of Y" inside the table; the badge is the view's size.
-    const activeViewFilters = useMemo(
-        () => (views?.find(v => v.id === activeViewId)?.filters) || [],
+    const activeView = useMemo(
+        () => views?.find(v => v.id === activeViewId) || null,
         [views, activeViewId]
     );
+    const hasActiveFilter = useMemo(() => {
+        if (!activeView) return false;
+        return isFilterGroup(activeView.filterTree)
+            ? (activeView.filterTree.rules || []).length > 0
+            : (activeView.filters || []).length > 0;
+    }, [activeView]);
     const viewRecordCount = useMemo(() => {
-        if (!activeViewFilters.length) return recordCount;
-        return (notes || []).filter(n => matchesFilters(n, activeViewFilters)).length;
-    }, [notes, activeViewFilters, recordCount]);
+        if (!hasActiveFilter) return recordCount;
+        return (notes || []).filter(n => viewMatchesFilters(n, activeView)).length;
+    }, [notes, activeView, hasActiveFilter, recordCount]);
     const isFilteredView = viewRecordCount !== recordCount;
 
     // Views shown as tabs: all but the hidden ones. The main

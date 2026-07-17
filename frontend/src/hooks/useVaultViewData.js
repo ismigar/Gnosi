@@ -4,7 +4,7 @@
  * for Vault views (Table, Gallery, Kanban, Timeline, Feed).
  */
 import { useMemo } from 'react';
-import { matchesFilters, matchesSearch, compareFieldValues } from '../utils/vaultFilters';
+import { viewMatchesFilters, matchesSearch, compareFieldValues } from '../utils/vaultFilters';
 import { normalizeSorts } from '../components/Vault/schemaUtils';
 
 /**
@@ -23,19 +23,17 @@ export function useVaultViewData({ pages = [], schema: _schema = {}, view = {}, 
     const filteredPages = useMemo(() => {
         let result = [...pages];
 
-        // Apply the view's search and filters
-        const filters = view.filters || [];
-        
         return result.filter(page => {
             // 1. Global search
             if (!matchesSearch(page, searchTerm)) return false;
-            
-            // 2. View filters
-            if (!matchesFilters(page, filters)) return false;
-            
+
+            // 2. View filters — prefers the nested `filterTree` (complex AND/OR
+            // groups) and falls back to the legacy flat `filters` list (AND).
+            if (!viewMatchesFilters(page, view)) return false;
+
             return true;
         });
-    }, [pages, searchTerm, view.filters]);
+    }, [pages, searchTerm, view.filters, view.filterTree]);
 
 
     const sortedPages = useMemo(() => {
