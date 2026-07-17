@@ -92,6 +92,10 @@ export function useModalKeyboard({
         // (which would move focus before this line): the initial focus is set by
         // this hook further down, after capturing the external element.
         const previouslyFocused = trapFocus ? document.activeElement : null;
+        // Snapshot of the panel node for the cleanup: by the time it runs the
+        // ref may already be nulled (unmount), and a detached node can't
+        // contain the active element anyway.
+        const panelEl = containerRef?.current || null;
 
         // Initial focus inside the modal: the element marked with [data-autofocus], or
         // the first focusable element, or the panel itself. Synchronous inside the effect (NOT in
@@ -179,8 +183,17 @@ export function useModalKeyboard({
             window.removeEventListener('keydown', handleKeyDown, true);
             layer.release();
             // Restores focus to whoever had it before opening (only with trapFocus).
-            if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
-                try { previouslyFocused.focus(); } catch { /* l'element ja no existeix */ }
+            // Guarded: if the close action already placed focus somewhere else
+            // (e.g. the editor body after inserting content), don't fight it.
+            // And restore with preventScroll — the previous holder can live far
+            // from the current viewport (the page title while scrolled down a
+            // long note) and a plain focus() would yank the page to it.
+            const active = document.activeElement;
+            const focusIsLoose = !active
+                || active === document.body
+                || (panelEl ? panelEl.contains(active) : false);
+            if (focusIsLoose && previouslyFocused && typeof previouslyFocused.focus === 'function') {
+                try { previouslyFocused.focus({ preventScroll: true }); } catch { /* element is gone */ }
             }
         };
     }, [isOpen, closeOnEscape, containerRef, trapFocus]);
