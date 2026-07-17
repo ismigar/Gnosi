@@ -332,9 +332,11 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
                     // Cells are re-read raw (own GFM parser that splits on `|`),
                     // not via markdown-it → the text is NOT escaped (only the literal `|`).
                     // Also, a GFM row must be a SINGLE line: `inlineContentToMarkdown`
-                    // converts soft breaks into `<br>\n`, and this literal `\n` would split
-                    // the row in two, corrupting the ENTIRE table on re-parse. We keep the
-                    // `<br>` (GFM form for a break inside the cell) but we collapse the break.
+                    // renders in-cell breaks as `<br>` (GFM form for a break inside a
+                    // cell). Any stray literal `\n` (legacy content, block joins) would
+                    // split the row in two and corrupt the ENTIRE table on re-parse, so
+                    // we collapse it to a space. The `<br>\n` cleanup stays as a
+                    // defensive no-op for markdown produced by older serializers.
                     return inlineContentToMarkdown(cellContent, { escape: false })
                         .replace(/\|/g, "\\|")
                         .replace(/<br>\n/g, "<br>")
@@ -982,8 +984,15 @@ const inlineContentToMarkdown = (content, { escape = true, atLineStart = false }
 
             // Handle soft line breaks inside text nodes. Standard Markdown requires two spaces or <br>.
             // (After escaping, so as not to escape the `<br>` we inject.)
+            // We emit `<br>` WITHOUT a trailing literal newline. If we appended a
+            // real `\n`, BlockNote's parser would count BOTH the `<br>` (hard break)
+            // AND the following newline (soft break) as separate breaks, so a single
+            // in-paragraph break re-parsed as two — and every save/reload cycle
+            // DOUBLED the breaks (`.\n` → `<br>\n` → `.\n\n` → `<br>\n<br>\n` → …),
+            // making blank lines "reappear and grow" and defeating the user's deletes.
+            // `<br>` alone round-trips 1:1 (verified against the live parser).
             if (text.includes('\n')) {
-                text = text.replace(/\n/g, '<br>\n');
+                text = text.replace(/\n/g, '<br>');
             }
 
             if (item.styles) {
