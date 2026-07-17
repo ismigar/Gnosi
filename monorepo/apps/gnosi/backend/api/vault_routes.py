@@ -8893,14 +8893,33 @@ def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
     vault_root = get_p("VAULT")
     entry_dir = _trash_entry_dir(page_id)
 
-    # Idempotent: if the folder already exists with a valid sidecar, we return it.
+    # A trash slot may already exist for this id. Two cases must be told apart:
+    #   1. The source file is GONE  → a genuine idempotent re-delete (double-click
+    #      or a race where a prior request already moved this same file). Return
+    #      the existing sidecar unchanged.
+    #   2. The source file still EXISTS → the slot belongs to a *different* file
+    #      that carries the same id (duplicate-id collision) or to an older
+    #      snapshot of the same page trashed earlier. Returning early here would
+    #      report "deleted" without moving the live file, so it reappears on the
+    #      next index rebuild (rglob re-picks it up). Drop the stale slot and
+    #      re-trash for real. The trash is keyed by id, so one id keeps one entry:
+    #      last-deleted wins (the older snapshot would be auto-purged anyway).
     existing_sidecar = entry_dir / "_trash.json"
     if existing_sidecar.exists():
-        try:
-            return json.loads(existing_sidecar.read_text(encoding="utf-8"))
-        except Exception:
-            # Corrupted sidecar: we'll overwrite it.
-            pass
+        if not file_path.exists():
+            try:
+                return json.loads(existing_sidecar.read_text(encoding="utf-8"))
+            except Exception:
+                # Corrupted sidecar: we'll overwrite it.
+                pass
+        else:
+            log.warning(
+                "Trash slot %s already occupied while trashing a live file (%s); "
+                "overwriting the stale entry to avoid the page reappearing.",
+                page_id,
+                file_path,
+            )
+            shutil.rmtree(entry_dir, ignore_errors=True)
 
     entry_dir.mkdir(parents=True, exist_ok=True)
 
