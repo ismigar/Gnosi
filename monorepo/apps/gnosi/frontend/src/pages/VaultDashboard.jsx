@@ -8,7 +8,6 @@ import { FileText, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { VaultShell } from '../components/Vault/VaultShell';
 import { VaultSidebar } from '../components/Vault/VaultSidebar';
-import { VaultTabs } from '../components/Vault/VaultTabs';
 import { VaultViewBody } from '../components/Vault/VaultViewBody';
 import { BlockEditor } from '../components/Vault/BlockEditor';
 import { inFlightSaves } from '../components/Vault/editorState';
@@ -2066,7 +2065,7 @@ export default function VaultDashboard() {
 
     const executeCreateContent = async (e) => {
         if (e) e.preventDefault();
-        const { inputValue, parentId, isDatabase, isDrawing, isDashboard, isView, isRename, viewType, isTemplate, isApp, databaseId } = promptModal;
+        const { inputValue, parentId, isDatabase, isDrawing, isDashboard, isRename, isTemplate, isApp, databaseId } = promptModal;
         const title = inputValue?.trim();
 
         if (!title) {
