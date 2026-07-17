@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import { X, Folder, ChevronRight, ArrowLeft, Home, Search, File as FileIcon } from 'lucide-react';
+import { X, Folder, ChevronRight, ArrowLeft, Home, Search, File as FileIcon, FolderOpen } from 'lucide-react';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
 import { useTranslation } from 'react-i18next';
 
@@ -69,6 +69,12 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     // results). Shared by keyboard (↑↓) and mouse (hover), same as the
     // canonical MultiSelectPills pattern: a single `highlightedIndex` for both.
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    // Progressive enhancement: when the browser and backend are on the same Mac
+    // and the host helper is up, offer the OS-native open dialog (which returns
+    // a real host path the browser itself can't). `false` keeps just the in-app
+    // picker. `nativePicking` is true while the native dialog is open on screen.
+    const [nativeAvailable, setNativeAvailable] = useState(false);
+    const [nativePicking, setNativePicking] = useState(false);
     const modalRef = useRef(null);
     // Scrollable container for the list (role="listbox"): receives focus and the
     // arrows; keeps focus when entering/leaving folders, so navigation
@@ -89,6 +95,23 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialPath]);
+
+    // Probe native-dialog availability once per open (loopback + helper up),
+    // in parallel with the first browse. Failure just leaves the button hidden.
+    useEffect(() => {
+        if (!isOpen) return;
+        let cancelled = false;
+        void (async () => {
+            try {
+                const res = await fetch('/api/system/native-pick/available');
+                const data = await res.json();
+                if (!cancelled) setNativeAvailable(!!data.available);
+            } catch {
+                if (!cancelled) setNativeAvailable(false);
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isOpen]);
 
     // On opening, pre-fills the search with `initialQuery` (if present). The
     // debounced search useEffect already takes care of firing the query.
@@ -219,6 +242,34 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     const handleSelectCurrentFolder = () => {
         onSelect(displayPath || currentPath, { isDir: true });
+    };
+
+    // Native OS dialog. Delegates to the host helper (via the backend), which
+    // returns a real host path — the same shape onSelect gets from browsing.
+    // 'folder' mode picks a folder; 'file'/'any' pick a file (a native dialog
+    // can't do both at once, and picking a file is the primary action for both).
+    const handleNativePick = async () => {
+        if (nativePicking) return;
+        setError('');
+        setNativePicking(true);
+        try {
+            const nativeMode = mode === 'folder' ? 'folder' : 'file';
+            const res = await fetch('/api/system/native-pick', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ mode: nativeMode, prompt: titleText }),
+            });
+            if (!res.ok) { setError(tn('native_error')); return; }
+            const data = await res.json();
+            if (data.status !== 'ok' || !data.path) return; // cancelled → stay open
+            // Keep the in-app picker's remembered folder in sync with the choice.
+            saveLastPath(data.is_dir ? data.path : data.path.slice(0, data.path.lastIndexOf('/')));
+            onSelect(data.path, { isDir: !!data.is_dir });
+        } catch {
+            setError(tn('native_error'));
+        } finally {
+            setNativePicking(false);
+        }
     };
 
     // Search result: if it's a folder, navigate into it (you need to enter it to
@@ -428,6 +479,17 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                         >
                             <Folder size={14} /> {tn('root')}
                         </button>
+                        {nativeAvailable && (
+                            <button
+                                onClick={handleNativePick}
+                                disabled={nativePicking}
+                                title={tn('native_button_tip')}
+                                className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]"
+                                style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', cursor: nativePicking ? 'default' : 'pointer', opacity: nativePicking ? 0.6 : 1, padding: '4px 10px', borderRadius: '6px', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
+                            >
+                                <FolderOpen size={14} /> {nativePicking ? tn('native_waiting') : tn('native_button')}
+                            </button>
+                        )}
                     </div>
 
                     {/* Search */}

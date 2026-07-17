@@ -1035,6 +1035,10 @@
     "keyboard_hints": "↑↓ navega · ↵ abre · ⌫ arriba · ⇥ cambia sección",
     "connection_error": "Error de conexión",
     "select_this_folder": "Seleccionar esta carpeta",
+    "native_button": "Diálogo del sistema",
+    "native_button_tip": "Abre el selector nativo del sistema operativo (recuerda la última carpeta)",
+    "native_waiting": "Esperando selección en el diálogo del sistema…",
+    "native_error": "No se ha podido abrir el diálogo del sistema",
     "errors": {
       "invalid_path": "Ruta no válida",
       "no_roots": "Servidor mal configurado: ninguna ubicación permitida",
