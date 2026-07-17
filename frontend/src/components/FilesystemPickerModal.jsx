@@ -6,6 +6,19 @@ import { useTranslation } from 'react-i18next';
 
 const joinPath = (...parts) => parts.filter(Boolean).join('/').replace(/\/+/g, '/');
 
+// Last folder the user visited in the picker, persisted so that inserting
+// several files from the same location doesn't require re-navigating there on
+// every open. Shared across all picker instances (insert content, rich links,
+// file fields…). localStorage can throw (private mode, disabled storage), so
+// access is wrapped and the picker just falls back to the default start.
+const LAST_PATH_KEY = 'gnosi.fsPicker.lastPath';
+const readLastPath = () => {
+    try { return localStorage.getItem(LAST_PATH_KEY) || ''; } catch { return ''; }
+};
+const saveLastPath = (path) => {
+    try { if (path) localStorage.setItem(LAST_PATH_KEY, path); } catch { /* best-effort */ }
+};
+
 /**
  * File system browser modal (folders + files).
  *
@@ -37,7 +50,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         (data) => (data.error_code ? tn('errors.' + data.error_code, data.error) : data.error),
         [tn],
     );
-    const [currentPath, setCurrentPath] = useState(initialPath || '');
+    // Explicit initialPath wins; otherwise resume at the last visited folder.
+    const [currentPath, setCurrentPath] = useState(initialPath || readLastPath());
     const [displayPath, setDisplayPath] = useState('');
     const [directories, setDirectories] = useState([]);
     const [files, setFiles] = useState([]);
@@ -65,7 +79,14 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
 
     useEffect(() => {
         if (!isOpen) return;
-        void browse(initialPath || currentPath || '');
+        const startPath = initialPath || currentPath || '';
+        void (async () => {
+            const ok = await browse(startPath);
+            // The remembered folder can vanish between sessions (deleted,
+            // unmounted disk, Docker↔native path change): fall back to the
+            // default start (active vault) instead of opening onto an error.
+            if (!ok && !initialPath && startPath) await browse('');
+        })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, initialPath]);
 
@@ -157,14 +178,17 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 setError(localizeError(data));
                 if (data.display_path) setDisplayPath(data.display_path);
                 if (data.current_path) setCurrentPath(data.current_path);
-            } else {
-                setCurrentPath(data.current_path);
-                setDisplayPath(data.display_path || data.current_path);
-                setDirectories(data.directories || []);
-                setFiles(data.files || []);
+                return false;
             }
+            setCurrentPath(data.current_path);
+            setDisplayPath(data.display_path || data.current_path);
+            setDirectories(data.directories || []);
+            setFiles(data.files || []);
+            saveLastPath(data.current_path);
+            return true;
         } catch {
             setError(tn('connection_error'));
+            return false;
         } finally {
             setLoading(false);
         }
@@ -205,6 +229,9 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
             setSearchQuery('');
             void browse(item.path);
         } else if (showFiles) {
+            // Picking straight from search skips browse(), so remember the
+            // file's parent folder here (browse accepts host paths too).
+            saveLastPath(item.path.slice(0, item.path.lastIndexOf('/')));
             onSelect(item.path, { isDir: false });
         }
     };
