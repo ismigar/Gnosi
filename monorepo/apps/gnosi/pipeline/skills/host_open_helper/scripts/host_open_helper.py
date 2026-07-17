@@ -15,6 +15,13 @@ Endpoints:
                               Search by name with Spotlight (`mdfind`), fast
                               thanks to the system's live index.
                               Response: {"results": [...], "truncated": bool}
+    POST /pick              → {"mode": "file"|"folder", "prompt": "..."}
+                              Show the native macOS open dialog (AppleScript
+                              `choose file`/`choose folder`) and return the
+                              chosen POSIX path — the absolute host path a
+                              browser can never read from an <input type=file>.
+                              Response: {"status": "ok", "path": "...", "is_dir": bool}
+                              or {"status": "cancelled"} if the user cancels.
     POST /trash             → {"path": "/Users/..."} or {"path": "file:///..."}
                               Moves the file to the Mac's Trash (RECOVERABLE).
                               Needed because the Docker backend mounts HOME read-only
@@ -122,6 +129,52 @@ def _move_to_trash(path: Path) -> None:
             raise RuntimeError((proc.stderr or "osascript error").strip())
         return
     raise RuntimeError("trash no suportat en aquesta plataforma")
+
+
+def _native_choose(mode: str, prompt: str) -> dict:
+    """Show the native macOS open dialog and return the chosen POSIX path.
+
+    Uses AppleScript Standard Additions (`choose file` / `choose folder`) via
+    `osascript`. `prompt` and `mode` are passed as argv (`on run argv`), never
+    interpolated into the script → not injectable. The dialog blocks until the
+    user picks or cancels; cancelling raises AppleScript error -128, which we
+    translate to a clean {"status": "cancelled"} rather than an error.
+
+    `activate` brings the dialog to the front (the helper is a faceless
+    LaunchAgent, so its window would otherwise open behind the browser). macOS
+    remembers the dialog's last folder per app on its own, so repeated picks
+    resume where the user left off.
+    """
+    if sys.platform != "darwin":
+        raise RuntimeError("native picker only supported on macOS")
+    script = (
+        "on run argv\n"
+        "  set thePrompt to item 1 of argv\n"
+        "  set theMode to item 2 of argv\n"
+        "  activate\n"
+        '  if theMode is "folder" then\n'
+        "    set theResult to POSIX path of (choose folder with prompt thePrompt)\n"
+        "  else\n"
+        "    set theResult to POSIX path of (choose file with prompt thePrompt)\n"
+        "  end if\n"
+        "  return theResult\n"
+        "end run"
+    )
+    proc = subprocess.run(
+        ["osascript", "-e", script, prompt or "", mode or "file"],
+        capture_output=True, text=True, timeout=300,
+    )
+    if proc.returncode != 0:
+        stderr = (proc.stderr or "").strip()
+        # -128 is AppleScript's "User canceled"; treat it as a normal outcome.
+        if "-128" in stderr or "canceled" in stderr.lower() or "cancelled" in stderr.lower():
+            return {"status": "cancelled"}
+        raise RuntimeError(stderr or "osascript error")
+    path = (proc.stdout or "").strip()
+    if not path:
+        return {"status": "cancelled"}
+    p = Path(path)
+    return {"status": "ok", "path": str(p), "is_dir": p.is_dir()}
 
 
 # Non-hidden path components that we never want in search results. The
@@ -265,6 +318,8 @@ class Handler(BaseHTTPRequestHandler):
             self._handle_open()
         elif self.path == "/search":
             self._handle_search()
+        elif self.path == "/pick":
+            self._handle_pick()
         elif self.path == "/trash":
             self._handle_trash()
         else:
@@ -328,6 +383,22 @@ class Handler(BaseHTTPRequestHandler):
             self._send(500, {"detail": f"could not trash: {exc}"})
             return
         self._send(200, {"status": "ok", "target": str(path)})
+
+    def _handle_pick(self) -> None:
+        payload = self._read_json_body()
+        if payload is None:
+            return
+        mode = str((payload or {}).get("mode") or "file").strip().lower()
+        if mode not in ("file", "folder"):
+            mode = "file"
+        prompt = str((payload or {}).get("prompt") or "").strip()
+        try:
+            result = _native_choose(mode, prompt)
+        except Exception as exc:
+            LOG.exception("pick failed")
+            self._send(500, {"detail": f"could not pick: {exc}"})
+            return
+        self._send(200, result)
 
     def _handle_search(self) -> None:
         payload = self._read_json_body()

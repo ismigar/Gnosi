@@ -164,6 +164,10 @@
     "keyboard_hints": "↑↓ naviguer · ↵ ouvrir · ⌫ remonter · ⇥ changer de section",
     "connection_error": "Erreur de connexion",
     "select_this_folder": "Sélectionner ce dossier",
+    "native_button": "Boîte de dialogue système",
+    "native_button_tip": "Ouvre le sélecteur natif du système d'exploitation (mémorise le dernier dossier)",
+    "native_waiting": "En attente d’une sélection dans la boîte de dialogue système…",
+    "native_error": "Impossible d'ouvrir la boîte de dialogue système",
     "errors": {
       "invalid_path": "Chemin non valide",
       "no_roots": "Serveur mal configuré : aucun emplacement autorisé",

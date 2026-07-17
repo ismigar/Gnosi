@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Body, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from typing import List, Dict, Any
 from sqlalchemy.orm import Session
@@ -105,6 +105,11 @@ class BrowseRequest(BaseModel):
 class SearchRequest(BaseModel):
     query: str
     limit: int = 100
+
+
+class NativePickRequest(BaseModel):
+    mode: str = "file"  # "file" | "folder"
+    prompt: str = ""
 
 
 @router.get("/stats")
@@ -279,6 +284,108 @@ async def browse_directory(body: BrowseRequest = Body(...)):
         "files": files,
         "roots": roots,
     }
+
+
+# ── Native OS open dialog (progressive enhancement over the in-app picker) ──
+# All Finder/GUI interaction is owned by the host_open_helper (loopback :5099,
+# runs in the user's Aqua session with Full Disk Access); the backend only
+# proxies to it, on loopback (native) or host.docker.internal (Docker) — see
+# default_host_helper_url(). Per-endpoint env overrides mirror the search helper.
+_HOST_PICK_HELPER_URL = (
+    os.getenv("GNOSI_HOST_PICK_HELPER_URL")
+    or default_host_helper_url("/pick")
+)
+_HOST_HEALTH_HELPER_URL = (
+    os.getenv("GNOSI_HOST_HEALTH_HELPER_URL")
+    or default_host_helper_url("/healthz")
+)
+
+
+def _native_pick_via_helper(mode: str, prompt: str, timeout: float = 300.0):
+    """Ask the host helper to show the native dialog. Returns its response dict
+    ({"status": "ok"|"cancelled", ...}), or None if the helper is unavailable.
+
+    The timeout is generous (5 min): the request blocks while the dialog is open
+    on the user's screen. Callers MUST run this off the event loop
+    (asyncio.to_thread) so a lingering dialog never freezes the backend.
+    """
+    import urllib.request
+
+    try:
+        req = urllib.request.Request(
+            _HOST_PICK_HELPER_URL,
+            data=json.dumps({"mode": mode, "prompt": prompt}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            if not (200 <= resp.status < 300):
+                return None
+            data = json.loads(resp.read() or b"{}")
+    except Exception:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _host_helper_healthy(timeout: float = 1.5) -> bool:
+    """Quick reachability probe of the host helper's /healthz (short timeout so
+    the availability check never stalls the picker's open)."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(_HOST_HEALTH_HELPER_URL, timeout=timeout) as resp:
+            return 200 <= resp.status < 300
+    except Exception:
+        return False
+
+
+def _is_loopback_request(request: Request) -> bool:
+    """True when the caller is on the same machine as the backend.
+
+    The native dialog is drawn on the HOST; it's only useful when the browser is
+    also on the host. A LAN client (phone/other laptop) arrives with its real IP
+    → not loopback → native pick is hidden and the in-app picker is used. Behind
+    the native Vite dev proxy the connection is loopback, matching the desktop
+    single-machine case this feature targets.
+    """
+    host = (request.client.host if request and request.client else "") or ""
+    return host in ("127.0.0.1", "::1", "localhost")
+
+
+@router.get("/native-pick/available", dependencies=[Depends(require_role("admin"))])
+async def native_pick_available(request: Request):
+    """Whether the native OS file/folder dialog can be offered from here.
+
+    Available only when the caller is loopback AND the host_open_helper answers
+    /healthz. Either check failing hides the button in the frontend, which then
+    keeps using the in-app FilesystemPickerModal — the always-available fallback.
+    """
+    if not _is_loopback_request(request):
+        return {"available": False, "reason": "remote_client"}
+    healthy = await asyncio.to_thread(_host_helper_healthy)
+    return {"available": bool(healthy), "reason": None if healthy else "helper_unreachable"}
+
+
+@router.post("/native-pick", dependencies=[Depends(require_role("admin"))])
+async def native_pick(request: Request, body: NativePickRequest = Body(...)):
+    """Open the host's native file/folder dialog and return the chosen path.
+
+    A browser can never read the absolute host path of a file picked through
+    <input type=file>, so the choice is delegated to the host_open_helper, which
+    runs AppleScript's `choose file`/`choose folder` in the user's GUI session.
+    Loopback-only. The returned path is a HOST path — the same shape /browse
+    hands to the frontend's onSelect — so the caller's flow is unchanged.
+    Returns {"status": "cancelled"} verbatim when the user dismisses the dialog.
+    """
+    if not _is_loopback_request(request):
+        raise HTTPException(status_code=403, detail="Native picker is loopback-only")
+    mode = (body.mode or "file").strip().lower()
+    if mode not in ("file", "folder"):
+        mode = "file"
+    result = await asyncio.to_thread(_native_pick_via_helper, mode, body.prompt or "")
+    if result is None:
+        raise HTTPException(status_code=502, detail="Host picker helper unavailable")
+    return result
 
 
 # Folders that should never be traversed during the global search. Library and

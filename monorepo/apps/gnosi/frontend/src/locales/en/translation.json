@@ -1116,6 +1116,10 @@
     "keyboard_hints": "↑↓ navigate · ↵ open · ⌫ up · ⇥ switch section",
     "connection_error": "Connection error",
     "select_this_folder": "Select this folder",
+    "native_button": "System dialog",
+    "native_button_tip": "Open the operating system's native picker (remembers the last folder)",
+    "native_waiting": "Waiting for a choice in the system dialog…",
+    "native_error": "Could not open the system dialog",
     "errors": {
       "invalid_path": "Invalid path",
       "no_roots": "Server misconfigured: no allowed locations",

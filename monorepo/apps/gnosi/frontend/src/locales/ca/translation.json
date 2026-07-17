@@ -1082,6 +1082,10 @@
     "keyboard_hints": "↑↓ navega · ↵ obre · ⌫ amunt · ⇥ canvia secció",
     "connection_error": "Error de connexió",
     "select_this_folder": "Seleccionar aquesta carpeta",
+    "native_button": "Diàleg del sistema",
+    "native_button_tip": "Obre el selector natiu del sistema operatiu (recorda l'última carpeta)",
+    "native_waiting": "Esperant selecció al diàleg del sistema…",
+    "native_error": "No s'ha pogut obrir el diàleg del sistema",
     "errors": {
       "invalid_path": "Ruta no vàlida",
       "no_roots": "Servidor mal configurat: cap ubicació permesa",
