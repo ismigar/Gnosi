@@ -1646,6 +1646,27 @@ export function EditorInner({
             }
         };
 
+        // Moves the caret to the block under the given viewport coordinates.
+        // Needed before inserting dropped files: without a prior click in the
+        // body, the ProseMirror selection still sits wherever initialization
+        // left it (end of the document), so the file would land there instead
+        // of at the drop point. Block-level granularity ('end') is enough.
+        const placeCaretAtCoords = (x, y) => {
+            try {
+                const view = editor?.prosemirrorView;
+                const pos = view?.posAtCoords({ left: x, top: y });
+                if (!pos) return;
+                const rp = view.state.doc.resolve(pos.pos);
+                for (let d = rp.depth; d > 0; d--) {
+                    const node = rp.node(d);
+                    if (node?.attrs?.id) {
+                        editor.setTextCursorPosition(node.attrs.id, 'end');
+                        return;
+                    }
+                }
+            } catch { /* keep the current selection */ }
+        };
+
         const onDropCapture = (e) => {
             const files = Array.from(e.dataTransfer?.files || []);
             if (!files.length) return;
@@ -1655,6 +1676,7 @@ export function EditorInner({
             if (files.every(isVisualMediaFile)) return;
             e.preventDefault();
             e.stopPropagation();
+            placeCaretAtCoords(e.clientX, e.clientY);
             processFiles(files);
         };
 
@@ -2489,6 +2511,7 @@ export function EditorInner({
             const block = { type: 'embed', props: { url, caption: '' } };
             const target = anchor || editor.getTextCursorPosition().block;
             editor.insertBlocks([block], target, 'after');
+            editor.focus();
             return;
         }
         if (mode === 'block') {
@@ -2496,12 +2519,19 @@ export function EditorInner({
             const block = { type: nativeType, props: { url, name: safeName } };
             const target = anchor || editor.getTextCursorPosition().block;
             editor.insertBlocks([block], target, 'after');
+            editor.focus();
             return;
         }
         // mode === 'link' (default)
         editor.insertInlineContent([
             { type: 'link', href: url, content: [{ type: 'text', text: safeName, styles: {} }] },
         ]);
+        // Reclaim the focus for the body: the modal held it while open, and its
+        // close-restore would otherwise hand it to whatever element had it
+        // before (the page TITLE on a freshly opened page — focusing it snaps
+        // the view back to the top of the page). With the caret already at the
+        // insertion point, focusing the editor keeps the inserted content in view.
+        editor.focus();
     };
     // We keep the ref to the most recent closure so the shortcut's `useEffect`
     // `/+` (registered only once when the editor is created) can invoke it.
@@ -3362,6 +3392,11 @@ export function EditorInner({
                     const p = pendingInsertRef.current;
                     setPendingInsert(null);
                     try { p?.reject?.(new Error('cancelled')); } catch { /* noop */ }
+                    // Cancelling returns the caret to the body the modal was
+                    // invoked from (slash menu / drop), not to the element that
+                    // held focus before it opened — on a freshly opened page
+                    // that is the TITLE, and focusing it scrolls to the top.
+                    try { editor?.focus(); } catch { /* noop */ }
                 }}
             />
             <CitePicker
