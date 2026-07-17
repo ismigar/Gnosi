@@ -495,6 +495,33 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     return True
 
 
+def _is_filter_group(node: Any) -> bool:
+    """A node is a GROUP (not a leaf rule) when it carries a ``rules`` list.
+    Parity with the frontend's ``isFilterGroup`` (vaultFilters.js / DbViewEmbed)."""
+    return isinstance(node, dict) and isinstance(node.get("rules"), list)
+
+
+def apply_filter_node(meta: Dict[str, Any], page_id: Optional[str], node: Any) -> bool:
+    """Recursively evaluates a filter NODE — a leaf rule
+    ``{field, operator, value}`` (delegated to ``apply_filter``) or a group
+    ``{conjunction, rules: [...]}`` whose children may themselves be groups
+    (arbitrary nesting, like Notion). An empty group matches everything, so it
+    never hides rows while the filter is being built. 1:1 parity with the
+    frontend's ``matchesFilterNode`` (vaultFilters.js) and ``applyFilterNode``
+    (DbViewEmbed.jsx)."""
+    if node is None:
+        return True
+    if _is_filter_group(node):
+        rules = node.get("rules") or []
+        if not rules:
+            return True
+        use_or = str(node.get("conjunction") or "and").lower() == "or"
+        if use_or:
+            return any(apply_filter_node(meta, page_id, child) for child in rules)
+        return all(apply_filter_node(meta, page_id, child) for child in rules)
+    return apply_filter(meta, page_id, node)
+
+
 # --- Sort comparator: 1:1 parity with `compareFieldValues` -----------
 # JS's parseFloat (it's NOT Python's float()!): skips LEADING whitespace and parses
 # the LONGEST numeric prefix, ignoring the rest. float() blows up on "12,5" or "5abc";
@@ -652,10 +679,16 @@ def resolve_rows(
 ) -> List[Dict[str, Any]]:
     """Like ``resolve_row_ids`` but returns the sorted ROWS (``{id, title,
     metadata}``), not just the ids — for the markdown table."""
-    filters = view.get("filters") or ([view["filter"]] if view.get("filter") else [])
+    # Prefer the nested `filterTree` (complex AND/OR groups); fall back to the
+    # legacy flat `filters`/`filter` list (AND). Parity with the frontend
+    # (viewMatchesFilters / DbViewEmbed.applyFilterNode).
+    tree = view.get("filterTree")
+    if not _is_filter_group(tree):
+        flat = view.get("filters") or ([view["filter"]] if view.get("filter") else [])
+        tree = {"conjunction": "and", "rules": flat}
     filtered = [
         r for r in rows
-        if all(apply_filter(r.get("metadata") or {}, host_page_id, f) for f in filters)
+        if apply_filter_node(r.get("metadata") or {}, host_page_id, tree)
     ]
     sorts = view.get("sorts") or ([view["sort"]] if view.get("sort") else [])
     return multi_key_sort(filtered, sorts)
