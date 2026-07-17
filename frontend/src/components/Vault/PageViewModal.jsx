@@ -1855,7 +1855,9 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                         const selected = visibleProperties
                                             .map(n => fieldMeta[n])
                                             .filter(Boolean);
-                                        const available = tableFields.filter(f => !visibleProperties.includes(f.name));
+                                        const available = tableFields
+                                            .filter(f => !visibleProperties.includes(f.name))
+                                            .sort((a, b) => fieldLabel(a.name).localeCompare(fieldLabel(b.name), undefined, { sensitivity: 'base' }));
                                         return (
                                             <>
                                                 <div>
