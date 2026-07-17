@@ -226,9 +226,17 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
 
     const isSaved = saved.some((s) => s.query === query.trim());
 
+    // Clicking outside must not discard an in-progress query: only close on a
+    // backdrop click when the input is empty. With text present, Esc (or an
+    // explicit close/selection) is required to dismiss the modal.
+    const handleBackdropClick = () => {
+        if (query.length > 0) return;
+        onClose();
+    };
+
     return (
         <div className="fixed inset-0 z-[150] flex items-start justify-center pt-[15vh] px-4 sm:p-0">
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose}></div>
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={handleBackdropClick}></div>
 
             <div ref={panelRef} className="relative bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col font-sans border border-[var(--border-primary)]">
                 <div className="flex items-center px-4 py-3 border-b border-[var(--border-primary)]">
