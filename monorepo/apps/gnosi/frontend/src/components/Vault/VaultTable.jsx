@@ -1,6 +1,15 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
+import {
+    DndContext, closestCenter, PointerSensor, KeyboardSensor,
+    useSensor, useSensors
+} from '@dnd-kit/core';
+import {
+    SortableContext, horizontalListSortingStrategy,
+    useSortable, arrayMove, sortableKeyboardCoordinates
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
@@ -76,6 +85,38 @@ const CellDropdownPortal = React.forwardRef(function CellDropdownPortal(
         document.body,
     );
 });
+
+// Sortable data-column header (dnd-kit, same pattern as VaultDocumentTabs).
+// The drag handle is the inner label div, NOT the whole th: the resize handle
+// (a sibling passed via `resizeHandle`) never starts a column reorder. When
+// `disabled` (canReorderColumns false) no listeners/attributes are attached, so
+// the header behaves as a plain click-to-sort cell.
+function SortableColumnTh({ id, disabled, width, className, handleClassName, onHeaderClick, resizeHandle, children }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+    // z-index while dragging: above sibling headers but below the sticky
+    // checkbox/title columns (z-40), which must keep covering it.
+    return (
+        <th
+            ref={setNodeRef}
+            style={{
+                width,
+                transform: CSS.Transform.toString(transform),
+                transition,
+                zIndex: isDragging ? 10 : undefined,
+            }}
+            className={`${className} ${isDragging ? 'opacity-40' : ''}`}
+        >
+            <div
+                {...(disabled ? {} : { ...attributes, ...listeners })}
+                className={handleClassName}
+                onClick={onHeaderClick}
+            >
+                {children}
+            </div>
+            {resizeHandle}
+        </th>
+    );
+}
 
 const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionColors = {}, onSave, onCreate, onDeleteOption }) => {
     const { t } = useTranslation();
@@ -502,15 +543,6 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
     const resizingCol = useRef(null);
     const startX = useRef(0);
     const startWidth = useRef(0);
-
-    // Column reordering by dragging (drag-to-reorder from the header).
-    // The LOGIC lives in refs (always current inside the native DnD handlers, without
-    // closure staleness); the STATE only feeds the visual indicator (re-render).
-    const draggedColRef = useRef(null);     // key of the column being dragged
-    const dropAfterRef = useRef(false);     // drop to the right (true) or left (false) of the target
-    const [draggedColumn, setDraggedColumn] = useState(null);
-    const [dragOverColumn, setDragOverColumn] = useState(null);
-    const [dropAfter, setDropAfter] = useState(false);
 
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [editingCell, setEditingCell] = useState(null); // { rowId, field, activeMetaKey }
@@ -1212,74 +1244,49 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         };
     }, [handleMouseMove, handleMouseUp]);
 
-    // ── Column reordering via drag and drop ───────────────────────
-    // Only the DATA columns (dynamicColumns) are draggable; the title
+    // ── Column reordering via drag and drop (dnd-kit) ─────────────
+    // Only the DATA columns (dynamicColumns) are sortable; the title
     // (sticky), the checkbox/actions, and "Modification" stay fixed. On drop,
     // we rebuild the order and persist it to `activeView.visibleProperties` via
     // `onUpdateView` (just like handleSort saves `sort`); the parent (handleUpdateView)
-    // it is saved as-is on non-main views, and dynamicColumns applies it.
-    // These handlers are only attached when canReorderColumns is true (never on the
-    // main view), but we still do an early return if there's no active drag.
-    const handleColumnDragStart = useCallback((e, key) => {
-        draggedColRef.current = key;
-        setDraggedColumn(key);
-        if (e.dataTransfer) {
-            e.dataTransfer.effectAllowed = 'move';
-            // Firefox only starts the drag if there is some payload.
-            try { e.dataTransfer.setData('text/plain', key); } catch { /* no-op */ }
-        }
-        document.body.style.cursor = 'grabbing';
+    // saves it as-is, and dynamicColumns applies it. Same pattern as
+    // VaultDocumentTabs: PointerSensor with a 5px activation distance so a
+    // plain click never starts a drag and click-to-sort keeps working.
+    const columnDndSensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+    const columnSortableIds = useMemo(() => dynamicColumns.map(([k]) => k), [dynamicColumns]);
+
+    // A completed drag fires a native `click` on the handle right after the
+    // drop (pointerdown/up land on the same element because the dragged header
+    // follows the pointer): without this flag that click would ALSO toggle the
+    // sort of the dragged column. Native HTML5 drag suppressed it for free.
+    const columnDragJustEndedRef = useRef(false);
+    const suppressNextHeaderClick = useCallback(() => {
+        columnDragJustEndedRef.current = true;
+        setTimeout(() => { columnDragJustEndedRef.current = false; }, 0);
     }, []);
 
-    const clearColumnDrag = useCallback(() => {
-        draggedColRef.current = null;
-        setDraggedColumn(null);
-        setDragOverColumn(null);
-        document.body.style.cursor = '';
-    }, []);
-
-    const handleColumnDragOver = useCallback((e, key) => {
-        const dragged = draggedColRef.current;
-        if (!dragged || dragged === key) return;
-        e.preventDefault();                 // allows the drop
-        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-        // Side (left/right) based on the midpoint of the target column:
-        // allows inserting before or after, and thus moving it all the way to the end.
-        const rect = e.currentTarget.getBoundingClientRect();
-        const after = (e.clientX - rect.left) > rect.width / 2;
-        dropAfterRef.current = after;
-        // Only updates the indicator if it changes (avoids redundant re-renders).
-        setDragOverColumn(prev => (prev === key ? prev : key));
-        setDropAfter(prev => (prev === after ? prev : after));
-    }, []);
-
-    const handleColumnDrop = useCallback((e, targetKey) => {
-        e.preventDefault();
-        const dragged = draggedColRef.current;
-        const after = dropAfterRef.current;
-        clearColumnDrag();
-        if (!dragged || dragged === targetKey || !activeView || !onUpdateView) return;
+    const handleColumnDragEnd = useCallback((event) => {
+        suppressNextHeaderClick();
+        const { active, over } = event;
+        if (!over || active.id === over.id || !activeView || !onUpdateView) return;
 
         // We reorder over `visibleProperties` if it exists: this way the title field and
         // any other entry that isn't a data column stay in their
         // place (the title is rendered separately, but we keep it where it was — often first
         // by convention). If the view doesn't have one (no config), we materialize the order
-        // current visible from dynamicColumns.
+        // current visible from dynamicColumns. arrayMove over that base matches
+        // exactly the reorder dnd-kit previewed on screen.
         const hasVP = Array.isArray(activeView.visibleProperties) && activeView.visibleProperties.length > 0;
         const base = hasVP ? activeView.visibleProperties : dynamicColumns.map(([k]) => k);
-        if (!base.includes(dragged) || !base.includes(targetKey)) return;
+        const oldIndex = base.indexOf(active.id);
+        const newIndex = base.indexOf(over.id);
+        if (oldIndex === -1 || newIndex === -1 || oldIndex === newIndex) return;
 
-        // Removes the dragged column and reinserts it before/after the target.
-        const without = base.filter(k => k !== dragged);
-        let insertAt = without.indexOf(targetKey);
-        if (after) insertAt += 1;
-        const newOrder = [...without.slice(0, insertAt), dragged, ...without.slice(insertAt)];
-
-        // No real change → don't save (avoids a useless PATCH).
-        if (newOrder.length === base.length && newOrder.every((k, i) => k === base[i])) return;
-
-        onUpdateView({ ...activeView, visibleProperties: newOrder });
-    }, [dynamicColumns, activeView, onUpdateView, clearColumnDrag]);
+        onUpdateView({ ...activeView, visibleProperties: arrayMove(base, oldIndex, newIndex) });
+    }, [dynamicColumns, activeView, onUpdateView, suppressNextHeaderClick]);
 
     // ---- NORMALIZATION HELPERS ----
     const normalizeKey = (k) => String(k || '').toLowerCase().replace(/[^a-z0-9]/gi, '');
@@ -3527,6 +3534,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     style={maxHeight ? { maxHeight } : undefined}
                     className={`bg-[var(--bg-primary)] overflow-auto custom-scrollbar ${maxHeight ? '' : 'flex-1'} ${isEmbedded ? `${activeCell ? 'ring-1 ring-[var(--gnosi-primary)]/30' : ''} transition-all` : 'border-none shadow-none'} ${isListView ? 'border-none shadow-none' : ''}`}>
 
+                    {/* DndContext/SortableContext render no DOM: the table markup
+                        stays valid. Only the header cells register as sortables;
+                        the native HTML5 drag of the rows (application/gnosi-note)
+                        is untouched because dnd-kit sensors only listen on the
+                        header handles. */}
+                    <DndContext
+                        sensors={columnDndSensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleColumnDragEnd}
+                        onDragCancel={suppressNextHeaderClick}
+                    >
+                    <SortableContext items={columnSortableIds} strategy={horizontalListSortingStrategy}>
                     <table className="text-left text-sm text-[var(--text-secondary)] whitespace-nowrap" style={{ tableLayout: 'fixed', width: 'max-content' }}>
                         {!isListView && (
                             <thead className="bg-[var(--bg-primary)] text-[var(--text-secondary)] font-semibold select-none group/table sticky top-0 z-40">
@@ -3563,43 +3582,35 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         />
                                     </th>
                                     {dynamicColumns.map(([key, type]) => (
-                                        <th
+                                        <SortableColumnTh
                                             key={key}
-                                            style={{ width: columnWidths[key] || 180 }}
-                                            onDragOver={canReorderColumns ? (e) => handleColumnDragOver(e, key) : undefined}
-                                            onDrop={canReorderColumns ? (e) => handleColumnDrop(e, key) : undefined}
-                                            className={`py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)] ${draggedColumn === key ? 'opacity-40' : ''}`}
+                                            id={key}
+                                            disabled={!canReorderColumns}
+                                            width={columnWidths[key] || 180}
+                                            className="py-3 px-4 hover:bg-[var(--bg-tertiary)] transition-colors group relative border-r border-[var(--border-primary)]"
+                                            handleClassName={`flex items-center gap-1.5 justify-between overflow-hidden text-[var(--text-secondary)] ${canReorderColumns ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
+                                            onHeaderClick={() => {
+                                                if (columnDragJustEndedRef.current) return;
+                                                handleSort(key);
+                                            }}
+                                            resizeHandle={
+                                                <div
+                                                    className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"
+                                                    onMouseDown={(e) => handleMouseDown(e, key)}
+                                                />
+                                            }
                                         >
-                                            {/* Drop indicator: vertical line on the side where the column will land. */}
-                                            {dragOverColumn === key && draggedColumn && draggedColumn !== key && (
-                                                <div className={`pointer-events-none absolute top-0 bottom-0 ${dropAfter ? 'right-0' : 'left-0'} w-0.5 bg-[var(--gnosi-primary)] z-40`} />
-                                            )}
-                                            {/* Only this div is draggable: the resize handle (a sibling, outside
-                                                this subtree) never starts a column reorder. In the
-                                                main view canReorderColumns is false → no drag (it would not persist). */}
-                                            <div
-                                                draggable={canReorderColumns}
-                                                onDragStart={canReorderColumns ? (e) => handleColumnDragStart(e, key) : undefined}
-                                                onDragEnd={canReorderColumns ? clearColumnDrag : undefined}
-                                                className={`flex items-center gap-1.5 justify-between overflow-hidden text-[var(--text-secondary)] ${canReorderColumns ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer'}`}
-                                                onClick={() => handleSort(key)}
-                                            >
-                                                <div className="flex items-center gap-1.5 truncate">
-                                                    {type === 'checkbox' && <CheckSquare size={14} className="text-[var(--text-tertiary)] shrink-0" />}
-                                                    {type === 'date' && <Calendar size={14} className="text-[var(--text-tertiary)] shrink-0" />}
-                                                    {(type === 'status' || type === 'select') && <Type size={14} className="text-[var(--text-tertiary)] shrink-0" />}
-                                                    {(type === 'multi_select' || type === 'relation') && <Tag size={14} className="text-[var(--text-tertiary)] shrink-0" />}
-                                                    <span className="truncate">{key}</span>
-                                                </div>
-                                                {activeSort.field === key && (
-                                                    activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
-                                                )}
+                                            <div className="flex items-center gap-1.5 truncate">
+                                                {type === 'checkbox' && <CheckSquare size={14} className="text-[var(--text-tertiary)] shrink-0" />}
+                                                {type === 'date' && <Calendar size={14} className="text-[var(--text-tertiary)] shrink-0" />}
+                                                {(type === 'status' || type === 'select') && <Type size={14} className="text-[var(--text-tertiary)] shrink-0" />}
+                                                {(type === 'multi_select' || type === 'relation') && <Tag size={14} className="text-[var(--text-tertiary)] shrink-0" />}
+                                                <span className="truncate">{key}</span>
                                             </div>
-                                            <div
-                                                className="absolute right-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-[var(--gnosi-primary)]/40 opacity-0 group-hover/table:opacity-100 z-30 transition-opacity"
-                                                onMouseDown={(e) => handleMouseDown(e, key)}
-                                            />
-                                        </th>
+                                            {activeSort.field === key && (
+                                                activeSort.direction === 'asc' ? <ArrowUp size={14} className="text-indigo-500 shrink-0" /> : <ArrowDown size={14} className="text-indigo-500 shrink-0" />
+                                            )}
+                                        </SortableColumnTh>
                                     ))}
                                     {showModifiedColumn && (
                                         <th
@@ -3765,6 +3776,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                             </tfoot>
                         )}
                     </table>
+                    </SortableContext>
+                    </DndContext>
 
                     {sortedNotes.length === 0 && (
                         <div className="p-8 text-center text-[var(--text-tertiary)] bg-[var(--bg-primary)]">
