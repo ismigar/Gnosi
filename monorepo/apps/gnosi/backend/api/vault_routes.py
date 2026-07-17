@@ -2733,7 +2733,17 @@ def _build_page_cache_entry(file_path: Path, stat_result) -> Dict[str, Any]:
         parse_failed = True
 
     file_id = str(metadata.get("id") or file_path.stem)
-    rel_folder = str(file_path.parent.relative_to(get_p("VAULT"))).replace("\\", "/")
+    vault_root = get_p("VAULT")
+    try:
+        rel_folder = str(file_path.parent.relative_to(vault_root)).replace("\\", "/")
+    except ValueError:
+        # Vault roots behind a symlink (e.g. /tmp -> /private/tmp on macOS):
+        # a caller may pass a resolved file path while get_p("VAULT") stays
+        # unresolved (or vice versa). Retry with both sides resolved before
+        # giving up, otherwise the entry silently never makes it into the index.
+        rel_folder = str(
+            file_path.parent.resolve().relative_to(Path(vault_root).resolve())
+        ).replace("\\", "/")
     if rel_folder == ".":
         rel_folder = ""
 
@@ -9214,7 +9224,9 @@ def _add_page_to_index_cache(file_path: Path) -> None:
         stat_result = file_path.stat()
         new_entry = _build_page_cache_entry(file_path, stat_result)
     except Exception as e:
-        log.debug(f"_add_page_to_index_cache failed for {file_path}: {e}")
+        # warning, not debug: a silent failure here means the restored/duplicated
+        # page stays invisible until the next full rescan (600s cooldown).
+        log.warning(f"_add_page_to_index_cache failed for {file_path}: {e}")
         return
     with _page_index_lock:
         _page_index_entries.setdefault(v_str, {})[str(file_path)] = new_entry
@@ -9334,7 +9346,11 @@ async def restore_page(page_id: str):
     vault_root = get_p("VAULT")
     restored_rel = result.get("restored_path")
     if vault_root and restored_rel:
-        _add_page_to_index_cache((vault_root.resolve() / restored_rel))
+        # No .resolve() here: the index is keyed by the UNRESOLVED vault path
+        # (rglob over get_p("VAULT")). Resolving diverges when the vault root
+        # goes through a symlink (macOS /tmp -> /private/tmp) and the entry
+        # would fail relative_to() inside _build_page_cache_entry.
+        _add_page_to_index_cache(vault_root / restored_rel)
     return {
         "status": "restored",
         "id": page_id,
