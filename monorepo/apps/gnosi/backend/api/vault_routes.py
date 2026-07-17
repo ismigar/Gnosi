@@ -14285,6 +14285,119 @@ def _rename_table_locked(table_id: str, data: dict):
     return deferred_rewrite
 
 
+# --- Propagate a property rename to every place that stores the field NAME ----
+# Renaming a property only records the old name as an `alias` so rows (which key
+# by name) keep resolving until they migrate on their own. But view/section
+# CONFIG stores the name as a plain string in several places, and those never
+# migrate on their own — they'd keep showing (and sorting/filtering by) the old
+# name. This walks every reference position and rewrites old→new so a rename
+# truly propagates everywhere. See `feedback_field_rename_orphan_view_refs`.
+_VIEW_REF_LIST_KEYS = ("visibleProperties", "visible_properties", "columns")
+_VIEW_REF_SCALAR_KEYS = ("groupBy", "dateField", "coverField", "groupSort")
+_VIEW_REF_FIELD_LIST_KEYS = ("sorts", "filters")
+_VIEW_REF_DICT_KEYS = ("columnWidths", "aggregations")
+# A filterTree (nested AND/OR groups, #868) can nest under any of these keys.
+_FILTER_TREE_CHILD_KEYS = ("rules", "conditions", "children", "groups", "filters")
+
+
+def _rename_field_in_filter_tree(node: Any, old: str, new: str) -> bool:
+    """Recursively rewrite a leaf's `field` old→new inside a filterTree."""
+    if not isinstance(node, dict):
+        return False
+    changed = False
+    if node.get("field") == old:
+        node["field"] = new
+        changed = True
+    for child_key in _FILTER_TREE_CHILD_KEYS:
+        kids = node.get(child_key)
+        if isinstance(kids, list):
+            for child in kids:
+                if _rename_field_in_filter_tree(child, old, new):
+                    changed = True
+    return changed
+
+
+def _rename_field_refs_in_view_like(container: Any, old: str, new: str) -> bool:
+    """Rewrite every field-NAME reference old→new in a view/section dict.
+
+    Touches only positions that hold a field name (visible columns, group/date/
+    cover fields, sort/sorts/filters `field`, filterTree leaves, and the keys of
+    columnWidths/aggregations). Never touches a filter VALUE, which may legitimately
+    equal the field name.
+    """
+    if not isinstance(container, dict) or not old or old == new:
+        return False
+    changed = False
+    for key in _VIEW_REF_LIST_KEYS:
+        val = container.get(key)
+        if isinstance(val, list) and old in val:
+            container[key] = [new if x == old else x for x in val]
+            changed = True
+    for key in _VIEW_REF_SCALAR_KEYS:
+        if container.get(key) == old:
+            container[key] = new
+            changed = True
+    # `sort` appears both as a single {field,direction} and as a list of them.
+    sort_val = container.get("sort")
+    if isinstance(sort_val, dict):
+        if sort_val.get("field") == old:
+            sort_val["field"] = new
+            changed = True
+    elif isinstance(sort_val, list):
+        for item in sort_val:
+            if isinstance(item, dict) and item.get("field") == old:
+                item["field"] = new
+                changed = True
+    for key in _VIEW_REF_FIELD_LIST_KEYS:
+        val = container.get(key)
+        if isinstance(val, list):
+            for item in val:
+                if isinstance(item, dict) and item.get("field") == old:
+                    item["field"] = new
+                    changed = True
+    for key in _VIEW_REF_DICT_KEYS:
+        val = container.get(key)
+        if isinstance(val, dict) and old in val:
+            val[new] = val.pop(old)
+            changed = True
+    tree = container.get("filterTree")
+    if isinstance(tree, dict) and _rename_field_in_filter_tree(tree, old, new):
+        changed = True
+    return changed
+
+
+def _propagate_property_rename(
+    registry: dict, table_id: str, old_name: str, new_name: str
+) -> int:
+    """Rewrite old_name→new_name in the table's views and in the embedded-view
+    snapshots of page sections. Returns the number of containers changed."""
+    if not old_name or old_name == new_name:
+        return 0
+    changed = 0
+    for view in registry.get("views", []) or []:
+        if view.get("table_id") != table_id:
+            continue
+        if _rename_field_refs_in_view_like(view, old_name, new_name):
+            changed += 1
+    pages = registry.get("pages")
+    page_iter = pages.values() if isinstance(pages, dict) else (pages or [])
+    for page in page_iter:
+        if not isinstance(page, dict):
+            continue
+        for section in (page.get("sections") or []):
+            sec_table = (
+                section.get("source_table_id")
+                or section.get("table_id")
+                or section.get("tableId")
+            )
+            # Only touch sections that render THIS table (skip unknown-table ones).
+            if sec_table and sec_table != table_id:
+                continue
+            if _rename_field_refs_in_view_like(section, old_name, new_name):
+                changed += 1
+    return changed
+
+
 @router.patch("/tables/{table_id}/properties/{field_id}",
                dependencies=[Depends(require_role("editor"))])
 async def patch_table_property(table_id: str, field_id: str, data: dict = Body(...)):
@@ -14357,6 +14470,10 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
                     continue
                 if new_name in (p.get("aliases") or []):
                     p["aliases"] = [a for a in p["aliases"] if a != new_name]
+            # Propagate the rename to every stored reference by name (views +
+            # embedded-view page sections) so the config doesn't keep the old
+            # name. Rows in the .md still resolve via the alias above.
+            _propagate_property_rename(registry, table_id, old_name, new_name)
         target_prop["name"] = new_name
 
     if "type" in data and isinstance(data["type"], str):
