@@ -1,7 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
-import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, ArrowUp, ArrowDown, Layers } from 'lucide-react';
+import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, GripVertical, Layers } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { VIEW_TYPES } from './viewConstants';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { discoverFieldNamesFromRecords } from './schemaUtils';
@@ -55,6 +58,38 @@ const TABS = [
     { id: 'grouping', icon: Layers, label: 'Agrupació' },
     { id: 'general', icon: SlidersHorizontal, label: 'General' },
 ];
+
+/**
+ * Generic sortable row with a drag handle (dnd-kit), shared by the
+ * visible-columns and sort-criteria lists. Same pattern as
+ * SchemaConfigModal so reordering feels identical across the app.
+ */
+function SortableRow({ id, className = '', gripSize = 14, children }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.9 : 1,
+        zIndex: isDragging ? 50 : 1,
+        position: 'relative',
+    };
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`${className} ${isDragging ? 'bg-[var(--bg-tertiary)] shadow-md ring-1 ring-[var(--gnosi-primary)]/30' : ''}`}
+        >
+            <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing p-1 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]"
+            >
+                <GripVertical size={gripSize} />
+            </div>
+            {children}
+        </div>
+    );
+}
 
 /**
  * Searchable selector for a RELATION filter's value. Instead of free
@@ -929,6 +964,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         trapFocus: true,
     });
 
+    // Drag-and-drop sensors shared by the visible-columns and sort-criteria
+    // lists (pointer + keyboard, as in SchemaConfigModal). Must run before the
+    // early return below: hooks cannot be conditional.
+    const dndSensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
     if (!isOpen) return null;
 
     const toggleProperty = (name) => {
@@ -940,14 +983,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         );
     };
 
-    // Moves a visible column up/down to control the order of appearance.
-    const moveProperty = (idx, dir) => {
+    // Reorders a visible column by dragging it (ids = field names).
+    const handleColumnDragEnd = ({ active, over }) => {
+        if (!active || !over || active.id === over.id) return;
         setVisibleProperties(prev => {
-            const arr = [...prev];
-            const j = idx + dir;
-            if (j < 0 || j >= arr.length) return prev;
-            [arr[idx], arr[j]] = [arr[j], arr[idx]];
-            return arr;
+            const oldIndex = prev.indexOf(active.id);
+            const newIndex = prev.indexOf(over.id);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            return arrayMove(prev, oldIndex, newIndex);
         });
     };
 
@@ -982,14 +1025,15 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         setSorts(prev => prev.filter((_, i) => i !== idx));
     };
 
-    const moveSort = (idx, delta) => {
-        setSorts(prev => {
-            const next = [...prev];
-            const target = idx + delta;
-            if (target < 0 || target >= next.length) return prev;
-            [next[idx], next[target]] = [next[target], next[idx]];
-            return next;
-        });
+    // Reorders a sort criterion by dragging it. Rows are identified by
+    // positional ids ("sort-<idx>"): stable during the drag (the array only
+    // mutates on drop) and immune to duplicate field names.
+    const handleSortDragEnd = ({ active, over }) => {
+        if (!active || !over || active.id === over.id) return;
+        const oldIndex = Number(String(active.id).slice('sort-'.length));
+        const newIndex = Number(String(over.id).slice('sort-'.length));
+        if (Number.isNaN(oldIndex) || Number.isNaN(newIndex)) return;
+        setSorts(prev => arrayMove(prev, oldIndex, newIndex));
     };
 
     // Builds the object with the options specific to the view type
@@ -1866,44 +1910,31 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     </p>
                                                     {selected.length === 0 ? (
                                                         <p className="text-xs text-[var(--text-tertiary)] italic px-2 py-1">{t('view.no_columns', "Cap columna. Tria'n una a sota.")}</p>
-                                                    ) : selected.map((f, idx) => (
-                                                        <div
-                                                            key={f.name}
-                                                            className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)]"
-                                                        >
-                                                            <div className="flex flex-col">
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => moveProperty(idx, -1)}
-                                                                    disabled={idx === 0}
-                                                                    className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] disabled:opacity-25 leading-none"
-                                                                    title={t('view.move_up', 'Amunt')}
-                                                                >
-                                                                    <ArrowUp size={12} />
-                                                                </button>
-                                                                <button
-                                                                    type="button"
-                                                                    onClick={() => moveProperty(idx, 1)}
-                                                                    disabled={idx === selected.length - 1}
-                                                                    className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] disabled:opacity-25 leading-none"
-                                                                    title={t('view.move_down', 'Avall')}
-                                                                >
-                                                                    <ArrowDown size={12} />
-                                                                </button>
-                                                            </div>
-                                                            <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
-                                                            <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => toggleProperty(f.name)}
-                                                                disabled={f.name === 'title'}
-                                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1 disabled:opacity-25 disabled:hover:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
-                                                                title={f.name === 'title' ? t('view.title_always_visible', 'El títol és sempre visible') : t('view.remove', 'Treure')}
-                                                            >
-                                                                <Trash2 size={13} />
-                                                            </button>
-                                                        </div>
-                                                    ))}
+                                                    ) : (
+                                                        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
+                                                            <SortableContext items={selected.map(f => f.name)} strategy={verticalListSortingStrategy}>
+                                                                {selected.map(f => (
+                                                                    <SortableRow
+                                                                        key={f.name}
+                                                                        id={f.name}
+                                                                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)]"
+                                                                    >
+                                                                        <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
+                                                                        <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleProperty(f.name)}
+                                                                            disabled={f.name === 'title'}
+                                                                            className="text-[var(--text-tertiary)] hover:text-red-500 p-1 disabled:opacity-25 disabled:hover:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
+                                                                            title={f.name === 'title' ? t('view.title_always_visible', 'El títol és sempre visible') : t('view.remove', 'Treure')}
+                                                                        >
+                                                                            <Trash2 size={13} />
+                                                                        </button>
+                                                                    </SortableRow>
+                                                                ))}
+                                                            </SortableContext>
+                                                        </DndContext>
+                                                    )}
                                                 </div>
                                                 {available.length > 0 && (
                                                     <div>
@@ -1974,55 +2005,45 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                 <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_sorts', 'Cap criteri. Per defecte: títol ascendent.')}</p>
                             ) : (
                                 <div className="space-y-2">
-                                    {sorts.map((s, idx) => (
-                                        <div key={idx} className="flex gap-2 items-center">
-                                            <span className="text-[10px] font-bold text-[var(--text-tertiary)] w-6 text-center">
-                                                {idx + 1}
-                                            </span>
-                                            <select
-                                                className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
-                                                value={s.field}
-                                                onChange={e => updateSort(idx, { field: e.target.value })}
-                                            >
-                                                {tableFields.map(tf => (
-                                                    <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
-                                                ))}
-                                            </select>
-                                            <select
-                                                className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
-                                                value={s.direction}
-                                                onChange={e => updateSort(idx, { direction: e.target.value })}
-                                            >
-                                                <option value="asc">{t('view.asc', 'Ascendent')}</option>
-                                                <option value="desc">{t('view.desc', 'Descendent')}</option>
-                                            </select>
-                                            <div className="flex">
-                                                <button
-                                                    onClick={() => moveSort(idx, -1)}
-                                                    disabled={idx === 0}
-                                                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 disabled:opacity-30"
-                                                    title={t('view.priority_up', 'Pujar prioritat')}
+                                    <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSortDragEnd}>
+                                        <SortableContext items={sorts.map((_, idx) => `sort-${idx}`)} strategy={verticalListSortingStrategy}>
+                                            {sorts.map((s, idx) => (
+                                                <SortableRow
+                                                    key={idx}
+                                                    id={`sort-${idx}`}
+                                                    className="flex gap-2 items-center rounded"
                                                 >
-                                                    <ArrowUp size={14} />
-                                                </button>
-                                                <button
-                                                    onClick={() => moveSort(idx, 1)}
-                                                    disabled={idx === sorts.length - 1}
-                                                    className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] p-1 disabled:opacity-30"
-                                                    title={t('view.priority_down', 'Baixar prioritat')}
-                                                >
-                                                    <ArrowDown size={14} />
-                                                </button>
-                                            </div>
-                                            <button
-                                                onClick={() => removeSort(idx)}
-                                                className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
-                                                title={t('view.delete', 'Eliminar')}
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    ))}
+                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] w-4 text-center">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <select
+                                                        className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
+                                                        value={s.field}
+                                                        onChange={e => updateSort(idx, { field: e.target.value })}
+                                                    >
+                                                        {tableFields.map(tf => (
+                                                            <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
+                                                        value={s.direction}
+                                                        onChange={e => updateSort(idx, { direction: e.target.value })}
+                                                    >
+                                                        <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                                        <option value="desc">{t('view.desc', 'Descendent')}</option>
+                                                    </select>
+                                                    <button
+                                                        onClick={() => removeSort(idx)}
+                                                        className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
+                                                        title={t('view.delete', 'Eliminar')}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </SortableRow>
+                                            ))}
+                                        </SortableContext>
+                                    </DndContext>
                                 </div>
                             )}
                         </div>

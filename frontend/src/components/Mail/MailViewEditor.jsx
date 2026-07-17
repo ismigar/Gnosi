@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { X, Plus, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -124,12 +127,28 @@ function Pills({ options, value, onChange }) {
     );
 }
 
+// Sortable row: drag to reorder (dnd-kit, same pattern as SchemaConfigModal),
+// eye toggle to show/hide.
 function FieldRow({ field, onToggle }) {
     const { t } = useTranslation();
     const meta = ALL_FIELDS.find(f => f.key === field.key);
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.key });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.9 : 1,
+        zIndex: isDragging ? 50 : 1,
+        position: 'relative',
+    };
     return (
-        <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-secondary)] group">
-            <GripVertical size={13} className="text-[var(--text-tertiary)] cursor-grab shrink-0" />
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-[var(--bg-secondary)] group ${isDragging ? 'bg-[var(--bg-secondary)] shadow-md ring-1 ring-[var(--gnosi-primary)]/30' : ''}`}
+        >
+            <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing shrink-0 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]">
+                <GripVertical size={13} />
+            </div>
             <span className="flex-1 text-[13px] text-[var(--text-primary)]">{meta ? t(meta.labelKey, meta.label) : field.key}</span>
             <button
                 type="button"
@@ -235,6 +254,23 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
         }));
     };
 
+    // Drag-and-drop reorder of the visible-fields list; keeps `order` in sync
+    // with the array position (the persisted contract of view.fields).
+    const dndSensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+    const handleFieldDragEnd = ({ active, over }) => {
+        if (!active || !over || active.id === over.id) return;
+        setForm(prev => {
+            const oldIndex = prev.fields.findIndex(f => f.key === active.id);
+            const newIndex = prev.fields.findIndex(f => f.key === over.id);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            const fields = arrayMove(prev.fields, oldIndex, newIndex).map((f, i) => ({ ...f, order: i }));
+            return { ...prev, fields };
+        });
+    };
+
     const addFilter = () => {
         const firstField = FILTER_FIELDS[0];
         const ops = getOperatorsForField(firstField.key);
@@ -327,15 +363,17 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
                     <div>
                         <SectionTitle>{t('mail_view_editor.section_fields', 'Camps visibles')}</SectionTitle>
                         <div className="border border-[var(--border-primary)] rounded-xl overflow-hidden">
-                            {form.fields.map((field, i) => (
-                                <FieldRow
-                                    key={field.key}
-                                    field={field}
-                                    onToggle={toggleField}
-                                    isFirst={i === 0}
-                                    isLast={i === form.fields.length - 1}
-                                />
-                            ))}
+                            <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd}>
+                                <SortableContext items={form.fields.map(f => f.key)} strategy={verticalListSortingStrategy}>
+                                    {form.fields.map(field => (
+                                        <FieldRow
+                                            key={field.key}
+                                            field={field}
+                                            onToggle={toggleField}
+                                        />
+                                    ))}
+                                </SortableContext>
+                            </DndContext>
                         </div>
                     </div>
 
