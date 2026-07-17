@@ -5,6 +5,15 @@ import { useApi } from '../../hooks/use-api';
 import { useActiveVaultName } from '../../hooks/useActiveVaultName';
 import { toast } from '../../lib/toast';
 import { createPortal } from 'react-dom';
+import {
+    DndContext, closestCenter, PointerSensor, KeyboardSensor,
+    useSensor, useSensors
+} from '@dnd-kit/core';
+import {
+    SortableContext, verticalListSortingStrategy,
+    useSortable, arrayMove, sortableKeyboardCoordinates
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { Search, Star, FileText, Plus, ChevronRight, ChevronDown, Clock, Inbox, Settings, MoreHorizontal, Edit2, Copy, Trash2, Database, LayoutPanelLeft, Palette, Hash, Columns2, ArrowUpDown, ArrowDownAZ, ArrowUpAZ, Check, GripVertical, Lock, Unlock, CalendarDays } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
 import { ConfirmModal } from '../ConfirmModal';
@@ -141,6 +150,38 @@ const NavItem = ({ icon: Icon, label, onClick, isActive, colorClass = "text-[var
     </button>
 );
 
+// A favorite row: the whole row is the drag handle (same pattern as the
+// document tabs) — the PointerSensor distance constraint lets plain clicks
+// through to select the page. Sorting is disabled outside 'manual' mode, and
+// attributes/listeners are only spread while draggable so the row doesn't
+// keep a phantom tab stop in the other sort modes.
+const SortableFavoriteItem = ({ page, draggable, onPageSelect }) => {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: page.id, disabled: !draggable });
+    return (
+        <div
+            ref={setNodeRef}
+            {...(draggable ? attributes : {})}
+            {...(draggable ? listeners : {})}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.4 : 1,
+                zIndex: isDragging ? 50 : 1,
+            }}
+            className={`relative ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
+        >
+            <NavItem
+                icon={FileText}
+                label={page.title}
+                onClick={() => onPageSelect(page.id)}
+                colorClass="text-[var(--text-secondary)]/60"
+                emoji={page.metadata?.icon}
+                indented
+            />
+        </div>
+    );
+};
+
 const SectionHeader = ({ label, isExpanded, onToggle, onAdd }) => (
     <div className="group relative flex items-center px-3 mt-6 mb-1">
         <button
@@ -248,6 +289,13 @@ const PageTreeItem = ({
                 onClick={() => {
                     if (!isRenaming) onPageSelect(page.id);
                 }}
+                // Intentional exception to the app-wide @dnd-kit pattern: the
+                // page tree keeps native HTML5 drag & drop because dropping
+                // ONTO a row re-parents the page (nested hierarchy by
+                // parent_id, not a flat reorder), and the same drag must stay
+                // droppable into the editor as a wikilink via dataTransfer.
+                // Neither fits dnd-kit's flat sortable model. The favorites
+                // list (flat) does use dnd-kit — see SortableFavoriteItem.
                 draggable={!isRenaming && canReorder}
                 onDragStart={(e) => {
                     // Double protocol in the dataTransfer:
@@ -626,38 +674,19 @@ export const VaultSidebar = ({
         setIsFavoritesSortOpen(false);
     };
 
-    // Drag handler for manual ordering
-    const [draggingFavoriteId, setDraggingFavoriteId] = useState(null);
-    const handleFavoriteDragStart = (id) => (e) => {
-        setDraggingFavoriteId(id);
-        try { e.dataTransfer.effectAllowed = 'move'; } catch { /* noop */ }
-    };
-    const handleFavoriteDragOver = (id) => (e) => {
-        if (!draggingFavoriteId || draggingFavoriteId === id) return;
-        e.preventDefault();
-        try { e.dataTransfer.dropEffect = 'move'; } catch { /* noop */ }
-    };
-    const handleFavoriteDrop = (targetId) => (e) => {
-        e.preventDefault();
-        if (!draggingFavoriteId || draggingFavoriteId === targetId) {
-            setDraggingFavoriteId(null);
-            return;
-        }
-        // Switching to manual mode if the user drops while in another sort
+    // dnd-kit reordering for the favorites list (only in 'manual' sort mode)
+    const favoriteSensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+    const handleFavoriteDragEnd = ({ active, over }) => {
+        if (!over || active.id === over.id) return;
         const currentIds = sortedFavoritePages.map((p) => p.id);
-        const fromIdx = currentIds.indexOf(draggingFavoriteId);
-        const toIdx = currentIds.indexOf(targetId);
-        if (fromIdx === -1 || toIdx === -1) {
-            setDraggingFavoriteId(null);
-            return;
-        }
-        const next = [...currentIds];
-        next.splice(fromIdx, 1);
-        next.splice(toIdx, 0, draggingFavoriteId);
-        setFavoritesSort({ mode: 'manual', manualOrder: next });
-        setDraggingFavoriteId(null);
+        const oldIndex = currentIds.indexOf(active.id);
+        const newIndex = currentIds.indexOf(over.id);
+        if (oldIndex === -1 || newIndex === -1) return;
+        setFavoritesSort({ mode: 'manual', manualOrder: arrayMove(currentIds, oldIndex, newIndex) });
     };
-    const handleFavoriteDragEnd = () => setDraggingFavoriteId(null);
     const [isDatabasesExpanded, setIsDatabasesExpanded] = useState(true);
     const [expandedDatabases, setExpandedDatabases] = useState({});
     const [menuState, setMenuState] = useState(null);
@@ -1033,32 +1062,20 @@ export const VaultSidebar = ({
                         </div>
                     </div>
                     {isFavoritesExpanded && (
-                        <div className="px-2 space-y-0.5">
-                            {sortedFavoritePages.map((page) => {
-                                const isDragging = draggingFavoriteId === page.id;
-                                const draggable = favoritesSort.mode === 'manual';
-                                return (
-                                    <div
-                                        key={page.id}
-                                        draggable={draggable}
-                                        onDragStart={draggable ? handleFavoriteDragStart(page.id) : undefined}
-                                        onDragOver={draggable ? handleFavoriteDragOver(page.id) : undefined}
-                                        onDrop={draggable ? handleFavoriteDrop(page.id) : undefined}
-                                        onDragEnd={draggable ? handleFavoriteDragEnd : undefined}
-                                        className={`relative ${isDragging ? 'opacity-40' : ''} ${draggable ? 'cursor-grab active:cursor-grabbing' : ''}`}
-                                    >
-                                        <NavItem
-                                            icon={FileText}
-                                            label={page.title}
-                                            onClick={() => onPageSelect(page.id)}
-                                            colorClass="text-[var(--text-secondary)]/60"
-                                            emoji={page.metadata?.icon}
-                                            indented
+                        <DndContext sensors={favoriteSensors} collisionDetection={closestCenter} onDragEnd={handleFavoriteDragEnd}>
+                            <SortableContext items={sortedFavoritePages.map((p) => p.id)} strategy={verticalListSortingStrategy}>
+                                <div className="px-2 space-y-0.5">
+                                    {sortedFavoritePages.map((page) => (
+                                        <SortableFavoriteItem
+                                            key={page.id}
+                                            page={page}
+                                            draggable={favoritesSort.mode === 'manual'}
+                                            onPageSelect={onPageSelect}
                                         />
-                                    </div>
-                                );
-                            })}
-                        </div>
+                                    ))}
+                                </div>
+                            </SortableContext>
+                        </DndContext>
                     )}
                 </>
             )}
