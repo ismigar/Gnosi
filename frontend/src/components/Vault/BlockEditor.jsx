@@ -1285,6 +1285,9 @@ export function EditorInner({
     // Ref to the editor so that `uploadFileToAssetsDirect` (created before
     // the editor) can read the document and count images already inserted.
     const editorRef = useRef(null);
+    // Set by the drag & drop effect; consulted by the ProseMirror `handleDrop`
+    // prop passed to the editor (see `_tiptapOptions` below).
+    const toggleDropHandlerRef = useRef(null);
 
     // State for the unified insertion modal (InsertContentModal). Returns
     // { url, mode, kind, name } so the caller decides how to represent it
@@ -1356,6 +1359,16 @@ export function EditorInner({
         // With active collaboration, the content comes from the Y.Doc (not initialContent).
         ...(collaboration ? { collaboration } : { initialContent: blocks || undefined }),
         dropCursor: multiColumnDropCursor,
+        // Drop INTO a collapsible heading. A ProseMirror view prop wins over
+        // every plugin in `someProp`, so this runs before the multi-column drop
+        // handler; the actual logic lives in an effect and is reached through a
+        // ref so that this option stays stable (the editor is only recreated
+        // when collaboration activates).
+        _tiptapOptions: {
+            editorProps: {
+                handleDrop: (...args) => toggleDropHandlerRef.current?.(...args) ?? false,
+            },
+        },
         uploadFile: uploadFileToAssetsDirect,
         dictionary: blocknoteCa,
         tables: {
@@ -1667,9 +1680,134 @@ export function EditorInner({
             } catch { /* keep the current selection */ }
         };
 
+        // --- Drop INTO a collapsible heading (toggle) ---------------------
+        // BlockNote only reorders blocks as siblings: there is no way to drag a
+        // block into a toggle, which is specially visible when the toggle is
+        // empty (nothing to drop next to). We detect a drop over the toggle
+        // header and move the dragged blocks into its `children` ourselves.
+        //
+        // The top/bottom bands of the header stay reserved for the normal
+        // "place before/after" reorder, so the toggle can still be reordered.
+        const NEST_EDGE_RATIO = 0.3;
+
+        // Returns the id of the toggle to nest into, or null to let BlockNote
+        // handle the drop as usual.
+        const findToggleDropTarget = (x, y) => {
+            const root = editor?.prosemirrorView?.root ?? document;
+            const elements = root.elementsFromPoint?.(x, y) || [];
+            for (const el of elements) {
+                if (!wrapper.contains(el)) continue;
+                // `.bn-toggle-add-block-button` is the placeholder shown inside an
+                // expanded empty toggle: dropping on it always means "nest".
+                if (el.closest?.('.bn-toggle-add-block-button')) {
+                    const id = el.closest('[data-id]')?.getAttribute('data-id');
+                    if (id) return id;
+                    continue;
+                }
+                // Horizontally the whole block row counts, not just the
+                // `.bn-toggle-wrapper` (which shrinks to the title width, so
+                // requiring a drop on those few pixels would make the feature
+                // undiscoverable). Vertically we use the header band, so that
+                // dropping over the toggle's children still behaves normally.
+                const outer = el.closest?.('.bn-block-outer');
+                const header = outer?.querySelector(':scope > .bn-block > .bn-block-content > div > .bn-toggle-wrapper');
+                if (!header) continue;
+                const id = outer.getAttribute('data-id');
+                if (!id) continue;
+                const rect = header.getBoundingClientRect();
+                if (y < rect.top || y > rect.bottom) continue;
+                const ratio = rect.height ? (y - rect.top) / rect.height : 0.5;
+                if (ratio < NEST_EDGE_RATIO || ratio > 1 - NEST_EDGE_RATIO) return null;
+                return id;
+            }
+            return null;
+        };
+
+        // The blocks being dragged. The slice ProseMirror hands to `handleDrop`
+        // carries no block ids (they are stripped when the content is copied),
+        // so we read the selection: BlockNote's drag handle turns it into a
+        // node selection over the dragged block(s) on `dragstart`, and the drop
+        // has not modified the document yet. Ids that are not in the document
+        // mean the content comes from outside: nothing to move.
+        const getDraggedBlockIds = (view) => {
+            const ids = [];
+            view?.state?.selection?.content?.().content.forEach((node) => {
+                if (node?.attrs?.id && editor.getBlock?.(node.attrs.id)) ids.push(node.attrs.id);
+            });
+            return ids;
+        };
+
+        const containsBlockId = (block, id) => {
+            if (!block) return false;
+            if (block.id === id) return true;
+            return (block.children || []).some((child) => containsBlockId(child, id));
+        };
+
+        const nestIntoToggle = (targetId, draggedIds) => {
+            const dragged = draggedIds.map((id) => editor.getBlock?.(id)).filter(Boolean);
+            if (!dragged.length) return false;
+            // Never drop a block into itself or into one of its own descendants.
+            if (dragged.some((block) => containsBlockId(block, targetId))) return false;
+            const target = editor.getBlock?.(targetId);
+            if (!target) return false;
+            // A single transaction keeps this as one undo step and prevents the
+            // moved blocks from existing twice (their ids are preserved).
+            editor.transact(() => {
+                editor.removeBlocks(dragged.map((block) => block.id));
+                const firstChild = target.children?.[0];
+                if (firstChild) editor.insertBlocks(dragged, firstChild.id, 'before');
+                else editor.updateBlock(targetId, { children: dragged });
+            });
+            return true;
+        };
+
+        // Highlights the toggle that would receive the drop; without it the
+        // user only sees BlockNote's regular sibling drop cursor.
+        let highlighted = null;
+        const setHighlight = (el) => {
+            if (highlighted === el) return;
+            highlighted?.classList.remove('gnosi-toggle-drop-target');
+            highlighted = el || null;
+            highlighted?.classList.add('gnosi-toggle-drop-target');
+        };
+
+        const onDragOverCapture = (e) => {
+            if (e.dataTransfer?.types?.includes('Files')) return;
+            const targetId = findToggleDropTarget(e.clientX, e.clientY);
+            if (!targetId) { setHighlight(null); return; }
+            const container = wrapper.querySelector(`[data-id="${CSS.escape(targetId)}"]`);
+            setHighlight(container?.querySelector('.bn-toggle-wrapper') || null);
+        };
+
+        const onDragEndCapture = () => setHighlight(null);
+
+        // The nesting itself is hooked as a ProseMirror `handleDrop` prop, NOT
+        // as a DOM listener: BlockNote's side menu re-dispatches synthetic drop
+        // events and the multi-column extension handles the drop from its own
+        // plugin, so intercepting in the DOM depends on listener order and is
+        // unreliable. Returning `true` skips the rest of the drop handling
+        // (including the multi-column "side by side" placement).
+        const handleDrop = (view, event, _slice, moved) => {
+            setHighlight(null);
+            if (!moved || event.dataTransfer?.files?.length) return false;
+            const targetId = findToggleDropTarget(event.clientX, event.clientY);
+            const draggedIds = targetId ? getDraggedBlockIds(view) : [];
+            if (!targetId || !draggedIds.length) return false;
+            try {
+                return nestIntoToggle(targetId, draggedIds);
+            } catch (err) {
+                console.error('drop into toggle failed', err);
+                return false;
+            }
+        };
+        toggleDropHandlerRef.current = handleDrop;
+
         const onDropCapture = (e) => {
             const files = Array.from(e.dataTransfer?.files || []);
-            if (!files.length) return;
+            if (!files.length) {
+                setHighlight(null);
+                return;
+            }
             // If ALL are visuals, we don't intercept: BlockNote handles it
             // (direct native block, the dominant case). We only capture if there is
             // at least one non-visual file.
@@ -1691,9 +1829,17 @@ export function EditorInner({
 
         wrapper.addEventListener('drop', onDropCapture, true);
         wrapper.addEventListener('paste', onPasteCapture, true);
+        wrapper.addEventListener('dragover', onDragOverCapture, true);
+        wrapper.addEventListener('dragend', onDragEndCapture, true);
+        wrapper.addEventListener('dragleave', onDragEndCapture, true);
         return () => {
             wrapper.removeEventListener('drop', onDropCapture, true);
             wrapper.removeEventListener('paste', onPasteCapture, true);
+            wrapper.removeEventListener('dragover', onDragOverCapture, true);
+            wrapper.removeEventListener('dragend', onDragEndCapture, true);
+            wrapper.removeEventListener('dragleave', onDragEndCapture, true);
+            toggleDropHandlerRef.current = null;
+            setHighlight(null);
         };
     }, [editor, editorReady, requestInsertContent, uploadFileToAssetsDirect]);
 
@@ -2786,6 +2932,14 @@ export function EditorInner({
                 }
 
                 .bn-toggle summary::-webkit-details-marker { display: none; }
+
+                /* Toggle highlighted while dragging a block over it: the drop
+                   will nest the block inside instead of reordering it. */
+                .bn-toggle-wrapper.gnosi-toggle-drop-target {
+                    border-radius: 4px;
+                    box-shadow: inset 0 0 0 2px var(--color-accent, #8b5cf6);
+                    background: color-mix(in srgb, var(--color-accent, #8b5cf6) 10%, transparent);
+                }
             `}</style>
             <div
                 ref={editorWrapperRef}
