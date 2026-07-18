@@ -10,6 +10,18 @@
   Referències** del Vault (`target_table` + `references_configured`).
   Llegit pel codi viu a [`backend/services/reference_table_config.py`](../../../backend/services/reference_table_config.py).
 
+  Aquest fitxer és **per-màquina i NO es versiona** (porta el `target_table`
+  real i, si s'omplen, credencials): està al `.gitignore`, igual que
+  `config/params.yaml`. El que es versiona és la plantilla
+  `zotero_db_config.json.example` — en un clon nou, copia-la:
+
+  ```bash
+  cp zotero_db_config.json.example zotero_db_config.json
+  ```
+
+  No és obligatori: si el fitxer no existeix, `load_json` retorna el default i
+  el backend arrenca igualment (la taula es designa des de la UI).
+
 ## Per què el nom no s'ha canviat
 
 El path al JSON està codificat a producció dels usuaris existents. Renombrar

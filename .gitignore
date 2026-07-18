@@ -54,3 +54,6 @@ monorepo/apps/gnosi/frontend/public/zotero-reader
 
 # Sortida local del constructor d'índex de plugins (build_index.py)
 monorepo/apps/gnosi/plugins-examples/dist-plugins/
+
+# Plans i backups de sessió d'eines d'agent (locals, per màquina).
+.zcode/
