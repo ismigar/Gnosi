@@ -123,6 +123,26 @@ export function withActiveVault(url, explicitVid) {
 }
 
 /**
+ * Legacy `storage_folder` values still present in older registries — the
+ * Library folder used to be called "Biblioteca".
+ */
+const STORAGE_FOLDER_ALIASES = { biblioteca: 'library' };
+
+/**
+ * Canonical `storage_folder` key of a `files` field: lowercased, trimmed and
+ * with legacy names mapped ('biblioteca' → 'library').
+ *
+ * Must stay in sync with the backend's `_normalize_storage_folder`
+ * (`api/vault_routes.py`), which is authoritative for the upload destination.
+ * An unmapped legacy value used to leak into the UI as an empty destination
+ * label ("Puja a ") while the backend silently wrote to Assets.
+ */
+export function canonicalStorageFolder(folder) {
+    const key = String(folder || '').trim().toLowerCase();
+    return STORAGE_FOLDER_ALIASES[key] || key;
+}
+
+/**
  * Converts a stored value into a URL servable by the backend
  * (`/api/vault/assets/…`) if it is a path relative to the vault or is already served/remote.
  * Returns '' for absolute local paths or `file://` (which the browser cannot

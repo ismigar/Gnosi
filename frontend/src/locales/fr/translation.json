@@ -1989,7 +1989,9 @@
     "kind_folder": "Dossier",
     "kind_youtube": "YouTube",
     "kind_vimeo": "Vimeo",
-    "kind_web": "Page web"
+    "kind_web": "Page web",
+    "upload_target_free": "Vous choisirez le dossier de destination à l'étape suivante",
+    "upload_target_free_named": "Vous choisirez le dossier de destination ; il sera enregistré sous « {{name}} »"
   },
   "page_view": {
     "title": "Ajouter une vue de BD",

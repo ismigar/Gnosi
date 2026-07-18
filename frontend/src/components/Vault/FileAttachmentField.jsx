@@ -1,22 +1,27 @@
 import { useRef, useState, useMemo } from 'react';
-import { FileText, X, Plus, Loader2 } from 'lucide-react';
+import { FileText, X, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { FilesystemPickerModal } from '../FilesystemPickerModal';
-import { filenameFromTarget, interpolateNamePattern, fileTargetKey } from '../../lib/fileResource';
+import { InsertContentModal } from './InsertContentModal';
+import { filenameFromTarget, fileTargetKey, canonicalStorageFolder } from '../../lib/fileResource';
 
 const STORAGE_LABELS = {
-    assets:     'Assets',
+    assets:  'Assets',
     library: 'Library',
-    free:       'Lliure',
 };
 
 /**
- * FileAttachmentField — a field of type `files` (multi-file). The behavior
- * is declared in the schema (`file_mode`) and the insertion form is specific
- * to the mode (unlike the generic "/+" modal):
- *   - 'link'   → a "+" opens the local file picker and links it (no copy).
- *   - 'upload' → a "+" uploads the file to `storageFolder` (using `namePattern`); if
- *                the folder is 'free', it first chooses the destination folder.
+ * FileAttachmentField — a field of type `files` (multi-file). The "+" opens the
+ * unified [[InsertContentModal]], the SAME entry point the grid uses
+ * (`VaultTable.openMediaPicker`), passing the field's config as `fileField` so
+ * the modal restricts its tabs to what `file_mode` allows and routes the
+ * upload/link through the property endpoints (destination `storageFolder`,
+ * renaming by `namePattern`):
+ *   - 'link'   → only "Disc local": links the file in place (no copy).
+ *   - 'upload' → "Puja" + "Disc local": uploads to `storageFolder`.
+ *
+ * It must NOT open a bare `<input type=file>`: that shows the OS dialog
+ * directly, skipping the in-app modal (Vault / local disk / URL), and it was
+ * the only `files` surface that behaved differently from the grid.
  *
  * Each action ADDS a file to the list (it doesn't replace); each file has its
  * own button to remove it. `value` can be a string (1 file) or an array (≥2);
@@ -24,20 +29,16 @@ const STORAGE_LABELS = {
  * format of single-file fields.
  *
  * Props: tableId, propertyName, fileMode ('link'|'upload'), storageFolder,
- * namePattern, rowMetadata, value (string|array), onChange(newValue), apiFetch.
+ * namePattern, rowMetadata, value (string|array), onChange(newValue).
  */
-export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload', storageFolder = 'assets', namePattern = '', rowMetadata = {}, value, onChange, apiFetch }) {
+export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload', storageFolder = 'assets', namePattern = '', rowMetadata = {}, value, onChange }) {
     const { t } = useTranslation();
-    const fileInputRef = useRef(null);
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    // File-system picker (browses the disk via /api/system/browse, which
-    // works inside the Docker container).
-    const [pickerState, setPickerState] = useState(null);
-    const openPicker = (mode) => new Promise((resolve) => setPickerState({ mode, resolve }));
+    const [pickerOpen, setPickerOpen] = useState(false);
 
     const isLink = fileMode === 'link';
-    const isFree = storageFolder === 'free';
+    const storage = canonicalStorageFolder(storageFolder);
+    const isFree = storage === 'free';
 
     // Normalizes the value into a list of raw strings (preserves the format
     // original of each entry: path, served URL, or `[nom](target)`).
@@ -78,102 +79,11 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
     };
     const removeAt = (idx) => emit(entriesRef.current.filter((_, i) => i !== idx));
 
-    const resolvedName = namePattern ? interpolateNamePattern(namePattern, rowMetadata) : '';
-    const nameQuery = resolvedName ? `&target_name=${encodeURIComponent(resolvedName)}` : '';
-
-    const handleUpload = async (file) => {
-        if (!file) return;
-        try {
-            if (isFree) {
-                const folderPath = await openPicker('folder');
-                if (!folderPath) return; // cancel·lat
-                setLoading(true); setError('');
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('dest_folder', folderPath);
-                // `apiFetch` (useApi) already parses the JSON and throws on non-ok,
-                // so `data` is the parsed body — do NOT treat it as a raw Response.
-                const data = await apiFetch(
-                    `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=free${nameQuery}`,
-                    { method: 'POST', body: formData },
-                );
-                appendValues([data.path]);
-            } else {
-                setLoading(true); setError('');
-                const formData = new FormData();
-                formData.append('file', file);
-                const data = await apiFetch(
-                    `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=${storageFolder}${nameQuery}`,
-                    { method: 'POST', body: formData },
-                );
-                appendValues([data.url || data.path]);
-            }
-        } catch (e) {
-            setError(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    // Upload of MULTIPLE files at once (input `multiple`). Uploads all of them and does
-    // a SINGLE `emit` with all of them added, to avoid the race of N consecutive emits
-    // (each would read the same stale `entries` and only the last one would survive).
-    const handleUploadFiles = async (fileList) => {
-        const files = Array.from(fileList || []).filter(Boolean);
-        if (files.length === 0) return;
-        if (files.length === 1) { await handleUpload(files[0]); return; }
-        try {
-            let destFolder = null;
-            if (isFree) {
-                destFolder = await openPicker('folder');
-                if (!destFolder) return; // cancel·lat
-            }
-            setLoading(true); setError('');
-            const sf = isFree ? 'free' : storageFolder;
-            const newRaws = [];
-            for (const file of files) {
-                const formData = new FormData();
-                formData.append('file', file);
-                if (isFree) formData.append('dest_folder', destFolder);
-                const data = await apiFetch(
-                    `/api/vault/upload-property-file?table_id=${encodeURIComponent(tableId)}&property_name=${encodeURIComponent(propertyName)}&storage_folder=${sf}${nameQuery}`,
-                    { method: 'POST', body: formData },
-                );
-                newRaws.push(data.url || data.path);
-            }
-            appendValues(newRaws);
-        } catch (e) {
-            setError(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleLinkExisting = async () => {
-        const path = await openPicker('file');
-        if (!path) return; // cancel·lat
-        setLoading(true); setError('');
-        try {
-            const data = await apiFetch('/api/vault/link-existing-file', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ file_path: path, target_name: resolvedName }),
-            });
-            // `url` carries the PORTABLE form (library/raw/~) when it exists;
-            // `path` (absolute host path) is used as a last resort.
-            appendValues([data.url || data.path]);
-        } catch (e) {
-            setError(e.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const addTitle = isLink
         ? t('files.link_existing', 'Enllaça un fitxer local (sense copiar)')
         : (isFree
             ? t('files.upload_choose_folder', 'Puja i tria la carpeta de destinació')
-            : t('files.upload_to', 'Puja a {{folder}}', { folder: STORAGE_LABELS[storageFolder] }));
+            : t('files.upload_to', 'Puja a {{folder}}', { folder: STORAGE_LABELS[storage] || STORAGE_LABELS.assets }));
 
     return (
         <div className="space-y-1.5">
@@ -203,34 +113,36 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                 );
             })}
 
-            {/* A single "+" → action specific to the mode configured in the schema */}
+            {/* A single "+" → the unified insert modal, scoped to this field */}
             <button
                 type="button"
-                disabled={loading}
-                onClick={() => { if (isLink) handleLinkExisting(); else fileInputRef.current?.click(); }}
+                onClick={() => { setError(''); setPickerOpen(true); }}
                 className="flex items-center justify-center w-7 h-7 rounded-lg border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:border-[var(--gnosi-primary)]/50 hover:text-[var(--gnosi-primary)] transition-colors disabled:opacity-50"
                 title={addTitle}
             >
-                {loading ? <Loader2 size={14} className="animate-spin" /> : <Plus size={15} />}
+                <Plus size={15} />
             </button>
-
-            <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => { handleUploadFiles(e.target.files); e.target.value = ''; }}
-            />
 
             {error && (
                 <p className="text-[11px] text-red-500 bg-red-50 dark:bg-red-900/20 rounded px-2 py-1">{error}</p>
             )}
 
-            <FilesystemPickerModal
-                isOpen={Boolean(pickerState)}
-                mode={pickerState?.mode || 'file'}
-                onClose={() => { pickerState?.resolve?.(null); setPickerState(null); }}
-                onSelect={(absolutePath) => { pickerState?.resolve?.(absolutePath); setPickerState(null); }}
+            <InsertContentModal
+                open={pickerOpen}
+                tableId={tableId || ''}
+                fileField={{ propertyName, storageFolder: storage, namePattern, fileMode }}
+                rowMetadata={rowMetadata}
+                onClose={() => setPickerOpen(false)}
+                onInsert={(result) => {
+                    // Multi-upload returns `urls`; a single insertion returns `url`.
+                    // The modal already uploaded/linked through the property
+                    // endpoints, so what arrives is the final stored form
+                    // (served URL for Assets, portable path for Library).
+                    const raws = Array.isArray(result?.urls) && result.urls.length
+                        ? result.urls
+                        : [result?.url].filter(Boolean);
+                    if (raws.length) appendValues(raws);
+                }}
             />
         </div>
     );

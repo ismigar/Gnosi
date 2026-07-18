@@ -15,7 +15,7 @@ import { IconRenderer } from './IconRenderer';
 import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
-import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault } from '../../lib/fileResource';
+import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault, canonicalStorageFolder } from '../../lib/fileResource';
 import { InsertContentModal } from './InsertContentModal';
 import { useTitlePreview } from './useTitlePreview';
 
@@ -2010,7 +2010,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         setMediaPickerCell({
             rowId: note.id, field: key, originalMetaKey: metaKey, tableId: noteTableId,
             fileField: cfg
-                ? { propertyName: key, storageFolder: cfg.storage_folder || 'assets', namePattern: cfg.name_pattern || '', fileMode: cfg.file_mode || 'upload' }
+                ? { propertyName: key, storageFolder: canonicalStorageFolder(cfg.storage_folder) || 'assets', namePattern: cfg.name_pattern || '', fileMode: cfg.file_mode || 'upload' }
                 : null,
             imageField: isImg,
             imageMeta: isImg ? parseImageField(note.metadata?.[metaKey]) : null,
