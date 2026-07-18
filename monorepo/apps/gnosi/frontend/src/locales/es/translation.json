@@ -1047,7 +1047,10 @@
       "not_a_directory": "No es una carpeta",
       "permission_denied": "Permiso denegado. Comprueba los permisos de la carpeta.",
       "access_error": "No se ha podido acceder a la ruta"
-    }
+    },
+    "multi_hint": "Haz clic para marcar varios archivos · doble clic para elegir solo uno",
+    "selected_count": "{{count}} archivos seleccionados",
+    "select_files_count": "Seleccionar {{count}} archivos"
   },
   "settings": {
     "close_settings": "Cerrar configuración",
@@ -2494,7 +2497,8 @@
     "kind_vimeo": "Vimeo",
     "kind_web": "Página web",
     "upload_target_free": "Elegirás la carpeta de destino en el paso siguiente",
-    "upload_target_free_named": "Elegirás la carpeta de destino; se guardará como «{{name}}»"
+    "upload_target_free_named": "Elegirás la carpeta de destino; se guardará como «{{name}}»",
+    "from_local_multi": "{{count}} archivos del disco local"
   },
   "page_view": {
     "title": "Añadir vista de BD",

@@ -1094,7 +1094,10 @@
       "not_a_directory": "No és una carpeta",
       "permission_denied": "Permís denegat. Comprova els permisos de la carpeta.",
       "access_error": "No s'ha pogut accedir a la ruta"
-    }
+    },
+    "multi_hint": "Clica per marcar diversos fitxers · doble clic per triar-ne només un",
+    "selected_count": "{{count}} fitxers seleccionats",
+    "select_files_count": "Selecciona {{count}} fitxers"
   },
   "settings": {
     "close_settings": "Tancar configuració",
@@ -2534,7 +2537,8 @@
     "kind_vimeo": "Vimeo",
     "kind_web": "Pàgina web",
     "upload_target_free": "Triaràs la carpeta de destinació en el pas següent",
-    "upload_target_free_named": "Triaràs la carpeta de destinació; es desarà com a «{{name}}»"
+    "upload_target_free_named": "Triaràs la carpeta de destinació; es desarà com a «{{name}}»",
+    "from_local_multi": "{{count}} fitxers del disc local"
   },
   "page_view": {
     "title": "Afegir vista de BD",
