@@ -1,0 +1,66 @@
+# Test gate for the backend. Until now nothing ran pytest on a PR: the only
+# PR-triggered workflow was docker-build.yml, whose paths deliberately EXCLUDE
+# backend/frontend code, so backend changes merged with zero automated checks.
+#
+# This runs the backend suite on PRs that touch backend code. It needs no
+# services: the E2E tests skip themselves when no backend answers on
+# GNOSI_BACKEND_URL, so we point it at a closed port to make that deterministic
+# rather than dependent on whatever happens to listen on the runner.
+#
+# The vault and local_data are pointed at empty temp dirs so the suite never
+# looks for the maintainer's OneDrive vault, and GNOSI_FILES_PROVIDER=local
+# keeps the cloud provider out of it (same trick as docker-build.yml).
+name: backend-tests
+
+on:
+  pull_request:
+    paths:
+      - "monorepo/apps/gnosi/backend/**"
+      - "monorepo/apps/gnosi/pipeline/**"
+      - "monorepo/apps/gnosi/requirements.txt"
+      - ".github/workflows/backend-tests.yml"
+  workflow_dispatch:
+
+# A new push to the PR makes the in-flight run obsolete.
+concurrency:
+  group: backend-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: monorepo/apps/gnosi
+    steps:
+      - uses: actions/checkout@v7
+
+      # 3.11 is what the maintainer's venv runs; the ML pins in requirements.txt
+      # are validated against it.
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: monorepo/apps/gnosi/requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # CPU-only torch: sentence-transformers pulls torch transitively and
+          # the default index serves the CUDA build (~2.5 GB), which both blows
+          # up install time and can fill the runner disk.
+          pip install --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+
+      - name: Run backend tests
+        env:
+          PYTHONPATH: .
+          # Empty, throwaway vault — never the real one.
+          DIGITAL_BRAIN_VAULT_PATH: ${{ runner.temp }}/vault
+          GNOSI_LOCAL_DATA: ${{ runner.temp }}/local_data
+          GNOSI_FILES_PROVIDER: local
+          # Closed port: makes the "no live backend" skips deterministic.
+          GNOSI_BACKEND_URL: http://127.0.0.1:59999
+        run: |
+          mkdir -p "$DIGITAL_BRAIN_VAULT_PATH" "$GNOSI_LOCAL_DATA"
+          pytest backend/tests -q --durations=10
