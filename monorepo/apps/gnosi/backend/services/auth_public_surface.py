@@ -44,9 +44,12 @@ class PublicRule(NamedTuple):
 
 
 def _rule(methods: str, pattern: str, reason: str) -> PublicRule:
+    # `\Z`, not `$`: in Python `$` also matches just before a trailing newline,
+    # so `^/api/health$` would accept "/api/health\n" and exempt it from
+    # authentication. For an allowlist the end anchor has to be absolute.
     return PublicRule(
         methods=frozenset(m.strip().upper() for m in methods.split(",")),
-        pattern=re.compile(f"^{pattern}$"),
+        pattern=re.compile(rf"^{pattern}\Z"),
         reason=reason,
     )
 
@@ -58,11 +61,9 @@ PUBLIC_RULES: tuple[PublicRule, ...] = (
     # 2. Authentication itself.
     _rule("POST", r"/api/auth/login", "issues the session"),
     _rule("POST", r"/api/auth/register", "creates the account that will hold the session"),
-    _rule(
-        "POST",
-        r"/api/auth/bootstrap-credentials",
-        "first credentials for a password-less account; self-closes once one exists",
-    ),
+    # NOTE: no rule for first-time credentials. That flow is deliberately not an
+    # HTTP endpoint at all — see the note in `auth_routes.py` and
+    # `pipeline/scripts/set_user_password.py`.
     _rule("POST", r"/api/auth/logout", "clearing a cookie must work even with a stale session"),
     _rule("GET", r"/api/auth/me", "returns 401 by design — the frontend uses it to decide login vs app"),
     # 3. Endpoints carrying their own credential.

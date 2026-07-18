@@ -39,11 +39,25 @@ match", so it looked like bad credentials rather than a broken dependency.
   backup API (not `cp`, which can catch a torn write). Losing it means losing
   the mapping from user to workspace to vault.
 - **1 — A real identity (done).** Replace passlib with a direct `bcrypt` call,
-  and add `POST /api/auth/bootstrap-credentials`, which sets email + password on
-  the *context* user (not matched by email, so the placeholder
-  `user@example.com` is not frozen in) exactly once, refusing afterwards. The
-  account keeps its `id`, so memberships, vaults and PATs need no migration.
+  and give the legacy account credentials with
+  `pipeline/scripts/set_user_password.py`, run locally. The account keeps its
+  `id`, so memberships, vaults and PATs need no migration.
   **Nothing breaks yet — the fallback is untouched.**
+
+  This started as an HTTP endpoint (`POST /api/auth/bootstrap-credentials`) that
+  resolved the account from the request context. **That was an account-takeover
+  hole and was removed**; the reasoning is preserved here because the design is
+  tempting enough to be reinvented. `get_workspace_context` derives the user from
+  the `X-User-ID` header, which the caller controls, so an unauthenticated
+  request could set its own email and password on any password-less account —
+  `ismael-legacy` (a default published in this repo), or any invited/OAuth user
+  who has not registered. Reproduced end to end: 200, victim's email replaced,
+  attacker's password installed, valid session cookie issued. CORS is
+  `allow_origins=["*"]` / `allow_headers=["*"]` and the call needs no
+  credentials, so a malicious page could drive it cross-origin — turning
+  transient CSRF into durable credentials that would *survive* this very
+  migration. A local script needs filesystem access to the management DB and so
+  has no remote attack surface.
 - **2 — Public surface (done).** `backend/services/auth_public_surface.py`
   enumerates what may stay unauthenticated: liveness probes, the auth endpoints
   themselves, and endpoints carrying their own credential (share tokens, PAT).
@@ -65,7 +79,23 @@ match", so it looked like bad credentials rather than a broken dependency.
 
 - **Do not** claim the legacy account through `/register`: it matches on email,
   so it would permanently freeze `user@example.com`. Use
-  `bootstrap-credentials`, which resolves the user from the request context.
+  `pipeline/scripts/set_user_password.py`.
+- **Do not** add an HTTP endpoint that sets credentials on the account resolved
+  from the request — see phase 1. Anything derived from `X-User-ID` is
+  caller-controlled and therefore not an identity.
+- **Blocker for phase 4:** in personal mode `get_workspace_context` calls
+  `_ensure_personal_exists`, which **creates a `User` row** for whatever
+  `X-User-ID` arrives, plus a duplicate `Vault` row in the shared `personal`
+  workspace. So today an arbitrary header value mints an account. Enforcement
+  must stop trusting that header before, or as part of, flipping the flag —
+  otherwise `GNOSI_REQUIRE_AUTH` closes the front door while this leaves the
+  side one open.
+- **Do not** reject an over-long password during *verification*. passlib shipped
+  `truncate_error=False`, so existing installs stored `hash(password[:72])` for
+  anything longer and `/register` accepted 128 characters; rejecting outright
+  locks those users out permanently, reported only as "wrong credentials".
+  `verify_password` falls back to comparing the first 72 bytes for exactly this
+  reason. Hashing still refuses, so no new account can reach that state.
 - **Do not** exempt a path wholesale in the public surface. `POST /api/config`
   writes settings while `GET` is a probe, and a `/api/public/*` wildcard would
   have exempted anything later dropped under that prefix — enumerate instead.

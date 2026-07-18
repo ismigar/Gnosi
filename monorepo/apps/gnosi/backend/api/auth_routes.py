@@ -22,6 +22,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.data.management_db import get_mgmt_db
@@ -35,7 +36,6 @@ from backend.services.auth_service import (
     hash_password,
     verify_password,
 )
-from backend.services.workspace_service import WorkspaceContext, get_workspace_context
 
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -70,16 +70,6 @@ class LoginPayload(BaseModel):
     password: str
 
 
-class BootstrapCredentialsPayload(BaseModel):
-    """First-time credentials for a user that has none (see bootstrap_credentials)."""
-
-    email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
-    name: Optional[str] = None
-
-    _check_password = field_validator("password")(_validate_password_bytes)
-
-
 class UserInfo(BaseModel):
     id: str
     email: str
@@ -108,6 +98,18 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
         secure=False,  # needs to be True in production with HTTPS
         path="/",
     )
+
+
+def _find_user_by_email(db: Session, email: str) -> Optional[User]:
+    """Look a user up by email, case-insensitively.
+
+    Email local-parts are technically case-sensitive but no real provider treats
+    them that way, and users do not type their address consistently. Matching
+    exactly let `Victim@corp.com` slip past the duplicate check for
+    `victim@corp.com`: the DB unique index does not collapse case either, so both
+    rows survived and which one a login reached came down to row order.
+    """
+    return db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
 
 
 def _user_to_info(user: User, db: Session) -> UserInfo:
@@ -148,7 +150,7 @@ def register(
     inherit the workspaces.
     
     """
-    existing = db.query(User).filter(User.email == payload.email).first()
+    existing = _find_user_by_email(db, payload.email)
     if existing:
         if existing.password_hash:
             raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
@@ -166,7 +168,7 @@ def register(
 
     # New case: create user
     user = User(
-        email=payload.email,
+        email=payload.email.strip().lower(),
         name=payload.name or payload.email.split("@", 1)[0],
         password_hash=hash_password(payload.password),
     )
@@ -182,60 +184,18 @@ def register(
     return _user_to_info(user, db)
 
 
-@router.post("/bootstrap-credentials")
-def bootstrap_credentials(
-    payload: BootstrapCredentialsPayload,
-    response: Response,
-    context: WorkspaceContext = Depends(get_workspace_context),
-    db: Session = Depends(get_mgmt_db),
-):
-    """Give the current password-less user real credentials, once.
-
-    This is the `set-password` flow the `User.password_hash` docstring refers
-    to, and it exists for one specific situation: an install whose only user is
-    the pre-auth legacy account (`ismael-legacy`), which owns the workspace, the
-    vaults and the API tokens but has no way to log in. `/register` can only
-    claim such a user by matching its email, which for that account is the
-    placeholder `user@example.com` — so claiming through it would freeze a fake
-    address in place forever. Here the user is resolved from the request context
-    instead, so a real email can be set at the same time.
-
-    The account keeps its `id`, which is what memberships, vaults and PATs are
-    keyed by: nothing has to be migrated.
-
-    Refuses once a password exists (409), so it cannot be used to take over an
-    account or to reset a forgotten password — that is the reset-password flow's
-    job. While the legacy fallback is still enabled, any caller that can reach
-    the API already has owner access, so this endpoint grants no privilege it
-    did not already have; it is the step that makes removing that fallback
-    possible.
-    """
-    user = db.query(User).filter(User.id == context.user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="Usuari no trobat")
-    if user.password_hash:
-        raise HTTPException(
-            status_code=409,
-            detail="Aquest usuari ja té contrasenya. Usa el login o el reset de contrasenya.",
-        )
-
-    # A different account already using this email would make login ambiguous.
-    clash = db.query(User).filter(User.email == payload.email, User.id != user.id).first()
-    if clash:
-        raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
-
-    user.email = payload.email
-    user.password_hash = hash_password(payload.password)
-    if payload.name:
-        user.name = payload.name
-    try:
-        db.commit()
-    except Exception:
-        db.rollback()
-        raise HTTPException(status_code=500, detail="Error desant les credencials")
-
-    _set_session_cookie(response, user.id)
-    return _user_to_info(user, db)
+# NOTE: there is deliberately no HTTP endpoint for giving a password-less
+# account its first credentials. The obvious design — resolve the account from
+# the request context and set a password on it — is an account-takeover hole,
+# because `get_workspace_context` derives the user from the `X-User-ID` header,
+# which the caller controls: anyone able to reach the API could install their own
+# password on `ismael-legacy` (a default published in this repo) or on any
+# invited/OAuth user that has not registered yet, and walk away with durable
+# credentials. Claiming an account by *email* is already handled safely by
+# `/register` above; the remaining case — the legacy account, whose email is the
+# placeholder `user@example.com` — is a one-time local migration, so it lives in
+# `pipeline/scripts/set_user_password.py`, which needs filesystem access to the
+# management DB and therefore has no remote attack surface at all.
 
 
 @router.post("/login")
@@ -245,7 +205,7 @@ def login(
     db: Session = Depends(get_mgmt_db),
 ):
     """Login via email + password. 401 if credentials are incorrect."""
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = _find_user_by_email(db, payload.email)
     if not user or not user.password_hash:
         # Same message for "doesn't exist" and "has no password" to avoid
         # enumeration attacks (attack: trying emails to find out if they exist).
