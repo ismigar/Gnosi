@@ -10726,12 +10726,37 @@ async def upload_property_file(
     return _file_response_payload(dest_path, url_type)
 
 
+def _numbered_candidate(directory: Path, stem: str, ext: str, index: int) -> Path:
+    """`stem.ext` for index 1, `stem-2.ext`, `stem-3.ext`… afterwards.
+
+    The numbering every attachment path shares, so a field with a name pattern
+    produces a readable series ("Autor - 2024 - Títol", "… -2", "… -3") instead
+    of one name plus random hashes.
+    """
+    return directory / (f"{stem}{ext}" if index <= 1 else f"{stem}-{index}{ext}")
+
+
+# Ceiling on the numbering probe. A field pattern that resolves to the same name
+# for hundreds of rows is a schema problem, not something to spin on; past this
+# we fall back to a random suffix, which always terminates.
+_MAX_NUMBERED_ATTEMPTS = 500
+
+
 def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path, target_name: str = "") -> Path:
     """Save an UploadFile to target_dir and return the absolute destination path.
 
     If `target_name` (an already-interpolated name pattern) is provided, it is used as
     the base of the name (sanitized) instead of the file's original name.
-    
+
+    Several files uploaded to the SAME field share that target name (the pattern
+    interpolates the row's metadata, not the file), so the destination is
+    numbered: "Nom.pdf", "Nom-2.pdf", "Nom-3.pdf"… — matching what
+    link-existing-file does when it renames in place.
+
+    Each candidate is created with "xb" (exclusive): the create is what claims
+    the name, so two uploads racing for the same number can't both win and
+    silently overwrite each other. A plain exists() check would leave that gap
+    open between the check and the write.
     """
     target_dir.mkdir(parents=True, exist_ok=True)
     original_name = upload.filename or "upload.bin"
@@ -10740,9 +10765,16 @@ def _save_uploaded_file_to_dir(upload: UploadFile, target_dir: Path, target_name
         stem = _sanitize_filename_base(target_name.strip())
     else:
         stem = _sanitize_asset_segment(Path(original_name).stem, "upload")
-    destination = target_dir / f"{stem}{ext}"
-    if destination.exists():
-        destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
+    for index in range(1, _MAX_NUMBERED_ATTEMPTS + 1):
+        destination = _numbered_candidate(target_dir, stem, ext, index)
+        try:
+            handle = open(destination, "xb")
+        except FileExistsError:
+            continue
+        with handle as buffer:
+            shutil.copyfileobj(upload.file, buffer)
+        return destination
+    destination = target_dir / f"{stem}-{uuid.uuid4().hex[:8]}{ext}"
     with open(destination, "wb") as buffer:
         shutil.copyfileobj(upload.file, buffer)
     return destination
@@ -10782,15 +10814,19 @@ async def link_existing_file(body: dict):
     if target_name:
         new_stem = _sanitize_filename_base(target_name)
         ext = p.suffix
-        desired = p.parent / f"{new_stem}{ext}"
+        desired = _numbered_candidate(p.parent, new_stem, ext, 1)
         if desired != p:
             if desired.exists():
-                i = 2
-                cand = p.parent / f"{new_stem}-{i}{ext}"
-                while cand.exists():
-                    i += 1
-                    cand = p.parent / f"{new_stem}-{i}{ext}"
-                desired = cand
+                # Same numbering as the upload path, so a batch linked into one
+                # folder reads as a series: "Nom.pdf", "Nom-2.pdf", "Nom-3.pdf".
+                # Past the ceiling, a random suffix keeps the link working
+                # instead of renaming over an existing file.
+                desired = p.parent / f"{new_stem}-{uuid.uuid4().hex[:8]}{ext}"
+                for index in range(2, _MAX_NUMBERED_ATTEMPTS + 1):
+                    cand = _numbered_candidate(p.parent, new_stem, ext, index)
+                    if not cand.exists():
+                        desired = cand
+                        break
             try:
                 p.rename(desired)
                 p = desired
