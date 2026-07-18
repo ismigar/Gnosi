@@ -39,3 +39,17 @@ debug_mcp_spawn.py
 reproduce_issue.py
 start_server.sh
 mastodon_test.py
+
+# Scratch dir dels agents (brain/<session-uuid>/scratch), local.
+brain/
+
+# SQLite del vault generat en runtime (mai es comita).
+vault.db
+
+# Backups manuals de config (params.yaml.bak-ollama-native, etc.).
+*.bak-*
+
+# Config per-màquina del sync de Zotero: el JSON viu porta target_table,
+# credencials i mapping reals. Es versiona només la plantilla `.example`
+# (mateixa convenció que config/params.yaml + params.yaml.example).
+pipeline/skills/zotero_sync/zotero_db_config.json
