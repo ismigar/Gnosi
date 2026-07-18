@@ -868,10 +868,11 @@ export const InsertContentModal = ({
                 initialQuery={uploadFile?.name || ''}
                 onClose={() => setPickerOpen(false)}
                 onSelect={handleSelectLocal}
-                // A `files` field with a name pattern renames every linked file
-                // to the SAME target name, so a batch would collide on disk:
-                // there, keep the picker single-pick.
-                onSelectMany={resolvedName ? null : handleSelectLocalMany}
+                // Works for a `files` field with a name pattern too: every file
+                // in the batch resolves to the same target name, and the backend
+                // numbers them ("Nom.pdf", "Nom-2.pdf", "Nom-3.pdf") instead of
+                // overwriting.
+                onSelectMany={handleSelectLocalMany}
             />
 
             {/* Destination folder for a 'free' field (asked per attachment) */}
