@@ -4502,7 +4502,6 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 rowMetadata={metadata}
                                                                 value={metadata[prop.name] || ''}
                                                                 onChange={val => handleMetaChange(prop.name, val)}
-                                                                apiFetch={apiFetch}
                                                             />
                                                         ) : (
                                                             <FileFieldValue value={metadata[prop.name]} field={prop.name} variant="detail" />

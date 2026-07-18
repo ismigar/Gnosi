@@ -2532,7 +2532,9 @@
     "kind_folder": "Carpeta",
     "kind_youtube": "YouTube",
     "kind_vimeo": "Vimeo",
-    "kind_web": "Pàgina web"
+    "kind_web": "Pàgina web",
+    "upload_target_free": "Triaràs la carpeta de destinació en el pas següent",
+    "upload_target_free_named": "Triaràs la carpeta de destinació; es desarà com a «{{name}}»"
   },
   "page_view": {
     "title": "Afegir vista de BD",

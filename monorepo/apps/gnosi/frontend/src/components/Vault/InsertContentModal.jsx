@@ -206,6 +206,14 @@ export const InsertContentModal = ({
     // (OneDrive/iCloud) before uploading it — drives the "downloading" hint.
     const [materializing, setMaterializing] = useState(false);
     const [pickerOpen, setPickerOpen] = useState(false);
+    // Destination-folder picker for a `storage_folder: 'free'` field, where the
+    // user chooses where EACH attachment lands. Promise-based so the upload
+    // flow can await the choice; resolved with null on cancel.
+    const [destPicker, setDestPicker] = useState(null);
+    const chooseDestFolder = useCallback(
+        () => new Promise((resolve) => setDestPicker({ resolve })),
+        [],
+    );
     // Metadata for the composite image field (alt/title/caption/credit).
     const [imgMeta, setImgMeta] = useState({});
     useEffect(() => {
@@ -331,7 +339,12 @@ export const InsertContentModal = ({
         ? interpolateNamePattern(fileField.namePattern, rowMetadata)
         : '';
 
-    const performUpload = useCallback(async (file) => {
+    // 'free' fields have no fixed destination: the folder travels per upload as
+    // `dest_folder` (resolved ONCE by the caller, so a multi-file upload asks
+    // the user a single time instead of once per file).
+    const isFreeStorage = isFieldUpload && fileField?.storageFolder === 'free';
+
+    const performUpload = useCallback(async (file, destFolder = '') => {
         // Online-only cloud placeholders (OneDrive/iCloud) have no local bytes:
         // assertFileReadable triggers the download and waits for it (showing a
         // "downloading" hint) so the upload works on the FIRST try. A local file
@@ -351,6 +364,7 @@ export const InsertContentModal = ({
                 storage_folder: fileField.storageFolder || 'assets',
             });
             if (resolvedName) params.set('target_name', resolvedName);
+            if (destFolder) formData.append('dest_folder', destFolder);
             url = `/api/vault/upload-property-file?${params.toString()}`;
         } else {
             url = tableId ? `/api/vault/assets/upload?table_id=${encodeURIComponent(tableId)}` : '/api/vault/assets/upload';
@@ -401,11 +415,18 @@ export const InsertContentModal = ({
             handlePickUploadFile(files[0]);
             return;
         }
+        // Asked BEFORE setBusy so the picker isn't blocked behind the spinner,
+        // and only once for the whole batch.
+        let destFolder = '';
+        if (isFreeStorage) {
+            destFolder = await chooseDestFolder();
+            if (!destFolder) return; // cancelled
+        }
         setBusy(true);
         try {
             const urls = [];
             for (const f of files) {
-                const u = await performUpload(f);
+                const u = await performUpload(f, destFolder);
                 if (u) urls.push(u);
             }
             if (!urls.length) throw new Error(t('insert.error_no_upload', "No s'ha pogut pujar cap fitxer"));
@@ -455,11 +476,18 @@ export const InsertContentModal = ({
             return;
         }
         if (!selected) return;
+        // Same as the batch path: the 'free' destination is chosen before the
+        // spinner takes over, and cancelling it aborts the insertion.
+        let destFolder = '';
+        if (isFreeStorage && selected.source === 'upload-pending' && uploadFile) {
+            destFolder = await chooseDestFolder();
+            if (!destFolder) return; // cancelled
+        }
         setBusy(true);
         try {
             let finalUrl = selected.url || '';
             if (selected.source === 'upload-pending' && uploadFile) {
-                finalUrl = await performUpload(uploadFile);
+                finalUrl = await performUpload(uploadFile, destFolder);
             } else if (selected.source === 'local' && selected.path) {
                 finalUrl = await registerLocalFile(selected.path);
             } else if (selected.source === 'local-folder' && selected.path) {
@@ -488,7 +516,7 @@ export const InsertContentModal = ({
         } finally {
             setBusy(false);
         }
-    }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta, currentSrc]);
+    }, [selected, uploadFile, mode, performUpload, registerLocalFile, onInsert, onClose, t, imageField, imgMeta, currentSrc, isFreeStorage, chooseDestFolder]);
 
     // Canonical keyboard: Esc closes, Enter confirms the insertion (mirrors the button
     // "Insert": disabled if !canInsert or busy), Tab does focus-trap inside the
@@ -503,8 +531,8 @@ export const InsertContentModal = ({
         onConfirm: handleConfirm,
         confirmDisabled: !canInsert || busy,
         containerRef: panelRef,
-        trapFocus: !pickerOpen,
-        closeOnEscape: !pickerOpen,
+        trapFocus: !pickerOpen && !destPicker,
+        closeOnEscape: !pickerOpen && !destPicker,
     });
 
     if (!open) return null;
@@ -628,11 +656,15 @@ export const InsertContentModal = ({
                                                 ? t('insert.drop_or_click_multi', { defaultValue: 'Arrossega fitxers aquí o clica per triar-ne (pots triar-ne diversos)' })
                                                 : t('insert.drop_or_click', { defaultValue: 'Arrossega un fitxer aquí o clica per triar-lo' })}</div>
                                             <div className="text-xs text-[var(--text-tertiary)]">
-                                                {isFieldUpload && fileField?.storageFolder === 'library'
+                                                {isFreeStorage
                                                     ? (resolvedName
-                                                        ? t('insert.upload_target_library_named', { defaultValue: 'Es desarà a Library com a «{{name}}»', name: resolvedName })
-                                                        : t('insert.upload_target_library', { defaultValue: 'El fitxer es desarà a Library' }))
-                                                    : t('insert.upload_target', { defaultValue: 'El fitxer es copiarà dins el Vault (Assets/)' })}
+                                                        ? t('insert.upload_target_free_named', { defaultValue: 'Triaràs la carpeta de destinació; es desarà com a «{{name}}»', name: resolvedName })
+                                                        : t('insert.upload_target_free', { defaultValue: 'Triaràs la carpeta de destinació en el pas següent' }))
+                                                    : isFieldUpload && fileField?.storageFolder === 'library'
+                                                        ? (resolvedName
+                                                            ? t('insert.upload_target_library_named', { defaultValue: 'Es desarà a Library com a «{{name}}»', name: resolvedName })
+                                                            : t('insert.upload_target_library', { defaultValue: 'El fitxer es desarà a Library' }))
+                                                        : t('insert.upload_target', { defaultValue: 'El fitxer es copiarà dins el Vault (Assets/)' })}
                                             </div>
                                         </>
                                     )}
@@ -792,6 +824,14 @@ export const InsertContentModal = ({
                 initialQuery={uploadFile?.name || ''}
                 onClose={() => setPickerOpen(false)}
                 onSelect={handleSelectLocal}
+            />
+
+            {/* Destination folder for a 'free' field (asked per attachment) */}
+            <FilesystemPickerModal
+                isOpen={Boolean(destPicker)}
+                mode="folder"
+                onClose={() => { destPicker?.resolve?.(null); setDestPicker(null); }}
+                onSelect={(absolutePath) => { destPicker?.resolve?.(absolutePath); setDestPicker(null); }}
             />
         </>
     );

@@ -2642,7 +2642,9 @@
     "kind_folder": "Folder",
     "kind_youtube": "YouTube",
     "kind_vimeo": "Vimeo",
-    "kind_web": "Web page"
+    "kind_web": "Web page",
+    "upload_target_free": "You'll choose the destination folder in the next step",
+    "upload_target_free_named": "You'll choose the destination folder; it will be saved as “{{name}}”"
   },
   "page_view": {
     "title": "Add database view",

@@ -11,6 +11,7 @@ from fastapi import (
     Body,
     BackgroundTasks,
     File,
+    Form,
     UploadFile,
     Query,
     Depends,
@@ -10587,15 +10588,53 @@ async def save_custom_icons(request: CustomIconsRequest):
     return {"icons": saved}
 
 
-def _resolve_storage_dir(storage_folder: str, table, database, property_name: str) -> tuple[Path, str]:
+# Legacy `storage_folder` values kept working: the Library folder was called
+# "Biblioteca" before the rename, and registries written back then still carry
+# it. Without this alias the value matched no branch and silently fell through
+# to Assets — a field configured for the Library uploaded to Assets instead
+# (seen on Recursos/"Arxiu/s", whose config is still storage_folder=biblioteca).
+_STORAGE_FOLDER_ALIASES = {"biblioteca": "library"}
+
+
+def _normalize_storage_folder(storage_folder: str) -> str:
+    """Canonical `storage_folder` key: lowercased, trimmed, legacy names mapped."""
+    key = str(storage_folder or "").strip().lower()
+    return _STORAGE_FOLDER_ALIASES.get(key, key)
+
+
+def _resolve_storage_dir(
+    storage_folder: str, table, database, property_name: str, dest_folder: str = ""
+) -> tuple[Path, str]:
     """Resolve the target directory and URL prefix based on storage_folder config.
 
     Returns (target_dir, url_prefix_type) where url_prefix_type is 'assets' or 'absolute'.
+
+    'free' means the user picks the destination per attachment, so it is the ONE
+    mode where the caller-supplied `dest_folder` decides where the file lands —
+    anywhere on the host, by design (the same trust model as
+    /api/system/browse and link-existing-file, which already read arbitrary host
+    paths). It is still required to be an absolute path to an existing
+    directory: a relative or missing one is a client bug, and silently creating
+    the tree would scatter uploads in unexpected places.
     """
-    if storage_folder == "library":
+    normalized = _normalize_storage_folder(storage_folder)
+    if normalized == "library":
         library = get_p("LIBRARY")
         library.mkdir(parents=True, exist_ok=True)
         return library, "absolute"
+    if normalized == "free":
+        chosen = str(dest_folder or "").strip()
+        if not chosen:
+            raise HTTPException(
+                status_code=400,
+                detail="dest_folder is mandatory for a 'free' storage field",
+            )
+        target = Path(chosen).expanduser()
+        if not target.is_absolute():
+            raise HTTPException(status_code=400, detail="dest_folder must be an absolute path")
+        if not target.is_dir():
+            raise HTTPException(status_code=400, detail="dest_folder is not an existing directory")
+        return target, "absolute"
     # Default: assets (nested per DB/Table/Property)
     return _property_assets_dir(table, database, property_name), "assets"
 
@@ -10641,13 +10680,17 @@ async def upload_property_file(
     storage_folder: str = Query(default="assets"),
     target_name: str = Query(default=""),
     file: UploadFile = File(...),
+    dest_folder: str = Form(default=""),
 ):
     """Upload a file for a property. Routes to Assets/, Library/ or a free path
     depending on the storage_folder parameter (assets | library | free).
 
     `target_name` (optional): base name already interpolated from the field's pattern
     (e.g. "Authors - Year - Title"). If provided, the file is saved with
-    this name (sanitized) + the original extension."""
+    this name (sanitized) + the original extension.
+
+    `dest_folder` (only for storage_folder='free'): absolute host directory the
+    user picked for THIS attachment."""
     registry = load_registry()
     table, database = _resolve_table_and_database_for_assets(table_id, registry)
     if not table:
@@ -10666,7 +10709,9 @@ async def upload_property_file(
     configured_storage = str(_property_config_value(target_prop, "storage_folder") or "").strip()
     effective_storage = configured_storage or storage_folder
 
-    target_dir, url_type = _resolve_storage_dir(effective_storage, table, database, property_clean)
+    target_dir, url_type = _resolve_storage_dir(
+        effective_storage, table, database, property_clean, dest_folder
+    )
     try:
         # Offload the blocking write to a worker thread (see upload_asset): a cold
         # OneDrive folder can block the copy for tens of seconds, and running it
