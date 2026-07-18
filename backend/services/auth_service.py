@@ -83,15 +83,29 @@ def hash_password(plain: str) -> str:
 def verify_password(plain: str, hashed: str) -> bool:
     """True if `plain` matches the hash.
 
-    Never raises on malformed input: an unparseable hash, a wrong type or an
-    over-long password are all treated as "does not match".
+    Never raises on malformed input: an unparseable hash or a wrong type is
+    treated as "does not match".
+
+    Over-long passwords fall back to comparing the first
+    `BCRYPT_MAX_PASSWORD_BYTES` bytes. This is NOT a shortcut — it is required to
+    keep existing users able to log in. passlib's bcrypt handler ships with
+    `truncate_error=False`, so every install that hashed through passlib stored
+    `hash(password[:72])` for anything longer, and `/register` accepted up to 128
+    characters. Rejecting outright here would tell those users "wrong
+    credentials" forever, with nothing in the logs to explain it. Byte-slicing
+    (not character-slicing) is what passlib did, so the comparison matches.
+
+    The cost is that for such a legacy hash, the full password and its 72-byte
+    prefix both authenticate — inherent to what was stored, not something this
+    function can undo. New passwords cannot reach this state: `hash_password`
+    refuses over-long input, so the fallback only ever applies to old hashes.
     """
     if not plain or not hashed:
         return False
     try:
         encoded = plain.encode("utf-8")
         if len(encoded) > BCRYPT_MAX_PASSWORD_BYTES:
-            return False
+            encoded = encoded[:BCRYPT_MAX_PASSWORD_BYTES]
         return bcrypt.checkpw(encoded, hashed.encode("utf-8"))
     except (ValueError, TypeError):
         return False
