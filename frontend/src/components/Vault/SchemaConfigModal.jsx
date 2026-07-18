@@ -486,13 +486,19 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
     const { t } = useTranslation();
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: field.id });
 
+    // Sorted alphabetically: these pickers are for finding a field, unlike the
+    // schema list itself, whose (drag-and-drop) order is the user's column order.
+    const byName = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+
     const relationFieldOptions = allFields
         .filter((candidate) => candidate.id !== field.id && candidate.type === 'relation' && candidate.name?.trim())
-        .map((candidate) => candidate.name.trim());
+        .map((candidate) => candidate.name.trim())
+        .sort(byName);
 
     const targetPropertyOptions = allFields
         .filter((candidate) => candidate.id !== field.id && candidate.name?.trim())
-        .map((candidate) => candidate.name.trim());
+        .map((candidate) => candidate.name.trim())
+        .sort(byName);
 
     const style = {
         transform: CSS.Transform.toString(transform),

@@ -1005,6 +1005,16 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         name === 'title' ? t('view.column_title', { defaultValue: 'Títol' }) : capitalizeFirst(name)
     );
 
+    // Field pickers (filters, sorting, grouping, per-type controls) list the fields
+    // alphabetically by their visible label: with dozens of properties the schema
+    // order is unusable to find one. `tableFields` keeps its own order because it
+    // also feeds the visible-columns list, where the order IS the user's column order.
+    const sortedTableFields = useMemo(
+        () => [...tableFields].sort((a, b) => fieldLabel(a.name).localeCompare(fieldLabel(b.name), undefined, { sensitivity: 'base' })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [tableFields, t]
+    );
+
     // Initial value of a filter based on the field type: checkboxes start
     // with a specific boolean ('false' = unchecked) instead of empty, because the
     // engine's boolean comparison also matches rows with no value.
@@ -1320,12 +1330,12 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
 
     // Schema fields suitable for each per-type control: grouping of
     // Kanban (fields with bounded values) and calendar/timeline time axis.
-    const groupFieldOptions = tableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
-    const dateFieldOptions = tableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
-    const numericFieldOptions = tableFields.filter(f => NUMERIC_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const groupFieldOptions = sortedTableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const dateFieldOptions = sortedTableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const numericFieldOptions = sortedTableFields.filter(f => NUMERIC_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
     // Fields suitable for the gallery cover: attachments/images/URL or fields with
     // an image name (the gallery extracts the src from it with getImageSrc).
-    const coverFieldOptions = tableFields.filter(f => {
+    const coverFieldOptions = sortedTableFields.filter(f => {
         const ty = String(f.type || '').toLowerCase();
         return ty === 'files' || ty === 'image' || ty === 'url' || /imatge|image|cover|portada|foto|photo|thumbnail|miniatura/i.test(f.name || '');
     });
@@ -1633,7 +1643,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                     className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                                 >
                                                     <option value="">{t('view.pick_field', '— Tria un camp —')}</option>
-                                                    {tableFields.map(f => (
+                                                    {sortedTableFields.map(f => (
                                                         <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
                                                     ))}
                                                 </select>
@@ -1899,9 +1909,8 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                         const selected = visibleProperties
                                             .map(n => fieldMeta[n])
                                             .filter(Boolean);
-                                        const available = tableFields
-                                            .filter(f => !visibleProperties.includes(f.name))
-                                            .sort((a, b) => fieldLabel(a.name).localeCompare(fieldLabel(b.name), undefined, { sensitivity: 'base' }));
+                                        const available = sortedTableFields
+                                            .filter(f => !visibleProperties.includes(f.name));
                                         return (
                                             <>
                                                 <div>
@@ -1978,7 +1987,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                     node={filterTree}
                                     onChange={setFilterTree}
                                     depth={0}
-                                    ctx={{ tableFields, fieldMeta, fieldLabel, relationCache, defaultFilterValue, t }}
+                                    ctx={{ tableFields: sortedTableFields, fieldMeta, fieldLabel, relationCache, defaultFilterValue, t }}
                                 />
                             )}
                         </div>
@@ -2021,7 +2030,7 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                                                         value={s.field}
                                                         onChange={e => updateSort(idx, { field: e.target.value })}
                                                     >
-                                                        {tableFields.map(tf => (
+                                                        {sortedTableFields.map(tf => (
                                                             <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
                                                         ))}
                                                     </select>
