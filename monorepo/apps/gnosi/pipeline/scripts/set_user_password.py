@@ -43,7 +43,9 @@ from backend.data.management_db import get_mgmt_db  # noqa: E402
 from backend.models.management import Membership, User  # noqa: E402
 from backend.services.auth_service import (  # noqa: E402
     BCRYPT_MAX_PASSWORD_BYTES,
+    PLACEHOLDER_EMAIL,
     hash_password,
+    normalize_email,
 )
 
 
@@ -96,8 +98,20 @@ def set_password(db, user_id: str, email: str | None, name: str | None, force: b
         )
         return 1
 
+    if not email and normalize_email(user.email) == PLACEHOLDER_EMAIL:
+        # The whole reason this script takes an --email is that the legacy
+        # account carries a placeholder address, identical on every install.
+        # Setting a password without replacing it would leave that address as the
+        # operator's permanent login identity — the outcome this exists to avoid.
+        print(
+            f"L'usuari '{user_id}' encara té l'email marcador '{PLACEHOLDER_EMAIL}'. "
+            "Torna-ho a executar amb --email <el teu email real>.",
+            file=sys.stderr,
+        )
+        return 1
+
     if email:
-        normalized = email.strip().lower()
+        normalized = normalize_email(email)
         # Case-insensitive: the DB unique index does not collapse case, so an
         # exact-match check would let `Other@x.com` coexist with `other@x.com`
         # and make login order-dependent.

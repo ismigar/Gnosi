@@ -83,6 +83,21 @@ match", so it looked like bad credentials rather than a broken dependency.
 - **Do not** add an HTTP endpoint that sets credentials on the account resolved
   from the request — see phase 1. Anything derived from `X-User-ID` is
   caller-controlled and therefore not an identity.
+- **Do not** let `/register`'s claim flow reach the auto-provisioned account.
+  Removing the endpoint above was not enough on its own: the placeholder address
+  (`PLACEHOLDER_EMAIL`, identical on every install and published in this repo)
+  made the same takeover available through `/register` with no knowledge at all —
+  verified as 201 + session cookie before the guard was added. The claim flow is
+  for INVITED users, where an admin deliberately entered a real address.
+  **Still open by design:** an attacker who knows a colleague's address can claim
+  their invited account before they register. Closing that needs an invite token,
+  which is a separate piece of work.
+- **Normalize every email on read and write** with
+  `auth_service.normalize_email`. The unique index is case-sensitive, so a path
+  that skips it (the invite flow did) creates a duplicate row that the
+  case-insensitive lookups then resolve by row order. There is still no
+  functional unique index on `lower(email)`, so uniqueness is a convention the
+  write paths must keep, not something the schema enforces.
 - **Blocker for phase 4:** in personal mode `get_workspace_context` calls
   `_ensure_personal_exists`, which **creates a `User` row** for whatever
   `X-User-ID` arrives, plus a duplicate `Vault` row in the shared `personal`

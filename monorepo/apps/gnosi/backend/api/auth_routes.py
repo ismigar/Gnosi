@@ -29,11 +29,13 @@ from backend.data.management_db import get_mgmt_db
 from backend.models.management import User, Membership, Workspace
 from backend.services.auth_service import (
     BCRYPT_MAX_PASSWORD_BYTES,
+    PLACEHOLDER_EMAIL,
     COOKIE_NAME,
     DEFAULT_TTL_DAYS,
     create_access_token,
     get_current_user_id,
     hash_password,
+    normalize_email,
     verify_password,
 )
 
@@ -109,7 +111,7 @@ def _find_user_by_email(db: Session, email: str) -> Optional[User]:
     `victim@corp.com`: the DB unique index does not collapse case either, so both
     rows survived and which one a login reached came down to row order.
     """
-    return db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
+    return db.query(User).filter(func.lower(User.email) == normalize_email(email)).first()
 
 
 def _user_to_info(user: User, db: Session) -> UserInfo:
@@ -154,6 +156,22 @@ def register(
     if existing:
         if existing.password_hash:
             raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
+        # The claim flow below is for INVITED users: someone deliberately created
+        # a membership for their real address, so knowing that address is a weak
+        # but deliberate proof of identity. It must not extend to the
+        # auto-provisioned account, whose address is the same hardcoded
+        # placeholder on every install and is published in this repo — claiming
+        # it needs no knowledge at all, and it owns the workspace, the vaults and
+        # the API tokens. Bootstrapping that account requires filesystem access:
+        # `pipeline/scripts/set_user_password.py`.
+        if normalize_email(existing.email) == PLACEHOLDER_EMAIL:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Aquest compte és el compte local per defecte i no es pot reclamar "
+                    "per email. Executa pipeline/scripts/set_user_password.py al servidor."
+                ),
+            )
         # Claim: assign a password to the pre-existing user (their memberships).
         existing.password_hash = hash_password(payload.password)
         if payload.name and not existing.name:
@@ -168,7 +186,7 @@ def register(
 
     # New case: create user
     user = User(
-        email=payload.email.strip().lower(),
+        email=normalize_email(payload.email),
         name=payload.name or payload.email.split("@", 1)[0],
         password_hash=hash_password(payload.password),
     )
