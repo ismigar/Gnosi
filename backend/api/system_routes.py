@@ -110,6 +110,7 @@ class SearchRequest(BaseModel):
 class NativePickRequest(BaseModel):
     mode: str = "file"  # "file" | "folder"
     prompt: str = ""
+    multiple: bool = False  # files only: allow picking several at once
 
 
 @router.get("/stats")
@@ -301,7 +302,7 @@ _HOST_HEALTH_HELPER_URL = (
 )
 
 
-def _native_pick_via_helper(mode: str, prompt: str, timeout: float = 300.0):
+def _native_pick_via_helper(mode: str, prompt: str, multiple: bool = False, timeout: float = 300.0):
     """Ask the host helper to show the native dialog. Returns its response dict
     ({"status": "ok"|"cancelled", ...}), or None if the helper is unavailable.
 
@@ -314,7 +315,7 @@ def _native_pick_via_helper(mode: str, prompt: str, timeout: float = 300.0):
     try:
         req = urllib.request.Request(
             _HOST_PICK_HELPER_URL,
-            data=json.dumps({"mode": mode, "prompt": prompt}).encode("utf-8"),
+            data=json.dumps({"mode": mode, "prompt": prompt, "multiple": multiple}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
         )
@@ -374,7 +375,9 @@ async def native_pick(request: Request, body: NativePickRequest = Body(...)):
     <input type=file>, so the choice is delegated to the host_open_helper, which
     runs AppleScript's `choose file`/`choose folder` in the user's GUI session.
     Loopback-only. The returned path is a HOST path — the same shape /browse
-    hands to the frontend's onSelect — so the caller's flow is unchanged.
+    hands to the frontend's onSelect — so the caller's flow is unchanged. With
+    `multiple` (files only) the response also carries `paths`, the full list;
+    `path` stays the first one so single-pick callers need no change.
     Returns {"status": "cancelled"} verbatim when the user dismisses the dialog.
     """
     if not _is_loopback_request(request):
@@ -382,7 +385,9 @@ async def native_pick(request: Request, body: NativePickRequest = Body(...)):
     mode = (body.mode or "file").strip().lower()
     if mode not in ("file", "folder"):
         mode = "file"
-    result = await asyncio.to_thread(_native_pick_via_helper, mode, body.prompt or "")
+    # Multi-select only makes sense for files: `choose folder` stays single.
+    multiple = bool(body.multiple) and mode == "file"
+    result = await asyncio.to_thread(_native_pick_via_helper, mode, body.prompt or "", multiple)
     if result is None:
         raise HTTPException(status_code=502, detail="Host picker helper unavailable")
     return result

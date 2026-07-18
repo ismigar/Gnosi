@@ -1432,7 +1432,7 @@ export function EditorInner({
                 const anchor = editor.getTextCursorPosition?.()?.block || block;
                 requestInsertContent({ initialTab: 'vault' })
                     .then(result => {
-                        if (result?.url) applyInsertResultRef.current?.(result, anchor);
+                        if (result?.url || result?.items?.length) applyInsertResultRef.current?.(result, anchor);
                     })
                     .catch(err => {
                         if (!String(err?.message || '').match(/cancelled|superseded/)) {
@@ -1637,7 +1637,7 @@ export function EditorInner({
                         continue;
                     }
                     const result = await requestInsertContent({ initialFile: file, initialTab: 'upload' });
-                    if (result?.url) applyInsertResultRef.current?.(result, anchor);
+                    if (result?.url || result?.items?.length) applyInsertResultRef.current?.(result, anchor);
                 } catch (err) {
                     if (!String(err?.message || '').match(/cancelled|superseded/)) {
                         console.error('file insert failed', err);
@@ -2504,7 +2504,23 @@ export function EditorInner({
     // - mode='link'  → inline link `[name](url)`
     // - mode='frame' → `embed` block (iframe / viewer)
     // - mode='block' → native BlockNote block according to the kind (image/video/audio/file)
-    const applyInsertResult = ({ url, mode, kind, name }, anchor = null) => {
+    const applyInsertResult = ({ url, mode, kind, name, items }, anchor = null) => {
+        // Batch pick (several files from the disk browser): one link per file,
+        // separated by a space so they read as a list in the same paragraph.
+        if (Array.isArray(items) && items.length) {
+            const content = [];
+            items.forEach((it, i) => {
+                if (i > 0) content.push({ type: 'text', text: ' ', styles: {} });
+                content.push({
+                    type: 'link',
+                    href: it.url,
+                    content: [{ type: 'text', text: it.name || it.url, styles: {} }],
+                });
+            });
+            editor.insertInlineContent(content);
+            editor.focus();
+            return;
+        }
         if (!url) return;
         const safeName = name || url;
         if (mode === 'frame') {
@@ -2871,7 +2887,7 @@ export function EditorInner({
                                     const anchor = editor.getTextCursorPosition().block;
                                     try {
                                         const result = await requestInsertContent({ initialTab: 'vault' });
-                                        if (result?.url) applyInsertResult(result, anchor);
+                                        if (result?.url || result?.items?.length) applyInsertResult(result, anchor);
                                     } catch (err) {
                                         if (!String(err?.message || '').match(/cancelled|superseded/)) {
                                             console.warn('insert content cancelled:', err?.message);

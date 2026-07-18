@@ -176,7 +176,10 @@
       "not_a_directory": "Ce n'est pas un dossier",
       "permission_denied": "Permission refusée. Vérifiez les autorisations du dossier.",
       "access_error": "Impossible d'accéder au chemin"
-    }
+    },
+    "multi_hint": "Cliquez pour cocher plusieurs fichiers · double-cliquez pour n’en choisir qu’un",
+    "selected_count": "{{count}} fichiers sélectionnés",
+    "select_files_count": "Sélectionner {{count}} fichiers"
   },
   "settings": {
     "close_settings": "Fermer la configuration",
@@ -1991,7 +1994,8 @@
     "kind_vimeo": "Vimeo",
     "kind_web": "Page web",
     "upload_target_free": "Vous choisirez le dossier de destination à l'étape suivante",
-    "upload_target_free_named": "Vous choisirez le dossier de destination ; il sera enregistré sous « {{name}} »"
+    "upload_target_free_named": "Vous choisirez le dossier de destination ; il sera enregistré sous « {{name}} »",
+    "from_local_multi": "{{count}} fichiers du disque local"
   },
   "page_view": {
     "title": "Ajouter une vue de BD",

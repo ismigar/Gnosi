@@ -15,12 +15,15 @@ Endpoints:
                               Search by name with Spotlight (`mdfind`), fast
                               thanks to the system's live index.
                               Response: {"results": [...], "truncated": bool}
-    POST /pick              → {"mode": "file"|"folder", "prompt": "..."}
+    POST /pick              → {"mode": "file"|"folder", "prompt": "...",
+                               "multiple": bool}
                               Show the native macOS open dialog (AppleScript
                               `choose file`/`choose folder`) and return the
-                              chosen POSIX path — the absolute host path a
+                              chosen POSIX path(s) — the absolute host paths a
                               browser can never read from an <input type=file>.
-                              Response: {"status": "ok", "path": "...", "is_dir": bool}
+                              `multiple` (files only) allows picking several.
+                              Response: {"status": "ok", "path": "...",
+                                         "paths": [...], "is_dir": bool}
                               or {"status": "cancelled"} if the user cancels.
     POST /trash             → {"path": "/Users/..."} or {"path": "file:///..."}
                               Moves the file to the Mac's Trash (RECOVERABLE).
@@ -131,14 +134,27 @@ def _move_to_trash(path: Path) -> None:
     raise RuntimeError("trash no suportat en aquesta plataforma")
 
 
-def _native_choose(mode: str, prompt: str) -> dict:
-    """Show the native macOS open dialog and return the chosen POSIX path.
+# Separator between the paths osascript prints when several files are chosen.
+# A newline would be ambiguous: macOS filenames may legally contain one (only
+# "/" and NUL are forbidden), so a multi-pick of such a file would split into
+# two bogus paths. ASCII 30 (record separator) is a control character no file
+# manager can type into a name.
+_PICK_SEP = "\x1e"
+
+
+def _native_choose(mode: str, prompt: str, multiple: bool = False) -> dict:
+    """Show the native macOS open dialog and return the chosen POSIX path(s).
 
     Uses AppleScript Standard Additions (`choose file` / `choose folder`) via
-    `osascript`. `prompt` and `mode` are passed as argv (`on run argv`), never
-    interpolated into the script → not injectable. The dialog blocks until the
-    user picks or cancels; cancelling raises AppleScript error -128, which we
-    translate to a clean {"status": "cancelled"} rather than an error.
+    `osascript`. `prompt`, `mode` and the multi flag are passed as argv
+    (`on run argv`), never interpolated into the script → not injectable. The
+    dialog blocks until the user picks or cancels; cancelling raises AppleScript
+    error -128, which we translate to a clean {"status": "cancelled"} rather
+    than an error.
+
+    `multiple` only applies to files: `choose folder` gets no multi-select here
+    because every caller links a single folder. The result always carries
+    `paths` (a list) plus `path` (the first one) so older callers keep working.
 
     `activate` brings the dialog to the front (the helper is a faceless
     LaunchAgent, so its window would otherwise open behind the browser). macOS
@@ -151,17 +167,28 @@ def _native_choose(mode: str, prompt: str) -> dict:
         "on run argv\n"
         "  set thePrompt to item 1 of argv\n"
         "  set theMode to item 2 of argv\n"
+        "  set theMulti to item 3 of argv\n"
+        "  set theSep to character id 30\n"
         "  activate\n"
         '  if theMode is "folder" then\n'
-        "    set theResult to POSIX path of (choose folder with prompt thePrompt)\n"
+        "    set theItems to {choose folder with prompt thePrompt}\n"
+        '  else if theMulti is "multi" then\n'
+        "    set theItems to (choose file with prompt thePrompt "
+        "with multiple selections allowed)\n"
         "  else\n"
-        "    set theResult to POSIX path of (choose file with prompt thePrompt)\n"
+        "    set theItems to {choose file with prompt thePrompt}\n"
         "  end if\n"
+        "  set theResult to \"\"\n"
+        "  repeat with anItem in theItems\n"
+        "    if theResult is not \"\" then set theResult to theResult & theSep\n"
+        "    set theResult to theResult & (POSIX path of anItem)\n"
+        "  end repeat\n"
         "  return theResult\n"
         "end run"
     )
     proc = subprocess.run(
-        ["osascript", "-e", script, prompt or "", mode or "file"],
+        ["osascript", "-e", script, prompt or "", mode or "file",
+         "multi" if multiple else "single"],
         capture_output=True, text=True, timeout=300,
     )
     if proc.returncode != 0:
@@ -170,11 +197,14 @@ def _native_choose(mode: str, prompt: str) -> dict:
         if "-128" in stderr or "canceled" in stderr.lower() or "cancelled" in stderr.lower():
             return {"status": "cancelled"}
         raise RuntimeError(stderr or "osascript error")
-    path = (proc.stdout or "").strip()
-    if not path:
+    raw = (proc.stdout or "").strip()
+    if not raw:
         return {"status": "cancelled"}
-    p = Path(path)
-    return {"status": "ok", "path": str(p), "is_dir": p.is_dir()}
+    paths = [str(Path(chunk)) for chunk in raw.split(_PICK_SEP) if chunk.strip()]
+    if not paths:
+        return {"status": "cancelled"}
+    first = Path(paths[0])
+    return {"status": "ok", "path": str(first), "paths": paths, "is_dir": first.is_dir()}
 
 
 # Non-hidden path components that we never want in search results. The
@@ -392,8 +422,9 @@ class Handler(BaseHTTPRequestHandler):
         if mode not in ("file", "folder"):
             mode = "file"
         prompt = str((payload or {}).get("prompt") or "").strip()
+        multiple = bool((payload or {}).get("multiple"))
         try:
-            result = _native_choose(mode, prompt)
+            result = _native_choose(mode, prompt, multiple)
         except Exception as exc:
             LOG.exception("pick failed")
             self._send(500, {"detail": f"could not pick: {exc}"})

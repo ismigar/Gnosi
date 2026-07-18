@@ -36,12 +36,18 @@ const saveLastPath = (path) => {
  *     HOST one (the one Finder sees), not the path mapped inside Docker. The
  *     second argument indicates whether it's a folder (always false in 'file' mode,
  *     always true in 'folder' mode).
+ *   - onSelectMany(absoluteHostPaths[]): optional. When provided (and the mode
+ *     shows files), the picker turns multi-select: clicking a file toggles it
+ *     into a checked set instead of returning immediately, and the footer
+ *     confirms the whole batch. The set survives folder navigation, so files
+ *     can be gathered from several folders in one go. Double-clicking a file
+ *     still returns it alone through `onSelect` (single-pick shortcut).
  *   - initialPath: path to start at (internal or host).
  *   - initialQuery: text to pre-fill the search with on open. Useful when
  *     the file name is already known (e.g. the user has dragged a file and
  *     now needs to locate it on disk because the browser doesn't provide its path).
  */
-export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath = '', mode = 'folder', initialQuery = '' }) {
+export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany = null, initialPath = '', mode = 'folder', initialQuery = '' }) {
     const { t } = useTranslation();
     const tn = useCallback((k, opts) => t('fs_picker.' + k, opts), [t]);
     // Localize a backend error: prefer the i18n message keyed by `error_code`,
@@ -69,6 +75,10 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     // results). Shared by keyboard (↑↓) and mouse (hover), same as the
     // canonical MultiSelectPills pattern: a single `highlightedIndex` for both.
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    // Multi-select basket (only when `onSelectMany` is provided). Keyed by host
+    // path so the same file can't be added twice, and kept across folder
+    // navigation and searches so a batch can be gathered from several places.
+    const [checkedPaths, setCheckedPaths] = useState([]);
     // Progressive enhancement: when the browser and backend are on the same Mac
     // and the host helper is up, offer the OS-native open dialog (which returns
     // a real host path the browser itself can't). `false` keeps just the in-app
@@ -118,6 +128,13 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     useEffect(() => {
         if (isOpen) setSearchQuery(initialQuery || '');
     }, [isOpen, initialQuery]);
+
+    // A closed picker must not remember the previous batch: reopening it starts
+    // from an empty basket (the remembered FOLDER is intentional, the selection
+    // isn't).
+    useEffect(() => {
+        if (!isOpen) setCheckedPaths([]);
+    }, [isOpen]);
 
     // Navigation picker with no single primary action (in 'file' mode it's
     // selected by clicking a file in the list; in 'folder'/'any' mode the bottom
@@ -235,9 +252,30 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         ? tn('search_folders_placeholder')
         : tn('search_placeholder');
 
+    // Multi-select is opt-in (a consumer that can't handle a batch simply
+    // doesn't pass `onSelectMany`) and only makes sense where files are shown.
+    const canMulti = showFiles && typeof onSelectMany === 'function';
+    const isChecked = (path) => checkedPaths.includes(path);
+    const toggleChecked = (path) => {
+        setCheckedPaths((prev) => (prev.includes(path) ? prev.filter((p) => p !== path) : [...prev, path]));
+    };
+
     const handleSelectFile = (filename) => {
         const hostPath = joinPath(displayPath || currentPath, filename);
+        if (canMulti) { toggleChecked(hostPath); return; }
         onSelect(hostPath, { isDir: false });
+    };
+
+    // Double-click keeps the single-pick shortcut alive in multi mode: it
+    // returns just that file instead of forcing check + confirm for one item.
+    const handleSelectFileNow = (path) => {
+        saveLastPath(path.slice(0, path.lastIndexOf('/')));
+        onSelect(path, { isDir: false });
+    };
+
+    const handleConfirmMany = () => {
+        if (checkedPaths.length === 0) return;
+        onSelectMany(checkedPaths);
     };
 
     const handleSelectCurrentFolder = () => {
@@ -248,6 +286,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
     // returns a real host path — the same shape onSelect gets from browsing.
     // 'folder' mode picks a folder; 'file'/'any' pick a file (a native dialog
     // can't do both at once, and picking a file is the primary action for both).
+    // When the consumer accepts batches, the dialog is opened with multiple
+    // selections allowed, so ⌘-clicking several files works there too.
     const handleNativePick = async () => {
         if (nativePicking) return;
         setError('');
@@ -257,14 +297,19 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
             const res = await fetch('/api/system/native-pick', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: nativeMode, prompt: titleText }),
+                body: JSON.stringify({ mode: nativeMode, prompt: titleText, multiple: canMulti }),
             });
             if (!res.ok) { setError(tn('native_error')); return; }
             const data = await res.json();
             if (data.status !== 'ok' || !data.path) return; // cancelled → stay open
             // Keep the in-app picker's remembered folder in sync with the choice.
             saveLastPath(data.is_dir ? data.path : data.path.slice(0, data.path.lastIndexOf('/')));
-            onSelect(data.path, { isDir: !!data.is_dir });
+            // Several files chosen in the native dialog: hand the whole batch
+            // over, same as the in-app confirm. One file (or a folder) keeps
+            // the single-pick path, so nothing changes for the other callers.
+            const picked = Array.isArray(data.paths) && data.paths.length ? data.paths : [data.path];
+            if (canMulti && picked.length > 1) onSelectMany(picked);
+            else onSelect(data.path, { isDir: !!data.is_dir });
         } catch {
             setError(tn('native_error'));
         } finally {
@@ -279,11 +324,12 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         if (item.is_dir) {
             setSearchQuery('');
             void browse(item.path);
+        } else if (canMulti) {
+            toggleChecked(item.path);
         } else if (showFiles) {
             // Picking straight from search skips browse(), so remember the
             // file's parent folder here (browse accepts host paths too).
-            saveLastPath(item.path.slice(0, item.path.lastIndexOf('/')));
-            onSelect(item.path, { isDir: false });
+            handleSelectFileNow(item.path);
         }
     };
 
@@ -302,6 +348,14 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
         ];
     const itemCount = items.length;
     const optionId = (i) => `fp-opt-${i}`;
+    // Host path of a listed FILE (null for folders): search results carry it,
+    // browsed entries are joined with the folder currently on screen.
+    const itemFilePath = (it) => {
+        if (!it) return null;
+        if (it.kind === 'file') return joinPath(displayPath || currentPath, it.name);
+        if (it.kind === 'search' && !it.data.is_dir) return it.data.path;
+        return null;
+    };
 
     const goUp = () => void browse(joinPath(currentPath, '..'));
 
@@ -347,6 +401,14 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                 if (highlightedIndex >= 0) {
                     e.preventDefault();
                     activate(highlightedIndex);
+                }
+                break;
+            // Space toggles the highlighted file in/out of the batch, the
+            // canonical listbox multi-select key.
+            case ' ':
+                if (canMulti && itemFilePath(items[highlightedIndex])) {
+                    e.preventDefault();
+                    toggleChecked(itemFilePath(items[highlightedIndex]));
                 }
                 break;
             // → only enters folders (doesn't select files, which would be unexpected).
@@ -537,6 +599,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                     const active = i === highlightedIndex;
                                     const isDir = it.kind === 'dir' || (it.kind === 'search' && it.data.is_dir);
                                     const name = it.kind === 'search' ? it.data.name : it.name;
+                                    const filePath = canMulti ? itemFilePath(it) : null;
+                                    const checked = filePath ? isChecked(filePath) : false;
                                     const key = it.kind === 'search'
                                         ? `s:${it.data.is_dir ? 'd' : 'f'}:${it.data.path}`
                                         : `${it.kind === 'dir' ? 'd' : 'f'}:${it.name}`;
@@ -545,13 +609,24 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                                             key={key}
                                             id={optionId(i)}
                                             role="option"
-                                            aria-selected={active}
+                                            aria-selected={filePath ? checked : active}
                                             ref={(el) => { itemRefs.current[i] = el; }}
                                             onClick={() => activate(i)}
+                                            onDoubleClick={() => { if (filePath) handleSelectFileNow(filePath); }}
                                             onMouseEnter={() => setHighlightedIndex(i)}
                                             className="text-[var(--text-primary)]"
-                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: active ? 'var(--bg-secondary)' : 'transparent', cursor: 'pointer', borderRadius: '6px', textAlign: 'left', width: '100%' }}
+                                            style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px 12px', background: checked ? 'var(--bg-tertiary, var(--bg-secondary))' : (active ? 'var(--bg-secondary)' : 'transparent'), cursor: 'pointer', borderRadius: '6px', textAlign: 'left', width: '100%' }}
                                         >
+                                            {filePath && (
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    readOnly
+                                                    tabIndex={-1}
+                                                    aria-hidden="true"
+                                                    style={{ pointerEvents: 'none', flexShrink: 0 }}
+                                                />
+                                            )}
                                             {isDir
                                                 ? <Folder size={18} className="text-[var(--gnosi-primary)]" />
                                                 : <FileIcon size={18} className="text-[var(--text-secondary)]" />}
@@ -589,7 +664,11 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                             className="text-[var(--text-tertiary)]"
                             style={{ fontSize: '0.72rem', lineHeight: 1.4 }}
                         >
-                            {tn('keyboard_hints')}
+                            {canMulti
+                                ? (checkedPaths.length > 0
+                                    ? tn('selected_count', { defaultValue: '{{count}} seleccionats', count: checkedPaths.length })
+                                    : tn('multi_hint', { defaultValue: 'Clica per marcar diversos fitxers; doble clic per triar-ne només un' }))
+                                : tn('keyboard_hints')}
                         </span>
                         <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
                             <button
@@ -599,7 +678,18 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, initialPath =
                             >
                                 {t('common.cancel')}
                             </button>
-                            {canPickFolder && (
+                            {canMulti && checkedPaths.length > 0 && (
+                                <button
+                                    onClick={handleConfirmMany}
+                                    className="btn-gnosi btn-gnosi-primary"
+                                    style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 500 }}
+                                >
+                                    {tn('select_files_count', { defaultValue: 'Selecciona {{count}} fitxers', count: checkedPaths.length })}
+                                </button>
+                            )}
+                            {/* With a batch pending, the folder button would be an
+                                ambiguous second primary action: hide it. */}
+                            {canPickFolder && !(canMulti && checkedPaths.length > 0) && (
                                 <button
                                     onClick={handleSelectCurrentFolder}
                                     className="btn-gnosi btn-gnosi-primary"

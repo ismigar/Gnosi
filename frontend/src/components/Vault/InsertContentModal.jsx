@@ -307,6 +307,23 @@ export const InsertContentModal = ({
         setPickerOpen(false);
     }, []);
 
+    // Batch pick from the disk browser. Several files can only be inserted as
+    // links (one embed/native block per file would be a different, noisier
+    // feature), so `mode` is pinned to 'link' for the batch.
+    const handleSelectLocalMany = useCallback((paths) => {
+        const list = (paths || []).filter(Boolean);
+        if (list.length === 0) return;
+        if (list.length === 1) { handleSelectLocal(list[0], { isDir: false }); return; }
+        setSelected({
+            source: 'local-multi',
+            paths: list,
+            name: list.map((p) => p.split('/').pop() || p).join(', '),
+            kind: 'file',
+        });
+        setMode('link');
+        setPickerOpen(false);
+    }, [handleSelectLocal]);
+
     const handleUrlChange = useCallback((value) => {
         setUrlInput(value);
         const trimmed = value.trim();
@@ -463,7 +480,8 @@ export const InsertContentModal = ({
         if (!open || busy) return;
         const fileSource = selected?.source === 'upload-pending'
             || selected?.source === 'local'
-            || selected?.source === 'local-folder';
+            || selected?.source === 'local-folder'
+            || selected?.source === 'local-multi';
         if (fileSource && canInsert) confirmBtnRef.current?.focus();
     }, [open, busy, canInsert, selected?.source]);
 
@@ -485,6 +503,23 @@ export const InsertContentModal = ({
         }
         setBusy(true);
         try {
+            // Batch of local files: register them one by one (each may need a
+            // OneDrive materialization) and hand the consumer the whole list.
+            // `items` keeps each URL paired with its name so a link batch can be
+            // labelled properly; `urls` is what `files` fields consume.
+            if (selected.source === 'local-multi') {
+                const items = [];
+                for (const path of selected.paths) {
+                    const url = await registerLocalFile(path);
+                    if (url) items.push({ url, name: path.split('/').pop() || path, kind: detectPathKind(path) });
+                }
+                if (!items.length) {
+                    throw new Error(t('insert.error_no_url', "No s'ha pogut obtenir la URL final"));
+                }
+                onInsert?.({ items, urls: items.map((it) => it.url), mode: 'link', kind: 'file' });
+                onClose?.();
+                return;
+            }
             let finalUrl = selected.url || '';
             if (selected.source === 'upload-pending' && uploadFile) {
                 finalUrl = await performUpload(uploadFile, destFolder);
@@ -622,12 +657,17 @@ export const InsertContentModal = ({
                                         {selected.path}
                                     </div>
                                 )}
+                                {selected?.source === 'local-multi' && (
+                                    <div className="px-3 py-2 rounded-lg bg-[var(--bg-secondary)] text-xs font-mono break-all max-w-full text-left max-h-32 overflow-y-auto">
+                                        {selected.paths.map((p) => <div key={p}>{p}</div>)}
+                                    </div>
+                                )}
                                 <button
                                     onClick={() => setPickerOpen(true)}
                                     className="px-4 py-2 rounded-lg bg-[var(--gnosi-primary)] text-white text-sm hover:opacity-90 flex items-center gap-2"
                                 >
                                     <FolderOpen size={14} />
-                                    {(selected?.source === 'local' || selected?.source === 'local-folder')
+                                    {(selected?.source === 'local' || selected?.source === 'local-folder' || selected?.source === 'local-multi')
                                         ? t('insert.local_change', { defaultValue: 'Canvia la selecció' })
                                         : t('insert.local_open', { defaultValue: 'Obre el navegador de fitxers' })}
                                 </button>
@@ -729,6 +769,7 @@ export const InsertContentModal = ({
                                     <div className="text-[var(--text-tertiary)] text-xs ml-auto shrink-0">
                                         {selected.source === 'vault' && t('insert.from_vault', { defaultValue: 'Del Vault' })}
                                         {selected.source === 'local' && t('insert.from_local', { defaultValue: 'Disc local' })}
+                                        {selected.source === 'local-multi' && t('insert.from_local_multi', { defaultValue: '{{count}} fitxers del disc local', count: selected.paths.length })}
                                         {selected.source === 'local-folder' && t('insert.from_local_folder', { defaultValue: 'Carpeta local' })}
                                         {selected.source === 'upload-pending' && t('insert.will_upload', { defaultValue: 'Es pujarà al confirmar' })}
                                         {selected.source === 'url' && t('insert.from_url', { defaultValue: 'URL externa' })}
@@ -739,7 +780,7 @@ export const InsertContentModal = ({
                             )}
                         </div>
 
-                        {busy && (materializing || selected?.source === 'local' || selected?.source === 'local-folder') && (
+                        {busy && (materializing || selected?.source === 'local' || selected?.source === 'local-folder' || selected?.source === 'local-multi') && (
                             <div className="flex items-center gap-1.5 text-xs text-[var(--gnosi-primary)]">
                                 <Loader2 size={12} className="animate-spin" />
                                 {t('insert.materializing', { defaultValue: 'Baixant el fitxer de OneDrive si cal… (pot trigar)' })}
@@ -753,7 +794,10 @@ export const InsertContentModal = ({
                                     { value: 'frame', label: t('insert.mode_frame', { defaultValue: 'Frame' }) },
                                     { value: 'block', label: t('insert.mode_block', { defaultValue: 'Bloc' }) },
                                 ].map(opt => {
-                                    const disabled = selected?.kind ? !modeAvailableFor(selected.kind, opt.value) : false;
+                                    // A batch of files is inserted as links only.
+                                    const disabled = selected?.source === 'local-multi'
+                                        ? opt.value !== 'link'
+                                        : (selected?.kind ? !modeAvailableFor(selected.kind, opt.value) : false);
                                     const active = mode === opt.value;
                                     return (
                                         <button
@@ -824,6 +868,10 @@ export const InsertContentModal = ({
                 initialQuery={uploadFile?.name || ''}
                 onClose={() => setPickerOpen(false)}
                 onSelect={handleSelectLocal}
+                // A `files` field with a name pattern renames every linked file
+                // to the SAME target name, so a batch would collide on disk:
+                // there, keep the picker single-pick.
+                onSelectMany={resolvedName ? null : handleSelectLocalMany}
             />
 
             {/* Destination folder for a 'free' field (asked per attachment) */}

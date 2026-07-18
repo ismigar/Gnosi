@@ -1128,7 +1128,10 @@
       "not_a_directory": "Not a folder",
       "permission_denied": "Permission denied. Check the folder permissions.",
       "access_error": "Could not access the path"
-    }
+    },
+    "multi_hint": "Click to tick several files · double-click to pick just one",
+    "selected_count": "{{count}} files selected",
+    "select_files_count": "Select {{count}} files"
   },
   "settings": {
     "close_settings": "Close settings",
@@ -2644,7 +2647,8 @@
     "kind_vimeo": "Vimeo",
     "kind_web": "Web page",
     "upload_target_free": "You'll choose the destination folder in the next step",
-    "upload_target_free_named": "You'll choose the destination folder; it will be saved as “{{name}}”"
+    "upload_target_free_named": "You'll choose the destination folder; it will be saved as “{{name}}”",
+    "from_local_multi": "{{count}} files from the local disk"
   },
   "page_view": {
     "title": "Add database view",
