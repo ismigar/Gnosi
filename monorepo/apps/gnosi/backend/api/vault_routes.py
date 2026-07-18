@@ -10602,6 +10602,36 @@ def _normalize_storage_folder(storage_folder: str) -> str:
     return _STORAGE_FOLDER_ALIASES.get(key, key)
 
 
+def _effective_storage_folder(configured_storage: str, requested_storage: str) -> str:
+    """Decide the authoritative `storage_folder` for an upload.
+
+    The property's registry config wins; the request's value is only a fallback
+    for properties that have none configured (the implicit-Assets default).
+
+    'free' is the exception. It is the one mode that lets the caller pick an
+    arbitrary host directory to write into, so it may ONLY come from the registry
+    config, never from the client-controlled request: otherwise any property
+    without a configured `storage_folder` — most of them — would accept
+    `storage_folder=free` + `dest_folder=/anywhere` and hand out a write-anywhere
+    primitive for a field nobody ever configured as Lliure. A request asking for
+    'free' on a property not configured as such falls back to 'assets'.
+
+    Args:
+        configured_storage: value stored in the property's registry config.
+        requested_storage: value supplied by the caller in the request.
+
+    Returns:
+        The storage_folder key to resolve the destination with.
+    """
+    effective = str(configured_storage or "").strip() or str(requested_storage or "").strip()
+    if (
+        _normalize_storage_folder(effective) == "free"
+        and _normalize_storage_folder(configured_storage) != "free"
+    ):
+        return "assets"
+    return effective
+
+
 def _resolve_storage_dir(
     storage_folder: str, table, database, property_name: str, dest_folder: str = ""
 ) -> tuple[Path, str]:
@@ -10707,7 +10737,7 @@ async def upload_property_file(
     # has none configured, we fall back to the query param value.
     target_prop = _find_table_property(table, property_clean)
     configured_storage = str(_property_config_value(target_prop, "storage_folder") or "").strip()
-    effective_storage = configured_storage or storage_folder
+    effective_storage = _effective_storage_folder(configured_storage, storage_folder)
 
     target_dir, url_type = _resolve_storage_dir(
         effective_storage, table, database, property_clean, dest_folder
