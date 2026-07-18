@@ -11,7 +11,7 @@ Tokens:
   - Minimal payload: `{sub: user_id, exp: int, iat: int}`.
 
 Passwords:
-  - bcrypt via `passlib`, cost 12 (robust default).
+  - bcrypt (called directly), cost 12 (robust default).
   - Never stored in plaintext; never returned to the client.
 """
 from __future__ import annotations
@@ -20,9 +20,9 @@ import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 from fastapi import Cookie, Depends, Header, HTTPException
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 
 # ---------- Configuration ----------
@@ -33,26 +33,66 @@ ALGORITHM: str = "HS256"
 DEFAULT_TTL_DAYS: int = 7
 COOKIE_NAME: str = "gnosi_session"
 
-# Bcrypt context — cost 12 is the canonical value for 2024-2026 (about 250 ms / hash).
-_pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__rounds=12)
+# Cost 12 is the canonical value for 2024-2026 (about 250 ms / hash).
+BCRYPT_ROUNDS = 12
+
+# bcrypt hashes at most 72 BYTES of input and rejects anything longer, so the
+# limit is on the UTF-8 encoding, not the character count: an accented or
+# non-Latin password reaches it sooner than an ASCII one. Callers should
+# validate their payloads against this so the user gets a field error instead of
+# a 500.
+BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
 # ---------- Password hashing ----------
 
+# We call `bcrypt` directly rather than going through passlib. passlib 1.7.4
+# (its last release, 2020) reads `bcrypt.__about__.__version__` to detect the
+# backend; that attribute was removed in bcrypt 4.1, so with a modern bcrypt the
+# detection blows up and passlib then reports EVERY password as "longer than 72
+# bytes" — a 10-character one included. The practical effect was that
+# `/register` and `/login` could not work at all: hashing raised, and
+# `verify_password` swallowed the same error as "wrong password", so it looked
+# like bad credentials rather than a broken dependency.
+
 def hash_password(plain: str) -> str:
-    """Bcrypt hash. Raises ValueError if the password is empty."""
+    """Hash a password with bcrypt.
+
+    Args:
+        plain: the plaintext password.
+
+    Returns:
+        The bcrypt hash (``$2b$…``) as a str.
+
+    Raises:
+        ValueError: if the password is empty or its UTF-8 encoding exceeds
+            `BCRYPT_MAX_PASSWORD_BYTES`. We reject rather than truncate:
+            silently cutting a password would weaken it without telling anyone,
+            and would make two different passwords open the same account.
+    """
     if not plain or not isinstance(plain, str):
         raise ValueError("Password buit")
-    return _pwd_context.hash(plain)
+    encoded = plain.encode("utf-8")
+    if len(encoded) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"La contrasenya supera el límit de {BCRYPT_MAX_PASSWORD_BYTES} bytes de bcrypt"
+        )
+    return bcrypt.hashpw(encoded, bcrypt.gensalt(rounds=BCRYPT_ROUNDS)).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """True if `plain` matches the hash. Never raises due to invalid format:
-    any comparison failure is treated as "does not match"."""
+    """True if `plain` matches the hash.
+
+    Never raises on malformed input: an unparseable hash, a wrong type or an
+    over-long password are all treated as "does not match".
+    """
     if not plain or not hashed:
         return False
     try:
-        return _pwd_context.verify(plain, hashed)
+        encoded = plain.encode("utf-8")
+        if len(encoded) > BCRYPT_MAX_PASSWORD_BYTES:
+            return False
+        return bcrypt.checkpw(encoded, hashed.encode("utf-8"))
     except (ValueError, TypeError):
         return False
 
