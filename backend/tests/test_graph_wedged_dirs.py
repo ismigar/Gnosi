@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import errno
 import os
+import sys
 from pathlib import Path
 
 import pytest
@@ -101,6 +102,16 @@ def test_walk_without_tracking_list_still_survives(vault, monkeypatch):
     assert {f.name for f in files} == {"alpha.md", "gamma.md"}
 
 
+@pytest.mark.skipif(
+    sys.platform != "darwin",
+    reason=(
+        "Asserts the macOS-only warmup path: mode 'open' shells out to "
+        "/usr/bin/open (LaunchServices) to hydrate a wedged File Provider "
+        "directory. On other platforms _default_warmup_mode() never returns "
+        "'open', so forcing it via the env var tests a configuration that "
+        "cannot occur there."
+    ),
+)
 def test_wedged_dir_requests_finder_warmup_only_in_open_mode(vault, monkeypatch):
     calls: list[list[str]] = []
 
