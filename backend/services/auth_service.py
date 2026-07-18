@@ -44,6 +44,26 @@ BCRYPT_ROUNDS = 12
 BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
+# ---------- Email identity ----------
+
+# The address every auto-provisioned account starts with (see
+# `workspace_service._ensure_personal_exists`). It is a placeholder, not a real
+# mailbox, and it is identical on every install — so it must never be treated as
+# proof of who the caller is.
+PLACEHOLDER_EMAIL = "user@example.com"
+
+
+def normalize_email(value: str) -> str:
+    """Canonical form used for storing and comparing addresses.
+
+    Every write path must store this and every lookup must compare against it.
+    The DB's unique index is case-sensitive, so without a single shared rule
+    `Someone@x.com` and `someone@x.com` become two accounts, and whichever one a
+    login reaches comes down to row order.
+    """
+    return (value or "").strip().lower()
+
+
 # ---------- Password hashing ----------
 
 # We call `bcrypt` directly rather than going through passlib. passlib 1.7.4

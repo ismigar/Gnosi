@@ -128,7 +128,7 @@ def test_mismatched_confirmation_changes_nothing(script, db, monkeypatch):
 def test_rejects_a_weak_password(script, db, monkeypatch, password):
     _answer(monkeypatch, script, password)
     with pytest.raises(SystemExit):
-        script.set_password(db, LEGACY_ID, None, None, force=False)
+        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False)
     assert db.query(User).filter(User.id == LEGACY_ID).one().password_hash is None
 
 
@@ -136,7 +136,7 @@ def test_rejects_a_password_over_the_bcrypt_byte_limit(script, db, monkeypatch):
     # 40 accented characters = 80 UTF-8 bytes: over the limit while looking short.
     _answer(monkeypatch, script, "à" * 40)
     with pytest.raises(SystemExit):
-        script.set_password(db, LEGACY_ID, None, None, force=False)
+        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False)
     assert db.query(User).filter(User.id == LEGACY_ID).one().password_hash is None
 
 
@@ -156,3 +156,16 @@ def test_no_http_endpoint_grants_first_credentials():
     routes = {getattr(r, "path", "") for r in ar.router.routes}
     assert "/api/auth/bootstrap-credentials" not in routes
     assert not any("bootstrap" in p or "set-password" in p for p in routes), routes
+
+
+def test_refuses_to_leave_the_placeholder_email_in_place(script, db, monkeypatch):
+    """Setting a password without --email would freeze the placeholder address.
+
+    That is the outcome the script exists to prevent, so running it without an
+    email on an account still carrying the placeholder must fail loudly.
+    """
+    _answer(monkeypatch, script, GOOD_PASSWORD)
+    assert script.set_password(db, LEGACY_ID, None, None, force=False) == 1
+    user = db.query(User).filter(User.id == LEGACY_ID).one()
+    assert user.password_hash is None
+    assert user.email == "user@example.com"

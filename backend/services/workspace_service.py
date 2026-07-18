@@ -62,7 +62,8 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     # 1. Find or create user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        user = User(id=user_id, name="User", email="user@example.com")
+        from backend.services.auth_service import PLACEHOLDER_EMAIL
+        user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL)
         db.add(user)
         try:
             db.commit()
