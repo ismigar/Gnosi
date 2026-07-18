@@ -80,10 +80,6 @@ class SchedulerManager:
             "description": "Actualització General de Memòria (Graf i Connexions)",
             "default_interval": 1440,  # 24 hours
         },
-        "zotero_sync": {
-            "description": "Sincronització bidireccional Zotero ↔ Vault",
-            "default_interval": 60,  # 1 hour
-        },
         "purge_trash": {
             "description": "Buida la paperera del Vault (entrades > 90 dies)",
             "default_interval": 1440,  # 24 hours
@@ -585,8 +581,6 @@ class SchedulerManager:
             return self._task_fetch_contacts()
         elif name == "update_memories":
             return self._task_update_memories()
-        elif name == "zotero_sync":
-            return self._task_zotero_sync()
         elif name == "purge_trash":
             return self._task_purge_trash()
         elif name == "publish_scheduled_social":
@@ -728,8 +722,8 @@ class SchedulerManager:
         cfg = load_params(strict_env=False)
 
         # Gnosi app root derived from this file (backend/scheduler/manager.py):
-        # parents[2] = .../monorepo/apps/gnosi on the host and /app inside the container (same
-        # derivation as _task_zotero_sync). It used to use cfg.paths["PROJECT_DIR"] /
+        # parents[2] = .../monorepo/apps/gnosi on the host and /app inside the container.
+        # It used to use cfg.paths["PROJECT_DIR"] /
         # "monorepo/apps/gnosi/pipeline", but inside Docker PROJECT_DIR is /app and this
         # resolved to /app/monorepo/apps/gnosi/pipeline (nonexistent; the real pipeline is
         # /app/pipeline) → the logs, sandbox, and .tmp cleanups were silent no-ops.
@@ -888,70 +882,6 @@ class SchedulerManager:
             
         return results
 
-
-    def _task_zotero_sync(self) -> Dict[str, Any]:
-        """Bidirectional Zotero ↔ Vault sync. Skips Vault→Zotero if Zotero is open."""
-        import subprocess
-        from pathlib import Path
-        from backend.config.logger_config import get_logger
-        log = get_logger(__name__)
-
-        base = Path(__file__).resolve().parents[2]
-        scripts = base / "pipeline/skills/zotero_sync/scripts"
-
-        # Check config enabled
-        config_path = base / "pipeline/skills/zotero_sync/zotero_db_config.json"
-        try:
-            import json
-            config = json.loads(config_path.read_text())
-            if not config.get("enabled"):
-                return {"message": "Zotero integration disabled — skipped"}
-        except Exception as e:
-            return {"success": False, "error": f"Could not read Zotero config: {e}"}
-
-        results = {}
-
-        # Subprocess timeout — without this, a hung script (Zotero DB
-        # lock, network hang) blocks the scheduler indefinitely.
-        # 5 min is enough for large syncs.
-        SUBPROCESS_TIMEOUT = 300
-        # Zotero → Vault
-        try:
-            r = subprocess.run(
-                ["python3", str(scripts / "zotero_to_vault.py")],
-                capture_output=True, text=True, cwd=str(base),
-                timeout=SUBPROCESS_TIMEOUT,
-            )
-            results["zotero_to_vault"] = "ok" if r.returncode == 0 else r.stderr.strip()
-        except subprocess.TimeoutExpired:
-            results["zotero_to_vault"] = f"timeout after {SUBPROCESS_TIMEOUT}s"
-        except Exception as e:
-            results["zotero_to_vault"] = str(e)
-
-        # Vault → Zotero (only if Zotero is closed)
-        try:
-            zotero_open = subprocess.run(
-                ["pgrep", "-x", "Zotero"], capture_output=True, timeout=5,
-            ).returncode == 0
-        except subprocess.TimeoutExpired:
-            zotero_open = False  # pgrep hung: assume closed and proceed
-        if zotero_open:
-            results["vault_to_zotero"] = "skipped — Zotero is open"
-            log.info("⏰ Zotero sync: Vault→Zotero skipped (Zotero is running)")
-        else:
-            try:
-                r = subprocess.run(
-                    ["python3", str(scripts / "gnosi_to_zotero.py")],
-                    capture_output=True, text=True, cwd=str(base),
-                    timeout=SUBPROCESS_TIMEOUT,
-                )
-                results["vault_to_zotero"] = "ok" if r.returncode == 0 else r.stderr.strip()
-            except subprocess.TimeoutExpired:
-                results["vault_to_zotero"] = f"timeout after {SUBPROCESS_TIMEOUT}s"
-            except Exception as e:
-                results["vault_to_zotero"] = str(e)
-
-        return {"success": True, "message": "Zotero sync completed", "details": results}
 
 
 # Singleton
