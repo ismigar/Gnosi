@@ -98,13 +98,52 @@ match", so it looked like bad credentials rather than a broken dependency.
   case-insensitive lookups then resolve by row order. There is still no
   functional unique index on `lower(email)`, so uniqueness is a convention the
   write paths must keep, not something the schema enforces.
-- **Blocker for phase 4:** in personal mode `get_workspace_context` calls
-  `_ensure_personal_exists`, which **creates a `User` row** for whatever
-  `X-User-ID` arrives, plus a duplicate `Vault` row in the shared `personal`
-  workspace. So today an arbitrary header value mints an account. Enforcement
-  must stop trusting that header before, or as part of, flipping the flag —
-  otherwise `GNOSI_REQUIRE_AUTH` closes the front door while this leaves the
-  side one open.
+## Conditions that MUST be met before phase 3/4 — and before migrating
+
+These came out of the third review round. They are ordered: the first one gates
+running the script at all.
+
+### 1. Do NOT run `set_user_password.py` until header-driven minting is closed
+
+Running it is what opens the hole. Today `_ensure_personal_exists` writes a
+**fixed** email for every auto-created user while `users.email` is UNIQUE, so a
+request carrying an unknown `X-User-ID` dies on an IntegrityError — verified.
+The constraint is blocking ghost accounts *by accident*.
+
+The moment the legacy account moves to a real address, the placeholder frees up
+and the next unknown `X-User-ID` succeeds: new `User`, `Membership(role="owner")`
+on the shared `personal` workspace, and a duplicate `Vault` row. (The one after
+that fails on the same constraint again.) So the migration step this directive
+recommends **removes a protection that currently exists**.
+
+An earlier revision of this file claimed arbitrary headers already mint
+accounts. That was wrong: they mint accounts only *after* the migration.
+
+### 2. Generalize the claim guard — it currently matches one magic string
+
+`register()` refuses to claim an account whose email equals `PLACEHOLDER_EMAIL`.
+That covers one of **three** paths that create password-less accounts with
+predictable addresses:
+
+| Origin | Address | Guarded |
+|---|---|---|
+| `workspace_service._ensure_personal_exists` | `user@example.com` | yes |
+| `backend/sh/init_management.py:36` | `ismael-legacy@gnosi.app` | **no** |
+| `workspace_routes.py:29` (`POST /api/workspaces`) | `{x_user_id}@example.com` | **no** |
+
+Verified that the guard returns False for the latter two, so `/register` still
+claims those accounts on any install bootstrapped by them. String equality is the
+wrong altitude: the property that matters is *"this account was never
+deliberately invited"*, which no column records. Record it — a nullable
+`invited_by`/`auto_provisioned` flag — and guard on that instead.
+
+### 3. `POST /api/workspaces` is a second unauthenticated account factory
+
+It declares only `x_user_id: str = Header(...)` and no role dependency, so an
+unauthenticated caller mints a `User` **and** a `Workspace` owned by it. It is
+absent from `PUBLIC_RULES`, so flipping the flag closes it — but until then it is
+open, and it must be on the phase-4 list alongside `_ensure_personal_exists`.
+Enforcement has to stop trusting `X-User-ID` everywhere, not just in one helper.
 - **Do not** reject an over-long password during *verification*. passlib shipped
   `truncate_error=False`, so existing installs stored `hash(password[:72])` for
   anything longer and `/register` accepted 128 characters; rejecting outright
