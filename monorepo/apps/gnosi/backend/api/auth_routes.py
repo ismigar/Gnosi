@@ -29,7 +29,7 @@ from backend.data.management_db import get_mgmt_db
 from backend.models.management import User, Membership, Workspace
 from backend.services.auth_service import (
     BCRYPT_MAX_PASSWORD_BYTES,
-    PLACEHOLDER_EMAIL,
+    is_auto_provisioned_email,
     COOKIE_NAME,
     DEFAULT_TTL_DAYS,
     create_access_token,
@@ -164,7 +164,7 @@ def register(
         # it needs no knowledge at all, and it owns the workspace, the vaults and
         # the API tokens. Bootstrapping that account requires filesystem access:
         # `pipeline/scripts/set_user_password.py`.
-        if normalize_email(existing.email) == PLACEHOLDER_EMAIL:
+        if is_auto_provisioned_email(existing.email):
             raise HTTPException(
                 status_code=403,
                 detail=(

@@ -8,7 +8,7 @@ from backend.models.management import (
     AddMemberRequest, VaultAccessRequest, VaultAccessResponse,
     WorkspaceBase, UserRole
 )
-from backend.services.auth_service import normalize_email
+from backend.services.auth_service import normalize_email, require_auth_enabled
 from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext, require_capability
 from typing import List
 import json
@@ -25,8 +25,17 @@ async def create_workspace(
     # 1. Find or create user
     user = db.query(User).filter(User.id == x_user_id).first()
     if not user:
+        if require_auth_enabled():
+            # Second header-driven account factory (the other is
+            # `_ensure_personal_exists`). `x_user_id` is a plain request header,
+            # so without this an unauthenticated caller could still mint a User
+            # AND a Workspace owned by it — with a predictable
+            # `{x_user_id}@example.com` address — while the flag closed the
+            # other door.
+            raise HTTPException(status_code=401, detail="Cal autenticació")
+
         # If it doesn't exist, we create it with minimal data
-        user = User(id=x_user_id, name="User", email=f"{x_user_id}@example.com")
+        user = User(id=x_user_id, name="User", email=normalize_email(f"{x_user_id}@example.com"))
         db.add(user)
         db.flush()
 

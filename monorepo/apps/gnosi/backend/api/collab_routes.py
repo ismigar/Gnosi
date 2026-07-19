@@ -39,12 +39,31 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 # just the same with identity via query (personal/legacy mode). This way this
 # module doesn't hard-depend on auth and can be deployed independently.
 try:
-    from backend.services.auth_service import COOKIE_NAME, decode_access_token
+    from backend.data.management_db import get_mgmt_db
+    from backend.services.auth_service import (
+        COOKIE_NAME,
+        decode_access_token,
+        require_auth_enabled,
+        resolve_identity,
+    )
 except ImportError:  # pragma: no cover
     COOKIE_NAME = "gnosi_session"
 
     def decode_access_token(_token):
         return None
+
+    def require_auth_enabled():
+        # Keeping the module's "no hard dependency on auth" contract: without
+        # auth_service there is nothing to enforce with, so behave as before.
+        return False
+
+    # Unreachable while require_auth_enabled() is False, but defined so the
+    # module still imports cleanly without auth_service.
+    def resolve_identity(_conn, _db):
+        return None
+
+    def get_mgmt_db():
+        yield None
 
 log = logging.getLogger(__name__)
 
@@ -178,6 +197,26 @@ async def collab_ws(
     user_id: str = Query(default="anon"),
     name: str = Query(default="Anònim"),
 ):
+    # Enforcement is applied here rather than by the app-wide gate: refusing a
+    # WebSocket means closing it with a code, which an HTTPException cannot
+    # express. This socket carries CRDT updates that persist to the page, so
+    # leaving it ungated would keep a write path open while the HTTP API was
+    # closed — the exact shape of hole this migration exists to remove.
+    #
+    # `_resolve_user_id` falls back to the `user_id` QUERY PARAM and then to
+    # "anon", both caller-controlled, so under enforcement a real credential is
+    # required. It goes through the same `resolve_identity` the HTTP gate uses:
+    # checking only the session cookie here would refuse a PAT — the credential
+    # phase 3 gave every non-browser client — while the identical token kept
+    # working on every HTTP route, and the socket would just close with no
+    # visible reason.
+    if require_auth_enabled():
+        if not resolve_identity(websocket):
+            # 1008 = policy violation. Closing before `accept()` sends an HTTP
+            # 403 during the handshake, which is what a browser can act on.
+            await websocket.close(code=1008, reason="Cal autenticació")
+            return
+
     await websocket.accept()
     effective_uid = _resolve_user_id(websocket, user_id)
     room = _room_key(websocket, page_id)   # room isolated per vault (vault+page_id)

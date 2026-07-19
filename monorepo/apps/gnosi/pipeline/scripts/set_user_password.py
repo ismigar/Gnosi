@@ -27,16 +27,16 @@ Usage:
 The password is read interactively with `getpass`, never taken as an argument:
 an argument would land in the shell history and in `ps` output.
 
-DO NOT RUN THIS YET on an install that still trusts `X-User-ID`.
+ENABLE `GNOSI_REQUIRE_AUTH` BEFORE RUNNING THIS.
 `_ensure_personal_exists` writes a fixed placeholder email for every
 auto-provisioned user while `users.email` is UNIQUE, so today a request carrying
 an unknown `X-User-ID` dies on an IntegrityError — the constraint blocks ghost
 accounts by accident. Moving this account to a real address frees the
 placeholder, and the next unknown header value then succeeds in creating a user
-with `owner` membership on the shared personal workspace. Close the header-driven
-minting first (see
-`docs/dev_memory/directives/auth_remove_legacy_fallback.md`, "Conditions that
-MUST be met"). The script prints this warning and requires --i-understand.
+with `owner` membership on the shared personal workspace — but only while
+enforcement is off. This script writes straight to the DB and does not need the
+API, so turning the flag on FIRST closes that window entirely. The script prints
+this warning and requires --i-understand.
 """
 from __future__ import annotations
 
@@ -106,7 +106,15 @@ X-User-Id desconegut SÍ crearà un usuari amb rol 'owner' del workspace persona
 Tanca primer el minting per capçalera. Vegeu la secció "Conditions that MUST be met"
 a docs/dev_memory/directives/auth_remove_legacy_fallback.md.
 
-Si ja ho has resolt, torna-ho a executar amb --i-understand."""
+ORDRE SEGUR (sense finestra de risc):
+  1. GNOSI_REQUIRE_AUTH=1 i reinicia el backend.
+  2. Executa aquest script (escriu directament a la BD; no li cal l'API).
+  3. Inicia sessió amb les credencials noves.
+
+Fer-ho al revés deixa una finestra amb el marcador lliure i l'enforcement apagat,
+que és justament la combinació que crea comptes 'owner' des d'una capçalera.
+
+Si ja tens l'enforcement actiu, torna-ho a executar amb --i-understand."""
 
 
 def set_password(db, user_id: str, email: str | None, name: str | None, force: bool,

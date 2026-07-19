@@ -68,6 +68,7 @@ DEFAULT_LOCALE = "ca-AD"
 
 DEFAULTS = {
     "backend_url": "http://localhost:5002",
+    "api_token": "",
     "style": "apa",
     "locale": DEFAULT_LOCALE,
 }
@@ -116,14 +117,27 @@ def save_config(cfg):
 class GnosiApi(object):
     """Thin wrapper around the Gnosi backend's citation endpoints."""
 
-    def __init__(self, base_url):
+    def __init__(self, base_url, api_token=None):
         self.base = (base_url or DEFAULTS["backend_url"]).rstrip("/")
+        # Personal Access Token. Unauthenticated calls only work while the
+        # backend still falls back to the legacy account; once
+        # GNOSI_REQUIRE_AUTH is on they get a 401. Empty means "send nothing",
+        # so an existing install keeps working untouched.
+        self.token = (api_token or os.environ.get("GNOSI_API_TOKEN") or "").strip()
+
+    def _headers(self, extra=None):
+        h = {"Accept": "application/json"}
+        if self.token:
+            h["Authorization"] = "Bearer " + self.token
+        if extra:
+            h.update(extra)
+        return h
 
     def _get(self, path, params=None, timeout=10):
         url = self.base + path
         if params:
             url += "?" + urllib.parse.urlencode(params)
-        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        req = urllib.request.Request(url, headers=self._headers())
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
@@ -132,7 +146,7 @@ class GnosiApi(object):
         req = urllib.request.Request(
             self.base + path,
             data=data,
-            headers={"Content-Type": "application/json", "Accept": "application/json"},
+            headers=self._headers({"Content-Type": "application/json"}),
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=timeout) as resp:
@@ -634,7 +648,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
             self._refresh_all()
         elif cmd == "settings":
             SettingsDialog(self.ctx, self.cfg).show()
-            self.api = GnosiApi(self.cfg.get("backend_url"))
+            self.api = GnosiApi(self.cfg.get("backend_url"), self.cfg.get("api_token"))
             self._last_q = None
             self._do_search()
         elif cmd == "close":
@@ -761,7 +775,7 @@ class GnosiCiteHandler(unohelper.Base, XServiceInfo, XDispatchProvider,
     def dispatch(self, url, _args):
         cmd = url.Path
         cfg = load_config()
-        api = GnosiApi(cfg["backend_url"])
+        api = GnosiApi(cfg["backend_url"], cfg.get("api_token"))
         try:
             if cmd == "settings":
                 SettingsDialog(self.ctx, cfg).show()

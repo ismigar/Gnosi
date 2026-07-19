@@ -98,10 +98,71 @@ match", so it looked like bad credentials rather than a broken dependency.
   case-insensitive lookups then resolve by row order. There is still no
   functional unique index on `lower(email)`, so uniqueness is a convention the
   write paths must keep, not something the schema enforces.
+## Phases 3 and 4 — what was actually built
+
+**Enforcement is one app-wide dependency, not per-route gating.** The original
+plan was to make `get_user_id_or_legacy` raise. Measuring first showed why that
+was not enough: **50 routes never touch `get_workspace_context`** (schedulers,
+tools, AI settings, integrations, system, analytics), so they would have stayed
+open, and every future endpoint would have been open until someone remembered to
+gate it. `enforce_authentication` is registered on the FastAPI app, so the
+default is closed and being public is what you have to write down. That makes
+`auth_public_surface.PUBLIC_RULES` the enforcement itself rather than a document.
+
+**An allowlist entry is necessary but not sufficient.** It only bypasses the
+app-wide gate; a router with its own `require_role` still applies it.
+`GET /api/config` was listed as a liveness probe and is admin-gated at the
+router, so `native_watchdog.sh` would have been waved through the gate and then
+401'd anyway — a restart loop. The watchdog now probes `/api/health`, and
+`/api/config` is asserted NOT public.
+
+**`Authorization: Bearer` accepts a PAT, not just a JWT.** This is what makes
+phase 3 possible at all: the LibreOffice macro, the Word add-in and the pipeline
+scripts cannot hold a session cookie. Previously a PAT was decoded strictly as a
+JWT and rejected as malformed.
+
+### Phase 3 — clients migrated (all additive: no token, no change)
+
+| Client | How it reads its token |
+|---|---|
+| `integrations/libreoffice-cite/gnosi_cite.py` | `api_token` in its config, or `GNOSI_API_TOKEN` |
+| `frontend/public/word-addin/taskpane.js` | `localStorage['gnosi.wordAddin.apiToken']` |
+| `pipeline/utils/rewalk_subpage_parents.py` | `GNOSI_API_TOKEN` |
+| `pipeline/skills/notion_clone/scripts/backfill_notion_views.py` | `GNOSI_API_TOKEN` |
+| `backend/tests/conftest.py` (E2E helpers) | `GNOSI_API_TOKEN` |
+| `pipeline/skills/scheduler/SKILL.md` | documented `-H "Authorization: Bearer …"` |
+
+The watchdogs and the compose healthcheck need no token: they only hit
+`/api/health`.
+
+### Remaining handover — needs a human
+
+1. Create a PAT in Settings.
+2. Paste it into each client above.
+3. Run `set_user_password.py --i-understand --email <real>` (see below).
+4. Set `GNOSI_REQUIRE_AUTH=1` and restart; roll back by unsetting it.
+
 ## Conditions that MUST be met before phase 3/4 — and before migrating
 
 These came out of the third review round. They are ordered: the first one gates
 running the script at all.
+
+> **RESOLVED by phase 4** — kept because the reasoning explains the required
+> ORDER below, and because unsetting the flag brings all three back.
+>
+> **Enable the flag BEFORE migrating, not after.** The window these conditions
+> warn about only exists while enforcement is off. The script writes straight to
+> the management DB over the filesystem, so it does not need the API and is not
+> affected by the flag — which means the safe order has no gap in it:
+>
+> 1. `GNOSI_REQUIRE_AUTH=1`, restart. The UI is locked (you have no password
+>    yet) but existing PATs keep working, and unsetting it rolls back.
+> 2. Run `set_user_password.py --i-understand --email <real>`.
+> 3. Log in with the new credentials.
+>
+> Doing it the other way round — migrate, then flip — leaves a window where the
+> placeholder address is free and enforcement is still off, which is exactly the
+> combination that mints `owner` accounts from a header.
 
 ### 1. Do NOT run `set_user_password.py` until header-driven minting is closed
 

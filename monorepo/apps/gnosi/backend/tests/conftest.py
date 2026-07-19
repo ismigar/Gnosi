@@ -14,6 +14,14 @@ import requests
 
 BACKEND = os.environ.get("GNOSI_BACKEND_URL", "http://127.0.0.1:5002")
 
+# E2E helpers talk to a LIVE backend. Unauthenticated calls only work while it
+# still falls back to the legacy account; against one running with
+# GNOSI_REQUIRE_AUTH they get a 401. Export a Personal Access Token as
+# GNOSI_API_TOKEN to run them there. Absent, nothing is sent and behaviour is
+# unchanged.
+_API_TOKEN = os.environ.get("GNOSI_API_TOKEN", "").strip()
+AUTH_HEADERS = {"Authorization": f"Bearer {_API_TOKEN}"} if _API_TOKEN else {}
+
 
 def _backend_alive() -> bool:
     try:
@@ -39,7 +47,7 @@ def _cleanup_pytest_pages():
         return
 
     try:
-        r = requests.get(f"{BACKEND}/api/vault/pages", timeout=15)
+        r = requests.get(f"{BACKEND}/api/vault/pages", headers=AUTH_HEADERS, timeout=15)
         r.raise_for_status()
         pages = r.json()
     except Exception:
@@ -55,7 +63,7 @@ def _cleanup_pytest_pages():
             continue
         try:
             requests.delete(
-                f"{BACKEND}/api/vault/pages/{page_id}", timeout=5
+                f"{BACKEND}/api/vault/pages/{page_id}", headers=AUTH_HEADERS, timeout=5
             )
             removed += 1
         except Exception:

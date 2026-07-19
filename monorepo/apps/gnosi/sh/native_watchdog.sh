@@ -28,7 +28,7 @@ STAMP="$HOME/.gnosi_native_watchdog.laststart"
 COOLDOWN="${GNOSI_NATIVE_WATCHDOG_COOLDOWN:-150}"   # s; arrencada + reindex amb marge
 GRACE="${GNOSI_NATIVE_WATCHDOG_GRACE:-15}"          # s d'espera abans de confirmar mort
 ORPHAN_MIN_AGE="${GNOSI_NATIVE_ORPHAN_MIN_AGE:-90}" # s; no toquis orfes més joves (recàrrega en curs)
-HEALTH_URL="${GNOSI_NATIVE_HEALTH_URL:-http://127.0.0.1:5002/api/config}"
+HEALTH_URL="${GNOSI_NATIVE_HEALTH_URL:-http://127.0.0.1:5002/api/health}"
 LABEL="${GNOSI_NATIVE_LABEL:-com.gnosi.backend-native}"
 PROBE_TIMEOUT="${GNOSI_NATIVE_PROBE_TIMEOUT:-6}"    # s màx per sondeig
 

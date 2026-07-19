@@ -10,7 +10,6 @@ when created. Designed for third-party integrations and the web clipper.
 """
 from __future__ import annotations
 
-import hashlib
 import re
 import secrets
 import uuid
@@ -30,11 +29,11 @@ from backend.utils.safe_io import sanitize_vault_title
 
 router = APIRouter()
 
-TOKEN_PREFIX = "gnosi_pat_"
-
-
-def _hash_token(raw: str) -> str:
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+# Re-exported for the token-management endpoints below; the canonical
+# definitions live in auth_service so that this router and the identity
+# resolution in `get_current_user_id` cannot disagree about what a PAT is or how
+# it is hashed.
+from backend.services.auth_service import TOKEN_PREFIX, hash_token as _hash_token  # noqa: E402
 
 
 def require_pat(

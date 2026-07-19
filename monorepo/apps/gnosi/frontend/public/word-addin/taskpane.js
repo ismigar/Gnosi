@@ -24,6 +24,22 @@
     // the sidebar. In production, it should point to the final URL.
     const API_BASE = window.location.origin;
 
+    // Personal Access Token, stored locally by the user. Unauthenticated calls
+    // only work while the backend still falls back to the legacy account; once
+    // GNOSI_REQUIRE_AUTH is on they get a 401. Empty means "send nothing", so
+    // an existing install keeps working untouched. The add-in runs in an Office
+    // webview on a different origin, so a session cookie is not an option here.
+    const TOKEN_KEY = 'gnosi.wordAddin.apiToken';
+    const getToken = () => {
+        try { return (localStorage.getItem(TOKEN_KEY) || '').trim(); } catch { return ''; }
+    };
+    const authHeaders = (extra) => {
+        const h = Object.assign({}, extra || {});
+        const t = getToken();
+        if (t) h['Authorization'] = 'Bearer ' + t;
+        return h;
+    };
+
     let lastQuery = '';
     let lastResults = [];
     let activeIdx = 0;
@@ -63,7 +79,7 @@
             const url = new URL(API_BASE + '/api/vault/search-citations');
             url.searchParams.set('q', query || '');
             url.searchParams.set('limit', '50');
-            const r = await fetch(url.toString());
+            const r = await fetch(url.toString(), { headers: authHeaders() });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const data = await r.json();
             return Array.isArray(data) ? data : [];
@@ -88,7 +104,7 @@
             url.searchParams.set('key', citationKey);
             url.searchParams.set('style', style);
             url.searchParams.set('locale', locale);
-            const r = await fetch(url.toString());
+            const r = await fetch(url.toString(), { headers: authHeaders() });
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const data = await r.json();
             return data && data.formatted ? data.formatted : ('(' + citationKey + ')');
@@ -113,7 +129,7 @@
             const locale = 'ca-AD';
             const r = await fetch(API_BASE + '/api/vault/format-citations', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({ keys: citationKeys, style: style, locale: locale }),
             });
             if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -131,7 +147,7 @@
             const locale = 'ca-AD';
             const r = await fetch(API_BASE + '/api/vault/format-bibliography', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: authHeaders({ 'Content-Type': 'application/json' }),
                 body: JSON.stringify({
                     keys: citationKeys,
                     style: style,

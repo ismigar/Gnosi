@@ -55,6 +55,18 @@ EMBED_RE = re.compile(r'<!--\s*gnosi-view:def\s*\{"view_id":"([0-9a-f-]{36})"\}\
 SKIP_DIRS = {".history", ".trash", "Assets", "Biblioteca", ".gnosi"}
 
 
+
+def _auth_headers() -> dict:
+    """`Authorization: Bearer` from GNOSI_API_TOKEN, when one is configured.
+
+    Unauthenticated calls work only while the backend still falls back to the
+    legacy account. Once `GNOSI_REQUIRE_AUTH` is on they get a 401, so this
+    script needs a Personal Access Token: create one in Settings and export it
+    as GNOSI_API_TOKEN. Absent, nothing is sent and the behaviour is unchanged.
+    """
+    token = os.environ.get("GNOSI_API_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
+
 def log(msg: str) -> None:
     print(msg, flush=True)
 
@@ -186,7 +198,7 @@ def main() -> int:
     args = ap.parse_args()
 
     vault_dir = Path(os.path.expanduser(args.vault_dir))
-    hdrs = {"X-Vault-Id": args.vault_id}
+    hdrs = {"X-Vault-Id": args.vault_id, **_auth_headers()}
     api = args.api.rstrip("/")
 
     ok, reason = notion_mcp.healthcheck()
