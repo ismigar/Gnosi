@@ -1686,9 +1686,12 @@ export function EditorInner({
         // empty (nothing to drop next to). We detect a drop over the toggle
         // header and move the dragged blocks into its `children` ourselves.
         //
-        // The top/bottom bands of the header stay reserved for the normal
-        // "place before/after" reorder, so the toggle can still be reordered.
-        const NEST_EDGE_RATIO = 0.3;
+        // Only a thin band at the top and at the bottom of the header stays
+        // reserved for the normal "place before/after" reorder, so the toggle
+        // can still be reordered. It is a fixed number of pixels, not a ratio:
+        // a proportional band left barely 18px of a 46px header to aim at,
+        // which is unusable with a real mouse.
+        const NEST_EDGE_PX = 8;
 
         // Returns the id of the toggle to nest into, or null to let BlockNote
         // handle the drop as usual.
@@ -1716,8 +1719,8 @@ export function EditorInner({
                 if (!id) continue;
                 const rect = header.getBoundingClientRect();
                 if (y < rect.top || y > rect.bottom) continue;
-                const ratio = rect.height ? (y - rect.top) / rect.height : 0.5;
-                if (ratio < NEST_EDGE_RATIO || ratio > 1 - NEST_EDGE_RATIO) return null;
+                const edge = Math.min(NEST_EDGE_PX, rect.height / 3);
+                if (y < rect.top + edge || y > rect.bottom - edge) return null;
                 return id;
             }
             return null;
@@ -1743,8 +1746,47 @@ export function EditorInner({
             return (block.children || []).some((child) => containsBlockId(child, id));
         };
 
+        // The list of siblings a block lives in, so a heading's section can be
+        // read off the document.
+        const findSiblings = (id, blocks = editor.document) => {
+            if (blocks.some((block) => block.id === id)) return blocks;
+            for (const block of blocks) {
+                const found = block.children?.length ? findSiblings(id, block.children) : null;
+                if (found) return found;
+            }
+            return null;
+        };
+
+        const headingLevel = (block) => (block?.type === 'heading' ? Number(block.props?.level) || 1 : null);
+
+        // A heading owns everything under it, but only nested content is an
+        // actual `children` array: content written after the heading stays as
+        // following siblings. Moving the heading alone would strand that
+        // content, so a single dragged heading takes its section with it —
+        // every following sibling up to the next heading of the same or a
+        // higher level, exactly as an outline would group them.
+        const withHeadingSection = (blocks) => {
+            if (blocks.length !== 1) return blocks;
+            const [heading] = blocks;
+            const level = headingLevel(heading);
+            if (level === null) return blocks;
+            const siblings = findSiblings(heading.id);
+            const start = siblings?.indexOf(heading) ?? -1;
+            if (start < 0) return blocks;
+            const section = [heading];
+            for (let i = start + 1; i < siblings.length; i++) {
+                const next = siblings[i];
+                const nextLevel = headingLevel(next);
+                if (nextLevel !== null && nextLevel <= level) break;
+                section.push(next);
+            }
+            return section;
+        };
+
         const nestIntoToggle = (targetId, draggedIds) => {
-            const dragged = draggedIds.map((id) => editor.getBlock?.(id)).filter(Boolean);
+            const dragged = withHeadingSection(
+                draggedIds.map((id) => editor.getBlock?.(id)).filter(Boolean),
+            );
             if (!dragged.length) return false;
             // Never drop a block into itself or into one of its own descendants.
             if (dragged.some((block) => containsBlockId(block, targetId))) return false;
@@ -1761,22 +1803,24 @@ export function EditorInner({
             return true;
         };
 
-        // Highlights the toggle that would receive the drop; without it the
-        // user only sees BlockNote's regular sibling drop cursor.
+        // Highlights the whole row of the toggle that would receive the drop.
+        // It also hides ProseMirror's drop cursor while it is on: that line
+        // announces a "place before/after" that is not what will happen, and
+        // two contradictory hints are worse than one.
         let highlighted = null;
         const setHighlight = (el) => {
             if (highlighted === el) return;
             highlighted?.classList.remove('gnosi-toggle-drop-target');
             highlighted = el || null;
             highlighted?.classList.add('gnosi-toggle-drop-target');
+            document.body.classList.toggle('gnosi-toggle-nesting', !!highlighted);
         };
 
         const onDragOverCapture = (e) => {
             if (e.dataTransfer?.types?.includes('Files')) return;
             const targetId = findToggleDropTarget(e.clientX, e.clientY);
             if (!targetId) { setHighlight(null); return; }
-            const container = wrapper.querySelector(`[data-id="${CSS.escape(targetId)}"]`);
-            setHighlight(container?.querySelector('.bn-toggle-wrapper') || null);
+            setHighlight(wrapper.querySelector(`.bn-block-outer[data-id="${CSS.escape(targetId)}"]`));
         };
 
         const onDragEndCapture = () => setHighlight(null);
@@ -1832,7 +1876,14 @@ export function EditorInner({
         wrapper.addEventListener('dragover', onDragOverCapture, true);
         wrapper.addEventListener('dragend', onDragEndCapture, true);
         wrapper.addEventListener('dragleave', onDragEndCapture, true);
+        // Safety net on the document: while the highlight is on, ProseMirror's
+        // drop cursor is hidden, so a missed reset would leave every later drag
+        // without a drop cursor. Any way a drag can end clears it.
+        document.addEventListener('dragend', onDragEndCapture, true);
+        document.addEventListener('drop', onDragEndCapture, true);
         return () => {
+            document.removeEventListener('dragend', onDragEndCapture, true);
+            document.removeEventListener('drop', onDragEndCapture, true);
             wrapper.removeEventListener('drop', onDropCapture, true);
             wrapper.removeEventListener('paste', onPasteCapture, true);
             wrapper.removeEventListener('dragover', onDragOverCapture, true);
@@ -2934,11 +2985,20 @@ export function EditorInner({
                 .bn-toggle summary::-webkit-details-marker { display: none; }
 
                 /* Toggle highlighted while dragging a block over it: the drop
-                   will nest the block inside instead of reordering it. */
-                .bn-toggle-wrapper.gnosi-toggle-drop-target {
+                   will nest the block inside instead of reordering it. The
+                   whole row lights up — the header itself shrinks to the width
+                   of its title, which is too small a hint to notice. */
+                .bn-block-outer.gnosi-toggle-drop-target {
                     border-radius: 4px;
                     box-shadow: inset 0 0 0 2px var(--color-accent, #8b5cf6);
-                    background: color-mix(in srgb, var(--color-accent, #8b5cf6) 10%, transparent);
+                    background: color-mix(in srgb, var(--color-accent, #8b5cf6) 12%, transparent);
+                }
+
+                /* While nesting, ProseMirror's drop cursor would contradict the
+                   highlight by announcing a sibling placement. */
+                body.gnosi-toggle-nesting .prosemirror-dropcursor-block,
+                body.gnosi-toggle-nesting .prosemirror-dropcursor-inline {
+                    display: none !important;
                 }
             `}</style>
             <div
