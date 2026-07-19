@@ -35,7 +35,9 @@ async def create_workspace(
             raise HTTPException(status_code=401, detail="Cal autenticació")
 
         # If it doesn't exist, we create it with minimal data
-        user = User(id=x_user_id, name="User", email=normalize_email(f"{x_user_id}@example.com"))
+        user = User(id=x_user_id, name="User",
+                    email=normalize_email(f"{x_user_id}@example.com"),
+                    auto_provisioned=True)
         db.add(user)
         db.flush()
 

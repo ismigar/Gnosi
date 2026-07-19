@@ -198,6 +198,27 @@ wrong altitude: the property that matters is *"this account was never
 deliberately invited"*, which no column records. Record it — a nullable
 `invited_by`/`auto_provisioned` flag — and guard on that instead.
 
+> **RESOLVED.** Phase 3/4 first generalized the string matching (whole
+> `example.com` domain + the one `gnosi.app` literal), which closed all three
+> paths above but kept inferring the property from the address. `users.
+> auto_provisioned` now records it: every minting path sets it, and
+> `is_auto_provisioned_account()` reads the column with the address heuristic
+> kept as a SECOND line — the column can be absent in ways the code cannot see
+> (a DB restored from a pre-column backup, a row inserted by hand), and the two
+> only ever disagree in the direction that refuses a claim.
+>
+> The lightweight migration backfills from the address at the moment it adds the
+> column. **This is load-bearing**: without it, existing rows default to 0
+> ("invited") and the migration would REMOVE the protection an older install
+> already has. Verified by removing the backfill and watching the migration
+> tests fail.
+>
+> What the column buys over the heuristic, verified end-to-end: an account at a
+> domain the heuristic returns False for is still refused (403) when the column
+> is set — i.e. a fourth minting path is covered the moment it records the
+> property, whatever address it invents. Tests:
+> `test_auto_provisioned_accounts.py`, `test_auto_provisioned_migration.py`.
+
 ### 3. `POST /api/workspaces` is a second unauthenticated account factory
 
 It declares only `x_user_id: str = Header(...)` and no role dependency, so an
