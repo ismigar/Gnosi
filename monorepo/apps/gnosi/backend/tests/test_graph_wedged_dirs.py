@@ -18,6 +18,7 @@ monkeypatched to raise EDEADLK for one directory. No real OneDrive needed.
 from __future__ import annotations
 
 import errno
+import logging
 import os
 from pathlib import Path
 
@@ -212,3 +213,29 @@ def test_api_graph_returns_200_with_partial_graph(vault, monkeypatch):
     assert "beta" not in ids
     assert data["partial"] is True
     assert data["skipped_dirs"] == [WEDGED_DIRNAME]
+
+
+def test_warmup_failure_is_logged_at_warning(vault, monkeypatch, caplog):
+    """A warmup that genuinely fails must be visible in the logs.
+
+    The except in _request_dir_warmup only sees real failures — the "does not
+    apply here" cases (wrong mode, throttled) return early without raising. At
+    debug level a broken warmup looked exactly like a working one, which is how
+    the throttle bug (#890) went unnoticed: the request was dropped in silence.
+    """
+    def boom(cmd, *args, **kwargs):
+        raise OSError("no LaunchServices in this session")
+
+    monkeypatch.setattr(gs.subprocess, "Popen", boom)
+    monkeypatch.setenv("ONEDRIVE_WARMUP_MODE", "open")
+    _wedge(monkeypatch)
+
+    with caplog.at_level(logging.WARNING, logger=gs.log.name):
+        get_markdown_files_efficient(vault, [])
+
+    warmup_warnings = [
+        r for r in caplog.records
+        if r.levelno == logging.WARNING and "warmup request failed" in r.message
+    ]
+    assert warmup_warnings, "a failing warmup left no trace at WARNING level"
+    assert WEDGED_DIRNAME in warmup_warnings[0].message
