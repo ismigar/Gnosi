@@ -1,7 +1,8 @@
 /**
- * LoginPage — entry screen for org mode (teams/cooperatives).
+ * LoginPage — entry screen when there is no authenticated user.
  *
- * Shown when `gnosiMode === 'org'` and there is no authenticated user. Toggles
+ * Shown in org mode, and in personal mode when the backend enforces auth
+ * (GNOSI_REQUIRE_AUTH, surfaced as `require_auth` by /api/health). Toggles
  * between signing in and signing up. Signing up also serves as a "claim"
  * of a membership pre-created by email (see auth_routes.register), so a
  * cooperative can invite members before they register.
