@@ -628,6 +628,36 @@ _preview_inflight: Dict[str, "asyncio.Future[Tuple[Dict[str, Any], Dict[str, Any
 _preview_inflight_lock = threading.Lock()
 
 
+def _index_warmup_enabled(v_path: Path) -> bool:
+    """Whether the startup index warmup should run, auto-detected by runtime.
+
+    Env override: `GNOSI_INDEX_WARMUP` = 1/true/on to force it on, 0/false/off
+    to force it off.
+
+    The warmup walks and stats the whole vault. On a macOS File-Provider mount
+    (`~/Library/CloudStorage/…` — OneDrive et al.) that walk returned EDEADLK en
+    masse and wedged the indexer, which is why the call used to be commented out
+    entirely. But that is a macOS/cloud-mount problem: under Docker or a Linux
+    self-host the vault is a plain bind mount, the walk is cheap, and the warmup
+    is still worth running. Hard-disabling it punished those deployments for a
+    fault they cannot hit.
+
+    Skipping on the cloud mount costs little today: the page index, id→title
+    index, link index and body/parsed-doc caches are all preloaded from
+    `lifespan` startup, and the periodic background sync
+    (`_VAULT_SYNC_COOLDOWN_SECONDS`) still picks up external changes.
+    """
+    override = os.environ.get("GNOSI_INDEX_WARMUP", "").strip().lower()
+    if override in {"1", "true", "on", "yes"}:
+        return True
+    if override in {"0", "false", "off", "no"}:
+        return False
+    # macOS File-Provider mount → skip (the EDEADLK case).
+    if sys.platform == "darwin" and "/Library/CloudStorage/" in str(v_path):
+        return False
+    return True
+
+
 def kickoff_index_warmup(v_path: Path) -> None:
     """Launch a background thread to populate the page index.
 
@@ -641,6 +671,14 @@ def kickoff_index_warmup(v_path: Path) -> None:
     if not v_path or not v_path.exists():
         return
     v_str = str(v_path)
+    # Gate checked HERE and not at the call site so every caller (startup,
+    # settings change) is covered by one rule.
+    if not _index_warmup_enabled(v_path):
+        log.info(
+            "⏭️ Index warmup skipped for this runtime "
+            "(macOS File-Provider mount; override with GNOSI_INDEX_WARMUP=1)"
+        )
+        return
     # Initialize the background sync timestamp so that the next
     # call to `_get_pages_snapshot` doesn't trigger a full rescan
     # immediately (4243 OneDrive stats ≈ 20-40s competing with the PATCH
@@ -656,12 +694,12 @@ def kickoff_index_warmup(v_path: Path) -> None:
         _load_body_cache_from_disk()
     except Exception as e:
         log.warning(f"body-cache load skipped: {e}")
-    # NOTE: this whole warmup is currently disabled at startup (OneDrive
-    # EDEADLK, see server.py), so anything hooked in here never runs — which is
-    # why the body-cache load above sat dead for days and the parsed-doc cache
-    # is not hooked here at all. Both are loaded from the lifespan startup
-    # instead. Keep new startup hooks OUT of this function until it is
-    # re-enabled.
+    # NOTE: this function does NOT run on a macOS File-Provider mount (see
+    # `_index_warmup_enabled`), so it is not a reliable place for startup work.
+    # The body-cache load above is kept because it is harmless when this does
+    # run, but the authoritative load of the body and parsed-doc caches happens
+    # in `lifespan` startup — where it runs on every runtime. Put new startup
+    # hooks THERE, not here.
     with _indexer_status_lock:
         cur = _indexer_status_by_vault.get(v_str, {})
         if cur.get("state") == "running":
