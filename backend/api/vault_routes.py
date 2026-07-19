@@ -656,6 +656,12 @@ def kickoff_index_warmup(v_path: Path) -> None:
         _load_body_cache_from_disk()
     except Exception as e:
         log.warning(f"body-cache load skipped: {e}")
+    # NOTE: this whole warmup is currently disabled at startup (OneDrive
+    # EDEADLK, see server.py), so anything hooked in here never runs — which is
+    # why the body-cache load above sat dead for days and the parsed-doc cache
+    # is not hooked here at all. Both are loaded from the lifespan startup
+    # instead. Keep new startup hooks OUT of this function until it is
+    # re-enabled.
     with _indexer_status_lock:
         cur = _indexer_status_by_vault.get(v_str, {})
         if cur.get("state") == "running":
@@ -11522,6 +11528,141 @@ def _get_body_for_path(file_path: Path) -> str:
     return raw_content
 
 
+# Cache of PARSED documents indexed by path → (mtime_ns, metadata, body).
+# `_body_cache` only spares the READ; `parse_frontmatter` still ran for every
+# file on each `_ITER_DOCS_TTL` rebuild, so a rebuild cost ~18s on the real
+# vault and pushed a cold /unlinked-mentions past the frontend's 30s axios
+# timeout (`[load-unlinked-mentions] timeout of 30000ms exceeded`). Keyed by
+# mtime, a rebuild is now O(stat) per unchanged file instead of O(parse).
+#
+# **Disk persistence**: mirrors `_body_cache`. Without it every backend restart
+# (and every autoreload in dev) paid the full re-parse on the first request.
+_parsed_doc_cache: Dict[str, tuple[int, Dict[str, Any], str]] = {}
+_parsed_doc_lock = threading.Lock()
+_PARSED_DOC_PERSIST_PENDING = False
+_PARSED_DOC_PERSIST_DEBOUNCE = 10.0  # seconds
+_parsed_doc_persist_lock = threading.Lock()
+
+
+def _get_parsed_doc_cache_path() -> Optional[Path]:
+    """Local path where the parsed-document cache is persisted."""
+    base = get_p("PAGE_INDEX_CACHE")
+    if base:
+        return base.parent / "vault_parsed_doc_cache.json"
+    return Path("/app/data/cache/vault_parsed_doc_cache.json")
+
+
+def _save_parsed_doc_cache_to_disk() -> None:
+    """Persists the parsed-document cache to disk.
+
+    Entries whose metadata is not JSON-serializable are skipped rather than
+    aborting the whole save: YAML can yield dates/objects that json rejects, and
+    one odd page must not cost every other page its cached parse. A skipped
+    entry is simply re-parsed after the next restart.
+    """
+    try:
+        cache_path = _get_parsed_doc_cache_path()
+        if not cache_path:
+            return
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        with _parsed_doc_lock:
+            snapshot = list(_parsed_doc_cache.items())
+        payload = {}
+        skipped = 0
+        for path, (mtime_ns, metadata, body) in snapshot:
+            try:
+                json.dumps(metadata, allow_nan=False)
+            except (TypeError, ValueError):
+                skipped += 1
+                continue
+            payload[path] = {"mtime_ns": mtime_ns, "metadata": metadata, "body": body}
+        safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
+        suffix = f", {skipped} omesos" if skipped else ""
+        log.info(f"💾 parsed-doc-cache desat ({len(payload)} fitxers{suffix})")
+    except Exception as e:
+        log.warning(f"parsed-doc-cache save failed: {e}")
+
+
+def _schedule_parsed_doc_cache_persist() -> None:
+    """Debounce persist, mirroring `_schedule_body_cache_persist`."""
+    global _PARSED_DOC_PERSIST_PENDING
+    with _parsed_doc_persist_lock:
+        if _PARSED_DOC_PERSIST_PENDING:
+            return
+        _PARSED_DOC_PERSIST_PENDING = True
+
+    def _run():
+        global _PARSED_DOC_PERSIST_PENDING
+        time.sleep(_PARSED_DOC_PERSIST_DEBOUNCE)
+        try:
+            _save_parsed_doc_cache_to_disk()
+        except Exception:
+            pass
+        finally:
+            with _parsed_doc_persist_lock:
+                _PARSED_DOC_PERSIST_PENDING = False
+
+    threading.Thread(target=_run, daemon=True, name="parsed-doc-cache-persist").start()
+
+
+def _load_parsed_doc_cache_from_disk() -> bool:
+    """Loads the saved parsed-document cache. Mtimes are not validated here —
+    `_get_parsed_document` does it per entry queried (amortized cost)."""
+    try:
+        cache_path = _get_parsed_doc_cache_path()
+        if not cache_path or not cache_path.exists():
+            return False
+        data = json.loads(cache_path.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return False
+        with _parsed_doc_lock:
+            _parsed_doc_cache.clear()
+            for path, val in data.items():
+                if not isinstance(val, dict):
+                    continue
+                mt = val.get("mtime_ns") or 0
+                metadata = val.get("metadata")
+                body = val.get("body") or ""
+                if mt and isinstance(metadata, dict):
+                    _parsed_doc_cache[path] = (mt, metadata, body)
+        log.info(
+            f"📂 parsed-doc-cache carregat del disc ({len(_parsed_doc_cache)} fitxers)"
+        )
+        return True
+    except Exception as e:
+        log.warning(f"parsed-doc-cache load failed: {e}")
+        return False
+
+
+def _get_parsed_document(file_path: Path) -> Optional[tuple[Dict[str, Any], str]]:
+    """Returns (metadata, body) for an .md file, memoized by mtime.
+
+    Returns None when the file is unreadable or empty, mirroring the behaviour
+    `_iter_linkable_page_documents` had when `_get_body_for_path` returned "".
+    """
+    path_str = str(file_path)
+    try:
+        mtime_ns = file_path.stat().st_mtime_ns
+    except OSError:
+        return None
+
+    with _parsed_doc_lock:
+        cached = _parsed_doc_cache.get(path_str)
+        if cached and cached[0] == mtime_ns:
+            return cached[1], cached[2]
+
+    raw_content = _get_body_for_path(file_path)
+    if not raw_content:
+        return None
+
+    metadata, body = parse_frontmatter(raw_content, file_path)
+
+    with _parsed_doc_lock:
+        _parsed_doc_cache[path_str] = (mtime_ns, metadata, body)
+    _schedule_parsed_doc_cache_persist()
+    return metadata, body
+
+
 def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, bool]]:
     """Yields page documents as (path, metadata, body, is_dashboard).
 
@@ -11568,10 +11709,10 @@ def _iter_linkable_page_documents() -> List[tuple[Path, Dict[str, Any], str, boo
                 if ".history" in file_path.parts or ".trash" in file_path.parts:
                     continue
                 try:
-                    raw_content = _get_body_for_path(file_path)
-                    if not raw_content:
+                    parsed = _get_parsed_document(file_path)
+                    if parsed is None:
                         continue
-                    metadata, body = parse_frontmatter(raw_content, file_path)
+                    metadata, body = parsed
                     docs.append((file_path, metadata, body, False))
                 except Exception as e:
                     log.warning(f"Error parsing linkable page {file_path.name}: {e}")

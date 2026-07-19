@@ -101,6 +101,8 @@ async def lifespan(app: FastAPI):
     #    Endpoint /api/vault/indexer-status lets the UI poll progress.
     try:
         from backend.api.vault_routes import (
+            _load_body_cache_from_disk,
+            _load_parsed_doc_cache_from_disk,
             kickoff_index_warmup,
             kickoff_link_index_rebuild,
             preload_page_index_from_disk,
@@ -117,6 +119,23 @@ async def lifespan(app: FastAPI):
             # TEMPORARILY DISABLED: OneDrive EDEADLK blocks entire indexer
             # kickoff_index_warmup(v_path)
             log.info(f"⏭️ Skipping indexer warmup due to OneDrive EDEADLK")
+            # Load the persisted body + parsed-document caches. They live HERE
+            # and not in kickoff_index_warmup precisely because that warmup is
+            # disabled above — anything hooked in there never runs.
+            #
+            # For the body cache this was not merely a lost optimisation: the
+            # save writes whatever is in memory, so starting empty every boot
+            # meant each flush OVERWROTE the persisted cache with the handful of
+            # files read so far. Observed decay 34798 -> 18 entries (5.4MB ->
+            # 7.3KB). Loading first makes the save additive again.
+            try:
+                _load_body_cache_from_disk()
+            except Exception as e:
+                log.warning(f"body-cache load skipped: {e}")
+            try:
+                _load_parsed_doc_cache_from_disk()
+            except Exception as e:
+                log.warning(f"parsed-doc-cache load skipped: {e}")
             # Redundant trigger for the link-index rebuild: if the warmup indexer
             # is slow (OneDrive being slow doing rglob), the wikilinks index starts
             # anyway from here. kickoff_link_index_rebuild does a load-from-disk
