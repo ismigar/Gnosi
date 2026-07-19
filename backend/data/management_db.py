@@ -71,10 +71,25 @@ def _apply_lightweight_migrations(engine):
     additive_columns = {
         "users": {
             "password_hash": "VARCHAR",
+            # NOT NULL DEFAULT 0 so existing rows land on "invited" rather than
+            # NULL; the backfill below then flips the ones that were in fact
+            # auto-provisioned. Without the backfill this migration would REMOVE
+            # a protection: the claim guard would stop refusing the placeholder
+            # accounts an older install already has.
+            "auto_provisioned": "BOOLEAN NOT NULL DEFAULT 0",
         },
         "share_links": {
             "vault_id": "VARCHAR",
         },
+    }
+    # Runs once, right after the column is added: addresses are the only
+    # evidence available for accounts minted before the column existed.
+    backfills = {
+        ("users", "auto_provisioned"): (
+            "UPDATE users SET auto_provisioned = 1 "
+            "WHERE lower(email) LIKE '%@example.com' "
+            "   OR lower(email) = 'ismael-legacy@gnosi.app'"
+        ),
     }
     try:
         inspector = inspect(engine)
@@ -88,6 +103,13 @@ def _apply_lightweight_migrations(engine):
                     continue
                 with engine.begin() as conn:
                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}"))
+                    backfill = backfills.get((table, col_name))
+                    if backfill:
+                        result = conn.execute(text(backfill))
+                        log.info(
+                            f"🛠️ Migració lleugera: {table}.{col_name} omplerta "
+                            f"per a {result.rowcount} fila/es existents"
+                        )
                 log.info(f"🛠️ Migració lleugera: afegida columna {table}.{col_name}")
     except Exception as e:
         # We don't block startup for a failed upgrade; if the column

@@ -34,7 +34,8 @@ def init_mgmt_db():
 
                 legacy_user = User(
                     email="ismael-legacy@gnosi.app",
-                    name="Ismael Garcia (Default)"
+                    name="Ismael Garcia (Default)",
+                    auto_provisioned=True,
                 )
                 db.add(legacy_user)
                 db.commit()

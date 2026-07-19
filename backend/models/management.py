@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Enum as SqlEnum
+from sqlalchemy import Boolean, Column, String, Integer, DateTime, ForeignKey, Enum as SqlEnum
 from sqlalchemy.orm import relationship
 from datetime import datetime, timezone
 import enum
@@ -26,6 +26,13 @@ class User(Base):
     # users imported via OAuth). If it's None, the user must use OAuth
     # or set-password for the first email/password login.
     password_hash = Column(String, nullable=True)
+    # True for accounts the system minted itself — nobody deliberately invited
+    # them. `/register`'s claim flow refuses these: claiming by email is a weak
+    # proof of identity that only holds when an admin chose the address.
+    # Recording the property beats inferring it from the address: every minting
+    # path sets this, so a new one is not silently claimable just because it
+    # picked a domain the email heuristic does not know about.
+    auto_provisioned = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     memberships = relationship("Membership", back_populates="user", cascade="all, delete-orphan")

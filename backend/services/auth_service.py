@@ -171,6 +171,23 @@ _AUTO_PROVISIONED_DOMAINS = frozenset({"example.com"})
 _AUTO_PROVISIONED_LITERALS = frozenset({"ismael-legacy@gnosi.app"})
 
 
+def is_auto_provisioned_account(user) -> bool:
+    """True when nobody deliberately invited this account.
+
+    `users.auto_provisioned` is the real answer: every minting path records it,
+    so a future path is covered the moment it sets the column, whatever address
+    it invents. The address heuristic is kept as a SECOND line rather than
+    replaced, because the column can be absent in ways the code cannot see —
+    a DB restored from a pre-column backup, a row inserted by hand, a backfill
+    that ran against an unexpected address shape. The two disagree only in the
+    direction that refuses a claim, which is the safe direction: the account is
+    still reachable through `pipeline/scripts/set_user_password.py`.
+    """
+    if getattr(user, "auto_provisioned", False):
+        return True
+    return is_auto_provisioned_email(getattr(user, "email", "") or "")
+
+
 def normalize_email(value: str) -> str:
     """Canonical form used for storing and comparing addresses.
 

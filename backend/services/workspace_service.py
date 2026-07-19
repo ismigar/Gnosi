@@ -76,7 +76,8 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             # accident. Freeing that address removes the accident, not the risk.
             raise HTTPException(status_code=401, detail="Cal autenticació")
 
-        user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL)
+        user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL,
+                    auto_provisioned=True)
         db.add(user)
         try:
             db.commit()
