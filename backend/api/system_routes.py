@@ -302,13 +302,19 @@ _HOST_HEALTH_HELPER_URL = (
 )
 
 
-def _native_pick_via_helper(mode: str, prompt: str, multiple: bool = False, timeout: float = 300.0):
+def _native_pick_via_helper(mode: str, prompt: str, multiple: bool = False, timeout: float = 3600.0):
     """Ask the host helper to show the native dialog. Returns its response dict
     ({"status": "ok"|"cancelled", ...}), or None if the helper is unavailable.
 
-    The timeout is generous (5 min): the request blocks while the dialog is open
-    on the user's screen. Callers MUST run this off the event loop
-    (asyncio.to_thread) so a lingering dialog never freezes the backend.
+    The timeout must outlast a HUMAN, not a machine: the request blocks for as
+    long as the panel sits open on screen, and someone browsing to the right
+    folder can easily take longer than the 5 minutes this used to allow. When it
+    expired the pick was lost for good — the backend answered 502 while the user
+    was still choosing, and the helper then wrote its reply into a closed socket
+    (BrokenPipeError). It matches the helper's own osascript cap (1 h), so
+    whichever end gives up first, both give up together. Callers MUST run this
+    off the event loop (asyncio.to_thread) so a lingering dialog never freezes
+    the backend.
     """
     import urllib.request
 
