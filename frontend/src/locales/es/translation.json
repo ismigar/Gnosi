@@ -1248,7 +1248,8 @@
       "ai": "Inteligencia Artificial",
       "notion": "Importar Notion",
       "translate": "Traducción",
-      "profile": "Perfil"
+      "profile": "Perfil",
+      "account": "Cuenta"
     },
     "general": {
       "system_title": "Configuración del Sistema",
@@ -1806,7 +1807,30 @@
     "credential_placeholder": "Introduce la clave para {{name}}",
     "api_keys_hint": "Tus claves API se almacenan de forma segura en el Keychain de tu ordenador. Esta pestaña muestra qué claves están configuradas.",
     "credential_save_error": "Error al guardar: {{message}}",
-    "keychain_migration_error": "Error al migrar: {{message}}"
+    "keychain_migration_error": "Error al migrar: {{message}}",
+    "account": {
+      "title": "Cuenta",
+      "no_session": "No hay ninguna sesión activa: esta sección solo está disponible con la autenticación activada.",
+      "profile_section": "Perfil de la cuenta",
+      "name_label": "Nombre",
+      "email_label": "Email",
+      "email_desc": "Es tu identificador de inicio de sesión. Cambiarlo requiere la contraseña actual.",
+      "current_password_label": "Contraseña actual",
+      "need_current_password_email": "Para cambiar el email hace falta la contraseña actual.",
+      "save_btn": "Guardar cambios",
+      "profile_saved": "Cuenta actualizada.",
+      "save_error": "No se ha podido guardar la cuenta.",
+      "password_section": "Cambio de contraseña",
+      "new_password_label": "Contraseña nueva",
+      "new_password_desc": "Mínimo 8 caracteres; los acentos cuentan doble en el límite de 72 bytes.",
+      "repeat_password_label": "Repite la contraseña nueva",
+      "change_password_btn": "Cambiar la contraseña",
+      "password_changed": "Contraseña cambiada.",
+      "password_error": "No se ha podido cambiar la contraseña.",
+      "missing_password_fields": "Hacen falta la contraseña actual y la nueva.",
+      "password_too_short": "La contraseña debe tener al menos 8 caracteres.",
+      "passwords_dont_match": "Las contraseñas nuevas no coinciden."
+    }
   },
   "contacts": {
     "title": "Contactos",

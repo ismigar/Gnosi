@@ -1295,7 +1295,8 @@
       "ai": "Intel·ligència Artificial",
       "notion": "Importar Notion",
       "translate": "Traducció",
-      "profile": "Perfil"
+      "profile": "Perfil",
+      "account": "Compte"
     },
     "general": {
       "system_title": "Configuració del Sistema",
@@ -1846,7 +1847,30 @@
     "credential_placeholder": "Introdueix la clau per a {{name}}",
     "api_keys_hint": "Les teves claus API s'emmagatzemen de forma segura al Keychain del teu ordinador. Aquesta pestanya mostra quines claus estan configurades.",
     "credential_save_error": "Error guardant: {{message}}",
-    "keychain_migration_error": "Error migrant: {{message}}"
+    "keychain_migration_error": "Error migrant: {{message}}",
+    "account": {
+      "title": "Compte",
+      "no_session": "No hi ha cap sessió activa: aquesta secció només està disponible amb l'autenticació activada.",
+      "profile_section": "Perfil del compte",
+      "name_label": "Nom",
+      "email_label": "Email",
+      "email_desc": "És el teu identificador d'inici de sessió. Canviar-lo demana la contrasenya actual.",
+      "current_password_label": "Contrasenya actual",
+      "need_current_password_email": "Per canviar l'email cal la contrasenya actual.",
+      "save_btn": "Desa els canvis",
+      "profile_saved": "Compte actualitzat.",
+      "save_error": "No s’ha pogut desar el compte.",
+      "password_section": "Canvi de contrasenya",
+      "new_password_label": "Contrasenya nova",
+      "new_password_desc": "Mínim 8 caràcters; els accents compten doble al límit de 72 bytes.",
+      "repeat_password_label": "Repeteix la contrasenya nova",
+      "change_password_btn": "Canvia la contrasenya",
+      "password_changed": "Contrasenya canviada.",
+      "password_error": "No s’ha pogut canviar la contrasenya.",
+      "missing_password_fields": "Cal la contrasenya actual i la nova.",
+      "password_too_short": "La contrasenya ha de tenir almenys 8 caràcters.",
+      "passwords_dont_match": "Les contrasenyes noves no coincideixen."
+    }
   },
   "contacts": {
     "title": "Contactes",

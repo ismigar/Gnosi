@@ -1329,7 +1329,8 @@
       "ai": "Artificial Intelligence",
       "notion": "Import Notion",
       "translate": "Translation",
-      "profile": "Profile"
+      "profile": "Profile",
+      "account": "Account"
     },
     "general": {
       "system_title": "System Settings",
@@ -1956,7 +1957,30 @@
     "credential_placeholder": "Enter the key for {{name}}",
     "api_keys_hint": "Your API keys are stored securely in your computer's Keychain. This tab shows which keys are configured.",
     "credential_save_error": "Error saving: {{message}}",
-    "keychain_migration_error": "Error migrating: {{message}}"
+    "keychain_migration_error": "Error migrating: {{message}}",
+    "account": {
+      "title": "Account",
+      "no_session": "There is no active session: this section is only available with authentication enabled.",
+      "profile_section": "Account profile",
+      "name_label": "Name",
+      "email_label": "Email",
+      "email_desc": "This is your sign-in identifier. Changing it requires your current password.",
+      "current_password_label": "Current password",
+      "need_current_password_email": "Changing the email requires your current password.",
+      "save_btn": "Save changes",
+      "profile_saved": "Account updated.",
+      "save_error": "Could not save the account.",
+      "password_section": "Change password",
+      "new_password_label": "New password",
+      "new_password_desc": "At least 8 characters; accented characters count double towards the 72-byte limit.",
+      "repeat_password_label": "Repeat the new password",
+      "change_password_btn": "Change password",
+      "password_changed": "Password changed.",
+      "password_error": "Could not change the password.",
+      "missing_password_fields": "Both the current and the new password are required.",
+      "password_too_short": "The password must be at least 8 characters long.",
+      "passwords_dont_match": "The new passwords do not match."
+    }
   },
   "contacts": {
     "title": "Contacts",
