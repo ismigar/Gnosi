@@ -64,7 +64,7 @@ def _answer(monkeypatch, script, password: str, confirm: str | None = None):
 
 def test_sets_credentials_and_keeps_the_user_id(script, db, monkeypatch):
     _answer(monkeypatch, script, GOOD_PASSWORD)
-    rc = script.set_password(db, LEGACY_ID, "real@example.com", None, force=False)
+    rc = script.set_password(db, LEGACY_ID, "real@example.com", None, force=False, acknowledged=True)
     assert rc == 0
 
     user = db.query(User).filter(User.id == LEGACY_ID).one()
@@ -77,7 +77,7 @@ def test_sets_credentials_and_keeps_the_user_id(script, db, monkeypatch):
 
 def test_normalizes_the_email_to_lowercase(script, db, monkeypatch):
     _answer(monkeypatch, script, GOOD_PASSWORD)
-    assert script.set_password(db, LEGACY_ID, "  Real@Example.COM  ", None, force=False) == 0
+    assert script.set_password(db, LEGACY_ID, "  Real@Example.COM  ", None, force=False, acknowledged=True) == 0
     assert db.query(User).filter(User.id == LEGACY_ID).one().email == "real@example.com"
 
 
@@ -85,20 +85,20 @@ def test_normalizes_the_email_to_lowercase(script, db, monkeypatch):
 
 def test_refuses_when_a_password_already_exists(script, db, monkeypatch):
     _answer(monkeypatch, script, GOOD_PASSWORD)
-    assert script.set_password(db, LEGACY_ID, "real@example.com", None, force=False) == 0
+    assert script.set_password(db, LEGACY_ID, "real@example.com", None, force=False, acknowledged=True) == 0
 
     _answer(monkeypatch, script, "a-different-password")
-    assert script.set_password(db, LEGACY_ID, None, None, force=False) == 1
+    assert script.set_password(db, LEGACY_ID, None, None, force=False, acknowledged=True) == 1
     # Untouched by the refused run.
     assert verify_password(GOOD_PASSWORD, db.query(User).filter(User.id == LEGACY_ID).one().password_hash)
 
 
 def test_force_replaces_an_existing_password(script, db, monkeypatch):
     _answer(monkeypatch, script, GOOD_PASSWORD)
-    assert script.set_password(db, LEGACY_ID, "real@example.com", None, force=False) == 0
+    assert script.set_password(db, LEGACY_ID, "real@example.com", None, force=False, acknowledged=True) == 0
 
     _answer(monkeypatch, script, "a-different-password")
-    assert script.set_password(db, LEGACY_ID, None, None, force=True) == 0
+    assert script.set_password(db, LEGACY_ID, None, None, force=True, acknowledged=True) == 0
     assert verify_password("a-different-password", db.query(User).filter(User.id == LEGACY_ID).one().password_hash)
 
 
@@ -108,19 +108,19 @@ def test_rejects_an_email_owned_by_another_user_ignoring_case(script, db, monkey
 
     _answer(monkeypatch, script, GOOD_PASSWORD)
     # Different case must still collide: the DB unique index would not catch it.
-    assert script.set_password(db, LEGACY_ID, "Taken@Example.com", None, force=False) == 1
+    assert script.set_password(db, LEGACY_ID, "Taken@Example.com", None, force=False, acknowledged=True) == 1
     assert db.query(User).filter(User.id == LEGACY_ID).one().password_hash is None
 
 
 def test_unknown_user_id_is_an_error(script, db, monkeypatch):
     _answer(monkeypatch, script, GOOD_PASSWORD)
-    assert script.set_password(db, "ghost", None, None, force=False) == 1
+    assert script.set_password(db, "ghost", None, None, force=False, acknowledged=True) == 1
 
 
 def test_mismatched_confirmation_changes_nothing(script, db, monkeypatch):
     _answer(monkeypatch, script, GOOD_PASSWORD, confirm="something-else")
     with pytest.raises(SystemExit):
-        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False)
+        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False, acknowledged=True)
     assert db.query(User).filter(User.id == LEGACY_ID).one().password_hash is None
 
 
@@ -128,7 +128,7 @@ def test_mismatched_confirmation_changes_nothing(script, db, monkeypatch):
 def test_rejects_a_weak_password(script, db, monkeypatch, password):
     _answer(monkeypatch, script, password)
     with pytest.raises(SystemExit):
-        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False)
+        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False, acknowledged=True)
     assert db.query(User).filter(User.id == LEGACY_ID).one().password_hash is None
 
 
@@ -136,7 +136,7 @@ def test_rejects_a_password_over_the_bcrypt_byte_limit(script, db, monkeypatch):
     # 40 accented characters = 80 UTF-8 bytes: over the limit while looking short.
     _answer(monkeypatch, script, "à" * 40)
     with pytest.raises(SystemExit):
-        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False)
+        script.set_password(db, LEGACY_ID, "real@example.com", None, force=False, acknowledged=True)
     assert db.query(User).filter(User.id == LEGACY_ID).one().password_hash is None
 
 
@@ -165,7 +165,37 @@ def test_refuses_to_leave_the_placeholder_email_in_place(script, db, monkeypatch
     email on an account still carrying the placeholder must fail loudly.
     """
     _answer(monkeypatch, script, GOOD_PASSWORD)
-    assert script.set_password(db, LEGACY_ID, None, None, force=False) == 1
+    assert script.set_password(db, LEGACY_ID, None, None, force=False, acknowledged=True) == 1
     user = db.query(User).filter(User.id == LEGACY_ID).one()
     assert user.password_hash is None
     assert user.email == "user@example.com"
+
+
+# --- the migration must not be run unknowingly -------------------------------
+
+def test_refuses_without_acknowledging_the_minting_warning(script, db, monkeypatch):
+    """Freeing the placeholder address is what enables header-driven minting.
+
+    While `users.email` is UNIQUE and every auto-provisioned user gets the same
+    placeholder, an unknown X-User-ID dies on an IntegrityError. Giving this
+    account a real address frees that slot, so the next unknown header value
+    succeeds in creating an `owner` of the personal workspace. The script must
+    not let an operator cross that line without saying so.
+    """
+    _answer(monkeypatch, script, GOOD_PASSWORD)
+    assert script.set_password(db, LEGACY_ID, "real@example.com", None, force=False) == 1
+
+    user = db.query(User).filter(User.id == LEGACY_ID).one()
+    assert user.password_hash is None
+    assert user.email == "user@example.com"
+
+
+def test_the_warning_does_not_apply_once_the_email_is_real(script, db, monkeypatch):
+    """An account already migrated has no placeholder slot to free."""
+    _answer(monkeypatch, script, GOOD_PASSWORD)
+    assert script.set_password(db, LEGACY_ID, "real@example.com", None, force=False,
+                               acknowledged=True) == 0
+
+    # Second run: no acknowledgement needed, the placeholder is long gone.
+    _answer(monkeypatch, script, "another-password-99")
+    assert script.set_password(db, LEGACY_ID, None, None, force=True) == 0

@@ -26,6 +26,17 @@ Usage:
 
 The password is read interactively with `getpass`, never taken as an argument:
 an argument would land in the shell history and in `ps` output.
+
+DO NOT RUN THIS YET on an install that still trusts `X-User-ID`.
+`_ensure_personal_exists` writes a fixed placeholder email for every
+auto-provisioned user while `users.email` is UNIQUE, so today a request carrying
+an unknown `X-User-ID` dies on an IntegrityError — the constraint blocks ghost
+accounts by accident. Moving this account to a real address frees the
+placeholder, and the next unknown header value then succeeds in creating a user
+with `owner` membership on the shared personal workspace. Close the header-driven
+minting first (see
+`docs/dev_memory/directives/auth_remove_legacy_fallback.md`, "Conditions that
+MUST be met"). The script prints this warning and requires --i-understand.
 """
 from __future__ import annotations
 
@@ -84,7 +95,22 @@ def _read_password() -> str:
     return pw
 
 
-def set_password(db, user_id: str, email: str | None, name: str | None, force: bool) -> int:
+_MINTING_WARNING = """\
+ATENCIÓ: migrar aquest compte OBRE un forat mentre el backend confiï en X-User-Id.
+
+Ara mateix l'email marcador està ocupat per aquest compte i la restricció d'unicitat
+impedeix, per accident, que una capçalera X-User-Id desconeguda creï un compte nou.
+En donar-li un email real, el marcador queda lliure i la següent petició amb un
+X-User-Id desconegut SÍ crearà un usuari amb rol 'owner' del workspace personal.
+
+Tanca primer el minting per capçalera. Vegeu la secció "Conditions that MUST be met"
+a docs/dev_memory/directives/auth_remove_legacy_fallback.md.
+
+Si ja ho has resolt, torna-ho a executar amb --i-understand."""
+
+
+def set_password(db, user_id: str, email: str | None, name: str | None, force: bool,
+                 acknowledged: bool = False) -> int:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         print(f"No existeix cap usuari amb id '{user_id}'. Usa --list per veure'ls.", file=sys.stderr)
@@ -96,6 +122,12 @@ def set_password(db, user_id: str, email: str | None, name: str | None, force: b
             "executar amb --force si realment la vols substituir.",
             file=sys.stderr,
         )
+        return 1
+
+    if not acknowledged and normalize_email(user.email) == PLACEHOLDER_EMAIL:
+        # Refuse by default: freeing the placeholder address is what enables
+        # header-driven account minting (see the module docstring).
+        print(_MINTING_WARNING, file=sys.stderr)
         return 1
 
     if not email and normalize_email(user.email) == PLACEHOLDER_EMAIL:
@@ -148,6 +180,12 @@ def main() -> int:
     parser.add_argument("--email", help="email real (substitueix el marcador)")
     parser.add_argument("--name", help="nom a mostrar")
     parser.add_argument(
+        "--i-understand",
+        action="store_true",
+        dest="acknowledged",
+        help="confirma que has llegit l'avís sobre el minting per X-User-Id",
+    )
+    parser.add_argument(
         "--force",
         action="store_true",
         help="substitueix una contrasenya existent (per defecte es refusa)",
@@ -160,7 +198,7 @@ def main() -> int:
             return list_users(db)
         if not args.user_id:
             parser.error("cal --user-id (o --list)")
-        return set_password(db, args.user_id, args.email, args.name, args.force)
+        return set_password(db, args.user_id, args.email, args.name, args.force, args.acknowledged)
     finally:
         db.close()
 
