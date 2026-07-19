@@ -105,7 +105,14 @@ def _request_dir_warmup(dir_path: Path) -> None:
             return
         key = str(dir_path)
         now = time.monotonic()
-        if now - _DIR_WARMUP_REQUESTED.get(key, 0.0) < _DIR_WARMUP_THROTTLE_S:
+        # Membership check, NOT a 0.0 default: `time.monotonic()` is measured
+        # from an arbitrary epoch (system boot on Linux and on the macOS builds
+        # we ship), so `now - 0.0 < THROTTLE` silently swallows the FIRST
+        # request for every directory whenever monotonic() is still below the
+        # window — i.e. during the first 5 minutes of uptime, exactly when the
+        # LaunchAgent starts and OneDrive subtrees are coldest.
+        last = _DIR_WARMUP_REQUESTED.get(key)
+        if last is not None and now - last < _DIR_WARMUP_THROTTLE_S:
             return
         _DIR_WARMUP_REQUESTED[key] = now
         # `-g` keeps Finder in the background, `-j` launches hidden: no focus steal.

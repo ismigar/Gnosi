@@ -19,7 +19,6 @@ from __future__ import annotations
 
 import errno
 import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -102,16 +101,6 @@ def test_walk_without_tracking_list_still_survives(vault, monkeypatch):
     assert {f.name for f in files} == {"alpha.md", "gamma.md"}
 
 
-@pytest.mark.skipif(
-    sys.platform != "darwin",
-    reason=(
-        "Asserts the macOS-only warmup path: mode 'open' shells out to "
-        "/usr/bin/open (LaunchServices) to hydrate a wedged File Provider "
-        "directory. On other platforms _default_warmup_mode() never returns "
-        "'open', so forcing it via the env var tests a configuration that "
-        "cannot occur there."
-    ),
-)
 def test_wedged_dir_requests_finder_warmup_only_in_open_mode(vault, monkeypatch):
     calls: list[list[str]] = []
 
@@ -134,6 +123,35 @@ def test_wedged_dir_requests_finder_warmup_only_in_open_mode(vault, monkeypatch)
     assert calls[0][3].endswith(WEDGED_DIRNAME)
 
     # ...throttled: an immediate rebuild does not spawn another one.
+    get_markdown_files_efficient(vault, [])
+    assert len(calls) == 1
+
+
+def test_first_warmup_fires_within_the_throttle_window_after_boot(vault, monkeypatch):
+    """Regression: the first request must not be swallowed on a fresh boot.
+
+    `time.monotonic()` counts from an arbitrary epoch — system boot on Linux and
+    on the macOS builds we ship. The throttle used to read the last-request
+    stamp with a `0.0` default, so `now - 0.0 < _DIR_WARMUP_THROTTLE_S` was true
+    for EVERY unseen directory while monotonic() was still under the window,
+    silently dropping the first warmup during the first 5 minutes of uptime —
+    exactly when the LaunchAgent starts and OneDrive subtrees are coldest.
+
+    Pinning monotonic() below the window reproduces that; it passed unnoticed on
+    a long-running machine, where monotonic() is already far past 300.
+    """
+    calls: list[list[str]] = []
+    monkeypatch.setattr(gs.subprocess, "Popen", lambda cmd, *a, **k: calls.append(cmd))
+    monkeypatch.setenv("ONEDRIVE_WARMUP_MODE", "open")
+    # 12 s of uptime: well inside _DIR_WARMUP_THROTTLE_S (300 s).
+    monkeypatch.setattr(gs.time, "monotonic", lambda: 12.0)
+    _wedge(monkeypatch)
+
+    get_markdown_files_efficient(vault, [])
+    assert len(calls) == 1, "first warmup was swallowed by the throttle"
+    assert calls[0][3].endswith(WEDGED_DIRNAME)
+
+    # The throttle itself still holds: a rebuild at the same instant is a no-op.
     get_markdown_files_efficient(vault, [])
     assert len(calls) == 1
 
