@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Header
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.data.management_db import get_mgmt_db
 from backend.models.management import (
@@ -7,6 +8,7 @@ from backend.models.management import (
     AddMemberRequest, VaultAccessRequest, VaultAccessResponse,
     WorkspaceBase, UserRole
 )
+from backend.services.auth_service import normalize_email
 from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext, require_capability
 from typing import List
 import json
@@ -176,11 +178,16 @@ async def add_workspace_member(
          raise HTTPException(status_code=403, detail="Workspace ID mismatch")
 
     # 1. Find or create user
-    user = db.query(User).filter(User.email == request.email).first()
+    # Same canonical form as auth: the unique index is case-sensitive, so an
+    # exact match here would miss an existing `ismael@x.com` when inviting
+    # `Ismael@X.com` and create a SECOND, password-less row. The membership would
+    # then hang off the duplicate while the real user logs into the other one.
+    invited_email = normalize_email(request.email)
+    user = db.query(User).filter(func.lower(User.email) == invited_email).first()
     if not user:
         # Create placeholder user
-        user_name = request.email.split('@')[0].capitalize()
-        user = User(email=request.email, name=user_name)
+        user_name = invited_email.split('@')[0].capitalize()
+        user = User(email=invited_email, name=user_name)
         db.add(user)
         db.flush() # To get the ID
     
