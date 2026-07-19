@@ -310,14 +310,15 @@ export const InsertContentModal = ({
     // Batch pick from the disk browser. Several files can only be inserted as
     // links (one embed/native block per file would be a different, noisier
     // feature), so `mode` is pinned to 'link' for the batch.
-    const handleSelectLocalMany = useCallback((paths) => {
-        const list = (paths || []).filter(Boolean);
+    const handleSelectLocalMany = useCallback((entries) => {
+        const list = (entries || []).filter((e) => e && e.path);
         if (list.length === 0) return;
-        if (list.length === 1) { handleSelectLocal(list[0], { isDir: false }); return; }
+        if (list.length === 1) { handleSelectLocal(list[0].path, { isDir: !!list[0].isDir }); return; }
         setSelected({
             source: 'local-multi',
-            paths: list,
-            name: list.map((p) => p.split('/').pop() || p).join(', '),
+            entries: list,
+            paths: list.map((e) => e.path),
+            name: list.map((e) => e.path.split('/').pop() || e.path).join(', '),
             kind: 'file',
         });
         setMode('link');
@@ -509,9 +510,20 @@ export const InsertContentModal = ({
             // labelled properly; `urls` is what `files` fields consume.
             if (selected.source === 'local-multi') {
                 const items = [];
-                for (const path of selected.paths) {
-                    const url = await registerLocalFile(path);
-                    if (url) items.push({ url, name: path.split('/').pop() || path, kind: detectPathKind(path) });
+                for (const entry of selected.entries) {
+                    const { path, isDir } = entry;
+                    // A folder can't be served or registered: it becomes the
+                    // file:// sentinel, same as a single folder pick.
+                    const url = isDir
+                        ? fileUrlToSentinel(`file://${path}`)
+                        : await registerLocalFile(path);
+                    if (url) {
+                        items.push({
+                            url,
+                            name: path.split('/').pop() || path,
+                            kind: isDir ? 'folder' : detectPathKind(path),
+                        });
+                    }
                 }
                 if (!items.length) {
                     throw new Error(t('insert.error_no_url', "No s'ha pogut obtenir la URL final"));

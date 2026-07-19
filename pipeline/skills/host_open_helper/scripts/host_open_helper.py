@@ -15,15 +15,16 @@ Endpoints:
                               Search by name with Spotlight (`mdfind`), fast
                               thanks to the system's live index.
                               Response: {"results": [...], "truncated": bool}
-    POST /pick              → {"mode": "file"|"folder", "prompt": "...",
+    POST /pick              → {"mode": "file"|"folder"|"any", "prompt": "...",
                                "multiple": bool}
-                              Show the native macOS open dialog (AppleScript
-                              `choose file`/`choose folder`) and return the
-                              chosen POSIX path(s) — the absolute host paths a
-                              browser can never read from an <input type=file>.
-                              `multiple` (files only) allows picking several.
+                              Show the real macOS open panel (NSOpenPanel via
+                              JXA) and return the chosen POSIX path(s) — the
+                              absolute host paths a browser can never read from
+                              an <input type=file>. "any" accepts files AND
+                              folders in one dialog; `multiple` allows several.
                               Response: {"status": "ok", "path": "...",
-                                         "paths": [...], "is_dir": bool}
+                                         "paths": [...], "is_dir": bool,
+                                         "entries": [{"path", "is_dir"}, ...]}
                               or {"status": "cancelled"} if the user cancels.
     POST /trash             → {"path": "/Users/..."} or {"path": "file:///..."}
                               Moves the file to the Mac's Trash (RECOVERABLE).
@@ -142,69 +143,86 @@ def _move_to_trash(path: Path) -> None:
 _PICK_SEP = "\x1e"
 
 
+# JXA (JavaScript for Automation) driving AppKit's real NSOpenPanel — the same
+# panel Finder-aware apps show. AppleScript's `choose file`/`choose folder` are
+# two different commands, so they can never offer files AND folders in one
+# dialog; NSOpenPanel takes both as independent flags, which is what the picker's
+# 'any' mode needs. `setActivationPolicy(0)` (Regular) plus
+# `activateIgnoringOtherApps` bring it to the front — the helper is a faceless
+# LaunchAgent, so its window would otherwise open behind the browser.
+#
+# Arguments arrive via argv (never interpolated into the source) → not
+# injectable. runModal returns NSModalResponseOK (1) on accept; anything else
+# (including cancel) yields an empty string, which the caller reads as
+# "cancelled".
+_PANEL_JXA = """
+ObjC.import('AppKit');
+function run(argv) {
+  var prompt = argv[0] || '';
+  var mode = argv[1] || 'any';
+  var multi = argv[2] === 'multi';
+  var app = $.NSApplication.sharedApplication;
+  app.setActivationPolicy(0);
+  var panel = $.NSOpenPanel.openPanel;
+  panel.canChooseFiles = (mode !== 'folder');
+  panel.canChooseDirectories = (mode !== 'file');
+  panel.allowsMultipleSelection = multi;
+  panel.message = prompt;
+  panel.resolvesAliases = true;
+  app.activateIgnoringOtherApps(true);
+  if (panel.runModal != 1) return '';
+  var urls = panel.URLs;
+  var out = [];
+  for (var i = 0; i < urls.count; i++) out.push(ObjC.unwrap(urls.objectAtIndex(i).path));
+  return out.join(String.fromCharCode(30));
+}
+"""
+
+
 def _native_choose(mode: str, prompt: str, multiple: bool = False) -> dict:
-    """Show the native macOS open dialog and return the chosen POSIX path(s).
+    """Show the native macOS open panel and return the chosen POSIX path(s).
 
-    Uses AppleScript Standard Additions (`choose file` / `choose folder`) via
-    `osascript`. `prompt`, `mode` and the multi flag are passed as argv
-    (`on run argv`), never interpolated into the script → not injectable. The
-    dialog blocks until the user picks or cancels; cancelling raises AppleScript
-    error -128, which we translate to a clean {"status": "cancelled"} rather
-    than an error.
+    `mode` is "file", "folder" or "any" — "any" accepts both in a single dialog,
+    which is why this runs NSOpenPanel rather than AppleScript's `choose file`.
+    `multiple` allows picking several entries.
 
-    `multiple` only applies to files: `choose folder` gets no multi-select here
-    because every caller links a single folder. The result always carries
-    `paths` (a list) plus `path` (the first one) so older callers keep working.
+    The result always carries `paths` (a list) plus `path` (the first one) so
+    single-pick callers keep working. Cancelling is a normal outcome:
+    {"status": "cancelled"}, not an error.
 
-    `activate` brings the dialog to the front (the helper is a faceless
-    LaunchAgent, so its window would otherwise open behind the browser). macOS
-    remembers the dialog's last folder per app on its own, so repeated picks
-    resume where the user left off.
+    macOS remembers the panel's last folder per app on its own, so repeated
+    picks resume where the user left off.
     """
     if sys.platform != "darwin":
         raise RuntimeError("native picker only supported on macOS")
-    script = (
-        "on run argv\n"
-        "  set thePrompt to item 1 of argv\n"
-        "  set theMode to item 2 of argv\n"
-        "  set theMulti to item 3 of argv\n"
-        "  set theSep to character id 30\n"
-        "  activate\n"
-        '  if theMode is "folder" then\n'
-        "    set theItems to {choose folder with prompt thePrompt}\n"
-        '  else if theMulti is "multi" then\n'
-        "    set theItems to (choose file with prompt thePrompt "
-        "with multiple selections allowed)\n"
-        "  else\n"
-        "    set theItems to {choose file with prompt thePrompt}\n"
-        "  end if\n"
-        "  set theResult to \"\"\n"
-        "  repeat with anItem in theItems\n"
-        "    if theResult is not \"\" then set theResult to theResult & theSep\n"
-        "    set theResult to theResult & (POSIX path of anItem)\n"
-        "  end repeat\n"
-        "  return theResult\n"
-        "end run"
-    )
+    normalized = (mode or "any").strip().lower()
+    if normalized not in ("file", "folder", "any"):
+        normalized = "any"
     proc = subprocess.run(
-        ["osascript", "-e", script, prompt or "", mode or "file",
-         "multi" if multiple else "single"],
-        capture_output=True, text=True, timeout=300,
+        ["osascript", "-l", "JavaScript", "-e", _PANEL_JXA,
+         prompt or "", normalized, "multi" if multiple else "single"],
+        capture_output=True, text=True, timeout=3600,
     )
     if proc.returncode != 0:
-        stderr = (proc.stderr or "").strip()
-        # -128 is AppleScript's "User canceled"; treat it as a normal outcome.
-        if "-128" in stderr or "canceled" in stderr.lower() or "cancelled" in stderr.lower():
-            return {"status": "cancelled"}
-        raise RuntimeError(stderr or "osascript error")
+        raise RuntimeError((proc.stderr or "osascript error").strip())
     raw = (proc.stdout or "").strip()
     if not raw:
         return {"status": "cancelled"}
     paths = [str(Path(chunk)) for chunk in raw.split(_PICK_SEP) if chunk.strip()]
     if not paths:
         return {"status": "cancelled"}
-    first = Path(paths[0])
-    return {"status": "ok", "path": str(first), "paths": paths, "is_dir": first.is_dir()}
+    # A single "any" pick can mix folders and files, so each entry carries its
+    # own is_dir: the caller links a folder but registers a file, and a shared
+    # top-level flag could only describe the first one.
+    entries = [{"path": p, "is_dir": Path(p).is_dir()} for p in paths]
+    first = entries[0]
+    return {
+        "status": "ok",
+        "path": first["path"],
+        "paths": paths,
+        "entries": entries,
+        "is_dir": first["is_dir"],
+    }
 
 
 # Non-hidden path components that we never want in search results. The
@@ -418,9 +436,9 @@ class Handler(BaseHTTPRequestHandler):
         payload = self._read_json_body()
         if payload is None:
             return
-        mode = str((payload or {}).get("mode") or "file").strip().lower()
-        if mode not in ("file", "folder"):
-            mode = "file"
+        mode = str((payload or {}).get("mode") or "any").strip().lower()
+        if mode not in ("file", "folder", "any"):
+            mode = "any"
         prompt = str((payload or {}).get("prompt") or "").strip()
         multiple = bool((payload or {}).get("multiple"))
         try:
