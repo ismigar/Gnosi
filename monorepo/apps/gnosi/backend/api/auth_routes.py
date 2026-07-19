@@ -21,17 +21,21 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from backend.data.management_db import get_mgmt_db
 from backend.models.management import User, Membership, Workspace
 from backend.services.auth_service import (
+    BCRYPT_MAX_PASSWORD_BYTES,
+    PLACEHOLDER_EMAIL,
     COOKIE_NAME,
     DEFAULT_TTL_DAYS,
     create_access_token,
     get_current_user_id,
     hash_password,
+    normalize_email,
     verify_password,
 )
 
@@ -41,10 +45,26 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 # ---------- Payloads ----------
 
+def _validate_password_bytes(value: str) -> str:
+    """Reject passwords bcrypt cannot hash, as a field error instead of a 500.
+
+    The limit is on the UTF-8 encoding, not the character count, so a password
+    of accented or non-Latin characters hits it well before 72 characters.
+    """
+    if len(value.encode("utf-8")) > BCRYPT_MAX_PASSWORD_BYTES:
+        raise ValueError(
+            f"La contrasenya supera el límit de {BCRYPT_MAX_PASSWORD_BYTES} bytes "
+            "(els caràcters accentuats compten doble)"
+        )
+    return value
+
+
 class RegisterPayload(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8, max_length=128)
     name: Optional[str] = None
+
+    _check_password = field_validator("password")(_validate_password_bytes)
 
 
 class LoginPayload(BaseModel):
@@ -80,6 +100,18 @@ def _set_session_cookie(response: Response, user_id: str) -> None:
         secure=False,  # needs to be True in production with HTTPS
         path="/",
     )
+
+
+def _find_user_by_email(db: Session, email: str) -> Optional[User]:
+    """Look a user up by email, case-insensitively.
+
+    Email local-parts are technically case-sensitive but no real provider treats
+    them that way, and users do not type their address consistently. Matching
+    exactly let `Victim@corp.com` slip past the duplicate check for
+    `victim@corp.com`: the DB unique index does not collapse case either, so both
+    rows survived and which one a login reached came down to row order.
+    """
+    return db.query(User).filter(func.lower(User.email) == normalize_email(email)).first()
 
 
 def _user_to_info(user: User, db: Session) -> UserInfo:
@@ -120,10 +152,26 @@ def register(
     inherit the workspaces.
     
     """
-    existing = db.query(User).filter(User.email == payload.email).first()
+    existing = _find_user_by_email(db, payload.email)
     if existing:
         if existing.password_hash:
             raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
+        # The claim flow below is for INVITED users: someone deliberately created
+        # a membership for their real address, so knowing that address is a weak
+        # but deliberate proof of identity. It must not extend to the
+        # auto-provisioned account, whose address is the same hardcoded
+        # placeholder on every install and is published in this repo — claiming
+        # it needs no knowledge at all, and it owns the workspace, the vaults and
+        # the API tokens. Bootstrapping that account requires filesystem access:
+        # `pipeline/scripts/set_user_password.py`.
+        if normalize_email(existing.email) == PLACEHOLDER_EMAIL:
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    "Aquest compte és el compte local per defecte i no es pot reclamar "
+                    "per email. Executa pipeline/scripts/set_user_password.py al servidor."
+                ),
+            )
         # Claim: assign a password to the pre-existing user (their memberships).
         existing.password_hash = hash_password(payload.password)
         if payload.name and not existing.name:
@@ -138,7 +186,7 @@ def register(
 
     # New case: create user
     user = User(
-        email=payload.email,
+        email=normalize_email(payload.email),
         name=payload.name or payload.email.split("@", 1)[0],
         password_hash=hash_password(payload.password),
     )
@@ -154,6 +202,20 @@ def register(
     return _user_to_info(user, db)
 
 
+# NOTE: there is deliberately no HTTP endpoint for giving a password-less
+# account its first credentials. The obvious design — resolve the account from
+# the request context and set a password on it — is an account-takeover hole,
+# because `get_workspace_context` derives the user from the `X-User-ID` header,
+# which the caller controls: anyone able to reach the API could install their own
+# password on `ismael-legacy` (a default published in this repo) or on any
+# invited/OAuth user that has not registered yet, and walk away with durable
+# credentials. Claiming an account by *email* is already handled safely by
+# `/register` above; the remaining case — the legacy account, whose email is the
+# placeholder `user@example.com` — is a one-time local migration, so it lives in
+# `pipeline/scripts/set_user_password.py`, which needs filesystem access to the
+# management DB and therefore has no remote attack surface at all.
+
+
 @router.post("/login")
 def login(
     payload: LoginPayload,
@@ -161,7 +223,7 @@ def login(
     db: Session = Depends(get_mgmt_db),
 ):
     """Login via email + password. 401 if credentials are incorrect."""
-    user = db.query(User).filter(User.email == payload.email).first()
+    user = _find_user_by_email(db, payload.email)
     if not user or not user.password_hash:
         # Same message for "doesn't exist" and "has no password" to avoid
         # enumeration attacks (attack: trying emails to find out if they exist).
