@@ -147,7 +147,27 @@ Per a publicar a l'organització (no només local):
   text plain (sense tracking per refresh)
 - ❌ Word per a Android: Office Add-ins amb taskpane no estan suportats
 
+## Autenticació (token)
+
+Amb `GNOSI_REQUIRE_AUTH` engegat, el backend rebutja qualsevol petició sense
+credencial. L'add-in corre en un webview d'Office amb origen propi, així que
+una cookie de sessió no hi arriba: la credencial ha de ser un Personal Access
+Token.
+
+1. A Gnosi: Configuració → Tokens d'API → crea'n un (només es mostra un cop).
+2. Al panell de l'add-in: «Configuració del token» → enganxa'l → Desa.
+
+Es desa al `localStorage` del webview (clau `gnosi.wordAddin.apiToken`), només
+en aquell dispositiu, i el panell no el torna a mostrar mai sencer.
+
 ## Troubleshooting
+
+### "Cal un token" / "Token no vàlid"
+
+La capçalera del panell distingeix els dos casos: no n'hi ha cap desat, o el
+que hi ha el rebutja el backend (revocat, o d'una altra instal·lació). En tots
+dos casos s'obre sol l'apartat de configuració. Un token vàlid comença per
+`gnosi_pat_`.
 
 ### "Sense connexió amb Gnosi"
 

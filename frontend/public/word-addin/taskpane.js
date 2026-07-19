@@ -30,9 +30,24 @@
     // an existing install keeps working untouched. The add-in runs in an Office
     // webview on a different origin, so a session cookie is not an option here.
     const TOKEN_KEY = 'gnosi.wordAddin.apiToken';
+    const TOKEN_PREFIX = 'gnosi_pat_';
     const getToken = () => {
         try { return (localStorage.getItem(TOKEN_KEY) || '').trim(); } catch { return ''; }
     };
+    const setToken = (raw) => {
+        try {
+            if (raw) localStorage.setItem(TOKEN_KEY, raw);
+            else localStorage.removeItem(TOKEN_KEY);
+            return true;
+        } catch (err) {
+            // Private browsing or a locked-down webview: storage throws instead
+            // of returning null, and the token cannot be persisted at all.
+            console.warn('token storage failed:', err && err.message);
+            return false;
+        }
+    };
+    // Never render the token back: only enough to tell one from another.
+    const maskToken = (raw) => raw.slice(0, TOKEN_PREFIX.length + 4) + '…';
     const authHeaders = (extra) => {
         const h = Object.assign({}, extra || {});
         const t = getToken();
@@ -61,15 +76,35 @@
         if (f) f.textContent = text;
     }
 
+    // Checks reachability AND credentials. Pinging `/api/health` alone is not
+    // enough: it is part of the public surface, so with GNOSI_REQUIRE_AUTH on
+    // and no token it answers 200 while every real call gets a 401 — the pane
+    // claimed "connected" and then silently found nothing.
     async function ping() {
         try {
             const r = await fetch(API_BASE + '/api/health', { method: 'GET' });
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+        } catch (err) {
+            setStatus('Sense connexió amb Gnosi', 'error');
+            console.warn('Gnosi ping failed:', err && err.message);
+            return false;
+        }
+        try {
+            const url = new URL(API_BASE + '/api/vault/search-citations');
+            url.searchParams.set('q', '');
+            url.searchParams.set('limit', '1');
+            const r = await fetch(url.toString(), { headers: authHeaders() });
+            if (r.status === 401 || r.status === 403) {
+                setStatus(getToken() ? 'Token no vàlid' : 'Cal un token', 'error');
+                openSettings();
+                return false;
+            }
             if (!r.ok) throw new Error('HTTP ' + r.status);
             setStatus('Connectat a Gnosi', 'connected');
             return true;
         } catch (err) {
             setStatus('Sense connexió amb Gnosi', 'error');
-            console.warn('Gnosi ping failed:', err && err.message);
+            console.warn('Gnosi auth check failed:', err && err.message);
             return false;
         }
     }
@@ -80,6 +115,14 @@
             url.searchParams.set('q', query || '');
             url.searchParams.set('limit', '50');
             const r = await fetch(url.toString(), { headers: authHeaders() });
+            // A 401 used to look exactly like "no results", which is the worst
+            // possible way to report a missing credential.
+            if (r.status === 401 || r.status === 403) {
+                setStatus(getToken() ? 'Token no vàlid' : 'Cal un token', 'error');
+                setFooter('Configura el token per cercar al Vault');
+                openSettings();
+                return [];
+            }
             if (!r.ok) throw new Error('HTTP ' + r.status);
             const data = await r.json();
             return Array.isArray(data) ? data : [];
@@ -449,7 +492,68 @@
         }
     }
 
+    function openSettings() {
+        const box = $('settings');
+        if (box) box.open = true;
+    }
+
+    // Reflects what is stored, never the value itself.
+    function renderTokenState() {
+        const state = $('token-state');
+        if (!state) return;
+        const raw = getToken();
+        state.textContent = raw ? 'Token desat: ' + maskToken(raw) : 'Sense token';
+        state.className = 'settings-state ' + (raw ? 'saved' : 'missing');
+        const clear = $('token-clear');
+        if (clear) clear.disabled = !raw;
+    }
+
+    function bindSettings() {
+        const input = $('token-input');
+        const save = $('token-save');
+        const clear = $('token-clear');
+
+        const saveToken = async () => {
+            const raw = String((input && input.value) || '').trim();
+            if (!raw) return;
+            if (!raw.startsWith(TOKEN_PREFIX)) {
+                setFooter('Això no sembla un token de Gnosi (ha de començar per ' + TOKEN_PREFIX + ')');
+                return;
+            }
+            if (!setToken(raw)) {
+                setFooter('Aquest navegador no permet desar el token');
+                return;
+            }
+            // Clear the field: the value is stored, and leaving a credential on
+            // screen in a pane that stays open is needless exposure.
+            if (input) input.value = '';
+            renderTokenState();
+            setFooter('Token desat');
+            // Re-check with the new credential and reload what the search found
+            // nothing of while unauthenticated.
+            if (await ping()) {
+                const items = await searchCitations('');
+                lastResults = items;
+                activeIdx = 0;
+                renderResults(items);
+            }
+        };
+
+        if (save) save.addEventListener('click', saveToken);
+        if (input) input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); saveToken(); }
+        });
+        if (clear) clear.addEventListener('click', () => {
+            setToken('');
+            renderTokenState();
+            setFooter('Token esborrat');
+            ping();
+        });
+        renderTokenState();
+    }
+
     function bindUI() {
+        bindSettings();
         const input = $('search-input');
         if (input) {
             input.addEventListener('input', (e) => {
