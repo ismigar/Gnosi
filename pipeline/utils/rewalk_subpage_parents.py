@@ -24,6 +24,7 @@ Idempotent and metadata-ONLY: no file is moved between folders (the by-table gri
 folder membership must not be touched — cf. directive).
 """
 import argparse
+import os
 import importlib.util
 import json
 import sys
@@ -39,6 +40,18 @@ APP = Path(__file__).resolve().parents[2]   # …/monorepo/apps/gnosi
 # same namespace as backend/services/notion_clone.py (_CLONE_NS).
 _CLONE_NS = uuid.UUID("6f0c9b2e-1a4d-5e6f-8a9b-000000000003")
 
+
+
+def _auth_headers() -> dict:
+    """`Authorization: Bearer` from GNOSI_API_TOKEN, when one is configured.
+
+    Unauthenticated calls work only while the backend still falls back to the
+    legacy account. Once `GNOSI_REQUIRE_AUTH` is on they get a 401, so this
+    script needs a Personal Access Token: create one in Settings and export it
+    as GNOSI_API_TOKEN. Absent, nothing is sent and the behaviour is unchanged.
+    """
+    token = os.environ.get("GNOSI_API_TOKEN", "").strip()
+    return {"Authorization": f"Bearer {token}"} if token else {}
 
 def clone_page_id(notion_page_id: str) -> str:
     return str(uuid.uuid5(_CLONE_NS, "page:" + str(notion_page_id or "").replace("-", "")))
@@ -96,7 +109,7 @@ def main() -> int:
     print(f"   {len(pairs)} pàgines amb pare-pàgina a Notion", flush=True)
 
     print("3) Llegint el vault del clon...", flush=True)
-    H = {"X-Vault-Id": args.vault_id}
+    H = {"X-Vault-Id": args.vault_id, **_auth_headers()}
     r = httpx.get(f"{args.backend}/api/vault/pages", headers=H, timeout=180)
     r.raise_for_status()
     vault_pages = r.json()

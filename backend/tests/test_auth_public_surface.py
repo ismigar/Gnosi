@@ -20,7 +20,6 @@ from backend.services.auth_public_surface import (
     "method, path",
     [
         ("GET", "/api/health"),          # docker_watchdog.sh + compose healthcheck
-        ("GET", "/api/config"),          # native_watchdog.sh
         ("POST", "/api/auth/login"),
         ("POST", "/api/auth/register"),
         ("POST", "/api/auth/logout"),
@@ -43,7 +42,8 @@ def test_method_is_case_insensitive():
 @pytest.mark.parametrize(
     "method, path",
     [
-        ("POST", "/api/config"),                     # writes settings — GET only is public
+        ("GET", "/api/config"),                      # admin-gated at the router
+        ("POST", "/api/config"),                     # the whole router is admin-gated
         ("GET", "/api/vault/pages"),                 # the whole point of the exercise
         ("POST", "/api/vault/upload-property-file"),
         ("DELETE", "/api/vault/pages/some-id"),

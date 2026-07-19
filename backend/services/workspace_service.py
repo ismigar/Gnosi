@@ -62,7 +62,20 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     # 1. Find or create user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        from backend.services.auth_service import PLACEHOLDER_EMAIL
+        from backend.services.auth_service import PLACEHOLDER_EMAIL, require_auth_enabled
+
+        if require_auth_enabled():
+            # Enforcement on: only an authenticated identity gets here, and a
+            # real one already has a row. Auto-creating would re-open the door
+            # the flag closes — an unknown id would still mint an account that
+            # ends up `owner` of the shared personal workspace.
+            #
+            # This also has to stay shut once the legacy account is migrated to a
+            # real address: while it still holds the placeholder, the UNIQUE
+            # constraint on `users.email` blocks a second auto-created user by
+            # accident. Freeing that address removes the accident, not the risk.
+            raise HTTPException(status_code=401, detail="Cal autenticació")
+
         user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL)
         db.add(user)
         try:

@@ -35,7 +35,10 @@ Task definitions and their lifecycle metadata (last run, next run, status) are s
 ### Manual Trigger
 Tasks can be triggered manually via the REST API, bypassing the scheduled wait:
 ```bash
-curl -X POST http://localhost:5002/api/schedulers/{task_name}/run
+# A Personal Access Token is required once the backend runs with
+# GNOSI_REQUIRE_AUTH (create one in Settings). Without enforcement it is optional.
+curl -X POST http://localhost:5002/api/schedulers/{task_name}/run \
+  -H "Authorization: Bearer $GNOSI_API_TOKEN"
 ```
 
 ---

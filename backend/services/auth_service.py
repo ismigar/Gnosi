@@ -16,6 +16,7 @@ Passwords:
 """
 from __future__ import annotations
 
+import hashlib
 import os
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -23,6 +24,13 @@ from typing import Optional
 import bcrypt
 from fastapi import Cookie, Depends, Header, HTTPException
 from jose import JWTError, jwt
+from sqlalchemy.orm import Session
+
+from backend.config.logger_config import get_logger
+from backend.data.management_db import get_mgmt_db
+
+log = get_logger(__name__)
+
 
 
 # ---------- Configuration ----------
@@ -44,6 +52,73 @@ BCRYPT_ROUNDS = 12
 BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
+# ---------- Enforcement flag ----------
+
+# Phase 4 of the legacy-fallback removal (see
+# `docs/dev_memory/directives/auth_remove_legacy_fallback.md`). While this is
+# off — the default — nothing changes: an unauthenticated request still resolves
+# to the legacy account, exactly as before.
+#
+# When it is on, only a credential the caller cannot mint counts as an identity:
+# a session JWT or a Personal Access Token. `X-User-ID` stops being honoured,
+# because it is a plain request header — trusting it is what lets an
+# unauthenticated caller pick who they are and mint `owner` accounts along the
+# way.
+#
+# Read at call time, not import time, so a deployment can flip it with a restart
+# and tests can exercise both sides without reimporting the module.
+REQUIRE_AUTH_ENV = "GNOSI_REQUIRE_AUTH"
+
+_TRUTHY = {"1", "true", "yes", "on"}
+
+
+def require_auth_enabled() -> bool:
+    """True when unauthenticated requests must be rejected instead of falling
+    back to the legacy account."""
+    return os.environ.get(REQUIRE_AUTH_ENV, "").strip().lower() in _TRUTHY
+
+
+# ---------- Personal Access Tokens ----------
+
+# A PAT is the credential non-browser clients use (the LibreOffice macro, the
+# Word add-in, pipeline scripts). It is a bearer secret with no ambient
+# transmission — a browser will not attach it to a cross-site request the way it
+# would a cookie — so it is inherently CSRF-safe.
+TOKEN_PREFIX = "gnosi_pat_"
+
+
+def hash_token(raw: str) -> str:
+    """SHA-256 of a raw PAT. Only the hash is ever stored."""
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def looks_like_pat(raw: str) -> bool:
+    return bool(raw) and raw.startswith(TOKEN_PREFIX)
+
+
+def resolve_pat_user_id(db, raw: str) -> Optional[str]:
+    """Map a raw PAT to the user it belongs to, refreshing `last_used_at`.
+
+    Returns None when the token is unknown or revoked, so callers can decide
+    between 401 and falling through to another credential source.
+    """
+    # Imported here rather than at module scope: `backend.models.management`
+    # pulls in the ORM layer, and auth_service is imported very early by
+    # request-scoped dependencies.
+    from backend.models.management import ApiToken
+
+    token = (
+        db.query(ApiToken)
+        .filter(ApiToken.token_hash == hash_token(raw), ApiToken.revoked == 0)
+        .first()
+    )
+    if not token:
+        return None
+    token.last_used_at = datetime.now(timezone.utc)
+    db.commit()
+    return token.user_id
+
+
 # ---------- Email identity ----------
 
 # The address every auto-provisioned account starts with (see
@@ -51,6 +126,49 @@ BCRYPT_MAX_PASSWORD_BYTES = 72
 # mailbox, and it is identical on every install — so it must never be treated as
 # proof of who the caller is.
 PLACEHOLDER_EMAIL = "user@example.com"
+
+# The account every pre-auth install ends up owning everything through. Named
+# here so the fallback and the guards that reference it cannot drift apart.
+LEGACY_USER_ID = "ismael-legacy"
+
+
+def is_auto_provisioned_email(value: str) -> bool:
+    """True for addresses the system invents for accounts nobody invited.
+
+    Three code paths mint password-less accounts, each with its own shape:
+
+      * `workspace_service._ensure_personal_exists` → `user@example.com`
+      * `workspace_routes.create_workspace`         → `{x_user_id}@example.com`
+      * `backend/sh/init_management.py`             → `ismael-legacy@gnosi.app`
+
+    All three are hardcoded or derived from a request header, and this repo is
+    public — so none of them is a secret, and knowing one proves nothing. The
+    `/register` claim flow must refuse them: claiming by email is meant for
+    people an admin deliberately invited at their real address.
+
+    Matching on the *domains the system controls* rather than on one literal
+    string is what keeps a fourth minting path from silently slipping through —
+    the previous version compared against `PLACEHOLDER_EMAIL` alone and missed
+    two of the three above.
+    """
+    email = normalize_email(value)
+    if not email or "@" not in email:
+        return False
+    if email in _AUTO_PROVISIONED_LITERALS:
+        return True
+    return email.rsplit("@", 1)[1] in _AUTO_PROVISIONED_DOMAINS
+
+
+# `example.com` is reserved by RFC 2606 so it can never be anyone's real
+# mailbox: the whole domain is safe to refuse, which covers both
+# `user@example.com` and the `{x_user_id}@example.com` pattern whatever id is
+# used.
+_AUTO_PROVISIONED_DOMAINS = frozenset({"example.com"})
+
+# `gnosi.app` is NOT treated as a whole domain: a deployment could legitimately
+# host its people there, and blocking it would stop them claiming the accounts
+# an admin invited. Only the literal default the init script writes is refused.
+_AUTO_PROVISIONED_LITERALS = frozenset({"ismael-legacy@gnosi.app"})
 
 
 def normalize_email(value: str) -> str:
@@ -169,6 +287,7 @@ def decode_access_token(token: str) -> Optional[str]:
 def get_current_user_id(
     gnosi_session: Optional[str] = Cookie(default=None),
     authorization: Optional[str] = Header(default=None),
+    db: Session = Depends(get_mgmt_db),
 ) -> Optional[str]:
     """Resolves the current user from:
       1. `gnosi_session` cookie (preferred — set by /api/auth/login).
@@ -187,13 +306,75 @@ def get_current_user_id(
         # Cookie present but invalid → 401 with a clear message
         raise HTTPException(status_code=401, detail="Sessió expirada o invàlida")
 
-    # 2) Header Authorization
+    # 2) Header Authorization — either a session JWT or a Personal Access Token.
     if authorization and authorization.lower().startswith("bearer "):
         token = authorization[7:].strip()
+        # A PAT is not a JWT, so it has to be recognised before decoding:
+        # otherwise every non-browser client authenticating with one would be
+        # rejected as a malformed token.
+        if looks_like_pat(token):
+            uid = resolve_pat_user_id(db, token)
+            if uid:
+                return uid
+            raise HTTPException(status_code=401, detail="Token invàlid o revocat")
         uid = decode_access_token(token)
         if uid:
             return uid
         raise HTTPException(status_code=401, detail="Bearer token invàlid")
+
+    return None
+
+
+def resolve_identity(conn, db_factory=None) -> Optional[str]:
+    """Identity from a connection, or None. NEVER raises.
+
+    `get_current_user_id` is a FastAPI dependency that raises 401 when a cookie
+    is present but undecodable — right for an endpoint that needs a user, wrong
+    for a gate that runs on every request: an expired cookie would then 401
+    `POST /api/auth/login` and `POST /api/auth/logout`, i.e. both ways out of
+    the bad cookie, leaving the browser stuck until someone clears it by hand.
+
+    Takes an `HTTPConnection` rather than a `Request` so it also works for
+    WebSocket connections, which have cookies and headers but no `Request`.
+
+    `db_factory` is a generator callable (defaults to `get_mgmt_db`) opened ONLY
+    on the branch that needs it. A cookie or bearer-JWT identity is verified with
+    the signing key alone and an anonymous request needs nothing, so a session is
+    checked out solely for a PAT — the one credential stored in a table.
+    """
+    token = None
+    try:
+        token = conn.cookies.get(COOKIE_NAME)
+    except Exception:
+        token = None
+    if token:
+        uid = decode_access_token(token)
+        if uid:
+            return uid
+        # Fall through: an unusable cookie means "not signed in", not "error".
+
+    authorization = conn.headers.get("authorization") if conn.headers else None
+    if authorization and authorization.lower().startswith("bearer "):
+        raw = authorization[7:].strip()
+        if looks_like_pat(raw):
+            # The DB is the one part of this that can fail. `resolve_pat_user_id`
+            # issues a query AND a commit, so a locked or unavailable SQLite file
+            # would raise here — and because this runs on the gate, i.e. on every
+            # request, that would turn a transient DB blip into a 500 across the
+            # whole API instead of an unauthenticated request. Failing closed
+            # (None) degrades to 401, which is recoverable and honest.
+            gen = None
+            try:
+                gen = (db_factory or get_mgmt_db)()
+                return resolve_pat_user_id(next(gen), raw)
+            except Exception:
+                log.warning("PAT lookup failed; treating the request as unauthenticated",
+                            exc_info=True)
+                return None
+            finally:
+                if gen is not None:
+                    gen.close()
+        return decode_access_token(raw)
 
     return None
 
@@ -235,6 +416,15 @@ def get_user_id_or_legacy(
     """
     if auth_uid:
         return auth_uid
+
+    if require_auth_enabled():
+        # Enforcement on: `X-User-ID` is deliberately NOT consulted. It is a
+        # plain request header, so honouring it would let a caller name
+        # themselves — including as the legacy account — and defeat the whole
+        # point of the flag. Non-browser clients authenticate with a PAT
+        # instead, which `get_current_user_id` resolves into `auth_uid`.
+        raise HTTPException(status_code=401, detail="Cal autenticació")
+
     if x_user_id:
         return x_user_id
-    return "ismael-legacy"
+    return LEGACY_USER_ID

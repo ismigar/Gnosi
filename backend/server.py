@@ -19,7 +19,7 @@ if str(BASE_DIR) not in sys.path:
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from fastapi import FastAPI, Request, BackgroundTasks
+from fastapi import Depends, FastAPI, Request, BackgroundTasks
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
@@ -245,7 +245,17 @@ async def lifespan(app: FastAPI):
             log.warning(f"⚠️ MCP Client stop timed out/failed: {e}")
 
 # Instance creation
-app = FastAPI(title="Gnosi Agent", version="0.2.0", lifespan=lifespan)
+# `dependencies=` applies to EVERY route, so the default is "authentication
+# required" and exceptions have to be written down in auth_public_surface.
+# While GNOSI_REQUIRE_AUTH is off this is a no-op.
+from backend.services.auth_public_surface import enforce_authentication  # noqa: E402
+
+app = FastAPI(
+    title="Gnosi Agent",
+    version="0.2.0",
+    lifespan=lifespan,
+    dependencies=[Depends(enforce_authentication)],
+)
 
 # CORS — `allow_origins=["*"]` + `allow_credentials=True` is invalid per
 # spec (the browser rejects the response with a CORS error). If at some point
