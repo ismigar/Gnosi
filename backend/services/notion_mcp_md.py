@@ -14,6 +14,9 @@ toggles, mentions) in a «Notion-flavored» Markdown with its own tags and annot
   `<!-- gnosi-notion-file:<block_id>:<filename> -->` (the orchestrator downloads the real
   file via REST and rewrites it as a local link; cf. `notion_attachments.resolve_file_markers`).
   External `http(s)` sources become plain Markdown links.
+- `<empty-block/>` (intentional empty line, always alone on its line) → dropped; block
+  spacing already renders the gap, and left raw the editor's unknown-tag defense
+  (markdown-mapper.js `wrapUnknownHtmlTags`) would show it as a code chip.
 - indentation with tabs → Markdown indentation (list nesting is preserved).
 - ``` ``` ``` code blocks are protected (nothing inside is touched).
 
@@ -64,6 +67,10 @@ _FILE_SELF_RE = re.compile(r'<(file|pdf|audio|video|embed)\s+src="([^"]*)"[^>]*/
 _DETAILS_SUMMARY_RE = re.compile(r'<details([^>]*)>\s*<summary>(.*?)</summary>', re.DOTALL)
 _DETAILS_LONE_RE = re.compile(r'<details[^>]*>')
 _DETAILS_CLOSE_RE = re.compile(r'</details>')
+# Intentional empty line («Empty line: <empty-block/>» in the enhanced-markdown spec), always
+# alone on its own line, tab-indented when nested. No children by definition → the whole line
+# can be dropped without reshaping the indentation tree.
+_EMPTY_BLOCK_RE = re.compile(r'^[ \t]*<empty-block\s*/>[ \t]*$', re.MULTILINE)
 
 # Marker emitted for Notion-hosted attachments; resolved by the clone orchestrator
 # (`notion_attachments.resolve_file_markers`). Filename is percent-encoded (no spaces/`>`).
@@ -248,6 +255,11 @@ def mcp_to_markdown(page_md: str) -> str:
         codes.append(mm.group(0))
         return f"§§CODE{len(codes) - 1}§§"
     text = _CODE_RE.sub(_stash, text)
+
+    # 0b) `<empty-block/>` (intentional empty line) → dropped: the blank line it stands for
+    # is already rendered by block spacing, and the raw tag would surface as a code chip in
+    # the editor (markdown-mapper.js `wrapUnknownHtmlTags`)
+    text = _EMPTY_BLOCK_RE.sub("", text)
 
     # 1) embedded views → neutral placeholder (relabeled at the end)
     text = _DB_RE.sub(lambda mm: f"§§GNOSIDB:{mm.group(1)}§§", text)
