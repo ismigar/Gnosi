@@ -57,6 +57,34 @@
                 Insereix bibliografia
             </button>
         </section>
+
+        <!--
+            Token settings. The add-in runs in an Office webview on its own
+            origin, so a session cookie cannot reach it: a Personal Access Token
+            is the only credential it can use once GNOSI_REQUIRE_AUTH is on.
+            Collapsed by default — it is set once and then forgotten.
+        -->
+        <details class="settings" id="settings">
+            <summary>Configuració del token</summary>
+            <p class="settings-help">
+                Crea un token a Gnosi (Configuració → Tokens d'API) i enganxa'l aquí.
+                Es desa només en aquest dispositiu.
+            </p>
+            <div class="settings-row">
+                <input
+                    type="password"
+                    id="token-input"
+                    placeholder="gnosi_pat_…"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button id="token-save" class="btn btn-primary" type="button">Desa</button>
+            </div>
+            <div class="settings-row">
+                <span id="token-state" class="settings-state">Sense token</span>
+                <button id="token-clear" class="btn btn-secondary" type="button">Esborra</button>
+            </div>
+        </details>
     </main>
 
     <footer class="footer">
