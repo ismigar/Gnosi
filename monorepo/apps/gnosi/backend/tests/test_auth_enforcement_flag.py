@@ -125,6 +125,16 @@ def test_on_the_liveness_probe_stays_open(client, enforcement_on):
     assert r.status_code != 401, r.text
 
 
+def test_health_advertises_enforcement(client, enforcement_on):
+    """The frontend gates <LoginPage> on this field (App.jsx): without it,
+    personal mode renders the app shell and every call 401s silently."""
+    assert client.get("/api/health").json()["require_auth"] is True
+
+
+def test_health_advertises_enforcement_off(client, enforcement_off):
+    assert client.get("/api/health").json()["require_auth"] is False
+
+
 def test_on_config_is_gated_and_the_watchdog_does_not_use_it(client, enforcement_on):
     """`/api/config` is admin-gated at the router, so it can never be a probe.
 

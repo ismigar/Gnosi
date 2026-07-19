@@ -258,6 +258,7 @@ async def lifespan(app: FastAPI):
 # required" and exceptions have to be written down in auth_public_surface.
 # While GNOSI_REQUIRE_AUTH is off this is a no-op.
 from backend.services.auth_public_surface import enforce_authentication  # noqa: E402
+from backend.services.auth_service import require_auth_enabled  # noqa: E402
 
 app = FastAPI(
     title="Gnosi Agent",
@@ -389,6 +390,9 @@ async def health_check():
         "status": "ok",
         "mode": "FastAPI",
         "gnosi_mode": cfg.gnosi_mode,
+        # The frontend gates the login screen on this: with enforcement on,
+        # even personal mode needs a session (App.jsx).
+        "require_auth": require_auth_enabled(),
         "vault_configured": cfg.paths.get("VAULT") is not None,
     }
 

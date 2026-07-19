@@ -52,7 +52,7 @@ function RouteFallback() {
 function App() {
   const { t } = useTranslation();
   const { effectiveTheme } = useTheme();
-  const { user, gnosiMode, loading } = useAuth();
+  const { user, gnosiMode, requireAuth, loading } = useAuth();
   // Captures clicks on file:// everywhere and redirects them to the system shell
   // via the backend, instead of letting Chrome open blank tabs.
   useFileLinkInterceptor();
@@ -90,9 +90,10 @@ function App() {
     );
   }
 
-  // Gate only in org mode: in personal mode, the single user goes straight in (the
-  // backend already resolves the legacy user without a token).
-  if (gnosiMode === 'org' && !user) {
+  // Gate in org mode, and in personal mode when the backend enforces auth
+  // (GNOSI_REQUIRE_AUTH): without it, personal relies on the legacy fallback
+  // and the single user goes straight in.
+  if ((gnosiMode === 'org' || requireAuth) && !user) {
     return <LoginPage />;
   }
 

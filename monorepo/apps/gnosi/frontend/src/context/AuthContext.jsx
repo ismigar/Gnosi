@@ -13,6 +13,9 @@
  *     401 and `user` stays null, but App renders anyway because the gate
  *     only applies in org mode.
  *   - org: each member authenticates. Without `user`, App shows <LoginPage>.
+ *   - `requireAuth` (GNOSI_REQUIRE_AUTH on the backend, surfaced by /api/health):
+ *     the legacy fallback is off, so even personal mode needs a session and
+ *     App gates behind <LoginPage> too.
  */
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
@@ -69,6 +72,7 @@ function clearPersistedUser() {
 export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [gnosiMode, setGnosiMode] = useState(null); // null = still unknown
+    const [requireAuth, setRequireAuth] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const refresh = useCallback(async () => {
@@ -91,7 +95,9 @@ export function AuthProvider({ children }) {
                 fetch('/api/health')
                     .then((r) => (r.ok ? r.json() : null))
                     .then((d) => {
-                        if (alive) setGnosiMode(d?.gnosi_mode || 'personal');
+                        if (!alive) return;
+                        setGnosiMode(d?.gnosi_mode || 'personal');
+                        setRequireAuth(d?.require_auth === true);
                     })
                     .catch(() => {
                         if (alive) setGnosiMode('personal');
@@ -135,7 +141,7 @@ export function AuthProvider({ children }) {
         setUser(null);
     }, []);
 
-    const value = { user, gnosiMode, loading, login, register, logout, refresh };
+    const value = { user, gnosiMode, requireAuth, loading, login, register, logout, refresh };
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
