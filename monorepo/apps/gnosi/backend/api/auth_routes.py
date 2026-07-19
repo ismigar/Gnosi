@@ -72,6 +72,20 @@ class LoginPayload(BaseModel):
     password: str
 
 
+class ChangePasswordPayload(BaseModel):
+    current_password: str
+    new_password: str = Field(min_length=8, max_length=128)
+
+    _check_password = field_validator("new_password")(_validate_password_bytes)
+
+
+class UpdateProfilePayload(BaseModel):
+    name: Optional[str] = Field(default=None, max_length=120)
+    email: Optional[EmailStr] = None
+    # Required when `email` changes; ignored otherwise.
+    current_password: Optional[str] = None
+
+
 class UserInfo(BaseModel):
     id: str
     email: str
@@ -251,7 +265,7 @@ def me(
 
     The frontend uses this at bootstrap to decide whether to render the
     login screen or the main app.
-    
+
     """
     if not uid:
         raise HTTPException(status_code=401, detail="No autenticat")
@@ -259,4 +273,93 @@ def me(
     if not user:
         # Valid token but user deleted from the DB — clear cookie.
         raise HTTPException(status_code=401, detail="Usuari no trobat")
+    return _user_to_info(user, db)
+
+
+def _require_credentialed_user(uid: Optional[str], db: Session) -> User:
+    """Resolves the authenticated user for the self-service account endpoints.
+
+    Only accounts that ALREADY hold a password may use them: the NOTE above
+    explains why handing first credentials to a request-derived identity is an
+    account-takeover hole, and that reasoning applies here unchanged. Password-
+    less accounts are pointed to their claim flow (`/register` for invited
+    users, `set_user_password.py` for the local default account).
+    """
+    if not uid:
+        raise HTTPException(status_code=401, detail="No autenticat")
+    user = db.query(User).filter(User.id == uid).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Usuari no trobat")
+    if not user.password_hash:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "Aquest compte encara no té contrasenya. Reclama'l registrant-te "
+                "amb el seu email o, si és el compte local per defecte, executa "
+                "pipeline/scripts/set_user_password.py al servidor."
+            ),
+        )
+    return user
+
+
+@router.post("/change-password")
+def change_password(
+    payload: ChangePasswordPayload,
+    uid: Optional[str] = Depends(get_current_user_id),
+    db: Session = Depends(get_mgmt_db),
+):
+    """Rotates the authenticated user's password.
+
+    Safe as an HTTP endpoint (unlike first credentials, see the NOTE above)
+    because it demands the CURRENT password — exactly the knowledge the
+    takeover hole lacks. 403 (not 401) on a wrong current password so the
+    frontend never mistakes it for an expired session.
+    """
+    user = _require_credentialed_user(uid, db)
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(status_code=403, detail="La contrasenya actual no és correcta")
+
+    user.password_hash = hash_password(payload.new_password)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error desant la contrasenya")
+    return {"ok": True}
+
+
+@router.patch("/me")
+def update_me(
+    payload: UpdateProfilePayload,
+    uid: Optional[str] = Depends(get_current_user_id),
+    db: Session = Depends(get_mgmt_db),
+):
+    """Updates the authenticated user's name and/or email.
+
+    The email is the login identifier, so changing it requires the current
+    password: a hijacked session alone must not be able to move the account
+    to an address the attacker controls. The name is cosmetic and needs no
+    extra proof. Empty strings are treated as "leave unchanged".
+    """
+    user = _require_credentialed_user(uid, db)
+
+    new_email = normalize_email(payload.email) if payload.email else None
+    if new_email and new_email != (user.email or "").lower():
+        if not payload.current_password or not verify_password(
+            payload.current_password, user.password_hash
+        ):
+            raise HTTPException(status_code=403, detail="La contrasenya actual no és correcta")
+        other = _find_user_by_email(db, new_email)
+        if other and other.id != user.id:
+            raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
+        user.email = new_email
+
+    if payload.name is not None and payload.name.strip():
+        user.name = payload.name.strip()
+
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Error desant el perfil")
     return _user_to_info(user, db)

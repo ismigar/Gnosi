@@ -18,6 +18,7 @@ import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
 import MailBlockEditor from './Mail/MailBlockEditor';
 import IdentityProfile from './Vault/IdentityProfile';
+import AccountSettings from './Auth/AccountSettings';
 import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
@@ -1913,7 +1914,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                         <div className="settings-sidebar-nav">
                             <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
-                            
+                            <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
+
                             <div className="settings-sidebar-hr" />
 
                             <SidebarItem id="general" icon={SettingsIcon} label={t('settings.tabs.general') || 'General'} active={activeTab === 'general'} onClick={() => { setActiveTab('general'); setAddAccountType(null); }} />
@@ -1964,6 +1966,9 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     />
                                 </div>
                              )}
+
+                             {/* ACCOUNT (credentials) */}
+                             {activeTab === 'account' && <AccountSettings />}
 
                              {/* GENERAL */}
                             {activeTab === 'general' && (

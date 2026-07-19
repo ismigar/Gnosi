@@ -615,7 +615,8 @@
       "contacts": "Contacts",
       "ai": "Intelligence Artificielle",
       "notion": "Importer Notion",
-      "translate": "Traduction"
+      "translate": "Traduction",
+      "account": "Compte"
     },
     "general": {
       "workspace_name": "Nom de l'espace de travail",
@@ -941,7 +942,30 @@
     "credential_placeholder": "Saisissez la clé pour {{name}}",
     "api_keys_hint": "Vos clés API sont stockées en toute sécurité dans le Keychain de votre ordinateur. Cet onglet indique quelles clés sont configurées.",
     "credential_save_error": "Erreur lors de l'enregistrement : {{message}}",
-    "keychain_migration_error": "Erreur lors de la migration : {{message}}"
+    "keychain_migration_error": "Erreur lors de la migration : {{message}}",
+    "account": {
+      "title": "Compte",
+      "no_session": "Aucune session active : cette section n'est disponible qu'avec l'authentification activée.",
+      "profile_section": "Profil du compte",
+      "name_label": "Nom",
+      "email_label": "Email",
+      "email_desc": "C'est votre identifiant de connexion. Le changer demande le mot de passe actuel.",
+      "current_password_label": "Mot de passe actuel",
+      "need_current_password_email": "Changer l'email demande le mot de passe actuel.",
+      "save_btn": "Enregistrer les modifications",
+      "profile_saved": "Compte mis à jour.",
+      "save_error": "Impossible d'enregistrer le compte.",
+      "password_section": "Changement de mot de passe",
+      "new_password_label": "Nouveau mot de passe",
+      "new_password_desc": "Au moins 8 caractères ; les caractères accentués comptent double dans la limite de 72 octets.",
+      "repeat_password_label": "Répétez le nouveau mot de passe",
+      "change_password_btn": "Changer le mot de passe",
+      "password_changed": "Mot de passe changé.",
+      "password_error": "Impossible de changer le mot de passe.",
+      "missing_password_fields": "Le mot de passe actuel et le nouveau sont requis.",
+      "password_too_short": "Le mot de passe doit contenir au moins 8 caractères.",
+      "passwords_dont_match": "Les nouveaux mots de passe ne correspondent pas."
+    }
   },
   "schema": {
     "manage_properties_of": "Gérer les propriétés de",

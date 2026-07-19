@@ -131,6 +131,25 @@ export function AuthProvider({ children }) {
         return me;
     }, []);
 
+    const changePassword = useCallback(async (currentPassword, newPassword) => {
+        return authFetch('/api/auth/change-password', {
+            method: 'POST',
+            body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+        });
+    }, []);
+
+    // fields: { name?, email?, current_password? } — the backend requires
+    // current_password when email changes (see auth_routes.update_me).
+    const updateProfile = useCallback(async (fields) => {
+        const me = await authFetch('/api/auth/me', {
+            method: 'PATCH',
+            body: JSON.stringify(fields),
+        });
+        setUser(me);
+        persistUser(me);
+        return me;
+    }, []);
+
     const logout = useCallback(async () => {
         try {
             await authFetch('/api/auth/logout', { method: 'POST' });
@@ -141,7 +160,10 @@ export function AuthProvider({ children }) {
         setUser(null);
     }, []);
 
-    const value = { user, gnosiMode, requireAuth, loading, login, register, logout, refresh };
+    const value = {
+        user, gnosiMode, requireAuth, loading,
+        login, register, logout, refresh, changePassword, updateProfile,
+    };
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
