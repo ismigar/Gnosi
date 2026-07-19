@@ -116,9 +116,13 @@ async def lifespan(app: FastAPI):
                 log.info(f"⚡ Sync page-index preload completed for {v_path}")
             else:
                 log.info(f"ℹ️ No disk page-index cache found for {v_path}")
-            # TEMPORARILY DISABLED: OneDrive EDEADLK blocks entire indexer
-            # kickoff_index_warmup(v_path)
-            log.info(f"⏭️ Skipping indexer warmup due to OneDrive EDEADLK")
+            # The warmup used to be commented out here because a macOS
+            # File-Provider walk (OneDrive) returned EDEADLK en masse and wedged
+            # the indexer. Disabling it unconditionally also punished Docker and
+            # Linux self-hosts, which cannot hit that fault. The decision now
+            # lives in `_index_warmup_enabled`, which skips the cloud-mount case
+            # and runs everywhere else (override: GNOSI_INDEX_WARMUP).
+            kickoff_index_warmup(v_path)
             # Load the persisted body + parsed-document caches. They live HERE
             # and not in kickoff_index_warmup precisely because that warmup is
             # disabled above — anything hooked in there never runs.
@@ -150,13 +154,18 @@ async def lifespan(app: FastAPI):
             # request threadpool (symptom: /api/vaults -> "timeout of 30000ms
             # exceeded" while OneDrive is cold). In-process version of the
             # one-off rehydrate_vault.py incident script. Best-effort, non-blocking.
-            # TEMPORARILY DISABLED: OneDrive is returning EDEADLK on all file access.
-            # Skipping warmup to allow backend to start; OneDrive will hydrate files
-            # on-demand or via daemon/5009.
-            # from backend.services.vault_warmup import kickoff_critical_warmup
-            # kickoff_critical_warmup(v_path)
-            # log.info(f"☁️ Critical-vault warmup kicked off for {v_path}")
-            log.info(f"⏭️ Skipping critical-vault warmup due to OneDrive EDEADLK")
+            # Disabled during the EDEADLK incident, when direct file access to
+            # the OneDrive mount deadlocked. It needs no runtime gate of its
+            # own: the scan is stat-only (`st_blocks == 0`, which does not
+            # trigger an on-access download), and materialization goes through
+            # `files_provider`, whose `_default_warmup_mode` already picks the
+            # per-runtime path — "open" (LaunchServices) natively on macOS,
+            # which is precisely what avoids the deadlock, and "daemon"
+            # elsewhere. Best-effort and non-blocking: failures are per-file and
+            # the per-request `_materialize_if_online_only` remains the net.
+            from backend.services.vault_warmup import kickoff_critical_warmup
+            kickoff_critical_warmup(v_path)
+            log.info(f"☁️ Critical-vault warmup kicked off for {v_path}")
     except Exception as e:
         log.warning(f"⚠️ Could not launch indexer warmup: {e}")
 
