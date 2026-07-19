@@ -123,7 +123,12 @@ def _request_dir_warmup(dir_path: Path) -> None:
         )
         log.info(f"☁️ Requested Finder warmup for wedged directory {dir_path}")
     except Exception as e:
-        log.debug(f"Directory warmup request failed for {dir_path}: {e}")
+        # warning, not debug: this except only sees genuine failures — the
+        # "not applicable here" cases (wrong mode, throttled) return early
+        # without raising. At debug level a broken warmup was indistinguishable
+        # from a working one, which is how the throttle bug fixed in #890 stayed
+        # invisible: the request was dropped and nothing said so.
+        log.warning(f"Directory warmup request failed for {dir_path}: {e}")
 
 
 def get_markdown_files_efficient(root_path: Path, skipped_dirs: Optional[List[str]] = None) -> List[Path]:
