@@ -169,6 +169,13 @@ def set_password(db, user_id: str, email: str | None, name: str | None, force: b
         user.name = name
 
     user.password_hash = hash_password(_read_password())
+    # This script is the one legitimate way an auto-provisioned account becomes a
+    # deliberate one, so it is the one place that must clear the flag. Leaving it
+    # set makes `users.auto_provisioned` assert "nobody invited this account"
+    # about the operator's own credentials. Harmless only because the claim guard
+    # checks `password_hash` first; any future guard that does not would lock the
+    # operator out of the account that owns the workspace, the vaults and the PATs.
+    user.auto_provisioned = False
     try:
         db.commit()
     except Exception as exc:  # noqa: BLE001 - surface the real cause to the operator

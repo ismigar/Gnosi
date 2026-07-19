@@ -199,3 +199,44 @@ def test_the_warning_does_not_apply_once_the_email_is_real(script, db, monkeypat
     # Second run: no acknowledgement needed, the placeholder is long gone.
     _answer(monkeypatch, script, "another-password-99")
     assert script.set_password(db, LEGACY_ID, None, None, force=True) == 0
+
+
+# --- the auto_provisioned flag ----------------------------------------------
+
+def test_claiming_clears_the_auto_provisioned_flag(script, db, monkeypatch):
+    """This script is how an auto-provisioned account becomes a deliberate one.
+
+    The flag records "nobody invited this account". Once the operator sets a
+    real address and a password, that is no longer true — and leaving it set
+    makes the column assert something false about the account that owns the
+    workspace, the vaults and the PATs. Harmless only while the claim guard
+    happens to check `password_hash` first.
+    """
+    user = db.query(User).filter(User.id == LEGACY_ID).one()
+    user.auto_provisioned = True
+    db.commit()
+
+    _answer(monkeypatch, script, GOOD_PASSWORD)
+    rc = script.set_password(db, LEGACY_ID, "real@correu.cat", None, force=False, acknowledged=True)
+    assert rc == 0
+
+    user = db.query(User).filter(User.id == LEGACY_ID).one()
+    assert user.auto_provisioned is False, "the claimed account is still flagged as auto-provisioned"
+    # And the claim guard must agree, since that is what consumes the flag.
+    from backend.services.auth_service import is_auto_provisioned_account
+    assert is_auto_provisioned_account(user) is False
+
+
+def test_a_failed_claim_leaves_the_flag_alone(script, db, monkeypatch):
+    """The flag must not be cleared by an attempt that does not go through."""
+    user = db.query(User).filter(User.id == LEGACY_ID).one()
+    user.auto_provisioned = True
+    user.password_hash = "already-set"
+    db.commit()
+
+    _answer(monkeypatch, script, GOOD_PASSWORD)
+    rc = script.set_password(db, LEGACY_ID, "real@correu.cat", None, force=False, acknowledged=True)
+    assert rc == 1, "refusing an existing password is the precondition of this test"
+
+    user = db.query(User).filter(User.id == LEGACY_ID).one()
+    assert user.auto_provisioned is True
