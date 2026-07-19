@@ -1,14 +1,18 @@
 from fastapi import Header, HTTPException, Depends
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from backend.data.management_db import get_mgmt_db
 from backend.models.management import Workspace, Membership, User, Vault, VaultAccess
 from typing import Optional
 from pathlib import Path
 from backend.config.app_config import load_params
+from backend.config.logger_config import get_logger
 import uuid
 
 from backend.services.context_vars import active_vault_path
 from backend.services.auth_service import get_current_user_id
+
+logger = get_logger(__name__)
 
 class WorkspaceContext:
     def __init__(self, workspace_id: str, user_id: str, role: str, vault_path: Path, capabilities: list = None):
@@ -58,7 +62,13 @@ def require_capability(capability: str):
     return capability_checker
 
 def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
-    """Ensure a personal workspace exists for the user."""
+    """Ensure a personal workspace exists for the user.
+
+    Safe under concurrency: on a fresh install the first parallel requests all
+    race to create the same rows (auto user, 'personal' workspace, membership).
+    Losers hit a UNIQUE constraint on commit; instead of bubbling a 500 up to
+    the client, they roll back and re-read what the winner committed.
+    """
     # 1. Find or create user
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
@@ -81,6 +91,14 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
         db.add(user)
         try:
             db.commit()
+        except IntegrityError:
+            db.rollback()
+            # Two possible conflicts: a concurrent request auto-created this
+            # same id (reuse the winner's row and move on), or a DIFFERENT id
+            # already holds the placeholder email — that one is the guard
+            # documented above and must keep failing loudly.
+            if not db.query(User).filter(User.id == user_id).first():
+                raise
         except Exception:
             db.rollback()
             raise
@@ -91,15 +109,18 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     # is also `owner` of an organization workspace, the `.first()` (without order_by)
     # could return that membership and _resolve_personal_vault would end up resolving the
     # vault from ANOTHER workspace in personal mode (data leak between workspaces).
-    membership = db.query(Membership).filter(
-        Membership.user_id == user_id,
-        Membership.workspace_id == "personal",
-        Membership.role == "owner"
-    ).first()
+    ws_id = "personal"
+    last_conflict = None
+    for _ in range(3):
+        membership = db.query(Membership).filter(
+            Membership.user_id == user_id,
+            Membership.workspace_id == ws_id,
+            Membership.role == "owner"
+        ).first()
+        if membership:
+            return membership.workspace_id
 
-    if not membership:
         # Create workspace
-        ws_id = "personal"
         ws = db.query(Workspace).filter(Workspace.id == ws_id).first()
         if not ws:
             ws = Workspace(id=ws_id, name="Personal Workspace")
@@ -116,15 +137,29 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
 
         try:
             db.commit()
+        except IntegrityError as exc:
+            # Lost the bootstrap race to a concurrent request. The rollback
+            # discards every pending row of this transaction (workspace, vault
+            # and membership go together), so the retry re-reads the winner's
+            # rows without leaving a duplicate "Main Vault" behind.
+            db.rollback()
+            last_conflict = exc
+            logger.warning(
+                "Personal workspace bootstrap lost a concurrent create race; retrying"
+            )
         except Exception:
             # Without rollback the session stays "dirty" and any further
             # query on this session silently fails. Roll back and re-raise
             # so the caller sees the error instead of a corrupted session.
             db.rollback()
             raise
-        return ws_id
+        else:
+            return ws_id
 
-    return membership.workspace_id
+    # Repeated conflicts without the membership ever becoming readable: not a
+    # bootstrap race (e.g. a same-key membership with a non-owner role).
+    # Surface the constraint error instead of looping forever.
+    raise last_conflict
 
 def _resolve_personal_vault(db: Session, ws_id: str, x_vault_id: Optional[str],
                             default_vault_path: Path) -> Path:
