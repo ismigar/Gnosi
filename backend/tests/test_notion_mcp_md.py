@@ -135,6 +135,83 @@ def test_subpage_tags_become_wikilinks():
     assert "<page" not in out                                    # no raw tag
 
 
+# REAL attachment src from «Curs de narrativa i conte I, II» (BD/Recursos): the raw tags
+# reached the vault and BlockNote dropped all 171 on the first save (incident 2026-07-19).
+ATT_SRC = (
+    "file://%7B%22source%22%3A%22attachment%3A96fa413b-a330-428a-af2c-5651a2ad3250"
+    "%3AEE_ismaelGarcia_incipit2012.doc%22%2C%22permissionRecord%22%3A%7B%22table%22"
+    "%3A%22block%22%2C%22id%22%3A%221ee268e5-2714-806a-bc67-e2b2ee6d3cbb%22%2C%22spaceId"
+    "%22%3A%22981765aa-6b61-4904-b7b5-2ff9c372bc7c%22%7D%7D")
+ATT_MARKER = ("<!-- gnosi-notion-file:1ee268e52714806abc67e2b2ee6d3cbb:"
+              "EE_ismaelGarcia_incipit2012.doc -->")
+
+
+def test_attachment_file_tag_becomes_marker():
+    out = mcp_to_markdown(f'<content>\nAbans\n<file src="{ATT_SRC}"></file>\nDesprés\n</content>')
+    assert ATT_MARKER in out
+    assert "<file" not in out and "permissionRecord" not in out
+    assert "Abans" in out and "Després" in out
+
+
+def test_attachment_media_variants_become_markers():
+    # <pdf>/<video>/<audio>/<embed> share the tag shape → same handling (incl. self-closing)
+    md = (f'<content>\n<pdf src="{ATT_SRC}">Apunts</pdf>\n<video src="{ATT_SRC}"/>\n</content>')
+    out = mcp_to_markdown(md)
+    assert out.count("gnosi-notion-file:1ee268e52714806abc67e2b2ee6d3cbb") == 2
+    assert "<pdf" not in out and "<video" not in out
+
+
+def test_external_file_tag_becomes_link():
+    out = mcp_to_markdown(
+        '<content>\n<file src="https://example.com/docs/Guia%20r%C3%A0pida.pdf"></file>\n'
+        '<file src="https://example.com/a.zip">Material del curs</file>\n</content>')
+    assert "[Guia ràpida.pdf](https://example.com/docs/Guia%20r%C3%A0pida.pdf)" in out
+    assert "[Material del curs](https://example.com/a.zip)" in out
+    assert "<file" not in out
+
+
+def test_unresolvable_file_tag_degrades_to_readable_text():
+    out = mcp_to_markdown(
+        '<content>\n<file src="file-upload://xyz">Esborrany</file>\n'
+        '<file src="file://no-json-aqui"></file>\n</content>')
+    assert "📎 Esborrany" in out
+    assert "📎 fitxer adjunt" in out
+    assert "<file" not in out
+
+
+# REAL block-toggle fragment (new MCP format: <details>/<summary>, unindented children)
+DETAILS_MCP = (
+    '<content>\n'
+    '<details>\n'
+    '<summary>Unitat 1 - La construcció del conte I. Pensar el conte</summary>\n'
+    f'<file src="{ATT_SRC}"></file>\n'
+    '- Nota de la unitat\n'
+    '</details>\n'
+    'Fora del toggle\n'
+    '</content>')
+
+
+def test_details_summary_becomes_toggle_fence():
+    out = mcp_to_markdown(DETAILS_MCP)
+    lines = out.splitlines()
+    assert ":::toggle Unitat 1 - La construcció del conte I. Pensar el conte" in lines
+    i = lines.index(":::toggle Unitat 1 - La construcció del conte I. Pensar el conte")
+    block = lines[i:]
+    assert ATT_MARKER in block                      # attachment marker INSIDE the toggle
+    assert "- Nota de la unitat" in block
+    assert ":::" in block                            # closes
+    assert "Fora del toggle" in out
+    for tag in ("<details", "<summary", "</details", "</summary"):
+        assert tag not in out
+
+
+def test_details_with_color_wraps_title():
+    out = mcp_to_markdown('<content>\n<details color="blue_bg">\n<summary>Recursos</summary>\n'
+                          'contingut\n</details>\n</content>')
+    assert ':::toggle <span style="background-color:#e7f3f8">Recursos</span>' in out
+    assert "contingut" in out and "<details" not in out
+
+
 if __name__ == "__main__":
     import traceback
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]

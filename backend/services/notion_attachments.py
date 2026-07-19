@@ -5,6 +5,8 @@ we need to download them DURING the clone and rewrite references to local `Asset
 paths:
   - file-field values (`file`/`files`/`image`) → list of URLs → list of local paths.
   - images in the markdown body (`![alt](url)`) → local path.
+  - `<!-- gnosi-notion-file:... -->` body markers (Notion-hosted attachment blocks, from
+    `notion_mcp_md`) → local link, via a fresh REST signed URL (`resolve_file_markers`).
 
 Design: the localization helpers (`localize_values`, `localize_body`) are PURE — they receive a
 `save_asset(url, prop) -> ruta_local|None` callable that does the I/O (the path layer wires it with
@@ -143,3 +145,38 @@ def localize_body(md: str, save_asset: SaveAsset) -> Tuple[str, int]:
         return f"![{alt}]({local}{titlepart})"
 
     return _IMG_RE.sub(repl, md), count["n"]
+
+
+# fetch_file_url(block_id) → fresh signed/external URL of the block's file (None if unavailable)
+FetchFileUrl = Callable[[str], Optional[str]]
+
+
+def resolve_file_markers(md: str, fetch_file_url: FetchFileUrl,
+                         save_asset: Optional[SaveAsset]) -> Tuple[str, int, int]:
+    """Resolves the `<!-- gnosi-notion-file:<block_id>:<filename> -->` markers emitted by
+    `notion_mcp_md` for Notion-hosted attachments (their `attachment:` URIs are NOT public
+    URLs; only the REST block API can produce a fresh signed URL, hence `fetch_file_url`).
+    Downloaded → `[filename](Assets/...)`. Not downloadable (no URL, no `save_asset`, or a
+    failed download) → readable plain text `📎 filename`, so no marker/tag ever reaches the
+    editor (BlockNote silently drops unknown HTML on save). Returns (md, downloaded, failed)."""
+    from .notion_mcp_md import FILE_MARKER_RE
+    if not md or "gnosi-notion-file:" not in md:
+        return md, 0, 0
+    stats = {"ok": 0, "fail": 0}
+
+    def repl(m: "re.Match[str]") -> str:
+        block_id, label = m.group(1), unquote(m.group(2)) or "fitxer adjunt"
+        url = None
+        try:
+            url = fetch_file_url(block_id)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Could not resolve Notion file block %s: %s", block_id, e)
+        local = save_asset(url, None) if (url and save_asset) else None
+        if local:
+            stats["ok"] += 1
+            return f"[{label}]({local})"
+        stats["fail"] += 1
+        return f"📎 {label}"
+
+    out = FILE_MARKER_RE.sub(repl, md)
+    return out, stats["ok"], stats["fail"]

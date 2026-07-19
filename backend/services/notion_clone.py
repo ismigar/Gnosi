@@ -68,6 +68,21 @@ def _child_page_ids(blocks: Any) -> List[str]:
     return out
 
 
+def block_file_url(block: Dict[str, Any]) -> Optional[str]:
+    """Fresh signed/external URL of a REST media block (`file`/`pdf`/`video`/`audio`/`image`
+    have `{type: {"type": "file"|"external", ...: {"url": ...}}}`; `embed` has a flat
+    `{"embed": {"url": ...}}`). None for any other block shape."""
+    if not isinstance(block, dict):
+        return None
+    payload = block.get(str(block.get("type") or "")) or {}
+    if not isinstance(payload, dict):
+        return None
+    inner = payload.get(str(payload.get("type") or "")) or {}
+    url = inner.get("url") if isinstance(inner, dict) else None
+    url = url or payload.get("url")
+    return url if isinstance(url, str) and url.strip() else None
+
+
 def _icon_or_cover_url(obj: Any) -> Optional[str]:
     """URL of a Notion icon/cover of type file/external (None if it's emoji or empty)."""
     if isinstance(obj, dict):
@@ -367,6 +382,32 @@ def clone_workspace(
     def _id_to_title(rid):
         return clone_titles.get(rid)
 
+    def _localize_file_markers(body: str, title: str, table: Dict[str, Any]) -> str:
+        """Resolves the body's `gnosi-notion-file` markers (Notion-hosted attachment blocks).
+        Always runs — even with downloads disabled the marker degrades to readable text so
+        no raw marker reaches the editor. The signed URL is fetched per file at WRITE time
+        (REST `get_block`): S3 URLs expire in ~1h, so URLs captured earlier would rot."""
+        if not body or "gnosi-notion-file:" not in body:
+            return body
+        from backend.services.notion_attachments import resolve_file_markers
+
+        def _fresh_url(block_id: str) -> Optional[str]:
+            try:
+                return block_file_url(rest_client.get_block(block_id))
+            except Exception:  # noqa: BLE001 — deleted block / no permission → fallback text
+                return None
+
+        body, n_ok, n_fail = resolve_file_markers(
+            body,
+            _fresh_url if save_asset is not None else (lambda _bid: None),
+            (lambda u, p, _t=table: save_asset(u, p, _t)) if save_asset is not None else None)
+        report["attachments"] += n_ok
+        if n_fail and save_asset is not None:
+            report["warnings"].append(
+                f"«{title}»: {n_fail} adjunt(s) de Notion no s'han pogut baixar "
+                f"(es deixa el nom del fitxer com a text).")
+        return body
+
     def _fetch_page_checked(pid) -> str:
         """fetch_page with retries: the MCP returns '' on error (silently) and an empty fetch means
         LOST BODY (even an empty Notion page returns the <page> wrapper). If after
@@ -453,6 +494,8 @@ def clone_workspace(
                     from backend.services.notion_attachments import localize_body
                     body, nb = localize_body(body, lambda u, p: save_asset(u, p, table))
                     report["attachments"] += nb
+                # Notion-hosted attachment blocks (markers): download + local link
+                body = _localize_file_markers(body, title, table)
             except Exception as e:  # noqa: BLE001
                 report["errors"].append({"page": row.get("id"), "stage": "mcp", "error": str(e)})
             # Merge the inverses that point to THIS page (dedup, preserving the direct ones)
@@ -503,6 +546,7 @@ def clone_workspace(
                 from backend.services.notion_attachments import localize_body
                 body, nb = localize_body(body, lambda u, p: save_asset(u, p, {"name": "Pàgines"}))
                 report["attachments"] += nb
+            body = _localize_file_markers(body, title, {"name": "Pàgines"})
         except Exception as e:  # noqa: BLE001
             report["errors"].append({"page": pid, "stage": "mcp", "error": str(e)})
         meta = dict(extra_meta or {})
