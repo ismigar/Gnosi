@@ -9,6 +9,11 @@ toggles, mentions) in a «Notion-flavored» Markdown with its own tags and annot
 - `<columns>/<column>` → `:::column-list` / `:::column` (Gnosi DOES have columns).
 - `{color="X"}`/`{color="X_bg"}` → `<span style="color|background-color:#hex">…</span>`.
 - `{toggle="true"}` → `:::toggle` / `:::toggle-heading{level=N}` with the children INSIDE.
+- `<details><summary>…</summary>…</details>` (block toggles, new MCP format) → `:::toggle`.
+- `<file|pdf|audio|video|embed src="file://{json}">` (Notion-hosted attachments) →
+  `<!-- gnosi-notion-file:<block_id>:<filename> -->` (the orchestrator downloads the real
+  file via REST and rewrites it as a local link; cf. `notion_attachments.resolve_file_markers`).
+  External `http(s)` sources become plain Markdown links.
 - indentation with tabs → Markdown indentation (list nesting is preserved).
 - ``` ``` ``` code blocks are protected (nothing inside is touched).
 
@@ -16,8 +21,10 @@ PURE (no network) → testable with the MCP's real markdown.
 """
 from __future__ import annotations
 
+import json
 import re
 from typing import Any, Dict, List, Tuple
+from urllib.parse import quote, unquote
 
 # Notion color palette → hex (text and background)
 _TEXT_HEX = {
@@ -43,10 +50,83 @@ _MENTION_SELF_RE = re.compile(r'<mention-page\s+url="[^"]*?([0-9a-f]{32})"\s*/>'
 _PAGE_RE = re.compile(r'<page\s+url="[^"]*?([0-9a-f]{32})"\s*>(.*?)</page>', re.DOTALL)
 _PAGE_SELF_RE = re.compile(r'<page\s+url="[^"]*?([0-9a-f]{32})"\s*/>')
 _CODE_RE = re.compile(r"```.*?```", re.DOTALL)
+# Attachment/media blocks share one shape: <file|pdf|audio|video|embed src="…">Caption</…>.
+# A Notion-hosted file has NO public URL: src is `file://{urlencoded json}` whose JSON carries
+# `source: "attachment:<uuid>:<filename>"` and `permissionRecord.id` = the Notion BLOCK id —
+# the only key the REST API can turn into a fresh signed URL. Left raw, these tags reach the
+# vault and BlockNote silently drops them on the first save (171 attachments lost on
+# «Curs de narrativa i conte I, II», 2026-07-19) → they always become a marker or plain text.
+_FILE_TAG_RE = re.compile(
+    r'<(file|pdf|audio|video|embed)\s+src="([^"]*)"[^>]*>(.*?)</\1>', re.DOTALL)
+_FILE_SELF_RE = re.compile(r'<(file|pdf|audio|video|embed)\s+src="([^"]*)"[^>]*/>')
+# Block toggles, new MCP format (block-level, unindented children — cf. enhanced-markdown spec):
+# <details color?="X">\n<summary>Title</summary>\n…children…\n</details> → :::toggle fence.
+_DETAILS_SUMMARY_RE = re.compile(r'<details([^>]*)>\s*<summary>(.*?)</summary>', re.DOTALL)
+_DETAILS_LONE_RE = re.compile(r'<details[^>]*>')
+_DETAILS_CLOSE_RE = re.compile(r'</details>')
+
+# Marker emitted for Notion-hosted attachments; resolved by the clone orchestrator
+# (`notion_attachments.resolve_file_markers`). Filename is percent-encoded (no spaces/`>`).
+FILE_MARKER_RE = re.compile(r'<!--\s*gnosi-notion-file:([0-9a-f]{32}):([^\s>]*)\s*-->')
 # {k="v" ...} annotation at the END of the line
 _ANNOT_RE = re.compile(r'\s*\{([a-zA-Z_]+="[^"]*"(?:\s+[a-zA-Z_]+="[^"]*")*)\}\s*$')
 # Markdown prefix (heading/list/quote) to wrap only the content with color
 _MD_PREFIX_RE = re.compile(r'^(\s*(?:#{1,6}\s+|[-*]\s+(?:\[[ xX]\]\s+)?|\d+\.\s+|>\s+)?)(.*)$', re.DOTALL)
+
+
+def file_marker(block_id: str, filename: str) -> str:
+    """Stable marker for a Notion-hosted attachment (resolved by the clone orchestrator)."""
+    bid = str(block_id or "").replace("-", "").lower()
+    return f"<!-- gnosi-notion-file:{bid}:{quote(filename or '', safe='')} -->"
+
+
+def _parse_file_src(src: str) -> Tuple[str, str]:
+    """(block_id, filename) from the MCP's `file://{urlencoded json}` src ('' when missing)."""
+    try:
+        obj = json.loads(unquote(src[len("file://"):]))
+        source = str(obj.get("source") or "")
+        fname = source.split(":", 2)[2] if source.startswith("attachment:") else ""
+        bid = str((obj.get("permissionRecord") or {}).get("id") or "")
+        return bid, fname
+    except Exception:  # noqa: BLE001 — malformed src → readable fallback downstream
+        return "", ""
+
+
+def _basename_from_url(url: str) -> str:
+    return unquote((url.split("?")[0].rstrip("/").rsplit("/", 1)[-1]) or "").strip()
+
+
+def _file_tag_to_md(src: str, caption: str) -> str:
+    """One `<file|pdf|audio|video|embed>` tag → marker (Notion-hosted), link (external URL)
+    or readable plain text. Never returns the raw tag."""
+    src, caption = (src or "").strip(), " ".join((caption or "").split())
+    if src.startswith("file://"):
+        bid, fname = _parse_file_src(src)
+        label = fname or caption or "fitxer adjunt"
+        if re.fullmatch(r"[0-9a-f]{32}", bid.replace("-", "").lower()):
+            marker = file_marker(bid, label)
+            return f"{marker} {caption}" if caption and caption != label else marker
+        return f"📎 {label}"
+    if src.lower().startswith(("http://", "https://")):
+        label = caption or _basename_from_url(src) or src
+        return f"[{label}]({src})"
+    # file-upload:// or an unresolved compressed src → keep at least a readable trace
+    return f"📎 {caption or 'fitxer adjunt'}"
+
+
+def _details_to_fences(text: str) -> str:
+    """`<details><summary>T</summary>…</details>` → `:::toggle T` … `:::` (line-level, so the
+    indentation-tree serializer sees plain fence lines; nested details keep working)."""
+    def _open(m: "re.Match[str]") -> str:
+        cm = re.search(r'color="([^"]*)"', m.group(1) or "")
+        title = " ".join((m.group(2) or "").split())
+        if cm and title:
+            title = _color_inline(title, {"color": cm.group(1)})
+        return f":::toggle {title}".rstrip()
+
+    text = _DETAILS_SUMMARY_RE.sub(_open, text)
+    text = _DETAILS_LONE_RE.sub(":::toggle", text)   # details without summary (rare)
+    return _DETAILS_CLOSE_RE.sub(":::", text)
 
 
 def extract_db_ids(page_md: str) -> List[str]:
@@ -172,6 +252,13 @@ def mcp_to_markdown(page_md: str) -> str:
     # 1) embedded views → neutral placeholder (relabeled at the end)
     text = _DB_RE.sub(lambda mm: f"§§GNOSIDB:{mm.group(1)}§§", text)
     text = _DB_SELFCLOSE_RE.sub(lambda mm: f"§§GNOSIDB:{mm.group(1)}§§", text)
+
+    # 1b) attachment/media tags → marker (Notion-hosted), link (external) or plain text
+    text = _FILE_TAG_RE.sub(lambda mm: _file_tag_to_md(mm.group(2), mm.group(3)), text)
+    text = _FILE_SELF_RE.sub(lambda mm: _file_tag_to_md(mm.group(2), ""), text)
+
+    # 1c) block toggles <details>/<summary> → :::toggle fences (before the indentation tree)
+    text = _details_to_fences(text)
 
     # 2) mentions and sub-pages → wikilinks (by title when available → resolves in the clone)
     text = _MENTION_RE.sub(lambda mm: f"[[{(mm.group(2).strip() or mm.group(1))}]]", text)

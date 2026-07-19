@@ -72,6 +72,32 @@ El clon v1 feia `.search()` (primera i prou) i les altres es perdien EN SILENCI.
   defecte, `--apply` per escriure, `--state` per reprendre. (Nota: `pipeline/sandbox/` és
   gitignored; la còpia tracked viu a `pipeline/skills/.../scripts/`.)
 
+### Blocs d'adjunt `<file>` i toggles `<details>` (RESOLT 2026-07-19)
+**No deixar passar tags MCP desconeguts cap al `.md` del vault → BlockNote els esborra en
+silenci al primer desat (paràgrafs buits en cadena) → gestionar-los SEMPRE al convertidor.**
+Incident real: «Curs de narrativa i conte I, II» (BD/Recursos) va perdre 171 adjunts.
+- Format real del bloc d'adjunt de l'MCP: `<file src="file://{json urlencoded}"></file>`
+  (també `<pdf>/<audio>/<video>/<embed>`, mateixa forma). El JSON porta
+  `source: "attachment:<uuid>:<filename>"` i `permissionRecord.id` = **id del BLOC**.
+- Els URI `attachment:` NO són URL públiques, i l'eina MCP `notion-download-attachment`
+  NO serveix (només adjunts de text UTF-8 creats per `create-attachment`, ≤200 KiB, mai
+  binaris). La via bona: REST `GET /blocks/{id}` → `{type: {type: file|external → url}}`
+  = URL signada S3 **fresca** (caduquen en ~1h → resoldre-la al moment d'escriure, mai
+  abans). Verificat E2E amb el bloc real de l'incident.
+- Flux: `notion_mcp_md` (pur) emet `<!-- gnosi-notion-file:<block_id>:<nom_urlencoded> -->`
+  (patró idèntic a `gnosi-notion-db`); `notion_clone._localize_file_markers` el resol via
+  `block_file_url(rest.get_block(id))` + `save_asset` → `[nom](Assets/…)`. Si no es pot
+  baixar (bloc esborrat, descàrregues desactivades, error) → degrada a text llegible
+  `📎 nom` — MAI queda cap marcador ni tag cru al cos.
+- `<details><summary>` (format nou de toggles de l'MCP, fills SENSE indentar) → fences
+  `:::toggle` al convertidor. Els `src` http(s) externs → enllaç Markdown normal.
+- Defensa al frontend (`markdown-mapper.wrapUnknownHtmlTags`): tags HTML complets que
+  l'editor no round-tripeja s'embolcallen en un code span abans del parse → es preserven
+  verbatim. **L'escapat `\<` NO funciona** (el parser es menja el tag igualment i deixa
+  `\` orfes); els tags consecutius han de compartir UN sol code span (backticks adjacents
+  es fusionen en brossa). `<details>` cru el parseja BlockNote nativament a
+  `toggleListItem` (que el serializer ja normalitza a `:::toggle`) → és a la whitelist.
+
 ## Limitacions conegudes v1
 - **Columnes**: Gnosi no té layout de columnes al Markdown → s'aplanen (contingut conservat,
   no la disposició costat a costat). Revisar si BlockNote ho admet més endavant.

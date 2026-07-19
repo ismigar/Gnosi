@@ -1141,6 +1141,67 @@ const sanitizeLinkDestinations = (text) => {
     return out;
 };
 
+// HTML tag names the editor round-trips WITHOUT destroying content (verified against the
+// live parser, 2026-07-19): video/audio/img → native blocks; u/span/div → marks and block
+// colors; details/summary → BlockNote's toggleListItem (which our serializer normalizes to
+// `:::toggle`); tables → native tables; sub/sup/mark lose the tag but KEEP the inner text.
+// Anything OUTSIDE this list is dropped by BlockNote leaving empty paragraphs (`<iframe>`,
+// `<file>`, `<mention-page>`, `<meeting-notes>`, …) and the content is destroyed on the
+// next save. Those tags get wrapped in a code span instead (see wrapUnknownHtmlTags).
+const KNOWN_HTML_TAGS = new Set([
+    "a", "b", "strong", "i", "em", "u", "s", "del", "strike", "code", "pre", "kbd",
+    "br", "hr", "p", "div", "span", "img", "figure", "figcaption",
+    "table", "thead", "tbody", "tfoot", "tr", "td", "th", "colgroup", "col", "caption",
+    "ul", "ol", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote",
+    "sub", "sup", "mark", "video", "audio", "source", "input", "label",
+    "details", "summary",
+]);
+// Complete tag: `<name …>`, `</name>` or `<name/>`. Autolinks (`<https://…>`), emails
+// (`<a@b.c>`) and comments (`<!-- … -->`) do NOT match (no attr whitespace after the
+// scheme/name), so they keep their CommonMark meaning.
+const HTML_TAG_RE = /<(\/?)([A-Za-z][A-Za-z0-9-]*)((?:\s[^<>]*)?)(\/?)>/g;
+
+const _codeWrap = (raw) => (raw.includes("`") ? "`` " + raw + " ``" : "`" + raw + "`");
+
+// Wraps every run of unknown tags in ONE code span. Runs (consecutive tags with only
+// whitespace between, e.g. `<file …></file>`) must share a span: two adjacent spans
+// would put backtick delimiters back to back (`…>``</file>`) and the backtick runs
+// merge into garbage.
+const _wrapUnknownInSegment = (seg) => {
+    let out = "", last = 0, runStart = -1, runEnd = -1;
+    for (const m of seg.matchAll(HTML_TAG_RE)) {
+        if (KNOWN_HTML_TAGS.has(m[2].toLowerCase())) continue;
+        const start = m.index, end = start + m[0].length;
+        if (runStart >= 0 && /^\s*$/.test(seg.slice(runEnd, start))) {
+            runEnd = end;
+            continue;
+        }
+        if (runStart >= 0) {
+            out += seg.slice(last, runStart) + _codeWrap(seg.slice(runStart, runEnd));
+            last = runEnd;
+        }
+        runStart = start; runEnd = end;
+    }
+    if (runStart >= 0) {
+        out += seg.slice(last, runStart) + _codeWrap(seg.slice(runStart, runEnd));
+        last = runEnd;
+    }
+    return out + seg.slice(last);
+};
+
+const wrapUnknownHtmlTags = (text) => {
+    if (!text || !text.includes("<")) return text;
+    let inFence = false;
+    return text.split("\n").map((line) => {
+        if (/^\s*(```|~~~)/.test(line)) { inFence = !inFence; return line; }
+        if (inFence || !line.includes("<")) return line;
+        // Existing inline code spans already protect their raw content — skip them.
+        return line.split(/(`+[^`\n]*`+)/).map((seg) =>
+            seg.startsWith("`") ? seg : _wrapUnknownInSegment(seg)
+        ).join("");
+    }).join("\n");
+};
+
 // file:// links inside the markdown are replaced with the sentinel before
 // parsing because BlockNote/Tiptap doesn't accept them as a valid href (it's not
 // in its allowed protocols). We keep the sentinel in the blocks throughout the whole
@@ -1188,6 +1249,16 @@ const parsePlainMarkdownBlock = async (text, editor) => {
     // round-trip. `sanitizeLinkDestinations` scans the destination while respecting
     // balanced parentheses and escaped characters, as CommonMark does.
     protectedText = sanitizeLinkDestinations(protectedText);
+
+    // UNKNOWN HTML tags (`<file …>`, `<mention-page …>`, `<iframe>`, …) are silently
+    // DROPPED by BlockNote's parser: no Tiptap node for them, so the content vanishes
+    // on the first save leaving empty paragraphs (171 Notion attachments lost on
+    // «Curs de narrativa i conte I, II», 2026-07-19). Wrapping each unknown complete
+    // tag in a code span preserves it verbatim (code content is never reinterpreted,
+    // and the code mark round-trips 1:1 — verified live; `\<` escaping does NOT work:
+    // the parser still eats the tag and leaves stray backslashes). Known tags (colors,
+    // tables, underline, media, details/summary…) are left for the parser.
+    protectedText = wrapUnknownHtmlTags(protectedText);
 
     // A CommonMark type-6 HTML block only ends at a BLANK line. Cloned/legacy
     // content often has `</table>` immediately followed by more markdown

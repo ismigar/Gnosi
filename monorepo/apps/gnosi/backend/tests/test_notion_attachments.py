@@ -6,7 +6,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from services.notion_attachments import (  # noqa: E402
     is_remote, filename_for, localize_values, localize_body, download_to,
+    resolve_file_markers,
 )
+from services.notion_mcp_md import file_marker  # noqa: E402
 
 S3 = "https://prod-files-secure.s3.amazonaws.com/abc/foto.png?X-Amz-Signature=xyz"
 
@@ -64,6 +66,39 @@ def test_localize_body_empty():
 
 def test_download_to_non_remote_returns_none(tmp_path=Path("/tmp/gnosi_att_test")):
     assert download_to("Assets/x.png", tmp_path, tmp_path) is None
+
+
+BID = "1ee268e52714806abc67e2b2ee6d3cbb"
+
+
+def test_resolve_file_markers_downloads_and_links():
+    md = f"Abans\n{file_marker(BID, 'Notes del curs.pdf')}\nDesprés"
+    out, ok, fail = resolve_file_markers(
+        md, lambda bid: S3 if bid == BID else None,
+        lambda url, prop: "Assets/Clon/Recursos/_cos/Notes_x.pdf" if url == S3 else None)
+    assert (ok, fail) == (1, 0)
+    assert "[Notes del curs.pdf](Assets/Clon/Recursos/_cos/Notes_x.pdf)" in out
+    assert "gnosi-notion-file" not in out
+    assert "Abans" in out and "Després" in out
+
+
+def test_resolve_file_markers_degrades_to_readable_text():
+    md = file_marker(BID, "EE_ismaelGarcia_incipit2012.doc")
+    # no fresh URL (deleted block / no permission) → plain filename, NEVER a raw marker
+    out, ok, fail = resolve_file_markers(md, lambda bid: None, lambda url, prop: "x")
+    assert (ok, fail) == (0, 1) and out == "📎 EE_ismaelGarcia_incipit2012.doc"
+    # URL available but downloads disabled (save_asset=None) → same degradation
+    out, ok, fail = resolve_file_markers(md, lambda bid: S3, None)
+    assert (ok, fail) == (0, 1) and out == "📎 EE_ismaelGarcia_incipit2012.doc"
+    # failed download (save_asset returns None)
+    out, ok, fail = resolve_file_markers(md, lambda bid: S3, lambda url, prop: None)
+    assert (ok, fail) == (0, 1) and "📎" in out
+
+
+def test_resolve_file_markers_no_markers_untouched():
+    md = "Text normal amb [un enllaç](Assets/x.pdf)"
+    assert resolve_file_markers(md, lambda bid: S3, lambda u, p: "y") == (md, 0, 0)
+    assert resolve_file_markers("", lambda bid: S3, None) == ("", 0, 0)
 
 
 if __name__ == "__main__":

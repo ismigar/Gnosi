@@ -464,6 +464,76 @@ def test_subpages_scan_total_grows_with_discoveries():
     assert scans[-1][2] == 3       # final total grows with the discoveries
 
 
+def test_block_file_url_rest_shapes():
+    from backend.services.notion_clone import block_file_url
+    assert block_file_url({"type": "file", "file": {
+        "type": "file", "file": {"url": "https://s3/x.doc?sig=1"}, "name": "x.doc"}}) == "https://s3/x.doc?sig=1"
+    assert block_file_url({"type": "pdf", "pdf": {
+        "type": "external", "external": {"url": "https://ex/a.pdf"}}}) == "https://ex/a.pdf"
+    assert block_file_url({"type": "embed", "embed": {"url": "https://emb/x"}}) == "https://emb/x"
+    assert block_file_url({"type": "paragraph", "paragraph": {"rich_text": []}}) is None
+    assert block_file_url({}) is None and block_file_url(None) is None
+
+
+def test_clone_workspace_downloads_body_attachments():
+    """E2E with fakes: real-format `<file file://{json}>` tag → marker → REST signed URL →
+    save_asset → local link in the written body (and counted in the report)."""
+    import json as _json
+    from urllib.parse import quote as _quote
+    blk = "1ee268e5-2714-806a-bc67-e2b2ee6d3cbb"
+    src = "file://" + _quote(_json.dumps({
+        "source": "attachment:96fa413b-a330-428a-af2c-5651a2ad3250:Apunts del curs.doc",
+        "permissionRecord": {"table": "block", "id": blk, "spaceId": "s"}}), safe="")
+    page_mcp = f'<page><content>\nText\n<file src="{src}"></file>\n</content></page>'
+
+    fake = FakeRest()
+    fake.get_block = lambda bid: ({"type": "file", "file": {
+        "type": "file", "file": {"url": "https://s3/apunts.doc?sig=x"}, "name": "Apunts del curs.doc"}}
+        if bid == blk.replace("-", "") else {})
+    saved = []
+
+    def save_asset(url, prop, table):
+        saved.append((url, prop, table.get("name")))
+        return "Assets/Clon Notion/Projectes/_cos/apunts_ab12cd34.doc"
+
+    pages = []
+    rep = clone_workspace(
+        fake, fetch_page=lambda nid: page_mcp if nid == HOST else VIEW_MD,
+        mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
+        write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+        database_ids=["projects", "tasks"], target_folder="Clon Notion",
+        save_asset=save_asset)
+    body = pages[0]["content"]
+    assert "[Apunts del curs.doc](Assets/Clon Notion/Projectes/_cos/apunts_ab12cd34.doc)" in body
+    assert "gnosi-notion-file" not in body and "<file" not in body
+    assert saved and saved[0][0] == "https://s3/apunts.doc?sig=x"
+    assert rep["attachments"] == 1 and rep["warnings"] == []
+
+
+def test_clone_workspace_degrades_attachment_when_block_gone():
+    """The block no longer resolves via REST → readable text + warning, never a raw marker."""
+    import json as _json
+    from urllib.parse import quote as _quote
+    src = "file://" + _quote(_json.dumps({
+        "source": "attachment:96fa413b-a330-428a-af2c-5651a2ad3250:Perdut.pdf",
+        "permissionRecord": {"table": "block", "id": "1ee268e5-2714-806a-bc67-e2b2ee6d3cbb",
+                             "spaceId": "s"}}), safe="")
+    page_mcp = f'<page><content>\n<file src="{src}"></file>\n</content></page>'
+    fake = FakeRest()
+    fake.get_block = lambda bid: (_ for _ in ()).throw(RuntimeError("404 block not found"))
+    pages = []
+    rep = clone_workspace(
+        fake, fetch_page=lambda nid: page_mcp if nid == HOST else VIEW_MD,
+        mcp_to_markdown=notion_mcp_md.mcp_to_markdown,
+        write_table=lambda t: None, write_page=pages.append, write_view=lambda v: None,
+        database_ids=["projects", "tasks"], target_folder="Clon Notion",
+        save_asset=lambda u, p, t: "mai")
+    body = pages[0]["content"]
+    assert "📎 Perdut.pdf" in body
+    assert "gnosi-notion-file" not in body
+    assert any("Perdut" not in w and "adjunt" in w for w in rep["warnings"])  # per-page warning
+
+
 if __name__ == "__main__":
     import traceback
     fns = [v for k, v in dict(globals()).items() if k.startswith("test_")]
