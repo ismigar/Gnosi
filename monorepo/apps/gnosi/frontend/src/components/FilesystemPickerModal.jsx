@@ -36,18 +36,25 @@ const saveLastPath = (path) => {
  *     HOST one (the one Finder sees), not the path mapped inside Docker. The
  *     second argument indicates whether it's a folder (always false in 'file' mode,
  *     always true in 'folder' mode).
- *   - onSelectMany(absoluteHostPaths[]): optional. When provided (and the mode
- *     shows files), the picker turns multi-select: clicking a file toggles it
+ *   - onSelectMany(entries[]): optional; each entry is { path, isDir }. When
+ *     provided (and the mode shows files), the picker turns multi-select:
+ *     clicking a file toggles it
  *     into a checked set instead of returning immediately, and the footer
  *     confirms the whole batch. The set survives folder navigation, so files
  *     can be gathered from several folders in one go. Double-clicking a file
  *     still returns it alone through `onSelect` (single-pick shortcut).
+ *   - preferNative: when the OS panel is available, open it straight away
+ *     instead of making the user click through the in-app browser first. The
+ *     in-app browser stays mounted underneath: cancelling the panel lands
+ *     there, which is also the fallback whenever the panel isn't available
+ *     (no host helper: Docker, remote access) or when disk-wide Spotlight
+ *     search is what the user actually needs.
  *   - initialPath: path to start at (internal or host).
  *   - initialQuery: text to pre-fill the search with on open. Useful when
  *     the file name is already known (e.g. the user has dragged a file and
  *     now needs to locate it on disk because the browser doesn't provide its path).
  */
-export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany = null, initialPath = '', mode = 'folder', initialQuery = '' }) {
+export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany = null, initialPath = '', mode = 'folder', initialQuery = '', preferNative = true }) {
     const { t } = useTranslation();
     const tn = useCallback((k, opts) => t('fs_picker.' + k, opts), [t]);
     // Localize a backend error: prefer the i18n message keyed by `error_code`,
@@ -85,6 +92,11 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
     // picker. `nativePicking` is true while the native dialog is open on screen.
     const [nativeAvailable, setNativeAvailable] = useState(false);
     const [nativePicking, setNativePicking] = useState(false);
+    // Kept apart from `error`, which owns the list area: a failing OS panel says
+    // nothing about the browsable listing, and blanking the list would strand
+    // the user with no way to pick anything — the in-app browser IS the
+    // fallback for a panel that won't open.
+    const [nativeError, setNativeError] = useState('');
     const modalRef = useRef(null);
     // Scrollable container for the list (role="listbox"): receives focus and the
     // arrows; keeps focus when entering/leaving folders, so navigation
@@ -122,6 +134,24 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
         })();
         return () => { cancelled = true; };
     }, [isOpen]);
+
+    // Latest handleNativePick, which is defined below the `isOpen` early return
+    // and so can't be called from an effect directly.
+    const nativePickRef = useRef(null);
+    // Auto-open the OS panel once per opening. `autoNativeDone` also gates the
+    // retry: after cancelling, the user is left in the in-app browser instead of
+    // having the panel thrown at them again.
+    const [autoNativeDone, setAutoNativeDone] = useState(false);
+    useEffect(() => {
+        if (!isOpen) { setAutoNativeDone(false); return; }
+        if (!preferNative || !nativeAvailable || autoNativeDone) return;
+        // A pre-filled search means the caller already knows the name and wants
+        // the in-app index to locate it (a dragged file); opening the OS panel
+        // over that would throw away the hint.
+        if (initialQuery) return;
+        setAutoNativeDone(true);
+        void nativePickRef.current?.();
+    }, [isOpen, preferNative, nativeAvailable, autoNativeDone, initialQuery]);
 
     // On opening, pre-fills the search with `initialQuery` (if present). The
     // debounced search useEffect already takes care of firing the query.
@@ -275,7 +305,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
 
     const handleConfirmMany = () => {
         if (checkedPaths.length === 0) return;
-        onSelectMany(checkedPaths);
+        // Only files can be ticked in the list, so the whole basket is files.
+        onSelectMany(checkedPaths.map((path) => ({ path, isDir: false })));
     };
 
     const handleSelectCurrentFolder = () => {
@@ -284,38 +315,41 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
 
     // Native OS dialog. Delegates to the host helper (via the backend), which
     // returns a real host path — the same shape onSelect gets from browsing.
-    // 'folder' mode picks a folder; 'file'/'any' pick a file (a native dialog
-    // can't do both at once, and picking a file is the primary action for both).
-    // When the consumer accepts batches, the dialog is opened with multiple
-    // selections allowed, so ⌘-clicking several files works there too.
+    // The panel mirrors this picker's own mode, 'any' included: it is a real
+    // NSOpenPanel, which takes "files" and "folders" as independent flags, so
+    // one dialog can offer both. When the consumer accepts batches it also
+    // opens with multiple selections allowed.
     const handleNativePick = async () => {
         if (nativePicking) return;
-        setError('');
+        setNativeError('');
         setNativePicking(true);
         try {
-            const nativeMode = mode === 'folder' ? 'folder' : 'file';
             const res = await fetch('/api/system/native-pick', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: nativeMode, prompt: titleText, multiple: canMulti }),
+                body: JSON.stringify({ mode, prompt: titleText, multiple: canMulti }),
             });
-            if (!res.ok) { setError(tn('native_error')); return; }
+            if (!res.ok) { setNativeError(tn('native_error')); return; }
             const data = await res.json();
             if (data.status !== 'ok' || !data.path) return; // cancelled → stay open
             // Keep the in-app picker's remembered folder in sync with the choice.
             saveLastPath(data.is_dir ? data.path : data.path.slice(0, data.path.lastIndexOf('/')));
-            // Several files chosen in the native dialog: hand the whole batch
-            // over, same as the in-app confirm. One file (or a folder) keeps
-            // the single-pick path, so nothing changes for the other callers.
-            const picked = Array.isArray(data.paths) && data.paths.length ? data.paths : [data.path];
+            // Several entries chosen in the native panel: hand the whole batch
+            // over, same as the in-app confirm. The panel can mix folders and
+            // files in one pick, so each entry keeps its own isDir. A single
+            // entry stays on the single-pick path, unchanged for other callers.
+            const picked = Array.isArray(data.entries) && data.entries.length
+                ? data.entries.map((e) => ({ path: e.path, isDir: !!e.is_dir }))
+                : [{ path: data.path, isDir: !!data.is_dir }];
             if (canMulti && picked.length > 1) onSelectMany(picked);
-            else onSelect(data.path, { isDir: !!data.is_dir });
+            else onSelect(picked[0].path, { isDir: picked[0].isDir });
         } catch {
-            setError(tn('native_error'));
+            setNativeError(tn('native_error'));
         } finally {
             setNativePicking(false);
         }
     };
+    nativePickRef.current = handleNativePick;
 
     // Search result: if it's a folder, navigate into it (you need to enter it to
     // select it with the bottom button); if it's a file and the mode shows
@@ -569,6 +603,16 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
                             onKeyDown={handleSearchKeyDown}
                         />
                     </div>
+
+                    {nativeError && (
+                        <div
+                            role="status"
+                            className="border-b border-[var(--border-primary)]"
+                            style={{ color: '#ef4444', padding: '6px 12px', fontSize: '0.8rem' }}
+                        >
+                            {nativeError}
+                        </div>
+                    )}
 
                     {/* List (role="listbox": focus lives there and the arrow keys navigate it) */}
                     <div

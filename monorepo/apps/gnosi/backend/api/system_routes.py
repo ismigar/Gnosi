@@ -108,7 +108,7 @@ class SearchRequest(BaseModel):
 
 
 class NativePickRequest(BaseModel):
-    mode: str = "file"  # "file" | "folder"
+    mode: str = "any"  # "file" | "folder" | "any"
     prompt: str = ""
     multiple: bool = False  # files only: allow picking several at once
 
@@ -373,7 +373,7 @@ async def native_pick(request: Request, body: NativePickRequest = Body(...)):
 
     A browser can never read the absolute host path of a file picked through
     <input type=file>, so the choice is delegated to the host_open_helper, which
-    runs AppleScript's `choose file`/`choose folder` in the user's GUI session.
+    runs macOS's real NSOpenPanel in the user's GUI session.
     Loopback-only. The returned path is a HOST path — the same shape /browse
     hands to the frontend's onSelect — so the caller's flow is unchanged. With
     `multiple` (files only) the response also carries `paths`, the full list;
@@ -382,11 +382,12 @@ async def native_pick(request: Request, body: NativePickRequest = Body(...)):
     """
     if not _is_loopback_request(request):
         raise HTTPException(status_code=403, detail="Native picker is loopback-only")
-    mode = (body.mode or "file").strip().lower()
-    if mode not in ("file", "folder"):
-        mode = "file"
-    # Multi-select only makes sense for files: `choose folder` stays single.
-    multiple = bool(body.multiple) and mode == "file"
+    mode = (body.mode or "any").strip().lower()
+    if mode not in ("file", "folder", "any"):
+        mode = "any"
+    # "any" shows files AND folders in one panel; only a folder-only pick is
+    # restricted to a single entry (no caller links more than one folder).
+    multiple = bool(body.multiple) and mode != "folder"
     result = await asyncio.to_thread(_native_pick_via_helper, mode, body.prompt or "", multiple)
     if result is None:
         raise HTTPException(status_code=502, detail="Host picker helper unavailable")
