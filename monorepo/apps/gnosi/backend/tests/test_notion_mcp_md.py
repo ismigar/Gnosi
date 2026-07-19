@@ -205,6 +205,41 @@ def test_details_summary_becomes_toggle_fence():
         assert tag not in out
 
 
+# REAL fragment of «Curs de narrativa i conte I, II» (page 1ee268e5271480dba4dbdfd6f9f4c75a):
+# the MCP marks an intentional empty line as `<empty-block/>` (enhanced-markdown spec), here
+# tab-indented as the last child of the «Notes» toggle. Left raw, the editor's unknown-tag
+# defense (markdown-mapper.js `wrapUnknownHtmlTags`, PR #899) rendered it as a code chip.
+EMPTY_BLOCK_MCP = (
+    '<content>\n'
+    '## Notes {toggle="true"}\n'
+    '\t### Notes índex {toggle="true"}\n'
+    '\t\t<database url="https://app.notion.com/p/1ee268e52714809baf8eefdc5d64fee4"'
+    ' inline="true"></database>\n'
+    '\t<empty-block/>\n'
+    '### Abstract\n'
+    "Material didàctic per al 'Curs de narrativa i conte' (nivells I i II).\n"
+    '</content>')
+
+
+def test_empty_block_tag_is_dropped():
+    out = mcp_to_markdown(EMPTY_BLOCK_MCP)
+    assert "<empty-block" not in out
+    # surrounding structure intact: toggles, view marker, following heading
+    assert ":::toggle-heading{level=2} Notes" in out
+    assert ":::toggle-heading{level=3} Notes índex" in out
+    assert "<!-- gnosi-notion-db:1ee268e52714809baf8eefdc5d64fee4 -->" in out
+    assert "### Abstract" in out
+    assert "Material didàctic per al 'Curs de narrativa i conte' (nivells I i II)." in out
+
+
+def test_empty_block_at_top_level_and_protected_in_code():
+    out = mcp_to_markdown('<content>\nAbans\n<empty-block/>\nDesprés\n'
+                          '```html\n<empty-block/>\n```\n</content>')
+    assert "Abans" in out and "Després" in out
+    assert out.count("<empty-block/>") == 1               # only the copy inside the fence
+    assert out.index("```html") < out.index("<empty-block/>")
+
+
 def test_details_with_color_wraps_title():
     out = mcp_to_markdown('<content>\n<details color="blue_bg">\n<summary>Recursos</summary>\n'
                           'contingut\n</details>\n</content>')
