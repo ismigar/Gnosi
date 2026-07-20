@@ -34,10 +34,11 @@ def main() -> int:
     catalog = build_catalog(resp.json())
     # Sanity floor: the snapshot is auto-merged by CI, so a half-empty catalog
     # (upstream format change, truncated response) must fail loudly instead of
-    # silently replacing a good file. Today's real numbers: 14 providers, ~600 models.
+    # silently replacing a good file. Today's real numbers (full catalog, no
+    # whitelist): ~167 providers, ~5500 models.
     n_providers = len(catalog["providers"])
     n_models = sum(len(p["models"]) for p in catalog["providers"])
-    if n_providers < 5 or n_models < 100:
+    if n_providers < 50 or n_models < 1000:
         print(f"ERROR: suspiciously small catalog ({n_providers} providers, "
               f"{n_models} models); vendored file NOT touched.")
         return 1

@@ -1,6 +1,9 @@
 import os
 from typing import Any, Dict, List, Optional, Tuple
 
+# Single source of truth for which providers run without an API key.
+# Safe at import time: model_catalog only depends on stdlib + app_config.
+from backend.agent.model_catalog import LOCAL_PROVIDER_IDS
 from backend.security.keychain_manager import get_keychain
 
 
@@ -91,6 +94,29 @@ def env_key_for_provider(provider_id: str) -> Optional[str]:
     return PROVIDER_ENV_KEYS.get((provider_id or "").strip().lower())
 
 
+def env_keys_for_provider(provider_id: str) -> List[str]:
+    """All env var names that may hold this provider's API key.
+
+    Union of the legacy hardcoded map and whatever models.dev knows
+    (e.g. google → GOOGLE_API_KEY / GOOGLE_GENERATIVE_AI_API_KEY / GEMINI_API_KEY),
+    so ANY catalog provider can be wired through the environment. Lazy import +
+    broad except: this sits on hot request paths and the catalog must never
+    break credential resolution.
+    """
+    keys: List[str] = []
+    legacy = env_key_for_provider(provider_id)
+    if legacy:
+        keys.append(legacy)
+    try:
+        from backend.agent.model_catalog import catalog_env_keys
+        for key in catalog_env_keys(provider_id):
+            if key not in keys:
+                keys.append(key)
+    except Exception:
+        pass
+    return keys
+
+
 def normalize_credential_ref(provider_id: str, provider_cfg: Dict[str, Any]) -> Optional[str]:
     ref = (provider_cfg or {}).get("credential_ref")
     if isinstance(ref, str) and ref.strip():
@@ -120,9 +146,8 @@ def resolve_provider_api_key(provider_id: str, provider_cfg: Optional[Dict[str, 
         if secure:
             return secure
 
-    # Final fallback to environment
-    env_key = env_key_for_provider(provider_id)
-    if env_key:
+    # Final fallback to environment (legacy map + models.dev env names)
+    for env_key in env_keys_for_provider(provider_id):
         env_value = os.environ.get(env_key)
         if env_value:
             return env_value
@@ -188,24 +213,99 @@ def migrate_ai_provider_secrets(ai_cfg: Dict[str, Any]) -> Tuple[Dict[str, Any],
     return updated_ai, changed
 
 
+def is_provider_connected(provider_id: str, provider_cfg: Optional[Dict[str, Any]]) -> bool:
+    """Whether the router could actually use this provider right now.
+
+    Local providers need no key. Configured providers go through the full
+    resolution (keychain + env). UNconfigured providers only check env vars:
+    keys saved from the UI always write a config entry too, so skipping the
+    keychain there avoids ~160 keychain hits when annotating the full catalog.
+    """
+    normalized = (provider_id or "").strip().lower()
+    if normalized in LOCAL_PROVIDER_IDS:
+        return True
+    if provider_cfg is not None:
+        return has_provider_api_key(normalized, provider_cfg)
+    return any(os.environ.get(k) for k in env_keys_for_provider(normalized))
+
+
 def get_ai_catalog_with_status(ai_cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Provider list for the connect UI: the live model catalog (models.dev,
+    ALL providers) annotated with local connection status. Providers that only
+    exist in the legacy hardcoded map or in the user's config are appended so
+    nothing previously offered disappears. Blocking (catalog may hit
+    disk/network): call via asyncio.to_thread from async endpoints.
+    """
     providers_cfg = dict((ai_cfg or {}).get("providers") or {})
-    provider_ids = sorted(set(list(PROVIDER_MODELS.keys()) + list(providers_cfg.keys())))
+
+    catalog_providers: List[Dict[str, Any]] = []
+    try:
+        from backend.agent.model_catalog import load_catalog
+        catalog_providers = list(load_catalog().get("providers") or [])
+    except Exception:
+        catalog_providers = []
 
     providers: List[Dict[str, Any]] = []
-    for provider_id in provider_ids:
+    seen: set = set()
+    for entry in catalog_providers:
+        provider_id = entry.get("id") or ""
+        if not provider_id:
+            continue
+        seen.add(provider_id)
         cfg = dict(providers_cfg.get(provider_id) or {})
-        meta = PROVIDER_METADATA.get(provider_id, {"name": provider_id.capitalize(), "icon": ""})
+        configured = provider_id in providers_cfg
+        meta = PROVIDER_METADATA.get(provider_id, {})
+        model_ids = [m.get("id") for m in (entry.get("models") or []) if m.get("id")]
         providers.append(
             {
                 "id": provider_id,
-                "name": meta["name"],
-                "icon": meta["icon"],
-                "models": PROVIDER_MODELS.get(provider_id, []),
+                "name": entry.get("name") or meta.get("name") or provider_id.capitalize(),
+                "icon": meta.get("icon", ""),
+                "models": model_ids,
+                "models_count": len(model_ids),
+                "is_local": bool(entry.get("is_local")),
+                "live": bool(entry.get("live")),
+                "env": list(entry.get("env") or []),
+                "doc": entry.get("doc") or "",
                 "base_url": cfg.get("base_url", ""),
+                "base_url_hint": entry.get("api") or "",
+                "model_name": cfg.get("model_name", ""),
+                "credential_ref": normalize_credential_ref(provider_id, cfg),
+                "has_api_key": has_provider_api_key(provider_id, cfg) if configured
+                else any(os.environ.get(k) for k in env_keys_for_provider(provider_id)),
+                "connected": is_provider_connected(provider_id, cfg if configured else None),
+                "configured": configured,
+                "enabled": cfg.get("enabled", True),
+            }
+        )
+
+    # Legacy/hand-configured providers missing from the catalog (e.g. generic,
+    # voyage) keep their old hardcoded entry.
+    for provider_id in sorted(set(list(PROVIDER_MODELS.keys()) + list(providers_cfg.keys()))):
+        if provider_id in seen:
+            continue
+        cfg = dict(providers_cfg.get(provider_id) or {})
+        configured = provider_id in providers_cfg
+        meta = PROVIDER_METADATA.get(provider_id, {"name": provider_id.capitalize(), "icon": ""})
+        model_ids = PROVIDER_MODELS.get(provider_id, [])
+        providers.append(
+            {
+                "id": provider_id,
+                "name": meta.get("name") or provider_id.capitalize(),
+                "icon": meta.get("icon", ""),
+                "models": model_ids,
+                "models_count": len(model_ids),
+                "is_local": provider_id in LOCAL_PROVIDER_IDS,
+                "live": False,
+                "env": env_keys_for_provider(provider_id),
+                "doc": "",
+                "base_url": cfg.get("base_url", ""),
+                "base_url_hint": "",
                 "model_name": cfg.get("model_name", ""),
                 "credential_ref": normalize_credential_ref(provider_id, cfg),
                 "has_api_key": has_provider_api_key(provider_id, cfg),
+                "connected": is_provider_connected(provider_id, cfg if configured else None),
+                "configured": configured,
                 "enabled": cfg.get("enabled", True),
             }
         )

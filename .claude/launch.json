@@ -24,6 +24,15 @@
         "cd monorepo/apps/gnosi/frontend && VITE_DEV_HTTPS=false VITE_FRONTEND_PORT=5181 npx vite --port 5181 --strictPort"
       ],
       "port": 5181
+    },
+    {
+      "name": "gnosi-dev-wt-backend",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "cd monorepo/apps/gnosi/frontend && VITE_DEV_HTTPS=false VITE_FRONTEND_PORT=5182 VITE_BACKEND_PORT=5602 npx vite --port 5182 --strictPort"
+      ],
+      "port": 5182
     }
   ]
 }

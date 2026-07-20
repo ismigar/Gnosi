@@ -4,7 +4,8 @@ Pure functions only — no network, no disk (cf. memory
 `feedback_local_backend_test_verification`).
 """
 from backend.agent.model_catalog import (
-    CATALOG_PROVIDERS,
+    FEATURED_PROVIDERS,
+    OPENAI_COMPAT_URLS,
     build_catalog,
     merge_ollama_overlay,
     pick_ping_model,
@@ -17,6 +18,8 @@ def _models_dev_sample():
     return {
         "groq": {
             "id": "groq", "name": "Groq",
+            "env": ["GROQ_API_KEY"], "npm": "@ai-sdk/groq",
+            "doc": "https://console.groq.com/docs/models",
             "models": {
                 "llama-3.1-8b-instant": {
                     "id": "llama-3.1-8b-instant", "name": "Llama 3.1 8B Instant",
@@ -46,20 +49,41 @@ def _models_dev_sample():
                 },
             },
         },
-        "not-in-whitelist": {
-            "id": "not-in-whitelist", "name": "Nope",
-            "models": {"m": {"id": "m", "name": "M"}},
+        # Not in the featured list: still included, after the featured ones,
+        # keeping its connection metadata (env/api/doc).
+        "zetaprov": {
+            "id": "zetaprov", "name": "Zeta Prov",
+            "env": ["ZETA_API_KEY"], "npm": "@ai-sdk/openai-compatible",
+            "api": "https://api.zeta.example/v1", "doc": "https://zeta.example/docs",
+            "models": {"m": {"id": "m", "name": "M",
+                             "modalities": {"input": ["text"], "output": ["text"]}}},
         },
     }
 
 
-def test_build_catalog_whitelists_aliases_and_filters_non_text():
+def test_build_catalog_includes_every_provider_featured_first():
     catalog = build_catalog(_models_dev_sample())
     ids = [p["id"] for p in catalog["providers"]]
-    assert ids == ["groq", "together"]  # whitelist order, alias applied, no 'nope'
+    # Featured keep their canonical order; the rest follow (alias applied)
+    assert ids == ["groq", "together", "zetaprov"]
     together = catalog["providers"][1]
     assert [m["id"] for m in together["models"]] == ["big-model"]  # image-only filtered
     assert together["is_local"] is False
+
+
+def test_build_catalog_carries_connection_metadata():
+    catalog = build_catalog(_models_dev_sample())
+    groq = catalog["providers"][0]
+    assert groq["env"] == ["GROQ_API_KEY"]
+    # groq ships a dedicated SDK → curated OpenAI-compatible URL wins
+    assert groq["api"] == OPENAI_COMPAT_URLS["groq"]
+    assert groq["doc"].startswith("https://console.groq.com")
+
+    zeta = catalog["providers"][2]
+    # @ai-sdk/openai-compatible providers keep their models.dev `api` URL
+    assert zeta["api"] == "https://api.zeta.example/v1"
+    assert zeta["env"] == ["ZETA_API_KEY"]
+    assert zeta["npm"] == "@ai-sdk/openai-compatible"
 
 
 def test_build_catalog_maps_cost_context_and_tags():
@@ -121,9 +145,11 @@ def test_merge_ollama_overlay_replaces_and_orders():
     ollama = next(p for p in merged["providers"] if p["id"] == "ollama")
     assert ollama["live"] is True and ollama["is_local"] is True
     assert ollama["models"] == live
-    # canonical order preserved (ollama before lmstudio, after cloud providers)
+    # featured rank preserved: groq < ollama (both featured), non-featured last
     ids = [p["id"] for p in merged["providers"]]
+    rank = {pid: i for i, pid in enumerate(FEATURED_PROVIDERS)}
     assert ids.index("groq") < ids.index("ollama")
-    assert ids == sorted(ids, key=lambda i: CATALOG_PROVIDERS.index(i))
+    assert ids.index("ollama") < ids.index("zetaprov")
+    assert ids == sorted(ids, key=lambda i: (rank.get(i, len(rank)), i))
     # no overlay → catalog untouched
     assert merge_ollama_overlay(catalog, None) is catalog

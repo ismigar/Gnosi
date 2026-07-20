@@ -78,11 +78,14 @@ def test_generate_text_forwards_timeout_and_drops_ignored_config(monkeypatch):
 
             return _Resp()
 
-    def _fake_get_default_llm(user_message="", timeout=None):
+    def _fake_get_default_llm_with_meta(user_message="", timeout=None):
         captured["timeout"] = timeout
-        return _FakeLLM()
+        # (llm, provider, model): generate_text uses the meta variant so it
+        # can attribute usage to the model that actually answered.
+        return _FakeLLM(), "fake", "fake-model"
 
-    monkeypatch.setattr(factory, "get_default_llm", _fake_get_default_llm)
+    monkeypatch.setattr(factory, "get_default_llm_with_meta",
+                        _fake_get_default_llm_with_meta)
 
     text, label = generate_text("prompt qualsevol", timeout=33)
 

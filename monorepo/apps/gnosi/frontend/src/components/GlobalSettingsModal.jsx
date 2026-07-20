@@ -3729,7 +3729,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                     {p.enabled === false && <span style={{ fontSize: '0.65rem', padding: '2px 8px', borderRadius: '10px', background: 'var(--settings-border)', color: 'var(--text-secondary)', fontWeight: '800' }}>{tn('ai.inactive')}</span>}
                                                                 </div>
                                                                 <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '4px', opacity: 0.8 }}>
-                                                                    {p.has_api_key ? tn('ai.credentials_ok') : tn('ai.missing_api_key')} 
+                                                                    {p.has_api_key ? tn('ai.credentials_ok')
+                                                                        : (catalogItem.is_local ? tn('ai.local_no_key') : tn('ai.missing_api_key'))}
                                                                     {p.base_url && ` • ${p.base_url}`}
                                                                 </div>
                                                             </div>
@@ -4022,6 +4023,9 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState(editingProvider?.base_url || '');
+    // The catalog now lists EVERY models.dev provider (~167): a text filter
+    // keeps the dropdown navigable.
+    const [providerFilter, setProviderFilter] = useState('');
     // Ref to the panel: delimits the focus-trap and the scope of Enter.
     const panelRef = useRef(null);
 
@@ -4032,6 +4036,17 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     }, [selectedId]);
 
     const provider = aiCatalog[selectedId];
+    const allProviders = Object.values(aiCatalog);
+    const normalizedFilter = providerFilter.trim().toLowerCase();
+    const filteredProviders = normalizedFilter
+        ? allProviders.filter(p =>
+            (p.name || '').toLowerCase().includes(normalizedFilter)
+            || (p.id || '').toLowerCase().includes(normalizedFilter))
+        : allProviders;
+    // Keep the selected provider visible even when the filter excludes it
+    const visibleProviders = provider && !filteredProviders.some(p => p.id === selectedId)
+        ? [provider, ...filteredProviders]
+        : filteredProviders;
     const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
 
     // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
@@ -4068,15 +4083,25 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <FormGroup label={t('settings.ai.provider_ai_label')} description={t('settings.ai.provider_select_desc')}>
-                            <select 
-                                className="gnosi-select" 
-                                value={selectedId} 
+                            {!editingProvider && (
+                                <input
+                                    type="text"
+                                    className="gnosi-input"
+                                    style={{ marginBottom: '10px' }}
+                                    value={providerFilter}
+                                    onChange={e => setProviderFilter(e.target.value)}
+                                    placeholder={t('settings.ai.provider_search_placeholder', { count: allProviders.length })}
+                                />
+                            )}
+                            <select
+                                className="gnosi-select"
+                                value={selectedId}
                                 onChange={e => setSelectedId(e.target.value)}
                                 disabled={!!editingProvider}
                             >
                                 <option value="">{t('settings.ai.choose_provider')}</option>
-                                {Object.values(aiCatalog).map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                {visibleProviders.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}{p.connected ? ' ✓' : ''}</option>
                                 ))}
                             </select>
                         </FormGroup>
@@ -4089,16 +4114,32 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                                     </div>
                                     <div>
                                         <div style={{ fontWeight: '800', fontSize: '1rem' }}>{provider.name}</div>
-                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>{t('settings.ai.models_available', { count: provider.models?.length || 0 })}</div>
+                                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                            {t('settings.ai.models_available', { count: provider.models?.length || 0 })}
+                                            {provider.doc && (
+                                                <>
+                                                    {' · '}
+                                                    <a href={provider.doc} target="_blank" rel="noreferrer"
+                                                        style={{ color: 'var(--gnosi-blue)', textDecoration: 'none' }}>
+                                                        {t('settings.ai.provider_doc_link', 'Documentació ↗')}
+                                                    </a>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
 
                                 <FormGroup label={t('settings.ai.api_key_label')} description={t('settings.ai.api_key_desc')}>
                                     <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." name="ai-api-key" autoComplete="off" />
+                                    {(provider.env?.length || 0) > 0 && (
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8 }}>
+                                            {t('settings.ai.env_hint', { defaultValue: 'Alternativa: defineix {{vars}} a l’entorn del backend.', vars: provider.env.join(' / ') })}
+                                        </div>
+                                    )}
                                 </FormGroup>
 
                                 <FormGroup label={t('settings.ai.base_url_label')} description={t('settings.ai.base_url_desc')}>
-                                    <input type="text" className="gnosi-input" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder={provider.base_url || "https://api.openai.com/v1"} />
+                                    <input type="text" className="gnosi-input" value={baseUrl} onChange={e => setBaseUrl(e.target.value)} placeholder={provider.base_url_hint || provider.base_url || "https://api.openai.com/v1"} />
                                 </FormGroup>
                             </div>
                         )}

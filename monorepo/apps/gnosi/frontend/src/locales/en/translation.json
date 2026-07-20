@@ -1844,8 +1844,21 @@
         "remove_model": "Remove",
         "custom_option": "Custom…",
         "back_to_list": "Back to the list",
-        "catalog_hint": "Model catalog refreshed automatically (source: {{source}})."
-      }
+        "catalog_hint": "Model catalog refreshed automatically (source: {{source}}).",
+        "connected_group": "Connected",
+        "all_providers_group": "All providers",
+        "not_connected_badge": "Not connected",
+        "not_connected_tooltip": "The router will skip this model: the provider has no credential configured. Connect it under “Model Providers”.",
+        "cost_cap_label": "Monthly spending cap",
+        "cost_cap_none": "(no cap)",
+        "spent_this_month": "Spent this month",
+        "budget_exhausted_warning": "Cap reached: the router will only use zero-cost (local) models.",
+        "spend_breakdown": "Per-model breakdown"
+      },
+      "provider_search_placeholder": "Search {{count}} providers…",
+      "provider_doc_link": "Documentation ↗",
+      "env_hint": "Alternative: set {{vars}} in the backend environment.",
+      "local_no_key": "Local — no API key needed"
     },
     "footer": {
       "close": "Close",

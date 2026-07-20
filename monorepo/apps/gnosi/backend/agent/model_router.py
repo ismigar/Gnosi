@@ -10,6 +10,7 @@ directive `vault_knowledge_agents.md`, memory `feedback_local_backend_test_verif
 """
 from __future__ import annotations
 
+import threading
 from typing import Any, Callable, Dict, List, Optional
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,17 @@ def classify_request(message: str, *, has_images: bool = False,
     return {"desired_quality": quality, "needs": needs, "context_tokens": context_tokens}
 
 
+# Above this fraction of the monthly cost cap the router behaves as
+# budget-tight (prefer local/cheap) before hard-stopping at the cap itself.
+_NEAR_CAP_RATIO = 0.8
+
+
+def _is_free(model: Dict[str, Any]) -> bool:
+    """Models that cost nothing to run (local, or 0-priced remote)."""
+    return bool(model.get("is_local")) or (
+        not model.get("cost_in") and not model.get("cost_out"))
+
+
 def _quota_exhausted(model: Dict[str, Any], usage: Dict[str, int]) -> bool:
     quota = model.get("monthly_quota")
     if not quota:
@@ -96,9 +108,12 @@ def route_model(
     - `usage`: {f"{provider}:{model_id}": tokens_used_this_period}.
     - `budget`: {"prefer_local": bool, "remaining_tokens": int|None,
                  "prefer_local_below": int} → if few paid tokens remain, it degrades to local.
+      Money cap (both INJECTED, cf. `budget_status`): {"cost_cap_usd": float,
+      "spent_usd": float} → ≥80% of the cap prefers cheap/local, at/over the cap
+      only zero-cost models remain (reason "budget_exhausted" if none).
     - `manual`: {provider, model_id} → forces a model (manual mode), if available.
     Returns {provider, model_id, reason, estimated_cost_per_1k}.
-    
+
     """
     registry = registry or DEFAULT_REGISTRY
     usage = usage or {}
@@ -113,7 +128,12 @@ def route_model(
     # Pressupost prim → preferir local (cost 0)
     remaining = budget.get("remaining_tokens")
     below = budget.get("prefer_local_below", 0)
-    budget_tight = bool(budget.get("prefer_local")) or (
+    # Money cap (injected by the caller: cap in USD + USD spent this period)
+    cap_usd = budget.get("cost_cap_usd") or 0
+    spent_usd = budget.get("spent_usd") or 0
+    over_cap = bool(cap_usd) and spent_usd >= cap_usd
+    near_cap = bool(cap_usd) and not over_cap and spent_usd >= _NEAR_CAP_RATIO * cap_usd
+    budget_tight = bool(budget.get("prefer_local")) or near_cap or (
         remaining is not None and below and remaining <= below)
 
     # Candidates: enabled, available, with required capabilities, within context, with quota
@@ -136,6 +156,14 @@ def route_model(
     if not candidates:
         return {"provider": None, "model_id": None, "reason": "cap proveïdor disponible"}
 
+    # Spend cap reached → only zero-cost models survive; with none available
+    # the caller degrades gracefully (503 on one-shot endpoints).
+    if over_cap:
+        free = [m for m in candidates if _is_free(m)]
+        if not free:
+            return {"provider": None, "model_id": None, "reason": "budget_exhausted"}
+        candidates = free
+
     desired = features["desired_quality"]
 
     def score(m: Dict[str, Any]) -> tuple:
@@ -149,8 +177,14 @@ def route_model(
         return (q_gap, avg_cost, m.get("priority", 999))
 
     best = sorted(candidates, key=score)[0]
-    reason = "budget→local" if (budget_tight and best.get("is_local")) else \
-             ("budget→barat" if budget_tight else f"qualitat≈{desired}")
+    if over_cap:
+        reason = "budget_cap→free"
+    elif budget_tight and best.get("is_local"):
+        reason = "budget→local"
+    elif budget_tight:
+        reason = "budget→barat"
+    else:
+        reason = f"qualitat≈{desired}"
     return {
         "provider": best["provider"], "model_id": best["model_id"],
         "reason": reason,
@@ -174,14 +208,40 @@ def load_registry() -> List[Dict[str, Any]]:
 
 
 # ---------------------------------------------------------------------------
-# Usage accounting (tokens per model/period) — feeds "tokens remaining"
+# Usage accounting (tokens + USD cost per model/period) — feeds the budget cap
 # ---------------------------------------------------------------------------
+# One lock for EVERY instance: stores are constructed ad-hoc at each call site,
+# so an instance-level lock would not serialize two concurrent recorders
+# (read-modify-write race, cf. memory feedback_json_store_rmw_race_pattern).
+_usage_lock = threading.Lock()
+
+
+def _normalize_usage_entry(value: Any) -> Dict[str, Any]:
+    """Accept both the v2 shape and the legacy plain-int token counter."""
+    if isinstance(value, dict):
+        return {
+            "in": int(value.get("in") or 0),
+            "out": int(value.get("out") or 0),
+            "cost_usd": float(value.get("cost_usd") or 0.0),
+        }
+    try:
+        return {"in": int(value), "out": 0, "cost_usd": 0.0}
+    except Exception:
+        return {"in": 0, "out": 0, "cost_usd": 0.0}
+
+
 class UsageStore:
-    """Persistent token counter per `provider:model_id`. Monthly period (YYYY-MM)."""
+    """Persistent per-`provider:model_id` counter of tokens and USD cost.
+
+    Monthly period (YYYY-MM). File format v2:
+    ``{"2026-07": {"groq:llama-3.1-8b-instant": {"in": 1200, "out": 340,
+    "cost_usd": 0.0003}}}`` — legacy plain-int values (total tokens) are
+    still read correctly.
+    """
 
     def __init__(self, path: Optional[str] = None):
         self._path = path
-        self._data: Dict[str, Dict[str, int]] = {}
+        self._data: Dict[str, Dict[str, Any]] = {}
         self._load()
 
     def _resolve_path(self):
@@ -190,10 +250,16 @@ class UsageStore:
             return Path(self._path)
         try:
             from backend.config.app_config import load_params
-            base = load_params(strict_env=False).paths.get("GNOSI_LOCAL_DATA")
+            # Canonical key is LOCAL_CACHE (paths_config); the old
+            # "GNOSI_LOCAL_DATA" lookup matched nothing and silently sent every
+            # ledger write to /dev/null.
+            paths = load_params(strict_env=False).paths
+            base = paths.get("LOCAL_CACHE") or paths.get("LOCAL_DATA")
             if base:
                 from pathlib import Path
-                d = Path(base) / "cache"
+                d = Path(base)
+                if d.name != "cache":
+                    d = d / "cache"
                 d.mkdir(parents=True, exist_ok=True)
                 return d / "llm_usage.json"
         except Exception:
@@ -215,15 +281,140 @@ class UsageStore:
             return
         try:
             import json
-            p.write_text(json.dumps(self._data, ensure_ascii=False, indent=2), encoding="utf-8")
+            import os
+            import tempfile
+            # Atomic replace: a crash mid-write must not corrupt the ledger
+            fd, tmp = tempfile.mkstemp(dir=str(p.parent), prefix=".llm_usage-")
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(self._data, fh, ensure_ascii=False, indent=2)
+            os.replace(tmp, p)
         except Exception:
             pass
 
-    def record(self, provider: str, model_id: str, in_tok: int, out_tok: int, period: str):
-        bucket = self._data.setdefault(period, {})
-        key = f"{provider}:{model_id}"
-        bucket[key] = bucket.get(key, 0) + int(in_tok) + int(out_tok)
-        self._save()
+    def record(self, provider: str, model_id: str, in_tok: int, out_tok: int,
+               period: str, cost_usd: float = 0.0):
+        with _usage_lock:
+            # Re-read under the lock: another instance may have written since
+            # this one loaded (the whole cycle must sit inside the lock).
+            self._load()
+            bucket = self._data.setdefault(period, {})
+            key = f"{provider}:{model_id}"
+            entry = _normalize_usage_entry(bucket.get(key, {}))
+            entry["in"] += int(in_tok)
+            entry["out"] += int(out_tok)
+            entry["cost_usd"] = round(entry["cost_usd"] + float(cost_usd or 0.0), 6)
+            bucket[key] = entry
+            self._save()
 
     def usage_for(self, period: str) -> Dict[str, int]:
-        return dict(self._data.get(period, {}))
+        """Total tokens per key — the shape `route_model`'s quota check expects."""
+        out: Dict[str, int] = {}
+        for key, value in (self._data.get(period, {}) or {}).items():
+            entry = _normalize_usage_entry(value)
+            out[key] = entry["in"] + entry["out"]
+        return out
+
+    def spend_usd(self, period: str) -> float:
+        """Total recorded USD cost for the period."""
+        return round(sum(
+            _normalize_usage_entry(v)["cost_usd"]
+            for v in (self._data.get(period, {}) or {}).values()
+        ), 6)
+
+    def rows(self, period: str) -> List[Dict[str, Any]]:
+        """Per-model breakdown for the usage API, most expensive first."""
+        rows: List[Dict[str, Any]] = []
+        for key, value in (self._data.get(period, {}) or {}).items():
+            provider, _, model_id = key.partition(":")
+            entry = _normalize_usage_entry(value)
+            rows.append({"provider": provider, "model_id": model_id, **entry})
+        rows.sort(key=lambda r: (-r["cost_usd"], -(r["in"] + r["out"])))
+        return rows
+
+
+def model_cost_rates(provider: str, model_id: str,
+                     registry: Optional[List[Dict[str, Any]]] = None) -> tuple:
+    """(cost_in, cost_out) in USD per 1M tokens: registry first (user-edited
+    values win), then the models.dev catalog, else 0/0 (unknown = free)."""
+    entries = registry if registry is not None else load_registry()
+    for m in entries:
+        if m.get("provider") == provider and m.get("model_id") == model_id:
+            return float(m.get("cost_in") or 0), float(m.get("cost_out") or 0)
+    try:
+        from backend.agent.model_catalog import catalog_model_cost
+        rates = catalog_model_cost(provider, model_id)
+        if rates:
+            return rates["cost_in"], rates["cost_out"]
+    except Exception:
+        pass
+    return 0.0, 0.0
+
+
+def usage_from_message(message: Any) -> Optional[tuple]:
+    """(input_tokens, output_tokens) from a langchain AIMessage, or None.
+
+    Duck-typed on `usage_metadata` so this module keeps zero langchain
+    imports (the core stays PURE/testable)."""
+    meta = getattr(message, "usage_metadata", None)
+    if not isinstance(meta, dict):
+        return None
+    in_tok = int(meta.get("input_tokens") or 0)
+    out_tok = int(meta.get("output_tokens") or 0)
+    if in_tok <= 0 and out_tok <= 0:
+        return None
+    return in_tok, out_tok
+
+
+def record_llm_usage(provider: Optional[str], model_id: Optional[str],
+                     in_tok: int, out_tok: int) -> None:
+    """Best-effort ledger write after a real LLM call. Never raises: usage
+    accounting must not take down the request that produced it."""
+    if not provider or not model_id or (in_tok <= 0 and out_tok <= 0):
+        return
+    try:
+        from datetime import datetime
+        cost_in, cost_out = model_cost_rates(provider, model_id)
+        cost = (in_tok * cost_in + out_tok * cost_out) / 1_000_000
+        UsageStore().record(provider, model_id, in_tok, out_tok,
+                            datetime.now().strftime("%Y-%m"), cost_usd=cost)
+    except Exception:
+        pass
+
+
+def budget_status(period: Optional[str] = None) -> Dict[str, Any]:
+    """Effective budget picture for a period: config cap (in the Settings
+    currency) + ledger spend (USD) + conversion. Feeds both the router
+    (`cost_cap_usd`/`spent_usd` injected into `route_model`) and the
+    GET /api/ai/usage endpoint. Blocking (disk + possibly one FX fetch):
+    call via asyncio.to_thread from async endpoints."""
+    from datetime import datetime
+    from backend.config.app_config import load_params
+    from backend.services.fx_rates import parse_currency_code, rate_info, usd_to_currency
+
+    period = period or datetime.now().strftime("%Y-%m")
+    cfg = load_params(strict_env=False)
+    budget_cfg = dict((cfg.get("ai", {}) or {}).get("budget") or {})
+    currency = rate_info(parse_currency_code(
+        (cfg.get("settings", {}) or {}).get("currency")))
+
+    store = UsageStore()
+    spent_usd = store.spend_usd(period)
+    rows = store.rows(period)
+    for row in rows:
+        row["cost_ccy"] = usd_to_currency(row["cost_usd"], currency["code"])
+
+    cap_ccy = float(budget_cfg.get("monthly_cost_cap") or 0) or None
+    cap_usd = round(cap_ccy / currency["usd_rate"], 4) if cap_ccy else None
+    ratio = (spent_usd / cap_usd) if cap_usd else None
+    return {
+        "period": period,
+        "currency": currency,
+        "spent_usd": spent_usd,
+        "spent_ccy": usd_to_currency(spent_usd, currency["code"]),
+        "cap_ccy": cap_ccy,
+        "cap_usd": cap_usd,
+        "ratio": round(ratio, 4) if ratio is not None else None,
+        "over_cap": bool(cap_usd) and spent_usd >= cap_usd,
+        "budget": budget_cfg,
+        "per_model": rows,
+    }

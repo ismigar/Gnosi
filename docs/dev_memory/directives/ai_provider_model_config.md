@@ -198,6 +198,68 @@ context window, capabilities and quality, all editable afterwards.
 
 --
 
+## Any-provider catalog + spend cap (implemented 2026-07-20)
+
+The unified layer described above is now materialized around models.dev,
+OpenClaw-style: every provider is configurable, model lists self-update, and a
+monthly spend ceiling in the Settings currency governs the router.
+
+- **Full catalog**: `build_catalog` no longer whitelists providers — ALL
+  models.dev providers (~167, ~5.5k models) flow through, featured ones first
+  (`FEATURED_PROVIDERS` order) then the rest alphabetically. Each provider
+  carries connection metadata: `env` (API-key env var names), `api`
+  (OpenAI-compatible base URL), `npm` (SDK hint), `doc`.
+- **OpenAI-compat bridge**: providers that ship a dedicated SDK on models.dev
+  (no `api` field) get their base URL from `OPENAI_COMPAT_URLS`
+  (google/xai/cohere/perplexity/together/fireworks/cerebras/deepinfra…);
+  `factory.get_llm` falls back to a generic `ChatOpenAI(base_url=…)` for ANY
+  catalog provider with a known URL → no new SDK dependencies.
+- **Connection status**: `/api/ai/model-catalog` annotates providers with
+  `connected` (config credential, env var, or local). `/api/ai/catalog` (the
+  connect modal) is now catalog-fed: `models_count`, `base_url_hint`, `env`,
+  `doc`, `connected`, `configured`. The registry UI groups providers into
+  Connected/All optgroups and badges rows whose provider has no credential.
+- **Spend ledger**: `UsageStore` v2 records tokens AND `cost_usd` per
+  `provider:model` per month; `generate_text` and the agent SSE loop feed it
+  from `usage_metadata` (`record_llm_usage`, best-effort, never raises).
+- **Money cap**: `ai.budget.monthly_cost_cap` is stored in the Settings
+  currency (`settings.currency`); `services/fx_rates.py` converts via
+  frankfurter.app (ECB) with disk cache + static fallback. `budget_status()`
+  merges cap+ledger+rate; `route_model` receives `cost_cap_usd`/`spent_usd`
+  INJECTED (core stays pure): ≥80 % → budget-tight (prefer local/cheap), ≥100 %
+  → only zero-cost models (reason `budget_exhausted` if none).
+- **Endpoints**: `GET /api/ai/usage` (period spend in USD + currency, cap,
+  ratio, per-model rows); `PUT /api/ai/models` sanitizes the budget payload
+  (whitelist of typed keys).
+
+### Restrictions / Edge Cases (learned)
+- `Config.paths` keys do NOT mirror env var names → the cache/ledger base is
+  `paths["LOCAL_CACHE"]` (or `LOCAL_DATA`), **never** `paths.get("GNOSI_LOCAL_DATA")`
+  → that lookup silently returned None and the usage ledger was never written
+  (and the catalog cache always fell back to `~/.cache/gnosi`).
+- Bump `CATALOG_SCHEMA` whenever the compact catalog gains fields → caches
+  with an older schema must be treated as stale, otherwise the new fields
+  only appear after the 24 h TTL.
+- `UsageStore` is constructed ad-hoc per call → the write lock must be
+  MODULE-level and the read-modify-write cycle must re-read the file under
+  the lock (cf. memory `feedback_json_store_rmw_race_pattern`), with an
+  atomic `os.replace` write.
+- Do not mutate the memoized catalog when annotating `connected` in the
+  endpoint → copy the dict, or a stale connection state gets frozen into the
+  in-process cache.
+- For UNconfigured providers, connection checks must skip the keychain (env
+  vars only) → keys saved from the UI always write a config entry, and ~160
+  keychain probes per catalog render would be pathological.
+- FX conversion must never raise nor divide by zero → layered
+  remote→disk→static with a final neutral 1.0 rate; cap semantics stay
+  conservative when the rate source degrades.
+- Full-suite pytest with the native backend alive runs `test_vault_trash`
+  (live-E2E) because an earlier test's `load_dotenv` leaks the real vault path
+  → pre-existing quirk (memory `feedback_e2e_skipif_dotenv_import_order`);
+  isolated runs skip it correctly.
+
+--
+
 ## Notes
 - Adapt module names according to repository conventions.
 - Keep documentation and examples up to date.

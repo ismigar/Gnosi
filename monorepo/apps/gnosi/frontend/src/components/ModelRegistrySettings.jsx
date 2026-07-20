@@ -41,8 +41,9 @@ export default function ModelRegistrySettings() {
     const { t } = useTranslation();
     const ta = useCallback((k, opts) => t('settings.ai.model_registry.' + k, opts), [t]);
     const [models, setModels] = useState([]);
-    const [catalog, setCatalog] = useState(null); // {providers: [{id, name, is_local, models: [...]}]}
-    const [budget, setBudget] = useState({ prefer_local: false, remaining_tokens: '', prefer_local_below: 0 });
+    const [catalog, setCatalog] = useState(null); // {providers: [{id, name, is_local, connected, models: [...]}]}
+    const [budget, setBudget] = useState({ prefer_local: false, remaining_tokens: '', prefer_local_below: 0, monthly_cost_cap: '' });
+    const [usage, setUsage] = useState(null); // GET /api/ai/usage: period spend + currency
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [saved, setSaved] = useState(false);
@@ -51,22 +52,34 @@ export default function ModelRegistrySettings() {
     const [customProviderRows, setCustomProviderRows] = useState(() => new Set());
     const [customModelRows, setCustomModelRows] = useState(() => new Set());
 
+    const loadUsage = useCallback(async () => {
+        // Spend panel is best-effort: the registry stays editable without it
+        try {
+            const { data } = await axios.get('/api/ai/usage');
+            setUsage(data || null);
+        } catch { setUsage(null); }
+    }, []);
+
     const load = useCallback(async () => {
         try {
             const [{ data }, catalogRes] = await Promise.all([
                 axios.get('/api/ai/models'),
                 // The registry must stay editable even if the catalog is unreachable
                 axios.get('/api/ai/model-catalog').catch(() => null),
+                loadUsage(),
             ]);
             setModels((data.models || []).map(m => ({ ...EMPTY_MODEL, ...m })));
-            setBudget({ prefer_local: false, remaining_tokens: '', prefer_local_below: 0, ...(data.budget || {}) });
+            setBudget({
+                prefer_local: false, remaining_tokens: '', prefer_local_below: 0,
+                monthly_cost_cap: '', ...(data.budget || {}),
+            });
             setCatalog(catalogRes?.data?.providers?.length ? catalogRes.data : null);
         } catch (e) {
             setError(String(e?.response?.data?.detail || e.message));
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [loadUsage]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -134,10 +147,13 @@ export default function ModelRegistrySettings() {
                     prefer_local_below: Number(budget.prefer_local_below) || 0,
                     ...(budget.remaining_tokens !== '' && budget.remaining_tokens != null
                         ? { remaining_tokens: Number(budget.remaining_tokens) } : {}),
+                    ...(Number(budget.monthly_cost_cap) > 0
+                        ? { monthly_cost_cap: Number(budget.monthly_cost_cap) } : {}),
                 },
             };
             await axios.put('/api/ai/models', payload);
             setSaved(true);
+            loadUsage(); // the cap/ratio shown in the spend panel just changed
             setTimeout(() => setSaved(false), 2500);
         } catch (e) {
             setError(String(e?.response?.data?.detail || e.message));
@@ -150,6 +166,9 @@ export default function ModelRegistrySettings() {
 
     const inp = { background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 8, padding: '5px 8px', fontSize: '0.82rem', minWidth: 0 };
     const iconBtn = { background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'inline-flex', alignItems: 'center' };
+    // Spend figures come in the Settings currency (GET /api/ai/usage)
+    const currencySymbol = usage?.currency?.symbol || '€';
+    const fmtCcy = (v) => `${Number(v || 0).toFixed(2)} ${currencySymbol}`;
 
     const renderProviderControl = (m, i) => {
         const isCustom = customProviderRows.has(i) || (m.provider && !providersById[m.provider] && catalog);
@@ -167,13 +186,23 @@ export default function ModelRegistrySettings() {
                 </div>
             );
         }
+        // Usable providers first (credential/env present, or local), the rest
+        // of the catalog after — 160+ options stay navigable.
+        const connected = (catalog.providers || []).filter(p => p.connected);
+        const others = (catalog.providers || []).filter(p => !p.connected);
+        const opt = p => (
+            <option key={p.id} value={p.id}>{p.name}{p.live ? ' ●' : ''}</option>
+        );
         return (
             <select style={{ ...inp, width: 150 }} value={m.provider}
                 onChange={e => onProviderChange(i, e.target.value)}>
                 <option value="">{t('settings.ai.select_provider_option')}</option>
-                {(catalog.providers || []).map(p => (
-                    <option key={p.id} value={p.id}>{p.name}{p.live ? ' ●' : ''}</option>
-                ))}
+                {connected.length > 0 && (
+                    <optgroup label={ta('connected_group', 'Connectats')}>{connected.map(opt)}</optgroup>
+                )}
+                {others.length > 0 && (
+                    <optgroup label={ta('all_providers_group', 'Tots els proveïdors')}>{others.map(opt)}</optgroup>
+                )}
                 <option value={CUSTOM}>{ta('custom_option', 'Personalitzat…')}</option>
             </select>
         );
@@ -247,6 +276,14 @@ export default function ModelRegistrySettings() {
                             </button>
                             {renderProviderControl(m, i)}
                             {renderModelControl(m, i)}
+                            {catalog && providersById[m.provider] && !providersById[m.provider].connected && !m.is_local && (
+                                <span
+                                    title={ta('not_connected_tooltip', "El router ometrà aquest model: el proveïdor no té cap credencial configurada. Connecta'l a «Proveïdors de Models».")}
+                                    style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: 8,
+                                        background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', whiteSpace: 'nowrap' }}>
+                                    {ta('not_connected_badge', 'Sense connectar')}
+                                </span>
+                            )}
                             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <div className={`gnosi-toggle ${m.enabled ? 'active' : ''}`} title={ta('col_active', 'Actiu')}
                                     onClick={() => update(i, { enabled: !m.enabled })}>
@@ -295,6 +332,39 @@ export default function ModelRegistrySettings() {
             {/* Budget policy */}
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--settings-border)' }}>
                 <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 10 }}>{ta('budget_policy_title', 'Política de pressupost')}</div>
+
+                {/* Monthly money cap (Settings currency) + live spend meter */}
+                <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16 }}>
+                    <Field label={`${ta('cost_cap_label', 'Sostre de despesa mensual')} (${currencySymbol})`}>
+                        <input style={{ ...inp, width: 140 }} type="number" min="0" step="0.5"
+                            placeholder={ta('cost_cap_none', '(sense sostre)')}
+                            value={budget.monthly_cost_cap ?? ''}
+                            onChange={e => setBudget(b => ({ ...b, monthly_cost_cap: e.target.value }))} />
+                    </Field>
+                    {usage && (
+                        <div style={{ flex: '1 1 260px', minWidth: 220 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 4 }}>
+                                <span>{ta('spent_this_month', 'Gastat aquest mes')} ({usage.period})</span>
+                                <span style={{ fontWeight: 800, color: usage.over_cap ? '#ef4444' : 'var(--text-primary)' }}>
+                                    {fmtCcy(usage.spent_ccy)}{usage.cap_ccy ? ` / ${fmtCcy(usage.cap_ccy)}` : ''}
+                                </span>
+                            </div>
+                            {usage.cap_ccy > 0 && (
+                                <div style={{ height: 8, borderRadius: 6, background: 'var(--settings-border)', overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', borderRadius: 6, transition: 'width 0.3s',
+                                        width: `${Math.min(100, (usage.ratio || 0) * 100)}%`,
+                                        background: usage.over_cap ? '#ef4444' : ((usage.ratio || 0) >= 0.8 ? '#f59e0b' : 'var(--gnosi-primary)') }} />
+                                </div>
+                            )}
+                            {usage.over_cap && (
+                                <div style={{ marginTop: 6, fontSize: '0.75rem', fontWeight: 700, color: '#ef4444' }}>
+                                    {ta('budget_exhausted_warning', 'Sostre assolit: el router només farà servir models de cost 0 (locals).')}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
                         <div className={`gnosi-toggle ${budget.prefer_local ? 'active' : ''}`} onClick={() => setBudget(b => ({ ...b, prefer_local: !b.prefer_local }))}>
@@ -314,6 +384,25 @@ export default function ModelRegistrySettings() {
                         &nbsp;{ta('budget_below_suffix', '→ local')}
                     </label>
                 </div>
+
+                {/* Per-model spend breakdown for the current period */}
+                {(usage?.per_model?.length || 0) > 0 && (
+                    <details style={{ marginTop: 14 }}>
+                        <summary style={{ cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
+                            {ta('spend_breakdown', 'Desglossament per model')}
+                        </summary>
+                        <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {usage.per_model.map((row, idx) => (
+                                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.78rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                                    <span style={{ fontFamily: 'monospace', minWidth: 0, overflowWrap: 'anywhere' }}>{row.provider}:{row.model_id}</span>
+                                    <span style={{ whiteSpace: 'nowrap' }}>
+                                        {(row.in + row.out).toLocaleString()} tokens · <b style={{ color: 'var(--text-primary)' }}>{fmtCcy(row.cost_ccy)}</b>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </details>
+                )}
             </div>
 
             <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16 }}>

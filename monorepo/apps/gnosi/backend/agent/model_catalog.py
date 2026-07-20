@@ -35,6 +35,10 @@ from typing import Any, Dict, List, Optional
 log = logging.getLogger(__name__)
 
 MODELS_DEV_URL = "https://models.dev/api.json"
+# Bump when the compact schema gains fields: caches with an older schema are
+# treated as stale so the new fields appear right after a deploy, without
+# waiting out the TTL.
+CATALOG_SCHEMA = 2
 _CACHE_TTL = 24 * 3600  # refresh the remote snapshot at most once a day
 _REMOTE_TIMEOUT = 8     # seconds; UI must never hang on models.dev
 _OLLAMA_TIMEOUT = 1.5   # seconds; local daemon answers instantly or not at all
@@ -42,15 +46,36 @@ _OLLAMA_TIMEOUT = 1.5   # seconds; local daemon answers instantly or not at all
 # models.dev provider id → Gnosi provider id (only where they differ)
 _MODELS_DEV_ALIASES = {"togetherai": "together", "fireworks-ai": "fireworks"}
 
-# Providers exposed in the router UI. Keep in sync with the ids Gnosi already
-# understands (security/ai_credentials.py + agent/factory.py). Order = UI order.
-CATALOG_PROVIDERS: List[str] = [
+# Providers pinned to the top of the catalog (the ones Gnosi historically
+# supported); every other models.dev provider follows, sorted by name. Kept as
+# a module constant because tests and the vendored-refresh sanity floor use it.
+FEATURED_PROVIDERS: List[str] = [
     "groq", "openai", "anthropic", "google", "mistral", "deepseek",
     "openrouter", "xai", "together", "fireworks", "perplexity", "cohere",
     "siliconflow", "ollama", "lmstudio",
 ]
+# Backwards-compatible alias (older code/tests imported CATALOG_PROVIDERS)
+CATALOG_PROVIDERS = FEATURED_PROVIDERS
 
 LOCAL_PROVIDER_IDS = {"ollama", "lmstudio", "llama-cpp", "local", "generic"}
+
+# OpenAI-compatible base URLs for providers whose models.dev entry ships a
+# dedicated SDK (`npm`) instead of an `api` URL. Lets `factory.get_llm` reach
+# them through the generic ChatOpenAI path without new dependencies.
+OPENAI_COMPAT_URLS: Dict[str, str] = {
+    "groq": "https://api.groq.com/openai/v1",
+    "openai": "https://api.openai.com/v1",
+    "google": "https://generativelanguage.googleapis.com/v1beta/openai/",
+    "xai": "https://api.x.ai/v1",
+    "mistral": "https://api.mistral.ai/v1",
+    "deepseek": "https://api.deepseek.com",
+    "together": "https://api.together.xyz/v1",
+    "fireworks": "https://api.fireworks.ai/inference/v1",
+    "perplexity": "https://api.perplexity.ai",
+    "cohere": "https://api.cohere.ai/compatibility/v1",
+    "cerebras": "https://api.cerebras.ai/v1",
+    "deepinfra": "https://api.deepinfra.com/v1/openai",
+}
 
 _FAST_NAME_RE = re.compile(
     r"instant|flash|mini|nano|lite|haiku|micro|tiny|small", re.IGNORECASE)
@@ -99,19 +124,33 @@ def _text_output(model: Dict[str, Any]) -> bool:
     return "text" in outputs if outputs else True
 
 
+def _connect_base_url(gnosi_id: str, provider: Dict[str, Any]) -> str:
+    """OpenAI-compatible base URL for a provider, if one is known (PURE).
+
+    Preference: the curated compat map (native-SDK providers) → the `api`
+    field models.dev ships for @ai-sdk/openai-compatible providers.
+    """
+    return OPENAI_COMPAT_URLS.get(gnosi_id) or (provider.get("api") or "").strip()
+
+
 def build_catalog(models_dev: Dict[str, Any]) -> Dict[str, Any]:
-    """Transform a raw models.dev payload into Gnosi's compact catalog (PURE)."""
+    """Transform a raw models.dev payload into Gnosi's compact catalog (PURE).
+
+    Every models.dev provider is included (no whitelist): featured providers
+    first in their canonical order, the rest sorted by display name. Each
+    provider also carries what the connect UI / factory need to reach it:
+    `env` (API-key env var names), `api` (OpenAI-compatible base URL when
+    known), `npm` (SDK hint) and `doc` (provider docs URL).
+    """
     by_gnosi_id = {}
     for raw_id, provider in (models_dev or {}).items():
         gnosi_id = _MODELS_DEV_ALIASES.get(raw_id, raw_id)
-        if gnosi_id in CATALOG_PROVIDERS:
-            by_gnosi_id[gnosi_id] = provider
+        by_gnosi_id[gnosi_id] = provider
+
+    featured_rank = {pid: i for i, pid in enumerate(FEATURED_PROVIDERS)}
 
     providers: List[Dict[str, Any]] = []
-    for gnosi_id in CATALOG_PROVIDERS:
-        provider = by_gnosi_id.get(gnosi_id)
-        if not provider:
-            continue
+    for gnosi_id, provider in by_gnosi_id.items():
         models = []
         for model in (provider.get("models") or {}).values():
             if not model.get("id") or not _text_output(model):
@@ -134,11 +173,20 @@ def build_catalog(models_dev: Dict[str, Any]) -> Dict[str, Any]:
             "id": gnosi_id,
             "name": provider.get("name") or gnosi_id.capitalize(),
             "is_local": gnosi_id in LOCAL_PROVIDER_IDS,
+            "env": [str(e) for e in (provider.get("env") or [])],
+            "api": _connect_base_url(gnosi_id, provider),
+            "npm": provider.get("npm") or "",
+            "doc": provider.get("doc") or "",
             "models": models,
         })
 
+    providers.sort(key=lambda p: (
+        featured_rank.get(p["id"], len(featured_rank)),
+        (p.get("name") or p["id"]).lower(),
+    ))
+
     return {
-        "schema": 1,
+        "schema": CATALOG_SCHEMA,
         "source": "models.dev",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "providers": providers,
@@ -153,14 +201,22 @@ VENDORED_PATH = Path(__file__).resolve().parent.parent / "data" / "model_catalog
 
 def _cache_path() -> Optional[Path]:
     """Disk cache location; NEVER inside the vault/OneDrive (memory
-    `feedback_cache_outside_onedrive`). Mirrors UsageStore._resolve_path."""
+    `feedback_cache_outside_onedrive`). Mirrors UsageStore._resolve_path.
+    Canonical paths key is LOCAL_CACHE — the old "GNOSI_LOCAL_DATA" lookup
+    never matched, so this always fell back to ~/.cache/gnosi."""
     base = None
     try:
         from backend.config.app_config import load_params
-        base = load_params(strict_env=False).paths.get("GNOSI_LOCAL_DATA")
+        paths = load_params(strict_env=False).paths
+        base = paths.get("LOCAL_CACHE") or paths.get("LOCAL_DATA")
     except Exception:
         pass
-    root = Path(base) / "cache" if base else Path.home() / ".cache" / "gnosi"
+    if base:
+        root = Path(base)
+        if root.name != "cache":
+            root = root / "cache"
+    else:
+        root = Path.home() / ".cache" / "gnosi"
     try:
         root.mkdir(parents=True, exist_ok=True)
     except Exception:
@@ -268,10 +324,14 @@ def merge_ollama_overlay(catalog: Dict[str, Any],
     merged = dict(catalog)
     providers = [p for p in catalog.get("providers", []) if p.get("id") != "ollama"]
     providers.append({"id": "ollama", "name": "Ollama (Local)", "is_local": True,
+                      "env": [], "api": "", "npm": "", "doc": "https://ollama.com",
                       "models": live_models, "live": True})
-    # Keep the catalog's canonical provider order
-    order = {pid: i for i, pid in enumerate(CATALOG_PROVIDERS)}
-    providers.sort(key=lambda p: order.get(p.get("id"), len(order)))
+    # Featured providers keep their canonical rank; the rest stay alphabetical
+    order = {pid: i for i, pid in enumerate(FEATURED_PROVIDERS)}
+    providers.sort(key=lambda p: (
+        order.get(p.get("id"), len(order)),
+        (p.get("name") or p.get("id") or "").lower(),
+    ))
     merged["providers"] = providers
     return merged
 
@@ -284,6 +344,8 @@ _MEM_TTL = 300  # avoid re-reading disk / re-probing Ollama on every request
 
 def _is_fresh(catalog: Optional[Dict[str, Any]]) -> bool:
     if not catalog:
+        return False
+    if catalog.get("schema") != CATALOG_SCHEMA:
         return False
     try:
         fetched = datetime.fromisoformat(catalog.get("fetched_at", ""))
@@ -327,3 +389,47 @@ def load_catalog(force_refresh: bool = False) -> Dict[str, Any]:
         _mem_cache = catalog
         _mem_cached_at = time.monotonic()
         return catalog
+
+
+# ---------------------------------------------------------------------------
+# Lookups used by credentials / factory / usage accounting. All of them go
+# through load_catalog (memory-cached ~5 min) and swallow errors: callers sit
+# on hot request paths and must never fail because the catalog is unreachable.
+# ---------------------------------------------------------------------------
+def catalog_provider(provider_id: str) -> Optional[Dict[str, Any]]:
+    """Catalog entry for a provider id, or None."""
+    wanted = (provider_id or "").strip().lower()
+    if not wanted:
+        return None
+    try:
+        for provider in load_catalog().get("providers", []):
+            if provider.get("id") == wanted:
+                return provider
+    except Exception:
+        pass
+    return None
+
+
+def catalog_env_keys(provider_id: str) -> List[str]:
+    """API-key env var names models.dev knows for this provider."""
+    provider = catalog_provider(provider_id)
+    return [e for e in (provider or {}).get("env", []) if e]
+
+
+def catalog_base_url(provider_id: str) -> str:
+    """OpenAI-compatible base URL for the provider ('' if unknown)."""
+    normalized = (provider_id or "").strip().lower()
+    if normalized in OPENAI_COMPAT_URLS:
+        return OPENAI_COMPAT_URLS[normalized]
+    provider = catalog_provider(normalized)
+    return ((provider or {}).get("api") or "").strip()
+
+
+def catalog_model_cost(provider_id: str, model_id: str) -> Optional[Dict[str, float]]:
+    """{cost_in, cost_out} in USD per 1M tokens, or None if unknown."""
+    provider = catalog_provider(provider_id)
+    for model in (provider or {}).get("models", []):
+        if model.get("id") == model_id:
+            return {"cost_in": float(model.get("cost_in") or 0),
+                    "cost_out": float(model.get("cost_out") or 0)}
+    return None

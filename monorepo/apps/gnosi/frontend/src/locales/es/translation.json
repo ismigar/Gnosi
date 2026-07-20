@@ -1694,8 +1694,21 @@
         "remove_model": "Quitar",
         "custom_option": "Personalizado…",
         "back_to_list": "Volver a la lista",
-        "catalog_hint": "Catálogo de modelos actualizado automáticamente (fuente: {{source}})."
-      }
+        "catalog_hint": "Catálogo de modelos actualizado automáticamente (fuente: {{source}}).",
+        "connected_group": "Conectados",
+        "all_providers_group": "Todos los proveedores",
+        "not_connected_badge": "Sin conectar",
+        "not_connected_tooltip": "El router omitirá este modelo: el proveedor no tiene ninguna credencial configurada. Conéctalo en «Proveedores de Modelos».",
+        "cost_cap_label": "Techo de gasto mensual",
+        "cost_cap_none": "(sin techo)",
+        "spent_this_month": "Gastado este mes",
+        "budget_exhausted_warning": "Techo alcanzado: el router solo usará modelos de coste 0 (locales).",
+        "spend_breakdown": "Desglose por modelo"
+      },
+      "provider_search_placeholder": "Busca entre {{count}} proveedores…",
+      "provider_doc_link": "Documentación ↗",
+      "env_hint": "Alternativa: define {{vars}} en el entorno del backend.",
+      "local_no_key": "Local — no necesita clave API"
     },
     "footer": {
       "close": "Cerrar",
