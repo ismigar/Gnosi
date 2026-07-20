@@ -105,3 +105,38 @@ ja obert (evita el pipe del tot).
 
 `~/.config/gnosi-cite/config.json` → `{backend_url, style, locale}`.
 Default backend `http://localhost:5002`.
+
+## Modes de fallada SILENCIOSOS del backend (2026-07-20)
+
+Els tres endpoints responen 200 amb text plausible fins i tot quan el
+resultat és incorrecte. **No n'hi ha prou de comprovar que responen**: cal
+llegir el text formatat i comparar-lo amb l'APA esperat.
+
+- **Estil CSL no resolt → pandoc aplica el SEU estil per defecte.**
+  `_resolve_csl_path` només tenia candidats `/app/...` (imatge Docker). En mode
+  NATIU cap existia, `--csl` no s'hi passava mai i totes les cites sortien
+  `(Bauman 2007)` en comptes de l'APA `(Bauman, 2007)` — demanessis l'estil que
+  demanessis. Símptoma: APA, MLA i Chicago donen tots el mateix. Ara hi ha un
+  candidat relatiu al repo derivat de `__file__`. **Qualsevol ruta d'actiu del
+  backend ha de resoldre en TOTS DOS modes** (cf. `environment_integrity.md`).
+- **L'autoria estructurada s'ignorava.** `_recursos_metadata_to_csl` llegia només
+  la cadena llegada `Authors`; els registres amb l'autor a `Autoría` es citaven
+  pel títol (`(Zombie University 2018)`). El frontend (`cslEngine.js`) ja ho feia
+  bé → **divergència frontend/backend**: la cita es veia correcta a Gnosi i
+  sortia malament a Word. Regla: el backend és un MIRALL de `recursosPageToCsl`;
+  si en toques un, toca l'altre (i el test `test_recursos_csl_mapping.py`).
+- **`Citation Key` duplicada = registre invisible.** La clau és l'`id` del
+  CSL-JSON: dos registres amb la mateixa clau fan que citeproc només en vegi un,
+  i l'altre es cita silenciosament com el seu germà. Sense clau = incitable.
+  Han de ser **úniques i no buides**, sempre. Eina idempotent:
+  `pipeline/sandbox/recursos_citation_key_rebuild.py`.
+- **Editar una `Citation Key` no propagava.** `_ensure_cite_key_index` es
+  reconstrueix quan canvia el NOMBRE de pàgines, així que una edició in situ
+  passava desapercebuda i Word seguia resolent la clau VELLA fins a reiniciar.
+  El PATCH de pàgina ara invalida l'índex si la clau canvia.
+
+⚠️ **MAI esborris `local_data/cache/vault_page_index_*.json` per refrescar.**
+Força un rescan complet del vault OneDrive (~1600 fitxers) i l'app es queda
+BUIDA uns quants minuts (`search-citations` torna `[]`). Per propagar canvis
+massius, escriu via API (invalida sola) i espera el sync de fons
+(`_VAULT_SYNC_COOLDOWN_SECONDS=600`).
