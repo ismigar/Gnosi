@@ -5295,6 +5295,53 @@ def _normalize_authors_field(v):
     return str(v or "")
 
 
+def _find_structured_authors(metadata: dict) -> list:
+    """Finds the structured `autoria` value in a page's metadata.
+
+    Mirror of `findStructuredAuthors` in cslEngine.js: we look it up by SHAPE, not
+    by key name, because the field is stored under the key = field name and the
+    user can rename it (`Authors` → `Autoría` → …) without the frontmatter
+    migrating. Any list of dicts with `nom`/`cognom1`/`cognom2` qualifies."""
+    if not isinstance(metadata, dict):
+        return []
+    for v in metadata.values():
+        if isinstance(v, list) and any(
+            isinstance(a, dict) and ('cognom1' in a or 'cognom2' in a or 'nom' in a)
+            for a in v
+        ):
+            return v
+    return []
+
+
+def _structured_authors_to_csl(authors: list) -> list:
+    """Maps structured authors to the CSL-JSON `author` array.
+
+    CSL has no notion of a second surname: cognom1+cognom2 collapse into
+    `family`. An author with only `nom` (organizations, mononyms) becomes a
+    `literal` name. Mirror of `structuredAuthorsToCsl` in cslEngine.js."""
+    out = []
+    for a in authors or []:
+        if not isinstance(a, dict):
+            continue
+        family = " ".join(
+            s for s in (
+                str(a.get('cognom1') or '').strip(),
+                str(a.get('cognom2') or '').strip(),
+            ) if s
+        )
+        given = str(a.get('nom') or '').strip()
+        if not family and not given:
+            continue
+        if not family:
+            out.append({'literal': given})
+            continue
+        entry = {'family': family}
+        if given:
+            entry['given'] = given
+        out.append(entry)
+    return out
+
+
 def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
     """Builds CSL-JSON for a Recursos page. Backend equivalent of the frontend's
     `recursosPageToCsl` (same mapping)."""
@@ -5306,14 +5353,25 @@ def _recursos_metadata_to_csl(title: str, m: dict) -> Optional[dict]:
         'type': _resolve_csl_type(m.get('Item Type', '')),
         'title': title or m.get('Title') or '',
     }
-    authors = _parse_authors_to_csl(m.get('Authors') or '')
+    # Priority to the structured `autoria` field (curated, deterministic); only
+    # if there is none do we fall back to the legacy free-form `Authors` string.
+    # Mirrors `recursosPageToCsl` in cslEngine.js: without this the records whose
+    # author only lives in `Autoría` were cited by title ("(Zombie University 2018)"
+    # instead of "(Murphy, 2018)").
+    authors = _structured_authors_to_csl(_find_structured_authors(m))
+    if not authors:
+        authors = _parse_authors_to_csl(m.get('Authors') or '')
     if authors:
         item['author'] = authors
-    if m.get('Any'):
-        try:
-            item['issued'] = {'date-parts': [[int(m['Any'])]]}
-        except (TypeError, ValueError):
-            pass
+    # Year. A number → `date-parts` (keeps chronological ordering). Text without
+    # digits ("en premsa") → CSL `literal`, so citeproc shows it verbatim instead
+    # of "n.d.". Empty → no `issued` at all → "n.d.".
+    year_raw = str(m.get('Any') or '').strip()
+    year_match = re.search(r'-?\d{1,4}', year_raw)
+    if year_match:
+        item['issued'] = {'date-parts': [[int(year_match.group(0))]]}
+    elif year_raw:
+        item['issued'] = {'literal': year_raw}
     if m.get('Llibre/Revista'): item['container-title'] = m['Llibre/Revista']
     if m.get('Editorial'): item['publisher'] = m['Editorial']
     if m.get('Lloc'): item['publisher-place'] = m['Lloc']
@@ -5340,9 +5398,17 @@ def _resolve_csl_path(style: str) -> Optional[Path]:
         'ieee': 'ieee.csl',
     }
     style_file = style_map.get(style, 'apa.csl')
+    # Must resolve in BOTH deployment modes. The `/app/...` candidates only exist
+    # inside the Docker image; in NATIVE mode none of them did, `--csl` was never
+    # passed and pandoc fell back to its OWN default style — every citation came
+    # out as "(Bauman 2007)" instead of APA's "(Bauman, 2007)", whatever style the
+    # add-in asked for. The repo-relative path is derived from this very file
+    # (backend/api/vault_routes.py → apps/gnosi) so it holds wherever it's checked out.
+    repo_styles = Path(__file__).resolve().parents[2] / 'frontend' / 'public' / 'csl' / 'styles'
     candidates = [
         Path('/app/frontend/public/csl/styles') / style_file,
         Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles') / style_file,
+        repo_styles / style_file,
     ]
     for c in candidates:
         if c.exists():
@@ -8813,6 +8879,14 @@ async def patch_page(
             # `/by-table` or `/pages` doesn't return the pre-PATCH version (~1.5 s
             # stale state would be visible in the frontend on autosave).
             _pages_cache_invalidate_all()
+            # The cite_key_index rebuilds itself on a page-COUNT change, so editing a
+            # `Citation Key` in place goes unnoticed: the picker and, above all,
+            # Word/LibreOffice keep resolving the OLD key (and the new one returns
+            # `resolved: false`) until an unrelated page is created or the backend
+            # restarts. Editing the key is exactly the "critical change" the
+            # heuristic can't see, so we invalidate explicitly.
+            if str(original_metadata_snapshot.get("Citation Key") or "") != str(metadata.get("Citation Key") or ""):
+                _invalidate_cite_key_index()
             # Surgical update of `_iter_docs_cache`: we do NOT invalidate
             # the whole list. Invalidating it (the old `docs = None`) caused
             # the next call to `/backlinks`, `/global-index` or
