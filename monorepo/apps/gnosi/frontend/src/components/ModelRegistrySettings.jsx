@@ -19,6 +19,9 @@ import { ConfirmModal } from './ConfirmModal';
 const EMPTY_MODEL = {
     provider: '', model_id: '', is_local: false, enabled: true, priority: 100,
     cost_in: 0, cost_out: 0, context_window: 8192, quality: 2, tags: [], monthly_quota: 0,
+    // Prices are owned by the catalog (read-only in the UI); until a catalogued
+    // model is picked there is no price to show.
+    price_from_catalog: false, price_unknown: true,
 };
 
 const QUALITY_LABELS = { 1: 'Ràpid', 2: 'Equilibrat', 3: 'Alta qualitat' };
@@ -122,6 +125,7 @@ export default function ModelRegistrySettings() {
     // linger in the fields and read as if they belonged to the new provider.
     const MODEL_META_RESET = {
         cost_in: 0, cost_out: 0,
+        price_from_catalog: false, price_unknown: true,
         context_window: EMPTY_MODEL.context_window,
         quality: EMPTY_MODEL.quality, tags: [],
     };
@@ -142,20 +146,28 @@ export default function ModelRegistrySettings() {
     };
 
     const onModelChange = (i, providerId, value) => {
+        const isLocal = !!providersById[providerId]?.is_local;
         if (value === CUSTOM) {
             setRowCustom(setCustomModelRows, i, true);
-            update(i, { model_id: '' });
+            // Free-text model: outside the catalog, so it has no known price
+            update(i, { model_id: '', cost_in: 0, cost_out: 0,
+                price_from_catalog: false, price_unknown: !isLocal });
             return;
         }
         const entry = (providersById[providerId]?.models || []).find(m => m.id === value);
-        if (!entry) { update(i, { model_id: value }); return; }
-        // Auto-fill metadata from the catalog; every field stays editable afterwards
+        if (!entry) {
+            update(i, { model_id: value, price_from_catalog: false, price_unknown: !isLocal });
+            return;
+        }
+        // Auto-fill metadata from the catalog. Cost is READ-ONLY from here on
+        // (the catalog owns it); context/quality/tags stay editable.
         update(i, {
             model_id: entry.id,
             cost_in: entry.cost_in, cost_out: entry.cost_out,
+            price_from_catalog: true, price_unknown: false,
             context_window: entry.context_window,
             quality: entry.quality, tags: entry.tags || [],
-            is_local: !!providersById[providerId]?.is_local,
+            is_local: isLocal,
         });
     };
 
@@ -191,6 +203,14 @@ export default function ModelRegistrySettings() {
     // Spend figures come in the Settings currency (GET /api/ai/usage)
     const currencySymbol = usage?.currency?.symbol || '€';
     const fmtCcy = (v) => `${Number(v || 0).toFixed(2)} ${currencySymbol}`;
+    // Catalog prices are USD per 1M tokens. Sub-0.1 tariffs need 3 decimals
+    // (0.038 must not collapse to 0.04); trailing zeros are stripped so the
+    // common cases read as "0.6" and "15", not "0.60" and "15.00".
+    const fmtPrice = (v) => {
+        const n = Number(v || 0);
+        if (!n) return '0';
+        return (n < 0.1 ? n.toFixed(3) : n.toFixed(2)).replace(/\.?0+$/, '');
+    };
 
     const renderProviderControl = (m, i) => {
         const isCustom = customProviderRows.has(i) || (m.provider && !providersById[m.provider] && catalog);
@@ -292,7 +312,10 @@ export default function ModelRegistrySettings() {
                 {models.map((m, i) => (
                     <div key={i} style={{ border: '1px solid var(--settings-border)', borderRadius: 14, padding: '10px 14px', background: 'var(--bg-primary)' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                            <button title={m.is_local ? ta('local_tooltip', 'Local') : ta('remote_tooltip', 'Remot')} onClick={() => update(i, { is_local: !m.is_local })}
+                            {/* Marking a row local also settles its price: local
+                                models are free, not "unknown price" */}
+                            <button title={m.is_local ? ta('local_tooltip', 'Local') : ta('remote_tooltip', 'Remot')}
+                                onClick={() => update(i, { is_local: !m.is_local, price_unknown: m.is_local && !m.price_from_catalog })}
                                 style={{ ...iconBtn, color: m.is_local ? 'var(--gnosi-primary)' : 'var(--text-tertiary)' }}>
                                 {m.is_local ? <Server size={18} /> : <Cloud size={18} />}
                             </button>
@@ -323,12 +346,22 @@ export default function ModelRegistrySettings() {
                                     {[1, 2, 3].map(q => <option key={q} value={q}>{ta(QUALITY_KEYS[q], QUALITY_LABELS[q])}</option>)}
                                 </select>
                             </Field>
+                            {/* Read-only: the catalog owns prices (models.dev,
+                                refreshed daily). An editable field here froze a
+                                tariff into params.yaml that silently rotted. */}
                             <Field label={ta('col_cost', 'Cost in/out ($/M)')}>
-                                <div style={{ display: 'flex', gap: 4 }}>
-                                    <input style={{ ...inp, width: 64 }} type="number" step="0.01" min="0" value={m.cost_in}
-                                        onChange={e => update(i, { cost_in: Number(e.target.value) })} />
-                                    <input style={{ ...inp, width: 64 }} type="number" step="0.01" min="0" value={m.cost_out}
-                                        onChange={e => update(i, { cost_out: Number(e.target.value) })} />
+                                <div title={m.price_unknown
+                                    ? ta('price_unknown_tooltip', 'Model fora del catàleg: es comptabilitza com a cost 0.')
+                                    : ta('price_catalog_tooltip', 'Preu del catàleg (models.dev), actualitzat automàticament.')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, height: 30, fontSize: '0.82rem',
+                                        color: m.price_unknown ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
+                                    {m.price_unknown ? (
+                                        <span>{ta('price_unknown', 'desconegut')}</span>
+                                    ) : (
+                                        <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                            {fmtPrice(m.cost_in)} / {fmtPrice(m.cost_out)}
+                                        </span>
+                                    )}
                                 </div>
                             </Field>
                             <Field label={ta('col_context', 'Context')}>

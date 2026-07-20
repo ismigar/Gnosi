@@ -1705,7 +1705,10 @@
         "budget_exhausted_warning": "Techo alcanzado: el router solo usará modelos de coste 0 (locales).",
         "spend_breakdown": "Desglose por modelo",
         "remove_confirm_title": "¿Quitar el modelo del registro?",
-        "remove_confirm_msg": "Se quitará «{{model}}» de la lista del router. El cambio se aplica al pulsar «Guardar modelos»."
+        "remove_confirm_msg": "Se quitará «{{model}}» de la lista del router. El cambio se aplica al pulsar «Guardar modelos».",
+        "price_unknown": "desconocido",
+        "price_unknown_tooltip": "Modelo fuera del catálogo: se contabiliza como coste 0.",
+        "price_catalog_tooltip": "Precio del catálogo (models.dev), actualizado automáticamente."
       },
       "provider_search_placeholder": "Busca entre {{count}} proveedores…",
       "provider_doc_link": "Documentación ↗",

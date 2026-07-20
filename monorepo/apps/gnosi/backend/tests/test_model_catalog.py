@@ -5,6 +5,7 @@ Pure functions only — no network, no disk (cf. memory
 """
 from backend.agent.model_catalog import (
     FEATURED_PROVIDERS,
+    build_price_index,
     OPENAI_COMPAT_URLS,
     build_catalog,
     merge_ollama_overlay,
@@ -153,3 +154,14 @@ def test_merge_ollama_overlay_replaces_and_orders():
     assert ids == sorted(ids, key=lambda i: (rank.get(i, len(rank)), i))
     # no overlay → catalog untouched
     assert merge_ollama_overlay(catalog, None) is catalog
+
+
+def test_build_price_index_flattens_catalog():
+    catalog = build_catalog(_models_dev_sample())
+    index = build_price_index(catalog)
+    assert index["groq:llama-3.1-8b-instant"] == {"cost_in": 0.05, "cost_out": 0.08}
+    assert index["together:big-model"] == {"cost_in": 3.0, "cost_out": 15.0}
+    # Image-only models were filtered out of the catalog, so they cannot be priced
+    assert "together:img-only" not in index
+    assert build_price_index({}) == {}
+    assert build_price_index({"providers": [{"models": [{"id": "x"}]}]}) == {}

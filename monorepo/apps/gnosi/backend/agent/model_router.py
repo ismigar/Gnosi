@@ -32,12 +32,15 @@ DEFAULT_REGISTRY: List[Dict[str, Any]] = [
     {"provider": "openai", "model_id": "gpt-4o", "is_local": False,
      "enabled": True, "priority": 40, "cost_in": 2.50, "cost_out": 10.0,
      "context_window": 128000, "quality": 3, "tags": ["code", "vision", "tools", "long"]},
-    {"provider": "anthropic", "model_id": "claude-3-5-haiku-latest", "is_local": False,
-     "enabled": True, "priority": 35, "cost_in": 0.80, "cost_out": 4.0,
-     "context_window": 200000, "quality": 2, "tags": ["tools", "long"]},
-    {"provider": "anthropic", "model_id": "claude-3-5-sonnet-latest", "is_local": False,
+    # Canonical ids, never "-latest" aliases: models.dev does not publish the
+    # aliases, so an alias here resolves to NO catalog price → the model would
+    # be billed as free and slip past the monthly spend cap.
+    {"provider": "anthropic", "model_id": "claude-haiku-4-5", "is_local": False,
+     "enabled": True, "priority": 35, "cost_in": 1.0, "cost_out": 5.0,
+     "context_window": 200000, "quality": 2, "tags": ["fast", "vision", "tools", "long"]},
+    {"provider": "anthropic", "model_id": "claude-sonnet-4-5", "is_local": False,
      "enabled": True, "priority": 45, "cost_in": 3.0, "cost_out": 15.0,
-     "context_window": 200000, "quality": 3, "tags": ["code", "vision", "tools", "long"]},
+     "context_window": 1000000, "quality": 3, "tags": ["code", "vision", "tools", "long"]},
     {"provider": "ollama", "model_id": "llama3.2:latest", "is_local": True,
      "enabled": True, "priority": 50, "cost_in": 0.0, "cost_out": 0.0,
      "context_window": 8192, "quality": 1, "tags": ["fast"]},
@@ -195,16 +198,57 @@ def route_model(
 # ---------------------------------------------------------------------------
 # Load the registry from config (with fallback to the default)
 # ---------------------------------------------------------------------------
-def load_registry() -> List[Dict[str, Any]]:
-    """Reads `ai.models` from config; if absent, seeds with DEFAULT_REGISTRY."""
+def apply_catalog_prices(registry: List[Dict[str, Any]],
+                         price_index: Dict[str, Dict[str, float]]) -> List[Dict[str, Any]]:
+    """Overwrite each entry's cost with the catalog price (PURE).
+
+    The catalog (models.dev, refreshed daily) is the single source of truth for
+    prices: providers change tariffs and a value frozen in params.yaml silently
+    rots, skewing both the router's cost ranking and the spend ledger. Entries
+    with no catalog match (custom/free-text models) keep their stored value, and
+    gain `price_unknown: True` so the UI can say so instead of showing a
+    made-up 0. `price_from_catalog` marks the ones that were refreshed.
+    """
+    priced: List[Dict[str, Any]] = []
+    for entry in registry or []:
+        row = dict(entry)
+        rates = (price_index or {}).get(f"{row.get('provider')}:{row.get('model_id')}")
+        if rates:
+            row["cost_in"] = rates["cost_in"]
+            row["cost_out"] = rates["cost_out"]
+            row["price_from_catalog"] = True
+            # Always explicit: a client merging this over its own defaults
+            # would otherwise keep a stale "unknown" for a priced row.
+            row["price_unknown"] = False
+        else:
+            row["price_from_catalog"] = False
+            # Local models are free by definition — not an unknown price
+            row["price_unknown"] = not row.get("is_local")
+        priced.append(row)
+    return priced
+
+
+def load_registry(with_catalog_prices: bool = True) -> List[Dict[str, Any]]:
+    """Reads `ai.models` from config; if absent, seeds with DEFAULT_REGISTRY.
+
+    Prices are refreshed from the catalog unless explicitly disabled (the
+    stored cost is only a fallback for models the catalog doesn't know).
+    """
+    registry = DEFAULT_REGISTRY
     try:
         from backend.config.app_config import load_params
         models = (load_params(strict_env=False).get("ai", {}) or {}).get("models")
         if isinstance(models, list) and models:
-            return models
+            registry = models
     except Exception:
         pass
-    return DEFAULT_REGISTRY
+    if not with_catalog_prices:
+        return registry
+    try:
+        from backend.agent.model_catalog import catalog_price_index
+        return apply_catalog_prices(registry, catalog_price_index())
+    except Exception:
+        return registry
 
 
 # ---------------------------------------------------------------------------
@@ -334,12 +378,12 @@ class UsageStore:
 
 def model_cost_rates(provider: str, model_id: str,
                      registry: Optional[List[Dict[str, Any]]] = None) -> tuple:
-    """(cost_in, cost_out) in USD per 1M tokens: registry first (user-edited
-    values win), then the models.dev catalog, else 0/0 (unknown = free)."""
-    entries = registry if registry is not None else load_registry()
-    for m in entries:
-        if m.get("provider") == provider and m.get("model_id") == model_id:
-            return float(m.get("cost_in") or 0), float(m.get("cost_out") or 0)
+    """(cost_in, cost_out) in USD per 1M tokens.
+
+    The catalog wins: it tracks the provider's current tariff, while a value
+    sitting in params.yaml is a snapshot from whenever the row was saved. The
+    registry is only the fallback for models the catalog doesn't know (custom
+    endpoints); unknown → 0/0 (treated as free)."""
     try:
         from backend.agent.model_catalog import catalog_model_cost
         rates = catalog_model_cost(provider, model_id)
@@ -347,6 +391,10 @@ def model_cost_rates(provider: str, model_id: str,
             return rates["cost_in"], rates["cost_out"]
     except Exception:
         pass
+    entries = registry if registry is not None else load_registry(with_catalog_prices=False)
+    for m in entries:
+        if m.get("provider") == provider and m.get("model_id") == model_id:
+            return float(m.get("cost_in") or 0), float(m.get("cost_out") or 0)
     return 0.0, 0.0
 
 

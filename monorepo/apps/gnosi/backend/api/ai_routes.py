@@ -244,12 +244,18 @@ class ModelsPayload(BaseModel):
 @router.get("/models")
 async def get_model_registry():
     """Returns the router's model registry (config `ai.models`, or the default)
-    and the budget policy (`ai.budget`)."""
+    and the budget policy (`ai.budget`).
+
+    Prices come refreshed from the catalog (each row carries
+    `price_from_catalog` / `price_unknown`), so the UI never shows a tariff
+    that went stale in params.yaml. to_thread: load_registry now consults the
+    catalog, whose loader does blocking I/O.
+    """
     from backend.agent.model_router import load_registry, DEFAULT_REGISTRY
     cfg = load_params(strict_env=False)
     ai_cfg = dict(cfg.get("ai", {}) or {})
     return {
-        "models": load_registry(),
+        "models": await asyncio.to_thread(load_registry),
         "budget": dict(ai_cfg.get("budget") or {}),
         "default": DEFAULT_REGISTRY,
     }
@@ -318,22 +324,35 @@ def _sanitize_budget(raw: dict) -> dict:
 
 @router.put("/models", dependencies=[Depends(require_role("admin"))])
 async def set_model_registry(payload: ModelsPayload):
-    """Saves the model registry and the budget policy to params.yaml."""
+    """Saves the model registry and the budget policy to params.yaml.
+
+    Prices are NOT taken from the payload: the catalog owns them (the UI shows
+    them read-only). What lands in params.yaml is the catalog price, kept as an
+    offline snapshot; only models the catalog doesn't know fall back to the
+    client's value, so custom endpoints keep whatever they had.
+    """
     if not isinstance(payload.models, list):
         raise HTTPException(status_code=400, detail="models ha de ser una llista")
+
+    from backend.agent.model_catalog import catalog_price_index
+    price_index = await asyncio.to_thread(catalog_price_index)
+
     # Minimal validation of each entry
     cleaned = []
     for m in payload.models:
         if not isinstance(m, dict) or not m.get("provider") or not m.get("model_id"):
             raise HTTPException(status_code=400, detail="cada model necessita provider i model_id")
+        provider = str(m["provider"]).strip().lower()
+        model_id = str(m["model_id"]).strip()
+        rates = price_index.get(f"{provider}:{model_id}")
         cleaned.append({
-            "provider": str(m["provider"]).strip().lower(),
-            "model_id": str(m["model_id"]).strip(),
+            "provider": provider,
+            "model_id": model_id,
             "is_local": bool(m.get("is_local", False)),
             "enabled": bool(m.get("enabled", True)),
             "priority": int(m.get("priority", 100)),
-            "cost_in": float(m.get("cost_in", 0) or 0),
-            "cost_out": float(m.get("cost_out", 0) or 0),
+            "cost_in": rates["cost_in"] if rates else float(m.get("cost_in", 0) or 0),
+            "cost_out": rates["cost_out"] if rates else float(m.get("cost_out", 0) or 0),
             "context_window": int(m.get("context_window", 8192) or 8192),
             "quality": int(m.get("quality", 2) or 2),
             "tags": [str(t) for t in (m.get("tags") or [])],
