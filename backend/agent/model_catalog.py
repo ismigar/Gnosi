@@ -425,6 +425,50 @@ def catalog_base_url(provider_id: str) -> str:
     return ((provider or {}).get("api") or "").strip()
 
 
+def build_price_index(catalog: Dict[str, Any]) -> Dict[str, Dict[str, float]]:
+    """{"provider:model_id": {cost_in, cost_out}} for the whole catalog (PURE).
+
+    Prices are USD per 1M tokens. Built in one pass so callers that price a
+    whole registry don't rescan 5k+ models per row.
+    """
+    index: Dict[str, Dict[str, float]] = {}
+    for provider in (catalog or {}).get("providers", []):
+        pid = provider.get("id")
+        if not pid:
+            continue
+        for model in provider.get("models") or []:
+            mid = model.get("id")
+            if not mid:
+                continue
+            index[f"{pid}:{mid}"] = {
+                "cost_in": float(model.get("cost_in") or 0),
+                "cost_out": float(model.get("cost_out") or 0),
+            }
+    return index
+
+
+_price_index_cache: Optional[Dict[str, Dict[str, float]]] = None
+_price_index_src: Optional[int] = None
+
+
+def catalog_price_index() -> Dict[str, Dict[str, float]]:
+    """Cached price index for the live catalog; {} if unavailable.
+
+    Keyed on the identity of the memoized catalog object, so it is rebuilt
+    exactly once per catalog refresh (load_catalog returns the same dict for
+    ~5 minutes).
+    """
+    global _price_index_cache, _price_index_src
+    try:
+        catalog = load_catalog()
+    except Exception:
+        return {}
+    if _price_index_cache is None or _price_index_src != id(catalog):
+        _price_index_cache = build_price_index(catalog)
+        _price_index_src = id(catalog)
+    return _price_index_cache
+
+
 def catalog_model_cost(provider_id: str, model_id: str) -> Optional[Dict[str, float]]:
     """{cost_in, cost_out} in USD per 1M tokens, or None if unknown."""
     provider = catalog_provider(provider_id)

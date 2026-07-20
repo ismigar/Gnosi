@@ -1745,7 +1745,10 @@
         "budget_exhausted_warning": "Sostre assolit: el router només farà servir models de cost 0 (locals).",
         "spend_breakdown": "Desglossament per model",
         "remove_confirm_title": "Treure el model del registre?",
-        "remove_confirm_msg": "Es traurà «{{model}}» de la llista del router. El canvi s'aplica quan premis «Desar models»."
+        "remove_confirm_msg": "Es traurà «{{model}}» de la llista del router. El canvi s'aplica quan premis «Desar models».",
+        "price_unknown": "desconegut",
+        "price_unknown_tooltip": "Model fora del catàleg: es comptabilitza com a cost 0.",
+        "price_catalog_tooltip": "Preu del catàleg (models.dev), actualitzat automàticament."
       },
       "provider_search_placeholder": "Cerca entre {{count}} proveïdors…",
       "provider_doc_link": "Documentació ↗",

@@ -1855,7 +1855,10 @@
         "budget_exhausted_warning": "Cap reached: the router will only use zero-cost (local) models.",
         "spend_breakdown": "Per-model breakdown",
         "remove_confirm_title": "Remove this model from the registry?",
-        "remove_confirm_msg": "“{{model}}” will be removed from the router list. The change applies when you press “Save models”."
+        "remove_confirm_msg": "“{{model}}” will be removed from the router list. The change applies when you press “Save models”.",
+        "price_unknown": "unknown",
+        "price_unknown_tooltip": "Model not in the catalog: it is accounted for as zero cost.",
+        "price_catalog_tooltip": "Price from the catalog (models.dev), refreshed automatically."
       },
       "provider_search_placeholder": "Search {{count}} providers…",
       "provider_doc_link": "Documentation ↗",

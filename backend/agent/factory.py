@@ -239,9 +239,12 @@ def get_llm(
             if not key:
                 log.debug("Anthropic API Key missing.")
                 return None
-            log.debug(f"Instantiating ChatAnthropic with model {model or 'claude-3-5-sonnet-latest'}")
+            # Canonical id, not a "-latest" alias: models.dev does not publish
+            # the aliases, so usage recorded under one resolves to no catalog
+            # price and would be billed as free (slipping past the spend cap).
+            log.debug(f"Instantiating ChatAnthropic with model {model or 'claude-sonnet-4-5'}")
             return ChatAnthropic(
-                model=model or "claude-3-5-sonnet-latest",
+                model=model or "claude-sonnet-4-5",
                 api_key=key,
                 **req_timeout_kwargs,
             )
@@ -290,7 +293,7 @@ def _get_hybrid_llm(timeout: Optional[float] = None):
     # List of fallback providers to check in order of quality/availability
     fallbacks = [
         ("openai", "gpt-4o-mini"),
-        ("anthropic", "claude-3-5-haiku-latest"),
+        ("anthropic", "claude-haiku-4-5"),
         ("openrouter", "openai/gpt-4o-mini"),
         ("groq", "llama-3.1-8b-instant"),
         ("ollama", "llama3.2:latest"),

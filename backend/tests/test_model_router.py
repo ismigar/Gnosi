@@ -6,8 +6,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from agent.model_router import (  # noqa: E402
-    classify_request, route_model, model_cost_rates, usage_from_message,
-    UsageStore, DEFAULT_REGISTRY,
+    apply_catalog_prices, classify_request, route_model, model_cost_rates,
+    usage_from_message, UsageStore, DEFAULT_REGISTRY,
 )
 
 ALL_UP = lambda provider: True  # all providers available
@@ -188,23 +188,90 @@ def test_usage_store_concurrent_instances_do_not_lose_writes():
         assert UsageStore(path).usage_for("2026-07")["groq:m"] == 200  # 4×25×(1+1)
 
 
-def test_model_cost_rates_prefers_registry():
-    reg = [{"provider": "groq", "model_id": "m", "cost_in": 1.5, "cost_out": 2.5}]
-    assert model_cost_rates("groq", "m", reg) == (1.5, 2.5)
+def _patch_catalog(providers):
+    """Swap the catalog loader for a fixture; returns a restore callable.
 
-
-def test_model_cost_rates_falls_back_to_catalog_then_zero():
-    # Patch the catalog loader: no network/disk in unit tests
+    Also clears the price-index memo, which is keyed on the identity of the
+    catalog object and would otherwise serve the previous test's fixture.
+    """
     import backend.agent.model_catalog as mc
     original = mc.load_catalog
-    mc.load_catalog = lambda force_refresh=False: {"providers": [
+    mc.load_catalog = lambda force_refresh=False: {"providers": providers}
+    mc._price_index_cache = None
+    mc._price_index_src = None
+
+    def restore():
+        mc.load_catalog = original
+        mc._price_index_cache = None
+        mc._price_index_src = None
+    return restore
+
+
+def test_model_cost_rates_prefers_catalog_over_stored():
+    # The catalog owns prices: a stale value stored in the registry must lose,
+    # otherwise a provider's tariff change never reaches the ledger.
+    restore = _patch_catalog([
+        {"id": "groq", "models": [{"id": "m", "cost_in": 9.0, "cost_out": 18.0}]},
+    ])
+    try:
+        stale = [{"provider": "groq", "model_id": "m", "cost_in": 1.5, "cost_out": 2.5}]
+        assert model_cost_rates("groq", "m", stale) == (9.0, 18.0)
+    finally:
+        restore()
+
+
+def test_model_cost_rates_falls_back_to_registry_then_zero():
+    restore = _patch_catalog([
         {"id": "nope", "models": [{"id": "known", "cost_in": 9.0, "cost_out": 18.0}]},
-    ]}
+    ])
     try:
         assert model_cost_rates("nope", "known", []) == (9.0, 18.0)
+        # Outside the catalog → the stored value is the only source
+        custom = [{"provider": "custom", "model_id": "x", "cost_in": 4.0, "cost_out": 7.0}]
+        assert model_cost_rates("custom", "x", custom) == (4.0, 7.0)
+        # Unknown everywhere → free
         assert model_cost_rates("nope", "missing", []) == (0.0, 0.0)
     finally:
-        mc.load_catalog = original
+        restore()
+
+
+# ---------------------------------------------------------------------------
+# Catalog-owned prices applied to the registry
+# ---------------------------------------------------------------------------
+
+def test_apply_catalog_prices_overwrites_and_flags():
+    index = {"groq:m": {"cost_in": 0.05, "cost_out": 0.08}}
+    registry = [
+        {"provider": "groq", "model_id": "m", "cost_in": 99.0, "cost_out": 99.0},
+        {"provider": "custom", "model_id": "x", "cost_in": 4.0, "cost_out": 7.0},
+        {"provider": "ollama", "model_id": "llama3.2", "is_local": True,
+         "cost_in": 0, "cost_out": 0},
+    ]
+    priced = apply_catalog_prices(registry, index)
+
+    # Catalogued row: refreshed and flagged
+    assert (priced[0]["cost_in"], priced[0]["cost_out"]) == (0.05, 0.08)
+    assert priced[0]["price_from_catalog"] is True
+    # Explicit False, not absent: the UI merges rows over its own defaults
+    assert priced[0]["price_unknown"] is False
+
+    # Unknown row: stored value kept, but marked so the UI can say so
+    assert (priced[1]["cost_in"], priced[1]["cost_out"]) == (4.0, 7.0)
+    assert priced[1]["price_from_catalog"] is False
+    assert priced[1]["price_unknown"] is True
+
+    # Local model: free by definition, not "unknown"
+    assert priced[2]["price_unknown"] is False
+
+    # Input is not mutated (callers may hold the config dict)
+    assert registry[0]["cost_in"] == 99.0
+
+
+def test_apply_catalog_prices_tolerates_empty_inputs():
+    assert apply_catalog_prices([], {}) == []
+    assert apply_catalog_prices(None, None) == []
+    row = apply_catalog_prices([{"provider": "p", "model_id": "m"}], {})[0]
+    assert row["price_from_catalog"] is False
 
 
 def test_usage_from_message_duck_typing():
