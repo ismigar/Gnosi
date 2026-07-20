@@ -106,12 +106,17 @@ class ProviderCredentialPayload(BaseModel):
 
 @router.get("/catalog")
 async def get_ai_catalog():
-    cfg = load_params(strict_env=False)
-    ai_cfg = dict(cfg.get("ai", {}) or {})
-    return {
-        "catalog": get_ai_catalog_with_status(ai_cfg),
-        "config": sanitize_ai_config(ai_cfg),
-    }
+    # to_thread: the provider list is now fed by the model catalog, whose
+    # loader does blocking I/O (disk cache / short HTTP fetches).
+    def _load():
+        cfg = load_params(strict_env=False)
+        ai_cfg = dict(cfg.get("ai", {}) or {})
+        return {
+            "catalog": get_ai_catalog_with_status(ai_cfg),
+            "config": sanitize_ai_config(ai_cfg),
+        }
+
+    return await asyncio.to_thread(_load)
 
 
 @router.post("/providers/{provider_id}/credentials", dependencies=[Depends(require_role("admin"))])
@@ -254,10 +259,61 @@ async def get_model_registry():
 async def get_model_catalog(refresh: bool = False):
     """Provider → model catalog (ids + cost/context/capabilities) feeding the
     registry UI dropdowns. Sources: models.dev (day-cached) → disk cache →
-    vendored JSON, plus the live Ollama model list. to_thread: the loader does
-    blocking I/O (disk + short HTTP fetches) and must not freeze the event loop."""
+    vendored JSON, plus the live Ollama model list. Each provider is annotated
+    with `connected` (credential/env present, or local) so the UI can group
+    usable providers and flag registry rows the router would skip. to_thread:
+    the loader does blocking I/O (disk + short HTTP fetches) and must not
+    freeze the event loop."""
     from backend.agent.model_catalog import load_catalog
-    return await asyncio.to_thread(load_catalog, refresh)
+    from backend.security.ai_credentials import is_provider_connected
+
+    def _load():
+        catalog = load_catalog(refresh)
+        providers_cfg = dict(
+            (load_params(strict_env=False).get("ai", {}) or {}).get("providers") or {})
+        # Copy before annotating: load_catalog memoizes and returns the SAME
+        # dict across requests — mutating it would freeze a stale connection
+        # state into the cache.
+        annotated = dict(catalog)
+        annotated["providers"] = [
+            {**p, "connected": is_provider_connected(
+                p.get("id", ""),
+                providers_cfg.get(p.get("id")) if p.get("id") in providers_cfg else None,
+            )}
+            for p in catalog.get("providers", [])
+        ]
+        return annotated
+
+    return await asyncio.to_thread(_load)
+
+
+@router.get("/usage")
+async def get_ai_usage():
+    """Current-period AI spend: USD + the Settings currency, cap, ratio and a
+    per-model breakdown. to_thread: reads the ledger from disk and may do one
+    short FX fetch."""
+    from backend.agent.model_router import budget_status
+    return await asyncio.to_thread(budget_status)
+
+
+def _sanitize_budget(raw: dict) -> dict:
+    """Keep only known budget keys, safely typed; drop everything else."""
+    budget: dict = {
+        "prefer_local": bool(raw.get("prefer_local")),
+        "prefer_local_below": int(raw.get("prefer_local_below") or 0),
+    }
+    if raw.get("remaining_tokens") not in (None, ""):
+        try:
+            budget["remaining_tokens"] = int(raw["remaining_tokens"])
+        except (TypeError, ValueError):
+            pass
+    try:
+        cap = float(raw.get("monthly_cost_cap") or 0)
+        if cap > 0:
+            budget["monthly_cost_cap"] = round(cap, 2)
+    except (TypeError, ValueError):
+        pass
+    return budget
 
 
 @router.put("/models", dependencies=[Depends(require_role("admin"))])
@@ -295,7 +351,7 @@ async def set_model_registry(payload: ModelsPayload):
     ai_cfg = dict(current_config.get("ai") or {})
     ai_cfg["models"] = cleaned
     if payload.budget is not None:
-        ai_cfg["budget"] = dict(payload.budget)
+        ai_cfg["budget"] = _sanitize_budget(dict(payload.budget))
     current_config["ai"] = ai_cfg
 
     yaml_text = yaml.safe_dump(

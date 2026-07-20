@@ -8,6 +8,7 @@ import asyncio
 import logging
 import os
 from backend.agent.factory import create_agent_workflow
+from backend.agent.model_router import record_llm_usage, usage_from_message
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
@@ -141,6 +142,10 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                         "model": llm_selection.get("model"),
                     }) + "\n"
 
+                # Spend ledger: every AIMessage in the stream carries
+                # usage_metadata; accumulate and record once per turn.
+                total_in_tok = 0
+                total_out_tok = 0
                 async with AsyncSqliteSaver.from_conn_string(str(db_path)) as saver:
                     agent_app = workflow.compile(checkpointer=saver)
                     async for event in agent_app.astream(inputs, config=config, stream_mode="updates"):
@@ -148,6 +153,10 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                             if "messages" in state_update:
                                 messages = state_update["messages"]
                                 for msg in messages:
+                                    turn_usage = usage_from_message(msg)
+                                    if turn_usage:
+                                        total_in_tok += turn_usage[0]
+                                        total_out_tok += turn_usage[1]
                                     # Determine the type of content to send to the frontend
                                     payload = {
                                         "type": "message",
@@ -169,6 +178,16 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                                     
                                     if payload["content"] or payload["type"] != "message":
                                         yield json.dumps(payload) + "\n"
+
+                if total_in_tok or total_out_tok:
+                    # to_thread: the ledger does file I/O under a lock
+                    await asyncio.to_thread(
+                        record_llm_usage,
+                        (llm_selection or {}).get("provider"),
+                        (llm_selection or {}).get("model"),
+                        total_in_tok,
+                        total_out_tok,
+                    )
 
             except Exception as e:
                 error_str = str(e)

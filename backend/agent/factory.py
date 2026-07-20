@@ -101,6 +101,16 @@ def _resolve_auto_llm(message: str, providers_cfg: dict, fallback_provider: str,
         budget = dict((cfg.get("ai", {}) or {}).get("budget", {}) or {})
     except Exception:
         pass
+    try:
+        # Money cap: convert the Settings-currency cap to USD and inject the
+        # period spend so route_model can hard-stop at the ceiling.
+        from backend.agent.model_router import budget_status
+        status = budget_status()
+        if status.get("cap_usd"):
+            budget["cost_cap_usd"] = status["cap_usd"]
+            budget["spent_usd"] = status["spent_usd"]
+    except Exception:
+        pass
 
     decision = route_model(message, registry, is_available=_avail, usage=usage, budget=budget)
     if decision.get("provider") and decision.get("model_id"):
@@ -247,6 +257,23 @@ def get_llm(
                 **req_timeout_kwargs,
             )
 
+        # Any other catalog provider: OpenAI-compatible path with a known base
+        # URL (curated compat map, or the `api` field models.dev publishes —
+        # 132/167 providers are @ai-sdk/openai-compatible). Makes the whole
+        # catalog usable without adding per-provider SDK dependencies.
+        from backend.agent.model_catalog import catalog_base_url
+        compat_url = catalog_base_url(provider)
+        if compat_url and model:
+            from langchain_openai import ChatOpenAI
+            log.debug(
+                f"Instantiating catalog provider '{provider}' via OpenAI-compatible URL {compat_url}")
+            return ChatOpenAI(
+                model=model,
+                api_key=api_key or "no-key",
+                base_url=compat_url,
+                **req_timeout_kwargs,
+            )
+
     except Exception as e:
         log.error(f"❌ Error instantiating LLM for provider '{provider}': {e}")
         return None
@@ -256,7 +283,10 @@ def get_llm(
 
 
 def _get_hybrid_llm(timeout: Optional[float] = None):
-    """Fallback logic looking for any available provider beyond the primary choice."""
+    """Fallback logic looking for any available provider beyond the primary choice.
+
+    Returns (llm, provider, model) so callers can attribute usage; (None, None,
+    None) when no fallback provider has a key."""
     # List of fallback providers to check in order of quality/availability
     fallbacks = [
         ("openai", "gpt-4o-mini"),
@@ -265,10 +295,10 @@ def _get_hybrid_llm(timeout: Optional[float] = None):
         ("groq", "llama-3.1-8b-instant"),
         ("ollama", "llama3.2:latest"),
     ]
-    
+
     from backend.security.ai_credentials import resolve_provider_api_key
     from backend.config.app_config import load_params
-    
+
     # We need a fresh check of providers from config
     p_cfg = load_params(strict_env=False).ai.get("providers", {})
 
@@ -276,15 +306,17 @@ def _get_hybrid_llm(timeout: Optional[float] = None):
         key = resolve_provider_api_key(p_name, p_cfg.get(p_name))
         if key:
             log.info(f"Using emergency fallback LLM: {p_name} / {m_name}")
-            return get_llm(
+            llm = get_llm(
                 provider=p_name,
                 model=m_name,
                 api_key=key,
                 base_url=p_cfg.get(p_name, {}).get("base_url"),
                 timeout=timeout,
             )
+            if llm:
+                return llm, p_name, m_name
 
-    return None
+    return None, None, None
 
 
 def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
@@ -304,6 +336,15 @@ def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
     per provider (incompatible with the current provider schema).
     
     """
+    llm, _, _ = get_default_llm_with_meta(user_message=user_message, timeout=timeout)
+    return llm
+
+
+def get_default_llm_with_meta(
+    user_message: str = "", timeout: Optional[float] = None,
+) -> tuple:
+    """Like `get_default_llm` but returns (llm, provider, model) so callers can
+    attribute token usage to the model that actually answered."""
     ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
     providers = ai_cfg.get("providers", {}) or {}
     agents = ai_cfg.get("agents", []) or []
@@ -338,8 +379,13 @@ def get_default_llm(user_message: str = "", timeout: Optional[float] = None):
         )
 
     if not llm:
-        llm = _get_hybrid_llm(timeout=timeout)
-    return llm
+        llm, provider_name, model_name = _get_hybrid_llm(timeout=timeout)
+    if not llm:
+        return None, None, None
+    # The model actually instantiated (get_llm applies its own defaults when
+    # model_name is None) — read it back so the usage ledger stays truthful.
+    actual_model = getattr(llm, "model_name", None) or getattr(llm, "model", None) or model_name
+    return llm, provider_name, str(actual_model) if actual_model else None
 
 
 def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tuple[str, str]:
@@ -347,11 +393,12 @@ def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tup
 
     Raises RuntimeError if no AI provider is available, so that the
     caller can gracefully degrade (HTTP 503 / reminder without an agenda).
-    
+
     """
     from langchain_core.messages import HumanMessage
 
-    llm = get_default_llm(user_message=user_message or prompt[:200], timeout=timeout)
+    llm, provider_name, model_name = get_default_llm_with_meta(
+        user_message=user_message or prompt[:200], timeout=timeout)
     if not llm:
         raise RuntimeError("No AI provider available")
     # The timeout already lives in the client (get_default_llm→get_llm). Do NOT pass
@@ -360,6 +407,13 @@ def generate_text(prompt: str, user_message: str = "", timeout: int = 60) -> tup
     text = getattr(resp, "content", "") or ""
     if not isinstance(text, str):
         text = str(text)
+
+    # Feed the spend ledger (best-effort, never breaks the response)
+    from backend.agent.model_router import record_llm_usage, usage_from_message
+    usage = usage_from_message(resp)
+    if usage:
+        record_llm_usage(provider_name, model_name, usage[0], usage[1])
+
     label = getattr(llm, "model_name", None) or getattr(llm, "model", None) or "ai"
     return text, str(label)
 

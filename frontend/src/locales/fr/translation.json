@@ -414,8 +414,21 @@
         "remove_model": "Retirer",
         "custom_option": "Personnalisé…",
         "back_to_list": "Revenir à la liste",
-        "catalog_hint": "Catalogue de modèles mis à jour automatiquement (source : {{source}})."
-      }
+        "catalog_hint": "Catalogue de modèles mis à jour automatiquement (source : {{source}}).",
+        "connected_group": "Connectés",
+        "all_providers_group": "Tous les fournisseurs",
+        "not_connected_badge": "Non connecté",
+        "not_connected_tooltip": "Le routeur ignorera ce modèle : le fournisseur n'a aucun identifiant configuré. Connectez-le dans « Fournisseurs de modèles ».",
+        "cost_cap_label": "Plafond de dépense mensuel",
+        "cost_cap_none": "(sans plafond)",
+        "spent_this_month": "Dépensé ce mois-ci",
+        "budget_exhausted_warning": "Plafond atteint : le routeur n'utilisera que des modèles à coût 0 (locaux).",
+        "spend_breakdown": "Détail par modèle"
+      },
+      "provider_search_placeholder": "Rechercher parmi {{count}} fournisseurs…",
+      "provider_doc_link": "Documentation ↗",
+      "env_hint": "Alternative : définissez {{vars}} dans l'environnement du backend.",
+      "local_no_key": "Local — aucune clé API requise"
     },
     "footer": {
       "close": "Fermer",
