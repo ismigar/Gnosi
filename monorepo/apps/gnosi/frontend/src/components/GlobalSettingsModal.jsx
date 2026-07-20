@@ -3990,7 +3990,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     aiCatalog={aiCatalog}
                 />
             )}
-            <UnifiedAIProviderModal 
+            {/* Mount-on-open: the modal seeds selectedId/baseUrl from
+                editingProvider via useState INITIAL values, so a permanently
+                mounted instance kept the state from its very first render —
+                the per-provider ⚙️ opened "Configurar X" with an empty,
+                disabled select and no API-key field. Remounting on each open
+                also clears the previous api_key from the password input. */}
+            {isConnectModalOpen && <UnifiedAIProviderModal
                 isOpen={isConnectModalOpen}
                 onClose={() => setIsConnectModalOpen(false)}
                 aiCatalog={aiCatalog}
@@ -4011,7 +4017,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                     triggerAutoSave(false);
                     setIsConnectModalOpen(false);
                 }}
-            />
+            />}
         </>
     );
 }
