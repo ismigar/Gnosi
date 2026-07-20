@@ -9,9 +9,12 @@ canonical Recursos column names (see the directive
 `Lloc`, `Volum`, `Número`, `Pàgines`, `Edició`, `DOI`, `ISBN`, `ISSN`, `URL`,
 `Idioma`, `Title`, `Títol del llibre`.
 
-`Item Type` is saved with Zotero-style values (English), which the
-`zotero_schema` skill (see `backend/services/zotero_schema.py`) automatically
-maps to CSL via `_resolve_csl_type`.
+`Item Type` spaces: **parsing** emits the canonical Zotero key (`'book'`) —
+the write boundary (`vault_routes` import endpoint) converts it to the label
+of the target table's select catalog via `normalize_item_type`, so the vault
+only ever stores catalog labels. **Serializing** accepts BOTH spaces
+(`'Llibre'` or `'book'`) through `resolve_zotero_item_type`; without it,
+every label-typed record exported as `@misc`/`GEN`.
 """
 from __future__ import annotations
 
