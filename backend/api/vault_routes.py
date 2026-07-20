@@ -6176,6 +6176,49 @@ def _inject_citation_key(suggested: dict) -> dict:
     return suggested
 
 
+def _item_type_catalog_names(table: Optional[dict], registry: Optional[dict] = None) -> List[str]:
+    """Option names of a table's 'Item Type' select catalog ([] if none).
+
+    Same name normalization as `_citation_key_prop_name` (lowercase, no
+    spaces) so an equivalent column name ('item type') still counts. Passing
+    the registry resolves `config.catalog_ref` shared catalogs too.
+    """
+    from backend.services.option_catalogs import get_prop_options
+    for p in (table or {}).get('properties') or []:
+        if str(p.get('name') or '').lower().replace(' ', '') == 'itemtype':
+            return [o['name'] for o in get_prop_options(p, (registry or {}).get('option_catalogs'))]
+    return []
+
+
+def _normalize_suggested_item_type(suggested: dict) -> dict:
+    """Rewrites `suggested['Item Type']` (canonical Zotero key) into the label
+    the designated references table's catalog uses.
+
+    Every suggestion path (lookup by identifier, web capture, PDF recognition)
+    calls this right before responding, and the modal applies the suggested
+    values verbatim — so the vault only ever stores catalog labels and
+    grouping/filtering by Item Type never splits 'Llibre' vs 'book'. The
+    resolution ranking lives in `csl_type_resolver.normalize_item_type`.
+    Best-effort: with no designated table (or no catalog) bare keys still
+    become a human label in the catalog's inferred locale, en-US as last resort.
+    """
+    if not isinstance(suggested, dict) or not suggested.get('Item Type'):
+        return suggested
+    from backend.services.csl_type_resolver import normalize_item_type
+    table = registry = None
+    try:
+        tid = get_reference_table_id()
+        if tid:
+            registry = load_registry()
+            table = next((t for t in registry.get('tables', []) if t.get('id') == tid), None)
+    except Exception as e:
+        log.warning(f"item-type normalization: reference table unavailable: {e}")
+    suggested['Item Type'] = normalize_item_type(
+        str(suggested['Item Type']), _item_type_catalog_names(table, registry),
+    )
+    return suggested
+
+
 def _citation_key_prop_name(table: Optional[dict]) -> Optional[str]:
     """Actual name of the 'Citation Key' column of a citable table, or None.
 
@@ -7034,7 +7077,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     return {
                         'source': 'crossref',
                         'identifier': doi,
-                        'suggested': _inject_citation_key(_crossref_to_recursos(work)),
+                        'suggested': _normalize_suggested_item_type(_inject_citation_key(_crossref_to_recursos(work))),
                         'error': None,
                     }
             except json.JSONDecodeError:
@@ -7044,7 +7087,7 @@ async def lookup_metadata(payload: dict = Body(...)):
     if arxiv_id:
         body = await asyncio.to_thread(_http_get, f'http://export.arxiv.org/api/query?id_list={arxiv_id}')
         if body:
-            sug = _inject_citation_key(_arxiv_to_recursos(body))
+            sug = _normalize_suggested_item_type(_inject_citation_key(_arxiv_to_recursos(body)))
             if sug:
                 return {
                     'source': 'arxiv',
@@ -7067,7 +7110,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     return {
                         'source': 'pubmed',
                         'identifier': pmid,
-                        'suggested': _inject_citation_key(_pubmed_to_recursos(doc)),
+                        'suggested': _normalize_suggested_item_type(_inject_citation_key(_pubmed_to_recursos(doc))),
                         'error': None,
                     }
             except json.JSONDecodeError:
@@ -7087,7 +7130,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     return {
                         'source': 'openlibrary',
                         'identifier': isbn,
-                        'suggested': _inject_citation_key(_openlibrary_to_recursos(book)),
+                        'suggested': _normalize_suggested_item_type(_inject_citation_key(_openlibrary_to_recursos(book))),
                         'error': None,
                     }
             except json.JSONDecodeError:
@@ -7100,7 +7143,7 @@ async def lookup_metadata(payload: dict = Body(...)):
             return {
                 'source': 'url',
                 'identifier': url,
-                'suggested': _inject_citation_key(_html_meta_to_recursos(body, url)),
+                'suggested': _normalize_suggested_item_type(_inject_citation_key(_html_meta_to_recursos(body, url))),
                 'error': None,
             }
         return {'source': 'url', 'identifier': url, 'suggested': {}, 'error': "No s'ha pogut descarregar la pàgina"}
@@ -7291,7 +7334,8 @@ async def recognize_pdf(file: UploadFile = File(...)):
     # PDF's own metadata / filename instead of failing. Any detected id is kept.
     fallback = await asyncio.to_thread(_pdf_fallback_to_recursos, data, file.filename or "", ids)
     if fallback:
-        return {"identifiers": ids, "source": "pdf", "suggested": fallback, "error": None}
+        return {"identifiers": ids, "source": "pdf",
+                "suggested": _normalize_suggested_item_type(fallback), "error": None}
     return {"identifiers": ids, "source": None, "suggested": {},
             "error": "No s'ha pogut extreure cap metadada del PDF"}
 
@@ -7390,7 +7434,7 @@ async def translate_url(payload: dict = Body(...)):
         return {'source': 'web', 'identifier': url, 'suggested': {},
                 'error': "No s'ha pogut extreure cap referència de la URL"}
 
-    suggested = _inject_citation_key(items[0])
+    suggested = _normalize_suggested_item_type(_inject_citation_key(items[0]))
     if not suggested.get('URL'):
         suggested['URL'] = url
     return {'source': 'web', 'identifier': url, 'suggested': suggested,
@@ -7496,6 +7540,11 @@ async def import_references(
     if not table:
         raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
 
+    # Write-space normalization: parsed entries carry canonical Zotero keys
+    # ('book'); the vault stores the TARGET table's catalog labels ('Llibre').
+    from backend.services.csl_type_resolver import normalize_item_type
+    item_type_catalog = _item_type_catalog_names(table, registry)
+
     vault_keys = _existing_citation_keys()
     v_path = get_active_vault_path()
     dedup = _build_dedup_indexes(str(v_path)) if v_path else {'doi': {}, 'isbn': {}, 'title': {}}
@@ -7523,6 +7572,8 @@ async def import_references(
                 ck = generate_citation_key(e.get('Authors'), e.get('Any'), e.get('Title') or '', used)
             e['Citation Key'] = ck
             used.add(ck)
+            if e.get('Item Type'):
+                e['Item Type'] = normalize_item_type(str(e['Item Type']), item_type_catalog)
             title = e.get('Title') or ck
             meta = dict(e)
             meta['database_table_id'] = table_id
