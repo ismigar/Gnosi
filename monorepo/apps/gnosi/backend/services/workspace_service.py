@@ -74,7 +74,7 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
     if not user:
         from backend.services.auth_service import PLACEHOLDER_EMAIL, require_auth_enabled
 
-        if require_auth_enabled():
+        if require_auth_enabled(db):
             # Enforcement on: only an authenticated identity gets here, and a
             # real one already has a row. Auto-creating would re-open the door
             # the flag closes — an unknown id would still mint an account that
@@ -190,10 +190,12 @@ def get_workspace_context(
     project_root = params.paths.get("PROJECT_DIR")
     default_vault_path = params.paths.get("VAULT")
 
-    # Resolve the user: priority JWT > X-User-ID > legacy "ismael-legacy".
-    # `auth_uid` ve d'`auth_service.get_current_user_id` (cookie/Bearer).
-    from backend.services.auth_service import get_user_id_or_legacy
-    resolved_user_id = get_user_id_or_legacy(auth_uid, x_user_id)
+    # Resolve the user: a credential (cookie/Bearer, already in `auth_uid`), or
+    # the install's sole local account. `x_user_id` is accepted as a parameter
+    # only so FastAPI keeps declaring the header — it is NOT an identity source;
+    # see `resolve_effective_user_id`.
+    from backend.services.auth_service import resolve_effective_user_id
+    resolved_user_id = resolve_effective_user_id(auth_uid, db)
 
     # PERSONAL MODE: one workspace, but optional multi-vault (X-Vault-Id; defaults to the main one)
     if params.gnosi_mode == "personal":

@@ -3,9 +3,10 @@
 This is phase 2 of removing the `ismael-legacy` fallback (see
 `docs/dev_memory/directives/auth_remove_legacy_fallback.md`). `enforce_authentication`
 below is wired in as an app-wide dependency, so this list IS the enforcement:
-everything not named here needs an identity once `GNOSI_REQUIRE_AUTH` is on.
-Exemptions live together and carry a reason, instead of being scattered across
-routers as forgotten defaults.
+everything not named here needs an identity wherever the policy demands one
+(`auth_service.require_auth_enabled` — exposed deployments and multi-account
+installs). Exemptions live together and carry a reason, instead of being
+scattered across routers as forgotten defaults.
 
 Three reasons an endpoint belongs here, and no others:
 
@@ -72,13 +73,14 @@ async def enforce_authentication(conn: HTTPConnection) -> None:
     default until someone remembered. Here the default is closed and being
     public is the thing you have to write down.
 
-    A no-op while `GNOSI_REQUIRE_AUTH` is off, which is what makes this branch
-    safe to merge before the clients have been migrated. "No-op" has to mean it:
-    the DB session is opened INSIDE, on the one path that needs it, rather than
-    declared as `Depends(get_mgmt_db)`. FastAPI resolves dependencies before the
-    body runs, so as a parameter it was checked out and returned on EVERY
-    request — the watchdog probe included — against a single-writer SQLite file,
-    on installs that never enabled enforcement.
+    A no-op where the policy does not demand a credential — a local
+    single-user install. "No-op" has to mean it: the DB session is opened
+    INSIDE, on the one path that needs it, rather than declared as
+    `Depends(get_mgmt_db)`. FastAPI resolves dependencies before the body runs,
+    so as a parameter it was checked out and returned on EVERY request — the
+    watchdog probe included — against a single-writer SQLite file, on installs
+    that require no authentication at all. `require_auth_enabled()` is called
+    without a session here for the same reason; it reads a short-lived cache.
     """
     if not require_auth_enabled():
         return
