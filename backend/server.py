@@ -267,19 +267,35 @@ app = FastAPI(
     dependencies=[Depends(enforce_authentication)],
 )
 
-# CORS — `allow_origins=["*"]` + `allow_credentials=True` is invalid per
-# spec (the browser rejects the response with a CORS error). If at some point
-# cookies/credentials are needed, explicit origins must be set here.
-# In personal mode we don't use cross-origin credentials, so it's safe to leave
-# wildcard with credentials=False. CORS_ORIGINS env var allows an override
-# explicit (comma-separated) without needing to redeploy.
+# CORS — the default is every loopback origin, and nothing else.
+#
+# It used to be `allow_origins=["*"]`, which combined with an API that served
+# unauthenticated requests meant ANY page the user had open could read the whole
+# vault: `fetch('http://localhost:5002/api/vault/pages')` from an arbitrary site
+# got a 200, and the wildcard then authorised that site's JavaScript to read the
+# body. Binding to loopback does not help — the browser is already inside.
+#
+# A regex rather than a fixed list because the local origin legitimately varies:
+# the Vite dev server picks a port, `vite preview` picks another, and the Word
+# add-in webview arrives from its own. All of them are this machine; a remote
+# page is not, and that is the whole distinction being drawn.
+#
+# Credentials stay OFF unless origins are listed explicitly, which is the rule
+# that was already here. Nothing legitimate needs them cross-origin: the
+# frontend reaches `/api` through the Vite proxy (same-origin), and the
+# non-browser clients authenticate with a PAT in an `Authorization` header,
+# which is not an ambient credential and rides no cookie. Allowing them would
+# let another page served from this machine — a different local dev server —
+# make requests carrying the session cookie AND read the answers, since
+# `SameSite=Lax` does not separate two ports of the same host.
 _cors_origins_env = os.environ.get("CORS_ORIGINS", "").strip()
-_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()] or ["*"]
-_cors_credentials = bool(_cors_origins_env)  # only if the user has listed origins
+_cors_origins = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+_LOOPBACK_ORIGIN_RE = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=_cors_credentials,
+    allow_origin_regex=None if _cors_origins else _LOOPBACK_ORIGIN_RE,
+    allow_credentials=bool(_cors_origins_env),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -390,8 +406,11 @@ async def health_check():
         "status": "ok",
         "mode": "FastAPI",
         "gnosi_mode": cfg.gnosi_mode,
-        # The frontend gates the login screen on this: with enforcement on,
-        # even personal mode needs a session (App.jsx).
+        # The frontend gates the login screen on this (App.jsx). It reports the
+        # EFFECTIVE policy, not the env var: on a local single-user install the
+        # answer is False and the app opens without a login screen, and it flips
+        # to True on its own once the install stops being one — a second
+        # account, org mode, or a Docker deployment.
         "require_auth": require_auth_enabled(),
         "vault_configured": cfg.paths.get("VAULT") is not None,
     }

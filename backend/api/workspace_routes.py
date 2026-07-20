@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Header
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from backend.data.management_db import get_mgmt_db
@@ -8,7 +8,11 @@ from backend.models.management import (
     AddMemberRequest, VaultAccessRequest, VaultAccessResponse,
     WorkspaceBase, UserRole
 )
-from backend.services.auth_service import normalize_email, require_auth_enabled
+from backend.services.auth_service import (
+    get_effective_user_id,
+    normalize_email,
+    require_auth_enabled,
+)
 from backend.services.workspace_service import require_role, get_workspace_context, WorkspaceContext, require_capability
 from typing import List
 import json
@@ -19,22 +23,21 @@ router = APIRouter(prefix="/api/workspaces", tags=["workspaces"])
 @router.post("", response_model=WorkspaceResponse)
 async def create_workspace(
     request: WorkspaceBase,
-    x_user_id: str = Header(...),
+    x_user_id: str = Depends(get_effective_user_id),
     db: Session = Depends(get_mgmt_db)
 ):
-    # 1. Find or create user
+    # 1. Find the creator. This used to read `X-User-ID` straight off the
+    # request, which made it the second header-driven account factory (the
+    # other was `_ensure_personal_exists`): an unauthenticated caller could
+    # mint a User AND a Workspace owned by it, with a predictable
+    # `{x_user_id}@example.com` address. The id now comes from a credential or
+    # from the sole local account, so there is nothing left to mint from.
     user = db.query(User).filter(User.id == x_user_id).first()
     if not user:
-        if require_auth_enabled():
-            # Second header-driven account factory (the other is
-            # `_ensure_personal_exists`). `x_user_id` is a plain request header,
-            # so without this an unauthenticated caller could still mint a User
-            # AND a Workspace owned by it — with a predictable
-            # `{x_user_id}@example.com` address — while the flag closed the
-            # other door.
+        if require_auth_enabled(db):
             raise HTTPException(status_code=401, detail="Cal autenticació")
 
-        # If it doesn't exist, we create it with minimal data
+        # Bootstrap only: the id is fixed by the resolver, not caller-chosen.
         user = User(id=x_user_id, name="User",
                     email=normalize_email(f"{x_user_id}@example.com"),
                     auto_provisioned=True)
@@ -81,7 +84,7 @@ async def create_workspace(
 
 @router.get("", response_model=List[WorkspaceResponse])
 async def list_workspaces(
-    x_user_id: str = Header(...),
+    x_user_id: str = Depends(get_effective_user_id),
     db: Session = Depends(get_mgmt_db)
 ):
     # Get all the user's members along with their workspace
@@ -252,7 +255,7 @@ async def remove_workspace_member(
 @router.get("/{workspace_id}", response_model=WorkspaceResponse)
 async def get_workspace(
     workspace_id: str,
-    x_user_id: str = Header(...),
+    x_user_id: str = Depends(get_effective_user_id),
     db: Session = Depends(get_mgmt_db)
 ):
     # Validate that the user has access

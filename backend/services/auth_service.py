@@ -1,9 +1,9 @@
 """Authentication service — JWT cookies + bcrypt password hashing.
 
 This layer replaces the legacy `X-User-ID` header with real JWT-based
-authentication. We maintain compatibility with the X-User-ID header
-for existing scripts/Docker (`get_user_id_or_legacy()` applies a
-non-breaking fallback).
+authentication. The header is no longer an identity source in any
+configuration: `resolve_effective_user_id()` accepts a credential the caller
+cannot mint, or the install's sole local account, and nothing else.
 
 Tokens:
   - HS256 signed with `GNOSI_JWT_SECRET` (env var; hardcoded dev fallback).
@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -52,30 +53,143 @@ BCRYPT_ROUNDS = 12
 BCRYPT_MAX_PASSWORD_BYTES = 72
 
 
-# ---------- Enforcement flag ----------
+# ---------- Enforcement policy ----------
 
-# Phase 4 of the legacy-fallback removal (see
-# `docs/dev_memory/directives/auth_remove_legacy_fallback.md`). While this is
-# off — the default — nothing changes: an unauthenticated request still resolves
-# to the legacy account, exactly as before.
+# Whether a request needs a credential is derived from HOW THE INSTALL IS
+# EXPOSED, not from a flag someone has to remember to set.
 #
-# When it is on, only a credential the caller cannot mint counts as an identity:
-# a session JWT or a Personal Access Token. `X-User-ID` stops being honoured,
-# because it is a plain request header — trusting it is what lets an
-# unauthenticated caller pick who they are and mint `owner` accounts along the
-# way.
+# The reason is that a login screen is not free: on a single-user local install
+# it is a promise the system does not keep. The password encrypts nothing (the
+# vault is plain Markdown on disk), losing it costs a script run, and the screen
+# is indistinguishable from a cloud product's — so it teaches the user that
+# their local-first tool is talking to a server somewhere. That is a real cost
+# in trust, and it should only be paid where it buys something.
 #
-# Read at call time, not import time, so a deployment can flip it with a restart
-# and tests can exercise both sides without reimporting the module.
+# What it buys is protection against callers the OS login does not already
+# cover. Those exist when the API is reachable beyond this machine's own user:
+#
+#   * Docker — binds 0.0.0.0 and is the self-host deployment shape.
+#   * Org mode — the product is multi-tenant by definition there.
+#   * More than one account — ambient identity becomes ambiguous, so there is
+#     no safe answer to "who is this?" without a credential.
+#
+# A native personal install with one account is none of those: the process runs
+# as the user, bound to loopback, reading their own files. `X-User-ID` used to
+# be the hole in that reasoning, and it is now closed unconditionally (see
+# `resolve_effective_user_id`) rather than only while a flag is on.
+#
+# The env var stays as an explicit override in BOTH directions, because the
+# autodetection cannot see everything: a native backend deliberately bound to
+# 0.0.0.0 needs `1`, and a Docker install on a trusted private host may want `0`.
 REQUIRE_AUTH_ENV = "GNOSI_REQUIRE_AUTH"
 
 _TRUTHY = {"1", "true", "yes", "on"}
+_FALSY = {"0", "false", "no", "off"}
 
 
-def require_auth_enabled() -> bool:
-    """True when unauthenticated requests must be rejected instead of falling
-    back to the legacy account."""
-    return os.environ.get(REQUIRE_AUTH_ENV, "").strip().lower() in _TRUTHY
+def auth_policy_override() -> Optional[bool]:
+    """The explicit `GNOSI_REQUIRE_AUTH` setting, or None when it is on `auto`.
+
+    Read at call time, not import time, so a deployment can flip it with a
+    restart and tests can exercise every branch without reimporting the module.
+    """
+    raw = os.environ.get(REQUIRE_AUTH_ENV, "").strip().lower()
+    if raw in _TRUTHY:
+        return True
+    if raw in _FALSY:
+        return False
+    return None
+
+
+def deployment_is_exposed() -> bool:
+    """True when the install is reachable beyond this machine's own user.
+
+    Deliberately conservative: anything this cannot positively identify as a
+    local personal install counts as exposed, so a new deployment shape fails
+    closed rather than silently serving an open API.
+    """
+    from backend.config.env_config import _is_docker
+
+    if _is_docker():
+        return True
+    try:
+        from backend.config.app_config import load_params
+
+        return load_params(strict_env=False).gnosi_mode == "org"
+    except Exception:
+        # Config unreadable during early startup: assume exposed.
+        log.warning("Could not read gnosi_mode; assuming an exposed deployment",
+                    exc_info=True)
+        return True
+
+
+# The autodetected half of the policy is cached: it is consulted by the
+# app-wide gate, i.e. on EVERY request, and both halves are expensive relative
+# to that — `load_params` reads YAML off disk and the account count needs a DB
+# session. Neither answer changes without a restart or a deliberate settings
+# change, so a few seconds of staleness costs nothing. Keeping the gate free of
+# per-request session checkouts was a deliberate property of the original
+# design (see `auth_public_surface.enforce_authentication`) and this preserves it.
+_AUTO_POLICY_TTL_SECONDS = 5.0
+_auto_policy_cache: Optional[tuple[float, bool]] = None
+
+
+def reset_auth_policy_cache() -> None:
+    """Drop the cached autodetection. For tests and for settings writes that
+    change `gnosi_mode`."""
+    global _auto_policy_cache
+    _auto_policy_cache = None
+
+
+def _auto_policy_requires_auth(db=None) -> bool:
+    """Whether the autodetected policy demands a credential.
+
+    Fails closed: if the deployment shape or the account count cannot be
+    determined, the answer is "yes". An install that cannot describe itself is
+    not one to serve an open API from.
+    """
+    if db is not None:
+        # The identity resolver holds a session and is about to hand out an
+        # identity, so it gets the exact answer rather than the cached one.
+        return deployment_is_exposed() or not ambient_identity_available(db)
+
+    global _auto_policy_cache
+    now = time.monotonic()
+    cached = _auto_policy_cache
+    if cached is not None and now - cached[0] < _AUTO_POLICY_TTL_SECONDS:
+        return cached[1]
+
+    gen = None
+    try:
+        if deployment_is_exposed():
+            value = True
+        else:
+            gen = get_mgmt_db()
+            value = not ambient_identity_available(next(gen))
+    except Exception:
+        log.warning("Auth policy autodetection failed; requiring authentication",
+                    exc_info=True)
+        value = True
+    finally:
+        if gen is not None:
+            gen.close()
+
+    _auto_policy_cache = (now, value)
+    return value
+
+
+def require_auth_enabled(db=None) -> bool:
+    """True when a request without a credential must be rejected.
+
+    Args:
+        db: optional management-DB session. Callers that already hold one
+            (the identity resolver) pass it to bypass the cache and get an
+            exact answer; the per-request gate does not, and reads the cache.
+    """
+    override = auth_policy_override()
+    if override is not None:
+        return override
+    return _auto_policy_requires_auth(db)
 
 
 # ---------- Personal Access Tokens ----------
@@ -130,6 +244,39 @@ PLACEHOLDER_EMAIL = "user@example.com"
 # The account every pre-auth install ends up owning everything through. Named
 # here so the fallback and the guards that reference it cannot drift apart.
 LEGACY_USER_ID = "ismael-legacy"
+
+
+def _account_count(db, cap: int = 2) -> int:
+    """How many accounts exist, counting no further than `cap`.
+
+    Capped because every caller only asks "none, one, or several?" and this runs
+    on the request path against a single-writer SQLite file.
+    """
+    from backend.models.management import User
+
+    return len(db.query(User.id).limit(cap).all())
+
+
+def ambient_identity_available(db) -> bool:
+    """True when an unauthenticated local request has exactly one possible answer.
+
+    One account is the obvious case. **Zero** counts too: a fresh install
+    bootstraps its single local account on first use, and demanding a signup
+    before the tool opens is precisely the cloud-shaped ceremony a local-first
+    app should not have.
+
+    Two or more is where it stops: there is no honest way to guess which of
+    them is calling, and picking one would hand the other's data over.
+    """
+    return _account_count(db, cap=2) < 2
+
+
+def sole_account_id(db) -> Optional[str]:
+    """The id of the install's only account, or None when there are 0 or 2+."""
+    from backend.models.management import User
+
+    rows = db.query(User.id).limit(2).all()
+    return rows[0][0] if len(rows) == 1 else None
 
 
 def is_auto_provisioned_email(value: str) -> bool:
@@ -396,6 +543,19 @@ def resolve_identity(conn, db_factory=None) -> Optional[str]:
     return None
 
 
+def get_effective_user_id(
+    auth_uid: Optional[str] = Depends(get_current_user_id),
+    db: Session = Depends(get_mgmt_db),
+) -> str:
+    """`resolve_effective_user_id` as a FastAPI dependency.
+
+    For endpoints that need to know who is calling but not which workspace, so
+    they do not have to reach for `X-User-ID` to find out — which is how three
+    routes in `workspace_routes` ended up trusting a caller-supplied id.
+    """
+    return resolve_effective_user_id(auth_uid, db)
+
+
 def require_authenticated(uid: Optional[str] = Depends(get_current_user_id)) -> str:
     """Dependency that **forces** authentication. Helper for protected
     endpoints that don't accept a legacy fallback.
@@ -415,33 +575,34 @@ def require_authenticated(uid: Optional[str] = Depends(get_current_user_id)) -> 
     return uid
 
 
-def get_user_id_or_legacy(
-    auth_uid: Optional[str] = None,
-    x_user_id: Optional[str] = None,
-) -> str:
-    """Fallback compatible with the legacy system.
+def resolve_effective_user_id(auth_uid: Optional[str], db) -> str:
+    """Who this request is, from the only two sources that can be trusted.
 
-    Priority:
-      1. JWT (cookie or Bearer) → real user.
-      2. `X-User-ID` header → explicit user_id (scripts, Docker init).
-      3. "ismael-legacy" → historical default for interactive sessions
-         without auth in a personal setup.
+    1. A credential the caller cannot mint — session cookie or PAT — already
+       resolved into `auth_uid`.
+    2. Being the install's sole local account, read from the DB.
 
-    This helper is used by `workspace_service.get_workspace_context`
-    to migrate gradually without breaking existing installations.
-    
+    `X-User-ID` is deliberately absent, and that is the point of this function.
+    It is a plain request header, so honouring it let any caller name
+    themselves: as the legacy account (a default published in this public
+    repo), or as an id that did not exist yet — which `_ensure_personal_exists`
+    would then MINT, with `owner` on the shared personal workspace. It used to
+    be ignored only while `GNOSI_REQUIRE_AUTH` was on, which made an open API
+    the price of not having a login screen. Those two things are now
+    independent: the header grants nothing either way, so a local install can
+    skip the login screen without also trusting whoever reaches the port.
+
+    Raises:
+        HTTPException: 401 when there is no credential and no unambiguous
+            local identity to fall back on.
     """
     if auth_uid:
         return auth_uid
 
-    if require_auth_enabled():
-        # Enforcement on: `X-User-ID` is deliberately NOT consulted. It is a
-        # plain request header, so honouring it would let a caller name
-        # themselves — including as the legacy account — and defeat the whole
-        # point of the flag. Non-browser clients authenticate with a PAT
-        # instead, which `get_current_user_id` resolves into `auth_uid`.
+    if require_auth_enabled(db):
         raise HTTPException(status_code=401, detail="Cal autenticació")
 
-    if x_user_id:
-        return x_user_id
-    return LEGACY_USER_ID
+    # Ambient local identity. `sole_account_id` returns None only on a fresh
+    # install (zero accounts), where the bootstrap below mints the single local
+    # account under a fixed id — fixed, and therefore not caller-chosen.
+    return sole_account_id(db) or LEGACY_USER_ID
