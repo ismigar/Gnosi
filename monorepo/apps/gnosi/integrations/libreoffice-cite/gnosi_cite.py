@@ -236,9 +236,25 @@ class DocOps(object):
     # -- key collection -----------------------------------------
 
     def unique_keys(self):
-        """Unique keys present in the document (for the bibliography)."""
+        """Unique keys present in the document, in DOCUMENT order.
+
+        Document order matters: `/format-bibliography` feeds the keys to
+        citeproc as `nocite` in the order given, and numeric styles (IEEE)
+        assign `citation-number` from it. `getElementNames()` returns the marks
+        in container (name) order, which made the bibliography numbering
+        disagree with the in-text `[1]`, `[2]` from `refresh_all` (document
+        order) — every number pointed at the wrong reference. Falls back to
+        container order if the portion enumeration fails (same body-only
+        limitation as `refresh_all`).
+        """
         seen = set()
         ordered = []
+        for _name, key in self._ordered_pairs():
+            if key and key not in seen:
+                seen.add(key)
+                ordered.append(key)
+        if ordered:
+            return ordered
         try:
             marks = self.doc.getReferenceMarks()
             for name in marks.getElementNames():
@@ -329,16 +345,21 @@ class DocOps(object):
         """Collects unique keys and inserts the bibliography at the end.
 
         Returns:
-            number of entries inserted (0 if there are no citations).
-        
+            (n_entries_inserted, missing_keys) — 0 entries if there are no
+            citations; `missing_keys` are keys the backend didn't resolve.
+
         """
         keys = self.unique_keys()
         if not keys:
-            return 0
+            return 0, []
         resp = api.format_bibliography(keys, style, locale)
         entries = resp.get("entries", []) if isinstance(resp, dict) else []
+        # Keys the backend could not resolve (deleted record, renamed Citation
+        # Key): the entry is simply absent from `entries`, so without surfacing
+        # this the user gets a silently incomplete bibliography.
+        missing = resp.get("missing", []) if isinstance(resp, dict) else []
         if not entries:
-            return 0
+            return 0, missing
         text = self.doc.getText()
         cur = text.createTextCursorByRange(text.getEnd())
         text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
@@ -355,7 +376,7 @@ class DocOps(object):
         for entry in entries:
             text.insertString(cur, entry, False)
             text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
-        return len(entries)
+        return len(entries), missing
 
 
 # ---------------------------------------------------------------------------
@@ -602,15 +623,22 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
     def _insert_bibliography(self):
         style, locale = self._persist()
         try:
-            n = self.ops.insert_bibliography(self.api, style, locale)
+            n, missing = self.ops.insert_bibliography(self.api, style, locale)
         except urllib.error.URLError:
             self._status("Sense connexió amb Gnosi (%s)." % self.api.base)
             return
         except Exception as exc:
             self._status("Error: %s" % exc)
             return
-        if n:
+        if n and missing:
+            self._status(
+                "Bibliografia inserida amb %d entrades. Sense resoldre: %s"
+                % (n, ", ".join(missing))
+            )
+        elif n:
             self._status("Bibliografia inserida amb %d entrades." % n)
+        elif missing:
+            self._status("Cap cita resolta. Sense resoldre: %s" % ", ".join(missing))
         else:
             self._status("No s'han trobat cites al document.")
 
@@ -790,11 +818,21 @@ class GnosiCiteHandler(unohelper.Base, XServiceInfo, XDispatchProvider,
             if cmd == "insertCitation":
                 CiteDialog(self.ctx, api, ops, cfg).show()
             elif cmd == "insertBibliography":
-                n = ops.insert_bibliography(api, cfg["style"], cfg["locale"])
-                self._msg(
-                    "Bibliografia inserida amb %d entrades." % n if n
-                    else "No s'han trobat cites al document."
-                )
+                n, missing = ops.insert_bibliography(api, cfg["style"], cfg["locale"])
+                if n and missing:
+                    self._msg(
+                        "Bibliografia inserida amb %d entrades.\nSense resoldre: %s"
+                        % (n, ", ".join(missing))
+                    )
+                elif n:
+                    self._msg("Bibliografia inserida amb %d entrades." % n)
+                elif missing:
+                    self._msg(
+                        "Cap cita resolta. Sense resoldre: %s" % ", ".join(missing),
+                        error=True,
+                    )
+                else:
+                    self._msg("No s'han trobat cites al document.")
             elif cmd == "refreshAll":
                 n, err = ops.refresh_all(api, cfg["style"], cfg["locale"])
                 if err == "no-cites":

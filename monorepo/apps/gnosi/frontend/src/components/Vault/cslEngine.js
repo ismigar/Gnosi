@@ -137,7 +137,16 @@ async function loadLocale(lang) {
  * `retrieveItem`. It must be passed so the ids are known.
  */
 export async function getEngine(styleId, locale, items) {
-    const style = AVAILABLE_STYLES.find(s => s.id === styleId) || AVAILABLE_STYLES[0];
+    // Uploaded styles: the static list only knows the canonical four, so any
+    // uploaded style id silently rendered as APA even though the picker showed
+    // it as active. Resolve through the backend catalog (cached) before
+    // falling back.
+    let style = AVAILABLE_STYLES.find(s => s.id === styleId);
+    if (!style && styleId) {
+        const dynamic = await fetchAvailableStyles();
+        style = dynamic.find(s => s.id === styleId);
+    }
+    if (!style) style = AVAILABLE_STYLES[0];
     const styleXml = await loadStyle(style.file);
     // Preloads the locales that the style and the user might need.
     // We always specify `en-US` as a fallback (most CSL styles
@@ -154,12 +163,15 @@ export async function getEngine(styleId, locale, items) {
         };
         engine = new CSL.Engine(sys, styleXml, locale);
         _engineCache.set(cacheKey, engine);
-    } else {
-        // Reused engine — the `sys.retrieveItem` needs to be updated so that
-        // it has the most recent items. citeproc-js has a `sys` property
-        // that's mutable, but recreating an engine is safe (the XML caches are kept).
-        engine.sys.retrieveItem = (id) => items[id] || null;
     }
+    // NOTE: `sys.retrieveItem` is NOT rebound here. The engine is shared and
+    // this function suspends at several `await`s, so a rebind inside it raced:
+    // when a page mounted several CiteInline chips at once (each with its own
+    // single-item map), caller A resumed AFTER caller B's rebind and rendered
+    // against B's items — retrieveItem returned null and the chip stayed as the
+    // raw key, non-deterministically. Each caller binds retrieveItem and renders
+    // in ONE synchronous block instead (see renderInlineCitation /
+    // renderBibliography).
     return engine;
 }
 
@@ -186,6 +198,10 @@ const LEGACY_TYPE_ALIASES = {
     'Article divulgatiu': 'article-magazine',
     'Tesis': 'thesis',
     'Manual': 'book',
+    // Legacy spelling of the canonical "Capítol d'un llibre" label. Without it a
+    // book chapter resolved to 'document' and APA dropped the whole
+    // "In <Editor> (Ed.), <Book title> (pp. x–y)" container.
+    'Secció de Llibre': 'chapter',
     'Ponència': 'paper-conference',
     'Curs': 'document',
     'Relat': 'document',
@@ -329,13 +345,17 @@ export function recursosPageToCsl(page) {
 export async function renderInlineCitation(citationKey, items, styleId = 'apa', locale = 'en-US') {
     if (!items[citationKey]) return `[?@${citationKey}]`;
     const engine = await getEngine(styleId, locale, items);
-    engine.updateItems([citationKey]);
+    // Bind the item source and render in the SAME synchronous block — no await
+    // in between — so concurrent renders can't see each other's items (see the
+    // note in getEngine).
+    engine.sys.retrieveItem = (id) => items[id] || null;
     // citeproc-js returns [[noteIndex, html, citationID]] for processCitationCluster
     const citationData = {
         properties: { noteIndex: 0 },
         citationItems: [{ id: citationKey }],
     };
     try {
+        engine.updateItems([citationKey]);
         const result = engine.processCitationCluster(citationData, [], []);
         // result format: [statusInfo, [[clusterIndex, html, clusterID], ...]]
         const clusters = result[1];
@@ -356,8 +376,10 @@ export async function renderInlineCitation(citationKey, items, styleId = 'apa', 
 export async function renderBibliography(citationKeys, items, styleId = 'apa', locale = 'en-US') {
     if (!citationKeys?.length) return null;
     const engine = await getEngine(styleId, locale, items);
-    engine.updateItems(citationKeys);
+    // Same synchronous bind-then-render discipline as renderInlineCitation.
+    engine.sys.retrieveItem = (id) => items[id] || null;
     try {
+        engine.updateItems(citationKeys);
         const bib = engine.makeBibliography();
         if (!bib || !bib[1]) return null;
         return { entries: bib[1], formatting: bib[0] };
