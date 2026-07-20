@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { Plus, Trash2, Save, Server, Cloud, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { ConfirmModal } from './ConfirmModal';
 
 /**
  * Editor for the router's model registry (data-driven) + budget policy.
@@ -51,6 +53,8 @@ export default function ModelRegistrySettings() {
     // Rows where the user chose free-text entry instead of the catalog dropdowns
     const [customProviderRows, setCustomProviderRows] = useState(() => new Set());
     const [customModelRows, setCustomModelRows] = useState(() => new Set());
+    // Pending row removal awaiting confirmation: {index, label} | null
+    const [confirmRemove, setConfirmRemove] = useState(null);
 
     const loadUsage = useCallback(async () => {
         // Spend panel is best-effort: the registry stays editable without it
@@ -98,6 +102,12 @@ export default function ModelRegistrySettings() {
         setCustomProviderRows(shift);
         setCustomModelRows(shift);
     };
+    const requestRemoveRow = (i) => {
+        const m = models[i] || {};
+        // Nothing typed yet → nothing to protect; skip the confirmation
+        if (!m.provider && !m.model_id) { removeRow(i); return; }
+        setConfirmRemove({ index: i, label: [m.provider, m.model_id].filter(Boolean).join(' · ') });
+    };
     const setRowCustom = (setter, i, on) => setter(prev => {
         const next = new Set(prev);
         if (on) next.add(i); else next.delete(i);
@@ -107,15 +117,27 @@ export default function ModelRegistrySettings() {
         tags: models[i].tags.includes(tag) ? models[i].tags.filter(t => t !== tag) : [...models[i].tags, tag],
     });
 
+    // Switching provider clears the model: also reset the per-model metadata
+    // to neutral defaults — otherwise the previous model's cost/context/tags
+    // linger in the fields and read as if they belonged to the new provider.
+    const MODEL_META_RESET = {
+        cost_in: 0, cost_out: 0,
+        context_window: EMPTY_MODEL.context_window,
+        quality: EMPTY_MODEL.quality, tags: [],
+    };
+
     const onProviderChange = (i, value) => {
         if (value === CUSTOM) {
             setRowCustom(setCustomProviderRows, i, true);
             setRowCustom(setCustomModelRows, i, true);
-            update(i, { provider: '', model_id: '' });
+            update(i, { provider: '', model_id: '', ...MODEL_META_RESET });
             return;
         }
         const entry = providersById[value];
-        update(i, { provider: value, model_id: '', ...(entry ? { is_local: !!entry.is_local } : {}) });
+        update(i, {
+            provider: value, model_id: '', ...MODEL_META_RESET,
+            ...(entry ? { is_local: !!entry.is_local } : {}),
+        });
         setRowCustom(setCustomModelRows, i, false);
     };
 
@@ -289,7 +311,7 @@ export default function ModelRegistrySettings() {
                                     onClick={() => update(i, { enabled: !m.enabled })}>
                                     <div className="gnosi-toggle-handle" />
                                 </div>
-                                <button title={ta('remove_model', 'Treure')} onClick={() => removeRow(i)}
+                                <button title={ta('remove_model', 'Treure')} onClick={() => requestRemoveRow(i)}
                                     style={{ ...iconBtn, color: 'var(--text-tertiary)' }}>
                                     <Trash2 size={16} />
                                 </button>
@@ -413,6 +435,31 @@ export default function ModelRegistrySettings() {
                 {saved && <span style={{ color: 'var(--gnosi-primary)', fontSize: '0.82rem', fontWeight: 700 }}>{ta('saved', '✓ Desat')}</span>}
                 {error && <span style={{ color: '#e05252', fontSize: '0.82rem' }}>{error}</span>}
             </div>
+
+            {/* Row removal confirmation. Portal to <body>: this component sits
+                inside the Settings panel, whose animated (transformed)
+                ancestors trap ConfirmModal's position:fixed overlay and clip
+                it invisible (memory feedback_fixed_portal_animated_ancestor).
+                Esc-wise the useModalKeyboard layer stack still guarantees only
+                this dialog closes, not the Settings modal underneath. */}
+            {confirmRemove && createPortal(
+                <ConfirmModal
+                    isOpen={!!confirmRemove}
+                    onClose={() => setConfirmRemove(null)}
+                    onConfirm={() => {
+                        if (confirmRemove) removeRow(confirmRemove.index);
+                        setConfirmRemove(null);
+                    }}
+                    title={ta('remove_confirm_title', 'Treure el model del registre?')}
+                    message={ta('remove_confirm_msg', {
+                        defaultValue: 'Es traurà «{{model}}» de la llista del router. El canvi s\'aplica quan premis «Desar models».',
+                        model: confirmRemove?.label || '',
+                    })}
+                    confirmText={ta('remove_model', 'Treure')}
+                    isDestructive={true}
+                />,
+                document.body,
+            )}
         </div>
     );
 }

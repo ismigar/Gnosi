@@ -423,7 +423,9 @@
         "cost_cap_none": "(sans plafond)",
         "spent_this_month": "Dépensé ce mois-ci",
         "budget_exhausted_warning": "Plafond atteint : le routeur n'utilisera que des modèles à coût 0 (locaux).",
-        "spend_breakdown": "Détail par modèle"
+        "spend_breakdown": "Détail par modèle",
+        "remove_confirm_title": "Retirer ce modèle du registre ?",
+        "remove_confirm_msg": "« {{model}} » sera retiré de la liste du routeur. Le changement s'applique en appuyant sur « Enregistrer les modèles »."
       },
       "provider_search_placeholder": "Rechercher parmi {{count}} fournisseurs…",
       "provider_doc_link": "Documentation ↗",

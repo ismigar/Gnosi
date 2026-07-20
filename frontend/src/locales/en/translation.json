@@ -1853,7 +1853,9 @@
         "cost_cap_none": "(no cap)",
         "spent_this_month": "Spent this month",
         "budget_exhausted_warning": "Cap reached: the router will only use zero-cost (local) models.",
-        "spend_breakdown": "Per-model breakdown"
+        "spend_breakdown": "Per-model breakdown",
+        "remove_confirm_title": "Remove this model from the registry?",
+        "remove_confirm_msg": "“{{model}}” will be removed from the router list. The change applies when you press “Save models”."
       },
       "provider_search_placeholder": "Search {{count}} providers…",
       "provider_doc_link": "Documentation ↗",
