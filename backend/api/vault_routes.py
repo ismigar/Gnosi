@@ -3815,8 +3815,12 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     metadata = _persist_metadata_assets(metadata)
 
     # Every new resource added (a table with a 'Citation Key' column) must remain
-    # citable, not just the one coming from the metadata lookup.
+    # citable, not just the one coming from the metadata lookup. An EXPLICIT key
+    # in the payload (create-from-source suggestion that went stale, API caller)
+    # must not collide with an existing record's — collisions silently shadow
+    # one of the two in citeproc.
     metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
+    metadata = _dedupe_citation_key(metadata, page_id)
 
     # Create-from-source: fill the structured `Autoría` column (never the legacy
     # `Authors` text one) so the import populates the field the user maintains
@@ -5397,22 +5401,30 @@ def _resolve_csl_path(style: str) -> Optional[Path]:
         'modern-language-association': 'modern-language-association.csl',
         'ieee': 'ieee.csl',
     }
-    style_file = style_map.get(style, 'apa.csl')
-    # Must resolve in BOTH deployment modes. The `/app/...` candidates only exist
-    # inside the Docker image; in NATIVE mode none of them did, `--csl` was never
-    # passed and pandoc fell back to its OWN default style — every citation came
-    # out as "(Bauman 2007)" instead of APA's "(Bauman, 2007)", whatever style the
-    # add-in asked for. The repo-relative path is derived from this very file
+    # Catalog directories, in resolution order. Must resolve in BOTH deployment
+    # modes: the `/app/...` entries only exist inside the Docker image; in NATIVE
+    # mode none of them did, `--csl` was never passed and pandoc fell back to its
+    # OWN default style — every citation came out as "(Bauman 2007)" instead of
+    # APA's "(Bauman, 2007)", whatever style the add-in asked for. The
+    # repo-relative path is derived from this very file
     # (backend/api/vault_routes.py → apps/gnosi) so it holds wherever it's checked out.
-    repo_styles = Path(__file__).resolve().parents[2] / 'frontend' / 'public' / 'csl' / 'styles'
-    candidates = [
-        Path('/app/frontend/public/csl/styles') / style_file,
-        Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles') / style_file,
-        repo_styles / style_file,
+    style_dirs = [
+        Path('/app/frontend/public/csl/styles'),
+        Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles'),
+        Path(__file__).resolve().parents[2] / 'frontend' / 'public' / 'csl' / 'styles',
     ]
-    for c in candidates:
-        if c.exists():
-            return c
+    # Unknown ids are user-uploaded styles: `save_uploaded_style` drops them in
+    # the SAME catalog directory as the canonical four, so they resolve as
+    # `<id>.csl`. This map used to send every unknown id straight to `apa.csl`,
+    # so the picker showed the uploaded style as active while every citation
+    # kept rendering as APA, with no error anywhere. `Path(...).name` strips any
+    # path component from the query param (no traversal); an id whose file
+    # doesn't exist still falls back to APA below.
+    for style_file in (style_map.get(style, Path(f"{style}.csl").name), 'apa.csl'):
+        for d in style_dirs:
+            c = d / style_file
+            if c.exists():
+                return c
     return None
 
 
@@ -5618,8 +5630,11 @@ async def format_citations(payload: dict = Body(...)):
             lines.append(f"GCREF{idx}BEG [@{k}] GCREF{idx}FIN")
         else:
             # Unresolved key: placeholder with the raw text so the client
-            # detects it and can show an error.
-            lines.append(f"GCREF{idx}BEG (@{k}) GCREF{idx}FIN")
+            # detects it and can show an error. The `@` MUST be escaped —
+            # pandoc parses a naked `@key` as a citation too, so without the
+            # backslash the "literal" placeholder came back as `((key?))`
+            # plus a citeproc warning instead of `(@key)`.
+            lines.append(f"GCREF{idx}BEG (\\@{k}) GCREF{idx}FIN")
     md = "\n\n".join(lines) + "\n"
 
     with _ext_tempfile.TemporaryDirectory(prefix='gnosi_fmts_') as tmpdir:
@@ -5654,6 +5669,35 @@ async def format_citations(payload: dict = Body(...)):
             "resolved": k in resolved_keys,
         })
     return {"items": items, "style": style, "locale": locale}
+
+
+def _extract_csl_entries(html_out: str) -> List[str]:
+    """Inner HTML of each `<div class="csl-entry">` in pandoc's output.
+
+    Depth-aware on purpose. Styles with `second-field-align` (IEEE is the one
+    shipped in the repo) nest two more divs inside every entry:
+
+        <div class="csl-entry"><div class="csl-left-margin">[1] </div>
+        <div class="csl-right-inline">S. Turkle, <em>Alone Together</em>…</div></div>
+
+    A non-greedy `(.*?)</div>` stops at the FIRST close tag, so every IEEE
+    entry was truncated to its label — the bibliography inserted into Word and
+    LibreOffice read `[1]`, `[2]`, `[3]` and nothing else. The `<p>` fallback
+    could not rescue it either, because the truncated list is non-empty.
+    """
+    entries: List[str] = []
+    for m in re.finditer(r'<div[^>]*class="[^"]*csl-entry[^"]*"[^>]*>', html_out):
+        depth = 1
+        pos = m.end()
+        for tag in re.finditer(r'<(/?)div\b[^>]*>', html_out[pos:]):
+            depth += -1 if tag.group(1) else 1
+            if depth == 0:
+                entries.append(html_out[pos:pos + tag.start()].strip())
+                break
+        else:
+            # Unbalanced markup: keep the remainder rather than dropping the entry.
+            entries.append(html_out[pos:].strip())
+    return entries
 
 
 @router.post("/format-bibliography")
@@ -5716,8 +5760,7 @@ async def format_bibliography(payload: dict = Body(...)):
     # <div id="refs">. Extracts the HTML of each entry (with italics on the titles
     # and linked URL/DOI) and derives a plain-text version as a fallback
     # for hosts that don't accept rich HTML.
-    entries_html = [m.strip() for m in re.findall(
-        r'<div[^>]*class="[^"]*csl-entry[^"]*"[^>]*>(.*?)</div>', out, re.DOTALL)]
+    entries_html = _extract_csl_entries(out)
     if not entries_html:
         # Some CSL styles don't wrap in csl-entry: falls back to <p> paragraphs.
         entries_html = [m.strip() for m in re.findall(r'<p>(.*?)</p>', out, re.DOTALL)]
@@ -5777,6 +5820,12 @@ async def export_page(
             kk = k.strip().lstrip('@').strip()
             if kk:
                 keys.add(kk)
+    # Naked keys: the editor renders them as citation chips (mirror of
+    # `CITATION_NAKED_RE` in markdown-mapper.js) and pandoc parses them natively,
+    # so leaving them out of refs.json produced a bold "(**key?**)" plus a
+    # "citation not found" warning instead of a formatted citation.
+    for m in re.finditer(r'(?:^|[\s(])@([a-z][a-z0-9_:-]*)\b', body, re.IGNORECASE | re.MULTILINE):
+        keys.add(m.group(1))
 
     # Builds CSL-JSON for the subset
     csl_items = []
@@ -5803,22 +5852,12 @@ async def export_page(
 
     # Locates the .csl style. They used to live in the frontend's public/, also accessible
     # via filesystem if the backend and frontend share the repo.
-    csl_path = None
-    style_map = {
-        'apa': 'apa.csl',
-        'chicago-author-date': 'chicago-author-date.csl',
-        'mla': 'modern-language-association.csl',
-        'ieee': 'ieee.csl',
-    }
-    style_file = style_map.get(csl, 'apa.csl')
-    candidates = [
-        Path('/app/frontend/public/csl/styles') / style_file,
-        Path('/app/monorepo/apps/gnosi/frontend/public/csl/styles') / style_file,
-    ]
-    for c in candidates:
-        if c.exists():
-            csl_path = c
-            break
+    # Shared resolver, NOT a local copy: this used to duplicate the style map and
+    # the `/app/...`-only candidate list, so it kept silently exporting with
+    # pandoc's default style after `_resolve_csl_path` was fixed for native mode,
+    # and it was missing the `modern-language-association` id the Word add-in
+    # actually sends.
+    csl_path = _resolve_csl_path(csl)
 
     # Invoke pandoc in a temporary directory
     with _ext_tempfile.TemporaryDirectory(prefix='gnosi_export_') as tmpdir:
@@ -5830,11 +5869,18 @@ async def export_page(
         # native to pandoc-citeproc — which injects the bibliography in place.
         # Also a final section if it wasn't there.
         content = (tmp / 'input.md').read_text(encoding='utf-8')
-        if '{{bibliography}}' in content or re.search(r'\{\{bibliography(?::[a-z-]+)?(?::[a-zA-Z-]+)?\}\}', content):
+        # Style/locale groups must mirror the frontend serializer
+        # (markdown-mapper.js): the style id is a free string that admits digits
+        # ('apa-6th-edition' and most of the CSL commons repo). `[a-z-]+` left
+        # such markers unreplaced, so the literal `{{bibliography:apa-6th-edition}}`
+        # text ended up in the exported document and the bibliography moved to
+        # the end instead of the marker.
+        _BIB_MARKER_RE = r'\{\{bibliography(?::[a-z][a-z0-9-]*)?(?::[a-zA-Z-]+)?\}\}'
+        if '{{bibliography}}' in content or re.search(_BIB_MARKER_RE, content):
             # Pandoc uses `# References` or `:::refs` or the end of the document
             # as the bibliography location. We replace our syntax with
             # a heading + ref div.
-            content = re.sub(r'\{\{bibliography(?::[a-z-]+)?(?::[a-zA-Z-]+)?\}\}',
+            content = re.sub(_BIB_MARKER_RE,
                              '## Bibliografia\n\n::: {#refs}\n:::', content)
             (tmp / 'input.md').write_text(content, encoding='utf-8')
         ext_map = {'docx':'docx','odt':'odt','html':'html','pdf':'pdf','tex':'tex','markdown':'md'}
@@ -6007,7 +6053,17 @@ def _first_author_family(authors: Any) -> str:
     if isinstance(authors, list):
         for a in authors:
             if isinstance(a, dict):
-                fam = (a.get("cognom1") or a.get("family") or "").strip()
+                # BOTH surnames, like the free-form branch below: for
+                # "García Fernández, Ismael" `_parse_authors_to_csl` yields the
+                # whole family name, so taking only `cognom1` here would key the
+                # same author as `garcia…` or `garciafernandez…` depending on
+                # which field happened to hold them.
+                fam = " ".join(
+                    s for s in (
+                        str(a.get("cognom1") or "").strip(),
+                        str(a.get("cognom2") or "").strip(),
+                    ) if s
+                ) or str(a.get("family") or "").strip()
                 if fam:
                     return fam
                 nom = (a.get("nom") or a.get("literal") or "").strip()
@@ -6019,6 +6075,31 @@ def _first_author_family(authors: Any) -> str:
         if parsed:
             return (parsed[0].get("family") or parsed[0].get("given") or "").strip()
     return ""
+
+
+_ORG_KEY_STOPWORDS = {
+    "de", "del", "dels", "la", "las", "les", "los", "el", "l", "d", "i", "y",
+    "of", "the", "and", "en", "a", "per", "para", "sobre",
+}
+_ORG_KEY_MIN_WORDS = 3
+
+
+def _org_acronym(family: str) -> str:
+    """Acronym for an institutional author, or '' when it looks like a person.
+
+    Corporate authors land in `cognom1` as the whole entity name, which would
+    key as `parlamentodelasreligionesdelmundo1993`; these bodies are cited by
+    acronym anyway ("Real Academia Española" → `rae`). The discriminator is
+    WORD COUNT: a person's family name has at most two significant words.
+    Length alone would mangle real people — "Cormenzana Victoria" is 18 chars
+    and would collapse to `cv`.
+    """
+    words = [w for w in re.split(r"[\s'’.\-]+", family or "")
+             if _ck_norm(w) and _ck_norm(w) not in _ORG_KEY_STOPWORDS]
+    if len(words) < _ORG_KEY_MIN_WORDS:
+        return ""
+    acronym = "".join(_ck_norm(w)[0] for w in words)
+    return acronym if len(acronym) >= 2 else ""
 
 
 def _title_token(title: str) -> str:
@@ -6049,7 +6130,8 @@ def generate_citation_key(authors: Any, year: Any, title: str = "",
     Collision against `existing` → incremental alphabetic suffix.
     
     """
-    fam = _ck_norm(_first_author_family(authors))
+    raw_family = _first_author_family(authors)
+    fam = _org_acronym(raw_family) or _ck_norm(raw_family)
     if not fam:
         fam = _ck_norm(_title_token(title)) or "ref"
     yr = ""
@@ -6757,16 +6839,61 @@ def _ensure_recursos_citation_key(
     ck_name = _citation_key_prop_name(table) or "Citation Key"
     if not regenerate and str(metadata.get(ck_name) or "").strip():
         return metadata
-    authors, year, title = (
-        metadata.get("Authors"), metadata.get("Any"), metadata.get("Title"),
-    )
-    if not (str(authors or "").strip() or str(year or "").strip()
-            or str(title or "").strip()):
+    # The structured `autoria` field FIRST: it is what the resource editor (and
+    # "Create from a source") writes today, while `Authors` is the legacy
+    # free-form leftover. Reading only `Authors` meant every resource created
+    # through the current UI fell through to the title branch of
+    # `generate_citation_key` and got keys like `zztest2026` / `ref2024`
+    # instead of `garciafernandez2026`.
+    authors = _find_structured_authors(metadata) or metadata.get("Authors")
+    year, title = metadata.get("Any"), metadata.get("Title")
+    has_authors = bool(authors) if isinstance(authors, list) else bool(str(authors or "").strip())
+    if not (has_authors or str(year or "").strip() or str(title or "").strip()):
         return metadata
     ck = generate_citation_key(authors, year, title or "", _existing_citation_keys())
     if ck:
         metadata[ck_name] = ck
     return metadata
+
+
+def _dedupe_citation_key(metadata: dict, page_id: str) -> dict:
+    """Keeps a hand-typed `Citation Key` unique across the references table.
+
+    The key is the CSL-JSON `id`: two records sharing one means citeproc only
+    ever sees one of them and the other is silently cited as its sibling (the
+    vault accumulated 18 such collisions before the 2026-07 rebuild). Generated
+    keys are already unique (`generate_citation_key` checks the index), but the
+    grid lets the user TYPE any key into the cell — this closes that last path
+    by suffixing `a`/`b`/`c`… on collision, Better-BibTeX-style; the adjusted
+    value is visible immediately in the PATCH response. Best-effort: the check
+    reads the cite key index, so a sibling created milliseconds ago may not be
+    visible yet. Mutates and returns `metadata`."""
+    ref_id = get_reference_table_id()
+    if not ref_id or get_table_id(metadata) != ref_id:
+        return metadata
+    ck_name = _citation_key_prop_name(_table_by_id(ref_id)) or "Citation Key"
+    ck = str(metadata.get(ck_name) or "").strip()
+    if not ck:
+        return metadata
+    try:
+        from backend.services.context_vars import get_active_vault_path
+        v_path = get_active_vault_path()
+        if not v_path:
+            return metadata
+        idx = _ensure_cite_key_index(str(v_path))
+    except Exception:
+        return metadata
+    holder = idx.get(ck)
+    if not holder or str(holder.get("id")) == str(page_id):
+        return metadata
+    i = 0
+    while True:
+        cand = f"{ck}{_alpha_suffix(i)}"
+        holder = idx.get(cand)
+        if not holder or str(holder.get("id")) == str(page_id):
+            metadata[ck_name] = cand
+            return metadata
+        i += 1
 
 
 def _reference_autoria_prop(table: Optional[dict]) -> Optional[dict]:
@@ -7858,6 +7985,17 @@ def _cite_author_from_metadata(md: dict):
     """Extracts the author from the metadata cached in page_index, trying the
     usual keys (ca/en). Accepts strings, lists, and structured dicts
     ({nom, cognom1, cognom2}); joins multiple authors with commas."""
+    # The structured `autoria` field first, found by SHAPE so a renamed field
+    # still resolves. Without this, a resource whose author only lives there
+    # showed up in the picker and in the Word/LibreOffice search dialog with NO
+    # author, and its author name was missing from the search blob — so you
+    # could not find the record by typing the author's name.
+    structured = _find_structured_authors(md)
+    if structured:
+        names = [_format_one_author(a) for a in structured]
+        joined = ", ".join(n for n in names if n)
+        if joined:
+            return joined
     for k in ("Authors", "Autor", "Autors", "Author"):
         v = md.get(k)
         if not v:
@@ -7932,7 +8070,11 @@ def _enrich_cite_entry(entry: dict) -> dict:
             head = f.read(4096)
         if not head.startswith("---"):
             return out
-        m_author = re.search(r"^Autor:\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
+        # `Autors?` also matches the legacy `Authors` key Recursos actually uses
+        # (`Autor:` alone never matched anything in this vault, so the fallback
+        # returned no author). `Autoría` is excluded on purpose: it's a YAML
+        # list, useless to a single-line regex.
+        m_author = re.search(r"^(?:Autors?|Authors?):\s*['\"]?([^'\"\n\r]+)", head, re.MULTILINE)
         if m_author:
             out["author"] = m_author.group(1).strip()
         m_year = re.search(r"^(?:Any|Year|Data):\s*['\"]?(\d{4})", head, re.MULTILINE)
@@ -8629,8 +8771,11 @@ async def save_page(
 
     metadata = _persist_metadata_assets(metadata)
 
-    # Saving a resource from the browser must also guarantee its Citation Key.
+    # Saving a resource from the browser must also guarantee its Citation Key —
+    # and keep a key edited in the properties panel unique (same guard as the
+    # grid PATCH; see `_dedupe_citation_key`).
     metadata = _ensure_recursos_citation_key(metadata, _table_for_meta)
+    metadata = _dedupe_citation_key(metadata, page_id)
 
     def _write_now():
         # Both the version backup and the actual file write are real I/O on
@@ -8828,8 +8973,11 @@ async def patch_page(
         metadata = _persist_metadata_assets(metadata)
 
         # Partial edits (e.g. filling in cells in the grid) must also
-        # leave the resource citable if it didn't already have a key.
+        # leave the resource citable if it didn't already have a key — and a
+        # hand-typed key must not collide with another record's (the collision
+        # silently shadows one of the two in citeproc).
         metadata = _ensure_recursos_citation_key(metadata)
+        metadata = _dedupe_citation_key(metadata, page_id)
 
         # Snapshot of the relation fields (clean ids) BEFORE writing: `save_page_md`
         # decorates in-place (id→[[Title|id]]), so we capture it now to propagate

@@ -132,3 +132,58 @@ def test_cross_format_bibtex_to_ris():
 def test_parse_references_auto():
     assert len(parse_references(BIB)) == 2
     assert len(parse_references(RIS)) == 1
+
+
+# ---------------------------------------------------------------------------
+# Export of NATIVE vault records (translated labels + structured Autoría).
+# ---------------------------------------------------------------------------
+
+def test_export_resolves_translated_item_type_labels():
+    """The vault stores translated labels ('Llibre'), not canonical Zotero
+    keys; the type maps are keyed by Zotero keys, so without resolution every
+    native record exported as @misc / TY - GEN."""
+    meta = {'Citation Key': 'bauman2007', 'Item Type': 'Llibre',
+            'Title': 'Amor líquido', 'Authors': 'Bauman, Zygmunt', 'Any': 2007}
+    assert to_bibtex([meta]).startswith('@book{bauman2007,')
+    assert to_ris([meta]).startswith('TY  - BOOK')
+
+
+def test_export_resolves_legacy_synonym_labels():
+    meta = {'Citation Key': 'k', 'Item Type': 'Article científic', 'Title': 'T'}
+    assert to_bibtex([meta]).startswith('@article{k,')
+    assert to_ris([meta]).startswith('TY  - JOUR')
+
+
+def test_export_reads_structured_autoria():
+    """Records whose author lives only in the structured field exported with no
+    author at all — and the import path deletes `Authors` after filling
+    `Autoría`, so an imported-then-exported reference lost its author."""
+    meta = {
+        'Citation Key': 'murphy2018', 'Item Type': 'Llibre',
+        'Title': 'Zombie University', 'Any': 2018,
+        'Autoría': [{'nom': 'Sinéad', 'cognom1': 'Murphy', 'cognom2': ''}],
+    }
+    bib = to_bibtex([meta])
+    assert 'author = {Murphy, Sinéad}' in bib
+    assert 'AU  - Murphy, Sinéad' in to_ris([meta])
+
+
+def test_export_structured_autoria_wins_over_legacy_string():
+    meta = {
+        'Citation Key': 'k', 'Item Type': 'Llibre', 'Title': 'T',
+        'Authors': 'Vell, Autor',
+        'Autoría': [{'nom': 'Nou', 'cognom1': 'Autor', 'cognom2': ''}],
+    }
+    assert 'author = {Autor, Nou}' in to_bibtex([meta])
+
+
+def test_legacy_alias_tables_cannot_drift():
+    """`LEGACY_TYPE_TO_ZOTERO` (export) and `LEGACY_TYPE_ALIASES` (CSL) describe
+    the same synonyms; every entry must agree through ZOTERO_TO_CSL_TYPE."""
+    from backend.services.csl_type_resolver import (
+        LEGACY_TYPE_ALIASES, LEGACY_TYPE_TO_ZOTERO,
+    )
+    from backend.services.zotero_schema import ZOTERO_TO_CSL_TYPE
+    assert set(LEGACY_TYPE_TO_ZOTERO) == set(LEGACY_TYPE_ALIASES)
+    for label, zot in LEGACY_TYPE_TO_ZOTERO.items():
+        assert ZOTERO_TO_CSL_TYPE[zot] == LEGACY_TYPE_ALIASES[label], label

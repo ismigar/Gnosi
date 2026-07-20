@@ -202,10 +202,14 @@
             return {
                 entries: (data && Array.isArray(data.entries)) ? data.entries : [],
                 entriesHtml: (data && Array.isArray(data.entries_html)) ? data.entries_html : [],
+                // Keys the backend could not resolve (deleted record, renamed
+                // Citation Key). Surfaced in the footer after inserting —
+                // otherwise the entry is silently absent from the list.
+                missing: (data && Array.isArray(data.missing)) ? data.missing : [],
             };
         } catch (err) {
             console.warn('bibliography failed:', err && err.message);
-            return { entries: [], entriesHtml: [] };
+            return { entries: [], entriesHtml: [], missing: [] };
         }
     }
 
@@ -399,14 +403,18 @@
         const keys = await collectCitationKeysFromDocument();
         if (!keys.length) {
             setFooter('No s\'han trobat cites al document.');
-            return [];
+            // Same shape as the success path: the caller destructures
+            // { entries, entriesHtml } — returning [] here made
+            // `entries.length` throw an unhandled TypeError on any document
+            // without citations.
+            return { entries: [], entriesHtml: [], missing: [] };
         }
         setFooter('Formatant ' + keys.length + ' entrades…');
         return await formatBibliography(keys);
     }
 
     async function insertBibliography() {
-        const { entries, entriesHtml } = await refreshBibliography();
+        const { entries, entriesHtml, missing } = await refreshBibliography();
         if (!entries.length && !entriesHtml.length) return;
         const count = entriesHtml.length || entries.length;
         try {
@@ -440,7 +448,12 @@
                 }
                 await context.sync();
             });
-            setFooter('Bibliografia inserida amb ' + count + ' entrades.');
+            if (missing && missing.length) {
+                setFooter('Bibliografia inserida amb ' + count + ' entrades. ' +
+                    'Sense resoldre: ' + missing.join(', ') + '.');
+            } else {
+                setFooter('Bibliografia inserida amb ' + count + ' entrades.');
+            }
         } catch (err) {
             setFooter('Error inserint bibliografia: ' + (err && err.message));
         }

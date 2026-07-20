@@ -1,7 +1,8 @@
 """Import/Export BibTeX and RIS ↔ Recursos fields (Gnosi).
 
-**Pure** functions (stdlib only) — they don't depend on the backend or the
-network, so they can be tested in isolation. The output dicts use the
+**Pure** functions (stdlib + the `csl_type_resolver`/`zotero_schema` data
+modules) — they don't depend on FastAPI, the vault or the network, so they can
+be tested in isolation. The output dicts use the
 canonical Recursos column names (see the directive
 `gnosi_native_reference_manager.md`):
 `Citation Key`, `Item Type`, `Authors`, `Any`, `Llibre/Revista`, `Editorial`,
@@ -17,6 +18,10 @@ from __future__ import annotations
 import re
 import unicodedata
 from typing import Dict, List
+
+# Pure sibling module (data tables only) — keeps this module free of backend
+# and network dependencies.
+from backend.services.csl_type_resolver import resolve_zotero_item_type
 
 # Common LaTeX accents in BibTeX → Unicode combining diacritic.
 _LATEX_ACCENTS = {
@@ -134,6 +139,25 @@ def _recursos_authors_to_list(authors) -> List[str]:
     if isinstance(authors, str) and authors.strip():
         return [p.strip() for p in authors.split(';') if p.strip()]
     return []
+
+
+def _meta_authors(meta: Dict):
+    """Author source for export: the structured `autoria` value if the page has
+    one, else the legacy `Authors` string.
+
+    Found by SHAPE (a list of dicts with `nom`/`cognom1`/`cognom2`), not by key
+    name, because the field is stored under the user-renamable field name —
+    mirror of `_find_structured_authors` in vault_routes. Reading only
+    `Authors` exported records without any author at all: the import path even
+    deletes `Authors` after filling `Autoría` (`_fill_autoria_from_authors`),
+    so a reference imported from BibTeX and re-exported lost its author."""
+    for v in meta.values():
+        if isinstance(v, list) and any(
+            isinstance(a, dict) and ('cognom1' in a or 'cognom2' in a or 'nom' in a)
+            for a in v
+        ):
+            return v
+    return meta.get('Authors')
 
 
 # ---------------------------------------------------------------------------
@@ -312,12 +336,14 @@ def _bibtex_escape(value: str) -> str:
 def entry_to_bibtex(meta: Dict) -> str:
     key = str(meta.get('Citation Key') or 'ref').strip() or 'ref'
     item_type = meta.get('Item Type') or 'document'
-    btype = _ITEM_TO_BIBTEX_TYPE.get(item_type, 'misc')
+    # The map is keyed by canonical Zotero keys, but the vault stores translated
+    # labels ('Llibre'); without resolving, every native record exported @misc.
+    btype = _ITEM_TO_BIBTEX_TYPE.get(resolve_zotero_item_type(item_type), 'misc')
     lines = [f"@{btype}{{{key},"]
     fld: List[tuple] = []
     if meta.get('Title'):
         fld.append(('title', meta['Title']))
-    authors = _recursos_authors_to_list(meta.get('Authors'))
+    authors = _recursos_authors_to_list(_meta_authors(meta))
     if authors:
         fld.append(('author', ' and '.join(authors)))
     if meta.get('Any') not in (None, '', 'null'):
@@ -442,13 +468,14 @@ def _ris_record_to_recursos(r: Dict[str, List[str]]) -> Dict:
 
 def entry_to_ris(meta: Dict) -> str:
     item_type = meta.get('Item Type') or 'document'
-    ty = _ITEM_TO_RIS_TYPE.get(item_type, 'GEN')
+    # Same label→Zotero-key resolution as `entry_to_bibtex` (see the note there).
+    ty = _ITEM_TO_RIS_TYPE.get(resolve_zotero_item_type(item_type), 'GEN')
     lines = [f"TY  - {ty}"]
     if meta.get('Citation Key'):
         lines.append(f"ID  - {meta['Citation Key']}")
     if meta.get('Title'):
         lines.append(f"TI  - {meta['Title']}")
-    for a in _recursos_authors_to_list(meta.get('Authors')):
+    for a in _recursos_authors_to_list(_meta_authors(meta)):
         lines.append(f"AU  - {a}")
     if meta.get('Any') not in (None, '', 'null'):
         lines.append(f"PY  - {meta['Any']}")

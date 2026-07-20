@@ -36,6 +36,28 @@ def test_string_authors_comma_format():
     assert generate_citation_key("Murphy, Sinéad", 2017) == "murphy2017"
 
 
+def test_both_surnames_key_the_same_from_either_field():
+    """The structured field and the legacy string describe the same author, so
+    they must produce the same key. Taking only `cognom1` from the structured
+    branch keyed them as `garcia…` vs `garciafernandez…`."""
+    structured = [{"nom": "Ismael", "cognom1": "García", "cognom2": "Fernández"}]
+    assert generate_citation_key(structured, 2026) == "garciafernandez2026"
+    assert generate_citation_key("García Fernández, Ismael", 2026) == "garciafernandez2026"
+
+
+def test_institutional_author_collapses_to_acronym():
+    """Entities are cited by acronym; the whole name makes an unusable key."""
+    rae = [{"nom": "", "cognom1": "Real Academia Española", "cognom2": ""}]
+    assert generate_citation_key(rae, 2025) == "rae2025"
+
+
+def test_two_word_surname_is_a_person_not_an_entity():
+    """Word count, not length: 'Cormenzana Victoria' is 18 chars but a person,
+    and must NOT collapse to `cv`."""
+    person = [{"nom": "", "cognom1": "Cormenzana", "cognom2": "Victoria"}]
+    assert generate_citation_key(person, 2020) == "cormenzanavictoria2020"
+
+
 def test_string_authors_multiple_semicolon():
     # Primer autor mana
     assert generate_citation_key("Margulis, Lynn; Sagan, Dorion", 1986) == "margulis1986"

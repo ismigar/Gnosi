@@ -18,9 +18,10 @@ import { useModalKeyboard } from '../../hooks/useModalKeyboard';
  * ProseMirror from stealing focus during the opening animation. When it
  * closes, it returns focus to the editor.
  */
-const fetchCitations = async (query) => {
+const fetchCitations = async (query, signal) => {
     const r = await axios.get('/api/vault/search-citations', {
         params: { q: query || '', limit: 30 },
+        signal,
     });
     return Array.isArray(r?.data) ? r.data : [];
 };
@@ -47,18 +48,27 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         if (abortRef.current) abortRef.current.abort?.();
         debounceRef.current = setTimeout(async () => {
+            // The controller must be CREATED and stored here: abortRef was
+            // aborted above but never assigned, and the request carried no
+            // signal — the cancellation machinery was dead code, so a slow
+            // stale response ("we") could land after a fast newer one
+            // ("weber") and overwrite the list with old results.
+            const controller = new AbortController();
+            abortRef.current = controller;
             setLoading(true);
             try {
-                const data = await fetchCitations(query);
+                const data = await fetchCitations(query, controller.signal);
+                if (controller.signal.aborted) return;
                 setItems(data);
                 setActiveIdx(0);
             } catch (err) {
+                if (controller.signal.aborted) return;
                 if (!String(err?.message || '').includes('aborted')) {
                     console.warn('CitePicker search failed:', err?.message);
                 }
                 setItems([]);
             } finally {
-                setLoading(false);
+                if (!controller.signal.aborted) setLoading(false);
             }
         }, 200);
         return () => {
