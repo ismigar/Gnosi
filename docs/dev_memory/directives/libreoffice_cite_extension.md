@@ -98,6 +98,21 @@ Python, s'activa sol quan LibreOffice **arrenca en mode GUI** (els
 Via robusta alternativa: **Eines > Gestor d'extensions > Afegeix** amb LO
 ja obert (evita el pipe del tot).
 
+⚠️ **"Cosmètic" NOMÉS val per a un `add` NOU. En una REINSTAL·LACIÓ,
+`add --force` sobre la mateixa versió NO és cosmètic** (verificat 2026-07-21):
+l'error del pipe avorta el reemplaçament i la caché es queda amb el **payload
+VELL** — `unopkg list` mostra un tmp-dir amb mtime d'avui, però el
+`gnosi_cite.py` de dins és el codi antic i creuries que has desplegat el nou.
+Procediment fiable de reinstal·lació:
+1. `unopkg remove com.gnosi.cite` (aquest sí que funciona sense pipe),
+2. `unopkg add gnosi-cite.oxt` (add net; l'error de pipe torna a ser cosmètic),
+3. **verifica BYTES, no el llistat**: `shasum` del
+   `.../uno_packages/cache/uno_packages/*/gnosi-cite.oxt/gnosi_cite.py`
+   desplegat vs el font — han de coincidir,
+4. arrenca LO en GUI un cop (`open -g -j -a LibreOffice`) per la passive
+   registration. El `is registered: no` del llistat estàtic no canvia mai
+   (unopkg no pot consultar l'estat viu sense el mateix pipe); ignora'l.
+
 - **Verificació E2E final** (usuari): obrir Writer → menú **Gnosi Cite** →
   provar les 4 comandes contra el backend real (`localhost:5002`).
 
