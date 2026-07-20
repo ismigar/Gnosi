@@ -1,0 +1,47 @@
+paths:
+  vault: ~/Documents/Gnosi
+  databases: ''
+  newsletters: ''
+settings:
+  language: ca
+  timezone: UTC
+  currency: EUR
+  week_start: 1
+  use_system_defaults: true
+graph:
+  visible_databases: []
+  visible_tables: []
+  visible_fields: []
+  graph_table_filters: []
+  show_arrows: true
+  label_threshold: 10
+  node_size: 1
+  edge_thickness: 1
+  physics:
+    gravity: 0.1
+    repulsion: 1000
+    friction: 10
+    edge_influence: 0
+    lin_log_mode: false
+ai:
+  active_agent_id: gnosy
+  providers:
+    groq:
+      api_key: ''
+      base_url: https://api.groq.com/openai/v1
+    openai:
+      api_key: ''
+      base_url: https://api.openai.com/v1
+    ollama:
+      base_url: http://localhost:11434
+    anthropic:
+      api_key: ''
+  agents:
+  - id: gnosy
+    name: Gnosy
+    icon: lucide:Brain:gray
+    persona: Ets el cervell digital d'Ismael García Fernández...
+    provider: groq
+    model: llama-3.3-70b-versatile
+    enabled: true
+    is_default: true

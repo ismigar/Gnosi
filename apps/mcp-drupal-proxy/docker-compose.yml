@@ -1,0 +1,12 @@
+services:
+  mcp-drupal:
+    image: ghcr.io/omedia/mcp-server-drupal:latest
+    container_name: mcp-drupal
+    command:
+      - "--drupal-url"
+      - "https://admin:YT0LTtiJ0KuUF3EUhUsl@www.temenosismael.org"
+    restart: unless-stopped
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    stdin_open: true

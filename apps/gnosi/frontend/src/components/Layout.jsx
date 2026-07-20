@@ -1,0 +1,101 @@
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { RefreshCw, Menu } from 'lucide-react';
+import { useActiveVaultName } from '../hooks/useActiveVaultName';
+
+export function Layout({ children, sidebar, controls, bottomPanel, containerStyle = {}, onSync, isSyncing }) {
+  const { t } = useTranslation();
+  const [isPanelOpen, setIsPanelOpen] = React.useState(true);
+  const [isBottomPanelOpen, setIsBottomPanelOpen] = React.useState(false);
+  const activeVaultName = useActiveVaultName();
+
+  return (
+    <div id="app" className={!isPanelOpen ? 'panel-hidden' : ''}>
+      <header id="top-bar">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <h1 style={{ margin: 0 }}>Gnosi</h1>
+          <span style={{
+            fontSize: '0.75rem',
+            fontWeight: 500,
+            color: 'var(--text-tertiary)',
+            backgroundColor: 'var(--bg-secondary)',
+            padding: '2px 8px',
+            borderRadius: '6px',
+            border: '1px solid var(--border-primary)'
+          }}>
+            Vault: {activeVaultName || '…'}
+          </span>
+        </div>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {onSync && (
+            <button
+              onClick={onSync}
+              title={t('graph.sync_tooltip', 'Sincronitzar')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+            >
+              <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
+            </button>
+          )}
+
+          <button
+            id="btn-toggle-panel"
+            title={t('graph.toggle_panel_tooltip', 'Mostra / amaga panell')}
+            onClick={() => setIsPanelOpen(!isPanelOpen)}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
+          >
+            <Menu size={20} />
+          </button>
+        </div>
+        <style>{`
+            .spin-anim { animation: spin 1s linear infinite; }
+            @keyframes spin { 100% { transform: rotate(360deg); } }
+        `}</style>
+      </header>
+
+      <main id="main-content">
+        <div id="sigma-container" style={{ position: 'relative', width: '100%', height: '100%', ...containerStyle }}>
+          {children}
+          {controls}
+        </div>
+
+        <aside id="side-panel" style={{ display: isPanelOpen ? 'block' : 'none' }}>
+          {sidebar}
+        </aside>
+      </main>
+
+      <div id="bottom-panel-wrapper" style={{
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-side)',
+        borderTop: '1px solid var(--color-border)',
+        zIndex: 20
+      }}>
+        <button
+          onClick={() => setIsBottomPanelOpen(!isBottomPanelOpen)}
+          style={{
+            width: '100%',
+            padding: '8px',
+            background: 'none',
+            border: 'none',
+            borderBottom: isBottomPanelOpen ? '1px solid var(--color-border)' : 'none',
+            cursor: 'pointer',
+            color: 'var(--color-text)',
+            fontSize: '0.9rem',
+            fontWeight: 500,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            gap: '8px'
+          }}
+        >
+          {isBottomPanelOpen ? `▼ ${t('graph.hide_connections', 'Amaga Connexions')}` : `▲ ${t('graph.show_connections', 'Mostra Connexions')}`}
+        </button>
+        {isBottomPanelOpen && (
+          <div style={{ maxHeight: '35vh', overflowY: 'auto' }}>
+            {bottomPanel}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
