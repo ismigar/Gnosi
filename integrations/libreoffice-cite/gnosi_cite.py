@@ -58,6 +58,11 @@ SERVICE_NAME = "com.sun.star.frame.ProtocolHandler"
 
 MARK_PREFIX = "gnosicite::"
 
+# How deep to follow tables inside tables when walking the document for
+# citations. Real documents nest one or two levels at most; the bound just
+# stops a malformed file from recursing forever.
+MAX_TABLE_NESTING = 8
+
 STYLE_LABELS = ["APA 7", "Chicago (autor-data)", "MLA", "IEEE"]
 STYLE_VALUES = ["apa", "chicago-author-date", "modern-language-association", "ieee"]
 
@@ -269,39 +274,111 @@ class DocOps(object):
     def _ordered_pairs(self):
         """List of (mark_name, key) in document order, with duplicates.
 
-        Traverses the document body by enumerating *text portions*; necessary
-        for APA compliance (disambiguation based on first vs. subsequent
-        occurrences). Does not cover headers/footers or table cells.
-        
+        Traverses the document by enumerating *text portions*; necessary for
+        APA compliance (disambiguation depends on first vs. subsequent
+        occurrences, so the order has to be the reading order).
+
+        Table cells are included: a table sits in the body flow, so the
+        citations inside it have a well-defined position in that order.
+        Headers and footers are deliberately left out — they repeat on every
+        page, so there is no single position in the reading order to
+        disambiguate them against. They still reach the bibliography, which
+        only needs the set of keys (see `ordered_keys`).
+
+        Returns:
+            A list of (mark_name, citation_key) tuples in document order,
+            duplicates included.
+        """
+        return self._pairs_in_text(self.doc.getText())
+
+    def _pairs_in_text(self, text, depth=0):
+        """Collect (mark_name, key) pairs from one text container, in order.
+
+        Args:
+            text: An XText to enumerate — the document body, or a table cell.
+            depth: Current table nesting level, to bound recursion on
+                pathological documents.
+
+        Returns:
+            A list of (mark_name, citation_key) tuples in traversal order.
         """
         pairs = []
+        if text is None or depth > MAX_TABLE_NESTING:
+            return pairs
         try:
-            para_enum = self.doc.getText().createEnumeration()
-            while para_enum.hasMoreElements():
+            para_enum = text.createEnumeration()
+        except Exception:
+            return pairs
+        while True:
+            try:
+                if not para_enum.hasMoreElements():
+                    break
                 para = para_enum.nextElement()
+                # A table is yielded by the body enumeration just like a
+                # paragraph; descending here is what keeps its citations at
+                # the right point of the document order instead of dropping
+                # them (they used to be skipped by the Paragraph check below).
+                if para.supportsService("com.sun.star.text.TextTable"):
+                    pairs.extend(self._pairs_in_table(para, depth))
+                    continue
                 if not para.supportsService("com.sun.star.text.Paragraph"):
                     continue
                 portion_enum = para.createEnumeration()
-                while portion_enum.hasMoreElements():
+            except Exception:
+                # One malformed element must not abort the whole traversal:
+                # a partial reformat is better than none.
+                continue
+            while True:
+                try:
+                    if not portion_enum.hasMoreElements():
+                        break
                     portion = portion_enum.nextElement()
-                    try:
-                        if portion.TextPortionType != "ReferenceMark":
-                            continue
-                        # Only the start portion, to avoid double-counting the
-                        # marks that span a range (start + end).
-                        if not getattr(portion, "IsStart", True):
-                            continue
-                        mark = getattr(portion, "ReferenceMark", None)
-                        if mark is None:
-                            continue
-                        name = mark.Name
-                    except Exception:
+                except Exception:
+                    break
+                try:
+                    if portion.TextPortionType != "ReferenceMark":
                         continue
-                    key = self._key_from_name(name)
-                    if key:
-                        pairs.append((name, key))
+                    # Only the start portion, to avoid double-counting the
+                    # marks that span a range (start + end).
+                    if not getattr(portion, "IsStart", True):
+                        continue
+                    mark = getattr(portion, "ReferenceMark", None)
+                    if mark is None:
+                        continue
+                    name = mark.Name
+                except Exception:
+                    continue
+                key = self._key_from_name(name)
+                if key:
+                    pairs.append((name, key))
+        return pairs
+
+    def _pairs_in_table(self, table, depth):
+        """Collect pairs from every cell of a table, in cell order.
+
+        `getCellNames()` returns cells row-major (A1, B1, A2…), which is the
+        reading order for the regular tables this add-in targets. Merged or
+        nested layouts fall back to whatever order the table reports; that is
+        still stable, which is what disambiguation needs.
+
+        Args:
+            table: A com.sun.star.text.TextTable from the body enumeration.
+            depth: Nesting level of this table.
+
+        Returns:
+            A list of (mark_name, citation_key) tuples.
+        """
+        pairs = []
+        try:
+            cell_names = list(table.getCellNames())
         except Exception:
-            pass
+            return pairs
+        for cell_name in cell_names:
+            try:
+                cell = table.getCellByName(cell_name)
+            except Exception:
+                continue
+            pairs.extend(self._pairs_in_text(cell, depth + 1))
         return pairs
 
     # -- batch reformatting (APA) -------------------------------------
