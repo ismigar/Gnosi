@@ -116,10 +116,13 @@ La configuració es desa a `~/.config/gnosi-cite/config.json`.
 
 - ✅ LibreOffice Writer 5.0+ (Mac, Windows, Linux)
 - ✅ Documents `.odt` i `.docx`
-- ⚠ **Refresc ordenat (APA)**: recorre només el cos del document. Les cites
-  dins capçaleres, peus de pàgina o cel·les de taula es detecten per a la
-  bibliografia (claus úniques) però **no** es reformaten en ordre amb
-  «Actualitza tot». Limitació coneguda de la v0.1.
+- ✅ **Cites dins de taules**: des de la v0.1.2 el refresc ordenat hi baixa,
+  i les tracta al punt del document on és la taula — que és el que fa
+  correcta la desambiguació APA. També recorre taules niuades.
+- ⚠ **Capçaleres i peus de pàgina**: les seves cites arriben a la
+  bibliografia (només calen les claus) però **no** es reformaten amb
+  «Actualitza tot». No és un oblit: es repeteixen a cada pàgina, així que no
+  tenen una posició única a l'ordre de lectura contra la qual desambiguar.
 - ❌ Apache OpenOffice: no provat (l'API de reference marks hi és, però el
   registre de components Python difereix)
 

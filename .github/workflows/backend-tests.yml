@@ -17,6 +17,9 @@ on:
     paths:
       - "monorepo/apps/gnosi/backend/**"
       - "monorepo/apps/gnosi/pipeline/**"
+      # Without this the connector suite would be collected but never
+      # triggered by a change to the connector it guards.
+      - "monorepo/apps/gnosi/integrations/**"
       - "monorepo/apps/gnosi/requirements.txt"
       - ".github/workflows/backend-tests.yml"
   workflow_dispatch:
@@ -63,4 +66,8 @@ jobs:
           GNOSI_BACKEND_URL: http://127.0.0.1:59999
         run: |
           mkdir -p "$DIGITAL_BRAIN_VAULT_PATH" "$GNOSI_LOCAL_DATA"
-          pytest backend/tests -q --durations=10
+          # `integrations` too: the connectors had no test gate at all, so a
+          # change to the LibreOffice extension could not be caught by CI.
+          # Its suite fakes the UNO modules, which only exist inside
+          # LibreOffice, and runs in milliseconds.
+          pytest backend/tests integrations -q --durations=10
