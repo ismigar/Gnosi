@@ -152,6 +152,65 @@ que la fan més cara del que semblava:
 Si aquest cost no es vol assumir, **D** és una posició honesta sempre que la
 documentació ho digui clar, que ja ho fa.
 
+### E.1 — resultat: `visibility="0"` no serveix (2026-07-21)
+
+Provat i **fallat**, però el diagnòstic és net i deixa una segona palanca.
+
+El marcatge s'escriu perfectament. El document generat porta
+`word/webextensions/webextension1.xml` amb
+`store="developer" storeType="Registry"` — el cas sideload documentat — i
+`Office.AutoShowTaskpaneWithDocument` a `true`. Word també havia rellegit el
+manifest (tenia `5e2c8b9a-…_1.3.0.0` a la cau). Res d'això és el problema.
+
+El problema és que `Office.context.document.settings` sempre escriu
+`visibility="0"` a `taskpanes.xml`, i amb `0` la funció està condicionada
+que l'add-in ja estigui *instal·lat* al dispositiu ("will only open if the
+add-in is already installed"). A macOS un add-in per sideload precisament no
+ho està de forma persistent — és el problema original. Circular: l'autoopen
+depèn de la mateixa persistència que volem obtenir.
+
+**Palanca restant**: `visibility="1"`. La documentació diu que és el que cal
+"if you also require the add-in to be distributed with the document", i que
+**només es pot posar per Open XML** — no des d'Office.js. Amb `1`, Word
+distribueix l'add-in amb el document i demana confiança un cop.
+
+### E.2 — `visibility="1"` FUNCIONA per document (verificat 2026-07-21)
+
+Confirmat per l'usuari amb un `.docx` reescrit per Open XML: el panell
+s'obre sol en obrir el document, també després de Cmd+Q. Verificat en els
+dos camins: document que ja havia tingut el add-in (actualitzar parts) i
+document verge (injectar les cinc peces).
+
+Eina de producte: `integrations/word-cite-pin/pin_taskpane.py` (stdlib
+Python, idempotent, `--undo`, `--dry-run`, `.bak` per defecte; llegeix
+`<Id>`/`<Version>` del manifest). El paquet que genera és canònicament
+idèntic al que escriu Word, tret de l'`id` de `<we:webextension>`, derivat
+del GUID de l'add-in per garantir idempotència (res més el referencia).
+
+**Cua**: la `<Version>` del manifest viatja dins la referència del document.
+En pujar la versió del manifest, repassar els documents fixats amb el script.
+
+### E.3 — documents nous: experiment `Normal.dotm` (pendent de verificar)
+
+Un document nou no porta les parts (neixen amb el fitxer), així que E.2 no
+el cobreix. Hipòtesi: si `Normal.dotm` — la plantilla global de la qual Word
+clona cada document nou en blanc — porta les parts amb `visibility="1"`,
+cada document nou neix marcat. Cap documentació ho garanteix; és empíric.
+
+Fet (2026-07-21): `Normal.dotm` fixat amb el mateix script (còpia pristina
+guardada com a `~/Desktop/Normal.dotm.original-20260721`). El classificador
+de permisos va bloquejar, correctament, escriure dins Group Containers des
+de l'agent: l'usuari instal·la la còpia fixada a mà.
+
+Resultats possibles:
+- Word hereta les parts → cas "document nou" resolt globalment.
+- Word les ignora en clonar → pla B: plantilla `Gnosi.dotx` a la galeria
+  personal (`Templates.localized/`), amb les mateixes parts; documents nous
+  via Fitxer → Nou a partir de plantilla. Tecnologia ja demostrada (són les
+  mateixes parts en un paquet quasi idèntic), però menys transparent.
+- Word reescriu `Normal.dotm` (en desar estils/autotext) i en poda les
+  parts → repassar amb el script; si ho fa sovint, passar al pla B.
+
 ## Prova pendent de E
 
 1. Tanca el Word del tot (Cmd+Q).
