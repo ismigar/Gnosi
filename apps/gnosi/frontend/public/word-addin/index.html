@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <title>Gnosi Cite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <!--
+        Office.js — la API client-side per interactuar amb el Word.
+        Cal carregar-la des del CDN oficial perquè reben actualitzacions
+        de seguretat automàtiques i la versió de Word del client decideix
+        quina build agafa.
+    -->
+    <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+    <link rel="stylesheet" href="/word-addin/taskpane.css" />
+</head>
+<body>
+    <header class="header">
+        <div class="title">
+            <span class="logo">G</span>
+            <span>Gnosi Cite</span>
+        </div>
+        <div class="subtitle" id="connection-status">Connectant…</div>
+    </header>
+
+    <main class="main">
+        <section class="search-section">
+            <div class="search-bar">
+                <input
+                    type="text"
+                    id="search-input"
+                    placeholder="Cerca per citation key, títol o autor…"
+                    autocomplete="off"
+                    autofocus
+                />
+            </div>
+            <div class="style-row">
+                <label for="style-select">Estil:</label>
+                <select id="style-select">
+                    <option value="apa">APA 7</option>
+                    <option value="chicago-author-date">Chicago (autor-data)</option>
+                    <option value="modern-language-association">MLA</option>
+                    <option value="ieee">IEEE</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="results-section">
+            <ul id="results" class="results"></ul>
+            <div id="empty-state" class="empty-state">
+                Escriu un terme per cercar referències al Vault.
+            </div>
+        </section>
+
+        <section class="actions">
+            <button id="insert-bibliography" class="btn btn-primary" type="button">
+                Insereix bibliografia
+            </button>
+        </section>
+
+        <!--
+            Token settings. The add-in runs in an Office webview on its own
+            origin, so a session cookie cannot reach it: a Personal Access Token
+            is the only credential it can use once GNOSI_REQUIRE_AUTH is on.
+            Collapsed by default — it is set once and then forgotten.
+        -->
+        <details class="settings" id="settings">
+            <summary>Configuració del token</summary>
+            <p class="settings-help">
+                Crea un token a Gnosi (Configuració → Tokens d'API) i enganxa'l aquí.
+                Es desa només en aquest dispositiu.
+            </p>
+            <div class="settings-row">
+                <input
+                    type="password"
+                    id="token-input"
+                    placeholder="gnosi_pat_…"
+                    autocomplete="off"
+                    spellcheck="false"
+                />
+                <button id="token-save" class="btn btn-primary" type="button">Desa</button>
+            </div>
+            <div class="settings-row">
+                <span id="token-state" class="settings-state">Sense token</span>
+                <button id="token-clear" class="btn btn-secondary" type="button">Esborra</button>
+            </div>
+        </details>
+    </main>
+
+    <footer class="footer">
+        <span id="status-line">Llest</span>
+    </footer>
+
+    <script src="/word-addin/taskpane.js"></script>
+</body>
+</html>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ca">
+<head>
+  <meta charset="UTF-8" />
+  <style>
+    body { font-family: -apple-system, system-ui, sans-serif; width: 320px; margin: 0; padding: 14px; color: #1f2430; }
+    h1 { font-size: 14px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
+    label { display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin: 8px 0 3px; }
+    input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
+    textarea { resize: vertical; min-height: 48px; }
+    button { width: 100%; margin-top: 12px; padding: 9px; border: none; border-radius: 6px; background: #6366f1; color: #fff; font-size: 13px; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #eef2ff; color: #4338ca; margin-top: 6px; }
+    button:disabled { opacity: .5; cursor: default; }
+    .row { display: flex; gap: 8px; }
+    .hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+    #status { font-size: 12px; margin-top: 10px; min-height: 16px; }
+    .ok { color: #16a34a; } .err { color: #dc2626; }
+    details { margin-top: 10px; } summary { font-size: 11px; color: #6b7280; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>📎 Desa a Gnosi</h1>
+
+  <label>Etiquetes (separades per comes)</label>
+  <input id="tags" placeholder="lectura, web" />
+
+  <label>Nota (opcional — si no, s'usa la selecció de la pàgina)</label>
+  <textarea id="note" placeholder="Comentari o text…"></textarea>
+
+  <button id="clip">Desa aquesta pàgina</button>
+  <button id="clipSelection" class="secondary">Desa només la selecció</button>
+
+  <div id="status"></div>
+
+  <details>
+    <summary>Configuració</summary>
+    <label>URL del backend de Gnosi</label>
+    <input id="backend" placeholder="https://localhost:5173" />
+    <div class="hint">L'URL on corre Gnosi (proxy del frontend o backend directe).</div>
+    <label>Token d'accés (PAT)</label>
+    <input id="token" type="password" placeholder="gnosi_pat_…" />
+    <div class="hint">Crea'l a Gnosi → Configuració → API i tokens.</div>
+    <button id="save" class="secondary">Desa la configuració</button>
+  </details>
+
+  <script src="popup.js"></script>
+</body>
+</html>
