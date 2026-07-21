@@ -1,0 +1,2202 @@
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import { X, Eye, Filter, ArrowUpDown, SlidersHorizontal, Plus, Trash2, GripVertical, Layers } from 'lucide-react';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { VIEW_TYPES } from './viewConstants';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
+import { discoverFieldNamesFromRecords } from './schemaUtils';
+
+/**
+ * Modal for adding a DB view to a page (slash command /vista).
+ *
+ * Supports multiple filters, sorting, and a checkbox property selector.
+ * Optionally, saves the view to the table's registry (registry.views[]) to
+ * reuse it from the table's own page.
+ *
+ * Backend: POST /api/vault/views (saved view) + POST /api/pages/{id}/views
+ * (embed with view_id).
+ */
+const FILTER_OPERATORS = [
+    { value: 'equals', label: 'igual' },
+    { value: 'not_equals', label: 'diferent' },
+    { value: 'contains', label: 'conté' },
+    { value: 'not_contains', label: 'no conté' },
+    { value: 'is_empty', label: 'és buit' },
+    { value: 'is_not_empty', label: 'no és buit' },
+    { value: 'greater_than', label: 'major que' },
+    { value: 'less_than', label: 'menor que' },
+];
+
+// --- View-type-specific configuration options ---
+// The GALLERY accepts a card size and a preview mode; the
+// KANBAN a grouping field; CALENDAR/TIMELINE one (or two) date fields.
+// The values live in the view (registry, free-form dict) and the renderer honors them.
+const CARD_SIZES = [
+    { value: 'small', label: 'Petita' },
+    { value: 'medium', label: 'Mitjana' },
+    { value: 'large', label: 'Gran' },
+];
+const GALLERY_PREVIEWS = [
+    { value: 'cover', label: 'Portada', hint: 'Imatge de portada de la pàgina i propietats.' },
+    { value: 'content', label: 'Contingut', hint: 'Un fragment del text de la pàgina i propietats.' },
+    { value: 'properties', label: 'Només propietats', hint: 'Sense imatge; títol i propietats.' },
+    { value: 'none', label: 'Només títol', hint: 'Targeta mínima: portada i títol, sense propietats.' },
+];
+// Valid schema types for each control: Kanban grouping (fields with a
+// bounded set of values) and calendar/timeline temporal axis.
+const GROUP_FIELD_TYPES = new Set(['select', 'status', 'multi_select']);
+const DATE_FIELD_TYPES = new Set(['date', 'datetime', 'period']);
+const NUMERIC_FIELD_TYPES = new Set(['number', 'formula', 'rollup', 'currency', 'percent']);
+
+const TABS = [
+    { id: 'properties', icon: Eye, label: 'Camps' },
+    { id: 'filters', icon: Filter, label: 'Filtres' },
+    { id: 'sort', icon: ArrowUpDown, label: 'Ordenació' },
+    { id: 'grouping', icon: Layers, label: 'Agrupació' },
+    { id: 'general', icon: SlidersHorizontal, label: 'General' },
+];
+
+/**
+ * Generic sortable row with a drag handle (dnd-kit), shared by the
+ * visible-columns and sort-criteria lists. Same pattern as
+ * SchemaConfigModal so reordering feels identical across the app.
+ */
+function SortableRow({ id, className = '', gripSize = 14, children }) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+    const style = {
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.9 : 1,
+        zIndex: isDragging ? 50 : 1,
+        position: 'relative',
+    };
+    return (
+        <div
+            ref={setNodeRef}
+            style={style}
+            className={`${className} ${isDragging ? 'bg-[var(--bg-tertiary)] shadow-md ring-1 ring-[var(--gnosi-primary)]/30' : ''}`}
+        >
+            <div
+                {...attributes}
+                {...listeners}
+                className="cursor-grab active:cursor-grabbing p-1 rounded text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)]"
+            >
+                <GripVertical size={gripSize} />
+            </div>
+            {children}
+        </div>
+    );
+}
+
+/**
+ * Searchable selector for a RELATION filter's value. Instead of free
+ * text (prone to typos like "thiis"), it offers a dropdown with:
+ *  - "This page" (special value `this` = id of the page where it's embedded),
+ *  - the titles of the related table's records (value = id),
+ *  with a search box to filter and keyboard navigation (↑↓/Enter/Esc).
+ */
+function RelationValuePicker({ value, onChange, options, loading, thisLabel, placeholder }) {
+    const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const [highlighted, setHighlighted] = useState(0);
+    // Fixed panel position: the dropdown is rendered in a PORTAL to
+    // <body> so it isn't clipped by the modal body's `overflow-y-auto`
+    // (previously only the search box was visible and the list stayed hidden).
+    const [rect, setRect] = useState(null);
+    const boxRef = useRef(null);
+    const panelRef = useRef(null);
+
+    const allOptions = useMemo(
+        () => [{ value: 'this', label: thisLabel }, ...(options || [])],
+        [options, thisLabel],
+    );
+    const filtered = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return allOptions;
+        return allOptions.filter(o => String(o.label || '').toLowerCase().includes(q));
+    }, [allOptions, query]);
+
+    const current = allOptions.find(o => o.value === value);
+    const display = current ? current.label : (value || '');
+
+    const openPanel = () => {
+        const r = boxRef.current?.getBoundingClientRect();
+        if (r) setRect({ left: r.left, top: r.bottom + 4, width: r.width });
+        setQuery('');
+        setHighlighted(0);
+        setOpen(true);
+    };
+
+    useEffect(() => {
+        if (!open) return undefined;
+        const onDoc = (e) => {
+            if (boxRef.current?.contains(e.target)) return;
+            if (panelRef.current?.contains(e.target)) return;
+            setOpen(false);
+        };
+        // The panel has a fixed position calculated on open; if the user scrolls
+        // (e.g. inside the modal) or resizes, we close it to avoid misalignment.
+        const onMove = () => setOpen(false);
+        document.addEventListener('mousedown', onDoc);
+        window.addEventListener('resize', onMove);
+        window.addEventListener('scroll', onMove, true);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            window.removeEventListener('resize', onMove);
+            window.removeEventListener('scroll', onMove, true);
+        };
+    }, [open]);
+
+    const pick = (opt) => { onChange(opt.value); setOpen(false); setQuery(''); };
+
+    return (
+        <div ref={boxRef} className="relative w-40">
+            <button
+                type="button"
+                onClick={() => (open ? setOpen(false) : openPanel())}
+                className="w-full text-left truncate text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--gnosi-primary)]"
+                title={display}
+            >
+                {display || <span className="text-[var(--text-tertiary)]">{placeholder || t('view.filter_pick', 'Tria…')}</span>}
+            </button>
+            {open && rect && createPortal(
+                <div
+                    ref={panelRef}
+                    style={{ position: 'fixed', top: rect.top, left: rect.left, width: Math.max(rect.width, 220), zIndex: 300 }}
+                    className="max-h-60 overflow-auto rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-2xl"
+                >
+                    <input
+                        autoFocus
+                        value={query}
+                        onChange={e => { setQuery(e.target.value); setHighlighted(0); }}
+                        onKeyDown={e => {
+                            if (e.key === 'ArrowDown') { e.preventDefault(); setHighlighted(h => Math.min(h + 1, filtered.length - 1)); }
+                            else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlighted(h => Math.max(h - 1, 0)); }
+                            else if (e.key === 'Enter') { e.preventDefault(); if (filtered[highlighted]) pick(filtered[highlighted]); }
+                            else if (e.key === 'Escape') { e.preventDefault(); setOpen(false); }
+                        }}
+                        placeholder={t('view.search_placeholder', 'Cerca…')}
+                        className="w-full text-xs border-b border-[var(--border-primary)] px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] sticky top-0"
+                    />
+                    {loading && <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">{t('common.loading', 'Carregant…')}</div>}
+                    {!loading && filtered.map((o, i) => (
+                        <div
+                            key={o.value}
+                            onMouseEnter={() => setHighlighted(i)}
+                            onMouseDown={e => { e.preventDefault(); pick(o); }}
+                            className={`px-2 py-1.5 text-xs cursor-pointer truncate ${i === highlighted ? 'bg-[var(--gnosi-primary)]/15 text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'} ${o.value === value ? 'font-semibold' : ''}`}
+                            title={o.label}
+                        >
+                            {o.value === 'this' ? `📍 ${o.label}` : o.label}
+                        </div>
+                    ))}
+                    {!loading && filtered.length === 0 && (
+                        <div className="px-2 py-1.5 text-xs text-[var(--text-tertiary)] italic">{t('view.no_results', 'Cap resultat')}</div>
+                    )}
+                </div>,
+                document.body
+            )}
+        </div>
+    );
+}
+
+// --- Complex filter tree (Notion-style nested AND/OR groups) ---------------
+// The view stores a `filterTree` root group `{ conjunction, rules }` whose rules
+// are leaf rules `{ field, operator, value }` OR nested groups (arbitrary depth).
+// The legacy flat `filters` array survives as a back-compat mirror. Evaluation
+// parity lives in vaultFilters.matchesFilterNode / DbViewEmbed.applyFilterNode /
+// backend view_snapshot.apply_filter_node. Max nesting depth for the UI (the
+// engines support any depth, but the editor caps it to stay readable).
+const MAX_FILTER_DEPTH = 3;
+const NO_VALUE_OPS = ['is_empty', 'is_not_empty'];
+
+const isFilterGroup = (node) => !!node && Array.isArray(node.rules);
+const emptyFilterTree = () => ({ conjunction: 'and', rules: [] });
+
+// Builds the editor's tree from a view/section-like source, preferring the
+// nested `filterTree` and falling back to the legacy flat `filters` (AND). Deep
+// clones so edits don't mutate the loaded object.
+function treeFromSource(src) {
+    if (isFilterGroup(src?.filterTree)) return cloneFilterNode(src.filterTree);
+    const flat = Array.isArray(src?.filters) ? src.filters : [];
+    return { conjunction: 'and', rules: flat.map(f => ({ ...f })) };
+}
+
+function cloneFilterNode(node) {
+    if (isFilterGroup(node)) {
+        return { conjunction: node.conjunction === 'or' ? 'or' : 'and', rules: node.rules.map(cloneFilterNode) };
+    }
+    return { ...node };
+}
+
+// Flattens the tree to its leaf rules (used to prefetch relation options and to
+// detect a `this`-context filter).
+function collectLeafRules(node) {
+    if (!node) return [];
+    if (isFilterGroup(node)) return node.rules.flatMap(collectLeafRules);
+    return node.field ? [node] : [];
+}
+
+// Sanitizes for persistence: drops leaf rules without a field, normalizes the
+// value (null for is_empty/is_not_empty), and prunes empty sub-groups. The root
+// group is always returned (possibly with 0 rules = "no filter").
+function sanitizeFilterTree(node, isRoot = true) {
+    if (isFilterGroup(node)) {
+        const rules = node.rules
+            .map(child => sanitizeFilterTree(child, false))
+            .filter(Boolean);
+        const group = { conjunction: node.conjunction === 'or' ? 'or' : 'and', rules };
+        if (!isRoot && rules.length === 0) return null; // prune empty sub-groups
+        return group;
+    }
+    if (!node?.field) return null;
+    return {
+        field: node.field,
+        operator: node.operator || 'equals',
+        value: NO_VALUE_OPS.includes(node.operator) ? null : (node.value || ''),
+    };
+}
+
+// Returns the leaf rules IFF the tree is a single-level AND of only leaf rules
+// (the legacy shape); otherwise null. Used to mirror `filters` for old readers.
+function flatAndRules(tree) {
+    if (!isFilterGroup(tree) || tree.conjunction !== 'and') return null;
+    if (tree.rules.some(isFilterGroup)) return null;
+    return tree.rules;
+}
+
+/**
+ * Value control for a single filter rule; matches the field type (checkbox →
+ * checkbox, number → numeric input, date → date picker, relation → picker).
+ */
+function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
+    const inputCls = 'text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32 disabled:opacity-40';
+    if (NO_VALUE_OPS.includes(rule.operator)) {
+        // is_empty / is_not_empty: no value is needed.
+        return <input className={inputCls} value="" placeholder="—" disabled />;
+    }
+    const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
+    if (isRelation) {
+        return (
+            <RelationValuePicker
+                value={rule.value || ''}
+                onChange={v => onValue(v)}
+                options={relOpts || []}
+                loading={relOpts === undefined}
+                thisLabel={t('view.filter_this', { defaultValue: 'Aquesta pàgina' })}
+                placeholder={t('view.filter_pick', { defaultValue: 'Tria…' })}
+            />
+        );
+    }
+    const ftype = meta?.type;
+    if (ftype === 'checkbox') {
+        // Checked = filters for marked records ('true'); unmarked = for not
+        // checked ('false', which the engine also matches with empty values).
+        const checked = rule.value === 'true';
+        return (
+            <label className={`${inputCls} flex items-center gap-2 cursor-pointer`}>
+                <input
+                    type="checkbox"
+                    className="accent-[var(--gnosi-primary)] cursor-pointer"
+                    checked={checked}
+                    onChange={e => onValue(e.target.checked ? 'true' : 'false')}
+                />
+                <span className="text-[var(--text-secondary)]">{checked ? t('view.checked', 'Marcat') : t('view.unchecked', 'Sense marcar')}</span>
+            </label>
+        );
+    }
+    if (ftype === 'number') {
+        return (
+            <input
+                type="number"
+                className={inputCls}
+                value={rule.value || ''}
+                onChange={e => onValue(e.target.value)}
+                placeholder={t('view.value_ph', 'Valor')}
+            />
+        );
+    }
+    if (ftype === 'date' || ftype === 'datetime') {
+        return (
+            <input
+                type={ftype === 'datetime' ? 'datetime-local' : 'date'}
+                className={inputCls}
+                value={rule.value || ''}
+                onChange={e => onValue(e.target.value)}
+            />
+        );
+    }
+    return (
+        <input
+            className={inputCls}
+            value={rule.value || ''}
+            onChange={e => onValue(e.target.value)}
+            placeholder={t('view.value_this_ph', 'this o valor')}
+        />
+    );
+}
+
+/** A single leaf rule row: field select + operator select + value control + delete. */
+function FilterRuleRow({ rule, onChange, onRemove, ctx }) {
+    const { tableFields, fieldMeta, fieldLabel, relationCache, defaultFilterValue, t } = ctx;
+    const meta = fieldMeta[rule.field];
+    const isRelation = meta?.type === 'relation' && !!meta.relation_database_id;
+    const relOpts = isRelation ? relationCache[meta.relation_database_id] : null;
+    return (
+        <div className="flex gap-2 items-center">
+            <select
+                className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
+                value={rule.field}
+                onChange={e => {
+                    // Changing the field resets the value to the new type's default
+                    // (a relation id makes no sense in a text field, etc.).
+                    const field = e.target.value;
+                    onChange({ ...rule, field, value: defaultFilterValue(field) });
+                }}
+            >
+                {tableFields.map(tf => (
+                    <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
+                ))}
+            </select>
+            <select
+                className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
+                value={rule.operator}
+                onChange={e => onChange({ ...rule, operator: e.target.value })}
+            >
+                {FILTER_OPERATORS.map(op => (
+                    <option key={op.value} value={op.value}>{t(`view.op_${op.value}`, op.label)}</option>
+                ))}
+            </select>
+            <FilterValueControl rule={rule} meta={meta} relOpts={relOpts} onValue={v => onChange({ ...rule, value: v })} t={t} />
+            <button
+                onClick={onRemove}
+                className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
+                title={t('view.delete', 'Eliminar')}
+            >
+                <Trash2 size={14} />
+            </button>
+        </div>
+    );
+}
+
+/**
+ * Recursive editor for a filter group. Renders a per-row conjunction control
+ * (Notion-style: first row "On"/Where, second row an And/Or selector shared by
+ * the whole group, the rest static), each child (leaf rule or nested group),
+ * and footer buttons to add a rule or a sub-group.
+ */
+function FilterGroupEditor({ node, onChange, onRemove, depth, ctx }) {
+    const { tableFields, defaultFilterValue, t } = ctx;
+    const firstField = tableFields[0]?.name || 'title';
+    const rules = node.rules || [];
+    const conj = node.conjunction === 'or' ? 'or' : 'and';
+
+    const updateChild = (i, child) => onChange({ ...node, rules: rules.map((r, idx) => (idx === i ? child : r)) });
+    const removeChild = (i) => onChange({ ...node, rules: rules.filter((_, idx) => idx !== i) });
+    const addRule = () => onChange({ ...node, rules: [...rules, { field: firstField, operator: 'equals', value: defaultFilterValue(firstField) }] });
+    const addGroup = () => onChange({ ...node, rules: [...rules, { conjunction: 'and', rules: [{ field: firstField, operator: 'equals', value: defaultFilterValue(firstField) }] }] });
+    const setConjunction = (c) => onChange({ ...node, conjunction: c });
+
+    const isNested = depth > 0;
+    return (
+        <div className={isNested ? 'rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)]/40 p-2 space-y-2' : 'space-y-2'}>
+            {isNested && (
+                <div className="flex justify-between items-center">
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--text-tertiary)]">{t('view.filter_group', 'Grup de filtres')}</span>
+                    <button
+                        onClick={onRemove}
+                        className="text-[var(--text-tertiary)] hover:text-red-500 p-0.5"
+                        title={t('view.delete_group', 'Eliminar grup')}
+                    >
+                        <Trash2 size={13} />
+                    </button>
+                </div>
+            )}
+            {rules.map((child, i) => {
+                // The conjunction prefix mirrors Notion: row 0 = "On"/Where,
+                // row 1 = And/Or selector (drives the whole group), row 2+ = static.
+                const prefix = i === 0 ? (
+                    <span className="text-xs text-[var(--text-tertiary)] w-16 shrink-0 pl-1">{t('view.filter_where', 'On')}</span>
+                ) : i === 1 ? (
+                    <select
+                        className="text-xs border border-[var(--border-primary)] rounded px-1.5 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-16 shrink-0"
+                        value={conj}
+                        onChange={e => setConjunction(e.target.value)}
+                    >
+                        <option value="and">{t('view.conj_and', 'I')}</option>
+                        <option value="or">{t('view.conj_or', 'O')}</option>
+                    </select>
+                ) : (
+                    <span className="text-xs text-[var(--text-secondary)] w-16 shrink-0 pl-1">{conj === 'or' ? t('view.conj_or', 'O') : t('view.conj_and', 'I')}</span>
+                );
+                return (
+                    <div key={i} className="flex gap-2 items-start">
+                        <div className="pt-1.5">{prefix}</div>
+                        <div className="flex-1 min-w-0">
+                            {isFilterGroup(child) ? (
+                                <FilterGroupEditor node={child} onChange={c => updateChild(i, c)} onRemove={() => removeChild(i)} depth={depth + 1} ctx={ctx} />
+                            ) : (
+                                <FilterRuleRow rule={child} onChange={c => updateChild(i, c)} onRemove={() => removeChild(i)} ctx={ctx} />
+                            )}
+                        </div>
+                    </div>
+                );
+            })}
+            <div className="flex gap-2 pl-1">
+                <button
+                    onClick={addRule}
+                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20"
+                >
+                    <Plus size={12} />
+                    {t('view.add_filter', 'Afegir filtre')}
+                </button>
+                {depth < MAX_FILTER_DEPTH && (
+                    <button
+                        onClick={addGroup}
+                        className="flex items-center gap-1 text-xs px-2 py-1 rounded border border-[var(--border-primary)] text-[var(--text-secondary)] hover:border-[var(--gnosi-primary)] hover:text-[var(--gnosi-primary)]"
+                    >
+                        <Plus size={12} />
+                        {t('view.add_group', 'Afegir grup')}
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetch, preselectedTableId = '', editingBlock = null, mode = 'embed', editingView = null, initialTab = null }) {
+    const { t } = useTranslation();
+
+    // `mode='table'`: the SAME modal but configuring a view of the table
+    // (not an embed). The embed-specific options are hidden (source table already
+    // pinned, existing view, shared/local scope, "save to views",
+    // in the heading) and on save the registry view is updated/created
+    // directly (without a section or block). `editingView` = view being configured
+    // (null = create a new one).
+    const isTableMode = mode === 'table';
+
+    // Ref to the modal's inner panel: delimits the keyboard focus-trap.
+    const panelRef = useRef(null);
+
+    const [activeTab, setActiveTab] = useState('general');
+    const [heading, setHeading] = useState('');
+    const [headingLevel, setHeadingLevel] = useState(1);
+    const [sourceTableId, setSourceTableId] = useState(preselectedTableId);
+    const [viewName, setViewName] = useState('');
+    const [visibleProperties, setVisibleProperties] = useState([]);
+    // User fields discovered in the records for tables WITHOUT a schema
+    // registered (e.g. "Recursos", imported from the Notion clone: `properties`
+    // empty but the records carry fields). Without this, the column selector
+    // would only show the title. They are merged into `tableFields`.
+    const [discoveredFields, setDiscoveredFields] = useState([]);
+    const [viewType, setViewType] = useState('table');
+    // Complex filter tree (root AND/OR group with nested rules/groups). The
+    // legacy flat `filters` array is derived on save for back-compat.
+    const [filterTree, setFilterTree] = useState(emptyFilterTree);
+    // Ordered list of sort criteria; the first element has the highest
+    // priority (e.g.: sort by `Estat` asc; ties broken by `Data` desc).
+    const [sorts, setSorts] = useState([]);
+    // Snapshot of results' wikilinks in the markdown (portability). Lives in the
+    // view from the registry (resultSnapshot / resultSnapshotLimit); the backend
+    // honors it when saving the page. Default: enabled, 500 (0 = no limit).
+    const [resultSnapshot, setResultSnapshot] = useState(true);
+    const [resultSnapshotLimit, setResultSnapshotLimit] = useState(500);
+    // View-type-specific options (gallery/kanban/calendar/timeline).
+    // They are saved to the view and the renderer honors them; views that are not of the
+    // corresponding type simply ignore them.
+    const [cardSize, setCardSize] = useState('medium');
+    const [galleryPreview, setGalleryPreview] = useState('cover');
+    const [coverField, setCoverField] = useState('');
+    const [imageFit, setImageFit] = useState('contain');
+    const [groupBy, setGroupBy] = useState('');
+    const [groupSort, setGroupSort] = useState('catalog');   // catalog | alpha | count
+    const [groupSortDir, setGroupSortDir] = useState('asc'); // asc | desc
+    const [dateField, setDateField] = useState('');
+    const [endDateField, setEndDateField] = useState('');
+    const [calendarView, setCalendarView] = useState('dayGridMonth');
+    const [colorField, setColorField] = useState('');
+    const [rowHeight, setRowHeight] = useState('normal');
+    // Chart view options.
+    const [chartType, setChartType] = useState('bar');
+    const [xField, setXField] = useState('');
+    const [yField, setYField] = useState('');
+    const [aggregation, setAggregation] = useState('count');
+    const [saveToTableViews, setSaveToTableViews] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    // Views saved on the selected table — the user can choose one when
+    // stead of having to configure everything from scratch.
+    const [existingViews, setExistingViews] = useState([]);
+    const [selectedExistingViewId, setSelectedExistingViewId] = useState('');
+    const [loadingExistingViews, setLoadingExistingViews] = useState(false);
+    // How many pages share the selected existing view — if > 1
+    // (including this one), we warn the user before propagating changes.
+    const [viewUsage, setViewUsage] = useState({ count: 0, pages: [] });
+    // What to do if the user modifies a shared view:
+    //   'shared' = apply changes to all pages that use it (default)
+    //   'fork'   = only this page; the section is embedded without view_id and
+    //              carries an inline copy of the filters/sorts/properties.
+    const [editScope, setEditScope] = useState('shared');
+    const [modalPinnedViewIds, setModalPinnedViewIds] = useState(new Set());
+
+    const selectedTable = useMemo(
+        () => allTables.find(tbl => tbl.id === sourceTableId),
+        [allTables, sourceTableId]
+    );
+
+    const tableFields = useMemo(() => {
+        // A title column from the schema (the property of type `title`
+        // from a table imported from Notion, e.g. "Nom"/"Título", or a field
+        // literally named title/títol/titulo/titre) IS the title of the
+        // page. The system already exposes it as the canonical `title` field, which the
+        // renderer reads from `r.title`. The previous detection, based only on
+        // unaccented names, didn't recognize `Título` (with í) nor the columns
+        // of type `title` with a different name (`Nom`), and it ended up showing TWO
+        // title columns; moreover, the column with its own name wasn't even
+        // rendered (its value isn't in `metadata`, but in `title`).
+        // That's why we exclude all title columns from the schema and leave
+        // a single canonical `title`.
+        const isTitleField = (p) => {
+            if (String(p.type || '').trim().toLowerCase() === 'title') return true;
+            const n = String(p.name || '').trim().toLowerCase();
+            return n === 'title' || n === 'títol' || n === 'titulo' || n === 'título' || n === 'titre';
+        };
+        const props = (selectedTable?.properties || [])
+            .filter(p => !isTitleField(p))
+            .map(p => ({ name: p.name, type: p.type, relation_database_id: p.relation_database_id }));
+        props.unshift({ name: 'title', type: 'title' });
+        // Merges the fields discovered in records that the registered schema does NOT
+        // contain (tables without `properties`, like "Recursos"). They are marked as
+        // `text` (unknown type) and go at the end, after the schema.
+        const known = new Set(props.map(p => String(p.name || '').toLowerCase()));
+        for (const name of discoveredFields) {
+            if (known.has(String(name).toLowerCase())) continue;
+            props.push({ name, type: 'text' });
+            known.add(String(name).toLowerCase());
+        }
+        return props;
+    }, [selectedTable, discoveredFields]);
+
+    const fieldMeta = useMemo(() => {
+        const m = {};
+        tableFields.forEach(f => { m[f.name] = f; });
+        return m;
+    }, [tableFields]);
+
+    // Cache of related table records for the filter dropdowns
+    // for relation: { [tableId]: [{ value: id, label: title }] }. `undefined` =
+    // not yet loaded (we show "Loading…").
+    const [relationCache, setRelationCache] = useState({});
+    useEffect(() => {
+        if (!isOpen) return;
+        const targets = new Set();
+        collectLeafRules(filterTree).forEach(f => {
+            const meta = fieldMeta[f.field];
+            if (meta?.type === 'relation' && meta.relation_database_id) targets.add(meta.relation_database_id);
+        });
+        targets.forEach(async (tid) => {
+            if (relationCache[tid] !== undefined) return;
+            try {
+                const rows = await apiFetch(`/api/vault/pages/by-table/${encodeURIComponent(tid)}`);
+                const opts = (Array.isArray(rows) ? rows : [])
+                    .filter(r => !r.metadata?.is_template)
+                    .map(r => ({ value: r.id, label: r.title || t('view.untitled', '(sense títol)') }))
+                    .sort((a, b) => a.label.localeCompare(b.label));
+                setRelationCache(prev => ({ ...prev, [tid]: opts }));
+            } catch {
+                setRelationCache(prev => ({ ...prev, [tid]: [] }));
+            }
+        });
+    }, [isOpen, filterTree, fieldMeta, apiFetch, relationCache, t]);
+
+    // Reads the per-type options of a view (registry or inline section) into the
+    // modal's state, tolerating both naming conventions (camelCase from the
+    // registry and snake_case from the embedded section).
+    const applyTypeOptions = (v) => {
+        setCardSize(v?.cardSize || 'medium');
+        setGalleryPreview(v?.galleryPreview || 'cover');
+        setCoverField(v?.coverField || v?.cover_field || '');
+        setImageFit(v?.imageFit || v?.image_fit || 'contain');
+        setGroupBy(v?.groupBy || v?.group_by || '');
+        setGroupSort(v?.groupSort || v?.group_sort || 'catalog');
+        setGroupSortDir(v?.groupSortDir || v?.group_sort_dir || 'asc');
+        setDateField(v?.dateField || v?.date_field || '');
+        setEndDateField(v?.endDateField || v?.end_date_field || '');
+        setCalendarView(v?.calendarView || v?.calendar_view || 'dayGridMonth');
+        setColorField(v?.colorField || v?.color_field || '');
+        setRowHeight(v?.rowHeight || v?.row_height || 'normal');
+        setChartType(v?.chartType || v?.chart_type || 'bar');
+        setXField(v?.xField || v?.x_field || '');
+        setYField(v?.yField || v?.y_field || '');
+        setAggregation(v?.aggregation || (v?.yField || v?.y_field ? 'sum' : 'count'));
+    };
+    const resetTypeOptions = () => {
+        setCardSize('medium');
+        setGalleryPreview('cover');
+        setCoverField('');
+        setImageFit('contain');
+        setGroupBy('');
+        setGroupSort('catalog');
+        setGroupSortDir('asc');
+        setDateField('');
+        setEndDateField('');
+        setCalendarView('dayGridMonth');
+        setColorField('');
+        setRowHeight('normal');
+        setChartType('bar');
+        setXField('');
+        setYField('');
+        setAggregation('count');
+    };
+
+    useEffect(() => {
+        if (!isOpen) return;
+        // TABLE mode: we configure a registry view directly (not an
+        // embed). We pre-fill from `editingView` (or defaults if we're creating one).
+        if (isTableMode) {
+            // 'appearance' from the old modal = 'general' tab here. Only known ids.
+            const validIds = new Set(TABS.map(t => t.id));
+            const norm = initialTab === 'appearance' ? 'general' : initialTab;
+            setActiveTab(norm && validIds.has(norm) ? norm : 'general');
+            setError('');
+            setSaveToTableViews(false);
+            setEditScope('shared');
+            setViewUsage({ count: 0, pages: [] });
+            setSelectedExistingViewId('');
+            setSourceTableId(String(editingView?.table_id || preselectedTableId || ''));
+            if (editingView) {
+                setViewType(String(editingView.type || 'table'));
+                setViewName(String(editingView.name || ''));
+                setVisibleProperties(
+                    Array.isArray(editingView.visibleProperties) && editingView.visibleProperties.length
+                        ? editingView.visibleProperties
+                        : ['title']
+                );
+                setFilterTree(treeFromSource(editingView));
+                if (Array.isArray(editingView.sorts) && editingView.sorts.length) {
+                    setSorts(editingView.sorts);
+                } else if (editingView.sort && editingView.sort.field) {
+                    setSorts([{ field: editingView.sort.field, direction: editingView.sort.direction || 'asc' }]);
+                } else {
+                    setSorts([]);
+                }
+                setResultSnapshot(editingView.resultSnapshot !== false);
+                setResultSnapshotLimit(
+                    Number.isFinite(Number(editingView.resultSnapshotLimit)) ? Number(editingView.resultSnapshotLimit) : 500
+                );
+                applyTypeOptions(editingView);
+            } else {
+                setViewType('table');
+                setViewName('');
+                setVisibleProperties(['title']);
+                setFilterTree(emptyFilterTree());
+                setSorts([]);
+                setResultSnapshot(true);
+                setResultSnapshotLimit(500);
+                resetTypeOptions();
+            }
+            return;
+        }
+        // EDIT mode: we prefill from the existing block's props.
+        // If the section has a view_id, we'll load it in the existing
+        // views useEffect (automatic selection). If not, we parse `section` (config
+        // inline) to fill filters/sorts/visible_properties.
+        if (editingBlock) {
+            const p = editingBlock.props || {};
+            setActiveTab('general');
+            setHeading(String(p.heading || ''));
+            setHeadingLevel(Number(p.heading_level) || 1);
+            setError('');
+
+            const vid = String(p.view_id || '');
+            // We load the pinned views from localStorage
+            try {
+                const saved = JSON.parse(localStorage.getItem(`gnosi_embed_pinned_${pageId}_${vid || 'default'}`) || '[]');
+                setModalPinnedViewIds(new Set(saved));
+            } catch {
+                setModalPinnedViewIds(new Set());
+            }
+
+            // Inline fallback (disconnected local view)
+            let inline = null;
+            if (!vid && p.section) {
+                try { inline = JSON.parse(p.section); } catch { /* malformat */ }
+            }
+            setViewName('');
+            setSaveToTableViews(false);
+            setViewUsage({ count: 0, pages: [] });
+            setEditScope('shared');
+
+            if (vid) {
+                // Preload via a direct fetch so the chained useEffects don't
+                // (sourceTableId → existingViews → selectedExistingViewId) no
+                // end up clearing the selection before the view has been read.
+                let cancelled = false;
+                apiFetch(`/api/vault/views/${encodeURIComponent(vid)}`)
+                    .then(v => {
+                        if (cancelled || !v) return;
+                        setSourceTableId(String(v.table_id || ''));
+                        setViewType(String(v.type || 'table'));
+                        setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
+                        setFilterTree(treeFromSource(v));
+                        setResultSnapshot(v.resultSnapshot !== false);
+                        setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
+                        applyTypeOptions(v);
+                        if (Array.isArray(v.sorts) && v.sorts.length > 0) {
+                            setSorts(v.sorts);
+                        } else if (v.sort && v.sort.field) {
+                            setSorts([{ field: v.sort.field, direction: v.sort.direction || 'asc' }]);
+                        } else {
+                            setSorts([]);
+                        }
+                        // We put the view directly into the existing list
+                        // so the dropdown shows it selected.
+                        setExistingViews(prev => {
+                            if (prev.some(x => x.id === v.id)) return prev;
+                            return [v, ...prev];
+                        });
+                        setSelectedExistingViewId(vid);
+                    })
+                    .catch(() => {
+                        // If we fail, we leave the modal in create-new mode.
+                        if (!cancelled) {
+                            setSourceTableId(preselectedTableId || '');
+                            setSelectedExistingViewId('');
+                        }
+                    });
+                return () => { cancelled = true; };
+            }
+
+            // Local view (inline). We pre-fill from the serialized JSON.
+            setSelectedExistingViewId('');
+            setSourceTableId(inline?.source_table_id || preselectedTableId || '');
+            setViewType(inline?.type || 'table');
+            setFilterTree(treeFromSource(inline || {}));
+            setSorts(Array.isArray(inline?.sorts) ? inline.sorts : []);
+            setVisibleProperties(Array.isArray(inline?.visibleProperties) && inline.visibleProperties.length ? inline.visibleProperties : ['title']);
+            setResultSnapshot(inline?.resultSnapshot !== false);
+            setResultSnapshotLimit(Number.isFinite(Number(inline?.resultSnapshotLimit)) ? Number(inline.resultSnapshotLimit) : 500);
+            applyTypeOptions(inline);
+            setExistingViews([]);
+            return;
+        }
+        // CREATE mode: everything clean.
+        setActiveTab('general');
+        setHeading('');
+        setHeadingLevel(1);
+        setSourceTableId(preselectedTableId || '');
+        setViewName('');
+        setVisibleProperties(['title']);
+        setViewType('table');
+        setFilterTree(emptyFilterTree());
+        setSorts([]);
+        setResultSnapshot(true);
+        setResultSnapshotLimit(500);
+        setSaveToTableViews(true);
+        setSelectedExistingViewId('');
+        setExistingViews([]);
+        setViewUsage({ count: 0, pages: [] });
+        setEditScope('shared');
+        setModalPinnedViewIds(new Set());
+        resetTypeOptions();
+        setError('');
+    }, [isOpen, preselectedTableId, editingBlock, isTableMode, editingView, initialTab]);
+
+    // When the source table changes, we load the views already saved for
+    // allow choosing one instead of creating it from scratch.
+    useEffect(() => {
+        if (!sourceTableId) {
+            setExistingViews([]);
+            setSelectedExistingViewId('');
+            return;
+        }
+        let cancelled = false;
+        setLoadingExistingViews(true);
+        apiFetch(`/api/vault/views?table_id=${encodeURIComponent(sourceTableId)}`)
+            .then(data => {
+                if (cancelled) return;
+                const list = Array.isArray(data) ? data : (data?.views || []);
+                // The "Main Table" is not persisted in the registry: the frontend
+                // creates it virtually when a table doesn't yet have any view
+                // (see VaultDashboard.jsx::ensureMainViewForTable). If we don't
+                // add it here, the user can't select it in the dropdown.
+                const hasMain = list.some(v =>
+                    v.id === 'default' || v.is_main === true || v.is_default === true || v.name === 'Taula Principal'
+                );
+                if (!hasMain) {
+                    list.unshift({
+                        id: 'default',
+                        table_id: sourceTableId,
+                        name: 'Taula Principal',
+                        type: 'table',
+                        is_main: true,
+                        filters: [],
+                        sort: { field: 'last_modified', direction: 'desc' },
+                        visibleProperties: [],
+                    });
+                }
+                setExistingViews(list);
+                // If the currently selected view does NOT belong to the new
+                // table (user-initiated change), reset. If it DOES belong (pre-filling
+                // edit mode), we keep the selection.
+                setSelectedExistingViewId(prev => {
+                    if (!prev) return '';
+                    return list.some(v => v.id === prev) ? prev : '';
+                });
+            })
+            .catch(() => {
+                if (!cancelled) setExistingViews([]);
+            })
+            .finally(() => {
+                if (!cancelled) setLoadingExistingViews(false);
+            });
+        return () => { cancelled = true; };
+    }, [sourceTableId, apiFetch]);
+
+    // Tables without a registered schema (`properties` empty, e.g. "Recursos"
+    // imported from the Notion clone) do not expose any field in the column selector.
+    // We discover the user fields from a sample of records so that
+    // the user can select them (and so the sanitization effect doesn't remove them from
+    // views that already use them). We only do this when needed: if the table already has
+    // schema, there is nothing to discover.
+    useEffect(() => {
+        if (!sourceTableId || !selectedTable) { setDiscoveredFields([]); return; }
+        if (Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0) {
+            setDiscoveredFields([]);
+            return;
+        }
+        let cancelled = false;
+        apiFetch(`/api/vault/pages?table_id=${encodeURIComponent(sourceTableId)}&limit=300`)
+            .then(data => {
+                if (cancelled) return;
+                const recs = Array.isArray(data) ? data : (data?.pages || data?.items || []);
+                setDiscoveredFields(discoverFieldNamesFromRecords(recs));
+            })
+            .catch(() => { if (!cancelled) setDiscoveredFields([]); });
+        return () => { cancelled = true; };
+    }, [sourceTableId, selectedTable, apiFetch]);
+
+    // When the user selects an existing view, it pre-fills the fields with its
+    // config and loads how many pages share it.
+    useEffect(() => {
+        if (!selectedExistingViewId) {
+            setViewUsage({ count: 0, pages: [] });
+            setEditScope('shared');
+            return;
+        }
+        const v = existingViews.find(x => x.id === selectedExistingViewId);
+        if (!v) return;
+        setVisibleProperties(Array.isArray(v.visibleProperties) && v.visibleProperties.length ? v.visibleProperties : ['title']);
+        setViewType(v.type || 'table');
+        setFilterTree(treeFromSource(v));
+        setResultSnapshot(v.resultSnapshot !== false);
+        setResultSnapshotLimit(Number.isFinite(Number(v.resultSnapshotLimit)) ? Number(v.resultSnapshotLimit) : 500);
+        applyTypeOptions(v);
+        // Compat: the registry can have `sorts: [...]` (new) or `sort: {...}` (legacy)
+        if (Array.isArray(v.sorts) && v.sorts.length > 0) {
+            setSorts(v.sorts);
+        } else if (v.sort && v.sort.field) {
+            setSorts([{ field: v.sort.field, direction: v.sort.direction || 'asc' }]);
+        } else {
+            setSorts([]);
+        }
+        // The virtual "Main Table" has no entry in the registry; we show it
+        // as a "starting point" but we enable saving (it will be created as a
+        // genuinely new view). The usage also doesn't make sense for 'default'.
+        if (selectedExistingViewId === 'default' || v.is_main) {
+            setSaveToTableViews(true);
+            setViewUsage({ count: 0, pages: [] });
+            setEditScope('shared');
+            return;
+        }
+
+        // When you pick a real existing view, we don't duplicate it in the registry.
+        setSaveToTableViews(false);
+        setEditScope('shared');
+
+        // Loads usage to find out whether the view is shared.
+        let cancelled = false;
+        apiFetch(`/api/vault/views/${encodeURIComponent(selectedExistingViewId)}/usage`)
+            .then(data => {
+                if (cancelled) return;
+                setViewUsage({
+                    count: data?.count || 0,
+                    pages: data?.pages || [],
+                });
+            })
+            .catch(() => {
+                if (!cancelled) setViewUsage({ count: 0, pages: [] });
+            });
+        return () => { cancelled = true; };
+    }, [selectedExistingViewId, existingViews, apiFetch]);
+
+    // Adjusts visibleProperties when the table changes (removes fields that no longer
+    // exist) and ensures the canonical `title` is always present: as in Notion,
+    // the title column is the primary property, always visible, and cannot be
+    // remove. If missing, it is placed at the front.
+    useEffect(() => {
+        if (!selectedTable) return;
+        // Table without a registered schema and field discovery still pending:
+        // we do NOT sanitize, or we would delete valid view columns before knowing
+        // which fields exist (fields arrive async via discoveredFields).
+        const hasSchema = Array.isArray(selectedTable.properties) && selectedTable.properties.length > 0;
+        if (!hasSchema && discoveredFields.length === 0) return;
+        const valid = new Set(tableFields.map(f => f.name));
+        setVisibleProperties(prev => {
+            const filtered = prev.filter(n => valid.has(n));
+            return filtered.includes('title') ? filtered : ['title', ...filtered];
+        });
+    }, [sourceTableId, selectedTable, tableFields, discoveredFields]);
+
+    // Canonical keyboard logic: Esc closes, Tab does a focus-trap inside the panel, and
+    // focus is restored on close. No onConfirm: this modal is a
+    // configurator with autosave/explicit save, without a single primary action
+    // for Enter to trigger. The hook listens in CAPTURE on window, so it
+    // overrides BlockNote's stopPropagation (TipTap/ProseMirror).
+    useModalKeyboard({
+        isOpen,
+        onClose: () => onClose(false),
+        containerRef: panelRef,
+        trapFocus: true,
+    });
+
+    // Drag-and-drop sensors shared by the visible-columns and sort-criteria
+    // lists (pointer + keyboard, as in SchemaConfigModal). Must run before the
+    // early return below: hooks cannot be conditional.
+    const dndSensors = useSensors(
+        useSensor(PointerSensor),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    if (!isOpen) return null;
+
+    const toggleProperty = (name) => {
+        // The `title` is the primary column (as in Notion): always visible, cannot be
+        // can deselect.
+        if (name === 'title') return;
+        setVisibleProperties(prev =>
+            prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+        );
+    };
+
+    // Reorders a visible column by dragging it (ids = field names).
+    const handleColumnDragEnd = ({ active, over }) => {
+        if (!active || !over || active.id === over.id) return;
+        setVisibleProperties(prev => {
+            const oldIndex = prev.indexOf(active.id);
+            const newIndex = prev.indexOf(over.id);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            return arrayMove(prev, oldIndex, newIndex);
+        });
+    };
+
+    // A field's visible label: the canonical `title` is translated ("Title") and
+    // the rest are shown with the first letter capitalized (names with
+    // leading emoji/accents are kept intact).
+    const capitalizeFirst = (s) => {
+        const str = String(s || '');
+        return str ? str.charAt(0).toUpperCase() + str.slice(1) : str;
+    };
+    const fieldLabel = (name) => (
+        name === 'title' ? t('view.column_title', { defaultValue: 'Títol' }) : capitalizeFirst(name)
+    );
+
+    // Field pickers (filters, sorting, grouping, per-type controls) list the fields
+    // alphabetically by their visible label: with dozens of properties the schema
+    // order is unusable to find one. `tableFields` keeps its own order because it
+    // also feeds the visible-columns list, where the order IS the user's column order.
+    const sortedTableFields = useMemo(
+        () => [...tableFields].sort((a, b) => fieldLabel(a.name).localeCompare(fieldLabel(b.name), undefined, { sensitivity: 'base' })),
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [tableFields, t]
+    );
+
+    // Initial value of a filter based on the field type: checkboxes start
+    // with a specific boolean ('false' = unchecked) instead of empty, because the
+    // engine's boolean comparison also matches rows with no value.
+    const defaultFilterValue = (fieldName) => (
+        fieldMeta[fieldName]?.type === 'checkbox' ? 'false' : ''
+    );
+
+    const addSort = () => {
+        const firstField = tableFields[0]?.name || 'title';
+        setSorts(prev => [...prev, { field: firstField, direction: 'asc' }]);
+    };
+
+    const updateSort = (idx, patch) => {
+        setSorts(prev => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+    };
+
+    const removeSort = (idx) => {
+        setSorts(prev => prev.filter((_, i) => i !== idx));
+    };
+
+    // Reorders a sort criterion by dragging it. Rows are identified by
+    // positional ids ("sort-<idx>"): stable during the drag (the array only
+    // mutates on drop) and immune to duplicate field names.
+    const handleSortDragEnd = ({ active, over }) => {
+        if (!active || !over || active.id === over.id) return;
+        const oldIndex = Number(String(active.id).slice('sort-'.length));
+        const newIndex = Number(String(over.id).slice('sort-'.length));
+        if (Number.isNaN(oldIndex) || Number.isNaN(newIndex)) return;
+        setSorts(prev => arrayMove(prev, oldIndex, newIndex));
+    };
+
+    // Builds the object with the options specific to the view type
+    // that's active. Only includes the fields that apply to the type so that a view doesn't
+    // drags along irrelevant config (e.g. cardSize on a table).
+    const buildViewExtras = (src) => {
+        // Without `src` it takes the modal's current state; with `src` (an
+        // existing view) it extracts the same fields with the same defaults,
+        // tolerating camelCase (registry) and snake_case (embedded section). This way
+        // change detection and saving use exactly the same shape.
+        const s = src || { cardSize, galleryPreview, coverField, imageFit, groupBy, groupSort, groupSortDir, dateField, endDateField, calendarView, colorField, rowHeight, chartType, xField, yField, aggregation };
+        const extras = {};
+        if (viewType === 'gallery') {
+            extras.cardSize = s.cardSize || 'medium';
+            extras.galleryPreview = s.galleryPreview || 'cover';
+            extras.coverField = s.coverField || s.cover_field || '';
+            extras.imageFit = s.imageFit || s.image_fit || 'contain';
+            extras.groupBy = s.groupBy || s.group_by || '';
+            extras.groupSort = s.groupSort || s.group_sort || 'catalog';
+            extras.groupSortDir = s.groupSortDir || s.group_sort_dir || 'asc';
+        } else if (viewType === 'board') {
+            extras.groupBy = s.groupBy || s.group_by || '';
+            extras.groupSort = s.groupSort || s.group_sort || 'catalog';
+            extras.groupSortDir = s.groupSortDir || s.group_sort_dir || 'asc';
+        } else if (viewType === 'calendar') {
+            extras.dateField = s.dateField || s.date_field || '';
+            extras.calendarView = s.calendarView || s.calendar_view || 'dayGridMonth';
+        } else if (viewType === 'timeline') {
+            extras.dateField = s.dateField || s.date_field || '';
+            extras.endDateField = s.endDateField || s.end_date_field || '';
+            extras.colorField = s.colorField || s.color_field || '';
+        } else if (viewType === 'chart') {
+            extras.chartType = s.chartType || s.chart_type || 'bar';
+            extras.xField = s.xField || s.x_field || '';
+            extras.yField = s.yField || s.y_field || '';
+            extras.aggregation = s.aggregation || ((s.yField || s.y_field) ? 'sum' : 'count');
+        } else if (viewType === 'table' || viewType === 'list') {
+            extras.rowHeight = s.rowHeight || s.row_height || 'normal';
+            extras.groupBy = s.groupBy || s.group_by || '';
+            extras.groupSort = s.groupSort || s.group_sort || 'catalog';
+            extras.groupSortDir = s.groupSortDir || s.group_sort_dir || 'asc';
+        }
+        return extras;
+    };
+
+    const handleSave = async () => {
+        if (!sourceTableId) {
+            setError(t('view.error_no_table', 'Cal seleccionar una taula origen'));
+            setActiveTab('general');
+            return;
+        }
+        if (visibleProperties.length === 0) {
+            setError(t('view.error_no_fields', 'Cal almenys un camp visible'));
+            setActiveTab('properties');
+            return;
+        }
+
+        setSaving(true);
+        setError('');
+        try {
+            // Sanitize the filter tree: drop rules without a field, null out the
+            // value for is_empty/is_not_empty, prune empty sub-groups. `cleanTree`
+            // is the source of truth (complex AND/OR groups); `cleanFilters` is a
+            // flat AND mirror kept ONLY when the tree is a simple single-level AND
+            // of leaf rules — otherwise `[]`, so old readers don't misinterpret a
+            // complex filter as a flat one (they fall back to `filterTree`).
+            const cleanTree = sanitizeFilterTree(filterTree);
+            const flat = flatAndRules(cleanTree);
+            const cleanFilters = flat ? flat.map(f => ({ ...f })) : [];
+            const filterTreeBody = cleanTree.rules.length ? cleanTree : null;
+            const leafRules = collectLeafRules(cleanTree);
+
+            const cleanSorts = sorts
+                .filter(s => s.field)
+                .map(s => ({ field: s.field, direction: s.direction || 'asc' }));
+            // We keep `sort` (singular) for compatibility with the renderer/UI that
+            // still reads a single criterion.
+            const sortConfig = cleanSorts[0] || null;
+
+            // TABLE mode: saves the registry view directly (creates or
+            // updates), without a section or block. Returns the saved view to the
+            // caller so it can refresh the registry and select it.
+            if (isTableMode) {
+                const viewBody = {
+                    ...(editingView || {}),
+                    id: editingView?.id,
+                    table_id: sourceTableId,
+                    name: (viewName || editingView?.name || 'Vista').trim(),
+                    type: viewType,
+                    filters: cleanFilters,
+                    filterTree: filterTreeBody,
+                    sort: sortConfig,
+                    sorts: cleanSorts,
+                    visibleProperties,
+                    resultSnapshot,
+                    resultSnapshotLimit,
+                    ...buildViewExtras(),
+                };
+                let saved;
+                if (editingView?.id) {
+                    saved = await apiFetch(`/api/vault/views/${encodeURIComponent(editingView.id)}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(viewBody),
+                    });
+                } else {
+                    saved = await apiFetch('/api/vault/views', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(viewBody),
+                    });
+                }
+                // `saved` can be the created view (with a new id) or a status; in
+                // any case we return the body with the resulting id.
+                const savedView = {
+                    ...viewBody,
+                    id: editingView?.id || saved?.id || viewBody.id,
+                };
+                onClose(true, savedView);
+                return;
+            }
+
+            // 'default' is the virtual main view (not persisted): the
+            // we treat it as if the user had chosen "Create new view" with
+            // saveToTableViews=true (this was forced in the useEffect of
+            // selection). Here we clear the viewId so 'default' isn't sent
+            // to the backend.
+            const isDefaultPick = selectedExistingViewId === 'default';
+            let viewId = (selectedExistingViewId && !isDefaultPick) ? selectedExistingViewId : null;
+
+            // We reuse the existing view if a real one was chosen. If
+            // the user has modified it:
+            //   - editScope === 'shared': we upsert to the registry → affects all
+            //     the pages that embed it (this is the natural behavior
+            //     of a shared view).
+            //   - editScope === 'fork': we remove the `view_id` reference and the
+            //     the section is saved with inline fields. This way this page
+            //     ends up disconnected from the shared view.
+            if (selectedExistingViewId && !isDefaultPick) {
+                const original = existingViews.find(x => x.id === selectedExistingViewId);
+                const newPropsJson = JSON.stringify({
+                    // `type` also counts as a modification: without it, changing
+                    // ONLY the type (table→board/feed/graph, without extras) did not
+                    // was never upserted to the registry and DbViewEmbed —which prefers the
+                    // view from the registry to the section— it kept rendering the old type.
+                    type: viewType,
+                    filterTree: cleanTree,
+                    sorts: cleanSorts,
+                    visibleProperties,
+                    resultSnapshot,
+                    resultSnapshotLimit,
+                    // Options by type (gallery: cardSize/galleryPreview; board:
+                    // groupBy; etc.). Without including them here, changing ONLY the
+                    // preview or card size was not detected as a
+                    // modification and the shared view was never applied to the registry
+                    // (from where the render reads galleryPreview) → the change was lost.
+                    ...buildViewExtras(),
+                });
+                const oldPropsJson = JSON.stringify({
+                    type: String(original?.view_type || original?.type || 'table').toLowerCase(),
+                    // Normalize the original's filters through the same tree pipeline
+                    // so a simple flat filter doesn't read as "modified" just because
+                    // the new shape is a tree.
+                    filterTree: sanitizeFilterTree(treeFromSource(original || {})),
+                    sorts: original?.sorts || (original?.sort ? [original.sort] : []),
+                    visibleProperties: original?.visibleProperties || ['title'],
+                    resultSnapshot: original?.resultSnapshot !== false,
+                    resultSnapshotLimit: Number.isFinite(Number(original?.resultSnapshotLimit)) ? Number(original.resultSnapshotLimit) : 500,
+                    ...buildViewExtras(original || {}),
+                });
+                const modified = newPropsJson !== oldPropsJson;
+
+                if (modified && editScope === 'fork') {
+                    // Undo the link: the section will be inline.
+                    viewId = null;
+                } else if (modified && editScope === 'shared') {
+                    const updated = {
+                        ...(original || {}),
+                        id: selectedExistingViewId,
+                        table_id: sourceTableId,
+                        type: viewType,
+                        filters: cleanFilters,
+                        filterTree: filterTreeBody,
+                        sort: sortConfig,
+                        sorts: cleanSorts,
+                        visibleProperties,
+                        resultSnapshot,
+                        resultSnapshotLimit,
+                        ...buildViewExtras(),
+                    };
+                    await apiFetch('/api/vault/views', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updated),
+                    });
+                }
+            } else if (saveToTableViews) {
+                // Case "create new": we create it first in registry.views[] so that
+                // the section can reference it by id.
+                const viewBody = {
+                    table_id: sourceTableId,
+                    name: (viewName || heading || 'Vista').trim(),
+                    type: viewType,
+                    filters: cleanFilters,
+                    filterTree: filterTreeBody,
+                    sort: sortConfig,
+                    sorts: cleanSorts,
+                    visibleProperties,
+                    resultSnapshot,
+                    resultSnapshotLimit,
+                    ...buildViewExtras(),
+                    // If it filters by the page context ("this"), as a
+                    // dashboard tab it would resolve nothing: it is marked embedded
+                    // and only lives inside embeds (isPageEmbedView). Without
+                    // "this", the "also save to the views" checkbox is respected
+                    // of the table" and remains as a normal tab.
+                    ...(leafRules.some(f => f?.value === 'this') ? { embedded: true } : {}),
+                };
+                const created = await apiFetch('/api/vault/views', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(viewBody),
+                });
+                viewId = created?.id || null;
+            }
+
+            // 2) Creates the embedded section in the page. If we have view_id,
+            // we reference the saved view (single source of truth). Without
+            // view_id, we write the fields inline ("local view" mode).
+            const sectionBody = {
+                heading: heading.trim(),
+                heading_level: headingLevel,
+                type: 'db_view',
+                source_table_id: sourceTableId,
+                view_id: viewId,
+                filters: cleanFilters,
+                filterTree: filterTreeBody,
+                sort: sortConfig,
+                sorts: cleanSorts,
+                visible_properties: visibleProperties,
+                view_type: viewType,
+                ...buildViewExtras(),
+                // Legacy: kept for sync_sections which still reads `columns`
+                columns: visibleProperties,
+            };
+
+            const res = await apiFetch(`/api/pages/${pageId}/views`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(sectionBody),
+            });
+            if (res && typeof res.ok === 'boolean' && !res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(data.detail || res.statusText);
+            }
+
+            if (viewId && !isTableMode) {
+                try {
+                    localStorage.setItem(`gnosi_embed_pinned_${pageId}_${viewId}`, JSON.stringify([...modalPinnedViewIds]));
+                } catch (e) {
+                    console.warn('Failed to save pinned views to localStorage', e);
+                }
+            }
+
+            // We return enough info so the caller (BlockEditor) can insert
+            // a dbViewEmbed block at the cursor with the full config.
+            onClose(true, {
+                view_id: viewId,
+                heading: heading.trim(),
+                heading_level: headingLevel,
+                source_table_id: sourceTableId,
+                view_type: viewType,
+                filters: cleanFilters,
+                filterTree: filterTreeBody,
+                sorts: cleanSorts,
+                visible_properties: visibleProperties,
+            });
+        } catch (e) {
+            setError(e?.message || t('view.error_create', 'Error desconegut en crear la vista'));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Schema fields suitable for each per-type control: grouping of
+    // Kanban (fields with bounded values) and calendar/timeline time axis.
+    const groupFieldOptions = sortedTableFields.filter(f => GROUP_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const dateFieldOptions = sortedTableFields.filter(f => DATE_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    const numericFieldOptions = sortedTableFields.filter(f => NUMERIC_FIELD_TYPES.has(String(f.type || '').toLowerCase()));
+    // Fields suitable for the gallery cover: attachments/images/URL or fields with
+    // an image name (the gallery extracts the src from it with getImageSrc).
+    const coverFieldOptions = sortedTableFields.filter(f => {
+        const ty = String(f.type || '').toLowerCase();
+        return ty === 'files' || ty === 'image' || ty === 'url' || /imatge|image|cover|portada|foto|photo|thumbnail|miniatura/i.test(f.name || '');
+    });
+
+    // We don't close on click outside: with so many tabs it's easy to
+    // accidentally click the overlay and lose the config. Closing only via X / Esc.
+    const handleOverlayClick = () => {};
+
+    return (
+        <div
+            className="fixed inset-0 bg-black/60 flex items-center justify-center z-[200] p-4 backdrop-blur-sm"
+            onClick={handleOverlayClick}
+        >
+            <div ref={panelRef} className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-2xl border border-[var(--border-primary)] flex flex-col max-h-[85vh]">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] rounded-t-xl shrink-0">
+                    <h2 className="text-sm font-bold text-[var(--text-primary)] flex items-center gap-2">
+                        <Eye size={16} className="text-[var(--gnosi-primary)]" />
+                        {isTableMode
+                            ? (editingView?.id ? t('view.config_title', 'Configurar vista') : t('view.new_view', 'Nova vista'))
+                            : (editingBlock
+                                ? t('page_view.title_edit', 'Edita la vista de BD')
+                                : t('page_view.title', 'Afegir vista de BD'))}
+                    </h2>
+                    <button onClick={() => onClose(false)} className="gnosi-close-btn">
+                        <X size={16} />
+                    </button>
+                </div>
+
+                {/* Tabs */}
+                <div className="flex border-b border-[var(--border-primary)] bg-[var(--bg-secondary)] shrink-0">
+                    {TABS.map(tab => {
+                        const Icon = tab.icon;
+                        const active = activeTab === tab.id;
+                        return (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-1.5 px-4 py-2 text-xs font-semibold border-b-2 transition-colors ${
+                                    active
+                                        ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)]'
+                                        : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                                }`}
+                            >
+                                <Icon size={13} />
+                                {t(`view.tab_${tab.id}`, tab.label)}
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {/* Body */}
+                <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                    {activeTab === 'general' && (
+                        <>
+                            {!isTableMode && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.source_table', 'Taula origen')}</label>
+                                    <select
+                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        value={sourceTableId}
+                                        onChange={e => setSourceTableId(e.target.value)}
+                                    >
+                                        <option value="">{t('view.pick_table', '— Selecciona taula —')}</option>
+                                        {allTables.map(tbl => (
+                                            <option key={tbl.id} value={tbl.id}>{tbl.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+
+                            <div>
+                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">{t('view.type_label', 'Tipus de vista')}</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {VIEW_TYPES.map(vt => {
+                                        const Icon = vt.icon;
+                                        const active = viewType === vt.id;
+                                        return (
+                                            <button
+                                                key={vt.id}
+                                                type="button"
+                                                onClick={() => setViewType(vt.id)}
+                                                className={`flex flex-col items-center gap-1 p-2 rounded-lg border transition-all ${
+                                                    active
+                                                        ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                        : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+                                                }`}
+                                                title={t(`view.type_${vt.id}`, vt.label)}
+                                            >
+                                                <Icon size={18} />
+                                                <span className="text-[10px] font-semibold">{t(`view.type_${vt.id}`, vt.label)}</span>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Type-specific options for the chosen view type: they appear
+                                contextually right below the type selector. */}
+                            {(viewType === 'table' || viewType === 'list') && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-2">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.table_options', 'Opcions de la taula')}</p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.row_height', 'Alçada de fila')}</label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[{ value: 'compact', label: t('view.row_compact', 'Compacta') }, { value: 'normal', label: t('view.row_normal', 'Normal') }, { value: 'tall', label: t('view.row_tall', 'Alta') }].map(opt => (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => setRowHeight(opt.value)}
+                                                className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                    rowHeight === opt.value
+                                                        ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                        : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                                }`}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            {viewType === 'gallery' && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.gallery_options', 'Opcions de la galeria')}</p>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.card_size', 'Mida de la targeta')}</label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {CARD_SIZES.map(cs => (
+                                                <button
+                                                    key={cs.value}
+                                                    type="button"
+                                                    onClick={() => setCardSize(cs.value)}
+                                                    className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                        cardSize === cs.value
+                                                            ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                                    }`}
+                                                >
+                                                    {t(`view.card_${cs.value}`, cs.label)}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.card_preview', 'Previsualització de la targeta')}</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {GALLERY_PREVIEWS.map(gp => (
+                                                <button
+                                                    key={gp.value}
+                                                    type="button"
+                                                    onClick={() => setGalleryPreview(gp.value)}
+                                                    title={t(`view.gp_${gp.value}_hint`, gp.hint)}
+                                                    className={`text-left px-2.5 py-2 rounded-lg border transition-all ${
+                                                        galleryPreview === gp.value
+                                                            ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10'
+                                                            : 'border-[var(--border-primary)] hover:bg-[var(--bg-tertiary)]'
+                                                    }`}
+                                                >
+                                                    <span className={`block text-xs font-semibold ${galleryPreview === gp.value ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>{t(`view.gp_${gp.value}`, gp.label)}</span>
+                                                    <span className="block text-[10px] text-[var(--text-tertiary)] leading-tight mt-0.5">{t(`view.gp_${gp.value}_hint`, gp.hint)}</span>
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.cover_field', 'Camp de portada')}</label>
+                                        <select
+                                            value={coverField}
+                                            onChange={e => setCoverField(e.target.value)}
+                                            className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="">{t('view.cover_default', 'Portada de la pàgina (per defecte)')}</option>
+                                            {coverFieldOptions.map(f => (
+                                                <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                            ))}
+                                        </select>
+                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.cover_hint', "D'on treure la imatge de cada targeta (només si la previsualització és «Portada»).")}</p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1.5">{t('view.image_fit', 'Ajust de la imatge')}</label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {[{ value: 'contain', label: t('view.fit_contain', 'Sencera') }, { value: 'cover', label: t('view.fit_cover', 'Omple') }].map(opt => (
+                                                <button
+                                                    key={opt.value}
+                                                    type="button"
+                                                    onClick={() => setImageFit(opt.value)}
+                                                    className={`px-2 py-1.5 rounded-lg border text-xs font-semibold transition-all ${
+                                                        imageFit === opt.value
+                                                            ? 'border-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'
+                                                            : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'
+                                                    }`}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {(viewType === 'calendar' || viewType === 'timeline') && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{viewType === 'calendar' ? t('view.calendar_options', 'Opcions del calendari') : t('view.timeline_options', 'Opcions del timeline')}</p>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{viewType === 'timeline' ? t('view.start_date', "Data d'inici") : t('view.date_field', 'Camp de data')}</label>
+                                                <select
+                                                    value={dateField}
+                                                    onChange={e => setDateField(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="">{t('view.date_auto', 'Automàtic (primer camp de data)')}</option>
+                                                    {dateFieldOptions.map(f => (
+                                                        <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            {viewType === 'calendar' && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.initial_view', 'Vista inicial')}</label>
+                                                    <select
+                                                        value={calendarView}
+                                                        onChange={e => setCalendarView(e.target.value)}
+                                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                    >
+                                                        <option value="dayGridMonth">{t('view.cal_month', 'Mes')}</option>
+                                                        <option value="timeGridWeek">{t('view.cal_week', 'Setmana')}</option>
+                                                        <option value="timeGridDay">{t('view.cal_day', 'Dia')}</option>
+                                                        <option value="multiMonthYear">{t('view.cal_year', 'Any')}</option>
+                                                    </select>
+                                                </div>
+                                            )}
+                                            {viewType === 'timeline' && (
+                                                fieldMeta[dateField]?.type === 'period' ? (
+                                                    <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.period_hint', "El camp de període ja defineix l'inici i el fi de cada barra.")}</p>
+                                                ) : (
+                                                    <div>
+                                                        <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.end_date', 'Data de fi (opcional)')}</label>
+                                                        <select
+                                                            value={endDateField}
+                                                            onChange={e => setEndDateField(e.target.value)}
+                                                            className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                        >
+                                                            <option value="">{t('view.end_none', "Cap (durada d'un dia)")}</option>
+                                                            {dateFieldOptions.map(f => (
+                                                                <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                            ))}
+                                                        </select>
+                                                    </div>
+                                                )
+                                            )}
+                                            {viewType === 'timeline' && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.color_by', 'Color per')}</label>
+                                                    <select
+                                                        value={colorField}
+                                                        onChange={e => setColorField(e.target.value)}
+                                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                    >
+                                                        <option value="">{t('view.color_single', 'Color únic (per defecte)')}</option>
+                                                        {groupFieldOptions.map(f => (
+                                                            <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                        ))}
+                                                    </select>
+                                                    <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.color_hint', "Acoloreix cada barra segons el valor d'aquest camp (usa els colors de les seves opcions).")}</p>
+                                                </div>
+                                            )}
+                                            {dateFieldOptions.length === 0 && (
+                                                <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.no_date_fields', "Cap camp de data a la taula; s'usarà la data de modificació.")}</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {viewType === 'chart' && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)]">{t('view.chart_options', 'Opcions del gràfic')}</p>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                                    ) : (
+                                        <>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.chart_type', 'Tipus de gràfic')}</label>
+                                                <select
+                                                    value={chartType}
+                                                    onChange={e => setChartType(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="bar">{t('view.chart_bar', 'Barres')}</option>
+                                                    <option value="hbar">{t('view.chart_hbar', 'Barres horitzontals')}</option>
+                                                    <option value="line">{t('view.chart_line', 'Línia')}</option>
+                                                    <option value="pie">{t('view.chart_pie', 'Pastís')}</option>
+                                                    <option value="donut">{t('view.chart_donut', 'Donut')}</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.chart_x', 'Agrupar per (eix X)')}</label>
+                                                <select
+                                                    value={xField}
+                                                    onChange={e => setXField(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="">{t('view.pick_field', '— Tria un camp —')}</option>
+                                                    {sortedTableFields.map(f => (
+                                                        <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.aggregation', "Funció d'agregació")}</label>
+                                                <select
+                                                    value={aggregation}
+                                                    onChange={e => setAggregation(e.target.value)}
+                                                    className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                >
+                                                    <option value="count">{t('view.agg_count', 'Recompte (nombre de files)')}</option>
+                                                    <option value="sum">{t('view.agg_sum', 'Suma')}</option>
+                                                    <option value="avg">{t('view.agg_avg', 'Mitjana')}</option>
+                                                    <option value="min">{t('view.agg_min', 'Mínim')}</option>
+                                                    <option value="max">{t('view.agg_max', 'Màxim')}</option>
+                                                </select>
+                                            </div>
+                                            {aggregation !== 'count' && (
+                                                <div>
+                                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">{t('view.chart_y', 'Camp de valor (eix Y)')}</label>
+                                                    <select
+                                                        value={yField}
+                                                        onChange={e => setYField(e.target.value)}
+                                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                                    >
+                                                        <option value="">{t('view.pick_numeric', '— Tria un camp numèric —')}</option>
+                                                        {numericFieldOptions.map(f => (
+                                                            <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                        ))}
+                                                    </select>
+                                                    {numericFieldOptions.length === 0 && (
+                                                        <p className="mt-1 text-[10px] text-[var(--text-tertiary)]">{t('view.no_numeric', 'Cap camp numèric a la taula; usa el «Recompte».')}</p>
+                                                    )}
+                                                </div>
+                                            )}
+                                            {!xField && (
+                                                <p className="text-[11px] text-[var(--text-tertiary)]">{t('view.chart_pick_x', "Tria el camp d'agrupació per veure el gràfic.")}</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {!isTableMode && sourceTableId && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                                        {t('view.existing_view', 'Vista existent')}
+                                    </label>
+                                    <select
+                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        value={selectedExistingViewId}
+                                        onChange={e => setSelectedExistingViewId(e.target.value)}
+                                        disabled={loadingExistingViews}
+                                    >
+                                        <option value="">
+                                            {loadingExistingViews
+                                                ? t('view.loading_views', 'Carregant vistes…')
+                                                : t('view.create_new_view', '— Crear nova vista —')}
+                                        </option>
+                                        {existingViews.map(v => (
+                                            <option key={v.id} value={v.id}>
+                                                {v.name || t('view.unnamed', '(sense nom)')} {v.type ? `· ${v.type}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {selectedExistingViewId && (
+                                        <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">
+                                            {t('view.existing_hint', 'Pots revisar / sobreescriure els camps a les pestanyes Camps, Filtres i Ordenació.')}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {!isTableMode && sourceTableId && existingViews.length > 0 && (
+                                <div className="border-t border-[var(--border-primary)] pt-4">
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                                        {t('view.pinned_tabs', 'Mostrar pestanyes (vistes fixades a aquest bloc)')}
+                                    </label>
+                                    <div className="space-y-1.5 max-h-36 overflow-y-auto border border-[var(--border-primary)] rounded-lg p-2.5 bg-[var(--bg-secondary)]">
+                                        {existingViews.map(v => {
+                                            const isChecked = modalPinnedViewIds.has(v.id);
+                                            const isAnchor = v.id === selectedExistingViewId || (v.id === 'default' && !selectedExistingViewId);
+                                            return (
+                                                <label key={v.id} className="flex items-center gap-2 text-xs text-[var(--text-primary)] cursor-pointer select-none">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked || isAnchor}
+                                                        disabled={isAnchor}
+                                                        onChange={e => {
+                                                            const checked = e.target.checked;
+                                                            setModalPinnedViewIds(prev => {
+                                                                const next = new Set(prev);
+                                                                if (checked) {
+                                                                    next.add(v.id);
+                                                                } else {
+                                                                    next.delete(v.id);
+                                                                }
+                                                                return next;
+                                                            });
+                                                        }}
+                                                        className="rounded text-[var(--gnosi-primary)] focus:ring-[var(--gnosi-primary)]"
+                                                    />
+                                                    <span>{v.name || t('view.unnamed', '(sense nom)')}</span>
+                                                    {isAnchor && (
+                                                        <span className="text-[10px] text-[var(--text-tertiary)] italic">{t('view.anchor_view', '(vista àncora)')}</span>
+                                                    )}
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {selectedExistingViewId && viewUsage.count > 0 && (
+                                <div className="border-t border-[var(--border-primary)] pt-4">
+                                    <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
+                                        {t('view.usage_count', { count: viewUsage.count, defaultValue: "Aquesta vista ja s'usa a {{count}} pàgines." })}
+                                    </p>
+                                    <p className="text-[11px] text-[var(--text-tertiary)] mb-3">
+                                        {t('view.edit_scope_prompt', 'Si modifiques els camps, tria com aplicar-ho:')}
+                                    </p>
+                                    <div className="space-y-2">
+                                        <label className="flex items-start gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="editScope"
+                                                value="shared"
+                                                checked={editScope === 'shared'}
+                                                onChange={() => setEditScope('shared')}
+                                                className="mt-0.5"
+                                            />
+                                            <div>
+                                                <span className="text-sm text-[var(--text-primary)] block">
+                                                    {t('view.scope_shared', 'Aplicar canvis a totes les pàgines')}
+                                                </span>
+                                                <span className="text-[11px] text-[var(--text-tertiary)]">
+                                                    {t('view.scope_shared_hint', "La vista compartida s'actualitza i tots els embeds reflecteixen els canvis.")}
+                                                </span>
+                                            </div>
+                                        </label>
+                                        <label className="flex items-start gap-2 cursor-pointer">
+                                            <input
+                                                type="radio"
+                                                name="editScope"
+                                                value="fork"
+                                                checked={editScope === 'fork'}
+                                                onChange={() => setEditScope('fork')}
+                                                className="mt-0.5"
+                                            />
+                                            <div>
+                                                <span className="text-sm text-[var(--text-primary)] block">
+                                                    {t('view.scope_fork', 'Aplicar només a aquesta pàgina')}
+                                                </span>
+                                                <span className="text-[11px] text-[var(--text-tertiary)]">
+                                                    {t('view.scope_fork_hint', 'Desconnecta aquest embed de la vista compartida i guarda una còpia local. Les altres pàgines no canvien.')}
+                                                </span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            )}
+
+                            {isTableMode && (
+                                <div>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                                        {t('view.view_name', 'Nom de la vista')}
+                                    </label>
+                                    <input
+                                        className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
+                                        value={viewName}
+                                        onChange={e => setViewName(e.target.value)}
+                                        placeholder={t('view.view_name_ph', 'ex: Per àrea')}
+                                    />
+                                </div>
+                            )}
+
+                            {!isTableMode && !selectedExistingViewId && (
+                                <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={saveToTableViews}
+                                            onChange={e => setSaveToTableViews(e.target.checked)}
+                                            className="rounded border-[var(--border-primary)]"
+                                        />
+                                        <span className="text-sm text-[var(--text-primary)]">
+                                            {t('view.save_to_table', 'Desa també a les vistes de la taula')}
+                                        </span>
+                                    </label>
+                                    {saveToTableViews && (
+                                        <div className="ml-6">
+                                            <label className="block text-xs font-semibold text-[var(--text-secondary)] mb-1">
+                                                {t('view.view_name', 'Nom de la vista')}
+                                            </label>
+                                            <input
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none"
+                                                value={viewName}
+                                                onChange={e => setViewName(e.target.value)}
+                                                placeholder={t('view.view_name_ph2', 'ex: Contactes clau')}
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Portability: snapshot of result wikilinks into
+                                markdown (Obsidian/Drupal/plain readers). The value
+                                lives in the view; the backend honors it when saving. */}
+                            <div className="border-t border-[var(--border-primary)] pt-4 space-y-3">
+                                <label className="flex items-start gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={resultSnapshot}
+                                        onChange={e => setResultSnapshot(e.target.checked)}
+                                        className="mt-0.5 rounded border-[var(--border-primary)]"
+                                    />
+                                    <div>
+                                        <span className="text-sm text-[var(--text-primary)] block">
+                                            {t('view.snapshot_label', 'Desa els enllaços de resultats al markdown')}
+                                        </span>
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">
+                                            {t('view.snapshot_hint', 'Escriu una llista [[Títol|id]] de les pàgines que la vista retorna, perquè Obsidian i altres lectors hi puguin navegar.')}
+                                        </span>
+                                    </div>
+                                </label>
+                                {resultSnapshot && (
+                                    <div className="ml-6 flex items-center gap-2">
+                                        <label htmlFor="pvm-result-snapshot-limit" className="text-xs font-semibold text-[var(--text-secondary)]">
+                                            {t('view.snapshot_limit', "Màxim d'enllaços")}
+                                        </label>
+                                        <input
+                                            id="pvm-result-snapshot-limit"
+                                            type="number"
+                                            min="0"
+                                            step="50"
+                                            value={resultSnapshotLimit}
+                                            onChange={e => {
+                                                const n = parseInt(e.target.value, 10);
+                                                setResultSnapshotLimit(Number.isFinite(n) && n >= 0 ? n : 0);
+                                            }}
+                                            className="w-24 text-sm border border-[var(--border-primary)] rounded-lg px-2 py-1 bg-[var(--bg-primary)] text-[var(--text-primary)] focus:ring-1 focus:ring-[var(--gnosi-primary)] outline-none text-right"
+                                        />
+                                        <span className="text-[11px] text-[var(--text-tertiary)]">{t('view.snapshot_unlimited', '0 = sense límit')}</span>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+
+                    {activeTab === 'properties' && (
+                        <div>
+                            <p className="text-xs text-[var(--text-secondary)] mb-3">
+                                {t('view.fields_intro', 'Selecciona els camps a mostrar com a columnes.')}
+                            </p>
+                            {!selectedTable ? (
+                                <p className="text-sm text-[var(--text-tertiary)] italic">
+                                    {t('view.pick_table_general', 'Selecciona primer una taula a la pestanya General.')}
+                                </p>
+                            ) : (
+                                <div className="space-y-3 max-h-[44vh] overflow-y-auto">
+                                    {(() => {
+                                        const selected = visibleProperties
+                                            .map(n => fieldMeta[n])
+                                            .filter(Boolean);
+                                        const available = sortedTableFields
+                                            .filter(f => !visibleProperties.includes(f.name));
+                                        return (
+                                            <>
+                                                <div>
+                                                    <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
+                                                        {t('view.visible_columns', 'Columnes visibles (ordre)')}
+                                                    </p>
+                                                    {selected.length === 0 ? (
+                                                        <p className="text-xs text-[var(--text-tertiary)] italic px-2 py-1">{t('view.no_columns', "Cap columna. Tria'n una a sota.")}</p>
+                                                    ) : (
+                                                        <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
+                                                            <SortableContext items={selected.map(f => f.name)} strategy={verticalListSortingStrategy}>
+                                                                {selected.map(f => (
+                                                                    <SortableRow
+                                                                        key={f.name}
+                                                                        id={f.name}
+                                                                        className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)]"
+                                                                    >
+                                                                        <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
+                                                                        <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => toggleProperty(f.name)}
+                                                                            disabled={f.name === 'title'}
+                                                                            className="text-[var(--text-tertiary)] hover:text-red-500 p-1 disabled:opacity-25 disabled:hover:text-[var(--text-tertiary)] disabled:cursor-not-allowed"
+                                                                            title={f.name === 'title' ? t('view.title_always_visible', 'El títol és sempre visible') : t('view.remove', 'Treure')}
+                                                                        >
+                                                                            <Trash2 size={13} />
+                                                                        </button>
+                                                                    </SortableRow>
+                                                                ))}
+                                                            </SortableContext>
+                                                        </DndContext>
+                                                    )}
+                                                </div>
+                                                {available.length > 0 && (
+                                                    <div>
+                                                        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1 px-2">
+                                                            {t('view.available', 'Disponibles')}
+                                                        </p>
+                                                        {available.map(f => (
+                                                            <label
+                                                                key={f.name}
+                                                                className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--bg-tertiary)] cursor-pointer"
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={false}
+                                                                    onChange={() => toggleProperty(f.name)}
+                                                                    className="rounded border-[var(--border-primary)]"
+                                                                />
+                                                                <span className="text-sm text-[var(--text-primary)] flex-1">{fieldLabel(f.name)}</span>
+                                                                <span className="text-[10px] text-[var(--text-tertiary)] uppercase">{f.type || ''}</span>
+                                                            </label>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'filters' && (
+                        <div>
+                            <p className="text-xs text-[var(--text-secondary)] mb-3">
+                                {t('view.filters_intro_groups', 'Combina filtres amb I/O i agrupa\'ls per fer condicions complexes. Valor "this" = ID d\'aquesta pàgina.')}
+                            </p>
+                            {!selectedTable ? (
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                            ) : (
+                                <FilterGroupEditor
+                                    node={filterTree}
+                                    onChange={setFilterTree}
+                                    depth={0}
+                                    ctx={{ tableFields: sortedTableFields, fieldMeta, fieldLabel, relationCache, defaultFilterValue, t }}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'sort' && (
+                        <div>
+                            <div className="flex justify-between items-center mb-3">
+                                <p className="text-xs text-[var(--text-secondary)]">
+                                    {t('view.sort_intro', "Ordenació amb prioritat: el primer criteri mana, els següents desempaten. Sense criteris, s'ordena per títol ascendent.")}
+                                </p>
+                                <button
+                                    onClick={addSort}
+                                    disabled={!selectedTable}
+                                    className="flex items-center gap-1 text-xs px-2 py-1 rounded bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/20 disabled:opacity-40"
+                                >
+                                    <Plus size={12} />
+                                    {t('view.add_sort', 'Afegir criteri')}
+                                </button>
+                            </div>
+                            {!selectedTable ? (
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                            ) : sorts.length === 0 ? (
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_sorts', 'Cap criteri. Per defecte: títol ascendent.')}</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleSortDragEnd}>
+                                        <SortableContext items={sorts.map((_, idx) => `sort-${idx}`)} strategy={verticalListSortingStrategy}>
+                                            {sorts.map((s, idx) => (
+                                                <SortableRow
+                                                    key={idx}
+                                                    id={`sort-${idx}`}
+                                                    className="flex gap-2 items-center rounded"
+                                                >
+                                                    <span className="text-[10px] font-bold text-[var(--text-tertiary)] w-4 text-center">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <select
+                                                        className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] flex-1"
+                                                        value={s.field}
+                                                        onChange={e => updateSort(idx, { field: e.target.value })}
+                                                    >
+                                                        {sortedTableFields.map(tf => (
+                                                            <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
+                                                        ))}
+                                                    </select>
+                                                    <select
+                                                        className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
+                                                        value={s.direction}
+                                                        onChange={e => updateSort(idx, { direction: e.target.value })}
+                                                    >
+                                                        <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                                        <option value="desc">{t('view.desc', 'Descendent')}</option>
+                                                    </select>
+                                                    <button
+                                                        onClick={() => removeSort(idx)}
+                                                        className="text-[var(--text-tertiary)] hover:text-red-500 p-1"
+                                                        title={t('view.delete', 'Eliminar')}
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </SortableRow>
+                                            ))}
+                                        </SortableContext>
+                                    </DndContext>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'grouping' && (
+                        <div className="space-y-4">
+                            {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-[var(--text-secondary)]">
+                                        {t('view.grouping_intro', 'Agrupa els registres per un camp de selecció o estat.')}
+                                    </p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={groupBy}
+                                                onChange={e => setGroupBy(e.target.value)}
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                            >
+                                                <option value="">{t('view.no_grouping', 'Sense agrupar')}</option>
+                                                {groupFieldOptions.map(f => (
+                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                ))}
+                                            </select>
+                                            {groupFieldOptions.length === 0 && (
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields', 'Cap camp de selecció/estat a la taula per agrupar.')}</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {(viewType === 'table' || viewType === 'list' || viewType === 'gallery') && groupBy && selectedTable && (
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_order', 'Ordre dels grups')}</label>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={groupSort}
+                                            onChange={e => setGroupSort(e.target.value)}
+                                            className="flex-1 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="catalog">{t('view.group_order_catalog', 'Ordre del catàleg')}</option>
+                                            <option value="alpha">{t('view.group_order_alpha', 'Alfabètic')}</option>
+                                            <option value="count">{t('view.group_order_count', 'Per nombre de registres')}</option>
+                                        </select>
+                                        <select
+                                            value={groupSortDir}
+                                            onChange={e => setGroupSortDir(e.target.value)}
+                                            className="w-32 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                            <option value="desc">{t('view.desc', 'Descendent')}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {viewType === 'board' && (
+                                <div className="space-y-2">
+                                    <p className="text-xs text-[var(--text-secondary)]">
+                                        {t('view.board_options_intro', "Tria com s'agrupen les columnes del kanban.")}
+                                    </p>
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_by', 'Agrupa per')}</label>
+                                    {!selectedTable ? (
+                                        <p className="text-xs text-[var(--text-tertiary)] italic">{t('view.pick_table_first', 'Selecciona primer una taula.')}</p>
+                                    ) : (
+                                        <>
+                                            <select
+                                                value={groupBy}
+                                                onChange={e => setGroupBy(e.target.value)}
+                                                className="w-full text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                            >
+                                                <option value="">{t('view.group_auto', 'Automàtic (estat)')}</option>
+                                                {groupFieldOptions.map(f => (
+                                                    <option key={f.name} value={f.name}>{fieldLabel(f.name)}</option>
+                                                ))}
+                                            </select>
+                                            {groupFieldOptions.length === 0 && (
+                                                <p className="mt-1 text-[11px] text-[var(--text-tertiary)]">{t('view.no_group_fields_auto', "Cap camp de selecció/estat a la taula; s'agruparà automàticament.")}</p>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            )}
+
+                            {viewType === 'board' && groupBy && selectedTable && (
+                                <div className="space-y-2">
+                                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">{t('view.group_order', 'Ordre dels grups')}</label>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={groupSort}
+                                            onChange={e => setGroupSort(e.target.value)}
+                                            className="flex-1 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="catalog">{t('view.group_order_catalog', 'Ordre del catàleg')}</option>
+                                            <option value="alpha">{t('view.group_order_alpha', 'Alfabètic')}</option>
+                                            <option value="count">{t('view.group_order_count', 'Per nombre de registres')}</option>
+                                        </select>
+                                        <select
+                                            value={groupSortDir}
+                                            onChange={e => setGroupSortDir(e.target.value)}
+                                            className="w-32 text-sm border border-[var(--border-primary)] rounded-lg px-3 py-2 bg-[var(--bg-primary)] text-[var(--text-primary)] outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
+                                        >
+                                            <option value="asc">{t('view.asc', 'Ascendent')}</option>
+                                            <option value="desc">{t('view.desc', 'Descendent')}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )}
+
+                            {(viewType !== 'table' && viewType !== 'list' && viewType !== 'gallery' && viewType !== 'board') && (
+                                <p className="text-sm text-[var(--text-tertiary)] italic">{t('view.no_grouping_for_type', 'Aquest tipus de vista no admet agrupació.')}</p>
+                            )}
+                        </div>
+                    )}
+
+                    {error && (
+                        <p className="text-xs text-red-500 bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2">
+                            {error}
+                        </p>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div className="px-5 py-4 border-t border-[var(--border-primary)] bg-[var(--bg-secondary)] flex justify-end gap-3 rounded-b-xl shrink-0">
+                    <button
+                        onClick={() => onClose(false)}
+                        disabled={saving}
+                        className="px-4 py-2 border border-[var(--border-primary)] rounded-lg text-sm font-semibold text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] transition-colors"
+                    >
+                        {t('common.cancel', 'Cancel·lar')}
+                    </button>
+                    <button
+                        onClick={handleSave}
+                        disabled={saving}
+                        className="btn-gnosi btn-gnosi-primary px-6"
+                    >
+                        {saving ? t('view.saving', 'Desant...') : ((isTableMode ? editingView?.id : editingBlock) ? t('view.save_changes', 'Desar canvis') : t('view.create_view', 'Crear vista'))}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
