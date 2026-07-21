@@ -28,9 +28,13 @@ Citation tracking (equivalent to Word's Content Controls):
 Technical constraints (LibreOffice):
     - LO's embedded Python does NOT ship ``requests`` → we only use
       stdlib ``urllib``.
-    - Ordered operations (refreshAll) traverse the document body
-      via *text portions* enumeration; they do not cover headers, footers,
-      or table cells (known limitation v0.1).
+    - Ordered operations (refreshAll) walk the document by enumerating
+      *text portions*, descending into table cells at the point the table
+      occupies in the flow — the order is what makes APA disambiguation
+      correct. Headers and footers are excluded by design: they repeat on
+      every page, so they have no single position in the reading order to
+      disambiguate against. Their citations still reach the bibliography,
+      which only needs the set of keys.
 """
 
 import json
