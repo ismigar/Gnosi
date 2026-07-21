@@ -1,0 +1,55 @@
+# Test gate for the browser-side connectors: the Word add-in task pane and the
+# Web Clipper popup. Both are plain browser scripts under
+# monorepo/apps/gnosi/frontend/public/word-addin and .../web-clipper, with no
+# build step and — until this workflow — no test coverage at all.
+#
+# Separate from backend-tests.yml on purpose: that job installs the whole
+# Python stack including torch, which takes minutes. These suites are jsdom
+# only and finish in seconds, so a change to a connector should not have to
+# wait for the ML wheels to download.
+#
+# The LibreOffice extension is Python and rides along with backend-tests.yml
+# instead (it needs pytest, not vitest).
+name: connector-tests
+
+on:
+  pull_request:
+    paths:
+      - "monorepo/apps/gnosi/frontend/public/word-addin/**"
+      - "monorepo/apps/gnosi/web-clipper/**"
+      - "monorepo/apps/gnosi/frontend/tests/**"
+      - "monorepo/apps/gnosi/frontend/vitest.config.js"
+      - "monorepo/apps/gnosi/frontend/package.json"
+      - ".github/workflows/connector-tests.yml"
+  workflow_dispatch:
+
+# A new push to the PR makes the in-flight run obsolete.
+concurrency:
+  group: connector-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  vitest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: monorepo/apps/gnosi/frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+
+      # `npm install`, not `npm ci`: package-lock.json has been malformed JSON
+      # since 2026-05-24 (an unterminated "funding" object around line 8663,
+      # left by a dependabot bump). npm install works around it; npm ci fails
+      # outright. Every other workflow uses npm install for the same reason,
+      # knowingly or not. Regenerating the lockfile is the real fix, but it
+      # rewrites the whole dependency resolution and belongs in its own change.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run connector tests
+        run: npm test
