@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Afegeix un menú "Gnosi Cite" a la barra de menús de Writer amb les
+  comandes d'inserció. Cada entrada despatxa una URL gnosicite:<cmd> que recull
+  el ProtocolHandler (vegeu ProtocolHandler.xcu i gnosi_cite.py).
+
+  El Context limita el menú als documents de text (Writer).
+-->
+<oor:component-data
+    xmlns:oor="http://openoffice.org/2001/registry"
+    xmlns:xs="http://www.w3.org/2001/XMLSchema"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    oor:name="Addons"
+    oor:package="org.openoffice.Office">
+  <node oor:name="AddonUI">
+
+    <node oor:name="OfficeMenuBar">
+      <node oor:name="com.gnosi.cite.menu" oor:op="replace">
+        <prop oor:name="Title">
+          <value xml:lang="ca">Gnosi Cite</value>
+          <value xml:lang="es">Gnosi Cite</value>
+          <value xml:lang="en-US">Gnosi Cite</value>
+        </prop>
+        <prop oor:name="Target">
+          <value>_self</value>
+        </prop>
+        <prop oor:name="Context">
+          <value>com.sun.star.text.TextDocument</value>
+        </prop>
+        <node oor:name="Submenu">
+
+          <node oor:name="m01" oor:op="replace">
+            <prop oor:name="URL">
+              <value>gnosicite:insertCitation</value>
+            </prop>
+            <prop oor:name="Title">
+              <value xml:lang="ca">Insereix cita…</value>
+              <value xml:lang="es">Insertar cita…</value>
+              <value xml:lang="en-US">Insert citation…</value>
+            </prop>
+            <prop oor:name="Target">
+              <value>_self</value>
+            </prop>
+            <prop oor:name="Context">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+          </node>
+
+          <node oor:name="m02" oor:op="replace">
+            <prop oor:name="URL">
+              <value>gnosicite:insertBibliography</value>
+            </prop>
+            <prop oor:name="Title">
+              <value xml:lang="ca">Insereix bibliografia</value>
+              <value xml:lang="es">Insertar bibliografía</value>
+              <value xml:lang="en-US">Insert bibliography</value>
+            </prop>
+            <prop oor:name="Target">
+              <value>_self</value>
+            </prop>
+            <prop oor:name="Context">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+          </node>
+
+          <node oor:name="m03" oor:op="replace">
+            <prop oor:name="URL">
+              <value>private:separator</value>
+            </prop>
+            <prop oor:name="Context">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+          </node>
+
+          <node oor:name="m04" oor:op="replace">
+            <prop oor:name="URL">
+              <value>gnosicite:settings</value>
+            </prop>
+            <prop oor:name="Title">
+              <value xml:lang="ca">Configuració…</value>
+              <value xml:lang="es">Configuración…</value>
+              <value xml:lang="en-US">Settings…</value>
+            </prop>
+            <prop oor:name="Target">
+              <value>_self</value>
+            </prop>
+            <prop oor:name="Context">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+          </node>
+
+        </node>
+      </node>
+    </node>
+
+  </node>
+</oor:component-data>

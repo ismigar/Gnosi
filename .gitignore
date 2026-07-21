@@ -1,0 +1,5 @@
+.env_shared.shared.backup.*
+apps/gnosi/config/params.yaml
+monorepo/apps/gnosi/config/params.yaml
+monorepo/scripts/sync_notion_bulk.py
+scripts/sync_notion_bulk.py
