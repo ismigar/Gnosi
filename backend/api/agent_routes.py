@@ -9,6 +9,9 @@ import logging
 import os
 from backend.agent.factory import create_agent_workflow
 from backend.agent.model_router import record_llm_usage, usage_from_message
+from backend.agent.model_reliability import (
+    blames_the_model, model_evidence, record_failure, reliability_report,
+)
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from backend.config.app_config import load_params
 from backend.utils.errors import safe_error_detail
@@ -18,6 +21,30 @@ cfg = load_params()
 
 log = logging.getLogger(__name__)
 router = APIRouter()
+
+
+# One line per reason, in the user's language. The taxonomy itself (and which
+# reasons are the model's fault) lives in `model_reliability`.
+FAILURE_MESSAGES = {
+    "tool_use_failed": (
+        "El model no ha sabut cridar les eines correctament: n'ha escrit la crida "
+        "com a text. És una limitació del model, no de les eines."
+    ),
+    "context_length_exceeded": (
+        "La conversa supera la finestra de context del model. Escurça-la o tria un "
+        "model de context llarg."
+    ),
+    "schema_invalid": "El model no ha generat una resposta amb el format demanat.",
+    "content_filter": "El proveïdor ha bloquejat la resposta pels seus filtres de contingut.",
+    "rate_limit": "Límit de peticions del proveïdor. Prova d'aquí una estona.",
+    "insufficient_credit": (
+        "El compte del proveïdor no té prou crèdit. No és cap problema del model."
+    ),
+    "auth": "Credencials del proveïdor no vàlides. Revisa-les a Configuració → IA.",
+    "not_found": "El proveïdor no reconeix aquest model.",
+    "timeout": "El proveïdor no ha respost a temps. Torna-ho a provar.",
+    "server_error": "Error del proveïdor. Torna-ho a provar d'aquí una estona.",
+}
 
 
 class MentionRef(BaseModel):
@@ -90,6 +117,27 @@ async def get_agent_workflow(
         }
 
     return workflow, llm_selection
+
+
+@router.get("/ai/model-reliability")
+async def model_reliability(window_days: int = 30):
+    """Recorded failures per model, by reason.
+
+    Evidence for the UI, not a policy: nothing here disables or reroutes a
+    model — the user reads it and decides.
+    """
+    return {"window_days": window_days, "models": reliability_report(window_days)}
+
+
+@router.get("/agent/context-sources")
+async def list_context_sources():
+    """Catalogue of large external sources an agent can attach to its context.
+
+    These are queried through their own API, never crawled — see directive
+    `agent_context_sources.md`.
+    """
+    from backend.agent.context_sources import list_sources
+    return list_sources()
 
 
 @router.post("/chat", dependencies=[Depends(require_role("editor"))])
@@ -193,9 +241,24 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                 error_str = str(e)
                 log.error(f"Error in event_generator: {error_str}")
 
-                # Check for common AI errors
-                if "rate_limit_exceeded" in error_str.lower():
-                    friendly_error = "Rate limit exceeded (Quota exhaurida). Prova més tard o canvia el model."
+                # Record the failure against the model that was actually used, and
+                # classify it: the REASON decides whether this is evidence about
+                # the model or about the account (a 402 says nothing about the
+                # model's abilities). See `model_reliability`.
+                provider = (llm_selection or {}).get("provider")
+                model_id = (llm_selection or {}).get("model")
+                reason = record_failure(provider, model_id, e)
+
+                if reason and reason in FAILURE_MESSAGES:
+                    friendly_error = FAILURE_MESSAGES[reason]
+                    if blames_the_model(reason):
+                        evidence = model_evidence(provider, model_id)
+                        repeats = (evidence or {}).get("reasons", {}).get(reason, 0)
+                        if repeats > 1:
+                            friendly_error += (
+                                f" Aquest model ja ha fallat {repeats} vegades pel "
+                                "mateix motiu aquest mes: considera canviar-lo."
+                            )
                 elif not error_str:
                     friendly_error = "S'ha produït un error inesperat a l'agent."
                 else:

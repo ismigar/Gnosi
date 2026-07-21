@@ -25,6 +25,8 @@ import { PluginsSettings } from './PluginsSettings';
 import ModelRegistrySettings from './ModelRegistrySettings';
 import NotionImportSettings from './NotionImportSettings';
 import VaultSwitcher from './VaultSwitcher';
+import AgentContextSources from './AgentContextSources';
+import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import './GlobalSettingsModal.css';
 
 const LANGUAGES = [
@@ -4218,6 +4220,10 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
     // system message under a "## Context" heading (see factory.py).
     const [persona, setPersona] = useState(agent.persona || '');
     const [context, setContext] = useState(agent.context || '');
+    // Attached sources: references (files, pages, databases, the vault), never
+    // their content — the agent reads them on demand through its scoped tools
+    // (directive `agent_context_sources.md`).
+    const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
     // Ref to the panel: delimits the focus-trap and the scope of Enter.
     const panelRef = useRef(null);
 
@@ -4236,6 +4242,13 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
     // safe — neither provider ids nor model ids contain that pattern.
     const selectedKey = (provider && model) ? `${provider}||${model}` : '';
     const registryEmpty = grouped.size === 0;
+
+    // Evidence about the chosen model, recorded from its own past failures.
+    // Only reasons the backend attributes to the MODEL land here: a rate limit
+    // or an exhausted account says nothing about the model itself.
+    const reliability = useModelReliability();
+    const modelFault = findModelFault(reliability, provider, model);
+    const faultReason = modelFault && MODEL_FAULT_REASONS[modelFault.top_model_reason];
 
     // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
     // focus-trap. No Enter→save: saving is done with the "Save Agent" button.
@@ -4330,6 +4343,23 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
                                     {t('settings.ai.model_registry_empty')}
                                 </div>
                             )}
+                            {faultReason && (
+                                <div style={{
+                                    fontSize: '0.78rem', marginTop: 8, padding: '8px 10px',
+                                    borderRadius: 10, background: 'rgba(245, 158, 11, 0.12)',
+                                    color: '#b45309', display: 'flex', gap: 6, alignItems: 'flex-start',
+                                }}>
+                                    <Activity size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+                                    <span>
+                                        {t('settings.ai.model_fault_warning', {
+                                            defaultValue: 'Aquest model {{reason}} {{count}} vegades en els últims {{days}} dies.',
+                                            reason: t(faultReason.key, faultReason.fallback),
+                                            count: modelFault.reasons[modelFault.top_model_reason],
+                                            days: modelFault.window_days,
+                                        })}
+                                    </span>
+                                </div>
+                            )}
                         </FormGroup>
 
                         <FormGroup label={t('settings.ai.instructions_label')}
@@ -4345,6 +4375,11 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
                                 placeholder={t('settings.ai.context_placeholder')} rows={4}
                                 style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
                         </FormGroup>
+
+                        <FormGroup label={t('settings.ai.context_sources_label')}
+                            description={t('settings.ai.context_sources_desc')}>
+                            <AgentContextSources value={contextRefs} onChange={setContextRefs} />
+                        </FormGroup>
                     </div>
                 </div>
 
@@ -4354,7 +4389,7 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
                         className="btn-gnosi-primary"
                         disabled={!name || !provider || !model}
                         onClick={() => {
-                            onSave({ ...agent, name, provider, model, icon, persona, context });
+                            onSave({ ...agent, name, provider, model, icon, persona, context, context_refs: contextRefs });
                             onClose();
                         }}
                         style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
