@@ -24,4 +24,12 @@ zip -r -X "$OUT" \
   -x '*.DS_Store' >/dev/null
 
 echo "Construït: $OUT"
-echo "Instal·la amb:  unopkg add --force \"$PWD/$OUT\""
+echo
+echo "Instal·la per la GUI: Eines > Gestor d'extensions > Afegeix"
+echo "  $PWD/$OUT"
+echo
+echo "NO facis servir 'unopkg add --force' sobre una versió ja instal·lada:"
+echo "l'error del named pipe avorta el reemplaçament en silenci i la caché es"
+echo "queda amb el payload VELL. Per línia d'ordres, 'unopkg remove"
+echo "com.gnosi.cite' primer, i verifica amb 'unopkg list | grep -A6 gnosi'"
+echo "que digui 'is registered: yes'."
