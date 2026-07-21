@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash2, Save, Server, Cloud, List } from 'lucide-react';
+import { Plus, Trash2, Server, Cloud, List } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import toast from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
 
 /**
@@ -12,8 +13,10 @@ import { ConfirmModal } from './ConfirmModal';
  *
  * Provider/model are hierarchical dropdowns fed by GET /api/ai/model-catalog
  * (models.dev snapshot + live Ollama list); picking a model auto-fills cost,
- * context window, capabilities and quality, all still editable. A "custom"
- * escape hatch keeps free-text entry for providers/models outside the catalog.
+ * context window, capabilities and quality. Cost and context window are
+ * provider-defined and therefore read-only; capabilities and quality stay
+ * editable. A "custom" escape hatch keeps free-text entry for
+ * providers/models outside the catalog.
  * Cards + flex-wrap instead of a table: no horizontal scroll at any width.
  */
 const EMPTY_MODEL = {
@@ -50,9 +53,9 @@ export default function ModelRegistrySettings() {
     const [budget, setBudget] = useState({ prefer_local: false, remaining_tokens: '', prefer_local_below: 0, monthly_cost_cap: '' });
     const [usage, setUsage] = useState(null); // GET /api/ai/usage: period spend + currency
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
-    const [error, setError] = useState('');
+    // Silent autosave (see useEffect below): no save button, no "saved" badge.
+    const initializedRef = useRef(false);
+    const skipNextAutosaveRef = useRef(false);
     // Rows where the user chose free-text entry instead of the catalog dropdowns
     const [customProviderRows, setCustomProviderRows] = useState(() => new Set());
     const [customModelRows, setCustomModelRows] = useState(() => new Set());
@@ -75,18 +78,23 @@ export default function ModelRegistrySettings() {
                 axios.get('/api/ai/model-catalog').catch(() => null),
                 loadUsage(),
             ]);
+            // Mark skip before applying the setters, otherwise the autosave
+            // effect would fire with the payload just loaded from the backend.
+            skipNextAutosaveRef.current = true;
             setModels((data.models || []).map(m => ({ ...EMPTY_MODEL, ...m })));
             setBudget({
                 prefer_local: false, remaining_tokens: '', prefer_local_below: 0,
                 monthly_cost_cap: '', ...(data.budget || {}),
             });
             setCatalog(catalogRes?.data?.providers?.length ? catalogRes.data : null);
+            initializedRef.current = true;
         } catch (e) {
-            setError(String(e?.response?.data?.detail || e.message));
+            toast.error(ta('load_error', 'Error carregant els models'));
+            console.error('ModelRegistrySettings load:', e);
         } finally {
             setLoading(false);
         }
-    }, [loadUsage]);
+    }, [loadUsage, ta]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -159,8 +167,9 @@ export default function ModelRegistrySettings() {
             update(i, { model_id: value, price_from_catalog: false, price_unknown: !isLocal });
             return;
         }
-        // Auto-fill metadata from the catalog. Cost is READ-ONLY from here on
-        // (the catalog owns it); context/quality/tags stay editable.
+        // Auto-fill metadata from the catalog. Cost and context window are
+        // READ-ONLY from here on (the catalog/provider owns them);
+        // quality/tags stay editable.
         update(i, {
             model_id: entry.id,
             cost_in: entry.cost_in, cost_out: entry.cost_out,
@@ -171,30 +180,39 @@ export default function ModelRegistrySettings() {
         });
     };
 
-    const save = async () => {
-        setSaving(true); setError(''); setSaved(false);
-        try {
-            const payload = {
-                models: models.map(m => ({ ...m, monthly_quota: Number(m.monthly_quota) || undefined })),
-                budget: {
-                    prefer_local: !!budget.prefer_local,
-                    prefer_local_below: Number(budget.prefer_local_below) || 0,
-                    ...(budget.remaining_tokens !== '' && budget.remaining_tokens != null
-                        ? { remaining_tokens: Number(budget.remaining_tokens) } : {}),
-                    ...(Number(budget.monthly_cost_cap) > 0
-                        ? { monthly_cost_cap: Number(budget.monthly_cost_cap) } : {}),
-                },
-            };
-            await axios.put('/api/ai/models', payload);
-            setSaved(true);
-            loadUsage(); // the cap/ratio shown in the spend panel just changed
-            setTimeout(() => setSaved(false), 2500);
-        } catch (e) {
-            setError(String(e?.response?.data?.detail || e.message));
-        } finally {
-            setSaving(false);
+    // Silent autosave (800ms debounce, same cadence as SettingsModal): there is
+    // no save button — every edit to models/budget persists on its own. The
+    // skip flag suppresses the autosave triggered by load() applying the
+    // backend payload to state. Errors surface via toast, not inline text.
+    useEffect(() => {
+        if (!initializedRef.current) return;
+        if (skipNextAutosaveRef.current) {
+            skipNextAutosaveRef.current = false;
+            return;
         }
-    };
+        const handle = setTimeout(async () => {
+            try {
+                const payload = {
+                    models: models.map(m => ({ ...m, monthly_quota: Number(m.monthly_quota) || undefined })),
+                    budget: {
+                        prefer_local: !!budget.prefer_local,
+                        prefer_local_below: Number(budget.prefer_local_below) || 0,
+                        ...(budget.remaining_tokens !== '' && budget.remaining_tokens != null
+                            ? { remaining_tokens: Number(budget.remaining_tokens) } : {}),
+                        ...(Number(budget.monthly_cost_cap) > 0
+                            ? { monthly_cost_cap: Number(budget.monthly_cost_cap) } : {}),
+                    },
+                };
+                await axios.put('/api/ai/models', payload);
+                loadUsage(); // the cap/ratio shown in the spend panel just changed
+            } catch (e) {
+                console.error('ModelRegistrySettings autosave:', e);
+                toast.error(ta('save_error', 'No s\'han pogut desar els canvis'));
+            }
+        }, 800);
+        return () => clearTimeout(handle);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [models, budget]);
 
     if (loading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>{ta('loading', 'Carregant models…')}</div>;
 
@@ -210,6 +228,16 @@ export default function ModelRegistrySettings() {
         const n = Number(v || 0);
         if (!n) return '0';
         return (n < 0.1 ? n.toFixed(3) : n.toFixed(2)).replace(/\.?0+$/, '');
+    };
+    // Context windows come from the catalog (provider-defined) and are shown
+    // read-only. K-suffix keeps large limits legible (128K, 1M) without losing
+    // precision on small ones (8 192 stays explicit).
+    const fmtContext = (v) => {
+        const n = Number(v || 0);
+        if (!n) return '0';
+        if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 ? 1 : 0).replace(/\.0$/, '')}M`;
+        if (n >= 1_000) return `${Math.round(n / 1_000)}K`;
+        return String(n);
     };
 
     const renderProviderControl = (m, i) => {
@@ -364,9 +392,22 @@ export default function ModelRegistrySettings() {
                                     )}
                                 </div>
                             </Field>
+                            {/* Read-only: context window comes from the catalog
+                                (provider-defined), same as cost. An editable field
+                                here froze a provider limit into params.yaml that
+                                silently drifted from reality. */}
                             <Field label={ta('col_context', 'Context')}>
-                                <input style={{ ...inp, width: 92 }} type="number" min="0" value={m.context_window}
-                                    onChange={e => update(i, { context_window: Number(e.target.value) })} />
+                                <div title={m.price_unknown
+                                    ? ta('context_unknown_tooltip', 'Model fora del catàleg: no se\'n coneix el context.')
+                                    : ta('context_catalog_tooltip', 'Finestra de context del catàleg (models.dev), definida pel proveïdor.')}
+                                    style={{ display: 'flex', alignItems: 'center', gap: 6, height: 30, fontSize: '0.82rem',
+                                        color: m.price_unknown ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
+                                    <span style={{ fontVariantNumeric: 'tabular-nums' }}>
+                                        {m.price_unknown
+                                            ? ta('context_unknown', 'desconegut')
+                                            : fmtContext(m.context_window)}
+                                    </span>
+                                </div>
                             </Field>
                             <Field label={ta('col_capabilities', 'Capacitats')}>
                                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
@@ -460,15 +501,6 @@ export default function ModelRegistrySettings() {
                 )}
             </div>
 
-            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-                <button className="btn-gnosi-primary" onClick={save} disabled={saving}
-                    style={{ padding: '10px 20px', fontSize: '0.85rem', borderRadius: 14, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <Save size={16} /> {saving ? ta('saving', 'Desant…') : ta('save_models', 'Desar models')}
-                </button>
-                {saved && <span style={{ color: 'var(--gnosi-primary)', fontSize: '0.82rem', fontWeight: 700 }}>{ta('saved', '✓ Desat')}</span>}
-                {error && <span style={{ color: '#e05252', fontSize: '0.82rem' }}>{error}</span>}
-            </div>
-
             {/* Row removal confirmation. Portal to <body>: this component sits
                 inside the Settings panel, whose animated (transformed)
                 ancestors trap ConfirmModal's position:fixed overlay and clip
@@ -485,7 +517,7 @@ export default function ModelRegistrySettings() {
                     }}
                     title={ta('remove_confirm_title', 'Treure el model del registre?')}
                     message={ta('remove_confirm_msg', {
-                        defaultValue: 'Es traurà «{{model}}» de la llista del router. El canvi s\'aplica quan premis «Desar models».',
+                        defaultValue: 'Es traurà «{{model}}» de la llista del router. El canvi es desa automàticament.',
                         model: confirmRemove?.label || '',
                     })}
                     confirmText={ta('remove_model', 'Treure')}
