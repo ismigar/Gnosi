@@ -73,8 +73,14 @@ backend): `/api/health`, `/api/vault/search-citations`,
   marca sobreviu al canvi de text (comportament tipus Zotero).
 - **Noms interns d'estils de paràgraf**: usar `"Heading 1"` i `"Standard"`
   (NO el nom visible localitzat "Per defecte").
-- **Limitació v0.1**: el refresc ordenat només recorre el cos del document
-  (no capçaleres/peus/cel·les de taula).
+- **Abast del refresc ordenat** (des de v0.1.2): recorre el cos **i les
+  cel·les de taula**, baixant-hi al punt del flux on és la taula, perquè
+  l'ordre és el que fa correcta la desambiguació APA. Taules niuades
+  incloses, amb topall `MAX_TABLE_NESTING`. **Capçaleres i peus queden fora
+  a propòsit**: es repeteixen a cada pàgina i no tenen una posició única a
+  l'ordre de lectura. Fins a la v0.1.1 les taules també quedaven fora — allò
+  era un error, no una decisió: les cites de dins es congelaven amb el text
+  antic per sempre i cap reexecució ho arreglava.
 - **Diàlegs**: construïts programàticament amb `UnoControlDialogModel`;
   ListBox doble-clic dispara `actionPerformed` amb `ActionCommand` buit
   (es tracta com a "pick").
