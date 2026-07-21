@@ -91,10 +91,26 @@ Recomanació: fer aquest canvi **abans** d'enviar-ho, no després d'un rebuig.
 - [ ] Política de privacitat accessible per URL pública.
 - [ ] `npm test` verd al frontend (cobreix la lògica del popup).
 
-## LibreOffice: l'altre canal
+## L'altre canal: LibreOffice
 
-El `.oxt` es pot publicar a
-[extensions.libreoffice.org](https://extensions.libreoffice.org/). També cal
-compte, però **no hi ha quota ni revisió comparable** — és molt més barat que
-la Chrome Web Store. Si vols obrir un canal de distribució de debò, comença per
-aquest.
+El `.oxt` es publica a
+[extensions.libreoffice.org](https://extensions.libreoffice.org/), i el procés
+és força més barat que aquest: prou més per començar-hi si vols obrir un canal
+de distribució de debò. Les passes verificades són a
+[`integrations/libreoffice-cite/PUBLISHING.md`](../integrations/libreoffice-cite/PUBLISHING.md).
+
+Diferències que compten, per si dubtes per on començar:
+
+| | Chrome Web Store | extensions.libreoffice.org |
+|---|---|---|
+| Quota | 5 USD (única) | cap |
+| Compte | Google + programa de desenvolupador | [compte TDF](https://user.documentfoundation.org) (SSO de LibreOffice) |
+| Revisió | automatitzada + humana, amb justificació de permisos | moderació humana |
+| Permisos a justificar | sí, un per un | no aplica |
+
+⚠️ **Correcció (2026-07-21)**: una versió anterior d'aquest document deia que
+al canal de LibreOffice «no hi ha revisió comparable». **És inexacte**: la
+documentació oficial diu literalment que *«after you hit publish, the request
+will be handled by a moderator»*. Sí que hi ha moderació humana. El que no hi
+ha és quota ni justificació de permisos; els criteris i terminis de moderació
+no són públics.

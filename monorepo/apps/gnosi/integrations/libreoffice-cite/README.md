@@ -112,6 +112,12 @@ Per desinstal·lar: `unopkg remove com.gnosi.cite`.
 
 La configuració es desa a `~/.config/gnosi-cite/config.json`.
 
+## Distribució
+
+Ara mateix el `.oxt` s'instal·la baixant-lo d'una release de GitHub. Per
+publicar-lo a extensions.libreoffice.org (compte TDF gratuït, amb moderació):
+vegeu [PUBLISHING.md](PUBLISHING.md).
+
 ## Compatibilitat coneguda
 
 - ✅ LibreOffice Writer 5.0+ (Mac, Windows, Linux)
