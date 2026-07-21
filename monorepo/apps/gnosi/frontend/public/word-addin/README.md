@@ -70,12 +70,9 @@ un autofirmat normal sense opció d'acceptar-lo. Solució: [mkcert](https://gith
 que instal·la una CA al clauer del sistema.
 
 ```bash
-brew install mkcert nss   # un cop
-sh/setup-https-dev.sh     # CA + cert a frontend/certs/ (gitignorats)
-
-# reinicia Vite perquè rellegeixi la config i passi a HTTPS:
-launchctl kickstart -k gui/$UID/com.gnosi.frontend-native   # natiu (per defecte)
-docker compose restart frontend                             # si el desplegues amb Docker
+brew install mkcert nss          # un cop
+sh/setup-https-dev.sh            # CA + cert a frontend/certs/ (gitignorats)
+docker compose restart frontend  # perquè Vite rellegeixi la config i passi a HTTPS
 ```
 
 `vite.config.js` detecta `frontend/certs/localhost.pem` i activa HTTPS sol.
@@ -89,48 +86,37 @@ per la Microsoft Store.
 
 ### Mac
 
-La carpeta de sideload és `~/Library/Containers/com.microsoft.Word/Data/Documents/wef/`.
-Hi va **un sol fitxer** de manifest (el nom del fitxer és indiferent):
-
 ```bash
-WEF=~/Library/Containers/com.microsoft.Word/Data/Documents/wef
-mkdir -p "$WEF"
-rm -f "$WEF"/*.xml          # ⚠ mai dues còpies del mateix add-in: vegeu més avall
-cp manifest.xml "$WEF"/
+mkdir -p ~/Library/Containers/com.microsoft.Word/Data/Documents/wef
+cp manifest.xml ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
 ```
 
-⚠ **Dues còpies del mateix manifest = add-in invisible.** Word indexa els
-manifests per `<Id>` i, si en troba dos amb el mateix `<Id>`, no en registra
-cap al ribbon (`office-addin-dev-settings registered` sí que els llista tots
-dos — no serveix per detectar-ho). Si baixes el manifest d'una release i ja
-en tenies un de copiat a mà, **esborra l'antic**.
-
-⚠ **En reinstal·lar, puja `<Version>`.** Word memoritza el manifest com a
-`<Id>_<Version>`; si la versió no canvia no el torna a llegir, i et quedes
-amb el payload antic encara que el fitxer del disc sigui nou.
-
 Després **tanca Word del tot (Cmd+Q)** i torna'l a obrir amb un document.
+On apareix:
 
-#### Com obrir-lo (Mac: cada sessió de Word)
+- **Al ribbon**: aquest add-in registra un botó propi via `VersionOverrides`.
+  Mira a la pestanya **Referències** un grup **Gnosi** amb el botó
+  **Cites Gnosi**. Clica'l → s'obre el panell lateral.
+- **Alternativa**: **Insereix > Complements > pestanya «Els meus complements»
+  > secció «Complements de desenvolupador» > Gnosi Cite**.
 
-1. **Inici > Complements** (botó de la cinta) → secció **«Complements de
-   desenvolupador»** → **Gnosi Cite**. S'obre el panell lateral.
-2. A partir d'aquest moment, i **només durant aquesta sessió de Word**, surt
-   també el botó **Cites Gnosi** (grup **Gnosi**) a la pestanya
-   **Referències** (*Referencias* / *References*), al costat de Mendeley Cite.
+Si no surt cap de les dues coses, el manifest no s'ha carregat: revisa que el
+fitxer sigui a `…/Documents/wef/` i que has reiniciat Word del tot.
 
-⚠ **A Mac el botó de la cinta NO sobreviu a un reinici de Word.** Verificat a
-Word 16.110.3 (2026-07-21): Word només escriu la caché persistent del ribbon
-(`…/Office/16.0/Wef/AppCommands/`) per a add-ins vinguts d'un **catàleg**
-(AppSource o desplegament centralitzat — hi apareixen com a `EXCatalog`, com
-Mendeley Cite o RefWorks). Un add-in *sideloaded* des de `wef/` es llegeix i
-es cacheja el manifest, però el seu `VersionOverrides` només s'aplica a la
-sessió en curs. Pujar `<Version>` **ja no ho arregla** (sí que ho feia en
-builds anteriors). Per tenir el botó permanent cal publicar-lo a un catàleg:
-vegeu [Producció](#producció).
-
-Si no surt ni tan sols a «Complements de desenvolupador», vegeu
-«El botó no surt al ribbon» a [Troubleshooting](#el-botó-no-surt-al-ribbon).
+> **El botó NO es manté entre sessions a macOS.** Word només persisteix els
+> botons de ribbon dels add-ins que vénen d'un catàleg (Office Store /
+> desplegament de tenant): els escriu a
+> `…/Wef/AppCommands/17.0/` amb la marca `EXCatalog`, lligats al compte de
+> Microsoft. Els add-ins carregats des de `wef/` viuen en un bucket de cau
+> separat i mai arriben a aquell registre, així que en tancar Word el botó
+> desapareix i cal reobrir-lo des de «Complements de desenvolupador» cada
+> sessió. És una limitació de la plataforma, no del manifest — vegeu
+> [OfficeDev/office-js#507](https://github.com/OfficeDev/office-js/issues/507).
+> A Windows (catàleg de confiança) sí que es manté.
+>
+> Alternativa amb persistència real i sense sortir de local-first: una
+> plantilla `.dotm` a la carpeta Startup de Word (el mecanisme que fa servir
+> Zotero). Vegeu la directiva `word_addin_persistence.md`.
 
 ### Windows
 
@@ -151,30 +137,21 @@ Si no surt ni tan sols a «Complements de desenvolupador», vegeu
 - Endpoint `/api/health` accessible
 - Endpoints `/api/vault/search-citations`, `/api/vault/format-citation`,
   `/api/vault/format-bibliography` funcionant
-- Pandoc instal·lat i al `PATH` del backend (natiu: `brew install pandoc`;
-  Docker: ja inclòs a `Dockerfile.backend` des de la Fase 5). Sense pandoc
-  els endpoints tornen `{"detail":"pandoc not available"}` i l'add-in
-  insereix la clau crua `(ardite2025)` en comptes de `(Ardite, 2025)`
+- Pandoc instal·lat al contenidor (`apt-get install pandoc`, ja inclòs
+  a `Dockerfile.backend` des de la Fase 5)
 - CSL styles disponibles a `frontend/public/csl/styles/` (refrescats
   setmanalment per `refresh-vendor-files.yml`)
 
 ## Producció
 
-Publicar per un **catàleg** és, a més, l'única manera de tenir el botó
-**Cites Gnosi** fix a la cinta (els add-ins de catàleg sí que entren a la
-caché persistent `AppCommands`; els sideloaded, no).
+Per a publicar a l'organització (no només local):
 
 1. Generar nou GUID per a `<Id>` del manifest amb `uuidgen`
 2. Substituir totes les ocurrències de `https://localhost:5173` per la
    URL definitiva (ex.: `https://gnosi.exemple.com`)
 3. Publicar al **Microsoft 365 Admin Center > Integrated Apps > Upload
-   custom apps** (cal tenant de M365), o a **AppSource** per a distribució
-   pública
+   custom apps**
 4. Distribuir per usuari/grup segons necessitat
-
-A Windows, el **catàleg de carpeta compartida** (Centre de confiança >
-Catàlegs de confiança) també compta com a catàleg, per això allà el botó
-és més estable que amb el sideload de Mac.
 
 ## Compatibilitat coneguda
 
@@ -199,49 +176,6 @@ Es desa al `localStorage` del webview (clau `gnosi.wordAddin.apiToken`), només
 en aquell dispositiu, i el panell no el torna a mostrar mai sencer.
 
 ## Troubleshooting
-
-### El botó no surt al ribbon
-
-El botó viu a **Referències > Gnosi > Cites Gnosi**, no a *Inici*. A Mac,
-amb sideload, **només hi és si ja has obert l'add-in un cop en aquesta
-sessió** (Inici > Complements > Complements de desenvolupador > Gnosi Cite):
-vegeu [Com obrir-lo](#com-obrir-lo-mac-cada-sessió-de-word). Si després
-d'això segueix sense sortir, comprova-ho en aquest ordre:
-
-```bash
-WEF=~/Library/Containers/com.microsoft.Word/Data/Documents/wef
-ls "$WEF"                                                    # 1) ha d'haver-hi UN sol .xml
-npx office-addin-dev-settings registered                     # 2) ha de sortir UNA línia
-npx office-addin-manifest validate "$WEF"/*.xml              # 3) → "The manifest is valid"
-curl -sI https://localhost:5173/word-addin/index.html         # 4) → 200 (HTTPS, no HTTP)
-```
-
-Si hi ha més d'un manifest amb el mateix `<Id>`, o si Word ja tenia
-cachejada aquesta mateixa `<Version>`, no el rellegeix. Reparació
-determinista:
-
-```bash
-WEF=~/Library/Containers/com.microsoft.Word/Data/Documents/wef
-rm -f "$WEF"/*.xml
-# puja <Version> al manifest (p. ex. 1.2.0.0 → 1.3.0.0) i copia'l
-cp manifest.xml "$WEF"/
-```
-
-…i tanca Word **del tot** (Cmd+Q) abans de tornar-lo a obrir. Per confirmar
-si Word l'ha processat, el manifest cachejat apareix a
-`~/Library/Containers/com.microsoft.Word/Data/Library/Application Support/Microsoft/Office/16.0/Wef/…/Manifests/`
-amb el nom `<Id>_<Version>` i la mida del fitxer nou. Que hi sigui vol dir
-que el manifest és correcte: si tot i així no hi ha botó permanent, és la
-limitació de sideload descrita més amunt, no un error teu.
-
-Buidar les caches de WebKit/Wef a mà **no** cal i no ho arregla.
-
-### La icona del ribbon és l'antiga
-
-Word cacheja les icones per URL i no les torna a baixar encara que canviïn al
-disc. A la **còpia local** de `wef/` (mai al manifest del repo) afegeix un
-cache-bust a les URLs d'icona — `icon-32.png?v=3`, etc. — combinat amb el
-bump de `<Version>`.
 
 ### "Cal un token" / "Token no vàlid"
 

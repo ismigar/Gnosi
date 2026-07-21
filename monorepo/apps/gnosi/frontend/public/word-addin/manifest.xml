@@ -32,19 +32,19 @@
   <!-- Identificador únic (GUID). Generar un de nou per a producció amb
        uuidgen perquè cada add-in publicat tingui el seu. -->
   <Id>5e2c8b9a-1f2d-4b3c-9f8e-7d6c5b4a3e2f</Id>
-  <!-- Office refuses add-ins with a version < 1.0.0.0 (it will not register
-       them, not even when sideloaded), so keep this >= 1.0.0.0.
-       Word also only re-reads a sideloaded manifest when the version is NEW:
-       it keys its cache on <Id>_<Version>. Shipping a changed manifest that
-       keeps the same version is a no-op — the user keeps the old payload.
-       Bump this on every released change to this file. -->
+  <!-- Office rebutja add-ins amb versió < 1.0.0.0 (no els registra ni en
+       sideload). Cal mantenir-la >= 1.0.0.0.
+       Word only re-reads a sideloaded manifest when the version is NEW: it
+       keys its cache on <Id>_<Version>. Dropping a changed manifest that
+       keeps the same version is a no-op (the ribbon button never appears).
+       Bump this on every released change to the manifest. -->
   <Version>1.2.0.0</Version>
   <ProviderName>Gnosi</ProviderName>
   <DefaultLocale>ca-ES</DefaultLocale>
   <DisplayName DefaultValue="Gnosi Cite" />
   <Description DefaultValue="Cerca i insereix cites al document de Word a partir del Vault de Gnosi (Recursos). Estil Mendeley Cite." />
-  <IconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-64.png" />
+  <IconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png?v=3" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-64.png?v=3" />
   <SupportUrl DefaultValue="https://localhost:5173" />
 
   <!-- Els dominis dels quals el add-in pot carregar recursos. Cal
@@ -109,9 +109,9 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="GnosiCite.Icon16" DefaultValue="https://localhost:5173/word-addin/assets/icon-16.png" />
-        <bt:Image id="GnosiCite.Icon32" DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png" />
-        <bt:Image id="GnosiCite.Icon80" DefaultValue="https://localhost:5173/word-addin/assets/icon-80.png" />
+        <bt:Image id="GnosiCite.Icon16" DefaultValue="https://localhost:5173/word-addin/assets/icon-16.png?v=3" />
+        <bt:Image id="GnosiCite.Icon32" DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png?v=3" />
+        <bt:Image id="GnosiCite.Icon80" DefaultValue="https://localhost:5173/word-addin/assets/icon-80.png?v=3" />
       </bt:Images>
       <bt:Urls>
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://localhost:5173" />
