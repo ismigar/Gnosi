@@ -1057,6 +1057,7 @@
     "button_hint": "Le bouton exécutera l'action sélectionnée sur la ligne et, pour la traduction, créera un sous-élément par langue cible.",
     "error_button_action_required": "Choisis une action pour le champ de type bouton.",
     "error_no_translatable_fields": "Si la table est traduisible, marque au moins un champ comme traduisible.",
+    "autosave_paused": "Modifications non enregistrées",
     "error_compute_required": "Choisis un calculateur pour le champ dérivé.",
     "virtual_compute": "Calculateur dérivé",
     "virtual_pick": "— Choisis un calculateur —",

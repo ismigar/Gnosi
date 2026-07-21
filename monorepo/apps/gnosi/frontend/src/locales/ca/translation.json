@@ -2016,6 +2016,7 @@
     "button_hint": "El botó executarà l'acció seleccionada sobre la fila i, en el cas de la traducció, crearà subitems amb les traduccions.",
     "error_button_action_required": "Cal seleccionar una acció per al camp de tipus botó.",
     "error_no_translatable_fields": "Si la taula és traduïble, marca almenys un camp com a traduïble.",
+    "autosave_paused": "Canvis sense desar",
     "error_compute_required": "Cal seleccionar un computador per al camp derivat.",
     "virtual_compute": "Computador derivat",
     "virtual_pick": "— Tria un computador —",
