@@ -84,8 +84,9 @@ Recomanació: fer aquest canvi **abans** d'enviar-ho, no després d'un rebuig.
       **Nota**: ara diu `1.1.0` mentre viatja en el tren de releases `0.1.x`;
       val la pena alinear-ho abans de publicar res amb aquest número.
 - [ ] Decideix el tema de `<all_urls>` (vegeu l'alternativa de dalt).
-- [ ] Icones: la botiga en vol de 128×128. El `manifest.json` **no en declara
-      cap** ara mateix.
+- [x] Icones: `icons/` (16/32/48/128/512, derivades de l'icona de l'app), a
+      `icons` i a `action.default_icon`. `build.sh` avorta si el manifest en
+      referencia alguna que no existeixi.
 - [ ] Captures de pantalla del popup (1280×800 o 640×400).
 - [ ] Descripció curta (132 caràcters) i llarga.
 - [ ] Política de privacitat accessible per URL pública.
