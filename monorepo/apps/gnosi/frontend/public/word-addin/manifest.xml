@@ -38,7 +38,7 @@
        keys its cache on <Id>_<Version>. Dropping a changed manifest that
        keeps the same version is a no-op (the ribbon button never appears).
        Bump this on every released change to the manifest. -->
-  <Version>1.2.0.0</Version>
+  <Version>1.3.0.0</Version>
   <ProviderName>Gnosi</ProviderName>
   <DefaultLocale>ca-ES</DefaultLocale>
   <DisplayName DefaultValue="Gnosi Cite" />
@@ -96,8 +96,17 @@
                     <bt:Image size="32" resid="GnosiCite.Icon32" />
                     <bt:Image size="80" resid="GnosiCite.Icon80" />
                   </Icon>
+                  <!-- TaskpaneId = Office.AutoShowTaskpaneWithDocument marks THIS
+                       pane as the one Word reopens by itself for any document
+                       tagged with the matching setting (see taskpane.js). It is
+                       what lets the pane come back on macOS, where a sideloaded
+                       add-in loses its ribbon button as soon as Word quits.
+                       Microsoft dropped autoopen for Marketplace add-ins on
+                       2026-03-02 but kept it for sideloaded and centrally
+                       deployed ones, which is us. Only one pane may carry this
+                       id; further ones are ignored. -->
                   <Action xsi:type="ShowTaskpane">
-                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <TaskpaneId>Office.AutoShowTaskpaneWithDocument</TaskpaneId>
                     <SourceLocation resid="Taskpane.Url" />
                   </Action>
                 </Control>

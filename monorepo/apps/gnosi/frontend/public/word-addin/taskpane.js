@@ -606,12 +606,38 @@
         });
     }
 
+    // Ask Word to reopen this pane on its own the next time the document is
+    // opened. On macOS a sideloaded add-in loses its ribbon button as soon as
+    // Word quits, so without this the pane has to be re-inserted from
+    // "Developer Add-ins" every single session. The manifest designates this
+    // pane as the autoopen target; here we tag the document that pairs with it.
+    //
+    // The tag travels inside the document, so it only survives if the user
+    // saves. A brand-new unsaved document still needs one manual insertion.
+    const AUTO_OPEN_SETTING = 'Office.AutoShowTaskpaneWithDocument';
+    function tagDocumentForAutoOpen() {
+        const settings = Office.context && Office.context.document && Office.context.document.settings;
+        if (!settings) return;
+        try {
+            if (settings.get(AUTO_OPEN_SETTING) === true) return;
+            settings.set(AUTO_OPEN_SETTING, true);
+            settings.saveAsync((result) => {
+                if (result.status !== Office.AsyncResultStatus.Succeeded) {
+                    console.error('Gnosi Cite: could not tag the document for auto-open', result.error);
+                }
+            });
+        } catch (err) {
+            console.error('Gnosi Cite: auto-open tagging failed', err);
+        }
+    }
+
     // Office.onReady guarantees that the API is available. It's also
     // fires outside Word (for testing in the browser) — in this case
     // info.host will be null and Word.run operations will fail with a
     // informative error (the setSelectedDataAsync fallback must be used).
     Office.onReady((info) => {
         setFooter('Host: ' + (info && info.host ? info.host : 'browser'));
+        if (info && info.host) tagDocumentForAutoOpen();
         bindUI();
         ping();
         // Initial load without filter — first 50 by popularity.
