@@ -42,7 +42,16 @@ el navegador et demanarà accés al domini del teu Gnosi. Si el deneges, el
 clipper no podrà enviar-hi res.
 
 ### Safari (macOS, cal Xcode)
-Safari no carrega extensions web directament; cal convertir-les a una app:
+Safari no carrega extensions web directament; cal convertir-les a una app. Amb
+un Xcode acabat d'instal·lar, primer les dues passes que no són òbvies —sense
+elles el converter falla amb *«A required plugin failed to load»*—:
+
+```bash
+sudo xcodebuild -license accept
+xcodebuild -runFirstLaunch
+```
+
+I després la conversió:
 
 ```bash
 xcrun safari-web-extension-converter monorepo/apps/gnosi/web-clipper
