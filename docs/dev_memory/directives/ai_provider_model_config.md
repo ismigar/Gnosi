@@ -192,6 +192,23 @@ context window, capabilities and quality, all editable afterwards.
   out visually and a save would destroy them.
 - Capability tags (`fast/code/vision/long/tools/reasoning`) are DATA matched
   verbatim by `model_router.py` → never translate them in the UI.
+- Deleting a provider MUST cascade to all three stores: the config entry,
+  the keychain credential AND its router-registry rows (filter the EFFECTIVE
+  registry, materializing the seed default if needed). Leaving the credential
+  made the router keep using a "deleted" provider (resolve falls back to the
+  keychain with no config entry); leaving the rows recreates the
+  models-without-provider confusion.
+- `is_provider_connected` must honour `enabled: false` → a toggled-off
+  provider is NOT connected, whatever credentials it has, matching the
+  router's availability semantics (otherwise the UI groups it as usable while
+  the router silently skips its rows).
+- The macOS keychain is MACHINE-GLOBAL: an "isolated" QA backend (own vault,
+  own params.yaml, own port) still reads/writes the SAME keychain as the real
+  instance. Never exercise destructive credential flows (provider delete,
+  key rotation) with real provider ids — use a throwaway id like
+  `qa-fake-prov`, whose generated key name cannot collide. Incident 2026-07-21:
+  a cascade E2E ran DELETE /providers/groq on the isolated backend and wiped
+  the user's real Groq key.
 - i18n wrappers with a `(key, opts)` signature swallow a third argument → for
   interpolated defaults pass `{ defaultValue, ...vars }` as the second arg
   (the `{{source}}` hint bug found in browser QA).

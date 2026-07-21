@@ -200,6 +200,12 @@ def migrate_ai_provider_secrets(ai_cfg: Dict[str, Any]) -> Tuple[Dict[str, Any],
                 cfg.pop("api_key", None)
                 cfg["credential_ref"] = credential_ref
                 changed = True
+        elif "api_key" in cfg:
+            # Empty/masked leftovers (the edit modal posts api_key: "") must
+            # not be persisted to params.yaml — plaintext key fields never
+            # belong there, not even blank ones.
+            cfg.pop("api_key", None)
+            changed = True
 
         if "credential_ref" not in cfg:
             default_ref = normalize_credential_ref(provider_id, cfg)
@@ -216,12 +222,17 @@ def migrate_ai_provider_secrets(ai_cfg: Dict[str, Any]) -> Tuple[Dict[str, Any],
 def is_provider_connected(provider_id: str, provider_cfg: Optional[Dict[str, Any]]) -> bool:
     """Whether the router could actually use this provider right now.
 
+    A provider the user toggled OFF is not connected, whatever credentials it
+    has — same semantics as the router's availability check, so the UI never
+    shows "connected" for a provider whose rows would be silently skipped.
     Local providers need no key. Configured providers go through the full
     resolution (keychain + env). UNconfigured providers only check env vars:
     keys saved from the UI always write a config entry too, so skipping the
     keychain there avoids ~160 keychain hits when annotating the full catalog.
     """
     normalized = (provider_id or "").strip().lower()
+    if provider_cfg is not None and not provider_cfg.get("enabled", True):
+        return False
     if normalized in LOCAL_PROVIDER_IDS:
         return True
     if provider_cfg is not None:
