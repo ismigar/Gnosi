@@ -123,7 +123,9 @@
     overscroll-behavior: contain;
     background: var(--settings-bg);
     position: relative;
-    scroll-behavior: smooth;
+    /* No `scroll-behavior: smooth`: it makes every programmatic scroll an
+       animation, so jumping to a section lands late and `scrollTop` reads the
+       old value right after being set. Section changes should land at once. */
     outline: none;
 }
 
