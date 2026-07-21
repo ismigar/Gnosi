@@ -32,9 +32,13 @@
   <!-- Identificador únic (GUID). Generar un de nou per a producció amb
        uuidgen perquè cada add-in publicat tingui el seu. -->
   <Id>5e2c8b9a-1f2d-4b3c-9f8e-7d6c5b4a3e2f</Id>
-  <!-- Office rebutja add-ins amb versió < 1.0.0.0 (no els registra ni en
-       sideload). Cal mantenir-la >= 1.0.0.0. -->
-  <Version>1.1.0.0</Version>
+  <!-- Office refuses add-ins with a version < 1.0.0.0 (it will not register
+       them, not even when sideloaded), so keep this >= 1.0.0.0.
+       Word also only re-reads a sideloaded manifest when the version is NEW:
+       it keys its cache on <Id>_<Version>. Shipping a changed manifest that
+       keeps the same version is a no-op — the user keeps the old payload.
+       Bump this on every released change to this file. -->
+  <Version>1.2.0.0</Version>
   <ProviderName>Gnosi</ProviderName>
   <DefaultLocale>ca-ES</DefaultLocale>
   <DisplayName DefaultValue="Gnosi Cite" />
