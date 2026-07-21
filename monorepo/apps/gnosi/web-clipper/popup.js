@@ -1,17 +1,51 @@
 /* Gnosi Web Clipper — popup. Save the page (or the selection) to the vault via
  * POST {backend}/api/public/clip with Authorization: Bearer <PAT>. */
 
+/* Firefox and Safari expose the WebExtension API as `browser` (promise-based);
+ * Chromium exposes it as `chrome`, which is promise-based too under MV3. Bind
+ * once so the rest of the file is browser-agnostic. */
+const api = globalThis.browser ?? globalThis.chrome;
+
 const $ = (id) => document.getElementById(id);
 
 async function loadConfig() {
-  const cfg = await chrome.storage.local.get(['backend', 'token']);
+  const cfg = await api.storage.local.get(['backend', 'token']);
   $('backend').value = cfg.backend || 'https://localhost:5173';
   $('token').value = cfg.token || '';
 }
 
+/* Firefox treats host_permissions as opt-in: they are listed in the manifest but
+ * not granted until the user says so, and fetch() to an ungranted origin fails.
+ * Ask for the configured backend origin while we still hold the click gesture
+ * (permissions.request() requires one). Chromium grants them up front, so the
+ * call resolves true immediately and nothing is shown. */
+async function ensureBackendPermission(backend) {
+  if (!api.permissions?.request) return true;
+  let origin;
+  try {
+    origin = new URL(backend).origin + '/*';
+  } catch {
+    return true; // Malformed URL: let the clip attempt surface the error.
+  }
+  try {
+    if (await api.permissions.contains({ origins: [origin] })) return true;
+    return await api.permissions.request({ origins: [origin] });
+  } catch (e) {
+    console.warn('Could not check host permission for', origin, e);
+    return true;
+  }
+}
+
 async function saveConfig() {
-  await chrome.storage.local.set({ backend: $('backend').value.trim(), token: $('token').value.trim() });
-  setStatus('Configuració desada.', 'ok');
+  const backend = $('backend').value.trim();
+  const granted = await ensureBackendPermission(backend);
+  await api.storage.local.set({ backend, token: $('token').value.trim() });
+  setStatus(
+    granted
+      ? 'Configuració desada.'
+      : 'Desada, però el navegador no ha donat permís per a aquest domini.',
+    granted ? 'ok' : 'err',
+  );
 }
 
 function setStatus(msg, cls = '') {
@@ -21,13 +55,13 @@ function setStatus(msg, cls = '') {
 }
 
 async function getActiveTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const [tab] = await api.tabs.query({ active: true, currentWindow: true });
   return tab;
 }
 
 async function getSelectionText(tabId) {
   try {
-    const res = await chrome.scripting.executeScript({
+    const res = await api.scripting.executeScript({
       target: { tabId },
       func: () => String(window.getSelection ? window.getSelection().toString() : ''),
     });
@@ -38,7 +72,7 @@ async function getSelectionText(tabId) {
 }
 
 async function clip(onlySelection) {
-  const { backend, token } = await chrome.storage.local.get(['backend', 'token']);
+  const { backend, token } = await api.storage.local.get(['backend', 'token']);
   if (!backend || !token) {
     setStatus('Configura primer l\'URL i el token (Configuració).', 'err');
     return;
