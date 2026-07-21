@@ -81,7 +81,7 @@ Recomanació: fer aquest canvi **abans** d'enviar-ho, no després d'un rebuig.
 ## Abans d'enviar-ho
 
 - [ ] Puja `version` al `manifest.json` — la botiga rebutja una versió ja vista.
-      **Nota**: ara diu `1.0.0` mentre viatja en el tren de releases `0.1.x`;
+      **Nota**: ara diu `1.1.0` mentre viatja en el tren de releases `0.1.x`;
       val la pena alinear-ho abans de publicar res amb aquest número.
 - [ ] Decideix el tema de `<all_urls>` (vegeu l'alternativa de dalt).
 - [ ] Icones: la botiga en vol de 128×128. El `manifest.json` **no en declara

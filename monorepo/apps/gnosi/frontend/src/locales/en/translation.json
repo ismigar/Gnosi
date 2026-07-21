@@ -1306,7 +1306,21 @@
       "llm_wiki_lint_stale": "{{count}} not reviewed in a while",
       "llm_wiki_lint_xref": "{{count}} missing cross-references",
       "llm_wiki_lint_reprocess": "{{count}} resources modified after processing",
-      "llm_wiki_pending": "{{count}} pending suggestions in the Inbox"
+      "llm_wiki_pending": "{{count}} pending suggestions in the Inbox",
+      "clipper_intro": "Choose which table the browser extension saves into. The fields you tick show up in the extension form so you can fill them before saving.",
+      "clipper_table": "Destination table",
+      "clipper_table_none": "None (note in the Clips/ folder)",
+      "clipper_auto": "Automatic",
+      "clipper_unmapped": "No column",
+      "clipper_url_column": "URL column",
+      "clipper_tags_column": "Tags column",
+      "clipper_content_column": "Note column",
+      "clipper_fields": "Fields the extension asks for",
+      "clipper_no_fields": "This table has no columns that can be filled from the browser.",
+      "web-clipper": {
+        "name": "Web Clipper",
+        "desc": "Save web pages from the browser into the table you choose, filling in its fields."
+      }
     },
     "workspace": {
       "intro": "Manage members, roles and vault access for the active workspace. This section exists for cooperatives, research teams and collectives sharing a single Gnosi instance. Real-time collaboration is under development — see the collaboration_proposal.md directive."

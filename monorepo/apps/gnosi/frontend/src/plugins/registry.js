@@ -42,6 +42,12 @@ export const BUILTIN_PLUGINS = [
         icon: 'LayoutDashboard',
     },
     {
+        id: 'web-clipper',
+        name: 'Web Clipper',
+        description: 'Desa pàgines web des del navegador a la taula que triïs, omplint-ne els camps.',
+        icon: 'Scissors',
+    },
+    {
         id: 'llm-wiki',
         name: 'Cervell (LLM Wiki)',
         description: 'Processa recursos amb IA per mantenir un wiki de coneixement enllaçat (estil Karpathy).',

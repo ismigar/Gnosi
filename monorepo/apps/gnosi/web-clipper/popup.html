@@ -3,7 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <style>
-    body { font-family: -apple-system, system-ui, sans-serif; width: 320px; margin: 0; padding: 14px; color: #1f2430; }
+    /* The palette below is light-only, so pin the surface too: on a dark-themed
+       browser the popup rendered dark text on a dark background. */
+    body { font-family: -apple-system, system-ui, sans-serif; width: 320px; margin: 0; padding: 14px; color: #1f2430; background: #fff; color-scheme: light; }
     h1 { font-size: 14px; margin: 0 0 10px; display: flex; align-items: center; gap: 6px; }
     label { display: block; font-size: 11px; font-weight: 600; color: #6b7280; margin: 8px 0 3px; }
     input, textarea { width: 100%; box-sizing: border-box; border: 1px solid #d1d5db; border-radius: 6px; padding: 6px 8px; font-size: 13px; }
@@ -13,6 +15,9 @@
     button:disabled { opacity: .5; cursor: default; }
     .row { display: flex; gap: 8px; }
     .hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+    #target { font-size: 11px; color: #6366f1; font-weight: 600; margin-bottom: 8px; min-height: 14px; }
+    #fields select[multiple] { min-height: 60px; }
+    #fields input[type="checkbox"] { width: auto; }
     #status { font-size: 12px; margin-top: 10px; min-height: 16px; }
     .ok { color: #16a34a; } .err { color: #dc2626; }
     details { margin-top: 10px; } summary { font-size: 11px; color: #6b7280; cursor: pointer; }
@@ -20,12 +25,16 @@
 </head>
 <body>
   <h1>📎 Desa a Gnosi</h1>
+  <div id="target"></div>
 
   <label>Etiquetes (separades per comes)</label>
   <input id="tags" placeholder="lectura, web" />
 
   <label>Nota (opcional — si no, s'usa la selecció de la pàgina)</label>
   <textarea id="note" placeholder="Comentari o text…"></textarea>
+
+  <!-- Columns of the destination table, rendered from /api/public/clip/config -->
+  <div id="fields"></div>
 
   <button id="clip">Desa aquesta pàgina</button>
   <button id="clipSelection" class="secondary">Desa només la selecció</button>

@@ -1,5 +1,9 @@
 /* Gnosi Web Clipper — popup. Save the page (or the selection) to the vault via
- * POST {backend}/api/public/clip with Authorization: Bearer <PAT>. */
+ * POST {backend}/api/public/clip with Authorization: Bearer <PAT>.
+ *
+ * Where the clip lands is decided in Gnosi (Settings → Plugins → Web Clipper),
+ * not here: GET /api/public/clip/config returns the destination table and the
+ * columns to prompt for, and this popup renders that form dynamically. */
 
 /* Firefox and Safari expose the WebExtension API as `browser` (promise-based);
  * Chromium exposes it as `chrome`, which is promise-based too under MV3. Bind
@@ -7,6 +11,10 @@
 const api = globalThis.browser ?? globalThis.chrome;
 
 const $ = (id) => document.getElementById(id);
+
+/* Columns of the destination table, as served by /api/public/clip/config. Empty
+ * until the popup loads them; a failed load leaves the classic form working. */
+let clipFields = [];
 
 async function loadConfig() {
   const cfg = await api.storage.local.get(['backend', 'token']);
@@ -46,6 +54,8 @@ async function saveConfig() {
       : 'Desada, però el navegador no ha donat permís per a aquest domini.',
     granted ? 'ok' : 'err',
   );
+  // New credentials may point at another vault: re-read the destination.
+  await loadClipSchema();
 }
 
 function setStatus(msg, cls = '') {
@@ -71,6 +81,99 @@ async function getSelectionText(tabId) {
   }
 }
 
+/* Renders one control per configured column. Element ids are prefixed so a
+ * column named e.g. "note" cannot collide with the popup's own inputs. */
+function renderFields(fields) {
+  const host = $('fields');
+  if (!host) return;
+  host.textContent = '';
+  for (const field of fields) {
+    const label = document.createElement('label');
+    label.textContent = field.name || field.id;
+    label.htmlFor = 'fld:' + field.id;
+    host.appendChild(label);
+
+    let input;
+    if (Array.isArray(field.options) && field.options.length) {
+      input = document.createElement('select');
+      // Blank first option: an unfilled column stays empty instead of silently
+      // taking the first value of the catalog.
+      for (const opt of ['', ...field.options]) {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt || '—';
+        input.appendChild(option);
+      }
+      if (field.type === 'multi_select') input.multiple = true;
+    } else if (field.type === 'checkbox') {
+      input = document.createElement('input');
+      input.type = 'checkbox';
+    } else {
+      input = document.createElement('input');
+      input.type = field.type === 'number' ? 'number'
+        : field.type === 'date' ? 'date'
+          : field.type === 'datetime' ? 'datetime-local'
+            : field.type === 'url' ? 'url' : 'text';
+    }
+    input.id = 'fld:' + field.id;
+    host.appendChild(input);
+  }
+}
+
+/* Value of a rendered control, in the shape the backend coerces from. */
+function readField(field) {
+  const el = $('fld:' + field.id);
+  if (!el) return '';
+  if (el.type === 'checkbox') return el.checked;
+  if (el.multiple) return Array.from(el.selectedOptions).map((o) => o.value).filter(Boolean);
+  return el.value;
+}
+
+function collectFields() {
+  const out = {};
+  for (const field of clipFields) {
+    const value = readField(field);
+    if (value === '' || value === false || (Array.isArray(value) && !value.length)) continue;
+    out[field.id] = value;
+  }
+  return out;
+}
+
+/* Asks Gnosi where clips go and which columns to prompt for. A failure is
+ * logged but never blocks clipping: the backend applies its own configuration
+ * regardless of what the popup managed to render. */
+async function loadClipSchema() {
+  const { backend, token } = await api.storage.local.get(['backend', 'token']);
+  clipFields = [];
+  renderFields([]);
+  $('target').textContent = '';
+  if (!backend || !token) return;
+  try {
+    const resp = await fetch(backend.replace(/\/$/, '') + '/api/public/clip/config', {
+      headers: { 'Authorization': 'Bearer ' + token },
+    });
+    if (!resp.ok) {
+      if (resp.status === 401) setStatus('Token invàlid o revocat (401).', 'err');
+      return;
+    }
+    const data = await resp.json();
+    const disabled = data.enabled === false;
+    $('clip').disabled = disabled;
+    $('clipSelection').disabled = disabled;
+    if (disabled) {
+      $('target').textContent = 'El Web Clipper està desactivat a Gnosi.';
+      return;
+    }
+    $('target').textContent = data.table?.name
+      ? 'Destí: ' + data.table.name
+      : 'Destí: carpeta Clips/';
+    clipFields = Array.isArray(data.fields) ? data.fields : [];
+    renderFields(clipFields);
+  } catch (e) {
+    console.warn('Could not load the clipper configuration', e);
+  }
+}
+
 async function clip(onlySelection) {
   const { backend, token } = await api.storage.local.get(['backend', 'token']);
   if (!backend || !token) {
@@ -91,13 +194,17 @@ async function clip(onlySelection) {
     const resp = await fetch(backend.replace(/\/$/, '') + '/api/public/clip', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
-      body: JSON.stringify({ url: tab.url, title: tab.title, content, tags }),
+      body: JSON.stringify({
+        url: tab.url, title: tab.title, content, tags, fields: collectFields(),
+      }),
     });
     if (resp.ok) {
       const data = await resp.json();
-      setStatus('✓ Desat a ' + (data.path || 'Clips/'), 'ok');
+      setStatus('✓ Desat a ' + (data.table || data.path || 'Clips/'), 'ok');
     } else if (resp.status === 401) {
       setStatus('Token invàlid o revocat (401).', 'err');
+    } else if (resp.status === 403) {
+      setStatus('El Web Clipper està desactivat a Gnosi.', 'err');
     } else {
       setStatus('Error ' + resp.status + ' en desar.', 'err');
     }
@@ -108,6 +215,7 @@ async function clip(onlySelection) {
 
 document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
+  loadClipSchema();
   $('save').addEventListener('click', saveConfig);
   $('clip').addEventListener('click', () => clip(false));
   $('clipSelection').addEventListener('click', () => clip(true));

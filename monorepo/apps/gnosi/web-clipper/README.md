@@ -5,9 +5,20 @@ text— al teu vault de Gnosi. Funciona a Chromium (Chrome, Edge, Brave, Vivaldi
 Opera, Arc), a Firefox i a Safari.
 
 ## Com funciona
-Envia `POST {backend}/api/public/clip` amb `Authorization: Bearer <PAT>`. El
-backend crea una nota a la carpeta `Clips/` del vault amb la font enllaçada, el
-contingut capturat i les etiquetes.
+Envia `POST {backend}/api/public/clip` amb `Authorization: Bearer <PAT>`. On va
+a parar el clip ho decideix Gnosi, no l'extensió: **Configuració → Plugins →
+Web Clipper**.
+
+- **Sense taula destí** (per defecte): el backend crea una nota a la carpeta
+  `Clips/` del vault amb la font enllaçada, el contingut capturat i les
+  etiquetes.
+- **Amb taula destí** (p. ex. «Recursos»): crea un registre a la taula, amb
+  l'URL, les etiquetes i la nota a les columnes configurades. Els camps que
+  hagis marcat es demanen al popup abans de desar; el popup els llegeix de
+  `GET /api/public/clip/config`, així que segueixen l'esquema real de la taula.
+
+Si desactives el plugin a Gnosi, el clipper deixa de desar (403) i el popup
+ho diu.
 
 ## Instal·lació (mode desenvolupador)
 
@@ -54,5 +65,8 @@ de desenvolupador d'Apple).
   Configuració.
 - El codi crida `browser.*` quan existeix (Firefox, Safari) i `chrome.*` altrament
   (Chromium); totes dues variants retornen promeses sota MV3.
-- Les notes desades apareixen a `Clips/`; pots reorganitzar-les com qualsevol
-  altra nota del vault.
+- Sense taula destí, les notes desades apareixen a `Clips/`; pots
+  reorganitzar-les com qualsevol altra nota del vault.
+- Amb taula destí, el registre passa pel mateix camí que si el creessis a
+  l'app: automatismes, fórmules i valors per defecte de les columnes s'hi
+  apliquen igual.
