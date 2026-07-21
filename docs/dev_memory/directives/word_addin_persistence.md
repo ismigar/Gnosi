@@ -101,19 +101,69 @@ barata.
 És l'estat actual. El cost per sessió és reobrir des de *Complements de
 desenvolupador*. A Windows no hi ha problema.
 
+### E. Autoopen (`Office.AutoShowTaskpaneWithDocument`) — via barata, a provar primer
+
+Trobada després de decidir A, i **la canvia**. Office permet marcar un
+document perquè Word hi reobri sol un panell designat. La clau és una
+excepció que ens va de cara: Microsoft va retirar l'autoopen als add-ins de
+la Marketplace el 2026-03-02 però **el va mantenir per als carregats per
+sideload i els desplegats centralment**. Suportat a Office per a Mac 15.34+.
+
+Muntatge (fet, versió 1.3.0.0): al manifest, el `TaskpaneId` de l'acció del
+ribbon passa a ser `Office.AutoShowTaskpaneWithDocument`; a `taskpane.js`,
+`Office.onReady` marca el document amb aquesta mateixa clau via
+`document.settings` + `saveAsync`.
+
+Límits, que són reals i s'han de dir clar:
+
+- L'etiqueta viatja **dins del document**. Cal desar-lo perquè persisteixi.
+- És **per document**, no global: un document nou encara demana una inserció
+  manual. No recupera el botó del ribbon.
+- Resol, això sí, el cas que fa mal de debò: el document en què estàs
+  treballant setmanes seguides.
+
+Si funciona, A deixa de ser urgent i passa a ser una millora opcional.
+
 ## Recomanació
 
-Descartades B (direcció equivocada) i C (prerequisit inassolible), queda
-**A o D**.
+Ordre: **provar E abans de construir res**. És un canvi de manifest més deu
+línies de JS, ja desplegat, i si funciona cobreix el cas d'ús real.
 
-Si es vol resoldre de debò mantenint el local-first, l'única via sòlida és
-**A**, i s'ha de dimensionar com el que és: un component nou i específic per
-plataforma — plantilla VBA, helper natiu que governi el Word per AppleScript,
-i una implementació separada per a Windows — no un pedaç al manifest. També
-implica renunciar al Word per a la Web.
+Descartades B (direcció equivocada) i C (prerequisit inassolible), si E no
+basta queda **A o D**.
 
-Si aquest cost no es vol assumir ara, **D** és una posició honesta sempre que
-la documentació ho digui clar, que ja ho fa.
+Sobre A, cal dimensionar-la amb dades que es van confirmar el 2026-07-21 i
+que la fan més cara del que semblava:
+
+- **El taskpane actual no es pot reaprofitar.** `Application.TaskPanes` de
+  VBA només governa panells natius del Word (`wdTaskPaneFormatting` i
+  companyia); no hi ha API de VBA per obrir el panell d'un add-in web. Anar a
+  A vol dir reescriure tota la UI de cerca i selecció d'estil en UserForms de
+  VBA, i mantenir **dues implementacions** de la mateixa funció per sempre.
+- **L'HTTP sí que és fàcil**, i més senzill que al Zotero: `MSXML2.XMLHTTP`
+  no existeix al VBA de Mac, però `AppleScriptTask` crida un `.scpt` de
+  `~/Library/Application Scripts/com.microsoft.Word/` que pot fer
+  `do shell script "curl …"`. El Zotero necessita la capa Objective-C
+  només perquè la seva lògica viu fora del Word; nosaltres tindríem el
+  model d'objectes del document directament des del VBA.
+- Segueix implicant implementació separada per a Windows i renunciar al Word
+  per a la Web.
+
+Si aquest cost no es vol assumir, **D** és una posició honesta sempre que la
+documentació ho digui clar, que ja ho fa.
+
+## Prova pendent de E
+
+1. Tanca el Word del tot (Cmd+Q).
+2. Obre'l i obre un document **desat** (no un de nou sense desar).
+3. Insereix el add-in un cop des de *Complements → Complements de
+   desenvolupador → Gnosi Cite*. Desa el document.
+4. Cmd+Q i torna a obrir aquell mateix document.
+
+Si el panell surt sol, E funciona. Si no, la traça útil és mirar si el
+document conté la part `webextension` amb
+`Office.AutoShowTaskpaneWithDocument`: desa'l com a `.docx`, descomprimeix-lo
+i mira `word/webextensions/`.
 
 Mentrestant, D amb documentació honesta: el web i el README ja diuen
 explícitament que a macOS cal reobrir-lo cada sessió i que és una limitació
