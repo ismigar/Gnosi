@@ -63,7 +63,29 @@
             </prop>
           </node>
 
+          <!-- The component has handled gnosicite:refreshAll since the start
+               (dispatcher + ops.refresh_all), but this entry was missing, so
+               the command was only reachable indirectly from the search
+               dialog. Reformats every citation in one pandoc call, which is
+               what makes APA disambiguation (2020a/2020b, et al.) correct. -->
           <node oor:name="m03" oor:op="replace">
+            <prop oor:name="URL">
+              <value>gnosicite:refreshAll</value>
+            </prop>
+            <prop oor:name="Title">
+              <value xml:lang="ca">Actualitza tot (APA)</value>
+              <value xml:lang="es">Actualizar todo (APA)</value>
+              <value xml:lang="en-US">Refresh all (APA)</value>
+            </prop>
+            <prop oor:name="Target">
+              <value>_self</value>
+            </prop>
+            <prop oor:name="Context">
+              <value>com.sun.star.text.TextDocument</value>
+            </prop>
+          </node>
+
+          <node oor:name="m04" oor:op="replace">
             <prop oor:name="URL">
               <value>private:separator</value>
             </prop>
@@ -72,7 +94,7 @@
             </prop>
           </node>
 
-          <node oor:name="m04" oor:op="replace">
+          <node oor:name="m05" oor:op="replace">
             <prop oor:name="URL">
               <value>gnosicite:settings</value>
             </prop>

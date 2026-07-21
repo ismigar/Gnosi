@@ -16,16 +16,16 @@ el protocol `gnosicite:` i atén 4 comandes des d'un menú propi:
 |------|-----|-------|
 | Insereix cita… | `gnosicite:insertCitation` | Obre diàleg UNO de cerca |
 | Insereix bibliografia | `gnosicite:insertBibliography` | Recopila claus → llista al final |
-| ~~Actualitza tot (APA)~~ | `gnosicite:refreshAll` | Reformata en lot amb context |
+| Actualitza tot (APA) | `gnosicite:refreshAll` | Reformata en lot amb context |
 | Configuració… | `gnosicite:settings` | Edita URL del backend |
 
-⚠️ **`refreshAll` NO té entrada de menú** (detectat 2026-07-21). La comanda
-està **implementada i viva** al component (`gnosi_cite.py`: despatxador
-`cmd == "refreshAll"`, `refresh_all()`, `_refresh_all()`), i el diàleg de
-cerca la crida internament — però `Addons.xcu` només declara 3 ítems
-(+ separador), així que **des del menú no s'hi pot arribar**. O s'afegeix el
-node a `Addons.xcu`, o s'assumeix que és funcionalitat interna i s'anota
-aquí. Pendent de decisió; no és una regressió, mai va estar exposada.
+Nota històrica (2026-07-21): `refreshAll` va estar **implementat però sense
+entrada de menú** des de l'inici — el despatxador i `refresh_all()` hi eren i
+el diàleg de cerca el cridava internament, però `Addons.xcu` només declarava
+3 ítems. Exposat a la v0.1.1 afegint el node `m03` i renumerant separador i
+configuració a `m04`/`m05`. Els nodes es pinten per ordre de nom, així que
+inserir al mig obliga a renumerar: no n'hi ha prou d'afegir un `m05` al final
+si el vols abans del separador.
 
 Reutilitza **els mateixos endpoints** que el Word Add-in (cap canvi al
 backend): `/api/health`, `/api/vault/search-citations`,

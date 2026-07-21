@@ -6,7 +6,7 @@
     xmlns:xlink="http://www.w3.org/1999/xlink">
 
   <identifier value="com.gnosi.cite"/>
-  <version value="0.1.0"/>
+  <version value="0.1.1"/>
 
   <display-name>
     <name lang="ca">Gnosi Cite</name>
