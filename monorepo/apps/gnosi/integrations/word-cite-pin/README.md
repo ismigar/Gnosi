@@ -25,7 +25,28 @@ El parany és l'atribut `visibility` de `word/webextensions/taskpanes.xml`:
 `Office.context.document.settings` (Office.js) només sap escriure `0`. El `1`
 **només es pot posar per Open XML**, i és exactament el que fa aquest script.
 
-## Ús
+## Instal·lació de màquina (recomanat): `install.sh`
+
+Amb el Word tancat:
+
+```bash
+./install.sh            # manifest → wef/ + fixa Normal.dotm
+./install.sh --status   # què hi ha instal·lat
+./install.sh --undo     # restaura Normal.dotm pre-Gnosi i retira el manifest
+```
+
+Fixar `Normal.dotm` — la plantilla global de la qual Word clona cada
+document nou en blanc — fa que **cada document nou neixi marcat** i obri el
+panell sol (herència verificada el 2026-07-21 a Word per a Mac). La primera
+vegada Word demana confiança per al complement; després, res.
+
+L'instal·lador guarda la còpia pre-Gnosi com a `Normal.dotm.pre-gnosi` al
+costat de l'original, i `--undo` la restaura byte a byte.
+
+## Ús per document: `pin_taskpane.py`
+
+Per a documents **existents** (creats abans de fixar `Normal.dotm`, o rebuts
+de fora):
 
 ```bash
 python3 pin_taskpane.py document.docx
@@ -62,5 +83,10 @@ script idempotent, i cap altra part del paquet el referencia.
   script pels documents perquè la referència no quedi enrere.
 - **Cal desar el document** perquè res d'això persisteixi: viu dins el fitxer,
   no a la configuració del Word.
-- No recupera el botó global del ribbon. Fixa el panell **document per
-  document**; per a un de nou, o el passes pel script o l'insereixes un cop.
+- No recupera el botó global del ribbon: el que persisteix és el **panell**.
+- **LibreOffice esborra el fixat en desar** (verificat amb una ida i volta
+  `soffice --convert-to docx`: les tres parts `webextensions` desapareixen).
+  Si edites un `.docx` fixat amb el Writer i el deses, torna a passar-hi el
+  script. Al LibreOffice mateix no li cal res d'això: la seva extensió
+  `.oxt` (`integrations/libreoffice-cite/`) persisteix sola per disseny —
+  el problema de sessions és exclusiu del Word a macOS.

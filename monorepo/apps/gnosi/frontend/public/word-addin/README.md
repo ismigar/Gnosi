@@ -84,7 +84,20 @@ Comprova-ho: `curl -sI https://localhost:5173/word-addin/index.html` → `200`.
 Word 2016+ permet "sideload" d'un add-in per a dev/testing sense passar
 per la Microsoft Store.
 
-### Mac
+### Mac — via recomanada: l'instal·lador
+
+Amb el Word tancat (Cmd+Q):
+
+```bash
+cd ../../integrations/word-cite-pin && ./install.sh
+```
+
+Fa les dues coses que calen: copia el manifest a `wef/` i fixa `Normal.dotm`
+perquè **els documents nous obrin el panell sols** (vegeu el requadre de
+persistència més amunt). `./install.sh --status` per comprovar-ho,
+`./install.sh --undo` per desfer-ho tot.
+
+### Mac — a mà (equivalent al pas 1 de l'instal·lador)
 
 ```bash
 mkdir -p ~/Library/Containers/com.microsoft.Word/Data/Documents/wef
@@ -92,6 +105,7 @@ cp manifest.xml ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
 ```
 
 Després **tanca Word del tot (Cmd+Q)** i torna'l a obrir amb un document.
+Sense l'instal·lador, el panell s'ha de reobrir a mà cada sessió.
 On apareix:
 
 - **Al ribbon**: aquest add-in registra un botó propi via `VersionOverrides`.
@@ -103,20 +117,20 @@ On apareix:
 Si no surt cap de les dues coses, el manifest no s'ha carregat: revisa que el
 fitxer sigui a `…/Documents/wef/` i que has reiniciat Word del tot.
 
-> **El botó NO es manté entre sessions a macOS.** Word només persisteix els
-> botons de ribbon dels add-ins que vénen d'un catàleg (Office Store /
-> desplegament de tenant): els escriu a
-> `…/Wef/AppCommands/17.0/` amb la marca `EXCatalog`, lligats al compte de
-> Microsoft. Els add-ins carregats des de `wef/` viuen en un bucket de cau
-> separat i mai arriben a aquell registre, així que en tancar Word el botó
-> desapareix i cal reobrir-lo des de «Complements de desenvolupador» cada
-> sessió. És una limitació de la plataforma, no del manifest — vegeu
-> [OfficeDev/office-js#507](https://github.com/OfficeDev/office-js/issues/507).
-> A Windows (catàleg de confiança) sí que es manté.
+> **Persistència a macOS — resolt amb l'instal·lador.** Word a macOS no
+> persisteix mai el botó de ribbon d'un add-in carregat per sideload (només
+> els de catàleg, marcats `EXCatalog` a `…/Wef/AppCommands/17.0/`; vegeu
+> [OfficeDev/office-js#507](https://github.com/OfficeDev/office-js/issues/507)).
+> La solució que funciona és l'*autoopen* amb `visibility="1"` injectat per
+> Open XML: `integrations/word-cite-pin/install.sh` ho configura tot
+> (manifest + `Normal.dotm`), i a partir d'allà **cada document nou obre el
+> panell sol**. Per a documents existents: `pin_taskpane.py DOC.docx`, o
+> obrir-hi el add-in un cop i desar. Detalls i historial del diagnòstic:
+> directiva `word_addin_persistence.md`.
 >
-> Alternativa amb persistència real i sense sortir de local-first: una
-> plantilla `.dotm` a la carpeta Startup de Word (el mecanisme que fa servir
-> Zotero). Vegeu la directiva `word_addin_persistence.md`.
+> Compte: si edites i deses un `.docx` fixat amb el **LibreOffice Writer**,
+> les parts del panell es perden (el Writer les descarta en desar; verificat).
+> Torna a passar-hi `pin_taskpane.py`.
 
 ### Windows
 
