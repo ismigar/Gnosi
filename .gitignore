@@ -57,3 +57,10 @@ monorepo/apps/gnosi/plugins-examples/dist-plugins/
 
 # Plans i backups de sessió d'eines d'agent (locals, per màquina).
 .zcode/
+
+# The website lives in its own repo (ismigar/ismigar.github.io) and is worked
+# through PRs there. The nested checkout stays on disk but is no longer
+# shadow-tracked here: the stale tracked copy nearly resurrected deleted pages,
+# and the sync-landing.yml force-push exporter it fed never ran successfully
+# (missing LANDING_REPO_TOKEN secret in all 5 attempts; removed 2026-07-21).
+/ismigar.github.io/
