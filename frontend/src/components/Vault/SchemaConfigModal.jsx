@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { toast } from '../../lib/toast';
-import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2, Send } from 'lucide-react';
+import { X, Plus, Trash2, Settings, GripVertical, Layers, Languages, Zap, Tag, Globe, Loader2, Link2, Send, AlertTriangle } from 'lucide-react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -1311,7 +1311,30 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         if (next) {
             addTranslateButton();
             seedStatusOptions('translation');
+            // A translatable table with no translatable field fails silent
+            // validation, which blocks autosave for the WHOLE modal: the toggle
+            // (and every later change) was discarded on close. We seed a sensible
+            // default — the title, which translate_row needs anyway — so the state
+            // is valid the moment the toggle flips. The user can change it after.
+            ensureTranslatableField();
         }
+    };
+
+    // Marks a default translatable field when there is none. Prefers the title
+    // (the backend uses its translation as the subitem's title); otherwise, the
+    // first non-system field whose type supports translation.
+    const ensureTranslatableField = () => {
+        setFields((prev) => {
+            if (prev.some((f) => f.translatable && TRANSLATABLE_FIELD_TYPES.has(f.type))) return prev;
+            let idx = prev.findIndex((f) => f.type === 'title');
+            if (idx === -1) {
+                idx = prev.findIndex((f) => !f.system && TRANSLATABLE_FIELD_TYPES.has(f.type));
+            }
+            if (idx === -1) return prev;
+            const next = [...prev];
+            next[idx] = { ...next[idx], translatable: true };
+            return next;
+        });
     };
 
     // --- Drupal synchronization -----------------------------------------
@@ -1565,6 +1588,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         return null;
     };
 
+    // Same check, evaluated on render: while it returns a message, autosave is
+    // paused and the banner at the top of the modal says so. Without it, an
+    // invalid state silently discarded every change (including the toggles).
+    const validationError = validate();
+
     // Config keys that the UI manages explicitly: buildPayload
     // removes them from the raw config before rewriting them from local state.
     // The rest (role, option_groups, …) round-trip intact.
@@ -1699,7 +1727,13 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             skipNextAutosaveRef.current = false;
             return;
         }
-        if (validate()) return; // silent validation
+        if (validationError) {
+            // Invalid state: nothing is sent (the banner above tells the user why).
+            // We also drop any pending save: it belongs to an earlier render and
+            // flushing it on unmount would silently persist an outdated payload.
+            pendingSaveRef.current = null;
+            return;
+        }
         // Saves the current state. We save it in a ref so we can trigger it
         // also on unmount (flush) if the debounce hasn't fired yet.
         const doSave = async () => {
@@ -1892,6 +1926,24 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 </div>
 
                 <div ref={scrollRef} tabIndex={-1} className="gnosi-modal-scroll p-6 overflow-y-auto flex-1 bg-[var(--bg-primary)] outline-none">
+                    {/* Autosave paused: this modal saves continuously, so an invalid
+                        state means nothing is being persisted. It used to fail in
+                        silence and the user only noticed on reopening the modal. */}
+                    {validationError && (
+                        <div
+                            role="alert"
+                            className="mb-6 flex items-start gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-xs text-[var(--text-primary)]"
+                        >
+                            <AlertTriangle size={16} className="mt-px shrink-0 text-amber-500" />
+                            <span>
+                                <strong className="font-semibold">
+                                    {t('schema.autosave_paused', 'Canvis sense desar')}
+                                </strong>
+                                {' — '}
+                                {validationError}
+                            </span>
+                        </div>
+                    )}
                     <div className="bg-[var(--bg-secondary)] p-4 rounded-lg border border-[var(--border-primary)] shadow-sm mb-6 space-y-4">
                         <h3 className="text-sm font-semibold text-[var(--text-primary)] flex items-center gap-2">
                             <Layers size={16} className="text-[var(--gnosi-primary)]" />

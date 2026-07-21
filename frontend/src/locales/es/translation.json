@@ -1976,6 +1976,7 @@
     "button_hint": "El botón ejecutará la acción seleccionada sobre la fila y, en el caso de la traducción, creará subitems con las traducciones.",
     "error_button_action_required": "Selecciona una acción para el campo de tipo botón.",
     "error_no_translatable_fields": "Si la tabla es traducible, marca al menos un campo como traducible.",
+    "autosave_paused": "Cambios sin guardar",
     "error_compute_required": "Selecciona un computador para el campo derivado.",
     "virtual_compute": "Computador derivado",
     "virtual_pick": "— Elige un computador —",

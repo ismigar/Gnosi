@@ -2126,6 +2126,7 @@
     "button_hint": "The button runs the selected action on the row and, for translation, creates one subitem per target language.",
     "error_button_action_required": "Pick an action for the button field.",
     "error_no_translatable_fields": "If the table is translatable, mark at least one field as translatable.",
+    "autosave_paused": "Unsaved changes",
     "error_compute_required": "Pick a computer for the derived field.",
     "virtual_compute": "Derived computer",
     "virtual_pick": "— Pick a computer —",
