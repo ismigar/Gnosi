@@ -1,0 +1,191 @@
+{
+ "note": "Pre-migration backup: Item Type unification (PR #917 follow-up)",
+ "table_id": "1aa31b10-d42d-554a-a318-434cc4f26ff2",
+ "field_id": "fld_7aa0d5a8",
+ "affected_counts": {
+  "Article científic": 9,
+  "Infografía": 4,
+  "Manifest": 2,
+  "Article de revista": 2,
+  "Secció de Llibre": 10,
+  "Genéric": 1,
+  "Objeto de analisis simbólico": 1
+ },
+ "all_counts": {
+  "Llibre": 95,
+  "Article divulgatiu": 30,
+  "Article de revista acadèmica": 23,
+  "Article científic": 9,
+  "Ponència": 8,
+  "Informe": 13,
+  "Article enciclopèdic": 6,
+  "Relat": 21,
+  "Vídeo": 6,
+  "Infografía": 4,
+  "Extracte llibre": 1,
+  "Curs": 16,
+  "Manifest": 2,
+  "Pàgina web": 5,
+  "Entrevista/testimoni": 2,
+  "Capítol d'un llibre": 3,
+  "Fragment": 1,
+  "Article de revista": 2,
+  "Secció de Llibre": 10,
+  "Manual": 10,
+  "Tesi": 4,
+  "Objeto de analisis simbólico": 1,
+  "Revista": 1,
+  "Genéric": 1,
+  "Eines": 1,
+  "Document": 1,
+  "Ruta en bici": 1
+ },
+ "pages": [
+  {
+   "path": "BD/Recursos/La fenomenología como superación de la dicotomía entre razón teórica y práctica, para una cultura de paz.md",
+   "id": "31606d62-1e27-52cc-80ba-9b40a15cdc0b",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Distinción entre autótitas y potestas.md",
+   "id": "2512e8e1-b830-5086-8de1-9ddbd305cf57",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Ética de Aristóteles.md",
+   "id": "f059870d-ba0b-5981-948a-1550c874c04b",
+   "item_type": "Infografía"
+  },
+  {
+   "path": "BD/Recursos/La curva del aprendizaje.md",
+   "id": "80739a98-1398-5aea-9bec-9c945e567efa",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Menifest per la pau.md",
+   "id": "6ca23ac4-52ad-504f-ab41-6d27cf2b8992",
+   "item_type": "Manifest"
+  },
+  {
+   "path": "BD/Recursos/Infografia cultura de pau i no-violencia.md",
+   "id": "19b927fa-21c7-5ddc-9700-c7c834f6489f",
+   "item_type": "Infografía"
+  },
+  {
+   "path": "BD/Recursos/Conceptos sociológicos fundamentales.md",
+   "id": "0c8d1dfe-a51c-5efc-bff8-c977562cfbc5",
+   "item_type": "Article de revista"
+  },
+  {
+   "path": "BD/Recursos/Filosofía de la religión una azarosa búsqueda de identidad.md",
+   "id": "cc2bae40-6cdf-598a-91d5-085b7e8044d8",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Dónde y cómo encontrar argumentos.md",
+   "id": "a7982ab8-df4a-5ba9-8c78-e94bde8a5c2e",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Ética de Kant.md",
+   "id": "d47b3d15-21c3-5c05-b2b1-db17a0bc06ec",
+   "item_type": "Infografía"
+  },
+  {
+   "path": "BD/Recursos/Variaciones sobre la argumentación en filosofía.md",
+   "id": "3d65386e-7a1e-53a0-9998-1358c1e51005",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Post-scriptum sobre las sociedades de control.md",
+   "id": "a7d635b5-09b3-5004-87a4-0d938f26c684",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Menifiesto Congreso Economias Feministas 2021.md",
+   "id": "c9649dd0-c2ba-577b-82be-5c5505fc1f06",
+   "item_type": "Manifest"
+  },
+  {
+   "path": "BD/Recursos/El Panoptismo.md",
+   "id": "de293c54-253d-58e6-9efa-81b35c358d4d",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Anàlisis de violència estructural sobre població migrada a Sant Feliu i el paper de la societat civil als processos de p.md",
+   "id": "5b51555d-299c-5b57-8840-542fff0f607c",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Dios a disposición incondicionada y misericordiosa de la humanidad. Breve aproximación al Dios cristiano (2).md",
+   "id": "b1770135-6900-55e9-b10f-56e8839e2f7f",
+   "item_type": "Genéric"
+  },
+  {
+   "path": "BD/Recursos/Cultura de pau.md",
+   "id": "aed021b3-7543-53cc-ae55-99afc3d15a3d",
+   "item_type": "Infografía"
+  },
+  {
+   "path": "BD/Recursos/Análisis de violencia estructural.md",
+   "id": "1e7c3e0c-2623-51c1-a176-a7e8f6d6b6ce",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Residential Suveirllance at a Designated Location.md",
+   "id": "b02db056-9e50-529b-a2ed-b3bf78bdf826",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/La dominación.md",
+   "id": "ea840d00-0736-5e99-b75a-5eb476aa53fe",
+   "item_type": "Article de revista"
+  },
+  {
+   "path": "BD/Recursos/The Layout of Arguments.md",
+   "id": "99a5b1d4-bf6d-5a3b-a1d0-a33fe75c71ee",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Subjetividad y psicología en el capitalismo neoliberal.md",
+   "id": "9185fec0-7918-5286-8065-13eac3e94fe0",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Los cuerpos dóciles.md",
+   "id": "f784f4aa-4b80-5b6c-a7a4-4e699ecf17d5",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Filosofía de la religión una azarosa búsqueda de identidad..md",
+   "id": "a6196f44-843b-56e2-baa9-be689c5e05e1",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Distinción entre afirmaciones y juicios.md",
+   "id": "acd052f1-9788-5036-bf5e-4e945806e15d",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Distinción entre grupo y equipo.md",
+   "id": "29379d66-5825-57fc-8eb2-dd17ec1bb319",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/El paper de la societat civil als processos de pau.md",
+   "id": "05c478f6-9a62-557a-9135-856ed1d4e899",
+   "item_type": "Article científic"
+  },
+  {
+   "path": "BD/Recursos/Tortura, muerte y filosofía.md",
+   "id": "0964fc9c-febf-5f7d-a1f2-80e8a563122a",
+   "item_type": "Secció de Llibre"
+  },
+  {
+   "path": "BD/Recursos/Carta astral.md",
+   "id": null,
+   "item_type": "Objeto de analisis simbólico",
+   "note": "renamed 2026-07-21 → Objecte d'anàlisi simbòlica"
+  }
+ ]
+}
