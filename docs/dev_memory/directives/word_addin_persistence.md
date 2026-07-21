@@ -202,14 +202,43 @@ guardada com a `~/Desktop/Normal.dotm.original-20260721`). El classificador
 de permisos va bloquejar, correctament, escriure dins Group Containers des
 de l'agent: l'usuari instal·la la còpia fixada a mà.
 
-Resultats possibles:
-- Word hereta les parts → cas "document nou" resolt globalment.
-- Word les ignora en clonar → pla B: plantilla `Gnosi.dotx` a la galeria
-  personal (`Templates.localized/`), amb les mateixes parts; documents nous
-  via Fitxer → Nou a partir de plantilla. Tecnologia ja demostrada (són les
-  mateixes parts en un paquet quasi idèntic), però menys transparent.
-- Word reescriu `Normal.dotm` (en desar estils/autotext) i en poda les
-  parts → repassar amb el script; si ho fa sovint, passar al pla B.
+**CONFIRMAT (2026-07-21, mateix dia): Word hereta les parts.** Un document
+nou en blanc obre el panell sol. El cas "document nou" queda resolt
+globalment i el pla B (`Gnosi.dotx` a la galeria) no cal.
+
+Risc residual conegut: si Word reescriu `Normal.dotm` (en desar estils o
+autotext) i en poda les parts, es repassa amb el script. A la màquina de
+referència `Normal.dotm` portava intacte des de l'abril de 2024, així que
+és improbable que passi sovint. `install.sh --status` ho detecta.
+
+### Empaquetat: `install.sh` (2026-07-21)
+
+`integrations/word-cite-pin/install.sh` deixa la instal·lació en una ordre:
+manifest → `wef/` + fixar `Normal.dotm` (còpia pre-Gnosi
+`Normal.dotm.pre-gnosi`, restaurada byte a byte per `--undo`; `--status`
+per diagnòstic). Verificat amb cicle complet contra un `$HOME` fals:
+instal·lar, reexecutar (idempotent), status, undo amb restauració
+byte-idèntica, flag desconegut → exit 2.
+
+Gotcha de shell que va caçar el test: amb `set -o pipefail`,
+`unzip -l | grep -q` pot informar fallada havent-hi coincidència (grep surt
+al primer match i unzip mor per SIGPIPE amb 141). La detecció es fa sense
+canonada (case sobre la sortida capturada).
+
+### LibreOffice (2026-07-21, verificat)
+
+Dues respostes separades:
+
+- **El problema de sessions NO existeix al LibreOffice.** L'extensió `.oxt`
+  (`integrations/libreoffice-cite/`) s'instal·la per Eines → Extensions i
+  persisteix per disseny (la UI la registra `Addons.xcu`). Tota la
+  maquinària autoopen/`webextensions` és una extensió de Microsoft a
+  l'OOXML; al Writer no li cal ni la llegeix.
+- **Però el Writer ESBORRA el fixat en desar**: una ida i volta
+  `soffice --headless --convert-to docx` sobre un document fixat elimina
+  les tres parts `word/webextensions/` i la relació. Un `.docx` fixat que
+  s'editi i es desi amb el Writer perd l'autoopen a Word: repassar-lo amb
+  `pin_taskpane.py`. Documentat als dos README.
 
 ## Prova pendent de E
 
