@@ -16,8 +16,16 @@ el protocol `gnosicite:` i atén 4 comandes des d'un menú propi:
 |------|-----|-------|
 | Insereix cita… | `gnosicite:insertCitation` | Obre diàleg UNO de cerca |
 | Insereix bibliografia | `gnosicite:insertBibliography` | Recopila claus → llista al final |
-| Actualitza tot (APA) | `gnosicite:refreshAll` | Reformata en lot amb context |
+| ~~Actualitza tot (APA)~~ | `gnosicite:refreshAll` | Reformata en lot amb context |
 | Configuració… | `gnosicite:settings` | Edita URL del backend |
+
+⚠️ **`refreshAll` NO té entrada de menú** (detectat 2026-07-21). La comanda
+està **implementada i viva** al component (`gnosi_cite.py`: despatxador
+`cmd == "refreshAll"`, `refresh_all()`, `_refresh_all()`), i el diàleg de
+cerca la crida internament — però `Addons.xcu` només declara 3 ítems
+(+ separador), així que **des del menú no s'hi pot arribar**. O s'afegeix el
+node a `Addons.xcu`, o s'assumeix que és funcionalitat interna i s'anota
+aquí. Pendent de decisió; no és una regressió, mai va estar exposada.
 
 Reutilitza **els mateixos endpoints** que el Word Add-in (cap canvi al
 backend): `/api/health`, `/api/vault/search-citations`,
@@ -110,8 +118,48 @@ Procediment fiable de reinstal·lació:
    `.../uno_packages/cache/uno_packages/*/gnosi-cite.oxt/gnosi_cite.py`
    desplegat vs el font — han de coincidir,
 4. arrenca LO en GUI un cop (`open -g -j -a LibreOffice`) per la passive
-   registration. El `is registered: no` del llistat estàtic no canvia mai
-   (unopkg no pot consultar l'estat viu sense el mateix pipe); ignora'l.
+   registration.
+
+⚠️ **CORRECCIÓ (2026-07-21): `is registered` SÍ que canvia — és el senyal
+diagnòstic bo, no soroll.** Aquesta directiva deia que el camp no canviava mai
+i que calia ignorar-lo. Fals: després d'una instal·lació que funciona,
+`unopkg list` mostra `is registered: yes` als quatre components (paquet,
+`gnosi_cite.py`, `ProtocolHandler.xcu`, `Addons.xcu`). Fes-lo servir:
+
+```bash
+/Applications/LibreOffice.app/Contents/MacOS/unopkg list | grep -A6 -i gnosi
+```
+
+**El que NO és prova de res és que l'extensió surti a `unopkg list`.** Els
+fitxers poden ser a la caché i sortir llistats amb el paquet mai registrat
+a la UI — i llavors **no hi ha menú**, que és el símptoma que veu l'usuari.
+
+### Símptoma: l'extensió hi és però NO surt el menú «Gnosi Cite»
+
+Viscut i resolt el 2026-07-21. Comprovacions que van sortir TOTES bé i que
+per tant **no** cal repetir: payload desplegat idèntic byte a byte al repo,
+nom d'implementació de `ProtocolHandler.xcu` coincidint amb el que registra
+`gnosi_cite.py`, URLs `gnosicite:` casant, `Context` = `TextDocument`
+coincidint amb el document obert, i LibreOffice arrencat en GUI després del
+desplegament. Res d'això era la causa.
+
+La causa: el desplegament per línia d'ordres havia deixat els fitxers a la
+caché sense completar el registre de la UI. Cura, verificada:
+
+1. Tanca LibreOffice **del tot** (Cmd+Q) — sense això el `remove` topa amb
+   el mateix pipe.
+2. `unopkg remove com.gnosi.cite` → deixa la caché a zero fitxers `gnosi`.
+   Això converteix la següent instal·lació en un **`add` NOU**, que és el cas
+   segur (vegeu l'avís de la reinstal·lació més amunt).
+3. Amb LO obert: **Eines → Gestor d'extensions → Afegeix** → el `.oxt`.
+4. Reinicia LO. Verifica amb `is registered: yes` i amb un `tmp_` de caché
+   **nou** (si el directori `lu…tmp_` és el mateix d'abans, el reemplaçament
+   no s'ha fet).
+
+Moralitat operativa: **per a l'usuari final, instal·la SEMPRE pel Gestor
+d'extensions.** La via `unopkg add` és per a automatització i té prou
+paranys (pipe, reinstal·lació silenciosa, registre incomplet) per no
+recomanar-la a ningú.
 
 - **Verificació E2E final** (usuari): obrir Writer → menú **Gnosi Cite** →
   provar les 4 comandes contra el backend real (`localhost:5002`).
