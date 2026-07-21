@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import axios from 'axios';
-import { Plus, Trash2, Server, Cloud, List } from 'lucide-react';
+import { Plus, Trash2, Server, Cloud, List, Activity } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import toast from '../lib/toast';
 import { ConfirmModal } from './ConfirmModal';
+import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 
 /**
  * Editor for the router's model registry (data-driven) + budget policy.
@@ -48,6 +49,9 @@ function Field({ label, children }) {
 export default function ModelRegistrySettings() {
     const { t } = useTranslation();
     const ta = useCallback((k, opts) => t('settings.ai.model_registry.' + k, opts), [t]);
+    // Recorded failures per model. Only what the backend attributes to the model
+    // itself surfaces here — an empty account is not a model defect.
+    const reliability = useModelReliability();
     const [models, setModels] = useState([]);
     const [catalog, setCatalog] = useState(null); // {providers: [{id, name, is_local, connected, models: [...]}]}
     const [budget, setBudget] = useState({ prefer_local: false, remaining_tokens: '', prefer_local_below: 0, monthly_cost_cap: '' });
@@ -357,6 +361,26 @@ export default function ModelRegistrySettings() {
                             </button>
                             {renderProviderControl(m, i)}
                             {renderModelControl(m, i)}
+                            {(() => {
+                                const fault = findModelFault(reliability, m.provider, m.model_id);
+                                const reason = fault && MODEL_FAULT_REASONS[fault.top_model_reason];
+                                if (!reason) return null;
+                                return (
+                                    <span
+                                        title={t('settings.ai.model_fault_warning', {
+                                            defaultValue: 'Aquest model {{reason}} {{count}} vegades en els últims {{days}} dies.',
+                                            reason: t(reason.key, reason.fallback),
+                                            count: fault.reasons[fault.top_model_reason],
+                                            days: fault.window_days,
+                                        })}
+                                        style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: 8,
+                                            background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', whiteSpace: 'nowrap',
+                                            display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                        <Activity size={12} />
+                                        {ta('failures_badge', { defaultValue: '{{count}} fallades', count: fault.model_fault_total })}
+                                    </span>
+                                );
+                            })()}
                             {catalog && providersById[m.provider] && !providersById[m.provider].connected && !m.is_local && (
                                 <span
                                     title={ta('not_connected_tooltip', "El router ometrà aquest model: el proveïdor no té cap credencial configurada. Connecta'l a «Proveïdors de Models».")}

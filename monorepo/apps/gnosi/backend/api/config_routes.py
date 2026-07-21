@@ -140,6 +140,17 @@ async def update_config(request: Request):
         #     the native watchdog (kickstart -k) when startup takes longer than the grace period;
         #   - with the Settings panel's autosave, this used to happen on every edit.
         log.info("File params.yaml updated successfully.")
+
+        # The agent graph IS cached per agent (app.state.agent_cache) and bakes in the
+        # persona, the model and the tools scoped to the attached context sources. Without
+        # this eviction an edited agent keeps answering with its previous configuration
+        # until the process restarts.
+        if "ai" in new_config:
+            cache = getattr(request.app.state, "agent_cache", None)
+            if cache:
+                cache.clear()
+                log.info("Agent graph cache evicted after an AI configuration change.")
+
         return {"status": "success", "message": "Configuration updated"}
 
     except HTTPException:

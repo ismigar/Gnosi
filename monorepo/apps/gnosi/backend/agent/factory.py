@@ -37,6 +37,7 @@ from pathlib import Path
 # Import eines
 from backend.agent.system_tools import SYSTEM_TOOLS
 from backend.agent.vault_tools import VAULT_KNOWLEDGE_TOOLS
+from backend.agent.agent_context import build_context_tools, describe_context_refs
 from backend.agent.tools import get_mcp_tools
 from backend.agent.generated_tools.creator import TOOL_CREATOR_TOOLS
 from backend.agent.generated_tools.loader import loader as tool_loader
@@ -438,8 +439,12 @@ async def create_agent_workflow(
     Returns the uncompiled graph to allow adding checkpointers externally.
     
     """
-    # 1. Get agent configuration from params.yaml
-    ai_cfg = cfg.get("ai", {})
+    # 1. Get agent configuration from params.yaml.
+    # Re-read: the module-level `cfg` is a snapshot from import time, so an agent
+    # created (or edited) from Settings afterwards would be invisible here and the
+    # chat would answer "No LLM provider available" until the process restarted.
+    # `get_default_llm_with_meta` already re-reads for the same reason.
+    ai_cfg = load_params(strict_env=False).get("ai", {}) or {}
     agents = ai_cfg.get("agents", [])
     providers = ai_cfg.get("providers", {})
     
@@ -508,11 +513,49 @@ async def create_agent_workflow(
     
     combined_persona = f"{persona}\n\n{detailed_persona}" if detailed_persona else persona
 
+    # Free-text notes go into the prompt verbatim (short and always relevant);
+    # attached sources contribute only their INVENTORY — the agent reads them
+    # on demand through the context tools (directive `agent_context_sources.md`).
+    context_notes = (agent_data.get("context") or "").strip()
+    context_refs = agent_data.get("context_refs") or []
+    context_block = "\n\n".join(
+        part for part in (
+            f"Context de treball indicat per l'usuari:\n{context_notes}" if context_notes else "",
+            describe_context_refs(context_refs),
+        ) if part
+    )
+    if context_block:
+        combined_persona = f"{combined_persona}\n\n{context_block}" if combined_persona else context_block
+
+    general_prompt = combined_persona or "Ets un assistent útil."
+    if context_refs:
+        # This node has no tools bound: saying so stops it from narrating a
+        # tool call it cannot make and inventing the result.
+        general_prompt += (
+            "\n\nIMPORTANT: en aquesta resposta NO tens cap eina disponible. No "
+            "simulis cap crida a cap eina ni te'n inventis el resultat. Si cal "
+            "consultar les fonts adjuntes, digues clarament que ho has de consultar."
+        )
+
     supervisor_prompt = (
         f"Ets {agent_name}.\n{combined_persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
         if combined_persona
         else f"Ets {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
     )
+    if context_refs:
+        # Only Brain holds the context tools. Without this rule the supervisor
+        # sends the question to General, which has no tools and then invents a
+        # tool result rather than admitting it cannot look anything up.
+        # It goes BEFORE the base prompt on purpose: the format instruction
+        # ("return ONLY the worker's name") has to stay the last thing read, or
+        # the supervisor answers with a sentence and the graph finishes empty.
+        supervisor_prompt = (
+            f"Ets {agent_name}.\n{combined_persona}\n\n"
+            "Aquest agent té fonts de context adjuntes i només `Brain` té les eines "
+            "per consultar-les: qualsevol pregunta sobre documents, dades o "
+            "normativa va a `Brain`.\n\n"
+            f"{DEFAULT_SUPERVISOR_PROMPT}"
+        )
 
     # 4. Convertir eines MCP
     mcp_langchain_tools = get_mcp_tools(mcp_tools_list, mcp_client)
@@ -528,7 +571,10 @@ async def create_agent_workflow(
         if t.name
         in ["save_memory", "query_memory", "get_vault_registry", "search_vault"]
     ]
-    brain_tools = mcp_langchain_tools + memory_tools + VAULT_KNOWLEDGE_TOOLS
+    # Tools scoped to the sources the user attached to THIS agent. They close over
+    # its refs, so an agent can never read another agent's context.
+    context_tools = build_context_tools(context_refs)
+    brain_tools = mcp_langchain_tools + memory_tools + VAULT_KNOWLEDGE_TOOLS + context_tools
     brain_llm = llm.bind_tools(brain_tools)
 
     # --- Graph Nodes ---
@@ -568,6 +614,12 @@ async def create_agent_workflow(
             "Usa les eines quan l'usuari demani crear, resumir, connectar o organitzar coneixement. "
             "Confirma sempre el resultat (id/títol de la pàgina creada)."
         )
+        if context_tools:
+            # The Brain node is the one holding the context tools, so it needs the
+            # INVENTORY too: without it the model does not know which source ids
+            # exist and starts inventing references (observed with llama-3.3-70b,
+            # which answered from memory after three fabricated BOE ids 404'd).
+            brain_system += "\n\n" + describe_context_refs(context_refs)
         response = brain_llm.invoke([SystemMessage(content=brain_system)] + messages)
         return {"messages": [response], "next": "supervisor"}
 
@@ -575,7 +627,7 @@ async def create_agent_workflow(
         messages = state["messages"]
         # Use explicit persona for general conversation
         response = llm.invoke(
-            [SystemMessage(content=persona or "Ets un assistent útil.")] + messages
+            [SystemMessage(content=general_prompt)] + messages
         )
         return {"messages": [response], "next": "FINISH"}
 
