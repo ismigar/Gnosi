@@ -366,6 +366,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [referenceTable, setReferenceTable] = useState({ table_id: null, configured: false, name: null });
     const [refBusy, setRefBusy] = useState(false);
     const [aiCatalog, setAiCatalog] = useState({});
+    // Configured model registry (GET /api/ai/models) — the enabled models the
+    // user picked in ModelRegistrySettings. Agent creation chooses from this,
+    // NOT the full catalog: an agent runs on a model that is actually set up.
+    const [aiRegistry, setAiRegistry] = useState([]);
     const [isSaving, setIsSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState('');
 
@@ -827,6 +831,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             lastSavedData.current = null; // Reset baseline to avoid spurious saves
             loadConfig();
             loadAiCatalog();
+            loadAiRegistry();
             loadTablesAndDatabases();
             loadIntegrations();
             loadNewsletterSources();
@@ -1213,6 +1218,18 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 }
             }
         } catch (err) { console.error("Error loading AI catalog:", err); }
+    };
+
+    const loadAiRegistry = async () => {
+        // Feeds the agent-creation model dropdown. Only enabled rows: a disabled
+        // model in the registry is not a valid target for a new agent.
+        try {
+            const res = await fetch('/api/ai/models');
+            if (res.ok) {
+                const payload = await res.json();
+                setAiRegistry((payload?.models || []).filter(m => m.enabled !== false));
+            }
+        } catch (err) { console.error("Error loading AI model registry:", err); }
     };
 
     const loadTablesAndDatabases = async () => {
@@ -3803,11 +3820,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     >
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                                             {draft.ai.agents.map(agent => (
-                                                <div key={agent.id} className="hover-scale" style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'all 0.2s' }}>
+                                                <div key={agent.id} className="hover-scale" onClick={() => setEditingAgent(agent)} title={tn('ai.edit_agent_title')} style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'all 0.2s', cursor: 'pointer' }}>
                                                     <div style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))' }}>{agent.icon || '🤖'}</div>
                                                     <div style={{ flex: 1 }}>
                                                         <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
-                                                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{agent.provider} • {agent.model}</div>
+                                                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{agent.model}</div>
                                                     </div>
                                                     <GnosiToggle
                                                         active={agent.enabled}
@@ -3987,7 +4004,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             ai: { ...prev.ai, agents: newList }
                         }));
                     }}
-                    aiCatalog={aiCatalog}
+                    aiRegistry={aiRegistry}
                 />
             )}
             {/* Mount-on-open: the modal seeds selectedId/baseUrl from
@@ -4173,16 +4190,36 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     );
 }
 
-function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
+function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
     const { t } = useTranslation();
     const [name, setName] = useState(agent.name || '');
     const [provider, setProvider] = useState(agent.provider || '');
     const [model, setModel] = useState(agent.model || '');
     const [icon, setIcon] = useState(agent.icon || '🤖');
+    // Instructions (system prompt → agent.persona) and reference context
+    // (knowledge/notes → agent.context). Distinct concerns: "who you are" vs
+    // "data you must consider". Both optional; backend appends context to the
+    // system message under a "## Context" heading (see factory.py).
+    const [persona, setPersona] = useState(agent.persona || '');
+    const [context, setContext] = useState(agent.context || '');
     // Ref to the panel: delimits the focus-trap and the scope of Enter.
     const panelRef = useRef(null);
 
-    const availableModels = aiCatalog[provider]?.models || [];
+    // Group registry rows by provider for the <select> optgroups. Rows carry
+    // {provider, model_id, ...}; we keep first-seen order of providers.
+    const grouped = useMemo(() => {
+        const map = new Map();
+        for (const row of (aiRegistry || [])) {
+            if (!row || !row.provider || !row.model_id) continue;
+            if (!map.has(row.provider)) map.set(row.provider, []);
+            map.get(row.provider).push(row.model_id);
+        }
+        return map;
+    }, [aiRegistry]);
+    // Composite value for the single select: "provider||model". The "||" is
+    // safe — neither provider ids nor model ids contain that pattern.
+    const selectedKey = (provider && model) ? `${provider}||${model}` : '';
+    const registryEmpty = grouped.size === 0;
 
     // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
     // focus-trap. No Enter→save: saving is done with the "Save Agent" button.
@@ -4196,9 +4233,9 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
     if (!isOpen) return null;
 
     return (
-        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{ 
-            zIndex: 99999, 
-            backdropFilter: 'blur(8px)', 
+        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{
+            zIndex: 99999,
+            backdropFilter: 'blur(8px)',
             background: 'rgba(0,0,0,0.3)',
             display: 'flex',
             alignItems: 'center',
@@ -4210,7 +4247,7 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
             height: '100vh'
         }}>
             <div ref={panelRef} className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{
-                width: '500px',
+                width: '560px',
                 maxHeight: '90vh',
                 display: 'flex',
                 flexDirection: 'column',
@@ -4222,11 +4259,11 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
                 overflow: 'hidden',
                 position: 'relative'
             }}>
-                <button 
-                    onClick={onClose} 
-                    className="icon-btn hover-bg" 
-                    style={{ 
-                        position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%', 
+                <button
+                    onClick={onClose}
+                    className="icon-btn hover-bg"
+                    style={{
+                        position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%',
                         color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
                         width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                         transition: 'all 0.2s'
@@ -4236,7 +4273,7 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
                 </button>
                 <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
                     <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? t('settings.ai.edit_agent_title') : t('settings.ai.new_agent_title')}</h3>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                         <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-end' }}>
                             <div style={{ flex: 1 }}>
@@ -4251,35 +4288,59 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiCatalog }) {
                             </div>
                         </div>
 
-                        <FormGroup label={t('settings.ai.provider_ai_label')}>
-                            <select className="gnosi-select" value={provider} onChange={e => { setProvider(e.target.value); setModel(''); }}>
-                                <option value="">{t('settings.ai.select_provider_option')}</option>
-                                {Object.values(aiCatalog).map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
+                        {/* Single grouped select: provider is derived from the
+                            chosen model (registry rows are provider+model pairs).
+                            Only enabled registry models are valid agent targets;
+                            an agent whose provider/model is no longer in the
+                            registry shows blank and must be re-picked. */}
+                        <FormGroup label={t('settings.ai.model_specific')}>
+                            <select className="gnosi-select" value={selectedKey}
+                                onChange={e => {
+                                    const [p, m] = e.target.value.split('||');
+                                    setProvider(p || '');
+                                    setModel(m || '');
+                                }}>
+                                <option value="">{t('settings.ai.select_model_option')}</option>
+                                {[...grouped.entries()].map(([prov, modelIds]) => (
+                                    <optgroup key={prov} label={prov}>
+                                        {modelIds.map(mid => (
+                                            <option key={mid} value={`${prov}||${mid}`}>{mid}</option>
+                                        ))}
+                                    </optgroup>
                                 ))}
                             </select>
+                            {registryEmpty && (
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-tertiary)', marginTop: 6 }}>
+                                    {t('settings.ai.model_registry_empty')}
+                                </div>
+                            )}
                         </FormGroup>
 
-                        <FormGroup label={t('settings.ai.model_specific')}>
-                            <select className="gnosi-select" value={model} onChange={e => setModel(e.target.value)} disabled={!provider}>
-                                <option value="">{t('settings.ai.select_model_option')}</option>
-                                {availableModels.map(m => (
-                                    <option key={m} value={m}>{m}</option>
-                                ))}
-                            </select>
+                        <FormGroup label={t('settings.ai.instructions_label')}
+                            description={t('settings.ai.instructions_desc')}>
+                            <textarea className="gnosi-input" value={persona} onChange={e => setPersona(e.target.value)}
+                                placeholder={t('settings.ai.instructions_placeholder')} rows={4}
+                                style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
+                        </FormGroup>
+
+                        <FormGroup label={t('settings.ai.context_label')}
+                            description={t('settings.ai.context_desc')}>
+                            <textarea className="gnosi-input" value={context} onChange={e => setContext(e.target.value)}
+                                placeholder={t('settings.ai.context_placeholder')} rows={4}
+                                style={{ width: '100%', resize: 'vertical', fontFamily: 'inherit' }} />
                         </FormGroup>
                     </div>
                 </div>
 
                 <div style={{ marginTop: '40px', display: 'flex', gap: '14px' }}>
                     <button className="btn-gnosi-secondary" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '18px' }}>{t('common.cancel')}</button>
-                    <button 
-                        className="btn-gnosi-primary" 
+                    <button
+                        className="btn-gnosi-primary"
                         disabled={!name || !provider || !model}
                         onClick={() => {
-                            onSave({ ...agent, name, provider, model, icon });
+                            onSave({ ...agent, name, provider, model, icon, persona, context });
                             onClose();
-                        }} 
+                        }}
                         style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
                     >{t('settings.ai.save_agent')}</button>
                 </div>

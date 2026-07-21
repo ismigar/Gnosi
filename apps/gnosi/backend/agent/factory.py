@@ -493,10 +493,15 @@ async def create_agent_workflow(
 
         return None, {}
 
-    # 3. Preparar Prompts (Persona)
+    # 3. Preparar Prompts (Persona + Context)
     persona = agent_data.get("persona", "")
+    # Optional reference context (knowledge/notes the agent must keep in mind).
+    # Distinct from persona: persona = "who you are / how you act",
+    # context = "data/notes you must consider". Appended under its own heading
+    # so the model can tell them apart in the combined system message.
+    context = agent_data.get("context", "")
     agent_name = agent_data.get("name", "Gnosy")
-    
+
     # Load detailed persona from markdown if exists
     persona_file = INSTRUCTIONS_DIR / f"{target_id}.md"
     detailed_persona = ""
@@ -505,12 +510,18 @@ async def create_agent_workflow(
             detailed_persona = persona_file.read_text(encoding="utf-8")
         except Exception as e:
             log.warning(f"Could not read persona file {persona_file}: {e}")
-    
+
     combined_persona = f"{persona}\n\n{detailed_persona}" if detailed_persona else persona
 
+    parts = []
+    if combined_persona:
+        parts.append(combined_persona)
+    if context.strip():
+        parts.append(f"## Context\n{context.strip()}")
+    body = "\n\n".join(parts)
     supervisor_prompt = (
-        f"Ets {agent_name}.\n{combined_persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
-        if combined_persona
+        f"Ets {agent_name}.\n{body}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
+        if body
         else f"Ets {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
     )
 

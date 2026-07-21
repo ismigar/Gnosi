@@ -41,6 +41,11 @@ ai:
     name: Gnosy
     icon: lucide:Brain:gray
     persona: Ets el cervell digital d'Ismael García Fernández...
+    # Optional: reference knowledge/notes the agent must keep in mind. Distinct
+    # from persona — persona is "who you are / how you act", context is
+    # "data/notes you must consider". Appended to the system prompt under a
+    # "## Context" heading. Leave empty for no extra context.
+    context: ''
     provider: groq
     model: llama-3.3-70b-versatile
     enabled: true
