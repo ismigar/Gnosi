@@ -76,12 +76,25 @@ només-Mac per un risc de ruptura a totes les plataformes.
 
 ### C. Desplegament de tenant (M365 Admin Center → Integrated Apps)
 
-Dóna persistència tipus `EXCatalog` sense passar per AppSource. La validació
-és més lleugera que la de la botiga, i com que cada client resoldria
-`localhost` contra la seva pròpia màquina, en teoria evitaria el problema
-del punt B. **Sense verificar**: desconegut si Microsoft accepta un
-`SourceLocation` a `localhost` en desplegament centralitzat. Requereix
-tenant de negoci, així que no serveix per a l'usuari individual.
+**Provada i descartada (2026-07-21).** Dóna persistència tipus `EXCatalog`
+sense passar per AppSource, i com que cada client resoldria `localhost`
+contra la seva pròpia màquina, en teoria evitaria el problema del punt B.
+
+Però el prerequisit no es compleix i no es pot fer complir: Integrated Apps
+només és accessible a un **administrador del tenant**. L'Office de la màquina
+de referència està activat amb un compte d'estudiant de la UNED
+(`…@alumno.uned.es`), és a dir dins un tenant institucional aliè. No hi ha
+via d'administració, i no n'hi haurà.
+
+Queda oberta, doncs, la pregunta tècnica de si Microsoft accepta un
+`SourceLocation` a `localhost` en desplegament centralitzat: no s'ha pogut
+comprovar perquè cal accés d'administrador a algun tenant.
+
+I encara que es resolgués, **no generalitza**: obligaria cada usuari de
+Gnosi a tenir un administrador de tenant disposat a desplegar-ho. Això no és
+una via de distribució, és com a molt un apedaçament personal. Per tant C no
+era mai una solució de producte — només valia la pena mirar-la perquè era
+barata.
 
 ### D. Acceptar-ho i reduir la fricció
 
@@ -90,11 +103,17 @@ desenvolupador*. A Windows no hi ha problema.
 
 ## Recomanació
 
-No fer B. Si es vol resoldre de debò i mantenir el local-first, l'única via
-sòlida és **A**, i s'ha de dimensionar com el que és: un component nou i
-específic per plataforma, no un pedaç al manifest. Abans de comprometre-s'hi
-convé provar **C** si hi ha tenant disponible, perquè és molt més barat si
-la validació accepta `localhost`.
+Descartades B (direcció equivocada) i C (prerequisit inassolible), queda
+**A o D**.
+
+Si es vol resoldre de debò mantenint el local-first, l'única via sòlida és
+**A**, i s'ha de dimensionar com el que és: un component nou i específic per
+plataforma — plantilla VBA, helper natiu que governi el Word per AppleScript,
+i una implementació separada per a Windows — no un pedaç al manifest. També
+implica renunciar al Word per a la Web.
+
+Si aquest cost no es vol assumir ara, **D** és una posició honesta sempre que
+la documentació ho digui clar, que ja ho fa.
 
 Mentrestant, D amb documentació honesta: el web i el README ja diuen
 explícitament que a macOS cal reobrir-lo cada sessió i que és una limitació
