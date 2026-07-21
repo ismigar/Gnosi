@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound } from 'lucide-react';
+import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 
-const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit };
+const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
 const SELECT_STYLE = {
     width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
@@ -102,6 +102,155 @@ function DailyNotesConfig() {
                         </select>
                     )}
                 </label>
+            )}
+        </div>
+    );
+}
+
+/* Column types the browser extension can render as a form control. Mirrors
+ * PROMPTABLE_TYPES in `backend/services/web_clipper.py`: computed columns and
+ * the ones needing the app's own pickers cannot be filled from the popup. */
+const CLIPPER_PROMPTABLE_TYPES = new Set([
+    'text', 'rich_text', 'number', 'select', 'multi_select',
+    'status', 'date', 'datetime', 'checkbox', 'url',
+]);
+
+/* Sentinel for "do not feed this role" (empty means auto-detect instead). */
+const CLIPPER_NO_MAPPING = '__none__';
+
+/**
+ * Configuration for the web-clipper plugin: which table the browser extension
+ * saves into, which columns receive the URL/tags/note, and which columns the
+ * popup prompts for. With no table designated the clipper keeps its classic
+ * behaviour (a note in `Clips/`).
+ */
+function WebClipperConfig() {
+    const { t } = useTranslation();
+    const tp = (k, opts) => t('settings.plugins.' + k, opts);
+    const { getPluginSettings, setPluginSettings } = usePlugins();
+    const cfg = getPluginSettings('web-clipper');
+    const [tables, setTables] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        let alive = true;
+        axios.get('/api/vault/tables')
+            .then((res) => { if (alive) setTables(Array.isArray(res.data) ? res.data : []); })
+            .catch((err) => { if (alive) { console.error('Web clipper: could not load tables:', err); setTables([]); } })
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, []);
+
+    const table = tables.find((tbl) => tbl.id === cfg.table_id) || null;
+    const properties = (table?.properties || []).filter((p) => CLIPPER_PROMPTABLE_TYPES.has(p.type));
+    const selectedFields = Array.isArray(cfg.fields) ? cfg.fields : [];
+
+    const onPickTable = (tableId) => {
+        // Changing table invalidates every column reference: keep nothing.
+        setPluginSettings('web-clipper', {
+            table_id: tableId,
+            url_property: '',
+            tags_property: '',
+            content_property: '',
+            fields: [],
+        });
+    };
+
+    const toggleField = (fieldId) => {
+        const next = selectedFields.includes(fieldId)
+            ? selectedFields.filter((f) => f !== fieldId)
+            : [...selectedFields, fieldId];
+        setPluginSettings('web-clipper', { fields: next });
+    };
+
+    const roleSelect = (key, label, types) => (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>{label}</span>
+            <select
+                style={SELECT_STYLE}
+                value={cfg[key] || ''}
+                onChange={(e) => setPluginSettings('web-clipper', { [key]: e.target.value })}
+            >
+                <option value="">{tp('clipper_auto', { defaultValue: 'Automàtic' })}</option>
+                <option value={CLIPPER_NO_MAPPING}>{tp('clipper_unmapped', { defaultValue: 'Cap columna' })}</option>
+                {(table?.properties || [])
+                    .filter((p) => types.includes(p.type))
+                    .map((p) => <option key={p.id} value={p.id}>{p.name || p.id}</option>)}
+            </select>
+        </label>
+    );
+
+    return (
+        <div style={{
+            marginTop: 8, padding: '12px 14px', borderRadius: 10,
+            border: '1px dashed var(--border-primary, #e2e8f0)',
+            background: 'var(--bg-primary, #fff)',
+            display: 'flex', flexDirection: 'column', gap: 12,
+        }}>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                {tp('clipper_intro', { defaultValue: 'Tria a quina taula desa l\'extensió del navegador. Els camps que marquis apareixeran al formulari de l\'extensió per omplir-los abans de desar.' })}
+            </div>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                    {tp('clipper_table', { defaultValue: 'Taula destí' })}
+                </span>
+                <select
+                    style={SELECT_STYLE}
+                    value={cfg.table_id || ''}
+                    disabled={loading}
+                    onChange={(e) => onPickTable(e.target.value)}
+                >
+                    <option value="">{tp('clipper_table_none', { defaultValue: 'Cap (nota a la carpeta Clips/)' })}</option>
+                    {tables.map((tbl) => (
+                        <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
+                    ))}
+                </select>
+            </label>
+
+            {table && (
+                <>
+                    {roleSelect('url_property', tp('clipper_url_column', { defaultValue: 'Columna de l\'URL' }), ['url', 'text'])}
+                    {roleSelect('tags_property', tp('clipper_tags_column', { defaultValue: 'Columna d\'etiquetes' }), ['multi_select'])}
+                    {roleSelect('content_property', tp('clipper_content_column', { defaultValue: 'Columna de la nota' }), ['text', 'rich_text'])}
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                            {tp('clipper_fields', { defaultValue: 'Camps que demana l\'extensió' })}
+                        </span>
+                        {properties.length === 0 ? (
+                            <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                                {tp('clipper_no_fields', { defaultValue: 'Aquesta taula no té columnes que es puguin omplir des del navegador.' })}
+                            </span>
+                        ) : (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {properties.map((p) => {
+                                    const checked = selectedFields.includes(p.id);
+                                    return (
+                                        <label
+                                            key={p.id}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                                                padding: '5px 9px', borderRadius: 999, fontSize: 12,
+                                                border: '1px solid var(--border-primary, #e2e8f0)',
+                                                background: checked ? '#eef2ff' : 'var(--bg-secondary, #f8fafc)',
+                                                color: checked ? '#4338ca' : 'var(--text-secondary, #475569)',
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={checked}
+                                                onChange={() => toggleField(p.id)}
+                                                style={{ margin: 0 }}
+                                            />
+                                            {p.name || p.id}
+                                        </label>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
+                </>
             )}
         </div>
     );
@@ -629,7 +778,11 @@ function ThirdPartyPlugins() {
  * Plugin configuration panel: enables/disables the optional features
  * (internal registry). State is persisted per vault in `.gnosi/plugins.json`.
  */
-const CONFIGURABLE = { 'daily-notes': DailyNotesConfig, 'llm-wiki': LlmWikiConfig };
+const CONFIGURABLE = {
+    'daily-notes': DailyNotesConfig,
+    'llm-wiki': LlmWikiConfig,
+    'web-clipper': WebClipperConfig,
+};
 
 export function PluginsSettings() {
     const { t } = useTranslation();

@@ -1225,7 +1225,21 @@
       "llm_wiki_lint_stale": "{{count}} sin revisar desde hace tiempo",
       "llm_wiki_lint_xref": "{{count}} referencias cruzadas que faltan",
       "llm_wiki_lint_reprocess": "{{count}} recursos modificados tras procesarse",
-      "llm_wiki_pending": "{{count}} sugerencias pendientes en el Buzón"
+      "llm_wiki_pending": "{{count}} sugerencias pendientes en el Buzón",
+      "clipper_intro": "Elige en qué tabla guarda la extensión del navegador. Los campos que marques aparecerán en el formulario de la extensión para rellenarlos antes de guardar.",
+      "clipper_table": "Tabla destino",
+      "clipper_table_none": "Ninguna (nota en la carpeta Clips/)",
+      "clipper_auto": "Automático",
+      "clipper_unmapped": "Ninguna columna",
+      "clipper_url_column": "Columna de la URL",
+      "clipper_tags_column": "Columna de etiquetas",
+      "clipper_content_column": "Columna de la nota",
+      "clipper_fields": "Campos que pide la extensión",
+      "clipper_no_fields": "Esta tabla no tiene columnas que se puedan rellenar desde el navegador.",
+      "web-clipper": {
+        "name": "Web Clipper",
+        "desc": "Guarda páginas web desde el navegador en la tabla que elijas, rellenando sus campos."
+      }
     },
     "workspace": {
       "intro": "Gestiona miembros, roles y acceso a vaults del workspace activo. Esta sección existe para cooperativas, equipos de investigación y colectivos que comparten una misma instancia de Gnosi. La colaboración en tiempo real está en desarrollo — véase la directiva collaboration_proposal.md."

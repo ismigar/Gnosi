@@ -20,7 +20,9 @@ const source = fs.readFileSync(POPUP_JS, 'utf-8');
 function mountDom() {
     document.body.innerHTML = `
         <input id="backend" /><input id="token" />
+        <div id="target"></div>
         <textarea id="note"></textarea><input id="tags" />
+        <div id="fields"></div>
         <div id="status"></div>
         <button id="save"></button><button id="clip"></button>
         <button id="clipSelection"></button>`;
@@ -179,6 +181,15 @@ describe('web clipper popup', () => {
         expect(statusClass()).toBe('err');
     });
 
+    it('names a disabled clipper plugin instead of a generic 403', async () => {
+        stubChrome({ backend: 'https://b.test', token: 't' });
+        globalThis.fetch = vi.fn(async () => ({ ok: false, status: 403 }));
+        const popup = loadPopup();
+        await popup.clip(false);
+        expect(status()).toContain('desactivat');
+        expect(statusClass()).toBe('err');
+    });
+
     it('survives a page where the selection script cannot run', async () => {
         stubChrome({ backend: 'https://b.test', token: 't' });
         globalThis.chrome.scripting.executeScript = vi.fn(async () => {
@@ -189,5 +200,95 @@ describe('web clipper popup', () => {
         document.getElementById('note').value = 'note';
         await popup.clip(false);
         expect(JSON.parse(globalThis.fetch.mock.calls[0][1].body).content).toBe('note');
+    });
+});
+
+/* The destination table and its columns come from the backend, so the popup has
+ * no hardcoded schema: it renders whatever /api/public/clip/config returns. */
+describe('destination table form', () => {
+    beforeEach(() => {
+        mountDom();
+        globalThis.fetch = vi.fn();
+    });
+
+    /** Stub the config endpoint; anything else resolves as a successful clip. */
+    function stubConfig(config) {
+        globalThis.fetch = vi.fn(async (url) => (
+            String(url).endsWith('/api/public/clip/config')
+                ? { ok: true, status: 200, json: async () => config }
+                : { ok: true, status: 200, json: async () => ({ table: 'Recursos' }) }
+        ));
+    }
+
+    const SCHEMA = {
+        enabled: true,
+        table: { id: 'resources', name: 'Recursos' },
+        fields: [
+            { id: 'fld_rating', name: 'Valoració', type: 'number' },
+            { id: 'fld_state', name: 'Estat', type: 'select', options: ['Esborrany', 'Revisat'] },
+            { id: 'fld_topics', name: 'Temes', type: 'multi_select', options: ['IA', 'Ètica'] },
+            { id: 'fld_done', name: 'Fet', type: 'checkbox' },
+        ],
+    };
+
+    it('renders one control per configured column and shows the destination', async () => {
+        stubChrome({ backend: 'https://b.test', token: 't' });
+        stubConfig(SCHEMA);
+        const popup = loadPopup();
+        await popup.loadClipSchema();
+
+        expect(document.getElementById('target').textContent).toContain('Recursos');
+        expect(document.getElementById('fld:fld_rating').type).toBe('number');
+        expect(document.getElementById('fld:fld_done').type).toBe('checkbox');
+        const state = document.getElementById('fld:fld_state');
+        // Leading blank option: an untouched column must stay empty.
+        expect([...state.options].map((o) => o.value)).toEqual(['', 'Esborrany', 'Revisat']);
+        expect(document.getElementById('fld:fld_topics').multiple).toBe(true);
+    });
+
+    it('sends the filled columns and omits the untouched ones', async () => {
+        stubChrome({ backend: 'https://b.test', token: 't' });
+        stubConfig(SCHEMA);
+        const popup = loadPopup();
+        await popup.loadClipSchema();
+
+        document.getElementById('fld:fld_rating').value = '5';
+        document.getElementById('fld:fld_done').checked = true;
+        const topics = document.getElementById('fld:fld_topics');
+        topics.options[1].selected = true; // 'IA' (index 0 is the blank option)
+        await popup.clip(false);
+
+        const clipCall = globalThis.fetch.mock.calls.find(([u]) => u.endsWith('/api/public/clip'));
+        // 'fld_state' was left untouched, so it must not appear at all: sending
+        // it empty would overwrite the column's default value on the record.
+        expect(JSON.parse(clipCall[1].body).fields).toEqual({
+            fld_rating: '5', fld_done: true, fld_topics: ['IA'],
+        });
+    });
+
+    it('says so when the plugin is disabled, and blocks clipping', async () => {
+        stubChrome({ backend: 'https://b.test', token: 't' });
+        stubConfig({ enabled: false, table: null, fields: [] });
+        const popup = loadPopup();
+        await popup.loadClipSchema();
+
+        expect(document.getElementById('target').textContent).toContain('desactivat');
+        expect(document.getElementById('clip').disabled).toBe(true);
+        expect(document.getElementById('clipSelection').disabled).toBe(true);
+    });
+
+    it('keeps clipping usable when the schema cannot be loaded', async () => {
+        stubChrome({ backend: 'https://b.test', token: 't' });
+        globalThis.fetch = vi.fn(async () => { throw new Error('offline'); });
+        const popup = loadPopup();
+        await expect(popup.loadClipSchema()).resolves.toBeUndefined();
+        expect(document.getElementById('clip').disabled).toBe(false);
+    });
+
+    it('does not call the config endpoint before it is configured', async () => {
+        stubChrome({});
+        const popup = loadPopup();
+        await popup.loadClipSchema();
+        expect(globalThis.fetch).not.toHaveBeenCalled();
     });
 });

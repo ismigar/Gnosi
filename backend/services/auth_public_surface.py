@@ -137,6 +137,7 @@ PUBLIC_RULES: tuple[PublicRule, ...] = (
     _rule("GET", r"/api/public/ping", "authenticated by PAT via require_pat"),
     _rule("POST", r"/api/public/pages", "authenticated by PAT via require_pat"),
     _rule("POST", r"/api/public/clip", "authenticated by PAT via require_pat"),
+    _rule("GET", r"/api/public/clip/config", "authenticated by PAT via require_pat"),
 )
 
 

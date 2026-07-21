@@ -1272,7 +1272,21 @@
       "llm_wiki_lint_stale": "{{count}} sense revisar fa temps",
       "llm_wiki_lint_xref": "{{count}} referències creuades que falten",
       "llm_wiki_lint_reprocess": "{{count}} recursos modificats després de processar-se",
-      "llm_wiki_pending": "{{count}} suggeriments pendents a la Bústia"
+      "llm_wiki_pending": "{{count}} suggeriments pendents a la Bústia",
+      "clipper_intro": "Tria a quina taula desa l'extensió del navegador. Els camps que marquis apareixeran al formulari de l'extensió per omplir-los abans de desar.",
+      "clipper_table": "Taula destí",
+      "clipper_table_none": "Cap (nota a la carpeta Clips/)",
+      "clipper_auto": "Automàtic",
+      "clipper_unmapped": "Cap columna",
+      "clipper_url_column": "Columna de l'URL",
+      "clipper_tags_column": "Columna d'etiquetes",
+      "clipper_content_column": "Columna de la nota",
+      "clipper_fields": "Camps que demana l'extensió",
+      "clipper_no_fields": "Aquesta taula no té columnes que es puguin omplir des del navegador.",
+      "web-clipper": {
+        "name": "Web Clipper",
+        "desc": "Desa pàgines web des del navegador a la taula que triïs, omplint-ne els camps."
+      }
     },
     "workspace": {
       "intro": "Gestiona membres, rols i accés a vaults del workspace actiu. Aquesta secció existeix per a cooperatives, equips de recerca i col·lectius que comparteixen una mateixa instància de Gnosi. La col·laboració en temps real està en desenvolupament — vegis la directiva collaboration_proposal.md."

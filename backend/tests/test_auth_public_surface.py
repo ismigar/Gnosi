@@ -26,6 +26,7 @@ from backend.services.auth_public_surface import (
         ("GET", "/api/auth/me"),
         ("GET", "/api/share/abc123"),    # token in the URL is the credential
         ("POST", "/api/public/clip"),    # PAT-authenticated
+        ("GET", "/api/public/clip/config"),  # the extension reads its form schema
         ("GET", "/api/public/ping"),
     ],
 )

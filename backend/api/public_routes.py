@@ -17,15 +17,19 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from backend.config.logger_config import get_logger
 from backend.data.management_db import get_mgmt_db
 from backend.models.management import ApiToken
+from backend.services import web_clipper
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.context_vars import get_active_vault_path
 from backend.utils.safe_io import sanitize_vault_title
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -193,18 +197,118 @@ class ClipRequest(BaseModel):
     title: Optional[str] = None
     content: str = ""          # markdown or text of the selection
     tags: Optional[list[str]] = None
+    # Values for the destination table's columns, keyed by property id (or
+    # name). Ignored when the clipper is not pointed at a table.
+    fields: Optional[dict] = None
+
+
+def _clipper_state() -> tuple[bool, dict]:
+    """(enabled, settings) of the `web-clipper` plugin from `.gnosi/plugins.json`.
+
+    An unreadable state must not silently disable clipping — the previous
+    behavior (a note in `Clips/`) is the safe fallback.
+    """
+    try:
+        from backend.api.vault_routes import _load_plugins_state
+        state = _load_plugins_state()
+    except Exception as e:  # noqa: BLE001
+        logger.warning("Could not read the plugin state for the clipper: %s", e)
+        return True, {}
+    disabled = state.get("disabled") or []
+    cfg = (state.get("settings") or {}).get(web_clipper.PLUGIN_ID)
+    return (web_clipper.PLUGIN_ID not in disabled), (cfg if isinstance(cfg, dict) else {})
+
+
+def _clipper_target(cfg: dict) -> tuple[Optional[dict], Optional[dict]]:
+    """(table, registry) configured as the clip destination, or (None, None)."""
+    table_id = str((cfg or {}).get("table_id") or "").strip()
+    if not table_id:
+        return None, None
+    from backend.api.vault_routes import load_registry
+    registry = load_registry() or {}
+    table = next(
+        (t for t in (registry.get("tables") or []) if str(t.get("id")) == table_id),
+        None,
+    )
+    return table, (registry if table else None)
+
+
+@router.get("/public/clip/config")
+def public_clip_config(
+    token: ApiToken = Depends(require_pat),
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
+    """Destination and form schema for the browser extension.
+
+    The extension calls this on open so its form mirrors whatever the user
+    configured in Gnosi (Settings → Plugins → Web Clipper) without shipping a
+    hardcoded copy of the vault's schema.
+    """
+    enabled, cfg = _clipper_state()
+    if not enabled:
+        return {"enabled": False, "table": None, "fields": []}
+    table, registry = _clipper_target(cfg)
+    if not table:
+        return {"enabled": True, "table": None, "fields": []}
+    return {
+        "enabled": True,
+        "table": {"id": table.get("id"), "name": table.get("name") or table.get("id")},
+        "fields": web_clipper.form_fields(
+            table, cfg, (registry or {}).get("option_catalogs")
+        ),
+    }
 
 
 @router.post("/public/clip")
-def public_clip(body: ClipRequest, token: ApiToken = Depends(require_pat)):
+async def public_clip(
+    body: ClipRequest,
+    background_tasks: BackgroundTasks,
+    token: ApiToken = Depends(require_pat),
+    context: WorkspaceContext = Depends(get_workspace_context),
+):
     """Web clipper endpoint: saves a web page (URL + selection) to the vault.
 
-    Creates a note in the `Clips/` folder with the linked source and the captured
-    content. Designed for the browser extension.
-    
+    Destination depends on the `web-clipper` plugin settings: a record in the
+    configured table (with its columns filled from `fields`), or — when no table
+    is designated — the classic note in the `Clips/` folder.
+
     """
+    enabled, cfg = _clipper_state()
+    if not enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="El plugin Web Clipper està desactivat a Gnosi",
+        )
     title = (body.title or body.url or "Clip").strip()[:200]
     tags = list(body.tags or [])
+
+    table, _registry = _clipper_target(cfg)
+    if table:
+        metadata, page_body = web_clipper.build_record(
+            table,
+            cfg,
+            url=body.url,
+            content=body.content or "",
+            tags=tags,
+            fields=body.fields or {},
+        )
+        # Reuse the app's own creation pipeline (automations, formulas, option
+        # defaults, folder resolution, page index) instead of writing the file
+        # here: a clipped record must be indistinguishable from one created in
+        # the UI.
+        from backend.api.vault_routes import PageSaveRequest, create_page
+        res = await create_page(
+            PageSaveRequest(title=title, content=page_body, metadata=metadata),
+            background_tasks,
+            context,
+        )
+        return {
+            "status": "clipped",
+            "id": res.get("id"),
+            "path": res.get("folder") or table.get("name") or "",
+            "table": table.get("name") or table.get("id"),
+        }
+
     if "clipped" not in tags:
         tags.append("clipped")
     body_md = f"[Font]({body.url})\n\n{body.content or ''}"

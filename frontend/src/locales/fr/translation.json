@@ -641,7 +641,21 @@
       "llm_wiki_lint_stale": "{{count}} non révisées depuis longtemps",
       "llm_wiki_lint_xref": "{{count}} références croisées manquantes",
       "llm_wiki_lint_reprocess": "{{count}} ressources modifiées après traitement",
-      "llm_wiki_pending": "{{count}} suggestions en attente dans la Boîte"
+      "llm_wiki_pending": "{{count}} suggestions en attente dans la Boîte",
+      "clipper_intro": "Choisis dans quelle table l'extension du navigateur enregistre. Les champs cochés apparaîtront dans le formulaire de l'extension pour les remplir avant d'enregistrer.",
+      "clipper_table": "Table de destination",
+      "clipper_table_none": "Aucune (note dans le dossier Clips/)",
+      "clipper_auto": "Automatique",
+      "clipper_unmapped": "Aucune colonne",
+      "clipper_url_column": "Colonne de l'URL",
+      "clipper_tags_column": "Colonne des étiquettes",
+      "clipper_content_column": "Colonne de la note",
+      "clipper_fields": "Champs demandés par l'extension",
+      "clipper_no_fields": "Cette table ne comporte aucune colonne remplissable depuis le navigateur.",
+      "web-clipper": {
+        "name": "Web Clipper",
+        "desc": "Enregistre des pages web depuis le navigateur dans la table de ton choix, en remplissant ses champs."
+      }
     },
     "workspace": {
       "intro": "Gérez les membres, les rôles et l'accès aux coffres de l'espace de travail actif. Cette section existe pour les coopératives, équipes de recherche et collectifs partageant une même instance de Gnosi. La collaboration en temps réel est en développement — voir la directive collaboration_proposal.md."
