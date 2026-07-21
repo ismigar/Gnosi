@@ -170,35 +170,87 @@ class ProviderStatusPayload(BaseModel):
     enabled: bool
 
 
+def _registry_rows_without_provider(effective_registry: list, provider: str) -> tuple:
+    """(filtered_rows, removed_count) — pure, so the cascade is testable.
+
+    `effective_registry` is what the router actually uses (ai.models, or the
+    seed default when unset): filtering THAT list is what makes the cascade
+    also clear seed rows of a deleted provider instead of leaving phantoms.
+    """
+    filtered = [m for m in (effective_registry or [])
+                if (m or {}).get("provider") != provider]
+    return filtered, len(effective_registry or []) - len(filtered)
+
+
 @router.delete("/providers/{provider_id}", dependencies=[Depends(require_role("admin"))])
 async def delete_provider(provider_id: str):
+    """Disconnect a provider: config entry, its stored credential AND its
+    router-registry rows.
+
+    - The keychain secret must go too — leaving it made the router keep
+      routing to a "deleted" provider (resolve_provider_api_key falls back to
+      the keychain even with no config entry).
+    - Registry rows of the provider are removed from the EFFECTIVE registry
+      (materializing the seed default if needed): rows of a provider that no
+      longer exists are exactly the "models without providers" confusion this
+      screen is meant to kill.
+    """
     provider = (provider_id or "").strip().lower()
     if not provider:
         raise HTTPException(status_code=400, detail="provider_id is required")
 
-    cfg = load_params(strict_env=False)
-    params_path = cfg.params_source
-    current_config = {}
-    if params_path.exists():
-        with open(params_path, "r", encoding="utf-8") as f:
-            current_config = yaml.safe_load(f) or {}
+    def _delete() -> dict:
+        from backend.agent.model_router import load_registry
+        from backend.security.ai_credentials import credential_key_for_provider
+        from backend.security.keychain_manager import get_keychain
 
-    ai_cfg = dict(current_config.get("ai") or {})
-    providers = dict(ai_cfg.get("providers") or {})
-    
-    if provider in providers:
-        providers.pop(provider)
+        cfg = load_params(strict_env=False)
+        params_path = cfg.params_source
+        current_config = {}
+        if params_path.exists():
+            with open(params_path, "r", encoding="utf-8") as f:
+                current_config = yaml.safe_load(f) or {}
+
+        ai_cfg = dict(current_config.get("ai") or {})
+        providers = dict(ai_cfg.get("providers") or {})
+        existed = provider in providers
+        providers.pop(provider, None)
         ai_cfg["providers"] = providers
-        current_config["ai"] = ai_cfg
 
-        yaml_text = yaml.safe_dump(
-            current_config, default_flow_style=False,
-            allow_unicode=True, sort_keys=False,
-        )
-        safe_write_text(params_path, yaml_text)
-        return {"status": "success", "message": f"Provider {provider} deleted"}
-    
-    return {"status": "skipped", "message": f"Provider {provider} not found in config"}
+        # Cascade: drop the provider's rows from the effective registry
+        # (raw stored prices — this is persisted config, not display data)
+        effective = load_registry(with_catalog_prices=False)
+        filtered, removed_models = _registry_rows_without_provider(effective, provider)
+        if removed_models:
+            ai_cfg["models"] = filtered
+
+        current_config["ai"] = ai_cfg
+        if existed or removed_models:
+            yaml_text = yaml.safe_dump(
+                current_config, default_flow_style=False,
+                allow_unicode=True, sort_keys=False,
+            )
+            safe_write_text(params_path, yaml_text)
+
+        # Credential: best-effort delete; missing key is not an error
+        credential_deleted = False
+        key = credential_key_for_provider(provider)
+        if key:
+            try:
+                credential_deleted = bool(get_keychain().delete_credential(key))
+            except Exception:
+                credential_deleted = False
+
+        if not existed and not removed_models:
+            return {"status": "skipped",
+                    "message": f"Provider {provider} not found in config",
+                    "removed_models": 0, "credential_deleted": credential_deleted}
+        return {"status": "success", "message": f"Provider {provider} deleted",
+                "removed_models": removed_models,
+                "credential_deleted": credential_deleted}
+
+    # to_thread: params.yaml I/O + registry load + keychain access are blocking
+    return await asyncio.to_thread(_delete)
 
 
 @router.patch("/providers/{provider_id}/status", dependencies=[Depends(require_role("admin"))])
