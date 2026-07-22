@@ -1283,6 +1283,8 @@
       "clipper_content_column": "Columna de la nota",
       "clipper_fields": "Camps que demana l'extensió",
       "clipper_no_fields": "Aquesta taula no té columnes que es puguin omplir des del navegador.",
+      "clipper_content_body": "Cos de la pàgina",
+      "clipper_tags_frontmatter": "Cap columna (etiquetes al frontmatter)",
       "web-clipper": {
         "name": "Web Clipper",
         "desc": "Desa pàgines web des del navegador a la taula que triïs, omplint-ne els camps."

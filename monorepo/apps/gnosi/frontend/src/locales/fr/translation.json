@@ -652,6 +652,8 @@
       "clipper_content_column": "Colonne de la note",
       "clipper_fields": "Champs demandés par l'extension",
       "clipper_no_fields": "Cette table ne comporte aucune colonne remplissable depuis le navigateur.",
+      "clipper_content_body": "Corps de la page",
+      "clipper_tags_frontmatter": "Aucune colonne (étiquettes dans le frontmatter)",
       "web-clipper": {
         "name": "Web Clipper",
         "desc": "Enregistre des pages web depuis le navigateur dans la table de ton choix, en remplissant ses champs."

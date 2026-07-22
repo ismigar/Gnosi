@@ -1236,6 +1236,8 @@
       "clipper_content_column": "Columna de la nota",
       "clipper_fields": "Campos que pide la extensión",
       "clipper_no_fields": "Esta tabla no tiene columnas que se puedan rellenar desde el navegador.",
+      "clipper_content_body": "Cuerpo de la página",
+      "clipper_tags_frontmatter": "Ninguna columna (etiquetas en el frontmatter)",
       "web-clipper": {
         "name": "Web Clipper",
         "desc": "Guarda páginas web desde el navegador en la tabla que elijas, rellenando sus campos."

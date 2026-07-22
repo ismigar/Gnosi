@@ -118,6 +118,18 @@ def test_content_falls_back_to_the_page_body_with_the_source_link():
     assert "text" in body
 
 
+def test_the_note_can_be_sent_to_the_page_body_instead_of_a_column():
+    """«Cos de la pàgina» in the settings: the table has a note column, but the
+    user wants the clip as prose under the source link, not a cell."""
+    metadata, body = wc.build_record(
+        _table(), {"content_property": wc.NO_MAPPING},
+        url="https://example.org/a", content="the selection",
+    )
+    assert "fld_note" not in metadata
+    assert body.startswith("[Font](https://example.org/a)")
+    assert "the selection" in body
+
+
 def test_tags_stay_in_the_frontmatter_when_there_is_no_tags_column():
     metadata, _body = wc.build_record(
         _table(), {"tags_property": wc.NO_MAPPING},
