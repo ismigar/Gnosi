@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
 import { KeyRound, Plus, Trash2, Copy, Check } from 'lucide-react';
 import i18n from '../i18n';
+import { ConfirmModal } from './ConfirmModal';
 
 /**
  * ApiTokensSettings
@@ -16,6 +17,7 @@ export default function ApiTokensSettings() {
     const [creating, setCreating] = useState(false);
     const [justCreated, setJustCreated] = useState(null); // {token}
     const [copied, setCopied] = useState(false);
+    const [confirmRevoke, setConfirmRevoke] = useState(null); // the token pending revocation
     const { t } = useTranslation();
 
     const load = useCallback(async () => {
@@ -38,8 +40,12 @@ export default function ApiTokensSettings() {
         } catch { /* noop */ } finally { setCreating(false); }
     };
 
-    const revoke = async (id) => {
-        try { await axios.delete(`/api/tokens/${id}`); load(); } catch { /* noop */ }
+    /* Revoking is irreversible and silently breaks whatever is using the token
+     * (clipper, Word add-in, scripts), so it goes through a confirmation. */
+    const revoke = async () => {
+        if (!confirmRevoke) return;
+        try { await axios.delete(`/api/tokens/${confirmRevoke.id}`); load(); } catch { /* noop */ }
+        finally { setConfirmRevoke(null); }
     };
 
     const copy = async () => {
@@ -103,13 +109,26 @@ export default function ApiTokensSettings() {
                                         : t('api_tokens.never_used', 'mai usat')}
                                 </div>
                             </div>
-                            <button onClick={() => revoke(tk.id)} title={t('share.revoke', 'Revoca')} className="rounded p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]">
+                            <button onClick={() => setConfirmRevoke(tk)} title={t('share.revoke', 'Revoca')} className="rounded p-1.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--gnosi-danger,#dc2626)]">
                                 <Trash2 size={15} />
                             </button>
                         </li>
                     ))}
                 </ul>
             )}
+
+            <ConfirmModal
+                isOpen={!!confirmRevoke}
+                onClose={() => setConfirmRevoke(null)}
+                onConfirm={revoke}
+                title={t('api_tokens.revoke_title', 'Revocar el token?')}
+                message={t(
+                    'api_tokens.revoke_message',
+                    "El token «{{name}}» deixarà de funcionar immediatament i no es pot recuperar. El que el faci servir (web clipper, complements, scripts) perdrà l'accés fins que li'n donis un de nou.",
+                    { name: confirmRevoke?.name || '' },
+                )}
+                confirmText={t('share.revoke', 'Revoca')}
+            />
         </div>
     );
 }

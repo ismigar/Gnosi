@@ -3313,7 +3313,9 @@
     "copied": "Copiat",
     "empty_state": "Cap token actiu.",
     "last_used": "usat {{date}}",
-    "never_used": "mai usat"
+    "never_used": "mai usat",
+    "revoke_title": "Revocar el token?",
+    "revoke_message": "El token «{{name}}» deixarà de funcionar immediatament i no es pot recuperar. El que el faci servir (web clipper, complements, scripts) perdrà l'accés fins que li'n donis un de nou."
   },
   "feed_manager": {
     "title": "Gestió de Feeds",

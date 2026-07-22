@@ -3327,7 +3327,9 @@
     "copied": "Copiado",
     "empty_state": "Ningún token activo.",
     "last_used": "usado {{date}}",
-    "never_used": "nunca usado"
+    "never_used": "nunca usado",
+    "revoke_title": "¿Revocar el token?",
+    "revoke_message": "El token «{{name}}» dejará de funcionar inmediatamente y no se puede recuperar. Lo que lo use (web clipper, complementos, scripts) perderá el acceso hasta que le des uno nuevo."
   },
   "feed_manager": {
     "title": "Gestión de Feeds",
