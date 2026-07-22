@@ -3356,7 +3356,9 @@
     "copied": "Copié",
     "empty_state": "Aucun jeton actif.",
     "last_used": "utilisé {{date}}",
-    "never_used": "jamais utilisé"
+    "never_used": "jamais utilisé",
+    "revoke_title": "Révoquer ce jeton ?",
+    "revoke_message": "Le jeton «{{name}}» cessera de fonctionner immédiatement et ne peut pas être récupéré. Ce qui l'utilise (web clipper, modules, scripts) perdra l'accès jusqu'à ce que vous lui en donniez un nouveau."
   },
   "feed_manager": {
     "title": "Gestion des flux",
