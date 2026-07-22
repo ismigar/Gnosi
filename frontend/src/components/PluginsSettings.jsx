@@ -163,7 +163,10 @@ function WebClipperConfig() {
         setPluginSettings('web-clipper', { fields: next });
     };
 
-    const roleSelect = (key, label, types) => (
+    /* `unmappedLabel` names what happens when no column takes the role, which
+     * differs per role: the note falls back to the page body, the tags to the
+     * frontmatter. Calling all of them "no column" hid that. */
+    const roleSelect = (key, label, types, unmappedLabel) => (
         <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>{label}</span>
             <select
@@ -172,7 +175,9 @@ function WebClipperConfig() {
                 onChange={(e) => setPluginSettings('web-clipper', { [key]: e.target.value })}
             >
                 <option value="">{tp('clipper_auto', { defaultValue: 'Automàtic' })}</option>
-                <option value={CLIPPER_NO_MAPPING}>{tp('clipper_unmapped', { defaultValue: 'Cap columna' })}</option>
+                <option value={CLIPPER_NO_MAPPING}>
+                    {unmappedLabel || tp('clipper_unmapped', { defaultValue: 'Cap columna' })}
+                </option>
                 {(table?.properties || [])
                     .filter((p) => types.includes(p.type))
                     .map((p) => <option key={p.id} value={p.id}>{p.name || p.id}</option>)}
@@ -211,8 +216,18 @@ function WebClipperConfig() {
             {table && (
                 <>
                     {roleSelect('url_property', tp('clipper_url_column', { defaultValue: 'Columna de l\'URL' }), ['url', 'text'])}
-                    {roleSelect('tags_property', tp('clipper_tags_column', { defaultValue: 'Columna d\'etiquetes' }), ['multi_select'])}
-                    {roleSelect('content_property', tp('clipper_content_column', { defaultValue: 'Columna de la nota' }), ['text', 'rich_text'])}
+                    {roleSelect(
+                        'tags_property',
+                        tp('clipper_tags_column', { defaultValue: 'Columna d\'etiquetes' }),
+                        ['multi_select'],
+                        tp('clipper_tags_frontmatter', { defaultValue: 'Cap columna (etiquetes al frontmatter)' }),
+                    )}
+                    {roleSelect(
+                        'content_property',
+                        tp('clipper_content_column', { defaultValue: 'Columna de la nota' }),
+                        ['text', 'rich_text'],
+                        tp('clipper_content_body', { defaultValue: 'Cos de la pàgina' }),
+                    )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>

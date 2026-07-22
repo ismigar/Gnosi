@@ -1317,6 +1317,8 @@
       "clipper_content_column": "Note column",
       "clipper_fields": "Fields the extension asks for",
       "clipper_no_fields": "This table has no columns that can be filled from the browser.",
+      "clipper_content_body": "Page body",
+      "clipper_tags_frontmatter": "No column (tags in the frontmatter)",
       "web-clipper": {
         "name": "Web Clipper",
         "desc": "Save web pages from the browser into the table you choose, filling in its fields."
