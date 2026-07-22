@@ -74,6 +74,17 @@ de desenvolupador d'Apple).
   Configuració.
 - El codi crida `browser.*` quan existeix (Firefox, Safari) i `chrome.*` altrament
   (Chromium); totes dues variants retornen promeses sota MV3.
+- Les icones d'`icons/` es generen des del logo canònic
+  (`frontend/public/favicon.svg`) — no les editis a mà. Per regenerar-les si el
+  logo canvia:
+
+  ```bash
+  for s in 16 32 48 128 512; do
+      /Applications/Inkscape.app/Contents/MacOS/inkscape --export-type=png \
+          --export-filename="icons/icon-$s.png" -w $s -h $s \
+          ../frontend/public/favicon.svg
+  done
+  ```
 - Sense taula destí, les notes desades apareixen a `Clips/`; pots
   reorganitzar-les com qualsevol altra nota del vault.
 - Amb taula destí, el registre passa pel mateix camí que si el creessis a
