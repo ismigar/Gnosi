@@ -125,7 +125,7 @@ const CLIPPER_NO_MAPPING = '__none__';
  * behaviour (a note in `Clips/`).
  */
 function WebClipperConfig() {
-    const { t } = useTranslation();
+    const { t, i18n: i18nInstance } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const { getPluginSettings, setPluginSettings } = usePlugins();
     const cfg = getPluginSettings('web-clipper');
@@ -142,7 +142,13 @@ function WebClipperConfig() {
     }, []);
 
     const table = tables.find((tbl) => tbl.id === cfg.table_id) || null;
-    const properties = (table?.properties || []).filter((p) => CLIPPER_PROMPTABLE_TYPES.has(p.type));
+    /* Alphabetical, not table order: this is a checklist to hunt through, and the
+     * column order of a wide table is meaningless here. `localeCompare` with the
+     * UI language so accents and «ç» sort where the reader expects. */
+    const properties = (table?.properties || [])
+        .filter((p) => CLIPPER_PROMPTABLE_TYPES.has(p.type))
+        .slice()
+        .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, i18nInstance.language, { sensitivity: 'base' }));
     const selectedFields = Array.isArray(cfg.fields) ? cfg.fields : [];
 
     const onPickTable = (tableId) => {
