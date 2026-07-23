@@ -51,6 +51,13 @@ if (!NET_ALLOWED) {
   try { globalThis.WebSocket = undefined; } catch { /* noop */ }
   try { globalThis.XMLHttpRequest = undefined; } catch { /* noop */ }
   try { globalThis.EventSource = undefined; } catch { /* noop */ }
+  // Defense-in-depth: the module-resolution hook and global shadowing above do
+  // not cover Node's internal C++ bindings (`process.binding` /
+  // `process._linkedBinding` → 'tcp_wrap', 'udp_wrap', ...), through which a
+  // plugin could open a socket without ever importing 'net'. Neutralize them.
+  // The real boundary should still be an OS-level egress restriction.
+  try { process.binding = () => { throw new Error('network blocked by sandbox'); }; } catch { /* noop */ }
+  try { process._linkedBinding = () => { throw new Error('network blocked by sandbox'); }; } catch { /* noop */ }
 }
 
 // --- Bridge RPC to the host --------------------------------------------------

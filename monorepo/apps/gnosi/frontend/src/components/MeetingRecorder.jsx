@@ -32,6 +32,7 @@ export default function MeetingRecorder() {
     const navigate = useNavigate();
     const recorderRef = useRef(null);
     const chunksRef = useRef([]);
+    const lastBlobRef = useRef(null);   // retained so a failed upload can be retried
     const streamsRef = useRef([]);   // all MediaStreams to stop
     const audioCtxRef = useRef(null);
     const timerRef = useRef(null);
@@ -71,13 +72,22 @@ export default function MeetingRecorder() {
     }, [t]);
 
     const upload = useCallback(async (blob) => {
+        // Retain the recording so a failed upload can be retried instead of lost.
+        lastBlobRef.current = blob;
         setPhase('uploading');
         const fd = new FormData();
         fd.append('audio', blob, 'meeting.webm');
         fd.append('title', title.trim() || 'Reunió');
         fd.append('mode', mode);
         try {
-            await axios.post('/api/meetings/record', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            // timeout: 0 — a long meeting is a multi-MB upload that must not be
+            // aborted by the global 30s axios timeout (which would discard the
+            // recording). Pattern #812.
+            await axios.post('/api/meetings/record', fd, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+                timeout: 0,
+            });
+            lastBlobRef.current = null;  // uploaded successfully; drop the copy
             setPhase('processing');
             setStage('transcribing');
             pollStatus();
@@ -158,8 +168,19 @@ export default function MeetingRecorder() {
 
     const reset = useCallback(() => {
         clearTimers(); stopTracks();
+        lastBlobRef.current = null;
         setPhase('idle'); setSeconds(0); setStage(''); setPageId(null); setErrMsg(''); setTitle('');
     }, [clearTimers, stopTracks]);
+
+    const retryUpload = useCallback(() => {
+        // Re-upload the retained recording instead of discarding it; fall back to
+        // a full reset only if there is nothing to retry.
+        if (lastBlobRef.current) {
+            upload(lastBlobRef.current);
+        } else {
+            reset();
+        }
+    }, [upload, reset]);
 
     const closePanel = useCallback(() => {
         if (phase === 'recording') { toast.error(t('meeting.stop_before_close')); return; }
@@ -282,7 +303,7 @@ export default function MeetingRecorder() {
                             <div className="flex flex-col items-center gap-3 py-3 text-center">
                                 <AlertTriangle size={22} className="text-amber-500" />
                                 <div className="text-sm">{errMsg || t('meeting.generic_error')}</div>
-                                <button type="button" onClick={reset} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                                <button type="button" onClick={retryUpload} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
                                     {t('common.retry')}
                                 </button>
                             </div>

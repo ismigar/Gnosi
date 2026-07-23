@@ -897,7 +897,9 @@ export default function MediaCenter() {
       } else {
         url = '/api/vault/assets/upload';
       }
-      await axios.post(url, formData);
+      // timeout: 0 — large video/image uploads must not be aborted by the
+      // global 30s axios timeout while the server is still receiving them (#812).
+      await axios.post(url, formData, { timeout: 0 });
       toast.success(t('media.upload_success'), { id: 'upload' });
       fetchMedia(true);
     } catch (err) {

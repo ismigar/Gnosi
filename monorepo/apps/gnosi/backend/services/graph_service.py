@@ -247,15 +247,34 @@ def parse_frontmatter(content: str, file_path: Optional[Path] = None):
             return {}, content
     return {}, content
 
+def _resolve_active_vault_path(cfg):
+    """Prefer the request's active vault over the env-default VAULT.
+
+    `cfg.paths` always reflects the env-default vault, so a multi-vault user
+    with X-Vault-Id set to vault B would otherwise get vault A's graph and node
+    counts (cross-vault data exposure). Honor the active-vault contextvar the
+    same way `vault_routes.get_p()` does.
+    """
+    try:
+        from backend.services.context_vars import get_active_vault_path
+        active = get_active_vault_path()
+        if active:
+            return active
+    except Exception:
+        pass
+    return cfg.paths.get("VAULT")
+
+
 class GraphService:
-    # Class-level cache for node count to avoid heavy scanning on every 2s poll
-    _node_count_cache = 0
-    _last_count_time = 0
+    # Class-level cache for node count to avoid heavy scanning on every 2s poll.
+    # Keyed per vault so multi-vault counts don't bleed across vaults.
+    _node_count_cache: dict = {}
+    _last_count_time: dict = {}
     _CACHE_TTL = 60 # seconds
-    
-    # Cache for the full graph
-    _graph_cache = None
-    _last_graph_time = 0
+
+    # Cache for the full graph, keyed per vault (str path).
+    _graph_cache: dict = {}
+    _last_graph_time: dict = {}
     _GRAPH_CACHE_TTL = 30  # seconds — enough to avoid continuous rebuilds but reactive to changes
 
     # Class-level Persistent Node Data Cache (metadata, links, etc.)
@@ -379,15 +398,18 @@ class GraphService:
         cfg = load_params(strict_env=False)
         
         # Safety check for VAULT path
-        vault_path = cfg.paths.get("VAULT")
+        vault_path = _resolve_active_vault_path(cfg)
         if not vault_path:
             log.warning("VAULT path not configured in cfg.paths. Skipping registry load.")
             return {"databases": [], "tables": [], "views": []}
 
         registry_path = cfg.paths.get("REGISTRY")
         if not registry_path and vault_path:
-            registry_path = vault_path / "vault_db_registry.json"
-        
+            # Canonical location is BD/; fall back to the legacy root path.
+            registry_path = vault_path / "BD" / "vault_db_registry.json"
+            if not registry_path.exists():
+                registry_path = vault_path / "vault_db_registry.json"
+
         if registry_path and registry_path.exists():
             try:
                 with open(registry_path, "r", encoding="utf-8") as f:
@@ -478,12 +500,14 @@ class GraphService:
         Returns a Sigma.js compatible format.
         """
         now = time.time()
-        if self._graph_cache and (now - self._last_graph_time < self._GRAPH_CACHE_TTL):
-            log.info("Serving graph from cache")
-            return self._graph_cache
-
-        # 0. Load live config
+        # 0. Load live config (needed to resolve the active vault for the cache key)
         cfg = load_params(strict_env=False)
+        vault_key = str(_resolve_active_vault_path(cfg) or "")
+        cached = GraphService._graph_cache.get(vault_key)
+        if cached and (now - GraphService._last_graph_time.get(vault_key, 0) < self._GRAPH_CACHE_TTL):
+            log.info("Serving graph from cache")
+            return cached
+
         self.registry = self._load_registry()
         
         graph_config = cfg.params.get("graph", {})
@@ -617,8 +641,8 @@ class GraphService:
             )
             return result
 
-        GraphService._graph_cache = result
-        GraphService._last_graph_time = time.time()  # time AFTER the build, not before
+        GraphService._graph_cache[vault_key] = result
+        GraphService._last_graph_time[vault_key] = time.time()  # time AFTER the build, not before
         return result
 
     def _add_registry_nodes(self, G: nx.Graph):
@@ -682,7 +706,7 @@ class GraphService:
         be cached as the complete graph.
         """
         cfg = load_params(strict_env=False)
-        vault_path = cfg.paths.get("VAULT")
+        vault_path = _resolve_active_vault_path(cfg)
         page_nodes = []
         if not vault_path or not vault_path.exists():
             return [], []
@@ -709,10 +733,13 @@ class GraphService:
 
         for file_path in all_md_files:
             path_str = str(file_path.relative_to(vault_path))
+            # Cache key is the ABSOLUTE path so entries never collide across
+            # vaults that share a relative path (e.g. two vaults' Notes/foo.md).
+            cache_key = str(file_path)
             mtime = os.path.getmtime(file_path)
-            
+
             # Use cached data if mtime hasn't changed
-            cache_entry = GraphService._NODE_DATA_CACHE.get(path_str)
+            cache_entry = GraphService._NODE_DATA_CACHE.get(cache_key)
             if cache_entry and cache_entry.get("mtime") == mtime:
                 metadata = cache_entry["metadata"]
                 id_to_use = cache_entry["id"]
@@ -775,7 +802,7 @@ class GraphService:
                         "links": all_links,
                         "section_links": section_links,
                     }
-                    GraphService._NODE_DATA_CACHE[path_str] = cache_entry
+                    GraphService._NODE_DATA_CACHE[cache_key] = cache_entry
                 except Exception as e:
                     log.error(f"Error processing node {path_str}: {e}")
                     continue
@@ -1022,7 +1049,7 @@ class GraphService:
     def _add_suggestion_edges(self, G: nx.Graph):
         """Loads AI suggestions from suggestions.json in vault root."""
         cfg = load_params(strict_env=False)
-        vault_path = cfg.paths.get("VAULT")
+        vault_path = _resolve_active_vault_path(cfg)
         if not vault_path:
             return
             
@@ -1106,8 +1133,11 @@ class GraphService:
         Uses a short-lived class cache for performance.
         """
         now = time.time()
-        if now - self._last_count_time < self._CACHE_TTL:
-            return self._node_count_cache
+        cfg = load_params(strict_env=False)
+        vault_path = _resolve_active_vault_path(cfg)
+        vault_key = str(vault_path or "")
+        if now - GraphService._last_count_time.get(vault_key, 0) < self._CACHE_TTL:
+            return GraphService._node_count_cache.get(vault_key, 0)
 
         try:
             # 1. Registry items
@@ -1115,13 +1145,17 @@ class GraphService:
             count = len(reg.get("databases", [])) + len(reg.get("tables", [])) + len(reg.get("views", []))
 
             # 2. Vault content (Pages + Media)
-            # Use Cache if already populated and not stale
-            if GraphService._NODE_DATA_CACHE:
-                count += len(GraphService._NODE_DATA_CACHE)
-                
+            # The node-data cache is keyed by ABSOLUTE path and shared across
+            # vaults, so count only the entries under THIS vault.
+            vault_prefix = str(vault_path) + os.sep if vault_path else None
+            cached_for_vault = 0
+            if vault_prefix:
+                cached_for_vault = sum(
+                    1 for k in GraphService._NODE_DATA_CACHE if k.startswith(vault_prefix)
+                )
+            if cached_for_vault:
+                count += cached_for_vault
                 # Still need media count from disk or separate cache
-                cfg = load_params(strict_env=False)
-                vault_path = cfg.paths.get("VAULT")
                 img_path = vault_path / "Images" if vault_path else None
                 media_count = 0
                 if img_path and img_path.exists():
@@ -1132,19 +1166,16 @@ class GraphService:
                 count += media_count
             else:
                 # Fallback to disk scan - EFFICIENT
-                cfg = load_params(strict_env=False)
-                vault_path = cfg.paths.get("VAULT")
-
                 if vault_path and vault_path.exists():
                     skipped_dirs: List[str] = []
                     all_md = get_markdown_files_efficient(vault_path, skipped_dirs)
-                    if skipped_dirs and GraphService._node_count_cache:
+                    if skipped_dirs and GraphService._node_count_cache.get(vault_key):
                         # Partial scan (wedged OneDrive subtree): keep serving
                         # the previous count instead of caching a lower one.
                         # Refresh the timestamp so the 2s poll doesn't rescan
                         # the vault on every call while it's wedged.
-                        GraphService._last_count_time = now
-                        return GraphService._node_count_cache
+                        GraphService._last_count_time[vault_key] = now
+                        return GraphService._node_count_cache[vault_key]
                     md_count = len(all_md)
 
                     img_path = vault_path / "Images"
@@ -1156,11 +1187,11 @@ class GraphService:
                             log.debug(f"media scan (fallback) failed at {img_path}: {e}")
                     count += md_count + media_count
 
-            GraphService._node_count_cache = count
-            GraphService._last_count_time = now
+            GraphService._node_count_cache[vault_key] = count
+            GraphService._last_count_time[vault_key] = now
             return count
         except Exception as e:
             log.error(f"Error counting nodes: {e}")
-            return GraphService._node_count_cache
+            return GraphService._node_count_cache.get(vault_key, 0)
 
 # graph_service = GraphService()

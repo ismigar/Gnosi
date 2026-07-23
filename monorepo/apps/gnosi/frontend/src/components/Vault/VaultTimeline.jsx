@@ -333,9 +333,15 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
 
         // We save the ROOT note (previously its metadata was built and
         // never sent: only the successors were moved) and then the affected ones.
-        await onUpdateNote(noteId, { metadata: buildDateMetadata(newStart, newEnd) });
-        for (const updatedNote of updatedNotes) {
-            await onUpdateNote(updatedNote.id, { metadata: buildDateMetadata(updatedNote.start, updatedNote.end) });
+        // If the root save fails, stop: don't cascade successor writes off a move
+        // the backend rejected (onUpdateNote now rethrows on failure).
+        try {
+            await onUpdateNote(noteId, { metadata: buildDateMetadata(newStart, newEnd) });
+            for (const updatedNote of updatedNotes) {
+                await onUpdateNote(updatedNote.id, { metadata: buildDateMetadata(updatedNote.start, updatedNote.end) });
+            }
+        } catch (err) {
+            console.error('Error updating timeline dates:', err);
         }
     };
 

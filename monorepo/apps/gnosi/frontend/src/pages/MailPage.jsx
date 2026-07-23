@@ -85,7 +85,11 @@ function MailPageInner() {
                     setDefaultAccount(unique[0]);
                 }
             })
-            .catch(() => {});
+            .catch((err) => {
+                console.error('Error loading mail accounts:', err);
+                toast.error(t('mail.load_accounts_error', 'Could not load mail accounts'));
+            });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const fetchCounts = (accs) => {

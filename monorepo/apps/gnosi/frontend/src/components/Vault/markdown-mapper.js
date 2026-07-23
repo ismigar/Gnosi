@@ -1377,8 +1377,14 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
     const footnoteDefs = {};
     const _rawLines = markdown.split("\n");
     const _keptLines = [];
+    // Track fenced code blocks: a line like `[^id]: text` INSIDE a ``` fence is
+    // code content (e.g. documenting footnote syntax), not a footnote definition,
+    // and must not be stripped — doing so silently deleted code lines on load and
+    // persisted the deletion on the next autosave.
+    let _inFence = false;
     for (const _ln of _rawLines) {
-        const _m = _ln.match(/^\[\^([^\]\s]+)\]:\s?(.*)$/);
+        if (/^\s*(```|~~~)/.test(_ln)) { _inFence = !_inFence; _keptLines.push(_ln); continue; }
+        const _m = !_inFence && _ln.match(/^\[\^([^\]\s]+)\]:\s?(.*)$/);
         if (_m) { footnoteDefs[_m[1]] = _m[2]; }
         else { _keptLines.push(_ln); }
     }
@@ -1570,9 +1576,26 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
 
                 const dataLines = tableLines
                     .filter(line => !line.match(/^\|?\s*[:\- ]+\s*(\|?\s*[:\- ]+\s*)*\|?$/)); // filter separator
+                // Split a table row on UNESCAPED pipes only, and unescape `\|`→`|`
+                // in each cell. A plain `line.split("|")` broke on cells that
+                // contain a literal pipe (serialized as `\|`), splitting one cell
+                // into two and persisting a stray backslash (compounding
+                // corruption on every save/reload).
+                const splitRowCells = (row) => {
+                    const out = [];
+                    let cur = "";
+                    for (let k = 0; k < row.length; k++) {
+                        const ch = row[k];
+                        if (ch === "\\" && row[k + 1] === "|") { cur += "|"; k++; continue; }
+                        if (ch === "|") { out.push(cur); cur = ""; continue; }
+                        cur += ch;
+                    }
+                    out.push(cur);
+                    return out.slice(1, -1); // drop the segments from the outer pipes
+                };
                 const tableRows = [];
                 for (const line of dataLines) {
-                    const cells = line.split("|").filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+                    const cells = splitRowCells(line);
                     const richCells = [];
                     for (const cell of cells) {
                         const text = cell.trim();

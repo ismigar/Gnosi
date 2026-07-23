@@ -96,7 +96,8 @@
       "saved": "Guardat correctament",
       "unsaved_changes": "Canvis pendents de guardar...",
       "error_saving": "Error al guardar",
-      "error_connection": "Error de connexió"
+      "error_connection": "Error de connexió",
+      "loading": "Carregant…"
     },
     "open": "Obre",
     "close": "Tanca",
@@ -301,7 +302,10 @@
     "resize_event_error": "Error redimensionant l'esdeveniment.",
     "more_suffix": "més",
     "reminder_before": "Avís {{value}} abans",
-    "close_panel": "Tancar panell"
+    "close_panel": "Tancar panell",
+    "calendar_color_updated_success": "Color del calendari actualitzat",
+    "calendar_color_update_error": "No s'ha pogut actualitzar el color del calendari",
+    "error_deleting_event": "No s'ha pogut eliminar l'esdeveniment"
   },
   "sidebar": {
     "my_vault": "El meu Coneixement",
@@ -620,7 +624,8 @@
     "history_link": "Historial →",
     "managed_in_vault": "Gestionat al Vault",
     "view_graph": "Veure Graf",
-    "error_prefix": "Error"
+    "error_prefix": "Error",
+    "control_center": "Centre de control"
   },
   "errors": {
     "load_pages": "Error carregant pàgines",
@@ -672,7 +677,8 @@
     "delete_contact": "Error al eliminar el contacte: ",
     "tags_load": "No s'han pogut carregar els tags",
     "import_notes": "Error important: {{error}}",
-    "view_not_found_registry": "Vista \"{{id}}...\" no trobada al registry."
+    "view_not_found_registry": "Vista \"{{id}}...\" no trobada al registry.",
+    "duplicate_view": "No s'ha pogut duplicar la vista"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -1988,7 +1994,9 @@
     "job_placeholder": "Ex: Director IT",
     "notes_placeholder": "Notes addicionals sobre el contacte...",
     "email_field_placeholder": "email@exemple.com",
-    "address_field_placeholder": "Carrer, Número, Ciutat..."
+    "address_field_placeholder": "Carrer, Número, Ciutat...",
+    "load_error": "No s'han pogut carregar els contactes",
+    "save_error": "No s'ha pogut desar el contacte"
   },
   "schema": {
     "manage_properties_of": "Gestionar propietats de",
@@ -2429,7 +2437,12 @@
     "usual_group": "Grup habitual",
     "add_all_group": "Afegir tots: {{emails}}",
     "file_attached": "Adjuntat: {{name}}",
-    "insert_image_error": "Error inserint imatge"
+    "insert_image_error": "Error inserint imatge",
+    "load_accounts_error": "No s'han pogut carregar els comptes de correu",
+    "batch_action_error": "No s'han pogut actualitzar {{count}} missatges",
+    "spam_added": "Marcat com a brossa",
+    "spam_removed": "Tret de la brossa",
+    "error_updating": "No s'ha pogut actualitzar el missatge"
   },
   "subs_section_title": "Fonts d'Informació",
   "subs_btn_reload": "Recarregar",
@@ -3229,7 +3242,32 @@
     "add_stream": "Afegir stream",
     "status_published": "Publicat",
     "history_loading": "Carregant historial...",
-    "history_empty": "Encara no hi ha posts a l'historial."
+    "history_empty": "Encara no hi ha posts a l'historial.",
+    "add_stream_title": "Afegeix un flux nou",
+    "network": "Xarxa",
+    "stream_type": "Tipus de flux",
+    "stream": {
+      "home": {
+        "label": "Cronologia principal",
+        "desc": "Comptes que segueixes"
+      },
+      "my-posts": {
+        "label": "El meu historial publicat",
+        "desc": "Publicacions enviades des d'aquesta app"
+      },
+      "notifications": {
+        "label": "Notificacions",
+        "desc": "Mencions i interaccions"
+      },
+      "public": {
+        "label": "Públic / Federat",
+        "desc": "Activitat global"
+      },
+      "tag": {
+        "label": "Etiqueta",
+        "desc": "Segueix etiquetes concretes"
+      }
+    }
   },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
@@ -3276,7 +3314,8 @@
     "role_update_failed": "Error canviant rol",
     "vault_access_failed": "Error canviant accés a vault",
     "vault_access_for": "Accés a vaults — {{email}}",
-    "ok": "OK"
+    "ok": "OK",
+    "label_prefix": "Espai de treball: {{name}}"
   },
   "zotero_extras": {
     "add_field": "Afegeix camp",

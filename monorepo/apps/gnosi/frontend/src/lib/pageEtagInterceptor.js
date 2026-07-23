@@ -153,16 +153,32 @@ export function installPageEtagInterceptor() {
                     const canRetry = cfg && !cfg._etagRetried && pageId && detail?.current_etag;
                     if (canRetry) {
                         cfg._etagRetried = true;
-                        try {
-                            const nextBody = (cfg.data && typeof cfg.data === 'object')
-                                ? { ...cfg.data, expected_etag: detail.current_etag }
-                                : cfg.data;
+                        // By the time the RESPONSE interceptor runs, axios has already
+                        // applied transformRequest, so cfg.data is a JSON STRING — the
+                        // old `typeof === 'object'` check was false, so the retry
+                        // re-sent the STALE etag and 409'd again. Parse, inject the
+                        // fresh etag, re-stringify. Skip the retry if it isn't JSON.
+                        let nextBody = null;
+                        if (cfg.data && typeof cfg.data === 'object') {
+                            nextBody = { ...cfg.data, expected_etag: detail.current_etag };
+                        } else if (typeof cfg.data === 'string') {
+                            try {
+                                const parsed = JSON.parse(cfg.data);
+                                parsed.expected_etag = detail.current_etag;
+                                nextBody = JSON.stringify(parsed);
+                            } catch {
+                                nextBody = null;
+                            }
+                        }
+                        if (nextBody !== null) {
                             cfg.data = nextBody;
-                            return await axios.request(cfg);
-                        } catch (retryErr) {
-                            // If the retry also fails with etag, we let
-                            // it go through the normal path (conflict toast).
-                            error = retryErr;
+                            try {
+                                return await axios.request(cfg);
+                            } catch (retryErr) {
+                                // If the retry also fails with etag, let it go
+                                // through the normal path (conflict toast).
+                                error = retryErr;
+                            }
                         }
                     }
                     window.dispatchEvent(

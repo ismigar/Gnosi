@@ -1,9 +1,8 @@
-# Configuración para Drupal MCP Proxy
+# Configuration for the Drupal MCP Proxy.
 
 mcp_server:
-  # Comando para ejecutar el servidor MCP de Drupal.
-  # Puede ser local (docker exec) o remoto (ssh).
-  # Ajustar según necesidad.
+  # Command used to launch the upstream Drupal MCP server.
+  # It can run locally (docker exec) or remotely (ssh). Adjust as needed.
   command: "/usr/local/bin/docker"
   args:
     - "exec"
@@ -12,21 +11,24 @@ mcp_server:
     - "deno"
     - "run"
     - "-A"
-    - "--unsafely-ignore-certificate-errors"
     - "/app/src/mod.ts"
     - "--drupal-url"
-    - "https://admin:YT0LTtiJ0KuUF3EUhUsl@www.temenosismael.org"
-  
-  # Variables de entorno adicionales si son necesarias
+    # The Drupal URL (including any basic-auth credentials) MUST be provided via
+    # the DRUPAL_URL environment variable — never hardcode secrets in this file,
+    # which is tracked in a public repository. Example:
+    #   export DRUPAL_URL="https://user:pass@drupal.example.org"
+    - "${DRUPAL_URL}"
+
+  # Extra environment variables, if any.
   env: {}
 
-# Configuración de caché
+# Cache configuration.
 cache:
   enabled: true
-  ttl_seconds: 3600 # 1 hora
+  ttl_seconds: 3600 # 1 hour
   file_path: ".tools_cache.json"
 
-# Configuración de búsqueda
+# Search configuration.
 search:
-  fuzzy_threshold: 60 # Puntuación mínima (0-100) para considerar un match
+  fuzzy_threshold: 60 # Minimum score (0-100) to consider a match
   max_results: 10

@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 import yaml
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
@@ -12,6 +13,15 @@ from mcp.client.stdio import stdio_client
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Matches basic-auth credentials embedded in a URL (user:pass@host) so we can
+# redact them before logging the connection command.
+_CREDENTIALS_RE = re.compile(r"://[^/@\s]+:[^/@\s]+@")
+
+
+def _redact_credentials(text: str) -> str:
+    """Replace `user:pass@` in any URL with `***@` for safe logging."""
+    return _CREDENTIALS_RE.sub("://***@", text)
 
 # Timeouts
 INITIALIZE_TIMEOUT = 10.0  # Increased from 3.0 to handle remote Drupal latency
@@ -31,7 +41,19 @@ class DrupalClient:
             path = os.path.join(os.path.dirname(os.path.dirname(__file__)), path)
         
         with open(path, 'r') as f:
-            return yaml.safe_load(f)
+            config = yaml.safe_load(f)
+
+        # Expand ${ENV_VAR} references so secrets (e.g. the Drupal URL with its
+        # credentials) live in the environment, not in the tracked config file.
+        server_config = config.get('mcp_server', {})
+        if isinstance(server_config.get('command'), str):
+            server_config['command'] = os.path.expandvars(server_config['command'])
+        if isinstance(server_config.get('args'), list):
+            server_config['args'] = [
+                os.path.expandvars(a) if isinstance(a, str) else a
+                for a in server_config['args']
+            ]
+        return config
 
     async def connect(self):
         """Establish connection to the upstream MCP server."""
@@ -42,7 +64,9 @@ class DrupalClient:
             env={**os.environ, **server_config.get('env', {})}
         )
 
-        log_msg = f"Connecting to Drupal MCP: {server_config['command']} {' '.join(server_config['args'])}"
+        log_msg = _redact_credentials(
+            f"Connecting to Drupal MCP: {server_config['command']} {' '.join(server_config['args'])}"
+        )
         logger.info(log_msg)
         self._log_to_file(log_msg)
         

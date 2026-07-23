@@ -93,7 +93,8 @@
       "error_sync": "❌ Error syncing",
       "error_connect": "❌ Could not connect",
       "never": "Never",
-      "unsaved_changes": "Unsaved changes..."
+      "unsaved_changes": "Unsaved changes...",
+      "loading": "Loading…"
     },
     "untitled": "Untitled",
     "new": "New",
@@ -393,7 +394,10 @@
     "resize_event_error": "Error resizing the event.",
     "more_suffix": "more",
     "reminder_before": "Reminder {{value}} before",
-    "close_panel": "Close panel"
+    "close_panel": "Close panel",
+    "calendar_color_updated_success": "Calendar color updated",
+    "calendar_color_update_error": "Could not update the calendar color",
+    "error_deleting_event": "Could not delete the event"
   },
   "sidebar": {
     "my_vault": "My Knowledge",
@@ -708,7 +712,8 @@
     "history_link": "History →",
     "managed_in_vault": "Managed in the Vault",
     "view_graph": "View Graph",
-    "error_prefix": "Error"
+    "error_prefix": "Error",
+    "control_center": "Control Center"
   },
   "errors": {
     "load_pages": "Error loading pages",
@@ -760,7 +765,8 @@
     "delete_contact": "Error deleting the contact: ",
     "tags_load": "Couldn't load the tags",
     "import_notes": "Error importing: {{error}}",
-    "view_not_found_registry": "View \"{{id}}...\" not found in the registry."
+    "view_not_found_registry": "View \"{{id}}...\" not found in the registry.",
+    "duplicate_view": "Could not duplicate view"
   },
   "success": {
     "view_duplicated": "View duplicated",
@@ -2098,7 +2104,9 @@
     "job_placeholder": "E.g.: IT Director",
     "notes_placeholder": "Additional notes about the contact...",
     "email_field_placeholder": "email@example.com",
-    "address_field_placeholder": "Street, Number, City..."
+    "address_field_placeholder": "Street, Number, City...",
+    "load_error": "Could not load contacts",
+    "save_error": "Could not save the contact"
   },
   "schema": {
     "manage_properties_of": "Manage properties of",
@@ -2539,7 +2547,12 @@
     "usual_group": "Usual group",
     "add_all_group": "Add all: {{emails}}",
     "file_attached": "Attached: {{name}}",
-    "insert_image_error": "Error inserting image"
+    "insert_image_error": "Error inserting image",
+    "load_accounts_error": "Could not load mail accounts",
+    "batch_action_error": "Could not update {{count}} message(s)",
+    "spam_added": "Marked as spam",
+    "spam_removed": "Removed from spam",
+    "error_updating": "Could not update the message"
   },
   "subs_section_title": "Information sources",
   "subs_btn_reload": "Reload",
@@ -3342,7 +3355,32 @@
     "add_stream": "Add stream",
     "status_published": "Published",
     "history_loading": "Loading history...",
-    "history_empty": "No posts in the history yet."
+    "history_empty": "No posts in the history yet.",
+    "add_stream_title": "Add New Stream",
+    "network": "Network",
+    "stream_type": "Stream Type",
+    "stream": {
+      "home": {
+        "label": "Home Timeline",
+        "desc": "Following feed"
+      },
+      "my-posts": {
+        "label": "My Published History",
+        "desc": "Posts sent via this app"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "desc": "Mentions and interactions"
+      },
+      "public": {
+        "label": "Public / Federated",
+        "desc": "Global activity"
+      },
+      "tag": {
+        "label": "Hashtag",
+        "desc": "Track specific tags"
+      }
+    }
   },
   "tags": {
     "empty": "No tags yet. Add some via the \"tags\" property.",
@@ -3389,7 +3427,8 @@
     "role_update_failed": "Error changing role",
     "vault_access_failed": "Error changing Vault access",
     "vault_access_for": "Vault access — {{email}}",
-    "ok": "OK"
+    "ok": "OK",
+    "label_prefix": "Workspace: {{name}}"
   },
   "zotero_extras": {
     "add_field": "Add field",

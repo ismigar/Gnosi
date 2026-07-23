@@ -10,8 +10,20 @@ from pathlib import Path
 router = APIRouter(prefix="/api/auth/google", tags=["auth"])
 log = logging.getLogger(__name__)
 
-# Temporary in-memory storage for the Code Verifier (PKCE)
+import time
+
+# Temporary in-memory storage for the Code Verifier (PKCE).
+# Entries carry a created_at timestamp and are pruned on each login so that
+# abandoned flows (user closed the tab) don't grow the dict without bound.
 pending_auths = {}
+_PENDING_AUTH_TTL_SECONDS = 600.0
+
+
+def _prune_pending_auths() -> None:
+    now = time.monotonic()
+    for st in [s for s, v in pending_auths.items()
+               if now - (v.get("created_at") or 0) > _PENDING_AUTH_TTL_SECONDS]:
+        pending_auths.pop(st, None)
 
 # Scopes needed for Calendar and Gmail
 SCOPES = [
@@ -124,9 +136,11 @@ async def login(type: str = None):
     
     # Save the generated code_verifier and context associated with the state
     if hasattr(flow, "code_verifier"):
+        _prune_pending_auths()
         pending_auths[state] = {
             "code_verifier": flow.code_verifier,
-            "type": type or "calendar"
+            "type": type or "calendar",
+            "created_at": time.monotonic(),
         }
         
     return RedirectResponse(url=authorization_url)

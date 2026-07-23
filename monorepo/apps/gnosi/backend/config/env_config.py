@@ -56,6 +56,22 @@ def default_ollama_base_url() -> str:
     return f"http://{host}:11434"
 
 
+def default_thumb_daemon_url() -> str:
+    """Default URL for the QuickLook thumbnail daemon (port 5009).
+
+    Same autodetection rationale as `default_host_helper_url`: the daemon runs on
+    the HOST, so a Docker backend reaches it via `host.docker.internal` while a
+    native backend must use loopback. Hardcoding the Docker hostname made
+    thumbnails for videos/PDFs/audio silently break on native installs (the
+    default runtime). `THUMB_DAEMON_URL` overrides this default.
+    """
+    override = os.environ.get("THUMB_DAEMON_URL")
+    if override:
+        return override
+    host = "host.docker.internal" if _is_docker() else "127.0.0.1"
+    return f"http://{host}:5009/thumb"
+
+
 def _load_keychain():
     """Load credentials from Keychain if available. Skipped in Docker (env vars come from env_file)."""
     global _keychain_loaded

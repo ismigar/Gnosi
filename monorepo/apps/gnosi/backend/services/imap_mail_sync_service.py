@@ -344,13 +344,24 @@ class ImapMailSyncService:
             if status != "OK":
                 return 0
             server_uids = set(uid_data[0].split())
-            log.info(f"[IMAP] {email_account}/{folder_name} ({folder_type}): {len(server_uids)} missatges al servidor")
+            log.info(f"[IMAP] {email_account}/{folder_name} ({folder_type}): {len(server_uids)} messages on server")
         except Exception as e:
-            log.error(f"[IMAP] Cerca fallida per {folder_name}: {e}")
+            log.error(f"[IMAP] Search failed for {folder_name}: {e}")
             return 0
 
         # --- Reconcile: remove vault files no longer on server ---
-        self._reconcile_folder(email_account, folder_name, server_uids)
+        # Guard against destroying the local mirror on an empty/spurious search:
+        # `b''.split()` yields an empty set (empty folder, or a transient OK-empty
+        # response some servers return), and reconcile would then unlink() every
+        # local message for this folder. Only reconcile when the server actually
+        # reported messages.
+        if server_uids:
+            self._reconcile_folder(email_account, folder_name, server_uids)
+        else:
+            log.info(
+                f"[IMAP] {email_account}/{folder_name}: empty server search; "
+                "skipping reconcile to avoid deleting the local mirror"
+            )
 
         # --- Download new messages ---
         vault_uids = self._get_vault_uids(email_account, folder_name)

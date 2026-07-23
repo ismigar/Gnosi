@@ -40,8 +40,8 @@ def require_role(min_role: str):
         
         if user_weight < required_weight:
             raise HTTPException(
-                status_code=403, 
-                detail=f"Permís insuficient. Es requereix rol {min_role} (tens {context.role})"
+                status_code=403,
+                detail=f"Insufficient permission. Role {min_role} is required (you have {context.role})"
             )
         return context
     
@@ -56,7 +56,7 @@ def require_capability(capability: str):
         if capability not in context.capabilities and context.role != "owner":
             raise HTTPException(
                 status_code=403,
-                detail=f"No tens la capacitat '{capability}' necessària per a aquesta operació."
+                detail=f"You lack the '{capability}' capability required for this operation."
             )
         return context
     return capability_checker
@@ -84,7 +84,7 @@ def _ensure_personal_exists(db: Session, user_id: str, vault_path: Path) -> str:
             # real address: while it still holds the placeholder, the UNIQUE
             # constraint on `users.email` blocks a second auto-created user by
             # accident. Freeing that address removes the accident, not the risk.
-            raise HTTPException(status_code=401, detail="Cal autenticació")
+            raise HTTPException(status_code=401, detail="Authentication required")
 
         user = User(id=user_id, name="User", email=PLACEHOLDER_EMAIL,
                     auto_provisioned=True)
@@ -171,11 +171,22 @@ def _resolve_personal_vault(db: Session, ws_id: str, x_vault_id: Optional[str],
     if not v or not v.path_override:
         return default_vault_path
     p = Path(v.path_override)
-    try:
-        p.mkdir(parents=True, exist_ok=True)
-    except Exception:
-        return default_vault_path
-    return p
+    if p.exists():
+        return p
+    # Only create the vault dir when its PARENT already exists (the mount /
+    # container is present). If the whole chain is missing (e.g. OneDrive signed
+    # out), do NOT mkdir(parents=True): that fabricates an empty shadow vault as
+    # plain local dirs which the File Provider later collides with (split-brain).
+    if p.parent.exists():
+        try:
+            p.mkdir(exist_ok=True)
+            return p
+        except Exception:
+            return default_vault_path
+    logger.warning(
+        "Vault path parent missing (mount unavailable?); falling back to default: %s", p
+    )
+    return default_vault_path
 
 
 def get_workspace_context(
@@ -249,18 +260,26 @@ def get_workspace_context(
     if not vault:
         # If there were restrictions and none valid were found
         if allowed_vault_ids:
-             raise HTTPException(status_code=403, detail="No tens accés a cap Vault en aquest workspace")
+             raise HTTPException(status_code=403, detail="No accessible vault in this workspace")
         # Otherwise, if there's no vault in the workspace
-        raise HTTPException(status_code=404, detail="No s'ha trobat cap Vault per a aquest workspace")
+        raise HTTPException(status_code=404, detail="No vault found for this workspace")
 
     if vault.path_override:
         v_path = Path(vault.path_override)
         if not v_path.is_absolute():
             v_path = project_root / v_path
+        if not v_path.exists():
+            # Don't fabricate an empty shadow vault when the storage mount is
+            # unavailable (missing parent chain); fail loudly instead.
+            if not v_path.parent.exists():
+                raise HTTPException(
+                    status_code=503, detail="Vault storage is temporarily unavailable"
+                )
+            v_path.mkdir(exist_ok=True)
     else:
         v_path = project_root / "workspaces" / x_workspace_id / "vault"
-        
-    v_path.mkdir(parents=True, exist_ok=True)
+        v_path.mkdir(parents=True, exist_ok=True)
+
     active_vault_path.set(v_path)
 
     import json

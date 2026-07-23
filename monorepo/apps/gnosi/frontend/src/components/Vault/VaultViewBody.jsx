@@ -138,6 +138,10 @@ export function VaultViewBody({
                 dateField={activeView?.dateField || ''}
                 endDateField={activeView?.endDateField || ''}
                 initialView={activeView?.calendarView || 'dayGridMonth'}
+                // Forward the row-refresh callback so a drag/resize re-fetches
+                // the parent's notes; otherwise the event snaps back to its old
+                // date from the stale allNotes prop even though the save succeeded.
+                onRefresh={onCellSaved}
                 ignoreCalendarFilter
                 showHeaderToolbar
             />

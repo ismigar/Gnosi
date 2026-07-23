@@ -75,6 +75,11 @@ _by_path: Dict[str, Dict[str, Any]] = {}
 _built_at: float = 0.0
 _building = False
 _thread_started = False
+# Roots removed via remove_subtree, mapped to the time of removal. A build that
+# started before a removal must not resurrect the deleted subtree when it swaps
+# in its (pre-removal) walk snapshot. Pruned once older than the window below.
+_tombstones: Dict[str, float] = {}
+_TOMBSTONE_TTL_SECONDS = 600.0
 
 
 def _norm(s: str) -> str:
@@ -157,11 +162,19 @@ def _save_to_disk(by_path: Dict[str, Dict[str, Any]]) -> None:
                 for e in by_path.values()
             ],
         }
-        tmp = _CACHE_PATH.with_suffix(".json.tmp")
-        tmp.write_text(json.dumps(payload), encoding="utf-8")
-        tmp.replace(_CACHE_PATH)
+        # Unique temp file (not a fixed `.json.tmp` sibling) so a concurrent
+        # build and remove_subtree can't interleave writes to the same path.
+        import tempfile
+        fd, tmp_name = tempfile.mkstemp(dir=str(_CACHE_PATH.parent), suffix=".json.tmp")
+        tmp = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                fh.write(json.dumps(payload))
+            tmp.replace(_CACHE_PATH)
+        finally:
+            tmp.unlink(missing_ok=True)
     except Exception as e:
-        log.warning(f"vault file-index: no s'ha pogut desar el cache: {e}")
+        log.warning(f"vault file-index: could not save the cache: {e}")
 
 
 def _load_from_disk() -> bool:
@@ -185,10 +198,10 @@ def _load_from_disk() -> bool:
         with _lock:
             _by_path = loaded
             _built_at = float(data.get("built_at") or 0.0)
-        log.info(f"⚡ vault file-index carregat del cache: {len(loaded)} entrades")
+        log.info(f"⚡ vault file-index loaded from cache: {len(loaded)} entries")
         return bool(loaded)
     except Exception as e:
-        log.warning(f"vault file-index: cache de disc il·legible: {e}")
+        log.warning(f"vault file-index: disk cache unreadable: {e}")
         return False
 
 
@@ -207,6 +220,9 @@ def build_index() -> int:
         now = time.time()
         with _lock:
             merged = dict(_by_path)  # copy to merge outside the lock
+            # Roots removed while this walk was in flight: the walk enumerated
+            # them before deletion, so drop them here rather than resurrecting.
+            active_tombstones = [r for r, ts in _tombstones.items() if ts >= t0]
         prev_n = len(merged)
         for e in new_entries:
             e2 = dict(e)
@@ -221,14 +237,19 @@ def build_index() -> int:
             before = len(merged)
             merged = {p: e for p, e in merged.items() if e.get("last_seen", now) >= cutoff}
             pruned = before - len(merged)
+        # Honor subtrees removed during the walk (see active_tombstones).
+        for r in active_tombstones:
+            r = r.rstrip("/")
+            prefix = r + "/"
+            merged = {p: e for p, e in merged.items() if p != r and not p.startswith(prefix)}
         with _lock:
             _by_path = merged
             _built_at = now
         _save_to_disk(merged)
         log.info(
             f"🗂️ vault file-index: walk {len(new_entries)} → índex {len(merged)} "
-            f"entrades ({'complet' if substantial else 'PARCIAL, només unió'}, "
-            f"purgades {pruned}) en {time.time() - t0:.1f}s"
+            f"entries ({'complete' if substantial else 'PARTIAL, union only'}, "
+            f"pruned {pruned}) in {time.time() - t0:.1f}s"
         )
         return len(merged)
     finally:
@@ -255,6 +276,12 @@ def remove_subtree(root: str) -> int:
             if p != root and not p.startswith(prefix)
         }
         removed = before - len(_by_path)
+        # Tombstone so an in-flight build (walked before this deletion) can't
+        # resurrect the subtree on its swap. Prune expired tombstones.
+        now = time.time()
+        _tombstones[root] = now
+        for r in [r for r, ts in _tombstones.items() if now - ts > _TOMBSTONE_TTL_SECONDS]:
+            _tombstones.pop(r, None)
         snapshot = dict(_by_path)
     if removed:
         _save_to_disk(snapshot)

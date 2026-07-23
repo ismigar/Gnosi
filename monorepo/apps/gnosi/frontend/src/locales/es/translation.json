@@ -95,7 +95,8 @@
       "saved": "Guardado correctamente",
       "unsaved_changes": "Cambios pendientes de guardar...",
       "error_saving": "Error al guardar",
-      "error_connection": "Error de conexión"
+      "error_connection": "Error de conexión",
+      "loading": "Cargando…"
     },
     "open": "Abrir",
     "loading": "Cargando…",
@@ -301,7 +302,10 @@
     "resize_event_error": "Error al redimensionar el evento.",
     "more_suffix": "más",
     "reminder_before": "Aviso {{value}} antes",
-    "close_panel": "Cerrar panel"
+    "close_panel": "Cerrar panel",
+    "calendar_color_updated_success": "Color del calendario actualizado",
+    "calendar_color_update_error": "No se pudo actualizar el color del calendario",
+    "error_deleting_event": "No se pudo eliminar el evento"
   },
   "sidebar": {
     "my_vault": "Mi Conocimiento",
@@ -620,7 +624,8 @@
     "history_link": "Historial →",
     "managed_in_vault": "Gestionado en el Vault",
     "view_graph": "Ver Grafo",
-    "error_prefix": "Error"
+    "error_prefix": "Error",
+    "control_center": "Centro de control"
   },
   "errors": {
     "load_pages": "Error cargando páginas",
@@ -672,7 +677,8 @@
     "delete_contact": "Error al eliminar el contacto: ",
     "tags_load": "No se han podido cargar las etiquetas",
     "import_notes": "Error al importar: {{error}}",
-    "view_not_found_registry": "Vista \"{{id}}...\" no encontrada en el registry."
+    "view_not_found_registry": "Vista \"{{id}}...\" no encontrada en el registry.",
+    "duplicate_view": "No se pudo duplicar la vista"
   },
   "success": {
     "view_duplicated": "Vista duplicada",
@@ -1948,7 +1954,9 @@
     "job_placeholder": "Ej: Director de TI",
     "notes_placeholder": "Notas adicionales sobre el contacto...",
     "email_field_placeholder": "email@ejemplo.com",
-    "address_field_placeholder": "Calle, Número, Ciudad..."
+    "address_field_placeholder": "Calle, Número, Ciudad...",
+    "load_error": "No se pudieron cargar los contactos",
+    "save_error": "No se pudo guardar el contacto"
   },
   "schema": {
     "manage_properties_of": "Gestionar propiedades de",
@@ -2389,7 +2397,12 @@
     "usual_group": "Grupo habitual",
     "add_all_group": "Añadir todos: {{emails}}",
     "file_attached": "Adjuntado: {{name}}",
-    "insert_image_error": "Error al insertar imagen"
+    "insert_image_error": "Error al insertar imagen",
+    "load_accounts_error": "No se pudieron cargar las cuentas de correo",
+    "batch_action_error": "No se pudieron actualizar {{count}} mensajes",
+    "spam_added": "Marcado como spam",
+    "spam_removed": "Quitado de spam",
+    "error_updating": "No se pudo actualizar el mensaje"
   },
   "subs_section_title": "Fuentes de información",
   "subs_btn_reload": "Recargar",
@@ -3243,7 +3256,32 @@
     "add_stream": "Añadir stream",
     "status_published": "Publicado",
     "history_loading": "Cargando historial...",
-    "history_empty": "Aún no hay publicaciones en el historial."
+    "history_empty": "Aún no hay publicaciones en el historial.",
+    "add_stream_title": "Añadir nuevo flujo",
+    "network": "Red",
+    "stream_type": "Tipo de flujo",
+    "stream": {
+      "home": {
+        "label": "Cronología principal",
+        "desc": "Cuentas que sigues"
+      },
+      "my-posts": {
+        "label": "Mi historial publicado",
+        "desc": "Publicaciones enviadas desde esta app"
+      },
+      "notifications": {
+        "label": "Notificaciones",
+        "desc": "Menciones e interacciones"
+      },
+      "public": {
+        "label": "Público / Federado",
+        "desc": "Actividad global"
+      },
+      "tag": {
+        "label": "Etiqueta",
+        "desc": "Sigue etiquetas concretas"
+      }
+    }
   },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
@@ -3290,7 +3328,8 @@
     "role_update_failed": "Error al cambiar el rol",
     "vault_access_failed": "Error al cambiar el acceso al Vault",
     "vault_access_for": "Acceso a Vaults — {{email}}",
-    "ok": "OK"
+    "ok": "OK",
+    "label_prefix": "Espacio de trabajo: {{name}}"
   },
   "zotero_extras": {
     "add_field": "Añadir campo",

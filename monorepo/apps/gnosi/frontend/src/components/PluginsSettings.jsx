@@ -513,7 +513,7 @@ function ThirdPartyPlugins() {
         try {
             const fd = new FormData();
             fd.append('file', file);
-            await axios.post('/api/vault/plugins/install', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+            await axios.post('/api/vault/plugins/install', fd, { headers: { 'Content-Type': 'multipart/form-data' }, timeout: 0 });
             await refresh(); reloadPlugins();
         } catch (err) {
             setError(err?.response?.data?.detail || tp('error_install_plugin'));

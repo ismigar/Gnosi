@@ -60,7 +60,7 @@ export function WorkspaceSwitcher() {
             <button 
                 className={`workspace-switcher__trigger ${isOpen ? 'workspace-switcher__trigger--active' : ''}`}
                 onClick={() => setIsOpen(!isOpen)}
-                title={`Workspace: ${activeWorkspace.name}`}
+                title={t('workspace.label_prefix', 'Workspace: {{name}}', { name: activeWorkspace.name })}
             >
                 <div className="workspace-switcher__icon-box">
                     {activeWorkspace.id === 'personal' ? <User size={18} strokeWidth={2.5} /> : <Briefcase size={18} strokeWidth={2.5} />}

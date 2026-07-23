@@ -889,6 +889,13 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     // content the server just sent us, which races against external edits
     // (sync from another device) and produces spurious 409 etag conflicts.
     const hasUserEditedRef = useRef(false);
+    // Refs so the unmount flush can save the LATEST text with the LATEST save fn
+    // without re-subscribing on every keystroke.
+    const prevFilenameRef = useRef(noteFilename);
+    const latestTextRef = useRef(markdownText);
+    latestTextRef.current = markdownText;
+    const saveMarkdownRef = useRef(null);
+    const lastSavedTextRef = useRef(null);  // last text persisted, to avoid redundant flushes
 
     // Textarea auto-grow: the page has a single vertical scroll (the
     // container's), not an internal one. After every text change, we adjust
@@ -898,6 +905,13 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
     }, [markdownText]);
 
     useEffect(() => {
+        const filenameChanged = prevFilenameRef.current !== noteFilename;
+        prevFilenameRef.current = noteFilename;
+        // Only reset when actually switching notes. On an initialContent-only
+        // change (e.g. our own save echoing back via onUpdate → tab.content),
+        // skip the reset while the user has unsaved edits — otherwise keystrokes
+        // typed during the save round-trip get clobbered by the older text.
+        if (!filenameChanged && hasUserEditedRef.current) return;
         // Switching to a different note: reset content AND clear dirty flag.
         // We reuse the defensive coercion (never write "[object Object]").
         const safe = (() => {
@@ -923,6 +937,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
                 metadata: metadata || {},
             };
             await axios.patch(`/api/vault/pages/${noteFilename}`, data);
+            lastSavedTextRef.current = nextText;
             if (onUpdate) onUpdate(noteFilename, data.content, { metadata: data.metadata, title: data.title });
             if (onRefreshNotes) onRefreshNotes();
             if (!silent) toast.success(t('editor.markdown_saved'));
@@ -937,6 +952,7 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps -- t() is stable
     }, [noteFilename, metadata, onUpdate, onRefreshNotes]);
+    saveMarkdownRef.current = saveMarkdown;
 
     useEffect(() => {
         if (!hasUserEditedRef.current) return;  // skip the open-note pseudo-edit
@@ -949,6 +965,23 @@ const MarkdownCodeEditor = ({ noteFilename, initialContent, metadata, onUpdate, 
             if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
         };
     }, [markdownText, saveMarkdown]);
+
+    // Unmount flush: toggling back to rich view / switching tab / closing the
+    // tab unmounts this editor (it's keyed per page). If a debounced save is
+    // still pending, fire it with the latest text so those edits aren't lost.
+    useEffect(() => {
+        return () => {
+            if (saveTimerRef.current) {
+                clearTimeout(saveTimerRef.current);
+                saveTimerRef.current = null;
+            }
+            if (hasUserEditedRef.current && saveMarkdownRef.current
+                && latestTextRef.current !== lastSavedTextRef.current) {
+                void saveMarkdownRef.current(latestTextRef.current);
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- unmount-only
+    }, []);
 
     const handleForceSave = useCallback(async () => {
         await saveMarkdown(markdownText, { silent: false });
@@ -2599,10 +2632,10 @@ export function EditorInner({
                 const markdownContent = blocksToRichMarkdown(editor.document);
                 // eslint-disable-next-line react-hooks/exhaustive-deps -- want the latest metadata at unmount, not the captured value
                 const currentMetadata = metadataRef.current;
-                const data = { 
-                    title: currentMetadata?.title || "Sense títol", 
-                    content: markdownContent, 
-                    metadata: currentMetadata 
+                const data = {
+                    title: currentMetadata?.title || t('editor.untitled'),
+                    content: markdownContent,
+                    metadata: currentMetadata
                 };
 
                 const savePromise = axios.patch(`/api/vault/pages/${noteFilename}`, data);
