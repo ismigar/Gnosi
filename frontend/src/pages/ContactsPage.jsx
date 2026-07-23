@@ -34,6 +34,7 @@ export default function ContactsPage() {
             setContacts(data);
         } catch (error) {
             console.error('Error loading contacts:', error);
+            toast.error(t('contacts.load_error', 'Could not load contacts'));
         } finally {
             setLoading(false);
         }
@@ -94,6 +95,7 @@ export default function ContactsPage() {
             await loadContacts();
         } catch (error) {
             console.error('Error saving contact:', error);
+            toast.error(t('contacts.save_error', 'Could not save the contact'));
         }
     };
 

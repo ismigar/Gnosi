@@ -76,15 +76,39 @@ def extract_full_content(url: str) -> Optional[str]:
     if not url or not url.startswith(("http://", "https://")):
         return None
 
+    # SSRF guard: the URL comes from an external RSS feed. Validate the resolved
+    # host (reject private/loopback/link-local) and follow redirects manually,
+    # re-validating each hop, so a feed cannot make us fetch internal services
+    # or cloud metadata and store the response as article content.
+    from backend.agent.web_context import is_public_http_url
+
+    ok, reason = is_public_http_url(url)
+    if not ok:
+        log.debug("article_extractor: blocked SSRF-unsafe URL %s: %s", url, reason)
+        return None
+
     try:
         # Fetch ourselves so we control timeout and headers. trafilatura's
         # internal fetch_url is convenient but harder to bound.
-        resp = requests.get(
-            url,
-            timeout=_HTTP_TIMEOUT,
-            headers={"User-Agent": _USER_AGENT, "Accept-Language": "ca,es,en"},
-        )
-        if resp.status_code != 200 or not resp.text:
+        current = url
+        resp = None
+        for _ in range(5):
+            resp = requests.get(
+                current,
+                timeout=_HTTP_TIMEOUT,
+                headers={"User-Agent": _USER_AGENT, "Accept-Language": "ca,es,en"},
+                allow_redirects=False,
+            )
+            location = resp.headers.get("location")
+            if resp.is_redirect and location:
+                current = requests.compat.urljoin(current, location)
+                ok, reason = is_public_http_url(current)
+                if not ok:
+                    log.debug("article_extractor: blocked redirect to %s: %s", current, reason)
+                    return None
+                continue
+            break
+        if resp is None or resp.status_code != 200 or not resp.text:
             return None
     except (requests.RequestException, ValueError) as e:
         log.debug("article_extractor: fetch failed for %s: %s", url, e)

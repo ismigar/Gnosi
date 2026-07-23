@@ -83,5 +83,10 @@ def apply_override(base_table: Dict[str, Any], override_schema: Dict[str, Any]) 
     """
     table = dict(base_table)
     if override_schema:
-        table["properties"] = modal_schema_to_props(override_schema)
+        new_props = modal_schema_to_props(override_schema)
+        # Only replace when the override actually yields columns; a truthy but
+        # column-less override (e.g. only *_config keys) must not wipe the schema
+        # derived from Notion.
+        if new_props:
+            table["properties"] = new_props
     return table

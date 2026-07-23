@@ -74,7 +74,9 @@ async def update_config(request: Request):
         if not new_config:
             raise HTTPException(status_code=400, detail="No data provided")
 
-        log.info(f"POST /config received. Data: {new_config}")
+        # Never log the raw payload: it carries the system password and AI API
+        # keys in cleartext. Log only which top-level sections were sent.
+        log.info(f"POST /config received. Sections: {list(new_config.keys())}")
 
         # Retrieve the current configuration
         cfg = load_params(strict_env=False)
@@ -112,9 +114,8 @@ async def update_config(request: Request):
         if migrated:
             log.info("AI provider secrets migrated to secure storage")
         
-        # DEBUG: Log AI specific config to see if keys are present
-        if 'ai' in new_config:
-            log.info(f"AI Config received in payload: {new_config['ai']}")
+        # Do not log the raw AI config: it contains provider api_key values.
+        # The sanitized summary below is enough for debugging.
         if 'ai' in merged_config:
             log.info(f"Final AI Config to save (sanitized): {sanitize_ai_config(merged_config['ai'])}")
 

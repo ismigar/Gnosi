@@ -87,7 +87,8 @@
       "saved": "Enregistré avec succès",
       "unsaved_changes": "Modifications non enregistrées...",
       "error_saving": "Erreur lors de l'enregistrement",
-      "error_connection": "Erreur de connexion"
+      "error_connection": "Erreur de connexion",
+      "loading": "Chargement…"
     },
     "back": "Retour",
     "btn": {
@@ -1470,7 +1471,12 @@
     "usual_group": "Groupe habituel",
     "add_all_group": "Tout ajouter : {{emails}}",
     "file_attached": "Joint : {{name}}",
-    "insert_image_error": "Erreur lors de l'insertion de l'image"
+    "insert_image_error": "Erreur lors de l'insertion de l'image",
+    "load_accounts_error": "Impossible de charger les comptes de messagerie",
+    "batch_action_error": "Impossible de mettre à jour {{count}} message(s)",
+    "spam_added": "Marqué comme spam",
+    "spam_removed": "Retiré du spam",
+    "error_updating": "Impossible de mettre à jour le message"
   },
   "subs_section_title": "Sources d'information",
   "subs_btn_reload": "Recharger",
@@ -1843,7 +1849,8 @@
     "delete_contact": "Erreur lors de la suppression du contact : ",
     "tags_load": "Impossible de charger les étiquettes",
     "import_notes": "Erreur d'import : {{error}}",
-    "view_not_found_registry": "Vue « {{id}}... » introuvable dans le registry."
+    "view_not_found_registry": "Vue « {{id}}... » introuvable dans le registry.",
+    "duplicate_view": "Impossible de dupliquer la vue"
   },
   "notion_clone": "Cloner",
   "notion_cloning": "Clonage…",
@@ -2009,7 +2016,10 @@
     "resize_event_error": "Erreur lors du redimensionnement de l'événement.",
     "more_suffix": "de plus",
     "reminder_before": "Rappel {{value}} avant",
-    "close_panel": "Fermer le panneau"
+    "close_panel": "Fermer le panneau",
+    "calendar_color_updated_success": "Couleur du calendrier mise à jour",
+    "calendar_color_update_error": "Impossible de mettre à jour la couleur du calendrier",
+    "error_deleting_event": "Impossible de supprimer l'événement"
   },
   "share": {
     "title": "Partager",
@@ -2774,7 +2784,8 @@
     "loading_history": "Chargement de l'historique...",
     "no_approval_date": "Aucune date d'approbation",
     "view_graph": "Voir le graphe",
-    "error_prefix": "Erreur"
+    "error_prefix": "Erreur",
+    "control_center": "Centre de contrôle"
   },
   "media": {
     "title": "Gestionnaire de médias",
@@ -3136,7 +3147,9 @@
     "job_placeholder": "Ex. : Directeur informatique",
     "notes_placeholder": "Notes complémentaires sur le contact...",
     "email_field_placeholder": "email@exemple.com",
-    "address_field_placeholder": "Rue, Numéro, Ville..."
+    "address_field_placeholder": "Rue, Numéro, Ville...",
+    "load_error": "Impossible de charger les contacts",
+    "save_error": "Impossible d'enregistrer le contact"
   },
   "citations": {
     "bibliography": "Bibliographie",
@@ -3272,7 +3285,32 @@
     "add_stream": "Ajouter un flux",
     "status_published": "Publié",
     "history_loading": "Chargement de l'historique...",
-    "history_empty": "Aucune publication dans l'historique pour l'instant."
+    "history_empty": "Aucune publication dans l'historique pour l'instant.",
+    "add_stream_title": "Ajouter un nouveau flux",
+    "network": "Réseau",
+    "stream_type": "Type de flux",
+    "stream": {
+      "home": {
+        "label": "Fil d'accueil",
+        "desc": "Comptes suivis"
+      },
+      "my-posts": {
+        "label": "Mon historique publié",
+        "desc": "Publications envoyées via cette app"
+      },
+      "notifications": {
+        "label": "Notifications",
+        "desc": "Mentions et interactions"
+      },
+      "public": {
+        "label": "Public / Fédéré",
+        "desc": "Activité globale"
+      },
+      "tag": {
+        "label": "Hashtag",
+        "desc": "Suivre des tags spécifiques"
+      }
+    }
   },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
@@ -3319,7 +3357,8 @@
     "role_update_failed": "Erreur lors du changement de rôle",
     "vault_access_failed": "Erreur lors du changement d'accès au Vault",
     "vault_access_for": "Accès aux Vaults — {{email}}",
-    "ok": "OK"
+    "ok": "OK",
+    "label_prefix": "Espace de travail : {{name}}"
   },
   "zotero_extras": {
     "add_field": "Ajouter un champ",

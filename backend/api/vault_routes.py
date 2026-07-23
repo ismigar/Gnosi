@@ -1702,7 +1702,15 @@ def ensure_correct_page_location(file_path: Path, metadata: dict) -> Path:
 
     if can_relocate and file_path.parent != target_dir:
         target_dir.mkdir(parents=True, exist_ok=True)
-        new_path = target_dir / file_path.name
+        # Never overwrite a different page that already lives at the destination
+        # (a POSIX rename would atomically replace it, destroying its content).
+        unique_base = _resolve_unique_filename(
+            target_dir,
+            file_path.stem,
+            exclude_path=file_path,
+            extension=file_path.suffix,
+        )
+        new_path = target_dir / f"{unique_base}{file_path.suffix}"
         if file_path.exists() and file_path.is_file():
             file_path.rename(new_path)
         return new_path
@@ -3193,12 +3201,15 @@ def _get_pages_snapshot(
             enabled_calendar_tables = integrations.get("vault_calendar", {}).get("enabled_tables", [])
             
             search_paths = [get_p("CALENDAR")]
-            # Find folders for enabled tables
+            # Find folders for enabled tables. Resolve through _table_vault_dir so
+            # the DB prefix (BD/<db>/<folder>) is included — the on-disk layout is
+            # VAULT/BD/<db>/<folder>, not VAULT/<folder>, so a plain join would
+            # point at a non-existent path and the table's events would vanish.
             for table in registry.get("tables", []):
                 if table.get("id") in enabled_calendar_tables:
-                    folder_rel = table.get("folder")
-                    if folder_rel:
-                        search_paths.append(get_p("VAULT") / folder_rel)
+                    table_dir = _table_vault_dir(table, registry)
+                    if table_dir:
+                        search_paths.append(table_dir)
         except Exception as e:
             log.warning(f"Could not prepare selective search paths for calendar: {e}")
 
@@ -3803,9 +3814,13 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         # Dashboards are markdown; the content_format=json flag was legacy.
         metadata.pop("content_format", None)
 
-    # Apply automations and formulas during creation as well (old_metadata empty)
+    # Apply automations and formulas during creation as well (old_metadata empty).
+    # Runs on the thread pool because formulas/rollups can be CPU-heavy and read
+    # many files, which would otherwise block the event loop.
     try:
-        metadata = get_rule_engine().process_updates(page_id, {}, metadata)
+        metadata = await asyncio.to_thread(
+            get_rule_engine().process_updates, page_id, {}, metadata
+        )
     except Exception as e:
         log.error(f"Error processing automations on create for {page_id}: {e}")
 
@@ -6029,6 +6044,50 @@ def _http_get(url: str, headers: Optional[dict] = None, timeout: float = 8.0) ->
         return None
 
 
+def _http_get_public(url: str, timeout: float = 8.0, max_redirects: int = 5) -> Optional[str]:
+    """HTTP GET for user-supplied URLs, hardened against SSRF.
+
+    Validates every hop against `_is_safe_external_url` (rejecting private,
+    loopback and link-local addresses) and follows redirects manually so a 3xx
+    to an internal host cannot be reached. Returns text or None on error.
+    """
+    import urllib.parse
+    import urllib.request
+    import urllib.error
+
+    class _NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, *args, **kwargs):  # noqa: D401
+            return None  # never auto-follow; we validate each hop ourselves
+
+    opener = urllib.request.build_opener(_NoRedirect)
+    headers = {
+        'User-Agent': 'Gnosi/0.1 (https://github.com/ismigar/Gnosi; mailto:ismigar@gmail.com)',
+        'Accept': 'application/json, text/html, application/xml; q=0.9, */*; q=0.8',
+    }
+    current = url
+    for _ in range(max_redirects + 1):
+        ok, reason = _is_safe_external_url(current)
+        if not ok:
+            log.warning(f'Blocked SSRF-unsafe URL {current[:80]}...: {reason}')
+            return None
+        try:
+            with opener.open(urllib.request.Request(current, headers=headers), timeout=timeout) as resp:
+                return resp.read().decode('utf-8', errors='replace')
+        except urllib.error.HTTPError as e:
+            if e.code in (301, 302, 303, 307, 308):
+                location = e.headers.get('Location')
+                if not location:
+                    return None
+                current = urllib.parse.urljoin(current, location)
+                continue
+            log.warning(f'HTTP GET {current[:80]}... failed: {e}')
+            return None
+        except (urllib.error.URLError, TimeoutError) as e:
+            log.warning(f'HTTP GET {current[:80]}... failed: {e}')
+            return None
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Citation Key generation (P0).
 #
@@ -7041,7 +7100,7 @@ def _pubmed_to_recursos(doc: dict) -> dict:
     return zotero_item_to_recursos(pubmed_to_zotero_item(doc))
 
 
-@router.post("/lookup-metadata")
+@router.post("/lookup-metadata", dependencies=[Depends(require_role("editor"))])
 async def lookup_metadata(payload: dict = Body(...)):
     """Resolves external metadata for a given identifier.
 
@@ -7138,7 +7197,8 @@ async def lookup_metadata(payload: dict = Body(...)):
         return {'source': 'openlibrary', 'identifier': isbn, 'suggested': {}, 'error': "Open Library no té dades per a aquest ISBN"}
 
     if url and url.startswith(('http://', 'https://')):
-        body = await asyncio.to_thread(_http_get, url)
+        # User-supplied URL: fetch through the SSRF-hardened helper.
+        body = await asyncio.to_thread(_http_get_public, url)
         if body:
             return {
                 'source': 'url',
@@ -7146,9 +7206,9 @@ async def lookup_metadata(payload: dict = Body(...)):
                 'suggested': _normalize_suggested_item_type(_inject_citation_key(_html_meta_to_recursos(body, url))),
                 'error': None,
             }
-        return {'source': 'url', 'identifier': url, 'suggested': {}, 'error': "No s'ha pogut descarregar la pàgina"}
+        return {'source': 'url', 'identifier': url, 'suggested': {}, 'error': "Could not download the page"}
 
-    return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'Cap identificador vàlid (DOI/arXiv/PMID/ISBN/URL)'}
+    return {'source': None, 'identifier': None, 'suggested': {}, 'error': 'No valid identifier (DOI/arXiv/PMID/ISBN/URL)'}
 
 
 @router.post("/generate-citation-key")
@@ -8811,9 +8871,12 @@ async def save_page(
     # `request.title` as `metadata.title` (consolidated into `metadata`).
     previous_title = str(old_metadata.get("title") or "").strip() if old_metadata else ""
 
-    # Apply automations and formulas
+    # Apply automations and formulas (on the thread pool: CPU-heavy formulas /
+    # cross-record rollups read many files and would block the event loop).
     try:
-        metadata = get_rule_engine().process_updates(page_id, old_metadata, metadata)
+        metadata = await asyncio.to_thread(
+            get_rule_engine().process_updates, page_id, old_metadata, metadata
+        )
     except Exception as e:
         log.error(f"Error processing automations for {page_id}: {e}")
 
@@ -9197,7 +9260,14 @@ def _trash_root() -> Path:
 
 
 def _trash_entry_dir(page_id: str) -> Path:
-    return _trash_root() / page_id
+    # Defense-in-depth against path traversal: a `page_id` like ".." would make
+    # `_trash_root() / page_id` resolve to the vault itself, and `shutil.rmtree`
+    # would then wipe the whole vault. HTTP handlers already call
+    # `_validate_safe_page_id`; this backstops every other caller.
+    pid = str(page_id or "").strip()
+    if not pid or pid in (".", "..") or "/" in pid or "\\" in pid or "\x00" in pid:
+        raise ValueError(f"Unsafe trash entry id: {page_id!r}")
+    return _trash_root() / pid
 
 
 def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
@@ -9357,6 +9427,10 @@ def _read_trash_entries() -> List[Dict[str, Any]]:
         if data.get("deleted_at"):
             try:
                 deleted_dt = datetime.fromisoformat(str(data["deleted_at"]))
+                # Legacy/external sidecars may store a tz-naive timestamp;
+                # assume UTC so subtracting a tz-aware `now_utc` doesn't raise.
+                if deleted_dt.tzinfo is None:
+                    deleted_dt = deleted_dt.replace(tzinfo=timezone.utc)
                 days_elapsed = (now_utc - deleted_dt).days
                 days_remaining = max(0, TRASH_RETENTION_DAYS - days_elapsed)
             except Exception:
@@ -9611,8 +9685,9 @@ async def delete_page(page_id: str):
     Replaces the previous destructive deletion. The actual purge only happens
     via `DELETE /trash/{id}` or via the `purge_trash` cron after 90 days.
     See `docs/dev_memory/directives/vault_trash.md`.
-    
+
     """
+    page_id = _validate_safe_page_id(page_id)
     file_path = await asyncio.to_thread(find_page_path, page_id)
     if not file_path or not file_path.exists():
         raise HTTPException(status_code=404, detail="Page not found")
@@ -9659,6 +9734,7 @@ async def delete_page(page_id: str):
 )
 async def restore_page(page_id: str):
     """Restores a page from the trash to its `original_path`."""
+    page_id = _validate_safe_page_id(page_id)
     await _materialize_trash_sidecar(page_id)
     try:
         result = await asyncio.to_thread(_restore_page_from_trash, page_id)
@@ -9783,6 +9859,7 @@ async def empty_trash():
 )
 async def purge_trash_entry(page_id: str):
     """Immediately purge a trash entry (irreversible)."""
+    page_id = _validate_safe_page_id(page_id)
     await _materialize_trash_sidecar(page_id)
     try:
         result = await asyncio.to_thread(_purge_trash_entry, page_id)
@@ -9820,6 +9897,10 @@ def purge_expired_trash(now: Optional[datetime] = None) -> Dict[str, Any]:
         try:
             data = json.loads(sidecar_path.read_text(encoding="utf-8"))
             deleted_dt = datetime.fromisoformat(str(data["deleted_at"]))
+            # Assume UTC for tz-naive legacy sidecars so the subtraction below
+            # doesn't raise (which would leave expired entries un-purged forever).
+            if deleted_dt.tzinfo is None:
+                deleted_dt = deleted_dt.replace(tzinfo=timezone.utc)
         except Exception:
             skipped += 1
             continue
@@ -10488,10 +10569,10 @@ async def serve_vault_raw_file(rel_path: str):
 # to `/api/vault/thumb/raw/foo/bar.mp4`. Here we parse the first segment
 # to resolve the correct root and we validate containment.
 
-_THUMB_DAEMON_URL = os.environ.get(
-    "THUMB_DAEMON_URL",
-    "http://host.docker.internal:5009/thumb",
-)
+# Autodetect native vs Docker (host.docker.internal does not resolve natively,
+# which silently broke thumbnails on the default native runtime).
+from backend.config.env_config import default_thumb_daemon_url as _default_thumb_daemon_url  # noqa: E402
+_THUMB_DAEMON_URL = _default_thumb_daemon_url()
 _THUMB_DAEMON_TIMEOUT = float(os.environ.get("THUMB_DAEMON_TIMEOUT", "45"))
 # Roots exposed to thumbs. All of them live inside /vault; `library` isn't there
 # because no frontend consumer requests thumbs for Library (the PDFs
@@ -10660,17 +10741,20 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
         except Exception:
             body = {}
         log.warning(
-            f"Thumb daemon HTTP {r.status_code} per {requested}: {body}"
+            f"Thumb daemon HTTP {r.status_code} for {requested}: {body}"
         )
-        raise HTTPException(status_code=r.status_code, detail=body)
+        # no-store: a transient daemon error must not be cached, or the thumb
+        # would stay broken until the browser cache expires for a file that
+        # would render fine on retry.
+        return _thumb_no_store(r.status_code, str(body) or "Thumb daemon error")
 
     body = r.json()
     if body.get("status") != "ok":
-        raise HTTPException(status_code=500, detail=body)
+        return _thumb_no_store(500, str(body) or "Thumb daemon error")
 
     host_thumb_path = body.get("thumb_path")
     if not host_thumb_path or not Path(host_thumb_path).is_file():
-        raise HTTPException(status_code=500, detail="Thumb path missing or not readable")
+        return _thumb_no_store(500, "Thumb path missing or not readable")
 
     # Cache:
     #  - With `?v=<mtime>` the frontend changes the URL when the file changes,
@@ -10829,8 +10913,22 @@ async def serve_local_file(token: str, filename: str | None = None):
     if not p.exists() or not p.is_file():
         raise HTTPException(status_code=410, detail=f"Local file no longer available: {p.name}")
 
+    # Containment: only serve files under the user's HOME or the active vault.
+    # The GET is not role-gated (embeds must render for viewers too), so without
+    # this a stored or leaked token would be a read primitive for any absolute
+    # path the backend can reach (/etc/passwd, other users' files, secrets).
+    resolved = p.resolve()
+    allowed_roots = [Path(os.environ.get("HOME_HOST_PATH") or str(Path.home())).resolve()]
+    try:
+        allowed_roots.append(get_p("VAULT").resolve())
+    except Exception:
+        pass
+    if not any(resolved.is_relative_to(root) for root in allowed_roots):
+        log.warning(f"Blocked local-file access outside allowed roots: {resolved}")
+        raise HTTPException(status_code=403, detail="File is outside the allowed roots")
+
     # Proactive warmup if the file is online-only (same pattern as
-    # _serve_file_with_containment per a Assets/Images).
+    # _serve_file_with_containment for Assets/Images).
     try:
         provider = get_files_provider()
         st = p.stat()
@@ -12813,27 +12911,44 @@ async def get_link_preview(url: str):
     raw = str(url or "").strip()
     parsed = urlparse(raw)
     if parsed.scheme not in ("http", "https") or not parsed.netloc:
-        raise HTTPException(status_code=400, detail="URL http/https invàlida")
-    # Avoids obviously internal destinations (light defense against SSRF).
+        raise HTTPException(status_code=400, detail="Invalid http/https URL")
     host = (parsed.hostname or "").lower()
-    if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1") or host.endswith(".local"):
-        raise HTTPException(status_code=400, detail="Host no permès")
 
     try:
-        async with httpx.AsyncClient(follow_redirects=True, timeout=8.0) as client:
-            resp = await client.get(
-                raw,
-                headers={"User-Agent": "Mozilla/5.0 (compatible; GnosiBot/1.0)"},
-            )
+        # SSRF defense: resolve and reject private/loopback/link-local hosts
+        # BEFORE every request, and follow redirects manually so a 3xx to an
+        # internal address cannot slip past the check (a literal-string
+        # blocklist misses 169.254.x, RFC1918, decimal/IPv6-mapped IPs, and
+        # public hosts that redirect inward).
+        async with httpx.AsyncClient(follow_redirects=False, timeout=8.0) as client:
+            current = raw
+            for _hop in range(6):
+                ok, reason = await asyncio.to_thread(_is_safe_external_url, current)
+                if not ok:
+                    raise HTTPException(status_code=400, detail=f"URL not allowed: {reason}")
+                resp = await client.get(
+                    current,
+                    headers={"User-Agent": "Mozilla/5.0 (compatible; GnosiBot/1.0)"},
+                )
+                location = resp.headers.get("location")
+                if resp.is_redirect and location:
+                    current = str(resp.url.join(location))
+                    continue
+                break
+            else:
+                raise HTTPException(status_code=400, detail="Too many redirects")
+
             ctype = resp.headers.get("content-type", "")
             if "html" not in ctype and "xml" not in ctype:
                 # Not HTML (e.g. PDF/image): returns the minimal useful info.
                 return {"url": raw, "title": parsed.path.rsplit("/", 1)[-1] or host,
                         "description": "", "image": "", "site_name": host, "favicon": ""}
             text = resp.text[:600_000]  # limits parsing to ~600 KB
-            final_url = str(resp.url)
+            final_url = current
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"No s'ha pogut obtenir la URL: {e}")
+        raise HTTPException(status_code=502, detail=f"Could not fetch the URL: {e}")
 
     def _meta(*names: str) -> str:
         for name in names:
@@ -13621,6 +13736,11 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
 
     for file_path in candidates:
         try:
+            # Snapshot mtime so we can detect a concurrent edit before writing.
+            try:
+                mtime_before = file_path.stat().st_mtime_ns
+            except OSError:
+                mtime_before = None
             is_dashboard_doc = _is_dashboard_file_path(file_path)
             if is_dashboard_doc:
                 metadata, body = _read_dashboard_file(file_path)
@@ -13638,6 +13758,18 @@ async def link_unlinked_mentions(request: LinkMentionsRequest):
             )
             if replacements <= 0:
                 continue
+
+            # Concurrency guard: if the file changed since we read it (e.g. an
+            # autosave from another tab), skip it rather than clobbering the
+            # newer content with our stale copy (last-writer-wins hazard).
+            try:
+                if mtime_before is not None and file_path.stat().st_mtime_ns != mtime_before:
+                    log.warning(
+                        f"Skipping mention-linking for {file_path.name}: modified concurrently"
+                    )
+                    continue
+            except OSError:
+                pass
 
             _create_page_version(current_id, file_path)
             if is_dashboard_doc:

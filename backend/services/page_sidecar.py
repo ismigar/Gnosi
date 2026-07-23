@@ -73,11 +73,27 @@ def _find_vault_root(start: Path) -> Optional[Path]:
         current = start.resolve() if start else None
     except OSError:
         current = start
+    # Never treat $HOME as a vault root: `~/.gnosi` is the app's home config
+    # fallback, so a page whose vault has no `.gnosi/` yet (a freshly created or
+    # restored vault) would otherwise walk up to HOME and misroute its sidecars
+    # into `~/.gnosi/page_meta/`.
+    try:
+        home = Path(os.environ.get("HOME_HOST_PATH") or Path.home()).resolve()
+    except Exception:
+        home = None
     while current and current != current.parent:
+        if home is not None and current == home:
+            break
         if (current / ".gnosi").is_dir():
             return current
         current = current.parent
     return None
+
+
+def clear_vault_root_cache() -> None:
+    """Drop the `_find_vault_root` cache (call on vault create/switch so a newly
+    scaffolded `.gnosi/` is picked up without a restart)."""
+    _find_vault_root.cache_clear()
 
 
 def vault_root_for(file_path: Optional[Path]) -> Optional[Path]:

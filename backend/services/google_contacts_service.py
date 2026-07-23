@@ -252,8 +252,8 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
             "Content-Type": "application/json",
         }
         
-        response = requests.patch(url, headers=headers, json=body)
-        
+        response = requests.patch(url, headers=headers, json=body, timeout=30)
+
         if response.status_code != 200:
             log.error(f"Error direct patching Google contact: {response.text}")
             response.raise_for_status()

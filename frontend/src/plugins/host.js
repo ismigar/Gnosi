@@ -197,7 +197,24 @@ const _HOST_METHODS = {
         return { settings: res.data?.settings || {} };
     } },
     'network.fetch': { perm: 'network', run: async (args) => {
-        const res = await fetch(args.url, args.opts || {});
+        // A plugin with the `network` permission must not reach the backend's own
+        // same-origin API with the user's session cookie (that would bypass the
+        // vault:read / vault:write / settings gating). Require an absolute
+        // cross-origin http(s) URL and send no ambient credentials.
+        let parsed;
+        try {
+            parsed = new URL(args.url, window.location.origin);
+        } catch {
+            throw new Error('network.fetch: invalid URL');
+        }
+        if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+            throw new Error('network.fetch: only http(s) URLs are allowed');
+        }
+        if (parsed.origin === window.location.origin) {
+            throw new Error('network.fetch: same-origin requests are not allowed');
+        }
+        const opts = { ...(args.opts || {}), credentials: 'omit' };
+        const res = await fetch(parsed.toString(), opts);
         return { status: res.status, body: await res.text() };
     } },
 };

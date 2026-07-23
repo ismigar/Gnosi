@@ -8,7 +8,6 @@ import os
 import re
 import json
 import time
-import pickle
 import logging
 import hashlib
 import shutil
@@ -199,29 +198,36 @@ class MediaService:
             return lk
 
     def _persist_path(self, target_dir: Path) -> Path:
-        """Pickle file where we persist the cache for this target_dir."""
+        """JSON file where we persist the cache for this target_dir.
+
+        JSON (not pickle): the payload is a list of [path, mtime] pairs, so there
+        is no reason to deserialize an arbitrary object graph from disk.
+        """
         h = hashlib.sha1(str(target_dir).encode("utf-8")).hexdigest()[:16]
-        return _PERSIST_DIR / f"scan_{h}.pkl"
+        return _PERSIST_DIR / f"scan_{h}.json"
 
     def _load_persisted(self, target_dir: Path) -> Optional[Tuple[float, List[Tuple[Path, float]]]]:
         f = self._persist_path(target_dir)
         if not f.exists():
             return None
         try:
-            with open(f, "rb") as fh:
-                ts, entries = pickle.load(fh)
+            with open(f, "r", encoding="utf-8") as fh:
+                data = json.load(fh)
+            ts = float(data["ts"])
+            entries = [(Path(p), float(m)) for p, m in data["entries"]]
             return (ts, entries)
         except Exception as e:
-            log.debug(f"No es pot carregar cache persistit {f}: {e}")
+            log.debug(f"Could not load persisted cache {f}: {e}")
             return None
 
     def _save_persisted(self, target_dir: Path, ts: float, entries: List[Tuple[Path, float]]) -> None:
         try:
             f = self._persist_path(target_dir)
-            with open(f, "wb") as fh:
-                pickle.dump((ts, entries), fh, protocol=pickle.HIGHEST_PROTOCOL)
+            payload = {"ts": ts, "entries": [[str(p), m] for p, m in entries]}
+            with open(f, "w", encoding="utf-8") as fh:
+                json.dump(payload, fh)
         except OSError as e:
-            log.debug(f"No es pot persistir cache per {target_dir}: {e}")
+            log.debug(f"Could not persist cache for {target_dir}: {e}")
 
     def _scan_with_cache(self, target_dir: Path, skip_dirs: Optional[set] = None) -> List[Tuple[Path, float]]:
         """Returns the index (path, mtime) for `target_dir` with a TTL cache +
@@ -244,7 +250,7 @@ class MediaService:
             persisted = self._load_persisted(Path(key))
             if persisted and (now - persisted[0]) < _SCAN_CACHE_TTL_S:
                 self._scan_cache[key] = persisted
-                log.info(f"[media] cache persistit reutilitzat per {target_dir} ({len(persisted[1])} fitxers)")
+                log.info(f"[media] reused persisted cache for {target_dir} ({len(persisted[1])} files)")
                 return persisted[1]
 
         lock = self._get_lock(key)
@@ -259,7 +265,7 @@ class MediaService:
             self._scan_cache[key] = (ts, entries)
             self._save_persisted(Path(key), ts, entries)
             log.info(
-                f"[media] scan {target_dir}: {len(entries)} fitxers en {ts-t0:.1f}s"
+                f"[media] scan {target_dir}: {len(entries)} files in {ts-t0:.1f}s"
             )
             return entries
 
@@ -268,7 +274,7 @@ class MediaService:
         if target_dir is None:
             self._scan_cache.clear()
             try:
-                for f in _PERSIST_DIR.glob("scan_*.pkl"):
+                for f in _PERSIST_DIR.glob("scan_*.json"):
                     f.unlink(missing_ok=True)
             except OSError:
                 pass

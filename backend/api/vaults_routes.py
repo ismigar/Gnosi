@@ -133,9 +133,17 @@ def create_vault(payload: CreateVaultPayload,
     """Creates a new vault (folder + row). Defaults to a sibling of the main vault."""
     name = (payload.name or "").strip()
     if not name:
-        raise HTTPException(status_code=400, detail="El nom del vault és buit")
+        raise HTTPException(status_code=400, detail="Vault name is empty")
     if payload.path:
-        path = Path(payload.path)
+        # Contain a caller-supplied path to the vaults root: without this an
+        # editor could register an arbitrary host directory (e.g. /Users/victim
+        # or /) as a vault and then read/write it through the vault API.
+        path = Path(payload.path).resolve()
+        vroot = _vaults_root().resolve()
+        if path != vroot and not path.is_relative_to(vroot):
+            raise HTTPException(
+                status_code=400, detail="Vault path must be inside the vaults root"
+            )
     else:
         safe = re.sub(r"[^\w\s\-À-ÿ]", "", name).strip() or "Vault"
         path = _vaults_root() / safe
@@ -143,14 +151,14 @@ def create_vault(payload: CreateVaultPayload,
         path.mkdir(parents=True, exist_ok=True)
         _scaffold_vault_structure(path)   # Assets, DB, Wiki… → vault ready to use
     except Exception as e:  # noqa: BLE001
-        raise HTTPException(status_code=400, detail=f"No s'ha pogut crear la carpeta del vault: {e}")
+        raise HTTPException(status_code=400, detail=f"Could not create the vault folder: {e}")
     v = Vault(id=str(uuid.uuid4()), workspace_id=ctx.workspace_id, name=name, path_override=str(path))
     db.add(v)
     try:
         db.commit()
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Error desant el vault")
+        raise HTTPException(status_code=500, detail="Error saving the vault")
     try:
         from backend.services.active_vault_middleware import reset_vault_path_cache
         reset_vault_path_cache()

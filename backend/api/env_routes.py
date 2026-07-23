@@ -90,15 +90,20 @@ async def get_env():
     try:
         env_vars, _ = parse_env_file(ENV_PATH)
 
-        # Mask sensitive tokens for security
+        # Mask sensitive values. The previous predicate only covered TOKEN/KEY,
+        # so PASSWORD/SECRET/DSN/credential-bearing URLs were returned in the
+        # clear. Fully redact anything that looks secret (no partial reveal),
+        # and also redact any value that embeds `user:pass@` credentials.
+        sensitive_markers = (
+            "TOKEN", "KEY", "SECRET", "PASSWORD", "PASS", "DSN",
+            "CREDENTIAL", "PRIVATE",
+        )
+        cred_url_re = re.compile(r"://[^/@\s]+:[^/@\s]+@")
         masked_vars = {}
         for key, value in env_vars.items():
-            if "TOKEN" in key or "KEY" in key:
-                # Show only first 8 and last 4 characters
-                if len(value) > 12:
-                    masked_vars[key] = value[:8] + "..." + value[-4:]
-                else:
-                    masked_vars[key] = "***"
+            upper = key.upper()
+            if any(marker in upper for marker in sensitive_markers) or cred_url_re.search(value or ""):
+                masked_vars[key] = "********" if value else ""
             else:
                 masked_vars[key] = value
 

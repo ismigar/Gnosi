@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useTranslation, Trans } from 'react-i18next';
 import { useModalKeyboard } from '../hooks/useModalKeyboard';
+import { useApi } from '../hooks/use-api';
 import { FolderPickerModal } from './FolderPickerModal';
 import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
@@ -330,6 +331,7 @@ const SidebarItem = ({ id, icon: Icon, label, active, onClick }) => (
 
 export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' }) {
     const { t, i18n } = useTranslation();
+    const { role } = useApi();
     const tn = useCallback((k, opts) => t('settings.' + k, opts), [t]);
     
     // -- UNIFIED DRAFT STATE --
@@ -2065,7 +2067,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     </p>
                                     <WorkspaceMembersPanel
                                         workspaceId={draft.settings.active_workspace_id || draft.settings.workspace_id || null}
-                                        isAdmin={true}
+                                        isAdmin={role === 'admin' || role === 'owner'}
                                         currentUserId={draft.settings.user_id || null}
                                     />
                                 </Section>

@@ -1400,17 +1400,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             //    we used to send PUT with the full `title + content + metadata` for
             //    each edited cell (potentially MBs of body, double the latency of
             //    serialization).
-            const response = await fetch(`/api/vault/pages/${noteId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ metadata: { [originalMetaKey]: newValue } })
+            // Use axios (not raw fetch) so this write flows through the etag
+            // optimistic-concurrency interceptor: it attaches expected_etag and
+            // captures the new etag. A raw fetch bypassed both, so cell edits had
+            // no two-device clobber protection and later editor saves 409'd.
+            // axios rejects on non-2xx, so no manual response.ok check is needed.
+            await axios.patch(`/api/vault/pages/${noteId}`, {
+                metadata: { [originalMetaKey]: newValue }
             });
-            if (!response.ok) {
-                // fetch only throws on network errors, not on 4xx/5xx → if we don't
-                // handle it here, the user sees nothing but the cell hasn't been saved.
-                const payload = await response.json().catch(() => ({}));
-                throw new Error(payload?.detail || `HTTP ${response.status}`);
-            }
             // Propagate changes to parent if this is a child
             if (!skipPropagation) {
                 const parentId = note.metadata?.parent_id || note.parent_id;
@@ -1484,7 +1481,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             if (allChildrenDone) {
                 const parentMetaKey = getMetaKey(parent, changedField);
                 const parentCurrentVal = parent.metadata?.[parentMetaKey];
-                const parentStatus = getFieldType(schema, changedField) === 'checkbox' ? true : 'Completat';
+                // Write a completed value that actually exists in THIS field's
+                // catalog (the value from the children) rather than the hardcoded
+                // Catalan literal 'Completat', which on an English/Notion status
+                // catalog would inject a ghost option (option VALUE == NAME here).
+                const completedWrite = (typeof newValue === 'string' && completedValues.has(newValue.toLowerCase()))
+                    ? newValue
+                    : (children
+                        .map(c => c.metadata?.[getMetaKey(c, changedField)])
+                        .find(v => completedValues.has(String(v || '').toLowerCase())) || newValue);
+                const parentStatus = getFieldType(schema, changedField) === 'checkbox' ? true : completedWrite;
                 if (String(parentCurrentVal || '').toLowerCase() !== String(parentStatus).toLowerCase()) {
                     await handleCellSave(parentId, changedField, parentStatus, parentMetaKey, true);
                 }
@@ -1575,8 +1581,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
             if (res.status === 200 || res.status === 201) {
                 setExpandedRows(prev => new Set([...prev, parentId]));
-                // Notify the parent so it reloads the data
-                if (onUpdateView) onUpdateView(activeView);
+                // Notify the parent so it reloads the data. Prefer onCellSaved
+                // over onUpdateView to avoid persisting the virtual 'default' view.
+                if (onCellSaved) onCellSaved();
+                else if (onUpdateView) onUpdateView(activeView);
                 toast.success(t('table.subitem_created'));
             }
         } catch (error) {
@@ -1622,10 +1630,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
 
             if (res.status === 200 || res.status === 201) {
                 setNewRowTitle('');
-                if (onUpdateView) {
-                    
-                    onUpdateView(activeView);
-                }
+                // Refresh rows via onCellSaved, NOT onUpdateView: the latter
+                // PUTs the (possibly virtual 'default') view and caused cross-table
+                // view-id collisions.
+                if (onCellSaved) onCellSaved();
                 toast.success(t('table.record_created'));
             }
         } catch (error) {

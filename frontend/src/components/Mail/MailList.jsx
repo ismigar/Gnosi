@@ -273,7 +273,10 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                 : enabledAccounts.map(a => a.email || a.username).filter(Boolean);
             const cacheKey = `${emails.join(',')}|${folder || ''}|${category || ''}`;
             delete msgCacheRef.current[cacheKey];
-            fetchRef.current?.(true);
+            // fetchMessages takes an options object: pass { force: true } so the
+            // push actually bypasses the local cache and the server cache (a bare
+            // `true` was ignored, leaving the "new mail" refresh showing stale data).
+            fetchRef.current?.({ force: true });
         };
 
         es.addEventListener('new_message', onNew);
@@ -819,6 +822,11 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
     const handleBatchAction = async (action) => {
         if (selectedIds.size === 0) return;
         const ids = Array.from(selectedIds);
+        // Snapshot the removed messages so a failed request can restore them
+        // (mirrors the batch-move flow); without this a server error silently
+        // dropped messages from the UI while nothing happened on the server.
+        const msgById = Object.fromEntries(messages.map(m => [m.id, m]));
+        const removedMsgs = ids.map(id => msgById[id]).filter(Boolean);
 
         // Optimistic UI: update/remove immediately
         if (action === 'trash' || action === 'archive') {
@@ -838,8 +846,10 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             const vaultIds = messages.filter(m => ids.includes(m.id) && m.source === 'vault').map(m => m.id);
             const imapIds = ids.filter(id => !vaultIds.includes(id));
 
-            await Promise.all([
-                ...vaultIds.map(id => fetch(`/api/mail/drafts/${id}`, { method: 'DELETE' }).catch(() => {})),
+            const results = await Promise.all([
+                ...vaultIds.map(id => fetch(`/api/mail/drafts/${id}`, { method: 'DELETE' })
+                    .then(r => ({ ok: r.ok, ids: [id] }))
+                    .catch(() => ({ ok: false, ids: [id] }))),
                 ...(() => {
                     if (!imapIds.length) return [];
                     const emailsToCall = account?.email
@@ -860,10 +870,17 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ action, ids: groupIds }),
-                        }).catch(() => {})
-                    );
+                        }).then(r => ({ ok: r.ok, ids: groupIds }))
+                          .catch(() => ({ ok: false, ids: groupIds })));
                 })(),
             ]);
+            // Restore any messages whose delete/archive actually failed.
+            const failedIds = new Set(results.filter(r => !r.ok).flatMap(r => r.ids));
+            if (failedIds.size > 0) {
+                const failedMsgs = removedMsgs.filter(m => failedIds.has(m.id));
+                if (failedMsgs.length) setMessages(prev => [...failedMsgs, ...prev]);
+                toast.error(t('mail.batch_action_error', { count: failedIds.size, defaultValue: 'Could not update {{count}} message(s)' }));
+            }
         } else {
             // For 'read' and other actions, calls the generic batch
             const emailsToCall = account?.email

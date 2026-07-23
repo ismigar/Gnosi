@@ -179,9 +179,17 @@ def _handle_list_tables(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
 
 def _handle_network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     import requests
+    from backend.agent.web_context import is_public_http_url
+
     url = str(args.get("url") or "")
     if not url.lower().startswith(("http://", "https://")):
-        raise ValueError("url ha de ser http(s)")
+        raise ValueError("url must be http(s)")
+    # SSRF guard: a sandboxed plugin must not reach localhost, link-local or
+    # other intranet hosts (the backend's own API, cloud metadata, etc.).
+    # Disable redirects so a public host cannot bounce us inward.
+    ok, reason = is_public_http_url(url)
+    if not ok:
+        raise ValueError(f"url not allowed: {reason}")
     opts = args.get("opts") or {}
     method = str(opts.get("method") or "GET").upper()
     resp = requests.request(
@@ -189,6 +197,7 @@ def _handle_network_fetch(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any
         headers=opts.get("headers") or None,
         data=opts.get("body"),
         timeout=10,
+        allow_redirects=False,
     )
     return {"status": resp.status_code, "body": resp.text[:1_000_000]}
 

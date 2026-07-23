@@ -592,16 +592,23 @@ async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50
         total_synced = 0
         failed_accounts = []
         for acc_email in accounts_to_sync:
-            log.info(f"Manual sync per a {acc_email}...")
+            log.info(f"Manual sync for {acc_email}...")
             acc = integration_manager.get_mail_account(acc_email)
             if integration_manager.is_imap_account(acc):
-                count = imap_sync_service.sync_account(acc_email, limit=limit)
+                # Offload the blocking imaplib socket I/O to a worker thread so it
+                # doesn't freeze the event loop (and every other request) for the
+                # duration of the sync.
+                count = await asyncio.to_thread(
+                    imap_sync_service.sync_account, acc_email, limit=limit
+                )
                 if count is None:
-                    log.warning(f"[Sync] Connexió IMAP fallida per a {acc_email}")
+                    log.warning(f"[Sync] IMAP connection failed for {acc_email}")
                     failed_accounts.append(acc_email)
                     count = 0
             else:
-                count = sync_service.sync_emails(acc_email, limit=limit)
+                count = await asyncio.to_thread(
+                    sync_service.sync_emails, acc_email, limit=limit
+                )
             total_synced += count or 0
 
         if failed_accounts and not total_synced and len(failed_accounts) == len(accounts_to_sync):

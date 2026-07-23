@@ -183,7 +183,7 @@ async def test_email_connection(payload: dict = Body(...)):
         password = payload.get("password")
 
         if not all([imap_host, smtp_host, username, password]):
-            return {"success": False, "error": "Falten credencials"}
+            return {"success": False, "error": "Missing credentials"}
 
         # imaplib/smtplib are blocking → run off-thread so they don't freeze the event loop.
         result = await asyncio.to_thread(
@@ -199,10 +199,39 @@ async def test_email_connection(payload: dict = Body(...)):
         )
         return {"success": result["imap"] and result["smtp"], **result}
     except socket.timeout:
-        return {"success": False, "error": "Timeout de connexió"}
+        return {"success": False, "error": "Connection timeout"}
     except Exception as e:
         log.error(f"Error testing email connection: {e}")
         return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-email")}
+
+
+def _validate_dav_url(url: str) -> None:
+    """Reject the most dangerous SSRF targets for a user-supplied DAV URL.
+
+    Blocks loopback and link-local (169.254 / cloud metadata), but ALLOWS
+    private LAN ranges because self-hosted CalDAV/CardDAV servers legitimately
+    live there. Raises HTTPException(400) when the target is not allowed.
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlparse
+
+    parsed = urlparse((url or "").strip())
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise HTTPException(status_code=400, detail="Invalid http(s) URL")
+    try:
+        infos = socket.getaddrinfo(
+            parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80)
+        )
+    except socket.gaierror:
+        raise HTTPException(status_code=400, detail="Could not resolve host")
+    for info in infos:
+        try:
+            ip = ipaddress.ip_address(info[4][0])
+        except ValueError:
+            continue
+        if ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified:
+            raise HTTPException(status_code=400, detail="URL not allowed")
 
 
 @router.post("/test-contacts", dependencies=[Depends(require_role("editor"))])
@@ -214,7 +243,8 @@ async def test_contacts_connection(payload: dict = Body(...)):
         password = payload.get("password")
 
         if not all([url, username, password]):
-            return {"success": False, "error": "Falten credencials"}
+            return {"success": False, "error": "Missing credentials"}
+        _validate_dav_url(url)
 
         import requests
         from requests.auth import HTTPBasicAuth
@@ -234,7 +264,7 @@ async def test_contacts_connection(payload: dict = Body(...)):
             else:
                 return {"success": False, "error": f"Status: {response.status_code}"}
         except requests.exceptions.Timeout:
-            return {"success": False, "error": "Timeout de connexió"}
+            return {"success": False, "error": "Connection timeout"}
         except requests.exceptions.RequestException as e:
             return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-contacts request")}
     except Exception as e:
@@ -251,7 +281,8 @@ async def test_calendar_connection(payload: dict = Body(...)):
         password = payload.get("password")
 
         if not all([url, username, password]):
-            return {"success": False, "error": "Falten credencials"}
+            return {"success": False, "error": "Missing credentials"}
+        _validate_dav_url(url)
 
         import requests
         from requests.auth import HTTPBasicAuth
@@ -277,7 +308,7 @@ async def test_calendar_connection(payload: dict = Body(...)):
                     return {"success": True}
                 return {"success": False, "error": f"Status: {response.status_code}"}
         except requests.exceptions.Timeout:
-            return {"success": False, "error": "Timeout de connexió"}
+            return {"success": False, "error": "Connection timeout"}
         except requests.exceptions.RequestException as e:
             return {"success": False, "error": safe_error_detail(e, context="POST /api/integrations/test-calendar request")}
     except Exception as e:
@@ -358,7 +389,7 @@ async def update_default_mail(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_mail"))
 
 
-@router.put("/default_contacts")
+@router.put("/default_contacts", dependencies=[Depends(require_role("editor"))])
 async def update_default_contacts(payload: dict = Body(...)):
     """Save the default contacts account."""
     try:
@@ -369,7 +400,7 @@ async def update_default_contacts(payload: dict = Body(...)):
         raise HTTPException(status_code=500, detail=safe_error_detail(e, context="PUT /api/integrations/default_contacts"))
 
 
-@router.post("/bulk")
+@router.post("/bulk", dependencies=[Depends(require_role("editor"))])
 async def bulk_update_integrations(payload: dict = Body(...)):
     """Updates multiple integrations at once."""
     try:

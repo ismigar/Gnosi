@@ -65,6 +65,11 @@ services:
       - .env # 2. Variables locals (sobreescriuen) — opcional: REPO_ROOT
     environment:
       - LOGGING_LEVEL=debug
+      # REQUIRED on this exposed deployment: a strong, private JWT signing secret.
+      # Without it the backend refuses to start (it will not fall back to the
+      # public dev secret, which would be an authentication bypass). Set it in
+      # .env / .env_shared, e.g. GNOSI_JWT_SECRET=$(openssl rand -hex 32).
+      - GNOSI_JWT_SECRET=${GNOSI_JWT_SECRET:?set GNOSI_JWT_SECRET to a strong random value}
       - DIGITAL_BRAIN_VAULT_PATH=/vault
       - VAULT_HOST_PATH=${VAULT_HOST_PATH:-$HOME/Library/CloudStorage/OneDrive-UNED/Gnosi/Principal}
       # Multi-vault: on són els vaults DINS del container (GNOSI_VAULTS_ROOT) i

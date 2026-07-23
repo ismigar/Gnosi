@@ -89,11 +89,26 @@ def fetch_url_text(url: str, *, max_chars: int = MAX_URL_CHARS) -> str:
 
     try:
         import requests
-        resp = requests.get(
-            url,
-            timeout=HTTP_TIMEOUT,
-            headers={"User-Agent": USER_AGENT, "Accept-Language": "ca,es,en"},
-        )
+        # Follow redirects manually, re-validating each hop: `is_public_http_url`
+        # only checked the initial URL, so a public host that 302s to an internal
+        # address (or a DNS-rebind) would otherwise slip past the SSRF guard.
+        current = url
+        resp = None
+        for _ in range(5):
+            resp = requests.get(
+                current,
+                timeout=HTTP_TIMEOUT,
+                headers={"User-Agent": USER_AGENT, "Accept-Language": "ca,es,en"},
+                allow_redirects=False,
+            )
+            location = resp.headers.get("location")
+            if resp.is_redirect and location:
+                current = requests.compat.urljoin(current, location)
+                ok, reason = is_public_http_url(current)
+                if not ok:
+                    return f"No es pot llegir {url}: {reason}"
+                continue
+            break
     except Exception as exc:  # noqa: BLE001
         log.debug("web_context: fetch failed for %s: %s", url, exc)
         return f"No s'ha pogut descarregar {url}: {exc}"

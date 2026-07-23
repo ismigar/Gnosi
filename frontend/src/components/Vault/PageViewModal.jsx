@@ -1290,15 +1290,14 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
                 columns: visibleProperties,
             };
 
-            const res = await apiFetch(`/api/pages/${pageId}/views`, {
+            // apiFetch returns PARSED JSON and throws on non-2xx, so there is no
+            // Response object to inspect (`res.ok`/`res.json()` would be a
+            // TypeError). Just await it; failures propagate to the catch below.
+            await apiFetch(`/api/pages/${pageId}/views`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(sectionBody),
             });
-            if (res && typeof res.ok === 'boolean' && !res.ok) {
-                const data = await res.json().catch(() => ({}));
-                throw new Error(data.detail || res.statusText);
-            }
 
             if (viewId && !isTableMode) {
                 try {

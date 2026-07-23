@@ -60,7 +60,12 @@ async def lifespan(app: FastAPI):
     # STARTUP
     log.info("🚀 Starting Gnosi Agent (FastAPI Port)...")
 
-    # 0. Start Scheduler
+    # 0. Fail fast if an exposed deployment is missing a real JWT secret.
+    # Signing sessions with the public dev fallback would be an auth bypass.
+    from backend.services.auth_service import assert_signing_secret_safe
+    assert_signing_secret_safe()
+
+    # 0b. Start Scheduler
     scheduler_manager.start()
 
     # 1. Init MCP Client

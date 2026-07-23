@@ -39,6 +39,30 @@ log = get_logger(__name__)
 _SECRET_FALLBACK_DEV = "dev-only-secret-please-set-GNOSI_JWT_SECRET-in-production"
 SECRET_KEY: str = os.environ.get("GNOSI_JWT_SECRET", _SECRET_FALLBACK_DEV)
 ALGORITHM: str = "HS256"
+
+
+def signing_secret_is_insecure() -> bool:
+    """True when the JWT signing secret is the public dev fallback.
+
+    Signing tokens with this well-known value on an exposed deployment is a full
+    authentication bypass: anyone can forge a session for any user. It is only
+    acceptable on a local single-user install where auth is not enforced.
+    """
+    return not SECRET_KEY or SECRET_KEY == _SECRET_FALLBACK_DEV
+
+
+def assert_signing_secret_safe() -> None:
+    """Fail closed when an exposed deployment lacks a real `GNOSI_JWT_SECRET`.
+
+    Called both at startup and on every token issue/verify so that an exposed
+    install can never fall back to the public dev secret.
+    """
+    if signing_secret_is_insecure() and deployment_is_exposed():
+        raise RuntimeError(
+            "GNOSI_JWT_SECRET must be set to a strong, private value on an "
+            "exposed deployment (Docker or org mode). Refusing to sign or "
+            "verify tokens with the public dev fallback secret."
+        )
 DEFAULT_TTL_DAYS: int = 7
 COOKIE_NAME: str = "gnosi_session"
 
@@ -417,8 +441,9 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 def create_access_token(user_id: str, ttl_days: Optional[int] = None) -> str:
     """Issues a JWT signed with the secret. `sub` = user_id."""
+    assert_signing_secret_safe()
     if not user_id:
-        raise ValueError("user_id buit")
+        raise ValueError("user_id is empty")
     now = datetime.now(timezone.utc)
     ttl = timedelta(days=ttl_days or DEFAULT_TTL_DAYS)
     payload = {
@@ -439,6 +464,9 @@ def decode_access_token(token: str) -> Optional[str]:
     """
     if not token:
         return None
+    # Never accept a token verified with the public dev fallback on an exposed
+    # deployment — that would let anyone forge a session.
+    assert_signing_secret_safe()
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return payload.get("sub")

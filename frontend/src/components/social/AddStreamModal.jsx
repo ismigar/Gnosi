@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { X, Check, Rss, Bell, Globe, Search, Hash } from 'lucide-react';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
@@ -19,6 +20,7 @@ const STREAM_TYPES = [
 ];
 
 const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
+    const { t } = useTranslation();
     const [selectedNetwork, setSelectedNetwork] = useState(NETWORKS[0]);
     const [selectedType, setSelectedType] = useState(STREAM_TYPES[0]);
     const [streamName, setStreamName] = useState('');
@@ -68,7 +70,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
             <div ref={modalRef} onMouseDown={(e) => e.stopPropagation()} className="relative w-full max-w-md bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-white/5 bg-white/5">
-                    <h2 className="text-xl font-semibold text-white">Add New Stream</h2>
+                    <h2 className="text-xl font-semibold text-white">{t('social.add_stream_title', 'Add New Stream')}</h2>
                     <button
                         onClick={onClose}
                         className="text-zinc-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10"
@@ -80,7 +82,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
                 <form onSubmit={handleSubmit} className="p-6 space-y-6">
                     {/* Network Selection */}
                     <div className="space-y-3">
-                        <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Network</label>
+                        <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">{t('social.network', 'Network')}</label>
                         <div className="grid grid-cols-2 gap-3">
                             {NETWORKS.map(net => (
                                 <button
@@ -104,7 +106,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
 
                     {/* Stream Type Selection */}
                     <div className="space-y-3">
-                        <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Stream Type</label>
+                        <label className="text-sm font-medium text-zinc-400 uppercase tracking-wider">{t('social.stream_type', 'Stream Type')}</label>
                         <div className="grid grid-cols-1 gap-2">
                             {STREAM_TYPES.filter(type => {
                                 // Filter logic:
@@ -136,8 +138,8 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
                                         <type.icon size={18} />
                                     </div>
                                     <div>
-                                        <div className="font-medium">{type.label}</div>
-                                        <div className="text-xs text-zinc-500">{type.description}</div>
+                                        <div className="font-medium">{t('social.stream.' + type.id + '.label', type.label)}</div>
+                                        <div className="text-xs text-zinc-500">{t('social.stream.' + type.id + '.desc', type.description)}</div>
                                     </div>
                                 </button>
                             ))}
@@ -163,7 +165,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
                         className="w-full bg-primary hover:bg-blue-600 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4"
                     >
                         <Plus size={20} />
-                        Add Stream
+                        {t('social.add_stream', 'Add Stream')}
                     </button>
                 </form>
             </div>

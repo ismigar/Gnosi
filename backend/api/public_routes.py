@@ -27,7 +27,7 @@ from backend.models.management import ApiToken
 from backend.services import web_clipper
 from backend.services.workspace_service import get_workspace_context, WorkspaceContext
 from backend.services.context_vars import get_active_vault_path
-from backend.utils.safe_io import sanitize_vault_title
+from backend.utils.safe_io import sanitize_vault_title, sanitize_rel_folder
 
 logger = get_logger(__name__)
 
@@ -51,18 +51,33 @@ def require_pat(
     
     """
     if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Falta el token (Authorization: Bearer …)")
+        raise HTTPException(status_code=401, detail="Missing token (Authorization: Bearer …)")
     raw = authorization.split(" ", 1)[1].strip()
     if not raw.startswith(TOKEN_PREFIX):
-        raise HTTPException(status_code=401, detail="Format de token invàlid")
+        raise HTTPException(status_code=401, detail="Invalid token format")
     token = db.query(ApiToken).filter(
         ApiToken.token_hash == _hash_token(raw),
         ApiToken.revoked == 0,
     ).first()
     if not token:
-        raise HTTPException(status_code=401, detail="Token invàlid o revocat")
+        raise HTTPException(status_code=401, detail="Invalid or revoked token")
     token.last_used_at = datetime.now(timezone.utc)
     db.commit()
+    return token
+
+
+def _token_scopes(token: ApiToken) -> set:
+    return {s.strip() for s in (token.scopes or "").split(",") if s.strip()}
+
+
+def require_pat_write(token: ApiToken = Depends(require_pat)) -> ApiToken:
+    """PAT dependency that additionally enforces the `write` scope.
+
+    Scopes were stored and displayed but never checked, so a "read"-only token
+    could still create/modify vault pages. Enforce least privilege on writes.
+    """
+    if "write" not in _token_scopes(token):
+        raise HTTPException(status_code=403, detail="Token lacks the 'write' scope")
     return token
 
 
@@ -147,9 +162,15 @@ def _write_vault_page(folder: str, title: str, content: str, extra_meta: dict) -
     import yaml
     vault = get_active_vault_path()
     if not vault:
-        raise HTTPException(status_code=503, detail="No hi ha cap vault actiu")
+        raise HTTPException(status_code=503, detail="No active vault")
+    # Contain `folder` to the vault: sanitize the relative path and verify the
+    # resolved target stays inside the vault root (a PAT holder must not write
+    # `.md` files anywhere on disk via `folder="../../.."`).
+    vault = Path(vault).resolve()
+    target_dir = (vault / sanitize_rel_folder(folder)).resolve()
+    if target_dir != vault and not target_dir.is_relative_to(vault):
+        raise HTTPException(status_code=400, detail="Invalid folder")
     page_id = str(uuid.uuid4())
-    target_dir = Path(vault) / folder
     target_dir.mkdir(parents=True, exist_ok=True)
     base = _sanitize_filename(title)
     fname = f"{base}.md"
@@ -183,7 +204,7 @@ class PublicPageRequest(BaseModel):
 
 
 @router.post("/public/pages")
-def public_create_page(body: PublicPageRequest, token: ApiToken = Depends(require_pat)):
+def public_create_page(body: PublicPageRequest, token: ApiToken = Depends(require_pat_write)):
     """Creates a page in the vault via the public API (PAT)."""
     extra = {"created": datetime.now(timezone.utc).isoformat()}
     if body.tags:
@@ -263,7 +284,7 @@ def public_clip_config(
 async def public_clip(
     body: ClipRequest,
     background_tasks: BackgroundTasks,
-    token: ApiToken = Depends(require_pat),
+    token: ApiToken = Depends(require_pat_write),
     context: WorkspaceContext = Depends(get_workspace_context),
 ):
     """Web clipper endpoint: saves a web page (URL + selection) to the vault.

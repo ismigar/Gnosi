@@ -10,6 +10,42 @@ from backend.utils.safe_io import safe_write_text
 BASE_DIR = Path(os.getcwd()).resolve()
 
 
+def _is_within_base(target: Path) -> bool:
+    """True when `target` is contained in BASE_DIR.
+
+    Uses `Path.is_relative_to` rather than string `startswith`, which would let
+    a sibling directory sharing the prefix (e.g. `/app-evil` vs `/app`) escape
+    containment.
+    """
+    try:
+        return target.resolve().is_relative_to(BASE_DIR)
+    except (ValueError, OSError):
+        return False
+
+
+def _mutations_allowed() -> bool:
+    """Whether code-mutating / code-executing agent tools may run.
+
+    These tools write source files and run pytest, i.e. arbitrary code
+    execution as the backend process. That is acceptable for a local
+    single-developer install, but on an exposed deployment (Docker or org mode)
+    it would hand remote code execution to any `editor`. Fail closed there.
+    """
+    try:
+        from backend.services.auth_service import deployment_is_exposed
+
+        return not deployment_is_exposed()
+    except Exception:
+        # If we cannot determine the deployment shape, disallow mutations.
+        return False
+
+
+_MUTATION_DENIED_MSG = (
+    "Error: Code-mutating tools are disabled on this deployment "
+    "(exposed/multi-user mode)."
+)
+
+
 @tool
 def inspect_codebase(path: str = ".") -> str:
     """
@@ -20,7 +56,7 @@ def inspect_codebase(path: str = ".") -> str:
         target_path = (BASE_DIR / path).resolve()
 
         # Security Check: Ensure we stay within project root
-        if not str(target_path).startswith(str(BASE_DIR)):
+        if not _is_within_base(target_path):
             return f"Error: Access denied. Path must be within {BASE_DIR}"
 
         if target_path.is_file():
@@ -55,6 +91,8 @@ def create_git_branch(branch_name: str) -> str:
     Creates a new Git branch to work on changes safely.
     Ex: 'feat/improve-agent'
     """
+    if not _mutations_allowed():
+        return _MUTATION_DENIED_MSG
     try:
         # Check for clean state optionally? For now just try to checkout -b
         result = subprocess.run(
@@ -79,6 +117,8 @@ def commit_changes(message: str) -> str:
     """
     Adds ALL current changes (git add .) and commits with the given message.
     """
+    if not _mutations_allowed():
+        return _MUTATION_DENIED_MSG
     try:
         # 1. Add
         add_res = subprocess.run(
@@ -113,10 +153,12 @@ def apply_patch(file_path: str, search_text: str, replace_text: str) -> str:
     replace_text: New text.
     Returns error if text is not found or appears multiple times (ambiguity).
     """
+    if not _mutations_allowed():
+        return _MUTATION_DENIED_MSG
     try:
         target_path = (BASE_DIR / file_path).resolve()
 
-        if not str(target_path).startswith(str(BASE_DIR)):
+        if not _is_within_base(target_path):
             return "Error: Access denied."
 
         if not target_path.exists():
@@ -154,10 +196,12 @@ def run_tests(path: str = "backend") -> str:
     Useful for TDD (Test Driven Development) and verifying changes.
     path: File or directory to test (default: 'backend').
     """
+    if not _mutations_allowed():
+        return _MUTATION_DENIED_MSG
     try:
         # Validate path
         target_path = (BASE_DIR / path).resolve()
-        if not str(target_path).startswith(str(BASE_DIR)):
+        if not _is_within_base(target_path):
             return "Error: Access denied."
 
         # Run pytest with a timeout to avoid blocking the agent if tests
@@ -171,7 +215,7 @@ def run_tests(path: str = "backend") -> str:
                 timeout=300,  # 5 min, enough for most suites
             )
         except subprocess.TimeoutExpired:
-            return "Error: pytest timeout (5 min). Tests poden tenir un loop infinit."
+            return "Error: pytest timeout (5 min). Tests may contain an infinite loop."
 
         output = f"Exit Code: {result.returncode}\n"
         output += f"STDOUT:\n{result.stdout}\n"

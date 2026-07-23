@@ -292,25 +292,32 @@ def parse_bibtex(text: str) -> List[Dict]:
             continue
         etype = m.group(1).lower()
         cur = at + m.end()
-        # ignora @comment/@string/@preamble
+        # ignore @comment/@string/@preamble
         if etype in ('comment', 'string', 'preamble'):
             i = cur
             continue
-        # key up to the first comma
-        comma = text.find(',', cur)
-        if comma == -1:
-            break
-        key = text[cur:comma].strip()
-        # body up to the balanced closing brace
-        depth, j = 1, comma + 1
+        # Find this entry's balanced closing brace FIRST, so the key search
+        # cannot run past it into a later entry. A field-less entry like
+        # `@misc{key}` has no comma before its own closing brace; using a global
+        # `find(',')` there would grab a later entry's comma and mangle/drop it.
+        depth, j = 1, cur
         while j < n and depth > 0:
             if text[j] == '{':
                 depth += 1
             elif text[j] == '}':
                 depth -= 1
             j += 1
-        body = text[comma + 1:j - 1]
-        fields = _parse_bibtex_fields(body)
+        entry_close = j - 1  # index of this entry's closing '}'
+        # key up to the first comma BEFORE the closing brace
+        comma = text.find(',', cur, entry_close)
+        if comma == -1:
+            # No fields: the whole {...} content is the citation key.
+            key = text[cur:entry_close].strip()
+            fields: Dict[str, str] = {}
+        else:
+            key = text[cur:comma].strip()
+            body = text[comma + 1:entry_close]
+            fields = _parse_bibtex_fields(body)
         if key:
             entries.append(_bibtex_entry_to_recursos(etype, key, fields))
         i = j

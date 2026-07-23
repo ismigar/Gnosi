@@ -680,7 +680,7 @@ function Dashboard() {
 
     return (
         <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
-            <AppHeader icon={Gauge} title="Control Center">
+            <AppHeader icon={Gauge} title={t('dashboard.control_center', 'Control Center')}>
                 <div className="flex items-center gap-2">
                     <span className="text-[10px] font-bold uppercase tracking-widest text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-2 py-1 rounded-md border border-[var(--border-primary)]">
                         v{APP_VERSION}

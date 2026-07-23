@@ -36,6 +36,18 @@ function sanitizeHtml(html) {
         .replace(/\bon\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '');
 }
 
+// Escape values interpolated into HTML we build ourselves (e.g. the quoted-reply
+// header). The sender/subject are attacker-controlled: `Name <a@b.com>` would be
+// parsed as a tag (losing the address), and a crafted value could inject markup
+// into the outgoing reply.
+function escapeHtml(value) {
+    return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 // Emails are embedded inside a sandboxed iframe. By default we force a
 // white canvas + dark text (same as Gmail/Apple Mail/Outlook): commercial
 // emails expect a light background for their designs, so plain-text emails
@@ -677,7 +689,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     };
 
     const buildQuotedHtml = (data) => {
-        const header = `<strong>${t('mail.from_label')}:</strong> ${data.sender || ''} &nbsp;|&nbsp; <strong>${t('mail.date_label')}:</strong> ${data.date || ''} &nbsp;|&nbsp; <strong>${t('mail.subject_label')}:</strong> ${data.subject || ''}`;
+        const header = `<strong>${t('mail.from_label')}:</strong> ${escapeHtml(data.sender)} &nbsp;|&nbsp; <strong>${t('mail.date_label')}:</strong> ${escapeHtml(data.date)} &nbsp;|&nbsp; <strong>${t('mail.subject_label')}:</strong> ${escapeHtml(data.subject)}`;
         let content = data.body_html
             ? sanitizeHtml(data.body_html)
             : (data.body_text || '').replace(/\n/g, '<br>');

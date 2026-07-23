@@ -312,10 +312,14 @@ class KeychainManager:
     def save_credential(self, key: str, value: str) -> bool:
         """Save a credential to the secure storage."""
         if self._is_docker:
-            secret = self._docker_get(key)
-            if secret is not None:
+            existing = self._docker_get(key)
+            # Only short-circuit when the value is UNCHANGED. Returning True for
+            # any existing secret meant an update was silently dropped (the UI
+            # reported "saved" while the old value stood).
+            if existing is not None and existing == value:
                 return True
-            # Docker secrets are read-only at runtime; fallback to local encrypted file.
+            # Docker secrets are read-only at runtime; persist changes/new values
+            # via the writable fallback.
             if self._docker_save(key, value):
                 return True
             return self._file_save(key, value)

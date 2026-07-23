@@ -4,6 +4,7 @@ import yaml
 import re
 import math
 import threading
+import datetime as _datetime
 from datetime import datetime
 from pathlib import Path
 from collections import deque
@@ -17,6 +18,18 @@ from backend.services.relation_links import (
 )
 
 log = logging.getLogger(__name__)
+
+
+def _canonical_for_compare(value: Any) -> Any:
+    """Normalize a value for equality across the YAML/JSON boundary.
+
+    Dates/times loaded from YAML frontmatter (datetime.date/datetime/time) are
+    serialized to their ISO string so they compare equal to the JSON request's
+    string form; everything else is returned unchanged.
+    """
+    if isinstance(value, (_datetime.datetime, _datetime.date, _datetime.time)):
+        return value.isoformat()
+    return value
 
 class RuleEngine:
     def __init__(self, vault_path: Path):
@@ -62,8 +75,14 @@ class RuleEngine:
     def _load_registry(self) -> Dict[str, Any]:
         if not self.vault_path:
             return {"databases": [], "tables": [], "views": []}
-            
-        registry_path = self.vault_path / "vault_db_registry.json"
+
+        # The canonical registry lives in BD/; fall back to the legacy root
+        # location for older vaults. Reading only the root path meant the engine
+        # always saw an empty registry, so formulas/rollups/automations and
+        # relation resolution silently never ran.
+        registry_path = self.vault_path / "BD" / "vault_db_registry.json"
+        if not registry_path.exists():
+            registry_path = self.vault_path / "vault_db_registry.json"
         if not registry_path.exists():
             return {"databases": [], "tables": [], "views": []}
         try:
@@ -677,8 +696,10 @@ class RuleEngine:
                             val = metadata.get(property_name)
                             if val: results.append(val)
                         else:
-                            # Return the ID by default if no property specified
-                            results.append(p.stem)
+                            # Return the record ID (from frontmatter) by default,
+                            # not the filename stem: lookup()/_find_record_path
+                            # resolve ids, and pages are stored as "<Title>.md".
+                            results.append(str(metadata.get("id") or p.stem))
             except Exception:
                 continue
         
@@ -842,8 +863,12 @@ class RuleEngine:
 
         # 1.2 Detect new manual edits
         # If user sends a value different from what was in the file, it's a manual edit.
+        # Compare canonical forms: old_metadata comes from yaml.safe_load (an
+        # unquoted `Data: 2026-01-15` parses to a datetime.date), while the JSON
+        # request carries the string "2026-01-15" — a raw `!=` would flag every
+        # save as a manual edit and permanently disable automations for the field.
         for key, new_val in request_metadata.items():
-            if key in old_metadata and old_metadata[key] != new_val:
+            if key in old_metadata and _canonical_for_compare(old_metadata[key]) != _canonical_for_compare(new_val):
                 if not key.endswith("_manual") and key != "database_table_id":
                     updated_metadata[f"{key}_manual"] = True
 

@@ -533,11 +533,19 @@ class ContactsSyncEngine:
                     if email:
                         existing = self.contacts_service.get_contact_by_email(email)
 
-                # NEW: If still not found, try by Name
+                # If still not found, try by Name — but only when the match is
+                # unambiguous. A candidate already linked to a DIFFERENT remote id
+                # is a different person who merely shares a display name; merging
+                # into it would permanently fuse the two identities.
                 if not existing:
                     name = parsed.get("name")
                     if name and name != "Unknown":
-                        existing = self.contacts_service.get_contact_by_name(name)
+                        candidate = self.contacts_service.get_contact_by_name(name)
+                        if candidate and (
+                            not candidate.google_resource_name
+                            or candidate.google_resource_name == remote_id
+                        ):
+                            existing = candidate
 
                 if existing:
                     # Link existing contact to this remote ID if not already linked

@@ -53,10 +53,10 @@ def vault(tmp_path, monkeypatch):
     # Gate _request_dir_warmup: tests must never spawn a real `open` process.
     monkeypatch.setenv("ONEDRIVE_WARMUP_MODE", "daemon")
 
-    GraphService._graph_cache = None
-    GraphService._last_graph_time = 0
-    GraphService._node_count_cache = 0
-    GraphService._last_count_time = 0
+    GraphService._graph_cache = {}
+    GraphService._last_graph_time = {}
+    GraphService._node_count_cache = {}
+    GraphService._last_count_time = {}
     GraphService._NODE_DATA_CACHE = {}
     GraphService._ID_TO_PATH_CACHE = {}
     GraphService._LAYOUT_CACHE = {}
@@ -168,7 +168,8 @@ def test_partial_build_is_marked_and_not_cached(vault, monkeypatch):
     assert result["partial"] is True
     assert result["skipped_dirs"] == [WEDGED_DIRNAME]
     # A partial graph must never be pinned in the TTL cache as the good one.
-    assert GraphService._graph_cache is None
+    # The cache is now a per-vault dict, so "not cached" means no entry was added.
+    assert GraphService._graph_cache == {}
 
     # OneDrive recovers → the very next build is complete and cacheable
     # (no TTL wait, precisely because the partial result was not cached).
@@ -177,7 +178,8 @@ def test_partial_build_is_marked_and_not_cached(vault, monkeypatch):
     ids2 = {n["id"] for n in result2["nodes"]}
     assert {"alpha", "beta", "gamma"} <= ids2
     assert "partial" not in result2
-    assert GraphService._graph_cache is result2
+    # The complete build is cached; the per-vault dict now holds it as its value.
+    assert any(v is result2 for v in GraphService._graph_cache.values())
 
 
 def test_node_count_keeps_previous_value_on_partial_scan(vault, monkeypatch):
@@ -189,7 +191,7 @@ def test_node_count_keeps_previous_value_on_partial_scan(vault, monkeypatch):
 
     # Wedge the dir, expire caches → the partial rescan must NOT lower the count.
     _wedge(monkeypatch)
-    GraphService._last_count_time = 0
+    GraphService._last_count_time = {}  # expire the TTL, keep the cached count
     GraphService._NODE_DATA_CACHE = {}  # force the disk-scan fallback branch
     assert svc.get_node_count() == full_count
 

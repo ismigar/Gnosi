@@ -809,6 +809,10 @@ export default function VaultDashboard() {
             if (tableIdOfPage) await fetchPagesByTable(tableIdOfPage);
         } catch (err) {
             notifyError('update-note', err, t('errors.save_note'));
+            // Rethrow so optimistic callers (kanban/timeline) can revert their
+            // move — otherwise a failed PATCH leaves the card stuck in the
+            // destination column with the backend still holding the old value.
+            throw err;
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [fetchPages, fetchPagesByTable, pages, resolvePageTableId]);
@@ -903,6 +907,11 @@ export default function VaultDashboard() {
 
     const handleUpdateView = async (updatedView) => {
         if (!updatedView || !updatedView.id) return;
+        // Never persist the virtual main view: its id is the literal 'default'
+        // (from ensureMainViewForTable), and PUTting it upserts a registry view
+        // whose id collides across tables — a later save on another table then
+        // overwrites the first table's entry. A real saved view has a unique id.
+        if (updatedView.id === 'default') return;
         try {
             const tableId = updatedView.table_id || activeTableId;
             const tableViews = getTableViews(tableId);
@@ -955,7 +964,7 @@ export default function VaultDashboard() {
             toast.success(t('success.view_duplicated'));
         } catch (err) {
             console.error("Error duplicating view:", err);
-            toast.error(t('success.view_duplicated')); // Oops, I should have an error key for duplication failure
+            toast.error(t('errors.duplicate_view', 'Could not duplicate view'));
         }
     };
 
