@@ -104,19 +104,22 @@ def refresh_token() -> Optional[str]:
             integration_manager.replace_key("notion_mcp", {
                 "token": access, "refresh_token": tok.get("refresh_token") or rt,
                 "token_type": tok.get("token_type")})
-            log.info("Token MCP de Notion renovat")
+            log.info("Notion MCP token refreshed")
             return access
     except Exception as e:  # noqa: BLE001
-        log.warning(f"No s'ha pogut renovar el token MCP: {e}")
+        log.warning(f"Could not refresh the MCP token: {e}")
         try:
             import httpx
             if isinstance(e, httpx.HTTPStatusError) and e.response.status_code in (400, 401):
-                log.warning("El token de refresc de Notion MCP és invàlid o ha caducat permanentment. S'eliminen les credencials per forçar una reconexió.")
+                log.warning(
+                    "The Notion MCP refresh token is invalid or permanently expired. "
+                    "Removing credentials to force reconnection."
+                )
                 from backend.services.integration_manager import integration_manager
                 for k in ("notion_mcp", "notion_mcp_client", "notion_mcp_pending"):
                     integration_manager.delete_key(k)
         except Exception as cleanup_err:
-            log.error(f"Error netejant credencials caducades de Notion MCP: {cleanup_err}")
+            log.error(f"Could not clean up expired Notion MCP credentials: {cleanup_err}")
     return None
 
 

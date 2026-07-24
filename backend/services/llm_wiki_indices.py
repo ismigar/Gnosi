@@ -171,19 +171,19 @@ def append_log(
     meta, body = _read_page(path)
     marker_key = "log"
     existing = _managed_content(body, marker_key)
-    if existing.strip() == "_El registre encara és buit._":
+    if existing.strip() in {"_The log is empty._", "_El registre encara és buit._"}:
         existing = ""
     timestamp = dt.datetime.now().astimezone().isoformat(timespec="seconds")
     warnings = report.get("warnings") or []
     entry = (
         f"- **{timestamp}** · [[{resource_title}|{resource_id}]] · "
-        f"taula `{source_table_id}` · {report.get('source_count', 0)} fonts · "
-        f"{len(report.get('created') or [])} creades · "
-        f"{len(report.get('updated') or [])} actualitzades · "
+        f"table `{source_table_id}` · {report.get('source_count', 0)} sources · "
+        f"{len(report.get('created') or [])} created · "
+        f"{len(report.get('updated') or [])} updated · "
         f"model `{report.get('model') or '—'}`"
     )
     if warnings:
-        entry += f" · {len(warnings)} avisos"
+        entry += f" · {len(warnings)} warnings"
     updated = (existing.rstrip() + "\n" + entry).strip()
     _save_existing_page(path, meta, _replace_managed_block(body, marker_key, updated))
 
@@ -294,10 +294,10 @@ def _upsert_resource_index(
         meta = _meta(page)
         key = (
             int(meta.get("llm_wiki_origin_order") or 0),
-            str(meta.get("llm_wiki_origin_label") or "Font"),
+            str(meta.get("llm_wiki_origin_label") or "Source"),
         )
         grouped.setdefault(key, []).append(page)
-    lines = [f"Recurs: [[{resource_title}|{resource_id}]]", ""]
+    lines = [f"Resource: [[{resource_title}|{resource_id}]]", ""]
     for (_order, label), notes in sorted(grouped.items(), key=lambda item: item[0]):
         lines.extend([f"## {label}", ""])
         for page in notes:
@@ -355,13 +355,13 @@ def _rebuild_dimension_indexes(
     out = []
     for value_key, item in sorted(grouped.items(), key=lambda pair: _value_label(pair[1]["value"]).casefold()):
         label = _value_label(item["value"])
-        lines = ["## Notes de lectura", ""]
+        lines = ["## Reading notes", ""]
         reading_groups: dict[str, list[Any]] = {}
         for page in item["readings"]:
-            resource = str(_meta(page).get("llm_wiki_resource_title") or "Sense recurs")
+            resource = str(_meta(page).get("llm_wiki_resource_title") or "No resource")
             reading_groups.setdefault(resource, []).append(page)
         if not reading_groups:
-            lines.append("_Cap nota de lectura._")
+            lines.append("_No reading notes._")
         for resource, pages in sorted(reading_groups.items(), key=lambda pair: pair[0].casefold()):
             lines.extend([f"### {resource}", ""])
             for page in sorted(
@@ -373,14 +373,14 @@ def _rebuild_dimension_indexes(
             ):
                 lines.append(f"- [[{_title(page)}|{_page_id(page)}]]")
             lines.append("")
-        lines.extend(["## Notes permanents manuals", ""])
+        lines.extend(["## Manual permanent notes", ""])
         if item["permanents"]:
             lines.extend(
                 f"- [[{_title(page)}|{_page_id(page)}]]"
                 for page in sorted(item["permanents"], key=lambda p: _title(p).casefold())
             )
         else:
-            lines.append("_Cap nota permanent manual._")
+            lines.append("_No manual permanent notes._")
 
         metadata = {field_name: item["value"]}
         brain_table = _table(brain_table_id)

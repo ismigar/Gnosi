@@ -2,7 +2,7 @@
 
 This skill manages the synchronization between the Vault data engine and the Calendar interface.
 
-> ID: CAL-SYNC-20260408
+> ID: CAL-SYNC-20260408 <!-- @language-example: stable identifier -->
 > Status: ACTIVE
 
 ---

@@ -95,7 +95,7 @@ export function FileFieldValue({ value, field = '', variant = 'table', onRemove 
                             type="button"
                             onClick={handleOpen}
                             className="shrink-0 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors"
-                            title={t('files.open', { defaultValue: 'Obrir' })}
+                            title={t('files.open', { defaultValue: "Open" })}
                         >
                             <ExternalLink size={size.icon} />
                         </button>
@@ -104,7 +104,7 @@ export function FileFieldValue({ value, field = '', variant = 'table', onRemove 
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); onRemove(idx); }}
                                 className="shrink-0 text-[var(--text-tertiary)] hover:text-red-500 transition-colors"
-                                title={t('common.delete', { defaultValue: 'Elimina' })}
+                                title={t('common.delete', { defaultValue: "Delete" })}
                             >
                                 <X size={size.icon} />
                             </button>

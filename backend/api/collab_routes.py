@@ -214,7 +214,7 @@ async def collab_ws(
         if not resolve_identity(websocket):
             # 1008 = policy violation. Closing before `accept()` sends an HTTP
             # 403 during the handshake, which is what a browser can act on.
-            await websocket.close(code=1008, reason="Cal autenticació")
+            await websocket.close(code=1008, reason="Authentication required")
             return
 
     await websocket.accept()

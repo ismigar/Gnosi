@@ -35,7 +35,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             setShares(res.data?.shares || []);
         } catch (err) {
             console.error('Error loading shared links:', err);
-            toast.error(t('errors.shares_load', { defaultValue: 'No s\'han pogut carregar els enllaços' }));
+            toast.error(t('errors.shares_load', { defaultValue: "Could not load the links" }));
         } finally {
             setLoading(false);
         }
@@ -68,10 +68,10 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                 setCopiedToken(res.data.token);
                 setTimeout(() => setCopiedToken(null), 2000);
             } catch { /* clipboard may be blocked; link is still listed */ }
-            toast.success(t('share.created', { defaultValue: 'Enllaç creat i copiat' }));
+            toast.success(t('share.created', { defaultValue: "Link created and copied" }));
         } catch (err) {
             console.error('Error creating link:', err);
-            toast.error(t('errors.share_create', { defaultValue: 'Error creant l\'enllaç' }));
+            toast.error(t('errors.share_create', { defaultValue: "Error creating the link" }));
         } finally {
             setCreating(false);
         }
@@ -83,7 +83,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             setCopiedToken(token);
             setTimeout(() => setCopiedToken(null), 2000);
         } catch {
-            toast.error(t('errors.clipboard', { defaultValue: 'No s\'ha pogut copiar' }));
+            toast.error(t('errors.clipboard', { defaultValue: "Could not copy" }));
         }
     };
 
@@ -95,7 +95,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
             setShares(prev => prev.filter(s => s.token !== target.token));
         } catch (err) {
             console.error('Error revoking link:', err);
-            toast.error(t('errors.share_revoke', { defaultValue: 'Error revocant l\'enllaç' }));
+            toast.error(t('errors.share_revoke', { defaultValue: "Error revoking the link" }));
         } finally {
             setRevokeTarget(null);
         }
@@ -117,12 +117,12 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                         <Share2 size={18} className="text-[var(--gnosi-blue)] shrink-0" />
                         <div className="min-w-0">
                             <h3 className="text-base font-bold text-[var(--text-primary)] truncate">
-                                {t('share.title', 'Comparteix')}
+                                {t('share.title', "Share")}
                             </h3>
                             {pageTitle && <p className="text-xs text-[var(--text-tertiary)] truncate">{pageTitle}</p>}
                         </div>
                     </div>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
                         <X />
                     </button>
                 </div>
@@ -132,7 +132,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                     <div className="flex items-end gap-2 flex-wrap">
                         <div className="flex-1 min-w-[120px]">
                             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                                {t('share.permission', 'Permís')}
+                                {t('share.permission', "Permission")}
                             </label>
                             <select
                                 value={permission}
@@ -146,7 +146,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                         </div>
                         <div className="w-28">
                             <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-tertiary)] mb-1">
-                                {t('share.expires', 'Caduca (dies)')}
+                                {t('share.expires', "Expires (days)")}
                             </label>
                             <input
                                 type="number"
@@ -163,7 +163,7 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                             className="px-3 py-2 rounded-lg bg-[var(--gnosi-blue)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 inline-flex items-center gap-1.5"
                         >
                             {creating ? <Loader2 size={15} className="animate-spin" /> : <Link2 size={15} />}
-                            {t('share.create', 'Crear enllaç')}
+                            {t('share.create', "Create link")}
                         </button>
                     </div>
                 </div>
@@ -172,12 +172,12 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                 <div className="flex-1 overflow-y-auto custom-scrollbar px-5 py-4 space-y-2">
                     {loading ? (
                         <div className="flex items-center justify-center py-8 text-[var(--text-tertiary)]">
-                            <Loader2 size={18} className="animate-spin mr-2" />{t('common.loading', 'Carregant…')}
+                            <Loader2 size={18} className="animate-spin mr-2" />{t('common.loading', "Loading...")}
                         </div>
                     ) : shares.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-8 text-[var(--text-tertiary)]">
                             <Link2 size={26} className="mb-2 opacity-40" />
-                            <p className="text-sm">{t('share.empty', 'Encara no hi ha enllaços públics')}</p>
+                            <p className="text-sm">{t('share.empty', "No public links yet")}</p>
                         </div>
                     ) : (
                         shares.map((s) => (
@@ -187,20 +187,20 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
                                     <p className="text-xs text-[var(--text-primary)] truncate font-mono">{publicUrl(s.token)}</p>
                                     <p className="text-[10px] text-[var(--text-tertiary)]">
                                         {t(`share.perm_${s.permission}`, s.permission)}
-                                        {s.expires_at ? ` · ${t('share.until', 'fins')} ${new Date(s.expires_at).toLocaleDateString(i18n.language)}` : ''}
+                                        {s.expires_at ? ` · ${t('share.until', "until")} ${new Date(s.expires_at).toLocaleDateString(i18n.language)}` : ''}
                                     </p>
                                 </div>
                                 <button
                                     onClick={() => copyLink(s.token)}
                                     className="p-1.5 rounded hover:bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                                    title={t('share.copy', 'Copia')}
+                                    title={t('share.copy', "Copy")}
                                 >
                                     {copiedToken === s.token ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
                                 </button>
                                 <button
                                     onClick={() => setRevokeTarget(s)}
                                     className="p-1.5 rounded hover:bg-red-500/10 text-[var(--text-tertiary)] hover:text-red-600"
-                                    title={t('share.revoke', 'Revoca')}
+                                    title={t('share.revoke', "Revoke")}
                                 >
                                     <Trash2 size={14} />
                                 </button>
@@ -212,9 +212,9 @@ export function ShareModal({ pageId, pageTitle, open, onClose }) {
 
             <ConfirmModal
                 isOpen={Boolean(revokeTarget)}
-                title={t('share.revoke_title', 'Revocar enllaç')}
-                message={t('share.revoke_msg', 'Qualsevol persona amb aquest enllaç deixarà de tenir accés. Continuar?')}
-                confirmText={t('share.revoke', 'Revoca')}
+                title={t('share.revoke_title', "Revoke link")}
+                message={t('share.revoke_msg', "Anyone with this link will lose access. Continue?")}
+                confirmText={t('share.revoke', "Revoke")}
                 isDestructive
                 onConfirm={doRevoke}
                 onClose={() => setRevokeTarget(null)}

@@ -36,7 +36,7 @@ export const VaultShell = ({
                         <button
                             onClick={() => setIsSidebarOpen(prev => !prev)}
                             className="p-1.5 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded transition-colors shrink-0"
-                            title={isSidebarOpen ? t('shell.hide_sidebar', 'Amagar barra lateral') : t('shell.show_sidebar', 'Mostrar barra lateral')}
+                            title={isSidebarOpen ? t('shell.hide_sidebar', "Hide sidebar") : t('shell.show_sidebar', "Show sidebar")}
                         >
                             <PanelLeft size={16} />
                         </button>

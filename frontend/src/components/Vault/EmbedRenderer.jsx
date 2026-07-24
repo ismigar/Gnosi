@@ -166,10 +166,10 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                 </div>
                 <div>
                     <div className="text-sm font-semibold text-[var(--text-primary)]">
-                        {t('editor.embed_missing_title', { defaultValue: 'Fitxer no trobat' })}
+                        {t('editor.embed_missing_title', { defaultValue: "File not found" })}
                     </div>
                     <div className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md break-all">
-                        {t('editor.embed_missing_subtitle', { defaultValue: "El fitxer local s'ha mogut o esborrat" })}: <span className="font-mono">{rawUrl}</span>
+                        {t('editor.embed_missing_subtitle', { defaultValue: "The local file has been moved or deleted" })}: <span className="font-mono">{rawUrl}</span>
                     </div>
                 </div>
                 <button
@@ -177,7 +177,7 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                     className="px-3 py-2 text-xs font-medium rounded-lg bg-[var(--gnosi-primary)] text-white hover:opacity-90 flex items-center gap-1.5"
                 >
                     <RefreshCw size={14} />
-                    {t('editor.embed_relink', { defaultValue: 'Re-vincula' })}
+                    {t('editor.embed_relink', { defaultValue: "Re-link" })}
                 </button>
             </div>
         );
@@ -194,10 +194,10 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                 </div>
                 <div>
                     <div className="text-sm font-semibold text-[var(--text-primary)]">
-                        {t('editor.embed_empty_title', { defaultValue: 'Frame incrustat' })}
+                        {t('editor.embed_empty_title', { defaultValue: "Embedded frame" })}
                     </div>
                     <div className="text-xs text-[var(--text-tertiary)] mt-1">
-                        {t('editor.embed_empty_subtitle', { defaultValue: 'Tria un fitxer del Vault, navega pel disc, puja\'n un o enganxa una URL' })}
+                        {t('editor.embed_empty_subtitle', { defaultValue: "Choose a file from the Vault, browse your disk, upload one or paste a URL" })}
                     </div>
                 </div>
                 <div className="flex gap-2 flex-wrap justify-center">
@@ -206,14 +206,14 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                         className="px-3 py-2 text-xs font-medium rounded-lg bg-[var(--gnosi-primary)] text-white hover:opacity-90 flex items-center gap-1.5"
                     >
                         <FolderOpen size={14} />
-                        {t('editor.embed_pick_file', { defaultValue: 'Tria fitxer…' })}
+                        {t('editor.embed_pick_file', { defaultValue: "Choose file…" })}
                     </button>
                     <button
                         onClick={() => openPicker('url')}
                         className="px-3 py-2 text-xs font-medium rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] flex items-center gap-1.5"
                     >
                         <ExternalLink size={14} />
-                        {t('editor.embed_paste_url', { defaultValue: 'URL externa' })}
+                        {t('editor.embed_paste_url', { defaultValue: "External URL" })}
                     </button>
                 </div>
             </div>
@@ -268,7 +268,7 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                     <button
                         onClick={() => openPicker('vault')}
                         className="p-1.5 rounded-md bg-[var(--bg-primary)]/90 border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]"
-                        title={t('editor.embed_change', { defaultValue: 'Canvia el fitxer' })}
+                        title={t('editor.embed_change', { defaultValue: "Change the file" })}
                     >
                         <Edit3 size={12} />
                     </button>
@@ -277,7 +277,7 @@ export const EmbedRenderer = React.forwardRef(({ block, editor }, ref) => {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="p-1.5 rounded-md bg-[var(--bg-primary)]/90 border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] flex items-center"
-                        title={t('editor.open_in_new_tab', { defaultValue: 'Obre en una nova pestanya' })}
+                        title={t('editor.open_in_new_tab', { defaultValue: "Open in a new tab" })}
                     >
                         <ExternalLink size={12} />
                     </a>

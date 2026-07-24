@@ -15,7 +15,7 @@ class IntegrationManager:
         self.config_file = self.secrets_dir / "integrations.json"
         self._cache = None
         self._cache_mtime = 0
-        # Read-modify-write lock: dues operacions concurrents (ex. dos
+        # Read-modify-write lock: two concurrent operations (for example, two
         # tabs saving credentials, sync touching tokens, and UI all at once)
         # can lose updates if they read the same snapshot.
         self._lock = threading.RLock()

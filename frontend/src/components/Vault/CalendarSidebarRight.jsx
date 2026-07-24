@@ -57,7 +57,7 @@ export const CalendarSidebarRight = ({
                     onClick={() => setActiveTab('availability')}
                     className={`flex-1 py-3 text-[11px] font-bold uppercase tracking-wider transition-colors ${activeTab === 'availability' ? 'text-[var(--gnosi-primary)] border-b-2 border-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)] hover:text-[var(--text-secondary)]'}`}
                 >
-                    {t('mail.availability', 'Disponibilitat')}
+                    {t('mail.availability', "Availability")}
                 </button>
             </div>
 
@@ -100,7 +100,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                 <Search size={14} className="text-[var(--text-tertiary)]" />
                 <input
                     type="text"
-                    placeholder={t('calendar.search_events', 'Buscar eventos')}
+                    placeholder={t('calendar.search_events', "Search events")}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
                     className="flex-1 bg-transparent border-none outline-none text-[13px] placeholder:text-[var(--text-tertiary)] text-[var(--text-primary)]"
@@ -115,7 +115,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
             {/* Quick search results */}
             {searchQuery && (
                 <div className="mt-4 space-y-2">
-                    <h4 className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-1">{t('calendar.search_results_heading', 'Resultats')}</h4>
+                    <h4 className="text-[11px] font-bold text-[var(--text-tertiary)] uppercase tracking-wider px-1">{t('calendar.search_results_heading', "Results")}</h4>
                     {filteredResults.length > 0 ? (
                         filteredResults.map(res => (
                             <button
@@ -123,19 +123,19 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                                 onClick={() => onEventEdit?.(res.id)}
                                 className="w-full text-left p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-colors border border-transparent hover:border-[var(--border-primary)]"
                             >
-                                <div className="text-[12px] font-semibold text-[var(--text-primary)] truncate">{res.title || res.metadata?.title || t('common.untitled', 'Sense Títol')}</div>
-                                <div className="text-[10px] text-[var(--text-tertiary)]">{res.metadata?.date?.split('T')[0] || t('calendar.no_date', 'Sense data')}</div>
+                                <div className="text-[12px] font-semibold text-[var(--text-primary)] truncate">{res.title || res.metadata?.title || t('common.untitled', "Untitled")}</div>
+                                <div className="text-[10px] text-[var(--text-tertiary)]">{res.metadata?.date?.split('T')[0] || t('calendar.no_date', "No date")}</div>
                             </button>
                         ))
                     ) : (
-                        <div className="text-[11px] text-[var(--text-tertiary)] px-1 italic">{t('calendar.no_matches', 'Cap coincidència')}</div>
+                        <div className="text-[11px] text-[var(--text-tertiary)] px-1 italic">{t('calendar.no_matches', "No matches")}</div>
                     )}
                 </div>
             )}
 
             <div className="mt-8">
                 <h3 className="text-[13px] font-bold text-[var(--text-primary)] flex items-center justify-between mb-5">
-                    {t('calendar.useful_shortcuts', 'Atajos útiles')}
+                    {t('calendar.useful_shortcuts', "Useful shortcuts")}
                 </h3>
 
                 <div className="flex flex-col gap-2">
@@ -143,7 +143,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                         onClick={onOpenSearch}
                         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-all group text-[12px] text-[var(--text-secondary)] font-medium"
                     >
-                        <span>{t('calendar.command_menu', 'Menú de comandos')}</span>
+                        <span>{t('calendar.command_menu', "Command menu")}</span>
                         <div className="flex gap-1 opacity-60 group-hover:opacity-100">
                             <kbd className="border border-[var(--border-primary)] rounded px-1.5 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">⌘</kbd>
                             <kbd className="border border-[var(--border-primary)] rounded px-1.5 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">K</kbd>
@@ -154,7 +154,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                         onClick={onToggleSidebar}
                         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-all group text-[12px] text-[var(--text-secondary)] font-medium"
                     >
-                        <span>{t('calendar.toggle_sidebar', 'Amagar barra lateral')}</span>
+                        <span>{t('calendar.toggle_sidebar', "Hide sidebar")}</span>
                         <kbd className="opacity-60 group-hover:opacity-100 border border-[var(--border-primary)] rounded px-2 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">.</kbd>
                     </button>
 
@@ -162,7 +162,7 @@ const DefaultContent = ({ searchQuery, onSearchChange, onToggleSidebar, onOpenSe
                         onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: ',' }))}
                         className="flex items-center justify-between w-full p-2 rounded-lg hover:bg-[var(--bg-tertiary)] transition-all group text-[12px] text-[var(--text-secondary)] font-medium"
                     >
-                        <span>{t('calendar.go_to_today', 'Anar a avui')}</span>
+                        <span>{t('calendar.go_to_today', "Go to today")}</span>
                         <kbd className="opacity-60 group-hover:opacity-100 border border-[var(--border-primary)] rounded px-2 py-[1px] bg-[var(--bg-secondary)] text-[var(--text-tertiary)] shadow-sm">,</kbd>
                     </button>
 
@@ -178,49 +178,49 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
     const titleRef = useRef(null);
 
     const RSVP_META = {
-        accepted:    { label: t('calendar.rsvp_accepted', '✓ Acceptat'),  dot: 'bg-green-500',  btn: 'border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950',  activeCls: 'bg-green-500 text-white border-green-500' },
-        declined:    { label: t('calendar.rsvp_declined', '✗ Rebutjat'),  dot: 'bg-red-500',    btn: 'border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950',          activeCls: 'bg-red-500 text-white border-red-500' },
-        tentative:   { label: t('calendar.rsvp_maybe', '? Potser'),      dot: 'bg-amber-400',  btn: 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950',  activeCls: 'bg-amber-400 text-white border-amber-400' },
-        needsAction: { label: t('calendar.rsvp_pending', 'Pendent'),     dot: 'bg-gray-400',   btn: '', activeCls: '' },
+        accepted:    { label: t('calendar.rsvp_accepted', "✓ Accepted"),  dot: 'bg-green-500',  btn: 'border-green-500 text-green-600 hover:bg-green-50 dark:hover:bg-green-950',  activeCls: 'bg-green-500 text-white border-green-500' },
+        declined:    { label: t('calendar.rsvp_declined', "✗ Declined"),  dot: 'bg-red-500',    btn: 'border-red-500 text-red-600 hover:bg-red-50 dark:hover:bg-red-950',          activeCls: 'bg-red-500 text-white border-red-500' },
+        tentative:   { label: t('calendar.rsvp_maybe', "? Maybe"),      dot: 'bg-amber-400',  btn: 'border-amber-400 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950',  activeCls: 'bg-amber-400 text-white border-amber-400' },
+        needsAction: { label: t('calendar.rsvp_pending', "Pending"),     dot: 'bg-gray-400',   btn: '', activeCls: '' },
     };
 
     const REMINDER_OPTIONS = [
-        { value: '', label: t('calendar.option_none', 'Cap') },
-        { value: '5', label: t('calendar.reminder_5min', '5 minuts abans') },
-        { value: '15', label: t('calendar.reminder_15min', '15 minuts abans') },
-        { value: '30', label: t('calendar.reminder_30min', '30 minuts abans') },
-        { value: '60', label: t('calendar.reminder_1h', '1 hora abans') },
-        { value: '1440', label: t('calendar.reminder_1d', '1 dia abans') },
+        { value: '', label: t('calendar.option_none', "None") },
+        { value: '5', label: t('calendar.reminder_5min', "5 minutes before") },
+        { value: '15', label: t('calendar.reminder_15min', "15 minutes before") },
+        { value: '30', label: t('calendar.reminder_30min', "30 minutes before") },
+        { value: '60', label: t('calendar.reminder_1h', "1 hour before") },
+        { value: '1440', label: t('calendar.reminder_1d', "1 day before") },
     ];
 
     const TRAVEL_TIME_OPTIONS = [
-        { value: '', label: t('calendar.option_none', 'Cap') },
+        { value: '', label: t('calendar.option_none', "None") },
         { value: '5', label: t('calendar.travel_5min', '5 min') },
         { value: '10', label: t('calendar.travel_10min', '10 min') },
         { value: '15', label: t('calendar.travel_15min', '15 min') },
         { value: '30', label: t('calendar.travel_30min', '30 min') },
         { value: '45', label: t('calendar.travel_45min', '45 min') },
-        { value: '60', label: t('calendar.travel_1h', '1 hora') },
+        { value: '60', label: t('calendar.travel_1h', "1 hour") },
         { value: '90', label: t('calendar.travel_1h30', '1 h 30 min') },
-        { value: '120', label: t('calendar.travel_2h', '2 hores') },
+        { value: '120', label: t('calendar.travel_2h', "2 hours") },
     ];
 
     const RECURRENCE_OPTIONS = [
-        { value: '', label: t('calendar.recurrence_none', 'No es repeteix') },
-        { value: 'DAILY', label: t('calendar.recurrence_daily', 'Cada dia') },
-        { value: 'WEEKLY', label: t('calendar.recurrence_weekly', 'Cada setmana') },
-        { value: 'MONTHLY', label: t('calendar.recurrence_monthly', 'Cada mes') },
-        { value: 'YEARLY', label: t('calendar.recurrence_yearly', 'Cada any') },
+        { value: '', label: t('calendar.recurrence_none', "Does not repeat") },
+        { value: 'DAILY', label: t('calendar.recurrence_daily', "Every day") },
+        { value: 'WEEKLY', label: t('calendar.recurrence_weekly', "Every week") },
+        { value: 'MONTHLY', label: t('calendar.recurrence_monthly', "Every month") },
+        { value: 'YEARLY', label: t('calendar.recurrence_yearly', "Every year") },
     ];
 
     const DAYS_OF_WEEK = [
-        { value: 'MO', label: t('calendar.day_mo', 'Dll') },
-        { value: 'TU', label: t('calendar.day_tu', 'Dt') },
-        { value: 'WE', label: t('calendar.day_we', 'Dc') },
-        { value: 'TH', label: t('calendar.day_th', 'Dj') },
-        { value: 'FR', label: t('calendar.day_fr', 'Dv') },
-        { value: 'SA', label: t('calendar.day_sa', 'Ds') },
-        { value: 'SU', label: t('calendar.day_su', 'Dg') },
+        { value: 'MO', label: t('calendar.day_mo', "Mon") },
+        { value: 'TU', label: t('calendar.day_tu', "Tue") },
+        { value: 'WE', label: t('calendar.day_we', "Wed") },
+        { value: 'TH', label: t('calendar.day_th', "Thu") },
+        { value: 'FR', label: t('calendar.day_fr', "Fri") },
+        { value: 'SA', label: t('calendar.day_sa', "Sat") },
+        { value: 'SU', label: t('calendar.day_su', "Sun") },
     ];
 
     // Function to normalize times to the HH:mm format
@@ -477,7 +477,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 if (canDelete) {
                     setIsDeleteConfirmOpen(true);
                 } else if (isGoogle && gmeta.readonly) {
-                    toast.error(t('calendar.external_event_delete_warning', 'No es pot eliminar: és una cita de només lectura.'));
+                    toast.error(t('calendar.external_event_delete_warning', "External events cannot be deleted from Gnosi."));
                 }
             }
         };
@@ -670,7 +670,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     }
                 );
                 lastSavedData.current = formSnap;
-                if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
                 // Optimistic update (without refetch) so as not to reload the whole calendar on
                 // every keystroke: we pass the updated event so only this one is refreshed.
                 onSaved?.({
@@ -691,7 +691,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             } catch (err) {
                 console.error('Error updating Google event:', err);
                 setSaveError(true);
-                if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+                if (!silent) toast.error(t('calendar.event_save_error', "Error sending the appointment."));
                 if (silent && snapshot) lastSavedData.current = snapshot;
             } finally {
                 setSaving(false);
@@ -743,13 +743,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     }
                 }
                 lastSavedData.current = formSnap;
-                if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
+                if (!silent) toast.success(t('calendar.event_created', "Appointment created!"));
                 onSaved?.();
                 if (!silent) onClose?.();
             } catch (err) {
                 console.error('Error saving event to Google Calendar:', err);
                 setSaveError(true);
-                if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+                if (!silent) toast.error(t('calendar.event_save_error', "Error sending the appointment."));
                 if (silent && snapshot) lastSavedData.current = snapshot;
             } finally {
                 setSaving(false);
@@ -884,7 +884,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         ...(removeMetaKeys.length ? { remove_metadata_keys: removeMetaKeys } : {}),
                     });
                     
-                    if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                    if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
                     onSaved?.(response.data);
                     if (!silent) onClose?.();
                 }
@@ -896,7 +896,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     metadata,
                     ...(removeMetaKeys.length ? { remove_metadata_keys: removeMetaKeys } : {}),
                 });
-                if (!silent) toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                if (!silent) toast.success(t('calendar.event_updated', "Appointment updated!"));
                 onSaved?.(response.data);
                 if (!silent) onClose?.();
             } else {
@@ -918,7 +918,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     } catch (delErr) { console.error('Error cleaning up duplicate appointment in Google:', delErr); }
                     googleRef.current = null;
                 }
-                if (!silent) toast.success(t('calendar.event_created', 'Cita creada!'));
+                if (!silent) toast.success(t('calendar.event_created', "Appointment created!"));
                 onSaved?.(response.data);
                 if (!silent) onClose?.();
             }
@@ -931,7 +931,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         } catch (err) {
             console.error('Error saving event:', err);
             setSaveError(true);
-            if (!silent) toast.error(t('calendar.event_save_error', 'Error desant la cita.'));
+            if (!silent) toast.error(t('calendar.event_save_error', "Error sending the appointment."));
             if (silent && snapshot) lastSavedData.current = snapshot;
         } finally {
             setSaving(false);
@@ -946,13 +946,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             setDeleting(true);
             try {
                 await axios.delete(`/api/calendar/events/${encodeURIComponent(googleRef.current.id)}?email=${encodeURIComponent(googleRef.current.account)}&calendar_id=${encodeURIComponent(googleRef.current.calendar_id)}`);
-                toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+                toast.success(t('calendar.event_deleted', "Appointment deleted."));
                 googleRef.current = null;
                 onSaved?.();
                 onClose?.();
             } catch (err) {
                 console.error('Error deleting Google event:', err);
-                toast.error(t('calendar.event_delete_error', 'Error eliminant la cita.'));
+                toast.error(t('calendar.event_delete_error', "Error deleting the appointment."));
             } finally {
                 setDeleting(false);
                 setIsRecurrenceDeleteOpen(false);
@@ -965,18 +965,18 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
         const gIsGoogle = (gmeta._provider === 'google' || !!gmeta._account) && !gmeta._vault_path;
         if (gIsGoogle && eventData?.id) {
             if (gmeta.readonly) {
-                toast.error(t('calendar.external_event_delete_warning', 'No es pot eliminar: és una cita de només lectura.'));
+                toast.error(t('calendar.external_event_delete_warning', "External events cannot be deleted from Gnosi."));
                 return;
             }
             setDeleting(true);
             try {
                 await axios.delete(`/api/calendar/events/${encodeURIComponent(eventData.id)}?email=${encodeURIComponent(gmeta._account)}&calendar_id=${encodeURIComponent(gmeta._calendar_id || 'primary')}`);
-                toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+                toast.success(t('calendar.event_deleted', "Appointment deleted."));
                 onSaved?.();
                 onClose?.();
             } catch (err) {
                 console.error('Error deleting Google event:', err);
-                toast.error(t('calendar.event_delete_error', 'Error eliminant la cita.'));
+                toast.error(t('calendar.event_delete_error', "Error deleting the appointment."));
             } finally {
                 setDeleting(false);
                 setIsRecurrenceDeleteOpen(false);
@@ -1023,17 +1023,17 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 await axios.patch(`/api/vault/pages/${eventData.id}`, {
                     metadata: { rrule: newRrule }
                 });
-                toast.success(t('calendar.following_deleted', 'Sèrie truncada des d\'avui.'));
+                toast.success(t('calendar.following_deleted', "Series truncated from today."));
             } else {
                 await axios.delete(`/api/vault/pages/${deleteId}`);
-                toast.success(t('calendar.event_deleted', 'Cita eliminada.'));
+                toast.success(t('calendar.event_deleted', "Appointment deleted."));
             }
             onSaved?.();
             onClose?.();
         } catch (err) {
             console.error('Error deleting event:', err);
             const errorMsg = err.response?.data?.detail || err.message || '';
-            toast.error(`${t('calendar.event_delete_error', 'Error eliminant la cita.')} ${errorMsg}`);
+            toast.error(`${t('calendar.event_delete_error', "Error deleting the appointment.")} ${errorMsg}`);
         } finally {
             setDeleting(false);
             setIsRecurrenceDeleteOpen(false);
@@ -1072,11 +1072,11 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--border-primary)] bg-[var(--bg-tertiary)]">
                 <div className="flex items-center gap-2">
-                    <button onClick={() => { flushSaveRef.current(); onClose?.(); }} className="gnosi-close-btn" aria-label={t('calendar.close_panel', 'Tancar panell')}>
+                    <button onClick={() => { flushSaveRef.current(); onClose?.(); }} className="gnosi-close-btn" aria-label={t('calendar.close_panel', "Close panel")}>
                         <X />
                     </button>
                     <span className="text-[13px] font-semibold text-[var(--text-primary)]">
-                        {mode === 'create' && !createdId ? t('calendar.new_event', 'Nova cita') : t('calendar.edit_event', 'Editar cita')}
+                        {mode === 'create' && !createdId ? t('calendar.new_event', "New appointment") : t('calendar.edit_event', "Edit appointment")}
                     </span>
                 </div>
                 <div className="flex items-center gap-1" />
@@ -1086,14 +1086,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3">
                 {/* Title */}
                 <div>
-                    <label className={labelClass}>{t('calendar.event_title', 'Títol')}</label>
+                    <label className={labelClass}>{t('calendar.event_title', "Title")}</label>
                     <input
                         ref={titleRef}
                         type="text"
                         value={title}
                         onChange={(e) => setTitle(e.target.value)}
                         onBlur={handleFieldBlur}
-                        placeholder={t('calendar.event_title_placeholder', "Reunió, Cita mèdica...")}
+                        placeholder={t('calendar.event_title_placeholder', "Meeting, Doctor's appointment...")}
                         className={inputClass}
                         required
                     />
@@ -1103,7 +1103,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div className="flex items-center justify-between py-1">
                     <label className="flex items-center gap-1.5 text-[12px] font-medium text-[var(--text-secondary)]">
                         <Sun size={14} className="text-amber-500" />
-                        {t('calendar.all_day', 'Tot el dia')}
+                        {t('calendar.all_day', "All day")}
                     </label>
                     <button
                         type="button"
@@ -1122,14 +1122,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                     <div>
                         <label className={labelClass}>
                             <CalendarPlus size={10} />
-                            {t('calendar.start', 'Inici')}
+                            {t('calendar.start', "Start")}
                         </label>
                         <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} onBlur={handleFieldBlur} className={inputClass} required />
                     </div>
                     <div>
                         <label className={labelClass}>
                             <CalendarPlus size={10} />
-                            {t('calendar.end', 'Fi')} <span className="text-[var(--text-tertiary)] font-normal normal-case">{t('calendar.opt', '(opc.)')}</span>
+                            {t('calendar.end', "End")} <span className="text-[var(--text-tertiary)] font-normal normal-case">{t('calendar.opt', "(opt.)")}</span>
                         </label>
                         <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} onBlur={handleFieldBlur} className={inputClass} min={startDate} />
                     </div>
@@ -1141,14 +1141,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         <div>
                             <label className={labelClass}>
                                 <Clock size={10} />
-                                {t('calendar.start_time', 'Hora inici')}
+                                {t('calendar.start_time', "Start time")}
                             </label>
                             <input type="time" value={startTime} onChange={(e) => setStartTime(padTime(e.target.value))} onBlur={handleFieldBlur} className={inputClass} />
                         </div>
                         <div>
                             <label className={labelClass}>
                                 <Clock size={10} />
-                                {t('calendar.end_time', 'Hora fi')}
+                                {t('calendar.end_time', "End time")}
                             </label>
                             <input type="time" value={endTime} onChange={(e) => setEndTime(padTime(e.target.value))} onBlur={handleFieldBlur} className={inputClass} />
                         </div>
@@ -1159,7 +1159,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div>
                     <label className={labelClass}>
                         <CalendarPlus size={10} />
-                        {t('calendar.label', 'Calendari')}
+                        {t('calendar.label', "Calendar")}
                     </label>
                     <select value={calendarId} onChange={(e) => setCalendarId(e.target.value)} onBlur={handleFieldBlur} className={inputClass}>
                         {calendars.map(cal => (
@@ -1172,7 +1172,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div>
                     <label className={labelClass}>
                         <MapPin size={10} />
-                        {t('calendar.location', 'Ubicació / URL')}
+                        {t('calendar.location', "Location / URL")}
                     </label>
                     <div className="relative">
                         <input
@@ -1188,7 +1188,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                     setLocationHighlight(-1);
                                 }, 150);
                             }}
-                            placeholder={t('calendar.location_placeholder', "Sala 3, https://meet.google...")}
+                            placeholder={t('calendar.location_placeholder', "Room 3, https://meet.google...")}
                             className={`${inputClass} ${(locationLoading || locationLat != null) ? 'pr-8' : ''}`}
                             autoComplete="off"
                             title={location || undefined}
@@ -1198,7 +1198,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                         ) : locationLat != null ? (
                             <span
                                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--status-success,#22c55e)]"
-                                title={t('calendar.location_verified', 'Ubicació verificada')}
+                                title={t('calendar.location_verified', "Verified location")}
                             >
                                 <Check size={14} strokeWidth={3} />
                             </span>
@@ -1232,9 +1232,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="text-[10px] text-[var(--gnosi-primary)] hover:underline shrink-0 whitespace-nowrap"
-                                    title={t('calendar.view_on_map', 'Veure al mapa')}
+                                    title={t('calendar.view_on_map', "View on map")}
                                 >
-                                    {t('calendar.map', 'mapa')}
+                                    {t('calendar.map', "map")}
                                 </a>
                             )}
                         </div>
@@ -1245,7 +1245,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div>
                     <label className={labelClass}>
                         <Bell size={10} />
-                        {t('calendar.reminder', 'Recordatori')}
+                        {t('calendar.reminder', "Reminder")}
                     </label>
                     <select value={reminder} onChange={(e) => setReminder(e.target.value)} onBlur={handleFieldBlur} className={inputClass}>
                         {REMINDER_OPTIONS.map(opt => (
@@ -1258,7 +1258,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div>
                     <label className={labelClass}>
                         <Navigation size={10} />
-                        {t('calendar.travel_time', 'Temps de desplaçament')}
+                        {t('calendar.travel_time', "Travel time")}
                     </label>
                     <select value={travelTime} onChange={(e) => setTravelTime(e.target.value)} className={inputClass}>
                         {TRAVEL_TIME_OPTIONS.map(opt => (
@@ -1271,14 +1271,14 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div className="space-y-1.5">
                     <label className={labelClass}>
                         <Users size={10} />
-                        {t('calendar.attendees', 'Convidats')}
+                        {t('calendar.attendees', "Attendees")}
                     </label>
 
                     {isViewMode ? (
                         /* ── View (external events) ── */
                         <div className="space-y-1">
                             {attendees.length === 0 ? (
-                                <p className="text-[11px] text-[var(--text-tertiary)] italic px-0.5">{t('calendar.no_attendees', 'Sense convidats')}</p>
+                                <p className="text-[11px] text-[var(--text-tertiary)] italic px-0.5">{t('calendar.no_attendees', "No guests")}</p>
                             ) : (
                                 <>
                                     {attendees.map((att, i) => {
@@ -1315,7 +1315,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                                             onClick={() => onRsvp?.(rv)}
                                                             className={`flex-1 py-1 text-[10px] font-bold rounded border transition-colors ${isActive ? m.activeCls : m.btn}`}
                                                         >
-                                                            {rv === 'accepted' ? t('calendar.rsvp_accept_action', '✓ Acceptar') : rv === 'tentative' ? t('calendar.rsvp_maybe', '? Potser') : t('calendar.rsvp_decline_action', '✗ Rebutjar')}
+                                                            {rv === 'accepted' ? t('calendar.rsvp_accept_action', "✓ Accept") : rv === 'tentative' ? t('calendar.rsvp_maybe', "? Maybe") : t('calendar.rsvp_decline_action', "✗ Decline")}
                                                         </button>
                                                     );
                                                 })}
@@ -1353,7 +1353,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         value={attendeeInput}
                                         onChange={e => handleAttendeeInputChange(e.target.value)}
                                         onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addAttendeeFromInput(); } if (e.key === 'Escape') setAttendeeSuggestions([]); }}
-                                        placeholder={t('calendar.attendee_input_placeholder', 'Afegir per email o nom...')}
+                                        placeholder={t('calendar.attendee_input_placeholder', "Add by email or name...")}
                                         className={`${inputClass} flex-1`}
                                     />
                                     <button type="button" onClick={addAttendeeFromInput}
@@ -1383,7 +1383,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div className="space-y-2">
                     <label className={labelClass}>
                         <CalendarPlus size={10} />
-                        {t('calendar.recurrence', 'Repetició')}
+                        {t('calendar.recurrence', "Recurrence")}
                     </label>
                     <select value={recurrence} onChange={(e) => {
                         setRecurrence(e.target.value);
@@ -1420,7 +1420,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
 
                     {recurrence && (
                         <div className="mt-2 p-2.5 rounded-lg bg-[var(--bg-tertiary)] border border-[var(--border-primary)] space-y-2">
-                            <label className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tight">{t('calendar.ends', 'Finalitza')}</label>
+                            <label className="text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tight">{t('calendar.ends', "Ends")}</label>
 
                             <div className="flex flex-col gap-1.5">
                                 <label className="flex items-center gap-2 cursor-pointer group">
@@ -1434,7 +1434,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         }}
                                         className="w-3 h-3 accent-[var(--gnosi-primary)]"
                                     />
-                                    <span className="text-[12px] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">{t('calendar.recurrence_end_never', 'Mai')}</span>
+                                    <span className="text-[12px] text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors">{t('calendar.recurrence_end_never', "Never")}</span>
                                 </label>
 
                                 <label className="flex items-center gap-2 cursor-pointer group">
@@ -1449,7 +1449,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         className="w-3 h-3 accent-[var(--gnosi-primary)]"
                                     />
                                     <div className="flex items-center gap-1.5 flex-1">
-                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_after', 'Després de')}</span>
+                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_after', "After")}</span>
                                         <input
                                             type="number"
                                             min="1"
@@ -1461,7 +1461,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                             onBlur={handleFieldBlur}
                                             className="w-12 h-6 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded text-[11px] px-1 text-center focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
                                         />
-                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_times', 'vegades')}</span>
+                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_times', "times")}</span>
                                     </div>
                                 </label>
 
@@ -1477,7 +1477,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                                         className="w-3 h-3 accent-[var(--gnosi-primary)]"
                                     />
                                     <div className="flex items-center gap-1.5 flex-1">
-                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_until', 'El dia')}</span>
+                                        <span className="text-[12px] text-[var(--text-secondary)]">{t('calendar.recurrence_end_until', "On the day")}</span>
                                         <input
                                             type="date"
                                             value={untilDate}
@@ -1500,13 +1500,13 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 <div className="pb-4">
                     <label className={labelClass}>
                         <AlignLeft size={10} />
-                        {t('calendar.description', 'Descripció')}
+                        {t('calendar.description', "Description")}
                     </label>
                     <textarea
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                         onBlur={handleFieldBlur}
-                        placeholder={t('calendar.event_description_placeholder', "Afegeix detalls...")}
+                        placeholder={t('calendar.event_description_placeholder', "Add details...")}
                         rows={2}
                         className={`${inputClass} resize-none`}
                     />
@@ -1516,7 +1516,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
             {/* Footer */}
             <div className="px-4 py-2 border-t border-[var(--border-primary)] bg-[var(--bg-tertiary)] flex items-center justify-between gap-2">
                 <div className={`text-[10px] italic ${saveError ? 'text-red-500' : 'text-[var(--text-tertiary)]'}`}>
-                    {saving ? t('calendar.saving', 'Desant...') : deleting ? t('calendar.deleting', 'Eliminant...') : saveError ? '⚠ Error desant' : t('calendar.saved', 'Guardat')}
+                    {saving ? t('calendar.saving', "Saving...") : deleting ? t('calendar.deleting', "Deleting...") : saveError ? '⚠ Error desant' : t('calendar.saved', "Saved")}
                 </div>
                 <div className="flex gap-1.5">
                     {((mode === 'edit' && eventData?.id) || createdId || isDeletableGoogleEvent) && (
@@ -1527,7 +1527,7 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                             className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold rounded-lg border border-red-500/40 text-red-500 hover:bg-red-500/10 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                         >
                             <Trash2 size={12} />
-                            {t('common.delete', 'Eliminar')}
+                            {t('common.delete', "Delete")}
                         </button>
                     )}
                 </div>
@@ -1537,9 +1537,9 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 isOpen={isDeleteConfirmOpen}
                 onClose={() => setIsDeleteConfirmOpen(false)}
                 onConfirm={() => handleDelete(false, false)} // By default deletes everything if confirmed here (if it's not recurring)
-                title={t('calendar.confirm_delete_event_title', 'Eliminar cita')}
-                message={t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?')}
-                confirmText={t('common.delete', 'Eliminar')}
+                title={t('calendar.confirm_delete_event_title', "Delete event")}
+                message={t('calendar.confirm_delete_event', "Are you sure you want to delete this appointment?")}
+                confirmText={t('common.delete', "Delete")}
                 isDestructive={true}
             />
 
@@ -1547,8 +1547,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 isOpen={isRecurrenceDeleteOpen}
                 onClose={() => setIsRecurrenceDeleteOpen(false)}
                 onConfirm={handleDelete}
-                title={t('calendar.recurrent_delete_title', 'Esborrar cita recurrent')}
-                message={t('calendar.recurrent_delete_msg', 'Aquesta és una cita repetitiva. Què vols eliminar?')}
+                title={t('calendar.recurrent_delete_title', "Delete recurring event")}
+                message={t('calendar.recurrent_delete_msg', "This is a recurring event. What do you want to delete?")}
                 actionType="delete"
             />
 
@@ -1556,8 +1556,8 @@ const EventForm = ({ mode, eventData, initialDate, calendars, onClose, onSaved, 
                 isOpen={isRecurrenceModifyOpen}
                 onClose={() => setIsRecurrenceModifyOpen(false)}
                 onConfirm={(isSeries, isInstanceOnly, isFollowing) => handleSubmit(null, false, null, isSeries, isInstanceOnly, isFollowing)}
-                title={t('calendar.recurrent_modify_title', 'Modificar cita recurrent')}
-                message={t('calendar.recurrent_modify_msg', 'Aquesta és una cita repetitiva. Com vols aplicar els canvis?')}
+                title={t('calendar.recurrent_modify_title', "Modify recurring event")}
+                message={t('calendar.recurrent_modify_msg', "This is a recurring event. How do you want to apply the changes?")}
                 actionType="modify"
             />
         </div>
@@ -1583,7 +1583,7 @@ const AvailabilityTool = ({ calendars }) => {
     const checkAvailability = async () => {
         const email = calendars.find(c => c.kind === 'external')?.account;
         if (!email) {
-            toast.error(t('calendar.availability.no_account', 'No hi ha cap compte de correu configurat.'));
+            toast.error(t('calendar.availability.no_account', "No email account is configured."));
             return;
         }
 
@@ -1628,7 +1628,7 @@ const AvailabilityTool = ({ calendars }) => {
             setFreeSlots(slots);
         } catch (err) {
             console.error(err);
-            toast.error(t('calendar.availability.query_error', 'Error consultant disponibilitat.'));
+            toast.error(t('calendar.availability.query_error', "Error checking availability."));
         } finally {
             setLoading(false);
         }
@@ -1636,14 +1636,14 @@ const AvailabilityTool = ({ calendars }) => {
 
     const copySlotsAsText = async () => {
         if (freeSlots.length === 0) return;
-        const text = `${t('calendar.availability.share_intro', 'Hola! Estic disponible el dia {{date}} en aquests horaris:', { date })}\n` +
-            freeSlots.map(s => `- ${s.start} ${t('calendar.availability.share_time_sep', 'a')} ${s.end}`).join('\n') +
-            ` \n\n${t('calendar.availability.share_outro', 'Quin et va millor?')}`;
+        const text = `${t('calendar.availability.share_intro', "Hi! I'm available on {{date}} at these times:", { date })}\n` +
+            freeSlots.map(s => `- ${s.start} ${t('calendar.availability.share_time_sep', "to")} ${s.end}`).join('\n') +
+            ` \n\n${t('calendar.availability.share_outro', "Which one works best for you?")}`;
         try {
             await navigator.clipboard.writeText(text);
-            toast.success(t('calendar.availability.copied_success', 'Horaris copiats al porta-retalls!'));
+            toast.success(t('calendar.availability.copied_success', "Times copied to clipboard!"));
         } catch {
-            toast.error(t('calendar.availability.copy_error', "No s'ha pogut copiar al porta-retalls"));
+            toast.error(t('calendar.availability.copy_error', "Couldn't copy to clipboard"));
         }
     };
 

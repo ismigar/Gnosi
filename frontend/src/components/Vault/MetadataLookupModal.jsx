@@ -105,7 +105,7 @@ export const MetadataLookupModal = ({
         if (mode === 'create') {
             if (data?.error || Object.keys(sug).length === 0) {
                 toast.error(data?.error || t('metadata_lookup.no_data', {
-                    defaultValue: 'No s\'ha trobat cap dada.',
+                    defaultValue: "No data found.",
                 }));
                 return;
             }
@@ -153,7 +153,7 @@ export const MetadataLookupModal = ({
         };
         if (!payload.doi && !payload.isbn && !payload.arxiv && !payload.pmid && !payload.url) {
             toast.error(t('metadata_lookup.no_identifier', {
-                defaultValue: 'Cal un DOI, ISBN, arXiv id, PMID o URL',
+                defaultValue: "A DOI, ISBN, arXiv id, PMID or URL is required",
             }));
             return;
         }
@@ -176,7 +176,7 @@ export const MetadataLookupModal = ({
         } catch (err) {
             console.error('lookup failed:', err?.message);
             toast.error(t('metadata_lookup.fetch_failed', {
-                defaultValue: 'Error consultant fonts externes',
+                defaultValue: "Error querying external sources",
             }));
         } finally {
             setLoading(false);
@@ -199,7 +199,7 @@ export const MetadataLookupModal = ({
         } catch (err) {
             console.error('pdf recognize failed:', err?.message);
             toast.error(t('metadata_lookup.pdf_failed', {
-                defaultValue: 'Error reconeixent el PDF',
+                defaultValue: "Error recognizing the PDF",
             }));
         } finally {
             setLoading(false);
@@ -214,7 +214,7 @@ export const MetadataLookupModal = ({
         }
         if (Object.keys(patch).length === 0) {
             toast.error(t('metadata_lookup.nothing_selected', {
-                defaultValue: 'Cap camp seleccionat',
+                defaultValue: "No field selected",
             }));
             return;
         }
@@ -228,7 +228,7 @@ export const MetadataLookupModal = ({
         } catch (err) {
             console.error('apply failed:', err?.message);
             toast.error(t('metadata_lookup.apply_failed', {
-                defaultValue: 'Error aplicant els canvis',
+                defaultValue: "Error applying the changes",
             }));
         }
     }, [result, selectedFields, onApply, onClose, t]);
@@ -322,14 +322,14 @@ export const MetadataLookupModal = ({
                     <Search size={18} className="text-[var(--text-tertiary)]" />
                     <div className="flex-1 text-sm font-medium text-[var(--text-primary)]">
                         {mode === 'create'
-                            ? t('metadata_lookup.create_title', { defaultValue: 'Crear des d\'una font' })
-                            : t('metadata_lookup.title', { defaultValue: 'Omplir metadades' })}
+                            ? t('metadata_lookup.create_title', { defaultValue: "Create from a source" })
+                            : t('metadata_lookup.title', { defaultValue: "Fill in metadata" })}
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
                         className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                        title={t('common.close', { defaultValue: 'Tanca' })}
+                        title={t('common.close', { defaultValue: "Close" })}
                     >
                         <X size={18} />
                     </button>
@@ -406,15 +406,15 @@ export const MetadataLookupModal = ({
                         disabled={loading || !canSearch}
                         title={
                             !hasIdentifier
-                                ? t('metadata_lookup.need_identifier', { defaultValue: 'Cal un DOI, ISBN, arXiv id, PMID o URL' })
+                                ? t('metadata_lookup.need_identifier', { defaultValue: "A DOI, ISBN, arXiv id, PMID or URL is required" })
                                 : !allValid
-                                    ? t('metadata_lookup.fix_invalid', { defaultValue: 'Corregeix els camps en vermell abans de cercar' })
+                                    ? t('metadata_lookup.fix_invalid', { defaultValue: "Fix the fields in red before searching" })
                                     : ''
                         }
                         className="px-3 py-1.5 rounded-md bg-[var(--gnosi-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         {loading && <Loader2 size={14} className="animate-spin" />}
-                        {t('metadata_lookup.search', { defaultValue: 'Cerca' })}
+                        {t('metadata_lookup.search', { defaultValue: "Search" })}
                     </button>
                     <input
                         ref={pdfInputRef}
@@ -429,16 +429,16 @@ export const MetadataLookupModal = ({
                         disabled={loading}
                         className="px-3 py-1.5 rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] text-sm font-medium hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
-                        {t('metadata_lookup.from_pdf', { defaultValue: 'Detectar des d\'un PDF' })}
+                        {t('metadata_lookup.from_pdf', { defaultValue: "Detect from a PDF" })}
                     </button>
                     {result?.source && (
                         <span className="text-xs text-[var(--text-tertiary)]">
-                            {t('metadata_lookup.source_label', { defaultValue: 'Font' })}: <strong className="text-[var(--text-secondary)]">{SOURCE_LABELS[result.source] || result.source}</strong>
+                            {t('metadata_lookup.source_label', { defaultValue: "Source" })}: <strong className="text-[var(--text-secondary)]">{SOURCE_LABELS[result.source] || result.source}</strong>
                             {result.identifier && (
                                 <> · <code className="text-[10px] bg-[var(--bg-secondary)] px-1 rounded">{result.identifier}</code></>
                             )}
                             {typeLabel && (
-                                <> · {t('metadata_lookup.type_label', { defaultValue: 'Tipus' })}: <strong className="text-[var(--text-secondary)]">{typeLabel}</strong></>
+                                <> · {t('metadata_lookup.type_label', { defaultValue: "Type" })}: <strong className="text-[var(--text-secondary)]">{typeLabel}</strong></>
                             )}
                         </span>
                     )}
@@ -447,7 +447,7 @@ export const MetadataLookupModal = ({
                 <div className="flex-1 overflow-y-auto">
                     {result && fieldEntries.length === 0 && !loading && (
                         <div className="px-4 py-8 text-center text-sm text-[var(--text-tertiary)]">
-                            {result.error || t('metadata_lookup.no_data', { defaultValue: 'No s\'ha trobat cap dada.' })}
+                            {result.error || t('metadata_lookup.no_data', { defaultValue: "No data found." })}
                         </div>
                     )}
                     {fieldEntries.length > 0 && (
@@ -466,9 +466,9 @@ export const MetadataLookupModal = ({
                                             }}
                                         />
                                     </th>
-                                    <th className="px-3 py-2 text-left">{t('metadata_lookup.field', { defaultValue: 'Camp' })}</th>
-                                    <th className="px-3 py-2 text-left">{t('metadata_lookup.current', { defaultValue: 'Actual' })}</th>
-                                    <th className="px-3 py-2 text-left">{t('metadata_lookup.proposed', { defaultValue: 'Proposat' })}</th>
+                                    <th className="px-3 py-2 text-left">{t('metadata_lookup.field', { defaultValue: "Field" })}</th>
+                                    <th className="px-3 py-2 text-left">{t('metadata_lookup.current', { defaultValue: "Current" })}</th>
+                                    <th className="px-3 py-2 text-left">{t('metadata_lookup.proposed', { defaultValue: "Proposed" })}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -490,7 +490,7 @@ export const MetadataLookupModal = ({
                                                 </td>
                                                 <td className="px-3 py-2 font-medium text-[var(--text-primary)] align-top">{k}</td>
                                                 <td className="px-3 py-2 text-[var(--text-tertiary)] align-top break-words max-w-xs">
-                                                    {currentStr || <em className="opacity-60">{t('common.empty', { defaultValue: 'buit' })}</em>}
+                                                    {currentStr || <em className="opacity-60">{t('common.empty', { defaultValue: "Empty" })}</em>}
                                                 </td>
                                                 <td className={`px-3 py-2 align-top break-words max-w-md ${isDifferent ? 'text-[var(--text-primary)] font-medium' : 'text-[var(--text-tertiary)]'}`}>
                                                     {proposed}
@@ -506,7 +506,7 @@ export const MetadataLookupModal = ({
                                             {grouped && (
                                                 <tr className="bg-[var(--bg-secondary)]/40">
                                                     <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-secondary)] tracking-wide">
-                                                        {t('metadata_lookup.relevant_for', { defaultValue: 'Camps del tipus' })}
+                                                        {t('metadata_lookup.relevant_for', { defaultValue: "Fields of the type" })}
                                                         <span className="ml-1 text-[var(--text-tertiary)] font-normal normal-case">({relevantEntries.length})</span>
                                                     </td>
                                                 </tr>
@@ -515,8 +515,8 @@ export const MetadataLookupModal = ({
                                             {grouped && otherEntries.length > 0 && (
                                                 <tr className="bg-[var(--bg-secondary)]/40">
                                                     <td colSpan={4} className="px-3 py-1.5 text-[11px] font-semibold uppercase text-[var(--text-tertiary)] tracking-wide">
-                                                        {t('metadata_lookup.other_fields', { defaultValue: 'Altres camps' })}
-                                                        <span className="ml-1 font-normal normal-case">({otherEntries.length}) — {t('metadata_lookup.not_native', 'el tipus no els porta nativament')}</span>
+                                                        {t('metadata_lookup.other_fields', { defaultValue: "Other fields" })}
+                                                        <span className="ml-1 font-normal normal-case">({otherEntries.length}) — {t('metadata_lookup.not_native', "the type doesn't carry them natively")}</span>
                                                     </td>
                                                 </tr>
                                             )}
@@ -535,7 +535,7 @@ export const MetadataLookupModal = ({
                         onClick={onClose}
                         className="px-3 py-1.5 rounded-md text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]"
                     >
-                        {t('common.cancel', { defaultValue: 'Cancel·la' })}
+                        {t('common.cancel', { defaultValue: "Cancel" })}
                     </button>
                     <button
                         type="button"
@@ -544,7 +544,7 @@ export const MetadataLookupModal = ({
                         className="px-3 py-1.5 rounded-md bg-[var(--gnosi-primary)] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
                     >
                         <Check size={14} />
-                        {t('metadata_lookup.apply', { defaultValue: 'Aplica selecció' })}
+                        {t('metadata_lookup.apply', { defaultValue: "Apply selection" })}
                     </button>
                 </div>
             </div>

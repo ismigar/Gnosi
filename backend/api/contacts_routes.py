@@ -36,9 +36,9 @@ def background_sync_contact(workspace_id: str, source: str):
             integration = {"provider": "google", "email": source}
             sync_engine = ContactsSyncEngine(db, workspace_id, integration)
             sync_engine.sync_gnosi_to_remote()
-            log.info(f"Sincronització de fons completada per a {source}")
+            log.info(f"Background synchronization completed for {source}")
     except Exception as e:
-        log.error(f"Error en la sincronització de fons per a {source}: {e}")
+        log.error(f"Background synchronization failed for {source}: {e}")
     finally:
         try:
             db.close()
@@ -246,10 +246,10 @@ async def sync_contacts(
             }
         
         if not integration.get("provider"):
-            log.warning("Intent de sincronització sense proveïdor ni email d'usuari")
+            log.warning("Synchronization attempted without a provider or user email")
             raise HTTPException(status_code=400, detail="Provider or User email required for sync")
 
-        log.info(f"Iniciant sincronització de contactes per a {integration.get('email')} ({integration.get('provider')})")
+        log.info(f"Starting contact synchronization for {integration.get('email')} ({integration.get('provider')})")
 
         # 2. Initialize engine with integration details
         sync_engine = ContactsSyncEngine(db, x_workspace_id, integration)
@@ -260,7 +260,7 @@ async def sync_contacts(
                      len(result.get("remote_to_gnosi", {}).get("errors", [])) > 0
         
         if has_errors:
-            log.warning(f"Sincronització completada amb errors per a {integration.get('email')}")
+            log.warning(f"Synchronization completed with errors for {integration.get('email')}")
 
         return {"status": "ok", "result": result}
     except HTTPException:

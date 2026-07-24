@@ -465,7 +465,7 @@ export default function CalendarPage() {
             // If it's not recurring, we apply the patch directly
             try {
                 await axios.patch(`/api/vault/pages/${pageId}`, { metadata: patchData });
-                toast.success(t('calendar.event_updated', 'Cita actualitzada!'));
+                toast.success(t('calendar.event_updated', "Appointment updated!"));
                 fetchPages();
             } catch (err) {
                 console.error('Error updating event:', err);
@@ -609,7 +609,7 @@ export default function CalendarPage() {
                 await axios.patch(`/api/vault/pages/${targetEventId}`, {
                     metadata: { rrule: newRrule }
                 });
-                toast.success(t('calendar.following_deleted', 'Sèrie truncada des d\'avui.'));
+                toast.success(t('calendar.following_deleted', "Series truncated from today."));
             } else {
                 // Delete full series
                 await axios.delete(`/api/vault/pages/${targetEventId}`);
@@ -673,7 +673,7 @@ export default function CalendarPage() {
                     metadata: newMetadata,
                 });
 
-                toast.success(t('calendar.instance_updated', 'Instància actualitzada!'));
+                toast.success(t('calendar.instance_updated', "Instance updated!"));
             } else if (isFollowing) {
                 // 1. Truncate the old master's rrule
                 const newRruleOldMaster = truncateRruleBefore(eventData.metadata?.rrule, instanceStart);
@@ -696,13 +696,13 @@ export default function CalendarPage() {
                     metadata: newMetadata,
                 });
 
-                toast.success(t('calendar.series_split_updated', 'Sèrie dividida i actualitzada!'));
+                toast.success(t('calendar.series_split_updated', "Series split and updated!"));
             } else {
                 // Modify the whole series (the master)
                 await axios.patch(`/api/vault/pages/${id}`, {
                     metadata: patchData
                 });
-                toast.success(t('calendar.series_updated', 'Sèrie actualitzada!'));
+                toast.success(t('calendar.series_updated', "Series updated!"));
             }
 
             setIsRecurrenceModifyOpen(false);
@@ -807,13 +807,13 @@ export default function CalendarPage() {
                     },
                 };
             }));
-            const label = rsvpStatus === 'accepted' ? t('calendar.rsvp_accepted', '✓ Invitació acceptada')
-                : rsvpStatus === 'declined' ? t('calendar.rsvp_declined', '✗ Invitació rebutjada')
-                : t('calendar.rsvp_maybe', '? Marcat com a potser');
+            const label = rsvpStatus === 'accepted' ? t('calendar.rsvp_accepted', "✓ Accepted")
+                : rsvpStatus === 'declined' ? t('calendar.rsvp_declined', "✗ Declined")
+                : t('calendar.rsvp_maybe', "? Maybe");
             toast.success(label);
         } catch (err) {
             console.error('handleRsvp error:', err);
-            toast.error(t('calendar.rsvp_error', 'Error actualitzant la resposta.'));
+            toast.error(t('calendar.rsvp_error', "Error updating the response."));
         }
     }, [eventPanel, t]);
 
@@ -857,10 +857,10 @@ export default function CalendarPage() {
         try {
             await axios.put('/api/calendar/reminders/settings', next);
             toast.success(next.enabled
-                ? t('calendar.reminders_on', 'Recordatoris de reunions activats')
-                : t('calendar.reminders_off', 'Recordatoris de reunions desactivats'));
+                ? t('calendar.reminders_on', "Meeting reminders enabled")
+                : t('calendar.reminders_off', "Meeting reminders disabled"));
         } catch {
-            toast.error(t('calendar.reminders_error', 'No s\'ha pogut desar la configuració de recordatoris'));
+            toast.error(t('calendar.reminders_error', "Couldn't save the reminder settings"));
         }
     }, [remindersEnabled, remindersLead, t]);
 
@@ -878,7 +878,7 @@ export default function CalendarPage() {
                                 setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
                             }}
                             className={`p-1.5 rounded transition-all ${showLeftSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title={showLeftSidebar ? t('calendar.hide_left_sidebar', 'Amagar barra esquerra') : t('calendar.show_left_sidebar', 'Mostrar barra esquerra')}
+                            title={showLeftSidebar ? t('calendar.hide_left_sidebar', "Hide left sidebar") : t('calendar.show_left_sidebar', "Show left sidebar")}
                         >
                             <PanelLeft size={16} strokeWidth={2.5} />
                         </button>
@@ -889,7 +889,7 @@ export default function CalendarPage() {
                                 setTimeout(() => calendarRef.current?.getApi().updateSize(), 350);
                             }}
                             className={`p-1.5 rounded transition-all ${showRightSidebar ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title={showRightSidebar ? t('calendar.hide_right_sidebar', 'Amagar barra dreta') : t('calendar.show_right_sidebar', 'Mostrar barra dreta')}
+                            title={showRightSidebar ? t('calendar.hide_right_sidebar', "Hide right sidebar") : t('calendar.show_right_sidebar', "Show right sidebar")}
                         >
                             <PanelRight size={16} strokeWidth={2.5} />
                         </button>
@@ -900,7 +900,7 @@ export default function CalendarPage() {
                         <button
                             onClick={() => saveReminderSettings({ enabled: !remindersEnabled })}
                             className={`flex items-center gap-1 p-1.5 rounded transition-all ${remindersEnabled ? 'text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)]'}`}
-                            title={remindersEnabled ? t('calendar.ai_reminders_active', 'Recordatoris de reunions amb IA activats') : t('calendar.ai_reminders_activate', 'Activar recordatoris de reunions amb IA')}
+                            title={remindersEnabled ? t('calendar.ai_reminders_active', "AI meeting reminders enabled") : t('calendar.ai_reminders_activate', "Enable AI meeting reminders")}
                         >
                             <Bell size={16} strokeWidth={2.5} />
                         </button>
@@ -909,7 +909,7 @@ export default function CalendarPage() {
                                 value={remindersLead}
                                 onChange={(e) => saveReminderSettings({ lead_minutes: Number(e.target.value) })}
                                 className="bg-transparent text-[11px] font-bold uppercase text-[var(--text-secondary)] outline-none cursor-pointer pr-1"
-                                title={t('calendar.reminder_lead_time', "Antelació de l'avís")}
+                                title={t('calendar.reminder_lead_time', "Reminder lead time")}
                             >
                                 <option value={5}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 5 })}</option>
                                 <option value={10}>{t('calendar.minutes_abbrev', '{{count}} min', { count: 10 })}</option>
@@ -937,7 +937,7 @@ export default function CalendarPage() {
                     {/* View Toggles */}
                     <div className="flex items-center gap-1 bg-[var(--bg-secondary)] p-1 rounded-lg border border-[var(--border-primary)] shadow-sm">
                         {[
-                            { id: 'multiMonthYear', label: t('calendar.view_year', 'Any') },
+                            { id: 'multiMonthYear', label: t('calendar.view_year', "Year") },
                             { id: 'dayGridMonth', label: t('calendar.view_month') },
                             { id: 'timeGridWeek', label: t('calendar.view_week') },
                             { id: 'timeGridDay', label: t('calendar.view_day') }
@@ -1075,9 +1075,9 @@ export default function CalendarPage() {
                 isOpen={isConfirmDeleteOpen}
                 onClose={() => setIsConfirmDeleteOpen(false)}
                 onConfirm={() => executeDelete()}
-                title={t('calendar.confirm_delete_event_title', 'Eliminar cita')}
-                message={t('calendar.confirm_delete_event', 'Segur que vols eliminar aquesta cita?')}
-                confirmText={t('common.delete', 'Eliminar')}
+                title={t('calendar.confirm_delete_event_title', "Delete event")}
+                message={t('calendar.confirm_delete_event', "Are you sure you want to delete this appointment?")}
+                confirmText={t('common.delete', "Delete")}
                 isDestructive={true}
             />
 
@@ -1085,8 +1085,8 @@ export default function CalendarPage() {
                 isOpen={isRecurrenceChoiceOpen}
                 onClose={() => setIsRecurrenceChoiceOpen(false)}
                 onConfirm={executeDelete}
-                title={t('calendar.recurrent_delete_title', 'Esborrar cita recurrent')}
-                message={t('calendar.recurrent_delete_msg', 'Aquesta és una cita repetitiva. Què vols eliminar?')}
+                title={t('calendar.recurrent_delete_title', "Delete recurring event")}
+                message={t('calendar.recurrent_delete_msg', "This is a recurring event. What do you want to delete?")}
                 actionType="delete"
             />
 
@@ -1094,8 +1094,8 @@ export default function CalendarPage() {
                 isOpen={isRecurrenceModifyOpen}
                 onClose={() => setIsRecurrenceModifyOpen(false)}
                 onConfirm={executeModify}
-                title={t('calendar.recurrent_modify_title', 'Modificar cita recurrent')}
-                message={t('calendar.recurrent_modify_msg', 'Aquesta és una cita repetitiva. Com vols aplicar els canvis?')}
+                title={t('calendar.recurrent_modify_title', "Modify recurring event")}
+                message={t('calendar.recurrent_modify_msg', "This is a recurring event. How do you want to apply the changes?")}
                 actionType="modify"
             />
             <GlobalSearchModal 

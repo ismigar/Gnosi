@@ -26,8 +26,8 @@ class OAuth2RefreshError(Exception):
         self.email = email
         self.original = original
         super().__init__(
-            f"El token OAuth2 per a {email} ha caducat i no es pot renovar. "
-            f"Cal re-autenticar el compte a Configuració."
+            f"The OAuth2 token for {email} has expired and cannot be refreshed. "
+            "Re-authenticate the account in Settings."
         )
 
 

@@ -301,7 +301,7 @@ const AgentChat = () => {
                     id: String(p.id),
                     type: 'page',
                     label: String(label),
-                    subtitle: t('chat.mention_type_page', 'Pagina'),
+                    subtitle: t('chat.mention_type_page', "Page"),
                     search: `page ${label} ${p.id}`.toLowerCase(),
                 };
             });
@@ -312,7 +312,7 @@ const AgentChat = () => {
                     id: String(tbl.id),
                     type: 'table',
                     label: String(label),
-                    subtitle: t('chat.mention_type_table', 'Tabla'),
+                    subtitle: t('chat.mention_type_table', "Table"),
                     search: `table ${label} ${tbl.id}`.toLowerCase(),
                 };
             });
@@ -323,7 +323,7 @@ const AgentChat = () => {
                     id: String(d.id),
                     type: 'database',
                     label: String(label),
-                    subtitle: t('chat.mention_type_database', 'BD'),
+                    subtitle: t('chat.mention_type_database', "DB"),
                     search: `database bd ${label} ${d.id}`.toLowerCase(),
                 };
             });
@@ -429,7 +429,7 @@ const AgentChat = () => {
 
         if (!res.ok) {
             const detail = await res.text();
-            throw new Error(detail || t('chat.attachment_upload_failed', 'No se pudo subir el archivo'));
+            throw new Error(detail || t('chat.attachment_upload_failed', "The file could not be uploaded"));
         }
 
         const data = await res.json();
@@ -453,7 +453,7 @@ const AgentChat = () => {
         if (skipped > 0) {
             setMessages((prev) => [
                 ...prev,
-                { role: 'system', content: t('chat.attachments_skipped', 'Aviso: {{count}} archivo(s) superan 15MB y no se adjuntaron.', { count: skipped }) },
+                { role: 'system', content: t('chat.attachments_skipped', "Notice: {{count}} file(s) exceed 15MB and were not attached.", { count: skipped }) },
             ]);
         }
         if (!validFiles.length) return;
@@ -467,7 +467,7 @@ const AgentChat = () => {
             }
             setAttachments((prev) => [...prev, ...uploaded]);
         } catch (error) {
-            setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', 'Error subiendo adjunto: {{message}}', { message: error.message }) }]);
+            setMessages((prev) => [...prev, { role: 'system', content: t('chat.attachment_upload_error', "Error uploading attachment: {{message}}", { message: error.message }) }]);
         } finally {
             setIsUploadingAttachment(false);
         }
@@ -500,12 +500,12 @@ const AgentChat = () => {
 
         const hasAttachments = attachmentsPayload.length > 0;
         const attachmentSummary = hasAttachments
-            ? `\n\nArchivos adjuntos:\n${attachmentsPayload.map((item) => `- ${item.name}${item.url ? ` (${item.url})` : ''}`).join('\n')}`
+            ? `\n\nAttached files:\n${attachmentsPayload.map((item) => `- ${item.name}${item.url ? ` (${item.url})` : ''}`).join('\n')}`
             : '';
 
         const messageToSend = `${inputValue}${attachmentSummary}`;
 
-        const visibleContent = inputValue.trim() ? inputValue : t('chat.attachments_only_label', '(Adjuntos)');
+        const visibleContent = inputValue.trim() ? inputValue : t('chat.attachments_only_label', "(Attachments)");
 
         const userMsg = {
             role: 'user',
@@ -587,9 +587,9 @@ const AgentChat = () => {
                             const lastMsg = { ...newMsgs[lastIdx] };
 
                             if (data.type === 'tool_start') {
-                                lastMsg.content = t('chat.tool_start', '🛠️ *Cridant eina: {{tool}}...*', { tool: data.tool });
+                                lastMsg.content = t('chat.tool_start', "🛠️ *Calling tool: {{tool}}...*", { tool: data.tool });
                             } else if (data.type === 'tool_end') {
-                                lastMsg.content = t('chat.tool_end', '✅ *Eina {{tool}} finalitzada.*', { tool: data.tool });
+                                lastMsg.content = t('chat.tool_end', "✅ *Tool {{tool}} finished.*", { tool: data.tool });
                             } else if (data.type === 'message' || data.type === 'thought') {
                                 if (data.content) lastMsg.content = data.content;
                             } else if (data.type === 'llm_selected') {
@@ -604,7 +604,7 @@ const AgentChat = () => {
                                 // Translation and improvement of common messages
                                 let errorContent = data.content || t('errors.unknown');
                                 if (errorContent.includes('rate_limit_exceeded')) {
-                                    errorContent = t('chat.rate_limit_message', "Has superat la quota del model actual. Prova d'utilitzar un altre model (com gpt-4o-mini) o espera uns minuts.");
+                                    errorContent = t('chat.rate_limit_message', "You've exceeded the current model's quota. Try using a different model (like gpt-4o-mini) or wait a few minutes.");
                                 }
                                 lastMsg.content = `❌ ${t('chat.error_prefix', 'Error')}: ${errorContent}`;
                             }
@@ -651,8 +651,8 @@ const AgentChat = () => {
                 <button
                     onClick={() => setIsOpen(true)}
                     className="premium-chat-trigger"
-                    aria-label={t('chat.open_chat', 'Abrir chat')}
-                    title={t('chat.open_chat', 'Abrir chat')}
+                    aria-label={t('chat.open_chat', "Open chat")}
+                    title={t('chat.open_chat', "Open chat")}
                     style={{
                         width: '44px', height: '44px', borderRadius: '50%',
                         background: 'var(--gnosi-blue, #3b82f6)',
@@ -720,15 +720,15 @@ const AgentChat = () => {
                             ))}
                         </select>
                         {!isMinimized && <div style={{ fontSize: '0.7rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span> {t('chat.online', 'En línia')}
+                            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981' }}></span> {t('chat.online', "Online")}
                         </div>}
                     </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} aria-label={isMinimized ? t('chat.expand_chat', 'Expandir chat') : t('chat.minimize_chat', 'Minimizar chat')} title={isMinimized ? t('chat.expand_chat', 'Expandir chat') : t('chat.minimize_chat', 'Minimizar chat')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }} aria-label={isMinimized ? t('chat.expand_chat', "Expand chat") : t('chat.minimize_chat', "Minimize chat")} title={isMinimized ? t('chat.expand_chat', "Expand chat") : t('chat.minimize_chat', "Minimize chat")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
                         {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); archiveCurrentSession(); setShowSessionsView(false); setIsOpen(false); }} aria-label={t('chat.close_chat', 'Cerrar chat')} title={t('chat.close_chat', 'Cerrar chat')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); archiveCurrentSession(); setShowSessionsView(false); setIsOpen(false); }} aria-label={t('chat.close_chat', "Close chat")} title={t('chat.close_chat', "Close chat")} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}>
                         <X size={18} />
                     </button>
                 </div>
@@ -746,31 +746,31 @@ const AgentChat = () => {
                                         onClick={() => setShowSessionsView(false)}
                                         style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', height: '24px', padding: '0 8px', fontSize: '0.68rem', cursor: 'pointer' }}
                                     >
-                                        {t('chat.back', 'Tornar')}
+                                        {t('chat.back', "Back")}
                                     </button>
                                 </div>
 
                                 {sortedSessions.length === 0 && (
-                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{t('chat.no_sessions', 'No hi ha sessions.')}</div>
+                                    <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>{t('chat.no_sessions', "There are no sessions.")}</div>
                                 )}
 
                                 {sortedSessions.map((s) => (
                                     <div key={s.id} style={{ border: '1px solid var(--settings-border, #e5e7eb)', borderRadius: '12px', padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
                                         <div style={{ minWidth: 0, flex: 1 }}>
-                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || t('chat.session_fallback_name', 'Sessio')}</div>
-                                            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{t('chat.messages_count', { count: (s.messages || []).length, defaultValue_one: '{{count}} missatge', defaultValue_other: '{{count}} missatges' })}{s.archived ? ` · ${t('chat.archived_suffix', 'arxivada')}` : ''}</div>
+                                            <div style={{ fontSize: '0.78rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title || t('chat.session_fallback_name', "Session")}</div>
+                                            <div style={{ fontSize: '0.66rem', color: 'var(--text-secondary)' }}>{t('chat.messages_count', { count: (s.messages || []).length, defaultValue_one: "{{count}} message", defaultValue_other: "{{count}} messages" })}{s.archived ? ` · ${t('chat.archived_suffix', "archived")}` : ''}</div>
                                         </div>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                             <button
                                                 onClick={() => selectSession(s.id)}
                                                 style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', height: '24px', padding: '0 8px', fontSize: '0.68rem', cursor: 'pointer' }}
                                             >
-                                                {t('chat.open_session', 'Obrir')}
+                                                {t('chat.open_session', "Open")}
                                             </button>
                                             <button
                                                 onClick={() => deleteSessionById(s.id)}
-                                                aria-label={t('chat.delete_session_aria', 'Eliminar sesion {{title}}', { title: s.title || t('common.untitled') })}
-                                                title={t('chat.delete_session_title', 'Eliminar sesion')}
+                                                aria-label={t('chat.delete_session_aria', "Delete session {{title}}", { title: s.title || t('common.untitled') })}
+                                                title={t('chat.delete_session_title', "Delete session")}
                                                 style={{ border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', borderRadius: '10px', width: '24px', height: '24px', fontSize: '0.7rem', cursor: 'pointer', lineHeight: 1 }}
                                             >
                                                 x
@@ -786,8 +786,8 @@ const AgentChat = () => {
                                 <div style={{ fontSize: '3rem', marginBottom: '16px', color: 'var(--gnosi-blue)' }}>
                                     <LucideIcons.Brain size={64} strokeWidth={1.5} />
                                 </div>
-                                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('chat.empty_title', "Com t'ajudo avui?")}</h4>
-                                <p style={{ fontSize: '0.85rem', margin: 0 }}>{t('chat.empty_subtitle', 'Puc analitzar el teu Vault, gestionar el calendari o escriure codi per a tu.')}</p>
+                                <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary)' }}>{t('chat.empty_title', "How can I help you today?")}</h4>
+                                <p style={{ fontSize: '0.85rem', margin: 0 }}>{t('chat.empty_subtitle', "I can analyze your Vault, manage your calendar, or write code for you.")}</p>
                             </div>
                         )}
                         {!showSessionsView && messages.map((msg, idx) => (
@@ -817,7 +817,7 @@ const AgentChat = () => {
                                                             {item.name || item.url}
                                                         </a>
                                                     ) : (
-                                                        item.name || t('chat.attachment_fallback_name', 'archivo')
+                                                        item.name || t('chat.attachment_fallback_name', "file")
                                                     )}
                                                 </div>
                                             ))}
@@ -826,14 +826,14 @@ const AgentChat = () => {
                                 </div>
                                 <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', alignSelf: msg.role === 'user' ? 'flex-end' : 'flex-start', padding: '0 4px' }}>
                                     {msg.role === 'user'
-                                        ? t('chat.you', 'Tu')
+                                        ? t('chat.you', "You")
                                         : `${agentName}${msg.llm?.model ? ` - ${msg.llm.model}` : ''}`}
                                 </span>
                             </div>
                         ))}
                         {!showSessionsView && isLoading && (
                             <div style={{ alignSelf: 'flex-start', display: 'flex', gap: '8px', alignItems: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing', 'Processant...')}
+                                <Sparkles size={14} className="spin-slow" /> {t('chat.processing', "Processing...")}
                             </div>
                         )}
                         {!showSessionsView && <div ref={messagesEndRef} />}
@@ -854,7 +854,7 @@ const AgentChat = () => {
                                     style={{ display: 'none' }}
                                     onChange={handleAttachmentInputChange}
                                 />
-                                <button type="button" onClick={handlePickAttachment} disabled={isUploadingAttachment} aria-label={t('chat.attach_files', 'Adjuntar archivos')} title={t('chat.attach_files', 'Adjuntar archivos')} style={{ background: 'none', border: 'none', cursor: isUploadingAttachment ? 'default' : 'pointer', color: 'var(--text-secondary)', padding: '8px', opacity: isUploadingAttachment ? 0.6 : 1 }}>
+                                <button type="button" onClick={handlePickAttachment} disabled={isUploadingAttachment} aria-label={t('chat.attach_files', "Attach files")} title={t('chat.attach_files', "Attach files")} style={{ background: 'none', border: 'none', cursor: isUploadingAttachment ? 'default' : 'pointer', color: 'var(--text-secondary)', padding: '8px', opacity: isUploadingAttachment ? 0.6 : 1 }}>
                                     <Paperclip size={18} />
                                 </button>
                                 <textarea
@@ -876,7 +876,7 @@ const AgentChat = () => {
                                         }
                                     }}
                                     onInput={() => requestAnimationFrame(autoResizeInput)}
-                                    placeholder={t('chat.input_placeholder', 'Escriu un missatge... (usa @ para mencionar)')}
+                                    placeholder={t('chat.input_placeholder', "Write a message... (use @ to mention)")}
                                     style={{
                                         flex: 1, padding: '8px', border: 'none', outline: 'none',
                                         background: 'transparent', color: 'var(--text-primary)',
@@ -889,8 +889,8 @@ const AgentChat = () => {
                                 <button
                                     type="submit"
                                     disabled={isLoading || (!inputValue.trim() && attachments.length === 0)}
-                                    aria-label={t('chat.send_message', 'Enviar mensaje')}
-                                    title={t('chat.send_message', 'Enviar mensaje')}
+                                    aria-label={t('chat.send_message', "Send message")}
+                                    title={t('chat.send_message', "Send message")}
                                     style={{
                                         width: '36px', height: '36px', borderRadius: '12px',
                                         backgroundColor: (inputValue.trim() || attachments.length > 0) ? 'var(--gnosi-blue, #2563eb)' : '#e5e7eb',
@@ -908,7 +908,7 @@ const AgentChat = () => {
                                     {attachments.map((item) => (
                                         <span key={item.id} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', borderRadius: '999px', border: '1px solid var(--settings-border, #e5e7eb)', padding: '3px 8px', fontSize: '0.68rem', color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg, #f3f4f6)' }}>
                                             <span style={{ maxWidth: '170px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.name}</span>
-                                            <button type="button" onClick={() => removeAttachment(item.id)} aria-label={t('chat.remove_attachment_aria', 'Quitar adjunto {{name}}', { name: item.name || '' }).trim()} title={t('chat.remove_attachment_title', 'Quitar adjunto')} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>x</button>
+                                            <button type="button" onClick={() => removeAttachment(item.id)} aria-label={t('chat.remove_attachment_aria', "Remove attachment {{name}}", { name: item.name || '' }).trim()} title={t('chat.remove_attachment_title', "Remove attachment")} style={{ border: 'none', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', padding: 0, lineHeight: 1 }}>x</button>
                                         </span>
                                     ))}
                                 </div>
@@ -1001,7 +1001,7 @@ const AgentChat = () => {
                             </div>
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                                <button onClick={createNewSession} title={t('chat.new_session', 'Nova sessio')} aria-label={t('chat.new_session', 'Nova sessio')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <button onClick={createNewSession} title={t('chat.new_session', "New session")} aria-label={t('chat.new_session', "New session")} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                     <Plus size={12} />
                                 </button>
                                 <button onClick={() => setShowSessionsView((v) => !v)} title={t('chat.sessions', 'Sessions')} aria-label={t('chat.sessions', 'Sessions')} style={{ width: '26px', height: '26px', borderRadius: '13px', border: '1px solid var(--settings-border, #e5e7eb)', background: showSessionsView ? 'var(--settings-sidebar-bg, #f3f4f6)' : 'transparent', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -23,9 +23,9 @@ export const PromptModal = ({
     required = true,
 }) => {
     const { t } = useTranslation();
-    const resolvedTitle = title ?? t('common.prompt_modal_title', 'Introdueix un valor');
-    const resolvedConfirmText = confirmText ?? t('common.ok', "D'acord");
-    const resolvedCancelText = cancelText ?? t('common.cancel_short', 'Cancel·la');
+    const resolvedTitle = title ?? t('common.prompt_modal_title', "Enter a value");
+    const resolvedConfirmText = confirmText ?? t('common.ok', "OK");
+    const resolvedCancelText = cancelText ?? t('common.cancel_short', "Cancel");
     const modalRef = useRef(null);
     const inputRef = useRef(null);
     const [value, setValue] = useState(defaultValue);
@@ -93,7 +93,7 @@ export const PromptModal = ({
                         onClick={onClose}
                         disabled={isSubmitting}
                         className="gnosi-close-btn"
-                        aria-label={t('common.close', 'Tanca')}
+                        aria-label={t('common.close', "Close")}
                     >
                         <X />
                     </button>

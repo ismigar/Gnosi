@@ -3,7 +3,7 @@ paths:
   databases: ''
   newsletters: ''
 settings:
-  language: ca
+  language: en
   timezone: UTC
   currency: EUR
   week_start: 1

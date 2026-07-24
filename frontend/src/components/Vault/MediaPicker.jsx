@@ -187,7 +187,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
             setItems(res.data?.items || []);
         } catch (err) {
             console.error('Error loading files:', err);
-            toast.error(t('media_picker.load_error', 'No s\'han pogut carregar els fitxers'));
+            toast.error(t('media_picker.load_error', "Files could not be loaded"));
             setItems([]);
         } finally {
             setLoading(false);
@@ -234,7 +234,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                     <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--text-tertiary)]" size={14} />
                     <input
                         type="text"
-                        placeholder={t('media_picker.filter_placeholder', 'Filtrar...')}
+                        placeholder={t('media_picker.filter_placeholder', "Filter...")}
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="pl-8 pr-3 py-1.5 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-md text-xs w-44 outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/30"
@@ -245,7 +245,7 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                         type="button"
                         onClick={onCancel}
                         className="p-1.5 rounded-md hover:bg-[var(--bg-tertiary)] text-[var(--text-tertiary)]"
-                        aria-label={t('common.close', 'Tanca')}
+                        aria-label={t('common.close', "Close")}
                     >
                         <X size={16} />
                     </button>
@@ -261,10 +261,10 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                         className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                             activePath === '' ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]' : 'hover:bg-[var(--bg-secondary)] text-[var(--text-primary)]'
                         }`}
-                        title={t('media_picker.recursive_hint', 'Llistat recursiu — pot trigar la primera vegada')}
+                        title={t('media_picker.recursive_hint', "Recursive listing — may take a while the first time")}
                     >
                         <ImageIcon size={14} />
-                        {t('media_picker.all_content', 'Tot el contingut')}
+                        {t('media_picker.all_content', "All content")}
                     </button>
                     <div className="h-px bg-[var(--border-primary)] my-1 mx-1 opacity-50" />
                     {tree.map(node => (
@@ -284,17 +284,17 @@ export function MediaPicker({ onSelect, onCancel, kindFilter = null }) {
                     {activePath === null ? (
                         <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] gap-2">
                             <Folder size={48} className="opacity-20" />
-                            <p className="text-xs">{t('media_picker.pick_folder_hint', 'Tria una carpeta o «Tot el contingut»')}</p>
+                            <p className="text-xs">{t('media_picker.pick_folder_hint', "Choose a folder or «All content»")}</p>
                         </div>
                     ) : loading ? (
                         <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] gap-2">
                             <ImageIcon size={48} className="opacity-20 animate-pulse" />
-                            <p className="text-xs">{t('media_picker.indexing', 'Indexant…')}</p>
+                            <p className="text-xs">{t('media_picker.indexing', "Indexing…")}</p>
                         </div>
                     ) : filteredItems.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] gap-2">
                             <FileIcon size={48} className="opacity-10" />
-                            <p className="text-xs">{t('media_picker.no_files', 'No s\'han trobat fitxers')}</p>
+                            <p className="text-xs">{t('media_picker.no_files', "No files found")}</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">

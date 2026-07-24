@@ -61,7 +61,7 @@ export function VaultViewHeader({
                                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)]/60'
                         }`}
                     >
-                        {view.name || t('views_header.default_view_name', 'Vista')}
+                        {view.name || t('views_header.default_view_name', "View")}
                     </button>
                 ))}
             </div>
@@ -76,7 +76,7 @@ export function VaultViewHeader({
                             type="text"
                             value={searchTerm || ''}
                             onChange={e => setSearchTerm && setSearchTerm(e.target.value)}
-                            placeholder={t('common.search_placeholder', 'Cerca...')}
+                            placeholder={t('common.search_placeholder', "Search...")}
                             className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                         />
                         <button
@@ -93,7 +93,7 @@ export function VaultViewHeader({
                     <button
                         onClick={() => setShowSearch && setShowSearch(true)}
                         className="p-1.5 rounded-md text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors"
-                        title={t('common.search', 'Cerca')}
+                        title={t('common.search', "Search")}
                     >
                         <Search size={14} />
                     </button>

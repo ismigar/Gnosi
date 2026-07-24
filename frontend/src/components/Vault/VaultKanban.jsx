@@ -273,9 +273,9 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                 {!isEmbedded && (
                     <h1 className="text-2xl font-bold mb-6 text-[var(--text-primary)] flex items-center gap-3 sticky left-0">
                         <Columns size={24} className="text-[var(--gnosi-primary)]" />
-                        {activeView?.name || t('kanban.default_title', 'Tauler Kanban')}
+                        {activeView?.name || t('kanban.default_title', "Kanban board")}
                         <span className="text-sm font-normal text-[var(--text-tertiary)] bg-[var(--bg-tertiary)] px-2 py-0.5 rounded-full ml-2">
-                            {t('kanban.records_count', { count: sortedAndFilteredNotes.length, defaultValue: '{{count}} registres' })}
+                            {t('kanban.records_count', { count: sortedAndFilteredNotes.length, defaultValue: "{{count}} records" })}
                         </span>
                     </h1>
                 )}
@@ -295,7 +295,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                         the related page. `idToTitle` (global index) resolves it to a
                                         title; without this, the header would show the raw UUID. For
                                         select/text, the id isn't present and the value (the option) is kept as-is. */}
-                                    {status === EMPTY_BUCKET ? t('kanban.no_status', 'Sense Estat') : (idToTitle[status] || status)}
+                                    {status === EMPTY_BUCKET ? t('kanban.no_status', "No status") : (idToTitle[status] || status)}
                                 </h3>
                                 <span className="text-[10px] font-bold text-[var(--text-tertiary)] bg-[var(--bg-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-primary)]/50">
                                     {groupedNotes[status]?.length || 0}
@@ -328,7 +328,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                         </label>
                                             <h4 className="font-semibold text-[var(--text-primary)] mb-2 group-hover:text-[var(--gnosi-primary)] transition-colors flex items-start gap-2 text-sm leading-snug">
                                             <FileText size={16} className="mt-0.5 text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]/70 shrink-0" />
-                                            <span {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', 'Sense Títol')}</span>
+                                            <span {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', "Untitled")}</span>
                                         </h4>
 
                                         {cardColumns.length > 0 && (
@@ -354,7 +354,7 @@ export function VaultKanban({ notes, onNoteSelect, isEmbedded = false, activeVie
                                 ))}
                                 {groupedNotes[status]?.length === 0 && (
                                     <div className="py-8 text-center text-[10px] text-[var(--text-tertiary)] border-2 border-dashed border-[var(--border-primary)]/50 rounded-xl bg-[var(--bg-secondary)]/30">
-                                        {t('kanban.no_records', 'Sense registres')}
+                                        {t('kanban.no_records', "No records")}
                                     </div>
                                 )}
                             </div>

@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 # A persistent connection per account. Lock per account to prevent concurrent use.
 _IMAP_POOL: dict[str, imaplib.IMAP4] = {}
 _IMAP_LOCKS: dict[str, threading.Lock] = {}
-_IMAP_META = threading.Lock()   # protegeix _IMAP_POOL i _IMAP_LOCKS
+_IMAP_META = threading.Lock()   # Protects _IMAP_POOL and _IMAP_LOCKS.
 
 _IMAP_TIMEOUT = 20  # seconds
 
@@ -184,7 +184,7 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
     user = acc.get("imap_user") or acc.get("imap_username") or acc.get("email")
     enc  = acc.get("imap_encryption", "ssl").lower()
     if not host or not user:
-        log.error(f"[IMAP] Manquen host o user per a {acc.get('email')}")
+        log.error(f"[IMAP] Host or user is missing for {acc.get('email')}")
         return None
     try:
         if enc == "ssl":
@@ -202,7 +202,7 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
             try:
                 access_token, _ = ensure_fresh_token(email)
             except OAuth2RefreshError as e:
-                log.error(f"[IMAP-XOAUTH2] Refresh_token caducat per {email}")
+                log.error(f"[IMAP-XOAUTH2] Refresh token expired for {email}")
                 _LAST_AUTH_ERROR[email] = str(e)
                 try:
                     imap.logout()
@@ -211,8 +211,8 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
                 return None
             if not access_token:
                 msg = (
-                    f"No s'ha pogut obtenir access_token OAuth2 per a {email}. "
-                    f"Comprova les credencials a Configuració."
+                    f"Could not obtain an OAuth2 access token for {email}. "
+                    "Check the credentials in Settings."
                 )
                 log.error(f"[IMAP-XOAUTH2] {msg}")
                 _LAST_AUTH_ERROR[email] = msg
@@ -227,7 +227,7 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
         else:
             pwd = acc.get("imap_password")
             if not pwd:
-                log.error(f"[IMAP] No password per {user}@{host}")
+                log.error(f"[IMAP] No password for {user}@{host}")
                 try:
                     imap.logout()
                 except Exception:
@@ -236,7 +236,7 @@ def _imap_connect_fresh(acc: dict) -> Optional[imaplib.IMAP4]:
             imap.login(user, pwd)
         return imap
     except Exception as e:
-        log.error(f"[IMAP] Connexió fallida per {user}@{host}: {e}")
+        log.error(f"[IMAP] Connection failed for {user}@{host}: {e}")
         return None
 
 
@@ -268,7 +268,7 @@ def gmail_list_messages(
 ) -> dict:
     service = get_gmail_service(email)
     if not service:
-        msg = f"No s'ha pogut connectar amb Gmail per a {email}. Comprova les credencials a Configuració."
+        msg = f"Could not connect to Gmail for {email}. Check the credentials in Settings."
         log.error(f"[Gmail] {msg}")
         return {"messages": [], "next_page_token": None, "total": 0, "error": msg}
 
@@ -384,7 +384,7 @@ def _parse_gmail_meta(msg: dict, account_email: str) -> dict:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# GMAIL — DETALL
+# GMAIL — DETAILS
 # ══════════════════════════════════════════════════════════════════════
 
 def _extract_gmail_parts(payload: dict) -> tuple:
@@ -444,7 +444,7 @@ def gmail_get_message(email: str, message_id: str) -> Optional[dict]:
             userId="me", id=message_id, format="full"
         ).execute()
     except Exception as e:
-        log.error(f"[Gmail] Error obtenint missatge {message_id}: {e}")
+        log.error(f"[Gmail] Failed to retrieve message {message_id}: {e}")
         return None
 
     meta = _parse_gmail_meta(raw, email)
@@ -484,7 +484,7 @@ def _extract_gmail_body(payload: dict) -> tuple:
 
 
 # ══════════════════════════════════════════════════════════════════════
-# GMAIL — COMPTADORS
+# GMAIL — COUNTERS
 # ══════════════════════════════════════════════════════════════════════
 
 _GMAIL_COUNT_LABELS = {
@@ -524,7 +524,7 @@ def gmail_get_counts(email: str) -> dict:
             batch.add(service.users().labels().get(userId="me", id=lid), request_id=lid)
         batch.execute()
     except Exception as e:
-        log.error(f"[Gmail] Error obtenint counts per {email}: {e}")
+        log.error(f"[Gmail] Failed to retrieve counts for {email}: {e}")
         return {}
 
     counts = {}
@@ -553,7 +553,7 @@ def imap_list_messages(
 ) -> dict:
     acc = _get_imap_account(email)
     if not acc:
-        msg = f"No s'ha trobat configuració IMAP per a {email}."
+        msg = f"No IMAP configuration was found for {email}."
         log.error(f"[IMAP] {msg}")
         return {"messages": [], "total": 0, "error": msg}
 
@@ -665,7 +665,7 @@ def imap_list_messages(
 
 
 # ══════════════════════════════════════════════════════════════════════
-# IMAP — DETALL
+# IMAP — DETAILS
 # ══════════════════════════════════════════════════════════════════════
 
 def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[dict]:
@@ -823,7 +823,7 @@ def imap_get_message(email: str, uid: str, folder: str = "INBOX") -> Optional[di
 
 
 # ══════════════════════════════════════════════════════════════════════
-# IMAP — COMPTADORS
+# IMAP — COUNTERS
 # ══════════════════════════════════════════════════════════════════════
 
 def imap_get_counts(email: str) -> dict:

@@ -70,7 +70,7 @@ class ImapIdleManager:
         self._sub_lock = threading.Lock()
         self._running = False
 
-    # ── Subscriptors (SSE clients) ──────────────────────────────────────
+    # ── Subscribers (SSE clients) ───────────────────────────────────────
 
     def subscribe(self, account_filter: Optional[str] = None) -> _Subscriber:
         sub = _Subscriber(account_filter)
@@ -106,7 +106,7 @@ class ImapIdleManager:
         try:
             from backend.services.integration_manager import integration_manager
         except Exception as e:
-            log.error(f"[IDLE] No s'ha pogut carregar integration_manager: {e}")
+            log.error(f"[IDLE] Could not load integration_manager: {e}")
             return
 
         accounts = integration_manager.get_all_mail_accounts(only_enabled=True)
@@ -131,7 +131,7 @@ class ImapIdleManager:
         )
         self._workers[email_account] = t
         t.start()
-        log.info(f"[IDLE] Worker iniciat per {email_account}")
+        log.info(f"[IDLE] Worker started for {email_account}")
 
     def stop_worker(self, email_account: str) -> None:
         stop = self._stop_flags.get(email_account)
@@ -161,12 +161,12 @@ class ImapIdleManager:
                             return
                         continue
 
-                    # Capacitat IDLE?
+                    # IDLE capability?
                     try:
                         _, caps_data = imap.capability()
                         caps = b" ".join(caps_data).decode().upper() if caps_data else ""
                         if "IDLE" not in caps:
-                            log.info(f"[IDLE] Servidor sense capacitat IDLE per {email_account}")
+                            log.info(f"[IDLE] Server has no IDLE capability for {email_account}")
                             return
                     except Exception:
                         return
@@ -188,11 +188,11 @@ class ImapIdleManager:
 
     def _idle_session(self, imap, email_account: str, stop: threading.Event) -> None:
         """An IDLE session: sends IDLE, reads events, exits every ~28 min or on stop."""
-        tag = imap._new_tag().decode()  # noqa: SLF001 — accés al protocol intern
+        tag = imap._new_tag().decode()  # noqa: SLF001 — internal protocol access
         try:
             imap.send(f"{tag} IDLE\r\n".encode())
         except OSError as e:
-            log.warning(f"[IDLE] No s'ha pogut enviar IDLE a {email_account}: {e}")
+            log.warning(f"[IDLE] Could not send IDLE to {email_account}: {e}")
             return
 
         # Read initial line "+ idling"
@@ -203,11 +203,11 @@ class ImapIdleManager:
             try:
                 line = imap.readline()
             except OSError as e:
-                log.debug(f"[IDLE] Timeout esperant '+ idling' per {email_account}: {e}")
+                log.debug(f"[IDLE] Timed out waiting for '+ idling' for {email_account}: {e}")
                 return
 
             if not line.startswith(b"+ "):
-                log.warning(f"[IDLE] Resposta inesperada al IDLE per {email_account}: {line!r}")
+                log.warning(f"[IDLE] Unexpected IDLE response for {email_account}: {line!r}")
                 return
 
             log.debug(f"[IDLE] {email_account}: idling…")
@@ -236,7 +236,7 @@ class ImapIdleManager:
                         "type": "new_message",
                         "raw": s,
                     })
-                    log.info(f"[IDLE] {email_account}: nou missatge ({s})")
+                    log.info(f"[IDLE] {email_account}: new message ({s})")
                 elif " EXPUNGE" in s:
                     self._broadcast({
                         "account": email_account,

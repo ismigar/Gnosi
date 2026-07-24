@@ -143,7 +143,7 @@ The Python bundle (`dist-python/`) includes:
 - FastAPI + Uvicorn
 - LangChain + LangGraph
 - ChromaDB
-- Connector importació Notion, Google APIs
+- Notion connector and Google APIs
 - All backend dependencies
 
 This makes the app fully standalone - no Python installation required on user machines.

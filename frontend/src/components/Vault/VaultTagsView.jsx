@@ -22,7 +22,7 @@ export function VaultTagsView({ onPageSelect }) {
             setTags(res.data?.tags || []);
         } catch (err) {
             console.error('Error loading tags:', err);
-            toast.error(t('errors.tags_load', { defaultValue: 'No s\'han pogut carregar els tags' }));
+            toast.error(t('errors.tags_load', { defaultValue: "Couldn't load the tags" }));
         } finally {
             setLoading(false);
         }
@@ -55,12 +55,12 @@ export function VaultTagsView({ onPageSelect }) {
                 <div className="flex items-center gap-2 mb-1">
                     <Hash size={20} className="text-amber-500" />
                     <h1 className="text-xl font-bold text-[var(--text-primary)]">
-                        {t('sidebar.tags', 'Etiquetes')}
+                        {t('sidebar.tags', "Tags")}
                     </h1>
                 </div>
                 <p className="text-sm text-[var(--text-tertiary)]">
                     {t('tags.summary', {
-                        defaultValue: '{{tags}} etiquetes · {{pages}} referències',
+                        defaultValue: "{{tags}} tags · {{pages}} references",
                         tags: tags.length,
                         pages: totalPages,
                     })}
@@ -71,7 +71,7 @@ export function VaultTagsView({ onPageSelect }) {
                         type="text"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        placeholder={t('tags.search_placeholder', 'Cerca etiquetes…')}
+                        placeholder={t('tags.search_placeholder', "Search tags…")}
                         className="w-full pl-9 pr-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--gnosi-blue)]/30"
                     />
                 </div>
@@ -81,15 +81,15 @@ export function VaultTagsView({ onPageSelect }) {
                 {loading ? (
                     <div className="flex items-center justify-center py-16 text-[var(--text-tertiary)]">
                         <Loader2 size={20} className="animate-spin mr-2" />
-                        {t('common.loading', 'Carregant…')}
+                        {t('common.loading', "Loading...")}
                     </div>
                 ) : filtered.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-16 text-[var(--text-tertiary)]">
                         <Hash size={32} className="mb-2 opacity-40" />
                         <p className="text-sm">
                             {searchTerm
-                                ? t('tags.no_match', 'Cap etiqueta coincideix')
-                                : t('tags.empty', 'Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».')}
+                                ? t('tags.no_match', "No tag matches")
+                                : t('tags.empty', "No tags yet. Add some via the \"tags\" property.")}
                         </p>
                     </div>
                 ) : (
@@ -123,7 +123,7 @@ export function VaultTagsView({ onPageSelect }) {
                                                 >
                                                     <FileText size={13} className="text-[var(--text-tertiary)] shrink-0" />
                                                     <span className="text-sm text-[var(--text-secondary)] truncate">
-                                                        {pg.title || t('common.untitled', 'Sense títol')}
+                                                        {pg.title || t('common.untitled', "Untitled")}
                                                     </span>
                                                 </button>
                                             ))}

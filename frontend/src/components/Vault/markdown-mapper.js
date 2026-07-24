@@ -104,9 +104,9 @@ export const blocksToRichMarkdown = (blocks, editor) => {
     // instead of writing garbage to disk (and we avoid losing the note).
     if (result.includes("[object Object]")) {
         throw new Error(
-            "blocksToRichMarkdown: detectat '[object Object]' al resultat — " +
-            "el contingut de l'editor té un format inesperat. Save abortat per " +
-            "no sobreescriure la nota."
+            "blocksToRichMarkdown: detected '[object Object]' in the result — " +
+            "the editor content has an unexpected format. Save aborted to avoid " +
+            "overwriting the note."
         );
     }
 
@@ -211,10 +211,10 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         // apa:ca-AD}}` if the user has overridden the defaults.
         const style = String(block?.props?.style || '').trim();
         const locale = String(block?.props?.locale || '').trim();
-        if (!style || (style === 'apa' && (!locale || locale === 'ca-AD'))) {
+        if (!style || (style === 'apa' && (!locale || locale === 'en-US'))) {
             return '{{bibliography}}\n';
         }
-        if (!locale || locale === 'ca-AD') return `{{bibliography:${style}}}\n`;
+        if (!locale || locale === 'en-US') return `{{bibliography:${style}}}\n`;
         return `{{bibliography:${style}:${locale}}}\n`;
     }
 
@@ -735,7 +735,7 @@ const promoteBibliographyBlocks = (blocks) => {
             type: 'bibliography',
             props: {
                 style: m[1] || 'apa',
-                locale: m[2] || 'ca-AD',
+                locale: m[2] || 'en-US',
             },
             content: undefined,
         };

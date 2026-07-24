@@ -45,7 +45,7 @@ const ContentCalendar = () => {
                 throw new Error(`HTTP ${res.status}`);
             }
             setScheduledPosts(prev => prev.filter(p => p.id !== postId));
-            toast.success(t('content_calendar.post_cancelled', 'Post cancellat'));
+            toast.success(t('content_calendar.post_cancelled', "Post canceled"));
         } catch (error) {
             console.error('cancelPost failed', error);
             toast.error(t('content_calendar.cancel_post_error', 'Error cancelling post'));
@@ -124,7 +124,7 @@ const ContentCalendar = () => {
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-full text-zinc-500 gap-4">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        <span>{t('content_calendar.loading', 'Carregant calendari...')}</span>
+                        <span>{t('content_calendar.loading', "Loading calendar...")}</span>
                     </div>
                 ) : (
                     <div className="grid grid-cols-7 gap-4 flex-1 min-h-0">
@@ -212,9 +212,9 @@ const ContentCalendar = () => {
                 isOpen={confirmTarget != null}
                 onClose={() => setConfirmTarget(null)}
                 onConfirm={doCancelPost}
-                title={t('content_calendar.cancel_confirm_title', 'Cancel·lar publicació')}
-                message={t('content_calendar.cancel_confirm_message', 'Cancel·lar aquesta publicació programada?')}
-                confirmText={t('content_calendar.cancel_confirm_yes', 'Sí, cancel·la')}
+                title={t('content_calendar.cancel_confirm_title', "Cancel post")}
+                message={t('content_calendar.cancel_confirm_message', "Cancel this scheduled post?")}
+                confirmText={t('content_calendar.cancel_confirm_yes', "Yes, cancel")}
                 cancelText={t('content_calendar.cancel_confirm_no', 'No')}
                 isDestructive
             />

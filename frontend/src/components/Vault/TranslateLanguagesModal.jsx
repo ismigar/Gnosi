@@ -61,7 +61,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
 
     const handleSubmit = async () => {
         if (selected.length === 0) {
-            toast.error(t('translate.error_pick_lang', 'Selecciona almenys un idioma.'));
+            toast.error(t('translate.error_pick_lang', "Pick at least one language."));
             return;
         }
         setSubmitting(true);
@@ -72,16 +72,16 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                 payload = { item_ids: noteIds, target_languages: selected, button_action: 'translate_row' };
                 successMsg = t('translate.success_bulk', {
                     count: noteIds.length,
-                    defaultValue: 'Traducció iniciada per {{count}} registres.',
+                    defaultValue: "Translation started for {{count}} records.",
                 });
             } else if (isPage) {
                 endpoint = '/api/vault/skills/translate-page';
                 payload = { page_id: noteId, target_languages: selected, button_action: 'translate_page' };
-                successMsg = t('translate.success_page', 'Traducció iniciada — les subpàgines es crearan en breu.');
+                successMsg = t('translate.success_page', "Translation started — child pages will appear shortly.");
             } else {
                 endpoint = '/api/vault/skills/translate-row';
                 payload = { item_id: noteId, target_languages: selected, button_action: fieldConfig?.button_action || 'translate_row' };
-                successMsg = t('translate.success', 'Traducció iniciada — els subitems es crearan en breu.');
+                successMsg = t('translate.success', "Translation started — subitems will appear shortly.");
             }
             const res = await axios.post(endpoint, payload);
             toast.success(successMsg);
@@ -89,8 +89,8 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
             onClose();
         } catch (err) {
             console.error('Error requesting translation:', err);
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
-            toast.error(`${t('translate.error', 'Error iniciant la traducció')}: ${msg}`);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            toast.error(`${t('translate.error', "Error starting translation")}: ${msg}`);
         } finally {
             setSubmitting(false);
         }
@@ -121,12 +121,12 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Languages size={18} className="text-[var(--gnosi-primary)]" />
                         {isBulk
-                            ? t('translate.title_bulk', { count: noteIds.length, defaultValue: 'Traduir {{count}} registres' })
+                            ? t('translate.title_bulk', { count: noteIds.length, defaultValue: "Translate {{count}} records" })
                             : isPage
-                                ? t('translate.title_page', 'Tradueix la pàgina')
-                                : t('translate.title', 'Traduir fila')}
+                                ? t('translate.title_page', "Translate page")
+                                : t('translate.title', "Translate row")}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={submitting}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")} disabled={submitting}>
                         <X />
                     </button>
                 </div>
@@ -134,10 +134,10 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                 <div className="p-5 space-y-4">
                     <p className="text-xs text-[var(--text-secondary)]/80">
                         {isBulk
-                            ? t('translate.intro_bulk', 'Tria els idiomes destí. Per cada registre seleccionat i idioma es crearà (o s\'actualitzarà) un subitem amb la traducció dels camps marcats com a traduïbles.')
+                            ? t('translate.intro_bulk', "Choose target languages. For each selected record and language a subitem will be created (or updated) with the translation of the fields marked as translatable.")
                             : isPage
-                                ? t('translate.intro_page', 'Tria els idiomes destí. Per cada idioma es crearà una subpàgina amb la traducció del títol i el contingut.')
-                                : t('translate.intro', 'Tria els idiomes destí. Per cada idioma es crearà un subitem amb la traducció dels camps marcats com a traduïbles.')}
+                                ? t('translate.intro_page', "Pick the target languages. For each language, a child page will be created with the translation of the title and content.")
+                                : t('translate.intro', "Pick the target languages. For each language, a subitem will be created with the translation of the fields marked as translatable.")}
                     </p>
 
                     <div className="grid grid-cols-2 gap-2">
@@ -170,13 +170,13 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                         <p className="text-[10px] text-[var(--text-secondary)]/60">
                             {t('translate.source_hidden', {
                                 lang: t(`translate.lang_${sourceLang}`, DEFAULT_LANGUAGES.find(l => l.code === sourceLang)?.label || sourceLang.toUpperCase()),
-                                defaultValue: "L'idioma original ({{lang}}) no apareix: és l'origen de la traducció.",
+                                defaultValue: "The original language ({{lang}}) is hidden: it's the translation source.",
                             })}
                         </p>
                     )}
 
                     <p className="text-[10px] text-[var(--text-secondary)]/60">
-                        {t('translate.provider_hint', 'El català es tradueix amb Softcatalà; la resta amb DeepL. Configura les credencials a .env_shared.')}
+                        {t('translate.provider_hint', "Catalan is translated via Softcatalà; the rest via DeepL. Configure credentials in .env_shared.")}
                     </p>
                 </div>
 
@@ -194,7 +194,7 @@ export function TranslateLanguagesModal({ isOpen, onClose, noteId, noteIds = [],
                         className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"
                     >
                         {submitting && <Loader2 size={14} className="animate-spin" />}
-                        {t('translate.submit', 'Traduir')}
+                        {t('translate.submit', "Translate")}
                     </button>
                 </div>
             </div>

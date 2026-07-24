@@ -43,10 +43,10 @@ _PERSIST_DIR = Path("/app/data/media_cache")
 # - "library" → Library/ (sibling folder of the vault, not inside)
 # - "vault"      → the whole vault, excludes system folders (.git, .gnosi, DB)
 MEDIA_ROOTS: Dict[str, Dict[str, Any]] = {
-    "images": {"label": "Imatges (Galeria)", "url_prefix": "/api/vault/images/"},
-    "assets": {"label": "Assets de pàgines", "url_prefix": "/api/vault/assets/"},
+    "images": {"label": "Images (Gallery)", "url_prefix": "/api/vault/images/"},
+    "assets": {"label": "Page assets", "url_prefix": "/api/vault/assets/"},
     "library": {"label": "Library", "url_prefix": "/api/vault/library/"},
-    "vault": {"label": "Tot el Vault", "url_prefix": "/api/vault/raw/"},
+    "vault": {"label": "Entire Vault", "url_prefix": "/api/vault/raw/"},
 }
 
 # Folders that are never scanned when root="vault": control metadata for
@@ -84,7 +84,7 @@ class MediaService:
         try:
             _PERSIST_DIR.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            log.debug(f"No es pot crear {_PERSIST_DIR}: {e}")
+            log.debug(f"Could not create {_PERSIST_DIR}: {e}")
 
     def _root_dir(self, root: str = "images") -> Optional[Path]:
         """Resolves the root key to an absolute Path. Creates Images/ if needed
@@ -99,7 +99,7 @@ class MediaService:
                 d.mkdir(parents=True, exist_ok=True)
                 (d / "General").mkdir(parents=True, exist_ok=True)
             except Exception as e:
-                log.warning(f"No es pot crear el directori de media a {d}: {e}")
+                log.warning(f"Could not create the media directory at {d}: {e}")
             return d
         if root == "assets":
             return base / "Assets"
@@ -297,7 +297,7 @@ class MediaService:
         try:
             d.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            log.debug(f"No es pot crear {d}: {e}")
+            log.debug(f"Could not create {d}: {e}")
             return None
         return d / self._USER_META_FILENAME
 
@@ -337,7 +337,7 @@ class MediaService:
                 os.replace(tmp, path)
                 return True
             except OSError as e:
-                log.warning(f"No es pot desar media_metadata.json: {e}")
+                log.warning(f"Could not save media_metadata.json: {e}")
                 return False
 
     def _get_user_meta_for(self, root: str, rel_path_in_root: str) -> Dict[str, Any]:
@@ -374,7 +374,7 @@ class MediaService:
         try:
             (r_dir / path_in_root).resolve().relative_to(r_dir.resolve())
         except ValueError:
-            log.warning(f"update_metadata: path fora del root {root!r}: {path_in_root!r}")
+            log.warning(f"update_metadata: path outside root {root!r}: {path_in_root!r}")
             return False
 
         self._ensure_user_metadata_loaded()
@@ -418,7 +418,7 @@ class MediaService:
         try:
             d.mkdir(parents=True, exist_ok=True)
         except OSError as e:
-            log.debug(f"No es pot crear {d}: {e}")
+            log.debug(f"Could not create {d}: {e}")
             return None
         return d / self._VIEWS_FILENAME
 
@@ -454,7 +454,7 @@ class MediaService:
                 os.replace(tmp, path)
                 return True
             except OSError as e:
-                log.warning(f"No es pot desar media_views.json: {e}")
+                log.warning(f"Could not save media_views.json: {e}")
                 return False
 
     @staticmethod
@@ -493,7 +493,7 @@ class MediaService:
         self._ensure_views_loaded()
         norm = self._normalize_view_payload(data)
         if not norm["label"]:
-            raise ValueError("Cal un nom per a la vista")
+            raise ValueError("A name is required for the view")
         now = datetime.utcnow().isoformat() + "Z"
         view = {
             "id": f"view_{int(time.time() * 1000)}",
@@ -684,7 +684,7 @@ class MediaService:
         try:
             candidate.relative_to(r_dir.resolve())
         except ValueError:
-            log.warning(f"Album fora del root {root!r}: {album!r}")
+            log.warning(f"Album outside root {root!r}: {album!r}")
             return None
         return candidate
 
@@ -874,7 +874,7 @@ class MediaService:
             if not seg:
                 continue
             if set(seg) <= {"."}:
-                raise HTTPException(status_code=400, detail="Nom d'àlbum invàlid")
+                raise HTTPException(status_code=400, detail="Invalid album name")
             segments.append(sanitize_path_segment(seg, "General"))
         if not segments:
             segments = ["General"]
@@ -885,7 +885,7 @@ class MediaService:
         try:
             target_dir.resolve().relative_to(m_dir.resolve())
         except ValueError:
-            raise HTTPException(status_code=400, detail="Nom d'àlbum invàlid")
+            raise HTTPException(status_code=400, detail="Invalid album name")
         target_dir.mkdir(parents=True, exist_ok=True)
 
         content = file.file.read()

@@ -132,7 +132,7 @@ def _move_to_trash(path: Path) -> None:
         if proc.returncode != 0:
             raise RuntimeError((proc.stderr or "osascript error").strip())
         return
-    raise RuntimeError("trash no suportat en aquesta plataforma")
+    raise RuntimeError("Trash is not supported on this platform")
 
 
 # Separator between the paths osascript prints when several files are chosen.

@@ -59,9 +59,9 @@ def clone_page_id(notion_page_id: str) -> str:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--vault-id", required=True, help="id del vault del clon (GET /api/vaults)")
+    ap.add_argument("--vault-id", required=True, help="clone vault id (GET /api/vaults)")
     ap.add_argument("--backend", default="http://localhost:5002")
-    ap.add_argument("--apply", action="store_true", help="aplica els PATCHes (per defecte, dry-run)")
+    ap.add_argument("--apply", action="store_true", help="apply the PATCH requests (dry-run by default)")
     args = ap.parse_args()
 
     spec = importlib.util.spec_from_file_location(
@@ -72,9 +72,9 @@ def main() -> int:
     token = json.load(open(APP / "local_data/secrets/integrations.json"))["notion"]["token"]
     client = ni.NotionClient(token)
 
-    print("1) Cercant pàgines a Notion...", flush=True)
+    print("1) Searching for pages in Notion...", flush=True)
     pages = client.search_pages()
-    print(f"   {len(pages)} pàgines", flush=True)
+    print(f"   {len(pages)} pages", flush=True)
 
     block_owner_cache: dict = {}
 
@@ -93,22 +93,22 @@ def main() -> int:
                     try:
                         blk = client.get_block(bid)
                     except Exception as e:  # noqa: BLE001
-                        print(f"   ! bloc {bid} irresoluble: {e}", flush=True)
+                        print(f"   ! could not resolve block {bid}: {e}", flush=True)
                         return None
                     parent = blk.get("parent") or {}
                     block_owner_cache[bid] = parent
                 continue
             return None   # database_id, workspace, unknown
 
-    print("2) Resolent parells (fill → pare)...", flush=True)
+    print("2) Resolving child → parent pairs...", flush=True)
     pairs = {}
     for p in pages:
         pp = parent_page_of(p)
         if pp:
             pairs[p["id"]] = pp
-    print(f"   {len(pairs)} pàgines amb pare-pàgina a Notion", flush=True)
+    print(f"   {len(pairs)} pages with a parent page in Notion", flush=True)
 
-    print("3) Llegint el vault del clon...", flush=True)
+    print("3) Reading the clone vault...", flush=True)
     H = {"X-Vault-Id": args.vault_id, **_auth_headers()}
     r = httpx.get(f"{args.backend}/api/vault/pages", headers=H, timeout=180)
     r.raise_for_status()
@@ -116,12 +116,12 @@ def main() -> int:
     if isinstance(vault_pages, dict):
         vault_pages = vault_pages.get("pages", [])
     vp_by_id = {p["id"]: p for p in vault_pages}
-    print(f"   {len(vault_pages)} pàgines al vault del clon", flush=True)
+    print(f"   {len(vault_pages)} pages in the clone vault", flush=True)
     if not vault_pages:
-        print("   VAULT BUIT O IL·LEGIBLE — atura't (OneDrive encara hidratant?).")
+        print("   EMPTY OR UNREADABLE VAULT — stopping (is OneDrive still hydrating it?).")
         return 2
 
-    print("4) Calculant PATCHes...", flush=True)
+    print("4) Calculating PATCH requests...", flush=True)
     todo, ja_be, sense_fill, sense_pare = [], 0, 0, 0
     for nchild, nparent in pairs.items():
         cid, pid = clone_page_id(nchild), clone_page_id(nparent)
@@ -137,18 +137,18 @@ def main() -> int:
             continue
         todo.append((cid, pid, child.get("title") or "?", vp_by_id[pid].get("title") or "?"))
 
-    print(f"   a reparar: {len(todo)} | ja correctes: {ja_be} | "
-          f"fill no clonat: {sense_fill} | pare no clonat: {sense_pare}", flush=True)
+    print(f"   to repair: {len(todo)} | already correct: {ja_be} | "
+          f"child not cloned: {sense_fill} | parent not cloned: {sense_pare}", flush=True)
     for cid, pid, ct, pt in todo[:15]:
-        print(f"   · «{ct}» → penjarà de «{pt}»")
+        print(f"   · '{ct}' → will be attached to '{pt}'")
     if len(todo) > 15:
-        print(f"   … i {len(todo) - 15} més")
+        print(f"   … and {len(todo) - 15} more")
 
     if not args.apply:
-        print("\nDRY-RUN (res escrit). Executa amb --apply per aplicar.")
+        print("\nDRY-RUN (nothing written). Run with --apply to apply the changes.")
         return 0
 
-    print("5) Aplicant PATCHes (seqüencial)...", flush=True)
+    print("5) Applying PATCH requests sequentially...", flush=True)
     ok = err = 0
     for i, (cid, pid, ct, pt) in enumerate(todo):
         try:
@@ -162,12 +162,12 @@ def main() -> int:
                 print(f"   ! {rr.status_code} «{ct}»: {rr.text[:120]}", flush=True)
         except Exception as e:  # noqa: BLE001
             err += 1
-            print(f"   ! excepció «{ct}»: {e}", flush=True)
+            print(f"   ! exception for '{ct}': {e}", flush=True)
         if i % 25 == 24:
             print(f"   ...{i + 1}/{len(todo)}", flush=True)
         time.sleep(0.05)
 
-    print(f"\nFET: {ok} reparades, {err} errors, {ja_be} ja eren correctes.")
+    print(f"\nDONE: {ok} repaired, {err} errors, {ja_be} already correct.")
     return 0 if err == 0 else 1
 
 

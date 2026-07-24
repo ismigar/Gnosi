@@ -70,9 +70,9 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
             await loadStyles(true);
             if (r.data?.id) onChange?.(r.data.id);
         } catch (err) {
-            const detail = err?.response?.data?.detail || err?.message || t('common.unknown', 'desconegut');
+            const detail = err?.response?.data?.detail || err?.message || t('common.unknown', "unknown");
             toast.error(t('csl_picker.upload_failed', {
-                defaultValue: `Error pujant l'estil: ${detail}`,
+                defaultValue: `Error uploading style: ${detail}`,
                 detail,
             }));
         } finally {
@@ -88,7 +88,7 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder={t('csl_picker.search_placeholder', { defaultValue: 'Cerca estil…' })}
+                    placeholder={t('csl_picker.search_placeholder', { defaultValue: "Search style…" })}
                     className="flex-1 px-2 py-1 text-sm rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                 />
             </div>
@@ -99,14 +99,14 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
                 {loading && (
                     <div className="px-3 py-4 flex items-center justify-center gap-2 text-xs text-[var(--text-tertiary)]">
                         <Loader2 size={12} className="animate-spin" />
-                        {t('csl_picker.loading', { defaultValue: 'Carregant…' })}
+                        {t('csl_picker.loading', { defaultValue: "Loading…" })}
                     </div>
                 )}
                 {!loading && filtered.length === 0 && (
                     <div className="px-3 py-4 text-center text-xs text-[var(--text-tertiary)] italic">
                         {query
-                            ? t('csl_picker.no_match', { defaultValue: 'Cap estil amb aquest filtre' })
-                            : t('csl_picker.empty', { defaultValue: 'No hi ha estils al catàleg' })}
+                            ? t('csl_picker.no_match', { defaultValue: "No style matches this filter" })
+                            : t('csl_picker.empty', { defaultValue: "No styles in the catalog" })}
                     </div>
                 )}
                 {!loading && filtered.map((s) => {
@@ -150,11 +150,11 @@ export function CslStylePicker({ value, onChange, readOnly = false }) {
                         className="flex items-center gap-1.5 px-2 py-1 text-xs rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] disabled:opacity-50"
                     >
                         {uploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                        {t('csl_picker.upload', { defaultValue: 'Pujar nou estil .csl' })}
+                        {t('csl_picker.upload', { defaultValue: "Upload new .csl style" })}
                     </button>
                     <span className="text-[10px] text-[var(--text-tertiary)] italic">
                         {t('csl_picker.upload_hint', {
-                            defaultValue: 'Catàleg oficial: github.com/citation-style-language/styles',
+                            defaultValue: "Official catalog: github.com/citation-style-language/styles",
                         })}
                     </span>
                 </div>

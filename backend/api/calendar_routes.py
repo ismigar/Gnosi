@@ -50,15 +50,17 @@ def _get_calendar_storage_path() -> Path:
 
 
 def _safe_calendar_path(vault_path: Optional[str]) -> Optional[Path]:
-    """Confina un `vault_path` REBUT DEL CLIENT al directori `Calendar/` del
-    vault actiu i en retorna el Path resolt; None si és buit, fora del directori
-    o un traversal (`..`, ruta absoluta arbitrària).
+    """Confine a client-provided `vault_path` to the active vault's Calendar directory.
 
-    `patch_event`/`delete_event` reben `vault_path` del cos/query i hi feien
-    read+write / move-to-trash SENSE cap comprovació → un rol `editor` (o un
-    client compromès/CSRF) podia escriure o moure a la paperera QUALSEVOL fitxer
-    del sistema. `resolve()` col·lapsa els `..` de veritat, i el parent-check
-    garanteix que el resultat quedi dins de `Calendar/`."""
+    Return the resolved path, or None when it is empty, outside the directory,
+    or a traversal (`..` or an arbitrary absolute path).
+
+    `patch_event` and `delete_event` receive `vault_path` from the body/query.
+    Without this check, an editor role (or a compromised client/CSRF request)
+    could write or move any system file to the Trash. `resolve()` collapses
+    actual traversal segments, and the parent check keeps the result inside
+    `Calendar/`.
+    """
     if not vault_path:
         return None
     try:
@@ -219,7 +221,7 @@ def collect_all_events(
         try:
             events = list_events(em, time_min, time_max, search, calendar_id)
         except GoogleAuthExpired:
-            log.info(f"collect_all_events: auth de Google caducada per {em}; s'omet.")
+            log.info("collect_all_events: Google authentication expired for %s; skipping", em)
             continue
         except Exception as e:
             log.warning(f"collect_all_events: el compte {em} ha fallat: {e}")
@@ -337,7 +339,7 @@ async def update_meeting_reminder_settings(payload: dict = Body(...)):
         from backend.scheduler.manager import scheduler_manager
         scheduler_manager.update_task("meeting_reminders", 1, bool(s.get("enabled")))
     except Exception as e:
-        log.warning(f"No s'ha pogut sincronitzar la tasca meeting_reminders: {e}")
+        log.warning("Could not synchronize the meeting_reminders task: %s", e)
     return s
 
 
@@ -393,7 +395,7 @@ async def patch_event(
         if raw_vault_path:
             p = _safe_calendar_path(raw_vault_path)
             if p is None:
-                raise HTTPException(status_code=400, detail="vault_path no vàlid o fora del directori Calendar")
+                raise HTTPException(status_code=400, detail="Invalid vault_path or path outside the Calendar directory")
             if p.exists():
                 content = p.read_text(encoding="utf-8")
                 meta, body = get_frontmatter(content)
@@ -428,7 +430,7 @@ async def delete_event(
     if vault_path:
         p = _safe_calendar_path(vault_path)
         if p is None:
-            raise HTTPException(status_code=400, detail="vault_path no vàlid o fora del directori Calendar")
+            raise HTTPException(status_code=400, detail="Invalid vault_path or path outside the Calendar directory")
         if p.exists():
             # We don't delete permanently: we move to the Vault trash
             # (recoverable), consistent with DELETE /api/vault/pages. It used to do
@@ -669,7 +671,7 @@ async def rsvp_event(event_id: str, body: dict = Body(...)):
 
     ok = respond_to_invitation(email, event_id, rsvp, calendar_id)
     if not ok:
-        raise HTTPException(status_code=503, detail="No s'ha pogut actualitzar la resposta a Google Calendar")
+        raise HTTPException(status_code=503, detail="Could not update the response in Google Calendar")
 
     _invalidate_calendar_cache()
     return {"ok": True, "rsvp": rsvp}
@@ -724,7 +726,7 @@ async def invite_to_event(event_id: str, body: dict = Body(...)):
     else:
         ok = patch_event_attendees(email, event_id, attendees, calendar_id)
         if not ok:
-            raise HTTPException(status_code=503, detail="No s'ha pogut actualitzar els convidats a Google Calendar")
+            raise HTTPException(status_code=503, detail="Could not update the guests in Google Calendar")
         _invalidate_calendar_cache()
         return {"ok": True}
 

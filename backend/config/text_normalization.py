@@ -1,7 +1,7 @@
 # config/text_normalization.py
 import re
 
-SENT_PUNCT = r"[\.!?…]"  # pots ampliar si vols
+SENT_PUNCT = r"[\.!?…]"  # Extend this if needed.
 
 # List of terms you'd want to capitalize only at the start of a sentence
 # key: lowercase base form  → value: how you want it to end up capitalized

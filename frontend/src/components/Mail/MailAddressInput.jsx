@@ -91,7 +91,7 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
                     {suggestions.length > 0 && (
                         <>
                             <div className="px-3 py-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">
-                                {t('contacts.title', 'Contactes')}
+                                {t('contacts.title', "Contacts")}
                             </div>
                             {suggestions.map((s, i) => <SuggestionItem key={i} item={s} />)}
                         </>
@@ -99,14 +99,14 @@ export function AddressInput({ value, onChange, label, placeholder, accountEmail
                     {groupSuggestions.length > 0 && (
                         <>
                             <div className="border-t border-[var(--border-primary)] mt-1 pt-1 px-3 py-1 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider flex items-center gap-1">
-                                <Users size={10} /> {t('mail.usual_group', 'Grup habitual')}
+                                <Users size={10} /> {t('mail.usual_group', "Usual group")}
                             </div>
                             <button
                                 onMouseDown={() => handleSelectGroup(groupSuggestions.map(g => g.email))}
                                 className="w-full text-left px-4 py-2 hover:bg-[var(--bg-secondary)] transition-colors"
                             >
                                 <span className="text-[12px] text-[var(--gnosi-blue)] font-medium">
-                                    + {t('mail.add_all_group', 'Afegir tots: {{emails}}', { emails: groupSuggestions.map(g => g.email).join(', ') })}
+                                    + {t('mail.add_all_group', "Add all: {{emails}}", { emails: groupSuggestions.map(g => g.email).join(', ') })}
                                 </span>
                             </button>
                             {groupSuggestions.map((s, i) => <SuggestionItem key={i} item={s} />)}

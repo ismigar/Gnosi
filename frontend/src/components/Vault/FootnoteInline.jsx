@@ -75,7 +75,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                 ref={markRef}
                 contentEditable={false}
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
-                title={text || t('footnote.tooltip_hint', 'Nota al peu (clica per editar)')}
+                title={text || t('footnote.tooltip_hint', "Footnote (click to edit)")}
                 className="mx-0.5 cursor-pointer select-none rounded px-1 text-[0.7em] font-semibold text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
             >
                 [{num}]
@@ -87,7 +87,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                     style={{ position: 'fixed', top: coords.top, left: coords.left, width: 320, zIndex: 9999 }}
                     className="rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 shadow-xl"
                 >
-                    <div className="mb-1 text-xs font-semibold text-[var(--text-tertiary)]">{t('footnote.label_numbered', 'Nota al peu [{{num}}]', { num })}</div>
+                    <div className="mb-1 text-xs font-semibold text-[var(--text-tertiary)]">{t('footnote.label_numbered', "Footnote [{{num}}]", { num })}</div>
                     <textarea
                         autoFocus
                         value={draft}
@@ -96,7 +96,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                             if (e.key === 'Escape') { e.preventDefault(); save(); }
                             if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
                         }}
-                        placeholder={t('footnote.placeholder', 'Escriu el text de la nota…')}
+                        placeholder={t('footnote.placeholder', "Write the note text…")}
                         className="h-24 w-full resize-y rounded border border-[var(--border-primary)] bg-[var(--bg-secondary)] p-2 text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                     />
                     <div className="mt-1 flex justify-end">
@@ -105,7 +105,7 @@ export default function FootnoteInline({ inlineContent, updateInlineContent, edi
                             onMouseDown={(e) => { e.preventDefault(); save(); }}
                             className="rounded px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
                         >
-                            {t('common.save', 'Desa')}
+                            {t('common.save', "Save")}
                         </button>
                     </div>
                 </div>,

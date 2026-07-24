@@ -111,11 +111,11 @@ def read_page(page_id_or_title: str) -> str:
     """Reads the content and metadata of a Vault page by id or title."""
     p = _resolve_page_path(page_id_or_title)
     if not p:
-        return f"No s'ha trobat cap pàgina per '{page_id_or_title}'."
+        return f"No page was found for '{page_id_or_title}'."
     try:
         return p.read_text(encoding="utf-8")
     except Exception as e:
-        return f"Error llegint la pàgina: {e}"
+        return f"Error reading the page: {e}"
 
 
 @tool
@@ -125,7 +125,7 @@ def read_pdf(path: str, max_chars: int = 12000) -> str:
     from backend.services.context_vars import get_active_vault_path
     vault = get_active_vault_path()
     if not vault:
-        return "Error: no hi ha cap vault actiu."
+        return "Error: there is no active vault."
     vault_root = Path(vault).resolve()
     # `path` comes from the LLM and may be influenced by UNTRUSTED content that
     # the agent reads (pages, emails, other PDFs) → prompt-injectable.
@@ -136,20 +136,20 @@ def read_pdf(path: str, max_chars: int = 12000) -> str:
     raw = Path(path)
     target = (raw if raw.is_absolute() else (vault_root / path)).resolve()
     if target != vault_root and vault_root not in target.parents:
-        return f"Accés denegat: el PDF ha d'estar dins del vault actiu ({path})."
+        return f"Access denied: the PDF must be inside the active vault ({path})."
     if not target.exists():
-        return f"No existeix el PDF: {target}"
+        return f"PDF does not exist: {target}"
     try:
         from pypdf import PdfReader  # dep present in the backend
         reader = PdfReader(str(target))
         text = "\n".join((pg.extract_text() or "") for pg in reader.pages)
-        return text[:max_chars] if text.strip() else "(PDF sense text extraïble — potser escanejat)"
+        return text[:max_chars] if text.strip() else "(PDF has no extractable text; it may be scanned)"
     except Exception as e:
-        return f"Error llegint el PDF: {e}"
+        return f"Error reading the PDF: {e}"
 
 
 @tool
-def create_page(title: str, content: str = "", folder: str = "Importades",
+def create_page(title: str, content: str = "", folder: str = "Imported",
                 metadata: Optional[Dict[str, Any]] = None) -> str:
     """Creates a new page in the Vault (folder `folder`) and registers it in the index. Returns the id."""
     from pathlib import Path
@@ -157,12 +157,12 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
     from backend.api.vault_routes import register_page_in_index
     vault = get_active_vault_path()
     if not vault:
-        return "Error: no hi ha cap vault actiu."
+        return "Error: there is no active vault."
     fm_str = build_page_frontmatter(title, metadata)
     page_id = re.search(r'(^|\n)id:\s*["\']?([\w-]+)', fm_str)
     page_id = page_id.group(2) if page_id else ""
     safe = sanitize_vault_title(title)
-    folder_safe = sanitize_rel_folder(folder, fallback="Importades")
+    folder_safe = sanitize_rel_folder(folder, fallback="Imported")
     # `folder` comes from the LLM (prompt-injectable). `sanitize_rel_folder` already
     # drops `..`/empty segments, but keep the belt-and-braces containment check: if the
     # resolved destination escapes the vault, it falls back to the default folder
@@ -170,7 +170,7 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
     vault_root = vault.resolve()
     target_dir = (vault / folder_safe).resolve()
     if target_dir != vault_root and vault_root not in target_dir.parents:
-        target_dir = vault_root / "Importades"
+        target_dir = vault_root / "Imported"
     target_dir.mkdir(parents=True, exist_ok=True)
     path = target_dir / f"{safe}.md"
     if path.exists():
@@ -178,9 +178,9 @@ def create_page(title: str, content: str = "", folder: str = "Importades",
     try:
         path.write_text(f"---\n{fm_str}\n---\n\n{content.strip()}\n", encoding="utf-8")
         register_page_in_index(path)
-        return f"Pàgina creada: {path.name} (id: {page_id})"
+        return f"Page created: {path.name} (id: {page_id})"
     except Exception as e:
-        return f"Error creant la pàgina: {e}"
+        return f"Error creating the page: {e}"
 
 
 @tool
@@ -188,22 +188,22 @@ def propose_links(page_id_or_title: str, k: int = 8) -> str:
     """Proposes `[[...]]` connections for a page: searches for related ones and ranks them."""
     from .memory import vault_store
     page = read_page.func(page_id_or_title) if hasattr(read_page, "func") else read_page(page_id_or_title)
-    if page.startswith("No s'ha trobat"):
+    if page.startswith("No page was found"):
         return page
     results = vault_store.search_vault(page[:1500], k=max(k * 2, 12)) or []
     candidates = [{"title": (r.get("metadata") or {}).get("source", "?"),
                    "content": r.get("content", "")} for r in results]
     ranked = rank_link_candidates(page, candidates, top_k=k)
     if not ranked:
-        return "No he trobat connexions clares per a aquesta pàgina."
-    lines = [f"Connexions proposades per a «{page_id_or_title}»:"]
+        return "No clear connections were found for this page."
+    lines = [f"Suggested connections for «{page_id_or_title}»:"]
     for c in ranked:
-        lines.append(f"- [[{c['title']}]]  (afinitat {c['score']})")
+        lines.append(f"- [[{c['title']}]]  (affinity {c['score']})")
     return "\n".join(lines)
 
 
 @tool
-def summarize_to_cornell(source: str, title: str = "", folder: str = "Resums") -> str:
+def summarize_to_cornell(source: str, title: str = "", folder: str = "Summaries") -> str:
     """Summarizes a page or PDF into a Cornell note and saves it as a new Vault page."""
     from .factory import generate_text
     is_pdf = str(source).lower().endswith(".pdf")
@@ -212,14 +212,14 @@ def summarize_to_cornell(source: str, title: str = "", folder: str = "Resums") -
     if raw.startswith("No ") or raw.startswith("Error"):
         return raw
     prompt = (
-        "Ets un assistent d'estudi. A partir del següent material, genera una fitxa Cornell "
-        "en català amb TRES parts ben diferenciades, retornant NOMÉS un JSON amb claus "
-        "'notes' (resum estructurat del cos), 'cues' (llista de 4-7 pistes/preguntes clau) i "
-        "'summary' (3-4 frases). Material:\n\n" + raw[:8000]
+        "You are a study assistant. From the following material, create a Cornell note "
+        "in English with THREE clearly separated parts. Return ONLY JSON with the keys "
+        "'notes' (structured body summary), 'cues' (a list of 4–7 key prompts or questions), "
+        "and 'summary' (3–4 sentences). Material:\n\n" + raw[:8000]
     )
     text, _model = generate_text(prompt)
     notes, cues, summary = _parse_cornell_json(text)
-    note_title = title or (f"Resum: {source}")
+    note_title = title or (f"Summary: {source}")
     md = build_cornell_note(note_title, cues=cues, notes=notes, summary=summary)
     return (create_page.func(note_title, md, folder) if hasattr(create_page, "func")
             else create_page(note_title, md, folder))
@@ -254,12 +254,12 @@ def query_wiki(query: str, k: int = 5) -> str:
 
     brain_id = llm_wiki_config.get_brain_table_id()
     if not brain_id:
-        return ("No hi ha cap taula Cervell designada (Configuració → Plugins → "
-                "Cervell). No puc consultar el wiki de coneixement.")
+        return ("No Brain table is assigned (Settings → Plugins → Brain). "
+                "The knowledge wiki cannot be queried.")
 
     base = _tokenize(query)
     if not base:
-        return "La consulta és massa curta per cercar al Cervell."
+        return "The query is too short to search the Brain."
 
     records = llm_wiki_indices.load_search_cache(brain_id)
     if not records:
@@ -294,10 +294,10 @@ def query_wiki(query: str, k: int = 5) -> str:
         })
 
     if not scored:
-        return f"No he trobat cap nota al Cervell relacionada amb «{query}»."
+        return f"No Brain note related to «{query}» was found."
     scored.sort(key=lambda x: x["score"], reverse=True)
 
-    out = [f"Notes del Cervell rellevants per a «{query}»:\n"]
+    out = [f"Relevant Brain notes for «{query}»:\n"]
     for n in scored[:max(1, k)]:
         head = f"## {n['title']}" + (f" ({n['type']})" if n["type"] else "")
         out.append(head)
@@ -305,8 +305,8 @@ def query_wiki(query: str, k: int = 5) -> str:
             out.append(n["excerpt"])
         if n["resource_id"]:
             out.append(
-                f"Procedència: recurs {n['resource_id']}"
-                + (f" · taula {n['source_table_id']}" if n["source_table_id"] else "")
+                f"Provenance: resource {n['resource_id']}"
+                + (f" · table {n['source_table_id']}" if n["source_table_id"] else "")
             )
         out.append("")
     return "\n".join(out)

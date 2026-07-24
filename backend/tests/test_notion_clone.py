@@ -239,7 +239,7 @@ def test_clone_downloads_image_icons_and_covers():
 
 
 class FakeRestDual:
-    """Projectes ↔ Tasques (dual relation) to test inverses and warnings."""
+    """Projects ↔ Tasks (dual relation) fixture for inverses and warnings."""
     def __init__(self, both=True): self.both = both
     def list_users(self): return {}
     def search_databases(self): return [{"id": "proj"}, {"id": "task"}]
@@ -269,15 +269,15 @@ def test_clone_populates_inverse_relations():
     web = next(p for p in pages if p["title"] == "Web")["metadata"]
     tcid = clone_page_id("t0000000-0000-0000-0000-000000000002")
     assert web["Tasques"] == [f"[[Disseny|{tcid}]]"]   # inverse populated from Tasques.Projecte
-    assert rep["warnings"] == []                        # all DBs selected → no warning
+    assert rep["warnings"] == []                        # all databases selected → no warning
 
 
 def test_clone_warns_on_unselected_related_db():
-    # Only "task": its Projecte field points to "proj" (not cloned) → warning
+    # Only "task": its Projecte field points to "proj" (not cloned) → warning.
     rep = clone_workspace(FakeRestDual(), fetch_page=lambda i: "", mcp_to_markdown=lambda m: "",
                           write_table=lambda t: None, write_page=lambda p: None, write_view=lambda v: None,
                           database_ids=["task"])
-    assert any("Projecte" in w and "no seleccionada" in w for w in rep["warnings"])
+    assert any("Projecte" in w and "unselected database" in w for w in rep["warnings"])
 
 
 class FakeRestSub:
@@ -531,7 +531,7 @@ def test_clone_workspace_degrades_attachment_when_block_gone():
     body = pages[0]["content"]
     assert "📎 Perdut.pdf" in body
     assert "gnosi-notion-file" not in body
-    assert any("Perdut" not in w and "adjunt" in w for w in rep["warnings"])  # per-page warning
+    assert any("Perdut" not in w and "attachment" in w for w in rep["warnings"])  # per-page warning
 
 
 if __name__ == "__main__":

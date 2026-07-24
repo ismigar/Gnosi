@@ -318,7 +318,7 @@ async def get_messages(
     search: Optional[str] = Query(None),
     force: bool = Query(False),
 ):
-    """Hybrid: consulta IMAP (Google+manuals) o Microsoft Graph directament."""
+    """Hybrid: query IMAP (Google and manual accounts) or Microsoft Graph directly."""
     from backend.services.hybrid_mail_service import imap_list_messages
     from backend.services.integration_manager import integration_manager
 
@@ -614,7 +614,7 @@ async def sync_mail_accounts(email: Optional[str] = Query(None), limit: int = 50
         if failed_accounts and not total_synced and len(failed_accounts) == len(accounts_to_sync):
             raise HTTPException(
                 status_code=503,
-                detail=f"No s'ha pogut connectar: {', '.join(failed_accounts)}. Comprova les credencials IMAP a Configuració."
+                detail=f"Could not connect: {', '.join(failed_accounts)}. Check the IMAP credentials in Settings."
             )
 
         return {
@@ -774,13 +774,13 @@ async def spam_msg(message_id: str, email: str = Query(...), spam: bool = Body(.
             _invalidate_mail_cache()
             return {"status": "success"}
             
-    raise HTTPException(status_code=500, detail="Error actualitzant estat de spam")
+    raise HTTPException(status_code=500, detail="Error updating spam status")
 
 
 @router.post("/empty_folder", dependencies=[Depends(require_role("admin"))])
 async def empty_folder(email: str = Query(...), folder: str = Query(...)):
     """Empty a folder (Trash or Spam)."""
-    log.info(f"[Mail] Peticion buidat carpeta {folder} per a {email}")
+    log.info(f"[Mail] Folder-empty request for {folder} from {email}")
     if _is_imap_account(email):
         from backend.services.imap_mail_sync_service import imap_sync_service
         folders = imap_sync_service.list_folders(email)
@@ -804,21 +804,21 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
                 match = next((n for n in all_raw if kw in n.lower()), None)
                 if match:
                     real_name = match
-                    log.info(f"[IMAP] Carpeta trobada per fallback raw '{kw}': {real_name}")
+                    log.info(f"[IMAP] Folder found through raw fallback '{kw}': {real_name}")
                     break
 
         if not folder_info and not real_name:
             # If list_folders returns empty it's probably a connection/authentication error
             if not folders:
-                log.warning(f"[IMAP] No s'ha pogut connectar al compte {email} — credencials incorrectes?")
-                raise HTTPException(status_code=503, detail=f"No s'ha pogut connectar al compte {email}. Comprova les credencials IMAP a Configuració.")
-            log.warning(f"[IMAP] Carpeta {folder} no trobada per a {email}")
+                log.warning("[IMAP] Could not connect to account %s; are the credentials correct?", email)
+                raise HTTPException(status_code=503, detail=f"Could not connect to account {email}. Check the IMAP credentials in Settings.")
+            log.warning(f"[IMAP] Folder {folder} was not found for {email}")
             raise HTTPException(status_code=404, detail=f"Folder {folder} not found")
 
         if not real_name:
             real_name = folder_info["name"]
         is_trash = (folder_info["type"] == "Deleted" if folder_info else False) or folder.upper() == "TRASH"
-        log.info(f"[IMAP] Buidant carpeta real '{real_name}' (permanent={is_trash})")
+        log.info(f"[IMAP] Emptying actual folder '{real_name}' (permanent={is_trash})")
         
         if imap_sync_service.empty_folder(email, real_name, permanent=is_trash):
             _invalidate_mail_cache()
@@ -831,17 +831,17 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
             try:
                 # Find messages in this folder
                 q = "in:trash" if folder.upper() == "TRASH" else "in:spam" if folder.upper() == "SPAM" else None
-                log.info(f"[Gmail] Cercant missatges amb query '{q}' per a {email}")
+                log.info(f"[Gmail] Searching messages with query '{q}' for {email}")
                 if q:
                     results = service.users().messages().list(userId="me", q=q, includeSpamTrash=True).execute()
                     messages = results.get("messages", [])
-                    log.info(f"[Gmail] Trobats {len(messages)} missatges")
+                    log.info(f"[Gmail] Found {len(messages)} messages")
                     if messages:
                         ids = [m["id"] for m in messages]
                         if folder.upper() == "TRASH":
                             # Permanent delete
                             service.users().messages().batchDelete(userId="me", body={"ids": ids}).execute()
-                            log.info(f"[Gmail] batchDelete executat per {len(ids)} ids")
+                            log.info(f"[Gmail] batchDelete executed for {len(ids)} IDs")
                         else:
                             # Move to trash (remove SPAM label, add TRASH)
                             service.users().messages().batchModify(userId="me", body={
@@ -849,23 +849,23 @@ async def empty_folder(email: str = Query(...), folder: str = Query(...)):
                                 "addLabelIds": ["TRASH"],
                                 "removeLabelIds": ["SPAM"]
                             }).execute()
-                            log.info(f"[Gmail] batchModify executat per {len(ids)} ids")
+                            log.info(f"[Gmail] batchModify executed for {len(ids)} IDs")
                     _invalidate_mail_cache()
                     return {"status": "success"}
             except Exception as e:
-                log.error(f"[Gmail] Error buidant carpeta {folder}: {e}")
+                log.error(f"[Gmail] Failed to empty folder {folder}: {e}")
                 if "insufficientPermissions" in str(e) or "403" in str(e):
                     # Force a clearer "Reconnect" message
                     raise HTTPException(
                         status_code=403, 
-                        detail="L'aplicació necessita nous permisos per buidar carpetes. Si us plau, ves a Configuració i torna a connectar el teu compte de Gmail."
+                        detail="The application needs new permissions to empty folders. Go to Settings and reconnect your Gmail account."
                     )
                 raise HTTPException(
                     status_code=500,
                     detail=safe_error_detail(e, "Gmail empty folder"),
                 )
 
-    raise HTTPException(status_code=500, detail="Error buidant la carpeta")
+    raise HTTPException(status_code=500, detail="Could not empty the folder")
 
 
 @router.post("/drafts")
@@ -906,7 +906,7 @@ async def save_draft(payload: dict = Body(...)):
                 cc=cc, bcc=bcc, replace_uid=prev_imap_uid,
             )
         except Exception as e:
-            log.warning(f"[Drafts] APPEND IMAP fallit per {email_account}: {e}; segueixo al vault.")
+            log.warning(f"[Drafts] IMAP APPEND failed for {email_account}: {e}; continuing in the vault.")
 
     # Vault local (cache + fallback)
     import uuid as _uuid
@@ -1206,7 +1206,7 @@ async def move_message(message_id: str, email: str = Query(...), payload: dict =
         folder_upper = target_folder.upper()
         service = get_gmail_service(email)
         if not service:
-            raise HTTPException(status_code=500, detail="No s'ha pogut connectar amb Gmail")
+            raise HTTPException(status_code=500, detail="Could not connect to Gmail")
         try:
             if folder_upper == "TRASH":
                 try:
@@ -1231,23 +1231,23 @@ async def move_message(message_id: str, email: str = Query(...), payload: dict =
                         body={"addLabelIds": ["SPAM"], "removeLabelIds": ["INBOX", "TRASH"]}
                     ).execute()
             else:
-                raise HTTPException(status_code=400, detail=f"Carpeta Gmail no suportada: {target_folder}")
+                raise HTTPException(status_code=400, detail=f"Unsupported Gmail folder: {target_folder}")
             _invalidate_mail_cache()
             return {"status": "success"}
         except HTTPException:
             raise
         except Exception as e:
-            log.error(f"[Gmail] Error movent {gmail_id} a {target_folder}: {e}")
-            raise HTTPException(status_code=500, detail=f"Error movent a Gmail: {e}")
+            log.error(f"[Gmail] Failed to move {gmail_id} to {target_folder}: {e}")
+            raise HTTPException(status_code=500, detail=f"Could not move the message in Gmail: {e}")
 
     if _is_microsoft_account(email):
         from backend.services.microsoft_mail_service import microsoft_move_message
         if microsoft_move_message(email, message_id, target_folder):
             _invalidate_mail_cache()
             return {"status": "success"}
-        raise HTTPException(status_code=500, detail="Error movent a Microsoft")
+        raise HTTPException(status_code=500, detail="Could not move the message in Microsoft")
 
-    raise HTTPException(status_code=400, detail="Compte no suportat per moure missatges")
+    raise HTTPException(status_code=400, detail="Account does not support moving messages")
 
 
 @router.post("/batch")
@@ -1410,34 +1410,34 @@ async def extract_entities(payload: dict = Body(...)):
     from datetime import date
     today = date.today().isoformat()
 
-    system_prompt = f"""Analitza el contingut d'aquest correu electrònic i extreu esdeveniments de calendari i contactes.
-L'email pot estar en qualsevol idioma (català, castellà, anglès, francès...).
-La data d'avui és {today}.
+    system_prompt = f"""Analyze this email and extract calendar events and contacts.
+The email may be in any language (Catalan, Spanish, English, French, etc.).
+Today's date is {today}.
 
-Retorna ÚNICAMENT un objecte JSON amb els camps 'events' i 'contacts'. Sense cap text addicional, sense markdown.
-Si no hi ha entitats, retorna arrays buits.
+Return ONLY a JSON object with the fields 'events' and 'contacts'. Do not add
+other text or Markdown. Return empty arrays when there are no entities.
 
-Formats de data a reconèixer (exemples no exhaustius):
+Date formats to recognize (non-exhaustive examples):
 - "dia 6 de maig de 2026 a les 09.30 hores" → 2026-05-06T09:30:00
-- "el proper dilluns a les 10h" → calcula a partir de {today}
+- "el proper dilluns a les 10h" → calculate relative to {today}
 - "6 de mayo de 2026 a las 10:00" → 2026-05-06T10:00:00
 - "May 6th 2026 at 10am" → 2026-05-06T10:00:00
 
-Events han de tenir:
-- title: string (nom curt descriptiu de l'esdeveniment)
-- start: string ISO 8601 (si no hi ha hora, usa T09:00:00)
-- end: string ISO 8601 (si no s'especifica, 1 hora després de start)
-- location: string (buit si no s'esmenta)
-- description: string (resum breu)
+Each event must contain:
+- title: string (short descriptive event name)
+- start: ISO 8601 string (use T09:00:00 when no time is provided)
+- end: ISO 8601 string (one hour after start when not specified)
+- location: string (empty when not mentioned)
+- description: string (brief summary)
 
-Contacts han de tenir:
+Each contact must contain:
 - name: string
 - email: string
 - phone: string
 - company: string
 - notes: string
 
-CONTINGUT DEL CORREU:
+EMAIL CONTENT:
 """
     ai_prompt = system_prompt + context
     content, provider = call_ai_with_fallback(ai_prompt)
@@ -1607,7 +1607,7 @@ async def get_attachment(
     # Microsoft Graph keeps the original API; Gmail API remains only as a fallback
     # for Google accounts without refresh_token (degraded case).
     if integration_manager.is_imap_account(acc):
-        pass  # cau a IMAP path
+        pass  # Fall back to the IMAP path.
     elif integration_manager.is_google_account(acc):
         data, _ = await _gmail_get_attachment_bytes(email, message_id, att_id)
         if not data:
@@ -1758,17 +1758,17 @@ async def _embed_quoted_cid_images(
         try:
             parts = await _collect_original_inline_parts(src_email, src_mid, cids, src_folder)
         except Exception as e:
-            log.warning(f"Imatges citades de {src_mid}: error recuperant-les, es deixen intactes: {e}")
+            log.warning("Quoted images from %s could not be retrieved and will remain unchanged: %s", src_mid, e)
             parts = {}
         if parts is None:
-            log.warning(f"Imatges citades de {src_mid}: missatge original no trobat, queden intactes")
+            log.warning("Quoted images from %s remain unchanged because the original message was not found", src_mid)
             parts = {}
         parts_by_key[(src_email, src_mid, src_folder)] = parts
 
     def _attach(key, cid):
         part = parts_by_key[key].get(cid.strip("<>"))
         if not part:
-            log.warning(f"Imatge citada sense part a l'original {key[1]}: {cid!r}")
+            log.warning("Quoted image has no matching part in original message %s: %r", key[1], cid)
             return None
         new_cid = new_content_id()
         inline_images.append({**part, "content_id": new_cid})

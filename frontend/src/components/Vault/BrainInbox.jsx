@@ -59,11 +59,11 @@ export function BrainInbox({ onAccepted }) {
             );
             setItems((current) => current.filter((item) => item.id !== suggestion.id));
             onAccepted?.();
-            toast.success(tb('dismissed', 'Connexió descartada'));
+            toast.success(tb('dismissed', "Connection dismissed"));
         } catch (error) {
             toast.error(
                 error.response?.data?.detail
-                || tb('dismiss_error', 'No s’ha pogut descartar la connexió'),
+                || tb('dismiss_error', "The connection could not be dismissed"),
             );
         } finally {
             setBusy('');
@@ -76,10 +76,10 @@ export function BrainInbox({ onAccepted }) {
                 type="button"
                 onClick={() => setOpen(true)}
                 className="relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                title={tb('button_title', 'Connexions proposades pel Cervell')}
+                title={tb('button_title', "Connections proposed by the Brain")}
             >
                 <BrainCircuit size={15} />
-                {tb('button', 'Connexions')}
+                {tb('button', "Connections")}
                 {items.length > 0 && (
                     <span className="min-w-[16px] h-4 px-1 rounded-full bg-[var(--gnosi-primary)] text-white text-[10px] font-bold flex items-center justify-center">
                         {items.length}
@@ -104,7 +104,7 @@ export function BrainInbox({ onAccepted }) {
                                 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2"
                             >
                                 <BrainCircuit size={18} className="text-[var(--gnosi-primary)]" />
-                                {tb('title', 'Connexions del Cervell')}
+                                {tb('title', "Brain connections")}
                                 {items.length > 0 && (
                                     <span className="text-xs font-semibold text-[var(--text-tertiary)]">
                                         ({items.length})
@@ -115,7 +115,7 @@ export function BrainInbox({ onAccepted }) {
                                 type="button"
                                 onClick={() => setOpen(false)}
                                 className="gnosi-close-btn"
-                                aria-label={t('common.close', 'Tanca')}
+                                aria-label={t('common.close', "Close")}
                             >
                                 <X />
                             </button>
@@ -125,18 +125,18 @@ export function BrainInbox({ onAccepted }) {
                             <p className="text-xs text-[var(--text-tertiary)]">
                                 {tb(
                                     'readonly_help',
-                                    'Aquestes propostes no modifiquen cap nota. Les notes permanents continuen sent manuals.',
+                                    "These proposals do not modify any note. Permanent notes remain manual.",
                                 )}
                             </p>
                             {loading && (
                                 <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
                                     <Loader2 size={14} className="animate-spin" />
-                                    {tb('loading', 'Carregant connexions…')}
+                                    {tb('loading', "Loading connections…")}
                                 </div>
                             )}
                             {!loading && items.length === 0 && (
                                 <p className="text-sm text-[var(--text-tertiary)]">
-                                    {tb('empty', 'Cap connexió pendent. Se’n proposen després de processar o auditar el Cervell.')}
+                                    {tb('empty', "No pending connections. New ones are proposed after processing or auditing the Brain.")}
                                 </p>
                             )}
                             {items.map((suggestion) => (
@@ -162,7 +162,7 @@ export function BrainInbox({ onAccepted }) {
                                             {busy === suggestion.id
                                                 ? <Loader2 size={13} className="animate-spin" />
                                                 : <Trash2 size={13} />}
-                                            {tb('dismiss', 'Descarta')}
+                                            {tb('dismiss', "Dismiss")}
                                         </button>
                                     </div>
 

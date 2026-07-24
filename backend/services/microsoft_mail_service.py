@@ -56,10 +56,10 @@ def _refresh_token(account: dict) -> Optional[str]:
         if new_token:
             email = account.get("email", "")
             integration_manager.update_mail_account_token(email, new_token)
-            log.info(f"[Microsoft] Token renovat per {email}")
+            log.info(f"[Microsoft] Token renewed for {email}")
         return new_token
     except Exception as e:
-        log.error(f"[Microsoft] Error refrescant token: {e}")
+        log.error(f"[Microsoft] Failed to refresh token: {e}")
         return None
 
 
@@ -220,7 +220,7 @@ def microsoft_list_messages(
 
     data = _authed_get(email, path, params=params)
     if data is None:
-        msg = f"No s'ha pogut connectar amb Microsoft 365 per a {email}. Comprova les credencials."
+        msg = f"Could not connect to Microsoft 365 for {email}. Check the credentials."
         return {"messages": [], "next_page_token": None, "total": 0, "error": msg}
 
     messages = [_parse_message(m, email) for m in data.get("value", [])]
@@ -285,7 +285,7 @@ def microsoft_get_inline_parts(email: str, message_id: str, wanted_cids: set) ->
         try:
             raw = base64.b64decode(content_bytes)
         except Exception:
-            log.warning(f"[Microsoft] contentBytes invàlid per al cid {cid} de {message_id}")
+            log.warning(f"[Microsoft] Invalid contentBytes for CID {cid} in {message_id}")
             continue
         if raw:
             parts[cid] = {

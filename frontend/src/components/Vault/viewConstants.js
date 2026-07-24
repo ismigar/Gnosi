@@ -4,18 +4,19 @@ import {
 } from 'lucide-react';
 
 export const VIEW_TYPES = [
-    { id: 'table', label: 'Taula', icon: Table },
+    { id: 'table', label: 'Table', icon: Table },
     { id: 'board', label: 'Kanban', icon: Columns2 },
-    { id: 'gallery', label: 'Galeria', icon: LayoutGrid },
-    { id: 'list', label: 'Llista', icon: List },
-    { id: 'calendar', label: 'Calendari', icon: Calendar },
+    { id: 'gallery', label: 'Gallery', icon: LayoutGrid },
+    { id: 'list', label: 'List', icon: List },
+    { id: 'calendar', label: 'Calendar', icon: Calendar },
     { id: 'timeline', label: 'Timeline', icon: CalendarRange },
     { id: 'feed', label: 'Feed', icon: Newspaper },
-    { id: 'chart', label: 'Gràfic', icon: BarChart3 },
-    { id: 'graph', label: 'Graf', icon: Share2 },
+    { id: 'chart', label: 'Chart', icon: BarChart3 },
+    { id: 'graph', label: 'Graph', icon: Share2 },
 ];
 
-export const MAIN_VIEW_NAME = 'Taula Principal';
+export const MAIN_VIEW_NAME = 'Main Table';
+const LEGACY_MAIN_VIEW_NAMES = new Set([MAIN_VIEW_NAME, 'Taula Principal']);
 
 export const isMainView = (view, tableViews = []) => {
     if (!view) return false;
@@ -24,7 +25,7 @@ export const isMainView = (view, tableViews = []) => {
 
     // No table context: degenerate case (single or virtual view)
     if (safeTableViews.length === 0) {
-        return view.id === 'default' || view.is_main === true || view.is_default === true || view.name === MAIN_VIEW_NAME;
+        return view.id === 'default' || view.is_main === true || view.is_default === true || LEGACY_MAIN_VIEW_NAMES.has(view.name);
     }
 
     const scopedViews = view.table_id
@@ -36,7 +37,7 @@ export const isMainView = (view, tableViews = []) => {
     const explicitMain = candidateViews.find(v => v.id === 'default' || v.is_main === true || v.is_default === true);
     if (explicitMain) return explicitMain.id === view.id;
 
-    const mainByName = candidateViews.find(v => v.name === MAIN_VIEW_NAME);
+    const mainByName = candidateViews.find(v => LEGACY_MAIN_VIEW_NAMES.has(v.name));
     if (mainByName) return mainByName.id === view.id;
 
     const ordered = [...candidateViews].sort((a, b) => (a.order ?? Number.MAX_SAFE_INTEGER) - (b.order ?? Number.MAX_SAFE_INTEGER));

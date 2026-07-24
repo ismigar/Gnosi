@@ -53,12 +53,12 @@ export default function AICorrectLayer({ editor, lang }) {
                 const vv = view();
                 vv.dispatch(vv.state.tr.insertText(corrected, from, to));
                 vv.focus();
-                toast.success(t('ai_correct.text_corrected', 'Text corregit'));
+                toast.success(t('ai_correct.text_corrected', "Text corrected"));
             } else {
-                toast(t('ai_correct.no_correction', 'Cap correcció necessària'));
+                toast(t('ai_correct.no_correction', "No correction needed"));
             }
         } catch (err) {
-            toast.error(err?.response?.data?.detail || t('ai_correct.selection_error', 'No s\'ha pogut corregir'));
+            toast.error(err?.response?.data?.detail || t('ai_correct.selection_error', "Could not correct"));
         } finally {
             busyRef.current = false; setBusy(false);
         }
@@ -68,7 +68,7 @@ export default function AICorrectLayer({ editor, lang }) {
     const correctPage = useCallback(async () => {
         if (!editor || busyRef.current) return;
         busyRef.current = true; setBusy(true);
-        const tid = toast.loading(t('ai_correct.correcting_page', 'Corregint la pàgina amb IA…'));
+        const tid = toast.loading(t('ai_correct.correcting_page', "Correcting the page with AI…"));
         try {
             const md = await editor.blocksToMarkdownLossy(editor.document);
             if (!md.trim()) { toast.dismiss(tid); return; }
@@ -76,9 +76,9 @@ export default function AICorrectLayer({ editor, lang }) {
             if (!corrected) { toast.dismiss(tid); return; }
             const newBlocks = await editor.tryParseMarkdownToBlocks(corrected);
             editor.replaceBlocks(editor.document, newBlocks);
-            toast.success(t('ai_correct.page_corrected', 'Pàgina corregida'), { id: tid });
+            toast.success(t('ai_correct.page_corrected', "Page corrected"), { id: tid });
         } catch (err) {
-            toast.error(err?.response?.data?.detail || t('ai_correct.page_error', 'No s\'ha pogut corregir la pàgina'), { id: tid });
+            toast.error(err?.response?.data?.detail || t('ai_correct.page_error', "Could not correct the page"), { id: tid });
         } finally {
             busyRef.current = false; setBusy(false);
         }
@@ -125,23 +125,23 @@ export default function AICorrectLayer({ editor, lang }) {
                     style={{ position: 'fixed', top: btn.top, left: btn.left, zIndex: 9998 }}
                     className="flex items-center gap-1 rounded-full bg-[var(--gnosi-primary)] px-3 py-1.5 text-xs font-medium text-white shadow-lg hover:opacity-90"
                 >
-                    <Sparkles size={14} /> {t('ai_correct.button', 'Corregeix (IA)')}
+                    <Sparkles size={14} /> {t('ai_correct.button', "Correct (AI)")}
                 </button>, document.body)}
 
             {busy && createPortal(
                 <div style={{ position: 'fixed', bottom: 20, right: 20, zIndex: 10060 }}
                     className="flex items-center gap-2 rounded-lg bg-[var(--gnosi-primary)] px-3 py-2 text-sm text-white shadow-xl">
-                    <Loader2 size={16} className="animate-spin" /> {t('ai_correct.correcting', 'Corregint amb IA…')}
+                    <Loader2 size={16} className="animate-spin" /> {t('ai_correct.correcting', "Correcting with AI…")}
                 </div>, document.body)}
 
             <ConfirmModal
                 isOpen={confirmOpen}
                 onClose={() => setConfirmOpen(false)}
                 onConfirm={async () => { setConfirmOpen(false); await correctPage(); }}
-                title={t('ai_correct.confirm_title', 'Corregir tota la pàgina amb IA')}
-                message={t('ai_correct.confirm_message', 'Es reemplaçarà el contingut de la pàgina amb la versió corregida. Podràs desfer-ho amb Ctrl/Cmd+Z.')}
-                confirmText={t('ai_correct.confirm_button', 'Corregeix')}
-                cancelText={t('common.cancel', 'Cancel·la')}
+                title={t('ai_correct.confirm_title', "Correct the whole page with AI")}
+                message={t('ai_correct.confirm_message', "The page content will be replaced with the corrected version. You can undo it with Ctrl/Cmd+Z.")}
+                confirmText={t('ai_correct.confirm_button', "Correct")}
+                cancelText={t('common.cancel', "Cancel")}
                 isDestructive={false}
             />
         </>

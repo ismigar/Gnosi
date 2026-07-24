@@ -4,6 +4,7 @@ Replaces the in-memory arrays (SCHEDULED_POSTS / POST_HISTORY) of
 `social_routes.py`, which were lost on every restart. Each post (draft,
 scheduled, published, or failed) is a row of a "Publicacions Socials"
 table in the Vault, saved as Markdown + frontmatter like any other record.
+The quoted table and field names are persisted data values. @language-example
 
 Reuses the Vault functions (`create_table`, `create_page`, `patch_page`)
 via lazy imports to avoid circular dependencies (vault_routes doesn't know
@@ -73,7 +74,7 @@ async def ensure_social_table() -> str:
     }
     # create_table does upsert + creates assets folder + main view.
     await create_table(table)
-    log.info(f"🆕 Taula '{SOCIAL_TABLE_NAME}' creada al registre ({SOCIAL_TABLE_ID}).")
+    log.info(f"🆕 Table '{SOCIAL_TABLE_NAME}' created in the registry ({SOCIAL_TABLE_ID}).")
     return SOCIAL_TABLE_ID
 
 
@@ -168,7 +169,7 @@ async def update_publication(
                 meta, _ = parse_frontmatter(raw, file_path)
                 current = json.loads(meta.get(COL_MESSAGES) or "{}")
         except Exception as exc:
-            log.warning(f"update_publication: no he pogut llegir Missatges de {page_id}: {exc}")
+            log.warning(f"update_publication: could not read messages for {page_id}: {exc}")
         for net, res in results.items():
             entry = current.get(net) or {}
             entry.update(res or {})

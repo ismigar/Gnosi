@@ -24,32 +24,32 @@
   </style>
 </head>
 <body>
-  <h1>📎 Desa a Gnosi</h1>
+  <h1>📎 Save to Gnosi</h1>
   <div id="target"></div>
 
-  <label>Etiquetes (separades per comes)</label>
-  <input id="tags" placeholder="lectura, web" />
+  <label>Tags (comma-separated)</label>
+  <input id="tags" placeholder="reading, web" />
 
-  <label>Nota (opcional — si no, s'usa la selecció de la pàgina)</label>
-  <textarea id="note" placeholder="Comentari o text…"></textarea>
+  <label>Note (optional — otherwise the page selection is used)</label>
+  <textarea id="note" placeholder="Comment or text…"></textarea>
 
   <!-- Columns of the destination table, rendered from /api/public/clip/config -->
   <div id="fields"></div>
 
-  <button id="clip">Desa aquesta pàgina</button>
-  <button id="clipSelection" class="secondary">Desa només la selecció</button>
+  <button id="clip">Save this page</button>
+  <button id="clipSelection" class="secondary">Save selection only</button>
 
   <div id="status"></div>
 
   <details>
-    <summary>Configuració</summary>
-    <label>URL del backend de Gnosi</label>
+    <summary>Settings</summary>
+    <label>Gnosi backend URL</label>
     <input id="backend" placeholder="https://localhost:5173" />
-    <div class="hint">L'URL on corre Gnosi (proxy del frontend o backend directe).</div>
-    <label>Token d'accés (PAT)</label>
+    <div class="hint">The URL where Gnosi runs, either through the frontend proxy or directly on the backend.</div>
+    <label>Access token (PAT)</label>
     <input id="token" type="password" placeholder="gnosi_pat_…" />
-    <div class="hint">Crea'l a Gnosi → Configuració → API i tokens.</div>
-    <button id="save" class="secondary">Desa la configuració</button>
+    <div class="hint">Create one in Gnosi → Settings → API and tokens.</div>
+    <button id="save" class="secondary">Save settings</button>
   </details>
 
   <script src="popup.js"></script>

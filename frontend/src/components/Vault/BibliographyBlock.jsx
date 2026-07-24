@@ -75,7 +75,7 @@ export function BibliographyBlock({ block, editor }) {
     const { t } = useTranslation();
     const ctx = useContext(VaultEditorContext) || {};
     const style = block?.props?.style || ctx.cslStyle || 'apa';
-    const locale = block?.props?.locale || ctx.cslLocale || 'ca-AD';
+    const locale = block?.props?.locale || ctx.cslLocale || 'en-US';
 
     // `version` is a trigger for manual refresh (button). When it changes, force
     // re-collect + re-render.
@@ -150,14 +150,14 @@ export function BibliographyBlock({ block, editor }) {
             <div className="flex items-center gap-2 mb-3 text-sm font-semibold text-[var(--text-secondary)]">
                 <BookText size={16} className="text-[var(--gnosi-primary)]" />
                 <span className="flex-1">
-                    {t('citations.bibliography', { defaultValue: 'Bibliografia' })}
+                    {t('citations.bibliography', { defaultValue: "Bibliography" })}
                     <span className="ml-2 text-[var(--text-tertiary)] text-xs font-normal">
-                        ({style.toUpperCase()} · {citationKeys.length} {t('citations.refs', { defaultValue: 'cites' })})
+                        ({style.toUpperCase()} · {citationKeys.length} {t('citations.refs', { defaultValue: "citations" })})
                     </span>
                 </span>
                 <button
                     onClick={refresh}
-                    title={t('citations.refresh', { defaultValue: 'Refresca' })}
+                    title={t('citations.refresh', { defaultValue: "Refresh" })}
                     className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
                     contentEditable={false}
                 >
@@ -166,12 +166,12 @@ export function BibliographyBlock({ block, editor }) {
             </div>
             {loading && (
                 <div className="text-xs text-[var(--text-tertiary)] italic">
-                    {t('citations.loading', { defaultValue: 'Carregant referències…' })}
+                    {t('citations.loading', { defaultValue: "Loading references…" })}
                 </div>
             )}
             {!loading && !citationKeys.length && (
                 <div className="text-xs text-[var(--text-tertiary)] italic">
-                    {t('citations.empty', { defaultValue: 'Aquest document encara no té cap cita.' })}
+                    {t('citations.empty', { defaultValue: "This document doesn't have any citations yet." })}
                 </div>
             )}
             {!loading && html && (
@@ -184,7 +184,7 @@ export function BibliographyBlock({ block, editor }) {
             )}
             {!loading && missing.length > 0 && (
                 <div className="mt-3 text-xs text-red-500">
-                    {t('citations.missing', { defaultValue: 'Cites no resoltes' })}:
+                    {t('citations.missing', { defaultValue: "Unresolved citations" })}:
                     {' '}{missing.map(k => `@${k}`).join(', ')}
                 </div>
             )}

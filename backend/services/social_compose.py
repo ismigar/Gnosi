@@ -30,18 +30,18 @@ LANG_NAMES = {
 
 
 def detect_lang(text: str) -> str:
-    """Detects the ISO 639-1 language of the source content (default: 'ca').
+    """Detect the ISO 639-1 language of the source content (default: English).
 
     Reuses the heuristic from the translate_row skill (a pure function, with no
-    dependency on the backend). Falls back to 'ca' if it can't be imported.
+    dependency on the backend). Falls back to English if it cannot be imported.
     
     """
     try:
         from pipeline.skills.translate_row.scripts.translate_text import detect_source_lang
         return detect_source_lang(text or "")
-    except Exception as exc:  # pragma: no cover - degradació
-        log.warning(f"social_compose: detect_source_lang no disponible ({exc}); assumeixo 'ca'")
-        return "ca"
+    except Exception as exc:  # pragma: no cover - clean degradation
+        log.warning("social_compose: detect_source_lang unavailable (%s); assuming 'en'", exc)
+        return "en"
 
 
 def build_prompt(
@@ -60,27 +60,27 @@ def build_prompt(
     """Builds the prompt for a specific network."""
     lang_name = LANG_NAMES.get(source_lang, source_lang)
     parts: List[str] = [
-        f"Ets un community manager expert. Redacta UNA sola publicació per a {network}.",
-        f"IDIOMA OBLIGATORI del text: {lang_name} ({source_lang}). NO tradueixis a cap altre idioma; "
-        f"escriu en el mateix idioma que el contingut original.",
-        f"Límit estricte: màxim {char_limit} caràcters en total (inclosos hashtags i enllaç).",
+        f"You are an expert community manager. Write ONE post for {network}.",
+        f"REQUIRED output language: {lang_name} ({source_lang}). Do not translate it into another language; "
+        f"write in the same language as the source content.",
+        f"Strict limit: at most {char_limit} total characters, including hashtags and the link.",
     ]
     if tone:
-        parts.append(f"To i veu: {tone}.")
+        parts.append(f"Tone and voice: {tone}.")
     if hashtags_default:
-        parts.append(f"Inclou 1-3 hashtags rellevants al final; prioritza aquests si encaixen: {hashtags_default}.")
+        parts.append(f"Include 1–3 relevant hashtags at the end; prioritize these when appropriate: {hashtags_default}.")
     else:
-        parts.append("Inclou 1-3 hashtags rellevants al final.")
+        parts.append("Include 1–3 relevant hashtags at the end.")
     if url:
-        parts.append(f"Pots acabar amb aquest enllaç: {url}")
+        parts.append(f"You may finish with this link: {url}")
     if hint:
-        parts.append(f"Instrucció addicional de l'usuari: {hint}")
+        parts.append(f"Additional user instruction: {hint}")
     if variation:
-        parts.append(f"Proposa una alternativa CLARAMENT DIFERENT de les anteriors (variació #{variation}).")
-    parts.append("Retorna NOMÉS el text final de la publicació, sense cometes, sense títols i sense explicacions.")
+        parts.append(f"Propose an alternative that is CLEARLY DIFFERENT from the previous ones (variation #{variation}).")
+    parts.append("Return ONLY the final post text, without quotation marks, headings, or explanations.")
     parts.append("")
-    parts.append(f"TÍTOL: {title}".strip())
-    parts.append(f"CONTINGUT:\n{content}".strip())
+    parts.append(f"TITLE: {title}".strip())
+    parts.append(f"CONTENT:\n{content}".strip())
     return "\n".join(p for p in parts if p is not None)
 
 

@@ -54,7 +54,7 @@ def read_directive(topic: str) -> str:
     try:
         file_path = _safe_directive_path(topic)
         if file_path is None:
-            return "Error: nom de directiva no vàlid (fora del directori de directives)."
+            return "Error: invalid directive name (outside the directives directory)."
 
         if not file_path.exists():
             return f"Directive '{topic}' not found."
@@ -77,7 +77,7 @@ def update_directive(topic: str, content: str) -> str:
     try:
         file_path = _safe_directive_path(topic)
         if file_path is None:
-            return "Error: nom de directiva no vàlid (fora del directori de directives)."
+            return "Error: invalid directive name (outside the directives directory)."
 
         # Atomic write — a crash halfway through the write would leave a directive
         # truncated. The agent might be editing a critical directive and a

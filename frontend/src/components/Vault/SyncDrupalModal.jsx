@@ -35,22 +35,22 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
             const d = res.data || {};
             const trOk = (d.translations || []).filter((x) => x.status === 'ok').length;
             const base = d.created
-                ? t('drupal.sync_created', 'Node creat a Drupal.')
-                : t('drupal.sync_updated', 'Node actualitzat a Drupal.');
+                ? t('drupal.sync_created', "Node created in Drupal.")
+                : t('drupal.sync_updated', "Node updated in Drupal.");
             const withMedia = d.media_pushed
-                ? `${base} ${t('drupal.media_updated', 'Imatge actualitzada.')}`
+                ? `${base} ${t('drupal.media_updated', "Image updated.")}`
                 : base;
             toast.success(
                 trOk
-                    ? `${withMedia} ${t('drupal.sync_translations', { count: trOk, defaultValue: '{{count}} traduccions.' })}`
+                    ? `${withMedia} ${t('drupal.sync_translations', { count: trOk, defaultValue: "{{count}} translations." })}`
                     : withMedia
             );
             if (onSynced) onSynced(d);
             onClose();
         } catch (err) {
             console.error('Error syncing with Drupal:', err);
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
-            toast.error(`${t('drupal.sync_error', 'Error sincronitzant amb Drupal')}: ${msg}`);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            toast.error(`${t('drupal.sync_error', "Error syncing with Drupal")}: ${msg}`);
         } finally {
             setSubmitting(false);
         }
@@ -80,9 +80,9 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Globe size={18} className="text-[var(--gnosi-primary)]" />
-                        {t('drupal.sync_title', 'Sincronitzar amb Drupal')}
+                        {t('drupal.sync_title', "Sync with Drupal")}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={submitting}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")} disabled={submitting}>
                         <X />
                     </button>
                 </div>
@@ -90,24 +90,24 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                 <div className="p-5 space-y-3">
                     <p className="text-xs text-[var(--text-secondary)]/80">
                         {alreadySynced
-                            ? t('drupal.sync_intro_update', "S'actualitzarà el node a Drupal segons l'abast triat.")
-                            : t('drupal.sync_intro_create', 'Es crearà el node a Drupal amb els camps mapats.')}
+                            ? t('drupal.sync_intro_update', "The node will be updated in Drupal according to the chosen scope.")
+                            : t('drupal.sync_intro_create', "The node will be created in Drupal with the mapped fields.")}
                     </p>
 
                     <div className="space-y-1.5 rounded-lg border border-[var(--border-primary)] p-3">
                         <label className="flex items-start gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
                             <input type="radio" name="drupal-scope" className="mt-0.5" checked={scope === 'all'} onChange={() => setScope('all')} disabled={submitting} />
-                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_all', 'Tot el node')}</span> — {t('drupal.scope_all_hint', "l'original i totes les traduccions / idiomes")}</span>
+                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_all', "The whole node")}</span> — {t('drupal.scope_all_hint', "the original and all translations / languages")}</span>
                         </label>
                         <label className="flex items-start gap-2 cursor-pointer text-xs text-[var(--text-secondary)]">
                             <input type="radio" name="drupal-scope" className="mt-0.5" checked={scope === 'lang_only'} onChange={() => setScope('lang_only')} disabled={submitting} />
-                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_lang', 'Només aquest idioma')}</span></span>
+                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.scope_lang', "This language only")}</span></span>
                         </label>
                     </div>
                     {alreadySynced && (
                         <label className="flex items-start gap-2 cursor-pointer text-xs text-[var(--text-secondary)] rounded-lg border border-[var(--border-primary)] p-3">
                             <input type="checkbox" className="mt-0.5" checked={pushMedia} onChange={(e) => setPushMedia(e.target.checked)} disabled={submitting} />
-                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.push_media', 'Tornar a pujar la imatge')}</span> — {t('drupal.push_media_hint', "actualitza la imatge i el seu alt (per defecte, actualitzar només toca el text)")}</span>
+                            <span><span className="font-semibold text-[var(--text-primary)]">{t('drupal.push_media', "Re-upload the image")}</span> — {t('drupal.push_media_hint', "updates the image and its alt (by default, updating only touches the text)")}</span>
                         </label>
                     )}
                     {alreadySynced && existingUrl && (
@@ -122,7 +122,7 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                         </a>
                     )}
                     <p className="text-[10px] text-[var(--text-secondary)]/60">
-                        {t('drupal.sync_publish_hint', 'El node es publica a temenosismael.org.')}
+                        {t('drupal.sync_publish_hint', "The node is published to temenosismael.org.")}
                     </p>
                 </div>
 
@@ -142,8 +142,8 @@ export function SyncDrupalModal({ isOpen, onClose, noteId, recordMetadata = {}, 
                     >
                         {submitting && <Loader2 size={14} className="animate-spin" />}
                         {alreadySynced
-                            ? t('drupal.sync_submit_update', 'Actualitzar')
-                            : t('drupal.sync_submit_create', 'Crear i sincronitzar')}
+                            ? t('drupal.sync_submit_update', "Update")
+                            : t('drupal.sync_submit_create', "Create and sync")}
                     </button>
                 </div>
             </div>

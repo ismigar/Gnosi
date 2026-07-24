@@ -131,7 +131,7 @@ def test_add_to_indexes_does_not_overwrite():
     dedup = {'doi': {'10.5555/a': 'first'}, 'isbn': {}, 'title': {}}
     entry = {'DOI': '10.5555/a'}
     add_to_indexes(entry, 'second', dedup)
-    assert dedup['doi']['10.5555/a'] == 'first'  # no canvi
+    assert dedup['doi']['10.5555/a'] == 'first'  # No change.
 
 
 def test_add_to_indexes_skips_empty_fields():

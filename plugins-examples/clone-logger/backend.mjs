@@ -5,18 +5,18 @@
 
 export default {
   async onEvent(event, api) {
-    api.log(`esdeveniment rebut: ${event.name}`);
+    api.log(`event received: ${event.name}`);
     if (event.name === 'clone:finished') {
       const p = event.payload || {};
-      api.log(`clon acabat — pàgines=${p.pages || 0}, taules=${p.tables || 0}`);
+      api.log(`clone finished — pages=${p.pages || 0}, tables=${p.tables || 0}`);
     }
     // Example of vault access (requires the vault:read permission to be granted):
     if (event.payload && event.payload.page_id) {
       try {
         const page = await api.vault.readPage(event.payload.page_id);
-        api.log(`pàgina ${event.payload.page_id}: ${String((page && page.content) || '').length} chars`);
+        api.log(`page ${event.payload.page_id}: ${String((page && page.content) || '').length} chars`);
       } catch (e) {
-        api.warn(`lectura denegada o fallida: ${e.message}`);
+        api.warn(`read denied or failed: ${e.message}`);
       }
     }
   },

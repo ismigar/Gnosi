@@ -92,7 +92,7 @@ const uploadErrorMessage = (e, t) => {
     if (e?.message === 'unreadable-file') {
         return t(
             'insert.error_unreadable_file',
-            "No s'ha pogut llegir el fitxer. Si és online-only (OneDrive o iCloud), fes-lo disponible localment (Finder → «Mantén en aquest dispositiu») i torna-ho a provar.",
+            "Couldn't read the file. If it's online-only (OneDrive or iCloud), make it available locally (Finder → \"Keep on this device\") and try again.",
         );
     }
     const code = e?.code;
@@ -100,23 +100,23 @@ const uploadErrorMessage = (e, t) => {
     if (isTimeout) {
         return t(
             'insert.error_upload_timeout',
-            "La pujada ha trigat massa. Si el fitxer és online-only (OneDrive o iCloud), fes-lo disponible localment i torna-ho a provar.",
+            "The upload took too long. If the file is online-only (OneDrive or iCloud), make it available locally and try again.",
         );
     }
-    return e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', 'Error desconegut');
+    return e?.response?.data?.detail || e?.response?.data?.error || e?.message || t('errors.unknown', "Unknown error");
 };
 
 const KIND_META = {
-    image: { Icon: ImageIcon, label: 'Imatge' },
-    video: { Icon: Video, label: 'Vídeo' },
-    audio: { Icon: Music, label: 'Àudio' },
+    image: { Icon: ImageIcon, label: 'Image' },
+    video: { Icon: Video, label: 'Video' },
+    audio: { Icon: Music, label: 'Audio' },
     pdf: { Icon: FileText, label: 'PDF' },
     doc: { Icon: FileText, label: 'Document' },
-    file: { Icon: FileIcon, label: 'Fitxer' },
-    folder: { Icon: Folder, label: 'Carpeta' },
+    file: { Icon: FileIcon, label: 'File' },
+    folder: { Icon: Folder, label: 'Folder' },
     youtube: { Icon: Video, label: 'YouTube' },
     vimeo: { Icon: Video, label: 'Vimeo' },
-    web: { Icon: Globe, label: 'Pàgina web' },
+    web: { Icon: Globe, label: 'Web page' },
 };
 
 const detectUrlKind = (url) => {
@@ -447,12 +447,12 @@ export const InsertContentModal = ({
                 const u = await performUpload(f, destFolder);
                 if (u) urls.push(u);
             }
-            if (!urls.length) throw new Error(t('insert.error_no_upload', "No s'ha pogut pujar cap fitxer"));
+            if (!urls.length) throw new Error(t('insert.error_no_upload', "No file could be uploaded"));
             onInsert?.({ urls, kind: 'file' });
             onClose?.();
         } catch (e) {
             const msg = uploadErrorMessage(e, t);
-            toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg }));
+            toast.error(t('insert.error', { defaultValue: "Error inserting: {{msg}}", msg }));
         } finally {
             setBusy(false);
         }
@@ -526,7 +526,7 @@ export const InsertContentModal = ({
                     }
                 }
                 if (!items.length) {
-                    throw new Error(t('insert.error_no_url', "No s'ha pogut obtenir la URL final"));
+                    throw new Error(t('insert.error_no_url', "Could not obtain the final URL"));
                 }
                 onInsert?.({ items, urls: items.map((it) => it.url), mode: 'link', kind: 'file' });
                 onClose?.();
@@ -545,7 +545,7 @@ export const InsertContentModal = ({
                 finalUrl = fileUrlToSentinel(`file://${selected.path}`);
             }
             if (!finalUrl) {
-                throw new Error(t('insert.error_no_url', "No s'ha pogut obtenir la URL final"));
+                throw new Error(t('insert.error_no_url', "Could not obtain the final URL"));
             }
             onInsert?.({ url: finalUrl, mode, kind: selected.kind, name: selected.name, imageMeta: imageField ? imgMeta : undefined });
             onClose?.();
@@ -556,9 +556,9 @@ export const InsertContentModal = ({
                 // Office/Adobe). uploadFile is still set, so the "locate on disk"
                 // UI shows pre-filled and, once located, the backend materializes it.
                 setTab('local');
-                toast.error(t('insert.error_unreadable_switch_local', "Aquest fitxer és online-only. Localitza'l a «Disc local» i Gnosi el baixarà automàticament."));
+                toast.error(t('insert.error_unreadable_switch_local', "This file is online-only. Locate it in \"Local disk\" and Gnosi will download it automatically."));
             } else {
-                toast.error(t('insert.error', { defaultValue: 'Error inserint: {{msg}}', msg: uploadErrorMessage(e, t) }));
+                toast.error(t('insert.error', { defaultValue: "Error inserting: {{msg}}", msg: uploadErrorMessage(e, t) }));
             }
         } finally {
             setBusy(false);
@@ -593,9 +593,9 @@ export const InsertContentModal = ({
                     <div className="flex items-center justify-between px-5 py-3 border-b border-[var(--border-primary)]">
                         <h2 className="text-base font-semibold flex items-center gap-2">
                             <Frame size={18} />
-                            {t('insert.title', { defaultValue: 'Insereix contingut' })}
+                            {t('insert.title', { defaultValue: "Insert content" })}
                         </h2>
-                        <button onClick={onClose} className="p-1.5 rounded hover:bg-[var(--bg-secondary)]" aria-label={t('common.close', 'Tanca')}>
+                        <button onClick={onClose} className="p-1.5 rounded hover:bg-[var(--bg-secondary)]" aria-label={t('common.close', "Close")}>
                             <X size={16} />
                         </button>
                     </div>
@@ -626,10 +626,10 @@ export const InsertContentModal = ({
                             />
                             <div className="min-w-0">
                                 <div className="text-xs font-medium text-[var(--text-primary)] truncate">
-                                    {t('insert.current_image', { defaultValue: 'Imatge actual' })}: {currentSrc.split('/').pop()}
+                                    {t('insert.current_image', { defaultValue: "Current image" })}: {currentSrc.split('/').pop()}
                                 </div>
                                 <div className="text-[11px] text-[var(--text-tertiary)]">
-                                    {t('insert.current_image_hint', { defaultValue: "Edita els camps de sota i desa, o tria'n una de nova per substituir-la." })}
+                                    {t('insert.current_image_hint', { defaultValue: "Edit the fields below and save, or pick a new one to replace it." })}
                                 </div>
                             </div>
                         </div>
@@ -652,16 +652,16 @@ export const InsertContentModal = ({
                                     // it doesn't seem like we're asking to "search again" for no reason.
                                     <div>
                                         <div className="text-sm font-semibold">
-                                            {t('insert.local_relocate_title', { defaultValue: 'Localitza «{{name}}» al disc', name: uploadFile.name })}
+                                            {t('insert.local_relocate_title', { defaultValue: "Locate “{{name}}” on disk", name: uploadFile.name })}
                                         </div>
                                         <div className="text-xs text-[var(--text-tertiary)] mt-1 max-w-md">
-                                            {t('insert.local_relocate_hint', { defaultValue: "El navegador no comparteix la ruta dels fitxers arrossegats. Per enllaçar-lo sense copiar-lo, localitza'l. O torna a «Puja» per copiar-lo al Vault." })}
+                                            {t('insert.local_relocate_hint', { defaultValue: "The browser doesn't share the path of dragged files. To link it without copying it, locate it. Or go back to “Upload” to copy it into the Vault." })}
                                         </div>
                                     </div>
                                 ) : (
                                     <div>
-                                        <div className="text-sm font-semibold">{t('insert.local_intro', { defaultValue: 'Navega pel disc fins al fitxer o carpeta' })}</div>
-                                        <div className="text-xs text-[var(--text-tertiary)] mt-1">{t('insert.local_subtitle', { defaultValue: 'Pots cercar entre carpetes i tot el contingut del Mac' })}</div>
+                                        <div className="text-sm font-semibold">{t('insert.local_intro', { defaultValue: "Browse the disk to the file or folder" })}</div>
+                                        <div className="text-xs text-[var(--text-tertiary)] mt-1">{t('insert.local_subtitle', { defaultValue: "You can search folders and all the Mac's content" })}</div>
                                     </div>
                                 )}
                                 {(selected?.source === 'local' || selected?.source === 'local-folder') && (
@@ -680,8 +680,8 @@ export const InsertContentModal = ({
                                 >
                                     <FolderOpen size={14} />
                                     {(selected?.source === 'local' || selected?.source === 'local-folder' || selected?.source === 'local-multi')
-                                        ? t('insert.local_change', { defaultValue: 'Canvia la selecció' })
-                                        : t('insert.local_open', { defaultValue: 'Obre el navegador de fitxers' })}
+                                        ? t('insert.local_change', { defaultValue: "Change selection" })
+                                        : t('insert.local_open', { defaultValue: "Open the file browser" })}
                                 </button>
                             </div>
                         )}
@@ -705,18 +705,18 @@ export const InsertContentModal = ({
                                     ) : (
                                         <>
                                             <div className="text-sm font-medium">{isFieldUpload
-                                                ? t('insert.drop_or_click_multi', { defaultValue: 'Arrossega fitxers aquí o clica per triar-ne (pots triar-ne diversos)' })
-                                                : t('insert.drop_or_click', { defaultValue: 'Arrossega un fitxer aquí o clica per triar-lo' })}</div>
+                                                ? t('insert.drop_or_click_multi', { defaultValue: "Drag files here or click to choose (you can pick several)" })
+                                                : t('insert.drop_or_click', { defaultValue: "Drag a file here or click to choose one" })}</div>
                                             <div className="text-xs text-[var(--text-tertiary)]">
                                                 {isFreeStorage
                                                     ? (resolvedName
-                                                        ? t('insert.upload_target_free_named', { defaultValue: 'Triaràs la carpeta de destinació; es desarà com a «{{name}}»', name: resolvedName })
-                                                        : t('insert.upload_target_free', { defaultValue: 'Triaràs la carpeta de destinació en el pas següent' }))
+                                                        ? t('insert.upload_target_free_named', { defaultValue: "You'll choose the destination folder; it will be saved as “{{name}}”", name: resolvedName })
+                                                        : t('insert.upload_target_free', { defaultValue: "You'll choose the destination folder in the next step" }))
                                                     : isFieldUpload && fileField?.storageFolder === 'library'
                                                         ? (resolvedName
-                                                            ? t('insert.upload_target_library_named', { defaultValue: 'Es desarà a Library com a «{{name}}»', name: resolvedName })
-                                                            : t('insert.upload_target_library', { defaultValue: 'El fitxer es desarà a Library' }))
-                                                        : t('insert.upload_target', { defaultValue: 'El fitxer es copiarà dins el Vault (Assets/)' })}
+                                                            ? t('insert.upload_target_library_named', { defaultValue: "It will be saved to the Library as “{{name}}”", name: resolvedName })
+                                                            : t('insert.upload_target_library', { defaultValue: "The file will be saved to the Library" }))
+                                                        : t('insert.upload_target', { defaultValue: "The file will be copied into the Vault (Assets/)" })}
                                             </div>
                                         </>
                                     )}
@@ -758,12 +758,12 @@ export const InsertContentModal = ({
                                             <div className="text-xs break-all opacity-70">{selected.url}</div>
                                             {(selected.kind === 'youtube' || selected.kind === 'vimeo' || selected.kind === 'pdf') && (
                                                 <div className="text-xs text-[var(--gnosi-primary)] font-medium">
-                                                    {t('insert.frame_recommended', { defaultValue: '→ Frame incrustat recomanat' })}
+                                                    {t('insert.frame_recommended', { defaultValue: "→ Embedded frame recommended" })}
                                                 </div>
                                             )}
                                         </div>
                                     ) : (
-                                        <span>{t('insert.url_hint', { defaultValue: "Enganxa una URL externa per veure'n una previsualització" })}</span>
+                                        <span>{t('insert.url_hint', { defaultValue: "Paste an external URL to see a preview" })}</span>
                                     )}
                                 </div>
                             </div>
@@ -779,32 +779,32 @@ export const InsertContentModal = ({
                                         <span className="truncate" title={selected.name}>{selected.name}</span>
                                     </div>
                                     <div className="text-[var(--text-tertiary)] text-xs ml-auto shrink-0">
-                                        {selected.source === 'vault' && t('insert.from_vault', { defaultValue: 'Del Vault' })}
-                                        {selected.source === 'local' && t('insert.from_local', { defaultValue: 'Disc local' })}
-                                        {selected.source === 'local-multi' && t('insert.from_local_multi', { defaultValue: '{{count}} fitxers del disc local', count: selected.paths.length })}
-                                        {selected.source === 'local-folder' && t('insert.from_local_folder', { defaultValue: 'Carpeta local' })}
-                                        {selected.source === 'upload-pending' && t('insert.will_upload', { defaultValue: 'Es pujarà al confirmar' })}
-                                        {selected.source === 'url' && t('insert.from_url', { defaultValue: 'URL externa' })}
+                                        {selected.source === 'vault' && t('insert.from_vault', { defaultValue: "From the Vault" })}
+                                        {selected.source === 'local' && t('insert.from_local', { defaultValue: "Local disk" })}
+                                        {selected.source === 'local-multi' && t('insert.from_local_multi', { defaultValue: "{{count}} files from the local disk", count: selected.paths.length })}
+                                        {selected.source === 'local-folder' && t('insert.from_local_folder', { defaultValue: "Local folder" })}
+                                        {selected.source === 'upload-pending' && t('insert.will_upload', { defaultValue: "Will be uploaded on confirm" })}
+                                        {selected.source === 'url' && t('insert.from_url', { defaultValue: "External URL" })}
                                     </div>
                                 </>
                             ) : (
-                                <span className="text-[var(--text-tertiary)] text-xs">{t('insert.no_selection', { defaultValue: 'Tria un fitxer o introdueix una URL' })}</span>
+                                <span className="text-[var(--text-tertiary)] text-xs">{t('insert.no_selection', { defaultValue: "Pick a file or enter a URL" })}</span>
                             )}
                         </div>
 
                         {busy && (materializing || selected?.source === 'local' || selected?.source === 'local-folder' || selected?.source === 'local-multi') && (
                             <div className="flex items-center gap-1.5 text-xs text-[var(--gnosi-primary)]">
                                 <Loader2 size={12} className="animate-spin" />
-                                {t('insert.materializing', { defaultValue: 'Baixant el fitxer de OneDrive si cal… (pot trigar)' })}
+                                {t('insert.materializing', { defaultValue: "Downloading the file from OneDrive if needed… (may take a while)" })}
                             </div>
                         )}
                         <div className="flex items-center justify-between gap-3 flex-wrap">
                             <div className="flex items-center gap-2 text-sm">
                                 <span className="text-[var(--text-tertiary)] text-xs uppercase tracking-wider">{t('insert.mode', { defaultValue: 'Mode' })}</span>
                                 {[
-                                    { value: 'link', label: t('insert.mode_link', { defaultValue: 'Enllaç' }) },
+                                    { value: 'link', label: t('insert.mode_link', { defaultValue: "Link" }) },
                                     { value: 'frame', label: t('insert.mode_frame', { defaultValue: 'Frame' }) },
-                                    { value: 'block', label: t('insert.mode_block', { defaultValue: 'Bloc' }) },
+                                    { value: 'block', label: t('insert.mode_block', { defaultValue: "Block" }) },
                                 ].map(opt => {
                                     // A batch of files is inserted as links only.
                                     const disabled = selected?.source === 'local-multi'
@@ -829,7 +829,7 @@ export const InsertContentModal = ({
                                 {selected?.kind && !modeAvailableFor(selected.kind, mode) && (
                                     <span className="text-[10px] text-[var(--status-warning)] flex items-center gap-1">
                                         <AlertCircle size={11} />
-                                        {t('insert.mode_unavailable', { defaultValue: 'Mode no compatible amb el tipus' })}
+                                        {t('insert.mode_unavailable', { defaultValue: "Mode not compatible with the type" })}
                                     </span>
                                 )}
                             </div>
@@ -837,16 +837,16 @@ export const InsertContentModal = ({
                             {imageField && (
                                 <div className="flex-1 grid grid-cols-2 gap-1.5 mr-3 max-w-lg">
                                     <input value={imgMeta.alt || ''} onChange={(e) => setImgMeta((m) => ({ ...m, alt: e.target.value }))}
-                                        placeholder={t('insert.img_alt', { defaultValue: 'Alt text (accessibilitat)' })}
+                                        placeholder={t('insert.img_alt', { defaultValue: "Alt text (accessibility)" })}
                                         className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
                                     <input value={imgMeta.title || ''} onChange={(e) => setImgMeta((m) => ({ ...m, title: e.target.value }))}
-                                        placeholder={t('insert.img_title', { defaultValue: 'Títol (opcional)' })}
+                                        placeholder={t('insert.img_title', { defaultValue: "Title (optional)" })}
                                         className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
                                     <input value={imgMeta.caption || ''} onChange={(e) => setImgMeta((m) => ({ ...m, caption: e.target.value }))}
-                                        placeholder={t('insert.img_caption', { defaultValue: 'Peu de foto (opcional)' })}
+                                        placeholder={t('insert.img_caption', { defaultValue: "Caption (optional)" })}
                                         className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
                                     <input value={imgMeta.credit || ''} onChange={(e) => setImgMeta((m) => ({ ...m, credit: e.target.value }))}
-                                        placeholder={t('insert.img_credit', { defaultValue: 'Crèdit (opcional)' })}
+                                        placeholder={t('insert.img_credit', { defaultValue: "Credit (optional)" })}
                                         className="px-2 py-1 text-xs rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]" />
                                 </div>
                             )}
@@ -855,7 +855,7 @@ export const InsertContentModal = ({
                                     onClick={onClose}
                                     className="px-4 py-2 rounded-lg text-sm border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)]"
                                 >
-                                    {t('common.cancel', { defaultValue: 'Cancel·la' })}
+                                    {t('common.cancel', { defaultValue: "Cancel" })}
                                 </button>
                                 <button
                                     ref={confirmBtnRef}
@@ -865,8 +865,8 @@ export const InsertContentModal = ({
                                 >
                                     {busy && <Loader2 size={14} className="animate-spin" />}
                                     {(!selected && imageField && currentSrc)
-                                        ? t('insert.save_meta', { defaultValue: 'Desa' })
-                                        : t('insert.confirm', { defaultValue: 'Insereix' })}
+                                        ? t('insert.save_meta', { defaultValue: "Save" })
+                                        : t('insert.confirm', { defaultValue: "Insert" })}
                                 </button>
                             </div>
                         </div>

@@ -123,14 +123,14 @@ const SchedulerPage = () => {
                         Vault: {activeVaultName || '…'}
                     </span>
                 </div>
-                <p className="text-gray-400">{t('scheduler.subtitle', 'Gestiona les automatitzacions i tasques de fons de Gnosi.')}</p>
+                <p className="text-gray-400">{t('scheduler.subtitle', "Manage Gnosi's automations and background tasks.")}</p>
             </header>
 
             <div className="relative z-10 grid grid-cols-1 gap-6 max-w-4xl">
                 {loading ? (
                     <div className="flex items-center gap-3 text-gray-400 p-8 glass-panel rounded-2xl justify-center">
                         <RefreshCw className="animate-spin" size={20} />
-                        <span>{t('dashboard.loading_tasks', 'Carregant tasques...')}</span>
+                        <span>{t('dashboard.loading_tasks', "Loading tasks...")}</span>
                     </div>
                 ) : schedulers.length > 0 ? (
                     schedulers.map(task => {
@@ -144,7 +144,7 @@ const SchedulerPage = () => {
                                             {task.name.replace(/_/g, ' ')}
                                         </h3>
                                         <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold tracking-wider ${task.enabled ? 'bg-green-500/10 text-green-400' : 'bg-red-500/10 text-red-400'}`}>
-                                            {task.enabled ? t('dashboard.active', 'Actiu') : t('dashboard.inactive', 'Inactiu')}
+                                            {task.enabled ? t('dashboard.active', "Active") : t('dashboard.inactive', "Inactive")}
                                         </span>
                                     </div>
                                     <p className="text-gray-400 text-sm max-w-xl">{task.description}</p>
@@ -203,7 +203,7 @@ const SchedulerPage = () => {
                 ) : (
                     <div className="text-center p-12 glass-panel rounded-2xl border border-white/5">
                         <AlertCircle className="mx-auto text-gray-600 mb-4" size={48} />
-                        <p className="text-gray-400">{t('scheduler.no_tasks', "No s'han trobat tasques programades.")}</p>
+                        <p className="text-gray-400">{t('scheduler.no_tasks', "No scheduled tasks found.")}</p>
                     </div>
                 )}
             </div>

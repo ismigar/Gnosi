@@ -375,7 +375,7 @@ async def compose_posts(request: ComposeRequest):
     """
     networks = request.regenerate_only or request.networks
     if not networks:
-        raise HTTPException(status_code=400, detail="Cal triar almenys una xarxa.")
+        raise HTTPException(status_code=400, detail="Select at least one network.")
 
     source_lang = detect_lang(request.content or request.title)
 
@@ -413,7 +413,7 @@ async def compose_posts(request: ComposeRequest):
     if not proposals:
         raise HTTPException(
             status_code=502,
-            detail="No s'ha pogut generar cap proposta. Revisa la configuració del proveïdor d'IA.",
+            detail="No proposal could be generated. Check the AI provider configuration.",
         )
     return {"proposals": proposals, "source_lang": source_lang, "provider": provider}
 
@@ -486,7 +486,9 @@ async def _apply_publish_effect_to_source(
         )
     except Exception as e:
         log.warning(
-            f"publish_social: no s'ha pogut actualitzar l'Estat de l'origen {source_page_id}: {e}"
+            "publish_social: could not update the source status %s: %s",
+            source_page_id,
+            e,
         )
 
 
@@ -580,7 +582,7 @@ async def create_post(request: CreatePostRequest, background_tasks: BackgroundTa
     posts = {net: {"text": request.content, "media": None} for net in request.networks}
     rid, final, results = await _do_publish(posts, background_tasks=background_tasks)
     if final == social_store.STATUS_ERROR:
-        raise HTTPException(status_code=502, detail=f"No s'ha pogut publicar: {results}")
+        raise HTTPException(status_code=502, detail=f"Publishing failed: {results}")
     return {"record_id": rid, "status": final, "results": results}
 
 
@@ -588,7 +590,7 @@ async def create_post(request: CreatePostRequest, background_tasks: BackgroundTa
 async def schedule_post(request: SchedulePublishRequest, background_tasks: BackgroundTasks):
     """Schedule a future publication (saved to the Vault table, not in memory)."""
     if request.scheduled_time <= datetime.now():
-        raise HTTPException(status_code=400, detail="L'hora programada ha de ser futura.")
+        raise HTTPException(status_code=400, detail="The scheduled time must be in the future.")
     if not request.posts:
         raise HTTPException(status_code=400, detail="Cap publicació a programar.")
     await _check_publish_requires(request.source_page_id or "")
@@ -665,7 +667,7 @@ async def process_scheduled_posts(background_tasks: BackgroundTasks):
         _, final, results = await _do_publish(
             posts, save_record=True, record_id=rid,
             # Origin saved on the record: when publishing the scheduled item, the effect
-            # of Estat reaches the Vault row anyway.
+        # of the status field reaches the Vault row anyway.
             source_page_id=rec.get(social_store.COL_ORIGIN) or "",
             background_tasks=background_tasks,
         )

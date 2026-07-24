@@ -19,7 +19,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
             const response = await axios.get(`${API_BASE_URL}/drawings`);
             setDrawings(response.data);
         } catch (error) {
-            toast.error(t('drawings.load_error', 'Error carregant dibuixos'));
+            toast.error(t('drawings.load_error', "Error loading drawings"));
             console.error(error);
         } finally {
             setLoading(false);
@@ -39,11 +39,11 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         if (!drawingToDelete) return;
         try {
             await axios.delete(`${API_BASE_URL}/drawings/${drawingToDelete}`);
-            toast.success(t('drawings.deleted', 'Dibuix eliminat'));
+            toast.success(t('drawings.deleted', "Drawing deleted"));
             fetchDrawings();
         } catch (error) {
             console.error(error);
-            toast.error(t('drawings.delete_error', 'Error eliminant el dibuix'));
+            toast.error(t('drawings.delete_error', "Error deleting the drawing"));
         } finally {
             setDrawingToDelete(null);
         }
@@ -53,7 +53,7 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400">
                 <Loader2 className="animate-spin mb-4" size={32} />
-                <p>{t('drawings.searching', 'Buscant dibuixos...')}</p>
+                <p>{t('drawings.searching', "Searching for drawings...")}</p>
             </div>
         );
     }
@@ -62,8 +62,8 @@ const VaultDrawings = ({ onDrawingSelect }) => {
         return (
             <div className="flex flex-col items-center justify-center h-64 text-slate-400 border-2 border-dashed border-slate-100 rounded-xl m-6">
                 <Palette size={48} className="mb-4 opacity-20" />
-                <p>{t('drawings.empty_title', 'No hi ha cap dibuix encara.')}</p>
-                <p className="text-sm">{t('drawings.empty_hint', "Crea'n un des del sidebar!")}</p>
+                <p>{t('drawings.empty_title', "There are no drawings yet.")}</p>
+                <p className="text-sm">{t('drawings.empty_hint', "Create one from the sidebar!")}</p>
             </div>
         );
     }
@@ -113,9 +113,9 @@ const VaultDrawings = ({ onDrawingSelect }) => {
                 isOpen={!!drawingToDelete}
                 onClose={() => setDrawingToDelete(null)}
                 onConfirm={confirmDelete}
-                title={t('drawings.delete_confirm_title', 'Eliminar dibuix')}
-                message={t('drawings.delete_confirm_message', "N'estàs segur que vols eliminar permanentment aquest dibuix? Aquesta acció no es pot desfer i esborrarà el fitxer.")}
-                confirmText={t('common.delete', 'Eliminar')}
+                title={t('drawings.delete_confirm_title', "Delete drawing")}
+                message={t('drawings.delete_confirm_message', "Are you sure you want to permanently delete this drawing? This action cannot be undone and will delete the file.")}
+                confirmText={t('common.delete', "Delete")}
                 isDestructive={true}
             />
         </div>

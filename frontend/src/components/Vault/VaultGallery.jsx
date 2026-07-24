@@ -583,7 +583,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                 <IconRenderer icon={note.metadata?.icon} size={18} />
                             </span>
                         )}
-                        <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', 'Sense títol')}</span>
+                        <span className="truncate" {...titlePreview.getTitleProps(note.id)}>{note.title || t('common.untitled', "Untitled")}</span>
                     </h3>
 
                     {/* Content preview (mode 'content'): whatever fits of the page
@@ -685,7 +685,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                                                 onClick={() => toggleGroup(id)}
                                                 onKeyDown={(e) => handleGroupHeaderKeyDown(e, headerIdx, id)}
                                                 className="flex items-center gap-2 text-left hover:opacity-80 transition-opacity outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)] rounded px-1"
-                                                title={expanded ? t('common.collapse', 'Replega') : t('common.expand', 'Desplega')}
+                                                title={expanded ? t('common.collapse', "Collapse") : t('common.expand', "Expand")}
                                             >
                                                 {expanded
                                                     ? <ChevronDown size={15} className="text-[var(--text-tertiary)] shrink-0" />
@@ -713,7 +713,7 @@ export function VaultGallery({ notes, onNoteSelect, schema = {}, idToTitle = {},
                     {sortedAndFilteredNotes.length === 0 && (
                         <div className="w-full h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
                             <FileText size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                            <p>{t('view.no_records_in_view', 'No hi ha registres en aquesta vista.')}</p>
+                            <p>{t('view.no_records_in_view', "No records in this view.")}</p>
                         </div>
                     )}
                 </div>

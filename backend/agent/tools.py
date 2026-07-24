@@ -60,7 +60,7 @@ def get_mcp_tools(tools_list: List[Dict], client: MultiServerMCPClient) -> List[
             tools.append(create_mcp_tool(t, client))
         except Exception as e:
             log.warning(
-                "S'omet una tool MCP mal formada %r: %s",
+                "Skipping malformed MCP tool %r: %s",
                 (t or {}).get("name", "?") if isinstance(t, dict) else "?",
                 e,
             )

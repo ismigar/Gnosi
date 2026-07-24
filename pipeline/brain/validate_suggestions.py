@@ -136,7 +136,7 @@ def validate_graph(graph, min_sim=0, dedup=True):
             node_ids.add(nid)
     stats["valid_nodes"] = len(valid_nodes)
 
-    # Normalitza i filtra arestes
+    # Normalize and filter edges.
     cleaned = []
     for e in edges:
         s = e.get("source"); t = e.get("target")
@@ -197,36 +197,36 @@ def main():
     ap.add_argument("--in", dest="inp", default=OUT_JSON)
     ap.add_argument("--out", dest="out", default=OUT_JSON)
     ap.add_argument("--min-sim", dest="min_sim", type=int, default=55,
-                    help="Filtra arestes amb similarity < min-sim (per format graf i legacy)")
+                    help="Filter edges whose similarity is below min-sim (graph and legacy formats)")
     ap.add_argument("--no-dedup", dest="dedup", action="store_false",
-                    help="No deduplicar arestes (només graf)")
+                    help="Do not deduplicate edges (graph format only)")
     args = ap.parse_args()
 
     data = load_json(args.inp)
 
-    # Detecta format
+    # Detect the format.
     if isinstance(data, dict) and "nodes" in data and "edges" in data:
         fixed, stats = validate_graph(data, min_sim=args.min_sim, dedup=args.dedup)
         save_json(fixed, args.out)
         log.info("\n📊 VALIDATION (GRAPH)")
         log.info("──────────────────────────────")
-        log.info(f"Nodes:  {stats['valid_nodes']}/{stats['total_nodes']} vàlids")
-        log.info(f"Edges:  {stats['kept_edges']}/{stats['total_edges']} mantinguts")
+        log.info(f"Nodes:  {stats['valid_nodes']}/{stats['total_nodes']} valid")
+        log.info(f"Edges:  {stats['kept_edges']}/{stats['total_edges']} kept")
         log.info(f" - removed_selfloops:   {stats['removed_selfloops']}")
         log.info(f" - removed_invalid_ids: {stats['removed_invalid_ids']}")
         log.info(f" - removed_low_sim:     {stats['removed_low_sim']}")
         log.info(f" - dedup_merged:        {stats['dedup_merged']}")
-        log.info(f"\n✅ Guardat a: {args.out}")
+        log.info(f"\n✅ Saved to: {args.out}")
     else:
         fixed, stats = validate_legacy(data, min_sim=args.min_sim)
         save_json(fixed, args.out)
         log.info("\n📊 VALIDATION (LEGACY MAP)")
         log.info("──────────────────────────────")
-        log.info(f"Sources: {stats['valid_sources']}/{stats['total_sources']} vàlids")
-        log.info(f"Targets: {stats['valid_targets']}/{stats['total_targets']} vàlids")
+        log.info(f"Sources: {stats['valid_sources']}/{stats['total_sources']} valid")
+        log.info(f"Targets: {stats['valid_targets']}/{stats['total_targets']} valid")
         log.info(f" - removed_selfloops:   {stats['removed_selfloops']}")
         log.info(f" - removed_invalid_ids: {stats['removed_invalid_ids']}")
-        log.info(f"\n✅ Guardat a: {args.out}")
+        log.info(f"\n✅ Saved to: {args.out}")
 
 if __name__ == "__main__":
     main()

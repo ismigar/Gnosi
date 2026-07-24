@@ -33,7 +33,7 @@ class DockerMCPClient:
         )
         self._reader_task = asyncio.create_task(self._read_loop())
         
-        # Inicialitzar protocol (handshake)
+        # Initialize the protocol handshake.
         await self.initialize()
 
     async def initialize(self):
@@ -196,8 +196,8 @@ class MultiServerMCPClient:
                 container = args[2]
                 if not await _docker_container_running(container):
                     log.info(
-                        f"⏭️  MCP '{name}': contenidor '{container}' no actiu; "
-                        "ometent (es connectarà quan es desplegui)."
+                        f"⏭️  MCP '{name}': container '{container}' is not active; "
+                        "skipping (it will connect when deployed)."
                     )
                     continue
 

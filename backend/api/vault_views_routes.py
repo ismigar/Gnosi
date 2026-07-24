@@ -97,7 +97,7 @@ def _save_registry(registry: dict, registry_path: Path) -> None:
         from backend.api import vault_routes as _vr
         _vr._update_registry_cache(registry_path, registry)
     except Exception as e:  # best-effort: never fail the save because of the cache
-        log.debug(f"No s'ha pogut refrescar la caché del registre de vault_routes: {e}")
+        log.debug("Could not refresh the vault_routes registry cache: %s", e)
 
 
 def _page_exists_on_disk(page_id: str) -> bool:
@@ -228,7 +228,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
             if target_table is None:
                 raise HTTPException(
                     status_code=422,
-                    detail=f"Taula origen '{view.source_table_id}' no existeix al registry.",
+                    detail=f"Source table '{view.source_table_id}' does not exist in the registry.",
                 )
 
             # If there's a filter, validate that the field exists in the table.
@@ -238,7 +238,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
                     raise HTTPException(
                         status_code=422,
                         detail=(
-                            f"El camp de filtre '{view.filter.field}' no existeix a la taula "
+                            f"Filter field '{view.filter.field}' does not exist in table "
                             f"'{target_table.get('name')}'."
                         ),
                     )
@@ -251,7 +251,7 @@ async def upsert_page_view(page_id: str, view: ViewSection):
                 raise HTTPException(
                     status_code=404,
                     detail=(
-                        f"Pàgina {page_id} no trobada al disc. La vista no s'ha creat."
+                        f"Page {page_id} was not found on disk. The view was not created."
                     ),
                 )
 
@@ -323,12 +323,12 @@ async def delete_page_view(page_id: str, heading: str):
             pages = registry.get("pages") or {}
             page_cfg = pages.get(page_id)
             if not page_cfg:
-                raise HTTPException(status_code=404, detail=f"Pàgina {page_id} sense vistes")
+                raise HTTPException(status_code=404, detail=f"Page {page_id} has no views")
 
             sections = page_cfg.get("sections", [])
             new_sections = [s for s in sections if s.get("heading") != heading]
             if len(new_sections) == len(sections):
-                raise HTTPException(status_code=404, detail=f"Vista '{heading}' no trobada")
+                raise HTTPException(status_code=404, detail=f"View '{heading}' not found")
 
             registry["pages"][page_id]["sections"] = new_sections
             _save_registry(registry, registry_path)

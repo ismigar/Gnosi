@@ -107,7 +107,7 @@ function PdfViewer({ url }) {
         ? (zoom === 'fit' ? containerWidth : containerWidth * zoom)
         : undefined;
 
-    const zoomLabel = zoom === 'fit' ? t('mail.pdf_fit_width', 'Amplada') : `${Math.round(zoom * 100)}%`;
+    const zoomLabel = zoom === 'fit' ? t('mail.pdf_fit_width', "Fit width") : `${Math.round(zoom * 100)}%`;
     const zoomIn  = () => setZoom(z => { const s = typeof z === 'number' ? z : 1; return PDF_ZOOM_STEPS.find(v => v > s) ?? s; });
     const zoomOut = () => setZoom(z => { const s = typeof z === 'number' ? z : 1; const p = [...PDF_ZOOM_STEPS].reverse().find(v => v < s); return p ?? 'fit'; });
     const atMax = typeof zoom === 'number' && zoom >= PDF_ZOOM_STEPS[PDF_ZOOM_STEPS.length - 1];
@@ -155,7 +155,7 @@ function PdfViewer({ url }) {
                             <div className="w-6 h-6 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                         </div>
                     }
-                    error={<div className="p-8 text-center text-red-400 text-sm">{t('mail.pdf_load_error', "No s'ha pogut carregar el PDF")}</div>}
+                    error={<div className="p-8 text-center text-red-400 text-sm">{t('mail.pdf_load_error', "Couldn't load the PDF")}</div>}
                 >
                     {numPages && Array.from({ length: numPages }, (_, i) => (
                         <div key={i} className="flex justify-center py-2">
@@ -181,12 +181,12 @@ function PdfViewer({ url }) {
                 className="w-7 h-7 flex items-center justify-center rounded text-white text-lg font-bold hover:bg-white/10 disabled:opacity-30 transition-all">+</button>
             <button onClick={() => setZoom('fit')}
                 className="ml-1 px-2 py-1 rounded text-[11px] font-bold text-white/60 hover:bg-white/10 transition-all">
-                {t('mail.pdf_fit_width', 'Amplada')}
+                {t('mail.pdf_fit_width', "Fit width")}
             </button>
             <span className="ml-auto text-[10px] text-white/30 mr-2">⌘+/−/0</span>
             <button
                 onClick={onFullscreenToggle}
-                title={fullscreen ? t('mail.pdf_exit_fullscreen', 'Sortir de pantalla completa (Esc)') : t('mail.pdf_fullscreen', 'Pantalla completa')}
+                title={fullscreen ? t('mail.pdf_exit_fullscreen', "Exit fullscreen (Esc)") : t('mail.pdf_fullscreen', "Fullscreen")}
                 className="w-7 h-7 flex items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white transition-all"
             >
                 {fullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
@@ -255,7 +255,7 @@ function AttachmentList({ attachments, messageId, email, folder }) {
                                 href={attUrl(att)}
                                 download={att.filename}
                                 className="flex items-center gap-2 px-3 py-2 bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-xl text-[13px] font-medium text-[var(--text-primary)] hover:bg-[var(--sidebar-item-active)] hover:text-[var(--gnosi-blue)] transition-all max-w-[220px]"
-                                title={t('mail.download_attachment', 'Descarregar')}
+                                title={t('mail.download_attachment', "Download")}
                             >
                                 <AttIcon ct={att.content_type} />
                                 <span className="truncate">{att.filename}</span>
@@ -265,7 +265,7 @@ function AttachmentList({ attachments, messageId, email, folder }) {
                                 <button
                                     onClick={() => setPreviewIndex(isActive ? null : i)}
                                     className={`px-2 py-2 border rounded-xl text-[11px] font-bold transition-all shrink-0 ${isActive ? 'bg-[var(--gnosi-blue)] text-white border-[var(--gnosi-blue)]' : 'bg-[var(--bg-secondary)] border-[var(--border-primary)] text-[var(--gnosi-blue)] hover:bg-[var(--sidebar-item-active)]'}`}
-                                    title={t('mail.preview_attachment', 'Previsualitzar')}
+                                    title={t('mail.preview_attachment', "Preview")}
                                 >{isActive ? '▲' : '▼'}</button>
                             )}
                         </div>
@@ -529,10 +529,10 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             const data = await res.json();
             if (data.events?.length > 0 || data.contacts?.length > 0) {
                 setExtractedEntities(data);
-                toast.success(t('mail.smart_suggestions_found', "S'han trobat suggeriments intel·ligents"));
+                toast.success(t('mail.smart_suggestions_found', "Smart suggestions found"));
             }
         } catch {
-            toast.error(t('mail.smart_analysis_error', "Error en l'anàlisi intel·ligent"));
+            toast.error(t('mail.smart_analysis_error', "Error during smart analysis"));
         }
     };
 
@@ -543,15 +543,15 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                 email: contact.email,
                 phone: contact.phone,
                 company: contact.company,
-                notes: contact.notes + `\n\n${t('mail.extracted_from_email_label', 'Extret del correu')}: ${mailData?.subject}`
+                notes: contact.notes + `\n\n${t('mail.extracted_from_email_label', "Extracted from the email")}: ${mailData?.subject}`
             });
-            toast.success(t('mail.contact_added', 'Contacte {{name}} afegit', { name: contact.name }));
+            toast.success(t('mail.contact_added', "Contact {{name}} added", { name: contact.name }));
             setExtractedEntities(prev => ({
                 ...prev,
                 contacts: prev.contacts.filter(c => c.email !== contact.email)
             }));
         } catch {
-            toast.error(t('mail.add_contact_error', 'Error afegint el contacte'));
+            toast.error(t('mail.add_contact_error', "Error adding the contact"));
         }
     };
 
@@ -562,7 +562,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                 const res = await axios.get(`/api/calendar/calendars?email=${encodeURIComponent(account?.email || '')}`);
                 setAvailableCalendars(res.data);
             } catch {
-                toast.error(t('mail.load_calendars_error', 'Error carregant calendaris'));
+                toast.error(t('mail.load_calendars_error', "Error loading calendars"));
             }
         }
     };
@@ -574,16 +574,16 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                 start: { dateTime: event.start },
                 end: { dateTime: event.end },
                 location: event.location,
-                description: event.description + `\n\n${t('mail.from_email_label', 'Provinent del correu')}: ${mailData?.subject}`
+                description: event.description + `\n\n${t('mail.from_email_label', "From the email")}: ${mailData?.subject}`
             });
-            toast.success(t('mail.event_added_to_calendar', 'Esdeveniment "{{title}}" afegit al calendari', { title: event.title }));
+            toast.success(t('mail.event_added_to_calendar', "Event \"{{title}}\" added to the calendar", { title: event.title }));
             setShowEventCalendarPicker(null);
             setExtractedEntities(prev => ({
                 ...prev,
                 events: prev.events.filter(e => e.title !== event.title)
             }));
         } catch {
-            toast.error(t('mail.add_event_error', 'Error afegint l\'esdeveniment'));
+            toast.error(t('mail.add_event_error', "Error adding the event"));
         }
     };
 
@@ -612,7 +612,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ [key]: value })
-        }).catch(() => toast.error(t('mail.update_metadata_error', 'Error actualitzant metadades')));
+        }).catch(() => toast.error(t('mail.update_metadata_error', "Error updating metadata")));
     };
 
     const detectFormLinks = (html, text) => {
@@ -634,7 +634,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
     const formLinks = detectFormLinks(mailData?.body_html, mailData?.body_text);
 
     const handleFillForm = async (url) => {
-        toast.success(t('mail.autofill_starting', 'Iniciant autocompletat intel·ligent...'));
+        toast.success(t('mail.autofill_starting', "Starting smart autofill..."));
         try {
             // Load the current bunker profile
             const res = await axios.get('/api/identity');
@@ -645,7 +645,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             } else {
                 // Fallback if we're not in Electron
                 window.open(url, '_blank');
-                toast.error(t('mail.autofill_desktop_only', 'L\'omplert automàtic només està disponible en l\'aplicació d\'escriptori'));
+                toast.error(t('mail.autofill_desktop_only', "Autofill is only available in the desktop app"));
             }
         } catch (error) {
             console.error('Error loading profile to fill form:', error);
@@ -657,7 +657,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
         if (!mailData) return;
         try {
             const title = mailData.subject || 'Correu sense assumpte';
-            const content = `# ${title}\n\n**${t('mail.from_label', 'De')}:** ${mailData.sender}\n**${t('mail.date_label', 'Data')}:** ${mailData.date}\n\n---\n\n${mailData.body_text || ''}`;
+            const content = `# ${title}\n\n**${t('mail.from_label', "From")}:** ${mailData.sender}\n**${t('mail.date_label', "Date")}:** ${mailData.date}\n\n---\n\n${mailData.body_text || ''}`;
             await axios.post('/api/vault/pages', { title, content, metadata: { type: 'Mail', source: 'mail', sender: mailData.sender, date: mailData.date } });
             toast.success(t('mail.added_to_vault'));
         } catch {
@@ -684,7 +684,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             });
             toast.success(t('mail.snooze_ok'));
         } catch {
-            toast.error(t('mail.snooze_error', 'Error establint recordatori'));
+            toast.error(t('mail.snooze_error', "Error setting reminder"));
         }
     };
 
@@ -752,7 +752,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ starred: newValue })
-        }).catch(() => toast.error(t('mail.mark_error', 'Error marcant')));
+        }).catch(() => toast.error(t('mail.mark_error', "Error marking")));
         toast.success(newValue ? t('mail.starred_added') : t('mail.starred_removed'));
     };
 
@@ -853,14 +853,14 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                 { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ target_folder: folderName, imap_uid: mailData.imap_uid, imap_folder: mailData.imap_folder }) }
             );
             if (res.ok) {
-                toast.success(t('mail.moved_to_folder', 'Mogut a {{folder}}', { folder: folderName }));
+                toast.success(t('mail.moved_to_folder', "Moved to {{folder}}", { folder: folderName }));
                 onMoved ? onMoved(mailData.id) : onClose?.();
             } else {
                 const err = await res.json().catch(() => ({}));
-                toast.error(err.detail || t('mail.move_message_error', 'Error movent el missatge'));
+                toast.error(err.detail || t('mail.move_message_error', "Error moving the message"));
             }
         } catch {
-            toast.error(t('mail.move_message_error', 'Error movent el missatge'));
+            toast.error(t('mail.move_message_error', "Error moving the message"));
         } finally {
             setMoving(false);
         }
@@ -907,7 +907,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     <div className="relative">
                         <button
                             ref={tagBtnRef}
-                            title={t('mail.labels', 'Etiquetes')}
+                            title={t('mail.labels', "Labels")}
                             onClick={(e) => {
                                 const rect = e.currentTarget.getBoundingClientRect();
                                 setTagPickerAnchor(rect);
@@ -949,7 +949,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     <div className="relative">
                         <button
                             ref={moveBtnRef}
-                            title={t('mail.move_to_folder_title', 'Moure a carpeta')}
+                            title={t('mail.move_to_folder_title', "Move to folder")}
                             onClick={handleOpenMove}
                             disabled={moving}
                             className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] transition-all"
@@ -963,9 +963,9 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                     className="fixed bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-xl shadow-lg py-1 w-52 animate-in fade-in zoom-in-95 duration-150"
                                     style={{ left: moveMenuPos.x, top: moveMenuPos.y, zIndex: 10001 }}
                                 >
-                                    <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', 'Moure a...')}</div>
+                                    <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', "Move to...")}</div>
                                     {moveFolders.length === 0
-                                        ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">{t('common.loading', 'Carregant...')}</div>
+                                        ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">{t('common.loading', "Loading...")}</div>
                                         : moveFolders
                                             .filter(f => f.name !== mailData?.imap_folder)
                                             .map(f => (
@@ -1020,7 +1020,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                     <button onClick={handleDelete} title={t('mail.delete_action')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-all"><Trash2 size={16} /></button>
                     <button 
                         onClick={handleToggleSpam} 
-                        title={isSpam ? t('mail.unmark_spam_title', 'No és brossa (Moure a entrada)') : t('mail.mark_spam_title', 'Marca com a brossa')}
+                        title={isSpam ? t('mail.unmark_spam_title', "Not spam (Move to inbox)") : t('mail.mark_spam_title', "Mark as spam")}
                         className={`p-2 rounded-xl transition-all flex items-center gap-2 text-sm font-medium ${
                             isSpam 
                             ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' 
@@ -1082,7 +1082,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                             <button key={i} onClick={() => handleFillForm(link)}
                                 className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-2.5 py-1 rounded-lg shadow-sm hover:shadow-md transition-all animate-pulse hover:animate-none">
                                 <FileText size={12} />
-                                <span className="text-[10px] font-bold uppercase tracking-wider">{t('mail.fill_form_button', 'Omplir Formulari')}</span>
+                                <span className="text-[10px] font-bold uppercase tracking-wider">{t('mail.fill_form_button', "Fill Form")}</span>
                             </button>
                         ))}
                     </div>
@@ -1093,7 +1093,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                             const isMain = msg.id === mailData?.id || (idx === 0 && !mailData);
                             const isExpanded = expandedThreadIds.has(msg.id);
                             const sent = isSentMsg(msg);
-                            const senderName = sent ? t('mail.you_label', 'Tu') : cleanName(msg.sender);
+                            const senderName = sent ? t('mail.you_label', "You") : cleanName(msg.sender);
                             const fullContent = isMain ? mailData : threadMsgData[msg.id];
                             const dateLabel = msg.timestamp
                                 ? format(new Date(msg.timestamp * 1000), 'd MMM yyyy · HH:mm', { locale: ca })
@@ -1122,7 +1122,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                                 <span className={`text-[13px] font-bold ${sent ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-primary)]'}`}>
                                                     {senderName}
                                                 </span>
-                                                {sent && <span className="text-[10px] font-bold text-[var(--gnosi-blue)]/60 uppercase tracking-wider">{t('mail.sent_badge', 'enviat')}</span>}
+                                                {sent && <span className="text-[10px] font-bold text-[var(--gnosi-blue)]/60 uppercase tracking-wider">{t('mail.sent_badge', "sent")}</span>}
                                                 {!sent && !isExpanded && (
                                                     <span className="text-[12px] text-[var(--text-secondary)] truncate opacity-60 max-w-[300px]">
                                                         {msg.snippet}
@@ -1132,8 +1132,8 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                             {isExpanded && (
                                                 <div className="text-[11px] text-[var(--text-secondary)] mt-0.5">
                                                     {sent
-                                                        ? `${t('mail.to_label_short', 'A')}: ${cleanName(msg.recipient || mailData?.recipient)}`
-                                                        : `${t('mail.to_label', 'Per a')}: ${cleanName(msg.recipient || mailData?.recipient)}`}
+                                                        ? `${t('mail.to_label_short', "To")}: ${cleanName(msg.recipient || mailData?.recipient)}`
+                                                        : `${t('mail.to_label', "To")}: ${cleanName(msg.recipient || mailData?.recipient)}`}
                                                     {(msg.cc || (isMain && mailData?.cc)) && (
                                                         <span className="ml-2 opacity-70">{t('mail.cc_label', 'CC')}: {cleanName(msg.cc || mailData?.cc)}</span>
                                                     )}
@@ -1186,7 +1186,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                 <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-lg">
                                     <Sparkles size={20} />
                                 </div>
-                                <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('mail.smart_suggestions', 'Suggeriments intel·ligents')}</h3>
+                                <h3 className="text-xl font-bold text-[var(--text-primary)]">{t('mail.smart_suggestions', "Smart suggestions")}</h3>
                             </div>
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1194,7 +1194,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                 {extractedEntities.events.length > 0 && (
                                     <div className="space-y-4">
                                         <h4 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest flex items-center gap-2">
-                                            <CalendarCheck size={14} /> {t('calendar.title', 'Calendari')}
+                                            <CalendarCheck size={14} /> {t('calendar.title', "Calendar")}
                                         </h4>
                                         {extractedEntities.events.map((event, idx) => (
                                             <div key={idx} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
@@ -1202,7 +1202,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                                 <div className="text-xs text-[var(--text-secondary)] space-y-1.5 mb-4">
                                                     <div className="flex items-center gap-2">
                                                         <Clock size={12} className="opacity-60" />
-                                                        {event.start ? format(new Date(event.start), 'd MMM, HH:mm', { locale: ca }) : t('mail.event_date_unspecified', 'Data no especificada')}
+                                                        {event.start ? format(new Date(event.start), 'd MMM, HH:mm', { locale: ca }) : t('mail.event_date_unspecified', "Date not specified")}
                                                     </div>
                                                     {event.location && (
                                                         <div className="flex items-center gap-2">
@@ -1215,7 +1215,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                                     onClick={() => handleOpenCalendarPicker(event)}
                                                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--sidebar-item-active)] hover:bg-[var(--gnosi-blue)] text-[var(--gnosi-blue)] hover:text-white rounded-xl text-xs font-bold transition-all"
                                                 >
-                                                    <CalendarCheck size={14} /> {t('mail.add_to_calendar_button', 'Afegir al calendari')}
+                                                    <CalendarCheck size={14} /> {t('mail.add_to_calendar_button', "Add to calendar")}
                                                 </button>
                                             </div>
                                         ))}
@@ -1226,7 +1226,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                 {extractedEntities.contacts.length > 0 && (
                                     <div className="space-y-4">
                                         <h4 className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-widest flex items-center gap-2">
-                                            <UserPlus size={14} /> {t('contacts.title', 'Contactes')}
+                                            <UserPlus size={14} /> {t('contacts.title', "Contacts")}
                                         </h4>
                                         {extractedEntities.contacts.map((contact, idx) => (
                                             <div key={idx} className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow group">
@@ -1255,7 +1255,7 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                                                     onClick={() => handleAddExtractedContact(contact)}
                                                     className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-[var(--sidebar-item-active)] hover:bg-[var(--status-success)] text-[var(--gnosi-blue)] hover:text-white rounded-xl text-xs font-bold transition-all"
                                                 >
-                                                    <UserPlus size={14} /> {t('mail.add_to_contacts_button', 'Afegir als contactes')}
+                                                    <UserPlus size={14} /> {t('mail.add_to_contacts_button', "Add to contacts")}
                                                 </button>
                                             </div>
                                         ))}
@@ -1280,14 +1280,14 @@ export default function MailViewer({ account, mail: selectedMail, onClose, onMai
                         className="bg-[var(--bg-primary)] w-full max-w-md rounded-3xl shadow-2xl border border-[var(--border-primary)] overflow-hidden animate-in zoom-in-95 duration-200"
                     >
                         <div className="p-6 border-b border-[var(--border-primary)] flex items-center justify-between bg-[var(--bg-secondary)]/50">
-                            <h3 className="font-bold text-[var(--text-primary)]">{t('mail.choose_calendar_title', 'Tria un calendari')}</h3>
+                            <h3 className="font-bold text-[var(--text-primary)]">{t('mail.choose_calendar_title', "Choose a calendar")}</h3>
                             <button onClick={() => setShowEventCalendarPicker(null)} className="p-2 hover:bg-[var(--bg-tertiary)] rounded-xl transition-colors">
                                 <CloseIcon size={18} />
                             </button>
                         </div>
                         <div className="p-4 max-h-[300px] overflow-y-auto">
                             {availableCalendars.length === 0 ? (
-                                <div className="p-8 text-center text-[var(--text-secondary)]">{t('mail.loading_calendars', 'Carregant calendaris...')}</div>
+                                <div className="p-8 text-center text-[var(--text-secondary)]">{t('mail.loading_calendars', "Loading calendars...")}</div>
                             ) : (
                                 <div className="space-y-1">
                                     {availableCalendars.map(cal => (

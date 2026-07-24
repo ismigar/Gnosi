@@ -19,6 +19,6 @@ const UI_LANG_TO_ZOTERO_LOCALE = {
  * @returns {string} A Zotero locale key ('ca-AD' | 'es-ES' | 'en-US' | 'fr-FR').
  */
 export function uiLangToZoteroLocale(uiLanguage) {
-    const base = String(uiLanguage || 'ca').split('-')[0];
+    const base = String(uiLanguage || 'en').split('-')[0];
     return UI_LANG_TO_ZOTERO_LOCALE[base] || 'en-US';
 }

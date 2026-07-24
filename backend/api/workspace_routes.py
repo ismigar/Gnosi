@@ -35,7 +35,7 @@ async def create_workspace(
     user = db.query(User).filter(User.id == x_user_id).first()
     if not user:
         if require_auth_enabled(db):
-            raise HTTPException(status_code=401, detail="Cal autenticació")
+            raise HTTPException(status_code=401, detail="Authentication required")
 
         # Bootstrap only: the id is fixed by the resolver, not caller-chosen.
         user = User(id=x_user_id, name="User",
@@ -124,7 +124,7 @@ async def list_workspace_members(
 
     memberships = db.query(Membership).filter(Membership.workspace_id == workspace_id).all()
     
-    # Preparar la resposta combinant Membership i User
+    # Prepare the response by combining Membership and User.
     results = []
     for m in memberships:
         if not m.user:
@@ -212,7 +212,7 @@ async def add_workspace_member(
     ).first()
     
     if existing:
-        raise HTTPException(status_code=400, detail="L'usuari ja és membre d'aquest workspace")
+        raise HTTPException(status_code=400, detail="The user is already a member of this workspace")
     
     # 3. Create membership
     import json
@@ -225,7 +225,7 @@ async def add_workspace_member(
     db.add(new_member)
     db.commit()
     
-    return {"status": "ok", "message": f"Usuari {request.email} afegit correctament"}
+    return {"status": "ok", "message": f"User {request.email} added successfully"}
 
 @router.delete("/{workspace_id}/members/{target_user_id}")
 async def remove_workspace_member(
@@ -265,14 +265,14 @@ async def get_workspace(
     ).first()
     
     if not membership:
-        raise HTTPException(status_code=403, detail="No tens permís per accedir a aquest workspace")
+        raise HTTPException(status_code=403, detail="You do not have permission to access this workspace")
 
     workspace = db.query(Workspace).filter(Workspace.id == workspace_id).first()
     if not workspace:
         # Corrupt case: the membership exists but the workspace has been
         # deleted. `from_orm(None)` would crash with a 500. We return a 404
         # explicitly so the frontend can react (refresh the list, etc.).
-        raise HTTPException(status_code=404, detail="Workspace no trobat (membresia òrfena)")
+        raise HTTPException(status_code=404, detail="Workspace not found (orphaned membership)")
     ws_data = WorkspaceResponse.from_orm(workspace)
     ws_data.role = membership.role
     return ws_data

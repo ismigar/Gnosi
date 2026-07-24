@@ -53,7 +53,7 @@ class SchedulerManager:
             "default_interval": 1440,  # 24 hours
         },
         "system_maintenance": {
-            "description": "Manteniment del sistema (Logs, Mailbox, Sandbox)",
+            "description": "System maintenance (logs, mailbox, sandbox)",
             "default_interval": 1440,  # 24 hours
         },
         "llm_wiki_maintenance": {
@@ -70,35 +70,35 @@ class SchedulerManager:
             "default_interval": 300,  # 5 hours
         },
         "fetch_calendar": {
-            "description": "Verificació de tokens de calendari",
+            "description": "Calendar token verification",
             "default_interval": 60,  # 1 hour
         },
         "fetch_mail": {
-            "description": "Sync correu (Gmail, IMAP)",
+            "description": "Mail synchronization (Gmail, IMAP)",
             "default_interval": 30,  # 30 minutes
         },
         "fetch_contacts": {
-            "description": "Sync comptes (Google, CardDAV)",
+            "description": "Account synchronization (Google, CardDAV)",
             "default_interval": 1440,  # 24 hours
         },
         "update_memories": {
-            "description": "Actualització General de Memòria (Graf i Connexions)",
+            "description": "General memory update (graph and connections)",
             "default_interval": 1440,  # 24 hours
         },
         "purge_trash": {
-            "description": "Buida la paperera del Vault (entrades > 90 dies)",
+            "description": "Empty the Vault trash (entries older than 90 days)",
             "default_interval": 1440,  # 24 hours
         },
         "publish_scheduled_social": {
-            "description": "Publica les publicacions socials programades vençudes",
+            "description": "Publish due scheduled social posts",
             "default_interval": 5,  # 5 minutes
         },
         "materialize_view_snapshots": {
-            "description": "Materialitza els snapshots de vistes al markdown (migració portable)",
+            "description": "Materialize view snapshots into Markdown for portable migration",
             "default_interval": 1440,  # 24 hours
         },
         "meeting_reminders": {
-            "description": "Avisos de reunions properes amb ordre del dia (IA)",
+            "description": "Upcoming meeting reminders with an AI agenda",
             "default_interval": 1,  # every minute
             # quiet: do NOT emit the "Task Started/Finished" notifications
             # (it would run every minute and flood macOS with bubbles). The alerts
@@ -211,8 +211,8 @@ class SchedulerManager:
                     pass  # ignores unknown keys / old formats
             self._reconcile_available_tasks()
             log.info(
-                f"⏰ Scheduler: config carregada des de {source} "
-                f"({len(self._tasks)} tasques)"
+                f"⏰ Scheduler: configuration loaded from {source} "
+                f"({len(self._tasks)} tasks)"
             )
             # We don't rewrite the vault at startup (avoids churn/conflicts from
             # OneDrive); we only refresh the local mirror with what we read.
@@ -227,14 +227,14 @@ class SchedulerManager:
             # in degraded mode with IN-MEMORY defaults (without persisting), so as not to
             # destroy the good config. It will recover on the next readable restart.
             log.error(
-                "❌ Scheduler: el fitxer de config existeix però és il·legible "
-                "(online-only/corrupte). Mode degradat: defaults en memòria, "
-                "NO se sobreescriu cap fitxer."
+                "❌ Scheduler: the configuration file exists but is unreadable "
+                "(online-only or corrupted). Degraded mode: using in-memory defaults; "
+                "no file will be overwritten."
             )
             self._degraded = True
             self._init_default_tasks(persist=False)
         else:
-            log.info("⏰ Scheduler: cap config trobada; creant defaults.")
+            log.info("⏰ Scheduler: no configuration found; creating defaults.")
             self._init_default_tasks(persist=True)
 
     def _init_default_tasks(self, persist: bool = True):
@@ -436,8 +436,8 @@ class SchedulerManager:
         # Log task start
         if not quiet:
             notify(
-                f"Tasca Iniciada: {name.replace('_', ' ').title()}",
-                f"S'ha iniciat el procés de {task.description.lower()}.",
+                f"Task started: {name.replace('_', ' ').title()}",
+                f"Started the {task.description.lower()} process.",
                 level="INFO"
             )
 
@@ -471,13 +471,13 @@ class SchedulerManager:
             task.status = "success"
             
             # Extract meaningful message from result if possible
-            msg = result.get("message") or f"La tasca {name} s'ha completat correctament."
+            msg = result.get("message") or f"Task {name} completed successfully."
             if "details" in result and isinstance(result["details"], list):
                 # Add summary of details if available
                 success_count = sum(1 for d in result["details"] if d.get("success"))
                 total_count = len(result["details"])
                 if total_count > 0:
-                    msg = f"Completat: {success_count}/{total_count} sub-tasques amb èxit."
+                    msg = f"Completed: {success_count}/{total_count} subtasks succeeded."
 
             # Update DB history
             if execution_id:
@@ -533,8 +533,8 @@ class SchedulerManager:
 
             if not quiet:
                 notify(
-                    f"Error en Tasca: {name.replace('_', ' ').title()}",
-                    f"S'ha produït un error en l'execució: {error_msg}",
+                    f"Task error: {name.replace('_', ' ').title()}",
+                    f"An execution error occurred: {error_msg}",
                     level="ERROR"
                 )
 

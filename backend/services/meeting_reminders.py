@@ -42,7 +42,7 @@ _GRACE_MINUTES = 5            # keeps the reminder active until X min after the 
 _NOTIFIED_TTL_HOURS = 24      # cleans up dedup keys older than this
 
 
-# ── Estat persistent ─────────────────────────────────────────────────────────
+# ── Persistent state ─────────────────────────────────────────────────────────
 
 def _state_path() -> Optional[Path]:
     cfg = load_params(strict_env=False)
@@ -71,7 +71,7 @@ def _load_state() -> dict:
                     data["settings"].setdefault(k, v)
                 return data
         except Exception as e:
-            log.warning(f"meeting_reminders: estat il·legible ({e}); reinici net.")
+            log.warning(f"meeting_reminders: unreadable state ({e}); starting clean.")
     return {"settings": dict(DEFAULT_SETTINGS), "notified": {}, "active": []}
 
 
@@ -82,7 +82,7 @@ def _save_state(state: dict) -> None:
     try:
         safe_write_json(path, state, indent=2)
     except Exception as e:
-        log.warning(f"meeting_reminders: no s'ha pogut desar l'estat: {e}")
+        log.warning(f"meeting_reminders: could not save state: {e}")
 
 
 # ── Settings ─────────────────────────────────────────────────────────────────
@@ -152,21 +152,21 @@ def _generate_agenda(ev: dict) -> str:
     who = _attendees_str(ev.get("attendees"))
 
     prompt = (
-        "Ets un assistent que prepara reunions. A partir de la informació "
-        "següent, proposa una ORDRE DEL DIA breu i accionable (3-6 punts en "
-        "vinyetes Markdown). Respon NOMÉS amb les vinyetes, en el mateix idioma "
-        "del títol, sense cap introducció.\n\n"
-        f"Títol: {title}\n"
-        f"Lloc: {location or '—'}\n"
-        f"Assistents: {who or '—'}\n"
-        f"Descripció: {desc or '—'}\n"
+        "You are an assistant who prepares meetings. From the following "
+        "information, propose a brief, actionable AGENDA with 3–6 Markdown "
+        "bullet points. Respond ONLY with the bullet points, in the same "
+        "language as the title, without an introduction.\n\n"
+        f"Title: {title}\n"
+        f"Location: {location or '—'}\n"
+        f"Attendees: {who or '—'}\n"
+        f"Description: {desc or '—'}\n"
     )
     try:
         from backend.agent.factory import generate_text
         content, _model = generate_text(prompt, user_message=title)
         return (content or "").strip()
     except Exception as e:
-        log.info(f"meeting_reminders: sense agenda IA ({e}).")
+        log.info(f"meeting_reminders: AI agenda unavailable ({e}).")
         return ""
 
 
@@ -188,7 +188,7 @@ def _dispatch_notification(reminder: dict) -> None:
         from pipeline.skills.notification_service.scripts.notification_service import notify
         notify(title, message, level="INFO")
     except Exception as e:
-        log.warning(f"meeting_reminders: notify ha fallat: {e}")
+        log.warning(f"meeting_reminders: notification failed: {e}")
 
 
 # ── Main scan (called by the scheduler) ──────────────────────────────
@@ -214,7 +214,7 @@ def scan_and_notify() -> dict:
         from backend.api.calendar_routes import collect_all_events
         events = collect_all_events(time_min, time_max, include_vault=True)
     except Exception as e:
-        log.warning(f"meeting_reminders: no s'han pogut recollir events: {e}")
+        log.warning(f"meeting_reminders: could not collect events: {e}")
         return {"enabled": True, "new": 0, "error": str(e)}
 
     notified = state["notified"]

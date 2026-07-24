@@ -27,23 +27,23 @@ router = APIRouter()
 # reasons are the model's fault) lives in `model_reliability`.
 FAILURE_MESSAGES = {
     "tool_use_failed": (
-        "El model no ha sabut cridar les eines correctament: n'ha escrit la crida "
-        "com a text. És una limitació del model, no de les eines."
+        "The model did not call the tools correctly and wrote the call as text. "
+        "This is a model limitation, not a tool limitation."
     ),
     "context_length_exceeded": (
-        "La conversa supera la finestra de context del model. Escurça-la o tria un "
-        "model de context llarg."
+        "The conversation exceeds the model's context window. Shorten it or "
+        "choose a model with a larger context window."
     ),
-    "schema_invalid": "El model no ha generat una resposta amb el format demanat.",
-    "content_filter": "El proveïdor ha bloquejat la resposta pels seus filtres de contingut.",
-    "rate_limit": "Límit de peticions del proveïdor. Prova d'aquí una estona.",
+    "schema_invalid": "The model did not produce the requested response format.",
+    "content_filter": "The provider blocked the response through its content filters.",
+    "rate_limit": "Provider request limit reached. Try again later.",
     "insufficient_credit": (
-        "El compte del proveïdor no té prou crèdit. No és cap problema del model."
+        "The provider account does not have enough credit. This is not a model problem."
     ),
-    "auth": "Credencials del proveïdor no vàlides. Revisa-les a Configuració → IA.",
-    "not_found": "El proveïdor no reconeix aquest model.",
-    "timeout": "El proveïdor no ha respost a temps. Torna-ho a provar.",
-    "server_error": "Error del proveïdor. Torna-ho a provar d'aquí una estona.",
+    "auth": "Invalid provider credentials. Check them in Settings → AI.",
+    "not_found": "The provider does not recognize this model.",
+    "timeout": "The provider did not respond in time. Try again.",
+    "server_error": "Provider error. Try again later.",
 }
 
 
@@ -256,11 +256,11 @@ async def chat_endpoint(request: Request, chat_req: ChatRequest):
                         repeats = (evidence or {}).get("reasons", {}).get(reason, 0)
                         if repeats > 1:
                             friendly_error += (
-                                f" Aquest model ja ha fallat {repeats} vegades pel "
-                                "mateix motiu aquest mes: considera canviar-lo."
+                                f" This model has already failed {repeats} times for "
+                                "the same reason this month; consider changing it."
                             )
                 elif not error_str:
-                    friendly_error = "S'ha produït un error inesperat a l'agent."
+                    friendly_error = "An unexpected agent error occurred."
                 else:
                     friendly_error = safe_error_detail(e, context="POST /api/agent/chat event_generator")
 

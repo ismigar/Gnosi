@@ -1,45 +1,45 @@
-# Directori "zotero_sync" (històric — només manté config)
+# `zotero_sync` directory (historical configuration only)
 
-> **Aquest directori NO conté codi de sync.** El sync Zotero ↔ Vault es va
-> eliminar quan Gnosi va passar a ser el gestor de referències natiu
-> (vegis [`docs/dev_memory/directives/gnosi_native_reference_manager.md`](../../../../../docs/dev_memory/directives/gnosi_native_reference_manager.md)).
+> **This directory no longer contains synchronization code.** Zotero-to-Vault
+> sync was removed when Gnosi became the native reference manager. See
+> [`gnosi_native_reference_manager.md`](../../../../../docs/dev_memory/directives/gnosi_native_reference_manager.md).
 
-## Què sobreviu
+## Remaining configuration
 
-- `zotero_db_config.json` — storage de la **designació de Taula de
-  Referències** del Vault (`target_table` + `references_configured`).
-  Llegit pel codi viu a [`backend/services/reference_table_config.py`](../../../backend/services/reference_table_config.py).
+`zotero_db_config.json` stores the Vault's designated **References table**:
+`target_table` and `references_configured`. Live code reads it through
+[`backend/services/reference_table_config.py`](../../../backend/services/reference_table_config.py).
 
-  Aquest fitxer és **per-màquina i NO es versiona** (porta el `target_table`
-  real i, si s'omplen, credencials): està al `.gitignore`, igual que
-  `config/params.yaml`. El que es versiona és la plantilla
-  `zotero_db_config.json.example` — en un clon nou, copia-la:
+The file is machine-specific and gitignored because it contains the actual
+`target_table` and can include credentials. The repository tracks
+`zotero_db_config.json.example`. For a new clone:
 
-  ```bash
-  cp zotero_db_config.json.example zotero_db_config.json
-  ```
+```bash
+cp zotero_db_config.json.example zotero_db_config.json
+```
 
-  No és obligatori: si el fitxer no existeix, `load_json` retorna el default i
-  el backend arrenca igualment (la taula es designa des de la UI).
+The file is optional. When it does not exist, `load_json` returns the default,
+the backend starts normally, and the table can be selected from the UI.
 
-## Per què el nom no s'ha canviat
+## Why the historical name remains
 
-El path al JSON està codificat a producció dels usuaris existents. Renombrar
-el directori requeriria migrar fitxers en runtime, una operació delicada.
-El nom és, per tant, històric — no implica que el sync existeixi.
+Existing production installations use this JSON path. Renaming the directory
+would require a runtime file migration, so the historical name remains for
+compatibility. It does not mean synchronization still exists.
 
-## Quins fitxers han estat eliminats i quan
+## Removed files
 
-Vegeu l'historial de git:
+Inspect removal history with:
 
 ```bash
 git log --diff-filter=D --summary -- pipeline/skills/zotero_sync/
 ```
 
-Eliminats al cleanup del codi sync deprecated:
-- `SKILL.md` (documentació del sync)
-- `scripts/zotero_to_vault.py` (sync Z→V via subprocess)
-- `scripts/gnosi_to_zotero.py` (sync V→Z)
-- `scripts/backup_zotero.sh` (rsync de la biblioteca Zotero a OneDrive)
-- `scripts/zotero_enrich.py` (migració inicial enrich-only)
-- `scripts/zotero_migrate_annotations.py` (annotations PDF → Vault)
+The deprecated sync cleanup removed:
+
+- `SKILL.md`: old synchronization documentation.
+- `scripts/zotero_to_vault.py`: subprocess Zotero-to-Vault sync.
+- `scripts/gnosi_to_zotero.py`: Vault-to-Zotero sync.
+- `scripts/backup_zotero.sh`: Zotero library backup to OneDrive.
+- `scripts/zotero_enrich.py`: initial enrichment-only migration.
+- `scripts/zotero_migrate_annotations.py`: PDF annotation migration.

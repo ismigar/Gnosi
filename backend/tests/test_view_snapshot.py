@@ -163,12 +163,12 @@ def test_filter_node_and_or_conjunctions():
     r_tipus = {"field": "Tipus", "operator": "equals", "value": "Accionable"}
     # AND: both must hold → false because Tipus differs.
     assert apply_filter_node(meta, PAGE, {"conjunction": "and", "rules": [r_estat, r_tipus]}) is False
-    # OR: at least one holds → true because Estat matches.
+    # OR: at least one holds because the persisted status field matches. @language-example
     assert apply_filter_node(meta, PAGE, {"conjunction": "or", "rules": [r_estat, r_tipus]}) is True
 
 
 def test_filter_node_nested_groups():
-    # (Estat != Fet) AND (Tipus is empty OR Tipus == Safata d'entrada)
+    # Nested filter using persisted field and option values. @language-example
     tree = {
         "conjunction": "and",
         "rules": [

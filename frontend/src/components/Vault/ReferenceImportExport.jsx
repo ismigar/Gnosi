@@ -65,7 +65,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
             onImported?.();
         } catch (err) {
             console.error('import-references failed:', err?.message);
-            toast.error(t('references_io.import_failed', { defaultValue: 'Error important el fitxer' }));
+            toast.error(t('references_io.import_failed', { defaultValue: "Error importing the file" }));
         } finally {
             setBusy(false);
         }
@@ -91,7 +91,7 @@ export function ReferenceImportExport({ tableId, onImported }) {
             URL.revokeObjectURL(url);
         } catch (err) {
             console.error('export-references failed:', err?.message);
-            toast.error(t('references_io.export_failed', { defaultValue: 'Error exportant' }));
+            toast.error(t('references_io.export_failed', { defaultValue: "Error exporting" }));
         } finally {
             setBusy(false);
         }
@@ -115,10 +115,10 @@ export function ReferenceImportExport({ tableId, onImported }) {
                 onClick={() => fileRef.current?.click()}
                 disabled={busy}
                 className={btnCls}
-                title={t('references_io.import_title', { defaultValue: 'Importar referències (.bib / .ris)' })}
+                title={t('references_io.import_title', { defaultValue: "Import references (.bib / .ris)" })}
             >
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
-                {t('references_io.import', { defaultValue: 'Importar' })}
+                {t('references_io.import', { defaultValue: "Import" })}
             </button>
             <div className="relative">
                 <button
@@ -126,10 +126,10 @@ export function ReferenceImportExport({ tableId, onImported }) {
                     onClick={() => setMenuOpen((o) => !o)}
                     disabled={busy}
                     className={btnCls}
-                    title={t('references_io.export_title', { defaultValue: 'Exportar referències' })}
+                    title={t('references_io.export_title', { defaultValue: "Export references" })}
                 >
                     <Download size={13} />
-                    {t('references_io.export', { defaultValue: 'Exportar' })}
+                    {t('references_io.export', { defaultValue: "Export" })}
                     <ChevronDown size={11} />
                 </button>
                 {menuOpen && (

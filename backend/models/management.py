@@ -101,7 +101,7 @@ class ApiToken(Base):
     workspace_id = Column(String, nullable=True)
     name = Column(String, nullable=False)
     token_hash = Column(String, unique=True, index=True, nullable=False)
-    token_prefix = Column(String, nullable=False)  # p.ex. "gnosi_pat_a1b2"
+    token_prefix = Column(String, nullable=False)  # for example, "gnosi_pat_a1b2"
     scopes = Column(String, default="read,write")    # CSV of scopes
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     last_used_at = Column(DateTime(timezone=True), nullable=True)

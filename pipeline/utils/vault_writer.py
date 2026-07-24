@@ -22,7 +22,7 @@ def create_local_note(
     """
     vault_path = get_active_vault_path()
     if not vault_path:
-        raise ValueError("No s'ha pogut determinar el camí de la Vault.")
+        raise ValueError("Could not determine the Vault path.")
 
     # Determine the destination folder based on the note type
     tn_lower = note_type.lower()
@@ -84,7 +84,7 @@ def update_local_note_relations(file_path: str, new_mentions: List[str]):
     """
     p = Path(file_path)
     if not p.exists():
-        log.error(f"El fitxer {file_path} no existeix per actualitzar relacions.")
+        log.error(f"File {file_path} does not exist; relationships cannot be updated.")
         return
 
     try:

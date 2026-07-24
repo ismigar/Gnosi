@@ -1,6 +1,8 @@
 #!/usr/bin/env python3.11
 """Converts the "Progrés" field in the Projectes table into a DERIVED (virtual) field.
 
+Quoted field and option labels below are persisted data. @language-example
+
 From a `number` with hand-saved 0-1 fractions → `virtual` with `compute=task_progress`
 (% of related Tasques with Estat="Fet", calculated on read by the backend).
 
@@ -49,12 +51,16 @@ def _tables(reg):
     for key in ("tables", "databases"):
         if isinstance(reg.get(key), list):
             return reg[key]
-    raise SystemExit("No s'han trobat 'tables' al registry")
+    raise SystemExit("No 'tables' collection was found in the registry")
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--apply", action="store_true", help="Escriu els canvis (amb backup). Sense això: dry-run.")
+    ap.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write the changes (with a backup). Without this flag, run in dry-run mode.",
+    )
     args = ap.parse_args()
 
     with open(REGISTRY, encoding="utf-8") as f:
@@ -62,23 +68,23 @@ def main():
 
     table = next((t for t in _tables(reg) if t.get("id") == PROJECTS_TABLE_ID), None)
     if not table:
-        raise SystemExit(f"Taula Projectes {PROJECTS_TABLE_ID} no trobada")
+        raise SystemExit(f"Projectes table {PROJECTS_TABLE_ID} was not found")
 
     props = table.get("properties") or []
     idx = next((i for i, p in enumerate(props) if p.get("name") == FIELD_NAME), None)
     if idx is None:
-        raise SystemExit(f"Camp «{FIELD_NAME}» no trobat a Projectes")
+        raise SystemExit(f"Field '{FIELD_NAME}' was not found in Projectes")
 
     current = props[idx]
-    print(f"PROP ACTUAL : {json.dumps(current, ensure_ascii=False)}")
-    print(f"PROP NOU    : {json.dumps(VIRTUAL_PROP, ensure_ascii=False)}")
+    print(f"CURRENT PROPERTY: {json.dumps(current, ensure_ascii=False)}")
+    print(f"NEW PROPERTY    : {json.dumps(VIRTUAL_PROP, ensure_ascii=False)}")
 
     if current.get("type") == "virtual" and current.get("compute") == "task_progress":
-        print("\n✓ Ja és virtual amb compute=task_progress — res a fer (idempotent).")
+        print("\n✓ The property is already virtual with compute=task_progress; nothing to do.")
         return
 
     if not args.apply:
-        print("\n[DRY-RUN] No s'ha escrit res. Torna a executar amb --apply per aplicar.")
+        print("\n[DRY-RUN] Nothing was written. Run again with --apply to apply the change.")
         return
 
     backup = f"{REGISTRY}.bak-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
@@ -88,7 +94,7 @@ def main():
     props[idx] = VIRTUAL_PROP
     with open(REGISTRY, "w", encoding="utf-8") as f:
         json.dump(reg, f, ensure_ascii=False, indent=2)
-    print("✓ Registry actualitzat. Reinicia el backend natiu i invalida el page-index cache.")
+    print("✓ Registry updated. Restart the native backend and invalidate the page-index cache.")
 
 
 if __name__ == "__main__":

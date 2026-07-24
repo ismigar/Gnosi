@@ -70,7 +70,7 @@ export function WorkspaceSwitcher() {
 
             {isOpen && (
                 <div className="workspace-switcher__menu">
-                    <div className="workspace-switcher__menu-header">{t('doc_tabs.workspaces_title', 'Espais de Treball')}</div>
+                    <div className="workspace-switcher__menu-header">{t('doc_tabs.workspaces_title', "Workspaces")}</div>
                     {workspaces.map(ws => (
                         <button 
                             key={ws.id}
@@ -94,7 +94,7 @@ export function WorkspaceSwitcher() {
                         <div className="workspace-switcher__item-icon" style={{ background: 'rgba(59, 130, 246, 0.1)', color: 'var(--gnosi-blue)' }}>
                             <Plus size={16} />
                         </div>
-                        <span className="workspace-switcher__item-name">{t('doc_tabs.new_workspace', 'Nou Workspace')}</span>
+                        <span className="workspace-switcher__item-name">{t('doc_tabs.new_workspace', "New Workspace")}</span>
                     </button>
                 </div>
             )}

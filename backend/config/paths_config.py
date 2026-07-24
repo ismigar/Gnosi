@@ -24,7 +24,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     project_root = _this_file.parents[2]  # backend/config -> gnosi
 
     # ── Resolve Vault Path ──
-    # Prioritat: env (Docker: DIGITAL_BRAIN_VAULT_PATH=/vault; host: VAULT_HOST_PATH)
+    # Priority: environment (Docker: DIGITAL_BRAIN_VAULT_PATH=/vault; host: VAULT_HOST_PATH)
     # > params.yaml (Settings UI).
     env_vault_docker = os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
     env_vault_host = os.environ.get("VAULT_HOST_PATH")
@@ -129,7 +129,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
     # identity, scheduler, custom icons and agent instructions/tools. All the
     # that belongs to a specific instance (caches, SQLite, vector stores,
     # checkpoints, audio, logs, backups) lives in `local_data/` (per device,
-    # no sincronitzat).
+    # not synchronized).
     persistent_base = safe_base / ".gnosi"
     agent_instructions = persistent_base / "agent" / "instructions"
     agent_tools = persistent_base / "agent" / "generated_tools"
@@ -167,7 +167,7 @@ def get_paths(overrides: Optional[Dict[str, str]] = None) -> Dict[str, Optional[
         # Vector store and audio: per-instance, never in the vault.
         "CHROMA": local_data / "chroma_db",
         "AUDIO": local_data / "audio",
-        # Configs sincronitzats vault-first via .gnosi/.
+        # Vault-first synchronized configuration through .gnosi/.
         "SCHEDULER": persistent_base / "scheduler_config.json",
         "IDENTITY": persistent_base / "identity.json",
         "CUSTOM_ICONS": persistent_base / "vault_custom_icons.json",

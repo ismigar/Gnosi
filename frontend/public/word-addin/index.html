@@ -1,15 +1,14 @@
 <!DOCTYPE html>
-<html lang="ca">
+<html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <title>Gnosi Cite</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
     <!--
-        Office.js — la API client-side per interactuar amb el Word.
-        Cal carregar-la des del CDN oficial perquè reben actualitzacions
-        de seguretat automàtiques i la versió de Word del client decideix
-        quina build agafa.
+        Office.js is the client-side API for interacting with Word.
+        Load it from the official CDN to receive automatic security updates;
+        the client's Word version selects the appropriate build.
     -->
     <script src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
     <link rel="stylesheet" href="/word-addin/taskpane.css" />
@@ -20,7 +19,7 @@
             <span class="logo">G</span>
             <span>Gnosi Cite</span>
         </div>
-        <div class="subtitle" id="connection-status">Connectant…</div>
+        <div class="subtitle" id="connection-status">Connecting…</div>
     </header>
 
     <main class="main">
@@ -29,16 +28,16 @@
                 <input
                     type="text"
                     id="search-input"
-                    placeholder="Cerca per citation key, títol o autor…"
+                    placeholder="Search by citation key, title, or author…"
                     autocomplete="off"
                     autofocus
                 />
             </div>
             <div class="style-row">
-                <label for="style-select">Estil:</label>
+                <label for="style-select">Style:</label>
                 <select id="style-select">
                     <option value="apa">APA 7</option>
-                    <option value="chicago-author-date">Chicago (autor-data)</option>
+                    <option value="chicago-author-date">Chicago (author-date)</option>
                     <option value="modern-language-association">MLA</option>
                     <option value="ieee">IEEE</option>
                 </select>
@@ -48,13 +47,13 @@
         <section class="results-section">
             <ul id="results" class="results"></ul>
             <div id="empty-state" class="empty-state">
-                Escriu un terme per cercar referències al Vault.
+                Enter a term to search for references in the Vault.
             </div>
         </section>
 
         <section class="actions">
             <button id="insert-bibliography" class="btn btn-primary" type="button">
-                Insereix bibliografia
+                Insert bibliography
             </button>
         </section>
 
@@ -65,10 +64,10 @@
             Collapsed by default — it is set once and then forgotten.
         -->
         <details class="settings" id="settings">
-            <summary>Configuració del token</summary>
+            <summary>Token settings</summary>
             <p class="settings-help">
-                Crea un token a Gnosi (Configuració → Tokens d'API) i enganxa'l aquí.
-                Es desa només en aquest dispositiu.
+                Create a token in Gnosi (Settings → API tokens) and paste it here.
+                It is stored on this device only.
             </p>
             <div class="settings-row">
                 <input
@@ -78,17 +77,17 @@
                     autocomplete="off"
                     spellcheck="false"
                 />
-                <button id="token-save" class="btn btn-primary" type="button">Desa</button>
+                <button id="token-save" class="btn btn-primary" type="button">Save</button>
             </div>
             <div class="settings-row">
-                <span id="token-state" class="settings-state">Sense token</span>
-                <button id="token-clear" class="btn btn-secondary" type="button">Esborra</button>
+                <span id="token-state" class="settings-state">No token</span>
+                <button id="token-clear" class="btn btn-secondary" type="button">Clear</button>
             </div>
         </details>
     </main>
 
     <footer class="footer">
-        <span id="status-line">Llest</span>
+        <span id="status-line">Ready</span>
     </footer>
 
     <script src="/word-addin/taskpane.js"></script>

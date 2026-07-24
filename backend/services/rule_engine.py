@@ -430,7 +430,7 @@ class RuleEngine:
         # (view_snapshot) — which include the ACCENTED "sí" and require
         # parity with this function. Without "sí", a checkbox saved in
         # Catalan counted as checked in filters/views/snapshot but NOT in the
-        # rollup percent_checked (percentatge infravalorat en silenci).
+        # rollup percent_checked (silently underestimated percentage).
         if isinstance(value, bool):
             return value
         if isinstance(value, (int, float)):

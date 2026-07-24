@@ -94,14 +94,14 @@ def emit(event: str, payload: Dict[str, Any] | None = None) -> None:
             try:
                 fn(event, data)
             except Exception:  # noqa: BLE001
-                logger.exception("Subscriptor intern ha fallat en %s", event)
+                logger.exception("Internal subscriber failed for %s", event)
         if dispatcher is not None:
             try:
                 dispatcher(event, data)
             except Exception:  # noqa: BLE001
-                logger.exception("Dispatcher de plugins ha fallat en %s", event)
+                logger.exception("Plugin dispatcher failed for %s", event)
 
     try:
         threading.Thread(target=_run, name=f"plugin-evt-{event}", daemon=True).start()
     except Exception:  # noqa: BLE001
-        logger.exception("No s'ha pogut arrencar el thread d'esdeveniment %s", event)
+        logger.exception("Could not start event thread %s", event)

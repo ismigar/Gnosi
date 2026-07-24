@@ -12,7 +12,7 @@ export function useMailViews() {
         setError(null);
         try {
             const res = await fetch(API);
-            if (!res.ok) throw new Error('Error carregant vistes');
+            if (!res.ok) throw new Error('Error loading views');
             setViews(await res.json());
         } catch (e) {
             setError(e.message);

@@ -62,7 +62,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
         const { key, columnName } = promoting;
         const finalName = (columnName || key).trim();
         if (!finalName) {
-            toast.error(t('zotero_extras.promote_invalid', { defaultValue: 'Nom de columna invàlid' }));
+            toast.error(t('zotero_extras.promote_invalid', { defaultValue: "Invalid column name" }));
             return;
         }
         try {
@@ -74,7 +74,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
             });
             const d = r.data || {};
             toast.success(t('zotero_extras.promote_done', {
-                defaultValue: `Camp "${key}" promogut a columna "${finalName}" (${d.migrated || 0} pàgines migrades)`,
+                defaultValue: `Field "${key}" promoted to column "${finalName}" (${d.migrated || 0} pages migrated)`,
                 key,
                 col: finalName,
                 migrated: d.migrated || 0,
@@ -107,7 +107,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                 <div className="flex items-center gap-2 text-sm font-medium text-[var(--text-secondary)]">
                     <Sparkles size={14} className="text-[var(--gnosi-primary)]/70" />
                     <span>
-                        {t('zotero_extras.title', { defaultValue: 'Detalls Zotero addicionals' })}
+                        {t('zotero_extras.title', { defaultValue: "Additional Zotero details" })}
                     </span>
                     <span className="text-xs font-normal text-[var(--text-tertiary)]">({entries.length})</span>
                 </div>
@@ -119,8 +119,8 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
             <div className="px-3 py-2.5 border-t border-[var(--border-primary)]/50">
                 <p className="text-[11px] text-[var(--text-tertiary)] italic mb-2">
                     {readOnly
-                        ? t('zotero_extras.hint_readonly', 'Camps importats des de Zotero que no tenen columna pròpia al Vault.')
-                        : t('zotero_extras.hint_editable', 'Camps importats des de Zotero. Editables a la cel·la; X per esborrar; + per afegir.')}
+                        ? t('zotero_extras.hint_readonly', "Fields imported from Zotero that don't have their own column in the Vault.")
+                        : t('zotero_extras.hint_editable', "Fields imported from Zotero. Editable in the cell; X to delete; + to add.")}
                 </p>
                 <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)_auto] gap-x-2 gap-y-1.5 text-xs items-center">
                     {entries.map(([k, v]) => (
@@ -137,7 +137,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                 onChange={(e) => updateField(k, e.target.value)}
                                 disabled={readOnly || typeof v === 'object'}
                                 className="bg-transparent border border-transparent hover:border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]/60 rounded px-1.5 py-0.5 text-[var(--text-primary)] outline-none transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                                title={typeof v === 'object' ? t('zotero_extras.object_uneditable', { defaultValue: 'Valor estructurat — edita el .md directament' }) : ''}
+                                title={typeof v === 'object' ? t('zotero_extras.object_uneditable', { defaultValue: "Structured value — edit the .md directly" }) : ''}
                             />
                             {!readOnly && (
                                 <div className="flex items-center gap-0.5">
@@ -146,7 +146,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                             type="button"
                                             onClick={() => setPromoting({ key: k, columnName: k })}
                                             className="p-1 text-[var(--text-tertiary)]/40 hover:text-[var(--gnosi-primary)] transition-colors"
-                                            title={t('zotero_extras.promote_to_column', { defaultValue: 'Promou a columna del registry' })}
+                                            title={t('zotero_extras.promote_to_column', { defaultValue: "Promote to registry column" })}
                                         >
                                             <ArrowUpRight size={12} />
                                         </button>
@@ -155,7 +155,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                         type="button"
                                         onClick={() => removeField(k)}
                                         className="p-1 text-[var(--text-tertiary)]/40 hover:text-[var(--status-error)] transition-colors"
-                                        title={t('zotero_extras.remove_field', { defaultValue: 'Esborra aquest camp' })}
+                                        title={t('zotero_extras.remove_field', { defaultValue: "Delete this field" })}
                                     >
                                         <X size={12} />
                                     </button>
@@ -182,7 +182,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                     if (e.key === 'Enter') { e.preventDefault(); handlePromote(); }
                                     if (e.key === 'Escape') setPromoting(null);
                                 }}
-                                placeholder={t('zotero_extras.promote_column_placeholder', { defaultValue: 'Nom de la columna' })}
+                                placeholder={t('zotero_extras.promote_column_placeholder', { defaultValue: "Column name" })}
                                 className="flex-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded px-1.5 py-0.5 outline-none focus:border-[var(--gnosi-primary)]"
                             />
                             <button
@@ -190,7 +190,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                 onClick={handlePromote}
                                 className="px-2 py-0.5 rounded bg-[var(--gnosi-primary)] text-white text-[11px] hover:opacity-90"
                             >
-                                {t('zotero_extras.promote_apply', { defaultValue: 'Aplica' })}
+                                {t('zotero_extras.promote_apply', { defaultValue: "Apply" })}
                             </button>
                             <button
                                 type="button"
@@ -208,7 +208,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                 value={newKey}
                                 onChange={(e) => setNewKey(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addField(); } }}
-                                placeholder={t('zotero_extras.new_key_placeholder', { defaultValue: 'nou camp' })}
+                                placeholder={t('zotero_extras.new_key_placeholder', { defaultValue: "new field" })}
                                 className="font-mono bg-transparent border border-dashed border-[var(--border-primary)]/50 hover:border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]/60 rounded px-1.5 py-0.5 text-[var(--text-secondary)] outline-none transition-colors"
                             />
                             <input
@@ -216,7 +216,7 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                 value={newValue}
                                 onChange={(e) => setNewValue(e.target.value)}
                                 onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addField(); } }}
-                                placeholder={t('zotero_extras.new_value_placeholder', { defaultValue: 'valor' })}
+                                placeholder={t('zotero_extras.new_value_placeholder', { defaultValue: "value" })}
                                 className="bg-transparent border border-dashed border-[var(--border-primary)]/50 hover:border-[var(--border-primary)] focus:border-[var(--gnosi-primary)]/60 rounded px-1.5 py-0.5 text-[var(--text-primary)] outline-none transition-colors"
                             />
                             <button
@@ -225,8 +225,8 @@ export function ZoteroExtrasSection({ extras, onChange, onRemoveAll, readOnly = 
                                 disabled={!newKey.trim() || newKey.trim() in extras}
                                 className="p-1 text-[var(--gnosi-primary)]/60 hover:text-[var(--gnosi-primary)] disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                                 title={newKey.trim() in extras
-                                    ? t('zotero_extras.duplicate_key', { defaultValue: 'Aquest camp ja existeix' })
-                                    : t('zotero_extras.add_field', { defaultValue: 'Afegeix camp' })}
+                                    ? t('zotero_extras.duplicate_key', { defaultValue: "This field already exists" })
+                                    : t('zotero_extras.add_field', { defaultValue: "Add field" })}
                             >
                                 <Plus size={12} />
                             </button>

@@ -1,5 +1,7 @@
 """Idempotent migration of the Vault registry's option catalogs.
 
+Quoted field, option, and folder labels below are persisted data. @language-example
+
 Applies the model from the `vault_option_catalogs_action_rules.md` directive to an
 existing registry:
 
@@ -56,7 +58,7 @@ from backend.services import action_rules  # noqa: E402
 from backend.services import option_catalogs as oc  # noqa: E402
 
 # Frontmatter regex (same form as parse_frontmatter, without depending on the
-# backend complet).
+# full backend).
 _FM_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 
@@ -65,7 +67,7 @@ def read_frontmatter(path: Path) -> dict:
     try:
         raw = path.read_text(encoding="utf-8")
     except Exception as exc:
-        print(f"    [avís] no s'ha pogut llegir {path.name}: {exc}")
+        print(f"    [warning] could not read {path.name}: {exc}")
         return {}
     match = _FM_RE.match(raw)
     if not match:
@@ -73,7 +75,7 @@ def read_frontmatter(path: Path) -> dict:
     try:
         data = yaml.safe_load(match.group(1))
     except Exception as exc:
-        print(f"    [avís] frontmatter invàlid a {path.name}: {exc}")
+        print(f"    [warning] invalid frontmatter in {path.name}: {exc}")
         return {}
     return data if isinstance(data, dict) else {}
 
@@ -189,26 +191,26 @@ def migrate(registry_path: Path, apply: bool) -> int:
         for field_name, missing in merged:
             shown = ", ".join(missing[:8]) + ("…" if len(missing) > 8 else "")
             report.append(
-                f"valors existents incorporats al catàleg de «{field_name}» ({len(missing)}): {shown}"
+                f"existing values added to the '{field_name}' catalog ({len(missing)}): {shown}"
             )
 
         if oc.normalize_table_options(table):
-            report.append("catàlegs normalitzats a format ric")
+            report.append("catalogs normalized to the rich format")
         if oc.assign_roles(table):
             roles = {
                 p.get("name"): oc.prop_role(p)
                 for p in table.get("properties") or []
                 if oc.prop_role(p)
             }
-            report.append(f"rols assignats: {roles}")
+            report.append(f"roles assigned: {roles}")
         if promote_status_type(table):
-            report.append("camp d'estat promogut a type=status")
+            report.append("status field promoted to type=status")
         if oc.ensure_status_seed(table):
             prop = oc.find_role_prop(table, oc.ROLE_STATUS)
             names = [o["name"] for o in oc.get_prop_options(prop)] if prop else []
-            report.append(f"seed d'estats garantit: {names}")
+            report.append(f"status seed ensured: {names}")
         if action_rules.ensure_action_rules(table):
-            report.append(f"action_rules seedejades: {sorted((table.get('action_rules') or {}).keys())}")
+            report.append(f"action_rules seeded: {sorted((table.get('action_rules') or {}).keys())}")
 
         if report:
             total_changes += len(report)
@@ -217,11 +219,11 @@ def migrate(registry_path: Path, apply: bool) -> int:
                 print(f"  - {line}")
 
     if not total_changes:
-        print("\nRes a migrar: el registry ja està al dia (idempotent).")
+        print("\nNothing to migrate: the registry is already up to date (idempotent).")
         return 0
 
     if not apply:
-        print(f"\nDRY-RUN: {total_changes} canvis pendents. Re-executa amb --apply per escriure'ls.")
+        print(f"\nDRY-RUN: {total_changes} pending changes. Run again with --apply to write them.")
         return 0
 
     backup = registry_path.with_name(
@@ -234,8 +236,8 @@ def migrate(registry_path: Path, apply: bool) -> int:
         json.dumps(registry, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     tmp.replace(registry_path)
-    print(f"APLICAT: {total_changes} canvis escrits a {registry_path}")
-    print("Recorda reiniciar (o esperar 30 s de cache de) gnosi_backend.")
+    print(f"APPLIED: {total_changes} changes written to {registry_path}")
+    print("Remember to restart gnosi_backend (or wait 30 seconds for its cache to expire).")
     return 0
 
 
@@ -244,17 +246,17 @@ def main() -> int:
     parser.add_argument(
         "--registry",
         required=True,
-        help="Ruta al vault_db_registry.json (dins <vault>/BD/)",
+        help="Path to vault_db_registry.json (inside <vault>/BD/)",
     )
     parser.add_argument(
         "--apply",
         action="store_true",
-        help="Escriu els canvis (per defecte només dry-run)",
+        help="Write changes (dry-run by default)",
     )
     args = parser.parse_args()
     registry_path = Path(args.registry).expanduser()
     if not registry_path.is_file():
-        print(f"ERROR: no existeix {registry_path}")
+        print(f"ERROR: {registry_path} does not exist")
         return 1
     return migrate(registry_path, apply=args.apply)
 

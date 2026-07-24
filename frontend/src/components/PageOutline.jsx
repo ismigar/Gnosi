@@ -218,8 +218,8 @@ export default function PageOutline() {
                 type="button"
                 data-testid="page-outline-toggle"
                 onClick={() => setOpen(true)}
-                title={t('outline.open', 'Índex de la pàgina')}
-                aria-label={t('outline.open', 'Índex de la pàgina')}
+                title={t('outline.open', "Page outline")}
+                aria-label={t('outline.open', "Page outline")}
                 className="fixed right-0 top-1/2 -translate-y-1/2 z-[60] flex items-center justify-center w-8 h-12 rounded-l-lg border border-r-0 border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] shadow-md cursor-pointer transition-colors"
             >
                 <ListTree size={18} />
@@ -233,14 +233,14 @@ export default function PageOutline() {
                 <div className="flex items-center gap-2 text-[var(--text-secondary)]">
                     <ListTree size={15} />
                     <span className="text-[11px] font-bold uppercase tracking-tight">
-                        {t('outline.title', 'En aquesta pàgina')}
+                        {t('outline.title', "On this page")}
                     </span>
                 </div>
                 <button
                     type="button"
                     onClick={() => setOpen(false)}
-                    title={t('common.close', 'Tancar')}
-                    aria-label={t('common.close', 'Tancar')}
+                    title={t('common.close', "Close")}
+                    aria-label={t('common.close', "Close")}
                     className="flex items-center justify-center w-6 h-6 rounded-md border-none bg-transparent text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] cursor-pointer transition-colors"
                 >
                     <X size={15} />

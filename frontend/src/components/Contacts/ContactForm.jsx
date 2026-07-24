@@ -186,22 +186,22 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
     };
 
     const emailLabels = [
-        { value: 'home', label: t('contacts.label_home', 'Casa') },
-        { value: 'work', label: t('contacts.label_work', 'Feina') },
-        { value: 'other', label: t('contacts.label_other', 'Altres') },
+        { value: 'home', label: t('contacts.label_home', "Home") },
+        { value: 'work', label: t('contacts.label_work', "Work") },
+        { value: 'other', label: t('contacts.label_other', "Other") },
     ];
 
     const phoneLabels = [
-        { value: 'mobile', label: t('contacts.label_mobile', 'Mòbil') },
-        { value: 'home', label: t('contacts.label_home', 'Casa') },
-        { value: 'work', label: t('contacts.label_work', 'Feina') },
-        { value: 'other', label: t('contacts.label_other', 'Altres') },
+        { value: 'mobile', label: t('contacts.label_mobile', "Mobile") },
+        { value: 'home', label: t('contacts.label_home', "Home") },
+        { value: 'work', label: t('contacts.label_work', "Work") },
+        { value: 'other', label: t('contacts.label_other', "Other") },
     ];
 
     const addressLabels = [
-        { value: 'home', label: t('contacts.label_home', 'Casa') },
-        { value: 'work', label: t('contacts.label_work', 'Feina') },
-        { value: 'other', label: t('contacts.label_other', 'Altres') },
+        { value: 'home', label: t('contacts.label_home', "Home") },
+        { value: 'work', label: t('contacts.label_work', "Work") },
+        { value: 'other', label: t('contacts.label_other', "Other") },
     ];
 
     const renderMultiFieldSection = (title, field, icon, placeholder, labels, type = "text") => (
@@ -227,7 +227,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                         gap: '4px'
                     }}
                 >
-                    <Plus size={12} /> {t('common.btn.add', 'Afegir')}
+                    <Plus size={12} /> {t('common.btn.add', "Add")}
                 </button>
             </div>
             
@@ -250,7 +250,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                 type="text"
                                 value={item.customLabel || ''}
                                 onChange={(e) => handleFieldChange(field, index, 'customLabel', e.target.value)}
-                                placeholder={t('contacts.label_custom_placeholder', 'Especifiqueu...')}
+                                placeholder={t('contacts.label_custom_placeholder', "Specify...")}
                                 style={{ ...inputStyle, marginTop: 0, width: '120px', flex: 'none' }}
                             />
                         )}
@@ -309,7 +309,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                 justifyContent: 'center',
                                 transition: 'all 0.2s'
                             }}
-                            title={t('common.back', 'Tornar')}
+                            title={t('common.back', "Back")}
                         >
                             <ChevronLeft size={20} />
                         </button>
@@ -321,7 +321,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                         color: 'var(--text-primary)', 
                         letterSpacing: '-0.02em' 
                     }}>
-                        {contact ? t('contacts.edit_title', 'Editar Contacte') : t('contacts.new_title', 'Nou Contacte')}
+                        {contact ? t('contacts.edit_title', "Edit Contact") : t('contacts.new_title', "New Contact")}
                     </h2>
                 </div>
                 <button
@@ -341,7 +341,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                         transition: 'all 0.2s'
                     }}
                 >
-                    <ArrowLeft size={16} /> {t('common.btn.cancel', 'Cancel·lar')}
+                    <ArrowLeft size={16} /> {t('common.btn.cancel', "Cancel")}
                 </button>
             </div>
 
@@ -349,19 +349,19 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                 {/* Basic Info Group */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                     <div style={{ gridColumn: 'span 2' }}>
-                        <label style={labelStyle}><User size={14} /> {t('contacts.name_label', 'Nom')} *</label>
+                        <label style={labelStyle}><User size={14} /> {t('contacts.name_label', "Name")} *</label>
                         <input
                             type="text"
                             name="name"
                             value={formData.name}
                             onChange={handleChange}
                             required
-                            placeholder={t('contacts.name_placeholder', 'Ex: Joan Sala')}
+                            placeholder={t('contacts.name_placeholder', "E.g.: Joan Sala")}
                             style={inputStyle}
                         />
                     </div>
                     <div style={{ gridColumn: 'span 2' }}>
-                        <label style={labelStyle}><Globe size={14} /> {t('contacts.photo_url_label', 'Foto de perfil')}</label>
+                        <label style={labelStyle}><Globe size={14} /> {t('contacts.photo_url_label', "Photo URL")}</label>
                         <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginTop: '10px' }}>
                             <div style={{ 
                                 width: '64px', 
@@ -401,7 +401,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                         name="photo_url"
                                         value={formData.photo_url}
                                         onChange={handleChange}
-                                        placeholder={t('contacts.photo_url_placeholder', 'https://exemple.com/foto.jpg')}
+                                        placeholder={t('contacts.photo_url_placeholder', "https://example.com/photo.jpg")}
                                         style={{ ...inputStyle, marginTop: 0, flex: 1 }}
                                     />
                                     {isGmail(formData.emails[0]?.value || formData.email) && (
@@ -422,7 +422,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                                 gap: '6px',
                                                 whiteSpace: 'nowrap'
                                             }}
-                                            title={t('contacts.fetch_gmail_avatar', 'Obtenir avatar de Gmail')}
+                                            title={t('contacts.fetch_gmail_avatar', "Get Gmail avatar")}
                                         >
                                             <Search size={14} />
                                             Gmail
@@ -430,7 +430,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                     )}
                                 </div>
                                 <p style={{ margin: 0, fontSize: '10px', color: 'var(--text-tertiary)', opacity: 0.7 }}>
-                                    {t('contacts.photo_url_hint', 'Posa una URL directa a una imatge o fes servir el botó de Gmail si és possible.')}
+                                    {t('contacts.photo_url_hint', "Enter a direct URL to an image or use the Gmail button if possible.")}
                                 </p>
                             </div>
                         </div>
@@ -439,7 +439,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
 
                 {/* Type Selection */}
                 <div>
-                    <label style={labelStyle}><Tag size={14} /> {t('contacts.type_label', 'Tipus de contacte')}</label>
+                    <label style={labelStyle}><Tag size={14} /> {t('contacts.type_label', "Contact type")}</label>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '10px' }}>
                         <button
                             type="button"
@@ -475,7 +475,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                 transition: 'all 0.2s'
                             }}
                         >
-                            {t('contacts.type_business', 'Empresa')}
+                            {t('contacts.type_business', "Business")}
                         </button>
                     </div>
                 </div>
@@ -483,24 +483,24 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                 {/* Company Info row */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                     <div>
-                        <label style={labelStyle}><Building2 size={14} /> {t('contacts.company_label', 'Empresa')}</label>
+                        <label style={labelStyle}><Building2 size={14} /> {t('contacts.company_label', "Company")}</label>
                         <input
                             type="text"
                             name="company"
                             value={formData.company}
                             onChange={handleChange}
-                            placeholder={t('contacts.company_placeholder', 'Opcional')}
+                            placeholder={t('contacts.company_placeholder', "Optional")}
                             style={inputStyle}
                         />
                     </div>
                     <div>
-                        <label style={labelStyle}><Briefcase size={14} /> {t('contacts.job_label', 'Càrrec')}</label>
+                        <label style={labelStyle}><Briefcase size={14} /> {t('contacts.job_label', "Job Title")}</label>
                         <input
                             type="text"
                             name="job_title"
                             value={formData.job_title}
                             onChange={handleChange}
-                            placeholder={t('contacts.job_placeholder', 'Ex: Director IT')}
+                            placeholder={t('contacts.job_placeholder', "E.g.: IT Director")}
                             style={inputStyle}
                             disabled={formData.type !== 'b2b'}
                         />
@@ -509,14 +509,14 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
 
                 {/* Account Selection (Source) */}
                 <div>
-                    <label style={labelStyle}><Globe size={14} /> {t('contacts.sync_with_account', 'Sincronització amb')}</label>
+                    <label style={labelStyle}><Globe size={14} /> {t('contacts.sync_with_account', "Sync with account")}</label>
                     <select
                         name="source"
                         value={formData.source}
                         onChange={handleChange}
                         style={{ ...inputStyle, cursor: 'pointer' }}
                     >
-                        <option value="local">{t('contacts.source_local', 'Gnosi (Només local)')}</option>
+                        <option value="local">{t('contacts.source_local', "Gnosi (Local)")}</option>
                         {contactAccounts.map((account) => {
                             const displayName = account.name || (account.provider === 'google' ? 'Google' : account.provider.toUpperCase());
                             return (
@@ -529,32 +529,32 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                 </div>
 
                 {/* Multi-field Sections */}
-                {renderMultiFieldSection(t('contacts.email_label', 'Emails'), 'emails', <Mail size={14} />, t('contacts.email_field_placeholder', 'email@exemple.com'), emailLabels, "email")}
-                {renderMultiFieldSection(t('contacts.phone_label', 'Telèfons'), 'phones', <Phone size={14} />, "+34 600 000 000", phoneLabels, "tel")}
-                {renderMultiFieldSection(t('contacts.address_label', 'Adreces'), 'addresses', <MapPin size={14} />, t('contacts.address_field_placeholder', 'Carrer, Número, Ciutat...'), addressLabels)}
+                {renderMultiFieldSection(t('contacts.email_label', "Email"), 'emails', <Mail size={14} />, t('contacts.email_field_placeholder', "email@example.com"), emailLabels, "email")}
+                {renderMultiFieldSection(t('contacts.phone_label', "Phone"), 'phones', <Phone size={14} />, "+34 600 000 000", phoneLabels, "tel")}
+                {renderMultiFieldSection(t('contacts.address_label', "Address"), 'addresses', <MapPin size={14} />, t('contacts.address_field_placeholder', "Street, Number, City..."), addressLabels)}
 
                 <div>
-                    <label style={labelStyle}><Tag size={14} /> {t('contacts.notes_label', 'Notes / Comentaris')}</label>
+                    <label style={labelStyle}><Tag size={14} /> {t('contacts.notes_label', "Notes / Comments")}</label>
                     <textarea
                         name="notes"
                         value={formData.notes}
                         onChange={handleChange}
                         rows={4}
-                        placeholder={t('contacts.notes_placeholder', 'Notes addicionals sobre el contacte...')}
+                        placeholder={t('contacts.notes_placeholder', "Additional notes about the contact...")}
                         style={{ ...inputStyle, resize: 'vertical', minHeight: '120px' }}
                     />
                 </div>
 
                 {/* Tags Management */}
                 <div>
-                    <label style={labelStyle}><Tag size={14} /> {t('contacts.tags_label', 'Etiquetes')}</label>
+                    <label style={labelStyle}><Tag size={14} /> {t('contacts.tags_label', "Tags")}</label>
                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                         <input
                             type="text"
                             value={tagInput}
                             onChange={(e) => setTagInput(e.target.value)}
                             onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTag())}
-                            placeholder={t('contacts.tag_placeholder', 'Afegeix una etiqueta...')}
+                            placeholder={t('contacts.tag_placeholder', "Add a tag...")}
                             style={{ ...inputStyle, marginTop: 0, flex: 1 }}
                         />
                         <button
@@ -572,7 +572,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                                 transition: 'all 0.2s'
                             }}
                         >
-                            {t('common.btn.add', 'Afegir')}
+                            {t('common.btn.add', "Add")}
                         </button>
                     </div>
                     {formData.tags.length > 0 && (
@@ -627,7 +627,7 @@ export default function ContactForm({ contact, onSave, onCancel, onBack, contact
                         }}
                     >
                         <Save size={18} />
-                        {contact ? t('common.btn.save_changes', 'Guardar Canvis') : t('contacts.btn_create', 'Crear Contacte')}
+                        {contact ? t('common.btn.save_changes', "Save Changes") : t('contacts.btn_create', "Create Contact")}
                     </button>
                 </div>
             </form>

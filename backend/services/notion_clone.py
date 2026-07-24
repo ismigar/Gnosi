@@ -247,7 +247,7 @@ def clone_workspace(
 ) -> Dict[str, Any]:
     """Clones the selected DBs into `target_folder` with clone ids and a fidelity body (MCP).
 
-    `save_asset(url, prop_or_None, table) -> ruta_local|None`: downloads an attachment (file field or
+    `save_asset(url, prop_or_None, table) -> local_path|None`: downloads an attachment (file field or
     body image) and returns the `Assets/...` path; if None, no attachments are downloaded
     (Notion's URLs are left, which expire).
     `loose_page_types`: {notion_page_id: "wiki"|"dashboard"} of pages OUTSIDE a DB to clone with
@@ -332,11 +332,12 @@ def clone_workspace(
             tgt = p.get("relation_database_id")
             if p.get("type") == "relation" and tgt and tgt not in cloned_ids:
                 report["warnings"].append(
-                    f"La taula «{t.get('name')}» té el camp de relació «{p.get('name')}» cap a una "
-                    f"BD no seleccionada: aquestes relacions quedaran sense destí. Marca totes les BD.")
+                    f"Table “{t.get('name')}” has relation field “{p.get('name')}” pointing "
+                    "to an unselected database. These relations will have no destination; "
+                    "select every database.")
 
     # PASS 2a: COLLECT rows + titles from ALL the DBs before writing, to have the map
-    # complete id_clon → title (needed to decorate relations as `[[Títol|id]]`, even when
+    # Complete clone_id → title (needed to decorate relations as `[[Title|id]]`, even when
     # they point to a page that's cloned later or from another DB). Doesn't query Notion again
     # in pass 2b (reuses the collected rows).
     from backend.services.notion_importer import _plain_title
@@ -370,7 +371,7 @@ def clone_workspace(
                             values, table.get("properties", []),
                             lambda u, p, _t=table: save_asset(u, p, _t))
                         report["attachments"] += na
-                    title = _page_title(row) or "Sense títol"
+                    title = _page_title(row) or "Untitled"
                     clone_titles[clone_page_id(row["id"])] = title
                     collected.append((table, row, values, title, rel_keys))
                     report["collected"] = len(collected)
@@ -404,8 +405,8 @@ def clone_workspace(
         report["attachments"] += n_ok
         if n_fail and save_asset is not None:
             report["warnings"].append(
-                f"«{title}»: {n_fail} adjunt(s) de Notion no s'han pogut baixar "
-                f"(es deixa el nom del fitxer com a text).")
+                f"“{title}”: {n_fail} Notion attachment(s) could not be downloaded; "
+                "the file name is retained as text.")
         return body
 
     def _fetch_page_checked(pid) -> str:
@@ -421,7 +422,7 @@ def clone_workspace(
             md = fetch_page(pid)
         if not md:
             report["errors"].append({"page": pid, "stage": "mcp_empty",
-                                     "error": "fetch MCP buit després de 3 intents (cos no clonat)"})
+                                     "error": "empty MCP fetch after three attempts (body not cloned)"})
         return md
 
     # Mentions/sub-pages WITHOUT a title in the MCP's markdown → the (pure) converter emits `[[<id
@@ -510,7 +511,7 @@ def clone_workspace(
                     values[f] = cur
             meta = {"table_id": table["id"], **values}
             decorate_relation_wikilinks(meta, rel_keys, id_to_title=_id_to_title)  # id → [[Title|id]]
-            report["attachments"] += _apply_icon_cover(meta, row, table, save_asset)  # icona+portada
+            report["attachments"] += _apply_icon_cover(meta, row, table, save_asset)  # icon + cover
             write_page({
                 "id": clone_page_id(row["id"]),
                 "title": title,

@@ -114,19 +114,19 @@ export default function ContactsPage() {
             setDeleteModal({ isOpen: false, contactId: null });
         } catch (error) {
             console.error('Error deleting contact:', error);
-            toast.error(t('errors.delete_contact', 'Error al eliminar el contacte: ') + error.message);
+            toast.error(t('errors.delete_contact', "Error deleting the contact: ") + error.message);
         }
     };
 
     return (
         <div className="h-full bg-[var(--bg-primary)] overflow-hidden flex flex-col">
-            <AppHeader icon={Users} title={t('contacts.title', 'Contactes')}>
+            <AppHeader icon={Users} title={t('contacts.title', "Contacts")}>
                 <button
                     onClick={handleCreateNew}
                     className="flex items-center gap-1.5 h-7 px-3 bg-[var(--gnosi-blue)] hover:opacity-90 text-white rounded-md border-none font-bold text-[11px] uppercase tracking-tight cursor-pointer transition-all shadow-sm"
                 >
                     <Plus size={14} />
-                    {t('contacts.new_contact', 'Nou Contacte')}
+                    {t('contacts.new_contact', "New Contact")}
                 </button>
             </AppHeader>
 
@@ -167,7 +167,7 @@ export default function ContactsPage() {
                                     <Users size={48} strokeWidth={1} className="text-[var(--text-secondary)]" />
                                 </div>
                                 <p className="text-base text-[var(--text-secondary)]">
-                                    {t('contacts.select_hint', 'Selecciona un contacte per veure\'n els detalls')}
+                                    {t('contacts.select_hint', "Select a contact to view details")}
                                 </p>
                             </div>
                         </div>
@@ -179,10 +179,10 @@ export default function ContactsPage() {
                 isOpen={deleteModal.isOpen}
                 onClose={() => setDeleteModal({ isOpen: false, contactId: null })}
                 onConfirm={executeDelete}
-                title={t('common.confirm_delete_records', 'Eliminar registre')}
-                message={t('common.confirm_delete', 'Estàs segur que vols eliminar aquest registre? Aquesta acció no es pot desfer.')}
-                confirmText={t('common.delete', 'Eliminar')}
-                cancelText={t('common.cancel', 'Cancel·lar')}
+                title={t('common.confirm_delete_records', "Delete Records")}
+                message={t('common.confirm_delete', "Are you sure you want to delete this record? This action cannot be undone.")}
+                confirmText={t('common.delete', "Delete")}
+                cancelText={t('common.cancel', "Cancel")}
             />
         </div>
     );

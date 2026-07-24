@@ -20,10 +20,10 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
             return item.customLabel;
         }
         const labels = {
-            home: t('contacts.label_home', 'Casa'),
-            work: t('contacts.label_work', 'Feina'),
-            mobile: t('contacts.label_mobile', 'Mòbil'),
-            other: t('contacts.label_other', 'Altres')
+            home: t('contacts.label_home', "Home"),
+            work: t('contacts.label_work', "Work"),
+            mobile: t('contacts.label_mobile', "Mobile"),
+            other: t('contacts.label_other', "Other")
         };
         return labels[item.label] || item.label;
     };
@@ -95,7 +95,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                         }}>
                             <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                 {contact.type === 'b2b' ? <Briefcase size={14} /> : <Tag size={14} />}
-                                {contact.type === 'b2b' ? (contact.job_title || t('contacts.type_business', 'Empresa')) : t('contacts.type_personal', 'Personal')}
+                                {contact.type === 'b2b' ? (contact.job_title || t('contacts.type_business', "Business")) : t('contacts.type_personal', 'Personal')}
                             </span>
                             {contact.company && (
                                 <>
@@ -128,7 +128,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                         }}
                     >
                         <Edit3 size={16} />
-                        {t('common.btn.edit', 'Editar')}
+                        {t('common.btn.edit', "Edit")}
                     </button>
                     <button
                         onClick={(e) => {
@@ -152,7 +152,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                         }}
                     >
                         <Trash2 size={16} />
-                        {t('common.btn.delete', 'Eliminar')}
+                        {t('common.btn.delete', "Delete")}
                     </button>
                 </div>
             </div>
@@ -179,7 +179,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                         gap: '8px',
                         opacity: 0.6
                     }}>
-                        <Globe size={14} /> {t('contacts.info_section', 'Informació de contacte')}
+                        <Globe size={14} /> {t('contacts.info_section', "Contact Information")}
                     </h3>
                     
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -190,7 +190,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                                     <Mail size={16} />
                                 </div>
                                 <div style={{ flex: 1 }}>
-                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.email_label', 'Emails')}</span>
+                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.email_label', "Email")}</span>
                                     
                                     {(contact.emails && contact.emails.length > 0) ? (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -224,7 +224,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                                 <Phone size={16} />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.phone_label', 'Telèfons')}</span>
+                                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.phone_label', "Phone")}</span>
                                 
                                 {(contact.phones && contact.phones.length > 0) ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -239,7 +239,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                                     contact.phone ? (
                                         <a href={`tel:${contact.phone}`} style={{ color: 'var(--text-primary)', textDecoration: 'none', fontSize: '14px', fontWeight: '600' }}>{contact.phone}</a>
                                     ) : (
-                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '13px', fontStyle: 'italic' }}>{t('common.none', 'Cap')}</span>
+                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '13px', fontStyle: 'italic' }}>{t('common.none', "None")}</span>
                                     )
                                 )}
                             </div>
@@ -251,7 +251,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                                 <MapPin size={16} />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.address_label', 'Adreces')}</span>
+                                <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.address_label', "Address")}</span>
                                 
                                 {(contact.addresses && contact.addresses.length > 0) ? (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -268,7 +268,7 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                                     contact.address ? (
                                         <span style={{ color: 'var(--text-primary)', fontSize: '14px', fontWeight: '600' }}>{contact.address}</span>
                                     ) : (
-                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '13px', fontStyle: 'italic' }}>{t('common.none', 'Cap')}</span>
+                                        <span style={{ color: 'var(--text-tertiary)', fontSize: '13px', fontStyle: 'italic' }}>{t('common.none', "None")}</span>
                                     )
                                 )}
                             </div>
@@ -297,20 +297,20 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                             gap: '8px',
                             opacity: 0.6
                         }}>
-                             <Tag size={14} /> {t('contacts.details_section', 'Detalls addicionals')}
+                             <Tag size={14} /> {t('contacts.details_section', "Additional details")}
                         </h3>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                             {contact.notes && (
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.notes_label', 'Notes')}</span>
+                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '8px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.notes_label', "Notes / Comments")}</span>
                                     <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-primary)', whiteSpace: 'pre-wrap', lineHeight: '1.6', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '12px', border: '1px solid var(--border-primary)' }}>{contact.notes}</p>
                                 </div>
                             )}
 
                             {contact.tags && contact.tags.length > 0 && (
                                 <div>
-                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '10px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.tags_label', 'Etiquetes')}</span>
+                                    <span style={{ display: 'block', fontSize: '11px', color: 'var(--text-tertiary)', marginBottom: '10px', textTransform: 'uppercase', fontWeight: '700', opacity: 0.7 }}>{t('contacts.tags_label', "Tags")}</span>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                                         {contact.tags.map((tag, index) => (
                                             <span key={index} style={{ 
@@ -340,14 +340,14 @@ export default function ContactDetail({ contact, onEdit, onDelete }) {
                 <div style={{ display: 'flex', gap: '32px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: '600' }}>
                         <Globe size={14} />
-                        {t('contacts.source_label', 'Origen')}: <span style={{ color: 'var(--text-primary)', textTransform: contact.source === 'local' ? 'capitalize' : 'none' }}>
+                        {t('contacts.source_label', "Source")}: <span style={{ color: 'var(--text-primary)', textTransform: contact.source === 'local' ? 'capitalize' : 'none' }}>
                             {contact.source === 'local' ? t('contacts.source_local', 'Gnosi (Local)') : contact.source}
                         </span>
                     </div>
                     {contact.last_synced_at && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: 'var(--text-tertiary)', fontWeight: '600' }}>
                             <RefreshCw size={14} />
-                            {t('contacts.last_synced_label', 'Darrera sincronització')}: <span style={{ color: 'var(--text-primary)' }}>{new Date(contact.last_synced_at).toLocaleString()}</span>
+                            {t('contacts.last_synced_label', "Last synced")}: <span style={{ color: 'var(--text-primary)' }}>{new Date(contact.last_synced_at).toLocaleString()}</span>
                         </div>
                     )}
                 </div>

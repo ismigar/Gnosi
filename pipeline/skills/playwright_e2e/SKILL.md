@@ -98,7 +98,14 @@ Only when the visual change is **intentional** (UI redesign, branding update). F
 5. **Mock LLM endpoints** — `tests/e2e/ai-chat.spec.ts` intercepts `/api/chat` with `page.route()`. Never let tests call real LLM APIs (cost + flakiness).
 6. **Frontend must be UP** for tests to run. Pre-push hook checks `curl localhost:5173` first and skips if down (with warning).
 7. **No `webServer` in config** — anti-ghosting per [`environment_integrity.md`](../../../../docs/dev_memory/directives/environment_integrity.md). If `:5173` is dead, the test fails — we don't auto-spawn a second instance on `:5174`.
-8. **One suite run at a time** — two simultaneous runs (e.g. two agent/work sessions on the same repo) share `test-results/`, overwrite `.last-run.json`, double the browser contexts against the single Vite dev server (see #1) and produce phantom failures. Vist el 2026-06-10: run A «12 passed» exit 0 mentre run B deixava `.last-run.json` amb 18 failed. Before launching: `pgrep -fl 'playwright test'` must come back empty; and judge results by YOUR run's exit code/output, not by `.last-run.json` (last-writer-wins).
+8. **One suite run at a time** — two simultaneous runs (e.g. two agent/work
+   sessions on the same repo) share `test-results/`, overwrite
+   `.last-run.json`, double the browser contexts against the single Vite dev
+   server (see #1), and produce phantom failures. Observed on 2026-06-10: run A
+   exited successfully with 12 passing tests while run B left `.last-run.json`
+   reporting 18 failures. Before launching, `pgrep -fl 'playwright test'` must
+   return no processes. Judge results by your run's exit code and output, not
+   by `.last-run.json` (last writer wins).
 
 ---
 

@@ -167,12 +167,12 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
             <aside
                 className="fixed right-4 bottom-4 z-[130] w-[min(420px,calc(100vw-2rem))] rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 shadow-2xl"
                 role="dialog"
-                aria-label={t('llm_wiki.evidence_title', 'Evidència de la cita')}
+                aria-label={t('llm_wiki.evidence_title', "Citation evidence")}
             >
                 <div className="mb-2 flex items-center justify-between gap-3">
                     <div className="min-w-0">
                         <div className="text-xs font-bold text-[var(--text-primary)]">
-                            {t('llm_wiki.evidence_title', 'Evidència de la cita')}
+                            {t('llm_wiki.evidence_title', "Citation evidence")}
                         </div>
                         {evidence?.label && (
                             <div className="truncate text-[11px] text-[var(--text-tertiary)]">
@@ -183,7 +183,7 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                     <button
                         type="button"
                         className="gnosi-close-btn"
-                        aria-label={t('common.close', 'Tanca')}
+                        aria-label={t('common.close', "Close")}
                         onClick={() => setEvidence(null)}
                     >
                         ×
@@ -191,7 +191,7 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                 </div>
                 {evidenceLoading && (
                     <p className="text-xs text-[var(--text-tertiary)]">
-                        {t('llm_wiki.evidence_loading', 'Carregant el fragment…')}
+                        {t('llm_wiki.evidence_loading', "Loading excerpt…")}
                     </p>
                 )}
                 {evidence?.segment?.text && (
@@ -206,7 +206,7 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                         rel="noreferrer"
                         className="mt-3 inline-block text-xs text-[var(--gnosi-primary)] hover:underline"
                     >
-                        {t('llm_wiki.evidence_open_original', 'Obre la font original')}
+                        {t('llm_wiki.evidence_open_original', "Open original source")}
                     </a>
                 )}
             </aside>

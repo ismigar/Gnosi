@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <!--
-  Manifest del Gnosi Cite Add-in per a Word.
+  Gnosi Cite add-in manifest for Word.
 
-  Estructura mínima (TaskpaneApp) que registra un add-in tipus
-  "Office Add-in" amb una sidebar (TaskPane) i un botó al ribbon.
+  Minimal TaskpaneApp structure registering an Office add-in with a
+  sidebar (TaskPane) and a ribbon button.
 
-  Compatibilitat:
-    - Microsoft Word 2016+ a Windows i Mac
-    - Word per a iPad/iPhone (parcial)
-    - Word per a la Web (https://word.office.com)
+  Compatibility:
+    - Microsoft Word 2016+ on Windows and Mac
+    - Word for iPad/iPhone (partial)
+    - Word for the web (https://word.office.com)
 
-  Instal·lació local (sideload) per a desenvolupament:
-    Windows: \\<server>\share\manifest.xml a "Trusted Catalogs"
-    Mac: copiar a ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
-    Web: Insertar > Add-ins > Carrega el meu add-in > tria fitxer
+  Local sideload installation for development:
+    Windows: add \\<server>\share\manifest.xml to Trusted Catalogs
+    Mac: copy to ~/Library/Containers/com.microsoft.Word/Data/Documents/wef/
+    Web: Insert > Add-ins > Upload My Add-in > select the file
 
-  Per a producció (distribució a l'organització), publicar al
+  For production distribution within an organization, publish through
   Microsoft 365 Admin Center > Integrated Apps > Upload custom apps.
 
-  El SourceLocation apunta al frontend local (5173) en dev i a la URL
-  públic en prod. Cal canviar `https://localhost:5173` per la URL
-  definitiva abans de distribuir.
+  SourceLocation points to the local frontend (5173) in development and to
+  the public URL in production. Replace `https://localhost:5173` with the
+  final URL before distribution.
 -->
 <OfficeApp
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
@@ -29,26 +29,26 @@
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
 
-  <!-- Identificador únic (GUID). Generar un de nou per a producció amb
-       uuidgen perquè cada add-in publicat tingui el seu. -->
+  <!-- Unique identifier (GUID). Generate a new one with uuidgen for
+       production so every published add-in has its own identifier. -->
   <Id>5e2c8b9a-1f2d-4b3c-9f8e-7d6c5b4a3e2f</Id>
-  <!-- Office rebutja add-ins amb versió < 1.0.0.0 (no els registra ni en
-       sideload). Cal mantenir-la >= 1.0.0.0.
+  <!-- Office rejects add-ins with a version below 1.0.0.0, including for
+       sideloading. Keep it at or above 1.0.0.0.
        Word only re-reads a sideloaded manifest when the version is NEW: it
        keys its cache on <Id>_<Version>. Dropping a changed manifest that
        keeps the same version is a no-op (the ribbon button never appears).
        Bump this on every released change to the manifest. -->
   <Version>1.3.0.0</Version>
   <ProviderName>Gnosi</ProviderName>
-  <DefaultLocale>ca-ES</DefaultLocale>
+  <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Gnosi Cite" />
-  <Description DefaultValue="Cerca i insereix cites al document de Word a partir del Vault de Gnosi (Recursos). Estil Mendeley Cite." />
+  <Description DefaultValue="Search for and insert citations from the Gnosi Vault into a Word document, in the style of Mendeley Cite." />
   <IconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-32.png?v=3" />
   <HighResolutionIconUrl DefaultValue="https://localhost:5173/word-addin/assets/icon-64.png?v=3" />
   <SupportUrl DefaultValue="https://localhost:5173" />
 
-  <!-- Els dominis dels quals el add-in pot carregar recursos. Cal
-       afegir-hi la URL final del Gnosi en producció. -->
+  <!-- Domains from which the add-in may load resources. Add the final
+       production Gnosi URL here. -->
   <AppDomains>
     <AppDomain>https://localhost:5173</AppDomain>
   </AppDomains>
@@ -63,8 +63,8 @@
 
   <Permissions>ReadWriteDocument</Permissions>
 
-  <!-- VersionOverrides v1.1 permet integrar el add-in al ribbon de Word
-       en comptes de només a la barra "Mostra els meus add-ins". -->
+  <!-- VersionOverrides v1.1 integrates the add-in into the Word ribbon
+       instead of exposing it only under My Add-ins. -->
   <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
     <Hosts>
       <Host xsi:type="Document">
@@ -75,8 +75,8 @@
             <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
           </GetStarted>
           <ExtensionPoint xsi:type="PrimaryCommandSurface">
-            <!-- TabReferences = pestanya "Referències" integrada de Word
-                 (abans estava a TabHome / "Inici"). -->
+            <!-- TabReferences is Word's built-in References tab. The button
+                 previously lived under TabHome. -->
             <OfficeTab id="TabReferences">
               <Group id="GnosiCite.Group">
                 <Label resid="GnosiCite.GroupLabel" />
@@ -129,11 +129,11 @@
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="Gnosi Cite" />
         <bt:String id="GnosiCite.GroupLabel" DefaultValue="Gnosi" />
-        <bt:String id="GnosiCite.ButtonLabel" DefaultValue="Cites Gnosi" />
+        <bt:String id="GnosiCite.ButtonLabel" DefaultValue="Gnosi Citations" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="Gnosi Cite — Insereix referències del teu Vault directament al document." />
-        <bt:String id="GnosiCite.ButtonSupertip" DefaultValue="Obre la barra lateral per cercar i inserir cites del Vault." />
+        <bt:String id="GetStarted.Description" DefaultValue="Gnosi Cite — insert references from your Vault directly into the document." />
+        <bt:String id="GnosiCite.ButtonSupertip" DefaultValue="Open the sidebar to search for and insert citations from the Vault." />
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

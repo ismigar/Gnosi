@@ -128,14 +128,14 @@ const SocialDashboard = () => {
                             className="flex items-center gap-2 border border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 px-4 py-1.5 rounded-lg transition-all text-sm font-medium"
                         >
                             <Sparkles size={16} />
-                            <span>{t('social.with_ai', 'Amb IA')}</span>
+                            <span>{t('social.with_ai', "With AI")}</span>
                         </button>
                         <button
                             onClick={() => setShowComposer(v => !v)}
                             className="flex items-center gap-2 bg-[var(--gnosi-blue)] hover:opacity-90 text-white px-4 py-1.5 rounded-lg transition-all shadow-lg text-sm font-medium"
                         >
                             <Plus size={16} />
-                            <span>{showComposer ? t('common.close', 'Tanca') : t('social.new_post', 'Nou post')}</span>
+                            <span>{showComposer ? t('common.close', "Close") : t('social.new_post', "New post")}</span>
                         </button>
                     </div>
                 )}
@@ -162,7 +162,7 @@ const SocialDashboard = () => {
                         <div className="flex-1 overflow-hidden">
                             {loading && Object.keys(streamData).length === 0 ? (
                                 <div className="flex justify-center items-center h-64 text-[var(--text-secondary)] animate-pulse">
-                                    {t('social.streams_loading', 'Carregant streams...')}
+                                    {t('social.streams_loading', "Loading streams...")}
                                 </div>
                             ) : (
                                 <div className="flex gap-6 h-full pb-4 overflow-x-auto snap-x">
@@ -185,7 +185,7 @@ const SocialDashboard = () => {
                                         <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center group-hover:bg-[var(--bg-tertiary)] transition-colors">
                                             <Plus size={24} />
                                         </div>
-                                        <span className="font-medium">{t('social.add_stream', 'Afegir stream')}</span>
+                                        <span className="font-medium">{t('social.add_stream', "Add stream")}</span>
                                     </button>
                                 </div>
                             )}

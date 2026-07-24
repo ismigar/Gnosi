@@ -51,10 +51,10 @@ def get_gmail_service(email: str):
             from google.auth.transport.requests import Request
             creds.refresh(Request())
             integration_manager.update_mail_account_token(email, creds.token)
-            log.info(f"[Gmail] Token renovat per {email}")
+            log.info(f"[Gmail] Token renewed for {email}")
         return build("gmail", "v1", credentials=creds)
     except Exception as e:
-        log.error(f"[Gmail] Error inicialitzant servei per {email}: {e}")
+        log.error(f"[Gmail] Failed to initialize service for {email}: {e}")
         return None
 
 

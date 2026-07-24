@@ -167,7 +167,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
     const handleUploadFile = useCallback(async (file) => {
         if (!file) return;
         if (!uploadFile) {
-            toast.error(t('editor.upload_unavailable', { defaultValue: 'Pujada de fitxers no disponible' }));
+            toast.error(t('editor.upload_unavailable', { defaultValue: "File upload unavailable" }));
             return;
         }
         setBusy(true);
@@ -177,7 +177,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
             onClose?.();
         } catch (err) {
             console.error('upload error', err);
-            toast.error(t('editor.upload_failed', { defaultValue: 'Error pujant el fitxer' }));
+            toast.error(t('editor.upload_failed', { defaultValue: "Error uploading the file" }));
         } finally {
             setBusy(false);
         }
@@ -202,7 +202,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
     const handleFileEmbed = async (file) => {
         if (!file) return;
         if (!uploadFile) {
-            toast.error(t('editor.upload_unavailable', { defaultValue: 'Pujada de fitxers no disponible' }));
+            toast.error(t('editor.upload_unavailable', { defaultValue: "File upload unavailable" }));
             return;
         }
         setBusy(true);
@@ -216,7 +216,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
             onClose?.();
         } catch (err) {
             console.error('upload error', err);
-            toast.error(t('editor.upload_failed', { defaultValue: 'Error pujant el fitxer' }));
+            toast.error(t('editor.upload_failed', { defaultValue: "Error uploading the file" }));
         } finally {
             setBusy(false);
         }
@@ -270,7 +270,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                         type="button"
                         onClick={() => onClose?.()}
                         style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '0 8px' }}
-                        title={t('common.close', { defaultValue: 'Tanca' })}
+                        title={t('common.close', { defaultValue: "Close" })}
                     >
                         <X size={16} />
                     </button>
@@ -279,16 +279,16 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                 {tab === 'url' && (
                     <form onSubmit={handleSubmitUrl} style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                         <input
-                            autoFocus type="url" placeholder={t('editor.link_url_placeholder', 'https://exemple.com')}
+                            autoFocus type="url" placeholder={t('editor.link_url_placeholder', "https://example.com")}
                             value={url} onChange={(e) => setUrl(e.target.value)} style={inputStyle}
                         />
                         <input
                             type="text"
-                            placeholder={t('editor.link_text_optional', { defaultValue: 'Text mostrat (opcional)' })}
+                            placeholder={t('editor.link_text_optional', { defaultValue: "Displayed text (optional)" })}
                             value={linkText} onChange={(e) => setLinkText(e.target.value)} style={inputStyle}
                         />
                         <button type="submit" className="btn btn-gnosi-primary" style={btnStyle}>
-                            {t('editor.insert_link', { defaultValue: 'Inserir enllaç' })}
+                            {t('editor.insert_link', { defaultValue: "Insert link" })}
                         </button>
                     </form>
                 )}
@@ -314,7 +314,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                 style={toggleSegmentStyle(localMode === 'link')}
                             >
                                 <LinkIcon size={13} style={{ marginRight: 5 }} />
-                                {t('editor.link_local_mode_link', { defaultValue: 'Enllaçar (file://)' })}
+                                {t('editor.link_local_mode_link', { defaultValue: "Link (file://)" })}
                             </button>
                             <button
                                 type="button"
@@ -324,7 +324,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                 style={toggleSegmentStyle(localMode === 'upload')}
                             >
                                 <Upload size={13} style={{ marginRight: 5 }} />
-                                {t('editor.link_local_mode_upload', { defaultValue: 'Pujar a Assets' })}
+                                {t('editor.link_local_mode_upload', { defaultValue: "Upload to Assets" })}
                             </button>
                         </div>
 
@@ -347,7 +347,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                             >
                                 <p style={{ fontSize: 12, color: 'var(--text-secondary, #666)', margin: 0 }}>
                                     {t('editor.link_local_help', {
-                                        defaultValue: "Enganxa una ruta absoluta del teu sistema, o tria fitxer/carpeta. Es generarà un enllaç file:// (no es puja res).",
+                                        defaultValue: "Paste an absolute path from your system, or choose a file/folder. A file:// link will be generated (nothing is uploaded).",
                                     })}
                                 </p>
                                 <input
@@ -356,7 +356,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                 />
                                 <input
                                     type="text"
-                                    placeholder={t('editor.link_text_optional', { defaultValue: 'Text mostrat (opcional)' })}
+                                    placeholder={t('editor.link_text_optional', { defaultValue: "Displayed text (optional)" })}
                                     value={linkText} onChange={(e) => setLinkText(e.target.value)} style={inputStyle}
                                 />
                                 <div style={{ display: 'flex', gap: 6 }}>
@@ -370,7 +370,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                         style={{ ...btnStyle, flex: 1, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
                                     >
                                         <FileText size={14} style={{ marginRight: 4 }} />
-                                        {t('editor.link_local_pick_file', { defaultValue: 'Fitxer…' })}
+                                        {t('editor.link_local_pick_file', { defaultValue: "File…" })}
                                     </button>
                                     <button
                                         type="button"
@@ -378,7 +378,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                         style={{ ...btnStyle, flex: 1, background: 'var(--bg-tertiary)', color: 'var(--text-primary)' }}
                                     >
                                         <FolderOpen size={14} style={{ marginRight: 4 }} />
-                                        {t('editor.link_local_pick_folder', { defaultValue: 'Carpeta…' })}
+                                        {t('editor.link_local_pick_folder', { defaultValue: "Folder…" })}
                                     </button>
                                 </div>
                                 <button
@@ -386,7 +386,7 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                     className="btn btn-gnosi-primary"
                                     style={{ ...btnStyle, opacity: localPath.trim() ? 1 : 0.5 }}
                                 >
-                                    {t('editor.insert_link', { defaultValue: 'Inserir enllaç' })}
+                                    {t('editor.insert_link', { defaultValue: "Insert link" })}
                                 </button>
                             </form>
                         )}
@@ -396,12 +396,12 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                 <p style={{ fontSize: 12, color: 'var(--text-secondary, #666)', margin: 0 }}>
                                     {t('editor.link_upload_help', {
-                                        defaultValue: 'Selecciona un fitxer per pujar-lo a Assets del vault. Quedarà accessible des de qualsevol dispositiu sincronitzat.',
+                                        defaultValue: "Select a file to upload it to the Vault's Assets. It will be accessible from any synced device.",
                                     })}
                                 </p>
                                 <input
                                     type="text"
-                                    placeholder={t('editor.link_text_optional', { defaultValue: 'Text mostrat (opcional)' })}
+                                    placeholder={t('editor.link_text_optional', { defaultValue: "Displayed text (optional)" })}
                                     value={linkText} onChange={(e) => setLinkText(e.target.value)} style={inputStyle}
                                 />
                                 <input
@@ -442,16 +442,16 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                                     <Upload size={22} style={{ color: dragOver ? 'var(--gnosi, #4f46e5)' : 'var(--text-tertiary, #888)', marginBottom: 6 }} />
                                     <div style={{ fontSize: 13, color: 'var(--text-primary)', fontWeight: 500 }}>
                                         {busy
-                                            ? t('common.loading', { defaultValue: 'Pujant…' })
-                                            : t('editor.link_upload_drop_title', { defaultValue: 'Arrossega un fitxer aquí' })}
+                                            ? t('common.loading', { defaultValue: "Loading..." })
+                                            : t('editor.link_upload_drop_title', { defaultValue: "Drag a file here" })}
                                     </div>
                                     <div style={{ fontSize: 11, color: 'var(--text-tertiary, #888)', marginTop: 4 }}>
-                                        {t('editor.link_upload_drop_or_click', { defaultValue: 'o fes clic per triar-lo' })}
+                                        {t('editor.link_upload_drop_or_click', { defaultValue: "or click to choose it" })}
                                     </div>
                                 </div>
                                 <p style={{ fontSize: 11, color: 'var(--text-tertiary, #888)', margin: 0, fontStyle: 'italic' }}>
                                     {t('editor.link_upload_note_folder', {
-                                        defaultValue: 'Les carpeges no es poden pujar; usa el mode "Enllaçar" per a carpetes.',
+                                        defaultValue: "Folders cannot be uploaded; use the \"Link\" mode for folders.",
                                     })}
                                 </p>
                             </div>
@@ -463,10 +463,10 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                         <form onSubmit={handleSubmitEmbedUrl} style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             <label style={labelStyle}>
-                                {t('editor.embed_url_label', { defaultValue: "Embed des d'una URL" })}
+                                {t('editor.embed_url_label', { defaultValue: "Embed from a URL" })}
                             </label>
                             <input
-                                type="url" placeholder={t('editor.embed_url_placeholder', 'https://… (imatge, vídeo, fitxer)')}
+                                type="url" placeholder={t('editor.embed_url_placeholder', "https://… (image, video, file)")}
                                 value={url} onChange={(e) => setUrl(e.target.value)} style={inputStyle}
                             />
                             <button type="submit" className="btn btn-gnosi-primary" style={btnStyle}>
@@ -475,14 +475,14 @@ export function RichLinkInsertModal({ open, onClose, editor, uploadFile }) {
                         </form>
                         <div style={{ borderTop: '1px solid var(--border-primary, #eee)', paddingTop: 8 }}>
                             <label style={labelStyle}>
-                                {t('editor.embed_local_label', { defaultValue: 'O puja un fitxer local' })}
+                                {t('editor.embed_local_label', { defaultValue: "Or upload a local file" })}
                             </label>
                             <input
                                 type="file" accept="image/*,video/*,audio/*,application/pdf"
                                 onChange={(e) => handleFileEmbed(e.target.files?.[0])}
                                 style={{ marginTop: 6, fontSize: 12 }}
                             />
-                            {busy && <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common.loading', { defaultValue: 'Pujant…' })}</p>}
+                            {busy && <p style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{t('common.loading', { defaultValue: "Loading..." })}</p>}
                         </div>
                     </div>
                 )}

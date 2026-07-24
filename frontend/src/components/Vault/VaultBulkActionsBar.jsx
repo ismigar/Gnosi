@@ -67,10 +67,10 @@ export function VaultBulkActionsBar({
                 <button
                     onClick={onSelectAll}
                     className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]/70 hover:text-[var(--text-primary)] transition-colors font-medium"
-                    title={t('bulk_actions.select_all_title', 'Seleccionar tots')}
+                    title={t('bulk_actions.select_all_title', "Select all")}
                 >
                     <CheckSquare size={14} />
-                    {t('bulk_actions.select_all_count', { count: totalCount, defaultValue: 'Tots ({{count}})' })}
+                    {t('bulk_actions.select_all_count', { count: totalCount, defaultValue: "All ({{count}})" })}
                 </button>
             )}
 
@@ -80,10 +80,10 @@ export function VaultBulkActionsBar({
                     <button
                         onClick={() => setTypeMenuOpen((o) => !o)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                        title={t('bulk_actions.change_type_title', 'Canviar Item Type')}
+                        title={t('bulk_actions.change_type_title', "Change item type")}
                     >
                         <Tag size={13} />
-                        {t('bulk_actions.change_type', 'Canviar tipus')}
+                        {t('bulk_actions.change_type', "Change type")}
                         <ChevronDown size={11} />
                     </button>
                     {typeMenuOpen && (
@@ -108,10 +108,10 @@ export function VaultBulkActionsBar({
                     <button
                         onClick={() => setExportMenuOpen((o) => !o)}
                         className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                        title={t('bulk_actions.export_title', 'Exportar selecció')}
+                        title={t('bulk_actions.export_title', "Export selection")}
                     >
                         <Download size={13} />
-                        {t('bulk_actions.export', 'Exportar')}
+                        {t('bulk_actions.export', "Export")}
                         <ChevronDown size={11} />
                     </button>
                     {exportMenuOpen && (
@@ -138,10 +138,10 @@ export function VaultBulkActionsBar({
                 <button
                     onClick={onTranslateSelection}
                     className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                    title={t('bulk_actions.translate_title', 'Traduir seleccionats')}
+                    title={t('bulk_actions.translate_title', "Translate selected")}
                 >
                     <Languages size={13} />
-                    {t('translate.submit', 'Traduir')}
+                    {t('translate.submit', "Translate")}
                 </button>
             )}
 
@@ -149,17 +149,17 @@ export function VaultBulkActionsBar({
             <button
                 onClick={onDeleteSelected}
                 className="btn-gnosi btn-gnosi-danger !px-3 !py-1.5 !rounded-lg"
-                title={t('bulk_actions.delete_title', 'Eliminar seleccionats')}
+                title={t('bulk_actions.delete_title', "Delete selected")}
             >
                 <Trash2 size={13} />
-                {t('common.delete', 'Eliminar')}
+                {t('common.delete', "Delete")}
             </button>
 
             {/* Close */}
             <button
                 onClick={onClearSelection}
                 className="p-1.5 text-[var(--text-tertiary)]/60 hover:text-[var(--text-primary)] transition-colors rounded-md hover:bg-[var(--bg-secondary)]"
-                title={t('bulk_actions.deselect_title', 'Desseleccionar')}
+                title={t('bulk_actions.deselect_title', "Deselect")}
             >
                 <X size={14} />
             </button>

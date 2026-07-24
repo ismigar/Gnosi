@@ -599,7 +599,7 @@ def require_authenticated(uid: Optional[str] = Depends(get_current_user_id)) -> 
     # would end up either always 401 (without ?uid) or BYPASSABLE (?uid=any value).
     # Here we only validate that a resolved identity exists.
     if not uid:
-        raise HTTPException(status_code=401, detail="Cal autenticació")
+        raise HTTPException(status_code=401, detail="Authentication required")
     return uid
 
 
@@ -628,7 +628,7 @@ def resolve_effective_user_id(auth_uid: Optional[str], db) -> str:
         return auth_uid
 
     if require_auth_enabled(db):
-        raise HTTPException(status_code=401, detail="Cal autenticació")
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     # Ambient local identity. `sole_account_id` returns None only on a fresh
     # install (zero accounts), where the bootstrap below mints the single local

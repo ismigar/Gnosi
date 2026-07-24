@@ -53,7 +53,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             const r = await axios.get(`/api/workspaces/${workspaceId}/members`);
             setMembers(Array.isArray(r.data) ? r.data : []);
         } catch (e) {
-            toast.error(t('workspace.members_fetch_failed', { defaultValue: 'Error carregant membres' }));
+            toast.error(t('workspace.members_fetch_failed', { defaultValue: "Error loading members" }));
         } finally {
             setLoading(false);
         }
@@ -90,7 +90,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         if (!email) return;
         try {
             await axios.post(`/api/workspaces/${workspaceId}/members`, { email, role: newRole });
-            toast.success(t('workspace.member_added', { email, newRole, defaultValue: 'Convidat {{email}} com a {{newRole}}' }));
+            toast.success(t('workspace.member_added', { email, newRole, defaultValue: "Invited {{email}} as {{newRole}}" }));
             setNewEmail('');
             setShowAddForm(false);
             fetchMembers();
@@ -102,7 +102,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
 
     const removeMember = (userId) => {
         if (userId === currentUserId) {
-            toast.error(t('workspace.cant_remove_self', { defaultValue: 'No pots eliminar-te a tu mateix' }));
+            toast.error(t('workspace.cant_remove_self', { defaultValue: "You can't remove yourself" }));
             return;
         }
         setConfirmUserId(userId);
@@ -115,7 +115,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             await axios.delete(`/api/workspaces/${workspaceId}/members/${userId}`);
             fetchMembers();
         } catch (e) {
-            toast.error(t('workspace.remove_failed', { defaultValue: 'Error eliminant membre' }));
+            toast.error(t('workspace.remove_failed', { defaultValue: "Error removing member" }));
         }
     };
 
@@ -127,7 +127,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             });
             fetchMembers();
         } catch (e) {
-            toast.error(t('workspace.role_update_failed', { defaultValue: 'Error canviant rol' }));
+            toast.error(t('workspace.role_update_failed', { defaultValue: "Error changing role" }));
         }
     };
 
@@ -144,14 +144,14 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             }
             fetchVaultAccess(userId);
         } catch (e) {
-            toast.error(t('workspace.vault_access_failed', { defaultValue: 'Error canviant accés a vault' }));
+            toast.error(t('workspace.vault_access_failed', { defaultValue: "Error changing Vault access" }));
         }
     };
 
     if (!workspaceId) {
         return (
             <div className="text-sm text-[var(--text-tertiary)] italic px-4 py-6 text-center">
-                {t('workspace.no_active', { defaultValue: 'Cap workspace actiu seleccionat.' })}
+                {t('workspace.no_active', { defaultValue: "No active workspace selected." })}
             </div>
         );
     }
@@ -160,7 +160,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
         <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-[var(--text-primary)]">
-                    {t('workspace.members_title', { defaultValue: 'Membres' })}
+                    {t('workspace.members_title', { defaultValue: "Members" })}
                     <span className="ml-2 text-xs font-normal text-[var(--text-tertiary)]">({members.length})</span>
                 </h3>
                 {isAdmin && !showAddForm && (
@@ -170,7 +170,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md bg-[var(--gnosi-primary)] text-white hover:opacity-90"
                     >
                         <UserPlus size={13} />
-                        {t('workspace.invite', { defaultValue: 'Convida' })}
+                        {t('workspace.invite', { defaultValue: "Invite" })}
                     </button>
                 )}
             </div>
@@ -203,7 +203,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
             {loading ? (
                 <div className="flex items-center justify-center py-6 text-[var(--text-tertiary)]">
                     <Loader2 size={14} className="animate-spin mr-2" />
-                    {t('common.loading', { defaultValue: 'Carregant…' })}
+                    {t('common.loading', { defaultValue: "Loading..." })}
                 </div>
             ) : (
                 <div className="rounded-md border border-[var(--border-primary)] overflow-hidden">
@@ -211,8 +211,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                         <thead className="bg-[var(--bg-secondary)]/40 text-xs text-[var(--text-secondary)] uppercase">
                             <tr>
                                 <th className="px-3 py-2 text-left">{t('workspace.col_email', { defaultValue: 'Email' })}</th>
-                                <th className="px-3 py-2 text-left">{t('workspace.col_role', { defaultValue: 'Rol' })}</th>
-                                <th className="px-3 py-2 text-left">{t('workspace.col_joined', { defaultValue: 'Des de' })}</th>
+                                <th className="px-3 py-2 text-left">{t('workspace.col_role', { defaultValue: "Role" })}</th>
+                                <th className="px-3 py-2 text-left">{t('workspace.col_joined', { defaultValue: "Since" })}</th>
                                 <th className="px-3 py-2 text-right">{t('workspace.col_actions', { defaultValue: '' })}</th>
                             </tr>
                         </thead>
@@ -246,7 +246,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                                 <button
                                                     onClick={() => setSelectedMember(m)}
                                                     className="p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-                                                    title={t('workspace.manage_access', { defaultValue: 'Gestiona accés a vaults' })}
+                                                    title={t('workspace.manage_access', { defaultValue: "Manage Vault access" })}
                                                 >
                                                     <Shield size={13} />
                                                 </button>
@@ -254,7 +254,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                                     <button
                                                         onClick={() => removeMember(m.user_id)}
                                                         className="p-1 text-[var(--text-tertiary)] hover:text-red-500"
-                                                        title={t('workspace.remove', { defaultValue: 'Elimina' })}
+                                                        title={t('workspace.remove', { defaultValue: "Remove" })}
                                                     >
                                                         <Trash2 size={13} />
                                                     </button>
@@ -266,7 +266,7 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                             ))}
                             {members.length === 0 && (
                                 <tr><td colSpan={4} className="px-3 py-6 text-center text-xs text-[var(--text-tertiary)] italic">
-                                    {t('workspace.empty', { defaultValue: 'Cap membre encara. Convida algú per començar.' })}
+                                    {t('workspace.empty', { defaultValue: "No members yet. Invite someone to get started." })}
                                 </td></tr>
                             )}
                         </tbody>
@@ -282,14 +282,14 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                             <Lock size={14} className="text-[var(--gnosi-primary)]" />
                             {t('workspace.vault_access_for', {
                                 email: selectedMember.email || selectedMember.user_id,
-                                defaultValue: 'Accés a vaults — {{email}}',
+                                defaultValue: "Vault access — {{email}}",
                             })}
                         </div>
                         <button onClick={() => setSelectedMember(null)} className="text-[var(--text-tertiary)] p-1"><X size={14} /></button>
                     </div>
                     {vaults.length === 0 ? (
                         <p className="text-xs text-[var(--text-tertiary)] italic">
-                            {t('workspace.no_vaults', { defaultValue: 'No hi ha vaults a aquest workspace.' })}
+                            {t('workspace.no_vaults', { defaultValue: "There are no Vaults in this workspace." })}
                         </p>
                     ) : (
                         <ul className="space-y-1.5">
@@ -305,8 +305,8 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                                             }`}
                                         >
                                             {has
-                                                ? t('workspace.has_access', { defaultValue: 'Té accés' })
-                                                : t('workspace.grant_access', { defaultValue: 'Concedeix' })}
+                                                ? t('workspace.has_access', { defaultValue: "Has access" })
+                                                : t('workspace.grant_access', { defaultValue: "Grant" })}
                                         </button>
                                     </li>
                                 );
@@ -320,10 +320,10 @@ export function WorkspaceMembersPanel({ workspaceId, isAdmin = false, currentUse
                 isOpen={confirmUserId != null}
                 onClose={() => setConfirmUserId(null)}
                 onConfirm={doRemove}
-                title={t('workspace.confirm_remove_title', { defaultValue: 'Eliminar membre' })}
-                message={t('workspace.confirm_remove', { defaultValue: 'Eliminar aquest membre?' })}
-                confirmText={t('common.delete', { defaultValue: 'Eliminar' })}
-                cancelText={t('common.cancel', { defaultValue: 'Cancel·la' })}
+                title={t('workspace.confirm_remove_title', { defaultValue: "Remove member" })}
+                message={t('workspace.confirm_remove', { defaultValue: "Remove this member?" })}
+                confirmText={t('common.delete', { defaultValue: "Delete" })}
+                cancelText={t('common.cancel', { defaultValue: "Cancel" })}
                 isDestructive
             />
         </div>

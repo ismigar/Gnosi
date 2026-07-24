@@ -241,7 +241,7 @@ export default function MailComposer({
             ]);
             setCalendarData({ pages: pagesRes.data, integrations: integrationsRes.data, tables: tablesRes.data });
         } catch {
-            toast.error(t('mail.calendar_load_error', 'Error carregant el calendari'));
+            toast.error(t('mail.calendar_load_error', "Error loading the calendar"));
         }
     }, [t]);
 
@@ -283,11 +283,11 @@ export default function MailComposer({
             if (stored) return stored.map(s => ({ key: s.id, label: s.title, content: s.content }));
         } catch { /* ok */ }
         return [
-            { key: 'snip_default_1', label: t('mail.snippet_formal_greeting_label', 'Salutació formal'), content: t('mail.snippet_formal_greeting') },
-            { key: 'snip_default_2', label: t('mail.snippet_thanks_label', 'Gràcies per la resposta'), content: t('mail.snippet_thanks') },
-            { key: 'snip_default_3', label: t('mail.snippet_best_regards_label', 'Comiat formal'), content: t('mail.snippet_best_regards') },
-            { key: 'snip_default_4', label: t('mail.snippet_meeting_label', 'Proposta reunió'), content: t('mail.snippet_meeting') },
-            { key: 'snip_default_5', label: t('mail.snippet_following_up_label', 'Seguiment'), content: t('mail.snippet_following_up') },
+            { key: 'snip_default_1', label: t('mail.snippet_formal_greeting_label', "Formal greeting"), content: t('mail.snippet_formal_greeting') },
+            { key: 'snip_default_2', label: t('mail.snippet_thanks_label', "Thanks for the reply"), content: t('mail.snippet_thanks') },
+            { key: 'snip_default_3', label: t('mail.snippet_best_regards_label', "Formal closing"), content: t('mail.snippet_best_regards') },
+            { key: 'snip_default_4', label: t('mail.snippet_meeting_label', "Meeting proposal"), content: t('mail.snippet_meeting') },
+            { key: 'snip_default_5', label: t('mail.snippet_following_up_label', "Follow-up"), content: t('mail.snippet_following_up') },
         ];
     })();
 
@@ -385,7 +385,7 @@ export default function MailComposer({
 
                     <AddressInput
                         label={t('mail.to_label')}
-                        placeholder={t('mail.to_email_placeholder', 'exemple@correu.com')}
+                        placeholder={t('mail.to_email_placeholder', "example@mail.com")}
                         value={to}
                         onChange={setTo}
                         accountEmail={account?.email}
@@ -409,7 +409,7 @@ export default function MailComposer({
                             onClick={() => setShowCcBcc(v => !v)}
                             className="flex items-center gap-1 text-[12px] font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-colors ml-2 shrink-0"
                         >
-                            {t('mail.cc_bcc_toggle', 'CC/CCO')}
+                            {t('mail.cc_bcc_toggle', "CC/BCC")}
                             <ChevronDown size={13} className={`transition-transform ${showCcBcc ? 'rotate-180' : ''}`} />
                         </button>
                     </div>
@@ -418,14 +418,14 @@ export default function MailComposer({
                         <div className="animate-in slide-in-from-top-1 duration-200">
                             <AddressInput
                                 label={t('mail.cc_label')}
-                                placeholder={t('mail.cc_email_placeholder', 'cc@exemple.com')}
+                                placeholder={t('mail.cc_email_placeholder', "cc@example.com")}
                                 value={cc}
                                 onChange={setCc}
                                 accountEmail={account?.email}
                             />
                             <AddressInput
-                                label={t('mail.bcc_label', 'CCO')}
-                                placeholder={t('mail.bcc_email_placeholder', 'cco@exemple.com')}
+                                label={t('mail.bcc_label', "BCC")}
+                                placeholder={t('mail.bcc_email_placeholder', "bcc@example.com")}
                                 value={bcc}
                                 onChange={setBcc}
                                 accountEmail={account?.email}
@@ -607,12 +607,12 @@ export default function MailComposer({
                                 <div className="w-10 h-10 rounded-2xl bg-[var(--gnosi-blue)] text-white flex items-center justify-center shadow-lg">
                                     <Calendar size={20} />
                                 </div>
-                                {t('mail.availability_modal_title', 'Tria la teva disponibilitat')}
+                                {t('mail.availability_modal_title', "Choose your availability")}
                             </h3>
                             <div className="flex items-center gap-4">
                                 <div className="flex items-center gap-1 bg-[var(--bg-primary)] p-1 rounded-xl shadow-sm border border-[var(--border-primary)]">
                                     <button type="button" onClick={() => calendarCompRef.current?.getApi().prev()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronLeft size={18} /></button>
-                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">{t('calendar.today', 'Avui')}</button>
+                                    <button type="button" onClick={() => calendarCompRef.current?.getApi().today()} className="px-4 text-xs font-bold uppercase tracking-tight text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)]">{t('calendar.today', "Today")}</button>
                                     <button type="button" onClick={() => calendarCompRef.current?.getApi().next()} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--gnosi-blue)] transition-all"><ChevronRight size={18} /></button>
                                 </div>
                                 <button type="button" onClick={() => setShowAvailability(false)} className="p-3 bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] rounded-2xl transition-all active:scale-95"><X size={20} /></button>
@@ -631,7 +631,7 @@ export default function MailComposer({
                         </div>
                         <div className="p-6 bg-[var(--bg-secondary)] border-t border-[var(--border-primary)] text-center">
                             <p className="text-sm text-[var(--text-secondary)] font-medium italic">
-                                {t('mail.availability_modal_hint', 'Fes clic i arrossega per crear una franja de disponibilitat. Apareixerà automàticament al correu.')}
+                                {t('mail.availability_modal_hint', "Click and drag to create an availability slot. It will appear automatically in the email.")}
                             </p>
                         </div>
                     </div>

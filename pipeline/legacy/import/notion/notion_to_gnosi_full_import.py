@@ -45,7 +45,7 @@ TOKEN = get_env("NOTION_TOKEN")
 VAULT_ROOT = get_env("VAULT_PATH")
 
 if not TOKEN or not VAULT_ROOT:
-    print("❌ ERROR: No s'ha trobat NOTION_TOKEN o VAULT_PATH al Keychain o fitxers d'entorn.")
+    print("❌ ERROR: NOTION_TOKEN or VAULT_PATH was not found in Keychain or environment files.")
     sys.exit(1)
 
 # Config
@@ -269,7 +269,7 @@ def _resolve_relation_title(notion_id: str) -> str:
 
 def _populate_id_to_title_cache():
     """Scan all databases quickly to populate ID -> Title mapping before migration."""
-    print(f"\n⚡ Pre-escanejant títols per resoldre relacions...")
+    print("\n⚡ Pre-scanning titles to resolve relations...")
     for db_name, db_id in DATABASE_MAP.items():
         if not db_id: continue
         
@@ -287,7 +287,7 @@ def _populate_id_to_title_cache():
                     title = "".join(t.get("plain_text", "") for t in parts)
                     break
             _id_to_title[pid] = title
-    print(f"   ✅ Trobats {len(_id_to_title)} títols.")
+    print(f"   ✅ Found {len(_id_to_title)} titles.")
 
 
 def _notion_color_to_blocknote(color: str, is_background: bool) -> str:
@@ -872,14 +872,14 @@ def convert_block_to_markdown(block: dict, indent_level: int = 0) -> str:
 
         if link_type == "page_id":
             page_id = bdata.get("page_id", "")
-            return f"{indent}> 🔗 Pàgina enllaçada: {page_id}\n"
+            return f"{indent}> 🔗 Linked page: {page_id}\n"
 
     # ── Synced blocks ──
     elif btype == "synced_block":
         shared = bdata.get("synced_from")
         if shared and shared.get("block_id"):
             try: return convert_blocks_to_markdown(fetch_blocks(shared["block_id"]), indent_level)
-            except: return f"{indent}> [synced_block: font inaccessible]\n"
+            except: return f"{indent}> [synced_block: inaccessible source]\n"
         elif has_children:
             return convert_blocks_to_markdown(fetch_blocks(bid), indent_level)
 
@@ -903,7 +903,7 @@ def migrate_database(db_name: str, db_id: str) -> int:
     Ensures path is: {VAULT_PATH}/BD/{DatabaseName}/{TableName}
     """
     print(f"\n{'=' * 50}")
-    print(f"Abocant: {db_name} ({db_id})")
+    print(f"Migrating: {db_name} ({db_id})")
     print(f"{'=' * 50}")
 
     # Build correct hierarchical path
@@ -913,7 +913,7 @@ def migrate_database(db_name: str, db_id: str) -> int:
     if not rel_path:
         # Check against blacklist for unmapped databases
         if db_name in BLACKLISTED_DB_NAMES:
-            print(f"  🛑 Saltant base de dades genèrica: '{db_name}'")
+            print(f"  🛑 Skipping generic database: '{db_name}'")
             return 0
             
         # Construct fallback path if not in registry
@@ -923,10 +923,10 @@ def migrate_database(db_name: str, db_id: str) -> int:
     target_folder = VAULT_PATH / rel_path
     target_folder.mkdir(parents=True, exist_ok=True)
     
-    print(f"  📍 Destí: {target_folder}")
+    print(f"  📍 Destination: {target_folder}")
 
     pages = fetch_all_pages(db_id)
-    print(f"  Trobades {len(pages)} pàgines.")
+    print(f"  Found {len(pages)} pages.")
 
     count = 0
     for page in pages:
@@ -994,9 +994,9 @@ def _save_view_registry():
             registry.setdefault("views", []).extend(new_views)
             with open(registry_path, "w", encoding="utf-8") as f:
                 json.dump(registry, f, ensure_ascii=False, indent=2)
-            print(f"\n📝 {len(new_views)} noves vistes afegides al registry.")
+            print(f"\n📝 Added {len(new_views)} new views to the registry.")
     except Exception as e:
-        print(f"  ⚠️  Error guardant view registry: {e}")
+        print(f"  ⚠️  Error saving the view registry: {e}")
 
 
 # ──────────────────────────────────────────────
@@ -1006,7 +1006,7 @@ def _save_view_registry():
 
 def main():
     if not TOKEN:
-        print("❌ NOTION_TOKEN no trobat a .env_shared")
+        print("❌ NOTION_TOKEN was not found in .env_shared")
         sys.exit(1)
 
     # Build reverse maps from vault_db_registry for embedded views
@@ -1021,22 +1021,22 @@ def main():
     if target_db:
         db_id = DATABASE_MAP.get(target_db)
         if not db_id:
-            print(f"❌ Base de dades desconeguda: '{target_db}'")
-            print(f"   Disponibles: {', '.join(DATABASE_MAP.keys())}")
+            print(f"❌ Unknown database: '{target_db}'")
+            print(f"   Available: {', '.join(DATABASE_MAP.keys())}")
             sys.exit(1)
         total = migrate_database(target_db, db_id)
     else:
         total = 0
         for db_name, db_id in DATABASE_MAP.items():
             if not db_id:
-                print(f"⚠️  Saltant {db_name}: ID no configurat a .env_shared")
+                print(f"⚠️  Skipping {db_name}: ID is not configured in .env_shared")
                 continue
             total += migrate_database(db_name, db_id)
 
     # Save any new embedded views discovered during migration
     _save_view_registry()
 
-    print(f"\n🏁 Migració completada. Total: {total} entrades.")
+    print(f"\n🏁 Migration completed. Total: {total} entries.")
 
 
 if __name__ == "__main__":

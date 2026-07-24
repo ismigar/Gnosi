@@ -423,45 +423,45 @@ def _task_progress_index_for(
 VIRTUAL_COMPUTERS: Dict[str, Dict[str, Any]] = {
     "degree_centrality": {
         "fn": _compute_degree_centrality,
-        "label": "Centralitat de grau",
+        "label": "Degree centrality",
         "description": (
-            "Suma d'enllaços entrants i sortints. Mètrica simple i intuïtiva: "
-            "quants altres conceptes es relacionen amb aquesta nota. Útil per "
-            "identificar nuclis temàtics i candidats a Maps of Content (MOC)."
+            "Sum of incoming and outgoing links. This simple, intuitive metric "
+            "shows how many other concepts relate to the note. It helps identify "
+            "thematic hubs and candidates for Maps of Content (MOCs)."
         ),
         "value_type": "number",
         "needs": ["graph"],
     },
     "in_degree": {
         "fn": _compute_in_degree,
-        "label": "Enllaços entrants",
+        "label": "Incoming links",
         "description": (
-            "Quantes pàgines enllacen cap a aquesta. Indica influència o "
-            "rellevància com a referent — semblant als backlinks d'Obsidian. "
-            "Útil per detectar notes estructurals citades sovint."
+            "Number of pages linking to this one. Similar to Obsidian backlinks, "
+            "it indicates influence or relevance as a reference and helps detect "
+            "frequently cited structural notes."
         ),
         "value_type": "number",
         "needs": ["graph"],
     },
     "out_degree": {
         "fn": _compute_out_degree,
-        "label": "Enllaços sortints",
+        "label": "Outgoing links",
         "description": (
-            "Quantes pàgines enllaça aquesta. Indica el grau d'integració amb "
-            "la resta del coneixement: notes amb out_degree=0 estan 'aïllades' "
-            "i probablement requereixen revisió."
+            "Number of pages linked from this one. It indicates integration with "
+            "the rest of the knowledge base: notes with out_degree=0 are isolated "
+            "and probably need review."
         ),
         "value_type": "number",
         "needs": ["graph"],
     },
     "betweenness_centrality": {
         "fn": _compute_betweenness,
-        "label": "Betweenness (intermediació)",
+        "label": "Betweenness centrality",
         "description": (
-            "Fracció dels camins més curts del graf que passen per aquesta nota. "
-            "Detecta 'ponts' entre dominis temàtics: notes que connecten àrees "
-            "que altrament no es tocarien (p. ex. una nota d'ètica que enllaça "
-            "filosofia i economia). Valors alts → nodes pivot estratègics."
+            "Fraction of the graph's shortest paths that pass through this note. "
+            "It detects bridges between thematic domains: notes connecting areas "
+            "that would otherwise remain separate. High values identify strategic "
+            "pivot nodes."
         ),
         "value_type": "number",
         "needs": ["graph", "nx"],
@@ -470,10 +470,10 @@ VIRTUAL_COMPUTERS: Dict[str, Dict[str, Any]] = {
         "fn": _compute_pagerank,
         "label": "PageRank",
         "description": (
-            "Importància recursiva: una nota és rellevant si la citen notes "
-            "rellevants (la idea darrere de l'algorisme de Google). "
-            "Mostra els 'pesos pesants' del teu vault tenint en compte qui els "
-            "cita, no només quants. Sumat a tots els nodes = 1.0."
+            "Recursive importance: a note is relevant when relevant notes cite it, "
+            "following the idea behind Google's algorithm. It identifies the "
+            "vault's heavyweights by considering who cites them, not merely how "
+            "many citations they receive. Values across all nodes sum to 1.0."
         ),
         "value_type": "number",
         "needs": ["graph", "nx"],
@@ -482,66 +482,66 @@ VIRTUAL_COMPUTERS: Dict[str, Dict[str, Any]] = {
         "fn": _compute_eigenvector,
         "label": "Eigenvector",
         "description": (
-            "Variant més pura del PageRank: la teva importància depèn de la "
-            "importància dels teus veïns. Útil per trobar les notes 'reines' "
-            "d'una comunitat — les que estan envoltades de les notes més "
-            "centrals d'aquell domini."
+            "A purer PageRank variant in which a note's importance depends on "
+            "the importance of its neighbors. It helps find the leading notes in "
+            "a community: those surrounded by the domain's most central notes."
         ),
         "value_type": "number",
         "needs": ["graph", "nx"],
     },
     "closeness_centrality": {
         "fn": _compute_closeness,
-        "label": "Closeness (proximitat)",
+        "label": "Closeness centrality",
         "description": (
-            "Inversa de la distància mitjana a la resta de notes. Valor alt → "
-            "es pot arribar fàcilment a qualsevol altra part del coneixement "
-            "des d'aquesta nota. Indicador de 'punt d'entrada' al vault."
+            "Inverse of the average distance to all other notes. A high value "
+            "means the rest of the knowledge base is easy to reach from this "
+            "note, making it a useful vault entry point."
         ),
         "value_type": "number",
         "needs": ["graph", "nx"],
     },
     "clustering_coefficient": {
         "fn": _compute_clustering,
-        "label": "Coeficient de clustering",
+        "label": "Clustering coefficient",
         "description": (
-            "Mesura quant de cohesionat està el veïnat d'aquesta nota: si els "
-            "seus veïns també estan connectats entre ells (1.0 = tots; 0 = cap). "
-            "Notes amb clustering alt formen comunitats temàtiques denses."
+            "Measures how cohesive this note's neighborhood is: whether its "
+            "neighbors are also connected to one another (1.0 = all; 0 = none). "
+            "Notes with high clustering form dense thematic communities."
         ),
         "value_type": "number",
         "needs": ["graph", "nx"],
     },
     "is_hub": {
         "fn": _compute_is_hub,
-        "label": "És un hub?",
+        "label": "Is a hub?",
         "description": (
-            "Booleà: la nota està al 10% més connectat del vault? Filtre ràpid "
-            "per llistar només els nodes estructurals d'una vista de taula."
+            "Boolean indicating whether the note is among the vault's top 10% "
+            "most connected notes. Useful for quickly filtering structural nodes "
+            "in a table view."
         ),
         "value_type": "checkbox",
         "needs": ["graph", "hubs"],
     },
     "is_orphan": {
         "fn": _compute_is_orphan,
-        "label": "És òrfena?",
+        "label": "Is orphaned?",
         "description": (
-            "Booleà: la nota no té cap enllaç (entrant ni sortint). Senyal "
-            "que cal integrar-la al graf — probablement falta enllaçar-la "
-            "amb conceptes existents."
+            "Boolean indicating that the note has no incoming or outgoing links. "
+            "This signals that it should be integrated into the graph, probably "
+            "by linking it to existing concepts."
         ),
         "value_type": "checkbox",
         "needs": ["graph"],
     },
     "task_progress": {
         "fn": _compute_task_progress,
-        "label": "Progrés de tasques",
+        "label": "Task progress",
         "description": (
-            "Percentatge (0-100) de tasques relacionades completades. Es deriva "
-            "de la relació INVERSA d'una taula font (config: source_table_id, "
-            "relation_field, status_field, done_value): compta status==done sobre "
-            "el total de registres que apunten a aquesta pàgina. Buit si no en té "
-            "cap. Read-only, calculat en llegir (sempre fresc)."
+            "Percentage (0–100) of related tasks completed. Derived from the "
+            "inverse relation of a source table (source_table_id, relation_field, "
+            "status_field, done_value): counts status==done among all records "
+            "pointing to this page. Empty when there are none. Read-only and "
+            "calculated on every read."
         ),
         "value_type": "number",
         "needs": ["task_progress"],

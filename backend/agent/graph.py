@@ -5,7 +5,7 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langgraph.graph import StateGraph, END
 
-# Configurar model
+# Configure the model
 # We use 'gpt-3.5-turbo' or whatever is defined in the config, 
 # but by default we try to read from the environment.
 # If there is no API Key, we'll use "mock" behavior to avoid errors on startup.
@@ -26,7 +26,7 @@ def chatbot_node(state: AgentState):
     api_key = os.environ.get("HF_API_KEY") or os.environ.get("OPENAI_API_KEY")
     
     if not api_key:
-        return {"messages": [AIMessage(content=f"No tinc API Key configurada, però t'he sentit: {last_message.content}")]}
+        return {"messages": [AIMessage(content=f"No API key is configured, but I received your message: {last_message.content}")]}
         
     try:
         # We try to use the existing AI client or LangChain directly
@@ -35,7 +35,7 @@ def chatbot_node(state: AgentState):
         response = llm.invoke(messages)
         return {"messages": [response]}
     except Exception as e:
-        return {"messages": [AIMessage(content=f"Error cridant LLM: {str(e)}. (Missatge original: {last_message.content})")]}
+        return {"messages": [AIMessage(content=f"Error calling the LLM: {str(e)}. (Original message: {last_message.content})")]}
 
 # Graph construction
 workflow = StateGraph(AgentState)
@@ -43,5 +43,5 @@ workflow.add_node("chatbot", chatbot_node)
 workflow.set_entry_point("chatbot")
 workflow.add_edge("chatbot", END)
 
-# Compilar
+# Compile
 app = workflow.compile()

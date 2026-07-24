@@ -18,7 +18,7 @@ def get_google_contacts_service(email: str):
         from googleapiclient.discovery import build
         from google.auth.transport.requests import Request
     except ImportError:
-        log.error("Falten dependències: google-api-python-client, google-auth-oauthlib")
+        log.error("Missing dependencies: google-api-python-client, google-auth-oauthlib")
         return None, None
 
     from backend.config.env_config import get_env
@@ -57,7 +57,7 @@ def get_google_contacts_service(email: str):
                     break
 
     if not contacts_config:
-        log.error(f"No es troba configuració de contacts per a {email}")
+        log.error(f"Contacts configuration not found for {email}")
         return None, None
 
     try:
@@ -85,7 +85,7 @@ def get_google_contacts_service(email: str):
         
         # Refresh token if expired
         if creds.expired and creds.refresh_token:
-            log.info(f"Refrescant token de Google per a {email}")
+            log.info(f"Refreshing the Google token for {email}")
             try:
                 creds.refresh(Request())
                 # Save updated token back via integration_manager
@@ -93,12 +93,12 @@ def get_google_contacts_service(email: str):
                     "id": contacts_config.get("id"),
                     "token": creds.token
                 }])
-                log.info(f"Token de Google actualitzat via integration_manager")
+                log.info("Google token updated through integration_manager")
             except Exception as e:
-                log.error(f"Error refrescant token per a {email}: {e}")
+                log.error(f"Error refreshing token for {email}: {e}")
                 return None, None
         elif creds.expired and not creds.refresh_token:
-            log.error(f"Token caducat i no hi ha refresh_token per a {email}")
+            log.error(f"Token expired and no refresh_token is available for {email}")
             return None, None
 
         service = build("people", "v1", credentials=creds, static_discovery=False)
@@ -112,7 +112,7 @@ def list_google_contacts(email: str, page_size: int = 200):
     """Lists all contacts from Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
-        raise Exception(f"No s'ha pogut inicialitzar el servei de Google per a {email}")
+        raise Exception(f"Could not initialize the Google service for {email}")
 
     try:
         results = (
@@ -156,7 +156,7 @@ def create_google_contact(email: str, contact_data: dict):
     """Creates a new contact in Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
-        raise Exception("No s'ha pogut inicialitzar el servei de Google")
+        raise Exception("Could not initialize the Google service")
 
     try:
         body = {
@@ -199,13 +199,13 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
     """Updates an existing contact in Google People API."""
     service, creds = get_google_contacts_service(email)
     if not service or not creds:
-        raise Exception("No s'ha pogut inicialitzar el servei de Google")
+        raise Exception("Could not initialize the Google service")
 
     try:
         # Fetch the contact first to get the current ETAG (needed for the update)
         current_person = get_google_contact_by_resource(email, resource_name)
         if not current_person:
-            raise Exception(f"Contacte {resource_name} no trobat a Google per obtenir l'ETAG")
+            raise Exception(f"Contact {resource_name} was not found in Google while retrieving the ETAG")
 
         etag = current_person.get("etag")
         
@@ -239,7 +239,7 @@ def update_google_contact(email: str, resource_name: str, contact_data: dict):
         # Make sure the token is fresh
         from google.auth.transport.requests import Request as AuthRequest
         if creds.expired and creds.refresh_token:
-            log.info(f"Refrescant token de Google per a {email} abans del PATCH")
+            log.info(f"Refreshing the Google token for {email} before PATCH")
             creds.refresh(AuthRequest())
             # Optionally persist the token (the next list call will already do it)
         
@@ -268,7 +268,7 @@ def delete_google_contact(email: str, resource_name: str) -> bool:
     """Deletes a contact from Google People API."""
     service, _ = get_google_contacts_service(email)
     if not service:
-        raise Exception("No s'ha pogut inicialitzar el servei de Google")
+        raise Exception("Could not initialize the Google service")
 
     try:
         service.people().deleteContact(resourceName=resource_name).execute()

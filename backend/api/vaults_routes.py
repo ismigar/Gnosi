@@ -206,9 +206,9 @@ def delete_vault(vault_id: str,
         raise HTTPException(status_code=404, detail="Vault no trobat")
     default = str(_default_vault_path())
     if (v.path_override or "") == str(ctx.vault_path):
-        raise HTTPException(status_code=400, detail="No pots esborrar el vault actiu; canvia'n primer")
+        raise HTTPException(status_code=400, detail="You cannot delete the active vault; switch to another vault first")
     if (v.path_override or "") == default:
-        raise HTTPException(status_code=400, detail="No pots esborrar el vault principal")
+        raise HTTPException(status_code=400, detail="You cannot delete the primary vault")
     vpath = Path(v.path_override) if v.path_override else None
     db.delete(v)
     try:

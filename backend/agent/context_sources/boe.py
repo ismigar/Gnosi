@@ -29,11 +29,11 @@ HTTP_TIMEOUT = 15
 MAX_RESULTS = 5
 
 ID = "boe"
-LABEL = "BOE (Butlletí Oficial de l'Estat)"
+LABEL = "BOE (Official State Gazette)"
 DESCRIPTION = (
-    "Legislació consolidada i sumaris diaris del BOE, via la seva API de dades "
-    "obertes. Cerca a text complet sobre el text de les normes. ATENCIÓ: el "
-    "corpus és EN CASTELLÀ — cerca-hi sempre amb termes en castellà."
+    "Consolidated legislation and daily BOE summaries from its open-data API. "
+    "Provides full-text search over regulations. NOTE: the corpus is IN SPANISH, "
+    "so always search it with Spanish terms."
 )
 
 
@@ -58,7 +58,7 @@ def _get(path: str, params: Dict[str, Any], *, as_xml: bool = False) -> Any:
     # there rather than in the HTTP code.
     status = (payload or {}).get("status") or {}
     if str(status.get("code")) != "200":
-        raise RuntimeError(status.get("text") or "resposta desconeguda del BOE")
+        raise RuntimeError(status.get("text") or "unknown BOE response")
     return (payload or {}).get("data")
 
 
@@ -99,8 +99,8 @@ def format_hits(data: Any, limit: int) -> str:
         ident = row.get("identificador") or ""
         out.append(
             f"- {row.get('titulo') or ident}\n"
-            f"  id: {ident} · publicat: {row.get('fecha_publicacion') or '?'}"
-            f" · rang: {(row.get('rango') or {}).get('texto') or '?'}\n"
+            f"  id: {ident} · published: {row.get('fecha_publicacion') or '?'}"
+            f" · rank: {(row.get('rango') or {}).get('texto') or '?'}\n"
             f"  https://www.boe.es/buscar/act.php?id={ident}"
         )
     return "\n".join(out)
@@ -124,16 +124,16 @@ def search(query: str, limit: int = MAX_RESULTS) -> str:
                 break
     except Exception as exc:  # noqa: BLE001
         log.warning("BOE search failed for %r: %s", query, exc)
-        return f"No s'ha pogut consultar el BOE: {exc}"
+        return f"Could not query the BOE: {exc}"
     if not hits:
         # Almost always a language mismatch: the corpus is in Spanish and the
         # user (and hence the agent) often writes Catalan.
         return (
-            f"El BOE no retorna cap norma per a «{query}». El text de les normes "
-            "és EN CASTELLÀ: torna-ho a provar amb els termes en castellà "
-            "(p. ex. «derechos personas discapacidad»)."
+            f"The BOE returned no regulations for «{query}». Regulation text is "
+            "IN SPANISH: try again with Spanish terms "
+            "(for example, «derechos personas discapacidad»)."
         )
-    return f"Normes del BOE per a «{query}»:\n{hits}"
+    return f"BOE regulations for «{query}»:\n{hits}"
 
 
 def read(reference: str) -> str:
@@ -162,13 +162,13 @@ def read(reference: str) -> str:
             return (soup.find("data") or soup).get_text("\n", strip=True)[:12000]
         data = _get(f"/legislacion-consolidada/id/{ref}/texto/indice", {})
         blocks = (data or [{}])[0].get("bloque", []) if isinstance(data, list) else []
-        titles = [f"- {b.get('id')}: {b.get('titulo') or '(sense títol)'}" for b in blocks]
+        titles = [f"- {b.get('id')}: {b.get('titulo') or '(untitled)'}" for b in blocks]
         return (
-            f"Índex de la norma {ref} ({len(titles)} blocs). Per llegir-ne un, "
-            f"crida read_external_source('boe', '{ref}#<id_del_bloc>'):\n"
+            f"Index for regulation {ref} ({len(titles)} blocks). To read one, "
+            f"call read_external_source('boe', '{ref}#<block_id>'):\n"
             + "\n".join(titles[:80])
-            if titles else f"El BOE no retorna contingut per a «{ref}»."
+            if titles else f"The BOE returned no content for «{ref}»."
         )
     except Exception as exc:  # noqa: BLE001
         log.warning("BOE read failed for %r: %s", ref, exc)
-        return f"No s'ha pogut llegir «{ref}» del BOE: {exc}"
+        return f"Could not read «{ref}» from the BOE: {exc}"

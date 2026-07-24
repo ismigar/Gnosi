@@ -90,7 +90,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
       setHistory([]);
       setPreviewContent(null);
       setPreviewVersion(null);
-      toast.success(t('vault.history.purge_success', 'Historial purgat correctament'));
+      toast.success(t('vault.history.purge_success', "History purged successfully"));
     } catch (error) {
       console.error('Error purging history:', error);
       toast.error(t('vault.history.error_purge'));
@@ -118,7 +118,7 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
           <button 
             onClick={onClose}
             className="gnosi-close-btn"
-            aria-label={t('vault.history.close', 'Tancar historial')}
+            aria-label={t('vault.history.close', "Close history")}
           >
             <X />
           </button>
@@ -270,9 +270,9 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
         isOpen={isRestoreOpen}
         onClose={() => setIsRestoreOpen(false)}
         onConfirm={executeRestore}
-        title={t('vault.history.confirm_restore_title', 'Restaurar versió')}
+        title={t('vault.history.confirm_restore_title', "Restore version")}
         message={t('vault.history.confirm_restore', { timestamp: restoreTarget?.timestamp })}
-        confirmText={t('common.restore', 'Restaurar')}
+        confirmText={t('common.restore', "Restore")}
         isDestructive={false}
       />
 
@@ -280,9 +280,9 @@ const PageHistory = ({ pageId, open, onClose, onRestore }) => {
         isOpen={isPurgeOpen}
         onClose={() => setIsPurgeOpen(false)}
         onConfirm={executePurge}
-        title={t('vault.history.confirm_purge_title', 'Purgar historial')}
+        title={t('vault.history.confirm_purge_title', "Purge history")}
         message={t('vault.history.confirm_purge')}
-        confirmText={t('common.purge', 'Purgar')}
+        confirmText={t('common.purge', "Purge")}
         isDestructive={true}
       />
     </div>

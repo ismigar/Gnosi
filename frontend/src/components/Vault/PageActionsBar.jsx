@@ -43,8 +43,8 @@ function buildItems(pa, t) {
             // Keep the established amber convention for "favorited".
             activeClassName: 'text-amber-500 hover:bg-amber-500/10',
             label: pa.isFavorite
-                ? t('shell.remove_favorite', 'Treu dels favorits')
-                : t('shell.add_favorite', 'Afegeix a favorits'),
+                ? t('shell.remove_favorite', "Remove from favorites")
+                : t('shell.add_favorite', "Add to favorites"),
             onClick: pa.onToggleFavorite,
         },
         pa.canToggleEditLock && {
@@ -52,8 +52,8 @@ function buildItems(pa, t) {
             Icon: pa.isEditLocked ? Lock : Unlock,
             active: pa.isEditLocked,
             label: pa.isEditLocked
-                ? t('shell.unlock_edit', 'Desbloqueja per editar')
-                : t('shell.lock_edit', 'Bloqueja edició (només lectura)'),
+                ? t('shell.unlock_edit', "Unlock to edit")
+                : t('shell.lock_edit', "Lock editing (read-only)"),
             onClick: pa.onToggleEditLock,
         },
         pa.canToggleCodeView && {
@@ -74,19 +74,19 @@ function buildItems(pa, t) {
         pa.canOpenComments && {
             key: 'comments',
             Icon: MessageSquare,
-            label: t('shell.view_comments', 'Comentaris'),
+            label: t('shell.view_comments', "Comments"),
             onClick: pa.onOpenComments,
         },
         pa.canOpenShare && {
             key: 'share',
             Icon: Share2,
-            label: t('shell.share_page', 'Comparteix'),
+            label: t('shell.share_page', "Share"),
             onClick: pa.onOpenShare,
         },
         pa.canTranslatePage && {
             key: 'translate',
             Icon: Languages,
-            label: pa.translateLabel || t('shell.translate_page', 'Tradueix la pàgina'),
+            label: pa.translateLabel || t('shell.translate_page', "Translate page"),
             onClick: pa.onTranslatePage,
         },
         pa.canDeleteCurrentPage && {
@@ -200,8 +200,8 @@ export function PageActionsBar({ pageActions, containerWidth }) {
                     ref={triggerRef}
                     type="button"
                     onClick={toggleOverflow}
-                    title={t('shell.page_options', 'Opcions de pàgina')}
-                    aria-label={t('shell.page_options', 'Opcions de pàgina')}
+                    title={t('shell.page_options', "Page options")}
+                    aria-label={t('shell.page_options', "Page options")}
                     aria-haspopup="menu"
                     aria-expanded={overflowOpen}
                     className={`p-1.5 rounded-md transition-colors ${

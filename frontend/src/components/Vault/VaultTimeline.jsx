@@ -451,12 +451,12 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     <div className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md p-6 animate-in zoom-in-95 duration-200">
                         <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 flex items-center gap-2">
                             <ArrowRight size={20} className="text-[var(--gnosi-primary)]" />
-                            {t('timeline.select_predecessor', 'Selecciona una Antecessora')}
+                            {t('timeline.select_predecessor', "Select a Predecessor")}
                         </h3>
                         <p className="text-sm text-[var(--text-secondary)] mb-4">
                             <Trans
                                 i18nKey="timeline.predecessor_prompt"
-                                defaults="Tria quin registre ha de finalitzar abans que <bold>{{name}}</bold> pugui començar."
+                                defaults="Choose which record must finish before <bold>{{name}}</bold> can start."
                                 values={{ name: idToTitle[selectingPredecessorFor] }}
                                 components={{ bold: <strong /> }}
                             />
@@ -472,7 +472,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                         {n.title || "Sense Títol"}
                                     </span>
                                     <span className="text-[10px] text-[var(--text-tertiary)]">
-                                        {t('timeline.until', 'Fins al {{date}}', { date: fmtTLDate(n.end) })}
+                                        {t('timeline.until', "Until {{date}}", { date: fmtTLDate(n.end) })}
                                     </span>
                                 </button>
                             ))}
@@ -553,7 +553,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                     {/* Time Scale Header */}
                     <div className="sticky top-0 z-10 flex min-w-full bg-[var(--bg-secondary)] border-b border-[var(--border-primary)] h-10 shadow-sm">
                         <div className="w-64 shrink-0 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] flex items-center px-4 font-bold text-[10px] text-[var(--text-tertiary)] uppercase tracking-wider">
-                            {t('timeline.col_title', 'Títol del Registre')}
+                            {t('timeline.col_title', "Record Title")}
                         </div>
                         <div className="flex-1 relative" style={{ minWidth: scaleMinWidth }}>
                             {timeScale?.months.map((month, idx) => {
@@ -648,7 +648,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                                                     setSelectingPredecessorFor(note.id);
                                                 }}
                                                 className="opacity-0 group-hover:opacity-100 p-1 hover:bg-[var(--gnosi-primary)]/10 rounded text-[var(--gnosi-primary)] transition-all"
-                                                title={t('timeline.add_predecessor', 'Afegir antecessora')}
+                                                title={t('timeline.add_predecessor', "Add predecessor")}
                                             >
                                                 <Plus size={12} />
                                             </button>
@@ -735,7 +735,7 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 {chartData.length === 0 && (
                     <div className="w-full h-64 flex flex-col items-center justify-center text-[var(--text-tertiary)]">
                         <Calendar size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                        <p>{t('timeline.no_data', 'No hi ha dades per mostrar al cronograma.')}</p>
+                        <p>{t('timeline.no_data', "No data to show in the timeline.")}</p>
                     </div>
                 )}
             </div>
@@ -745,15 +745,15 @@ export function VaultTimeline({ notes, onNoteSelect, onUpdateNote, schema = {}, 
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1.5">
                         <div className="w-2.5 h-2.5 rounded bg-[var(--gnosi-primary)]" />
-                        <span>{t('timeline.legend_page', 'Pàgina / Tarea')}</span>
+                        <span>{t('timeline.legend_page', "Page / Task")}</span>
                     </div>
                     <div className="flex items-center gap-1.5 font-bold text-[var(--gnosi-primary)]">
                         <ArrowRight size={10} />
-                        <span>{t('timeline.active_deps', 'Dependències actives ({{count}} registres)', { count: chartData.length })}</span>
+                        <span>{t('timeline.active_deps', "Active dependencies ({{count}} records)", { count: chartData.length })}</span>
                     </div>
                 </div>
                 <div>
-                    {t('timeline.footer_hint', 'Cronograma interactiu amb dependències automàtiques.')}
+                    {t('timeline.footer_hint', "Interactive timeline with automatic dependencies.")}
                 </div>
             </div>
 

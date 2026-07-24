@@ -99,24 +99,24 @@ def test_save_uploaded_style_sanitizes_filename(tmp_path, monkeypatch):
 def test_save_uploaded_style_rejects_oversize(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.services.csl_styles.STYLES_DIR", tmp_path)
     big = b"x" * (1024 * 1024 + 1)
-    with pytest.raises(ValueError, match="massa gran"):
+    with pytest.raises(ValueError, match="too large"):
         save_uploaded_style(big, "big.csl")
 
 
 def test_save_uploaded_style_rejects_wrong_extension(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.services.csl_styles.STYLES_DIR", tmp_path)
-    with pytest.raises(ValueError, match="extensió"):
+    with pytest.raises(ValueError, match="extension"):
         save_uploaded_style(_make_csl_xml(), "style.xml")
 
 
 def test_save_uploaded_style_rejects_invalid_xml(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.services.csl_styles.STYLES_DIR", tmp_path)
-    with pytest.raises(ValueError, match="XML invàlid"):
+    with pytest.raises(ValueError, match="Invalid XML"):
         save_uploaded_style(b"not xml at all", "broken.csl")
 
 
 def test_save_uploaded_style_rejects_wrong_root(tmp_path, monkeypatch):
     monkeypatch.setattr("backend.services.csl_styles.STYLES_DIR", tmp_path)
     raw = b'<?xml version="1.0"?><foo/>'
-    with pytest.raises(ValueError, match="Root XML esperat"):
+    with pytest.raises(ValueError, match="Expected XML root"):
         save_uploaded_style(raw, "wrong.csl")

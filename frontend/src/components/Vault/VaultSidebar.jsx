@@ -64,11 +64,11 @@ const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) =
     if (!isOpen) return null;
 
     const title = type === 'database'
-        ? t('sidebar.rename_db_title', 'Reanomenar base de dades')
-        : t('sidebar.rename_table_title', 'Reanomenar taula');
+        ? t('sidebar.rename_db_title', "Rename database")
+        : t('sidebar.rename_table_title', "Rename table");
     const label = type === 'database'
-        ? t('sidebar.prompt_new_name_db', 'Nou nom per a la base de dades')
-        : t('sidebar.prompt_new_name_table', 'Nou nom per a la taula');
+        ? t('sidebar.prompt_new_name_db', "New name for the database")
+        : t('sidebar.prompt_new_name_table', "New name for the table");
 
     return createPortal(
         <div
@@ -93,7 +93,7 @@ const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) =
                         onClick={onClose}
                         disabled={isSubmitting}
                         className="gnosi-close-btn"
-                        aria-label={t('common.cancel', 'Cancel·la')}
+                        aria-label={t('common.cancel', "Cancel")}
                     >
                         <span aria-hidden>×</span>
                     </button>
@@ -118,7 +118,7 @@ const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) =
                         disabled={isSubmitting}
                         className="px-4 py-2 font-medium text-[var(--text-secondary)] border border-[var(--border-primary)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors focus:ring-2 focus:ring-[var(--border-primary)] outline-none"
                     >
-                        {t('common.cancel', 'Cancel·la')}
+                        {t('common.cancel', "Cancel")}
                     </button>
                     <button
                         type="button"
@@ -126,7 +126,7 @@ const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) =
                         disabled={isSubmitting || !value.trim()}
                         className="px-4 py-2 font-medium rounded-lg text-white shadow-sm transition-colors focus:ring-2 focus:ring-offset-1 outline-none bg-[var(--gnosi-blue)] hover:opacity-90 focus:ring-[var(--gnosi-blue)]/50 disabled:opacity-50"
                     >
-                        {isSubmitting ? '...' : t('common.save', 'Desar')}
+                        {isSubmitting ? '...' : t('common.save', "Save")}
                     </button>
                 </div>
             </div>
@@ -649,10 +649,10 @@ export const VaultSidebar = ({
         const list = Array.isArray(favoritePages) ? [...favoritePages] : [];
         const { mode, manualOrder } = favoritesSort;
         if (mode === 'alpha-asc') {
-            return list.sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title), 'ca', { sensitivity: 'base' }));
+            return list.sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title), 'en', { sensitivity: 'base' }));
         }
         if (mode === 'alpha-desc') {
-            return list.sort((a, b) => sortKey(b.title).localeCompare(sortKey(a.title), 'ca', { sensitivity: 'base' }));
+            return list.sort((a, b) => sortKey(b.title).localeCompare(sortKey(a.title), 'en', { sensitivity: 'base' }));
         }
         if (mode === 'recent') {
             return list.sort((a, b) => String(b.last_modified || '').localeCompare(String(a.last_modified || '')));
@@ -774,7 +774,7 @@ export const VaultSidebar = ({
         // NEVER inherited from the parent: a page without properties that hangs
         // off a DB row is still a WIKI page (cf. directive
         // vault_subpages_hierarchy.md — the row links it, but only real table
-        // members belong to DADES). Dashboard subpages do inherit (parent_id
+        // members belong to DATA). Dashboard subpages do inherit (parent_id
         // chain, memoized and cycle-proof): a dashboard's subpage renders in
         // the dashboard tree, not as loose wiki.
         const sectionCache = {};
@@ -980,7 +980,7 @@ export const VaultSidebar = ({
                 {onOpenDaily && (
                     <NavItem
                         icon={CalendarDays}
-                        label={t('sidebar.daily_note', 'Nota diària')}
+                        label={t('sidebar.daily_note', "Daily note")}
                         onClick={() => onOpenDaily()}
                         colorClass="text-emerald-500"
                     />
@@ -1003,7 +1003,7 @@ export const VaultSidebar = ({
                 {showTagsView && (
                     <NavItem
                         icon={Hash}
-                        label={t('sidebar.tags', 'Etiquetes')}
+                        label={t('sidebar.tags', "Tags")}
                         onClick={() => onNavigate('tags')}
                         isActive={currentView === 'tags'}
                         colorClass="text-amber-500"
@@ -1012,7 +1012,7 @@ export const VaultSidebar = ({
                 {isAdmin && (
                     <NavItem
                         icon={Trash2}
-                        label={t('sidebar.trash', 'Paperera')}
+                        label={t('sidebar.trash', "Trash")}
                         onClick={() => onNavigate('trash')}
                         isActive={currentView === 'trash'}
                         colorClass="text-[var(--text-secondary)]"
@@ -1034,7 +1034,7 @@ export const VaultSidebar = ({
                             <button
                                 onClick={(e) => { e.stopPropagation(); setIsFavoritesSortOpen((v) => !v); }}
                                 className="opacity-0 group-hover:opacity-100 p-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded transition-all"
-                                title={t('sidebar.favorites_sort', 'Ordena favorits')}
+                                title={t('sidebar.favorites_sort', "Sort favorites")}
                             >
                                 <ArrowUpDown size={12} />
                             </button>
@@ -1044,8 +1044,8 @@ export const VaultSidebar = ({
                                         { id: 'manual', label: t('sidebar.sort_manual', 'Manual (drag)'), icon: GripVertical },
                                         { id: 'alpha-asc', label: t('sidebar.sort_alpha_asc', 'A → Z'), icon: ArrowDownAZ },
                                         { id: 'alpha-desc', label: t('sidebar.sort_alpha_desc', 'Z → A'), icon: ArrowUpAZ },
-                                        { id: 'recent', label: t('sidebar.sort_recent', 'Més recents'), icon: Clock },
-                                        { id: 'oldest', label: t('sidebar.sort_oldest', 'Més antics'), icon: Clock },
+                                        { id: 'recent', label: t('sidebar.sort_recent', "Most recent"), icon: Clock },
+                                        { id: 'oldest', label: t('sidebar.sort_oldest', "Oldest"), icon: Clock },
                                     ].map(({ id, label, icon: Icon }) => (
                                         <button
                                             key={id}
@@ -1364,7 +1364,7 @@ export const VaultSidebar = ({
                                 ? 'opacity-60 hover:opacity-100 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
                                 : 'opacity-100 text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10 hover:bg-[var(--gnosi-primary)]/20'
                         }`}
-                        title={isWikiDragLocked ? t('sidebar.wiki_unlock', 'Desbloqueja per reordenar (drag&drop)') : t('sidebar.wiki_lock', 'Bloqueja l\'arrossegament')}
+                        title={isWikiDragLocked ? t('sidebar.wiki_unlock', "Unlock to reorder (drag&drop)") : t('sidebar.wiki_lock', "Lock dragging")}
                     >
                         {isWikiDragLocked ? <Lock size={12} /> : <Unlock size={12} />}
                     </button>

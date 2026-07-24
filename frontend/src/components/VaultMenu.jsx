@@ -83,7 +83,7 @@ export default function VaultMenu() {
                 <div data-vaultmenu style={{ position: 'fixed', left: pos.left, top: pos.top, zIndex: 4000, minWidth: 220,
                     background: 'var(--bg-primary)', border: '1px solid var(--settings-border)', borderRadius: 12, padding: 8,
                     boxShadow: '0 10px 34px rgba(0,0,0,0.28)' }}>
-                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', padding: '2px 8px 6px' }}>{t('sidebar.vault_menu_active', 'VAULT ACTIU')}</div>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, color: 'var(--text-tertiary)', padding: '2px 8px 6px' }}>{t('sidebar.vault_menu_active', "ACTIVE VAULT")}</div>
                     {vaults.map(v => (
                         <button key={v.id} onClick={() => !v.active && switchTo(v.id)} title={v.path}
                             style={{ ...itemBtn, cursor: v.active ? 'default' : 'pointer',
@@ -95,16 +95,16 @@ export default function VaultMenu() {
                     {creating ? (
                         <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
                             <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && create()} placeholder={t('settings.general.vault_name', 'Nom del vault')}
+                                onKeyDown={e => e.key === 'Enter' && create()} placeholder={t('settings.general.vault_name', "Vault name")}
                                 style={{ flex: 1, fontSize: '0.82rem', padding: '6px 8px', borderRadius: 8, border: '1px solid var(--settings-border)', background: 'var(--bg-primary)', color: 'var(--text-primary)' }} />
                             <button onClick={create} disabled={busy === 'create' || !newName.trim()} className="btn-gnosi-primary"
                                 style={{ padding: '6px 10px', borderRadius: 8, fontSize: '0.8rem' }}>
-                                {busy === 'create' ? <Loader size={12} className="animate-spin" /> : t('common.create', 'Crea')}
+                                {busy === 'create' ? <Loader size={12} className="animate-spin" /> : t('common.create', "Create")}
                             </button>
                         </div>
                     ) : (
                         <button onClick={() => setCreating(true)} style={{ ...itemBtn, cursor: 'pointer', color: 'var(--text-secondary)', marginTop: 2 }}>
-                            <Plus size={13} /> {t('sidebar.vault_menu_new', 'Nou vault')}
+                            <Plus size={13} /> {t('sidebar.vault_menu_new', "New vault")}
                         </button>
                     )}
                 </div>, document.body)}

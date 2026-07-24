@@ -140,10 +140,10 @@ class LearningLoop:
         content = read_directive.invoke({"topic": target_topic})
         
         if "Error:" in content:
-            return (False, f"No es pot actualitzar: directiva '{target_topic}' no trobada")
+            return (False, f"Cannot update: directive '{target_topic}' was not found")
         
         # Find the traps table and add new row
-        table_pattern = r'(\| Data \| Trampa \| Solució \|\n\|------|--------|---------|)'
+        table_pattern = r'(\| Date \| Pitfall \| Solution \|\n\|------|---------|----------|)'
         new_row = f"\n| {lesson.date} | {lesson.trap} | {lesson.solution} |"
         
         if re.search(table_pattern, content):
@@ -155,12 +155,12 @@ class LearningLoop:
             )
         else:
             # Table doesn't exist, add at the end
-            updated = content + f"\n\n## Trampes Descobertes\n\n| Data | Trampa | Solució |\n|------|--------|---------|{new_row}\n"
+            updated = content + f"\n\n## Discovered Pitfalls\n\n| Date | Pitfall | Solution |\n|------|---------|----------|{new_row}\n"
         
         # Update timestamp
         updated = re.sub(
-            r'\*Última actualització:.*\*',
-            f'*Última actualització: {datetime.now().strftime("%Y-%m-%d")}*',
+            r'\*Last updated:.*\*',
+            f'*Last updated: {datetime.now().strftime("%Y-%m-%d")}*',
             updated
         )
         

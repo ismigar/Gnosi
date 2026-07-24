@@ -17,10 +17,10 @@ export const ConfirmModal = ({
     // Localized fallbacks: callers may omit these props; default to i18n instead
     // of hardcoded Catalan so the dialog is never partially untranslated. `??`
     // (not `||`) so an explicit empty string from a caller is respected.
-    const resolvedTitle = title ?? t('common.confirm_action', 'Confirmar acció');
-    const resolvedMessage = message ?? t('common.confirm_action_msg', "N'estàs segur que vols procedir amb aquesta acció?");
-    const resolvedConfirmText = confirmText ?? t('common.confirm', 'Confirmar');
-    const resolvedCancelText = cancelText ?? t('common.cancel', 'Cancel·lar');
+    const resolvedTitle = title ?? t('common.confirm_action', "Confirm action");
+    const resolvedMessage = message ?? t('common.confirm_action_msg', "Are you sure you want to proceed with this action?");
+    const resolvedConfirmText = confirmText ?? t('common.confirm', "Confirm");
+    const resolvedCancelText = cancelText ?? t('common.cancel', "Cancel");
     const modalRef = useRef(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -85,7 +85,7 @@ export const ConfirmModal = ({
                         onClick={onClose}
                         disabled={isSubmitting}
                         className="gnosi-close-btn"
-                        aria-label={t('common.close', 'Tanca')}
+                        aria-label={t('common.close', "Close")}
                     >
                         <X />
                     </button>

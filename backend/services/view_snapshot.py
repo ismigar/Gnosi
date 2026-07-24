@@ -363,13 +363,13 @@ def sort_key(value: Any) -> str:
 
 
 def _collation_key(value: str) -> str:
-    """String comparison key that replicates the front-end's ``localeCompare('ca',
+    """String comparison key that replicates the front-end's ``localeCompare('en',
     {sensitivity: 'base'})``: folds diacritics (à→a, ç→c, ñ→n, ü→u…)
     and lowercases, so that accented characters sort by their
     BASE LETTER. Without this, the raw `.lower()` codepoint comparison
     put ALL values with an accented initial AFTER 'z' (à = U+00E0 >
     z = U+007A), and the snapshot sorted a Catalan/Spanish vault differently from the
-    main view (which does use localeCompare)."""
+    main view (which does use localeCompare). @language-example"""
     decomposed = unicodedata.normalize("NFKD", value)
     stripped = "".join(c for c in decomposed if not unicodedata.combining(c))
     return stripped.lower()
@@ -601,7 +601,7 @@ def _compare_field_values(a_raw: Any, b_raw: Any, direction: str = "asc") -> int
     - if both are NUMERIC (according to JS's ``parseFloat``), real numeric order
       (2 < 10, not "10" < "2").
     - otherwise, string fallback with ``_collation_key(sort_key(...))``, which folds
-      diacritics to the base letter to replicate the frontend's ``localeCompare('ca',
+      diacritics to the base letter to replicate the frontend's ``localeCompare('en',
       {sensitivity: 'base'})`` (à==a): accented characters sort by their
       base letter, not by codepoint (which would put them after 'z').
 

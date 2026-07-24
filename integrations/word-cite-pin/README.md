@@ -1,92 +1,89 @@
-# Gnosi Cite — fixar el panell als documents de Word
+# Gnosi Cite — pinning the Word task pane to documents
 
-Utilitat d'un sol fitxer que fa que el panell de **Gnosi Cite** torni a
-obrir-se sol cada cop que obres un document, sense haver de reinserir-lo a mà.
+This single-file utility makes the **Gnosi Cite** task pane reopen whenever a
+document opens, without manually inserting the add-in again.
 
-## El problema que resol
+## Problem
 
-Word a macOS no reté mai el botó del ribbon d'un add-in carregat per sideload:
-en tancar el programa desapareix i cal tornar-lo a inserir des de *Complements
-de desenvolupador*. El diagnòstic complet és a la directiva
-`word_addin_persistence.md`.
+Word on macOS does not retain the ribbon button of a sideloaded add-in. After
+Word closes, the button disappears and the add-in must be opened again from
+Developer Add-ins. See `word_addin_persistence.md` for the full diagnosis.
 
-Office té una funció (*autoopen*) que reobre sola un panell designat, i —
-cosa que ens va de cara — Microsoft la va retirar el 2026-03-02 per als
-add-ins de la Marketplace però **la va mantenir per als carregats per
-sideload**, que és el nostre cas.
+Office supports *autoopen*, which reopens a designated pane. Microsoft removed
+this behavior for Marketplace add-ins on 2026-03-02 but retained it for
+sideloaded add-ins.
 
-El parany és l'atribut `visibility` de `word/webextensions/taskpanes.xml`:
+The relevant attribute is `visibility` in
+`word/webextensions/taskpanes.xml`:
 
-| valor | comportament |
-|-------|--------------|
-| `0` | l'autoopen només actua **si l'add-in ja està instal·lat** al dispositiu — cosa que a macOS no passa mai amb un sideload. Circular: inútil. |
-| `1` | Word reparteix la referència de l'add-in **amb el document** i demana confiança un cop. Funciona. |
+| Value | Behavior |
+|-------|----------|
+| `0` | Autoopen works only when the add-in is already installed on the device. A macOS sideload never reaches that persistent installed state. |
+| `1` | Word distributes the add-in reference with the document and asks for trust once. This works. |
 
-`Office.context.document.settings` (Office.js) només sap escriure `0`. El `1`
-**només es pot posar per Open XML**, i és exactament el que fa aquest script.
+`Office.context.document.settings` can write only `0`. Writing `1` requires
+Open XML, which is exactly what this utility does.
 
-## Instal·lació de màquina (recomanat): `install.sh`
+## Machine installation: `install.sh`
 
-Amb el Word tancat:
+Quit Word completely, then run:
 
 ```bash
-./install.sh            # manifest → wef/ + fixa Normal.dotm
-./install.sh --status   # què hi ha instal·lat
-./install.sh --undo     # restaura Normal.dotm pre-Gnosi i retira el manifest
+./install.sh            # manifest → wef/ and patch Normal.dotm
+./install.sh --status   # inspect installed state
+./install.sh --undo     # restore pre-Gnosi Normal.dotm and remove the manifest
 ```
 
-Fixar `Normal.dotm` — la plantilla global de la qual Word clona cada
-document nou en blanc — fa que **cada document nou neixi marcat** i obri el
-panell sol (herència verificada el 2026-07-21 a Word per a Mac). La primera
-vegada Word demana confiança per al complement; després, res.
+Patching `Normal.dotm`, the global template Word clones for each blank
+document, means **every new document is born pinned** and opens the pane
+automatically. This inheritance was verified with Word for Mac on 2026-07-21.
+Word asks for trust the first time.
 
-L'instal·lador guarda la còpia pre-Gnosi com a `Normal.dotm.pre-gnosi` al
-costat de l'original, i `--undo` la restaura byte a byte.
+The installer stores the original template as `Normal.dotm.pre-gnosi` beside
+the active file. `--undo` restores it byte for byte.
 
-## Ús per document: `pin_taskpane.py`
+## Per-document use: `pin_taskpane.py`
 
-Per a documents **existents** (creats abans de fixar `Normal.dotm`, o rebuts
-de fora):
+Use the script for documents created before `Normal.dotm` was patched or
+received from elsewhere:
 
 ```bash
 python3 pin_taskpane.py document.docx
-python3 pin_taskpane.py ~/Tesi/*.docx          # accepta diversos
+python3 pin_taskpane.py ~/Thesis/*.docx
 python3 pin_taskpane.py document.docx --dry-run
 python3 pin_taskpane.py document.docx --undo
 ```
 
-Sense dependències: només la biblioteca estàndard de Python 3. Modifica el
-document al lloc i en desa una còpia `.bak` (desactivable amb `--no-backup`).
+It uses only the Python 3 standard library, modifies documents in place, and
+creates a `.bak` copy unless `--no-backup` is supplied. It is idempotent:
+running it again on an already pinned document changes nothing.
 
-És **idempotent**: tornar-lo a executar sobre un document ja fixat no fa res.
+The add-in `<Id>` and `<Version>` are read from
+`frontend/public/word-addin/manifest.xml`; they are not duplicated here.
 
-L'`<Id>` i la `<Version>` es llegeixen del manifest
-(`frontend/public/word-addin/manifest.xml`), no estan duplicats aquí.
+## Covered document states
 
-## Dos casos, tots dos coberts
+- If the document previously contained the add-in, its `webextension` parts
+  exist with `visibility="0"` and the script updates them.
+- If the document never contained the add-in, the script injects
+  `taskpanes.xml`, `webextension1.xml`, its `.rels`, the relationship in
+  `_rels/.rels`, and both `[Content_Types].xml` overrides.
 
-- **El document ja ha tingut el add-in inserit un cop**: les parts
-  `webextension` hi són amb `visibility="0"`; el script les actualitza.
-- **El document no l'ha tingut mai**: el script injecta les cinc peces que
-  calen — `taskpanes.xml`, `webextension1.xml`, el seu `.rels`, la relació a
-  `_rels/.rels` i els dos `Override` de `[Content_Types].xml`.
+The second result matches Word's canonical output except for the
+`<we:webextension>` element `id`. The script derives it from the add-in GUID
+instead of generating it randomly, making the operation idempotent. Nothing
+else in the package references that element ID.
 
-En el segon cas el resultat és canònicament idèntic al que escriu el Word pel
-seu compte, excepte l'atribut `id` de l'element `<we:webextension>`, que aquí
-es deriva del GUID de l'add-in en comptes de ser aleatori — és el que fa el
-script idempotent, i cap altra part del paquet el referencia.
+## Warnings
 
-## Avisos
-
-- **La versió viatja dins del document.** La referència `webextension` porta
-  la versió del manifest. Si puges la versió del manifest, torna a passar el
-  script pels documents perquè la referència no quedi enrere.
-- **Cal desar el document** perquè res d'això persisteixi: viu dins el fitxer,
-  no a la configuració del Word.
-- No recupera el botó global del ribbon: el que persisteix és el **panell**.
-- **LibreOffice esborra el fixat en desar** (verificat amb una ida i volta
-  `soffice --convert-to docx`: les tres parts `webextensions` desapareixen).
-  Si edites un `.docx` fixat amb el Writer i el deses, torna a passar-hi el
-  script. Al LibreOffice mateix no li cal res d'això: la seva extensió
-  `.oxt` (`integrations/libreoffice-cite/`) persisteix sola per disseny —
-  el problema de sessions és exclusiu del Word a macOS.
+- **The version travels inside the document.** After increasing the manifest
+  version, run the script again so document references do not lag behind.
+- **The document must be saved** because the state lives in the file, not in
+  Word preferences.
+- This does not restore the global ribbon button; it persists the **task
+  pane**.
+- **LibreOffice removes the pin when saving.** A verified
+  `soffice --convert-to docx` round trip removes the three `webextensions`
+  parts. Run the script again after editing a pinned `.docx` in Writer.
+  LibreOffice's own `.oxt` extension in `integrations/libreoffice-cite/`
+  persists by design; the session issue is specific to Word on macOS.

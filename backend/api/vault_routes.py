@@ -160,7 +160,7 @@ def get_p(key: str) -> Path:
         "VAULT": base,
         "ASSETS": base / "Assets",
         # (LIBRARY is resolved in get_p, BEFORE this dict: vault-first with
-        # fallback a la llegada germana — vegeu _library_roots/_resolve_library.)
+        # fallback to the sibling arrival — see _library_roots/_resolve_library.)
         "DATABASES": base / "BD",
         # The REGISTRY is now a file inside BD
         "REGISTRY": base / "BD" / "vault_db_registry.json",
@@ -226,7 +226,7 @@ def _clear_page_index_cache():
         _page_index_initialized.clear()
         global _last_vault_sync_time
         _last_vault_sync_time = 0.0
-        log.info("♻️ Page index cache cleared (forçant rebuild al següent accés).")
+        log.info("♻️ Page index cache cleared (forcing a rebuild on the next access).")
         # Without this, `_page_index_initialized[v_str]` stays True and the next
         # call to `_get_cached_page_entries` would silently return []
         # (it entered the fast path with the empty dict). By resetting the flag, the
@@ -939,7 +939,7 @@ def _store_icon_bytes(
     # Thumbnail generation has been moved to a background task on the route;
     # here the response leaves it as None (previously there was a block that referenced
     # `thumbnail_rel`, a variable that no longer exists → NameError when saving the
-    # icona).
+    # icon).
     response = {
         "url": f"/api/vault/assets/{icon_rel[len('Assets/') :]}",
         "path": icon_rel,
@@ -1449,7 +1449,7 @@ def refresh_view_snapshots(dry_run: bool = False) -> Dict[str, Any]:
     try:
         docs = _iter_linkable_page_documents()
     except Exception as e:
-        log.warning(f"refresh_view_snapshots: no s'ha pogut llistar el vault: {e}")
+        log.warning(f"refresh_view_snapshots: could not list the vault: {e}")
         return {"ok": False, "error": str(e), "scanned": 0, "changed": 0, "errors": 1}
 
     for file_path, metadata, _body, is_dashboard in docs:
@@ -1552,16 +1552,16 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
                     if _m:
                         recovered_id = _m.group(1).strip()
         except Exception as e:
-            log.warning(f"save_page_md: no s'ha pogut recuperar l'id de {file_path}: {e}")
+            log.warning(f"save_page_md: could not recover the id for {file_path}: {e}")
         metadata = dict(metadata or {})
         if recovered_id:
             metadata["id"] = recovered_id
             if not str(metadata.get("title") or "").strip():
                 metadata["title"] = recovered_title or file_path.stem
             log.error(
-                f"save_page_md: metadata SENSE 'id' per {file_path}; recuperat del disc "
-                f"({recovered_id}). Un caller perd el frontmatter — investigar "
-                f"(la nota NO s'ha corromput)."
+                f"save_page_md: metadata WITHOUT an id for {file_path}; recovered from disk "
+                f"({recovered_id}). A caller is dropping frontmatter; investigate "
+                f"(the note was NOT corrupted)."
             )
         else:
             _new_id = str(uuid.uuid4())
@@ -1569,8 +1569,8 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             if not str(metadata.get("title") or "").strip():
                 metadata["title"] = file_path.stem
             log.error(
-                f"save_page_md: metadata SENSE 'id' per {file_path} i no recuperable del "
-                f"disc; assignat id nou {_new_id} per no corrompre. Investigar el caller."
+                f"save_page_md: metadata WITHOUT 'id' for {file_path} and not recoverable from "
+                f"disk; assigned new id {_new_id} to avoid corruption. Investigate the caller."
             )
 
     _table = None
@@ -1595,7 +1595,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
             title_to_id=_link_index_unique_id_for_title,
         )
     except Exception as e:  # defensive: never block a save because of decoration
-        log.debug(f"decoració de relacions ha fallat per {file_path}: {e}")
+        log.debug(f"Relationship decoration failed for {file_path}: {e}")
     fm_meta = persist_sidecar_from(metadata, file_path)
     if not fm_meta:
         frontmatter = "---\n---\n"
@@ -1624,7 +1624,7 @@ def save_page_md(file_path: Path, metadata: dict, body: str) -> None:
         # still needs to find the fence.
         body = compact_view_fences(body)
     except Exception as e:  # defensive: never block a save because of the snapshot
-        log.debug(f"snapshot de vista ha fallat per {file_path}: {e}")
+        log.debug(f"View snapshot failed for {file_path}: {e}")
     safe_write_text(file_path, f"{frontmatter}\n{(body or '').lstrip()}")
 
 
@@ -2127,7 +2127,7 @@ def _delete_asset_files_for_page(
                 abs_path.relative_to(assets_root)  # raises ValueError if outside
             except (ValueError, OSError):
                 log.warning(
-                    f"Asset path traversal bloquejat: {rel!r} no és sota Assets/"
+                    f"Asset path traversal blocked: {rel!r} is not under Assets/"
                 )
                 continue
             if abs_path.is_file():
@@ -3492,7 +3492,7 @@ def _get_pages_for_table(table_id: str) -> List[PageInfo]:
         if not belongs and not resolved_elsewhere:
             # Metadata-based fallback for legacy notes outside a folder
             # registered (templates, old ones). Same criteria as
-            # `_resolve_table_id_from_context` (descarta "wiki").
+            # `_resolve_table_id_from_context` (excluding "wiki").
             metadata = entry.get("metadata") or {}
             md_tid = metadata.get("table_id") or metadata.get("database_table_id")
             if (
@@ -3780,7 +3780,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
     """Creates a new page with a UUID ID."""
     page_id = str(uuid.uuid4())
 
-    # Construir metadata inicial
+    # Build the initial metadata.
     metadata = request.metadata.copy()
     metadata = normalize_metadata_ids(metadata)
     metadata = normalize_table_context(metadata)
@@ -3789,7 +3789,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
         metadata, _ = to_storage_names(metadata, _table_for_meta)
         # Default option (config.default_option) for option fields: when
         # creating a record with the field empty, the default value is applied
-        # from the catalog (e.g. Estat → «Esborrany»). Never overwrites a value that
+        # from the catalog (for example, Status → Draft). Never overwrites a value that
         # arrives with the request.
         for _prop in _table_for_meta.get("properties") or []:
             if _prop.get("type") not in option_catalogs_service.OPTION_TYPES:
@@ -3920,7 +3920,7 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
         # Bidirectional sync: when creating a page with relation fields,
         # populate the INVERSE field of the referenced pages (old empty → all are
-        # altes). Background i defensiu.
+        # new relationships). Run in the background defensively.
         background_tasks.add_task(
             _propagate_relation_inverse,
             page_id, get_table_id(metadata), {}, _rel_new_snapshot,
@@ -4514,7 +4514,7 @@ async def set_plugins_state(request: PluginsUpdateRequest):
         if _llm_wiki_enabled(current) != _llm_wiki_enabled(requested_state):
             raise HTTPException(
                 status_code=409,
-                detail="El plugin LLM Wiki s'ha de canviar amb el seu cicle de vida confirmat.",
+                detail="The LLM Wiki plugin must be changed through its confirmed lifecycle.",
             )
         current["disabled"] = [str(x) for x in (request.disabled or [])]
         current["settings"] = request.settings if isinstance(request.settings, dict) else {}
@@ -4538,7 +4538,7 @@ async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Requ
         was_enabled = "llm-wiki" not in disabled
         if not payload.enabled and was_enabled and not payload.confirm_disable:
             raise LlmWikiAgentError(
-                "Cal confirmar la desactivació del plugin LLM Wiki perquè s'eliminarà el seu agent."
+                "Confirm disabling the LLM Wiki plugin because its agent will be removed."
             )
 
         agent_result = transition_agent(payload.enabled)
@@ -4576,7 +4576,7 @@ async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Requ
 
 # ---------------------------------------------------------------------------
 # THIRD-PARTY plugins (v2): manifest, permissions, and assets. See directive
-# `plugin_system.md` i serveis `plugin_system` / `plugin_sandbox`.
+# `plugin_system.md` and services `plugin_system` / `plugin_sandbox`.
 # ---------------------------------------------------------------------------
 class PluginPermissionsRequest(BaseModel):
     # List of permissions the user GRANTS to the plugin (subset of the
@@ -4685,9 +4685,9 @@ async def get_plugin_asset(plugin_id: str, asset_path: str):
         pdir = ps.plugin_dir(config_dir, plugin_id).resolve()
         target = (pdir / asset_path).resolve()
         if pdir not in target.parents:
-            raise HTTPException(status_code=400, detail="Ruta d'asset invàlida")
+            raise HTTPException(status_code=400, detail="Invalid asset path")
         if not target.exists() or not target.is_file():
-            raise HTTPException(status_code=404, detail="Asset no trobat")
+            raise HTTPException(status_code=404, detail="Asset not found")
         return target
 
     try:
@@ -4813,7 +4813,7 @@ async def install_from_catalog(request: CatalogInstallRequest):
             return pc.install_from_url(config_dir, request.url, request.sha256, request.signature)
         if request.id:
             return pc.install_catalog_entry(config_dir, request.id)
-        raise ps.PluginError("cal `id` o `url`")
+        raise ps.PluginError("`id` or `url` is required")
 
     try:
         # The download/extraction stays outside the lock (it can take seconds);
@@ -5139,7 +5139,7 @@ async def _materialize_if_online_only(file_path: Path, label: str = "") -> None:
     except OSError:
         pass  # no harm: the caller's retry loop already handles it.
     except Exception as e:
-        log.debug(f"Warmup proactiu falla per {label or file_path}: {e}")
+        log.debug(f"Proactive warmup failed for {label or file_path}: {e}")
 
 
 async def _ensure_materialized_or_503(p: Path, label: str = "") -> None:
@@ -5157,14 +5157,14 @@ async def _ensure_materialized_or_503(p: Path, label: str = "") -> None:
         return
     if not provider.is_online_only(p, st):
         return
-    log.info("☁️ Fitxer online-only en inserir (%s): materialitzant %s…", label, p.name)
+    log.info("☁️ Online-only file during insertion (%s): materializing %s…", label, p.name)
     ok = await provider.materialize(p)
     if not ok:
         raise HTTPException(
             status_code=503,
             detail=(
-                "El fitxer és online-only i no s'ha pogut baixar de OneDrive/iCloud. "
-                "Comprova que el servei de núvol està en marxa i torna-ho a provar."
+                "The file is online-only and could not be downloaded from OneDrive/iCloud. "
+                "Check that the cloud service is running and try again."
             ),
         )
 
@@ -5607,7 +5607,7 @@ def _pandoc_bin() -> str:
 async def format_citation(
     key: str,
     style: str = Query('apa'),
-    locale: str = Query('ca-AD'),
+    locale: str = Query('en-US'),
 ):
     """Renders an inline citation (a single citation key) as plain text.
 
@@ -5691,9 +5691,9 @@ async def format_citations(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="keys must be a list")
     keys: List[str] = [str(k).strip().lstrip('@') for k in raw_keys if str(k).strip()]
     if not keys:
-        return {"items": [], "style": str(payload.get('style') or 'apa'), "locale": str(payload.get('locale') or 'ca-AD')}
+        return {"items": [], "style": str(payload.get('style') or 'apa'), "locale": str(payload.get('locale') or 'en-US')}
     style = str(payload.get('style') or 'apa').strip()
-    locale = str(payload.get('locale') or 'ca-AD').strip()
+    locale = str(payload.get('locale') or 'en-US').strip()
 
     # CSL items: deduplicated by key (citeproc receives each item once, but
     # citations can repeat in the text — see below).
@@ -5790,7 +5790,7 @@ async def format_bibliography(payload: dict = Body(...)):
     """Renders the bibliography (list of entries) for the given citation
     keys. Designed for the Office Add-in.
 
-    Body: `{ keys: ["smith2020", "lee2021"], style: "apa", locale: "ca-AD" }`
+    Body: `{ keys: ["smith2020", "lee2021"], style: "apa", locale: "en-US" }`
     Response: `{ entries: ["Smith, J. (2020). ...", "Lee, A. (2021). ..."], style, locale }`
 
     Pandoc is invoked with `--nocite` so it generates the bibliography without
@@ -5803,7 +5803,7 @@ async def format_bibliography(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="keys must be a list")
     keys = [str(k).strip().lstrip('@') for k in keys if str(k).strip()]
     style = str(payload.get('style') or 'apa').strip()
-    locale = str(payload.get('locale') or 'ca-AD').strip()
+    locale = str(payload.get('locale') or 'en-US').strip()
 
     csl_items = await asyncio.to_thread(_build_csl_items_for_keys, keys)
     if not csl_items:
@@ -5870,7 +5870,7 @@ async def export_page(
     page_id: str,
     format: str = Query('docx', regex=r'^(docx|odt|html|pdf|tex|markdown)$'),
     csl: str = Query('apa'),
-    locale: str = Query('ca-AD'),
+    locale: str = Query('en-US'),
 ):
     """Exports a Vault page to the requested format with resolved citations.
 
@@ -6020,11 +6020,11 @@ async def export_page(
 # Metadata lookup by identifier (DOI / ISBN / arXiv / URL)
 # ---------------------------------------------------------------------------
 #
-# Endpoint to fill Recursos fields from external identifiers.
+# Endpoint to fill Resources fields from external identifiers.
 # Covers the three most common services for academic work:
 #
-#   - CrossRef (DOI)         — ~140M articles, JSON, no requereix API key
-#   - Open Library (ISBN)    — llibres, JSON, no API key
+#   - CrossRef (DOI)         — ~140M articles, JSON, no API key required
+#   - Open Library (ISBN)    — books, JSON, no API key
 #   - arXiv (arxiv id)       — scientific preprints, XML (parsed via stdlib)
 #   - HTML meta tags (URL)   — fallback for generic web pages
 #                              (Open Graph + Dublin Core + Schema.org)
@@ -6077,21 +6077,21 @@ def _crossref_to_recursos(work: dict) -> dict:
 
 
 def _openlibrary_to_recursos(book: dict) -> dict:
-    """Open Library → Recursos. Pipeline L3: normalitzador + mapper central."""
+    """Map Open Library data to Resources through the L3 normalizer and central mapper."""
     from backend.services.lookup_normalizers import openlibrary_to_zotero_item
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
     return zotero_item_to_recursos(openlibrary_to_zotero_item(book))
 
 
 def _arxiv_to_recursos(entry_xml: str) -> dict:
-    """arXiv Atom XML → Recursos. Pipeline L3: normalitzador + mapper central."""
+    """Map arXiv Atom XML to Resources through the L3 normalizer and central mapper."""
     from backend.services.lookup_normalizers import arxiv_to_zotero_item
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
     return zotero_item_to_recursos(arxiv_to_zotero_item(entry_xml))
 
 
 def _html_meta_to_recursos(html: str, url: str) -> dict:
-    """HTML meta tags → Recursos. Pipeline L3: normalitzador + mapper central."""
+    """Map HTML meta tags to Resources through the L3 normalizer and central mapper."""
     from backend.services.lookup_normalizers import html_meta_to_zotero_item
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
     return zotero_item_to_recursos(html_meta_to_zotero_item(html, url))
@@ -6164,7 +6164,7 @@ def _http_get_public(url: str, timeout: float = 8.0, max_redirects: int = 5) -> 
 # Without a `Citation Key` a Recursos page is not citable
 # (`recursosPageToCsl`/`_recursos_metadata_to_csl` return None). Every registration path
 # (lookup, import, PDF, web) must generate one. Better BibTeX-style format:
-# `<cognom><any>[<sufix>]`, p.ex. `murphy2017`, `murphy2017a` si col·lisiona.
+# `<surname><year>[<suffix>]`, for example `murphy2017`, `murphy2017a` on collision.
 # ---------------------------------------------------------------------------
 
 def _ck_norm(s: str) -> str:
@@ -6419,7 +6419,7 @@ def get_reference_table_id() -> Optional[str]:
                         except Exception:
                             pass
                     log.info(
-                        f"📚 Taula de referències auto-designada: {adopted} "
+                        f"📚 Automatically assigned references table: {adopted} "
                         f"({t.get('name')})"
                     )
                     return adopted
@@ -6467,7 +6467,7 @@ def ensure_reference_table_schema(table_id: str) -> int:
                 added += 1
         if added:
             save_registry(reg)
-            log.info(f"📚 Esquema de referències: +{added} columnes a {table_id}")
+            log.info(f"📚 References schema: +{added} columns in {table_id}")
     return added
 
 
@@ -6518,9 +6518,9 @@ async def set_reference_table(payload: dict = Body(...)):
     its citable schema. The user doesn't need to know anything about 'Citation Key'."""
     table_id = str((payload or {}).get("table_id") or "").strip()
     if not table_id:
-        raise HTTPException(status_code=400, detail="table_id és obligatori")
+        raise HTTPException(status_code=400, detail="table_id is required")
     if not _table_by_id(table_id):
-        raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
     added = ensure_reference_table_schema(table_id)
     _set_reference_table_id(table_id)
     _invalidate_cite_key_index()
@@ -6550,14 +6550,14 @@ async def create_reference_table(payload: dict = Body(default=None)):
 
 @router.delete("/reference-table", dependencies=[Depends(require_role("editor"))])
 async def clear_reference_table():
-    """Disables references (removes the designation). Doesn't delete any table."""
+    """Disable references without deleting any table."""
     _set_reference_table_id("")
     _invalidate_cite_key_index()
     return {"table_id": None, "configured": False}
 
 
 # ---------------------------------------------------------------------------
-# CERVELL (LLM Wiki) table designation. Mirrors the references-table pattern
+# BRAIN (LLM Wiki) table designation. Mirrors the references-table pattern
 # but persists PER-VAULT (`<vault>/.gnosi/llm_wiki.json`), not install-wide.
 # See directive `llm_wiki_cervell.md` and service `llm_wiki_config.py`.
 # ---------------------------------------------------------------------------
@@ -6653,8 +6653,8 @@ def _brain_role_tokens(role: str) -> set[str]:
 
 
 def _ensure_default_db_group() -> None:
-    """Guarantees the `gnosi_vault_db` databases entry so tables created under
-    it (e.g. the Cervell) show up in the sidebar, which groups by
+    """Guarantee the `gnosi_vault_db` databases entry so tables created under
+    it (for example, the Brain) show up in the sidebar, which groups by
     `registry.databases`. Folder "BD" — the Notion-clone convention — keeps the
     physical resolution VAULT/BD/<table.folder> unchanged (the disabled global
     bootstrap uses "Databases/Gnosi", which would MOVE existing tables)."""
@@ -6665,7 +6665,7 @@ def _ensure_default_db_group() -> None:
             return
         dbs.append({"id": "gnosi_vault_db", "name": "Gnosi Vault", "folder": "BD"})
         save_registry(reg)
-        log.info("🧠 Grup de BD `gnosi_vault_db` creat al registry (sidebar)")
+        log.info("🧠 Created the `gnosi_vault_db` database group in the sidebar registry")
 
 
 def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
@@ -6813,8 +6813,10 @@ def ensure_brain_source_relation(brain_table_id: str, source_table_id: str) -> s
 
 @router.get("/brain-table")
 async def get_brain_table():
-    """Status of the designated Cervell (LLM Wiki) table (for Settings and
-    the frontend's gating). Per-vault designation resolved in the active vault."""
+    """Return the designated Brain table status for Settings and UI gating.
+
+    Resolve the per-vault designation in the active vault.
+    """
     from backend.services import llm_wiki_config as bw
 
     cfg = bw.migrate_config()
@@ -6831,15 +6833,15 @@ async def get_brain_table():
 
 @router.post("/brain-table", dependencies=[Depends(require_role("editor"))])
 async def set_brain_table(payload: dict = Body(...)):
-    """Designates an existing table as the Cervell and guarantees its
-    knowledge schema (Tipus, Fonts, verification status, ...)."""
+    """Designate an existing table as the Brain and guarantee its
+    knowledge schema (note type, sources, verification status, and more)."""
     from backend.services import llm_wiki_config as bw
 
     table_id = str((payload or {}).get("table_id") or "").strip()
     if not table_id:
-        raise HTTPException(status_code=400, detail="table_id és obligatori")
+        raise HTTPException(status_code=400, detail="table_id is required")
     if not _table_by_id(table_id):
-        raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
     locale = str((payload or {}).get("ui_locale") or (payload or {}).get("language") or "en")
     _ensure_default_db_group()
     added = ensure_brain_table_schema(table_id, locale)
@@ -6863,8 +6865,7 @@ async def set_brain_table(payload: dict = Body(...)):
 
 @router.post("/brain-table/create", dependencies=[Depends(require_role("editor"))])
 async def create_brain_table(payload: dict = Body(default=None)):
-    """Creates a new Cervell table pre-seeded with the knowledge schema and
-    designates it."""
+    """Create and designate a new Brain table with the knowledge schema."""
     from backend.services import llm_wiki_config as bw
 
     locale = str((payload or {}).get("ui_locale") or (payload or {}).get("language") or "en")
@@ -6913,7 +6914,7 @@ async def create_brain_table(payload: dict = Body(default=None)):
 
 @router.delete("/brain-table", dependencies=[Depends(require_role("editor"))])
 async def clear_brain_table():
-    """Disables the Cervell (removes the designation). Doesn't delete any table."""
+    """Disable the Brain designation without deleting any table."""
     from backend.services import llm_wiki_config as bw
 
     bw.set_brain_table_id("")
@@ -7193,8 +7194,8 @@ async def create_standard_llm_wiki_brain(payload: dict = Body(default=None)):
 
 
 # ---------------------------------------------------------------------------
-# LLM Wiki (Cervell) ingest: the "Processar recurs" per-row action on the
-# references (Recursos) table. Async job (reader.py pattern). See directive
+# LLM Wiki (Brain) ingest: the per-row "Process resource" action on a configured
+# source table. It uses an asynchronous job (reader.py pattern). See directive
 # `llm_wiki_cervell.md` and service `llm_wiki.py`.
 # ---------------------------------------------------------------------------
 
@@ -7205,8 +7206,10 @@ LLM_WIKI_PROCESSED_COL = "Processat pel Cervell"
 
 
 def ensure_llm_wiki_column(reference_table_id: str) -> bool:
-    """Adds the `Processat pel Cervell` (date, system) column to the references
-    table if missing. Idempotent. Returns True if it added the column."""
+    """Add the `Processat pel Cervell` system date column when missing.
+
+    Return True when the column was added.
+    """
     if not reference_table_id:
         return False
     with registry_mutation():
@@ -7224,7 +7227,7 @@ def ensure_llm_wiki_column(reference_table_id: str) -> bool:
             "type": "date", "system": True,
         })
         save_registry(reg)
-        log.info("🧠 Columna «%s» afegida a la taula Recursos %s",
+        log.info("🧠 Column «%s» added to the Resources table %s",
                  LLM_WIKI_PROCESSED_COL, reference_table_id)
         return True
 
@@ -7239,8 +7242,7 @@ def _resource_processed_value(metadata: dict) -> str:
 
 
 def mark_resource_processed(page_id: str, date_str: str) -> bool:
-    """Writes the ingest date to a resource row's `Processat pel Cervell` column
-    (direct disk write; called from the ingest worker thread)."""
+    """Write the ingest date to the resource's `Processat pel Cervell` column."""
     path = find_page_path(page_id)
     if not path or not path.exists():
         return False
@@ -7418,7 +7420,7 @@ async def llm_wiki_lint(suggest: bool = Query(default=False)):
 
     brain_table_id = llm_wiki_config.get_brain_table_id()
     if not brain_table_id:
-        raise HTTPException(status_code=400, detail="No hi ha cap taula Cervell designada")
+        raise HTTPException(status_code=400, detail="No Brain table has been designated")
     source_ids = llm_wiki_config.get_source_table_ids()
     report = await asyncio.to_thread(llm_wiki_lint.run_lint, brain_table_id, source_ids)
     if suggest:
@@ -7455,7 +7457,7 @@ async def llm_wiki_reject_suggestion(suggestion_id: str):
 
     sug = await asyncio.to_thread(llm_wiki_suggestions.pop_suggestion, suggestion_id)
     if not sug:
-        raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
+        raise HTTPException(status_code=404, detail="Suggestion not found; it may already be resolved")
     return {"rejected": suggestion_id}
 
 
@@ -7466,7 +7468,7 @@ async def llm_wiki_dismiss_suggestion(suggestion_id: str):
     return await llm_wiki_reject_suggestion(suggestion_id)
 
 
-# --- Accessible editing of the Bústia (F6): pick-a-variant, dictation with
+# --- Accessible Inbox editing (F6): variant selection and dictation with
 # --- intent reconstruction, personal glossary. See `llm_wiki_assist.py`.
 
 @router.post("/llm-wiki/suggestions/{suggestion_id}/reformulate",
@@ -7477,12 +7479,12 @@ async def llm_wiki_reformulate(suggestion_id: str):
 
     sug = await asyncio.to_thread(llm_wiki_suggestions.get_suggestion, suggestion_id)
     if not sug:
-        raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
+        raise HTTPException(status_code=404, detail="Suggestion not found; it may be resolved")
     try:
         variants = await asyncio.to_thread(llm_wiki_assist.reformulate, sug)
     except Exception as exc:  # noqa: BLE001 — provider/auth/parse failures are all "AI unavailable" here
         log.warning(f"llm-wiki reformulate unavailable: {exc}")
-        raise HTTPException(status_code=503, detail="IA no disponible per reformular (revisa la clau d'API a Configuració → IA)")
+        raise HTTPException(status_code=503, detail="AI is unavailable for rewriting; check the API key in Settings → AI")
     return {"variants": variants}
 
 
@@ -7491,7 +7493,7 @@ async def llm_wiki_reformulate(suggestion_id: str):
 async def llm_wiki_dictate(suggestion_id: str, audio: UploadFile = File(...)):
     """Dictated edit for a suggestion: transcribe (faster-whisper) and
     reconstruct the intent with the note's context + personal glossary.
-    The result is a PROPOSAL («Volies dir…?») — the frontend never applies it
+    The result is a PROPOSAL ("Did you mean…?") — the frontend never applies it
     without the user's confirmation."""
     import tempfile
 
@@ -7499,13 +7501,13 @@ async def llm_wiki_dictate(suggestion_id: str, audio: UploadFile = File(...)):
 
     sug = await asyncio.to_thread(llm_wiki_suggestions.get_suggestion, suggestion_id)
     if not sug:
-        raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
+        raise HTTPException(status_code=404, detail="Suggestion not found; it may be resolved")
     if not transcription.is_available():
         raise HTTPException(status_code=503,
-                            detail="Transcripció no disponible (faster-whisper no instal·lat)")
+                            detail="Transcription is unavailable (faster-whisper is not installed)")
     data = await audio.read()
     if not data:
-        raise HTTPException(status_code=400, detail="Àudio buit")
+        raise HTTPException(status_code=400, detail="Empty audio")
     with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
         tmp.write(data)
         tmp_path = tmp.name
@@ -7519,7 +7521,7 @@ async def llm_wiki_dictate(suggestion_id: str, audio: UploadFile = File(...)):
     transcript = (result or {}).get("text") or ""
     if not transcript.strip():
         raise HTTPException(status_code=400,
-                            detail="No s'ha entès cap paraula del dictat; torna-ho a provar")
+                            detail="No words were understood from the dictation; try again")
     return await asyncio.to_thread(llm_wiki_assist.correct_dictation, sug, transcript)
 
 
@@ -7720,7 +7722,7 @@ def _pubmed_author_to_canonical(name: str) -> str:
 
 
 def _pubmed_to_recursos(doc: dict) -> dict:
-    """PubMed esummary → Recursos. Pipeline L3: normalitzador + mapper central."""
+    """Map a PubMed summary to Resources through the L3 normalizer and central mapper."""
     from backend.services.lookup_normalizers import pubmed_to_zotero_item
     from backend.services.zotero_to_recursos_mapper import zotero_item_to_recursos
     return zotero_item_to_recursos(pubmed_to_zotero_item(doc))
@@ -7767,7 +7769,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     }
             except json.JSONDecodeError:
                 pass
-        return {'source': 'crossref', 'identifier': doi, 'suggested': {}, 'error': 'CrossRef no ha retornat dades vàlides'}
+        return {'source': 'crossref', 'identifier': doi, 'suggested': {}, 'error': 'CrossRef returned no valid data'}
 
     if arxiv_id:
         body = await asyncio.to_thread(_http_get, f'http://export.arxiv.org/api/query?id_list={arxiv_id}')
@@ -7780,7 +7782,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     'suggested': sug,
                     'error': None,
                 }
-        return {'source': 'arxiv', 'identifier': arxiv_id, 'suggested': {}, 'error': 'arXiv no ha retornat dades'}
+        return {'source': 'arxiv', 'identifier': arxiv_id, 'suggested': {}, 'error': 'arXiv returned no data'}
 
     if pmid:
         body = await asyncio.to_thread(
@@ -7800,7 +7802,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     }
             except json.JSONDecodeError:
                 pass
-        return {'source': 'pubmed', 'identifier': pmid, 'suggested': {}, 'error': 'PubMed no ha retornat dades'}
+        return {'source': 'pubmed', 'identifier': pmid, 'suggested': {}, 'error': 'PubMed returned no data'}
 
     if isbn:
         body = await asyncio.to_thread(
@@ -7820,7 +7822,7 @@ async def lookup_metadata(payload: dict = Body(...)):
                     }
             except json.JSONDecodeError:
                 pass
-        return {'source': 'openlibrary', 'identifier': isbn, 'suggested': {}, 'error': "Open Library no té dades per a aquest ISBN"}
+        return {'source': 'openlibrary', 'identifier': isbn, 'suggested': {}, 'error': "Open Library has no data for this ISBN"}
 
     if url and url.startswith(('http://', 'https://')):
         # User-supplied URL: fetch through the SSRF-hardened helper.
@@ -7862,7 +7864,7 @@ def _extract_text_from_pdf(data: bytes, max_pages: int = 5) -> str:
     try:
         from pypdf import PdfReader
     except ImportError:
-        log.warning("pypdf no instal·lat: reconeixement de PDF desactivat")
+        log.warning("pypdf not installed: PDF recognition disabled")
         return ""
     import io
     try:
@@ -8023,15 +8025,15 @@ async def recognize_pdf(file: UploadFile = File(...)):
         return {"identifiers": ids, "source": "pdf",
                 "suggested": _normalize_suggested_item_type(fallback), "error": None}
     return {"identifiers": ids, "source": None, "suggested": {},
-            "error": "No s'ha pogut extreure cap metadada del PDF"}
+            "error": "Could not extract any metadata from the PDF"}
 
 
 # ---------------------------------------------------------------------------
-# Captura web (P2) — Zotero translation-server (sidecar Docker).
+# Web capture (P2) — Zotero translation-server.
 # ---------------------------------------------------------------------------
 
 def _zotero_creators_to_authors(creators) -> str:
-    """Creators (Zotero format) → `"Cognom, Nom; …"` string from Recursos."""
+    """Map Zotero creators to a `"Surname, Name; …"` Resources string."""
     parts = []
     for c in creators or []:
         if not isinstance(c, dict) or (c.get('creatorType') or 'author') != 'author':
@@ -8118,7 +8120,7 @@ async def translate_url(payload: dict = Body(...)):
     items = [it for it in items if it]
     if not items:
         return {'source': 'web', 'identifier': url, 'suggested': {},
-                'error': "No s'ha pogut extreure cap referència de la URL"}
+                'error': "Could not extract any reference from the URL"}
 
     suggested = _normalize_suggested_item_type(_inject_citation_key(items[0]))
     if not suggested.get('URL'):
@@ -8219,12 +8221,12 @@ async def import_references(
         return {"created": 0, "skipped": 0, "items": [], "skipped_details": [],
                 "skipped_keys": [], "skip_summary": {},
                 "errors": [], "format": detected,
-                "message": "No s'ha trobat cap referència al fitxer"}
+                "message": "No references were found in the file"}
 
     registry = load_registry()
     table = next((t for t in registry.get('tables', []) if t.get('id') == table_id), None)
     if not table:
-        raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+        raise HTTPException(status_code=404, detail=f"Table {table_id} not found")
 
     # Write-space normalization: parsed entries carry canonical Zotero keys
     # ('book'); the vault stores the TARGET table's catalog labels ('Llibre').
@@ -8272,7 +8274,7 @@ async def import_references(
             add_to_indexes(e, ck, dedup)
             vault_keys.add(ck)
         except Exception as ex:
-            log.warning(f"import-references: entrada fallida ({e.get('Title')}): {ex}")
+            log.warning(f"import-references: failed entry ({e.get('Title')}): {ex}")
             errors.append({"title": e.get('Title'), "error": str(ex)})
 
     _invalidate_cite_key_index()
@@ -8542,7 +8544,7 @@ async def bulk_update_metadata(payload: dict = Body(...)):
                 with _body_cache_lock:
                     _body_cache.pop(str(fp), None)
             except Exception as exc:
-                log.debug(f"bulk-update: refresc d'índex fallit per {pid}: {exc}")
+                log.debug(f"bulk-update: index refresh failed for {pid}: {exc}")
             return ('ok', file_etag(fp))
         except (OSError, ValueError) as e:
             return ('error', str(e))
@@ -8690,7 +8692,7 @@ async def search_citations(q: str = "", limit: int = 30):
         blob = _fold_accents(entry.get("search"))
         score = -1
         if ck.startswith(query):
-            score = 100 - len(ck)  # prefer curtes
+            score = 100 - len(ck)  # Prefer shorter keys.
         elif title.startswith(query):
             score = 70 - len(title) // 10
         elif query in ck:
@@ -8855,7 +8857,7 @@ async def resolve_by_citation_key(key: str):
     return {"id": None, "title": None, "folder": None, "citation_key": key_norm}
 
 
-# Cache citation_key → {id, title, folder, citation_key}. Es reconstrueix
+# Cache citation_key → {id, title, folder, citation_key}. Rebuild it
 # (or invalidates) when the page_index changes or when some PATCH touches the field
 # `Citation Key`. For simplicity, we now do a lazy rebuild on first use
 # and when `_page_index_entries` has changed size (heuristic — not
@@ -9256,7 +9258,7 @@ class _BulkWarmPayload(BaseModel):
 
 
 # Per-item timeout inside the bulk warmup. Covers pathological cases where
-# `materialize` o `read_text` es queden penjats (OneDrive lock, FUSE hang,
+# `materialize` or `read_text` can hang (OneDrive lock, FUSE hang,
 # etc.) without stopping the whole batch. The daemon already has its own timeout
 # (ONEDRIVE_WARMUP_TIMEOUT, default 90s); this is its upper bound at
 # the backend coordination level.
@@ -9398,9 +9400,9 @@ async def save_page(
                 detail={
                     "error": "etag_mismatch",
                     "message": (
-                        "El fitxer s'ha modificat des que el vas obrir "
-                        "(probablement sincronització des d'un altre dispositiu). "
-                        "Recarrega o reenvia amb force=true per sobreescriure."
+                        "The file has changed since you opened it, probably because "
+                        "another device synchronized it. Reload it or resend with "
+                        "force=true to overwrite it."
                     ),
                     "current_etag": current,
                     "expected_etag": request.expected_etag,
@@ -9629,8 +9631,8 @@ async def patch_page(
             detail={
                 "error": "etag_mismatch",
                 "message": (
-                    "El fitxer s'ha modificat des que el vas obrir. "
-                    "Recarrega o reenvia amb force=true per sobreescriure."
+                    "The file has changed since you opened it. Reload it or "
+                    "resend with force=true to overwrite it."
                 ),
                 "current_etag": current_etag,
                 "expected_etag": expected_etag,
@@ -9672,7 +9674,7 @@ async def patch_page(
 
         content = request.content if request.content is not None else body
 
-        # Normalitzar IDs legacy
+        # Normalize legacy IDs.
         metadata = normalize_metadata_ids(metadata)
         metadata = normalize_table_context(metadata)
         if metadata.get("is_dashboard") is True:
@@ -9687,7 +9689,7 @@ async def patch_page(
 
         # Move if type changes (template / non-template)
         file_path = ensure_correct_page_location(file_path, metadata)
-        # NOTA: NO cridem `_ensure_page_extension` per a dashboards. La regla
+        # NOTE: Do NOT call `_ensure_page_extension` for dashboards. The rule
         # of the project is "pages (including dashboards) are always Markdown";
         # changing the extension to `.json` when `is_dashboard=True` is the bug that
         # broke Bitàcora. The function is kept in the code to still read
@@ -9695,7 +9697,7 @@ async def patch_page(
         if request.title is not None:
             file_path = _rename_page_file_to_match_title(file_path, request.title)
 
-        # Rule engine + persist assets + escriptura. `original_metadata_snapshot`
+        # Rule engine + asset persistence + writing. `original_metadata_snapshot`
         # captured at the start already saves a file read; the
         # `process_updates` runs on the thread pool because it could invoke
         # CPU-heavy formulas on tables with rules.
@@ -9948,7 +9950,7 @@ def _move_page_to_trash(page_id: str, file_path: Path) -> Dict[str, Any]:
         table_id = page_meta.get("table_id") or page_meta.get("database_table_id")
         original_parent_id = page_meta.get("parent_id")
     except Exception as meta_exc:
-        log.warning(f"No s'ha pogut llegir frontmatter per {page_id}: {meta_exc}")
+        log.warning(f"Could not read frontmatter for {page_id}: {meta_exc}")
 
     # `original_path` is relative to the Vault root because the absolute path
     # changes between machines (OneDrive at /Users/x vs /Users/y).
@@ -10140,7 +10142,7 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
                 or _purged_meta.get("database_table_id")
             )
     except Exception as exc:
-        log.debug(f"purge: no s'han pogut llegir les relacions de {page_id}: {exc}")
+        log.debug(f"purge: could not read relationships for {page_id}: {exc}")
 
     shutil.rmtree(entry_dir)
 
@@ -10151,7 +10153,7 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
         try:
             _propagate_relation_inverse(page_id, _purged_table_id, _purged_meta, {})
         except Exception as exc:
-            log.debug(f"purge: neteja de relacions inverses fallida per {page_id}: {exc}")
+            log.debug(f"purge: inverse relationship cleanup failed for {page_id}: {exc}")
 
     # Clean up the internal metadata sidecar: if it were left orphaned, it wouldn't hurt, but it's
     # better to purge it for consistency. The page is no longer recoverable.
@@ -10160,7 +10162,7 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
         if vault_root:
             delete_sidecar_for_page(vault_root, page_id)
     except Exception as exc:
-        log.debug(f"No s'ha pogut purgar el page_meta sidecar de {page_id}: {exc}")
+        log.debug(f"Could not purge the page_meta sidecar for {page_id}: {exc}")
     # Purge = PERMANENT deletion: also remove the traces that used to remain
     # orphaned forever (audited on the real vault: 158 history directories from
     # already-purged pages, with the FULL CONTENT inside — the user believes that
@@ -10172,20 +10174,20 @@ def _purge_trash_entry(page_id: str) -> Dict[str, Any]:
         if history_dir.exists():
             shutil.rmtree(history_dir)
     except Exception as exc:
-        log.debug(f"No s'ha pogut purgar l'historial de {page_id}: {exc}")
+        log.debug(f"Could not purge history for {page_id}: {exc}")
     try:
         data = _load_comments()
         if page_id in data:
             data.pop(page_id, None)
             _save_comments(data)
     except Exception as exc:
-        log.debug(f"No s'han pogut purgar els comentaris de {page_id}: {exc}")
+        log.debug(f"Could not purge comments for {page_id}: {exc}")
     try:
         inline_path = _inline_comments_path(page_id)
         if inline_path.exists():
             inline_path.unlink()
     except Exception as exc:
-        log.debug(f"No s'han pogut purgar els inline comments de {page_id}: {exc}")
+        log.debug(f"Could not purge inline comments for {page_id}: {exc}")
     return {"id": page_id, "freed_bytes": freed_bytes}
 
 
@@ -10460,7 +10462,7 @@ async def empty_trash():
                 failed += 1
                 failed_ids.append(entry_dir.name)
                 log.warning(
-                    f"Purga fallida en buidar la paperera per {entry_dir.name}: {exc}"
+                    f"Purge failed while emptying the trash for {entry_dir.name}: {exc}"
                 )
         return {
             "purged_count": purged,
@@ -10472,7 +10474,7 @@ async def empty_trash():
     try:
         result = await asyncio.to_thread(_empty_all)
     except Exception as e:
-        log.error(f"Error buidant la paperera: {e}")
+        log.error(f"Error emptying trash: {e}")
         raise HTTPException(
             status_code=500, detail=safe_error_detail(e, "DELETE /trash")
         )
@@ -10537,7 +10539,7 @@ def purge_expired_trash(now: Optional[datetime] = None) -> Dict[str, Any]:
             purged += 1
             freed += int(res.get("freed_bytes") or 0)
         except Exception as exc:
-            log.warning(f"Purga fallida per {entry_dir.name}: {exc}")
+            log.warning(f"Purge failed for {entry_dir.name}: {exc}")
             skipped += 1
     return {"purged_count": purged, "freed_bytes": freed, "skipped": skipped}
 
@@ -10853,7 +10855,7 @@ async def upload_media(
 @router.patch("/media/metadata", dependencies=[Depends(require_role("editor"))])
 async def update_media_metadata(
     metadata: Dict[str, Any] = Body(..., description="{tags?: string[], description?: string}"),
-    path_in_root: Optional[str] = Body(None, description="Path relatiu al root (preferent)"),
+    path_in_root: Optional[str] = Body(None, description="Path relative to the root (preferred)"),
     root: str = Body("images"),
     # Compat with old calls (filename + album); reconstructs the path.
     filename: Optional[str] = Body(None),
@@ -10871,11 +10873,11 @@ async def update_media_metadata(
     resolved = path_in_root
     if not resolved:
         if not filename:
-            raise HTTPException(status_code=400, detail="Cal `path_in_root` o `filename`")
+            raise HTTPException(status_code=400, detail="`path_in_root` or `filename` is required")
         resolved = f"{album}/{filename}" if album else filename
     success = media_service.update_metadata(resolved, metadata, root=root)
     if not success:
-        raise HTTPException(status_code=500, detail="Error de persistència")
+        raise HTTPException(status_code=500, detail="Persistence error")
     return {"status": "ok"}
 
 
@@ -10986,16 +10988,16 @@ async def serve_vault_image(image_path: str):
     try:
         # is_relative_to is available in Python 3.9+
         if not requested.is_relative_to(img_root):
-            log.warning(f"⛔ Intent d'accés fora del root de media: {requested} (root: {img_root})")
+            log.warning(f"⛔ Attempted access outside the media root: {requested} (root: {img_root})")
             raise _image_error(403, "Access denied")
     except (ValueError, AttributeError):
         # Fallback for earlier versions or resolution errors
         if not str(requested).startswith(str(img_root)):
-            log.warning(f"⛔ Fallback startswith: Accés denegat per a {requested}")
+            log.warning(f"⛔ Fallback startswith: access denied for {requested}")
             raise _image_error(403, "Access denied")
 
     if not requested.exists() or not requested.is_file():
-        log.error(f"❌ Imatge no trobada al disc: {requested}")
+        log.error(f"❌ Image not found on disk: {requested}")
         raise _image_error(404, "Image not found")
 
     # Detection of OneDrive online-only files: logical size > 0 but st_blocks == 0
@@ -11005,11 +11007,11 @@ async def serve_vault_image(image_path: str):
     try:
         st = requested.stat()
     except OSError as e:
-        log.warning(f"stat() ha fallat per {requested}: {e}")
+        log.warning(f"stat() failed for {requested}: {e}")
         raise _image_error(503, "Image temporarily unavailable")
 
     if st.st_size == 0:
-        log.warning(f"☁️ Fitxer placeholder detectat (0 bytes): {requested}. Cal descarregar-lo de OneDrive.")
+        log.warning(f"☁️ Placeholder file detected (0 bytes): {requested}. Download it from OneDrive.")
         raise _image_error(404, "Image is an empty placeholder (OneDrive)")
 
     provider = get_files_provider()
@@ -11020,7 +11022,7 @@ async def serve_vault_image(image_path: str):
         # background and we respond with 503 immediately; the client (RetryableImage)
         # retries with backoff until a request finds the file already on disk.
         provider.schedule_warmup(requested)
-        log.info(f"☁️ Warmup en segon pla engegat per {requested} (503 pending)")
+        log.info(f"☁️ Background warmup started for {requested} (503 pending)")
         raise _image_error(503, "Image warming up; retry shortly", retry_after=3)
 
     async with _VAULT_IMAGE_SEMAPHORE:
@@ -11043,7 +11045,7 @@ async def serve_vault_image(image_path: str):
 
         if last_error is not None:
             log.warning(
-                f"☁️ Lectura fallida després de retries per {requested}: "
+                f"☁️ Read failed after retries for {requested}: "
                 f"{last_error}{_onedrive_read_failure_hint(last_error)}"
             )
             raise _image_error(503, "Image temporarily unavailable")
@@ -11107,7 +11109,7 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
     try:
         st = requested.stat()
     except OSError as e:
-        log.warning(f"stat() ha fallat per {requested}: {e}")
+        log.warning(f"stat() failed for {requested}: {e}")
         raise HTTPException(status_code=503, detail="File temporarily unavailable")
 
     if st.st_size == 0:
@@ -11119,10 +11121,10 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
         try:
             st = requested.stat()
         except OSError as e:
-            log.warning(f"stat() post-warmup ha fallat per {requested}: {e}")
+            log.warning(f"stat() failed after warmup for {requested}: {e}")
             raise HTTPException(status_code=503, detail="File temporarily unavailable")
         if provider.is_online_only(requested, st):
-            log.warning(f"☁️ Fitxer online-only encara no descarregat: {requested}")
+            log.warning(f"☁️ Online-only file has not been downloaded yet: {requested}")
             raise HTTPException(status_code=503, detail="File temporarily unavailable; warmup pending")
 
     async with _VAULT_IMAGE_SEMAPHORE:
@@ -11142,7 +11144,7 @@ async def _serve_file_with_containment(root_dir: Path, rel_path: str) -> FileRes
 
         if last_error is not None:
             log.warning(
-                f"☁️ Lectura fallida després de retries per {requested}: "
+                f"☁️ Read failed after retries for {requested}: "
                 f"{last_error}{_onedrive_read_failure_hint(last_error)}"
             )
             raise HTTPException(status_code=503, detail="File temporarily unavailable")
@@ -11279,7 +11281,7 @@ def _container_to_host_path(container_path: Path) -> Optional[str]:
                 return str(Path(vaults_root_host) / rel)
             except ValueError:
                 pass
-        resolved = container_path.resolve()  # col·lapsa `..` i symlinks
+        resolved = container_path.resolve()  # Collapses `..` and symlinks.
         for env_key in ("HOME_HOST_PATH",):
             root = os.environ.get(env_key)
             if not root or not root.rstrip("/"):
@@ -11329,7 +11331,7 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
     try:
         st = requested.stat()
     except OSError as e:
-        log.warning(f"stat() ha fallat per {requested}: {e}")
+        log.warning(f"stat() failed for {requested}: {e}")
         return _thumb_no_store(503, "File temporarily unavailable")
 
     provider = get_files_provider()
@@ -11358,7 +11360,7 @@ async def serve_thumb(rel_url: str, size: int = 256, v: Optional[str] = None):
                 params={"path": host_path, "size": size},
             )
     except Exception as e:
-        log.warning(f"Thumb daemon no accessible per {requested}: {e!r}")
+        log.warning(f"Thumb daemon inaccessible for {requested}: {e!r}")
         return _thumb_no_store(503, "Thumb daemon unavailable")
 
     if r.status_code != 200:
@@ -11440,7 +11442,7 @@ def _load_local_links() -> Dict[str, str]:
         with open(f_path, "r", encoding="utf-8") as f:
             return json.load(f) or {}
     except (OSError, json.JSONDecodeError) as e:
-        log.warning(f"No es pot llegir {f_path}: {e}")
+        log.warning(f"Could not read {f_path}: {e}")
         return {}
 
 
@@ -11453,7 +11455,7 @@ def _save_local_links(mapping: Dict[str, str]) -> None:
             json.dump(mapping, f, indent=2, ensure_ascii=False)
         tmp.replace(f_path)
     except OSError as e:
-        log.error(f"No es pot persistir local-links a {f_path}: {e}")
+        log.error(f"Could not persist local links to {f_path}: {e}")
 
 
 @router.post("/local-file/register", dependencies=[Depends(require_role("editor"))])
@@ -11563,14 +11565,14 @@ async def serve_local_file(token: str, filename: str | None = None):
             try:
                 st = p.stat()
             except OSError as e:
-                log.warning(f"stat() post-warmup ha fallat per {p}: {e}")
+                log.warning(f"stat() failed after warmup for {p}: {e}")
                 raise HTTPException(
                     status_code=503,
                     detail="Local file temporarily unavailable",
                     headers={"Cache-Control": "no-store, must-revalidate"},
                 )
             if provider.is_online_only(p, st):
-                log.warning(f"☁️ Local file encara online-only després del warmup: {p}")
+                log.warning(f"☁️ Local file is still online-only after warmup: {p}")
                 raise HTTPException(
                     status_code=503,
                     detail="Local file warmup pending; try again",
@@ -11579,7 +11581,7 @@ async def serve_local_file(token: str, filename: str | None = None):
     except HTTPException:
         raise
     except Exception as e:
-        log.debug(f"Warmup proactiu per {p} ha fallat: {e}")
+        log.debug(f"Proactive warmup failed for {p}: {e}")
         # We continue regardless: the next step (1-byte probe) will handle
         # any read error with backoff.
 
@@ -11599,7 +11601,7 @@ async def serve_local_file(token: str, filename: str | None = None):
                 continue
             break
     if last_error is not None:
-        log.warning(f"☁️ Local file no llegible després del warmup: {p} ({last_error})")
+        log.warning(f"☁️ Local file is unreadable after warmup: {p} ({last_error})")
         raise HTTPException(
             status_code=503,
             detail="Local file temporarily unavailable; try again",
@@ -11910,8 +11912,8 @@ async def link_existing_file(body: dict):
                 # ORIGINAL. Moreover, renaming a file from the user's general OneDrive
                 # (outside the Vault) would be intrusive — better not to touch it.
                 log.warning(
-                    f"link-existing-file: no s'ha pogut reanomenar "
-                    f"{p} → {desired} ({e}); s'enllaça amb el nom original."
+                    f"link-existing-file: could not rename "
+                    f"{p} → {desired} ({e}); linking with the original name."
                 )
 
     # PORTABLE value to save in the field (independent of the Mac username;
@@ -12031,7 +12033,7 @@ async def delete_physical_file(body: dict):
             raise HTTPException(status_code=404, detail=f"File not found: {resolved.name}")
         ok, detail = _try_host_trash_helper(str(resolved))
         if not ok:
-            raise HTTPException(status_code=502, detail=f"No s'ha pogut moure a la Paperera: {detail}")
+            raise HTTPException(status_code=502, detail=f"Could not move the file to Trash: {detail}")
         if token_to_clear:
             with _LOCAL_LINKS_LOCK:
                 mapping = _load_local_links()
@@ -12106,7 +12108,7 @@ async def pick_file():
         'tell application "System Events"\n'
         '  activate\n'
         'end tell\n'
-        'set chosen to choose file with prompt "Selecciona el fitxer a enllaçar"\n'
+        'set chosen to choose file with prompt "Select the file to link"\n'
         'return POSIX path of chosen'
     )
     try:
@@ -12333,7 +12335,7 @@ def _compute_id_title_index() -> Dict[str, str]:
             title = str(metadata.get("title") or file_path.stem)
             index[page_id] = title
         except Exception as e:
-            log.warning(f"Error indexant {file_path.name}: {e}")
+            log.warning(f"Error indexing {file_path.name}: {e}")
     return index
 
 
@@ -12456,7 +12458,7 @@ def _save_body_cache_to_disk() -> None:
                 for path, (mt, bd) in _body_cache.items()
             }
         safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
-        log.info(f"💾 body-cache desat ({len(payload)} fitxers)")
+        log.info(f"💾 Body cache saved ({len(payload)} files)")
     except Exception as e:
         log.warning(f"body-cache persist failed: {e}")
 
@@ -12503,7 +12505,7 @@ def _load_body_cache_from_disk() -> bool:
                     bd = val.get("body") or ""
                     if mt and bd:
                         _body_cache[path] = (mt, bd)
-        log.info(f"📂 body-cache carregat del disc ({len(_body_cache)} fitxers)")
+        log.info(f"📂 Body cache loaded from disk ({len(_body_cache)} files)")
         return True
     except Exception as e:
         log.warning(f"body-cache load failed: {e}")
@@ -12612,8 +12614,8 @@ def _save_parsed_doc_cache_to_disk() -> None:
                 continue
             payload[path] = {"mtime_ns": mtime_ns, "metadata": metadata, "body": body}
         safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
-        suffix = f", {skipped} omesos" if skipped else ""
-        log.info(f"💾 parsed-doc-cache desat ({len(payload)} fitxers{suffix})")
+        suffix = f", {skipped} skipped" if skipped else ""
+        log.info(f"💾 Parsed-document cache saved ({len(payload)} files{suffix})")
     except Exception as e:
         log.warning(f"parsed-doc-cache save failed: {e}")
 
@@ -12661,7 +12663,7 @@ def _load_parsed_doc_cache_from_disk() -> bool:
                 if mt and isinstance(metadata, dict):
                     _parsed_doc_cache[path] = (mt, metadata, body)
         log.info(
-            f"📂 parsed-doc-cache carregat del disc ({len(_parsed_doc_cache)} fitxers)"
+            f"📂 Parsed-document cache loaded from disk ({len(_parsed_doc_cache)} files)"
         )
         return True
     except Exception as e:
@@ -12823,7 +12825,7 @@ def _save_link_index_to_disk() -> None:
                 "meta": dict(_page_meta_by_id),
             }
         safe_write_json(cache_path, payload, indent=None, ensure_ascii=False)
-        log.info(f"💾 link-index cache saved ({len(payload['meta'])} pàgines)")
+        log.info(f"💾 Link-index cache saved ({len(payload['meta'])} pages)")
     except Exception as e:
         log.error(f"❌ Error saving link-index cache: {e}")
 
@@ -12840,7 +12842,7 @@ def _load_link_index_from_disk() -> bool:
             return False
         data = json.loads(cache_path.read_text(encoding="utf-8"))
         if data.get("schema_version") != _LINK_INDEX_SCHEMA_VERSION:
-            log.info("link-index cache schema mismatch — ignorant")
+            log.info("Link-index cache schema mismatch; ignoring it")
             return False
         outlinks_raw = data.get("outlinks") or {}
         outlink_kinds_raw = data.get("outlink_kinds") or {}
@@ -12864,7 +12866,7 @@ def _load_link_index_from_disk() -> bool:
             _link_index_build_ts = float(data.get("built_ts") or time.time())
             _link_index_source_count = len(_page_meta_by_id)
 
-        log.info(f"📂 link-index loaded from disk ({_link_index_source_count} pàgines)")
+        log.info(f"📂 Link index loaded from disk ({_link_index_source_count} pages)")
         return True
     except Exception as e:
         log.error(f"❌ Error loading link-index cache: {e}")
@@ -13107,7 +13109,7 @@ def _rebuild_link_index(persist: bool = True) -> None:
 
     log.info(
         f"🔗 link-index built in {time.time() - started:.2f}s "
-        f"({len(new_meta)} pàgines)"
+        f"({len(new_meta)} pages)"
     )
 
     if persist:
@@ -13626,7 +13628,7 @@ def register_page_in_index(file_path: Path) -> None:
             _page_index_entries.setdefault(str(v), {})[str(file_path)] = entry
         _bump_page_index_version(str(v))
     except Exception as e:
-        log.warning(f"register_page_in_index ha fallat per {file_path}: {e}")
+        log.warning(f"register_page_in_index failed for {file_path}: {e}")
 
 
 class ImportFile(BaseModel):
@@ -13677,7 +13679,7 @@ async def import_markdown(body: ImportRequest):
                 path = target_dir / f"{safe} {meta['id'][:8]}.md"
             fm = _yaml.safe_dump(meta, allow_unicode=True, sort_keys=False).strip()
             path.write_text(f"---\n{fm}\n---\n\n{str(body_md).lstrip()}\n", encoding="utf-8")
-            register_page_in_index(path)  # apareix a /pages immediatament
+            register_page_in_index(path)  # It appears in /pages immediately.
             imported += 1
         except Exception as e:
             errors.append({"name": f.name, "error": str(e)})
@@ -14639,11 +14641,11 @@ def _load_registry_from_disk(registry_path, _ck: str, now: float):
 
     changed = False
     tables = data.get("tables", [])
-    # 1. Cleanup: Delete default taula_1 if it exists
+    # 1. Cleanup: delete the default table id `taula_1` if it exists.
     if any(t.get("name") == "taula_1" for t in tables):
         data["tables"] = [t for t in tables if t.get("name") != "taula_1"]
         changed = True
-        log.info("🗑️ Deleted default taula_1 from registry.")
+        log.info("🗑️ Deleted the default table from the registry.")
 
     # 1.5 Cleanup: legacy wiki table is no longer supported as DB table.
     if any(str(t.get("id") or "").strip().lower() == "wiki" for t in data.get("tables", [])):
@@ -15262,7 +15264,7 @@ async def delete_database(database_id: str):
         registry["databases"] = [
             db for db in registry["databases"] if db.get("id") != database_id
         ]
-        # Netejar tables i views associades
+        # Remove associated tables and views.
         tables_to_remove = [
             t["id"] for t in registry["tables"] if t.get("database_id") == database_id
         ]
@@ -15455,7 +15457,7 @@ async def delete_table(table_id: str, background_tasks: BackgroundTasks):
             )
         # Update registry FIRST so the response is fast and the UI updates immediately
         registry["tables"] = [t for t in registry["tables"] if t.get("id") != table_id]
-        # Netejar views associades
+        # Remove associated views.
         registry["views"] = [v for v in registry["views"] if v.get("table_id") != table_id]
         save_registry(registry)
 
@@ -15602,7 +15604,7 @@ def _rename_table_locked(table_id: str, data: dict):
                     except Exception as e:
                         log.warning(f"Could not resolve table dir for inline ref rewrite: {e}")
 
-                # 2) Structured Assets/<DB>/<Taula>/ — always safe: it goes
+                # 2) Structured Assets/<DB>/<Table>/ — always safe: it goes
                 #    nested under <DB>/, never collides with the root.
                 try:
                     old_struct = get_p("ASSETS") / db_seg / old_seg
@@ -15793,7 +15795,7 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
             if (p.get("name") or "").strip() == new_name:
                 raise HTTPException(
                     status_code=409,
-                    detail=f"Ja existeix una property amb el nom '{new_name}' a la taula",
+                    detail=f"A property named '{new_name}' already exists in the table",
                 )
         old_name = (target_prop.get("name") or "").strip()
         if old_name and old_name != new_name:
@@ -15851,7 +15853,7 @@ def _patch_table_property_locked(table_id: str, field_id: str, data: dict):
 # --- Option catalogs: usage, renaming and deletion everywhere ---------------------
 # Bulk operations ALWAYS on the server (1 endpoint, N atomic writes
 # of file), never N PATCH requests from the client (they exhaust the pool and hide
-# errors parcials — vegeu feedback_bulk_ops_server_side).
+# partial errors — see feedback_bulk_ops_server_side).
 
 
 def _find_table_and_prop(registry: dict, table_id: str, field_ref: str) -> tuple:
@@ -15908,7 +15910,7 @@ async def _rewrite_option_in_rows(
             raw = await asyncio.to_thread(fp.read_text, encoding="utf-8")
             md, page_body = parse_frontmatter(raw, fp)
         except Exception as exc:
-            log.warning(f"option-rewrite: no s'ha pogut llegir {r.id}: {exc}")
+            log.warning(f"option-rewrite: could not read {r.id}: {exc}")
             continue
         modified = False
         for k in keys:
@@ -15938,7 +15940,7 @@ async def _rewrite_option_in_rows(
             await asyncio.to_thread(save_page_md, fp, md, page_body)
             changed += 1
         except Exception as exc:
-            log.warning(f"option-rewrite: no s'ha pogut escriure {r.id}: {exc}")
+            log.warning(f"option-rewrite: could not write {r.id}: {exc}")
             continue
         # Surgical cache refresh (same pattern as the stale flag).
         try:
@@ -16041,9 +16043,9 @@ async def remove_table_option(table_id: str, payload: dict = Body(...)):
     value = str(payload.get("value") or "").strip()
     reassign_to = str(payload.get("reassign_to") or "").strip() or None
     if not field_ref or not value:
-        raise HTTPException(status_code=400, detail="field_id i value són obligatoris")
+        raise HTTPException(status_code=400, detail="field_id and value are required")
     if reassign_to == value:
-        raise HTTPException(status_code=400, detail="No es pot reassignar a la mateixa opció")
+        raise HTTPException(status_code=400, detail="Cannot reassign to the same option")
     # Registry cycle under lock; eager rewrite of the .md files (async) outside.
     with registry_mutation():
         registry = load_registry()
@@ -16116,7 +16118,7 @@ async def delete_option_catalog(name: str):
         if referenced_by:
             raise HTTPException(
                 status_code=409,
-                detail=f"El catàleg l'usen: {', '.join(referenced_by)}",
+                detail=f"The catalog is used by: {', '.join(referenced_by)}",
             )
         cats.pop(name, None)
         save_registry(registry)
@@ -16182,14 +16184,14 @@ async def reorder_views(body: dict = Body(...)):
     table_id = str(body.get("table_id") or "").strip()
     ordered_ids = body.get("ordered_ids") or []
     if not table_id or not isinstance(ordered_ids, list):
-        raise HTTPException(status_code=422, detail="Cal table_id i ordered_ids (list).")
+        raise HTTPException(status_code=422, detail="table_id and ordered_ids (list) are required.")
 
     with registry_mutation():
         registry = load_registry()
         views = registry.get("views") or []
         table_views = {v["id"]: v for v in views if v.get("table_id") == table_id}
         if not table_views:
-            raise HTTPException(status_code=404, detail=f"No hi ha vistes per a la taula '{table_id}'.")
+            raise HTTPException(status_code=404, detail=f"Table '{table_id}' has no views.")
 
         other_views = [v for v in views if v.get("table_id") != table_id]
         seen = set()
@@ -16248,8 +16250,8 @@ async def delete_view(view_id: str):
                 detail={
                     "error": "cannot_delete_last_view",
                     "message": (
-                        "No es pot eliminar l'única vista d'una taula. "
-                        "Crea'n una altra primer."
+                        "Cannot delete a table's only view. "
+                        "Create another view first."
                     ),
                 },
             )
@@ -16259,8 +16261,8 @@ async def delete_view(view_id: str):
                 detail={
                     "error": "cannot_delete_main_view",
                     "message": (
-                        "No es pot eliminar la vista principal. Marca una "
-                        "altra vista com a principal abans d'eliminar aquesta."
+                        "Cannot delete the main view. Mark another view as main "
+                        "before deleting this one."
                     ),
                 },
             )
@@ -16374,7 +16376,7 @@ async def list_drawings():
                 }
             )
         except Exception as e:
-            log.warning(f"Error llegint dibuix {file_path.name}: {e}")
+            log.warning(f"Error reading drawing {file_path.name}: {e}")
 
     # Then search for .excalidraw.json files (old format)
     for file_path in get_p("DIBUIXOS").glob("*.excalidraw.json"):
@@ -16393,7 +16395,7 @@ async def list_drawings():
                 }
             )
         except Exception as e:
-            log.warning(f"Error llegint dibuix {file_path.name}: {e}")
+            log.warning(f"Error reading drawing {file_path.name}: {e}")
 
     return drawings
 
@@ -16838,7 +16840,7 @@ async def _recover_translations_from_disk(
                     _bump_page_index_version(v_str)
                 _pages_cache_invalidate_all()
             except Exception as exc:
-                log.debug(f"translate-recover: no s'ha pogut indexar {p}: {exc}")
+                log.debug(f"translate-recover: could not index {p}: {exc}")
             out[lang] = SimpleNamespace(id=pid, metadata=meta)
     return out
 
@@ -16867,7 +16869,7 @@ def _ensure_status_options_persisted(table_id: str, values: list) -> None:
                 save_registry(reg)
     except Exception as exc:
         log.warning(
-            f"action_rules: no s'ha pogut persistir el catàleg ampliat de {table_id}: {exc}"
+            f"action_rules: could not persist the expanded catalog for {table_id}: {exc}"
         )
 
 
@@ -17145,7 +17147,7 @@ async def _do_translate_row(
                 sample = val.strip()
         if not sample:
             sample = str(metadata.get("title") or "")
-        source_lang = detect_fn(sample) if sample else "ca"
+        source_lang = detect_fn(sample) if sample else "en"
 
     def _translate_one(text: str, lang: str):
         """Translates a source string→`lang` respecting the per-field skip (#309):
@@ -17417,7 +17419,7 @@ async def _do_translate_row(
 # Creates or updates a Drupal node (and its translations) from a
 # Vault row, according to the table's field mapping. Idempotent: anchored
 # by `drupal_uuid` (hidden metadata). Resilient to the WAF (create=POST JSON:API,
-# actualitzar/traduir=endpoints POST custom). Vegeu drupal_sync_service.py.
+# update/translate=custom POST endpoints). See drupal_sync_service.py.
 
 # Pseudo-reference in the mapping that associates the page's markdown BODY (not a
 # field) into a Drupal rich text field (e.g. `body`).
@@ -17681,8 +17683,8 @@ def _drupal_shrink_pdf(data: bytes, filename: str):
                 # Validates that the output is a real PDF and strictly smaller.
                 if out[:5] == b"%PDF-" and len(out) < len(data):
                     return out, filename
-    except Exception as exc:  # gs absent, timeout, sortida corrupta… → original
-        log.warning("drupal: compressió de PDF omesa (%s): %s", filename, exc)
+    except Exception as exc:  # Missing gs, timeout, corrupt output… → original.
+        log.warning("drupal: PDF compression skipped (%s): %s", filename, exc)
     return data, filename
 
 
@@ -17708,7 +17710,7 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
         return None
     await _materialize_if_online_only(path, "drupal-img")
     if not path.exists():
-        raise RuntimeError(f"fitxer no trobat: {path}")
+        raise RuntimeError(f"file not found: {path}")
     key = str(path)
     file_uuid = image_cache.get(key)
     if not file_uuid:
@@ -17737,7 +17739,7 @@ async def _drupal_upload_field_image(value, bundle, drupal_field, metadata, imag
 # Preprocessing of Gnosi markdown before sending it to Drupal: resolves
 # wikilinks `[[...]]` (into a link to the node if the target is already synced, or into
 # plain text) and strips embeds `![[...]]`. Typography and `:::` blocks are
-# gestiona pandoc (vegeu drupal_sync_service.markdown_to_full_html).
+# handled by Pandoc (see drupal_sync_service.markdown_to_full_html).
 _DRUPAL_EMBED_RE = re.compile(r"!\[\[([^\]]+)\]\]")
 _DRUPAL_WIKILINK_RE = re.compile(r"\[\[([^\]]+)\]\]")
 _DRUPAL_UUID_RE = re.compile(r"^[0-9a-fA-F-]{32,36}$")
@@ -17789,7 +17791,7 @@ def _drupal_preprocess_md(md: str, *, cache: Optional[dict] = None) -> str:
     if not md:
         return md
     cache = cache if cache is not None else {}
-    md = _DRUPAL_EMBED_RE.sub("", md)  # embeds/transclusions: no incrustables
+    md = _DRUPAL_EMBED_RE.sub("", md)  # Embeds/transclusions are not portable.
 
     def _repl(m):
         inner = m.group(1)
@@ -17973,7 +17975,7 @@ async def _drupal_langcodes() -> set:
             if code and str(code).lower() not in ("und", "zxx"):
                 langs.add(str(code).lower())
     except Exception as exc:
-        log.warning(f"drupal: no he pogut llegir els idiomes configurats: {exc}")
+        log.warning(f"drupal: could not read the configured languages: {exc}")
     _DRUPAL_LANGCODES_CACHE = langs
     return langs
 
@@ -17990,10 +17992,10 @@ async def _drupal_resolve_langcode(metadata: dict) -> str:
         pref = raw.split("-")[0].split("_")[0]
         if pref in langs:
             return pref
-    code = detect_record_source_lang(metadata)  # 'en' (2 lletres)
+    code = detect_record_source_lang(metadata)  # 'en' (two letters)
     if code and (not langs or code in langs):
         return code
-    return code or "ca"
+    return code or "en"
 
 
 _DRUPAL_FIELD_TRANSLATABLE_CACHE: dict = {}
@@ -18039,7 +18041,7 @@ async def _drupal_field_translatable(bundle: str, field_name: str) -> bool:
         if data:
             val = bool(data[0].get("attributes", {}).get("translatable"))
     except Exception as exc:
-        log.warning("drupal: no he pogut llegir 'translatable' de %s: %s", field_name, exc)
+        log.warning("drupal: could not read 'translatable' for %s: %s", field_name, exc)
     _DRUPAL_FIELD_TRANSLATABLE_CACHE[key] = val
     return val
 
@@ -18210,7 +18212,7 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
             drupal_uuid = matches[0]["uuid"]
             nid = matches[0].get("nid")
             url = matches[0].get("url")
-            log.info("sync-drupal: '%s' enllaçat per títol al node %s (evita duplicat)", title_txt[:40], nid)
+            log.info("sync-drupal: '%s' linked by title to node %s (avoids duplicate)", title_txt[:40], nid)
     try:
         if drupal_uuid:
             # Updates ONLY this row's language (text), at the correct langcode.
@@ -18248,9 +18250,9 @@ async def _do_sync_drupal_row(item_id: str, *, background_tasks: BackgroundTasks
                  if "image" in str(s.get("reason", ""))),
                 None,
             )
-            detail = "Aquest article necessita una imatge vàlida (menys de 2 MB) per publicar-se a Drupal."
+            detail = "This article needs a valid image smaller than 2 MB before it can be published to Drupal."
             if img_reason:
-                detail += f" Detall: {img_reason}"
+                detail += f" Detail: {img_reason}"
             raise HTTPException(status_code=400, detail=detail)
         raise HTTPException(status_code=502, detail=f"Drupal: {exc}")
 
@@ -18478,7 +18480,7 @@ async def match_drupal_rows(background_tasks: BackgroundTasks, payload: dict = B
         if md.get("translation_lang"):
             continue  # translation subitem: covered by the parent node
         if str(md.get("drupal_uuid") or "").strip():
-            continue  # ja vinculada
+            continue  # Already linked.
         title = (p.title or md.get("title") or "").strip()
         if not title:
             continue
@@ -18676,7 +18678,7 @@ async def translate_page(background_tasks: BackgroundTasks, payload: dict = Body
     source_lang = detect_record_source_lang(metadata)
     if not source_lang:
         sample = body.strip() if body and body.strip() else parent_title
-        source_lang = _detect_source_lang(sample) if sample else "ca"
+        source_lang = _detect_source_lang(sample) if sample else "en"
 
     # Sync worker run off the event loop: each segment is a blocking HTTP call.
     def _translate_page_content(src_lang: str, tgt_lang: str):

@@ -30,31 +30,31 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
             </div>
 
             {/* AI Assistant Config Section */}
-            <Section title={t('settings.profile.assistant_section', "Configuració de l'Assistent")} icon={FileText}>
+            <Section title={t('settings.profile.assistant_section', "Assistant Configuration")} icon={FileText}>
                 <FormGroup
-                    label={t('settings.profile.ai_username_label', "Nom d'usuari (IA)")}
-                    description={t('settings.profile.ai_username_desc', "Així és com t'anomenaran els agents d'intel·ligència artificial.")}
+                    label={t('settings.profile.ai_username_label', "Username (AI)")}
+                    description={t('settings.profile.ai_username_desc', "This is how the artificial intelligence agents will address you.")}
                 >
                     <input
                         type="text"
                         className="gnosi-input"
                         value={userName || ''}
                         onChange={(e) => setUserName(e.target.value)}
-                        placeholder={t('settings.profile.ai_username_placeholder', 'P. ex. Ismael')}
+                        placeholder={t('settings.profile.ai_username_placeholder', "e.g. Ismael")}
                     />
                 </FormGroup>
             </Section>
 
             {/* Personal Data Section */}
-            <Section title={t('settings.profile.contact_section', 'Dades de Contacte i Formularis')} icon={ShieldCheck}>
+            <Section title={t('settings.profile.contact_section', "Contact Details and Forms")} icon={ShieldCheck}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
-                    <FormGroup label={t('settings.profile.full_name_label', 'Nom Complet')}>
+                    <FormGroup label={t('settings.profile.full_name_label', "Full Name")}>
                         <input
                             type="text"
                             className="gnosi-input"
                             value={profile.full_name || ''}
                             onChange={(e) => handleChange('full_name', e.target.value)}
-                            placeholder={t('settings.profile.full_name_placeholder', 'Joan Puig i Cadafalch')}
+                            placeholder={t('settings.profile.full_name_placeholder', "John Smith")}
                         />
                     </FormGroup>
 
@@ -67,12 +67,12 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                                 style={{ paddingLeft: '44px' }}
                                 value={profile.email || ''}
                                 onChange={(e) => handleChange('email', e.target.value)}
-                                placeholder={t('settings.profile.email_placeholder', 'el-teu@correu.com')}
+                                placeholder={t('settings.profile.email_placeholder', "your@email.com")}
                             />
                         </div>
                     </FormGroup>
 
-                    <FormGroup label={t('settings.profile.first_name_label', 'Nom')}>
+                    <FormGroup label={t('settings.profile.first_name_label', "First Name")}>
                         <input
                             type="text"
                             className="gnosi-input"
@@ -81,7 +81,7 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                         />
                     </FormGroup>
 
-                    <FormGroup label={t('settings.profile.last_name_label', 'Cognoms')}>
+                    <FormGroup label={t('settings.profile.last_name_label', "Last Name")}>
                         <input
                             type="text"
                             className="gnosi-input"
@@ -90,7 +90,7 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                         />
                     </FormGroup>
 
-                    <FormGroup label={t('settings.profile.phone_label', 'Telèfon')}>
+                    <FormGroup label={t('settings.profile.phone_label', "Phone")}>
                         <div style={{ position: 'relative' }}>
                             <Phone size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
                             <input
@@ -118,7 +118,7 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                 </div>
 
                 <div style={{ marginTop: '32px' }}>
-                    <FormGroup label={t('settings.profile.address_label', 'Adreça')}>
+                    <FormGroup label={t('settings.profile.address_label', "Address")}>
                         <div style={{ position: 'relative' }}>
                             <MapPin size={16} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 }} />
                             <input
@@ -127,14 +127,14 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                                 style={{ paddingLeft: '44px' }}
                                 value={profile.address || ''}
                                 onChange={(e) => handleChange('address', e.target.value)}
-                                placeholder={t('settings.profile.address_placeholder', 'Carrer, número, pis...')}
+                                placeholder={t('settings.profile.address_placeholder', "Street, number, floor...")}
                             />
                         </div>
                     </FormGroup>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px', marginTop: '32px' }}>
-                    <FormGroup label={t('settings.profile.city_label', 'Ciutat')}>
+                    <FormGroup label={t('settings.profile.city_label', "City")}>
                         <input
                             type="text"
                             className="gnosi-input"
@@ -142,7 +142,7 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                             onChange={(e) => handleChange('city', e.target.value)}
                         />
                     </FormGroup>
-                    <FormGroup label={t('settings.profile.zip_code_label', 'Codi Postal')}>
+                    <FormGroup label={t('settings.profile.zip_code_label', "Zip Code")}>
                         <input
                             type="text"
                             className="gnosi-input"
@@ -153,13 +153,13 @@ export default function IdentityProfile({ userName, setUserName, profile, setPro
                 </div>
 
                 <div style={{ marginTop: '32px' }}>
-                    <FormGroup label={t('settings.profile.notes_label', 'Notes Addicionals')}>
+                    <FormGroup label={t('settings.profile.notes_label', "Additional Notes")}>
                         <textarea
                             className="gnosi-input"
                             style={{ minHeight: '120px', resize: 'vertical', paddingTop: '14px' }}
                             value={profile.notes || ''}
                             onChange={(e) => handleChange('notes', e.target.value)}
-                            placeholder={t('settings.profile.notes_placeholder', 'Altra informació útil...')}
+                            placeholder={t('settings.profile.notes_placeholder', "Other useful information...")}
                         />
                     </FormGroup>
                 </div>

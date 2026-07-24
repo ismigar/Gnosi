@@ -1,56 +1,59 @@
-# SKILL: Notion Clone (clon exacte + reparació de pestanyes)
+# Skill: Notion Clone
 
-Eines per al **clon exacte de Notion → Gnosi**: la importació (al backend, via
-`services/notion_clone.py` + `notion_view_recreator.py`) i la **reparació
-incremental** de pestanyes perdudes en clons ja fets.
+Tools for exact Notion-to-Gnosi cloning and incremental repair of missing view
+tabs in existing clones.
 
 > ID: NOTION-CLONE-20260708
-> Stack: Python 3.10+ (`httpx`, `yaml`, backend Gnosi en execution)
-> Directiva: `docs/dev_memory/directives/notion_exact_clone.md`
+> Stack: Python 3.10+ with `httpx`, `yaml`, and a running Gnosi backend
+> Directive: `docs/dev_memory/directives/notion_exact_clone.md`
 
----
+## View-tab model
 
-## Context: pestanyes per vistes
+Notion groups multiple table, board, or gallery views as **tabs** under one
+linked-database block. MCP fetch returns every tab as
+`<view url>{json}</view>`. Clone v1 used `.search()` and kept only the first,
+reducing ten or thirteen tabs to one.
 
-Notion agrupa N vistes (Taula/Board/Gallery…) com a **pestanyes** d'un sol bloc
-de linked database; el fetch MCP les retorna totes com a `<view url>{json}</view>`.
-El clon v1 només en llegia la primera (`.search()`) → «Cervell digital» (10
-pestanyes) quedava en 1, «Recursos» (13) en 1.
+The corrected **anchor plus `tabs`** model keeps only the first view embed in
+the page body as the anchor. Remaining views are created in the registry and
+referenced from the anchor's `tabs` field. `DbViewEmbed` reads
+`anchorReg.tabs` and renders the group like Notion.
 
-**Model àncora + `tabs`** (fix): al cos de la pàgina només hi va l'embed de la
-**primera** vista (l'àncora); la resta es creen al registry i pengen del camp
-`tabs` de l'àncora. El frontend (`DbViewEmbed`) llegeix `anchorReg.tabs` i les
-mostra com a pestanyes del bloc, com a Notion. El camp `tabs` flota pel registry
-JSON (`ViewSection` porta `extra='allow'` i `update_view` fa merge per clau); no
-cal tocar el model de dades.
-
----
+The `tabs` field passes through registry JSON because `ViewSection` uses
+`extra='allow'` and `update_view` merges by key. No data-model migration is
+required.
 
 ## Scripts
 
-| Script | Ús |
+| Script | Use |
 |---|---|
-| [`scripts/backfill_notion_views.py`](./scripts/backfill_notion_views.py) | Reparació incremental de les pestanyes 2..N que el clon v1 perdia, **sense refer el clon** ni tocar contingut editat |
+| [`scripts/backfill_notion_views.py`](./scripts/backfill_notion_views.py) | Recover tabs 2 through N that clone v1 omitted without recloning or overwriting edited content |
 
 ### `backfill_notion_views.py`
 
-Requereix:
-- Backend natiu corrent (`uvicorn :5002`) i **MCP de Notion connectat** (OAuth).
-- `GNOSI_LOCAL_DATA` apuntant al `local_data` amb `integrations.json` (tokens).
-- El vault ja clonat al disc (OneDrive o local).
+Requirements:
 
-Flux:
-1. Escaneja `.md` amb `gnosi-view:def` (fora de `.history`/`.trash`/`Assets`/…).
-2. Mapa pàgina del vault → pàgina de Notion (re-enumera ids: `import-config` +
-   `query_database` + `search_pages` fallback; `uuid5` és one-way).
-3. Per cada pàgina: `fetch` MCP → `build_clone_views` (totes les pestanyes reals,
-   sense els gràfics "suggerits").
-4. **Reconcilia**: al cos hi queda NOMÉS l'embed de l'àncora; upsert de totes les
-   vistes (`POST /views`), `tabs` a l'àncora, esborra els gràfics erronis (`DELETE`)
-   i treu els `gnosi-view:def` apilats (`PATCH /pages/{id}`).
+- Native backend running on `uvicorn :5002`.
+- Connected Notion MCP integration through OAuth.
+- `GNOSI_LOCAL_DATA` pointing to the data directory containing
+  `integrations.json`.
+- An existing cloned vault on local disk or OneDrive.
 
-Idempotent (ids deterministes). Dry-run per defecte; `--apply` per escriure;
-`--state <jsonl>` per reprendre.
+Workflow:
+
+1. Scan Markdown files containing `gnosi-view:def`, excluding `.history`,
+   `.trash`, `Assets`, and other ignored directories.
+2. Map Vault pages back to Notion pages by enumerating IDs through
+   `import-config`, `query_database`, and the `search_pages` fallback.
+   `uuid5` is one-way.
+3. Fetch each page through MCP and call `build_clone_views` for every real tab,
+   excluding suggested charts.
+4. Reconcile state: keep only the anchor embed in the body, upsert every view
+   through `POST /views`, assign `tabs` to the anchor, delete incorrect charts,
+   and remove stacked `gnosi-view:def` blocks through `PATCH /pages/{id}`.
+
+IDs are deterministic, so the operation is idempotent. It is a dry run by
+default. Use `--apply` to write and `--state <jsonl>` to resume.
 
 ```bash
 .venv/bin/python pipeline/skills/notion_clone/scripts/backfill_notion_views.py \
@@ -58,5 +61,5 @@ Idempotent (ids deterministes). Dry-run per defecte; `--apply` per escriure;
     --vault-id <vault-id> [--apply] [--only .Dashboards] [--state /tmp/state.jsonl]
 ```
 
-Sortida: resum amb `pages`, `views_upserted`, `embeds_added`, `unmapped`,
-`mcp_empty`, `errors`, `chart_views_deleted`.
+The summary reports `pages`, `views_upserted`, `embeds_added`, `unmapped`,
+`mcp_empty`, `errors`, and `chart_views_deleted`.

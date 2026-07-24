@@ -126,7 +126,7 @@ def get_db():
 
     if not v_path:
         raise VaultNotConfiguredError(
-            "Vault no configurat. Si us plau, configura una carpeta de vault a l'aplicació."
+            "No vault is configured. Configure a vault folder in the application."
         )
 
     _engine, SessionLocal = get_engine_for_path(v_path)

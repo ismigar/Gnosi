@@ -89,7 +89,7 @@ codebase, so anyone who clones the repository can read it. **User-facing text, i
 never hard-coded**: every visible string goes through the i18n system (`react-i18next` —
 `t('namespace.key', 'default')`) with the key added to all four locales
 (`frontend/src/locales/{ca,en,es,fr}/translation.json`). Identifiers, stored/compared values,
-test data, and language endonyms (Español/Català/Français) that happen to be in another
+test data, and language endonyms (Español/Català/Français) that happen to be in another <!-- @language-example -->
 language are left as-is. In short: **code and logs in English; product content through i18n.**
 See `docs/dev_memory/directives/i18n_and_english_standardization.md`.
 

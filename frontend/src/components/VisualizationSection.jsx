@@ -69,10 +69,10 @@ export function VisualizationSection({
     };
 
     return (
-        <CollapsibleSection title={t('graph.visualization.title', 'Visualització')} defaultOpen={false}>
+        <CollapsibleSection title={t('graph.visualization.title', "Visualization")} defaultOpen={false}>
             {/* Arrows toggle */}
             <div style={toggleContainerStyle}>
-                <span style={{ fontSize: '0.9rem' }}>{t('graph.visualization.arrows', 'Fletxes')}</span>
+                <span style={{ fontSize: '0.9rem' }}>{t('graph.visualization.arrows', "Arrows")}</span>
                 <div
                     style={toggleStyle}
                     onClick={() => onShowArrowsChange(!showArrows)}
@@ -84,7 +84,7 @@ export function VisualizationSection({
             {/* Label threshold slider */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.visualization.label_threshold', 'Llindar d\'esvaïment del text')}
+                    {t('graph.visualization.label_threshold', "Text fade threshold")}
                     <span style={valueStyle}>{labelThreshold}</span>
                 </label>
                 <input
@@ -100,7 +100,7 @@ export function VisualizationSection({
             {/* Node size slider */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.visualization.node_size', 'Mida del node')}
+                    {t('graph.visualization.node_size', "Node size")}
                     <span style={valueStyle}>{nodeSize.toFixed(1)}x</span>
                 </label>
                 <input
@@ -117,7 +117,7 @@ export function VisualizationSection({
             {/* Edge thickness slider */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.visualization.edge_thickness', 'Gruix de l\'enllaç')}
+                    {t('graph.visualization.edge_thickness', "Edge thickness")}
                     <span style={valueStyle}>{edgeThickness.toFixed(1)}x</span>
                 </label>
                 <input

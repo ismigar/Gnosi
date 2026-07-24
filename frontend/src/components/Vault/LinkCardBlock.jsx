@@ -31,7 +31,7 @@ export default function LinkCardBlock({ block }) {
                 _previewCache.set(url, res.data);
                 setData(res.data);
             })
-            .catch(() => { if (!cancelled) setError(t('link_card.preview_error', 'No s\'ha pogut carregar la previsualització.')); })
+            .catch(() => { if (!cancelled) setError(t('link_card.preview_error', "Couldn't load the preview.")); })
             .finally(() => { if (!cancelled) setLoading(false); });
         return () => { cancelled = true; };
     }, [url]);
@@ -50,7 +50,7 @@ export default function LinkCardBlock({ block }) {
                 <div className="min-w-0 flex-1 p-3">
                     {loading ? (
                         <div className="flex items-center gap-2 text-sm text-[var(--text-tertiary)]">
-                            <Loader2 size={14} className="animate-spin" /> {t('link_card.loading', 'Carregant previsualització…')}
+                            <Loader2 size={14} className="animate-spin" /> {t('link_card.loading', "Loading preview…")}
                         </div>
                     ) : (
                         <>

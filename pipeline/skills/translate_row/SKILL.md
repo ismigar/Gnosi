@@ -1,155 +1,153 @@
 ---
 name: translate_row
-description: Tradueix els camps marcats com a traduïbles d'una fila d'una taula i crea un subitem per cada idioma destí.
+description: Translate the translatable fields of a table row and create one child item per target language.
 type: skill
 status: active
 ---
 
 # Skill: translate_row
 
-## Propòsit
+## Purpose
 
-Donada una fila (`page`) d'una taula amb el flag `translation_enabled: true`, tradueix
-els camps marcats amb `translatable: true` al seu `_config` cap als idiomes destí
-indicats per l'usuari, i crea un subitem (`parent_id = item_id`) per cada idioma.
+Given a table row whose table has `translation_enabled: true`, translate every
+field marked `translatable: true` in `_config` into the user-selected
+languages. Create one child item with `parent_id = item_id` per language.
 
-## Disparador
+## Trigger
 
-Disparada per la UI quan l'usuari clica un camp de tipus `button` amb
-`button_action = "translate_row"`. El frontend obre el modal
-`TranslateLanguagesModal` i fa POST a:
+The UI invokes this workflow when the user activates a `button` field whose
+`button_action` is `translate_row`. `TranslateLanguagesModal` sends:
 
 ```
 POST /api/vault/skills/translate-row
 Body: { item_id: str, target_languages: [str], button_action: "translate_row" }
 ```
 
-## Arquitectura
+## Architecture
 
-L'**endpoint** (a `backend/api/vault_routes.py`) fa la coordinació:
-- Llegeix `item_id` del registry, identifica la taula i el seu schema.
-- Filtra camps amb `translatable: true`.
-- Per cada idioma destí, demana la traducció a aquesta skill.
-- Crea un subitem (`POST /pages` amb `parent_id` i `metadata.translation_lang`).
+The endpoint in `backend/api/vault_routes.py` coordinates the operation:
 
-La **skill** (`scripts/translate_text.py`) només exposa:
-- `translate(text, source_lang, target_lang) -> str`: ruta el text al proveïdor adequat.
-- `detect_source_lang(text) -> str`: detecció heurística de l'idioma origen.
+- Load `item_id` from the registry and identify its table and schema.
+- Select fields with `translatable: true`.
+- Request each target-language translation from this skill.
+- Create a child item through `POST /pages` with `parent_id` and
+  `metadata.translation_lang`.
 
-L'usuari NO ha d'invocar la skill com a subprocess — el backend la importa
-directament. Aquesta separació és perquè la lògica de coordinació necessita
-accés al registry, i `subprocess` no pot importar `backend.*` (limitació del
-sandbox de Gnosi).
+The skill implementation in `scripts/translate_text.py` exposes:
 
-## Proveïdors de traducció (routing Mid)
+- `translate(text, source_lang, target_lang) -> str`
+- `detect_source_lang(text) -> str`
 
-Estratègia: eines lliures sempre que la qualitat sigui acceptable; locals
-només quan la qualitat remota cau (cas concret: `es↔fr`).
+The backend imports the skill directly. Do not invoke it as a subprocess:
+coordination needs registry access, while Gnosi's sandbox cannot import
+`backend.*`.
 
-| Parell | Proveïdor | On corre | Qualitat |
-|--------|-----------|----------|----------|
-| `en↔ca` | Softcatalà NMT | Online (públic) | ★★★★★ Neural |
-| `ca↔{es, fr, it, pt, ro, oc, …}` | Softcatalà Apertium + acronym fix | Online (públic) | ★★★½ |
-| `es↔fr`, `fr↔es` | **OPUS-MT (Helsinki-NLP)** | **Local, lazy** | ★★★★ Neural |
-| Altres parells sense `ca` (p.ex. `es↔en`) | Apertium APy + acronym fix | Online (públic) | ★★★ |
-| Fallback | DeepL | Online | ★★★★½ (si key configurada) |
-| Últim recurs | placeholder `[lang] {text}` | — | — |
+## Translation providers
 
-### Endpoints públics (cap requereix API key)
+Use free services where quality is sufficient, with a local model for the
+specific `es↔fr` weakness.
 
-- Softcatalà NMT: `https://www.softcatala.org/sc/v2/api/nmt-engcat/translate`
-- Softcatalà Apertium: `https://www.softcatala.org/apertium/json/translate`
+| Pair | Provider | Runtime | Quality |
+|------|----------|---------|---------|
+| `en↔ca` | Softcatalà NMT | public online service | neural |
+| `ca↔{es, fr, it, pt, ro, oc, …}` | Softcatalà Apertium plus acronym protection | public online service | rule-based |
+| `es↔fr`, `fr↔es` | OPUS-MT (Helsinki-NLP) | local, loaded lazily | neural |
+| Other non-Catalan pairs, such as `es↔en` | Apertium APy plus acronym protection | public online service | rule-based |
+| Fallback | DeepL | online, when configured | neural |
+| Last resort | `[lang] {text}` placeholder | local | visible fallback |
+
+Public endpoints that require no API key:
+
+- Softcatalà NMT:
+  `https://www.softcatala.org/sc/v2/api/nmt-engcat/translate`
+- Softcatalà Apertium:
+  `https://www.softcatala.org/apertium/json/translate`
 - Apertium APy: `https://apertium.org/apy/translate`
 
-Identificats inspeccionant el codi del client Android oficial de Softcatalà
-([TraductorSoftcatalaAndroid](https://github.com/Softcatala/TraductorSoftcatalaAndroid)).
+These endpoints were identified from Softcatalà's official Android client,
+[TraductorSoftcatalaAndroid](https://github.com/Softcatala/TraductorSoftcatalaAndroid).
 
-### Per què OPUS-MT just per `es↔fr`
+### Why local OPUS-MT is limited to `es↔fr`
 
-Apertium públic en `spa↔fra` produeix errors gramaticals greus
-("dirigeante" en lloc de "directive"; "il y a que" per "il faut") i deixa
-paraules sense traduir. Cap proveïdor remot lliure cobreix bé aquest
-parell. Carregar un sol model OPUS-MT (~300 MB) sota demanda és el
-compromís: zero RAM en repòs, qualitat NMT al moment de traduir.
+Public Apertium produces severe grammatical errors and untranslated words for
+Spanish/French. No free remote provider in this routing table handles the pair
+well. Loading one approximately 300 MB OPUS-MT model on demand provides neural
+quality with no idle memory cost.
 
-Models usats:
+Models:
+
 - `Helsinki-NLP/opus-mt-es-fr`
 - `Helsinki-NLP/opus-mt-fr-es`
 
-### Acronym fix (Apertium pre-processor)
+### Acronym protection
 
-Apertium tradueix paraules en MAJÚSCULES com a noms comuns: "API"→"apio"
-(es) o "céleri" (fr); "JSON"→"json" minúscula. La skill aplica un
-pre/post-processor que envolta acrònims (`[A-Z][A-Z0-9-]{1,5}`) amb tokens
-neutres `XACRN###ZZZ` abans de cridar Apertium i els restaura després.
-Cap canvi visible per a l'usuari, però evita el bug d'acrònims.
+Apertium translates uppercase acronyms as ordinary words, for example
+`API` to a food name, or lowercases `JSON`. Before calling Apertium, wrap
+`[A-Z][A-Z0-9-]{1,5}` acronyms in neutral `XACRN###ZZZ` tokens and restore
+them afterward.
 
-## Memòria i caché del model OPUS-MT
+## OPUS-MT memory and cache
 
-- **En repòs**: 0 MB (no carregat).
-- **Durant traducció**: ~300-500 MB per model (un per direcció).
-- **Auto-unload**: passat `OPUS_IDLE_TIMEOUT_S` (default 300 s = 5 min) sense
-  ús, el model es descarrega en la propera crida que faci `_purge_idle_opus`.
-- **Disc**: HuggingFace cache (`$HF_HOME` o `~/.cache/huggingface/`). Cal que
-  estigui **fora d'OneDrive** (vegeu `feedback_cache_outside_onedrive`).
-  Primera càrrega: ~20 s (descàrrega + inicialització). Següent: <1 s.
+- Idle memory: zero; the model is not loaded.
+- Translation memory: approximately 300–500 MB per direction.
+- Auto-unload: `_purge_idle_opus` unloads a model on the next call after
+  `OPUS_IDLE_TIMEOUT_S`, default 300 seconds, without use.
+- Disk: Hugging Face cache under `$HF_HOME` or `~/.cache/huggingface/`.
+  Keep it outside OneDrive. The first load takes about 20 seconds; later loads
+  are usually under one second.
 
-## Configuració d'entorn
+## Environment
 
-Tots els defaults són públics. Variables opcionals:
+All defaults are public. Optional variables:
 
 ```bash
-# Translate row skill — totes opcionals
-DEEPL_API_KEY=<key>            # https://www.deepl.com/pro-api — només per parells sense català coberts per Apertium
-DEEPL_API_URL=...              # override DeepL endpoint
-SOFTCATALA_API_URL=...         # override d'AMBDÓS endpoints de Softcatalà (NMT i Apertium)
-APERTIUM_PUBLIC_API_URL=...    # override d'Apertium APy
-OPUS_IDLE_TIMEOUT_S=300        # segons d'inactivitat abans de descarregar el model OPUS-MT
-HF_HOME=${HOME}/.cache/huggingface  # ubicació del cache de models (FORA d'OneDrive!)
+DEEPL_API_KEY=<key>            # only for pairs not adequately covered elsewhere
+DEEPL_API_URL=...              # override the DeepL endpoint
+SOFTCATALA_API_URL=...         # override both Softcatalà endpoints
+APERTIUM_PUBLIC_API_URL=...    # override Apertium APy
+OPUS_IDLE_TIMEOUT_S=300        # idle seconds before local model unload
+HF_HOME=${HOME}/.cache/huggingface  # model cache outside OneDrive
 ```
 
-La key de DeepL es desa al **Keychain** (no a `.env_shared`) via la pestanya
-"Traducció" del modal de Settings (`/api/credentials/`).
+Store the DeepL key in Keychain through the Translation tab in Settings, not
+in `.env_shared`.
 
-## Edge cases / Restricciones
+## Restrictions and edge cases
 
-- **Sense credencials → no failure**: si `DEEPL_API_KEY` no està configurada, la
-  skill retorna text amb prefix `[<lang>] ...` com a placeholder visible. Així
-  l'usuari pot validar el flux end-to-end abans de configurar les keys.
-- **Idioma origen igual al destí**: skip — no es genera subitem.
-- **Camp buit**: skip el camp; si tots els camps traduïbles estan buits, no es
-  crea el subitem per aquell idioma.
-- **Errors transitoris**: 1 reintent amb backoff. Si segueix fallant, marca el
-  camp del subitem com `[error: <missatge>]` perquè l'usuari ho vegi.
-- **No hi ha camps traduïbles**: l'endpoint retorna 400 — la UI hauria d'haver
-  filtrat aquest cas, però defensem.
-- **Càrrega massiva**: el modal limita a una fila per crida. Per traduir taules
-  senceres cal una eina diferent (no creada).
+- Missing optional credentials must not break the workflow. Return a visible
+  `[<lang>] ...` placeholder so the end-to-end flow can be tested first.
+- Skip a target identical to the detected source language.
+- Skip empty fields. Do not create a language child when every translatable
+  field is empty.
+- Retry transient errors once with backoff. If the retry fails, write
+  `[error: <message>]` to the child field.
+- Return HTTP 400 when the schema has no translatable fields.
+- The modal translates one row per request. Whole-table translation requires
+  a separate future tool.
 
-## Estructura del subitem creat
+## Child item shape
 
 ```json
 {
-  "title": "<títol traduït>",
+  "title": "<translated title>",
   "parent_id": "<item_id>",
   "metadata": {
-    "table_id": "<mateix de la fila pare>",
-    "translation_lang": "<codi ISO 639-1>",
-    "translation_source": "softcatala" | "deepl" | "placeholder",
-    "<camp_traduible_1>": "<traducció>",
-    "<camp_traduible_2>": "<traducció>",
-    ...
+    "table_id": "<parent row table id>",
+    "translation_lang": "<ISO 639-1 code>",
+    "translation_source": "softcatala | deepl | placeholder",
+    "<translatable_field_1>": "<translation>",
+    "<translatable_field_2>": "<translation>"
   }
 }
 ```
 
-El títol és la traducció del camp `title` (o del primer camp traduïble si el
-títol no és traduïble).
+Use the translated `title` field as the title. If it is not translatable, use
+the first translatable field.
 
-## Test ràpid
+## Quick test
 
 ```bash
-cd ~/Projectes/monorepo/apps/gnosi
+cd monorepo/apps/gnosi
 python3 -m pipeline.skills.translate_row.scripts.translate_text \
-    --text "Hola, com estàs?" --source ca --target en
+    --text "Hello, how are you?" --source en --target ca
 ```

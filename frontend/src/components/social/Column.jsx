@@ -48,7 +48,7 @@ const Column = ({ title, icon, posts = [], onDelete, onRefresh }) => {
                         <div className="w-12 h-12 rounded-full bg-[var(--bg-secondary)] flex items-center justify-center mb-2">
                             <span className="text-2xl opacity-50">{icon}</span>
                         </div>
-                        <p>{t('social.column_empty', 'No hi ha posts recents')}</p>
+                        <p>{t('social.column_empty', "No recent posts")}</p>
                     </div>
                 )}
             </div>

@@ -1,6 +1,6 @@
-"""LLM Wiki (Cervell) lint — the "Lint" operation of Karpathy's pattern.
+"""LLM Wiki (Brain) lint — the "Lint" operation of Karpathy's pattern.
 
-Periodic health-check of the Cervell: it surfaces the bookkeeping drift a wiki
+Periodic health check of the Brain: it surfaces the bookkeeping drift a wiki
 accumulates so the user (or a later LLM pass) can fix it. All checks here are
 DETERMINISTIC (no LLM, no API key needed) so the lint always runs:
 
@@ -114,7 +114,7 @@ def run_lint(
     brain_table_id: str,
     reference_table_id: Optional[str | List[str]] = None,
 ) -> Dict[str, Any]:
-    """Runs the deterministic Cervell health checks and returns a report."""
+    """Run the deterministic Brain health checks and return a report."""
     notes = _load_notes(brain_table_id)
     by_id = {n["id"]: n for n in notes}
     canon_to_id = {_canonical_id(n["id"]): n["id"] for n in notes}
@@ -239,7 +239,7 @@ def run_lint(
 
 def _reprocess_candidates(reference_table_id: str) -> List[Dict[str, Any]]:
     """Resources whose file was modified after they were processed into the
-    Cervell (the `Processat pel Cervell` date is older than the file mtime)."""
+    Brain (the `Processat pel Cervell` date is older than the file mtime)."""
     import datetime
     from pathlib import Path
 

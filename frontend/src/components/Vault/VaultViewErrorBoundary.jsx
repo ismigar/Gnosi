@@ -73,10 +73,10 @@ export class VaultViewErrorBoundary extends React.Component {
                 </div>
                 <div className="max-w-sm">
                     <p className="text-sm font-medium text-[var(--text-secondary)]">
-                        {i18n.t('view_error.title', "No s'ha pogut mostrar aquesta vista")}
+                        {i18n.t('view_error.title', "This view couldn't be displayed")}
                     </p>
                     <p className="text-xs text-[var(--text-tertiary)] mt-1">
-                        {i18n.t('view_error.hint', 'Hi ha hagut un error en renderitzar. Reintenta o recarrega la pàgina.')}
+                        {i18n.t('view_error.hint', "There was an error while rendering. Retry or reload the page.")}
                     </p>
                 </div>
                 <button
@@ -84,7 +84,7 @@ export class VaultViewErrorBoundary extends React.Component {
                     onClick={this.handleRetry}
                     className="px-3 py-1.5 text-xs font-medium rounded-md border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors"
                 >
-                    {i18n.t('view_error.retry', 'Reintenta')}
+                    {i18n.t('view_error.retry', "Retry")}
                 </button>
             </div>
         );

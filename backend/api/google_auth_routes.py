@@ -93,16 +93,17 @@ async def health():
     if recently_failed:
         app_status = "testing-likely"
         hint = (
-            "Algun compte ha rebut invalid_grant recentment, símptoma típic "
-            "del mode Testing (refresh_token caducat als 7 dies). "
-            "Considera publicar l'app: vegeu docs/dev_memory/directives/publish_google_app.md."
+            "At least one account recently received invalid_grant, which commonly "
+            "indicates Testing mode and a refresh token that expired after seven "
+            "days. Consider publishing the app; see "
+            "docs/dev_memory/directives/publish_google_app.md."
         )
     elif has_refresh and not recently_failed:
         app_status = "healthy"
-        hint = "Tots els comptes Google tenen refresh_token vàlid."
+        hint = "All Google accounts have a valid refresh_token."
     else:
         app_status = "unknown"
-        hint = "Cap compte Google connectat o falten dades per inferir l'estat."
+        hint = "No Google account is connected, or there is not enough data to infer status."
 
     return {
         "configured": config is not None,

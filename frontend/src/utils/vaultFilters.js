@@ -183,6 +183,7 @@ export function viewMatchesFilters(item, view) {
 }
 
 /**
+ * @language-example
  * Normalizes a value for sorting: strips punctuation and leading
  * symbols (¿ ? ¡ ! « » " ' - etc.) so that «¿Què és?» sorts
  * like «Què és» and isn't grouped at the top because of the opening mark.
@@ -236,12 +237,13 @@ export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
     const isNumeric = NUM_RE.test(aVal.trim()) && NUM_RE.test(bVal.trim());
     let cmp = isNumeric
         ? parseNumericValue(aVal) - parseNumericValue(bVal)
-        : sortKey(aVal).localeCompare(sortKey(bVal), 'ca', { sensitivity: 'base' });
+        : sortKey(aVal).localeCompare(sortKey(bVal), 'en', { sensitivity: 'base' });
     if (direction === 'desc') cmp = -cmp;
     return cmp;
 }
 
 /**
+ * @language-example
  * Normalizes a text for search: lowercase and WITHOUT diacritics (NFD +
  * removal of combining marks). This way searching "merce"/"informacio"/
  * "franca" finds "Mercè"/"Informació"/"França" —as expected in a

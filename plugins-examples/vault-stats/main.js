@@ -10,7 +10,7 @@
  */
 gnosi.registerCommand({
   id: 'vault-stats',
-  title: 'Estadístiques del vault',
+  title: 'Vault statistics',
   run: async () => {
     try {
       const { tables } = await gnosi.vault.listTables();
@@ -21,11 +21,11 @@ gnosi.registerCommand({
         totalRows += res.total;
         parts.push(`${t.name}: ${res.total}`);
       }
-      gnosi.log(`📊 ${tables.length} taules · ${totalRows} files en total`);
+      gnosi.log(`📊 ${tables.length} tables · ${totalRows} total rows`);
       if (parts.length) gnosi.log('   ' + parts.join(' · '));
       await gnosi.settings.set({ lastRun: { tables: tables.length, rows: totalRows } });
     } catch (e) {
-      gnosi.error('vault-stats ha fallat:', String(e && e.message || e));
+      gnosi.error('vault-stats failed:', String(e && e.message || e));
     }
   },
 });

@@ -1,6 +1,7 @@
-"""El validador de tools generades ha de bloquejar els dunders d'introspecció
-dins LITERALS de string (bypass de `str.format`/`attrgetter`), no només l'accés
-directe per atribut.
+"""Generated-tool validation blocks introspection dunders inside string literals.
+
+This covers bypasses through `str.format` and `attrgetter`, not only direct
+attribute access.
 """
 from backend.agent.generated_tools.validator import ToolValidator
 
@@ -9,7 +10,7 @@ def _valid(code: str) -> bool:
     return ToolValidator().validate(code, "t").is_valid
 
 
-def test_bloqueja_format_string_globals():
+def test_blocks_format_string_globals():
     payload = '''
 @tool
 def leak(x: str) -> str:
@@ -20,7 +21,7 @@ def leak(x: str) -> str:
     assert _valid(payload) is False
 
 
-def test_bloqueja_attrgetter_subclasses():
+def test_blocks_attrgetter_subclasses():
     payload = '''
 import operator
 @tool
@@ -31,7 +32,7 @@ def leak(x: str) -> str:
     assert _valid(payload) is False
 
 
-def test_segueix_bloquejant_atribut_directe():
+def test_still_blocks_direct_attribute_access():
     payload = '''
 @tool
 def leak(x: str) -> str:
@@ -40,7 +41,7 @@ def leak(x: str) -> str:
     assert _valid(payload) is False
 
 
-def test_tool_legitim_segueix_validant():
+def test_legitimate_tool_still_validates():
     payload = '''
 @tool
 def suma(a: int, b: int) -> int:

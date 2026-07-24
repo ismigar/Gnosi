@@ -72,7 +72,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
             adds.push(text);
         }
         if (adds.length === 0) {
-            setError(t('files.duplicate', 'Aquest fitxer ja és a la llista.'));
+            setError(t('files.duplicate', "This file is already in the list."));
             return;
         }
         emit([...current, ...adds]);
@@ -80,10 +80,10 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
     const removeAt = (idx) => emit(entriesRef.current.filter((_, i) => i !== idx));
 
     const addTitle = isLink
-        ? t('files.link_existing', 'Enllaça un fitxer local (sense copiar)')
+        ? t('files.link_existing', "Link a local file (without copying)")
         : (isFree
-            ? t('files.upload_choose_folder', 'Puja i tria la carpeta de destinació')
-            : t('files.upload_to', 'Puja a {{folder}}', { folder: STORAGE_LABELS[storage] || STORAGE_LABELS.assets }));
+            ? t('files.upload_choose_folder', "Upload and choose the destination folder")
+            : t('files.upload_to', "Upload to {{folder}}", { folder: STORAGE_LABELS[storage] || STORAGE_LABELS.assets }));
 
     return (
         <div className="space-y-1.5">
@@ -105,7 +105,7 @@ export function FileAttachmentField({ tableId, propertyName, fileMode = 'upload'
                             type="button"
                             onClick={() => removeAt(idx)}
                             className="text-[var(--text-tertiary)] hover:text-red-500 transition-colors shrink-0"
-                            title={t('common.delete', 'Elimina')}
+                            title={t('common.delete', "Delete")}
                         >
                             <X size={13} />
                         </button>

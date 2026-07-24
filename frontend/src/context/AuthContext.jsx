@@ -171,7 +171,7 @@ export function AuthProvider({ children }) {
 export function useAuth() {
     const ctx = useContext(AuthContext);
     if (ctx === null) {
-        throw new Error('useAuth ha de fer-se servir dins un <AuthProvider>');
+        throw new Error('useAuth must be used inside an <AuthProvider>');
     }
     return ctx;
 }

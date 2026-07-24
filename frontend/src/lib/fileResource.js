@@ -443,7 +443,7 @@ async function copyPathToClipboard(target, t) {
         await navigator.clipboard.writeText(plain);
         toast.success(
             t('editor.local_open_clipboard', {
-                defaultValue: 'Ruta copiada: {{path}}\nObre Finder i fes Cmd+Maj+G per enganxar-la.',
+                defaultValue: "Path copied: {{path}}\nOpen Finder and press Cmd+Shift+G to paste it.",
                 path: plain,
             }),
             { duration: 6000 },
@@ -613,6 +613,6 @@ export async function openCitation(resourceId, page, {
     } catch {
         // fall through to the fallback below
     }
-    toast.error(t('pdf.cite_no_doc', { defaultValue: 'El recurs no té cap document per obrir a la cita.' }));
+    toast.error(t('pdf.cite_no_doc', { defaultValue: "The resource has no document to open at the citation." }));
     return evidence;
 }

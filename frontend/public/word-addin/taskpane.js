@@ -85,7 +85,7 @@
             const r = await fetch(API_BASE + '/api/health', { method: 'GET' });
             if (!r.ok) throw new Error('HTTP ' + r.status);
         } catch (err) {
-            setStatus('Sense connexió amb Gnosi', 'error');
+            setStatus('No connection to Gnosi', 'error');
             console.warn('Gnosi ping failed:', err && err.message);
             return false;
         }
@@ -95,15 +95,15 @@
             url.searchParams.set('limit', '1');
             const r = await fetch(url.toString(), { headers: authHeaders() });
             if (r.status === 401 || r.status === 403) {
-                setStatus(getToken() ? 'Token no vàlid' : 'Cal un token', 'error');
+                setStatus(getToken() ? 'Invalid token' : 'Token required', 'error');
                 openSettings();
                 return false;
             }
             if (!r.ok) throw new Error('HTTP ' + r.status);
-            setStatus('Connectat a Gnosi', 'connected');
+            setStatus('Connected to Gnosi', 'connected');
             return true;
         } catch (err) {
-            setStatus('Sense connexió amb Gnosi', 'error');
+            setStatus('No connection to Gnosi', 'error');
             console.warn('Gnosi auth check failed:', err && err.message);
             return false;
         }
@@ -118,8 +118,8 @@
             // A 401 used to look exactly like "no results", which is the worst
             // possible way to report a missing credential.
             if (r.status === 401 || r.status === 403) {
-                setStatus(getToken() ? 'Token no vàlid' : 'Cal un token', 'error');
-                setFooter('Configura el token per cercar al Vault');
+                setStatus(getToken() ? 'Invalid token' : 'Token required', 'error');
+                setFooter('Configure a token to search the Vault');
                 openSettings();
                 return [];
             }
@@ -142,7 +142,7 @@
         // all together with the full context.
         try {
             const style = $('style-select').value || 'apa';
-            const locale = 'ca-AD';
+            const locale = 'en-US';
             const url = new URL(API_BASE + '/api/vault/format-citation');
             url.searchParams.set('key', citationKey);
             url.searchParams.set('style', style);
@@ -169,7 +169,7 @@
         if (!citationKeys || !citationKeys.length) return [];
         try {
             const style = $('style-select').value || 'apa';
-            const locale = 'ca-AD';
+            const locale = 'en-US';
             const r = await fetch(API_BASE + '/api/vault/format-citations', {
                 method: 'POST',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -187,7 +187,7 @@
     async function formatBibliography(citationKeys) {
         try {
             const style = $('style-select').value || 'apa';
-            const locale = 'ca-AD';
+            const locale = 'en-US';
             const r = await fetch(API_BASE + '/api/vault/format-bibliography', {
                 method: 'POST',
                 headers: authHeaders({ 'Content-Type': 'application/json' }),
@@ -287,12 +287,12 @@
 
     async function insertCitation(item) {
         if (!item || !item.citation_key) return;
-        setFooter('Inserint cita…');
+        setFooter('Inserting citation…');
         let text;
         try {
             text = await formatCitation(item.citation_key);
         } catch (e) {
-            setFooter('Error formatant la cita: ' + (e && e.message));
+            setFooter('Error formatting citation: ' + (e && e.message));
             return;
         }
         const tag = 'gnosi-cite:' + item.citation_key;
@@ -337,7 +337,7 @@
             // typing without clicking on it. Via the native API
             // Document.setFocus() (WordApiDesktop 1.3+) with fallback to blur.
             await returnFocusToDocument();
-            setFooter('Inserida @' + item.citation_key + '.');
+            setFooter('Inserted @' + item.citation_key + '.');
         } catch (err) {
             console.warn('Word.run insert failed, fallback:', err && err.message);
             // Fallback: generic Office API (plain text into the selection).
@@ -347,14 +347,14 @@
                     { coercionType: Office.CoercionType.Text },
                     (res) => {
                         if (res.status === Office.AsyncResultStatus.Failed) {
-                            setFooter('No s\'ha pogut inserir (' + res.error.message + '). Fes clic dins del document, on vulguis la cita, i torna-ho a provar.');
+                            setFooter('Could not insert (' + res.error.message + '). Click where you want the citation in the document and try again.');
                         } else {
-                            setFooter('Cita inserida (text pla): @' + item.citation_key);
+                            setFooter('Citation inserted as plain text: @' + item.citation_key);
                         }
                     }
                 );
             } catch (err2) {
-                setFooter('Error inserint: ' + (err && err.message ? err.message : '') + (err2 ? ' / ' + err2.message : ''));
+                setFooter('Error inserting: ' + (err && err.message ? err.message : '') + (err2 ? ' / ' + err2.message : ''));
             }
         }
     }
@@ -399,17 +399,17 @@
     async function refreshBibliography() {
         // For the bibliography (final list in the document) each key
         // appears only once — `uniqueOnly=true` (default).
-        setFooter('Llegint cites del document…');
+        setFooter('Reading citations from the document…');
         const keys = await collectCitationKeysFromDocument();
         if (!keys.length) {
-            setFooter('No s\'han trobat cites al document.');
+            setFooter('No citations were found in the document.');
             // Same shape as the success path: the caller destructures
             // { entries, entriesHtml } — returning [] here made
             // `entries.length` throw an unhandled TypeError on any document
             // without citations.
             return { entries: [], entriesHtml: [], missing: [] };
         }
-        setFooter('Formatant ' + keys.length + ' entrades…');
+        setFooter('Formatting ' + keys.length + ' entries…');
         return await formatBibliography(keys);
     }
 
@@ -421,7 +421,7 @@
             await Word.run(async (context) => {
                 const body = context.document.body;
                 body.insertParagraph('', Word.InsertLocation.end);
-                const heading = body.insertParagraph('Bibliografia', Word.InsertLocation.end);
+                const heading = body.insertParagraph('Bibliography', Word.InsertLocation.end);
                 heading.styleBuiltIn = Word.BuiltInStyleName.heading1;
                 if (entriesHtml.length) {
                     // Word converts <em>/<i> into italics and <a href> into
@@ -449,13 +449,13 @@
                 await context.sync();
             });
             if (missing && missing.length) {
-                setFooter('Bibliografia inserida amb ' + count + ' entrades. ' +
-                    'Sense resoldre: ' + missing.join(', ') + '.');
+                setFooter('Bibliography inserted with ' + count + ' entries. ' +
+                    'Unresolved: ' + missing.join(', ') + '.');
             } else {
-                setFooter('Bibliografia inserida amb ' + count + ' entrades.');
+                setFooter('Bibliography inserted with ' + count + ' entries.');
             }
         } catch (err) {
-            setFooter('Error inserint bibliografia: ' + (err && err.message));
+            setFooter('Error inserting bibliography: ' + (err && err.message));
         }
     }
 
@@ -498,10 +498,10 @@
                 });
                 await context.sync();
             });
-            if (!silent) setFooter('Cites actualitzades (APA).');
+            if (!silent) setFooter('Citations updated (APA).');
         } catch (err) {
             if (silent) console.warn('reformatAllCitations failed:', err && err.message);
-            else setFooter('Error actualitzant cites: ' + (err && err.message));
+            else setFooter('Error updating citations: ' + (err && err.message));
         }
     }
 
@@ -515,7 +515,7 @@
         const state = $('token-state');
         if (!state) return;
         const raw = getToken();
-        state.textContent = raw ? 'Token desat: ' + maskToken(raw) : 'Sense token';
+        state.textContent = raw ? 'Saved token: ' + maskToken(raw) : 'No token';
         state.className = 'settings-state ' + (raw ? 'saved' : 'missing');
         const clear = $('token-clear');
         if (clear) clear.disabled = !raw;
@@ -530,18 +530,18 @@
             const raw = String((input && input.value) || '').trim();
             if (!raw) return;
             if (!raw.startsWith(TOKEN_PREFIX)) {
-                setFooter('Això no sembla un token de Gnosi (ha de començar per ' + TOKEN_PREFIX + ')');
+                setFooter('This does not look like a Gnosi token (it must start with ' + TOKEN_PREFIX + ')');
                 return;
             }
             if (!setToken(raw)) {
-                setFooter('Aquest navegador no permet desar el token');
+                setFooter('This browser does not allow the token to be saved');
                 return;
             }
             // Clear the field: the value is stored, and leaving a credential on
             // screen in a pane that stays open is needless exposure.
             if (input) input.value = '';
             renderTokenState();
-            setFooter('Token desat');
+            setFooter('Token saved');
             // Re-check with the new credential and reload what the search found
             // nothing of while unauthenticated.
             if (await ping()) {
@@ -559,7 +559,7 @@
         if (clear) clear.addEventListener('click', () => {
             setToken('');
             renderTokenState();
-            setFooter('Token esborrat');
+            setFooter('Token cleared');
             ping();
         });
         renderTokenState();

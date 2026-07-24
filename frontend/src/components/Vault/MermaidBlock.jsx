@@ -59,14 +59,14 @@ export default function MermaidBlock({ block, editor }) {
                 } catch (e) {
                     if (!cancelled && token === renderToken.current) {
                         setSvg('');
-                        setError(String(e?.message || e || t('editor.mermaid_syntax_error', 'Error de sintaxi Mermaid')));
+                        setError(String(e?.message || e || t('editor.mermaid_syntax_error', "Mermaid syntax error")));
                     }
                 }
             })
             .catch(() => {
                 if (!cancelled && token === renderToken.current) {
                     setSvg('');
-                    setError(t('editor.mermaid_load_error', "No s'ha pogut carregar Mermaid (sense connexió?)."));
+                    setError(t('editor.mermaid_load_error', "Couldn't load Mermaid (no connection?)."));
                 }
             });
         return () => { cancelled = true; };
@@ -90,7 +90,7 @@ export default function MermaidBlock({ block, editor }) {
                         onClick={save}
                         className="flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10"
                     >
-                        <Check size={14} /> {t('editor.mermaid_done', 'Fet')}
+                        <Check size={14} /> {t('editor.mermaid_done', "Done")}
                     </button>
                 </div>
                 <textarea
@@ -100,7 +100,7 @@ export default function MermaidBlock({ block, editor }) {
                         if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); save(); }
                     }}
                     spellCheck={false}
-                    placeholder={t('editor.mermaid_placeholder', 'graph TD\n  A[Inici] --> B[Final]')}
+                    placeholder={t('editor.mermaid_placeholder', "graph TD\n  A[Start] --> B[End]")}
                     className="h-40 w-full resize-y rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] p-2 font-mono text-sm text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                 />
             </div>
@@ -112,10 +112,10 @@ export default function MermaidBlock({ block, editor }) {
             <button
                 type="button"
                 onClick={() => setEditing(true)}
-                title={t('editor.mermaid_edit_title', 'Edita el diagrama')}
+                title={t('editor.mermaid_edit_title', "Edit the diagram")}
                 className="absolute right-2 top-2 z-10 flex items-center gap-1 rounded bg-[var(--bg-primary)] px-2 py-1 text-xs text-[var(--text-tertiary)] opacity-0 shadow transition-opacity hover:text-[var(--gnosi-primary)] group-hover/mermaid:opacity-100"
             >
-                <Pencil size={12} /> {t('editor.mermaid_edit', 'Edita')}
+                <Pencil size={12} /> {t('editor.mermaid_edit', "Edit")}
             </button>
             {error ? (
                 <div>
@@ -125,7 +125,7 @@ export default function MermaidBlock({ block, editor }) {
             ) : svg ? (
                 <div className="flex justify-center overflow-auto" dangerouslySetInnerHTML={{ __html: svg }} />
             ) : (
-                <div className="py-6 text-center text-sm text-[var(--text-tertiary)]">{t('editor.mermaid_rendering', 'Renderitzant diagrama…')}</div>
+                <div className="py-6 text-center text-sm text-[var(--text-tertiary)]">{t('editor.mermaid_rendering', "Rendering diagram…")}</div>
             )}
         </div>
     );

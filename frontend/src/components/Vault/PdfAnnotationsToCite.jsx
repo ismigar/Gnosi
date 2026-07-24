@@ -79,10 +79,10 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
             setCopyingId(ann.id);
             setTimeout(() => setCopyingId(null), 1200);
             toast.success(t('pdf_quotes.copied', {
-                defaultValue: 'Quote copiada al portaretalls. Pega-la al document.',
+                defaultValue: "Quote copied to the clipboard. Paste it into the document.",
             }));
         } catch (err) {
-            toast.error(t('pdf_quotes.copy_failed', { defaultValue: 'Error copiant la quote' }));
+            toast.error(t('pdf_quotes.copy_failed', { defaultValue: "Error copying the quote" }));
         }
     }, [citationKey, t]);
 
@@ -90,7 +90,7 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
         return (
             <div className="text-xs text-[var(--text-tertiary)] italic px-2 py-3">
                 {t('pdf_quotes.no_source', {
-                    defaultValue: 'No hi ha PDF associat a aquest Recurs (camp attachment_path o URL).',
+                    defaultValue: "No PDF associated with this Resource (attachment_path field or URL).",
                 })}
             </div>
         );
@@ -101,7 +101,7 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
             <div className="flex items-center justify-between px-3 py-2 border-b border-[var(--border-primary)]/50">
                 <div className="flex items-center gap-2 text-xs font-semibold text-[var(--text-secondary)]">
                     <Highlighter size={12} className="text-[var(--gnosi-primary)]/70" />
-                    {t('pdf_quotes.title', { defaultValue: 'Subratllats del PDF' })}
+                    {t('pdf_quotes.title', { defaultValue: "PDF highlights" })}
                     <span className="font-normal text-[var(--text-tertiary)]">({highlights.length})</span>
                 </div>
                 {loading && <Loader2 size={12} className="animate-spin text-[var(--text-tertiary)]" />}
@@ -109,7 +109,7 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
             <div className="max-h-[360px] overflow-y-auto divide-y divide-[var(--border-primary)]/40">
                 {!loading && highlights.length === 0 && (
                     <div className="px-3 py-4 text-center text-xs text-[var(--text-tertiary)] italic">
-                        {t('pdf_quotes.empty', { defaultValue: 'Cap subratllat amb text encara.' })}
+                        {t('pdf_quotes.empty', { defaultValue: "No highlights with text yet." })}
                     </div>
                 )}
                 {highlights.map((ann) => {
@@ -133,7 +133,7 @@ export function PdfAnnotationsToCite({ sourceUri, citationKey, readOnly = false 
                                     type="button"
                                     onClick={() => copyAsQuote(ann)}
                                     className="p-1.5 rounded text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] hover:bg-[var(--bg-primary)] transition-colors"
-                                    title={t('pdf_quotes.copy_quote', { defaultValue: 'Copia com a quote markdown' })}
+                                    title={t('pdf_quotes.copy_quote', { defaultValue: "Copy as markdown quote" })}
                                 >
                                     {copyingId === ann.id
                                         ? <Quote size={12} className="text-[var(--gnosi-primary)]" />

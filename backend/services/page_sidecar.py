@@ -125,20 +125,20 @@ def read_sidecar(vault_root: Path, page_id: str) -> dict:
     # OneDrive materializes the file (st_blocks > 0) it gets read normally again.
     try:
         if os.stat(path).st_blocks == 0:
-            log.warning(f"Sidecar {path} és dataless (online-only/corrupte); s'ignora")
+            log.warning(f"Sidecar {path} has no data (online-only or corrupted); ignoring it")
             return {}
     except OSError as e:
-        log.warning(f"No s'ha pogut fer stat del sidecar {path}: {e}")
+        log.warning(f"Could not stat sidecar {path}: {e}")
         return {}
     try:
         with path.open("r", encoding="utf-8") as f:
             data = json.load(f)
         if isinstance(data, dict):
             return data
-        log.warning(f"Sidecar at {path} no és un dict; ignorant")
+        log.warning(f"Sidecar at {path} is not a dictionary; ignoring it")
         return {}
     except (OSError, json.JSONDecodeError) as e:
-        log.warning(f"No s'ha pogut llegir sidecar {path}: {e}")
+        log.warning(f"Could not read sidecar {path}: {e}")
         return {}
 
 
@@ -157,12 +157,12 @@ def write_sidecar(vault_root: Path, page_id: str, sidecar_meta: dict) -> None:
             try:
                 path.unlink()
             except OSError as e:
-                log.warning(f"No s'ha pogut eliminar sidecar {path}: {e}")
+                log.warning(f"Could not delete sidecar {path}: {e}")
         return
     try:
         safe_write_json(path, sidecar_meta, ensure_ascii=False, indent=2)
     except OSError as e:
-        log.warning(f"No s'ha pogut escriure sidecar {path}: {e}")
+        log.warning(f"Could not write sidecar {path}: {e}")
 
 
 def delete_sidecar(vault_root: Path, page_id: str) -> None:
@@ -174,7 +174,7 @@ def delete_sidecar(vault_root: Path, page_id: str) -> None:
         try:
             path.unlink()
         except OSError as e:
-            log.warning(f"No s'ha pogut eliminar sidecar {path}: {e}")
+            log.warning(f"Could not delete sidecar {path}: {e}")
 
 
 def apply_sidecar_to(metadata: dict, file_path: Optional[Path]) -> dict:

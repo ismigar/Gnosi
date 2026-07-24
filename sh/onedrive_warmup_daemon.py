@@ -124,8 +124,8 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 log = logging.getLogger("onedrive-warmup")
 
 # Log to its own file, independent of the launch context. Launched as
-# Login Item (.app AppleScript), stdout/stderr queden capturats pel `do shell
-# an applet's `script` and never reach any file; and we can't add redirection
+# Login Item (.app AppleScript), stdout/stderr are captured by the applet's
+# `do shell script` and never reach any file; and we can't add redirection
 # to the applet without recompiling it (recompiling invalidates its Full Disk Access
 # to TCC). ONEDRIVE_WARMUP_LOG_FILE="" disables it.
 _LOG_FILE = os.environ.get(
@@ -141,7 +141,7 @@ if _LOG_FILE:
         _fh.setFormatter(logging.Formatter("%(asctime)s | %(levelname)s | %(message)s"))
         logging.getLogger().addHandler(_fh)
     except OSError as exc:
-        log.warning("No puc obrir el log a fitxer %s: %s", _LOG_FILE, exc)
+        log.warning("Could not open the log file %s: %s", _LOG_FILE, exc)
 
 
 def _materialize(path: Path) -> dict:
@@ -192,7 +192,7 @@ def _materialize(path: Path) -> dict:
         # it will only do so once it returns data, but we return right now.
         cancel_event.set()
         log.warning(
-            "warmup timeout per %s després de %.1fs (thread continua en bg, bytes_read=%d)",
+            "Warmup timeout for %s after %.1fs (thread continues in background, bytes_read=%d)",
             path, elapsed, bytes_read[0],
         )
         return {
@@ -298,7 +298,7 @@ def _generate_thumb(source: Path, size: int) -> dict:
             try:
                 shutil.move(str(produced[0]), str(target))
             except OSError as e:
-                log.warning("No s'ha pogut moure thumb a cache: %s", e)
+                log.warning("Could not move thumbnail to cache: %s", e)
                 return {"status": "qlmanage_failed", "reason": "move_failed"}
 
             return {
@@ -343,7 +343,7 @@ class WarmupHandler(BaseHTTPRequestHandler):
                 "code": 500,
                 "body": {
                     "status": "config_error",
-                    "reason": "Cap arrel permesa configurada (ONEDRIVE_WARMUP_ALLOWED_ROOTS o VAULT_HOST_PATH)",
+                    "reason": "No allowed root is configured (ONEDRIVE_WARMUP_ALLOWED_ROOTS or VAULT_HOST_PATH)",
                 },
             }
         for root in ALLOWED_ROOTS:
@@ -410,8 +410,8 @@ def main() -> int:
     ALLOWED_ROOTS = _parse_allowed_roots()
     if not ALLOWED_ROOTS:
         log.error(
-            "Cap arrel permesa: defineix ONEDRIVE_WARMUP_ALLOWED_ROOTS "
-            "(':'-separat) o VAULT_HOST_PATH. Surto."
+            "No allowed root: define ONEDRIVE_WARMUP_ALLOWED_ROOTS "
+            "(':'-separated) or VAULT_HOST_PATH. Exiting."
         )
         return 2
 

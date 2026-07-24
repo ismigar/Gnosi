@@ -143,7 +143,7 @@ def google_list_events(
             for e in result.get("items", []):
                 events.append(_normalize_google_event(e, email, cal))
         except Exception as ex:
-            log.warning(f"google_list_events cal={cal['id']} {email}: {ex}")
+            log.warning(f"google_list_events calendar={cal['id']} {email}: {ex}")
 
     return events
 
@@ -316,7 +316,7 @@ def caldav_list_events(
             r.raise_for_status()
             events.extend(_parse_caldav_response(r.text, email, cal, search))
         except Exception as ex:
-            log.warning(f"caldav_list_events cal={cal_url}: {ex}")
+            log.warning(f"caldav_list_events calendar={cal_url}: {ex}")
 
     return events
 

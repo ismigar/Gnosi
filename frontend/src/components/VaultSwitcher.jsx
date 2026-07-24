@@ -71,7 +71,7 @@ export default function VaultSwitcher() {
     return (
         <div style={{ marginBottom: 16, padding: 14, borderRadius: 14, border: '1px solid var(--settings-border)', background: 'var(--bg-primary)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-secondary)' }}>
-                <Vault size={15} /> {t('vault_switcher.active_vault', 'Vault actiu')}
+                <Vault size={15} /> {t('vault_switcher.active_vault', "Active vault")}
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                 {vaults.map(v => (
@@ -83,7 +83,7 @@ export default function VaultSwitcher() {
                             {v.active && <Check size={13} />}{v.name}
                         </button>
                         {!v.active && (
-                            <button onClick={() => remove(v)} disabled={busy === 'del:' + v.id} title={t('vault_switcher.delete_tooltip', 'Esborra aquest vault del registre')}
+                            <button onClick={() => remove(v)} disabled={busy === 'del:' + v.id} title={t('vault_switcher.delete_tooltip', "Remove this vault from the registry")}
                                 style={{ background: 'none', border: 'none', borderLeft: '1px solid var(--settings-border)', cursor: 'pointer', padding: '7px 8px', color: 'var(--text-tertiary)', display: 'flex' }}>
                                 {busy === 'del:' + v.id ? <Loader size={12} className="animate-spin" /> : <Trash2 size={12} />}
                             </button>
@@ -92,18 +92,18 @@ export default function VaultSwitcher() {
                 ))}
                 {creating ? (
                     <span style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                        <input style={{ ...inp, width: 160 }} autoFocus placeholder={t('settings.general.vault_name', 'Nom del vault')} value={newName}
+                        <input style={{ ...inp, width: 160 }} autoFocus placeholder={t('settings.general.vault_name', "Vault name")} value={newName}
                             onChange={e => setNewName(e.target.value)} onKeyDown={e => e.key === 'Enter' && create()} />
                         <button className="btn-gnosi-primary" onClick={create} disabled={busy === 'create' || !newName.trim()}
                             style={{ padding: '7px 12px', borderRadius: 10, fontSize: '0.82rem' }}>
-                            {busy === 'create' ? <Loader size={13} className="animate-spin" /> : t('common.create', 'Crea')}
+                            {busy === 'create' ? <Loader size={13} className="animate-spin" /> : t('common.create', "Create")}
                         </button>
-                        <button onClick={() => { setCreating(false); setNewName(''); }} style={{ ...inp, cursor: 'pointer' }}>{t('common.cancel', 'Cancel·la')}</button>
+                        <button onClick={() => { setCreating(false); setNewName(''); }} style={{ ...inp, cursor: 'pointer' }}>{t('common.cancel', "Cancel")}</button>
                     </span>
                 ) : (
                     <button onClick={() => setCreating(true)}
                         style={{ ...inp, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: 'var(--text-secondary)' }}>
-                        <Plus size={14} /> {t('vault_switcher.new_vault', 'Nou vault')}
+                        <Plus size={14} /> {t('vault_switcher.new_vault', "New vault")}
                     </button>
                 )}
             </div>
@@ -112,10 +112,10 @@ export default function VaultSwitcher() {
                 isOpen={!!confirmTarget}
                 onClose={() => setConfirmTarget(null)}
                 onConfirm={doRemove}
-                title={t('vault_switcher.delete_modal_title', 'Esborrar vault')}
-                message={confirmTarget ? t('vault_switcher.delete_modal_message', 'Esborrar el vault «{{name}}» del registre? No esborra cap fitxer del disc.', { name: confirmTarget.name }) : ''}
-                confirmText={t('vault_switcher.delete_modal_confirm', 'Esborrar')}
-                cancelText={t('common.cancel', 'Cancel·la')}
+                title={t('vault_switcher.delete_modal_title', "Delete vault")}
+                message={confirmTarget ? t('vault_switcher.delete_modal_message', "Remove the vault \"{{name}}\" from the registry? This does not delete any files from disk.", { name: confirmTarget.name }) : ''}
+                confirmText={t('vault_switcher.delete_modal_confirm', "Delete")}
+                cancelText={t('common.cancel', "Cancel")}
                 isDestructive
             />
         </div>

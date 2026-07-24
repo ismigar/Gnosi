@@ -169,7 +169,7 @@ def register(
     existing = _find_user_by_email(db, payload.email)
     if existing:
         if existing.password_hash:
-            raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
+            raise HTTPException(status_code=409, detail="This email is already registered")
         # The claim flow below is for INVITED users: someone deliberately created
         # a membership for their real address, so knowing that address is a weak
         # but deliberate proof of identity. It must not extend to the
@@ -182,8 +182,8 @@ def register(
             raise HTTPException(
                 status_code=403,
                 detail=(
-                    "Aquest compte és el compte local per defecte i no es pot reclamar "
-                    "per email. Executa pipeline/scripts/set_user_password.py al servidor."
+                    "This is the default local account and cannot be claimed by email. "
+                    "Run pipeline/scripts/set_user_password.py on the server."
                 ),
             )
         # Claim: assign a password to the pre-existing user (their memberships).
@@ -194,7 +194,7 @@ def register(
             db.commit()
         except Exception:
             db.rollback()
-            raise HTTPException(status_code=500, detail="Error desant la contrasenya")
+            raise HTTPException(status_code=500, detail="Error saving the password")
         _set_session_cookie(response, existing.id)
         return _user_to_info(existing, db)
 
@@ -210,7 +210,7 @@ def register(
         db.refresh(user)
     except Exception:
         db.rollback()
-        raise HTTPException(status_code=500, detail="Error creant usuari")
+        raise HTTPException(status_code=500, detail="Error creating the user")
 
     _set_session_cookie(response, user.id)
     return _user_to_info(user, db)
@@ -268,11 +268,11 @@ def me(
 
     """
     if not uid:
-        raise HTTPException(status_code=401, detail="No autenticat")
+        raise HTTPException(status_code=401, detail="Not authenticated")
     user = db.query(User).filter(User.id == uid).first()
     if not user:
         # Valid token but user deleted from the DB — clear cookie.
-        raise HTTPException(status_code=401, detail="Usuari no trobat")
+        raise HTTPException(status_code=401, detail="User not found")
     return _user_to_info(user, db)
 
 
@@ -286,17 +286,17 @@ def _require_credentialed_user(uid: Optional[str], db: Session) -> User:
     users, `set_user_password.py` for the local default account).
     """
     if not uid:
-        raise HTTPException(status_code=401, detail="No autenticat")
+        raise HTTPException(status_code=401, detail="Not authenticated")
     user = db.query(User).filter(User.id == uid).first()
     if not user:
-        raise HTTPException(status_code=401, detail="Usuari no trobat")
+        raise HTTPException(status_code=401, detail="User not found")
     if not user.password_hash:
         raise HTTPException(
             status_code=403,
             detail=(
-                "Aquest compte encara no té contrasenya. Reclama'l registrant-te "
-                "amb el seu email o, si és el compte local per defecte, executa "
-                "pipeline/scripts/set_user_password.py al servidor."
+                "This account does not have a password yet. Claim it by registering "
+                "with its email or, for the default local account, run "
+                "pipeline/scripts/set_user_password.py on the server."
             ),
         )
     return user
@@ -348,10 +348,10 @@ def update_me(
         if not payload.current_password or not verify_password(
             payload.current_password, user.password_hash
         ):
-            raise HTTPException(status_code=403, detail="La contrasenya actual no és correcta")
+            raise HTTPException(status_code=403, detail="The current password is incorrect")
         other = _find_user_by_email(db, new_email)
         if other and other.id != user.id:
-            raise HTTPException(status_code=409, detail="Aquest email ja està registrat")
+            raise HTTPException(status_code=409, detail="This email is already registered")
         user.email = new_email
 
     if payload.name is not None and payload.name.strip():

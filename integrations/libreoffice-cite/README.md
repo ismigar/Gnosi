@@ -1,159 +1,153 @@
-# Gnosi Cite — Extensió per LibreOffice Writer
+# Gnosi Cite — LibreOffice Writer extension
 
-Extensió tipus Mendeley Cite per inserir referències del Vault de Gnosi
-(taula Recursos) dins un document de Writer com a cites formatades +
-bibliografia autogenerada.
+A Mendeley Cite-style extension for inserting references from the Gnosi Vault
+(`Resources` table) into Writer documents as formatted citations with an
+automatically generated bibliography.
 
-És la contrapartida del [Word Add-in](../../frontend/public/word-addin/)
-i comparteix exactament el mateix backend i pipeline pandoc.
+It is the counterpart of the
+[Word add-in](../../frontend/public/word-addin/) and uses the same backend and
+Pandoc pipeline.
 
-## Què fa
+## Features
 
-- **Cerca dinàmica**: filtra Recursos per `Citation Key`, `Títol` o `Autor`
-- **Inserció amb tracking**: cada cita s'insereix dins un *reference mark* de
-  Writer anomenat `gnosicite::<key>::<uuid>`. Això permet reformatar-les si
-  es canvia d'estil
-- **Bibliografia automàtica**: recopila totes les cites del document i les
-  renderitza al final via pandoc-citeproc
-- **Estils CSL**: APA 7, Chicago author-date, MLA, IEEE
+- **Dynamic search** by `Citation Key`, `Title`, or `Author`.
+- **Tracked insertion** through Writer reference marks named
+  `gnosicite::<key>::<uuid>`, allowing later reformatting.
+- **Automatic bibliography** rendered through Pandoc citeproc.
+- **CSL styles**: APA 7, Chicago author-date, MLA, and IEEE.
 
-## Arquitectura
+## Architecture
 
 ```
 [LibreOffice Writer]
-   └── Menú "Gnosi Cite"
-        ├── Insereix cita…          → gnosicite:insertCitation  (diàleg UNO)
-        ├── Insereix bibliografia   → gnosicite:insertBibliography
-        ├── Actualitza tot (APA)    → gnosicite:refreshAll
-        └── Configuració…           → gnosicite:settings
+   └── "Gnosi Cite" menu
+        ├── Insert citation…        → gnosicite:insertCitation
+        ├── Insert bibliography     → gnosicite:insertBibliography
+        ├── Refresh all (APA)       → gnosicite:refreshAll
+        └── Settings…               → gnosicite:settings
               ↓ protocol handler (gnosi_cite.py, Python/UNO)
-              ↓ urllib (stdlib)
+              ↓ urllib (standard library)
 [Gnosi backend]
    ├── GET  /api/health
    ├── GET  /api/vault/search-citations?q=…
-   ├── GET  /api/vault/format-citation?key=…&style=apa&locale=ca-AD
-   ├── POST /api/vault/format-citations    { keys[], style, locale }  ← APA batch
+   ├── GET  /api/vault/format-citation?key=…&style=apa&locale=en-US
+   ├── POST /api/vault/format-citations    { keys[], style, locale }
    └── POST /api/vault/format-bibliography { keys[], style, locale }
               ↓ subprocess
-[pandoc + citeproc + CSL styles + locales]
+[Pandoc + citeproc + CSL styles + locales]
 ```
 
-Els endpoints són **els mateixos** que utilitza el Word Add-in; no cal cap
-canvi al backend.
+These are the same endpoints used by the Word add-in; the backend requires no
+integration-specific changes.
 
-## Conformitat APA (important)
+## APA compliance
 
-Igual que al Word Add-in, l'estil APA i altres autor-data tenen regles
-**sensibles a context** (sufixos `2020a`/`2020b`, inicials per desambiguar
-homònims, `et al.` a partir de la segona aparició). Aquestes decisions
-requereixen que pandoc-citeproc rebi **totes les cites del document juntes**.
+APA and other author-date styles have context-sensitive rules such as
+`2020a`/`2020b` suffixes, initials for authors with the same surname, and
+`et al.` after the first appearance. Pandoc citeproc must receive all document
+citations together.
 
-La inserció des del diàleg ho fa **automàticament** (com Mendeley): cada
-cop que insereixes una cita, reformata **totes les cites** del document
-amb context complet — una sola crida `format-citations` (plural) amb
-totes les claus en ordre, incloent duplicats, i actualitza el text de
-cada *reference mark* (`2020a`/`2020b`, inicials, `et al.`). No cal cap
-acció manual.
+Each insertion therefore reformats **all citations** automatically through one
+plural `format-citations` call with all keys in order, including duplicates.
+Every reference mark receives its final text.
 
-**Si canvies d'estil** després d'inserir, fes servir el menú
-**Gnosi Cite > Actualitza tot (APA)** per repropagar-lo a tot el
-document (el desplegable del diàleg no detecta el canvi tot sol). La
-bibliografia es genera amb **«Insereix bibliografia»**.
+After changing the style, use **Gnosi Cite > Refresh all (APA)** to propagate
+the change. The dialog's selector does not detect later changes automatically.
+Generate the bibliography with **Insert bibliography**.
 
-## Requeriments
+## Requirements
 
-- LibreOffice 5.0+ amb el component de scripting Python actiu (és el cas a
-  les builds oficials de Mac, Windows i la major part de Linux; a alguns
-  Linux cal `libreoffice-script-provider-python`)
-- Backend de Gnosi accessible (per defecte `http://localhost:5002`) amb
-  pandoc instal·lat (ja inclòs a `Dockerfile.backend`)
+- LibreOffice 5.0 or later with Python scripting. Official macOS, Windows,
+  and most Linux builds include it. Some Linux distributions require
+  `libreoffice-script-provider-python`.
+- A reachable Gnosi backend, defaulting to `http://localhost:5002`, with
+  Pandoc installed. Docker deployments already include Pandoc through
+  `Dockerfile.backend`.
 
-> El Python embegut de LibreOffice **no** porta `requests`; aquesta extensió
-> fa servir només `urllib` de la stdlib.
+> LibreOffice's embedded Python does not include `requests`; the extension
+> uses only the standard-library `urllib`.
 
-## Construcció
+## Build
 
 ```bash
 cd monorepo/apps/gnosi/integrations/libreoffice-cite
-./build.sh          # genera gnosi-cite.oxt
+./build.sh          # generates gnosi-cite.oxt
 ```
 
-## Instal·lació
+## Installation
 
-### Via interfície gràfica (recomanat)
+### Graphical interface
 
-1. LibreOffice → **Eines > Gestor d'extensions… > Afegeix**
-2. Tria `gnosi-cite.oxt`
-3. Reinicia LibreOffice
-4. Obre un document de Writer → apareix el menú **Gnosi Cite**
+1. Open **LibreOffice > Tools > Extension Manager > Add**.
+2. Select `gnosi-cite.oxt`.
+3. Restart LibreOffice.
+4. Open a Writer document; the **Gnosi Cite** menu appears.
 
-### Via línia de comandes
+### Command line
 
 ```bash
-# Mac (ruta típica de l'app)
+# macOS
 /Applications/LibreOffice.app/Contents/MacOS/unopkg add --force gnosi-cite.oxt
 
-# Linux / Windows (unopkg al PATH de LibreOffice)
+# Linux or Windows, with unopkg on LibreOffice's PATH
 unopkg add --force gnosi-cite.oxt
 ```
 
-Per desinstal·lar: `unopkg remove com.gnosi.cite`.
+Uninstall with `unopkg remove com.gnosi.cite`.
 
-## Ús
+## Usage
 
-1. **Gnosi Cite > Configuració…** → posa l'URL del backend (un cop)
-2. **Gnosi Cite > Insereix cita…** → s'obre el diàleg:
-   - Escriu al cercador (filtra per key/títol/autor)
-   - Tria l'estil de citació (APA 7, Chicago, MLA, IEEE)
-   - Doble-clic a una entrada (o **Insereix cita**) per inserir-la al cursor
-     (les cites del document es reformaten soles en APA a cada inserció)
-3. Quan tinguis totes les cites: **Insereix bibliografia**. Si has canviat
-   d'estil després d'inserir, fes **Gnosi Cite > Actualitza tot (APA)**.
+1. Open **Gnosi Cite > Settings**, enter the backend URL once, and save.
+2. Open **Gnosi Cite > Insert citation**:
+   - Search by key, title, or author.
+   - Choose APA 7, Chicago, MLA, or IEEE.
+   - Double-click an entry or choose **Insert citation**. APA citations in the
+     document are reformatted automatically after every insertion.
+3. Choose **Insert bibliography** after adding all citations. If the style
+   changed, first choose **Gnosi Cite > Refresh all (APA)**.
 
-La configuració es desa a `~/.config/gnosi-cite/config.json`.
+Configuration is stored at `~/.config/gnosi-cite/config.json`.
 
-## Distribució
+## Distribution
 
-Ara mateix el `.oxt` s'instal·la baixant-lo d'una release de GitHub. Per
-publicar-lo a extensions.libreoffice.org (compte TDF gratuït, amb moderació):
-vegeu [PUBLISHING.md](PUBLISHING.md).
+The `.oxt` is currently installed from GitHub releases. See
+[PUBLISHING.md](PUBLISHING.md) for publishing it to
+extensions.libreoffice.org with a free TDF account and moderation.
 
-## Compatibilitat coneguda
+## Known compatibility
 
-- ✅ LibreOffice Writer 5.0+ (Mac, Windows, Linux)
-- ✅ Documents `.odt` i `.docx`
-- ✅ **Cites dins de taules**: des de la v0.1.2 el refresc ordenat hi baixa,
-  i les tracta al punt del document on és la taula — que és el que fa
-  correcta la desambiguació APA. També recorre taules niuades.
-- ⚠ **Capçaleres i peus de pàgina**: les seves cites arriben a la
-  bibliografia (només calen les claus) però **no** es reformaten amb
-  «Actualitza tot». No és un oblit: es repeteixen a cada pàgina, així que no
-  tenen una posició única a l'ordre de lectura contra la qual desambiguar.
-- ❌ Apache OpenOffice: no provat (l'API de reference marks hi és, però el
-  registre de components Python difereix)
+- ✅ LibreOffice Writer 5.0 and later on macOS, Windows, and Linux.
+- ✅ `.odt` and `.docx` documents.
+- ✅ **Citations inside tables**: since v0.1.2, ordered refresh descends into
+  tables, including nested tables, and places citations at the table's
+  position in document order for correct APA disambiguation.
+- ⚠ **Headers and footers**: their keys are included in the bibliography, but
+  their citation text is not changed by **Refresh all**. Repeated page content
+  has no unique position in document reading order for disambiguation.
+- ❌ Apache OpenOffice is untested. It provides reference marks but registers
+  Python components differently.
 
 ## Troubleshooting
 
-### El menú "Gnosi Cite" no apareix
+### The "Gnosi Cite" menu does not appear
 
-- Confirma que el document és de **Writer** (el menú té `Context` de text)
-- Reinicia LibreOffice del tot després d'instal·lar
-- Comprova que el Python scripting hi és: a alguns Linux,
-  `sudo apt install libreoffice-script-provider-python`
+- Confirm the active document is a Writer text document.
+- Restart LibreOffice completely after installation.
+- On Linux, verify Python scripting is present, for example with
+  `sudo apt install libreoffice-script-provider-python`.
 
-### "Sense connexió amb Gnosi"
+### "Cannot connect to Gnosi"
 
-- Verifica que el backend respon a `/api/health`
-- Revisa l'URL a **Gnosi Cite > Configuració…**
-- En remot cal `https://` amb certificat vàlid
+- Verify that `/api/health` responds.
+- Check the URL under **Gnosi Cite > Settings**.
+- Remote connections require `https://` with a valid certificate.
 
-### "Obre un document de Writer primer"
+### "Open a Writer document first"
 
-La comanda s'ha despatxat sense un document de text actiu. Obre o crea un
-`.odt`/`.docx` i torna-ho a provar.
+The command ran without an active text document. Open or create an
+`.odt`/`.docx` file and try again.
 
-### Les cites no es reformaten amb «Actualitza tot»
+### Citations are not reformatted by "Refresh all"
 
-Assegura't que es van inserir amb aquesta extensió (porten el *reference
-mark* `gnosicite::…`). Les cites enganxades com a text pla no es poden
-re-rendenitzar.
+Only citations inserted by this extension have a `gnosicite::…` reference
+mark. Plain-text citations cannot be rerendered.

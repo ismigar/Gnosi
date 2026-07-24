@@ -1,39 +1,36 @@
-"""Sorting parity for accented text between the snapshot (backend) and the
-main view (frontend, `compareFieldValues` with `localeCompare('ca', base)`).
+"""Sorting parity for accented text between the snapshot and the main view.
 
-Before, the string fallback compared by codepoint of the raw `.lower()`, so
-any value with an accented initial (à = U+00E0) went AFTER
-'z' (U+007A). In a Catalan/Castilian vault, the snapshot sorted differently from
-the main view. The fix folds diacritics to the base letter.
+The frontend uses English base-sensitive collation. Before, the backend string
+fallback compared raw lowercase codepoints, placing accented initials after z.
+The fix folds diacritics to the base letter.
 """
 from backend.services.view_snapshot import _compare_field_values, multi_key_sort
 
 
-# Expected order = whatever `localeCompare('ca', {sensitivity:'base'})` returns on the
-# front (verified in node): accented characters interleave by base letter.
-EXPECTED_CA = ["àrea", "Banana", "Çelona", "niu", "ópal", "Òrbita", "poma", "Zebra"]
+# Expected English base-collation order, verified in Node.
+EXPECTED_EN = ["àrea", "Banana", "Çelona", "niu", "ópal", "Òrbita", "poma", "Zebra"]
 
 
-def test_ordre_amb_accents_coincideix_amb_locale_del_front():
+def test_accented_order_matches_frontend_locale():
     words = ["Zebra", "àrea", "Banana", "Òrbita", "poma", "Çelona", "niu", "ópal"]
     rows = [{"metadata": {"Nom": w}} for w in words]
     out = multi_key_sort(rows, [{"field": "Nom", "direction": "asc"}])
-    assert [r["metadata"]["Nom"] for r in out] == EXPECTED_CA
+    assert [r["metadata"]["Nom"] for r in out] == EXPECTED_EN
 
 
-def test_accentuada_no_va_despres_de_la_z():
+def test_accented_value_does_not_sort_after_z():
     # "àrea" < "Zebra" with base collation (à→a); by codepoint it would be reversed.
     assert _compare_field_values("àrea", "Zebra", "asc") < 0
     assert _compare_field_values("Zebra", "àrea", "asc") > 0
 
 
-def test_base_insensible_a_accent_i_majuscula():
+def test_base_collation_ignores_accent_and_case():
     # à == a == À (base sensitivity) → tie.
     assert _compare_field_values("àrea", "AREA", "asc") == 0
     assert _compare_field_values("Çelona", "celona", "asc") == 0
 
 
-def test_buits_segueixen_la_direccio_desc_primer():
+def test_empty_values_follow_direction_with_descending_first():
     # Empty values FOLLOW the direction: FIRST in desc, LAST in asc
     # (Excel/Sheets convention).
     rows = [{"metadata": {"Nom": v}} for v in ["", "óptim", "", "abc"]]
