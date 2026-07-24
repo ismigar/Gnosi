@@ -1816,6 +1816,25 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         });
     };
 
+    const handleDeleteAIAgent = (agent) => {
+        setConfirmConfig({
+            isOpen: true,
+            title: tn('ai.delete_agent_title'),
+            message: tn('ai.delete_agent_msg', { name: agent.name }),
+            onConfirm: () => {
+                setDraft(prev => ({
+                    ...prev,
+                    ai: {
+                        ...prev.ai,
+                        agents: prev.ai.agents.filter(item => item.id !== agent.id)
+                    }
+                }));
+                setEditingAgent(current => current?.id === agent.id ? null : current);
+                setConfirmConfig(prev => ({ ...prev, isOpen: false }));
+            }
+        });
+    };
+
     /**
      * If the user pastes a YouTube channel URL, it converts it to the public XML feed.
      * Recognized patterns:
@@ -3900,23 +3919,41 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 aiRegistry={aiRegistry}
                                             />
                                         )}
-                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             {draft.ai.agents.map(agent => (
-                                                <div key={agent.id} className="hover-scale" onClick={() => setEditingAgent(agent)} title={tn('ai.edit_agent_title')} style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'all 0.2s', cursor: 'pointer' }}>
-                                                    <div style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))' }}>{agent.icon || '🤖'}</div>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
-                                                        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px' }}>{agent.model}</div>
+                                                <div key={agent.id} className="hover-scale" onClick={() => setEditingAgent(agent)} title={tn('ai.edit_agent_title')} style={{
+                                                    width: '100%', padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)',
+                                                    background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                                    gap: '20px', transition: 'all 0.2s', cursor: 'pointer', boxSizing: 'border-box',
+                                                    opacity: agent.enabled ? 1 : 0.6
+                                                }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', minWidth: 0 }}>
+                                                        <div onClick={event => event.stopPropagation()}>
+                                                            <GnosiToggle
+                                                                active={agent.enabled}
+                                                                label={tn('ai.enable_agent', { name: agent.name })}
+                                                                scale={1.1}
+                                                                style={{ marginRight: '10px' }}
+                                                                onChange={() => {
+                                                                    const newList = draft.ai.agents.map(item => item.id === agent.id ? { ...item, enabled: !item.enabled } : item);
+                                                                    setDraft({ ...draft, ai: { ...draft.ai, agents: newList } });
+                                                                }}
+                                                            />
+                                                        </div>
+                                                        <div style={{ fontSize: '2.5rem', filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.1))' }}>{agent.icon || '🤖'}</div>
+                                                        <div style={{ minWidth: 0 }}>
+                                                            <div style={{ fontWeight: '900', fontSize: '1.1rem', color: 'var(--text-primary)' }}>{agent.name}</div>
+                                                            <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: '4px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{agent.model}</div>
+                                                        </div>
                                                     </div>
-                                                    <GnosiToggle
-                                                        active={agent.enabled}
-                                                        label={tn('ai.enable_agent', { name: agent.name })}
-                                                        scale={1.1}
-                                                        onChange={() => {
-                                                            const newList = draft.ai.agents.map(a => a.id === agent.id ? {...a, enabled: !a.enabled} : a);
-                                                            setDraft({...draft, ai: {...draft.ai, agents: newList}});
-                                                        }}
-                                                    />
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+                                                        <button type="button" onClick={(event) => { event.stopPropagation(); setEditingAgent(agent); }} aria-label={tn('ai.configure_name', { name: agent.name })} title={tn('ai.configure_name', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px' }}>
+                                                            <SettingsIcon size={22} />
+                                                        </button>
+                                                        <button type="button" onClick={(event) => { event.stopPropagation(); handleDeleteAIAgent(agent); }} aria-label={tn('ai.delete_name', { name: agent.name })} title={tn('ai.delete_name', { name: agent.name })} className="icon-btn hover-bg-strong" style={{ padding: '14px', borderRadius: '16px', color: 'var(--status-error)' }}>
+                                                            <Trash2 size={22} />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>
