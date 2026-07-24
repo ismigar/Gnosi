@@ -3628,6 +3628,27 @@
     "module_dashboard_desc": "Monitoritza l'estat del sistema i aprova eines.",
     "module_settings_desc": "Gestiona els paràmetres del teu ecosistema."
   },
+  "marketing": {
+    "view_github": "Veure a GitHub",
+    "support_gnosi": "Dona suport a Gnosi"
+  },
+  "support": {
+    "eyebrow": "Mantén Gnosi independent",
+    "title": "Dona suport a Gnosi",
+    "intro": "Gnosi és un espai de treball privat i local-first per a notes, documents, tasques, calendaris, referències i assistència d’IA. El teu suport ajuda a mantenir el projecte lliure, obert i útil.",
+    "sponsor_button": "Patrocina a GitHub",
+    "kofi_button": "Dona suport a Ko-fi",
+    "tiers_label": "Nivells de suport",
+    "funding_title": "En què s’inverteix el teu suport",
+    "funding_description": "Allotjament, manteniment, versions d’escriptori, integracions, documentació i desenvolupament open source. No es promet suport individual ni funcionalitats exclusives.",
+    "github_link": "Explora el codi font de Gnosi",
+    "tiers": {
+      "supporter": { "title": "Supporter", "description": "Una petita aportació per mantenir Gnosi en moviment." },
+      "backer": { "title": "Backer", "description": "Ajuda a finançar el manteniment i les versions regulars." },
+      "sustainer": { "title": "Sustainer", "description": "Dona suport a les integracions, la documentació i les millores." },
+      "cooperative": { "title": "Suport cooperatiu", "description": "Ajuda a fer créixer un espai de treball comunitari i neutral." }
+    }
+  },
   "composer": {
     "subtitle": "Crea i programa contingut per a les teves xarxes socials.",
     "social_dashboard_title": "Social Dashboard",
