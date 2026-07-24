@@ -1,5 +1,5 @@
 python-multipart>=0.0.32
-PyYAML>=6.0
+PyYAML>=6.0.3
 dotenv>=0.9.9
 python-dotenv>=1.0.0
 Flask>=3.1.3
