@@ -29,6 +29,7 @@ import VaultSwitcher from './VaultSwitcher';
 import AgentContextSources from './AgentContextSources';
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import { availableLocales, resolveLocale } from '../locales/registry';
+import { sortFieldItems } from '../utils/fieldOrdering';
 import './GlobalSettingsModal.css';
 
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
@@ -3420,7 +3421,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                             {dbTables.map(table => {
                                                                                 const isTableVisible = draft.graph.visible_tables?.includes(table.id);
-                                                                                const tableFields = table.properties || [];
+                                                                                const tableFields = sortFieldItems(table.properties || []);
                                                                                 
                                                                                 return (
                                                                                     <div key={table.id}>
@@ -3491,7 +3492,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
                                                                             {orphanTables.map(table => {
                                                                                 const isTableVisible = draft.graph.visible_tables?.includes(table.id);
-                                                                                const tableFields = table.properties || [];
+                                                                                const tableFields = sortFieldItems(table.properties || []);
                                                                                 return (
                                                                                     <div key={table.id}>
                                                                                         <div className="hover-scale" style={{ padding: '14px 18px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
