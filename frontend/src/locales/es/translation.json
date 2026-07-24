@@ -1,4 +1,10 @@
 {
+  "_meta": {
+    "nativeName": "Español",
+    "intlLocale": "es-ES",
+    "direction": "ltr",
+    "zoteroLocale": "es-ES"
+  },
   "app_title": "Gnosi",
   "search_placeholder": "Buscar nodos...",
   "filter_by_kind": "Filtrar por tipo",
@@ -44,9 +50,9 @@
     "settings": "Ajustes",
     "undo": "Deshacer",
     "undo_hint": "Cmd+Z para deshacer",
-    "restored_count": "Restaurados {{count}} registro(s)",
-    "redeleted_count": "Re-eliminados {{count}} registro(s)",
-    "deleted_records": "{{count}} registro(s) eliminado(s)",
+    "restored_count": "Se han restaurado {{count}} registros",
+    "redeleted_count": "Se han vuelto a eliminar {{count}} registros",
+    "deleted_records": "Se han eliminado {{count}} registros",
     "new_database": "Nueva Base de Datos",
     "new_dashboard": "Nuevo Tablero",
     "new_page": "Nueva Página",
@@ -96,7 +102,11 @@
       "unsaved_changes": "Cambios pendientes de guardar...",
       "error_saving": "Error al guardar",
       "error_connection": "Error de conexión",
-      "loading": "Cargando…"
+      "loading": "Cargando…",
+      "error_connect": "❌ No se ha podido conectar",
+      "error_sync": "❌ Error al sincronizar",
+      "sync_completed": "✅ ¡Sincronización completada!",
+      "sync_in_progress": "⏳ Ya está en curso..."
     },
     "open": "Abrir",
     "loading": "Cargando…",
@@ -138,7 +148,47 @@
     "ok": "Aceptar",
     "cancel_short": "Cancelar",
     "confirm_modal_title": "Confirmar acción",
-    "confirm_modal_message": "¿Seguro que quieres proceder con esta acción?"
+    "confirm_modal_message": "¿Seguro que quieres proceder con esta acción?",
+    "success": "Éxito",
+    "vault_table": {
+      "add_property": "Añadir propiedad",
+      "average": "Media",
+      "calculate": "Calcular",
+      "checked": "marcados",
+      "column_actions": {
+        "delete_property": "Eliminar propiedad",
+        "edit_property": "Editar propiedad",
+        "filter": "Filtrar",
+        "hide": "Ocultar",
+        "sort_asc": "Ordenar de forma ascendente",
+        "sort_desc": "Ordenar de forma descendente"
+      },
+      "count": "Total",
+      "empty": "vacío",
+      "error_loading": "Error al cargar los elementos del vault",
+      "items": "elementos",
+      "max": "Máximo",
+      "median": "Mediana",
+      "min": "Mínimo",
+      "new_item": "Elemento nuevo",
+      "no_data": "No se han encontrado elementos en este vault.",
+      "not_empty": "no vacío",
+      "range": "Rango",
+      "refresh": "Refrescar",
+      "relative_date": {
+        "days_ago": "hace {{count}} días",
+        "in_days": "dentro de {{count}} días",
+        "last_week": "La semana pasada",
+        "next_week": "La semana que viene",
+        "today": "Hoy",
+        "tomorrow": "Mañana",
+        "yesterday": "Ayer"
+      },
+      "save_success": "Cambios guardados correctamente",
+      "search_placeholder": "Buscar elementos...",
+      "sum": "Suma",
+      "unchecked": "desmarcados"
+    }
   },
   "day_mo": "Lu",
   "day_tu": "Ma",
@@ -641,7 +691,10 @@
     "managed_in_vault": "Gestionado en el Vault",
     "view_graph": "Ver Grafo",
     "error_prefix": "Error",
-    "control_center": "Centro de control"
+    "control_center": "Centro de control",
+    "frequency_minutes_many": "Cada {{count}} min",
+    "frequency_hours_many": "Cada {{count}} horas",
+    "frequency_days_many": "Cada {{count}} días"
   },
   "errors": {
     "load_pages": "Error cargando páginas",
@@ -1053,7 +1106,8 @@
     "loading_view": "Cargando vista...",
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desarrollo para una próxima iteración",
-    "soon_badge": "Pronto"
+    "soon_badge": "Pronto",
+    "records_count_many": "{{count}} registros"
   },
   "fs_picker": {
     "title_any": "Seleccionar archivo o carpeta",
@@ -1496,7 +1550,8 @@
       "reconnect_google": "Reconectar Google",
       "add_account_btn": "+ Añadir Cuenta / Calendario",
       "individual_colors_hint": "Los colores se pueden personalizar para cada calendario individualmente desde la barra lateral de la vista de Calendario.",
-      "oauth_managed_desc": "Gestionado vía OAuth2. Los colores individuales se configuran en la barra lateral del calendario."
+      "oauth_managed_desc": "Gestionado vía OAuth2. Los colores individuales se configuran en la barra lateral del calendario.",
+      "location_verified": "Ubicación verificada"
     },
     "graph": {
       "section_title": "Motor Visual del Grafo",
@@ -1542,7 +1597,11 @@
       "visible_attributes": "Atributos Visibles en el Grafo",
       "visible_attributes_desc": "Selecciona qué propiedades y tablas quieres que sean visibles como nodos o etiquetas en el grafo.",
       "table_filters": "Filtros de Tabla (Barra lateral)",
-      "exposed_filter": "Filtro expuesto"
+      "exposed_filter": "Filtro expuesto",
+      "all": "Todas",
+      "attributes_label": "Atributos",
+      "none": "Ninguno",
+      "show_labels": "Mostrar etiquetas"
     },
     "mail_accounts": {
       "title": "Cuentas de Correo",
@@ -1777,7 +1836,15 @@
         "Gateways & Routing": "Gateways y Rutas",
         "Specialized APIs": "APIs Especializadas",
         "Enterprise": "Empresa",
-        "Local": "Local"
+        "Local": "Local",
+        "cloud_platforms": "Plataformas Cloud",
+        "enterprise": "Empresa",
+        "gateways_routing": "Gateways y Rutas",
+        "local": "Local",
+        "major_llms": "Modelos Principales",
+        "opencode": "OpenCode",
+        "specialized": "APIs Especializadas",
+        "specialized_apis": "APIs Especializadas"
       },
       "model_registry": {
         "loading": "Cargando modelos…",
@@ -1837,7 +1904,65 @@
       "reliability_tool_use_failed": "ha escrito mal las llamadas a las herramientas",
       "reliability_context_length": "se ha quedado sin ventana de contexto",
       "reliability_schema_invalid": "no ha respetado el formato pedido",
-      "reliability_content_filter": "ha sido bloqueado por los filtros de contenido"
+      "reliability_content_filter": "ha sido bloqueado por los filtros de contenido",
+      "add_provider_hint": "Selecciona el proveedor y completa solo las credenciales necesarias.",
+      "credential_saved_securely": "Credencial guardada en almacenamiento seguro.",
+      "credential_storage_note": "La clave se guardará en keychain/secret store y no en params.yaml.",
+      "error_credential_failed": "No se han podido guardar las credenciales. Comprueba la red o la clave API.",
+      "error_save_credential": "Se ha producido un error al guardar las credenciales del proveedor.",
+      "no_providers_hint": "Aún no hay proveedores añadidos. Haz clic en \"Añadir Proveedor\" para configurar uno.",
+      "profiles_desc": "Configura perfiles de agentes de IA con instrucciones específicas.",
+      "profiles_title": "Perfiles de Agentes",
+      "provider_descriptions": {
+        "302_ai": "Acceso multi-modelo vía API.",
+        "amazon-bedrock": "Modelos vía AWS Bedrock.",
+        "anthropic": "Modelos Claude 3.5 Sonnet y Opus.",
+        "azure-cognitive-services": "Modelos servidos desde Cognitive Services.",
+        "azure-openai": "OpenAI desplegado en Azure.",
+        "baseten": "Inferencia y hosting de modelos.",
+        "cerebras": "Inferencia de alta velocidad.",
+        "cloudflare-ai-gateway": "Gateway unificado multi-proveedor.",
+        "cloudflare-workers-ai": "Modelos en la red perimetral de Cloudflare.",
+        "cortecs": "Proveedor de modelos fundacionales.",
+        "custom": "Cualquier endpoint compatible con OpenAI.",
+        "deep-infra": "Infraestructura de inferencia multi-modelo.",
+        "deepseek": "Modelos DeepSeek API.",
+        "fireworks": "Inferencia acelerada.",
+        "firmware": "Proveedor compatible con OpenAI.",
+        "github-copilot": "Suscripción Copilot vía login OAuth.",
+        "gitlab-duo": "Plataforma Duo Agent / OAuth o PAT.",
+        "google": "Modelos Gemini Pro y Flash vía Google AI Studio.",
+        "google-vertex-ai": "Modelos en Google Cloud Vertex.",
+        "groq": "Inferencia ultra-rápida con Llama 3 y Mixtral.",
+        "helicone": "Pasarela y observabilidad de LLM.",
+        "hugging-face": "Proveedores de inferencia de Hugging Face.",
+        "io-net": "Plataforma de inferencia de modelos.",
+        "llama-cpp": "Servidor local compatible con OpenAI.",
+        "lmstudio": "Modelos locales vía LM Studio.",
+        "minimax": "Modelos MiniMax.",
+        "moonshot": "Modelos Kimi y otros de Moonshot.",
+        "nebius": "Factoría de tokens para inferencia.",
+        "ollama": "Modelos locales sin comprometer la privacidad.",
+        "ollama-cloud": "Modelos cloud de Ollama.",
+        "openai": "Modelos GPT-4o y GPT-4-turbo originales.",
+        "opencode_go": "Plan económico con modelos de codificación verificados.",
+        "opencode_zen": "Modelos validados por el equipo de OpenCode.",
+        "openrouter": "Acceso a cientos de modelos mediante una API unificada.",
+        "ovhcloud": "Endpoints de IA de OVHcloud.",
+        "sap-ai-core": "Modelos vía clave de servicio SAP JSON.",
+        "scaleway": "APIs generativas de Scaleway.",
+        "stackit": "Hosting de modelos soberano europeo.",
+        "together": "Modelos abiertos y propietarios.",
+        "venice": "Modelos mediante la API de Venice.",
+        "vercel": "Gateway multi-proveedor de Vercel.",
+        "xai": "Modelos Grok vía xAI.",
+        "z_ai": "Modelos GLM y plan de codificación.",
+        "zenmux": "Router multi-modelo compatible."
+      },
+      "required_suffix": "obligatorio",
+      "status_connected": "Conectado",
+      "status_not_configured": "Sin configurar",
+      "models_available_many": "{{count}} modelos disponibles"
     },
     "footer": {
       "close": "Cerrar",
@@ -1938,7 +2063,8 @@
       "confirm_delete_clone_cancel": "Cancelar",
       "err_prepare_vault": "No se ha podido preparar el vault destino: {{detail}}",
       "err_unknown_clone_vault": "No sé en qué vault está el clon. Cambia al vault del clon (selector de vaults) y vuelve a verificar.",
-      "linked_db_count": "{{count}} BD enlazada (no importable)"
+      "linked_db_count": "{{count}} BD enlazada (no importable)",
+      "linked_db_count_many": "{{count}} BD enlazadas (no importables)"
     },
     "scheduled_tasks": "Tareas Programadas",
     "scheduled_tasks_hint": "Configura las tareas automáticas del sistema.",
@@ -1972,6 +2098,15 @@
       "missing_password_fields": "Hacen falta la contraseña actual y la nueva.",
       "password_too_short": "La contraseña debe tener al menos 8 caracteres.",
       "passwords_dont_match": "Las contraseñas nuevas no coinciden."
+    },
+    "dashboard": {
+      "approved": "APROBADOS",
+      "intelligence_details": "Detalles de la inteligencia",
+      "last_7_days": "Última semana",
+      "pending": "PENDIENTES",
+      "pending_approval": "Pendiente de aprobación",
+      "status_title": "Estado del sistema",
+      "tools_pending_approval": "Herramientas pendientes de aprobación"
     }
   },
   "contacts": {
@@ -2212,7 +2347,11 @@
     "rollup_latest": "Más reciente",
     "rollup_show_original": "Mostrar original",
     "option_rename_error": "No se ha podido renombrar la opción en los registros",
-    "type_zotero": "Zotero"
+    "type_zotero": "Zotero",
+    "option_removed_rows_many": "{{count}} registros actualizados",
+    "option_usage_many": "{{count}} registros usan esta opción",
+    "option_renamed_many": "{{count}} registros actualizados",
+    "remove_option_in_use_many": "La opción «{{name}}» la usan {{count}} registros. ¿Qué hacemos con sus valores?"
   },
   "translate": {
     "title": "Traducir fila",
@@ -2474,7 +2613,12 @@
     "batch_action_error": "No se pudieron actualizar {{count}} mensajes",
     "spam_added": "Marcado como spam",
     "spam_removed": "Quitado de spam",
-    "error_updating": "No se pudo actualizar el mensaje"
+    "error_updating": "No se pudo actualizar el mensaje",
+    "delete_permanently_confirm_many": "¿Quieres eliminar permanentemente estos {{count}} mensajes? Esta acción no se puede deshacer.",
+    "move_batch_error_many": "No se han podido mover {{count}} mensajes",
+    "attachments_count_many": "{{count}} adjuntos",
+    "thread_messages_count_many": "{{count}} mensajes",
+    "move_batch_menu_title_many": "Mover {{count}} mensajes a..."
   },
   "subs_section_title": "Fuentes de información",
   "subs_btn_reload": "Recargar",
@@ -2851,7 +2995,38 @@
     "graph_via": "vía",
     "graph_no_relations": "(sin relaciones)",
     "graph_stats": "{{nodes}} nodos · {{edges}} aristas",
-    "no_records_in_view": "No hay registros en esta vista."
+    "no_records_in_view": "No hay registros en esta vista.",
+    "add_schema_option": "No se ha podido guardar la opción en el esquema",
+    "connection": "Error de conexión con el backend. Verifica que el servidor esté activo.",
+    "create_content": "Error creando contenido",
+    "daily_note": "Error al abrir la nota diaria",
+    "delete_db": "Error al eliminar la base de datos",
+    "delete_main_view": "La vista principal no se puede eliminar",
+    "delete_page": "Error al eliminar la página",
+    "delete_table": "Error al eliminar la tabla",
+    "delete_view": "Error al eliminar la vista",
+    "duplicate_page": "Error al duplicar la página",
+    "load_page": "Error al cargar la página",
+    "load_pages": "Error al cargar las páginas",
+    "load_registry": "Error al cargar el registro de bases de datos",
+    "move_page": "Error al mover la página",
+    "open_parallel": "Error al abrir en paralelo",
+    "open_parallel_first": "Abre un recurso primero para usar la vista paralela",
+    "open_table": "Error al abrir la tabla",
+    "record_create": "Error creando el registro",
+    "rename_db": "Error al cambiar el nombre de la base de datos",
+    "rename_page": "Error al cambiar el nombre de la página",
+    "rename_table": "Error al cambiar el nombre de la tabla",
+    "reorder_views": "Error al reordenar las vistas",
+    "restore_page": "No se ha podido restaurar",
+    "save_config": "Error al guardar la configuración",
+    "save_note": "Error al guardar la nota",
+    "save_view": "Error al guardar la vista",
+    "table_not_found": "Tabla no encontrada",
+    "template_default": "Error al establecer la plantilla predeterminada",
+    "template_duplicate": "Error al duplicar la plantilla",
+    "toggle_favorites": "Error al modificar los favoritos",
+    "usage_count_many": "Esta vista ya se usa en {{count}} páginas."
   },
   "metadata_lookup": {
     "button": "Rellenar",
@@ -2927,7 +3102,14 @@
       "modified": "Modificado: "
     },
     "notes_imported_to_one": "{{count}} nota importada a «{{folder}}»",
-    "notes_imported_to_other": "{{count}} notas importadas a «{{folder}}»"
+    "notes_imported_to_other": "{{count}} notas importadas a «{{folder}}»",
+    "records_restored_many": "Restaurados {{count}} registros",
+    "records_redeleted_many": "Vueltos a eliminar {{count}} registros",
+    "records_redelete_failed_many": "No se han podido volver a eliminar {{count}} registros (códigos: {{reasons}})",
+    "records_delete_failed_many": "No se han podido eliminar {{count}} registros (códigos: {{reasons}})",
+    "notes_imported_to_many": "{{count}} notas importadas a «{{folder}}»",
+    "records_trashed_many": "{{count}} registros movidos a la papelera",
+    "records_restore_failed_many": "No se han podido restaurar {{count}} registros (códigos: {{reasons}})"
   },
   "media": {
     "title": "Gestor de Medios",
@@ -3490,7 +3672,8 @@
       "title": "Grafo parcial",
       "message_one": "No se ha podido leer {{count}} carpeta del vault (la nube aún está sincronizando); el grafo se muestra incompleto.",
       "message_other": "No se han podido leer {{count}} carpetas del vault (la nube aún está sincronizando); el grafo se muestra incompleto.",
-      "retry": "Reintentar"
+      "retry": "Reintentar",
+      "message_many": "No se han podido leer {{count}} carpetas del vault (la nube aún está sincronizando); el grafo se muestra incompleto."
     },
     "filters": {
       "tables_title": "Filtro de Tablas",
@@ -3543,7 +3726,8 @@
       "timeline_title": "Cronología",
       "timeline_no_data": "No hay datos de tiempo",
       "hide_isolated_nodes": "Ocultar nodos aislados",
-      "show_only_isolated_nodes": "Mostrar solo nodos aislados"
+      "show_only_isolated_nodes": "Mostrar solo nodos aislados",
+      "pathfinding_path_found_many": "Camino encontrado ({{count}} nodos):"
     },
     "forces": {
       "title": "Fuerzas",
@@ -3706,7 +3890,8 @@
     "records_count_one": "{{count}} registro",
     "records_count_other": "{{count}} registros",
     "no_status": "Sin estado",
-    "no_records": "Sin registros"
+    "no_records": "Sin registros",
+    "records_count_many": "{{count}} registros"
   },
   "footnote": {
     "tooltip_hint": "Nota al pie (clic para editar)",
@@ -3810,7 +3995,8 @@
     "remove_attachment_aria": "Quitar adjunto {{name}}",
     "remove_attachment_title": "Quitar adjunto",
     "llm_auto": "Auto",
-    "new_session": "Nueva sesión"
+    "new_session": "Nueva sesión",
+    "messages_count_many": "{{count}} mensajes"
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionado",
@@ -3823,7 +4009,8 @@
     "export": "Exportar",
     "translate_title": "Traducir seleccionados",
     "delete_title": "Eliminar seleccionados",
-    "deselect_title": "Deseleccionar"
+    "deselect_title": "Deseleccionar",
+    "selected_count_many": "{{count}} seleccionados"
   },
   "doc_tabs": {
     "remove_parallel": "Quitar de la vista paralela",
@@ -3936,5 +4123,7 @@
       "kind_gap": "Vacío",
       "notes": "Notas"
     }
-  }
+  },
+  "reader_articles_pending_many": "{{count}} artículos pendientes",
+  "reader_sources_count_many": "{{count}} fuentes"
 }

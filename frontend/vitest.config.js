@@ -6,14 +6,12 @@ import { defineConfig } from 'vitest/config';
 // document instead and drive them through the DOM and stubbed host APIs
 // (Office.js, chrome.*), which is also closer to how they actually run.
 //
-// Deliberately narrow: `include` covers only these suites. Widening it to the
-// React app would pull in a much larger setup (providers, i18n, router) and is
-// a separate decision — the point here was to unblock connector testing, which
-// had none at all.
+// Keep discovery limited to explicit unit-test files. Application modules can
+// opt in without requiring a global React provider setup.
 export default defineConfig({
     test: {
         environment: 'jsdom',
-        include: ['tests/**/*.test.js'],
+        include: ['tests/**/*.test.js', 'src/**/*.test.js'],
         restoreMocks: true,
     },
 });
