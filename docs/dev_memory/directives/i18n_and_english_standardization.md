@@ -11,6 +11,11 @@
 > deterministic first-run language and it did not cover every historical
 > directive, auxiliary interface, developer log, or default parameter.
 
+> **2026-07-24 — Declarative locale registry.** UI locales are discovered from
+> `frontend/src/locales/<bcp47>/translation.json`; application code must not maintain a
+> second supported-language list. Each catalogue declares `_meta.nativeName`,
+> `_meta.intlLocale`, `_meta.direction`, and optionally `_meta.zoteroLocale`.
+
 ## Objective
 
 Make English the common default and maintenance language throughout Gnosi while

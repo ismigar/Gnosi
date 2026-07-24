@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { isCalendarPage } from './schemaUtils';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { IconRenderer } from './IconRenderer';
+import { getIntlLocale } from '../../locales/registry';
 
 export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const { t, i18n } = useTranslation();
@@ -80,7 +81,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const formatDate = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        return date.toLocaleDateString(i18n.resolvedLanguage || i18n.language || 'en', {
+        return date.toLocaleDateString(getIntlLocale(i18n.resolvedLanguage || i18n.language), {
             year: 'numeric',
             month: 'short',
             day: 'numeric',

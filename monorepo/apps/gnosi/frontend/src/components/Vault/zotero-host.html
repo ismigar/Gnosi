@@ -143,9 +143,11 @@
             return texts.length > 0 ? texts : undefined;
         }
 
-        async function init({ pdfUrl, kind, annotations, options, language, location }) {
+        async function init({ pdfUrl, kind, annotations, options, language, direction, location }) {
             try {
                 await waitForCreateReader();
+                document.documentElement.lang = language || 'en-US';
+                document.documentElement.dir = direction === 'rtl' ? 'rtl' : 'ltr';
                 if (!pdfUrl) throw new Error('Missing pdfUrl');
 
                 const res = await fetch(pdfUrl, { credentials: 'same-origin' });

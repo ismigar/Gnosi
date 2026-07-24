@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { toast } from '../../lib/toast';
+import { getLocaleMeta } from '../../locales/registry';
 import { uiLangToZoteroLocale } from './zoteroLocale';
 
 const HOST_URL = '/zotero-reader/host.html';
@@ -68,6 +69,10 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
     // language in Gnosi (re-mounting the component via key is typical, but
     // we detect it here in case the app doesn't do a full re-mount).
     const zoteroLanguage = useMemo(() => uiLangToZoteroLocale(i18n?.language), [i18n?.language]);
+    const zoteroDirection = useMemo(
+        () => getLocaleMeta(i18n?.language).direction,
+        [i18n?.language]
+    );
     const rawSrc = src || '';
     const kind = kindProp || detectKindFromSrc(rawSrc);
     const filename = useMemo(() => {
@@ -195,6 +200,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                 pdfUrl,
                 kind,
                 language: zoteroLanguage,
+                direction: zoteroDirection,
                 annotations: annotationsRef.current,
                 // NotebookLM-style deep link: jump to this location (e.g. a
                 // citation's page) once the reader is initialized.
@@ -205,7 +211,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                 },
             },
         }, window.location.origin);
-    }, [pdfUrl, annotationsLoaded, kind, zoteroLanguage]);
+    }, [pdfUrl, annotationsLoaded, kind, zoteroLanguage, zoteroDirection]);
 
     useEffect(() => {
         sendInitIfReady();

@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { cachedJson, invalidateCachedJson } from '../lib/cachedJson';
 import { useConfigChanged } from '../lib/configEvents';
 import { parseCurrencyCode, localeForDecimalSymbol } from '../components/Vault/formatUtils';
+import { getIntlLocale } from '../locales/registry';
 
 export function useLocaleSettings() {
     const { i18n } = useTranslation();
@@ -31,7 +32,7 @@ export function useLocaleSettings() {
     useConfigChanged(() => { invalidateCachedJson('/api/config'); load(); });
 
     const decimalSymbol = settings?.decimal_symbol || ',';
-    const dateLocale = i18n.resolvedLanguage || i18n.language || 'en';
+    const dateLocale = getIntlLocale(i18n.resolvedLanguage || i18n.language);
     return {
         currencyCode: parseCurrencyCode(settings?.currency, 'EUR'),
         decimalSymbol,
