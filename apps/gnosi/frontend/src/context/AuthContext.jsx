@@ -91,19 +91,31 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         let alive = true;
         (async () => {
-            await Promise.all([
-                fetch('/api/health')
-                    .then((r) => (r.ok ? r.json() : null))
-                    .then((d) => {
-                        if (!alive) return;
-                        setGnosiMode(d?.gnosi_mode || 'personal');
-                        setRequireAuth(d?.require_auth === true);
-                    })
-                    .catch(() => {
-                        if (alive) setGnosiMode('personal');
-                    }),
-                refresh(),
-            ]);
+            let health = null;
+            try {
+                const response = await fetch('/api/health');
+                health = response.ok ? await response.json() : null;
+            } catch {
+                // A failed health request keeps the previous fallback: try to
+                // resolve a session so authenticated installations still work.
+            }
+
+            const mode = health?.gnosi_mode || 'personal';
+            const needsAuthentication = health?.require_auth === true || mode === 'org';
+            if (alive) {
+                setGnosiMode(mode);
+                setRequireAuth(health?.require_auth === true);
+            }
+
+            // Personal loopback installs have an ambient local identity. Calling
+            // /auth/me there deliberately returns 401, which browsers report as
+            // a failed resource even though the application is healthy.
+            if (needsAuthentication || !health) {
+                await refresh();
+            } else if (alive) {
+                setUser(null);
+            }
+
             if (alive) setLoading(false);
         })();
         return () => {
