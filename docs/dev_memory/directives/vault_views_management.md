@@ -37,6 +37,13 @@ Before considering a view complete, verify:
 
 ## Edge cases and regressions
 
+- **Opening an embedded view configuration causes a black screen.** Do not place
+  hooks such as `useMemo`, `useEffect`, or `useSensors` after the `if (!isOpen)
+  return null` guard in `PageViewModal`. Embedded modals are mounted closed and
+  then opened, so conditional hooks change React's hook order and cause
+  `Rendered more hooks than during the previous render`. Declare every hook
+  before the closed-state return.
+
 - **Reloading `/vault/table/:id` renders no columns.** Do not select the table
   from the URL until `registry.tables` contains its ID. An empty array is
   truthy, so checking only `registry.tables` runs too early.
