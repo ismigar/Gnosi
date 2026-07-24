@@ -70,7 +70,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
         await openDrawingCard(page, ID, 'Guard 500');
 
         // Error overlay visible, with saving blocked
-        await expect(page.getByText("No s'ha pogut carregar el dibuix")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId('drawing-load-error')).toBeVisible({ timeout: 15_000 });
 
         // Neither autosave (1 s) nor Ctrl+S should be able to save
         await page.keyboard.press('ControlOrMeta+s');
@@ -79,8 +79,8 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         // The backend "comes back" → the retry must load the editor
         backendUp = true;
-        await page.getByRole('button', { name: 'Torna-ho a provar' }).click();
-        await expect(page.getByText("No s'ha pogut carregar el dibuix")).not.toBeVisible({ timeout: 10_000 });
+        await page.getByTestId('drawing-load-retry').click();
+        await expect(page.getByTestId('drawing-load-error')).not.toBeVisible({ timeout: 10_000 });
         await expect(page.locator(CANVAS).first()).toBeVisible({ timeout: 15_000 });
     });
 
@@ -101,7 +101,7 @@ test.describe('TldrawEditor: cap PUT destructiu si la càrrega falla', () => {
 
         await openDrawingCard(page, ID, 'Guard Legacy');
 
-        await expect(page.getByText('Format de dibuix no compatible')).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByTestId('drawing-load-incompatible')).toBeVisible({ timeout: 15_000 });
 
         await page.keyboard.press('ControlOrMeta+s');
         await page.waitForTimeout(3_000);

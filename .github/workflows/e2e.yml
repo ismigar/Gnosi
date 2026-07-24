@@ -38,6 +38,39 @@ jobs:
             apps/gnosi/frontend/package-lock.json
             apps/gnosi/e2e/package-lock.json
 
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: apps/gnosi/requirements-e2e.txt
+
+      - name: Install backend dependencies
+        working-directory: apps/gnosi
+        run: python -m pip install -r requirements-e2e.txt
+
+      - name: Start backend
+        working-directory: apps/gnosi
+        env:
+          DIGITAL_BRAIN_VAULT_PATH: ${{ runner.temp }}/gnosi-vault
+          GNOSI_LOCAL_DATA: ${{ runner.temp }}/gnosi-local-data
+          GNOSI_REQUIRE_AUTH: 'false'
+          GNOSI_JWT_SECRET: ci-only-secret-for-e2e
+          GNOSI_INDEX_WARMUP: 'false'
+        run: |
+          mkdir -p "$DIGITAL_BRAIN_VAULT_PATH" "$GNOSI_LOCAL_DATA"
+          nohup python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 --lifespan off \
+            > "$RUNNER_TEMP/gnosi-backend.log" 2>&1 &
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:5002/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to become ready; log follows:"
+          cat "$RUNNER_TEMP/gnosi-backend.log"
+          exit 1
+
       - name: Install frontend dependencies
         working-directory: apps/gnosi/frontend
         run: npm ci
@@ -45,6 +78,10 @@ jobs:
       - name: Build frontend
         working-directory: apps/gnosi/frontend
         run: npm run build
+        env:
+          # Playwright opens nested SPA routes directly; CI needs absolute asset
+          # URLs instead of the portable relative paths used by static exports.
+          VITE_BASE_PATH: /
 
       - name: Start frontend (preview)
         working-directory: apps/gnosi/frontend
@@ -78,6 +115,7 @@ jobs:
         run: npx playwright test --shard=${{ matrix.shard }}
         env:
           GNOSI_BASE_URL: http://localhost:5173
+          GNOSI_API_BASE: http://127.0.0.1:5002
 
       - name: Upload Playwright report
         if: always()
