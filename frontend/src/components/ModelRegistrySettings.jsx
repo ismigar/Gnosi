@@ -63,6 +63,7 @@ export default function ModelRegistrySettings() {
     // Rows where the user chose free-text entry instead of the catalog dropdowns
     const [customProviderRows, setCustomProviderRows] = useState(() => new Set());
     const [customModelRows, setCustomModelRows] = useState(() => new Set());
+    const [addingModelIndex, setAddingModelIndex] = useState(null);
     // Pending row removal awaiting confirmation: {index, label} | null
     const [confirmRemove, setConfirmRemove] = useState(null);
 
@@ -117,9 +118,22 @@ export default function ModelRegistrySettings() {
     }, [catalog]);
 
     const update = (i, patch) => setModels(ms => ms.map((m, idx) => idx === i ? { ...m, ...patch } : m));
-    const addRow = () => setModels(ms => [...ms, { ...EMPTY_MODEL }]);
+    const toggleAddRow = () => {
+        if (addingModelIndex !== null) {
+            removeRow(addingModelIndex);
+            setAddingModelIndex(null);
+            return;
+        }
+        setAddingModelIndex(models.length);
+        setModels(ms => [...ms, { ...EMPTY_MODEL }]);
+    };
     const removeRow = (i) => {
         setModels(ms => ms.filter((_, idx) => idx !== i));
+        setAddingModelIndex(current => {
+            if (current === null) return null;
+            if (current === i) return null;
+            return i < current ? current - 1 : current;
+        });
         // Row indexes shift after removal: rebuild the custom-mode sets
         const shift = (set) => new Set([...set].filter(idx => idx !== i).map(idx => idx > i ? idx - 1 : idx));
         setCustomProviderRows(shift);
@@ -198,6 +212,7 @@ export default function ModelRegistrySettings() {
     // backend payload to state. Errors surface via toast, not inline text.
     useEffect(() => {
         if (!initializedRef.current) return;
+        if (addingModelIndex !== null) return;
         if (skipNextAutosaveRef.current) {
             skipNextAutosaveRef.current = false;
             return;
@@ -224,7 +239,7 @@ export default function ModelRegistrySettings() {
         }, 800);
         return () => clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [models, budget]);
+    }, [models, budget, addingModelIndex]);
 
     if (loading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>{ta('loading', "Loading models…")}</div>;
 
@@ -342,9 +357,10 @@ export default function ModelRegistrySettings() {
                         </div>
                     )}
                 </div>
-                <button className="btn-gnosi-primary" onClick={addRow}
+                <button className="btn-gnosi-primary" onClick={toggleAddRow}
                     style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <Plus size={15} /> {ta('add_model', "Add model")}
+                    {addingModelIndex === null && <Plus size={15} />}
+                    {addingModelIndex !== null ? t('common.cancel') : ta('add_model', "Add model")}
                 </button>
             </div>
 
@@ -453,6 +469,18 @@ export default function ModelRegistrySettings() {
                                 </div>
                             </Field>
                         </div>
+                        {addingModelIndex === i && (
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
+                                <button
+                                    className="btn-gnosi-primary"
+                                    disabled={!m.provider || !m.model_id}
+                                    onClick={() => setAddingModelIndex(null)}
+                                    style={{ padding: '9px 20px', borderRadius: 10 }}
+                                >
+                                    {ta('create_model', "Create model")}
+                                </button>
+                            </div>
+                        )}
                     </div>
                 ))}
             </div>
