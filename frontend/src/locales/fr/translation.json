@@ -318,6 +318,8 @@
       "delete_name": "Supprimer {{name}}",
       "delete_provider_title": "Supprimer le fournisseur",
       "delete_provider_msg": "Supprimer {{name}} ? Il sera déconnecté, sa clé API oubliée et ses modèles retirés du registre du routeur.",
+      "delete_agent_title": "Supprimer l’agent",
+      "delete_agent_msg": "Voulez-vous vraiment supprimer {{name}} ? Cette action est irréversible.",
       "agents_section": "Agents de cognition",
       "create_agent_btn": "Créer un agent",
       "enable_agent": "Activer cet agent",
