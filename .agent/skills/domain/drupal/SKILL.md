@@ -70,6 +70,9 @@ Usar el script consolidado `scripts/update_core.py`
 - **Timeouts**: `composer` es lento. Configurar timeout de `run_command` a 600s+.
 - **Prompt Matching**: El script busca prompts específicos (`$`, `#`, `ismigar@`, `root@`). Si el prompt del servidor cambia, actualizar `remote_agent.py`.
 - **ModSecurity/WAF**: La API estándar de Drupal bloquea `PATCH`. Usar endpoints custom POST (ver `n8n_interaction.md`).
+- **Archivos PHP fuera de Drupal**: No publicar redirects como scripts PHP bajo `web/` → el `.htaccess` de Drupal bloquea los PHP adicionales con `403` → usar un `index.html` estático con `meta refresh` y `window.location.replace()`.
+- **Subidas con `suweb`**: `upload_file()` puede copiar correctamente el archivo y fallar al borrar el temporal de `/tmp` porque pertenece al usuario SSH inicial → verificar siempre el destino, ajustar el grupo a `ismigar-web` y eliminar el temporal en una sesión sin `suweb`.
+- **Nombre del entorno**: El agente busca `.env.shared`, pero el entorno actual usa `.env_shared` → ejecutarlo con `python3 -m dotenv -f .env_shared run -- ...`.
 
 ## Troubleshooting Avanzado (Crisis Management)
 
