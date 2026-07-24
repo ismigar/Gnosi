@@ -68,6 +68,13 @@ def test_filter_contains_and_numeric():
     assert apply_filter({"n": "2"}, PAGE, {"field": "n", "operator": "greater_than", "value": "3"}) is False
 
 
+def test_multi_select_filter_matches_any_selected_option():
+    meta = {"Tags": ["urgent", "home"]}
+    assert apply_filter(meta, PAGE, {"field": "Tags", "operator": "equals", "value": ["work", "urgent"]}) is True
+    assert apply_filter(meta, PAGE, {"field": "Tags", "operator": "not_equals", "value": ["work", "urgent"]}) is False
+    assert apply_filter(meta, PAGE, {"field": "Tags", "operator": "not_equals", "value": ["work", "study"]}) is True
+
+
 def test_filter_no_field_is_passthrough():
     assert apply_filter({}, PAGE, {"operator": "equals", "value": "x"}) is True
 
