@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { AppSidebar } from './components/AppSidebar';
 import HomePage from './pages/HomePage';
+import SupportPage from './pages/SupportPage';
 
 // ── Lazily loaded routes (code-splitting) ──────────────────────────
 // Every heavy page drags in large libraries (BlockEditor→blocknote/tiptap,
@@ -88,6 +89,10 @@ function App() {
         <Toaster position="bottom-right" containerStyle={{ zIndex: 100001 }} />
       </>
     );
+  }
+
+  if (window.location.pathname === '/support') {
+    return <SupportPage />;
   }
 
   // Gate in org mode, and in personal mode when the backend enforces auth
