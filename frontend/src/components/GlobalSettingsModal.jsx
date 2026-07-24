@@ -60,6 +60,14 @@ const NOTION_COLORS = [
     { name: 'red', color: '#e03e3e' }
 ];
 
+const AGENT_ICON_OPTIONS = [
+    ['Brain', 'blue'], ['Bot', 'blue'], ['Sparkles', 'blue'], ['Lightbulb', 'blue'],
+    ['BookOpen', 'blue'], ['Search', 'blue'], ['PenTool', 'blue'], ['MessageCircle', 'blue'],
+    ['Heart', 'blue'], ['Rocket', 'blue'], ['Shield', 'blue'], ['Workflow', 'blue'],
+];
+
+const getAgentIconValue = (name, color = 'blue') => `lucide:${name}:${color}`;
+
 // -- REUSABLE UI COMPONENTS --
 
 /**
@@ -4316,7 +4324,38 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
                             </div>
                             <div style={{ width: '80px' }}>
                                 <FormGroup label={t('settings.ai.icon_label')}>
-                                    <input type="text" className="gnosi-input" value={icon} onChange={e => setIcon(e.target.value)} style={{ textAlign: 'center', fontSize: '1.5rem' }} />
+                                    <div role="listbox" aria-label={t('settings.ai.icon_label')} style={{
+                                        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px',
+                                        width: '132px', padding: '6px', borderRadius: '14px',
+                                        border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)',
+                                    }}>
+                                        {AGENT_ICON_OPTIONS.map(([name, color]) => {
+                                            const value = getAgentIconValue(name, color);
+                                            const IconComponent = LucideIcons[name];
+                                            const selected = icon === value;
+                                            return (
+                                                <button
+                                                    key={name}
+                                                    type="button"
+                                                    role="option"
+                                                    aria-selected={selected}
+                                                    aria-label={name}
+                                                    title={name}
+                                                    onClick={() => setIcon(value)}
+                                                    style={{
+                                                        width: '34px', height: '34px', padding: 0, borderRadius: '10px',
+                                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                        border: selected ? '2px solid #2563eb' : '1px solid rgba(37, 99, 235, 0.2)',
+                                                        background: selected ? '#2563eb' : '#dbeafe',
+                                                        color: selected ? '#fff' : '#2563eb', cursor: 'pointer',
+                                                        boxShadow: selected ? '0 0 0 3px rgba(37, 99, 235, 0.18)' : 'none',
+                                                    }}
+                                                >
+                                                    {IconComponent && <IconComponent size={17} strokeWidth={2.4} />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
                                 </FormGroup>
                             </div>
                         </div>
