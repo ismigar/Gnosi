@@ -57,6 +57,7 @@ import "@blocknote/core/fonts/inter.css";
 import "@blocknote/react/style.css";
 import { useTranslation, Trans } from 'react-i18next';
 import i18n from '../../i18n';
+import { sortFieldItems } from '../../utils/fieldOrdering';
 import { useApi } from '../../hooks/use-api';
 import { VaultViewHeader } from './VaultViewHeader';
 import { toast } from '../../lib/toast';
@@ -3920,7 +3921,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // this 10-key filter for every table with 100+ properties was visible in
     // profiling.
     const properties = useMemo(() => {
-        return (currentTable?.properties || []).filter(prop => {
+        return sortFieldItems((currentTable?.properties || []).filter(prop => {
             const normalizedName = String(prop?.name || '').toLowerCase();
             return (
                 prop.type !== 'title' &&
@@ -3933,7 +3934,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 !normalizedName.startsWith('icon_') &&
                 !normalizedName.startsWith('cover_')
             );
-        });
+        }));
     }, [currentTable]);
 
     // `adhocProperties` is the list of metadata keys that aren't part of the
@@ -3941,7 +3942,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
     // schema lookup instead of `properties.find` per key (was O(n*m)).
     const adhocProperties = useMemo(() => {
         const schemaNames = new Set(properties.map(p => p.name));
-        return Object.keys(metadata).filter(key => {
+        return sortFieldItems(Object.keys(metadata).filter(key => {
             const normalizedKey = String(key || '').toLowerCase();
             return (
                 !INTERNAL_METADATA_KEY_SET.has(key) &&
@@ -3955,7 +3956,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                 !normalizedKey.startsWith('cover_') &&
                 !schemaNames.has(key)
             );
-        });
+        }), (name) => name);
     }, [metadata, properties]);
 
     // L3.4 / UI: dict with rare Zotero fields (patentNumber, conferenceName, …)

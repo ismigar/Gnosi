@@ -6,6 +6,7 @@ import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 import ConfirmModal from './ConfirmModal';
+import { sortFieldItems } from '../utils/fieldOrdering';
 
 const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
@@ -38,8 +39,9 @@ function DailyNotesConfig() {
         return () => { alive = false; };
     }, []);
 
+    const sortedTables = sortFieldItems(tables, (table) => table.name || table.id);
     const selectedTable = tables.find((t) => t.id === cfg.source_table_id) || null;
-    const dateProps = (selectedTable?.properties || []).filter((p) => p.type === 'date');
+    const dateProps = sortFieldItems((selectedTable?.properties || []).filter((p) => p.type === 'date'));
 
     const onPickTable = (tableId) => {
         if (!tableId) {
@@ -47,7 +49,7 @@ function DailyNotesConfig() {
             return;
         }
         const t = tables.find((x) => x.id === tableId);
-        const firstDate = (t?.properties || []).find((p) => p.type === 'date');
+        const firstDate = sortFieldItems((t?.properties || []).filter((p) => p.type === 'date'))[0];
         setPluginSettings('daily-notes', {
             source_table_id: tableId,
             date_property: firstDate ? firstDate.id : '',
@@ -76,7 +78,7 @@ function DailyNotesConfig() {
                     onChange={(e) => onPickTable(e.target.value)}
                 >
                     <option value="">{tp('source_none')}</option>
-                    {tables.map((t) => (
+                    {sortedTables.map((t) => (
                         <option key={t.id} value={t.id}>{t.name || t.id}</option>
                     ))}
                 </select>
@@ -142,14 +144,13 @@ function WebClipperConfig() {
         return () => { alive = false; };
     }, []);
 
+    const sortedTables = sortFieldItems(tables, (candidate) => candidate.name || candidate.id, i18nInstance.language);
     const table = tables.find((tbl) => tbl.id === cfg.table_id) || null;
-    /* Alphabetical, not table order: this is a checklist to hunt through, and the
-     * column order of a wide table is meaningless here. `localeCompare` with the
-     * UI language so accents and «ç» sort where the reader expects. */
-    const properties = (table?.properties || [])
-        .filter((p) => CLIPPER_PROMPTABLE_TYPES.has(p.type))
-        .slice()
-        .sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, i18nInstance.language, { sensitivity: 'base' }));
+    const properties = sortFieldItems(
+        (table?.properties || []).filter((p) => CLIPPER_PROMPTABLE_TYPES.has(p.type)),
+        (property) => property.name || property.id,
+        i18nInstance.language,
+    );
     const selectedFields = Array.isArray(cfg.fields) ? cfg.fields : [];
 
     const onPickTable = (tableId) => {
@@ -185,8 +186,11 @@ function WebClipperConfig() {
                 <option value={CLIPPER_NO_MAPPING}>
                     {unmappedLabel || tp('clipper_unmapped', { defaultValue: "No column" })}
                 </option>
-                {(table?.properties || [])
-                    .filter((p) => types.includes(p.type))
+                {sortFieldItems(
+                    (table?.properties || []).filter((p) => types.includes(p.type)),
+                    (property) => property.name || property.id,
+                    i18nInstance.language,
+                )
                     .map((p) => <option key={p.id} value={p.id}>{p.name || p.id}</option>)}
             </select>
         </label>
@@ -214,7 +218,7 @@ function WebClipperConfig() {
                     onChange={(e) => onPickTable(e.target.value)}
                 >
                     <option value="">{tp('clipper_table_none', { defaultValue: "None (note in the Clips/ folder)" })}</option>
-                    {tables.map((tbl) => (
+                    {sortedTables.map((tbl) => (
                         <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
                     ))}
                 </select>
@@ -285,7 +289,7 @@ function WebClipperConfig() {
  * knowledge schema (Tipus, Fonts→Recursos, verification status, ...).
  */
 function LlmWikiConfig() {
-    const { t, i18n } = useTranslation();
+    const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const [tables, setTables] = useState([]);
     const [draft, setDraft] = useState({
@@ -347,14 +351,14 @@ function LlmWikiConfig() {
 
     const brainTable = tables.find((table) => table.id === draft.brain_table_id) || null;
     const selectedSourceIds = new Set((draft.source_tables || []).map((source) => source.table_id));
-    const categoricalProps = (brainTable?.properties || []).filter((prop) => (
+    const categoricalProps = sortFieldItems((brainTable?.properties || []).filter((prop) => (
         ['relation', 'select', 'multi_select', 'status'].includes(prop.type)
         && !/tipus de nota|note type/i.test(prop.name || '')
         && !(
             prop.type === 'relation'
             && selectedSourceIds.has(prop.relation_database_id)
         )
-    ));
+    )));
 
     const detectSource = (table) => {
         const props = table?.properties || [];
@@ -513,7 +517,7 @@ function LlmWikiConfig() {
                     onChange={(e) => onPickBrain(e.target.value)}
                 >
                     <option value="">{tp('llm_wiki_none', { defaultValue: "None (disabled)" })}</option>
-                    {tables.map((tbl) => (
+                    {sortFieldItems(tables, (table) => table.name || table.id).map((tbl) => (
                         <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
                     ))}
                 </select>
@@ -594,11 +598,14 @@ function LlmWikiConfig() {
                     </div>
                 </div>
 
-                {(draft.source_tables || []).map((source) => {
+                {sortFieldItems(
+                    draft.source_tables || [],
+                    (source) => tables.find((table) => table.id === source.table_id)?.name || source.table_id,
+                ).map((source) => {
                     const sourceTable = tables.find((table) => table.id === source.table_id);
-                    const props = sourceTable?.properties || [];
-                    const fileProps = props.filter((prop) => ['files', 'file', 'attachment', 'attachments'].includes(prop.type));
-                    const urlProps = props.filter((prop) => prop.type === 'url' || /url|enllaç|link/i.test(prop.name || ''));
+                    const props = sortFieldItems(sourceTable?.properties || []);
+                    const fileProps = sortFieldItems(props.filter((prop) => ['files', 'file', 'attachment', 'attachments'].includes(prop.type)));
+                    const urlProps = sortFieldItems(props.filter((prop) => prop.type === 'url' || /url|enllaç|link/i.test(prop.name || '')));
                     return (
                       <div key={source.table_id} style={{ padding: 12, border: '1px solid var(--border-primary)', borderRadius: 9, background: 'var(--bg-secondary)' }}>
                         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 9 }}>{sourceTable?.name || source.table_id}</div>
@@ -653,7 +660,10 @@ function LlmWikiConfig() {
                             </div>
                         </div>
 
-                        {(draft.index_field_ids || []).map((fieldId) => {
+                        {sortFieldItems(
+                            draft.index_field_ids || [],
+                            (fieldId) => brainTable.properties?.find((property) => property.id === fieldId)?.name || fieldId,
+                        ).map((fieldId) => {
                             const brainProp = (brainTable.properties || []).find((prop) => prop.id === fieldId);
                             const mapping = source.dimension_mappings?.[fieldId] || { mode: 'ai', source_property_id: '', fixed_value: null };
                             const fixedOptions = serverState?.index_options?.[fieldId] || [];
