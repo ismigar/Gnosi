@@ -9,7 +9,7 @@ It turns a plain folder of Markdown files into a connected workspace: a block ed
 
 ## Try Gnosi
 
-- [Open the live demo](https://gnosi.temenosismael.org/?utm_source=github&utm_medium=readme&utm_campaign=demo)
+- [Explore Gnosi](https://gnosi.temenosismael.org/?utm_source=github&utm_medium=readme&utm_campaign=product_tour)
 - [Download the desktop app](https://github.com/ismigar/Gnosi/releases)
 - [Run Gnosi locally](#run-natively-recommended)
 
