@@ -426,7 +426,8 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
         return True
     op = str(f.get("operator") or "equals").lower()
     raw = page_id if f.get("value") == "this" else f.get("value")
-    target = None if raw is None else str(raw)
+    targets = [str(value) for value in raw] if isinstance(raw, list) else ([] if raw is None else [str(raw)])
+    target = targets[0] if targets else None
     v = _meta_value_for_field(meta or {}, field)
     if isinstance(v, list):
         arr = [str(x) for x in v]
@@ -450,16 +451,17 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     # Text/select case-INsensitive (like Notion and like the main view
     # matchesFilters): a stored "Català" value matches the filter
     # "Catalan". Numeric ones (>,<) are compared separately, without lowercasing.
-    target_l = target.lower()
+    targets_l = [value.lower() for value in targets]
+    target_l = targets_l[0]
     arr_l = [x.lower() for x in arr]
     if op == "equals":
-        return target_l in arr_l
+        return any(value in arr_l for value in targets_l)
     if op == "not_equals":
-        return target_l not in arr_l
+        return all(value not in arr_l for value in targets_l)
     if op == "contains":
-        return any(target_l in x for x in arr_l)
+        return any(value in item for value in targets_l for item in arr_l)
     if op == "not_contains":
-        return not any(target_l in x for x in arr_l)
+        return all(not any(value in item for item in arr_l) for value in targets_l)
     # greater/less than: if BOTH (value and filter) are pure numbers, comparison
     # is numeric (_parse_numeric_value, parity with the frontend's parseNumericValue:
     # '12,5' → 12.5, comma decimal); otherwise, lowercase STRING comparison.
