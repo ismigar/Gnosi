@@ -150,12 +150,11 @@ const blockToMarkdown = (block, editor, indentLevel = 0) => {
         return res;
     }
 
-    // Includes BlockNote's BUILT-IN `toggleListItem` (available in the slash menu
-    // by default), not just Gnosi's custom `toggle` block: without this, a
-    // "Toggle List" created from the menu fell through to `default` and was saved as
-    // paragraph + indented children, LOSING the collapsible structure. Both
-    // have the same shape (inline label + children), so they are normalized to the
-    // same `:::toggle` fence (on re-reading, it becomes the canonical custom toggle).
+    // Serializes a toggle to a `:::toggle` fence, with the children indented
+    // inside. The fence maps to BlockNote's built-in `toggleListItem` on
+    // re-reading (see promoteCustomFences). Both `toggle` (legacy, removed) and
+    // `toggleListItem` are accepted here so any in-memory block keeps round-
+    // tripping; on disk it's always the same `:::toggle` fence.
     if (block.type === "toggle" || block.type === "toggleListItem") {
         // The toggle label is recovered with a raw slice from the parser (not markdown-it):
         // escaping it would leave literal backslashes → escape:false.
@@ -1424,6 +1423,13 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
 
                 let type = typeRaw === "column-list" ? "columnList" : typeRaw;
                 if (typeRaw === "toggle-heading") type = "heading";
+                // `:::toggle` maps to BlockNote's built-in `toggleListItem`, which
+                // uses `createToggleWrapper` (vanilla, working) to render the
+                // indented children as an editable container. The legacy custom
+                // `toggle` block had no child container, so you couldn't write
+                // inside the toggle. The serializer (blockToMarkdown) already
+                // normalizes both types back to the same `:::toggle` fence.
+                if (typeRaw === "toggle") type = "toggleListItem";
 
                 let innerLines = [];
                 let depth = 1;
@@ -1473,7 +1479,7 @@ export const richMarkdownToBlocks = async (markdown, editor) => {
                 }
 
                 // For toggles, the content is an array of inlineContent
-                if (type === "toggle") {
+                if (type === "toggleListItem") {
                     // We clean up possible label attributes if necessary
                     const cleanLabel = label.replace(/\{.*\}/, "").trim();
                     // The toggle title is inline content: we parse it as
