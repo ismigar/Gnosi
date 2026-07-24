@@ -29,6 +29,7 @@ import VaultSwitcher from './VaultSwitcher';
 import AgentContextSources from './AgentContextSources';
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
 import { availableLocales, resolveLocale } from '../locales/registry';
+import { sortFieldItems } from '../utils/fieldOrdering';
 import './GlobalSettingsModal.css';
 
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
@@ -575,7 +576,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // (Google token expired/revoked) → we show a reconnection warning.
     const [googleCalAuthError, setGoogleCalAuthError] = useState(false);
 
-    // AI Editing Modals
+    // Inline AI collection editors
     const [editingAgent, setEditingAgent] = useState(null);
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
     const [providerToEdit, setProviderToEdit] = useState(null);
@@ -1029,7 +1030,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // render as siblings OUTSIDE `.settings-modal` and have their own
     // have their own focus-trap. While one is open, we disable this trap
     // so it doesn't steal their focus (Tab would get trapped in the background panel).
-    const childModalOpen = isConnectModalOpen || !!editingAgent || pickerOpen || confirmConfig.isOpen;
+    const childModalOpen = pickerOpen || confirmConfig.isOpen;
 
     const handleClose = async () => {
         try {
@@ -3420,7 +3421,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <div style={{ marginLeft: '40px', marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                                                             {dbTables.map(table => {
                                                                                 const isTableVisible = draft.graph.visible_tables?.includes(table.id);
-                                                                                const tableFields = table.properties || [];
+                                                                                const tableFields = sortFieldItems(table.properties || []);
                                                                                 
                                                                                 return (
                                                                                     <div key={table.id}>
@@ -3491,7 +3492,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                                         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(260px, 1fr)', gap: '14px' }}>
                                                                             {orphanTables.map(table => {
                                                                                 const isTableVisible = draft.graph.visible_tables?.includes(table.id);
-                                                                                const tableFields = table.properties || [];
+                                                                                const tableFields = sortFieldItems(table.properties || []);
                                                                                 return (
                                                                                     <div key={table.id}>
                                                                                         <div className="hover-scale" style={{ padding: '14px 18px', borderRadius: '16px', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)', display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -3725,16 +3726,48 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         extra={
                                             <button 
                                                 className="btn-gnosi-primary" 
-                                                onClick={() => { setProviderToEdit(null); setIsConnectModalOpen(true); }} 
+                                                onClick={() => {
+                                                    if (isConnectModalOpen) {
+                                                        setIsConnectModalOpen(false);
+                                                        setProviderToEdit(null);
+                                                    } else {
+                                                        setProviderToEdit(null);
+                                                        setIsConnectModalOpen(true);
+                                                    }
+                                                }}
                                                 style={{ 
                                                     padding: '10px 20px', fontSize: '0.9rem', borderRadius: '14px',
                                                     display: 'flex', alignItems: 'center', gap: '10px'
                                                 }}
                                             >
-                                                <Plus size={18} /> {tn('ai.connect_provider')}
+                                                {isConnectModalOpen ? <X size={18} /> : <Plus size={18} />}
+                                                {isConnectModalOpen ? t('common.cancel') : tn('ai.connect_provider')}
                                             </button>
                                         }
                                     >
+                                        {isConnectModalOpen && (
+                                            <UnifiedAIProviderForm
+                                                aiCatalog={aiCatalog}
+                                                editingProvider={providerToEdit}
+                                                aiValidationStatus={aiValidationStatus}
+                                                onValidate={validateAIProvider}
+                                                onSave={(pId, data) => {
+                                                    setDraft(prev => ({
+                                                        ...prev,
+                                                        ai: {
+                                                            ...prev.ai,
+                                                            providers: {
+                                                                ...prev.ai.providers,
+                                                                [pId]: { ...(prev.ai.providers?.[pId] || {}), ...data, enabled: true }
+                                                            }
+                                                        }
+                                                    }));
+                                                    triggerAutoSave(false);
+                                                    setIsConnectModalOpen(false);
+                                                    setProviderToEdit(null);
+                                                }}
+                                            />
+                                        )}
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                                             {Object.entries(draft.ai.providers).map(([pId, p]) => {
                                                 const catalogItem = aiCatalog[pId] || {};
@@ -3789,7 +3822,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             <button 
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    setProviderToEdit(catalogItem);
+                                                                    setProviderToEdit({ ...catalogItem, base_url: p.base_url });
                                                                     setIsConnectModalOpen(true);
                                                                 }}
                                                                 aria-label={tn('ai.configure_name', { name: pName })}
@@ -3835,16 +3868,38 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                         extra={
                                             <button
                                                 className="btn-gnosi-primary"
-                                                onClick={() => setEditingAgent({})}
+                                                onClick={() => setEditingAgent(current => current ? null : {})}
                                                 style={{
                                                     padding: '10px 20px', fontSize: '0.85rem', borderRadius: '14px',
                                                     display: 'flex', alignItems: 'center', gap: '10px'
                                                 }}
                                             >
-                                                <Plus size={16} /> {tn('ai.create_agent_btn')}
+                                                {editingAgent ? <X size={16} /> : <Plus size={16} />}
+                                                {editingAgent ? t('common.cancel') : tn('ai.create_agent_btn')}
                                             </button>
                                         }
                                     >
+                                        {editingAgent && (
+                                            <AIAgentForm
+                                                agent={editingAgent}
+                                                onSave={(newAgent) => {
+                                                    const isNew = !newAgent.id;
+                                                    const id = isNew ? `agent_${Date.now()}` : newAgent.id;
+                                                    const agentToSave = { ...newAgent, id };
+                                                    setDraft(prev => ({
+                                                        ...prev,
+                                                        ai: {
+                                                            ...prev.ai,
+                                                            agents: isNew
+                                                                ? [...prev.ai.agents, agentToSave]
+                                                                : prev.ai.agents.map(a => a.id === id ? agentToSave : a)
+                                                        }
+                                                    }));
+                                                    setEditingAgent(null);
+                                                }}
+                                                aiRegistry={aiRegistry}
+                                            />
+                                        )}
                                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px' }}>
                                             {draft.ai.agents.map(agent => (
                                                 <div key={agent.id} className="hover-scale" onClick={() => setEditingAgent(agent)} title={tn('ai.edit_agent_title')} style={{ padding: '24px', borderRadius: '24px', border: '1px solid var(--settings-border)', background: 'var(--settings-sidebar-bg)', display: 'flex', alignItems: 'center', gap: '20px', transition: 'all 0.2s', cursor: 'pointer' }}>
@@ -4001,70 +4056,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             />
 
 
-            {/* AI AGENT MODAL */}
-            {editingAgent && (
-                <AIAgentModal 
-                    isOpen={!!editingAgent}
-                    onClose={() => setEditingAgent(null)}
-                    agent={editingAgent}
-                    onSave={(newAgent) => {
-                        const isNew = !newAgent.id;
-                        const id = isNew ? `agent_${Date.now()}` : newAgent.id;
-                        const agentToSave = { ...newAgent, id };
-                        
-                        let newList;
-                        if (isNew) {
-                            newList = [...draft.ai.agents, agentToSave];
-                        } else {
-                            newList = draft.ai.agents.map(a => a.id === id ? agentToSave : a);
-                        }
-                        
-                        setDraft(prev => ({
-                            ...prev,
-                            ai: { ...prev.ai, agents: newList }
-                        }));
-                    }}
-                    aiRegistry={aiRegistry}
-                />
-            )}
-            {/* Mount-on-open: the modal seeds selectedId/baseUrl from
-                editingProvider via useState INITIAL values, so a permanently
-                mounted instance kept the state from its very first render —
-                the per-provider ⚙️ opened "Configurar X" with an empty,
-                disabled select and no API-key field. Remounting on each open
-                also clears the previous api_key from the password input. */}
-            {isConnectModalOpen && <UnifiedAIProviderModal
-                isOpen={isConnectModalOpen}
-                onClose={() => setIsConnectModalOpen(false)}
-                aiCatalog={aiCatalog}
-                editingProvider={providerToEdit}
-                aiValidationStatus={aiValidationStatus}
-                onValidate={validateAIProvider}
-                onSave={(pId, data) => {
-                    setDraft(prev => ({
-                        ...prev,
-                        ai: {
-                            ...prev.ai,
-                            providers: {
-                                ...prev.ai.providers,
-                                // Merge over the existing entry: replacing it
-                                // dropped fields like model_name/credential_ref
-                                // every time someone edited just the base URL.
-                                [pId]: { ...(prev.ai.providers?.[pId] || {}), ...data, enabled: true }
-                            }
-                        }
-                    }));
-                    triggerAutoSave(false);
-                    setIsConnectModalOpen(false);
-                }}
-            />}
         </>
     );
 }
 
 // --- SUB-COMPONENTS FOR AI ---
 
-function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate, aiValidationStatus, editingProvider = null }) {
+function UnifiedAIProviderForm({ aiCatalog, onSave, onValidate, aiValidationStatus, editingProvider = null }) {
     const { t } = useTranslation();
     const [selectedId, setSelectedId] = useState(editingProvider?.id || '');
     const [apiKey, setApiKey] = useState('');
@@ -4072,14 +4070,6 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
     // The catalog now lists EVERY models.dev provider (~167): a text filter
     // keeps the dropdown navigable.
     const [providerFilter, setProviderFilter] = useState('');
-    // Ref to the panel: delimits the focus-trap and the scope of Enter.
-    const panelRef = useRef(null);
-
-    useEffect(() => {
-        if (selectedId && aiCatalog[selectedId]) {
-            setBaseUrl(aiCatalog[selectedId].base_url || '');
-        }
-    }, [selectedId]);
 
     const provider = aiCatalog[selectedId];
     const allProviders = Object.values(aiCatalog);
@@ -4095,34 +4085,11 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
         : filteredProviders;
     const isValidating = selectedId ? aiValidationStatus[selectedId] === 'validating' : false;
 
-    // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
-    // focus-trap. No Enter→save: saving is done with the "Save" button.
-    useModalKeyboard({
-        isOpen,
-        onClose,
-        containerRef: panelRef,
-        trapFocus: true,
-    });
-
-    if (!isOpen) return null;
-
     return (
-        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{ 
-            zIndex: 99999, backdropFilter: 'blur(8px)', background: 'rgba(0,0,0,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh'
+        <div className="animate-in" style={{
+            padding: '28px', marginBottom: '24px', borderRadius: '24px',
+            border: '1px solid var(--gnosi-blue)', background: 'var(--settings-sidebar-bg)',
         }}>
-            <div ref={panelRef} className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{
-                width: '500px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', padding: '40px',
-                borderRadius: '32px', boxShadow: '0 30px 80px rgba(0,0,0,0.15)', border: '1px solid var(--settings-border)',
-                background: 'var(--settings-bg)', overflow: 'hidden', position: 'relative'
-            }}>
-                <button onClick={onClose} aria-label={t('settings.footer.close')} title={t('settings.footer.close')} className="icon-btn hover-bg" style={{
-                    position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%',
-                    color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
-                    width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center'
-                }}><X size={18} /></button>
-
-                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
                     <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>
                         {editingProvider ? t('settings.ai.configure_name', { name: editingProvider.name }) : t('settings.ai.connect_provider_title')}
                     </h3>
@@ -4142,7 +4109,11 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                             <select
                                 className="gnosi-select"
                                 value={selectedId}
-                                onChange={e => setSelectedId(e.target.value)}
+                                onChange={e => {
+                                    const nextId = e.target.value;
+                                    setSelectedId(nextId);
+                                    setBaseUrl(aiCatalog[nextId]?.base_url || '');
+                                }}
                                 disabled={!!editingProvider}
                             >
                                 <option value="">{t('settings.ai.choose_provider')}</option>
@@ -4190,8 +4161,6 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                             </div>
                         )}
                     </div>
-                </div>
-
                 <div style={{ marginTop: '40px', display: 'flex', gap: '14px', flexShrink: 0 }}>
                     <button 
                         className="btn-gnosi-secondary" 
@@ -4206,14 +4175,15 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                         disabled={!selectedId || (!apiKey && !editingProvider)}
                         onClick={() => onSave(selectedId, { api_key: apiKey, base_url: baseUrl })} 
                         style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
-                    >{t('common.save')}</button>
+                    >
+                        {editingProvider ? t('settings.ai.update_provider') : t('settings.ai.create_provider')}
+                    </button>
                 </div>
-            </div>
         </div>
     );
 }
 
-function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
+function AIAgentForm({ agent, onSave, aiRegistry }) {
     const { t } = useTranslation();
     const [name, setName] = useState(agent.name || '');
     const [provider, setProvider] = useState(agent.provider || '');
@@ -4229,8 +4199,6 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
     // their content — the agent reads them on demand through its scoped tools
     // (directive `agent_context_sources.md`).
     const [contextRefs, setContextRefs] = useState(agent.context_refs || []);
-    // Ref to the panel: delimits the focus-trap and the scope of Enter.
-    const panelRef = useRef(null);
 
     // Group registry rows by provider for the <select> optgroups. Rows carry
     // {provider, model_id, ...}; we keep first-seen order of providers.
@@ -4255,57 +4223,11 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
     const modelFault = findModelFault(reliability, provider, model);
     const faultReason = modelFault && MODEL_FAULT_REASONS[modelFault.top_model_reason];
 
-    // Canonical keyboard: Esc just closes (consistent with the rest of Config), Tab does
-    // focus-trap. No Enter→save: saving is done with the "Save Agent" button.
-    useModalKeyboard({
-        isOpen,
-        onClose,
-        containerRef: panelRef,
-        trapFocus: true,
-    });
-
-    if (!isOpen) return null;
-
     return (
-        <div className={`modal-overlay ${isOpen ? 'active' : ''}`} style={{
-            zIndex: 99999,
-            backdropFilter: 'blur(8px)',
-            background: 'rgba(0,0,0,0.3)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh'
+        <div className="animate-in" style={{
+            padding: '28px', marginBottom: '24px', borderRadius: '24px',
+            border: '1px solid var(--gnosi-blue)', background: 'var(--settings-sidebar-bg)',
         }}>
-            <div ref={panelRef} className="modal-content animate-pop" onClick={e => e.stopPropagation()} style={{
-                width: '560px',
-                maxHeight: '90vh',
-                display: 'flex',
-                flexDirection: 'column',
-                padding: '40px',
-                borderRadius: '32px',
-                boxShadow: '0 30px 80px rgba(0,0,0,0.15)',
-                border: '1px solid var(--settings-border)',
-                background: 'var(--settings-bg)',
-                overflow: 'hidden',
-                position: 'relative'
-            }}>
-                <button
-                    onClick={onClose}
-                    className="icon-btn hover-bg"
-                    style={{
-                        position: 'absolute', top: '24px', right: '24px', padding: '10px', borderRadius: '50%',
-                        color: 'var(--text-secondary)', background: 'var(--settings-sidebar-bg)', border: '1px solid var(--settings-border)',
-                        width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        transition: 'all 0.2s'
-                    }}
-                >
-                    <X size={18} />
-                </button>
-                <div style={{ flex: 1, overflowY: 'auto', paddingRight: '12px', marginRight: '-12px' }}>
                     <h3 style={{ margin: '0 0 30px 0', fontSize: '1.4rem', fontWeight: '900' }}>{agent.id ? t('settings.ai.edit_agent_title') : t('settings.ai.new_agent_title')}</h3>
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -4417,21 +4339,25 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
                             <AgentContextSources value={contextRefs} onChange={setContextRefs} />
                         </FormGroup>
                     </div>
-                </div>
-
-                <div style={{ marginTop: '40px', display: 'flex', gap: '14px' }}>
-                    <button className="btn-gnosi-secondary" onClick={onClose} style={{ flex: 1, padding: '14px', borderRadius: '18px' }}>{t('common.cancel')}</button>
-                    <button
-                        className="btn-gnosi-primary"
-                        disabled={!name || !provider || !model}
-                        onClick={() => {
-                            onSave({ ...agent, name, provider, model, icon, persona, context, context_refs: contextRefs });
-                            onClose();
-                        }}
-                        style={{ flex: 1, padding: '14px', borderRadius: '18px' }}
-                    >{t('settings.ai.save_agent')}</button>
-                </div>
-            </div>
+                    <div style={{ marginTop: '32px', display: 'flex', justifyContent: 'flex-end' }}>
+                        <button
+                            className="btn-gnosi-primary"
+                            disabled={!name || !provider || !model}
+                            onClick={() => onSave({
+                                ...agent,
+                                name,
+                                provider,
+                                model,
+                                icon,
+                                persona,
+                                context,
+                                context_refs: contextRefs,
+                            })}
+                            style={{ padding: '14px 28px', borderRadius: '18px' }}
+                        >
+                            {agent.id ? t('settings.ai.update_agent') : t('settings.ai.create_agent_action')}
+                        </button>
+                    </div>
         </div>
     );
 }

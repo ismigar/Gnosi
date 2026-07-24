@@ -65,6 +65,20 @@ configuration autosave.
 - Do not translate persisted values, field identifiers, paths, or strings used
   for comparison.
 
+## Collection editor interaction
+
+- Forms that create or edit an item inside Settings must expand inline in the
+  owning section. Do not open a second modal over the Settings modal.
+- The section action changes from `Add …` to `Cancel` while the inline form is
+  open. Cancelling discards the draft and restores the list.
+- Place the explicit `Create …` or `Update …` action at the end of the form.
+  Collection-item drafts are not autosaved because an incomplete draft is not
+  yet an item.
+- Existing-item configuration opens the same inline form populated with that
+  item. Successful creation or update closes the form.
+- Confirmation modals remain appropriate for destructive or irreversible
+  actions; selectors such as the folder picker are not collection editors.
+
 ## Path management
 
 - Resolve paths with `pathlib.Path`.
