@@ -52,9 +52,17 @@ jobs:
           GNOSI_INDEX_WARMUP: 'false'
         run: |
           mkdir -p "$DIGITAL_BRAIN_VAULT_PATH" "$GNOSI_LOCAL_DATA"
-          nohup python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 \
+          nohup python -m uvicorn backend.server:app --host 127.0.0.1 --port 5002 --lifespan off \
             > "$RUNNER_TEMP/gnosi-backend.log" 2>&1 &
-          npx wait-on http://127.0.0.1:5002/api/health --timeout 120000
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://127.0.0.1:5002/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend failed to become ready; log follows:"
+          cat "$RUNNER_TEMP/gnosi-backend.log"
+          exit 1
 
       - name: Install frontend dependencies
         working-directory: apps/gnosi/frontend
