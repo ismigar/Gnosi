@@ -489,10 +489,10 @@ async def create_agent_workflow(
     )
 
     if not llm:
-        llm = _get_hybrid_llm()
+        llm, fallback_provider, fallback_model = _get_hybrid_llm()
         if llm:
-            provider_name = "groq"
-            model_name = "llama-3.3-70b-versatile"
+            provider_name = fallback_provider
+            model_name = fallback_model
 
     if not llm:
 

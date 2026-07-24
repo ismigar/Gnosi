@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { X, BrainCircuit, Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { toast } from '../../lib/toast';
+import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // Triggers an LLM Wiki (Cervell) ingest of one resource row and polls its
 // background job, showing the phase and how many Cervell pages were touched.
@@ -12,37 +13,53 @@ const PHASE_LABELS = {
     reading: ['reading', 'Llegint la font…'],
     planning: ['planning', 'Planificant les notes amb IA…'],
     writing: ['writing', 'Escrivint al Cervell…'],
+    indexing: ['indexing', 'Actualitzant índexs i registre…'],
     done: ['done', 'Fet'],
+    partial: ['partial', 'Interromput; es pot reprendre'],
     error: ['error', 'Error'],
 };
 
 const POLL_MS = 1500;
 
-export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcessed }) {
+export function ProcessResourceModal({
+    isOpen,
+    onClose,
+    noteId,
+    title,
+    sourceTableId,
+    force = false,
+    onJobUpdate,
+    onProcessed,
+}) {
     const { t } = useTranslation();
     const tp = (k, def, opts) => t(`llm_wiki.${k}`, { defaultValue: def, ...(opts || {}) });
     const [state, setState] = useState('confirm'); // confirm | running | done | error
     const [job, setJob] = useState(null);
     const [error, setError] = useState('');
     const pollRef = useRef(null);
+    const modalRef = useRef(null);
 
     const stopPolling = () => {
         if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
     };
     useEffect(() => () => stopPolling(), []);
 
-    const poll = async () => {
+    const poll = async (identifier) => {
         try {
-            const res = await axios.get(`/api/vault/llm-wiki/status/${encodeURIComponent(noteId)}`);
+            const res = await axios.get(
+                `/api/vault/llm-wiki/status/${encodeURIComponent(identifier)}`,
+                { params: sourceTableId ? { source_table_id: sourceTableId } : undefined },
+            );
             const j = res.data || {};
             setJob(j);
+            onJobUpdate?.(j);
             if (j.phase === 'done' && !j.running) {
                 stopPolling();
                 setState('done');
                 const n = (j.created?.length || 0) + (j.updated?.length || 0);
                 toast.success(tp('done_toast', '{{count}} pàgines del Cervell actualitzades', { count: n }));
                 onProcessed?.();
-            } else if (j.phase === 'error' && !j.running) {
+            } else if (['error', 'partial'].includes(j.phase) && !j.running) {
                 stopPolling();
                 setError(j.error || tp('error_generic', 'Error processant el recurs'));
                 setState('error');
@@ -57,10 +74,17 @@ export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcess
         setState('running');
         setError('');
         try {
-            await axios.post('/api/vault/llm-wiki/process', { item_id: noteId });
+            const response = await axios.post('/api/vault/llm-wiki/process', {
+                resource_id: noteId,
+                source_table_id: sourceTableId,
+                force,
+            });
+            const nextJobId = response.data?.job_id || noteId;
+            setJob(response.data?.job || null);
+            if (response.data?.job) onJobUpdate?.(response.data.job);
             stopPolling();
-            pollRef.current = setInterval(poll, POLL_MS);
-            poll();
+            pollRef.current = setInterval(() => poll(nextJobId), POLL_MS);
+            poll(nextJobId);
         } catch (err) {
             const msg = err.response?.data?.detail || err.message || tp('error_generic', 'Error processant el recurs');
             setError(msg);
@@ -68,6 +92,15 @@ export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcess
             toast.error(msg);
         }
     };
+
+    useModalKeyboard({
+        isOpen,
+        onClose,
+        onConfirm: () => { if (state === 'confirm') start(); },
+        confirmDisabled: state !== 'confirm',
+        containerRef: modalRef,
+        trapFocus: true,
+    });
 
     if (!isOpen) return null;
 
@@ -78,9 +111,11 @@ export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcess
     return (
         <div
             className="fixed inset-0 bg-black/60 flex items-center justify-center z-[110] p-4 font-sans backdrop-blur-sm"
-            onMouseDown={(e) => { if (e.target === e.currentTarget && state !== 'running') onClose(); }}
+            role="dialog"
+            aria-modal="true"
         >
             <div
+                ref={modalRef}
                 onMouseDown={(e) => e.stopPropagation()}
                 className="bg-[var(--bg-primary)] rounded-xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col border border-[var(--border-primary)]"
             >
@@ -89,7 +124,7 @@ export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcess
                         <BrainCircuit size={18} className="text-[var(--gnosi-primary)]" />
                         {tp('modal_title', 'Processar recurs al Cervell')}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={state === 'running'}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')}>
                         <X />
                     </button>
                 </div>
@@ -101,7 +136,12 @@ export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcess
 
                     {state === 'confirm' && (
                         <p className="text-xs text-[var(--text-secondary)]/80 leading-relaxed">
-                            {tp('modal_intro', "L'IA llegirà aquesta font i crearà o enriquirà notes al Cervell, enllaçant-les al recurs. Només es pot processar un cop.")}
+                            {tp('modal_intro', "L’IA processarà tots els adjunts i URL configurats, crearà notes atòmiques i actualitzarà els índexs del Cervell.")}
+                            {force && (
+                                <span className="block mt-2 font-semibold">
+                                    {tp('modal_reprocess_intro', 'Es reprocessaran totes les fonts configurades sense duplicar les notes gestionades.')}
+                                </span>
+                            )}
                         </p>
                     )}
 
@@ -115,6 +155,14 @@ export function ProcessResourceModal({ isOpen, onClose, noteId, title, onProcess
                                 {touched > 0 && (
                                     <div className="text-xs text-[var(--text-secondary)]/70">
                                         {tp('pages_touched', '{{count}} pàgines', { count: touched })}
+                                    </div>
+                                )}
+                                {Number.isFinite(job?.progress) && (
+                                    <div className="mt-2 h-1.5 rounded-full bg-[var(--border-primary)] overflow-hidden">
+                                        <div
+                                            className="h-full bg-[var(--gnosi-primary)] transition-[width]"
+                                            style={{ width: `${Math.max(0, Math.min(100, job.progress))}%` }}
+                                        />
                                     </div>
                                 )}
                             </div>

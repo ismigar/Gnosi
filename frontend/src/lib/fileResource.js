@@ -530,23 +530,89 @@ export function findDocAttachment(metadata = {}) {
     return '';
 }
 
+/** First configured attachment/URL matching a citation origin kind. */
+export function findCitationAttachment(metadata = {}, kind = '') {
+    const wanted = String(kind || '').toLowerCase();
+    for (const key of DOC_ATTACHMENT_KEYS) {
+        const raw = metadata[key];
+        const candidates = Array.isArray(raw) ? raw : (raw ? [raw] : []);
+        for (const candidate of candidates) {
+            const value = String(candidate || '').trim()
+                .replace(/^\[\[/, '')
+                .replace(/\]\]$/, '')
+                .split('|')[0]
+                .trim();
+            const fileKind = fileKindFromValue(value);
+            if (
+                value
+                && (
+                    ['pdf', 'epub', 'html', 'docx', 'txt', 'md', 'url', 'body'].includes(wanted)
+                    && (fileKind === 'document' || fileKind === 'url')
+                    || wanted === 'audio' && fileKind === 'audio'
+                    || wanted === 'video' && fileKind === 'video'
+                    || wanted === 'stream' && fileKind === 'url'
+                    || wanted === 'image' && fileKind === 'image'
+                )
+            ) return value;
+        }
+    }
+    return findDocAttachment(metadata);
+}
+
+function withMediaTimestamp(src, start) {
+    const seconds = Math.max(0, Math.floor(Number(start) || 0));
+    if (!seconds || !/^https?:\/\//i.test(src)) return src;
+    try {
+        const url = new URL(src);
+        if (/youtube\.com|youtu\.be/i.test(url.hostname)) {
+            url.searchParams.set('t', `${seconds}s`);
+            return url.toString();
+        }
+    } catch {
+        // Fall back to the standard media-fragment syntax below.
+    }
+    return `${src.replace(/#.*$/, '')}#t=${seconds}`;
+}
+
 /**
  * NotebookLM-style citation click: open the source resource's document at a
  * specific page. `resourceId` is the Recursos row id; `page` is 1-based.
  * Falls back to a toast if the resource has no viewable document attachment.
  */
-export async function openCitation(resourceId, page, { navigate, t = (k, o) => (o?.defaultValue ?? k) } = {}) {
+export async function openCitation(resourceId, page, {
+    navigate,
+    citation = {},
+    t = (k, o) => (o?.defaultValue ?? k),
+} = {}) {
     const location = page ? { pageNumber: String(page) } : null;
+    let evidence = null;
+    if (citation.snapshot && citation.segment) {
+        try {
+            const evidenceResponse = await fetch(
+                `/api/vault/llm-wiki/evidence/${encodeURIComponent(resourceId)}/${encodeURIComponent(citation.snapshot)}/${encodeURIComponent(citation.segment)}`,
+                { credentials: 'include' },
+            );
+            if (evidenceResponse.ok) evidence = await evidenceResponse.json();
+        } catch {
+            evidence = null;
+        }
+    }
     try {
         const res = await fetch(`/api/vault/pages/${encodeURIComponent(resourceId)}`, { credentials: 'include' });
         if (res.ok) {
             const data = await res.json();
             const meta = data?.metadata || data || {};
-            const src = findDocAttachment(meta);
-            if (src) { openFileResource(src, { location, navigate, t }); return; }
+            const kind = evidence?.kind || citation.kind || '';
+            let src = evidence?.source_url || findCitationAttachment(meta, kind);
+            if (src) {
+                src = withMediaTimestamp(src, citation.start ?? evidence?.segment?.locator?.start);
+                openFileResource(src, { location, navigate, t });
+                return evidence;
+            }
         }
     } catch {
         // fall through to the fallback below
     }
     toast.error(t('pdf.cite_no_doc', { defaultValue: 'El recurs no té cap document per obrir a la cita.' }));
+    return evidence;
 }

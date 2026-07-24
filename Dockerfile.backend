@@ -2,14 +2,19 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies if needed
-# Install system dependencies including Docker Client for MCP, plus pandoc
-# per al servei d'export (Markdown del Vault → .docx/.odt/.html/.tex amb
-# cites resoltes via --citeproc + CSL). pandoc inclou citeproc al binari
-# des de v2.11. Tamany: ~150MB; opcional eliminar si no es vol l'export.
-# ghostscript: compressió de PDFs abans de pujar-los a Drupal (_drupal_shrink_pdf).
+# Runtime tools: Docker CLI for MCP, Pandoc for document exports,
+# Ghostscript for PDF compression, and the local multimodal LLM Wiki adapters.
 RUN apt-get update \
-    && apt-get install -y docker.io pandoc ghostscript \
+    && apt-get install -y \
+        docker.io \
+        ffmpeg \
+        ghostscript \
+        pandoc \
+        tesseract-ocr \
+        tesseract-ocr-cat \
+        tesseract-ocr-eng \
+        tesseract-ocr-fra \
+        tesseract-ocr-spa \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

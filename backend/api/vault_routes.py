@@ -15,6 +15,7 @@ from fastapi import (
     UploadFile,
     Query,
     Depends,
+    Request,
 )
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -4440,6 +4441,13 @@ class PluginsUpdateRequest(BaseModel):
     settings: dict = {}
 
 
+class LlmWikiLifecycleRequest(BaseModel):
+    """Explicit lifecycle request for the built-in LLM Wiki feature."""
+
+    enabled: bool
+    confirm_disable: bool = False
+
+
 def _get_plugins_path() -> Path:
     return get_p("GNOSI_CONFIG") / "plugins.json"
 
@@ -4487,6 +4495,11 @@ def _save_plugins_state(state: dict) -> dict:
     return payload
 
 
+def _llm_wiki_enabled(state: dict) -> bool:
+    """Returns whether the built-in LLM Wiki feature is enabled in a state."""
+    return "llm-wiki" not in {str(item) for item in (state.get("disabled") or [])}
+
+
 @router.put("/plugins", dependencies=[Depends(require_role("editor"))])
 async def set_plugins_state(request: PluginsUpdateRequest):
     """Persists which plugins are disabled and their per-plugin settings.
@@ -4497,11 +4510,68 @@ async def set_plugins_state(request: PluginsUpdateRequest):
     """
     def _write():
         current = _load_plugins_state()
+        requested_state = {"disabled": request.disabled or []}
+        if _llm_wiki_enabled(current) != _llm_wiki_enabled(requested_state):
+            raise HTTPException(
+                status_code=409,
+                detail="El plugin LLM Wiki s'ha de canviar amb el seu cicle de vida confirmat.",
+            )
         current["disabled"] = [str(x) for x in (request.disabled or [])]
         current["settings"] = request.settings if isinstance(request.settings, dict) else {}
         return _save_plugins_state(current)
     async with _plugins_mutation_lock:
         return await asyncio.to_thread(_write)
+
+
+@router.post("/plugins/llm-wiki/lifecycle", dependencies=[Depends(require_role("admin"))])
+async def set_llm_wiki_lifecycle(payload: LlmWikiLifecycleRequest, request: Request):
+    """Enables/disables LLM Wiki together with its protected AI profile.
+
+    Disabling needs an explicit confirmation because it removes the associated
+    agent profile. The knowledge table and its notes are deliberately retained.
+    """
+    from backend.services.llm_wiki_agent import LlmWikiAgentError, transition_agent
+
+    def _write() -> dict:
+        state = _load_plugins_state()
+        disabled = [str(item) for item in (state.get("disabled") or [])]
+        was_enabled = "llm-wiki" not in disabled
+        if not payload.enabled and was_enabled and not payload.confirm_disable:
+            raise LlmWikiAgentError(
+                "Cal confirmar la desactivació del plugin LLM Wiki perquè s'eliminarà el seu agent."
+            )
+
+        agent_result = transition_agent(payload.enabled)
+        if payload.enabled:
+            disabled = [item for item in disabled if item != "llm-wiki"]
+        elif "llm-wiki" not in disabled:
+            disabled.append("llm-wiki")
+        state["disabled"] = disabled
+        saved = _save_plugins_state(state)
+        try:
+            from backend.scheduler.manager import scheduler_manager
+
+            task = scheduler_manager.get_task("llm_wiki_maintenance")
+            interval = float((task or {}).get("interval_minutes") or 1440)
+            scheduler_manager.update_task(
+                "llm_wiki_maintenance",
+                interval_minutes=interval,
+                enabled=payload.enabled,
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.warning("Could not update the LLM Wiki maintenance task: %s", exc)
+        return {**saved, **agent_result, "enabled": payload.enabled}
+
+    try:
+        async with _plugins_mutation_lock:
+            result = await asyncio.to_thread(_write)
+    except LlmWikiAgentError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    cache = getattr(request.app.state, "agent_cache", None)
+    if cache:
+        cache.clear()
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -6492,44 +6562,94 @@ async def clear_reference_table():
 # See directive `llm_wiki_cervell.md` and service `llm_wiki_config.py`.
 # ---------------------------------------------------------------------------
 
-# Columns that make a table a CERVELL (LLM Wiki knowledge table). `Fonts` is a
-# relation to the references (Recursos) table so every note is traceable to the
-# sources that back it; `relation_database_id` is filled in at create/designate
-# time from the current references designation (empty if none yet). (name, type).
-_BRAIN_SCHEMA: list = [
-    ("Tipus", "select"),
-    ("Fonts", "relation"),
-    # Order of appearance of the idea WITHIN its source (1-based ordinal set by
-    # the ingest). Finer than a chapter: one chapter can yield several ideas.
-    # Sorting by it (filtered/grouped by Fonts) reads the resource sequentially.
-    ("Posició", "number"),
-    # Permanent notes (Zettelkasten layer 3): which READING notes of this same
-    # table they synthesize. Self-relation → the Cervell table itself.
-    ("Basada en", "relation"),
-    ("Estat de verificació", "select"),
-    ("Última revisió", "date"),
-    ("Tags", "multi_select"),
+_BRAIN_SCHEMA_DEFINITIONS: list[tuple[str, str, dict[str, str]]] = [
+    ("note_type", "select", {
+        "ca": "Tipus de nota", "en": "Note type", "es": "Tipo de nota", "fr": "Type de note",
+    }),
+    ("idea_type", "select", {
+        "ca": "Tipus d’idea", "en": "Idea type", "es": "Tipo de idea", "fr": "Type d’idée",
+    }),
+    ("legacy_source", "relation", {
+        "ca": "Fonts", "en": "Sources", "es": "Fuentes", "fr": "Sources",
+    }),
+    ("position", "number", {
+        "ca": "Posició", "en": "Position", "es": "Posición", "fr": "Position",
+    }),
+    ("based_on", "relation", {
+        "ca": "Basada en", "en": "Based on", "es": "Basada en", "fr": "Basée sur",
+    }),
+    ("verification", "select", {
+        "ca": "Estat de verificació", "en": "Verification status",
+        "es": "Estado de verificación", "fr": "État de vérification",
+    }),
+    ("last_reviewed", "date", {
+        "ca": "Última revisió", "en": "Last reviewed",
+        "es": "Última revisión", "fr": "Dernière révision",
+    }),
+    ("areas", "multi_select", {
+        "ca": "Àrees", "en": "Areas", "es": "Áreas", "fr": "Domaines",
+    }),
+    ("tags", "multi_select", {
+        "ca": "Etiquetes", "en": "Tags", "es": "Etiquetas", "fr": "Étiquettes",
+    }),
 ]
 
+_BRAIN_ROLE_SPECS: dict = {
+    "note_type": ({"tipusdenota", "notetype", "tipodenota", "typedenote"}, "select"),
+    "idea_type": ({"tipus", "tipusdidea", "ideatype", "tipodeidea", "typedidee", "classe"}, "select"),
+    "position": ({"posicio", "position", "ordre"}, "number"),
+    "verification": (
+        {"estatdeverificacio", "verificationstatus", "estadodeverificacion", "etatdeverification", "estat"},
+        "select",
+    ),
+    "last_reviewed": (
+        {"ultimarevisio", "lastreviewed", "reviewdate", "ultimarevision", "derniererevision"},
+        "date",
+    ),
+    "areas": ({"arees", "area", "areas", "domaines"}, "multi_select"),
+    "tags": ({"tags", "etiquetes", "etiquetas", "etiquettes"}, "multi_select"),
+}
 
-def _brain_property(name: str, ptype: str, brain_table_id: str = "") -> dict:
-    """Builds a seed property for the Cervell schema, wiring relations:
-    `Fonts` → the designated references table; `Basada en` → the Cervell table
-    itself (permanent notes point at the reading notes they synthesize)."""
+
+def _brain_property(role: str, name: str, ptype: str, brain_table_id: str = "") -> dict:
+    """Build a localized seed property while keeping relation targets stable."""
     prop = {"id": str(uuid.uuid4()), "name": name, "type": ptype}
     if ptype == "relation":
-        if name == "Basada en":
+        if role == "based_on":
             if brain_table_id:
                 prop["relation_database_id"] = brain_table_id
                 prop["cardinality"] = "many-to-many"
-        else:
+        elif role == "legacy_source":
             ref_id = get_reference_table_id()
             if ref_id:
                 prop["relation_database_id"] = ref_id
-                # Zettelkasten: a reading note belongs to EXACTLY ONE resource; a
-                # resource has many notes ("Cervell many-to-one Recursos").
                 prop["cardinality"] = "many-to-one"
     return prop
+
+
+def _brain_schema(locale: str = "en") -> list[tuple[str, str, str]]:
+    language = str(locale or "en").split("-", 1)[0].lower()
+    if language not in {"ca", "en", "es", "fr"}:
+        language = "en"
+    return [
+        (role, names[language], property_type)
+        for role, property_type, names in _BRAIN_SCHEMA_DEFINITIONS
+    ]
+
+
+def _brain_role_tokens(role: str) -> set[str]:
+    definition = next(
+        (item for item in _BRAIN_SCHEMA_DEFINITIONS if item[0] == role),
+        None,
+    )
+    if not definition:
+        return set()
+    tokens = {_brain_schema_token(name) for name in definition[2].values()}
+    tokens.update({
+        "idea_type": {"tipus", "classe"},
+        "areas": {"area"},
+    }.get(role, set()))
+    return tokens
 
 
 def _ensure_default_db_group() -> None:
@@ -6548,9 +6668,8 @@ def _ensure_default_db_group() -> None:
         log.info("🧠 Grup de BD `gnosi_vault_db` creat al registry (sidebar)")
 
 
-def ensure_brain_table_schema(table_id: str) -> int:
-    """Adds to the Cervell table whichever knowledge columns it's missing
-    (idempotent). Returns the number of columns added."""
+def ensure_brain_table_schema(table_id: str, locale: str = "en") -> int:
+    """Add missing localized Brain fields idempotently."""
     if not table_id:
         return 0
     added = 0
@@ -6562,40 +6681,134 @@ def ensure_brain_table_schema(table_id: str) -> int:
         if not table:
             return 0
         props = table.setdefault("properties", [])
-        existing = {str(p.get("name") or "").lower().replace(" ", "") for p in props}
-        for name, ptype in _BRAIN_SCHEMA:
-            norm = name.lower().replace(" ", "")
-            if norm not in existing:
-                props.append(_brain_property(name, ptype, brain_table_id=table_id))
-                existing.add(norm)
+        existing = {_brain_schema_token(prop.get("name")) for prop in props}
+        for role, name, property_type in _brain_schema(locale):
+            equivalent_tokens = _brain_role_tokens(role)
+            if not (equivalent_tokens & existing):
+                props.append(_brain_property(
+                    role,
+                    name,
+                    property_type,
+                    brain_table_id=table_id,
+                ))
+                existing.add(_brain_schema_token(name))
                 added += 1
-        # Repair pass on the relations of PRE-EXISTING columns: tables created
-        # before a schema refinement keep old wiring (e.g. Fonts one-to-many
-        # predates the Zettelkasten many-to-one rule). "Ensure" = add + normalize.
         repaired = 0
         ref_id = get_reference_table_id()
-        for p in props:
-            if p.get("type") != "relation":
+        for prop in props:
+            if prop.get("type") != "relation":
                 continue
-            pname = str(p.get("name") or "").lower().replace(" ", "")
-            if pname == "fonts":
-                if p.get("cardinality") != "many-to-one":
-                    p["cardinality"] = "many-to-one"
+            property_token = _brain_schema_token(prop.get("name"))
+            if property_token in _brain_role_tokens("legacy_source"):
+                if prop.get("cardinality") != "many-to-one":
+                    prop["cardinality"] = "many-to-one"
                     repaired += 1
-                if ref_id and not p.get("relation_database_id"):
-                    p["relation_database_id"] = ref_id
+                if ref_id and not prop.get("relation_database_id"):
+                    prop["relation_database_id"] = ref_id
                     repaired += 1
-            elif pname == "basadaen":
-                if not p.get("relation_database_id"):
-                    p["relation_database_id"] = table_id
+            elif property_token in _brain_role_tokens("based_on"):
+                if not prop.get("relation_database_id"):
+                    prop["relation_database_id"] = table_id
                     repaired += 1
-                if p.get("cardinality") != "many-to-many":
-                    p["cardinality"] = "many-to-many"
+                if prop.get("cardinality") != "many-to-many":
+                    prop["cardinality"] = "many-to-many"
                     repaired += 1
         if added or repaired:
             save_registry(reg)
-            log.info(f"🧠 Esquema del Cervell: +{added} columnes, {repaired} reparacions a {table_id}")
+            log.info(
+                "LLM Wiki Brain schema updated: %d fields added and %d relations repaired in %s",
+                added,
+                repaired,
+                table_id,
+            )
     return added
+
+
+def _brain_schema_token(value: object) -> str:
+    """Accent-insensitive token used only for semantic schema discovery."""
+    import unicodedata
+
+    normalized = unicodedata.normalize("NFKD", str(value or "").casefold())
+    return "".join(ch for ch in normalized if ch.isalnum() and not unicodedata.combining(ch))
+
+
+def _infer_brain_roles(table: Optional[dict]) -> dict:
+    """Map semantic role names to existing Brain property ids."""
+    properties = [
+        prop for prop in ((table or {}).get("properties") or [])
+        if isinstance(prop, dict) and prop.get("id")
+    ]
+    roles = {}
+    for role, (tokens, expected_type) in _BRAIN_ROLE_SPECS.items():
+        candidate = next(
+            (
+                prop for prop in properties
+                if _brain_schema_token(prop.get("name")) in tokens
+                and (
+                    str(prop.get("type") or "") == expected_type
+                    or role == "areas"
+                    and str(prop.get("type") or "") in {"relation", "select", "multi_select"}
+                )
+            ),
+            None,
+        )
+        if candidate:
+            roles[role] = str(candidate["id"])
+    return roles
+
+
+def ensure_brain_source_relation(brain_table_id: str, source_table_id: str) -> str:
+    """Return a Brain relation property targeting one source table.
+
+    Existing compatible relations are reused. No relation is ever retargeted.
+    """
+    if not brain_table_id or not source_table_id:
+        return ""
+    with registry_mutation():
+        registry = load_registry()
+        brain = next(
+            (table for table in registry.get("tables", []) or [] if table.get("id") == brain_table_id),
+            None,
+        )
+        source = next(
+            (table for table in registry.get("tables", []) or [] if table.get("id") == source_table_id),
+            None,
+        )
+        if not brain or not source:
+            return ""
+        properties = brain.setdefault("properties", [])
+        existing = next(
+            (
+                prop for prop in properties
+                if prop.get("type") == "relation"
+                and str(prop.get("relation_database_id") or "") == source_table_id
+                and _brain_schema_token(prop.get("name")) not in _brain_role_tokens("based_on")
+            ),
+            None,
+        )
+        if existing:
+            if existing.get("cardinality") != "many-to-one":
+                existing["cardinality"] = "many-to-one"
+                save_registry(registry)
+            return str(existing.get("id") or "")
+        base_name = f"Source · {source.get('name') or source_table_id}"
+        used_names = {str(prop.get("name") or "").casefold() for prop in properties}
+        name = base_name
+        suffix = 2
+        while name.casefold() in used_names:
+            name = f"{base_name} {suffix}"
+            suffix += 1
+        prop = {
+            "id": str(uuid.uuid4()),
+            "name": name,
+            "type": "relation",
+            "relation_database_id": source_table_id,
+            "cardinality": "many-to-one",
+        }
+        properties.append(prop)
+        save_registry(registry)
+        log.info("LLM Wiki added source relation %s to Brain %s", prop["id"], brain_table_id)
+        return str(prop["id"])
 
 
 @router.get("/brain-table")
@@ -6604,10 +6817,16 @@ async def get_brain_table():
     the frontend's gating). Per-vault designation resolved in the active vault."""
     from backend.services import llm_wiki_config as bw
 
-    tid = bw.get_brain_table_id()
+    cfg = bw.migrate_config()
+    tid = cfg.get("brain_table_id")
     t = _table_by_id(tid) if tid else None
     return {"table_id": tid, "configured": bool(tid),
-            "name": t.get("name") if t else None}
+            "name": t.get("name") if t else None,
+            "source_table_ids": [
+                item.get("table_id") for item in cfg.get("source_tables") or []
+                if item.get("table_id")
+            ],
+            "index_field_ids": cfg.get("index_field_ids") or []}
 
 
 @router.post("/brain-table", dependencies=[Depends(require_role("editor"))])
@@ -6621,14 +6840,22 @@ async def set_brain_table(payload: dict = Body(...)):
         raise HTTPException(status_code=400, detail="table_id és obligatori")
     if not _table_by_id(table_id):
         raise HTTPException(status_code=404, detail=f"Taula {table_id} no trobada")
+    locale = str((payload or {}).get("ui_locale") or (payload or {}).get("language") or "en")
     _ensure_default_db_group()
-    added = ensure_brain_table_schema(table_id)
-    bw.set_brain_table_id(table_id)
-    # The "Processar recurs" button lives on the references (Recursos) rows, so
-    # ensure that table carries the visible processed-date column.
-    ref_id = get_reference_table_id()
-    if ref_id:
-        ensure_llm_wiki_column(ref_id)
+    added = ensure_brain_table_schema(table_id, locale)
+    cfg = bw.migrate_config()
+    cfg["ui_locale"] = locale
+    cfg["brain_table_id"] = table_id
+    cfg["target_table"] = table_id
+    cfg["brain_roles"] = _infer_brain_roles(_table_by_id(table_id))
+    for source in cfg.get("source_tables") or []:
+        source["relation_property_id"] = ensure_brain_source_relation(
+            table_id, str(source.get("table_id") or "")
+        )
+    cfg = bw.set_full_config(cfg)
+    from backend.services import llm_wiki_indices
+
+    await asyncio.to_thread(llm_wiki_indices.ensure_system_pages, table_id, cfg)
     t = _table_by_id(table_id)
     return {"table_id": table_id, "configured": True,
             "name": t.get("name") if t else None, "columns_added": added}
@@ -6640,7 +6867,14 @@ async def create_brain_table(payload: dict = Body(default=None)):
     designates it."""
     from backend.services import llm_wiki_config as bw
 
-    name = str((payload or {}).get("name") or "").strip() or "Cervell"
+    locale = str((payload or {}).get("ui_locale") or (payload or {}).get("language") or "en")
+    language = locale.split("-", 1)[0].lower()
+    name = str((payload or {}).get("name") or "").strip() or {
+        "ca": "Cervell",
+        "en": "Brain",
+        "es": "Cerebro",
+        "fr": "Cerveau",
+    }.get(language, "Brain")
     # Mint the table id upfront: the `Basada en` self-relation needs it while
     # building the seed properties (create_table keeps an explicit id).
     new_id = str(uuid.uuid4())
@@ -6648,14 +6882,31 @@ async def create_brain_table(payload: dict = Body(default=None)):
         "id": new_id,
         "name": name,
         "database_id": "gnosi_vault_db",
-        "properties": [_brain_property(n, tp, brain_table_id=new_id) for n, tp in _BRAIN_SCHEMA],
+        "properties": [
+            _brain_property(role, field_name, property_type, brain_table_id=new_id)
+            for role, field_name, property_type in _brain_schema(locale)
+        ],
     }
     created = await create_table(table)
     _ensure_default_db_group()
-    bw.set_brain_table_id(created["id"])
-    ref_id = get_reference_table_id()
-    if ref_id:
-        ensure_llm_wiki_column(ref_id)
+    cfg = bw.migrate_config()
+    cfg["ui_locale"] = locale
+    cfg["brain_table_id"] = created["id"]
+    cfg["target_table"] = created["id"]
+    cfg["brain_roles"] = _infer_brain_roles(_table_by_id(created["id"]))
+    for source in cfg.get("source_tables") or []:
+        source["relation_property_id"] = ensure_brain_source_relation(
+            created["id"], str(source.get("table_id") or "")
+        )
+    cfg["index_field_ids"] = [
+        field_id
+        for role in ("areas", "tags")
+        if (field_id := str(cfg["brain_roles"].get(role) or ""))
+    ]
+    cfg = bw.set_full_config(cfg)
+    from backend.services import llm_wiki_indices
+
+    await asyncio.to_thread(llm_wiki_indices.ensure_system_pages, created["id"], cfg)
     return {"table_id": created["id"], "configured": True,
             "name": created.get("name"), "created": True}
 
@@ -6667,6 +6918,278 @@ async def clear_brain_table():
 
     bw.set_brain_table_id("")
     return {"table_id": None, "configured": False}
+
+
+def _llm_wiki_config_response(cfg: dict) -> dict:
+    """Enrich the persisted contract with validation and runtime capabilities."""
+    from backend.services import llm_wiki_config as wiki_cfg, llm_wiki_storage
+    from backend.services.llm_wiki_extractors import capability_report
+
+    brain_id = str(cfg.get("brain_table_id") or "")
+    brain = _table_by_id(brain_id) if brain_id else None
+    source_ids = [
+        str(item.get("table_id") or "")
+        for item in cfg.get("source_tables") or []
+        if item.get("table_id")
+    ]
+    missing = []
+    if brain_id and not brain:
+        missing.append({"kind": "brain_table", "id": brain_id})
+    for source_id in source_ids:
+        if not _table_by_id(source_id):
+            missing.append({"kind": "source_table", "id": source_id})
+    source_relation_ids = {
+        str(item.get("relation_property_id") or "")
+        for item in cfg.get("source_tables") or []
+        if item.get("relation_property_id")
+    }
+    note_type_id = str((cfg.get("brain_roles") or {}).get("note_type") or "")
+    eligible = wiki_cfg.eligible_index_properties(
+        brain,
+        excluded_ids=source_relation_ids | {note_type_id},
+    )
+    index_options = {
+        str(prop.get("id")): _llm_wiki_property_options(prop)
+        for prop in eligible
+    }
+    return {
+        "config": cfg,
+        "brain": {
+            "table_id": brain_id or None,
+            "name": brain.get("name") if brain else None,
+            "configured": bool(brain),
+        },
+        "eligible_index_properties": eligible,
+        "index_options": index_options,
+        "capabilities": capability_report(),
+        "validation": {
+            "valid": bool(brain) and bool(source_ids) and not missing,
+            "missing": missing,
+        },
+        "processed_resources": llm_wiki_storage.processed_resources(source_ids),
+        "resource_statuses": llm_wiki_storage.resource_statuses(source_ids),
+        "enabled": _llm_wiki_enabled(_load_plugins_state()),
+    }
+
+
+def _llm_wiki_property_options(prop: dict) -> list[dict[str, str]]:
+    """Return canonical existing values for one categorical Brain property."""
+    if str(prop.get("type") or "") == "relation":
+        target_id = str(prop.get("relation_database_id") or "")
+        return [
+            {
+                "label": str(getattr(page, "title", "") or ""),
+                "value": f"[[{getattr(page, 'title', '')}|{getattr(page, 'id', '')}]]",
+            }
+            for page in (_get_pages_for_table(target_id) or [])[:250]
+            if getattr(page, "title", None) and getattr(page, "id", None)
+        ] if target_id else []
+    raw_options = (
+        prop.get("options")
+        or (prop.get("config") or {}).get("options")
+        or (prop.get("select") or {}).get("options")
+        or []
+    )
+    return [
+        {
+            "label": str(option.get("name") if isinstance(option, dict) else option),
+            "value": str(option.get("name") if isinstance(option, dict) else option),
+        }
+        for option in raw_options if str(
+            option.get("name") if isinstance(option, dict) else option
+        ).strip()
+    ]
+
+
+@router.get("/llm-wiki/config")
+async def get_llm_wiki_config():
+    """Return the migrated v2 per-vault LLM Wiki configuration."""
+    from backend.services import llm_wiki_config
+
+    cfg = await asyncio.to_thread(llm_wiki_config.migrate_config)
+    return await asyncio.to_thread(_llm_wiki_config_response, cfg)
+
+
+@router.put("/llm-wiki/config", dependencies=[Depends(require_role("editor"))])
+async def put_llm_wiki_config(payload: dict = Body(...)):
+    """Validate and atomically save Brain, sources, roles, and index fields."""
+    from backend.services import llm_wiki_config, llm_wiki_indices
+
+    normalized = llm_wiki_config.normalize_config(payload)
+    brain_id = str(normalized.get("brain_table_id") or "")
+    if not brain_id or not _table_by_id(brain_id):
+        raise HTTPException(status_code=400, detail="A valid Brain table is required")
+    if not normalized.get("source_tables"):
+        raise HTTPException(status_code=400, detail="At least one source table is required")
+    for source in normalized["source_tables"]:
+        source_id = str(source.get("table_id") or "")
+        if source_id == brain_id:
+            raise HTTPException(status_code=400, detail="The Brain table cannot also be a source table")
+        if not _table_by_id(source_id):
+            raise HTTPException(status_code=404, detail=f"Source table {source_id} was not found")
+
+    brain = _table_by_id(brain_id) or {}
+    requested_index_ids = list(normalized.get("index_field_ids") or [])
+    brain_properties = {
+        str(prop.get("id") or ""): prop
+        for prop in brain.get("properties") or []
+        if isinstance(prop, dict) and prop.get("id")
+    }
+    preliminary_roles = _infer_brain_roles(brain)
+    configured_source_ids = {
+        str(source.get("table_id") or "")
+        for source in normalized["source_tables"]
+    }
+    existing_source_relation_ids = {
+        str(prop.get("id") or "")
+        for prop in brain.get("properties") or []
+        if prop.get("type") == "relation"
+        and str(prop.get("relation_database_id") or "") in configured_source_ids
+    }
+    eligible_ids_before_mutation = {
+        str(prop.get("id"))
+        for prop in llm_wiki_config.eligible_index_properties(
+            brain,
+            excluded_ids=existing_source_relation_ids | {
+                str(preliminary_roles.get("note_type") or ""),
+            },
+        )
+    }
+    invalid_index_ids = [
+        field_id for field_id in requested_index_ids
+        if field_id not in eligible_ids_before_mutation
+    ]
+    if invalid_index_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Non-categorical or reserved index fields: {', '.join(invalid_index_ids)}",
+        )
+
+    prepared_sources = []
+    for source in normalized["source_tables"]:
+        source_id = str(source["table_id"])
+        source_table = _table_by_id(source_id) or {}
+        source_properties = {
+            str(prop.get("id") or ""): prop
+            for prop in source_table.get("properties") or []
+            if isinstance(prop, dict) and prop.get("id")
+        }
+        prepared = llm_wiki_config.auto_detect_source(
+            source_table,
+            brain,
+            requested_index_ids,
+            source,
+        )
+        scalar_ids = [
+            str(prepared.get("title_property_id") or ""),
+            str(prepared.get("language_property_id") or ""),
+        ]
+        if any(field_id and field_id not in source_properties for field_id in scalar_ids):
+            raise HTTPException(status_code=400, detail=f"Invalid source field in table {source_id}")
+        invalid_file_ids = [
+            field_id for field_id in prepared.get("attachment_property_ids") or []
+            if str((source_properties.get(field_id) or {}).get("type") or "").lower()
+            not in llm_wiki_config.FILE_TYPES
+        ]
+        invalid_url_ids = [
+            field_id for field_id in prepared.get("url_property_ids") or []
+            if str((source_properties.get(field_id) or {}).get("type") or "").lower()
+            not in llm_wiki_config.URL_TYPES | {"text", "rich_text"}
+        ]
+        if invalid_file_ids or invalid_url_ids:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid attachment or URL field type in table {source_id}",
+            )
+        for field_id in requested_index_ids:
+            mapping = (prepared.get("dimension_mappings") or {}).get(field_id) or {"mode": "ai"}
+            mode = str(mapping.get("mode") or "ai")
+            brain_prop = brain_properties[field_id]
+            if mode == "source":
+                source_prop = source_properties.get(str(mapping.get("source_property_id") or ""))
+                if not source_prop or not llm_wiki_config._compatible_dimension_types(
+                    str(source_prop.get("type") or ""),
+                    str(brain_prop.get("type") or ""),
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Incompatible categorical mapping for {field_id} in table {source_id}",
+                    )
+                if (
+                    source_prop.get("type") == "relation"
+                    and str(source_prop.get("relation_database_id") or "")
+                    != str(brain_prop.get("relation_database_id") or "")
+                ):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Relation mapping for {field_id} points to a different table",
+                    )
+            elif mode == "fixed":
+                options = _llm_wiki_property_options(brain_prop)
+                canonical = {
+                    str(item["label"]).strip().casefold(): item["value"]
+                    for item in options
+                }
+                raw_values = mapping.get("fixed_value")
+                raw_values = raw_values if isinstance(raw_values, list) else [raw_values]
+                values = [
+                    canonical.get(str(value or "").strip().casefold())
+                    for value in raw_values
+                    if str(value or "").strip()
+                ]
+                if not values or any(value is None for value in values):
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Fixed value for {field_id} must already exist in the Brain field",
+                    )
+                mapping["fixed_value"] = (
+                    values
+                    if str(brain_prop.get("type") or "") in {"multi_select", "relation"}
+                    else values[0]
+                )
+        prepared_sources.append(prepared)
+
+    _ensure_default_db_group()
+    ensure_brain_table_schema(brain_id, normalized.get("ui_locale") or "en")
+    brain = _table_by_id(brain_id)
+    normalized["brain_roles"] = _infer_brain_roles(brain)
+
+    relation_ids = set()
+    for source in prepared_sources:
+        source_id = str(source["table_id"])
+        source["relation_property_id"] = ensure_brain_source_relation(brain_id, source_id)
+        relation_ids.add(source["relation_property_id"])
+    normalized["source_tables"] = prepared_sources
+    brain = _table_by_id(brain_id)
+    note_type_id = str(normalized["brain_roles"].get("note_type") or "")
+    eligible_ids = {
+        str(prop.get("id"))
+        for prop in llm_wiki_config.eligible_index_properties(
+            brain,
+            excluded_ids=relation_ids | {note_type_id},
+        )
+    }
+    invalid_index_ids = [field_id for field_id in requested_index_ids if field_id not in eligible_ids]
+    if invalid_index_ids:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Non-categorical or reserved index fields: {', '.join(invalid_index_ids)}",
+        )
+    normalized["index_field_ids"] = requested_index_ids
+    normalized["configured"] = True
+    saved = await asyncio.to_thread(llm_wiki_config.set_full_config, normalized)
+    await asyncio.to_thread(llm_wiki_indices.ensure_system_pages, brain_id, saved)
+    return await asyncio.to_thread(_llm_wiki_config_response, saved)
+
+
+@router.post("/llm-wiki/brain/create", dependencies=[Depends(require_role("editor"))])
+async def create_standard_llm_wiki_brain(payload: dict = Body(default=None)):
+    """Compatibility-namespaced alias used by the v2 Settings panel."""
+    result = await create_brain_table(payload)
+    from backend.services import llm_wiki_config
+
+    cfg = await asyncio.to_thread(llm_wiki_config.load_config)
+    return {**result, **(await asyncio.to_thread(_llm_wiki_config_response, cfg))}
 
 
 # ---------------------------------------------------------------------------
@@ -6731,65 +7254,173 @@ def mark_resource_processed(page_id: str, date_str: str) -> bool:
 
 @router.post("/llm-wiki/process", dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_process(payload: dict = Body(...)):
-    """Starts an LLM Wiki ingest of one resource row (async; poll status).
-
-    Guard "only once": refuses (409) if the row already carries a
-    `Processat pel Cervell` date, unless `force` is set. Refuses (409) if an
-    ingest for this row is already running."""
+    """Start a durable ingest for one row of a configured source table."""
     from backend.services import llm_wiki, llm_wiki_config
 
-    item_id = str((payload or {}).get("item_id") or "").strip()
-    if not item_id:
-        raise HTTPException(status_code=400, detail="item_id és obligatori")
-    force = bool((payload or {}).get("force"))
-    language = str((payload or {}).get("language") or "català").strip() or "català"
+    if not _llm_wiki_enabled(_load_plugins_state()):
+        raise HTTPException(status_code=409, detail="The LLM Wiki plugin is disabled")
 
-    brain_table_id = llm_wiki_config.get_brain_table_id()
+    item_id = str((payload or {}).get("resource_id") or (payload or {}).get("item_id") or "").strip()
+    if not item_id:
+        raise HTTPException(status_code=400, detail="resource_id is required")
+    force = bool((payload or {}).get("force"))
+    language = str((payload or {}).get("language") or "").strip()
+
+    cfg = llm_wiki_config.load_config()
+    brain_table_id = str(cfg.get("brain_table_id") or "")
     if not brain_table_id:
         raise HTTPException(status_code=400,
-                            detail="No hi ha cap taula Cervell designada (Configuració → Plugins → Cervell)")
+                            detail="No Brain table is configured")
     if not _table_by_id(brain_table_id):
-        raise HTTPException(status_code=400, detail="La taula Cervell designada no existeix")
-
-    if llm_wiki.is_running(item_id):
-        raise HTTPException(status_code=409, detail="Aquest recurs ja s'està processant")
+        raise HTTPException(status_code=400, detail="The configured Brain table does not exist")
 
     path = find_page_path(item_id)
     if not path or not path.exists():
-        raise HTTPException(status_code=404, detail=f"Recurs {item_id} no trobat")
+        raise HTTPException(status_code=404, detail=f"Resource {item_id} was not found")
     metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
+    source_table_id = str(
+        (payload or {}).get("source_table_id")
+        or metadata.get("table_id")
+        or ""
+    ).strip()
+    source_config = llm_wiki_config.get_source_config(source_table_id)
+    source_table = _table_by_id(source_table_id)
+    if not source_config or not source_table:
+        raise HTTPException(status_code=400, detail="This row is not in a configured source table")
+    metadata_table_id = str(metadata.get("table_id") or "")
+    if metadata_table_id and metadata_table_id != source_table_id:
+        raise HTTPException(status_code=400, detail="source_table_id does not match the resource row")
+    if not language:
+        language_property_id = str(source_config.get("language_property_id") or "")
+        language_property = next(
+            (
+                prop for prop in source_table.get("properties") or []
+                if str(prop.get("id") or "") == language_property_id
+            ),
+            None,
+        )
+        if language_property:
+            language = str(
+                metadata.get(str(language_property.get("name") or ""))
+                or metadata.get(language_property_id)
+                or ""
+            ).strip()
+    language = language or "the main language detected in the source"
+    if llm_wiki.is_running(item_id, source_table_id):
+        raise HTTPException(status_code=409, detail="This resource is already being processed")
     if not force and _resource_processed_value(metadata):
         raise HTTPException(
             status_code=409,
-            detail=f"Ja processat el {_resource_processed_value(metadata)}. Usa force per reprocessar.",
+            detail=f"Already processed on {_resource_processed_value(metadata)}; use force to reprocess",
         )
 
     title = str(metadata.get("title") or path.stem)
     vault_root = get_p("VAULT")
-    llm_wiki.start_ingest(item_id, title, metadata, body, brain_table_id, vault_root, language)
-    return {"status": "started", "item_id": item_id}
+    job = llm_wiki.start_ingest(
+        item_id,
+        title,
+        metadata,
+        body,
+        brain_table_id,
+        vault_root,
+        language,
+        source_table_id=source_table_id,
+        source_table=source_table,
+        source_config=source_config,
+        force=force,
+    )
+    return {
+        "status": "started",
+        "item_id": item_id,
+        "resource_id": item_id,
+        "source_table_id": source_table_id,
+        "job_id": job.get("job_id"),
+        "job": job,
+    }
 
 
 @router.get("/llm-wiki/status/{item_id}", dependencies=[Depends(require_role("editor"))])
-async def llm_wiki_status(item_id: str):
+async def llm_wiki_status(item_id: str, source_table_id: str = Query(default="")):
     """Non-blocking status of a resource's ongoing/last ingest (for polling)."""
     from backend.services import llm_wiki
 
-    return llm_wiki.get_job_status(item_id)
+    return llm_wiki.get_job_status(item_id, source_table_id)
+
+
+@router.get("/llm-wiki/evidence/{resource_id}/{snapshot_id}/{segment_id}",
+            dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_evidence(resource_id: str, snapshot_id: str, segment_id: str):
+    """Return one persisted normalized source segment for a citation drawer."""
+    from backend.services import llm_wiki_storage
+
+    evidence = await asyncio.to_thread(
+        llm_wiki_storage.load_evidence,
+        resource_id,
+        snapshot_id,
+        segment_id,
+    )
+    if not evidence:
+        raise HTTPException(status_code=404, detail="Citation evidence was not found")
+    return evidence
+
+
+@router.post("/llm-wiki/maintenance", dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_maintenance(semantic: bool = Query(default=False)):
+    """Rebuild managed indexes/cache and run deterministic lint.
+
+    ``semantic=true`` additionally runs the connection/contradiction proposal
+    pass. Scheduled maintenance always uses the deterministic default.
+    """
+    from backend.services import (
+        llm_wiki_config,
+        llm_wiki_indices,
+        llm_wiki_lint,
+        llm_wiki_suggestions,
+    )
+
+    cfg = llm_wiki_config.load_config()
+    brain_table_id = str(cfg.get("brain_table_id") or "")
+    if not brain_table_id:
+        raise HTTPException(status_code=400, detail="No Brain table is configured")
+    index_report = await asyncio.to_thread(
+        llm_wiki_indices.rebuild_indexes,
+        brain_table_id,
+        cfg,
+    )
+    source_ids = [
+        str(item.get("table_id") or "")
+        for item in cfg.get("source_tables") or []
+        if item.get("table_id")
+    ]
+    lint_report = await asyncio.to_thread(
+        llm_wiki_lint.run_lint,
+        brain_table_id,
+        source_ids,
+    )
+    queued = 0
+    if semantic:
+        queued = await asyncio.to_thread(
+            llm_wiki_suggestions.generate_suggestions,
+            brain_table_id,
+        )
+    return {
+        "indexes": index_report,
+        "lint": lint_report,
+        "suggestions_queued": queued,
+        "suggestions_pending": len(llm_wiki_suggestions.load_queue()),
+    }
 
 
 @router.get("/llm-wiki/lint", dependencies=[Depends(require_role("editor"))])
-async def llm_wiki_lint(suggest: bool = Query(default=True)):
-    """Runs the deterministic Cervell health-check (orphans, stale notes, missing
-    cross-references, resources due for re-processing) and, unless `suggest=false`,
-    an LLM pass proposing permanent notes (degrades to 0 without a provider)."""
+async def llm_wiki_lint(suggest: bool = Query(default=False)):
+    """Run deterministic lint and optionally request a manual semantic pass."""
     from backend.services import llm_wiki_config, llm_wiki_lint, llm_wiki_suggestions
 
     brain_table_id = llm_wiki_config.get_brain_table_id()
     if not brain_table_id:
         raise HTTPException(status_code=400, detail="No hi ha cap taula Cervell designada")
-    ref_id = get_reference_table_id()
-    report = await asyncio.to_thread(llm_wiki_lint.run_lint, brain_table_id, ref_id)
+    source_ids = llm_wiki_config.get_source_table_ids()
+    report = await asyncio.to_thread(llm_wiki_lint.run_lint, brain_table_id, source_ids)
     if suggest:
         report["suggestions_queued"] = await asyncio.to_thread(
             llm_wiki_suggestions.generate_suggestions, brain_table_id
@@ -6800,7 +7431,7 @@ async def llm_wiki_lint(suggest: bool = Query(default=True)):
 
 @router.get("/llm-wiki/suggestions", dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_list_suggestions():
-    """Pending permanent-note suggestions (the «Bústia del Cervell»)."""
+    """Return pending read-only connection proposals for the Brain inbox."""
     from backend.services import llm_wiki_suggestions
 
     return {"suggestions": await asyncio.to_thread(llm_wiki_suggestions.load_queue)}
@@ -6809,23 +7440,11 @@ async def llm_wiki_list_suggestions():
 @router.post("/llm-wiki/suggestions/{suggestion_id}/accept",
              dependencies=[Depends(require_role("editor"))])
 async def llm_wiki_accept_suggestion(suggestion_id: str, payload: dict = Body(default=None)):
-    """Creates the permanent note from a suggestion — the ONLY path that writes
-    one (user-confirmed; optional edited `title`/`draft_md` in the body)."""
-    from backend.services import llm_wiki_config, llm_wiki_suggestions
-
-    brain_table_id = llm_wiki_config.get_brain_table_id()
-    if not brain_table_id:
-        raise HTTPException(status_code=400, detail="No hi ha cap taula Cervell designada")
-    edited_title = str((payload or {}).get("title") or "").strip() or None
-    edited_draft = (payload or {}).get("draft_md")
-    try:
-        result = await asyncio.to_thread(
-            llm_wiki_suggestions.accept_suggestion, suggestion_id, brain_table_id,
-            edited_title, edited_draft if isinstance(edited_draft, str) else None,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    return result
+    """Permanent-note creation was removed; proposals are read-only."""
+    raise HTTPException(
+        status_code=410,
+        detail="Connection proposals cannot create permanent notes",
+    )
 
 
 @router.post("/llm-wiki/suggestions/{suggestion_id}/reject",
@@ -6838,6 +7457,13 @@ async def llm_wiki_reject_suggestion(suggestion_id: str):
     if not sug:
         raise HTTPException(status_code=404, detail="Suggeriment no trobat (ja resolt?)")
     return {"rejected": suggestion_id}
+
+
+@router.post("/llm-wiki/suggestions/{suggestion_id}/dismiss",
+             dependencies=[Depends(require_role("editor"))])
+async def llm_wiki_dismiss_suggestion(suggestion_id: str):
+    """Dismiss a read-only connection proposal."""
+    return await llm_wiki_reject_suggestion(suggestion_id)
 
 
 # --- Accessible editing of the Bústia (F6): pick-a-variant, dictation with

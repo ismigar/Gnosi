@@ -8,8 +8,11 @@ DETERMINISTIC (no LLM, no API key needed) so the lint always runs:
   * missing_xref   — a note mentions another note's title in prose but doesn't
                      `[[link]]` it (a cross-reference that drifted).
   * stale          — notes whose «Última revisió» is old or missing.
-  * reprocess      — resources modified after they were processed into the
-                     Cervell (the source changed; an explicit re-process is due).
+  * reprocess      — resources modified after their last successful ingest.
+  * duplicate_keys — managed reading notes sharing a provenance key.
+  * stale_managed  — superseded managed notes deliberately retained.
+  * broken_cites   — evidence links whose immutable snapshot is unavailable.
+  * index_drift    — resources with reading notes but no managed resource index.
 
 LLM-based checks (contradictions, data gaps) are a future layer that degrades
 away when no provider is configured; this module is the always-available core.
@@ -85,6 +88,12 @@ def _load_notes(brain_table_id: str) -> List[Dict[str, Any]]:
             "id": pid, "title": title, "body": body,
             "out_ids": ids, "out_titles": titles,
             "review": str(meta.get("Última revisió") or meta.get("última revisió") or "").strip(),
+            "note_type": str(meta.get("note_type") or "").strip().casefold(),
+            "managed_key": str(meta.get("llm_wiki_key") or ""),
+            "managed_role": str(meta.get("llm_wiki_role") or ""),
+            "managed_stale": bool(meta.get("llm_wiki_stale")),
+            "source_table_id": str(meta.get("llm_wiki_source_table_id") or ""),
+            "resource_id": str(meta.get("llm_wiki_resource_id") or ""),
         })
     return notes
 
@@ -101,7 +110,10 @@ def _days_since(iso_date: str) -> Optional[int]:
     return (datetime.date.today() - d).days
 
 
-def run_lint(brain_table_id: str, reference_table_id: Optional[str] = None) -> Dict[str, Any]:
+def run_lint(
+    brain_table_id: str,
+    reference_table_id: Optional[str | List[str]] = None,
+) -> Dict[str, Any]:
     """Runs the deterministic Cervell health checks and returns a report."""
     notes = _load_notes(brain_table_id)
     by_id = {n["id"]: n for n in notes}
@@ -120,11 +132,17 @@ def run_lint(brain_table_id: str, reference_table_id: Optional[str] = None) -> D
             if tgt and tgt != n["id"]:
                 inbound.add(tgt)
 
-    orphans = [{"id": n["id"], "title": n["title"]} for n in notes if n["id"] not in inbound]
+    orphans = [
+        {"id": n["id"], "title": n["title"]}
+        for n in notes
+        if n["id"] not in inbound and n["note_type"] in {"lectura", "permanent"}
+    ]
 
     stale: List[Dict[str, Any]] = []
     for n in notes:
         days = _days_since(n["review"])
+        if n["note_type"] not in {"lectura", "permanent"}:
+            continue
         if n["review"] == "" or days is None or days > STALE_DAYS:
             stale.append({"id": n["id"], "title": n["title"],
                           "review": n["review"] or None, "days": days})
@@ -150,7 +168,52 @@ def run_lint(brain_table_id: str, reference_table_id: Optional[str] = None) -> D
         if len(missing_xref) >= _MAX_MENTION_FINDINGS:
             break
 
-    reprocess = _reprocess_candidates(reference_table_id) if reference_table_id else []
+    source_ids = (
+        [reference_table_id]
+        if isinstance(reference_table_id, str)
+        else list(reference_table_id or [])
+    )
+    reprocess = [
+        item
+        for source_id in source_ids
+        for item in _reprocess_candidates(source_id)
+    ]
+
+    by_managed_key: Dict[str, List[Dict[str, Any]]] = {}
+    for note in notes:
+        if note["managed_key"]:
+            by_managed_key.setdefault(note["managed_key"], []).append(note)
+    duplicate_keys = [
+        {
+            "key": key,
+            "notes": [{"id": note["id"], "title": note["title"]} for note in grouped],
+        }
+        for key, grouped in by_managed_key.items()
+        if len(grouped) > 1
+    ]
+    stale_managed = [
+        {"id": note["id"], "title": note["title"]}
+        for note in notes
+        if note["managed_stale"]
+    ]
+    broken_cites = _broken_citations(notes)
+    indexed_resources = {
+        (note["source_table_id"], note["resource_id"])
+        for note in notes
+        if note["managed_role"] == "resource-index"
+    }
+    reading_resources = {
+        (note["source_table_id"], note["resource_id"])
+        for note in notes
+        if note["note_type"] == "lectura"
+        and not note["managed_stale"]
+        and note["source_table_id"]
+        and note["resource_id"]
+    }
+    index_drift = [
+        {"source_table_id": source_id, "resource_id": resource_id}
+        for source_id, resource_id in sorted(reading_resources - indexed_resources)
+    ]
 
     return {
         "note_count": len(notes),
@@ -158,9 +221,17 @@ def run_lint(brain_table_id: str, reference_table_id: Optional[str] = None) -> D
         "stale": stale,
         "missing_xref": missing_xref,
         "reprocess": reprocess,
+        "duplicate_keys": duplicate_keys,
+        "stale_managed": stale_managed,
+        "broken_cites": broken_cites,
+        "index_drift": index_drift,
         "counts": {
             "orphans": len(orphans), "stale": len(stale),
             "missing_xref": len(missing_xref), "reprocess": len(reprocess),
+            "duplicate_keys": len(duplicate_keys),
+            "stale_managed": len(stale_managed),
+            "broken_cites": len(broken_cites),
+            "index_drift": len(index_drift),
         },
         "truncated_missing_xref": len(missing_xref) >= _MAX_MENTION_FINDINGS,
     }
@@ -195,3 +266,30 @@ def _reprocess_candidates(reference_table_id: str) -> List[Dict[str, Any]]:
                 "processed": processed, "modified": mtime.isoformat(),
             })
     return out
+
+
+_CITE_RE = re.compile(
+    r"gnosi-cite:\?[^)\s]*res=([^&)\s]+)[^)\s]*snapshot=([^&)\s]+)[^)\s]*segment=([^&)\s]+)"
+)
+
+
+def _broken_citations(notes: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    from urllib.parse import unquote
+
+    from backend.services.llm_wiki_storage import load_evidence
+
+    out = []
+    for note in notes:
+        for match in _CITE_RE.finditer(note["body"]):
+            resource_id, snapshot_id, segment_id = (unquote(value) for value in match.groups())
+            if not resource_id or not snapshot_id or not segment_id:
+                continue
+            if load_evidence(resource_id, snapshot_id, segment_id) is None:
+                out.append({
+                    "id": note["id"],
+                    "title": note["title"],
+                    "resource_id": resource_id,
+                    "snapshot_id": snapshot_id,
+                    "segment_id": segment_id,
+                })
+    return out[:100]

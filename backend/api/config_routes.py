@@ -81,6 +81,21 @@ async def update_config(request: Request):
         # Retrieve the current configuration
         cfg = load_params(strict_env=False)
         params_path = cfg.params_source
+
+        # The LLM Wiki profile is created by the plugin lifecycle and may be
+        # edited here like any other agent. It must not be silently removed by
+        # a generic Settings save: disabling the plugin is the deliberate,
+        # confirmed removal path.
+        if isinstance(new_config.get("ai"), dict):
+            from backend.services.llm_wiki_agent import (
+                LlmWikiAgentError,
+                validate_agent_preserved,
+            )
+
+            try:
+                validate_agent_preserved(cfg.ai, new_config["ai"])
+            except LlmWikiAgentError as exc:
+                raise HTTPException(status_code=400, detail=str(exc)) from exc
         
         current_config = {}
         if params_path.exists():

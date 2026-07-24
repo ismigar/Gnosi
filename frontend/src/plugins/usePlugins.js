@@ -16,7 +16,7 @@ let _loading = null;
 const _subs = new Set();
 
 function _notify() {
-    for (const fn of _subs) fn({ disabled: new Set(_disabled), settings: _settings });
+    for (const fn of _subs) fn({ disabled: new Set(_disabled), settings: _settings, loaded: _loaded });
 }
 
 function _persist() {
@@ -37,14 +37,14 @@ async function _ensureLoaded() {
                 _loaded = true;
                 _notify();
             })
-            .catch(() => { _loaded = true; })
+            .catch(() => { _loaded = true; _notify(); })
             .finally(() => { _loading = null; });
     }
     return _loading;
 }
 
 export function usePlugins() {
-    const [state, setState] = useState({ disabled: new Set(_disabled), settings: _settings });
+    const [state, setState] = useState({ disabled: new Set(_disabled), settings: _settings, loaded: _loaded });
 
     useEffect(() => {
         const sub = (next) => setState(next);
@@ -53,11 +53,25 @@ export function usePlugins() {
         return () => { _subs.delete(sub); };
     }, []);
 
-    const { disabled, settings } = state;
+    const { disabled, settings, loaded } = state;
 
     const isEnabled = useCallback((id) => !disabled.has(id), [disabled]);
 
-    const setPluginEnabled = useCallback(async (id, enabled) => {
+    const setPluginEnabled = useCallback(async (id, enabled, options = {}) => {
+        // LLM Wiki owns an AI profile in addition to its per-vault UI state.
+        // Its lifecycle is therefore handled by one backend operation rather
+        // than two client calls that could leave the feature and profile apart.
+        if (id === 'llm-wiki') {
+            const res = await axios.post('/api/vault/plugins/llm-wiki/lifecycle', {
+                enabled,
+                confirm_disable: options.confirmDisable === true,
+            });
+            _disabled = new Set(res.data?.disabled || []);
+            _settings = (res.data?.settings && typeof res.data.settings === 'object')
+                ? res.data.settings : _settings;
+            _notify();
+            return res.data;
+        }
         const prev = new Set(_disabled);
         const next = new Set(_disabled);
         if (enabled) next.delete(id); else next.add(id);
@@ -86,7 +100,7 @@ export function usePlugins() {
         }
     }, []);
 
-    return { disabled, settings, isEnabled, setPluginEnabled, getPluginSettings, setPluginSettings };
+    return { disabled, settings, loaded, isEnabled, setPluginEnabled, getPluginSettings, setPluginSettings };
 }
 
 export default usePlugins;

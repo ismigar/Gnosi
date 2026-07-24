@@ -367,6 +367,7 @@ import { toast } from '../../lib/toast';
 import { notifyError, logError } from '../../lib/notifyError';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { asBool } from '../../utils/vaultFilters';
+import { usePlugins } from '../../plugins/usePlugins';
 
 /**
  * Sentinel that fires `onLoadMore` when it enters the viewport.
@@ -425,6 +426,32 @@ let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
 export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
+    const { isEnabled: isPluginEnabled } = usePlugins();
+    const [llmWikiConfig, setLlmWikiConfig] = useState(null);
+    const [llmWikiJobs, setLlmWikiJobs] = useState({});
+    useEffect(() => {
+        let alive = true;
+        if (!isPluginEnabled('llm-wiki')) {
+            setLlmWikiConfig(null);
+            return () => { alive = false; };
+        }
+        axios.get('/api/vault/llm-wiki/config')
+            .then((response) => {
+                if (!alive) return;
+                setLlmWikiConfig(response.data?.config
+                    ? {
+                        ...response.data.config,
+                        processed_resources: response.data.processed_resources || {},
+                    }
+                    : null);
+                setLlmWikiJobs(response.data?.resource_statuses || {});
+            })
+            .catch((error) => {
+                if (alive) setLlmWikiConfig(null);
+                console.warn('Could not load the LLM Wiki table configuration:', error);
+            });
+        return () => { alive = false; };
+    }, [isPluginEnabled]);
     const { t, i18n } = useTranslation();
     // Stable identity of this instance for keyboard ownership.
     const gridInstanceIdRef = useRef(null);
@@ -625,16 +652,21 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         }),
         [schema]
     );
-    // Shows the "Process resource" (LLM Wiki) button when the table has the
-    // feature enabled. Designating a Cervell adds a `system` "Processat pel
-    // Cervell" date column to the references table (see ensure_llm_wiki_column),
-    // so the signal lives in the schema like Drupal/XXSS.
+    // The Brain action is gated by plugin state and the v2 source-table
+    // configuration. A historical processed-date column may remain after the
+    // plugin is disabled, so schema heuristics are deliberately not used.
+    const llmWikiTableId = String(
+        notes.find((note) => note?.metadata?.table_id)?.metadata?.table_id
+        || schema?.id
+        || schema?.table_id
+        || '',
+    );
+    const llmWikiSourceConfig = (llmWikiConfig?.source_tables || []).find(
+        (source) => source.table_id === llmWikiTableId,
+    ) || null;
     const isLlmWikiTable = useMemo(
-        () => getSchemaFieldNames(schema).some((name) => {
-            const cfg = getFieldConfig(schema, name);
-            return cfg?.system === true && /processat pel cervell/i.test(name);
-        }),
-        [schema]
+        () => isPluginEnabled('llm-wiki') && Boolean(llmWikiSourceConfig),
+        [isPluginEnabled, llmWikiSourceConfig],
     );
     // `useCallback` to keep the reference stable: `React.memo` in
     // `InfiniteLoadSentinel` only works if the props don't change on
@@ -3134,21 +3166,50 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     </button>
                                 );
                             })()}
-                            {isLlmWikiTable && !isListView && !note.metadata?.translation_lang && (() => {
-                                // Guard "only once": the button is disabled once the
-                                // row carries a `Processat pel Cervell` date. The
-                                // backend re-checks and returns 409 otherwise.
-                                const processed = note.metadata?.['Processat pel Cervell'] || note.metadata?.['processat pel cervell'];
-                                const ok = !processed;
-                                const label = ok
+                            {isLlmWikiTable && !note.metadata?.translation_lang && (() => {
+                                const persistedJob = llmWikiJobs?.[llmWikiTableId]?.[note.id] || null;
+                                const manifestTimestamp = llmWikiConfig?.processed_resources?.[llmWikiTableId]?.[note.id];
+                                const processed = note.metadata?.['Processat pel Cervell']
+                                    || note.metadata?.['processat pel cervell']
+                                    || manifestTimestamp;
+                                const running = Boolean(persistedJob?.running);
+                                const retryable = ['partial', 'error'].includes(persistedJob?.phase);
+                                const fieldName = (fieldId) => getSchemaFieldNames(schema).find(
+                                    (name) => getFieldConfig(schema, name)?.id === fieldId,
+                                ) || fieldId;
+                                const inputIds = [
+                                    ...(llmWikiSourceConfig?.attachment_property_ids || []),
+                                    ...(llmWikiSourceConfig?.url_property_ids || []),
+                                ];
+                                const hasMappedInput = inputIds.some((fieldId) => {
+                                    const value = note.metadata?.[fieldId] ?? note.metadata?.[fieldName(fieldId)];
+                                    return value !== undefined && value !== null && value !== ''
+                                        && (!Array.isArray(value) || value.length > 0);
+                                });
+                                const ok = !running && (hasMappedInput || llmWikiSourceConfig?.include_body);
+                                const processedLabel = typeof processed === 'number'
+                                    ? new Date(processed * 1000).toLocaleDateString(i18n.language)
+                                    : processed;
+                                const label = running
+                                    ? t('table.process_resource_running', 'En procés…')
+                                    : !ok
+                                    ? t('table.process_resource_no_source', 'Aquest recurs no té cap adjunt ni URL configurats')
+                                    : retryable
+                                    ? t('table.reprocess_resource_error', 'Reprendre el processament interromput')
+                                    : !processed
                                     ? t('table.process_resource', 'Processar recurs (Cervell)')
-                                    : t('table.process_resource_done', 'Ja processat el {{date}}', { date: processed });
+                                    : t('table.reprocess_resource', 'Reprocessar recurs (processat el {{date}})', { date: processedLabel });
                                 return (
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (!ok) return;
-                                            setPendingAction({ noteId: note.id, action: 'process_resource' });
+                                            setPendingAction({
+                                                noteId: note.id,
+                                                action: 'process_resource',
+                                                sourceTableId: llmWikiTableId,
+                                                force: Boolean(processed) && !retryable,
+                                            });
                                         }}
                                         disabled={!ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
@@ -3843,7 +3904,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     onClose={() => setPendingAction(null)}
                     noteId={pendingAction.noteId}
                     title={noteById.get(pendingAction.noteId)?.title || ''}
-                    onProcessed={() => { setPendingAction(null); onTranslated?.({}); }}
+                    sourceTableId={pendingAction.sourceTableId}
+                    force={pendingAction.force}
+                    onJobUpdate={(nextJob) => {
+                        setLlmWikiJobs((current) => ({
+                            ...current,
+                            [pendingAction.sourceTableId]: {
+                                ...(current[pendingAction.sourceTableId] || {}),
+                                [pendingAction.noteId]: nextJob,
+                            },
+                        }));
+                    }}
+                    onProcessed={() => { onTranslated?.({}); }}
                 />
             )}
 

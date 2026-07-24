@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
+import { useTranslation } from 'react-i18next';
 import 'katex/dist/katex.min.css';
 import { WikilinkInline } from './WikilinkInline';
 import { WIKILINK_HREF_SENTINEL, STYLE_HREF_SENTINEL, CITE_HREF_SENTINEL, convertWikilinksToMd, convertInlineHtmlToMd, decodeStylePayload, wikilinkUrlTransform, normalizeAssetUrl } from './vaultMarkdownUtils';
@@ -69,7 +70,26 @@ export function RetryableImage({ src, title, onClick }) {
  *  - imageTitle: fallback title/alt for the images.
  */
 export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
+    const { t } = useTranslation();
+    const [evidence, setEvidence] = useState(null);
+    const [evidenceLoading, setEvidenceLoading] = useState(false);
+
+    const handleCitation = async (query) => {
+        const resourceId = query.get('res');
+        if (!resourceId) return;
+        const citation = Object.fromEntries(query.entries());
+        setEvidence(null);
+        setEvidenceLoading(true);
+        try {
+            const result = await openCitation(resourceId, query.get('page'), { citation, t });
+            if (result) setEvidence(result);
+        } finally {
+            setEvidenceLoading(false);
+        }
+    };
+
     return (
+      <>
         <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={[rehypeKatex]}
@@ -110,17 +130,19 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
                             .join('') || target;
                         return <WikilinkInline title={text} target={target} />;
                     }
-                    // Citation deep link: `gnosi-cite:?res=<id>&page=N` → open the
-                    // source resource's document at that page (NotebookLM-style).
+                    // Citation links open the source and a persisted evidence
+                    // paragraph/timestamp drawer.
                     if (typeof href === 'string' && href.startsWith(CITE_HREF_SENTINEL)) {
                         const qs = new URLSearchParams(href.slice(CITE_HREF_SENTINEL.length).replace(/^\?/, ''));
                         const res = qs.get('res');
-                        const page = qs.get('page');
                         return (
                             <a
                                 href="#cite"
                                 className="text-[var(--gnosi-primary)] hover:underline cursor-pointer"
-                                onClick={(e) => { e.preventDefault(); if (res) openCitation(res, page); }}
+                                onClick={(event) => {
+                                    event.preventDefault();
+                                    if (res) handleCitation(qs);
+                                }}
                             >{children}</a>
                         );
                     }
@@ -141,6 +163,55 @@ export function VaultMarkdown({ md, onActivate, imageTitle = '', vaultId }) {
         >
             {convertWikilinksToMd(convertInlineHtmlToMd(latexFencesToMath(md || '')))}
         </ReactMarkdown>
+        {(evidence || evidenceLoading) && (
+            <aside
+                className="fixed right-4 bottom-4 z-[130] w-[min(420px,calc(100vw-2rem))] rounded-xl border border-[var(--border-primary)] bg-[var(--bg-primary)] p-4 shadow-2xl"
+                role="dialog"
+                aria-label={t('llm_wiki.evidence_title', 'Evidència de la cita')}
+            >
+                <div className="mb-2 flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                        <div className="text-xs font-bold text-[var(--text-primary)]">
+                            {t('llm_wiki.evidence_title', 'Evidència de la cita')}
+                        </div>
+                        {evidence?.label && (
+                            <div className="truncate text-[11px] text-[var(--text-tertiary)]">
+                                {evidence.label}
+                            </div>
+                        )}
+                    </div>
+                    <button
+                        type="button"
+                        className="gnosi-close-btn"
+                        aria-label={t('common.close', 'Tanca')}
+                        onClick={() => setEvidence(null)}
+                    >
+                        ×
+                    </button>
+                </div>
+                {evidenceLoading && (
+                    <p className="text-xs text-[var(--text-tertiary)]">
+                        {t('llm_wiki.evidence_loading', 'Carregant el fragment…')}
+                    </p>
+                )}
+                {evidence?.segment?.text && (
+                    <mark className="block rounded-md bg-amber-200/40 p-3 text-xs leading-relaxed text-[var(--text-primary)]">
+                        {evidence.segment.text}
+                    </mark>
+                )}
+                {evidence?.source_url && (
+                    <a
+                        href={evidence.source_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-block text-xs text-[var(--gnosi-primary)] hover:underline"
+                    >
+                        {t('llm_wiki.evidence_open_original', 'Obre la font original')}
+                    </a>
+                )}
+            </aside>
+        )}
+      </>
     );
 }
 
