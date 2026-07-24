@@ -61,7 +61,7 @@
     width: 280px;
     min-height: 0;
     background: var(--settings-sidebar-bg);
-    border-right: 1px solid var(--settings-border);
+    border-inline-end: 1px solid var(--settings-border);
     padding: 40px 20px;
     display: flex;
     flex-direction: column;
@@ -139,7 +139,7 @@
 .settings-close-btn {
     position: absolute;
     top: 32px;
-    right: 32px;
+    inset-inline-end: 32px;
     z-index: 100;
 }
 
@@ -182,7 +182,7 @@
     font-weight: 700;
     color: var(--text-primary);
     margin-bottom: 6px;
-    margin-left: 2px;
+    margin-inline-start: 2px;
 }
 
 .settings-desc {
@@ -193,7 +193,7 @@
     margin-top: -2px;
     margin-bottom: 12px;
     line-height: 1.5;
-    margin-left: 2px;
+    margin-inline-start: 2px;
 }
 
 /* Account Cards */

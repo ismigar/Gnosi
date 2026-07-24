@@ -14,7 +14,6 @@ import { IconPicker, VAULT_COLORS } from './Vault/IconPicker';
 import axios from 'axios';
 import { toast } from '../lib/toast';
 import { emitConfigChanged } from '../lib/configEvents';
-import { setInterfaceLanguage } from '../lib/interfaceLanguage';
 import { getEffectiveTableId, toValueStrings } from '../utils/graphFilters';
 import { ConfirmModal } from './ConfirmModal';
 import * as LucideIcons from 'lucide-react';
@@ -29,14 +28,8 @@ import NotionImportSettings from './NotionImportSettings';
 import VaultSwitcher from './VaultSwitcher';
 import AgentContextSources from './AgentContextSources';
 import { useModelReliability, findModelFault, MODEL_FAULT_REASONS } from '../lib/modelReliability';
+import { availableLocales, resolveLocale } from '../locales/registry';
 import './GlobalSettingsModal.css';
-
-const LANGUAGES = [
-    { code: 'en', label: 'English', icon: '🇬🇧' },
-    { code: 'fr', label: 'Français', icon: '🇫🇷' },
-    { code: 'ca', label: 'Català', icon: '🏴󠁥󠁳󠁣󠁡󠁿' },
-    { code: 'es', label: 'Español', icon: '🇪🇸' },
-];
 
 const CURRENCIES = ['EUR (€)', 'USD ($)', 'GBP (£)', 'JPY (¥)', 'CHF (₣)'];
 const DECIMAL_SYMBOLS = [',', '.'];
@@ -349,7 +342,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
         settings: {
             user_name: '', workspace_name: '', gnosi_mode: 'personal',
             org_user: '', org_password: '', org_workspace: '',
-            language: 'en', week_start: 1, currency: 'EUR (€)', decimal_symbol: ',', date_format: 'locale',
+            language: 'ca', week_start: 1, currency: 'EUR (€)', decimal_symbol: ',', date_format: 'locale',
             theme: 'system', reduce_animations: false
         },
         paths: { vault: '', databases: '', newsletters: '' },
@@ -540,7 +533,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             const opts = getFieldOptions(tableId, fieldName);
             if (opts.length === 0) {
                 if (graphNodesLoading) {
-                    return <span style={{ ...baseStyle, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center' }}>{t('common.loading', "Loading...")}</span>;
+                    return <span style={{ ...baseStyle, color: 'var(--text-secondary)', display: 'inline-flex', alignItems: 'center' }}>{t('common.loading', 'Carregant…')}</span>;
                 }
                 // Without known values: free text so the user can set one.
                 return <input type="text" className="gnosi-input" style={baseStyle} placeholder={placeholder} value={defaultVal} onChange={e => setVal(e.target.value)} />;
@@ -560,7 +553,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             return (
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', width: '130px', cursor: 'pointer' }}>
                     <input type="checkbox" checked={checked} onChange={e => setVal(e.target.checked ? 'true' : '')} style={{ accentColor: 'var(--gnosi-blue)', width: '16px', height: '16px' }} />
-                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{checked ? t('common.yes', "Yes") : '—'}</span>
+                    <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{checked ? t('common.yes', 'Sí') : '—'}</span>
                 </label>
             );
         }
@@ -633,11 +626,11 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // Mail Snippets State
     const SNIPPETS_KEY = 'gnosi_mail_snippets';
     const DEFAULT_SNIPPETS = [
-        { id: 'snip_default_1', title: 'Formal greeting', content: 'Dear Sir or Madam,\n\nI hope you are well.' },
-        { id: 'snip_default_2', title: 'Thank you for your reply', content: 'Thank you very much for your reply.' },
-        { id: 'snip_default_3', title: 'Formal sign-off', content: 'Kind regards,\n\n' },
-        { id: 'snip_default_4', title: 'Meeting proposal', content: 'I would like to propose a meeting to discuss this matter.' },
-        { id: 'snip_default_5', title: 'Follow-up', content: 'I am writing to follow up on the previous matter.' },
+        { id: 'snip_default_1', title: 'Salutació formal',    content: 'Benvolgut/da,\n\nEspero que es trobi bé.' },
+        { id: 'snip_default_2', title: 'Gràcies per la resposta', content: 'Moltes gràcies per la seva resposta.' },
+        { id: 'snip_default_3', title: 'Comiat formal',        content: 'Atentament,\n\n' },
+        { id: 'snip_default_4', title: 'Proposta reunió',      content: 'Li proposo una reunió per tractar aquest tema.' },
+        { id: 'snip_default_5', title: 'Seguiment',            content: 'Em poso en contacte per fer seguiment del tema anterior.' },
     ];
     const [snippets, setSnippets] = useState(() => {
         try {
@@ -883,8 +876,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
     // Translate tab: loads the state of the DeepL key (Keychain) and the URL of
     // Softcatalà (env). It's called on every tab open to
-    // reflect changes made through /api/credentials/migrate or external edits
-    // to .env_shared.
+    // reflectir canvis fets via /api/credentials/migrate o edicions
+    // externes a .env_shared.
     useEffect(() => {
         if (activeTab !== 'translate' || !isOpen) return;
         let cancelled = false;
@@ -922,7 +915,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             ));
         } catch (err) {
             console.error('Error saving DeepL API key:', err);
-            toast.error(t('translate_settings.deepl_save_error', "Couldn't save the DeepL key."));
+            toast.error(t('translate_settings.deepl_save_error', "No s'ha pogut desar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
     }, [t]);
@@ -943,7 +936,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setTranslateState(s => ({ ...s, deepl_has_value: false, deepl_input: '', saving_deepl: false }));
         } catch (err) {
             console.error('Error deleting DeepL API key:', err);
-            toast.error(t('translate_settings.deepl_delete_error', "Couldn't remove the DeepL key."));
+            toast.error(t('translate_settings.deepl_delete_error', "No s'ha pogut eliminar la clau de DeepL."));
             setTranslateState(s => ({ ...s, saving_deepl: false }));
         }
     };
@@ -961,7 +954,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
             setTranslateState(s => ({ ...s, saving_softcatala: false, saved_softcatala: true }));
         } catch (err) {
             console.error('Error saving Softcatalà URL:', err);
-            toast.error(t('translate_settings.softcatala_save_error', "Couldn't save the Softcatalà URL."));
+            toast.error(t('translate_settings.softcatala_save_error', "No s'ha pogut desar la URL de Softcatalà."));
             setTranslateState(s => ({ ...s, saving_softcatala: false }));
         }
     }, [t]);
@@ -1091,7 +1084,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
             const hasConfigChanges = lastSavedData.current !== null && lastSavedData.current !== currentData;
 
-            // POP3 newsletter changes.
+            // Canvis newsletter POP3
             let hasNewsletterChanges = false;
             if (newsletterAccountLoaded) {
                 const currentNewsletter = JSON.stringify({ ...newsletterAccount, _passwordDirty: newsletterPasswordDirty });
@@ -1956,7 +1949,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
 
                         <div className="settings-sidebar-nav">
                             <SidebarItem id="profile" icon={User} label={t('settings.tabs.profile') || 'Perfil'} active={activeTab === 'profile'} onClick={() => { setActiveTab('profile'); setAddAccountType(null); }} />
-                            <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', "Account")} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
+                            <SidebarItem id="account" icon={LucideIcons.UserCog} label={t('settings.tabs.account', 'Compte')} active={activeTab === 'account'} onClick={() => { setActiveTab('account'); setAddAccountType(null); }} />
 
                             <div className="settings-sidebar-hr" />
 
@@ -1980,7 +1973,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             <SidebarItem id="ai" icon={Cpu} label={t('settings.tabs.ai') || 'IA i Agents'} active={activeTab === 'ai'} onClick={() => { setActiveTab('ai'); setAddAccountType(null); }} />
                             <SidebarItem id="notion" icon={Database} label={t('settings.tabs.notion') || 'Importar Notion'} active={activeTab === 'notion'} onClick={() => { setActiveTab('notion'); setAddAccountType(null); }} />
                             <SidebarItem id="translate" icon={Languages} label={t('settings.tabs.translate') || 'Traducció'} active={activeTab === 'translate'} onClick={() => { setActiveTab('translate'); setAddAccountType(null); }} />
-                            <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: "API & tokens" })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
+                            <SidebarItem id="api" icon={LucideIcons.KeyRound} label={t('settings.tabs.api', { defaultValue: 'API i tokens' })} active={activeTab === 'api'} onClick={() => { setActiveTab('api'); setAddAccountType(null); }} />
                             <SidebarItem id="plugins" icon={LucideIcons.Puzzle} label={t('settings.tabs.plugins', 'Plugins')} active={activeTab === 'plugins'} onClick={() => { setActiveTab('plugins'); setAddAccountType(null); }} />
                         </div>
 
@@ -2072,7 +2065,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                 >
                                     <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '16px', lineHeight: 1.5 }}>
                                         {t('settings.workspace.intro', {
-                                            defaultValue: "Manage members, roles and vault access for the active workspace. This section exists for cooperatives, research teams and collectives sharing a single Gnosi instance. Real-time collaboration is under development — see the collaboration_proposal.md directive.",
+                                            defaultValue: 'Gestiona membres, rols i accés a vaults del workspace actiu. Aquesta secció existeix per a cooperatives, equips de recerca i col·lectius que comparteixen una mateixa instància de Gnosi. La col·laboració en temps real està en desenvolupament — vegis la directiva collaboration_proposal.md.',
                                         })}
                                     </p>
                                     <WorkspaceMembersPanel
@@ -2129,13 +2122,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'language' && (
                                 <Section title={tn('language.section_title')} icon={Globe}>
                                     <FormGroup label={tn('language.select_language')} description={tn('language.select_language_desc')}>
-                                        <select className="gnosi-select" value={draft.settings.language} onChange={e => {
+                                        <select className="gnosi-select" value={resolveLocale(draft.settings.language)} onChange={e => {
                                             const code = e.target.value;
                                             setDraft({...draft, settings: {...draft.settings, language: code}});
-                                            void setInterfaceLanguage(i18n, code);
+                                            i18n.changeLanguage(code);
                                         }}>
-                                            {LANGUAGES.map(lang => (
-                                                <option key={lang.code} value={lang.code}>{lang.icon} {lang.label}</option>
+                                            {availableLocales.map(locale => (
+                                                <option key={locale.code} value={locale.code}>{locale.nativeName}</option>
                                             ))}
                                         </select>
                                     </FormGroup>
@@ -2230,13 +2223,13 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {activeTab === 'calendar' && googleCalAuthError && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px', padding: '14px 16px', marginBottom: '16px', borderRadius: '14px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
                                     <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', flex: 1 }}>
-                                        {t('settings.calendar.google_token_expired', "Your Google token has expired or been revoked. Reconnect the account to load calendars again.")}
+                                        {t('settings.calendar.google_token_expired') || "El token de Google ha caducat o s'ha revocat. Reconnecta el compte per tornar a carregar els calendaris."}
                                     </div>
                                     <button
                                         onClick={() => { window.location.href = '/api/auth/google/login?type=calendar'; }}
                                         style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: '10px', border: 'none', background: '#4285f4', color: 'white', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
                                     >
-                                        {t('settings.calendar.reconnect_google', 'Reconnect Google')}
+                                        {t('settings.calendar.reconnect_google') || 'Reconnecta Google'}
                                     </button>
                                 </div>
                             )}
@@ -2716,7 +2709,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             </div>
                                                             <div style={{ gridColumn: 'span 2' }}>
                                                                 <FormGroup label={tn('accounts.certificate_label')}>
-                                                                    <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder={t('settings.accounts.certificate_placeholder', "/path/to/certificate.crt")} />
+                                                                    <input type="text" className="gnosi-input" value={mailCertificate} onChange={e => setMailCertificate(e.target.value)} placeholder={t('settings.accounts.certificate_placeholder', '/ruta/al/certificat.crt')} />
                                                                 </FormGroup>
                                                             </div>
                                                             
@@ -3890,17 +3883,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* TRANSLATION */}
                             {activeTab === 'translate' && (
                                 <Section
-                                    title={t('translate_settings.section_title', 'Translation services')}
+                                    title={t('translate_settings.section_title') || 'Serveis de traducció'}
                                     icon={Languages}
                                 >
                                     <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: '24px' }}>
-                                        {t('translate_settings.intro', "Configure the providers used by the \"Translate row\" button. DeepL covers most languages; Softcatalà handles Catalan (DeepL doesn't support it).")}
+                                        {t('translate_settings.intro') || "Configura els proveïdors usats pel botó \"Traduir fila\". DeepL cobreix la majoria d'idiomes; Softcatalà s'usa per al català (DeepL no el suporta)."}
                                     </div>
 
                                     {/* DeepL */}
                                     <FormGroup
                                         label={t('translate_settings.deepl_label')}
-                                        description={t('translate_settings.deepl_desc', "Stored in the macOS Keychain, not in .env_shared. Get one at deepl.com/pro-api.")}
+                                        description={t('translate_settings.deepl_desc') || "Es desa al Keychain de macOS, no al fitxer .env_shared. Aconsegueix-ne una a deepl.com/pro-api."}
                                     >
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                                             {translateState.deepl_has_value && !translateState.deepl_input && (
@@ -3912,7 +3905,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                 }}>
                                                     <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 600 }}>
                                                         <Check size={16} style={{ color: 'var(--status-success)' }} />
-                                                        {t('translate_settings.deepl_configured', 'API key configured in Keychain')}
+                                                        {t('translate_settings.deepl_configured') || 'API key configurada al Keychain'}
                                                     </span>
                                                     <button
                                                         type="button"
@@ -3925,7 +3918,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                             opacity: translateState.saving_deepl ? 0.5 : 1,
                                                         }}
                                                     >
-                                                        {t('common.delete', 'Delete')}
+                                                        {t('common.delete') || 'Eliminar'}
                                                     </button>
                                                 </div>
                                             )}
@@ -3935,8 +3928,8 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                                         value={translateState.deepl_input}
                                                         onChange={e => setTranslateState(s => ({ ...s, deepl_input: e.target.value, saved_deepl: false }))}
                                                         placeholder={translateState.deepl_has_value
-                                                            ? t('translate_settings.deepl_placeholder_replace', "Enter a new key to replace it")
-                                                            : t('translate_settings.deepl_placeholder', 'Paste your DeepL API key…')}
+                                                            ? (t('translate_settings.deepl_placeholder_replace') || 'Introdueix una clau nova per substituir')
+                                                            : (t('translate_settings.deepl_placeholder') || 'Enganxa la teva DeepL API key…')}
                                                         name="deepl-api-key"
                                                         autoComplete="new-password"
                                                     />
@@ -3949,7 +3942,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     {/* Softcatalà */}
                                     <FormGroup
                                         label={t('translate_settings.softcatala_label')}
-                                        description={t('translate_settings.softcatala_desc', "Endpoint for Softcatalà's translator (Catalan). Stored in .env_shared. Empty = use default.")}
+                                        description={t('translate_settings.softcatala_desc') || "Endpoint del servei de traducció de Softcatalà (català). Es desa a .env_shared. Buida = usa el default."}
                                     >
                                         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                                             <input
@@ -3971,7 +3964,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                                     }}>
                                         <Info size={18} style={{ color: 'var(--gnosi-blue)', flexShrink: 0, marginTop: '2px' }} />
                                         <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-                                            {t('translate_settings.usage_hint', "These values are consumed by the /api/vault/skills/translate-row endpoint. After saving the DeepL key you may need to restart the backend so the Keychain reloads.")}
+                                            {t('translate_settings.usage_hint') || "Aquests valors els consumeix l'endpoint /api/vault/skills/translate-row. Després de desar la clau de DeepL pot caldre reiniciar el backend perquè el Keychain es recarregui."}
                                         </div>
                                     </div>
                                 </Section>
@@ -4174,7 +4167,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                                                     {' · '}
                                                     <a href={provider.doc} target="_blank" rel="noreferrer"
                                                         style={{ color: 'var(--gnosi-blue)', textDecoration: 'none' }}>
-                                                        {t('settings.ai.provider_doc_link', "Documentation ↗")}
+                                                        {t('settings.ai.provider_doc_link', 'Documentació ↗')}
                                                     </a>
                                                 </>
                                             )}
@@ -4186,7 +4179,7 @@ function UnifiedAIProviderModal({ isOpen, onClose, aiCatalog, onSave, onValidate
                                     <PasswordInput value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="sk-..." name="ai-api-key" autoComplete="off" />
                                     {(provider.env?.length || 0) > 0 && (
                                         <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '6px', opacity: 0.8 }}>
-                                            {t('settings.ai.env_hint', { defaultValue: "Alternative: set {{vars}} in the backend environment.", vars: provider.env.join(' / ') })}
+                                            {t('settings.ai.env_hint', { defaultValue: 'Alternativa: defineix {{vars}} a l’entorn del backend.', vars: provider.env.join(' / ') })}
                                         </div>
                                     )}
                                 </FormGroup>
@@ -4395,7 +4388,7 @@ function AIAgentModal({ isOpen, onClose, agent, onSave, aiRegistry }) {
                                     <Activity size={14} style={{ flexShrink: 0, marginTop: 2 }} />
                                     <span>
                                         {t('settings.ai.model_fault_warning', {
-                                            defaultValue: "This model {{reason}} {{count}} times in the last {{days}} days.",
+                                            defaultValue: 'Aquest model {{reason}} {{count}} vegades en els últims {{days}} dies.',
                                             reason: t(faultReason.key, faultReason.fallback),
                                             count: modelFault.reasons[modelFault.top_model_reason],
                                             days: modelFault.window_days,

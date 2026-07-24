@@ -1,4 +1,10 @@
 {
+  "_meta": {
+    "nativeName": "Français",
+    "intlLocale": "fr-FR",
+    "direction": "ltr",
+    "zoteroLocale": "fr-FR"
+  },
   "autoria": {
     "first_name": "Prénom",
     "surname1": "Nom 1",
@@ -70,9 +76,9 @@
     "search": "Rechercher",
     "settings": "Paramètres",
     "undo_hint": "Cmd+Z pour annuler",
-    "restored_count": "{{count}} enregistrement{{plural}} restauré{{plural}}",
-    "redeleted_count": "{{count}} enregistrement{{plural}} de nouveau supprimé{{plural}}",
-    "deleted_records": "{{count}} enregistrement{{plural}} supprimé{{plural}}",
+    "restored_count": "{{count}} enregistrements restaurés",
+    "redeleted_count": "{{count}} enregistrements de nouveau supprimés",
+    "deleted_records": "{{count}} enregistrements supprimés",
     "confirm_delete": "Voulez-vous vraiment supprimer cet enregistrement ? Cette action est irréversible.",
     "previous": "Précédent",
     "next": "Suivant",
@@ -88,7 +94,11 @@
       "unsaved_changes": "Modifications non enregistrées...",
       "error_saving": "Erreur lors de l'enregistrement",
       "error_connection": "Erreur de connexion",
-      "loading": "Chargement…"
+      "loading": "Chargement…",
+      "error_connect": "❌ Connexion impossible",
+      "error_sync": "❌ Erreur de synchronisation",
+      "sync_completed": "✅ Synchronisation terminée !",
+      "sync_in_progress": "⏳ Déjà en cours…"
     },
     "back": "Retour",
     "btn": {
@@ -111,7 +121,47 @@
     "ok": "OK",
     "cancel_short": "Annuler",
     "confirm_modal_title": "Confirmer l'action",
-    "confirm_modal_message": "Êtes-vous sûr de vouloir poursuivre cette action ?"
+    "confirm_modal_message": "Êtes-vous sûr de vouloir poursuivre cette action ?",
+    "success": "Succès",
+    "vault_table": {
+      "add_property": "Ajouter une propriété",
+      "average": "Moyenne",
+      "calculate": "Calculer",
+      "checked": "cochés",
+      "column_actions": {
+        "delete_property": "Supprimer la propriété",
+        "edit_property": "Modifier la propriété",
+        "filter": "Filtrer",
+        "hide": "Masquer",
+        "sort_asc": "Trier par ordre croissant",
+        "sort_desc": "Trier par ordre décroissant"
+      },
+      "count": "Total",
+      "empty": "vide",
+      "error_loading": "Erreur de chargement des éléments du coffre",
+      "items": "éléments",
+      "max": "Max",
+      "median": "Médiane",
+      "min": "Min",
+      "new_item": "Nouvel élément",
+      "no_data": "Aucun élément trouvé dans ce coffre.",
+      "not_empty": "non vide",
+      "range": "Étendue",
+      "refresh": "Actualiser",
+      "relative_date": {
+        "days_ago": "il y a {{count}} jours",
+        "in_days": "dans {{count}} jours",
+        "last_week": "La semaine dernière",
+        "next_week": "La semaine prochaine",
+        "today": "Aujourd'hui",
+        "tomorrow": "Demain",
+        "yesterday": "Hier"
+      },
+      "save_success": "Modifications enregistrées",
+      "search_placeholder": "Rechercher des éléments…",
+      "sum": "Somme",
+      "unchecked": "décochés"
+    }
   },
   "app_title": "Gnosi",
   "search_placeholder": "Rechercher des nœuds...",
@@ -246,7 +296,11 @@
       "table_filters_desc": "Sélectionnez les tables que vous souhaitez filtrer individuellement depuis la barre latérale.",
       "visible_attributes": "Attributs visibles dans le graphe",
       "visible_attributes_desc": "Sélectionnez les propriétés et les tables que vous souhaitez rendre visibles comme nœuds ou étiquettes dans le graphe.",
-      "table_filters": "Filtres de table (barre latérale)"
+      "table_filters": "Filtres de table (barre latérale)",
+      "all": "Toutes",
+      "attributes_label": "Attributs",
+      "none": "Aucun",
+      "show_labels": "Afficher les étiquettes"
     },
     "ai": {
       "agent_name": "Nom de l'agent",
@@ -266,7 +320,7 @@
       "delete_provider_msg": "Supprimer {{name}} ? Il sera déconnecté, sa clé API oubliée et ses modèles retirés du registre du routeur.",
       "agents_section": "Agents de cognition",
       "create_agent_btn": "Créer un agent",
-      "enable_agent": "Activer l'agent {{name}}",
+      "enable_agent": "Activer cet agent",
       "connect_provider_title": "Connecter un fournisseur d'IA",
       "provider_ai_label": "Fournisseur d'IA",
       "provider_select_desc": "Sélectionnez le service que vous souhaitez utiliser.",
@@ -379,7 +433,15 @@
         "Gateways & Routing": "Passerelles et routage",
         "Specialized APIs": "API spécialisées",
         "Enterprise": "Entreprise",
-        "Local": "Local"
+        "Local": "Local",
+        "cloud_platforms": "Plateformes cloud",
+        "enterprise": "Entreprise",
+        "gateways_routing": "Passerelles et routage",
+        "local": "Local",
+        "major_llms": "Modèles principaux",
+        "opencode": "OpenCode",
+        "specialized": "API spécialisées",
+        "specialized_apis": "API spécialisées"
       },
       "agent_icon": "Icône",
       "assistant_name": "Nom de l'assistant",
@@ -464,7 +526,65 @@
       "reliability_tool_use_failed": "a mal formé ses appels d'outils",
       "reliability_context_length": "a dépassé sa fenêtre de contexte",
       "reliability_schema_invalid": "n'a pas respecté le format demandé",
-      "reliability_content_filter": "a été bloqué par les filtres de contenu"
+      "reliability_content_filter": "a été bloqué par les filtres de contenu",
+      "add_provider_hint": "Sélectionnez le fournisseur et ne renseignez que les identifiants nécessaires.",
+      "credential_saved_securely": "Identifiant enregistré dans un stockage sécurisé.",
+      "credential_storage_note": "La clé sera enregistrée dans le trousseau/coffre de secrets et non dans params.yaml.",
+      "error_credential_failed": "Impossible d'enregistrer les identifiants. Vérifiez le réseau ou la clé API.",
+      "error_save_credential": "Une erreur s'est produite lors de l'enregistrement des identifiants du fournisseur.",
+      "no_providers_hint": "Aucun fournisseur ajouté pour le moment. Cliquez sur « Ajouter un fournisseur » pour en configurer un.",
+      "profiles_desc": "Configurez des profils d'agents IA avec des instructions spécifiques.",
+      "profiles_title": "Profils d'agents",
+      "provider_descriptions": {
+        "302_ai": "Accès multi-modèle via API.",
+        "amazon-bedrock": "Modèles via AWS Bedrock.",
+        "anthropic": "Modèles Claude 3.5 Sonnet et Opus.",
+        "azure-cognitive-services": "Modèles servis depuis Cognitive Services.",
+        "azure-openai": "OpenAI déployé sur Azure.",
+        "baseten": "Inférence et hébergement de modèles.",
+        "cerebras": "Inférence à haute vitesse.",
+        "cloudflare-ai-gateway": "Passerelle unifiée multi-fournisseurs.",
+        "cloudflare-workers-ai": "Modèles sur le réseau périphérique de Cloudflare.",
+        "cortecs": "Fournisseur de modèles fondamentaux.",
+        "custom": "Tout point de terminaison compatible OpenAI.",
+        "deep-infra": "Infrastructure d'inférence multi-modèle.",
+        "deepseek": "Modèles DeepSeek API.",
+        "fireworks": "Inférence accélérée.",
+        "firmware": "Fournisseur compatible avec OpenAI.",
+        "github-copilot": "Abonnement Copilot via connexion OAuth.",
+        "gitlab-duo": "Duo Agent Platform / OAuth ou PAT.",
+        "google": "Modèles Gemini Pro et Flash via Google AI Studio.",
+        "google-vertex-ai": "Modèles sur Google Cloud Vertex.",
+        "groq": "Inférence ultra-rapide avec Llama 3 et Mixtral.",
+        "helicone": "Passerelle et observabilité des LLM.",
+        "hugging-face": "Fournisseurs d'inférence de Hugging Face.",
+        "io-net": "Plateforme d'inférence de modèles.",
+        "llama-cpp": "Serveur local compatible avec OpenAI.",
+        "lmstudio": "Modèles locaux via LM Studio.",
+        "minimax": "Modèles MiniMax.",
+        "moonshot": "Kimi et autres modèles Moonshot.",
+        "nebius": "Token Factory pour l'inférence.",
+        "ollama": "Modèles locaux sans compromettre la confidentialité.",
+        "ollama-cloud": "Modèles cloud d'Ollama.",
+        "openai": "Modèles GPT-4o et GPT-4-turbo originaux.",
+        "opencode_go": "Formule économique avec des modèles de codage vérifiés.",
+        "opencode_zen": "Modèles validés par l'équipe d'OpenCode.",
+        "openrouter": "Accès à des centaines de modèles via une API unifiée.",
+        "ovhcloud": "Endpoints IA d'OVHcloud.",
+        "sap-ai-core": "Modèles via clé de service JSON de SAP.",
+        "scaleway": "API génératives de Scaleway.",
+        "stackit": "Hébergement souverain européen de modèles.",
+        "together": "Modèles ouverts et propriétaires.",
+        "venice": "Modèles via l'API Venice.",
+        "vercel": "Passerelle multi-fournisseurs de Vercel.",
+        "xai": "Modèles Grok via xAI.",
+        "z_ai": "Modèles GLM et formule codage.",
+        "zenmux": "Routeur multi-modèle compatible."
+      },
+      "required_suffix": "obligatoire",
+      "status_connected": "Connecté",
+      "status_not_configured": "Non configuré",
+      "models_available_many": "{{count}} modèles disponibles"
     },
     "footer": {
       "close": "Fermer",
@@ -910,7 +1030,11 @@
       "google_oauth_desc": "Évitez les configurations manuelles et connectez-vous avec Google OAuth2.",
       "google_note": "Évitez les configurations manuelles et connectez-vous à Google OAuth2 en toute sécurité.",
       "oauth_managed_desc": "Géré via OAuth2. Les couleurs individuelles se configurent dans la barre latérale du calendrier.",
-      "no_credentials": "Aucun identifiant Google OAuth valide trouvé. Configurez CLIENT_ID et CLIENT_SECRET."
+      "no_credentials": "Aucun identifiant Google OAuth valide trouvé. Configurez CLIENT_ID et CLIENT_SECRET.",
+      "add_btn_action": "Ajouter",
+      "alert_fill_fields": "L'URL et le mot de passe sont obligatoires",
+      "cancel_btn": "Annuler",
+      "personal_calendar": "Calendrier personnel"
     },
     "profile": {
       "title": "Profil utilisateur",
@@ -1029,7 +1153,8 @@
       "confirm_delete_clone_cancel": "Annuler",
       "err_prepare_vault": "Impossible de préparer le vault de destination : {{detail}}",
       "err_unknown_clone_vault": "Je ne sais pas dans quel vault se trouve le clone. Passez au vault du clone (sélecteur de vaults) et vérifiez à nouveau.",
-      "linked_db_count": "{{count}} BDD liée (non importable)"
+      "linked_db_count": "{{count}} BDD liée (non importable)",
+      "linked_db_count_many": "{{count}} BD liées (non importables)"
     },
     "scheduled_tasks": "Tâches planifiées",
     "scheduled_tasks_hint": "Configurez les tâches automatiques du système.",
@@ -1247,7 +1372,11 @@
     "rollup_latest": "Le plus récent",
     "rollup_show_original": "Afficher l'original",
     "option_rename_error": "Impossible de renommer l'option dans les enregistrements",
-    "type_zotero": "Zotero"
+    "type_zotero": "Zotero",
+    "option_removed_rows_many": "{{count}} enregistrements mis à jour",
+    "option_usage_many": "{{count}} enregistrements utilisent cette option",
+    "option_renamed_many": "{{count}} enregistrements mis à jour",
+    "remove_option_in_use_many": "L'option « {{name}} » est utilisée par {{count}} enregistrements. Que faire de leurs valeurs ?"
   },
   "translate": {
     "title": "Traduire la ligne",
@@ -1509,7 +1638,12 @@
     "batch_action_error": "Impossible de mettre à jour {{count}} message(s)",
     "spam_added": "Marqué comme spam",
     "spam_removed": "Retiré du spam",
-    "error_updating": "Impossible de mettre à jour le message"
+    "error_updating": "Impossible de mettre à jour le message",
+    "delete_permanently_confirm_many": "Voulez-vous supprimer définitivement ces {{count}} messages ? Cette action est irréversible.",
+    "move_batch_error_many": "Impossible de déplacer {{count}} messages",
+    "attachments_count_many": "{{count}} pièces jointes",
+    "thread_messages_count_many": "{{count}} messages",
+    "move_batch_menu_title_many": "Déplacer {{count}} messages vers..."
   },
   "subs_section_title": "Sources d'information",
   "subs_btn_reload": "Recharger",
@@ -1834,7 +1968,8 @@
     "loading_view": "Chargement de la vue...",
     "configure_view_tooltip": "Configurer la vue",
     "wip_tooltip": "En développement pour une prochaine itération",
-    "soon_badge": "Bientôt"
+    "soon_badge": "Bientôt",
+    "records_count_many": "{{count}} enregistrements"
   },
   "errors": {
     "hide_main_view": "Impossible de masquer la vue principale",
@@ -2352,7 +2487,8 @@
     "graph_via": "via",
     "graph_no_relations": "(sans relations)",
     "graph_stats": "{{nodes}} nœuds · {{edges}} arêtes",
-    "no_records_in_view": "Aucun enregistrement dans cette vue."
+    "no_records_in_view": "Aucun enregistrement dans cette vue.",
+    "usage_count_many": "Cette vue est déjà utilisée sur {{count}} pages."
   },
   "editor": {
     "ai_ask": "Demander à l'IA…",
@@ -2594,7 +2730,8 @@
     "synced_empty": "Bloc synchronisé vide — cliquez sur « Modifier » pour ajouter du contenu.",
     "date_reminder_tooltip": "Rappel : {{date}} à {{time}}",
     "date_reminder_label": "Rappel (facultatif)",
-    "date_reminder_clear": "Retirer"
+    "date_reminder_clear": "Retirer",
+    "note_section_placeholder_trans": "Nom de note#Section"
   },
   "metadata_lookup": {
     "button": "Remplir",
@@ -2691,7 +2828,14 @@
       "modified": "Modifié : "
     },
     "notes_imported_to_one": "{{count}} note importée dans « {{folder}} »",
-    "notes_imported_to_other": "{{count}} notes importées dans « {{folder}} »"
+    "notes_imported_to_other": "{{count}} notes importées dans « {{folder}} »",
+    "records_restored_many": "{{count}} enregistrements restaurés",
+    "records_redeleted_many": "{{count}} enregistrements supprimés à nouveau",
+    "records_redelete_failed_many": "Impossible de supprimer à nouveau {{count}} enregistrements (codes : {{reasons}})",
+    "records_delete_failed_many": "Impossible de supprimer {{count}} enregistrements (codes : {{reasons}})",
+    "notes_imported_to_many": "{{count}} notes importées dans « {{folder}} »",
+    "records_trashed_many": "{{count}} enregistrements déplacés dans la corbeille",
+    "records_restore_failed_many": "Impossible de restaurer {{count}} enregistrements (codes : {{reasons}})"
   },
   "dashboard": {
     "actions": "Actions",
@@ -2713,9 +2857,9 @@
     "errors_prevented_title": "Erreurs évitées",
     "frequency_none": "Non définie",
     "frequency_seconds": "Toutes les {{count}}s",
-    "frequency_days_one": "Chaque jour",
+    "frequency_days_one": "Tous les {{count}} jours",
     "frequency_days_other": "Tous les {{count}} jours",
-    "frequency_hours_one": "Toutes les heures",
+    "frequency_hours_one": "Toutes les {{count}} heures",
     "frequency_hours_other": "Toutes les {{count}} heures",
     "frequency_minutes_one": "Toutes les {{count}} min",
     "frequency_minutes_other": "Toutes les {{count}} min",
@@ -2857,7 +3001,10 @@
     "no_approval_date": "Aucune date d'approbation",
     "view_graph": "Voir le graphe",
     "error_prefix": "Erreur",
-    "control_center": "Centre de contrôle"
+    "control_center": "Centre de contrôle",
+    "frequency_minutes_many": "Toutes les {{count}} min",
+    "frequency_hours_many": "Toutes les {{count}} heures",
+    "frequency_days_many": "Tous les {{count}} jours"
   },
   "media": {
     "title": "Gestionnaire de médias",
@@ -3111,6 +3258,12 @@
       "none": "Aucun",
       "cover": "Couverture (image)",
       "text": "Texte du document"
+    },
+    "toast": {
+      "import_error": "Erreur lors de l'importation de l'icône depuis l'URL",
+      "import_success": "Icône importée avec succès",
+      "upload_error": "Erreur lors du téléversement de l'icône",
+      "upload_success": "Icône téléversée avec succès"
     }
   },
   "icon_picker": {
@@ -3519,7 +3672,8 @@
       "title": "Graphe partiel",
       "message_one": "{{count}} dossier du vault n'a pas pu être lu (le nuage synchronise encore) ; le graphe est incomplet.",
       "message_other": "{{count}} dossiers du vault n'ont pas pu être lus (le nuage synchronise encore) ; le graphe est incomplet.",
-      "retry": "Réessayer"
+      "retry": "Réessayer",
+      "message_many": "{{count}} dossiers du vault n'ont pas pu être lus (le nuage synchronise encore) ; le graphe est incomplet."
     },
     "filters": {
       "tables_title": "Filtre de tables",
@@ -3572,7 +3726,8 @@
       "timeline_title": "Chronologie",
       "timeline_no_data": "Aucune donnée temporelle disponible",
       "hide_isolated_nodes": "Masquer les nœuds isolés",
-      "show_only_isolated_nodes": "Afficher uniquement les nœuds isolés"
+      "show_only_isolated_nodes": "Afficher uniquement les nœuds isolés",
+      "pathfinding_path_found_many": "Chemin trouvé ({{count}} nœuds) :"
     },
     "forces": {
       "title": "Forces",
@@ -3735,7 +3890,8 @@
     "records_count_one": "{{count}} enregistrement",
     "records_count_other": "{{count}} enregistrements",
     "no_status": "Sans statut",
-    "no_records": "Aucun enregistrement"
+    "no_records": "Aucun enregistrement",
+    "records_count_many": "{{count}} enregistrements"
   },
   "footnote": {
     "tooltip_hint": "Note de bas de page (cliquez pour modifier)",
@@ -3839,7 +3995,8 @@
     "remove_attachment_aria": "Retirer la pièce jointe {{name}}",
     "remove_attachment_title": "Retirer la pièce jointe",
     "llm_auto": "Auto",
-    "new_session": "Nouvelle session"
+    "new_session": "Nouvelle session",
+    "messages_count_many": "{{count}} messages"
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} sélectionné",
@@ -3852,7 +4009,8 @@
     "export": "Exporter",
     "translate_title": "Traduire la sélection",
     "delete_title": "Supprimer la sélection",
-    "deselect_title": "Désélectionner"
+    "deselect_title": "Désélectionner",
+    "selected_count_many": "{{count}} sélectionnés"
   },
   "doc_tabs": {
     "remove_parallel": "Retirer de la vue parallèle",
@@ -3965,5 +4123,7 @@
       "kind_gap": "Lacune",
       "notes": "Notes"
     }
-  }
+  },
+  "reader_articles_pending_many": "{{count}} articles en attente",
+  "reader_sources_count_many": "{{count}} sources"
 }

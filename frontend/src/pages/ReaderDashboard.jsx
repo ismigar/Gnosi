@@ -5,9 +5,9 @@ import { toast } from '../lib/toast';
 import { Play, RotateCw, Check, Headphones, ArrowLeft, Loader, BookOpen, ExternalLink, ChevronDown, ChevronRight, Inbox, Settings2, Menu, X, History } from 'lucide-react';
 import { FeedManagerModal } from '../components/FeedManagerModal';
 import { AppHeader } from '../components/AppHeader';
+import { getIntlLocale } from '../locales/registry';
 
 const API_BASE = '/api';
-const LOCALE_MAP = { ca: 'ca-ES', es: 'es-ES', en: 'en-US', fr: 'fr-FR' };
 const MAX_UNREAD_ARTICLES_FETCH_LIMIT = 10000;
 
 // Google's favicon service: covers all public domains, returns a 32px PNG
@@ -141,7 +141,7 @@ const fitIframeToContent = (event) => {
 
 const ReaderDashboard = () => {
     const { t, i18n } = useTranslation();
-    const locale = LOCALE_MAP[i18n.resolvedLanguage?.split('-')[0]] || 'en-US';
+    const locale = getIntlLocale(i18n.resolvedLanguage || i18n.language);
 
     const [displayArticles, setDisplayArticles] = useState([]);
     const [unreadArticles, setUnreadArticles] = useState([]);

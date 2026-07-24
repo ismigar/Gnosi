@@ -1,41 +1,41 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
 
-import en from './locales/en/translation.json';
-import es from './locales/es/translation.json';
-import fr from './locales/fr/translation.json';
-import ca from './locales/ca/translation.json';
 import {
-    DEFAULT_INTERFACE_LANGUAGE,
-    getStoredInterfaceLanguage,
-    SUPPORTED_INTERFACE_LANGUAGES,
-} from './lib/interfaceLanguage';
+    applyDocumentLocale,
+    availableLocales,
+    FALLBACK_LOCALE,
+    localeResources,
+    resolveLocale,
+} from './locales/registry';
 
 i18n
+    // detect user language
+    // learn more: https://github.com/i18next/i18next-browser-languageDetector
+    .use(LanguageDetector)
+    // pass the i18n instance to react-i18next.
     .use(initReactI18next)
+    // init i18next
+    // for all options read: https://www.i18next.com/overview/configuration-options
     .init({
         debug: false,
-        lng: getStoredInterfaceLanguage() || DEFAULT_INTERFACE_LANGUAGE,
-        fallbackLng: DEFAULT_INTERFACE_LANGUAGE,
-        supportedLngs: SUPPORTED_INTERFACE_LANGUAGES,
-        nonExplicitSupportedLngs: true,
-        interpolation: {
-            escapeValue: false, // React escapes interpolated values by default.
+        fallbackLng: FALLBACK_LOCALE,
+        supportedLngs: availableLocales.map(({ code }) => code),
+        detection: {
+            convertDetectedLanguage: resolveLocale,
         },
-        resources: {
-            en: {
-                translation: en
-            },
-            es: {
-                translation: es
-            },
-            fr: {
-                translation: fr
-            },
-            ca: {
-                translation: ca
-            }
-        }
+        interpolation: {
+            escapeValue: false, // not needed for react as it escapes by default
+        },
+        resources: localeResources,
     });
+
+const syncDocumentLocale = (language) => applyDocumentLocale(
+    i18n.resolvedLanguage || language || FALLBACK_LOCALE
+);
+
+i18n.on('languageChanged', syncDocumentLocale);
+syncDocumentLocale(i18n.language);
 
 export default i18n;

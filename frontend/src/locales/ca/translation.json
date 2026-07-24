@@ -1,4 +1,10 @@
 {
+  "_meta": {
+    "nativeName": "Català",
+    "intlLocale": "ca-ES",
+    "direction": "ltr",
+    "zoteroLocale": "ca-AD"
+  },
   "app_title": "Gnosi",
   "search_placeholder": "Cerca nodes...",
   "filter_by_kind": "Filtrar per tipus",
@@ -45,9 +51,9 @@
     "settings": "Ajustos",
     "undo": "Desfer",
     "undo_hint": "Cmd+Z per desfer",
-    "restored_count": "Restaurat {{count}} registre{{plural}}",
-    "redeleted_count": "Tornat a eliminar {{count}} registre{{plural}}",
-    "deleted_records": "{{count}} registre{{plural}} eliminat{{plural}}",
+    "restored_count": "S'han restaurat {{count}} registres",
+    "redeleted_count": "S'han tornat a eliminar {{count}} registres",
+    "deleted_records": "S'han eliminat {{count}} registres",
     "new_database": "Nova Base de Dades",
     "new_dashboard": "Nou Taulell",
     "new_page": "Nova Pàgina",
@@ -97,7 +103,11 @@
       "unsaved_changes": "Canvis pendents de guardar...",
       "error_saving": "Error al guardar",
       "error_connection": "Error de connexió",
-      "loading": "Carregant…"
+      "loading": "Carregant…",
+      "error_connect": "❌ No s'ha pogut connectar",
+      "error_sync": "❌ Error en sincronitzar",
+      "sync_completed": "✅ Sincronització completada!",
+      "sync_in_progress": "⏳ Ja està en curs..."
     },
     "open": "Obre",
     "close": "Tanca",
@@ -138,7 +148,47 @@
     "ok": "D'acord",
     "cancel_short": "Cancel·la",
     "confirm_modal_title": "Confirmar acció",
-    "confirm_modal_message": "N'estàs segur que vols procedir amb aquesta acció?"
+    "confirm_modal_message": "N'estàs segur que vols procedir amb aquesta acció?",
+    "success": "Èxit",
+    "vault_table": {
+      "add_property": "Afegir propietat",
+      "average": "Mitjana",
+      "calculate": "Calcula",
+      "checked": "marcats",
+      "column_actions": {
+        "delete_property": "Eliminar propietat",
+        "edit_property": "Edita la propietat",
+        "filter": "Filtra",
+        "hide": "Amagar",
+        "sort_asc": "Ordena ascendentment",
+        "sort_desc": "Ordena descendentment"
+      },
+      "count": "Total",
+      "empty": "buit",
+      "error_loading": "Error en carregar els elements del vault",
+      "items": "elements",
+      "max": "Màxim",
+      "median": "Mediana",
+      "min": "Mínim",
+      "new_item": "Element nou",
+      "no_data": "No s'ha trobat cap element en aquest vault.",
+      "not_empty": "no buit",
+      "range": "Rang",
+      "refresh": "Refrescar",
+      "relative_date": {
+        "days_ago": "fa {{count}} dies",
+        "in_days": "d'aquí a {{count}} dies",
+        "last_week": "La setmana passada",
+        "next_week": "La setmana que ve",
+        "today": "Avui",
+        "tomorrow": "Demà",
+        "yesterday": "Ahir"
+      },
+      "save_success": "Canvis desats correctament",
+      "search_placeholder": "Cerca elements...",
+      "sum": "Suma",
+      "unchecked": "desmarcats"
+    }
   },
   "day_mo": "Dl",
   "day_tu": "Dt",
@@ -641,7 +691,10 @@
     "managed_in_vault": "Gestionat al Vault",
     "view_graph": "Veure Graf",
     "error_prefix": "Error",
-    "control_center": "Centre de control"
+    "control_center": "Centre de control",
+    "frequency_minutes_many": "Cada {{count}} min",
+    "frequency_hours_many": "Cada {{count}} hores",
+    "frequency_days_many": "Cada {{count}} dies"
   },
   "errors": {
     "load_pages": "Error carregant pàgines",
@@ -957,7 +1010,8 @@
     "synced_empty": "Bloc sincronitzat buit — clica «Edita» per afegir-hi contingut.",
     "date_reminder_tooltip": "Recordatori: {{date}} a les {{time}}",
     "date_reminder_label": "Recordatori (opcional)",
-    "date_reminder_clear": "Treu"
+    "date_reminder_clear": "Treu",
+    "note_section_placeholder_trans": "Nom de nota#Apartat"
   },
   "view_config": {
     "title": "Configurar Vista",
@@ -1000,6 +1054,12 @@
       "none": "Cap",
       "cover": "Portada (imatge)",
       "text": "Text del document"
+    },
+    "toast": {
+      "import_error": "Error en importar la icona des de l'URL",
+      "import_success": "Icona importada correctament",
+      "upload_error": "Error al pujar la icona",
+      "upload_success": "Icona pujada correctament"
     }
   },
   "views_header": {
@@ -1046,7 +1106,8 @@
     "loading_view": "Carregant vista...",
     "configure_view_tooltip": "Configurar Vista",
     "wip_tooltip": "En desenvolupament per propera iteració",
-    "soon_badge": "Aviat"
+    "soon_badge": "Aviat",
+    "records_count_many": "{{count}} registres"
   },
   "icon_picker": {
     "tabs": {
@@ -1431,7 +1492,10 @@
       "vault_name_hint": "El nom amb què es mostra aquest vault a la capçalera i al commutador. No canvia la carpeta del disc.",
       "vault_name_save": "Renombrar",
       "vault_rename_success": "Vault reanomenat correctament",
-      "vault_rename_error": "Error reanomenant el vault"
+      "vault_rename_error": "Error reanomenant el vault",
+      "databases": "Bases de dades",
+      "newsletters": "Butlletins",
+      "vault": "Vault"
     },
     "profile": {
       "title": "Perfil d'Usuari",
@@ -1536,7 +1600,12 @@
       "oauth_managed_desc": "Gestionat via OAuth2. Els colors individuals es configuren a la barra lateral del calendari.",
       "no_credentials": "No s'han trobat credencials de Google OAuth vàlides. Configura CLIENT_ID i CLIENT_SECRET.",
       "google_token_expired": "El token de Google ha caducat o s'ha revocat. Reconnecta el compte per tornar a carregar els calendaris.",
-      "reconnect_google": "Reconnecta Google"
+      "reconnect_google": "Reconnecta Google",
+      "add_btn_action": "Afegeix",
+      "alert_fill_fields": "Cal indicar l'URL i la contrasenya",
+      "cancel_btn": "Cancel·lar",
+      "location_verified": "Ubicació verificada",
+      "personal_calendar": "Calendari personal"
     },
     "graph": {
       "section_title": "Motor Visual del Grafe",
@@ -1582,7 +1651,11 @@
       "visible_attributes": "Atributs Visibles al Graf",
       "visible_attributes_desc": "Selecciona quines propietats i taules vols que siguin visibles com a nodes o etiquetes al graf.",
       "table_filters": "Filtres de Taula (Barra lateral)",
-      "exposed_filter": "Filtre exposat"
+      "exposed_filter": "Filtre exposat",
+      "all": "Tots",
+      "attributes_label": "Atributs",
+      "none": "Cap",
+      "show_labels": "Mostra les etiquetes"
     },
     "mail_accounts": {
       "title": "Comptes de Correu",
@@ -1791,7 +1864,15 @@
         "Gateways & Routing": "Gateways i Rutes",
         "Specialized APIs": "APIs Especialitzades",
         "Enterprise": "Empresa",
-        "Local": "Local"
+        "Local": "Local",
+        "cloud_platforms": "Plataformes Cloud",
+        "enterprise": "Empresa",
+        "gateways_routing": "Gateways i Rutes",
+        "local": "Local",
+        "major_llms": "Models Principals",
+        "opencode": "OpenCode",
+        "specialized": "APIs Especialitzades",
+        "specialized_apis": "APIs Especialitzades"
       },
       "agent_icon": "Icona",
       "assistant_name": "Nom de l'Assistant",
@@ -1877,7 +1958,65 @@
       "reliability_tool_use_failed": "ha escrit malament les crides a les eines",
       "reliability_context_length": "s'ha quedat sense finestra de context",
       "reliability_schema_invalid": "no ha respectat el format demanat",
-      "reliability_content_filter": "ha estat bloquejat pels filtres de contingut"
+      "reliability_content_filter": "ha estat bloquejat pels filtres de contingut",
+      "add_provider_hint": "Selecciona el proveïdor i completa només les credencials necessàries.",
+      "credential_saved_securely": "Credencial guardada en emmagatzematge segur.",
+      "credential_storage_note": "La clau es guardarà en keychain/secret store i no en params.yaml.",
+      "error_credential_failed": "No s'han pogut desar les credencials. Comprova la xarxa o la clau API.",
+      "error_save_credential": "S'ha produït un error en desar les credencials del proveïdor.",
+      "no_providers_hint": "Encara no hi ha proveïdors afegits. Prem \"Afegir Proveïdor\" per configurar-ne un.",
+      "profiles_desc": "Configura perfils d'agents d'IA amb instruccions específiques.",
+      "profiles_title": "Perfils d'Agents",
+      "provider_descriptions": {
+        "302_ai": "Accés multi-model via API.",
+        "amazon-bedrock": "Models via AWS Bedrock.",
+        "anthropic": "Models Claude 3.5 Sonnet i Opus.",
+        "azure-cognitive-services": "Models servits des de Cognitive Services.",
+        "azure-openai": "OpenAI desplegat a Azure.",
+        "baseten": "Inferència i hosting de models.",
+        "cerebras": "Inferència d'alta velocitat.",
+        "cloudflare-ai-gateway": "Gateway unificat multi-proveïdor.",
+        "cloudflare-workers-ai": "Models a la xarxa perimetral de Cloudflare.",
+        "cortecs": "Proveïdor de models fundacionals.",
+        "custom": "Qualsevol endpoint compatible amb OpenAI.",
+        "deep-infra": "Infraestructura d'inferència multi-model.",
+        "deepseek": "Models DeepSeek API.",
+        "fireworks": "Inferència accelerada.",
+        "firmware": "Proveïdor compatible amb OpenAI.",
+        "github-copilot": "Subscripció Copilot via login OAuth.",
+        "gitlab-duo": "Duo Agent Platform / OAuth o PAT.",
+        "google": "Models Gemini Pro i Flash via Google AI Studio.",
+        "google-vertex-ai": "Models a Google Cloud Vertex.",
+        "groq": "Inferència ultra-ràpida amb Llama 3 i Mixtral.",
+        "helicone": "Passarel·la i observabilitat d'LLM.",
+        "hugging-face": "Inference Providers de Hugging Face.",
+        "io-net": "Plataforma d'inferència de models.",
+        "llama-cpp": "Servidor local compatible amb OpenAI.",
+        "lmstudio": "Models locals via LM Studio.",
+        "minimax": "Models MiniMax.",
+        "moonshot": "Kimi i altres models Moonshot.",
+        "nebius": "Token Factory per inferència.",
+        "ollama": "Models locals sense privacitat compromesa.",
+        "ollama-cloud": "Models cloud d'Ollama.",
+        "openai": "Models GPT-4o i GPT-4-turbo originals.",
+        "opencode_go": "Pla low-cost amb models de coding verificats.",
+        "opencode_zen": "Models validats per l'equip d'OpenCode.",
+        "openrouter": "Accés a centenars de models mitjançant una API unificada.",
+        "ovhcloud": "Endpoints d'IA d'OVHcloud.",
+        "sap-ai-core": "Models via service key JSON de SAP.",
+        "scaleway": "Generative APIs de Scaleway.",
+        "stackit": "Hosting sobirà europeu de models.",
+        "together": "Models open i propietaris.",
+        "venice": "Models mitjançant l'API de Venice.",
+        "vercel": "Gateway multi-proveïdor de Vercel.",
+        "xai": "Models Grok via xAI.",
+        "z_ai": "Models GLM i pla coding.",
+        "zenmux": "Router multi-model compatible."
+      },
+      "required_suffix": "obligatori",
+      "status_connected": "Connectat",
+      "status_not_configured": "Sense configurar",
+      "models_available_many": "{{count}} models disponibles"
     },
     "footer": {
       "close": "Tancar",
@@ -1978,7 +2117,8 @@
       "confirm_delete_clone_cancel": "Cancel·la",
       "err_prepare_vault": "No s'ha pogut preparar el vault destí: {{detail}}",
       "err_unknown_clone_vault": "No sé a quin vault és el clon. Canvia al vault del clon (selector de vaults) i torna a verificar.",
-      "linked_db_count": "{{count}} BD enllaçada (no importables)"
+      "linked_db_count": "{{count}} BD enllaçada (no importables)",
+      "linked_db_count_many": "{{count}} BD enllaçades (no importables)"
     },
     "scheduled_tasks": "Tasques Programades",
     "scheduled_tasks_hint": "Configura tasques automàtiques del sistema.",
@@ -2012,6 +2152,15 @@
       "missing_password_fields": "Cal la contrasenya actual i la nova.",
       "password_too_short": "La contrasenya ha de tenir almenys 8 caràcters.",
       "passwords_dont_match": "Les contrasenyes noves no coincideixen."
+    },
+    "dashboard": {
+      "approved": "APROVATS",
+      "intelligence_details": "Detalls de la intel·ligència",
+      "last_7_days": "Darrera setmana",
+      "pending": "PENDENTS",
+      "pending_approval": "Pendent d'aprovació",
+      "status_title": "Estat del sistema",
+      "tools_pending_approval": "Eines pendents d'aprovació"
     }
   },
   "contacts": {
@@ -2252,7 +2401,11 @@
     "rollup_latest": "Més recent",
     "rollup_show_original": "Mostrar original",
     "option_rename_error": "No s'ha pogut renombrar l'opció als registres",
-    "type_zotero": "Zotero"
+    "type_zotero": "Zotero",
+    "option_removed_rows_many": "{{count}} registres actualitzats",
+    "option_usage_many": "{{count}} registres usen aquesta opció",
+    "option_renamed_many": "{{count}} registres actualitzats",
+    "remove_option_in_use_many": "L'opció «{{name}}» l'usen {{count}} registres. Què en fem, dels seus valors?"
   },
   "translate": {
     "title": "Traduir fila",
@@ -2514,7 +2667,12 @@
     "batch_action_error": "No s'han pogut actualitzar {{count}} missatges",
     "spam_added": "Marcat com a brossa",
     "spam_removed": "Tret de la brossa",
-    "error_updating": "No s'ha pogut actualitzar el missatge"
+    "error_updating": "No s'ha pogut actualitzar el missatge",
+    "delete_permanently_confirm_many": "Vols eliminar permanentment aquests {{count}} missatges? Aquesta acció no es pot desfer.",
+    "move_batch_error_many": "No s'han pogut moure {{count}} missatges",
+    "attachments_count_many": "{{count}} adjunts",
+    "thread_messages_count_many": "{{count}} missatges",
+    "move_batch_menu_title_many": "Moure {{count}} missatges a..."
   },
   "subs_section_title": "Fonts d'Informació",
   "subs_btn_reload": "Recarregar",
@@ -2891,7 +3049,38 @@
     "graph_via": "via",
     "graph_no_relations": "(sense relacions)",
     "graph_stats": "{{nodes}} nodes · {{edges}} arestes",
-    "no_records_in_view": "No hi ha registres en aquesta vista."
+    "no_records_in_view": "No hi ha registres en aquesta vista.",
+    "add_schema_option": "No s'ha pogut desar l'opció al schema",
+    "connection": "Error de connexió amb el backend. Verifica que el servidor estigui actiu.",
+    "create_content": "Error creant contingut",
+    "daily_note": "Error en obrir la nota diària",
+    "delete_db": "Error en suprimir la base de dades",
+    "delete_main_view": "La vista principal no es pot suprimir",
+    "delete_page": "Error en suprimir la pàgina",
+    "delete_table": "Error en suprimir la taula",
+    "delete_view": "Error en suprimir la vista",
+    "duplicate_page": "Error en duplicar la pàgina",
+    "load_page": "Error en carregar la pàgina",
+    "load_pages": "Error en carregar les pàgines",
+    "load_registry": "Error en carregar el registre de bases de dades",
+    "move_page": "Error en moure la pàgina",
+    "open_parallel": "Error en obrir en paral·lel",
+    "open_parallel_first": "Obre un recurs primer per utilitzar la vista paral·lela",
+    "open_table": "Error en obrir la taula",
+    "record_create": "Error creant el registre",
+    "rename_db": "Error en canviar el nom de la base de dades",
+    "rename_page": "Error en canviar el nom de la pàgina",
+    "rename_table": "Error en canviar el nom de la taula",
+    "reorder_views": "Error en reordenar les vistes",
+    "restore_page": "No s'ha pogut restaurar",
+    "save_config": "Error en desar la configuració",
+    "save_note": "Error en desar la nota",
+    "save_view": "Error en desar la vista",
+    "table_not_found": "Taula no trobada",
+    "template_default": "Error en definir la plantilla predeterminada",
+    "template_duplicate": "Error en duplicar la plantilla",
+    "toggle_favorites": "Error en modificar els preferits",
+    "usage_count_many": "Aquesta vista ja s'usa a {{count}} pàgines."
   },
   "metadata_lookup": {
     "button": "Omplir",
@@ -2967,7 +3156,14 @@
       "modified": "Modificat: "
     },
     "notes_imported_to_one": "{{count}} nota importada a «{{folder}}»",
-    "notes_imported_to_other": "{{count}} notes importades a «{{folder}}»"
+    "notes_imported_to_other": "{{count}} notes importades a «{{folder}}»",
+    "records_restored_many": "Restaurats {{count}} registres",
+    "records_redeleted_many": "Tornats a eliminar {{count}} registres",
+    "records_redelete_failed_many": "No s'han pogut tornar a eliminar {{count}} registres (codis: {{reasons}})",
+    "records_delete_failed_many": "No s'han pogut eliminar {{count}} registres (codis: {{reasons}})",
+    "notes_imported_to_many": "{{count}} notes importades a «{{folder}}»",
+    "records_trashed_many": "{{count}} registres moguts a la paperera",
+    "records_restore_failed_many": "No s'han pogut restaurar {{count}} registres (codis: {{reasons}})"
   },
   "media": {
     "title": "Gestor de Mitjans",
@@ -3476,7 +3672,8 @@
       "title": "Graf parcial",
       "message_one": "No s'ha pogut llegir {{count}} carpeta del vault (el núvol encara sincronitza); el graf es mostra incomplet.",
       "message_other": "No s'han pogut llegir {{count}} carpetes del vault (el núvol encara sincronitza); el graf es mostra incomplet.",
-      "retry": "Reintenta"
+      "retry": "Reintenta",
+      "message_many": "No s'han pogut llegir {{count}} carpetes del vault (el núvol encara sincronitza); el graf es mostra incomplet."
     },
     "filters": {
       "tables_title": "Filtre de Taules",
@@ -3529,7 +3726,8 @@
       "timeline_title": "Cronologia",
       "timeline_no_data": "No hi ha dades de temps",
       "hide_isolated_nodes": "Oculta nodes aïllats",
-      "show_only_isolated_nodes": "Mostra només nodes aïllats"
+      "show_only_isolated_nodes": "Mostra només nodes aïllats",
+      "pathfinding_path_found_many": "Camí trobat ({{count}} nodes):"
     },
     "forces": {
       "title": "Forces",
@@ -3692,7 +3890,8 @@
     "records_count_one": "{{count}} registre",
     "records_count_other": "{{count}} registres",
     "no_status": "Sense Estat",
-    "no_records": "Sense registres"
+    "no_records": "Sense registres",
+    "records_count_many": "{{count}} registres"
   },
   "footnote": {
     "tooltip_hint": "Nota al peu (clica per editar)",
@@ -3796,7 +3995,8 @@
     "remove_attachment_aria": "Quitar adjunto {{name}}",
     "remove_attachment_title": "Quitar adjunto",
     "llm_auto": "Auto",
-    "new_session": "Nova sessio"
+    "new_session": "Nova sessio",
+    "messages_count_many": "{{count}} missatges"
   },
   "bulk_actions": {
     "selected_count_one": "{{count}} seleccionat",
@@ -3809,7 +4009,8 @@
     "export": "Exportar",
     "translate_title": "Traduir seleccionats",
     "delete_title": "Eliminar seleccionats",
-    "deselect_title": "Desseleccionar"
+    "deselect_title": "Desseleccionar",
+    "selected_count_many": "{{count}} seleccionats"
   },
   "doc_tabs": {
     "remove_parallel": "Treure de la vista paral·lela",
@@ -3847,7 +4048,8 @@
     "new_vault": "Nou vault",
     "delete_modal_title": "Esborrar vault",
     "delete_modal_message": "Esborrar el vault «{{name}}» del registre? No esborra cap fitxer del disc.",
-    "delete_modal_confirm": "Esborrar"
+    "delete_modal_confirm": "Esborrar",
+    "description": "Clona Notion en un vault separat, verifica'l de manera aïllada i adopta'l o descarta'l sense tocar el principal."
   },
   "shared_page": {
     "link_invalid": "Aquest enllaç no és vàlid o ha caducat.",
@@ -3921,5 +4123,7 @@
       "kind_gap": "Buit",
       "notes": "Notes"
     }
-  }
+  },
+  "reader_articles_pending_many": "{{count}} articles pendents",
+  "reader_sources_count_many": "{{count}} fonts"
 }
