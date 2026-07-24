@@ -56,6 +56,11 @@ class SchedulerManager:
             "description": "Manteniment del sistema (Logs, Mailbox, Sandbox)",
             "default_interval": 1440,  # 24 hours
         },
+        "llm_wiki_maintenance": {
+            "description": "Rebuild LLM Wiki indexes and run deterministic checks",
+            "default_interval": 1440,
+            "quiet": True,
+        },
         "update_analytics": {
             "description": "Update statistics",
             "default_interval": 60,  # 1 hour
@@ -569,6 +574,8 @@ class SchedulerManager:
             return self._task_generate_podcast()
         elif name == "system_maintenance":
             return self._task_system_maintenance()
+        elif name == "llm_wiki_maintenance":
+            return self._task_llm_wiki_maintenance()
         elif name == "update_analytics":
             return self._task_update_analytics()
         elif name == "suggest_connections":
@@ -705,6 +712,27 @@ class SchedulerManager:
 
         filename = generate_daily_podcast()
         return {"filename": filename, "generated": bool(filename)}
+
+    def _task_llm_wiki_maintenance(self) -> Dict[str, Any]:
+        """Rebuild managed Brain indexes without invoking an LLM."""
+        from backend.api.vault_routes import _llm_wiki_enabled, _load_plugins_state
+        from backend.services import llm_wiki_config, llm_wiki_indices, llm_wiki_lint
+
+        if not _llm_wiki_enabled(_load_plugins_state()):
+            return {"skipped": True, "reason": "plugin_disabled"}
+        config = llm_wiki_config.load_config()
+        brain_table_id = str(config.get("brain_table_id") or "")
+        if not brain_table_id:
+            return {"skipped": True, "reason": "brain_not_configured"}
+        source_ids = [
+            str(item.get("table_id") or "")
+            for item in config.get("source_tables") or []
+            if item.get("table_id")
+        ]
+        return {
+            "indexes": llm_wiki_indices.rebuild_indexes(brain_table_id, config),
+            "lint": llm_wiki_lint.run_lint(brain_table_id, source_ids),
+        }
 
 
     def _task_system_maintenance(self) -> Dict[str, Any]:

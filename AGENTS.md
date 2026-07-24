@@ -81,6 +81,15 @@ Projects/
 3. **E2E Test:** Verify result matches spec. Run actual API/automation calls.
 4. **Stopping Rule:** If visual/build/E2E fails → return to Self-Correction. "Couldn't test it" = not done.
 
+## Delivery Protocol (Mandatory for implementation tasks)
+
+After the required validation passes, publish the completed change without waiting for a
+separate request: create a `codex/` branch when not already on one, stage only files that
+belong to the task, create a focused commit, push the branch, and open or update a draft PR
+against `main`. Preserve unrelated worktree changes. Do not create commits or PRs for
+analysis-only, diagnostic-only, or explicitly local-only tasks; report authentication,
+network, merge-conflict, or approval blockers instead.
+
 ## Essential Commands
 
 **Frontend:** `npm run dev | build | lint | test (Playwright)`  

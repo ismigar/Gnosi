@@ -244,18 +244,13 @@ def _parse_cornell_json(text: str):
 # Exportable list for registering with the "brain" agent (factory.py)
 @tool
 def query_wiki(query: str, k: int = 5) -> str:
-    """Consulta el Cervell (LLM Wiki): retorna les notes de coneixement més
-    rellevants per a la pregunta, amb les seves fonts, per respondre SENSE
-    redescobrir-ho tot des de zero.
+    """Query the compiled Brain before consulting raw source material.
 
-    Aquesta és l'operació «Query» del patró LLM Wiki: en comptes de fer RAG sobre
-    les fonts crudes, llegeix el wiki ja compilat (taula Cervell). Usa'l ABANS de
-    respondre preguntes de coneixement per aprofitar les síntesis i cites ja fetes.
-    Retorna, per cada nota: títol, tipus, un extracte i les Fonts (recursos) que la
-    sostenen, perquè puguis citar-les.
+    Managed content indexes are ranked first, followed by matching reading and
+    manual permanent notes from the rebuildable Brain-only search cache.
+    Returned excerpts retain their provenance/citation links.
     """
-    from backend.services import llm_wiki_config
-    from backend.api.vault_routes import _get_pages_for_table, find_page_path
+    from backend.services import llm_wiki_config, llm_wiki_indices
 
     brain_id = llm_wiki_config.get_brain_table_id()
     if not brain_id:
@@ -266,30 +261,36 @@ def query_wiki(query: str, k: int = 5) -> str:
     if not base:
         return "La consulta és massa curta per cercar al Cervell."
 
+    records = llm_wiki_indices.load_search_cache(brain_id)
+    if not records:
+        try:
+            llm_wiki_indices.rebuild_search_cache(brain_id)
+            records = llm_wiki_indices.load_search_cache(brain_id)
+        except Exception:
+            records = []
+    query_vector = llm_wiki_indices.search_vector(query)
     scored: List[Dict[str, Any]] = []
-    for p in _get_pages_for_table(brain_id) or []:
-        meta = getattr(p, "metadata", None) or {}
-        if meta.get("is_template"):
-            continue
-        title = str(getattr(p, "title", "") or meta.get("title") or "")
-        path = getattr(p, "path", None)
-        body = ""
-        if path:
-            try:
-                raw = __import__("pathlib").Path(path).read_text(encoding="utf-8")
-                body = raw.split("---", 2)[2] if raw.startswith("---") else raw
-            except Exception:  # noqa: BLE001
-                body = ""
+    for record in records:
+        title = str(record.get("title") or "")
+        body = str(record.get("excerpt") or "")
         toks = _tokenize(f"{title} {body}")
         inter = len(base & toks)
-        if inter == 0:
+        vector_score = llm_wiki_indices.vector_similarity(
+            record.get("vector") or [],
+            query_vector,
+        )
+        if inter == 0 and vector_score < 0.08:
             continue
-        fonts = meta.get("Fonts")
-        fonts = fonts if isinstance(fonts, list) else ([fonts] if fonts else [])
+        role = str(record.get("managed_role") or "")
+        index_boost = 3 if role in {"general-index", "dimension-index", "resource-index"} else 0
         scored.append({
-            "title": title, "type": str(meta.get("Tipus") or ""),
-            "excerpt": body.strip()[:600], "fonts": [str(f) for f in fonts],
-            "score": inter,
+            "title": title,
+            "type": str(record.get("note_type") or ""),
+            "excerpt": body.strip()[:800],
+            "source_table_id": str(record.get("source_table_id") or ""),
+            "resource_id": str(record.get("resource_id") or ""),
+            "role": role,
+            "score": inter + index_boost + (vector_score * 2),
         })
 
     if not scored:
@@ -302,8 +303,11 @@ def query_wiki(query: str, k: int = 5) -> str:
         out.append(head)
         if n["excerpt"]:
             out.append(n["excerpt"])
-        if n["fonts"]:
-            out.append("Fonts: " + ", ".join(n["fonts"]))
+        if n["resource_id"]:
+            out.append(
+                f"Procedència: recurs {n['resource_id']}"
+                + (f" · taula {n['source_table_id']}" if n["source_table_id"] else "")
+            )
         out.append("")
     return "\n".join(out)
 

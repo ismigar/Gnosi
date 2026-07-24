@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
 import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
+import ConfirmModal from './ConfirmModal';
 
 const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
@@ -284,66 +285,221 @@ function WebClipperConfig() {
  * knowledge schema (Tipus, Fonts→Recursos, verification status, ...).
  */
 function LlmWikiConfig() {
-    const { t } = useTranslation();
+    const { t, i18n } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
     const [tables, setTables] = useState([]);
-    const [brain, setBrain] = useState({ table_id: null, configured: false, name: null });
+    const [draft, setDraft] = useState({
+        version: 2,
+        brain_table_id: '',
+        target_table: '',
+        source_tables: [],
+        index_field_ids: [],
+        brain_roles: {},
+        configured: false,
+    });
+    const [serverState, setServerState] = useState(null);
+    const [loading, setLoading] = useState(true);
     const [busy, setBusy] = useState(false);
+    const [error, setError] = useState('');
+    const [confirmCreate, setConfirmCreate] = useState(false);
     const [lint, setLint] = useState(null);
     const [lintBusy, setLintBusy] = useState(false);
+    const [semanticBusy, setSemanticBusy] = useState(false);
     const [pendingSuggestions, setPendingSuggestions] = useState(0);
 
     const reload = () => Promise.all([
         axios.get('/api/vault/tables').then((r) => (Array.isArray(r.data) ? r.data : [])).catch(() => []),
-        axios.get('/api/vault/brain-table').then((r) => r.data || {}).catch(() => ({})),
+        axios.get('/api/vault/llm-wiki/config').then((r) => r.data || {}).catch(() => ({})),
         axios.get('/api/vault/llm-wiki/suggestions').then((r) => (r.data?.suggestions || []).length).catch(() => 0),
-    ]).then(([tbls, b, pending]) => { setTables(tbls); setBrain(b); setPendingSuggestions(pending); });
+    ]).then(([tbls, state, pending]) => {
+        setTables(tbls);
+        setServerState(state);
+        if (state?.config) setDraft(state.config);
+        setPendingSuggestions(pending);
+    }).finally(() => setLoading(false));
 
     const runLint = async () => {
         setLintBusy(true);
+        setError('');
         try {
-            const r = await axios.get('/api/vault/llm-wiki/lint');
-            setLint(r.data || null);
+            const r = await axios.post('/api/vault/llm-wiki/maintenance?semantic=false');
+            setLint(r.data?.lint || null);
         } catch (err) {
-            console.error('llm-wiki lint error:', err);
+            console.error('LLM Wiki maintenance failed:', err);
+            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: 'No s’ha pogut actualitzar el Cervell.' }));
         } finally { setLintBusy(false); }
+    };
+
+    const runSemanticAudit = async () => {
+        setSemanticBusy(true);
+        setError('');
+        try {
+            const response = await axios.post('/api/vault/llm-wiki/maintenance?semantic=true');
+            setLint(response.data?.lint || null);
+            setPendingSuggestions(response.data?.suggestions_pending || 0);
+        } catch (err) {
+            console.error('LLM Wiki semantic audit failed:', err);
+            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: 'No s’ha pogut actualitzar el Cervell.' }));
+        } finally { setSemanticBusy(false); }
     };
 
     useEffect(() => { reload(); return undefined; }, []);
 
-    const onPick = async (tableId) => {
+    const brainTable = tables.find((table) => table.id === draft.brain_table_id) || null;
+    const selectedSourceIds = new Set((draft.source_tables || []).map((source) => source.table_id));
+    const categoricalProps = (brainTable?.properties || []).filter((prop) => (
+        ['relation', 'select', 'multi_select', 'status'].includes(prop.type)
+        && !/tipus de nota|note type/i.test(prop.name || '')
+        && !(
+            prop.type === 'relation'
+            && selectedSourceIds.has(prop.relation_database_id)
+        )
+    ));
+
+    const detectSource = (table) => {
+        const props = table?.properties || [];
+        const normalized = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+        const title = props.find((prop) => prop.type === 'title')
+            || props.find((prop) => ['title', 'titol', 'nom', 'name'].includes(normalized(prop.name)));
+        const files = props.filter((prop) => (
+            ['files', 'file', 'attachment', 'attachments'].includes(prop.type)
+            || /file|fitxer|arxiu|adjunt/.test(normalized(prop.name))
+        ));
+        const urls = props.filter((prop) => prop.type === 'url' || ['url', 'enllac', 'link'].includes(normalized(prop.name)));
+        const language = props.find((prop) => ['language', 'idioma', 'llengua', 'lang'].includes(normalized(prop.name)));
+        const dimensionMappings = {};
+        for (const fieldId of draft.index_field_ids || []) {
+            const brainProp = (brainTable?.properties || []).find((prop) => prop.id === fieldId);
+            const sourceProp = props.find((prop) => normalized(prop.name) === normalized(brainProp?.name));
+            dimensionMappings[fieldId] = sourceProp
+                ? { mode: 'source', source_property_id: sourceProp.id, fixed_value: null }
+                : { mode: 'ai', source_property_id: '', fixed_value: null };
+        }
+        return {
+            table_id: table.id,
+            title_property_id: title?.id || '',
+            attachment_property_ids: files.map((prop) => prop.id),
+            url_property_ids: urls.map((prop) => prop.id),
+            language_property_id: language?.id || '',
+            include_body: false,
+            relation_property_id: '',
+            dimension_mappings: dimensionMappings,
+        };
+    };
+
+    const onPickBrain = (tableId) => {
+        setDraft((current) => ({
+            ...current,
+            brain_table_id: tableId,
+            target_table: tableId,
+            index_field_ids: [],
+            source_tables: (current.source_tables || []).filter((source) => source.table_id !== tableId),
+        }));
+    };
+
+    const toggleSource = (table) => {
+        setDraft((current) => {
+            const exists = (current.source_tables || []).some((source) => source.table_id === table.id);
+            return {
+                ...current,
+                source_tables: exists
+                    ? current.source_tables.filter((source) => source.table_id !== table.id)
+                    : [...(current.source_tables || []), detectSource(table)],
+            };
+        });
+    };
+
+    const updateSource = (tableId, updater) => {
+        setDraft((current) => ({
+            ...current,
+            source_tables: (current.source_tables || []).map((source) => (
+                source.table_id === tableId ? updater(source) : source
+            )),
+        }));
+    };
+
+    const toggleInputProperty = (tableId, key, propertyId) => {
+        updateSource(tableId, (source) => {
+            const current = Array.isArray(source[key]) ? source[key] : [];
+            return {
+                ...source,
+                [key]: current.includes(propertyId)
+                    ? current.filter((id) => id !== propertyId)
+                    : [...current, propertyId],
+            };
+        });
+    };
+
+    const toggleIndexField = (fieldId) => {
+        setDraft((current) => {
+            const enabled = (current.index_field_ids || []).includes(fieldId);
+            const nextIds = enabled
+                ? current.index_field_ids.filter((id) => id !== fieldId)
+                : [...(current.index_field_ids || []), fieldId];
+            const brainProp = (brainTable?.properties || []).find((prop) => prop.id === fieldId);
+            const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+            const nextSources = (current.source_tables || []).map((source) => {
+                const sourceTable = tables.find((table) => table.id === source.table_id);
+                const sourceProp = (sourceTable?.properties || []).find((prop) => normalize(prop.name) === normalize(brainProp?.name));
+                const mappings = { ...(source.dimension_mappings || {}) };
+                if (enabled) {
+                    delete mappings[fieldId];
+                } else {
+                    mappings[fieldId] = sourceProp
+                        ? { mode: 'source', source_property_id: sourceProp.id, fixed_value: null }
+                        : { mode: 'ai', source_property_id: '', fixed_value: null };
+                }
+                return { ...source, dimension_mappings: mappings };
+            });
+            return { ...current, index_field_ids: nextIds, source_tables: nextSources };
+        });
+    };
+
+    const save = async () => {
         setBusy(true);
+        setError('');
         try {
-            if (!tableId) {
-                await axios.delete('/api/vault/brain-table');
-            } else {
-                await axios.post('/api/vault/brain-table', { table_id: tableId });
-            }
-            await reload();
+            const response = await axios.put('/api/vault/llm-wiki/config', {
+                ...draft,
+                ui_locale: draft.ui_locale || 'en',
+            });
+            setServerState(response.data);
+            if (response.data?.config) setDraft(response.data.config);
         } catch (err) {
-            console.error('Set brain table error:', err);
+            console.error('Could not save the LLM Wiki configuration:', err);
+            setError(err.response?.data?.detail || tp('llm_wiki_save_error', { defaultValue: 'No s’ha pogut desar la configuració.' }));
         } finally { setBusy(false); }
     };
 
     const onCreate = async () => {
         setBusy(true);
+        setError('');
         try {
-            await axios.post('/api/vault/brain-table/create', {});
+            await axios.post('/api/vault/llm-wiki/brain/create', {
+                ui_locale: draft.ui_locale || 'en',
+            });
+            setConfirmCreate(false);
             await reload();
         } catch (err) {
-            console.error('Create brain table error:', err);
+            console.error('Could not create the standard Brain table:', err);
+            setError(err.response?.data?.detail || tp('llm_wiki_create_error', { defaultValue: 'No s’ha pogut crear la taula Cervell.' }));
         } finally { setBusy(false); }
     };
 
+    if (loading) {
+        return <div style={{ padding: 14, fontSize: 12, color: 'var(--text-tertiary)' }}>{tp('llm_wiki_loading', { defaultValue: 'Carregant configuració…' })}</div>;
+    }
+
     return (
-        <div style={{
-            marginTop: 8, padding: '12px 14px', borderRadius: 10,
-            border: '1px dashed var(--border-primary, #e2e8f0)',
-            background: 'var(--bg-primary, #fff)',
-            display: 'flex', flexDirection: 'column', gap: 12,
-        }}>
+        <>
+          <div style={{
+              marginTop: 8, padding: '12px 14px', borderRadius: 10,
+              border: '1px dashed var(--border-primary, #e2e8f0)',
+              background: 'var(--bg-primary, #fff)',
+              display: 'flex', flexDirection: 'column', gap: 14,
+          }}>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                {tp('llm_wiki_intro', { defaultValue: 'Tria quina taula fa de Cervell (base de coneixement). Les notes generades s\'hi guarden, enllaçades als recursos font.' })}
+                {tp('llm_wiki_intro_v2', { defaultValue: 'Tria el Cervell, una o més taules font i els camps categòrics que mantindran índexs.' })}
             </div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
@@ -352,21 +508,21 @@ function LlmWikiConfig() {
                 </span>
                 <select
                     style={SELECT_STYLE}
-                    value={brain.table_id || ''}
+                    value={draft.brain_table_id || ''}
                     disabled={busy}
-                    onChange={(e) => onPick(e.target.value)}
+                    onChange={(e) => onPickBrain(e.target.value)}
                 >
-                    <option value="">{tp('llm_wiki_none', { defaultValue: 'Cap (desactivat)' })}</option>
+                    <option value="">{tp('llm_wiki_none', { defaultValue: 'Cap taula seleccionada' })}</option>
                     {tables.map((tbl) => (
                         <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
                     ))}
                 </select>
             </label>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <button
                     type="button"
-                    onClick={onCreate}
+                    onClick={() => setConfirmCreate(true)}
                     disabled={busy}
                     style={{
                         padding: '8px 14px', borderRadius: 8, cursor: busy ? 'default' : 'pointer',
@@ -375,52 +531,278 @@ function LlmWikiConfig() {
                         color: 'var(--text-primary, #0f172a)', fontSize: 13, opacity: busy ? 0.6 : 1,
                     }}
                 >
-                    {tp('llm_wiki_create', { defaultValue: 'Crea una taula Cervell' })}
+                    {tp('llm_wiki_create', { defaultValue: 'Crea un Cervell estàndard' })}
                 </button>
                 <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                    {brain.configured
-                        ? tp('llm_wiki_active', { name: brain.name, defaultValue: `Actiu a «${brain.name}»` })
+                    {serverState?.brain?.configured
+                        ? tp('llm_wiki_active', { name: serverState.brain.name, defaultValue: `Actiu a «${serverState.brain.name}»` })
                         : tp('llm_wiki_inactive', { defaultValue: 'Cap taula designada encara.' })}
-                    {brain.configured && pendingSuggestions > 0 && (
+                    {serverState?.brain?.configured && pendingSuggestions > 0 && (
                         <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--gnosi-primary, #6366f1)' }}>
-                            {tp('llm_wiki_pending', { count: pendingSuggestions, defaultValue: '{{count}} suggeriments pendents a la Bústia' })}
+                            {tp('llm_wiki_pending_connections', { count: pendingSuggestions, defaultValue: '{{count}} connexions pendents' })}
                         </span>
                     )}
                 </span>
             </div>
 
-            {brain.configured && (
-                <div style={{ borderTop: '1px solid var(--border-primary, #e2e8f0)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <button
-                            type="button"
-                            onClick={runLint}
-                            disabled={lintBusy}
-                            style={{
-                                padding: '8px 14px', borderRadius: 8, cursor: lintBusy ? 'default' : 'pointer',
-                                border: '1px solid var(--border-primary, #e2e8f0)',
-                                background: 'var(--bg-secondary, #f8fafc)', fontWeight: 600,
-                                color: 'var(--text-primary, #0f172a)', fontSize: 13, opacity: lintBusy ? 0.6 : 1,
-                            }}
-                        >
-                            {tp('llm_wiki_lint_run', { defaultValue: 'Revisar el Cervell (lint)' })}
-                        </button>
-                        {lintBusy && <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('llm_wiki_lint_running', { defaultValue: 'Revisant…' })}</span>}
+            {brainTable && (
+              <>
+                <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                        {tp('llm_wiki_sources', { defaultValue: 'Taules font' })}
                     </div>
-                    {lint && (
-                        <div style={{ fontSize: 12, color: 'var(--text-secondary, #475569)', lineHeight: 1.6 }}>
-                            <div style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)', marginBottom: 4 }}>
-                                {tp('llm_wiki_lint_summary', { count: lint.note_count, defaultValue: '{{count}} notes revisades' })}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 7 }}>
+                        {tables.filter((table) => table.id !== draft.brain_table_id).map((table) => (
+                            <label key={table.id} style={{
+                                display: 'flex', gap: 7, alignItems: 'center', padding: '7px 9px',
+                                border: '1px solid var(--border-primary)', borderRadius: 8, fontSize: 12,
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedSourceIds.has(table.id)}
+                                    onChange={() => toggleSource(table)}
+                                />
+                                {table.name || table.id}
+                            </label>
+                        ))}
+                    </div>
+                </div>
+
+                <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
+                        {tp('llm_wiki_index_fields', { defaultValue: 'Camps categòrics amb índex' })}
+                    </div>
+                    <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
+                        {categoricalProps.map((prop) => (
+                            <label key={prop.id} style={{
+                                display: 'flex', alignItems: 'center', gap: 6, padding: '6px 9px',
+                                border: '1px solid var(--border-primary)', borderRadius: 999, fontSize: 12,
+                            }}>
+                                <input
+                                    type="checkbox"
+                                    checked={(draft.index_field_ids || []).includes(prop.id)}
+                                    onChange={() => toggleIndexField(prop.id)}
+                                />
+                                {prop.name || prop.id}
+                            </label>
+                        ))}
+                        {categoricalProps.length === 0 && (
+                            <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
+                                {tp('llm_wiki_no_index_fields', { defaultValue: 'Aquesta taula no té camps categòrics indexables.' })}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {(draft.source_tables || []).map((source) => {
+                    const sourceTable = tables.find((table) => table.id === source.table_id);
+                    const props = sourceTable?.properties || [];
+                    const fileProps = props.filter((prop) => ['files', 'file', 'attachment', 'attachments'].includes(prop.type));
+                    const urlProps = props.filter((prop) => prop.type === 'url' || /url|enllaç|link/i.test(prop.name || ''));
+                    return (
+                      <div key={source.table_id} style={{ padding: 12, border: '1px solid var(--border-primary)', borderRadius: 9, background: 'var(--bg-secondary)' }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 9 }}>{sourceTable?.name || source.table_id}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9 }}>
+                            <label style={{ fontSize: 11 }}>
+                                {tp('llm_wiki_title_field', { defaultValue: 'Camp de títol' })}
+                                <select
+                                    style={{ ...SELECT_STYLE, marginTop: 3 }}
+                                    value={source.title_property_id || ''}
+                                    onChange={(event) => updateSource(source.table_id, (item) => ({ ...item, title_property_id: event.target.value }))}
+                                >
+                                    <option value="">—</option>
+                                    {props.map((prop) => <option key={prop.id} value={prop.id}>{prop.name}</option>)}
+                                </select>
+                            </label>
+                            <label style={{ fontSize: 11 }}>
+                                {tp('llm_wiki_language_field', { defaultValue: 'Camp d’idioma' })}
+                                <select
+                                    style={{ ...SELECT_STYLE, marginTop: 3 }}
+                                    value={source.language_property_id || ''}
+                                    onChange={(event) => updateSource(source.table_id, (item) => ({ ...item, language_property_id: event.target.value }))}
+                                >
+                                    <option value="">{tp('llm_wiki_auto_language', { defaultValue: 'Detecció automàtica' })}</option>
+                                    {props.map((prop) => <option key={prop.id} value={prop.id}>{prop.name}</option>)}
+                                </select>
+                            </label>
+                        </div>
+                        <div style={{ marginTop: 9, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700 }}>{tp('llm_wiki_attachment_fields', { defaultValue: 'Camps d’adjunts' })}</div>
+                                {fileProps.map((prop) => (
+                                    <label key={prop.id} style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={(source.attachment_property_ids || []).includes(prop.id)}
+                                            onChange={() => toggleInputProperty(source.table_id, 'attachment_property_ids', prop.id)}
+                                        /> {prop.name}
+                                    </label>
+                                ))}
                             </div>
-                            <div>• {tp('llm_wiki_lint_orphans', { count: lint.counts?.orphans || 0, defaultValue: '{{count}} òrfenes (cap altra nota hi enllaça)' })}</div>
-                            <div>• {tp('llm_wiki_lint_stale', { count: lint.counts?.stale || 0, defaultValue: '{{count}} sense revisar fa temps' })}</div>
-                            <div>• {tp('llm_wiki_lint_xref', { count: lint.counts?.missing_xref || 0, defaultValue: '{{count}} referències creuades que falten' })}</div>
-                            <div>• {tp('llm_wiki_lint_reprocess', { count: lint.counts?.reprocess || 0, defaultValue: '{{count}} recursos modificats després de processar-se' })}</div>
+                            <div>
+                                <div style={{ fontSize: 11, fontWeight: 700 }}>{tp('llm_wiki_url_fields', { defaultValue: 'Camps d’URL' })}</div>
+                                {urlProps.map((prop) => (
+                                    <label key={prop.id} style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={(source.url_property_ids || []).includes(prop.id)}
+                                            onChange={() => toggleInputProperty(source.table_id, 'url_property_ids', prop.id)}
+                                        /> {prop.name}
+                                    </label>
+                                ))}
+                            </div>
+                        </div>
+
+                        {(draft.index_field_ids || []).map((fieldId) => {
+                            const brainProp = (brainTable.properties || []).find((prop) => prop.id === fieldId);
+                            const mapping = source.dimension_mappings?.[fieldId] || { mode: 'ai', source_property_id: '', fixed_value: null };
+                            const fixedOptions = serverState?.index_options?.[fieldId] || [];
+                            return (
+                                <div key={fieldId} style={{ display: 'grid', gridTemplateColumns: 'minmax(120px, 1fr) 145px minmax(150px, 1fr)', gap: 8, alignItems: 'end', marginTop: 9 }}>
+                                    <span style={{ fontSize: 11, fontWeight: 600 }}>{brainProp?.name || fieldId}</span>
+                                    <select
+                                        style={SELECT_STYLE}
+                                        value={mapping.mode}
+                                        onChange={(event) => updateSource(source.table_id, (item) => ({
+                                            ...item,
+                                            dimension_mappings: {
+                                                ...(item.dimension_mappings || {}),
+                                                [fieldId]: { ...mapping, mode: event.target.value },
+                                            },
+                                        }))}
+                                    >
+                                        <option value="ai">{tp('llm_wiki_map_ai', { defaultValue: 'Inferir amb IA' })}</option>
+                                        <option value="source">{tp('llm_wiki_map_source', { defaultValue: 'Copiar camp font' })}</option>
+                                        <option value="fixed">{tp('llm_wiki_map_fixed', { defaultValue: 'Valor fix' })}</option>
+                                        <option value="empty">{tp('llm_wiki_map_empty', { defaultValue: 'Deixar buit' })}</option>
+                                    </select>
+                                    {mapping.mode === 'source' && (
+                                        <select
+                                            style={SELECT_STYLE}
+                                            value={mapping.source_property_id || ''}
+                                            onChange={(event) => updateSource(source.table_id, (item) => ({
+                                                ...item,
+                                                dimension_mappings: {
+                                                    ...(item.dimension_mappings || {}),
+                                                    [fieldId]: { ...mapping, source_property_id: event.target.value },
+                                                },
+                                            }))}
+                                        >
+                                            <option value="">—</option>
+                                            {props.map((prop) => <option key={prop.id} value={prop.id}>{prop.name}</option>)}
+                                        </select>
+                                    )}
+                                    {mapping.mode === 'fixed' && (
+                                        <select
+                                            style={SELECT_STYLE}
+                                            value={(Array.isArray(mapping.fixed_value) ? mapping.fixed_value[0] : mapping.fixed_value) || ''}
+                                            onChange={(event) => updateSource(source.table_id, (item) => ({
+                                                ...item,
+                                                dimension_mappings: {
+                                                    ...(item.dimension_mappings || {}),
+                                                    [fieldId]: { ...mapping, fixed_value: event.target.value },
+                                                },
+                                            }))}
+                                        >
+                                            <option value="">—</option>
+                                            {fixedOptions.map((option) => (
+                                                <option key={option.value} value={option.value}>{option.label}</option>
+                                            ))}
+                                        </select>
+                                    )}
+                                </div>
+                            );
+                        })}
+                      </div>
+                    );
+                })}
+              </>
+            )}
+
+            {error && <div style={{ fontSize: 12, color: 'var(--status-error, #dc2626)' }}>{error}</div>}
+
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', borderTop: '1px solid var(--border-primary)', paddingTop: 12 }}>
+                <button
+                    type="button"
+                    onClick={save}
+                    disabled={busy || !draft.brain_table_id || !(draft.source_tables || []).length}
+                    className="btn-gnosi btn-gnosi-primary"
+                >
+                    {busy ? tp('llm_wiki_saving', { defaultValue: 'Desant…' }) : tp('llm_wiki_save', { defaultValue: 'Desa i prepara' })}
+                </button>
+                <button
+                    type="button"
+                    onClick={runLint}
+                    disabled={lintBusy || !serverState?.validation?.valid}
+                    className="btn-gnosi"
+                >
+                    {lintBusy ? tp('llm_wiki_lint_running', { defaultValue: 'Revisant…' }) : tp('llm_wiki_lint_run', { defaultValue: 'Reconstrueix i revisa' })}
+                </button>
+                <button
+                    type="button"
+                    onClick={runSemanticAudit}
+                    disabled={semanticBusy || !serverState?.validation?.valid}
+                    className="btn-gnosi"
+                >
+                    {semanticBusy
+                        ? tp('llm_wiki_semantic_running', { defaultValue: 'Analitzant connexions…' })
+                        : tp('llm_wiki_semantic_run', { defaultValue: 'Proposa connexions amb IA' })}
+                </button>
+            </div>
+
+            {serverState?.capabilities && (
+                <div style={{ fontSize: 11, color: 'var(--text-tertiary)', lineHeight: 1.5 }}>
+                    <div>
+                        {tp('llm_wiki_capabilities', {
+                            ocr: serverState.capabilities.ocr ? '✓' : '—',
+                            transcription: serverState.capabilities.transcription ? '✓' : '—',
+                            streaming: serverState.capabilities.streaming ? '✓' : '—',
+                            defaultValue: 'OCR {{ocr}} · transcripció {{transcription}} · streaming {{streaming}}',
+                        })}
+                    </div>
+                    {(!serverState.capabilities.ocr
+                        || !serverState.capabilities.transcription
+                        || !serverState.capabilities.streaming
+                        || (serverState.capabilities.ocr_missing_languages || []).length > 0) && (
+                        <div style={{ marginTop: 3, color: 'var(--status-warning, #b45309)' }}>
+                            {tp('llm_wiki_capability_help', {
+                                defaultValue: 'Instal·la Tesseract (ca/es/en/fr), FFmpeg i les dependències Python indicades a requirements.txt; després reinicia el backend natiu.',
+                            })}
+                            {(serverState.capabilities.ocr_missing_languages || []).length > 0 && (
+                                <span style={{ display: 'block' }}>
+                                    {tp('llm_wiki_missing_ocr_languages', {
+                                        languages: serverState.capabilities.ocr_missing_languages.join(', '),
+                                        defaultValue: 'Idiomes OCR que falten: {{languages}}.',
+                                    })}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
             )}
-        </div>
+
+            {lint && (
+                <div style={{ fontSize: 12, color: 'var(--text-secondary, #475569)', lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)', marginBottom: 4 }}>
+                        {tp('llm_wiki_lint_summary', { count: lint.note_count, defaultValue: '{{count}} notes revisades' })}
+                    </div>
+                    <div>• {tp('llm_wiki_lint_orphans', { count: lint.counts?.orphans || 0, defaultValue: '{{count}} òrfenes' })}</div>
+                    <div>• {tp('llm_wiki_lint_cites', { count: lint.counts?.broken_cites || 0, defaultValue: '{{count}} cites trencades' })}</div>
+                    <div>• {tp('llm_wiki_lint_indexes', { count: lint.counts?.index_drift || 0, defaultValue: '{{count}} índexs pendents' })}</div>
+                    <div>• {tp('llm_wiki_lint_reprocess', { count: lint.counts?.reprocess || 0, defaultValue: '{{count}} recursos per reprocessar' })}</div>
+                </div>
+            )}
+          </div>
+          <ConfirmModal
+              isOpen={confirmCreate}
+              onClose={() => setConfirmCreate(false)}
+              onConfirm={onCreate}
+              isDestructive={false}
+              title={tp('llm_wiki_create_confirm_title', { defaultValue: 'Crear un Cervell estàndard?' })}
+              message={tp('llm_wiki_create_confirm_message', { defaultValue: 'Es crearà una taula amb camps de tipus, àrees, etiquetes, posició i verificació, més l’Índex general, l’Esquema i el Registre. No s’eliminarà ni modificarà cap taula existent.' })}
+              confirmText={tp('llm_wiki_create_confirm', { defaultValue: 'Crea el Cervell' })}
+          />
+        </>
     );
 }
 
@@ -808,8 +1190,40 @@ const CONFIGURABLE = {
 export function PluginsSettings() {
     const { t } = useTranslation();
     const tp = (k, opts) => t('settings.plugins.' + k, opts);
-    const { isEnabled, setPluginEnabled } = usePlugins();
+    const { isEnabled, loaded, setPluginEnabled } = usePlugins();
     const [openConfig, setOpenConfig] = useState(null);
+    const [confirmLlmWikiDisable, setConfirmLlmWikiDisable] = useState(false);
+    const llmWikiAgentEnsured = useRef(false);
+
+    // The feature existed before its dedicated profile. Visiting the Plugins
+    // settings migrates enabled vaults exactly once; the backend preserves
+    // any instructions the user has already edited.
+    useEffect(() => {
+        if (!loaded) return;
+        if (!isEnabled('llm-wiki')) {
+            llmWikiAgentEnsured.current = false;
+            return;
+        }
+        if (llmWikiAgentEnsured.current) return;
+        llmWikiAgentEnsured.current = true;
+        setPluginEnabled('llm-wiki', true).catch(() => {
+            llmWikiAgentEnsured.current = false;
+        });
+    }, [isEnabled, loaded, setPluginEnabled]);
+
+    const togglePlugin = async (pluginId, enabled) => {
+        if (pluginId === 'llm-wiki' && !enabled) {
+            setConfirmLlmWikiDisable(true);
+            return;
+        }
+        await setPluginEnabled(pluginId, enabled);
+    };
+
+    const confirmDisableLlmWiki = async () => {
+        await setPluginEnabled('llm-wiki', false, { confirmDisable: true });
+        setConfirmLlmWikiDisable(false);
+        setOpenConfig((current) => (current === 'llm-wiki' ? null : current));
+    };
 
     return (
         <div>
@@ -868,7 +1282,7 @@ export function PluginsSettings() {
                                 type="button"
                                 role="switch"
                                 aria-checked={enabled}
-                                onClick={() => setPluginEnabled(plugin.id, !enabled)}
+                                onClick={() => togglePlugin(plugin.id, !enabled)}
                                 style={{
                                     position: 'relative', width: 42, height: 24, borderRadius: 999,
                                     border: 'none', cursor: 'pointer', flexShrink: 0,
@@ -891,6 +1305,16 @@ export function PluginsSettings() {
                     );
                 })}
             </div>
+
+            <ConfirmModal
+                isOpen={confirmLlmWikiDisable}
+                onClose={() => setConfirmLlmWikiDisable(false)}
+                onConfirm={confirmDisableLlmWiki}
+                title={tp('llm_wiki_disable_title', { defaultValue: 'Desactivar el Cervell?' })}
+                message={tp('llm_wiki_disable_message', { defaultValue: 'S’eliminarà el perfil d’agent «Cervell» de Configuració → IA. La taula, les notes i les fonts del Cervell es conservaran.' })}
+                confirmText={tp('llm_wiki_disable_confirm', { defaultValue: 'Desactivar i eliminar l’agent' })}
+                isDestructive
+            />
 
             <ThirdPartyPlugins />
         </div>

@@ -25,6 +25,10 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
+    # Ephemeral test-only value required by Compose interpolation and by the
+    # fail-closed Docker startup guard. It signs no persistent sessions.
+    env:
+      GNOSI_JWT_SECRET: ci-only-7f15e867273441a6b3914705466593864d5f67b038f84301
     defaults:
       run:
         working-directory: monorepo/apps/gnosi
@@ -53,6 +57,7 @@ jobs:
           docker run -d --name gnosi_ci -p 5002:5002 \
             -e DIGITAL_BRAIN_VAULT_PATH=/vault \
             -e GNOSI_FILES_PROVIDER=local \
+            -e GNOSI_JWT_SECRET="${GNOSI_JWT_SECRET}" \
             -e PYTHONPATH=/app \
             -v /tmp/ci-vault:/vault \
             gnosi-backend:ci

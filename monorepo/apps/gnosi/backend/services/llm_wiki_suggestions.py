@@ -1,11 +1,8 @@
-"""Permanent-note suggestions for the Cervell (Zettelkasten layer 3).
+"""Read-only connection proposals for the Brain.
 
-The AI never writes the user's thinking: it detects that reading notes from
-DIFFERENT sources talk about the same idea and queues a suggestion — the
-question the note would answer, an editable draft, the member reading notes
-and why they connect. The user accepts (optionally edited), or rejects.
-Accepting creates the permanent note (`note_type: permanent`) linked to its
-reading notes via the `Basada en` self-relation.
+The AI detects connections, support, contradictions, and gaps between reading
+notes and existing manual permanent notes. A proposal can be opened or
+dismissed; this service never creates or edits a permanent note.
 
 Storage: `<vault>/.gnosi/llm_wiki_suggestions.json` (per-vault, travels with
 the vault). Pending suggestions are also mirrored into the graph's
@@ -164,26 +161,26 @@ def _suggest_prompt(reading_notes: List[Dict[str, str]], language: str) -> str:
         f"- [{n['id']}] «{n['title']}» (font: {n['source']}) — {n['excerpt']}"
         for n in reading_notes
     )
-    return f"""Ets l'assistent d'un Zettelkasten. Les NOTES DE LECTURA següents pertanyen
-cadascuna a UNA font. Detecta grups de 2-4 notes de FONTS DIFERENTS que parlin d'una
-mateixa idea de fons i proposa, per a cada grup, una NOTA PERMANENT que les sintetitzi.
+    return f"""You audit a personal Zettelkasten. Detect meaningful relationships among
+the following reading notes and existing MANUAL permanent notes. You only
+propose; you never draft or create a permanent note.
 
-L'usuari decidirà: tu només proposes. Per a cada proposta dona:
-- "question": la pregunta que la nota permanent respon (encapçalarà la nota).
-- "title": títol breu de la idea (no el d'una font).
-- "draft_md": esborrany en {language}, 1-3 paràgrafs, amb [[wikilinks]] als títols de les
-  notes de lectura implicades. És un ESBORRANY editable: to de proposta, no de sentència.
-- "member_ids": els ids exactes (entre claudàtors a la llista) de les notes implicades.
-- "why": una frase explicant per què connecten (l'usuari la llegirà per decidir).
+For each proposal return:
+- "kind": connection|support|contradiction|gap.
+- "title": a short description in {language}.
+- "why": a precise explanation in {language}.
+- "member_ids": exact ids from the list.
+- "evidence": 1-3 short evidence excerpts already present in the notes.
 
-NOMÉS proposa grups amb fonts diferents i connexió real. Si no n'hi ha, retorna llista buida.
-Màxim {MAX_SUGGESTIONS_PER_PASS} propostes.
+Only propose groups with a real relationship, normally spanning different
+resources. Return an empty list when none qualify. Maximum
+{MAX_SUGGESTIONS_PER_PASS} proposals.
 
 NOTES DE LECTURA:
 {listing}
 
-Retorna NOMÉS un JSON: {{"suggestions": [{{"question": "…", "title": "…", "draft_md": "…",
-"member_ids": ["…"], "why": "…"}}]}}"""
+Return only JSON: {{"suggestions": [{{"kind": "connection", "title": "…",
+"member_ids": ["…"], "why": "…", "evidence": ["…"]}}]}}"""
 
 
 def generate_suggestions(brain_table_id: str, language: str = "català",
@@ -213,7 +210,7 @@ def generate_suggestions(brain_table_id: str, language: str = "català",
 
 
 def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
-    """Compact digest of reading notes: id, title, source id, short excerpt."""
+    """Compact digest of readings and existing manual permanent notes."""
     from pathlib import Path
 
     from backend.api.vault_routes import _get_pages_for_table
@@ -224,7 +221,10 @@ def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
         meta = getattr(p, "metadata", None) or {}
         if meta.get("is_template"):
             continue
-        if str(meta.get("note_type") or "").strip().lower() != "lectura":
+        note_type = str(meta.get("note_type") or "").strip().lower()
+        if note_type not in {"lectura", "permanent"}:
+            continue
+        if meta.get("llm_wiki_stale"):
             continue
         body = ""
         path = getattr(p, "path", None)
@@ -240,6 +240,7 @@ def _reading_notes_digest(brain_table_id: str) -> List[Dict[str, str]]:
             "title": str(getattr(p, "title", "") or ""),
             "source": fonts[0] if fonts else "?",
             "excerpt": " ".join(body.split())[:280],
+            "note_type": note_type,
         })
     return out[:150]
 
@@ -263,8 +264,9 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
             continue
         members = [str(m).strip() for m in (s.get("member_ids") or []) if str(m).strip() in valid_ids]
         members = list(dict.fromkeys(members))
-        sources = {notes_by_id[m]["source"] for m in members}
-        if len(members) < 2 or len(sources) < 2:
+        sources = {notes_by_id[m]["source"] for m in members if notes_by_id[m]["source"] != "?"}
+        has_manual_permanent = any(notes_by_id[m].get("note_type") == "permanent" for m in members)
+        if len(members) < 2 or (len(sources) < 2 and not has_manual_permanent):
             continue
         title = str(s.get("title") or "").strip()
         if not title:
@@ -272,9 +274,13 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
         out.append({
             "id": str(uuid.uuid4()),
             "title": title,
-            "question": str(s.get("question") or "").strip(),
-            "draft_md": str(s.get("draft_md") or "").strip(),
+            "kind": str(s.get("kind") or "connection").strip().lower(),
             "why": str(s.get("why") or "").strip(),
+            "evidence": [
+                str(item).strip()
+                for item in (s.get("evidence") or [])
+                if str(item).strip()
+            ][:3],
             "member_ids": members,
             "member_titles": [notes_by_id[m]["title"] for m in members],
         })
@@ -284,58 +290,16 @@ def _parse_suggestions(raw: str, valid_ids: set, notes_by_id: Dict[str, Dict[str
 
 
 # ---------------------------------------------------------------------------
-# Accept — create the permanent note (the ONLY path that writes one)
+# Compatibility guard — permanent-note writes are forbidden
 # ---------------------------------------------------------------------------
 
-def accept_suggestion(suggestion_id: str, brain_table_id: str,
-                      edited_title: Optional[str] = None,
-                      edited_draft: Optional[str] = None) -> Dict[str, Any]:
-    """Creates the permanent note from a pending suggestion (user-confirmed,
-    possibly edited) and removes it from the queue. Raises ValueError if the
-    suggestion is not pending."""
-    import datetime
-    import uuid as _uuid
-
-    from backend.api.vault_routes import (
-        _get_unique_filepath, _resolve_table_folder_from_metadata,
-        register_page_in_index, save_page_md,
+def accept_suggestion(
+    suggestion_id: str,
+    brain_table_id: str,
+    edited_title: Optional[str] = None,
+    edited_draft: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Compatibility guard: permanent-note creation is intentionally disabled."""
+    raise RuntimeError(
+        "LLM Wiki connection proposals are read-only and cannot create permanent notes"
     )
-
-    sug = pop_suggestion(suggestion_id)
-    if not sug:
-        raise ValueError("Suggeriment no trobat (ja resolt?)")
-
-    brain_dir = _resolve_table_folder_from_metadata({"table_id": brain_table_id})
-    if not brain_dir:
-        # Queue untouched on hard failure: put it back so the user can retry.
-        add_suggestions([sug])
-        raise RuntimeError("No s'ha pogut resoldre la carpeta de la taula Cervell")
-    brain_dir.mkdir(parents=True, exist_ok=True)
-
-    title = (edited_title or sug.get("title") or "").strip()
-    draft = (edited_draft if edited_draft is not None else sug.get("draft_md") or "").strip()
-    question = str(sug.get("question") or "").strip()
-    members = list(zip(sug.get("member_ids") or [], sug.get("member_titles") or []))
-
-    body_parts: List[str] = []
-    if question:
-        body_parts.append(f"> **{question}**\n")
-    if draft:
-        body_parts.append(draft)
-    body = ("\n".join(body_parts)).strip() + "\n"
-
-    meta = {
-        "id": str(_uuid.uuid4()),
-        "table_id": brain_table_id,
-        "title": title,
-        "note_type": "permanent",
-        "Tipus": "síntesi",
-        "Estat de verificació": "verificat",  # user-confirmed by definition
-        "Última revisió": datetime.date.today().isoformat(),
-        "Basada en": [f"[[{mt}|{mid}]]" for mid, mt in members if mid],
-    }
-    path = _get_unique_filepath(brain_dir, title, ".md")
-    save_page_md(path, meta, body)
-    register_page_in_index(path)
-    logger.info("llm_wiki: permanent note created: %s (%d members)", title, len(members))
-    return {"page_id": meta["id"], "title": title, "members": len(members)}

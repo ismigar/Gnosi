@@ -249,7 +249,11 @@ const AgentChat = () => {
                 const data = await res.json();
                 const ai = data.ai || {};
                 const activeId = ai.active_agent_id;
-                const agents = ai.agents || [];
+                // Disabled profiles stay editable in Settings but are not
+                // selectable for a conversation. This also keeps a newly
+                // created LLM Wiki profile with no model from falling back to
+                // an unrelated provider before the user configures it.
+                const agents = (ai.agents || []).filter((agent) => agent.enabled !== false);
                 setAgentList(agents);
                 const currentId = selectedAgentId || activeId;
                 const agent = agents.find((a) => a.id === currentId) || agents.find((a) => a.id === activeId) || agents[0];
