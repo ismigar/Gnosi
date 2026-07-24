@@ -21,6 +21,23 @@ import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 import { isCalendarPage, isAppContent } from './schemaUtils';
 import { sortKey } from '../../utils/vaultFilters';
 
+// Alphabetical favorites keep titles beginning with a number or underscore in
+// a dedicated priority group: first in A → Z and last in Z → A.
+const compareFavoriteTitles = (aTitle, bTitle, direction) => {
+    const a = String(aTitle ?? '').trim();
+    const b = String(bTitle ?? '').trim();
+    const aPriority = /^[\d_]/u.test(a);
+    const bPriority = /^[\d_]/u.test(b);
+
+    if (aPriority !== bPriority) {
+        const priorityFirst = direction === 'asc';
+        return aPriority === priorityFirst ? -1 : 1;
+    }
+
+    const comparison = sortKey(a).localeCompare(sortKey(b), 'en', { sensitivity: 'base' });
+    return direction === 'asc' ? comparison : -comparison;
+};
+
 const RenamePromptModal = ({ isOpen, type, defaultValue, onClose, onConfirm }) => {
     const { t } = useTranslation();
     const modalRef = useRef(null);
@@ -649,10 +666,10 @@ export const VaultSidebar = ({
         const list = Array.isArray(favoritePages) ? [...favoritePages] : [];
         const { mode, manualOrder } = favoritesSort;
         if (mode === 'alpha-asc') {
-            return list.sort((a, b) => sortKey(a.title).localeCompare(sortKey(b.title), 'en', { sensitivity: 'base' }));
+            return list.sort((a, b) => compareFavoriteTitles(a.title, b.title, 'asc'));
         }
         if (mode === 'alpha-desc') {
-            return list.sort((a, b) => sortKey(b.title).localeCompare(sortKey(a.title), 'en', { sensitivity: 'base' }));
+            return list.sort((a, b) => compareFavoriteTitles(a.title, b.title, 'desc'));
         }
         if (mode === 'recent') {
             return list.sort((a, b) => String(b.last_modified || '').localeCompare(String(a.last_modified || '')));
