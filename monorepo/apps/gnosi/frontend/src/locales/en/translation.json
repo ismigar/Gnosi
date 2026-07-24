@@ -1736,6 +1736,8 @@
       "delete_name": "Delete {{name}}",
       "delete_provider_title": "Delete Provider",
       "delete_provider_msg": "Delete {{name}}? It will be disconnected, its API key forgotten, and its models removed from the router registry.",
+      "delete_agent_title": "Delete Agent",
+      "delete_agent_msg": "Are you sure you want to delete {{name}}? This action cannot be undone.",
       "agents_section": "Cognition Agents",
       "create_agent_btn": "Create Agent",
       "connect_provider_title": "Connect AI Provider",
