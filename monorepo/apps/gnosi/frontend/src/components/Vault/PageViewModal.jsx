@@ -975,28 +975,6 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
-    if (!isOpen) return null;
-
-    const toggleProperty = (name) => {
-        // The `title` is the primary column (as in Notion): always visible, cannot be
-        // can deselect.
-        if (name === 'title') return;
-        setVisibleProperties(prev =>
-            prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
-        );
-    };
-
-    // Reorders a visible column by dragging it (ids = field names).
-    const handleColumnDragEnd = ({ active, over }) => {
-        if (!active || !over || active.id === over.id) return;
-        setVisibleProperties(prev => {
-            const oldIndex = prev.indexOf(active.id);
-            const newIndex = prev.indexOf(over.id);
-            if (oldIndex === -1 || newIndex === -1) return prev;
-            return arrayMove(prev, oldIndex, newIndex);
-        });
-    };
-
     // A field's visible label: the canonical `title` is translated ("Title") and
     // the rest are shown with the first letter capitalized (names with
     // leading emoji/accents are kept intact).
@@ -1017,6 +995,31 @@ export function PageViewModal({ isOpen, onClose, pageId, allTables = [], apiFetc
         // eslint-disable-next-line react-hooks/exhaustive-deps
         [tableFields, t]
     );
+
+    // Keep every hook before the closed-state return. Embedded views mount this
+    // modal closed and open it later; placing this memo after the return changes
+    // the hook order and crashes React with a black screen.
+    if (!isOpen) return null;
+
+    const toggleProperty = (name) => {
+        // The `title` is the primary column (as in Notion): always visible, cannot
+        // be deselected.
+        if (name === 'title') return;
+        setVisibleProperties(prev =>
+            prev.includes(name) ? prev.filter(n => n !== name) : [...prev, name]
+        );
+    };
+
+    // Reorders a visible column by dragging it (ids = field names).
+    const handleColumnDragEnd = ({ active, over }) => {
+        if (!active || !over || active.id === over.id) return;
+        setVisibleProperties(prev => {
+            const oldIndex = prev.indexOf(active.id);
+            const newIndex = prev.indexOf(over.id);
+            if (oldIndex === -1 || newIndex === -1) return prev;
+            return arrayMove(prev, oldIndex, newIndex);
+        });
+    };
 
     // Initial value of a filter based on the field type: checkboxes start
     // with a specific boolean ('false' = unchecked) instead of empty, because the
