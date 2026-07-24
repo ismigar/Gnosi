@@ -1,0 +1,251 @@
+/* GlobalSettingsModal.css */
+
+.settings-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(12px);
+    z-index: var(--z-modal);
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s ease;
+}
+
+.settings-overlay.active {
+    display: flex;
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    width: 95vw;
+    max-width: 1240px;
+    height: 88vh;
+    background: var(--settings-bg);
+    border-radius: 40px;
+    z-index: var(--z-modal);
+    display: none;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.15);
+    border: 1px solid var(--settings-border);
+    backdrop-filter: blur(40px);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+.settings-modal.active {
+    display: flex;
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.settings-inner {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+/* Sidebar */
+.settings-sidebar {
+    width: 280px;
+    min-height: 0;
+    background: var(--settings-sidebar-bg);
+    border-right: 1px solid var(--settings-border);
+    padding: 40px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    outline: none;
+}
+
+.settings-sidebar-header {
+    padding: 0 10px 32px 10px;
+}
+
+.settings-sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.settings-brand-icon-wrap {
+    width: 36px;
+    height: 36px;
+    background: var(--gnosi-blue);
+    color: white;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
+.settings-sidebar-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--text-primary);
+    letter-spacing: -0.03em;
+}
+
+.settings-sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.settings-sidebar-hr {
+    height: 1px;
+    background: var(--settings-border);
+    margin: 16px 10px;
+    opacity: 0.5;
+}
+
+/* Main Content */
+.settings-main {
+    flex: 1;
+    min-height: 0;
+    padding: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: var(--settings-bg);
+    position: relative;
+    /* No `scroll-behavior: smooth`: it makes every programmatic scroll an
+       animation, so jumping to a section lands late and `scrollTop` reads the
+       old value right after being set. Section changes should land at once. */
+    outline: none;
+}
+
+.settings-content-wrap {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 80px 40px;
+}
+
+/* Close Button Positioning */
+.settings-close-btn {
+    position: absolute;
+    top: 32px;
+    right: 32px;
+    z-index: 100;
+}
+
+/* Section Styling */
+.settings-section {
+    margin-bottom: 64px;
+}
+
+.settings-section-title-wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.settings-section-icon-wrap {
+    color: var(--gnosi-blue);
+    display: flex;
+    padding: 10px;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 14px;
+}
+
+.settings-section-title {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+}
+
+/* Form Controls */
+.settings-form-group {
+    margin-bottom: 28px;
+}
+
+.settings-label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 6px;
+    margin-left: 2px;
+}
+
+.settings-desc {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    opacity: 0.7;
+    margin-top: -2px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    margin-left: 2px;
+}
+
+/* Account Cards */
+.account-row {
+    background: var(--bg-primary) !important;
+    border: 1px solid var(--settings-border) !important;
+    padding: 20px 24px !important;
+    border-radius: 24px !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.account-row:hover {
+    border-color: var(--gnosi-blue) !important;
+    box-shadow: 0 12px 30px -10px rgba(59, 130, 246, 0.15) !important;
+    transform: translateY(-2px) !important;
+}
+
+/* Segmented Control */
+.segmented-control {
+    background: var(--bg-secondary) !important;
+    padding: 4px !important;
+    border-radius: 16px !important;
+    border: 1px solid var(--settings-border) !important;
+}
+
+.segmented-control button {
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+}
+
+/* Sidebar Item Improvements */
+.settings-sidebar__item {
+    padding: 12px 16px !important;
+    border-radius: 14px !important;
+    font-weight: 700 !important;
+    font-size: 0.92rem !important;
+    gap: 12px !important;
+}
+
+.settings-sidebar__item.active {
+    background: var(--gnosi-blue) !important;
+    color: white !important;
+    box-shadow: 0 8px 16px -4px rgba(59, 130, 246, 0.3) !important;
+}
+
+.settings-sidebar__item.active svg {
+    opacity: 1 !important;
+}
+
+/* Hover temàtic per a les files/botons del FolderPickerModal.
+   Substitueix `hover:bg-zinc-800` (fons fosc fix que trencava el mode clar)
+   per un hover que segueix el tema actiu. */
+.folder-picker-item:hover {
+    background: var(--sidebar-item-hover) !important;
+}

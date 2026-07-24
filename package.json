@@ -1,0 +1,21 @@
+{
+    "name": "projectes-monorepo",
+    "private": true,
+    "description": "Monorepo unificat per a serveis MCP i Gnosi",
+    "workspaces": [
+        "packages/*",
+        "apps/*",
+        "apps/gnosi/frontend"
+    ],
+    "scripts": {
+        "build": "npm run build --workspaces",
+        "test": "npm run test --workspaces"
+    },
+    "devDependencies": {
+        "eslint": "^8.0.0",
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "gulp": "^5.0.1"
+    }
+}
