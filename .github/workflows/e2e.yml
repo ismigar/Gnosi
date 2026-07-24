@@ -78,6 +78,10 @@ jobs:
       - name: Build frontend
         working-directory: apps/gnosi/frontend
         run: npm run build
+        env:
+          # Playwright opens nested SPA routes directly; CI needs absolute asset
+          # URLs instead of the portable relative paths used by static exports.
+          VITE_BASE_PATH: /
 
       - name: Start frontend (preview)
         working-directory: apps/gnosi/frontend
