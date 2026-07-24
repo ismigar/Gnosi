@@ -600,7 +600,10 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 {/* Failed load or inapplicable snapshot: we lock the canvas
                     so that no edit (not even autosave) overwrites the real file */}
                 {(loadState === 'error' || loadState === 'incompatible') && (
-                    <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm">
+                    <div
+                        data-testid={`drawing-load-${loadState}`}
+                        className="absolute inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-sm"
+                    >
                         <div className="max-w-md mx-4 p-5 bg-white rounded-xl shadow-xl border border-amber-300 text-center">
                             <AlertTriangle size={28} className="mx-auto mb-3 text-amber-500" />
                             <p className="text-sm font-semibold text-slate-700 mb-1">
@@ -615,6 +618,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             </p>
                             {loadState === 'error' && (
                                 <button
+                                    data-testid="drawing-load-retry"
                                     onClick={() => { setLoadState('loading'); setRetryTick(t => t + 1); }}
                                     className="px-4 py-2 text-xs font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 transition-colors"
                                 >
