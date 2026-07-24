@@ -13,7 +13,10 @@ Change the value control only, not the operator list:
 - `checkbox`: render a checkbox that emits `"true"` or `"false"`. Default to
   `"false"` rather than empty so boolean comparison includes unset values.
 - `number`: use `<input type="number">`.
-- `date`/`datetime`/`period`: use a calendar input (`date` or `datetime-local`).
+- `date`/`datetime`: offer a dynamic `Today` value or a calendar input
+  (`date` or `datetime-local`); comparison operators use either value.
+- `period`: allow filtering against either the start or end boundary, then use
+  the same `Today` or calendar control.
 - `relation`: use the existing `RelationValuePicker`.
 - `select` and `status`: render a native selector from the field option catalog.
 - `multi_select`: render a multiple selector from the field option catalog; a
@@ -35,6 +38,10 @@ Change the value control only, not the operator list:
   `not_equals` use boolean coercion compatible with
   `rule_engine._is_truthy_checkbox`. Unset, zero, and false are unchecked;
   configured truthy aliases remain compatibility data.
+- A period is persisted as `YYYY-MM-DD/YYYY-MM-DD`. Treat a missing end as the
+  start for end-boundary filters. Keep `periodPart` (`start` or `end`) with the
+  filter rule and resolve the dynamic `today` value at evaluation time in the
+  live frontend, embedded views, and backend snapshots.
 
 ## QA
 
