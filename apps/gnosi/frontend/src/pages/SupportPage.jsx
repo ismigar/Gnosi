@@ -3,8 +3,8 @@ import { ExternalLink, Heart, GitBranch, Coffee } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { trackOutboundClick } from '../lib/marketingAnalytics';
 
-const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/ismigar?metadata_campaign=website';
-const KO_FI_URL = 'https://ko-fi.com/ismigar?utm_source=gnosi&utm_medium=website&utm_campaign=support';
+const GITHUB_SPONSORS_URL = 'https://gnosi.temenosismael.org/go/github-sponsors?utm_source=website&utm_medium=support&utm_campaign=github_sponsors';
+const KO_FI_URL = 'https://gnosi.temenosismael.org/go/kofi?utm_source=website&utm_medium=support&utm_campaign=kofi';
 
 function SupportPage() {
     const { t } = useTranslation();

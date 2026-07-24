@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="0;url=https://github.com/sponsors/ismigar" />
+    <title>Redirecting to GitHub Sponsors</title>
+  </head>
+  <body>
+    <p>Redirecting to <a id="destination" href="https://github.com/sponsors/ismigar">GitHub Sponsors</a>…</p>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const sourceCampaigns = {
+        alternativeto: 'alternativeto',
+        github: 'github_readme',
+        website: 'website',
+      };
+      const source = params.get('utm_source') || 'website';
+      const destination = new URL('https://github.com/sponsors/ismigar');
+      destination.searchParams.set('metadata_campaign', sourceCampaigns[source] || 'website');
+      document.getElementById('destination').href = destination.href;
+      window.location.replace(destination.href);
+    </script>
+  </body>
+</html>

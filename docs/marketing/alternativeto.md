@@ -10,7 +10,7 @@ Gnosi is a private, local-first workspace for notes, documents, tasks, calendars
 
 - Website: https://gnosi.temenosismael.org/?utm_source=alternativeto&utm_medium=referral&utm_campaign=listing
 - GitHub: https://github.com/ismigar/Gnosi?utm_source=alternativeto&utm_medium=referral&utm_campaign=listing
-- Support: https://github.com/sponsors/ismigar?metadata_campaign=alternativeto
+- Support: https://gnosi.temenosismael.org/go/github-sponsors?utm_source=alternativeto&utm_medium=referral&utm_campaign=github_sponsors
 
 ## Suggested screenshots
 

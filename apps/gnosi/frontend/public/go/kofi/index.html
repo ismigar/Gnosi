@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content="0;url=https://ko-fi.com/ismigar" />
+    <title>Redirecting to Ko-fi</title>
+  </head>
+  <body>
+    <p>Redirecting to <a id="destination" href="https://ko-fi.com/ismigar">Ko-fi</a>…</p>
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const destination = new URL('https://ko-fi.com/ismigar');
+      ['utm_source', 'utm_medium', 'utm_campaign'].forEach((key) => {
+        const value = params.get(key);
+        if (value) destination.searchParams.set(key, value);
+      });
+      document.getElementById('destination').href = destination.href;
+      window.location.replace(destination.href);
+    </script>
+  </body>
+</html>

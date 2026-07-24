@@ -21,8 +21,8 @@ Gnosi is for people, researchers, teams and cooperatives who want a connected wo
 
 Gnosi is free and open source. If it helps you manage your knowledge, documents or daily work, you can support its continued development.
 
-[![Sponsor Gnosi](https://img.shields.io/badge/Sponsor-Gnosi-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/ismigar?metadata_campaign=github_readme)
-[![Support on Ko-fi](https://img.shields.io/badge/Support%20on-Ko--fi-ff5e5b?logo=ko-fi)](https://ko-fi.com/ismigar?utm_source=github&utm_medium=readme&utm_campaign=support)
+[![Sponsor Gnosi](https://img.shields.io/badge/Sponsor-Gnosi-ea4aaa?logo=githubsponsors)](https://gnosi.temenosismael.org/go/github-sponsors?utm_source=github&utm_medium=readme&utm_campaign=github_sponsors)
+[![Support on Ko-fi](https://img.shields.io/badge/Support%20on-Ko--fi-ff5e5b?logo=ko-fi)](https://gnosi.temenosismael.org/go/kofi?utm_source=github&utm_medium=readme&utm_campaign=kofi)
 
 Your support helps fund hosting, maintenance, desktop releases, integrations, documentation and new open-source development. No individual support or exclusive features are promised.
 
