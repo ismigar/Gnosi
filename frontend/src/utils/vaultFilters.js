@@ -32,6 +32,17 @@ export function asBool(x) {
     return TRUTHY.has(String(x).trim().toLowerCase());
 }
 
+function localToday() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+function periodBoundary(value, part) {
+    if (!part) return value;
+    const [start = '', end = ''] = String(value ?? '').split('/');
+    return part === 'end' ? (end || start) : start;
+}
+
 // Parses a numeric value tolerant of the LOCAL decimal (comma): "0,25" → 0.25.
 // `parseFloat` stops at the comma ("0,25" → 0), so a number field with
 // values in Catalan/Castilian format was being sorted and filtered incorrectly (all the
@@ -61,6 +72,7 @@ export function matchesRule(item, filter) {
     const rawVal = filter.field === 'title'
         ? (item.title || item.label || '')
         : ((item.metadata || {})[filter.field] ?? (item[filter.field] ?? ''));
+    const valueForFilter = periodBoundary(rawVal, filter.periodPart);
 
     // Normalizes the value to an array of strings —1:1 parity with the
     // backend's snapshot engine (view_snapshot.apply_filter) and the one for
@@ -70,14 +82,15 @@ export function matchesRule(item, filter) {
     // match (the main view was hiding rows that DID contain the value) and
     // made `not_equals` ALWAYS match. We compare by membership, in lowercase
     // (case-insensitive, consistent with the rest of the filter).
-    const arr = Array.isArray(rawVal)
-        ? rawVal.map(x => String(x))
-        : (rawVal === null || rawVal === undefined || rawVal === '' ? [] : [String(rawVal)]);
+    const arr = Array.isArray(valueForFilter)
+        ? valueForFilter.map(x => String(x))
+        : (valueForFilter === null || valueForFilter === undefined || valueForFilter === '' ? [] : [String(valueForFilter)]);
     const arrLower = arr.map(s => s.toLowerCase());
     // A multi-select filter can carry several selected options. Those options
     // match when any selected value belongs to the record's value array.
     const filterVals = (Array.isArray(filter.value) ? filter.value : [filter.value])
-        .map(value => String(value ?? '').toLowerCase())
+        .map(value => value === 'today' ? localToday() : String(value ?? ''))
+        .map(value => value.toLowerCase())
         .filter(Boolean);
     const filterVal = filterVals[0] || '';
 

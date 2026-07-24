@@ -351,13 +351,26 @@ function FilterValueControl({ rule, meta, relOpts, onValue, t }) {
         );
     }
     if (ftype === 'date' || ftype === 'datetime' || ftype === 'period') {
+        const isToday = rule.value === 'today';
         return (
-            <input
-                type={ftype === 'datetime' ? 'datetime-local' : 'date'}
-                className={inputCls}
-                value={rule.value || ''}
-                onChange={e => onValue(e.target.value)}
-            />
+            <div className="flex gap-1">
+                <select
+                    className="text-xs border border-[var(--border-primary)] rounded px-1.5 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)]"
+                    value={isToday ? 'today' : 'date'}
+                    onChange={e => onValue(e.target.value === 'today' ? 'today' : '')}
+                >
+                    <option value="today">{t('view.filter_today')}</option>
+                    <option value="date">{t('view.filter_specific_date')}</option>
+                </select>
+                {!isToday && (
+                    <input
+                        type={ftype === 'datetime' ? 'datetime-local' : 'date'}
+                        className={inputCls}
+                        value={rule.value || ''}
+                        onChange={e => onValue(e.target.value)}
+                    />
+                )}
+            </div>
         );
     }
     return (
@@ -385,13 +398,30 @@ function FilterRuleRow({ rule, onChange, onRemove, ctx }) {
                     // Changing the field resets the value to the new type's default
                     // (a relation id makes no sense in a text field, etc.).
                     const field = e.target.value;
-                    onChange({ ...rule, field, value: defaultFilterValue(field) });
+                    const nextRule = { ...rule, field, value: defaultFilterValue(field) };
+                    if (fieldMeta[field]?.type === 'period') {
+                        nextRule.periodPart = rule.periodPart === 'end' ? 'end' : 'start';
+                    } else {
+                        delete nextRule.periodPart;
+                    }
+                    onChange(nextRule);
                 }}
             >
                 {tableFields.map(tf => (
                     <option key={tf.name} value={tf.name}>{fieldLabel(tf.name)}</option>
                 ))}
             </select>
+            {meta?.type === 'period' && (
+                <select
+                    className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-36"
+                    value={rule.periodPart === 'end' ? 'end' : 'start'}
+                    onChange={e => onChange({ ...rule, periodPart: e.target.value })}
+                    aria-label={t('view.filter_period_part')}
+                >
+                    <option value="start">{t('view.filter_period_start')}</option>
+                    <option value="end">{t('view.filter_period_end')}</option>
+                </select>
+            )}
             <select
                 className="text-xs border border-[var(--border-primary)] rounded px-2 py-1.5 bg-[var(--bg-primary)] text-[var(--text-primary)] w-32"
                 value={rule.operator}

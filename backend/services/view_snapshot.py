@@ -36,6 +36,7 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from datetime import date
 from functools import cmp_to_key
 from typing import Any, Callable, Dict, List, Optional, Sequence
 
@@ -429,6 +430,9 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     targets = [str(value) for value in raw] if isinstance(raw, list) else ([] if raw is None else [str(raw)])
     target = targets[0] if targets else None
     v = _meta_value_for_field(meta or {}, field)
+    if f.get("periodPart"):
+        start, _, end = str(v or "").partition("/")
+        v = (end or start) if f.get("periodPart") == "end" else start
     if isinstance(v, list):
         arr = [str(x) for x in v]
     elif v is None or v == "":
@@ -451,7 +455,8 @@ def apply_filter(meta: Dict[str, Any], page_id: Optional[str], f: Dict[str, Any]
     # Text/select case-INsensitive (like Notion and like the main view
     # matchesFilters): a stored "Català" value matches the filter
     # "Catalan". Numeric ones (>,<) are compared separately, without lowercasing.
-    targets_l = [value.lower() for value in targets]
+    today = date.today().isoformat()
+    targets_l = [(today if value == "today" else value).lower() for value in targets]
     target_l = targets_l[0]
     arr_l = [x.lower() for x in arr]
     if op == "equals":
