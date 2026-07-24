@@ -61,7 +61,7 @@ python-jose[cryptography]>=3.5.0
 bcrypt>=4.1
 cryptography>=49.0.0
 aiosqlite>=0.22.1
-Pillow>=10.0.0
+Pillow>=12.3.0
 email-validator==2.3.0
 # OPUS-MT models (Marian) for translate_row skill — used only on demand
 # (es↔fr lazy load + auto-unload). Torch and transformers come transitively
