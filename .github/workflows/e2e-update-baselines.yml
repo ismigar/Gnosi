@@ -71,6 +71,10 @@ jobs:
       - name: Build frontend
         working-directory: apps/gnosi/frontend
         run: npm run build
+        env:
+          # Baselines must be generated with the exact asset URL strategy used
+          # by the pull-request E2E workflow.
+          VITE_BASE_PATH: /
 
       - name: Start frontend (preview)
         working-directory: apps/gnosi/frontend
