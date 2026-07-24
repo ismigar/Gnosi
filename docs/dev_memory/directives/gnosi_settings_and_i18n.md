@@ -76,6 +76,9 @@ configuration autosave.
   yet an item.
 - Existing-item configuration opens the same inline form populated with that
   item. Successful creation or update closes the form.
+- Collection rows use the full section width and keep controls in the shared
+  order: enable toggle, item identity, configure, then delete. Configure opens
+  the inline editor; delete always asks for confirmation.
 - Confirmation modals remain appropriate for destructive or irreversible
   actions; selectors such as the folder picker are not collection editors.
 

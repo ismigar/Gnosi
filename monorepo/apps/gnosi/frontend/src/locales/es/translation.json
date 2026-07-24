@@ -1696,6 +1696,8 @@
       "delete_name": "Eliminar {{name}}",
       "delete_provider_title": "Eliminar Proveedor",
       "delete_provider_msg": "¿Seguro que quieres eliminar {{name}}? Se desconectará, se olvidará su clave API y se quitarán sus modelos del registro del router.",
+      "delete_agent_title": "Eliminar agente",
+      "delete_agent_msg": "¿Seguro que quieres eliminar {{name}}? Esta acción no se puede deshacer.",
       "agents_section": "Agentes de Cognición",
       "create_agent_btn": "Crear Agente",
       "connect_provider_title": "Conectar Proveedor de IA",
