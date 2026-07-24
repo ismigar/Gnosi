@@ -450,7 +450,7 @@ const PageTreeItem = ({
                                 setMenuState(null);
                                 setIsRenaming(true);
                             }}
-                            className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                            className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Edit2 size={14} className="text-[var(--text-secondary)]/60" />
                             <span>{t('sidebar.rename')}</span>
@@ -464,7 +464,7 @@ const PageTreeItem = ({
                                 setMenuState(null);
                                 onToggleFavorite(page.id);
                             }}
-                            className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                            className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Star size={14} className={isFavorite ? "text-amber-400" : "text-[var(--text-secondary)]/60"} fill={isFavorite ? "currentColor" : "none"} />
                             <span>{isFavorite ? t('sidebar.remove_favorites') : t('sidebar.add_favorites')}</span>
@@ -477,7 +477,7 @@ const PageTreeItem = ({
                                 setMenuState(null);
                                 onDuplicatePage(page.id);
                             }}
-                            className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                            className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Copy size={14} className="text-[var(--text-secondary)]/60" />
                             <span>{t('sidebar.duplicate')}</span>
@@ -490,7 +490,7 @@ const PageTreeItem = ({
                                 setMenuState(null);
                                 onOpenParallel(page.id);
                             }}
-                            className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                            className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
                             <Columns2 size={14} className="text-[var(--text-secondary)]/60" />
                             <span>{t('sidebar.open_parallel')}</span>
@@ -504,7 +504,7 @@ const PageTreeItem = ({
                             setMenuState(null);
                             setTimeout(() => onDeletePage(page.id, page.title), 10);
                         }}
-                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
+                        className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
                         <Trash2 size={14} className="text-[var(--status-error)]" />
                         <span>{t('sidebar.delete')}</span>
@@ -1446,7 +1446,7 @@ export const VaultSidebar = ({
                                     if (onTableSelect) onTableSelect(menuState.id);
                                     setMenuState(null);
                                 }}
-                                className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                                className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                             >
                                 <LayoutPanelLeft size={14} className="text-[var(--text-secondary)]/60" />
                                 <span>{t('sidebar.open_table')}</span>
@@ -1457,7 +1457,7 @@ export const VaultSidebar = ({
                                         onOpenTable(menuState.id);
                                         setMenuState(null);
                                     }}
-                                    className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                                    className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Plus size={14} className="text-[var(--text-secondary)]/60" />
                                     <span>{t('sidebar.open_new_tab')}</span>
@@ -1469,7 +1469,7 @@ export const VaultSidebar = ({
                                         onOpenTableParallel(menuState.id);
                                         setMenuState(null);
                                     }}
-                                    className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                                    className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                                 >
                                     <Columns2 size={14} className="text-[var(--text-secondary)]/60" />
                                     <span>{t('sidebar.open_parallel')}</span>
@@ -1483,7 +1483,7 @@ export const VaultSidebar = ({
                             setRenameModal({ isOpen: true, type: menuState.type, id: menuState.id, name: menuState.name });
                             setMenuState(null);
                         }}
-                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
+                        className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                     >
                         <Edit2 size={14} className="text-[var(--text-secondary)]/60" />
                         <span>{t('sidebar.rename')}</span>
@@ -1499,7 +1499,7 @@ export const VaultSidebar = ({
                             });
                             setMenuState(null);
                         }}
-                        className="w-full text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
+                        className="w-full cursor-pointer text-left flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--status-error)] hover:bg-[var(--bg-secondary)] transition-colors font-medium"
                     >
                         <Trash2 size={14} className="text-[var(--status-error)]" />
                         <span>{t('common.delete')}</span>

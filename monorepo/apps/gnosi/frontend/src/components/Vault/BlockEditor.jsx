@@ -1076,21 +1076,13 @@ export function EditorInner({
                 },
                 content: "none",
             }, { render: (props) => <BibliographyBlock block={props.block} editor={props.editor} /> }),
-            toggle: createReactBlockSpec({
-                type: "toggle",
-                propSchema: { backgroundColor: { default: "default" }, textColor: { default: "default" } },
-                content: "inline",
-            }, { render: (props) => (
-                <div className="bn-toggle-container mb-2">
-                    <details className="bn-toggle group/toggle">
-                        <summary className="cursor-pointer list-none flex items-center gap-1 hover:text-[var(--gnosi-primary)] transition-colors">
-                            <div className="p-1 rounded hover:bg-[var(--gnosi-primary)]/10"><ChevronRight size={16} className="transition-transform group-open/toggle:rotate-90 text-[var(--text-tertiary)]" /></div>
-                            <div className="flex-1 font-medium" ref={props.contentRef} />
-                        </summary>
-                        <div className="bn-toggle-content pl-6 pt-2 border-l border-[var(--border-primary)]/10 ml-3" />
-                    </details>
-                </div>
-            ) }),
+            // NOTE: the `:::toggle` fence is mapped to BlockNote's built-in
+            // `toggleListItem` (see markdown-mapper.js + slashMenuUtils.js), not
+            // a custom spec. We previously had a custom `toggle` block here, but
+            // its render never wired up a container for the child blocks, so it
+            // was impossible to write inside the toggle. `toggleListItem` uses
+            // BlockNote's own `createToggleWrapper` (the vanilla, working one),
+            // which renders the indented children as an editable container.
             wikilink: createReactInlineContentSpec({
                 type: "wikilink",
                 propSchema: {
@@ -1203,7 +1195,7 @@ export function EditorInner({
                 transclusion: { ...specs.transclusion(), group: "bnBlock" },
                 embed: { ...specs.embed(), group: "bnBlock" },
                 bibliography: { ...specs.bibliography(), group: "bnBlock" },
-                toggle: { ...specs.toggle(), group: "bnBlock" },
+                // `toggleListItem` from defaultBlockSpecs handles `:::toggle`.
                 alert: { ...specs.alert(), group: "bnBlock" },
                 tableOfContents: { ...specs.tableOfContents(), group: "bnBlock" },
                 mermaid: { ...specs.mermaid(), group: "bnBlock" },
