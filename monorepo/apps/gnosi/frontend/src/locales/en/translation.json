@@ -1,4 +1,10 @@
 {
+  "_meta": {
+    "nativeName": "English",
+    "intlLocale": "en-US",
+    "direction": "ltr",
+    "zoteroLocale": "en-US"
+  },
   "app_title": "Gnosi",
   "search_placeholder": "Search nodes...",
   "filter_by_kind": "Filter by Kind",
@@ -1045,7 +1051,8 @@
     "synced_empty": "Empty synced block — click «Edit» to add content.",
     "date_reminder_tooltip": "Reminder: {{date}} at {{time}}",
     "date_reminder_label": "Reminder (optional)",
-    "date_reminder_clear": "Clear"
+    "date_reminder_clear": "Clear",
+    "note_section_placeholder_trans": "Note name#Section"
   },
   "view_config": {
     "title": "Configure View",
@@ -1088,6 +1095,12 @@
       "none": "None",
       "cover": "Cover (image)",
       "text": "Document text"
+    },
+    "toast": {
+      "import_error": "Error importing the icon from the URL",
+      "import_success": "Icon imported successfully",
+      "upload_error": "Error uploading the icon",
+      "upload_success": "Icon uploaded successfully"
     }
   },
   "views_header": {
@@ -1577,7 +1590,8 @@
       "reconnect_google": "Reconnect Google",
       "add_account_btn": "+ Add Account / Calendar",
       "individual_colors_hint": "Colors can be customized for each calendar individually from the Calendar view sidebar.",
-      "oauth_managed_desc": "Managed via OAuth2. Individual colors are configured in the calendar sidebar."
+      "oauth_managed_desc": "Managed via OAuth2. Individual colors are configured in the calendar sidebar.",
+      "location_verified": "Verified location"
     },
     "graph": {
       "section_title": "Graph Visual Engine",
@@ -2122,6 +2136,15 @@
       "missing_password_fields": "Both the current and the new password are required.",
       "password_too_short": "The password must be at least 8 characters long.",
       "passwords_dont_match": "The new passwords do not match."
+    },
+    "dashboard": {
+      "approved": "APPROVED",
+      "intelligence_details": "Intelligence details",
+      "last_7_days": "Last week",
+      "pending": "PENDING",
+      "pending_approval": "Pending Approval",
+      "status_title": "System status",
+      "tools_pending_approval": "Tools pending approval"
     }
   },
   "contacts": {
@@ -3001,7 +3024,37 @@
     "graph_via": "via",
     "graph_no_relations": "(no relations)",
     "graph_stats": "{{nodes}} nodes · {{edges}} edges",
-    "no_records_in_view": "No records in this view."
+    "no_records_in_view": "No records in this view.",
+    "add_schema_option": "Could not save the option to the schema",
+    "connection": "Connection error with backend. Verify the server is active.",
+    "create_content": "Error creating content",
+    "daily_note": "Error opening the daily note",
+    "delete_db": "Error deleting the database",
+    "delete_main_view": "The main view cannot be deleted",
+    "delete_page": "Error deleting the page",
+    "delete_table": "Error deleting the table",
+    "delete_view": "Error deleting the view",
+    "duplicate_page": "Error duplicating the page",
+    "load_page": "Error loading the page",
+    "load_pages": "Error loading pages",
+    "load_registry": "Error loading the database registry",
+    "move_page": "Error moving the page",
+    "open_parallel": "Error opening the parallel view",
+    "open_parallel_first": "Open a resource first to use parallel view",
+    "open_table": "Error opening the table",
+    "record_create": "Error creating the record",
+    "rename_db": "Error renaming the database",
+    "rename_page": "Error renaming the page",
+    "rename_table": "Error renaming the table",
+    "reorder_views": "Error reordering views",
+    "restore_page": "Could not restore",
+    "save_config": "Error saving the configuration",
+    "save_note": "Error saving the note",
+    "save_view": "Error saving the view",
+    "table_not_found": "Table not found",
+    "template_default": "Error setting the default template",
+    "template_duplicate": "Error duplicating the template",
+    "toggle_favorites": "Error updating favorites"
   },
   "metadata_lookup": {
     "button": "Fill",
@@ -3960,7 +4013,8 @@
     "new_vault": "New vault",
     "delete_modal_title": "Delete vault",
     "delete_modal_message": "Remove the vault \"{{name}}\" from the registry? This does not delete any files from disk.",
-    "delete_modal_confirm": "Delete"
+    "delete_modal_confirm": "Delete",
+    "description": "Clone Notion into a separate vault, verify it in isolation, and adopt or discard it without touching the main vault."
   },
   "shared_page": {
     "link_invalid": "This link is invalid or has expired.",

@@ -134,7 +134,7 @@ import { blocksToRichMarkdown, richMarkdownToBlocks } from './markdown-mapper';
 import AIGenerateModal from './AIGenerateModal';
 import PromptModal from '../PromptModal';
 import { InsertContentModal } from './InsertContentModal';
-import { blocknoteCa } from '../../locales/blocknote/ca';
+import { resolveBlockNoteDictionary } from '../../locales/blocknote/registry';
 
 // Native BlockNote block type for a file. `image`/`video`/`audio`
 // have an obvious inline representation; anything else is `file`.
@@ -1043,7 +1043,10 @@ export function EditorInner({
     spellLang = 'ca',
     onLangDetected,
 }) {
-    const { t } = useTranslation();
+    const { t, i18n: editorI18n } = useTranslation();
+    const [blockNoteDictionary] = useState(() => resolveBlockNoteDictionary(
+        editorI18n.resolvedLanguage || editorI18n.language
+    ));
     const schema = useMemo(() => {
         const specs = {
             database: createReactBlockSpec({
@@ -1395,7 +1398,7 @@ export function EditorInner({
             },
         },
         uploadFile: uploadFileToAssetsDirect,
-        dictionary: blocknoteCa,
+        dictionary: blockNoteDictionary,
         tables: {
             splitCells: true,
             cellBackgroundColor: true,

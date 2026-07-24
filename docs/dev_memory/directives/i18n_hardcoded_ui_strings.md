@@ -10,6 +10,10 @@ French, and Catalan.
 English is the first-run and fallback language. Users may explicitly select any
 supported language.
 
+Locale discovery is declarative: complete catalogues under
+`frontend/src/locales/<bcp47>/translation.json` are registered automatically and
+provide their own display and formatting metadata.
+
 ## Standard pattern
 
 1. Choose a namespace that follows the existing screen/component hierarchy.
