@@ -7,6 +7,25 @@ It turns a plain folder of Markdown files into a connected workspace: a block ed
 > [!IMPORTANT]
 > **Data sovereignty by design.** Gnosi is local-first and operates directly on your filesystem. Your notes stay as portable Markdown you can read, back up, and version with any tool. No vendor lock-in.
 
+## Try Gnosi
+
+- [Open the live demo](https://gnosi.temenosismael.org/?utm_source=github&utm_medium=readme&utm_campaign=demo)
+- [Download the desktop app](https://github.com/ismigar/Gnosi/releases)
+- [Run Gnosi locally](#run-natively-recommended)
+
+## Who is Gnosi for?
+
+Gnosi is for people, researchers, teams and cooperatives who want a connected workspace while keeping their data portable, auditable and under their control.
+
+## Support Gnosi
+
+Gnosi is free and open source. If it helps you manage your knowledge, documents or daily work, you can support its continued development.
+
+[![Sponsor Gnosi](https://img.shields.io/badge/Sponsor-Gnosi-ea4aaa?logo=githubsponsors)](https://github.com/sponsors/ismigar?metadata_campaign=github_readme)
+[![Support on Ko-fi](https://img.shields.io/badge/Support%20on-Ko--fi-ff5e5b?logo=ko-fi)](https://ko-fi.com/ismigar?utm_source=github&utm_medium=readme&utm_campaign=support)
+
+Your support helps fund hosting, maintenance, desktop releases, integrations, documentation and new open-source development. No individual support or exclusive features are promised.
+
 ## Why Gnosi
 
 Most "second brain" tools are either closed SaaS (your data lives on someone else's servers) or single-user desktop apps (no real collaboration). Gnosi aims for a third path: **a workspace that teams and cooperatives can self-host and own**, released under the AGPL so that any hosted version stays free software for its users.

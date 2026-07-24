@@ -1,8 +1,9 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon } from 'lucide-react';
+import { Network, BookOpen, Gauge, Share2, FileText, Calendar, Inbox, Settings, Users, Image as ImageIcon, GitBranch, Heart } from 'lucide-react';
 import { useActiveVaultName } from '../hooks/useActiveVaultName';
+import { trackOutboundClick } from '../lib/marketingAnalytics';
 
 const MODULES = [
     {
@@ -120,6 +121,14 @@ function HomePage() {
                 <p className="home-page__subtitle" style={{ marginTop: '8px' }}>
                     {t('home.subtitle', 'El teu ecosistema de coneixement personal')}
                 </p>
+                <div className="home-page__marketing-actions">
+                    <a className="btn-gnosi btn-gnosi--secondary" href="https://github.com/ismigar/Gnosi" target="_blank" rel="noreferrer" onClick={() => trackOutboundClick('github_repository')}>
+                        <GitBranch size={17} aria-hidden="true" /> {t('marketing.view_github')}
+                    </a>
+                    <Link className="btn-gnosi btn-gnosi--primary" to="/support" onClick={() => trackOutboundClick('support_page')}>
+                        <Heart size={17} aria-hidden="true" /> {t('marketing.support_gnosi')}
+                    </Link>
+                </div>
             </header>
 
             {/* Cards Grid */}

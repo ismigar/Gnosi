@@ -3489,6 +3489,27 @@
     "module_dashboard_desc": "Monitoriza el estado del sistema y aprueba herramientas.",
     "module_settings_desc": "Gestiona los parámetros de tu ecosistema."
   },
+  "marketing": {
+    "view_github": "Ver en GitHub",
+    "support_gnosi": "Apoya Gnosi"
+  },
+  "support": {
+    "eyebrow": "Mantén Gnosi independiente",
+    "title": "Apoya Gnosi",
+    "intro": "Gnosi es un espacio de trabajo privado y local-first para notas, documentos, tareas, calendarios, referencias y asistencia de IA. Tu apoyo ayuda a mantener el proyecto libre, abierto y útil.",
+    "sponsor_button": "Patrocinar en GitHub",
+    "kofi_button": "Apoyar en Ko-fi",
+    "tiers_label": "Niveles de apoyo",
+    "funding_title": "En qué se invierte tu apoyo",
+    "funding_description": "Alojamiento, mantenimiento, versiones de escritorio, integraciones, documentación y desarrollo open source. No se promete soporte individual ni funcionalidades exclusivas.",
+    "github_link": "Explora el código fuente de Gnosi",
+    "tiers": {
+      "supporter": { "title": "Supporter", "description": "Una pequeña aportación para mantener Gnosi avanzando." },
+      "backer": { "title": "Backer", "description": "Ayuda a financiar el mantenimiento y las versiones regulares." },
+      "sustainer": { "title": "Sustainer", "description": "Apoya las integraciones, la documentación y las mejoras." },
+      "cooperative": { "title": "Apoyo cooperativo", "description": "Ayuda a hacer crecer un espacio de trabajo comunitario y neutral." }
+    }
+  },
   "composer": {
     "subtitle": "Crea y programa contenido para tus redes sociales.",
     "social_dashboard_title": "Panel Social",
