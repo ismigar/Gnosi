@@ -1,0 +1,73 @@
+python-multipart>=0.0.32
+PyYAML>=6.0
+dotenv>=0.9.9
+python-dotenv>=1.0.0
+Flask>=3.1.3
+flask-cors>=4.0.0
+requests>=2.31.0
+httpx>=0.27.0
+networkx>=3.0
+python-igraph>=0.11
+numpy>=1.24.0
+gunicorn>=26.0.0
+cloudinary>=1.45.0
+fastapi>=0.136.3
+uvicorn[standard]>=0.47.0
+# Stack IA migrat a langchain/langgraph 1.x (2026-06-24). Els terres apunten a
+# les versions REALMENT validades contra l'agent (vegis directiva
+# agent_langchain_v1_migration.md). NO baixar de 1.x: langchain/langgraph 0.x
+# trenquen l'agent (langgraph 0.x no té prebuilt.ToolNode/START; langchain-core
+# 0.x és incompatible amb les integracions 1.x). El terra protegeix la migració.
+langgraph>=1.2.9
+langchain>=1.3.9
+langchain-openai>=1.3.3
+langchain-ollama>=1.1.0
+langchain-groq>=1.1.3
+langchain-anthropic>=1.0  # wrapper que factory.py importa per al proveïdor Anthropic (el SDK cru `anthropic` no basta)
+pydantic>=2.13.4
+pytest>=7.0.0
+chromadb>=0.4.0
+langchain-chroma>=1.1.0
+langgraph-checkpoint-sqlite>=3.1.0
+psutil>=7.2.2
+simpleeval>=1.0.7
+trafilatura>=1.12
+sentence-transformers>=5.6.0
+langchain-huggingface>=1.2.2
+icalendar>=5.0.0
+google-auth>=2.53.0
+google-auth-oauthlib>=1.4.0
+google-api-python-client>=2.0.0
+# Floor only — langchain-groq 1.x requires groq<1.0.0, so any groq>=1.x floor
+# makes a CLEAN install unresolvable (Docker build / fresh venv) even though
+# incrementally-grown venvs hide it (caught by the docker-build CI guard).
+# Validated combo: groq 0.37.x + langchain-groq 1.1.x. Dependabot major bumps
+# ignored in .github/dependabot.yml until langchain-groq lifts the cap.
+groq>=0.30.0
+anthropic>=0.20.0
+cohere>=7.0.5
+sqlalchemy>=2.0.51
+feedparser>=6.0.12
+beautifulsoup4>=4.15.0
+pypdf>=4.0.0
+pypdfium2>=4.30.0
+python-docx>=1.1.0
+EbookLib>=0.18
+yt-dlp>=2025.1.15
+alembic>=1.18.5
+gTTS>=2.5.0
+faster-whisper>=1.2.1
+httplib2>=0.31.2
+python-jose[cryptography]>=3.5.0
+bcrypt>=4.1
+cryptography>=49.0.0
+aiosqlite>=0.22.1
+Pillow>=10.0.0
+email-validator==2.3.0
+# OPUS-MT models (Marian) for translate_row skill — used only on demand
+# (es↔fr lazy load + auto-unload). Torch and transformers come transitively
+# from sentence-transformers.
+sentencepiece>=0.2.2
+# py-spy: stack trace en viu del backend sense aturar-lo (diagnòstic de penjades
+# de l'event loop). Ús: docker exec gnosi_backend py-spy dump --pid 1
+py-spy>=0.3.14

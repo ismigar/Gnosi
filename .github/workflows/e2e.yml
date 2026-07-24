@@ -1,0 +1,96 @@
+name: E2E Tests (Playwright)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/gnosi/frontend/**'
+      - 'apps/gnosi/e2e/**'
+      - '.github/workflows/e2e.yml'
+  pull_request:
+    paths:
+      - 'apps/gnosi/frontend/**'
+      - 'apps/gnosi/e2e/**'
+      - '.github/workflows/e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    name: Playwright on ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1/2, 2/2]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            apps/gnosi/frontend/package-lock.json
+            apps/gnosi/e2e/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: apps/gnosi/frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: apps/gnosi/frontend
+        run: npm run build
+
+      - name: Start frontend (preview)
+        working-directory: apps/gnosi/frontend
+        run: |
+          npx vite preview --port 5173 --strictPort &
+          npx wait-on http://localhost:5173 --timeout 60000
+
+      - name: Install E2E dependencies
+        working-directory: apps/gnosi/e2e
+        run: npm ci
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('apps/gnosi/e2e/package-lock.json') }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        working-directory: apps/gnosi/e2e
+        run: npx playwright install --with-deps chromium
+
+      - name: Install Playwright system deps (cached browsers)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/gnosi/e2e
+        run: npx playwright install-deps chromium
+
+      - name: Run Playwright tests
+        working-directory: apps/gnosi/e2e
+        run: npx playwright test --shard=${{ matrix.shard }}
+        env:
+          GNOSI_BASE_URL: http://localhost:5173
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ strategy.job-index }}
+          path: apps/gnosi/e2e/playwright-report
+          retention-days: 14
+
+      - name: Upload test results (failures)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ strategy.job-index }}
+          path: apps/gnosi/e2e/test-results
+          retention-days: 14

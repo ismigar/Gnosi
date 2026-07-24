@@ -1,0 +1,19 @@
+{
+  "name": "gnosi-e2e",
+  "private": true,
+  "version": "0.0.0",
+  "description": "E2E tests for Gnosi frontend (runs on host, targets Docker frontend on localhost:5173)",
+  "scripts": {
+    "test": "playwright test",
+    "test:smoke": "playwright test --project=chromium-anon",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "report": "playwright show-report",
+    "install:browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.48.2",
+    "@types/node": "^22.9.0"
+  }
+}
