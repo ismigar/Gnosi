@@ -38,14 +38,14 @@ logger = get_logger(__name__)
 # plugin (neither in the UI bridge nor in the data sandbox).
 # ---------------------------------------------------------------------------
 PERMISSIONS: Dict[str, str] = {
-    "vault:read": "Llegir pàgines i taules del vault",
-    "vault:write": "Crear i modificar pàgines del vault",
-    "vault:delete": "Esborrar pàgines del vault",
-    "network": "Fer peticions de xarxa a servidors externs",
-    "ui:command": "Afegir comandes a la paleta i menús",
-    "ui:view": "Registrar vistes/pantalles pròpies",
-    "ui:sidebar": "Afegir panells a la barra lateral",
-    "settings": "Desar la seva pròpia configuració",
+    "vault:read": "Read vault pages and tables",
+    "vault:write": "Create and modify vault pages",
+    "vault:delete": "Delete vault pages",
+    "network": "Make network requests to external servers",
+    "ui:command": "Add commands to the palette and menus",
+    "ui:view": "Register custom views and screens",
+    "ui:sidebar": "Add panels to the sidebar",
+    "settings": "Save the plugin's own settings",
 }
 
 # Permissions that involve execution on the backend (data sandbox). The rest are
@@ -100,25 +100,25 @@ def validate_manifest(raw: Any) -> Dict[str, Any]:
     
     """
     if not isinstance(raw, dict):
-        raise PluginError("manifest.json ha de ser un objecte JSON")
+        raise PluginError("manifest.json must be a JSON object")
 
     pid = raw.get("id")
     if not is_valid_plugin_id(pid):
         raise PluginError(
-            f"id de plugin invàlid: {pid!r} (minúscules, [a-z0-9_-], 2-64 chars)"
+            f"invalid plugin ID: {pid!r} (lowercase [a-z0-9_-], 2–64 characters)"
         )
 
     version = str(raw.get("version") or "0.0.0")
     if not _SEMVER_RE.match(version):
-        raise PluginError(f"version invàlida (semver): {version!r}")
+        raise PluginError(f"invalid semantic version: {version!r}")
 
     perms_raw = raw.get("permissions") or []
     if not isinstance(perms_raw, list):
-        raise PluginError("permissions ha de ser una llista")
+        raise PluginError("permissions must be a list")
     permissions: List[str] = []
     for p in perms_raw:
         if p not in PERMISSIONS:
-            raise PluginError(f"permís desconegut: {p!r}")
+            raise PluginError(f"unknown permission: {p!r}")
         if p not in permissions:
             permissions.append(p)
 
@@ -224,7 +224,7 @@ def discover_plugins(config_dir: Path) -> List[Dict[str, Any]]:
 # A .zip with manifest.json at the root (or inside a single root folder). The manifest
 # is validated BEFORE writing anything, and the extraction is anti zip-slip.
 _MAX_ZIP_BYTES = 20 * 1024 * 1024      # 20 MB of compressed zip
-_MAX_UNCOMPRESSED = 80 * 1024 * 1024   # 80 MB descomprimits (anti zip-bomb)
+_MAX_UNCOMPRESSED = 80 * 1024 * 1024   # 80 MB uncompressed (anti-zip-bomb)
 _MAX_ENTRIES = 2000
 
 
@@ -243,7 +243,7 @@ def _find_manifest_root(zf: zipfile.ZipFile) -> str:
         root = next(iter(roots))
         if f"{root}/manifest.json" in names:
             return f"{root}/"
-    raise PluginError("El zip no conté manifest.json a l'arrel ni en una única carpeta")
+    raise PluginError("The ZIP contains no manifest.json at its root or in a single folder")
 
 
 def install_from_zip(config_dir: Path, data: bytes, *, overwrite: bool = True) -> Dict[str, Any]:

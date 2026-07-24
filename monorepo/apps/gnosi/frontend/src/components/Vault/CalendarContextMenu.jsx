@@ -50,7 +50,7 @@ export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onD
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors text-left"
             >
                 <CalendarPlus size={16} className="text-[var(--gnosi-primary)]" />
-                <span className="font-medium">{t('calendar.new_event', 'Nova cita')}</span>
+                <span className="font-medium">{t('calendar.new_event', "New appointment")}</span>
             </button>
             {onDeleteEvent && (
                 <button
@@ -58,7 +58,7 @@ export const CalendarContextMenu = ({ isOpen, position, onClose, onNewEvent, onD
                     className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-left"
                 >
                     <span className="text-lg">🗑️</span>
-                    <span className="font-medium">{t('calendar.delete', 'Eliminar')}</span>
+                    <span className="font-medium">{t('calendar.delete', "Delete")}</span>
                 </button>
             )}
         </div>

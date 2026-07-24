@@ -125,7 +125,7 @@ def build_notion_map(api: str, hdrs: dict, needed: set) -> dict:
         add(nid)
     token = (integration_manager.get_raw("notion") or {}).get("token")
     if not token:
-        raise RuntimeError("Sense token REST de Notion a integrations.json")
+        raise RuntimeError("No Notion REST token is configured in integrations.json")
     rest = NotionClient(token)
     for db in (cfg.get("databases") or []):
         if len(mapping) == len(needed):
@@ -135,17 +135,17 @@ def build_notion_map(api: str, hdrs: dict, needed: set) -> dict:
             for row in rest.query_database(db["id"]):
                 add(row.get("id"))
                 n += 1
-            log(f"  [map] BD «{db.get('title')}»: {n} files")
+            log(f"  [map] database '{db.get('title')}': {n} rows")
         except Exception as e:  # noqa: BLE001
             log(f"  [map] ERROR BD {db.get('title')}: {e}")
     missing = needed - set(mapping)
     if missing:
-        log(f"  [map] {len(missing)} pàgines sense mapa; provo search_pages()…")
+        log(f"  [map] {len(missing)} unmapped pages; trying search_pages()…")
         try:
             for pg in rest.search_pages():
                 add(pg.get("id"))
         except Exception as e:  # noqa: BLE001
-            log(f"  [map] search_pages ha fallat: {e}")
+            log(f"  [map] search_pages failed: {e}")
     return mapping
 
 
@@ -189,12 +189,12 @@ def main() -> int:
     ap.add_argument("--vault-dir", required=True)
     ap.add_argument("--vault-id", required=True)
     ap.add_argument("--api", default="http://127.0.0.1:5002/api")
-    ap.add_argument("--only", default=None, help="prefix relatiu (p. ex. '.Dashboards')")
+    ap.add_argument("--only", default=None, help="relative prefix (for example, '.Dashboards')")
     ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--apply", action="store_true", help="escriu (per defecte: dry-run)")
-    ap.add_argument("--state", default=None, help="fitxer JSONL de pàgines ja fetes (resume)")
+    ap.add_argument("--apply", action="store_true", help="write changes (dry-run by default)")
+    ap.add_argument("--state", default=None, help="JSONL file of completed pages (resume state)")
     ap.add_argument("--ids", default=None,
-                    help="processa NOMÉS aquests ids de pàgina del vault (separats per coma)")
+                    help="process ONLY these comma-separated vault page ids")
     args = ap.parse_args()
 
     vault_dir = Path(os.path.expanduser(args.vault_dir))
@@ -203,7 +203,7 @@ def main() -> int:
 
     ok, reason = notion_mcp.healthcheck()
     if not ok:
-        log(f"MCP de Notion no disponible: {reason}")
+        log(f"Notion MCP is unavailable: {reason}")
         return 1
 
     done_ids = set()
@@ -220,7 +220,7 @@ def main() -> int:
     pages.sort(key=lambda pg: (rank.get(pg["rel"].split("/")[0], 2), pg["rel"]))
     if args.limit:
         pages = pages[:args.limit]
-    log(f"Pàgines amb embeds: {len(pages)} (fetes prèviament: {len(done_ids)})")
+    log(f"Pages with embeds: {len(pages)} (previously completed: {len(done_ids)})")
 
     tables = httpx.get(f"{api}/vault/tables", headers=hdrs, timeout=60).json()
     tables = tables.get("tables", tables) if isinstance(tables, dict) else tables
@@ -232,9 +232,9 @@ def main() -> int:
     resolve = lambda n: by_name.get(nvr._strip_icon(n))  # noqa: E731
 
     needed = {pg["id"] for pg in pages if pg["id"] not in done_ids}
-    log("Construint el mapa vault→Notion…")
+    log("Building the vault → Notion map…")
     mapping = build_notion_map(api, hdrs, needed)
-    log(f"  mapades {len(mapping)}/{len(needed)}")
+    log(f"  mapped {len(mapping)}/{len(needed)}")
 
     stats = {"pages": 0, "views_upserted": 0, "embeds_added": 0, "unmapped": 0,
              "mcp_empty": 0, "errors": []}
@@ -244,7 +244,7 @@ def main() -> int:
         nid = mapping.get(pg["id"])
         if not nid:
             stats["unmapped"] += 1
-            log(f"[skip] sense mapa Notion: {pg['rel']}")
+            log(f"[skip] no Notion mapping: {pg['rel']}")
             continue
         host = nid.replace("-", "")
         page_md = ""
@@ -256,7 +256,7 @@ def main() -> int:
                 break
         if not page_md:
             stats["mcp_empty"] += 1
-            log(f"[err] fetch MCP buit: {pg['rel']}")
+            log(f"[err] empty MCP fetch: {pg['rel']}")
             continue
         block_ids = notion_mcp_md.extract_db_ids(page_md)
         try:
@@ -272,7 +272,7 @@ def main() -> int:
             view_md = notion_mcp.fetch(bid)
             time.sleep(0.15)
             if not view_md:
-                stats["errors"].append({"page": pg["rel"], "block": bid, "error": "fetch vista buit"})
+                stats["errors"].append({"page": pg["rel"], "block": bid, "error": "empty view fetch"})
                 continue
             try:
                 # gvs = REAL tabs (without the MCP's "suggested" charts);
@@ -294,11 +294,11 @@ def main() -> int:
             new_content = remove_view_defs(new_content, drop_ids)
             if anchor["id"] not in EMBED_RE.findall(new_content):
                 new_content = append_embed(new_content, nvr.view_embed(anchor["id"]))
-                log(f"[{tag}] {pg['rel']}: bloc {bid[:8]}… àncora nova al final")
+                log(f"[{tag}] {pg['rel']}: block {bid[:8]}… new anchor appended")
             if new_content != before:
                 page_changes += 1
                 tabs = [g["name"] for g in gvs[1:]]
-                log(f"[{tag}] {pg['rel']}: bloc {bid[:8]}… 1 embed + {len(tabs)} pestanyes"
+                log(f"[{tag}] {pg['rel']}: block {bid[:8]}… 1 embed + {len(tabs)} tabs"
                     + (f" ({', '.join(tabs)})" if tabs else ""))
             if args.apply:
                 for gv in gvs:   # upsert all of them (the anchor carries `tabs`)
@@ -323,7 +323,7 @@ def main() -> int:
                 f.write(json.dumps({"id": pg["id"], "rel": pg["rel"], "added": page_changes}) + "\n")
         time.sleep(0.15)
 
-    log("\n=== RESUM ===")
+    log("\n=== SUMMARY ===")
     log(json.dumps({k: v for k, v in stats.items() if k != "errors"}, ensure_ascii=False))
     if stats["errors"]:
         log(f"errors ({len(stats['errors'])}):")

@@ -96,20 +96,20 @@ def save_uploaded_style(file_bytes: bytes, filename: str) -> dict:
     
     """
     if len(file_bytes) > 1024 * 1024:
-        raise ValueError("Fitxer massa gran (>1 MB). Els CSL solen ser <200 KB.")
+        raise ValueError("File is too large (>1 MB). CSL files are usually smaller than 200 KB.")
     if not filename.lower().endswith(".csl"):
-        raise ValueError("L'extensió ha de ser .csl")
+        raise ValueError("The extension must be .csl")
     safe_name = re.sub(r"[^A-Za-z0-9._-]", "_", filename)
     # XML validation: must parse + root element must be <style>.
     try:
         root = ET.fromstring(file_bytes)
     except ET.ParseError as e:
-        raise ValueError(f"XML invàlid: {e}")
+        raise ValueError(f"Invalid XML: {e}")
     tag = root.tag
     # We strip the namespace, if any, to compare.
     local_tag = tag.split("}", 1)[1] if "}" in tag else tag
     if local_tag != "style":
-        raise ValueError(f"Root XML esperat <style>, trobat <{local_tag}>")
+        raise ValueError(f"Expected XML root <style>, found <{local_tag}>")
 
     # Saves to disk. Overwrites if one already exists with the same name (the user
     # wants to update their version, e.g. a revision of a custom style).

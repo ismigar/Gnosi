@@ -80,7 +80,7 @@ export function RecentModal({ isOpen, onClose, allNotes = [], onNoteSelect }) {
     const formatDate = (dateString) => {
         if (!dateString) return '';
         const date = new Date(dateString);
-        return date.toLocaleDateString(i18n.language === 'en' ? 'en-GB' : i18n.language === 'es' ? 'es-ES' : 'ca-ES', {
+        return date.toLocaleDateString(i18n.resolvedLanguage || i18n.language || 'en', {
             year: 'numeric',
             month: 'short',
             day: 'numeric',

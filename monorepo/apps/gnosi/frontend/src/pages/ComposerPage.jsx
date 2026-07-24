@@ -22,7 +22,7 @@ const ComposerPage = () => {
                         Vault: {activeVaultName || '…'}
                     </span>
                 </div>
-                <p className="text-gray-400">{t('composer.subtitle', 'Crea i programa contingut per a les teves xarxes socials.')}</p>
+                <p className="text-gray-400">{t('composer.subtitle', "Create and schedule content for your social networks.")}</p>
             </header>
 
             <div className="relative z-10 max-w-3xl mx-auto">
@@ -36,7 +36,7 @@ const ComposerPage = () => {
                             <Share2 className="text-gray-400 group-hover:text-blue-400 transition-colors" size={20} />
                             <h3 className="font-bold">{t('composer.social_dashboard_title', 'Social Dashboard')}</h3>
                         </div>
-                        <p className="text-sm text-gray-500">{t('composer.social_dashboard_desc', 'Gestiona els teus streams i feeds de xarxes socials.')}</p>
+                        <p className="text-sm text-gray-500">{t('composer.social_dashboard_desc', "Manage your social media streams and feeds.")}</p>
                     </a>
                     {/* Add more shortcuts if needed */}
                 </div>

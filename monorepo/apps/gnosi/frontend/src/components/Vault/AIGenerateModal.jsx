@@ -31,16 +31,16 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
     );
 
     const PRESETS = [
-        { mode: 'free', label: tr('editor.ai_preset_free', 'Lliure') },
-        { mode: 'continue', label: tr('editor.ai_preset_continue', 'Continua') },
-        { mode: 'summarize', label: tr('editor.ai_preset_summarize', 'Resumeix') },
-        { mode: 'improve', label: tr('editor.ai_preset_improve', 'Millora') },
-        { mode: 'translate', label: tr('editor.ai_preset_translate', 'Tradueix') },
+        { mode: 'free', label: tr('editor.ai_preset_free', 'Free-form') },
+        { mode: 'continue', label: tr('editor.ai_preset_continue', 'Continue') },
+        { mode: 'summarize', label: tr('editor.ai_preset_summarize', 'Summarize') },
+        { mode: 'improve', label: tr('editor.ai_preset_improve', 'Improve') },
+        { mode: 'translate', label: tr('editor.ai_preset_translate', 'Translate') },
     ];
 
     const [mode, setMode] = useState('free');
     const [prompt, setPrompt] = useState('');
-    const [language, setLanguage] = useState('anglès');
+    const [language, setLanguage] = useState('English');
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState('');
     const inputRef = useRef(null);
@@ -95,13 +95,13 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
             });
             const content = (data?.content || '').trim();
             if (!content) {
-                toast.error(tr('editor.ai_empty', 'La IA no ha retornat contingut.'));
+                toast.error(tr('editor.ai_empty', 'The AI returned no content.'));
             } else {
                 setResult(content);
             }
         } catch (err) {
             const detail = err?.response?.data?.detail || err?.message || tr('common.error', 'Error');
-            toast.error(`${tr('editor.ai_error', 'No s\'ha pogut generar')}: ${detail}`);
+            toast.error(`${tr('editor.ai_error', 'Could not generate content')}: ${detail}`);
         } finally {
             setLoading(false);
         }
@@ -130,17 +130,17 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
             <div
                 className="w-full max-w-xl rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] shadow-2xl"
                 role="dialog"
-                aria-label={tr('editor.ai_title', 'Generar amb IA')}
+                aria-label={tr('editor.ai_title', 'Generate with AI')}
             >
                 {/* Header */}
                 <div className="flex items-center gap-2 border-b border-[var(--border-color)] px-4 py-3">
                     <Sparkles size={18} className="text-violet-500" />
-                    <span className="font-medium">{tr('editor.ai_title', 'Generar amb IA')}</span>
+                    <span className="font-medium">{tr('editor.ai_title', 'Generate with AI')}</span>
                     <button
                         type="button"
                         onClick={handleClose}
                         className="ml-auto rounded p-1 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]"
-                        aria-label={tr('common.close', 'Tanca')}
+                        aria-label={tr('common.close', 'Close')}
                     >
                         <X size={18} />
                     </button>
@@ -171,7 +171,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                             type="text"
                             value={language}
                             onChange={(e) => setLanguage(e.target.value)}
-                            placeholder={tr('editor.ai_language_placeholder', 'Idioma destí (p. ex. anglès)')}
+                            placeholder={tr('editor.ai_language_placeholder', 'Target language (for example, English)')}
                             className="w-full rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none focus:border-violet-500"
                         />
                     )}
@@ -185,13 +185,13 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                         rows={3}
                         placeholder={
                             needsPrompt
-                                ? tr('editor.ai_prompt_placeholder', 'Què vols que escrigui la IA?')
-                                : tr('editor.ai_prompt_extra_placeholder', 'Instruccions addicionals (opcional)…')
+                                ? tr('editor.ai_prompt_placeholder', 'What would you like the AI to write?')
+                                : tr('editor.ai_prompt_extra_placeholder', 'Additional instructions (optional)…')
                         }
                         className="w-full resize-none rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] px-3 py-2 text-sm outline-none focus:border-violet-500"
                     />
 
-                    {/* Resultat generat */}
+                    {/* Generated result */}
                     {result && (
                         <div className="max-h-64 overflow-auto rounded-lg border border-[var(--border-color)] bg-[var(--bg-secondary)] p-3 text-sm whitespace-pre-wrap">
                             {result}
@@ -199,7 +199,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                     )}
                 </div>
 
-                {/* Accions */}
+                {/* Actions */}
                 <div className="flex items-center gap-2 border-t border-[var(--border-color)] px-4 py-3">
                     {!result ? (
                         <button
@@ -209,7 +209,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                             className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700 disabled:opacity-50"
                         >
                             {loading ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
-                            {loading ? tr('editor.ai_generating', 'Generant…') : tr('editor.ai_generate', 'Genera')}
+                            {loading ? tr('editor.ai_generating', 'Generating…') : tr('editor.ai_generate', 'Generate')}
                         </button>
                     ) : (
                         <>
@@ -219,7 +219,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                                 className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
                             >
                                 <Check size={16} />
-                                {tr('editor.ai_insert', 'Insereix')}
+                                {tr('editor.ai_insert', 'Insert')}
                             </button>
                             <button
                                 type="button"
@@ -228,7 +228,7 @@ export default function AIGenerateModal({ request, onClose, onInsert, t }) {
                                 className="inline-flex items-center gap-2 rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
                             >
                                 {loading ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                                {tr('editor.ai_retry', 'Torna-ho a provar')}
+                                {tr('editor.ai_retry', 'Try again')}
                             </button>
                         </>
                     )}

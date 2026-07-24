@@ -31,9 +31,9 @@ export default function AccountSettings() {
 
     if (!user) {
         return (
-            <Section title={ta('title', 'Compte')} icon={UserCog}>
+            <Section title={ta('title', "Account")} icon={UserCog}>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-                    {ta('no_session', "No hi ha cap sessió activa: aquesta secció només està disponible amb l'autenticació activada.")}
+                    {ta('no_session', "There is no active session: this section is only available with authentication enabled.")}
                 </p>
             </Section>
         );
@@ -46,7 +46,7 @@ export default function AccountSettings() {
         e.preventDefault();
         if (!profileDirty || savingProfile) return;
         if (emailChanged && !profilePassword) {
-            toast.error(ta('need_current_password_email', "Per canviar l'email cal la contrasenya actual."));
+            toast.error(ta('need_current_password_email', "Changing the email requires your current password."));
             return;
         }
         setSavingProfile(true);
@@ -57,9 +57,9 @@ export default function AccountSettings() {
                 current_password: emailChanged ? profilePassword : undefined,
             });
             setProfilePassword('');
-            toast.success(ta('profile_saved', 'Compte actualitzat.'));
+            toast.success(ta('profile_saved', "Account updated."));
         } catch (err) {
-            toast.error(err.message || ta('save_error', 'No s’ha pogut desar el compte.'));
+            toast.error(err.message || ta('save_error', "Could not save the account."));
         } finally {
             setSavingProfile(false);
         }
@@ -69,15 +69,15 @@ export default function AccountSettings() {
         e.preventDefault();
         if (savingPassword) return;
         if (!currentPassword || !newPassword) {
-            toast.error(ta('missing_password_fields', 'Cal la contrasenya actual i la nova.'));
+            toast.error(ta('missing_password_fields', "Both the current and the new password are required."));
             return;
         }
         if (newPassword.length < 8) {
-            toast.error(ta('password_too_short', 'La contrasenya ha de tenir almenys 8 caràcters.'));
+            toast.error(ta('password_too_short', "The password must be at least 8 characters long."));
             return;
         }
         if (newPassword !== repeatPassword) {
-            toast.error(ta('passwords_dont_match', 'Les contrasenyes noves no coincideixen.'));
+            toast.error(ta('passwords_dont_match', "The new passwords do not match."));
             return;
         }
         setSavingPassword(true);
@@ -86,9 +86,9 @@ export default function AccountSettings() {
             setCurrentPassword('');
             setNewPassword('');
             setRepeatPassword('');
-            toast.success(ta('password_changed', 'Contrasenya canviada.'));
+            toast.success(ta('password_changed', "Password changed."));
         } catch (err) {
-            toast.error(err.message || ta('password_error', 'No s’ha pogut canviar la contrasenya.'));
+            toast.error(err.message || ta('password_error', "Could not change the password."));
         } finally {
             setSavingPassword(false);
         }
@@ -106,9 +106,9 @@ export default function AccountSettings() {
 
     return (
         <div className="animate-in">
-            <Section title={ta('profile_section', 'Perfil del compte')} icon={UserCog}>
+            <Section title={ta('profile_section', "Account profile")} icon={UserCog}>
                 <form onSubmit={handleSaveProfile} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <FormGroup label={ta('name_label', 'Nom')}>
+                    <FormGroup label={ta('name_label', "Name")}>
                         <input
                             type="text"
                             className="gnosi-input"
@@ -119,7 +119,7 @@ export default function AccountSettings() {
                     </FormGroup>
                     <FormGroup
                         label={ta('email_label', 'Email')}
-                        description={ta('email_desc', "És el teu identificador d'inici de sessió. Canviar-lo demana la contrasenya actual.")}
+                        description={ta('email_desc', "This is your sign-in identifier. Changing it requires your current password.")}
                     >
                         <input
                             type="email"
@@ -130,7 +130,7 @@ export default function AccountSettings() {
                         />
                     </FormGroup>
                     {emailChanged && (
-                        <FormGroup label={ta('current_password_label', 'Contrasenya actual')}>
+                        <FormGroup label={ta('current_password_label', "Current password")}>
                             <input
                                 type="password"
                                 className="gnosi-input"
@@ -143,15 +143,15 @@ export default function AccountSettings() {
                     <div>
                         <button type="submit" disabled={!profileDirty || savingProfile} style={buttonStyle(!profileDirty || savingProfile)}>
                             {savingProfile ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-                            {ta('save_btn', 'Desa els canvis')}
+                            {ta('save_btn', "Save changes")}
                         </button>
                     </div>
                 </form>
             </Section>
 
-            <Section title={ta('password_section', 'Canvi de contrasenya')} icon={KeyRound}>
+            <Section title={ta('password_section', "Change password")} icon={KeyRound}>
                 <form onSubmit={handleChangePassword} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    <FormGroup label={ta('current_password_label', 'Contrasenya actual')}>
+                    <FormGroup label={ta('current_password_label', "Current password")}>
                         <input
                             type="password"
                             className="gnosi-input"
@@ -161,8 +161,8 @@ export default function AccountSettings() {
                         />
                     </FormGroup>
                     <FormGroup
-                        label={ta('new_password_label', 'Contrasenya nova')}
-                        description={ta('new_password_desc', 'Mínim 8 caràcters; els accents compten doble al límit de 72 bytes.')}
+                        label={ta('new_password_label', "New password")}
+                        description={ta('new_password_desc', "At least 8 characters; accented characters count double towards the 72-byte limit.")}
                     >
                         <input
                             type="password"
@@ -172,7 +172,7 @@ export default function AccountSettings() {
                             autoComplete="new-password"
                         />
                     </FormGroup>
-                    <FormGroup label={ta('repeat_password_label', 'Repeteix la contrasenya nova')}>
+                    <FormGroup label={ta('repeat_password_label', "Repeat the new password")}>
                         <input
                             type="password"
                             className="gnosi-input"
@@ -184,7 +184,7 @@ export default function AccountSettings() {
                     <div>
                         <button type="submit" disabled={savingPassword} style={buttonStyle(savingPassword)}>
                             {savingPassword ? <Loader2 size={15} className="animate-spin" /> : <KeyRound size={15} />}
-                            {ta('change_password_btn', 'Canvia la contrasenya')}
+                            {ta('change_password_btn', "Change password")}
                         </button>
                     </div>
                 </form>

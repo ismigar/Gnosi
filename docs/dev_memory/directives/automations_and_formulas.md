@@ -87,4 +87,9 @@ Formulas AND rollups are both derived fields evaluated at save (`RuleEngine._eva
 - Formula syntax is `simpleeval` (safe subset): use the Python ternary `a if cond else b`, NOT `if(cond,a,b)` (unsupported → `SyntaxError`).
 - Tests: `backend/tests/test_rule_engine_derived_order.py` (formula→rollup, rollup→formula, mixed cycle, no-regression formula-only). Run: `cd monorepo/apps/gnosi && GNOSI_LOCAL_DATA=<scratch> .venv/bin/python -m pytest backend/tests/test_rule_engine_derived_order.py`.
 
-> Nota: `rule_engine` evalua i **materialitza** els derivats al frontmatter en desar; `virtual_fields.py` en calcula d'altres **en llegir**. Són dos mecanismes vius i complementaris (la directiva `vault_derived_progress_field.md` va triar virtual fields per al camp Progrés; no vol dir que els rollups de rule_engine siguin codi mort — `process_updates` es crida a cada save des de `vault_routes.py`).
+> Note: `rule_engine` evaluates and **materializes** derived values in
+> frontmatter on save, while `virtual_fields.py` calculates other values **on
+> read**. Both mechanisms are active and complementary. The
+> `vault_derived_progress_field.md` directive selected virtual fields for the
+> Progress field; this does not make `rule_engine` rollups dead code.
+> `vault_routes.py` calls `process_updates` on every save.

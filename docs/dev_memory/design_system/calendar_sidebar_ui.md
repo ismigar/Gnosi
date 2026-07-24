@@ -1,23 +1,22 @@
-# Directiva: Modificació UI Sidebar Calendari
+# Calendar Sidebar UI
 
-## Descripció
-Aquesta directiva guia la modificació de la interfície d'usuari (UI) del sidebar lateral esquerre del calendari a Gnosi. L'objectiu és centralitzar les accions de gestió de calendaris en un encapçalament superior i netejar la part inferior del sidebar.
+## Objective
 
-## Passos de la Operació
-1. **Identificació del Component:** El component principal és `CalendarSidebarLeft.jsx`.
-2. **Afegir Encapçalament de Secció:**
-   - Inserir un `div` entre la línia de separació (`<hr />`) i la llista de fonts.
-   - Utilitzar `flex justify-between` per al títol i el botó.
-   - Traduir el títol "Calendaris" i el "tooltip" del botó "+" usant `i18next`.
-3. **Gestió de Marges:**
-   - Aplicar el marge horitzontal especificat (11px) al contenidor de la llista de fonts.
-   - Usar classes de Tailwind arbitràries com `px-[11px]` per a precisió.
-4. **Neteja de la Interfície:**
-   - Eliminar qualsevol botó d'afegit redundant a la part inferior del sidebar per evitar confusió.
-5. **Actualització de Traduccions:**
-   - Assegurar que les noves claus de traducció s'afegeixen a `ca.json`, `es.json` i `en.json`.
+Centralize calendar-management actions in a clean sidebar header and remove
+redundant controls from the footer.
 
-## Restriccions i Casos de Bord
-- **Transicions:** Assegurar que el botó "+" tingui una transició de color consistent amb la resta de la UI.
-- **Truncament:** El títol de la secció hauria de ser curt per evitar problemes en mides de sidebar reduïdes.
-- **Acció del Botó:** L'acció de disparar un `CustomEvent` anomenat `open-settings` és l'estàndard per obrir modals de configuració des de qualsevol lloc de l'app.
+## Rules
+
+- Place the add/manage action in the top section.
+- Remove duplicate add buttons at the bottom.
+- Use the standard application event for opening settings.
+- Apply the same hover and color transition as other compact icon actions.
+- Route every label and tooltip through i18n.
+- Add every key to Catalan, English, Spanish, and French resources; English is
+  the default.
+
+## QA
+
+Verify the action opens the correct settings section, no duplicate control
+remains, focus and tooltip behavior are accessible, and the sidebar works in
+light/dark and narrow layouts.

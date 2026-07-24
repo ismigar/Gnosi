@@ -220,7 +220,7 @@ class ImapMailSyncService:
         """
         account_data = self._get_account_data(email_account)
         if not account_data:
-            log.warning(f"[IMAP] Compte no trobat: {email_account}")
+            log.warning(f"[IMAP] Account not found: {email_account}")
             yield None
             return
 
@@ -234,12 +234,12 @@ class ImapMailSyncService:
         imap_password = account_data.get("imap_password")
 
         if not imap_host or not imap_user:
-            log.error(f"[IMAP] Manquen host/user per a {email_account}")
+            log.error(f"[IMAP] Missing host or user for {email_account}")
             yield None
             return
 
         if not is_oauth and not imap_password:
-            log.error(f"[IMAP] No password per a {email_account} (no-OAuth)")
+            log.error(f"[IMAP] No password for {email_account} (non-OAuth)")
             yield None
             return
 
@@ -260,11 +260,11 @@ class ImapMailSyncService:
                 try:
                     access_token, _ = ensure_fresh_token(email_account)
                 except OAuth2RefreshError:
-                    log.error(f"[IMAP-XOAUTH2] Refresh_token caducat per {email_account}")
+                    log.error(f"[IMAP-XOAUTH2] Refresh_token expired for {email_account}")
                     yield None
                     return
                 if not access_token:
-                    log.error(f"[IMAP-XOAUTH2] Sense access_token per {email_account}")
+                    log.error(f"[IMAP-XOAUTH2] Missing access_token for {email_account}")
                     yield None
                     return
                 xoauth2_imap_login(imap, email_account, access_token)
@@ -273,13 +273,13 @@ class ImapMailSyncService:
                 imap.login(imap_user, imap_password)
             yield imap
         except imaplib.IMAP4.error as e:
-            log.error(f"[IMAP] Error d'autenticació per a {email_account} ({imap_host}:{imap_port}): {e}")
+            log.error(f"[IMAP] Authentication error for {email_account} ({imap_host}:{imap_port}): {e}")
             yield None
         except (socket.gaierror, socket.timeout, ConnectionRefusedError, OSError) as e:
-            log.error(f"[IMAP] No s'ha pogut connectar a {imap_host}:{imap_port} per a {email_account}: {e}")
+            log.error(f"[IMAP] Could not connect to {imap_host}:{imap_port} for {email_account}: {e}")
             yield None
         except Exception:
-            log.exception(f"[IMAP] Error inesperat connectant per a {email_account}")
+            log.exception(f"[IMAP] Unexpected connection error for {email_account}")
             yield None
         finally:
             if imap:
@@ -332,10 +332,10 @@ class ImapMailSyncService:
         try:
             status, _ = imap.select(_imap_name(folder_name), readonly=True)
             if status != "OK":
-                log.warning(f"[IMAP] No s'ha pogut seleccionar: {folder_name}")
+                log.warning(f"[IMAP] Could not select folder: {folder_name}")
                 return 0
         except Exception as e:
-            log.warning(f"[IMAP] Error seleccionant {folder_name}: {e}")
+            log.warning(f"[IMAP] Error selecting {folder_name}: {e}")
             return 0
 
         # Get all UIDs on server (excludes \Deleted-flagged)
@@ -379,7 +379,7 @@ class ImapMailSyncService:
                 count += 1
 
         if count:
-            log.info(f"[IMAP]   {count} nous missatges descarregats de {folder_name}")
+            log.info(f"[IMAP]   Downloaded {count} new messages from {folder_name}")
 
         # --- Sync flags for recent messages already in vault ---
         recent_uids = sorted(server_uids, key=lambda x: int(x) if x.isdigit() else 0, reverse=True)[:limit]
@@ -425,11 +425,11 @@ class ImapMailSyncService:
                     if html.exists():
                         html.unlink(missing_ok=True)
                     removed += 1
-                    log.info(f"[IMAP] Reconciliat (eliminat del servidor): {file_path.name}")
+                    log.info(f"[IMAP] Reconciled (deleted from server): {file_path.name}")
             except Exception as e:
-                log.debug(f"[IMAP] Error reconciliant {file_path.name}: {e}")
+                log.debug(f"[IMAP] Error reconciling {file_path.name}: {e}")
         if removed:
-            log.info(f"[IMAP] Reconciliació {folder_name}: {removed} fitxers eliminats del Vault")
+            log.info(f"[IMAP] Reconciliation for {folder_name}: {removed} files deleted from the Vault")
 
     def _get_vault_uids(self, email_account: str, folder_name: str) -> set:
         """Return set of imap_uid strings already in vault for this account+folder."""
@@ -572,7 +572,7 @@ class ImapMailSyncService:
             return True
 
         except Exception as e:
-            log.error(f"[IMAP] Error descarregant UID {uid}: {e}")
+            log.error(f"[IMAP] Error downloading UID {uid}: {e}")
             return False
 
     def _extract_body(self, msg) -> tuple[str, str]:
@@ -692,7 +692,7 @@ class ImapMailSyncService:
             imap.expunge()
             return True
         except Exception as e:
-            log.error(f"[IMAP] Error movent UID {uid} de {from_folder} a {to_folder}: {e}")
+            log.error(f"[IMAP] Error moving UID {uid} from {from_folder} to {to_folder}: {e}")
             return False
 
     def _find_server_folder(self, imap, target_type: str) -> Optional[str]:
@@ -736,7 +736,7 @@ class ImapMailSyncService:
                 name = name.strip().strip('"')
                 if name:
                     names.append(name)
-            log.info(f"[IMAP] Totes les carpetes de {email_account}: {names}")
+            log.info(f"[IMAP] All folders for {email_account}: {names}")
             return names
 
     def move_message(self, email_account: str, message_id: str, target_folder: str) -> bool:
@@ -750,7 +750,7 @@ class ImapMailSyncService:
         from_folder = meta.get("imap_folder")
 
         if not uid or not from_folder:
-            log.warning(f"[IMAP] Missatge {message_id} sense UID/folder, no es pot moure al servidor")
+            log.warning(f"[IMAP] Message {message_id} has no UID or folder; cannot move it on the server")
             return False
 
         if from_folder.lower() == target_folder.lower():
@@ -764,7 +764,7 @@ class ImapMailSyncService:
             folders = _discover_folders(imap)
             folder_names = [n for n, _ in folders]
             if target_folder not in folder_names:
-                log.error(f"[IMAP] Carpeta destí no trobada: {target_folder}")
+                log.error(f"[IMAP] Destination folder not found: {target_folder}")
                 return False
 
             target_type = next((t for n, t in folders if n == target_folder), "Received")
@@ -788,11 +788,11 @@ class ImapMailSyncService:
             updates["imap_uid"] = new_uid if new_uid else ""
             if not new_uid:
                 log.warning(
-                    f"[IMAP] No s'ha pogut recuperar el nou UID a {target_folder} "
-                    f"per Message-ID {message_id}; reconciliació posterior el reassignarà."
+                    f"[IMAP] Could not recover the new UID in {target_folder} "
+                    f"for Message-ID {message_id}; a later reconciliation will reassign it."
                 )
             self._update_vault_file(vault_file, updates)
-            log.info(f"[IMAP] Missatge {message_id} mogut de {from_folder} a {target_folder}")
+            log.info(f"[IMAP] Message {message_id} moved from {from_folder} to {target_folder}")
         return True
 
     def _lookup_uid_by_message_id(self, imap, folder_name: str, message_id: str) -> Optional[str]:
@@ -819,7 +819,7 @@ class ImapMailSyncService:
             last = uids[-1]
             return last.decode() if isinstance(last, bytes) else str(last)
         except Exception as e:
-            log.debug(f"[IMAP] Error buscant UID per Message-ID {message_id} a {folder_name}: {e}")
+            log.debug(f"[IMAP] Error looking up UID by Message-ID {message_id} in {folder_name}: {e}")
             return None
 
     def move_message_by_uid(self, email_account: str, uid: str, from_folder: str, target_folder: str) -> bool:
@@ -832,11 +832,11 @@ class ImapMailSyncService:
             folders = _discover_folders(imap)
             folder_names = [n for n, _ in folders]
             if target_folder not in folder_names:
-                log.error(f"[IMAP] Carpeta destí no trobada: {target_folder}")
+                log.error(f"[IMAP] Destination folder not found: {target_folder}")
                 return False
             ok = self._move_on_server(imap, uid, from_folder, target_folder)
             if ok:
-                log.info(f"[IMAP] Missatge UID {uid} mogut de {from_folder} a {target_folder}")
+                log.info(f"[IMAP] Message UID {uid} moved from {from_folder} to {target_folder}")
             return ok
 
     def trash_message(self, email_account: str, message_id: str, imap_folder: Optional[str] = None) -> bool:
@@ -855,7 +855,7 @@ class ImapMailSyncService:
             from_folder = imap_folder
 
         if not uid or not from_folder:
-            log.warning(f"[IMAP] Missatge {message_id} sense UID/folder, no es pot moure al servidor")
+            log.warning(f"[IMAP] Message {message_id} has no UID or folder; cannot move it on the server")
             return bool(vault_file)
 
         with self._connect(email_account) as imap:
@@ -863,14 +863,14 @@ class ImapMailSyncService:
                 return bool(vault_file)
             to_folder = self._find_server_folder(imap, "Deleted")
             if not to_folder:
-                log.warning(f"[IMAP] No s'ha trobat carpeta Trash per a {email_account}")
+                log.warning(f"[IMAP] Trash folder not found for {email_account}")
                 return bool(vault_file)
             if from_folder.lower() == to_folder.lower():
                 return True  # already in trash
             ok = self._move_on_server(imap, uid, from_folder, to_folder)
             if ok and vault_file:
                 self._update_vault_file(vault_file, {"imap_folder": to_folder})
-                log.info(f"[IMAP] Missatge {message_id} mogut a {to_folder}")
+                log.info(f"[IMAP] Message {message_id} moved to {to_folder}")
         return True
 
     def archive_message(self, email_account: str, message_id: str, imap_folder: Optional[str] = None) -> bool:
@@ -895,14 +895,14 @@ class ImapMailSyncService:
                 return bool(vault_file)
             to_folder = self._find_server_folder(imap, "Archived")
             if not to_folder:
-                log.warning(f"[IMAP] No s'ha trobat carpeta Archive per a {email_account}")
+                log.warning(f"[IMAP] Archive folder not found for {email_account}")
                 return bool(vault_file)
             if from_folder.lower() == to_folder.lower():
                 return True
             ok = self._move_on_server(imap, uid, from_folder, to_folder)
             if ok and vault_file:
                 self._update_vault_file(vault_file, {"imap_folder": to_folder})
-                log.info(f"[IMAP] Missatge {message_id} arxivat a {to_folder}")
+                log.info(f"[IMAP] Message {message_id} archived in {to_folder}")
         return True
 
     def star_message(self, email_account: str, message_id: str, starred: bool) -> bool:
@@ -930,7 +930,7 @@ class ImapMailSyncService:
                 imap.uid("store", uid_b, flag_op, "\\Flagged")
                 log.info(f"[IMAP] \\Flagged {'afegit' if starred else 'tret'} per UID {uid}")
             except Exception as e:
-                log.error(f"[IMAP] Error actualitzant \\Flagged: {e}")
+                log.error(f"[IMAP] Error updating \\Flagged: {e}")
         return True
 
     def mark_read(
@@ -984,7 +984,7 @@ class ImapMailSyncService:
                 imap.uid("store", uid_b, flag_op, "\\Seen")
                 log.info(f"[IMAP] \\Seen {'afegit' if is_read else 'tret'} per UID {uid} a {folder}")
             except Exception as e:
-                log.error(f"[IMAP] Error actualitzant \\Seen: {e}")
+                log.error(f"[IMAP] Error updating \\Seen: {e}")
                 return bool(vault_file)
         return True
 
@@ -1027,7 +1027,7 @@ class ImapMailSyncService:
                             log.debug(f"[IMAP] Failed to clean local file {f}: {ex}")
                 return True
             except Exception as e:
-                log.error(f"[IMAP] Error buidant carpeta {folder_name}: {e}")
+                log.error(f"[IMAP] Error emptying folder {folder_name}: {e}")
                 return False
 
     # ------------------------------------------------------------------
@@ -1062,7 +1062,7 @@ class ImapMailSyncService:
 
             drafts_folder = self._find_server_folder(imap, "Draft")
             if not drafts_folder:
-                log.warning(f"[IMAP] No s'ha trobat carpeta Drafts per a {email_account}")
+                log.warning(f"[IMAP] Drafts folder not found for {email_account}")
                 return None
 
             content_type = "html" if body.strip().startswith("<") else "plain"
@@ -1089,7 +1089,7 @@ class ImapMailSyncService:
                         imap.uid("store", uid_b, "+FLAGS", "\\Deleted")
                         imap.expunge()
                     except Exception as e:
-                        log.debug(f"[IMAP] No s'ha pogut esborrar draft antic UID={replace_uid}: {e}")
+                        log.debug(f"[IMAP] Could not delete old draft UID={replace_uid}: {e}")
 
                 # APPEND with the \Draft flag. RFC 3501 section 6.3.11.
                 date_time = imaplib.Time2Internaldate(time.time())
@@ -1149,12 +1149,12 @@ class ImapMailSyncService:
             if imap is None:
                 return []
 
-            # Verifiquem capacitat X-GM-EXT-1
+            # Check X-GM-EXT-1 capability.
             try:
                 _, caps_data = imap.capability()
                 caps = b" ".join(caps_data).decode().upper() if caps_data else ""
                 if "X-GM-EXT-1" not in caps:
-                    log.debug(f"[IMAP] Servidor sense X-GM-EXT-1 per {email_account}")
+                    log.debug(f"[IMAP] Server without X-GM-EXT-1 for {email_account}")
                     return []
             except Exception:
                 return []
@@ -1165,7 +1165,7 @@ class ImapMailSyncService:
             try:
                 status, _ = imap.select(_imap_name(all_mail), readonly=True)
                 if status != "OK":
-                    log.warning(f"[IMAP] No s'ha pogut seleccionar {all_mail}")
+                    log.warning(f"[IMAP] Could not select {all_mail}")
                     return []
 
                 # Search by X-GM-THRID. Format: `X-GM-THRID 1234567890123456789`
@@ -1232,7 +1232,7 @@ class ImapMailSyncService:
                 messages.sort(key=_ts)
                 return messages
             except Exception as e:
-                log.error(f"[IMAP] Error obtenint thread {gm_thrid} per {email_account}: {e}")
+                log.error(f"[IMAP] Error retrieving thread {gm_thrid} for {email_account}: {e}")
                 return []
 
 
@@ -1306,7 +1306,7 @@ def imap_smtp_send(
             log.error(f"[SMTP-XOAUTH2] {e}")
             return False
         if not access_token:
-            log.error(f"[SMTP-XOAUTH2] Sense access_token per {account.get('email')}")
+            log.error(f"[SMTP-XOAUTH2] Missing access_token for {account.get('email')}")
             return False
 
     def _authenticate(server):
@@ -1333,8 +1333,8 @@ def imap_smtp_send(
                     server.ehlo()
                 _authenticate(server)
                 server.sendmail(sender_email, recipients, msg.as_bytes())
-        log.info(f"[SMTP{'-XOAUTH2' if is_oauth else ''}] Missatge enviat de {sender_email} a {to}")
+        log.info(f"[SMTP{'-XOAUTH2' if is_oauth else ''}] Message sent from {sender_email} to {to}")
         return True
     except Exception as e:
-        log.error(f"[SMTP] Error enviant de {sender_email}: {e}")
+        log.error(f"[SMTP] Error sending from {sender_email}: {e}")
         return False

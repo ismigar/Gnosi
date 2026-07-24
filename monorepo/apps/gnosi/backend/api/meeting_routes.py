@@ -34,7 +34,7 @@ async def record_meeting(
 ):
     """Receives the audio, saves it, and starts background processing."""
     if meeting_notes.get_status().get("running"):
-        raise HTTPException(status_code=409, detail="Ja s'està processant una reunió.")
+        raise HTTPException(status_code=409, detail="A meeting is already being processed.")
 
     dest = _audio_dir() / f"meeting_{uuid.uuid4().hex}.webm"
     try:
@@ -45,10 +45,10 @@ async def record_meeting(
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"No s'ha pogut desar l'àudio: {e}")
+        raise HTTPException(status_code=500, detail=f"Could not save the audio: {e}")
 
     if not meeting_notes.start_async(str(dest), title, mode):
-        raise HTTPException(status_code=409, detail="Ja s'està processant una reunió.")
+        raise HTTPException(status_code=409, detail="A meeting is already being processed.")
     return {"status": "started"}
 
 

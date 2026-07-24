@@ -56,7 +56,7 @@ def ensure_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
     if existing:
         if existing.get("managed_by") != LLM_WIKI_AGENT_MARKER:
             raise LlmWikiAgentError(
-                "L'id reservat 'llm-wiki' ja pertany a un altre agent; no s'ha modificat."
+                "The reserved 'llm-wiki' ID already belongs to another agent; it was not changed."
             )
         next_ai["agents"] = agents
         return next_ai, False
@@ -91,7 +91,7 @@ def remove_agent(ai_config: dict[str, Any]) -> tuple[dict[str, Any], bool]:
         return next_ai, False
     if existing.get("managed_by") != LLM_WIKI_AGENT_MARKER:
         raise LlmWikiAgentError(
-            "L'id reservat 'llm-wiki' no és gestionat pel plugin i no es pot eliminar."
+            "The reserved 'llm-wiki' ID is not managed by the plugin and cannot be removed."
         )
     next_ai["agents"] = [agent for agent in agents if agent is not existing]
     if next_ai.get("active_agent_id") == LLM_WIKI_AGENT_ID:
@@ -112,7 +112,7 @@ def validate_agent_preserved(current_ai: dict[str, Any], requested_ai: dict[str,
     requested = _managed_agent(list(requested_ai.get("agents") or []))
     if not requested or requested.get("managed_by") != LLM_WIKI_AGENT_MARKER:
         raise LlmWikiAgentError(
-            "L'agent del Cervell només es pot eliminar en desactivar el plugin LLM Wiki."
+            "The Brain agent can only be removed by disabling the LLM Wiki plugin."
         )
 
 
@@ -126,7 +126,7 @@ def transition_agent(enabled: bool) -> dict[str, Any]:
             try:
                 persisted = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
             except (OSError, yaml.YAMLError) as exc:
-                raise LlmWikiAgentError(f"No s'ha pogut llegir la configuració d'IA: {exc}") from exc
+                raise LlmWikiAgentError(f"Could not read the AI configuration: {exc}") from exc
         if not isinstance(persisted, dict):
             persisted = {}
 

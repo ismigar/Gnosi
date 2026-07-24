@@ -1,52 +1,95 @@
-# Directive: Gnosi Settings and Internationalization (i18n)
+# Directive: Gnosi Settings and Internationalization
 
-## Context
-Gnosi requires a robust way to manage user preferences (Language, Timezone, Currency, Week Start) and storage paths (Vault, Databases, Newsletters). These settings must be persistent across sessions and reflected in both Frontend and Backend.
+## Objective
 
-## Storage Protocol
+Manage language, timezone, currency, week start, formatting, and storage paths
+through one persistent configuration while keeping English as the deterministic
+first-run language.
 
-### 1. Persistence Layer
-- All global settings and paths must be stored in `monorepo/apps/Gnosi/config/params.yaml`.
-- The backend remains the source of truth for these configurations, exposed via `/api/config`.
-- Avoid using `localStorage` for anything that needs to be shared with the backend or consistent across devices (except for UI-only transient states if strictly necessary).
+## Storage protocol
 
-### 2. Schema
-Add a `settings` section to `params.yaml`:
+- The backend is the source of truth for shared settings and exposes them
+  through `/api/config`.
+- The tracked example lives at
+  `monorepo/apps/gnosi/config/params.yaml.example`.
+- The active values can come from the local base configuration, the active
+  vault's `.gnosi/params.yaml`, or `~/.gnosi/params.yaml`; the precedence is
+  implemented in `backend/config/app_config.py`.
+- `localStorage` may hold the browser's explicit interface-language choice and
+  other UI-only preferences. It must not store secrets or settings that backend
+  services need.
+
+Recommended settings shape:
+
 ```yaml
 settings:
-  language: "ca"          # ca, es, en, fr
-  timezone: "Europe/Madrid" # IANA Timezone string
-  currency: "EUR"         # ISO Currency code
-  week_start: 1           # 0 (Sun) to 6 (Sat)
+  language: en            # en, es, fr, ca
+  timezone: UTC           # IANA timezone string
+  currency: EUR           # ISO currency code
+  week_start: 1           # 0 (Sunday) through 6 (Saturday)
   use_system_defaults: true
 paths:
-  vault: "vault"          # Relative to PROJECT_DIR or absolute
-  databases: "backend/data"
-  newsletters: "backend/data/newsletters"
+  vault: ~/Documents/Gnosi
+  databases: ''
+  newsletters: ''
 ```
 
-## i18n Protocol
+## Language precedence
 
-### 1. Unified Interface
-- All user-facing strings must be extracted to `frontend/src/locales/[lang]/translation.json`.
-- Use the `useTranslation` hook from `react-i18next` in components.
-- Avoid hardcoding strings in any language.
+Resolve the interface language in this order:
 
-### 2. Language Detection
-- On first load, if no language is set in `params.yaml`, fall back to system detection (`i18next-browser-languagedetector`).
-- Once a user selects a language, save it to the backend.
+1. A valid browser preference explicitly selected by the user.
+2. A valid `settings.language` value returned by `/api/config`.
+3. English (`en`).
 
-## Path Management
+Missing, blank, regional, or invalid values must be normalized. Supported
+regional tags such as `en-GB` and `ca-AD` resolve to their base language;
+unsupported values resolve to English.
 
-### 1. Resolution
-- Use `Path` from `pathlib` in Python to resolve paths.
-- Paths in `params.yaml` can be relative (to `PROJECT_DIR`) or absolute.
-- Always validate that the path exists and is writable before applying it in the UI.
+Do not use browser or operating-system language detection as an implicit
+first-run preference. It makes the initial interface depend on the machine
+instead of the product default.
 
-### 2. Dynamic Loading
-- Services (Graph, Vault, etc.) must read their paths from the `Config` object initialized from `params.yaml`.
+When the user selects a language, update the live i18n instance immediately,
+persist the browser preference, and save the setting through the existing
+configuration autosave.
 
-## Constraints & Edge Cases
-- **Invalid Paths**: If a configured path is invalid, fall back to the project default and log a warning.
-- **Missing Translations**: If a key is missing in the target language, fall back to English (`en`).
-- **Timezone mismatch**: Ensure the frontend uses the configured timezone for date display, not just the browser local time (if they differ).
+## User-facing text
+
+- Every React user-facing string must use `react-i18next`.
+- Add each new key to
+  `frontend/src/locales/{ca,en,es,fr}/translation.json` in the same change.
+- English is the fallback catalog.
+- Inline `defaultValue` text, when needed, must be English.
+- Preserve language endonyms (`English`, `Español`, `Français`, `Català`).
+- Do not translate persisted values, field identifiers, paths, or strings used
+  for comparison.
+
+## Path management
+
+- Resolve paths with `pathlib.Path`.
+- Paths may be absolute or relative to the configured project/vault root.
+- Validate existence and permissions before applying a path from the UI.
+- Services must consume resolved paths from the active `Config` object.
+
+## Edge cases
+
+- Invalid paths fall back to the project default and produce an English
+  developer warning.
+- Missing translation keys fall back to English, but catalog parity must still
+  be treated as required QA.
+- Formatting may follow an explicit decimal/date setting independently of the
+  interface language.
+- Backend configuration may be unavailable before organization-mode login.
+  The login screen remains English unless the browser already has an explicit
+  language preference; the saved choice applies once configuration is
+  available.
+
+## Required validation
+
+- Unit-test missing, invalid, regional, backend, and stored language values.
+- Confirm a clean browser profile starts in English.
+- Confirm selecting Catalan, Spanish, or French changes the interface
+  immediately and survives reload.
+- Confirm `/api/config` returns `settings.language: en` when the source value is
+  missing or invalid.

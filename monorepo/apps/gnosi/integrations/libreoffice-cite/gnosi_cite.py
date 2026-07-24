@@ -73,7 +73,7 @@ STYLE_VALUES = ["apa", "chicago-author-date", "modern-language-association", "ie
 # Fixed locale (not exposed in the UI; parity with the Word Add-in). Kept
 # as a constant because the backend endpoints expect it and the config
 # saves it, but the dialog no longer shows any selector for it.
-DEFAULT_LOCALE = "ca-AD"
+DEFAULT_LOCALE = "en-US"
 
 DEFAULTS = {
     "backend_url": "http://localhost:5002",
@@ -448,7 +448,7 @@ class DocOps(object):
             cur.ParaStyleName = "Heading 1"
         except Exception:
             pass
-        text.insertString(cur, "Bibliografia", False)
+        text.insertString(cur, "Bibliography", False)
         text.insertControlCharacter(cur, PARAGRAPH_BREAK, False)
         try:
             cur.ParaStyleName = "Standard"
@@ -498,7 +498,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
 
         self._add("FixedText", "lblSearch",
                   {"PositionX": 6, "PositionY": 6, "Width": 40, "Height": 10,
-                   "Label": "Cerca:"})
+                   "Label": "Search:"})
         self._add("Edit", "txtSearch",
                   {"PositionX": 48, "PositionY": 4, "Width": 206, "Height": 13})
         self._add("ListBox", "lstResults",
@@ -507,17 +507,17 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
 
         self._add("FixedText", "lblStyle",
                   {"PositionX": 6, "PositionY": 148, "Width": 28, "Height": 10,
-                   "Label": "Estil:"})
+                   "Label": "Style:"})
         self._add("ListBox", "lstStyle",
                   {"PositionX": 36, "PositionY": 146, "Width": 218, "Height": 13,
                    "Dropdown": True, "StringItemList": tuple(STYLE_LABELS)})
 
         self._add("Button", "btnInsert",
                   {"PositionX": 6, "PositionY": 166, "Width": 80, "Height": 14,
-                   "Label": "Insereix cita"})
+                   "Label": "Insert citation"})
         self._add("Button", "btnBib",
                   {"PositionX": 90, "PositionY": 166, "Width": 164, "Height": 14,
-                   "Label": "Insereix bibliografia"})
+                   "Label": "Insert bibliography"})
 
         self._add("FixedText", "lblStatus",
                   {"PositionX": 6, "PositionY": 186, "Width": 248, "Height": 20,
@@ -525,7 +525,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
 
         self._add("Button", "btnSettings",
                   {"PositionX": 6, "PositionY": 212, "Width": 80, "Height": 14,
-                   "Label": "Configuració…"})
+                   "Label": "Settings…"})
         self._add("Button", "btnClose",
                   {"PositionX": 178, "PositionY": 212, "Width": 76, "Height": 14,
                    "Label": "Tanca"})
@@ -585,7 +585,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         # Initial load (no filter).
         self._do_search()
         if not self.api.ping():
-            self._status("Avís: sense connexió amb Gnosi (%s)." % self.api.base)
+            self._status("Warning: no connection to Gnosi (%s)." % self.api.base)
         self.dialog.execute()
         self.dialog.dispose()
 
@@ -629,7 +629,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
             self.results = self.api.search(query)
         except urllib.error.URLError:
             self.results = []
-            self._status("Sense connexió amb Gnosi (%s)." % self.api.base)
+            self._status("No connection to Gnosi (%s)." % self.api.base)
             return
         except Exception as exc:
             self.results = []
@@ -672,7 +672,7 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         except Exception:
             pos = -1
         if pos is None or pos < 0 or pos >= len(self.results):
-            self._status("Selecciona una referència de la llista.")
+            self._status("Select a reference from the list.")
             return
         item = self.results[pos]
         key = item.get("citation_key")
@@ -706,39 +706,39 @@ class CiteDialog(unohelper.Base, XActionListener, XTextListener):
         try:
             n, missing = self.ops.insert_bibliography(self.api, style, locale)
         except urllib.error.URLError:
-            self._status("Sense connexió amb Gnosi (%s)." % self.api.base)
+            self._status("No connection to Gnosi (%s)." % self.api.base)
             return
         except Exception as exc:
             self._status("Error: %s" % exc)
             return
         if n and missing:
             self._status(
-                "Bibliografia inserida amb %d entrades. Sense resoldre: %s"
+                "Bibliography inserted with %d entries. Unresolved: %s"
                 % (n, ", ".join(missing))
             )
         elif n:
-            self._status("Bibliografia inserida amb %d entrades." % n)
+            self._status("Bibliography inserted with %d entries." % n)
         elif missing:
-            self._status("Cap cita resolta. Sense resoldre: %s" % ", ".join(missing))
+            self._status("No citations resolved. Unresolved: %s" % ", ".join(missing))
         else:
-            self._status("No s'han trobat cites al document.")
+            self._status("No citations were found in the document.")
 
     def _refresh_all(self):
         style, locale = self._persist()
         try:
             n, err = self.ops.refresh_all(self.api, style, locale)
         except urllib.error.URLError:
-            self._status("Sense connexió amb Gnosi (%s)." % self.api.base)
+            self._status("No connection to Gnosi (%s)." % self.api.base)
             return
         except Exception as exc:
             self._status("Error: %s" % exc)
             return
         if err == "no-cites":
-            self._status("No s'han trobat cites al document.")
+            self._status("No citations were found in the document.")
         elif err:
-            self._status("No s'ha pogut reformatar.")
+            self._status("Could not reformat citations.")
         else:
-            self._status("Cites reformatades amb context APA: %d." % n)
+            self._status("Citations reformatted with APA context: %d." % n)
 
     # -- XTextListener --------------------------------------------------
 
@@ -797,7 +797,7 @@ class SettingsDialog(unohelper.Base, XActionListener):
         )
         self.dmodel.Width = 240
         self.dmodel.Height = 80
-        self.dmodel.Title = "Gnosi Cite — Configuració"
+        self.dmodel.Title = "Gnosi Cite — Settings"
 
         self._add("FixedText", "lbl",
                   {"PositionX": 6, "PositionY": 6, "Width": 228, "Height": 10,
@@ -811,7 +811,7 @@ class SettingsDialog(unohelper.Base, XActionListener):
                    "MultiLine": True})
         self._add("Button", "btnOk",
                   {"PositionX": 78, "PositionY": 58, "Width": 70, "Height": 14,
-                   "Label": "Desa"})
+                   "Label": "Save"})
         self._add("Button", "btnCancel",
                   {"PositionX": 154, "PositionY": 58, "Width": 70, "Height": 14,
                    "Label": "Cancel·la"})
@@ -902,29 +902,29 @@ class GnosiCiteHandler(unohelper.Base, XServiceInfo, XDispatchProvider,
                 n, missing = ops.insert_bibliography(api, cfg["style"], cfg["locale"])
                 if n and missing:
                     self._msg(
-                        "Bibliografia inserida amb %d entrades.\nSense resoldre: %s"
+                        "Bibliography inserted with %d entries.\nUnresolved: %s"
                         % (n, ", ".join(missing))
                     )
                 elif n:
-                    self._msg("Bibliografia inserida amb %d entrades." % n)
+                    self._msg("Bibliography inserted with %d entries." % n)
                 elif missing:
                     self._msg(
-                        "Cap cita resolta. Sense resoldre: %s" % ", ".join(missing),
+                        "No citations resolved. Unresolved: %s" % ", ".join(missing),
                         error=True,
                     )
                 else:
-                    self._msg("No s'han trobat cites al document.")
+                    self._msg("No citations were found in the document.")
             elif cmd == "refreshAll":
                 n, err = ops.refresh_all(api, cfg["style"], cfg["locale"])
                 if err == "no-cites":
-                    self._msg("No s'han trobat cites al document.")
+                    self._msg("No citations were found in the document.")
                 elif err:
-                    self._msg("No s'ha pogut reformatar.")
+                    self._msg("Could not reformat citations.")
                 else:
-                    self._msg("Cites reformatades amb context APA: %d." % n)
+                    self._msg("Citations reformatted with APA context: %d." % n)
         except urllib.error.URLError:
             self._msg(
-                "Sense connexió amb Gnosi (%s).\nRevisa l'URL a «Configuració»."
+                "No connection to Gnosi (%s).\nCheck the URL under Settings."
                 % cfg.get("backend_url"),
                 error=True,
             )

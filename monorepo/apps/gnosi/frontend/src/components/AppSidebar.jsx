@@ -59,7 +59,7 @@ export function AppSidebar() {
 
     const handleLogout = async () => {
         await logout();
-        toast.success(t('sidebar.logged_out', 'Sessió tancada.'));
+        toast.success(t('sidebar.logged_out', "Signed out."));
     };
 
     useEffect(() => {
@@ -198,12 +198,12 @@ export function AppSidebar() {
                     {user && (
                         <button
                             className="app-sidebar__item"
-                            title={t('sidebar.logout_tooltip_title', '{{user}} — Tancar sessió', { user: user.name || user.email })}
+                            title={t('sidebar.logout_tooltip_title', "{{user}} — Sign out", { user: user.name || user.email })}
                             onClick={handleLogout}
                         >
                             <LogOut size={16} strokeWidth={1.5} />
                             <span className="app-sidebar__tooltip">
-                                <span>{t('sidebar.logout_tooltip_label', 'Tancar sessió ({{user}})', { user: user.name || user.email })}</span>
+                                <span>{t('sidebar.logout_tooltip_label', "Sign out ({{user}})", { user: user.name || user.email })}</span>
                             </span>
                         </button>
                     )}

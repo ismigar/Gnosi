@@ -231,9 +231,9 @@ class KeychainManager:
                 # that goes unnoticed (the user would assume the .enc file is
                 # encrypted as the name says).
                 log.warning(
-                    f"⚠️ GNOSI_MASTER_KEY no configurat — credencial '{key}' "
-                    f"escrita SENSE ENCRIPTAR a {storage_path}. Configura "
-                    f"GNOSI_MASTER_KEY per protegir-la."
+                    f"⚠️ GNOSI_MASTER_KEY is not configured — credential '{key}' "
+                    f"was written UNENCRYPTED to {storage_path}. Configure "
+                    f"GNOSI_MASTER_KEY to protect it."
                 )
                 safe_write_json(storage_path, data)
 

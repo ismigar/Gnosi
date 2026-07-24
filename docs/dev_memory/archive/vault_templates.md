@@ -56,19 +56,19 @@ Status: ACTIVE
 ## 7. Examples of Use
 
 - `POST /api/vault/pages` with `is_template: true` and `database_table_id: "uuid"`
-- Dry-run import from Connector importació Notion templates per table:
+- Dry-run import of Notion templates per table:
    - `python3 monorepo/apps/gnosi/pipeline/sandbox/import_notion_templates_per_table.py --dry-run`
 - Apply import to Vault:
    - `python3 monorepo/apps/gnosi/pipeline/sandbox/import_notion_templates_per_table.py --apply`
 
-## 7.1 Connector importació Notion Template Import SOP
+## 7.1 Notion template import SOP
 
 1. Read local tables from `GET /api/vault/registry`.
-2. Discover Connector importació Notion databases by table name using `POST /v1/search` (filter `object=database`).
-3. Query pages per Connector importació Notion database and detect template rows conservatively:
+2. Discover Notion databases by table name using `POST /v1/search` (filter `object=database`).
+3. Query pages in each Notion database and detect template rows conservatively:
     - Checkbox properties with names containing `template|plantilla|plantilles` set to `true`.
     - Select/status properties with names containing `template|plantilla|plantilles` whose value contains `template|plantilla`.
-4. Build markdown content from Connector importació Notion blocks.
+4. Build Markdown content from Notion blocks.
 5. De-duplicate against existing Vault templates using `metadata.notion_id`.
 6. Create templates via `POST /api/vault/pages` with metadata:
     - `is_template: true`

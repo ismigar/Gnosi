@@ -1,131 +1,81 @@
-# Sidecar Internal Metadata Directive
+# Sidecar Internal Metadata
 
-## Objectiu
+## Objective
 
-Mantenir el frontmatter dels fitxers `.md` del vault **net** d'estats interns
-del sistema (flags `_manual` del rule_engine, `is_template`, etc.), persistint
-aquests valors en un fitxer sidecar JSON a `<vault>/.gnosi/page_meta/<id>.json`.
+Keep internal rule-engine and template state out of user Markdown frontmatter.
+Persist it under:
 
-L'usuari ha de poder obrir el `.md` en qualsevol editor extern i veure només
-les seves dades semàntiques (title, tags, schema fields…), no la maquinària
-del rule_engine.
-
-## Claus que viuen al sidecar (NO al frontmatter)
-
-- `is_template` — marca de plantilla.
-- `is_default_template` — plantilla per defecte de la taula.
-- `*_manual` — flags posades pel rule_engine per indicar que un camp ha estat
-  editat manualment per l'usuari i no s'ha de sobreescriure automàticament.
-
-Qualsevol altra clau es queda al frontmatter (és contingut semàntic de la
-pàgina, no estat intern).
-
-## Estructura del fitxer sidecar
-
-```
+```text
 <vault>/.gnosi/page_meta/<page_id>.json
 ```
 
-Contingut (només els camps presents):
+External editors should show semantic page data, not application machinery.
 
-```json
-{
-  "is_template": true,
-  "title_manual": true,
-  "tags_manual": true
-}
-```
+## Sidecar keys
 
-Si no hi ha cap clau interna, **no es crea sidecar**. Si totes desapareixen,
-es **suprimeix** el sidecar.
+- `is_template`
+- `is_default_template`
+- Any `*_manual` flag used to protect a user-edited field from automatic
+  overwrite
 
-## Contracte de lectura
+All other properties remain in frontmatter.
 
-`parse_frontmatter(content, file_path)` retorna metadata fusionada:
-1. Parse YAML frontmatter del `.md`.
-2. Si `metadata.id` està disponible i `file_path` permet derivar el vault root
-   (ancestor amb `.gnosi/`), llegir sidecar JSON.
-3. Fusionar el sidecar dins de `metadata` (sidecar guanya per a les seves claus).
-4. Retornar `(metadata, body)`.
+Do not create an empty sidecar. Delete an existing sidecar when its internal
+metadata becomes empty.
 
-Si no es pot derivar el vault root o no existeix sidecar, no es modifica res
-i la pàgina manté el comportament previ (compatibilitat amb pàgines antigues
-no migrades).
+## Read contract
 
-## Contracte d'escriptura
+`parse_frontmatter(content, file_path)`:
 
-Tota escriptura de pàgina passa per `save_page_md(file_path, metadata, body)`:
-1. Split: separa claus sidecar de claus frontmatter via `split_metadata`.
-2. Generar frontmatter YAML sense les claus sidecar.
-3. `safe_write_text(file_path, frontmatter + body)`.
-4. Si el sidecar dict no és buit: `safe_write_json(sidecar_path)`.
-5. Si el sidecar dict és buit: eliminar el sidecar (cleanup).
+1. Parse Markdown YAML.
+2. Resolve the page ID and vault root.
+3. Read the matching sidecar when available.
+4. Merge only recognized internal keys, with sidecar values winning.
+5. Return metadata and body.
 
-Atomicitat: ambdues escriptures usen `safe_write_*`. Si la 2a falla, el `.md`
-queda escrit però el sidecar pot quedar desactualitzat. La pèrdua és
-acotada (un parell de bools); millor que corrupció.
+If the root or ID cannot be resolved, preserve legacy frontmatter behavior.
 
-## Migració de pàgines existents
+## Write contract
 
-Script idempotent: `pipeline/sandbox/migrate_sidecar_metadata.py`.
+Every page write passes through `save_page_md`:
 
-Funcionament:
-1. Recorre `<vault>/**/*.md` (exclou `.gnosi/`, `local_data/`, `Trash/`).
-2. Per cada fitxer: parse → split → si hi ha claus sidecar al frontmatter,
-   escriu el sidecar i reescriu el `.md` net.
-3. Idempotent: si el `.md` ja és net, no fa res.
-4. Reporta: fitxers escanejats / migrats / sense canvis / errors.
+1. Split frontmatter and sidecar keys.
+2. Atomically write clean Markdown.
+3. Atomically write a nonempty sidecar.
+4. Otherwise remove the stale sidecar.
 
-## Restriccions / Edge cases
+The two-file operation cannot be fully atomic. A sidecar failure may leave a
+small number of internal booleans stale, but must never corrupt Markdown.
 
-- **Pàgina sense `id` al frontmatter**: no es pot crear sidecar (no hi ha clau
-  estable). El sistema deixa les flags al frontmatter com a fallback i loggea
-  un warning. Aquest cas indica un .md corrupte/llegacy; l'usuari ho ha de
-  resoldre afegint id.
-- **Vault root no determinable** (file_path None o sense `.gnosi/` ancestor):
-  retornar metadata tal qual del frontmatter; cap merge ni write de sidecar.
-- **Sidecar orfe** (pàgina esborrada manualment al filesystem): el sidecar
-  queda residual. No és destructiu, però una eina de neteja seria útil
-  com a millora futura.
-- **Dashboards** (`.json`): el seu writer (`_write_dashboard_file`) també
-  fa el split: les claus sidecar s'extreuen del `metadata` del payload i van
-  al mateix sidecar JSON per `page_id`.
-- **Concurrència**: dos processos escrivint el mateix sidecar simultàniament
-  → últim guanya. Acceptable per a flags que normalment només toca el
-  rule_engine sequencialment per page_id.
-- **OneDrive**: els sidecar viuen dins `.gnosi/` que ja es sincronitza. No cal
-  configuració addicional.
-- **graph_service / mail_routes**: tenen còpies locals de `parse_frontmatter`.
-  De moment NO fan merge sidecar perquè processen entitats que no usen
-  aquestes flags (graf, mail). Si en un futur necessiten `is_template` etc.,
-  s'haurà d'estendre.
+Dashboard writers apply the same split to embedded page metadata.
 
-## Eines necessàries
+## Migration
 
-- Codi: `backend/services/page_sidecar.py` (helper I/O).
-- Modificacions: `backend/api/vault_routes.py` (`parse_frontmatter`,
-  `generate_frontmatter`, nou `save_page_md`, replace de 6 call sites de
-  write).
-- Frontend: `BlockEditor.jsx` ja filtra les claus internes del panell
-  de propietats (commit anterior).
-- Migració: `pipeline/sandbox/migrate_sidecar_metadata.py`.
+`pipeline/sandbox/migrate_sidecar_metadata.py` is idempotent and
+dry-run-first. It scans Markdown outside internal and Trash directories,
+extracts internal keys, writes the sidecar, and rewrites clean frontmatter.
 
-## Test
+Report scanned, migrated, unchanged, and failed counts.
 
-```bash
-cd ~/Projectes/monorepo/apps/gnosi
-# dry-run primer per veure què es migrarà
-DIGITAL_BRAIN_VAULT_PATH=/path/al/vault \
-    python -m pipeline.sandbox.migrate_sidecar_metadata --dry-run
-# després executar de veritat
-DIGITAL_BRAIN_VAULT_PATH=/path/al/vault \
-    python -m pipeline.sandbox.migrate_sidecar_metadata
-```
+## Restrictions
 
-Verificar:
-1. Cap `.md` migrat conté `is_template:` o `*_manual:` al frontmatter.
-2. `<vault>/.gnosi/page_meta/` conté els JSON.
-3. Obrir una pàgina al frontend: el panell de propietats no mostra les flags
-   internes (ja fet al frontend).
-4. Editar manualment un camp: el rule_engine segueix respectant el flag
-   `_manual` quan corre (el sidecar es regenera).
+- A page without an ID cannot use a stable sidecar. Preserve its flags in
+  frontmatter, warn, and repair the page ID separately.
+- If the vault root is unavailable, do not guess a sidecar path.
+- Orphaned sidecars are non-destructive and may be handled by a separate
+  cleanup tool.
+- Concurrent writes use last-writer-wins; normal rule processing is serialized
+  per page.
+- The sidecar is synchronized user-vault state. Treat cloud I/O failures as
+  recoverable and never fail the entire page index.
+- Local frontmatter parsers in graph or mail code do not need sidecars unless
+  they begin consuming internal flags.
+
+## QA
+
+1. Dry-run the migration.
+2. Apply against a backed-up test vault.
+3. Verify no migrated Markdown contains internal keys.
+4. Verify matching JSON sidecars.
+5. Edit a protected field and confirm the rule engine respects its manual flag.
+6. Remove all internal flags and confirm sidecar cleanup.

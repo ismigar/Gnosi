@@ -186,7 +186,7 @@ describe('web clipper popup', () => {
         globalThis.fetch = vi.fn(async () => ({ ok: false, status: 403 }));
         const popup = loadPopup();
         await popup.clip(false);
-        expect(status()).toContain('desactivat');
+        expect(status()).toContain('disabled');
         expect(statusClass()).toBe('err');
     });
 
@@ -272,7 +272,7 @@ describe('destination table form', () => {
         const popup = loadPopup();
         await popup.loadClipSchema();
 
-        expect(document.getElementById('target').textContent).toContain('desactivat');
+        expect(document.getElementById('target').textContent).toContain('disabled');
         expect(document.getElementById('clip').disabled).toBe(true);
         expect(document.getElementById('clipSelection').disabled).toBe(true);
     });

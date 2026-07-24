@@ -78,7 +78,7 @@ def download_file(url: str, dest_dir: Path, *, timeout: float = 60.0) -> Optiona
         (dest_dir / fname).write_bytes(data)
         return fname
     except Exception as e:  # noqa: BLE001
-        log.warning("No s'ha pogut baixar l'adjunt %s: %s", url[:80], e)
+        log.warning("Could not download attachment %s: %s", url[:80], e)
         return None
 
 
@@ -92,7 +92,7 @@ def download_to(url: str, dest_dir: Path, vault_root: Path, *, timeout: float = 
         rel = (dest_dir / fname).resolve().relative_to(vault_root.resolve())
         return str(rel).replace("\\", "/")
     except Exception as e:  # noqa: BLE001
-        log.warning("Adjunt baixat fora del vault (%s): %s", dest_dir, e)
+        log.warning("Attachment downloaded outside the vault (%s): %s", dest_dir, e)
         return None
 
 

@@ -1,7 +1,9 @@
 # Directive: Gnosi PIM (Calendar & Mail)
 
 ## Description
-This directive outlines the architecture for integrating an alternative to Connector importació Notion Calendar and Connector importació Notion Mail natively within the Gnosi, entirely backed by local Markdown files in the Vault.
+This directive outlines the architecture for integrating a native alternative
+to Notion Calendar and Notion Mail within Gnosi, backed entirely by local
+Markdown files in the Vault.
 
 ## Core Principles
 

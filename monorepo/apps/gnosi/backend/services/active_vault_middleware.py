@@ -79,7 +79,7 @@ class ActiveVaultMiddleware:
                 vals = parse_qs(qs.decode("latin-1")).get("vault")
                 if vals:
                     vid = (vals[0] or "").strip() or None
-        # Fallback final: cookie `gnosi_active_vault`. Moltes peticions no porten
+        # Final fallback: `gnosi_active_vault` cookie. Many requests do not include
         # neither header nor `?vault=` because they don't go through axios nor through a
         # URL generator that would add the param: raw `fetch()` (cell editing, agent,
         # uploads, annotations), native media (`<video>/<audio>/<iframe>`),

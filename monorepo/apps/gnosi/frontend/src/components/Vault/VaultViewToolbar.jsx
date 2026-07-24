@@ -29,7 +29,7 @@ export function VaultViewToolbar({
                         ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/20 shadow-sm'
                         : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
                 }`}
-                title={t('view_config.tab_filters', 'Filtres')}
+                title={t('view_config.tab_filters', "Filters")}
             >
                 <Filter size={13} />
                 {activeFiltersCount > 0 && (
@@ -47,7 +47,7 @@ export function VaultViewToolbar({
                         ? 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)] border border-[var(--gnosi-primary)]/20 shadow-sm'
                         : 'text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)]'
                 }`}
-                title={t('view_config.tab_sort', 'Ordenació')}
+                title={t('view_config.tab_sort', "Sort")}
             >
                 <ArrowUpDown size={13} />
                 {activeSortsCount > 0 && (
@@ -62,7 +62,7 @@ export function VaultViewToolbar({
                 <button
                     onClick={onOpenConfig}
                     className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
-                    title={t('views_header.view_settings', 'Configuració de la vista')}
+                    title={t('views_header.view_settings', "View settings")}
                 >
                     <SlidersHorizontal size={13} />
                 </button>
@@ -77,7 +77,7 @@ export function VaultViewToolbar({
                         type="text"
                         value={searchTerm}
                         onChange={e => setSearchTerm?.(e.target.value)}
-                        placeholder={t('common.search_placeholder', 'Cerca...')}
+                        placeholder={t('common.search_placeholder', "Search...")}
                         className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                     />
                     <button
@@ -91,7 +91,7 @@ export function VaultViewToolbar({
                 <button
                     onClick={() => setShowSearch?.(true)}
                     className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                    title={t('common.search', 'Cerca')}
+                    title={t('common.search', "Search")}
                 >
                     <Search size={14} />
                 </button>

@@ -1,30 +1,35 @@
-# Directiva: Protocol de Migració de Dades (Esquema Gnosi)
+# Directive: Gnosi data migration protocol
 
-Aquesta directiva regula el procés de migració de dades des de sistemes d'origen externs cap a l'arquitectura descentralitzada del Gnosi (Vault/Drupal).
+This directive governs migration from external systems into Gnosi's
+decentralized Vault and Drupal architecture.
 
-## Protocol de Migració
+## Protocol
 
-1. **Extracció d'Esquema**: Abans de migrar dades, s'ha d'extreure l'esquema del sistema original per mapejar tipus de dades (Select, Multi-select, Relation, etc.) als tipus del Vault.
-2. **Relacions**: Les relacions entre taules s'han de traduir a referències per UUID en els fitxers Markdown del Vault o entitats a Drupal.
-3. **Idempotència**: Els scripts de migració han de poder-se executar múltiples vegades sense duplicar registres (ús de `source_id` com a clau única).
+1. **Extract the source schema** before migrating. Map source Select,
+   Multi-select, Relation, and other types to Vault types.
+2. **Resolve relations** as UUID references in Vault Markdown or Drupal
+   entities.
+3. **Make migration idempotent** by using `source_id` as a unique key so
+   repeated runs do not duplicate records.
 
-## Mapeig de Tipus de Dada
+## Type mapping
 
-| Sistema Origen | Gnosi Type | Notes |
-|----------------|--------------------|-------|
-| title          | text (primary)     | Nom de la pàgina/fitxer |
-| select         | select             | Mantenir opcions |
-| multi_select   | multi_select       | |
-| relation       | relation           | Mapejar a table_id + record_uuid (usant source_id) |
+| Source type | Gnosi type | Notes |
+|---|---|---|
+| title | text (primary) | Page or file name |
+| select | select | Preserve options |
+| multi_select | multi_select | Preserve all values |
+| relation | relation | Map to table ID and record UUID through `source_id` |
 
-## Metadades Neutres
-- `source_id`: Identificador únic del sistema d'origen.
-- `area_id`: Referència jeràrquica a l'àrea pare.
-- `database_table_id`: Identificador de la taula destí (p. ex. `projects`).
+## Neutral metadata
 
-## Restriccions i Edge Cases
-- **Fitxers/Imatges**: S'han de descarregar i guardar localment en una carpeta `/media` o `Assets/Covers` referenciada pel Markdown.
-- **Neteja de Marques**: No s'ha de fer servir el nom de cap proveïdor de programari en les etiquetes o camps de dades per evitar dependències de marca.
+- `source_id`: stable identifier from the source system.
+- `area_id`: hierarchical reference to the parent area.
+- `database_table_id`: target table identifier, for example `projects`.
 
-## Històric de Lliçons Apreses
-- **Emoji en noms**: Els sistemes d'origen poden tenir emojis en els noms de les columnes; s'han de normalitzar o gestionar durant la migració.
+## Restrictions
+
+- Download files and images into a local `/media` or `Assets/Covers`
+  directory referenced by Markdown.
+- Avoid provider brand names in normalized labels and data fields.
+- Normalize or explicitly support emoji in source column names.

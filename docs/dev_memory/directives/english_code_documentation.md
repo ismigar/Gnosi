@@ -73,7 +73,8 @@ gaps. What worked, in order of reliability:
 
 - **Elisions are the strongest signal.** `l'`, `d'`, `s'`, `n'` + letter (`l'estat`,
   `d'aquest`) never occur in English and catch what verb-lists miss. Scan for these first.
-- **Accented *letters*** (à, é, ç, ñ) signal language; accented *symbols* (→, —, ·) do not —
+- **Accented letters** (`à`, `é`, `ç`, `ñ`) signal language; accented symbols
+  (`→`, `—`, `·`) do not. <!-- @language-example -->
   don't flag an English comment just because it contains an arrow or a proper noun (`Softcatalà`).
 - **Homographs poison word-lists**: `sense`, `cap`, `mes`, `camp`, `workspace`, `events`,
   `cite` are Catalan AND English. Score Catalan-vs-English; never flag on a homograph alone.

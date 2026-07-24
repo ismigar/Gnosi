@@ -10,7 +10,7 @@ from backend.config.app_config import load_params
 cfg = load_params(strict_env=False)
 CHROMA_DIR = cfg.paths["CHROMA"]
 
-# Assegurar directori
+        # Ensure the directory exists.
 os.makedirs(CHROMA_DIR, exist_ok=True)
 
 
@@ -74,7 +74,7 @@ class MemoryStore:
             self.vector_store = None
             return
 
-        # Inicialitzar Chroma Persistent
+        # Initialize persistent Chroma storage.
         self.vector_store = Chroma(
             collection_name="digital_brain_memory",
             embedding_function=self.embeddings,
@@ -144,7 +144,7 @@ class VaultStore:
 # when importing the module, any `multiprocessing` process (spawn, default on
 # macOS) that re-imports the backend during its bootstrap loads torch inside
 # that restricted context and DEADLOCKS on an initialization lock
-# (`PyThread_acquire_lock`). Resultat observat (2026-06-25): fills orfes penjats
+        # (`PyThread_acquire_lock`). Observed result (2026-06-25): orphaned child processes hang.
 # that accumulate on each restart and, if the parent `join`s them on top of the event loop,
 # the whole backend freezes (every request -> 000, "doesn't load"). Deferring the
 # construction to the first real use removes torch from the children's bootstrap. Same pattern
@@ -175,7 +175,7 @@ def get_vault_store() -> "VaultStore":
 
 
 def __getattr__(name):
-    # Retrocompat (PEP 562): `from .memory import memory_store` / `vault_store`
+        # Backward compatibility (PEP 562): `from .memory import memory_store` / `vault_store`
     # still works, but now the singleton (and torch) is built ONLY on
     # the first real access to the attribute, not when importing the module.
     if name == "memory_store":

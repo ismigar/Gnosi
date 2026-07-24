@@ -72,7 +72,7 @@ export default function AgentContextSources({ value, onChange }) {
 
     const addRef = (type, ref, label) => {
         if (refs.some(r => r.type === type && r.ref === ref)) {
-            toast(t('settings.ai.context_already_added', 'Aquesta font ja és al context.'));
+            toast(t('settings.ai.context_already_added', "That source is already in the context."));
             return;
         }
         onChange([...refs, { id: newRefId(), type, ref, label }]);
@@ -96,7 +96,7 @@ export default function AgentContextSources({ value, onChange }) {
             addRef('file', res.data.path, file.name);
         } catch (err) {
             console.error('Asset upload failed', err);
-            toast.error(t('settings.ai.context_upload_error', 'No s\'ha pogut pujar el fitxer.'));
+            toast.error(t('settings.ai.context_upload_error', "The file could not be uploaded."));
         } finally {
             setUploading(false);
         }
@@ -108,7 +108,7 @@ export default function AgentContextSources({ value, onChange }) {
         // The backend refuses anything that is not public http(s); reject the
         // obvious cases here so the user gets the feedback while typing.
         if (!/^https?:\/\//i.test(url)) {
-            toast.error(t('settings.ai.context_url_invalid', 'La URL ha de començar per http:// o https://'));
+            toast.error(t('settings.ai.context_url_invalid', "The URL must start with http:// or https://"));
             return;
         }
         let label = url;
@@ -151,7 +151,7 @@ export default function AgentContextSources({ value, onChange }) {
                                 {ref.label}
                                 <button
                                     onClick={() => removeRef(ref.id)}
-                                    aria-label={t('settings.ai.context_remove_source', 'Treure del context')}
+                                    aria-label={t('settings.ai.context_remove_source', "Remove from context")}
                                     style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--text-tertiary)' }}
                                 >
                                     <X size={13} />
@@ -164,26 +164,26 @@ export default function AgentContextSources({ value, onChange }) {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
                 <button style={addBtnStyle} onClick={() => { setPicking(picking === 'table' ? null : 'table'); setQuery(''); }}>
-                    <Database size={14} /> {t('settings.ai.context_add_table', 'Base de dades')}
+                    <Database size={14} /> {t('settings.ai.context_add_table', "Database")}
                 </button>
                 <button style={addBtnStyle} onClick={() => { setPicking(picking === 'page' ? null : 'page'); setQuery(''); }}>
-                    <FileText size={14} /> {t('settings.ai.context_add_page', 'Pàgina')}
+                    <FileText size={14} /> {t('settings.ai.context_add_page', "Page")}
                 </button>
                 <button style={addBtnStyle} onClick={() => fileInputRef.current?.click()} disabled={uploading}>
                     {uploading ? <Loader2 size={14} className="spin" /> : <Paperclip size={14} />}
-                    {t('settings.ai.context_add_file', 'Fitxer')}
+                    {t('settings.ai.context_add_file', "File")}
                 </button>
                 <button
                     style={addBtnStyle}
-                    onClick={() => addRef('vault', 'active', t('settings.ai.context_whole_vault', 'Tot el vault'))}
+                    onClick={() => addRef('vault', 'active', t('settings.ai.context_whole_vault', "Whole vault"))}
                 >
-                    <Layers size={14} /> {t('settings.ai.context_add_vault', 'Tot el vault')}
+                    <Layers size={14} /> {t('settings.ai.context_add_vault', "Whole vault")}
                 </button>
                 <button style={addBtnStyle} onClick={() => { setPicking(null); setUrlDraft(urlDraft === null ? '' : null); }}>
                     <Globe size={14} /> {t('settings.ai.context_add_url', 'URL')}
                 </button>
                 <button style={addBtnStyle} onClick={() => { setUrlDraft(null); setPicking(picking === 'source' ? null : 'source'); setQuery(''); }}>
-                    <Landmark size={14} /> {t('settings.ai.context_add_external', 'Font externa')}
+                    <Landmark size={14} /> {t('settings.ai.context_add_external', "External source")}
                 </button>
                 <input
                     ref={fileInputRef}
@@ -205,7 +205,7 @@ export default function AgentContextSources({ value, onChange }) {
                         style={{ flex: 1 }}
                     />
                     <button style={addBtnStyle} onClick={addUrl}>
-                        <Plus size={14} /> {t('common.add', 'Afegir')}
+                        <Plus size={14} /> {t('common.add', "Add")}
                     </button>
                 </div>
             )}
@@ -221,17 +221,17 @@ export default function AgentContextSources({ value, onChange }) {
                         autoFocus
                         value={query}
                         onChange={e => setQuery(e.target.value)}
-                        placeholder={t('settings.ai.context_search_placeholder', 'Cerca...')}
+                        placeholder={t('settings.ai.context_search_placeholder', "Search...")}
                     />
                     <div style={{ maxHeight: '180px', overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
                         {options === null && (
                             <span style={{ padding: '10px', color: 'var(--text-tertiary)', fontSize: '0.82rem' }}>
-                                {t('common.loading', 'Carregant...')}
+                                {t('common.loading', "Loading...")}
                             </span>
                         )}
                         {options?.length === 0 && (
                             <span style={{ padding: '10px', color: 'var(--text-tertiary)', fontSize: '0.82rem' }}>
-                                {t('settings.ai.context_no_results', 'Cap resultat.')}
+                                {t('settings.ai.context_no_results', "No results.")}
                             </span>
                         )}
                         {options?.map(item => {

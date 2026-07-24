@@ -564,7 +564,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                     return (
                     <span key={val} style={chip || undefined} className="flex items-center gap-1.5 px-2.5 py-1 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-full text-xs font-medium text-[var(--text-secondary)] shadow-sm">
                         {idToTitle[val] || val}
-                        <span title={t('common.delete', 'Elimina')} className="flex items-center cursor-pointer hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }}>
+                        <span title={t('common.delete', "Delete")} className="flex items-center cursor-pointer hover:text-[var(--status-error)] transition-colors" onClick={(e) => { e.stopPropagation(); toggleValue(val); }}>
                             <X size={10} />
                         </span>
                     </span>
@@ -609,7 +609,7 @@ const MultiSelectPills = ({ value, onChange, options, idToTitle, placeholder, on
                                         {onDeleteOption && (
                                             <span
                                                 role="button"
-                                                title={t('editor.delete_option', "Elimina l'opció del camp")}
+                                                title={t('editor.delete_option', "Delete the option from the field")}
                                                 onClick={(e) => { e.stopPropagation(); onDeleteOption(opt); }}
                                                 className="flex items-center p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
                                             >
@@ -1072,7 +1072,7 @@ export function EditorInner({
                 type: "bibliography",
                 propSchema: {
                     style: { default: "apa" },
-                    locale: { default: "ca-AD" },
+                    locale: { default: "en-US" },
                 },
                 content: "none",
             }, { render: (props) => <BibliographyBlock block={props.block} editor={props.editor} /> }),
@@ -3067,20 +3067,20 @@ export function EditorInner({
                         <div className="px-4 py-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-primary)] shadow-lg flex items-center gap-3 max-w-md">
                             <div className="text-xs text-[var(--text-secondary)]">
                                 {kind === 'pdf'
-                                    ? t('editor.paste_pdf_detected', { defaultValue: 'PDF detectat. Vols veure\'l incrustat com a frame?' })
-                                    : t('editor.paste_video_detected', { defaultValue: 'Vídeo detectat. Vols veure\'l incrustat com a frame?' })}
+                                    ? t('editor.paste_pdf_detected', { defaultValue: "PDF detected. Do you want to see it embedded as a frame?" })
+                                    : t('editor.paste_video_detected', { defaultValue: "Video detected. Do you want to see it embedded as a frame?" })}
                             </div>
                             <button
                                 onClick={() => { insertFrame(); toast.dismiss(tToast.id); }}
                                 className="px-3 py-1.5 rounded-md bg-[var(--gnosi-primary)] text-white text-xs font-medium hover:opacity-90 shrink-0"
                             >
-                                {t('editor.paste_convert_frame', { defaultValue: 'Inserir frame' })}
+                                {t('editor.paste_convert_frame', { defaultValue: "Insert frame" })}
                             </button>
                             <button
                                 onClick={() => toast.dismiss(tToast.id)}
                                 className="text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] shrink-0"
                             >
-                                {t('common.dismiss', { defaultValue: 'Descarta' })}
+                                {t('common.dismiss', { defaultValue: "Dismiss" })}
                             </button>
                         </div>
                     ), { duration: 8000 });
@@ -3129,7 +3129,7 @@ export function EditorInner({
                         }));
                         const quickLinkItems = [
                             {
-                                title: t('editor.insert_content', { defaultValue: 'Insereix contingut…' }),
+                                title: t('editor.insert_content', { defaultValue: "Insert content…" }),
                                 onItemClick: async () => {
                                     const anchor = editor.getTextCursorPosition().block;
                                     try {
@@ -3144,7 +3144,7 @@ export function EditorInner({
                                 aliases: ["+", "insereix", "insert", "enllac", "link", "rich", "url", "file", "local", "embed", "fitxer", "media", "pdf", "video", "image", "frame", "iframe", "youtube", "vimeo", "audio"],
                                 group: t('editor.links_group'),
                                 icon: <Link2 size={18} />,
-                                subtext: t('editor.insert_content_subtext', { defaultValue: 'Modal unificat: Vault, disc local, pujada o URL' }),
+                                subtext: t('editor.insert_content_subtext', { defaultValue: "Unified modal: Vault, local disk, upload or URL" }),
                             },
                             {
                                 title: t('editor.internal_link'),
@@ -3171,26 +3171,26 @@ export function EditorInner({
                                 subtext: t('editor.wiki_alias_format'),
                             },
                             {
-                                title: t('editor.insert_citation', { defaultValue: 'Insereix cita…' }),
+                                title: t('editor.insert_citation', { defaultValue: "Insert citation…" }),
                                 onItemClick: () => setIsCitePickerOpen(true),
                                 aliases: ["cite", "citation", "cita", "@", "[@", "ref", "bib", "bibliography", "reference"],
                                 group: t('editor.links_group'),
                                 icon: <Quote size={18} />,
                                 subtext: t('editor.insert_citation_subtext', {
-                                    defaultValue: 'Picker (⌘⇧I) — cerca per autor, títol o citation key',
+                                    defaultValue: "Picker (⌘⇧I) — search by author, title or citation key",
                                 }),
                             },
                             {
-                                title: t('editor.insert_bibliography', { defaultValue: 'Bibliografia automàtica' }),
+                                title: t('editor.insert_bibliography', { defaultValue: "Automatic bibliography" }),
                                 onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, {
                                     type: 'bibliography',
-                                    props: { style: 'apa', locale: 'ca-AD' },
+                                    props: { style: 'apa', locale: 'en-US' },
                                 }),
                                 aliases: ["bibliography", "bib", "refs", "references", "bibliografia"],
                                 group: t('editor.links_group'),
                                 icon: <Quote size={18} />,
                                 subtext: t('editor.insert_bibliography_subtext', {
-                                    defaultValue: 'Genera la llista de referències a partir de les cites del document',
+                                    defaultValue: "Generates the reference list from the document's citations",
                                 }),
                             },
                             {
@@ -3223,76 +3223,76 @@ export function EditorInner({
                         ];
                         const aiItems = [
                             {
-                                title: t('editor.ai_ask', { defaultValue: 'Pregunta a la IA…' }),
+                                title: t('editor.ai_ask', { defaultValue: "Ask AI…" }),
                                 onItemClick: () => openAICommand('free'),
                                 aliases: ["ia", "ai", "gpt", "assist", "assistent", "genera", "generate", "pregunta", "ask", "sparkle"],
-                                group: t('editor.ai_group', { defaultValue: 'IA' }),
+                                group: t('editor.ai_group', { defaultValue: "AI" }),
                                 icon: <Sparkles size={18} />,
-                                subtext: t('editor.ai_ask_subtext', { defaultValue: 'Escriu una instrucció i insereix el resultat' }),
+                                subtext: t('editor.ai_ask_subtext', { defaultValue: "Write an instruction and insert the result" }),
                             },
                             {
-                                title: t('editor.ai_continue', { defaultValue: 'Continua escrivint' }),
+                                title: t('editor.ai_continue', { defaultValue: "Continue writing" }),
                                 onItemClick: () => openAICommand('continue'),
                                 aliases: ["continua", "continue", "segueix", "writing", "ia", "ai"],
-                                group: t('editor.ai_group', { defaultValue: 'IA' }),
+                                group: t('editor.ai_group', { defaultValue: "AI" }),
                                 icon: <Sparkles size={18} />,
-                                subtext: t('editor.ai_continue_subtext', { defaultValue: 'La IA continua el text de la pàgina' }),
+                                subtext: t('editor.ai_continue_subtext', { defaultValue: "AI continues the page text" }),
                             },
                             {
-                                title: t('editor.ai_summarize', { defaultValue: 'Resumeix la pàgina' }),
+                                title: t('editor.ai_summarize', { defaultValue: "Summarize the page" }),
                                 onItemClick: () => openAICommand('summarize'),
                                 aliases: ["resumeix", "resum", "summary", "summarize", "tldr", "ia", "ai"],
-                                group: t('editor.ai_group', { defaultValue: 'IA' }),
+                                group: t('editor.ai_group', { defaultValue: "AI" }),
                                 icon: <Sparkles size={18} />,
-                                subtext: t('editor.ai_summarize_subtext', { defaultValue: 'Genera un resum del contingut actual' }),
+                                subtext: t('editor.ai_summarize_subtext', { defaultValue: "Generates a summary of the current content" }),
                             },
                         ];
                         const insertBlockItems = [
                             {
-                                title: t('editor.toc', { defaultValue: 'Índex de continguts' }),
+                                title: t('editor.toc', { defaultValue: "Table of contents" }),
                                 onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'tableOfContents', props: {} }),
                                 aliases: ["toc", "index", "índex", "indice", "taula de continguts", "table of contents", "outline", "continguts"],
-                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                group: t('editor.blocks_group', { defaultValue: "Blocks" }),
                                 icon: <ListIcon size={18} />,
-                                subtext: t('editor.toc_subtext', { defaultValue: "Genera l'índex a partir dels encapçalaments" }),
+                                subtext: t('editor.toc_subtext', { defaultValue: "Generates the index from the headings" }),
                             },
                             {
-                                title: t('editor.mermaid', { defaultValue: 'Diagrama Mermaid' }),
+                                title: t('editor.mermaid', { defaultValue: "Mermaid diagram" }),
                                 onItemClick: () => insertOrUpdateBlockForSlashMenu(editor, { type: 'mermaid', props: { code: '' } }),
                                 aliases: ["mermaid", "diagrama", "diagram", "flowchart", "graph", "uml", "sequence", "gantt"],
-                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                group: t('editor.blocks_group', { defaultValue: "Blocks" }),
                                 icon: <Workflow size={18} />,
-                                subtext: t('editor.mermaid_subtext', { defaultValue: 'Diagrames de flux, seqüència, Gantt…' }),
+                                subtext: t('editor.mermaid_subtext', { defaultValue: "Flowcharts, sequence, Gantt…" }),
                             },
                             {
-                                title: t('editor.footnote', { defaultValue: 'Nota al peu' }),
+                                title: t('editor.footnote', { defaultValue: "Footnote" }),
                                 onItemClick: () => {
                                     const fid = (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2);
                                     editor.insertInlineContent([{ type: 'footnote', props: { id: fid, content: '' } }, ' ']);
                                 },
                                 aliases: ["footnote", "nota", "nota al peu", "peu", "fn", "[^]"],
-                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                group: t('editor.blocks_group', { defaultValue: "Blocks" }),
                                 icon: <Superscript size={18} />,
-                                subtext: t('editor.footnote_subtext', { defaultValue: 'Insereix una referència de nota al peu' }),
+                                subtext: t('editor.footnote_subtext', { defaultValue: "Inserts a footnote reference" }),
                             },
                             {
-                                title: t('editor.synced_block', { defaultValue: 'Bloc sincronitzat' }),
+                                title: t('editor.synced_block', { defaultValue: "Synced block" }),
                                 onItemClick: () => {
                                     const sid = (typeof crypto !== 'undefined' && crypto?.randomUUID) ? crypto.randomUUID() : String(Math.random()).slice(2);
                                     insertOrUpdateBlockForSlashMenu(editor, { type: 'synced', props: { sync_id: sid } });
                                 },
                                 aliases: ["synced", "sincronitzat", "sync", "reutilitzable", "compartit"],
-                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                group: t('editor.blocks_group', { defaultValue: "Blocks" }),
                                 icon: <RefreshCw size={18} />,
-                                subtext: t('editor.synced_block_subtext', { defaultValue: 'Contingut compartit entre pàgines (bidireccional)' }),
+                                subtext: t('editor.synced_block_subtext', { defaultValue: "Content shared between pages (bidirectional)" }),
                             },
                             {
-                                title: t('editor.linkcard', { defaultValue: 'Targeta d\'enllaç' }),
+                                title: t('editor.linkcard', { defaultValue: "Link card" }),
                                 onItemClick: () => setLinkCardCtx({ editor }),
                                 aliases: ["bookmark", "targeta", "card", "link", "enllaç", "preview", "og", "marcador"],
-                                group: t('editor.blocks_group', { defaultValue: 'Blocs' }),
+                                group: t('editor.blocks_group', { defaultValue: "Blocks" }),
                                 icon: <Link2 size={18} />,
-                                subtext: t('editor.linkcard_subtext', { defaultValue: 'Previsualització d\'un enllaç amb imatge i títol' }),
+                                subtext: t('editor.linkcard_subtext', { defaultValue: "Preview of a link with image and title" }),
                             },
                         ];
                         const allItems = [...aiItems, ...turnIntoItems, ...defaultItems, ...vaultItems, ...layoutItems, ...quickLinkItems, ...insertBlockItems];
@@ -3335,7 +3335,7 @@ export function EditorInner({
                                         aliases: [note.id, note.title, 'alias', 'àlies'],
                                         group: t('editor.internal_links'),
                                         icon: <MessageSquare size={18} />,
-                                        subtext: t('editor.alias_of', { defaultValue: 'àlies de' }) + ` ${note.title}`,
+                                        subtext: t('editor.alias_of', { defaultValue: "alias of" }) + ` ${note.title}`,
                                         onItemClick: () => insertWikiLink(String(a), sectionQuery, '', rawQuery),
                                     }))
                               ).slice(0, 8)
@@ -3584,9 +3584,9 @@ export function EditorInner({
 
                         // Date shortcuts (Notion style: @today, @tomorrow, @yesterday).
                         const shortcuts = [
-                            { label: t('editor.date_today', { defaultValue: 'Avui' }), offset: 0, kw: ['avui', 'today', 'hoy'] },
-                            { label: t('editor.date_tomorrow', { defaultValue: 'Demà' }), offset: 1, kw: ['dema', 'demà', 'tomorrow', 'manana'] },
-                            { label: t('editor.date_yesterday', { defaultValue: 'Ahir' }), offset: -1, kw: ['ahir', 'yesterday', 'ayer'] },
+                            { label: t('editor.date_today', { defaultValue: "Today" }), offset: 0, kw: ['avui', 'today', 'hoy'] },
+                            { label: t('editor.date_tomorrow', { defaultValue: "Tomorrow" }), offset: 1, kw: ['dema', 'demà', 'tomorrow', 'manana'] },
+                            { label: t('editor.date_yesterday', { defaultValue: "Yesterday" }), offset: -1, kw: ['ahir', 'yesterday', 'ayer'] },
                         ];
                         for (const sc of shortcuts) {
                             if (ql && !sc.kw.some(k => k.includes(ql)) && !sc.label.toLowerCase().includes(ql)) continue;
@@ -3608,7 +3608,7 @@ export function EditorInner({
                                 aliases: ['data', 'date'],
                                 group: t('editor.dates_group', { defaultValue: 'Dates' }),
                                 icon: <CalendarIcon size={18} />,
-                                subtext: t('editor.insert_this_date', { defaultValue: 'Insereix aquesta data' }),
+                                subtext: t('editor.insert_this_date', { defaultValue: "Insert this date" }),
                                 onItemClick: () => insertDate(q),
                             });
                         }
@@ -3622,9 +3622,9 @@ export function EditorInner({
                                 items.push({
                                     title: name,
                                     aliases: [String(c.email || ''), 'persona', 'people', 'mention'],
-                                    group: t('editor.people_group', { defaultValue: 'Persones' }),
+                                    group: t('editor.people_group', { defaultValue: "People" }),
                                     icon: <AtSign size={18} />,
-                                    subtext: c.email || t('editor.contact', { defaultValue: 'Contacte' }),
+                                    subtext: c.email || t('editor.contact', { defaultValue: "Contact" }),
                                     onItemClick: () => insertMention(String(c.id || ''), name),
                                 });
                             }
@@ -3681,13 +3681,13 @@ export function EditorInner({
                 isOpen={linkCardCtx != null}
                 onClose={() => setLinkCardCtx(null)}
                 onSubmit={doLinkCard}
-                title={t('editor.linkcard_title', { defaultValue: 'Targeta d\'enllaç' })}
-                label={t('editor.linkcard_prompt', { defaultValue: 'Enganxa la URL de la targeta:' })}
+                title={t('editor.linkcard_title', { defaultValue: "Link card" })}
+                label={t('editor.linkcard_prompt', { defaultValue: "Paste the card URL:" })}
                 placeholder="https://"
                 defaultValue="https://"
                 inputType="url"
-                confirmText={t('common.add', { defaultValue: 'Afegeix' })}
-                cancelText={t('common.cancel', { defaultValue: 'Cancel·la' })}
+                confirmText={t('common.add', { defaultValue: "Add" })}
+                cancelText={t('common.cancel', { defaultValue: "Cancel" })}
             />
         </VaultEditorContext.Provider>
     );
@@ -4036,7 +4036,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
             if (raw === undefined) return;
         }
         const res = coerceValueForField(raw, entry.type, propCoercionCtx(entry));
-        if (res.skip) { toast(t('editor.paste_incompatible', { defaultValue: 'Valor incompatible amb el tipus de la propietat' })); return; }
+        if (res.skip) { toast(t('editor.paste_incompatible', { defaultValue: "Value incompatible with the property type" })); return; }
         handleMetaChange(name, res.value);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isEditor, navProps, propCoercionCtx, t]);
@@ -4457,7 +4457,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                         {metadata.cover && (
                             <img
                                 src={normalizeVaultAssetUrl(metadata.cover)}
-                                alt={t('editor.cover_alt', 'Portada')}
+                                alt={t('editor.cover_alt', "Cover")}
                                 className="w-full h-full object-cover animate-in fade-in duration-500"
                                 onError={(e) => { e.target.style.display = 'none'; }}
                             />
@@ -4633,10 +4633,10 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                             type="button"
                                             onClick={() => setIsMetadataLookupOpen(true)}
                                             className="text-[11px] px-2 py-1 rounded-md text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--gnosi-primary)] transition-colors shrink-0 flex items-center gap-1"
-                                            title={t('metadata_lookup.button_title', { defaultValue: 'Omplir metadades des de DOI/ISBN/arXiv/URL' })}
+                                            title={t('metadata_lookup.button_title', { defaultValue: "Fill metadata from DOI/ISBN/arXiv/URL" })}
                                         >
                                             <Search size={12} />
-                                            {t('metadata_lookup.button', { defaultValue: 'Omplir' })}
+                                            {t('metadata_lookup.button', { defaultValue: "Fill" })}
                                         </button>
                                     )}
                                     <button
@@ -4663,7 +4663,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 aria-pressed={activeProp === prop.name}
                                                 onClick={() => setActiveProp(prop.name)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(prop.name); } }}
-                                                title={t('editor.property_select_hint', { defaultValue: 'Selecciona la propietat (↑↓ navegar · ⌘C/⌘V copiar/enganxar)' })}
+                                                title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
                                                 className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === prop.name ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''} ${['files', 'autoria', 'relation', 'multi_select', 'select'].includes(prop.type) ? 'self-start' : ''}`}
                                             >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-tertiary)]/60 group-hover:bg-[var(--gnosi-primary)]/10 group-hover:text-[var(--gnosi-primary)] transition-colors">
@@ -4799,7 +4799,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                 <button
                                                                     type="button"
                                                                     onClick={() => setImagePickerProp(prop.name)}
-                                                                    title={t('table.change_image', { defaultValue: 'Canviar imatge' })}
+                                                                    title={t('table.change_image', { defaultValue: "Change image" })}
                                                                     className="inline-flex items-center rounded hover:opacity-90 focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40"
                                                                 >
                                                                     <ImageHoverPreview src={previewUrl} alt={imgAlt} />
@@ -4813,7 +4813,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                                     onClick={() => setImagePickerProp(prop.name)}
                                                                     className="text-sm italic text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] px-2 py-1 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors text-left"
                                                                 >
-                                                                    {t('table.add_image', { defaultValue: '+ Imatge' })}
+                                                                    {t('table.add_image', { defaultValue: "+ Image" })}
                                                                 </button>
                                                             );
                                                         }
@@ -4845,7 +4845,7 @@ export function BlockEditor({ noteFilename, initialContent, initialMetadata = {}
                                                 aria-pressed={activeProp === key}
                                                 onClick={() => setActiveProp(key)}
                                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveProp(key); } }}
-                                                title={t('editor.property_select_hint', { defaultValue: 'Selecciona la propietat (↑↓ navegar · ⌘C/⌘V copiar/enganxar)' })}
+                                                title={t('editor.property_select_hint', { defaultValue: "Select the property (↑↓ navigate · ⌘C/⌘V copy/paste)" })}
                                                 className={`flex items-center gap-1.5 group py-1 h-8 cursor-pointer rounded-md focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]/40 ${activeProp === key ? 'bg-[var(--gnosi-primary)]/10 ring-1 ring-[var(--gnosi-primary)]/40' : ''}`}
                                             >
                                                 <div className="p-1.5 rounded-md bg-[var(--bg-secondary)] text-[var(--gnosi-primary)]/40 group-hover:bg-[var(--gnosi-primary)]/10 transition-colors border border-[var(--gnosi-primary)]/10"><Settings size={14} /></div>

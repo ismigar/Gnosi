@@ -104,7 +104,7 @@ async def enforce_authentication(conn: HTTPConnection) -> None:
 
     if resolve_identity(conn):
         return
-    raise HTTPException(status_code=401, detail="Cal autenticació")
+    raise HTTPException(status_code=401, detail="Authentication required")
 
 
 def _rule(methods: str, pattern: str, reason: str) -> PublicRule:

@@ -62,17 +62,17 @@ from backend.services.auth_service import (  # noqa: E402
 
 def _describe(user: User, db) -> str:
     roles = db.query(Membership).filter(Membership.user_id == user.id).all()
-    ws = ", ".join(f"{m.workspace_id}:{m.role}" for m in roles) or "cap workspace"
-    state = "amb contrasenya" if user.password_hash else "SENSE contrasenya"
+    ws = ", ".join(f"{m.workspace_id}:{m.role}" for m in roles) or "no workspace"
+    state = "with password" if user.password_hash else "WITHOUT password"
     return f"  {user.id:<24} {user.email:<32} {state:<18} [{ws}]"
 
 
 def list_users(db) -> int:
     users = db.query(User).order_by(User.id).all()
     if not users:
-        print("No hi ha cap usuari a la base de dades de gestió.")
+        print("There are no users in the management database.")
         return 0
-    print(f"{len(users)} usuari(s):")
+    print(f"{len(users)} user(s):")
     for u in users:
         print(_describe(u, db))
     return 0
@@ -80,54 +80,54 @@ def list_users(db) -> int:
 
 def _read_password() -> str:
     """Prompt twice and return the password. Never echoes, never logs it."""
-    pw = getpass.getpass("Nova contrasenya: ")
-    if pw != getpass.getpass("Repeteix la contrasenya: "):
-        raise SystemExit("Les contrasenyes no coincideixen. No s'ha canviat res.")
+    pw = getpass.getpass("New password: ")
+    if pw != getpass.getpass("Repeat the password: "):
+        raise SystemExit("The passwords do not match. Nothing was changed.")
     if len(pw) < 8:
-        raise SystemExit("La contrasenya ha de tenir com a mínim 8 caràcters.")
+        raise SystemExit("The password must be at least 8 characters long.")
     # bcrypt's limit is on BYTES, so accented characters count double.
     n = len(pw.encode("utf-8"))
     if n > BCRYPT_MAX_PASSWORD_BYTES:
         raise SystemExit(
-            f"La contrasenya ocupa {n} bytes i bcrypt n'accepta {BCRYPT_MAX_PASSWORD_BYTES} "
-            "com a màxim (els caràcters accentuats compten doble)."
+            f"The password uses {n} bytes, but bcrypt accepts at most "
+            f"{BCRYPT_MAX_PASSWORD_BYTES} bytes (accented characters use multiple bytes)."
         )
     return pw
 
 
 _MINTING_WARNING = """\
-ATENCIÓ: migrar aquest compte OBRE un forat mentre el backend confiï en X-User-Id.
+WARNING: migrating this account opens a security hole while the backend trusts X-User-Id.
 
-Ara mateix l'email marcador està ocupat per aquest compte i la restricció d'unicitat
-impedeix, per accident, que una capçalera X-User-Id desconeguda creï un compte nou.
-En donar-li un email real, el marcador queda lliure i la següent petició amb un
-X-User-Id desconegut SÍ crearà un usuari amb rol 'owner' del workspace personal.
+This account currently owns the placeholder email, and the uniqueness constraint
+accidentally prevents an unknown X-User-Id header from creating a new account.
+Assigning a real email frees the placeholder, and the next request with an unknown
+X-User-Id WILL create a user with the 'owner' role in the personal workspace.
 
-Tanca primer el minting per capçalera. Vegeu la secció "Conditions that MUST be met"
-a docs/dev_memory/directives/auth_remove_legacy_fallback.md.
+Disable header-driven account minting first. See "Conditions that MUST be met" in
+docs/dev_memory/directives/auth_remove_legacy_fallback.md.
 
-ORDRE SEGUR (sense finestra de risc):
-  1. GNOSI_REQUIRE_AUTH=1 i reinicia el backend.
-  2. Executa aquest script (escriu directament a la BD; no li cal l'API).
-  3. Inicia sessió amb les credencials noves.
+SAFE ORDER (with no risk window):
+  1. Set GNOSI_REQUIRE_AUTH=1 and restart the backend.
+  2. Run this script (it writes directly to the database and does not need the API).
+  3. Sign in with the new credentials.
 
-Fer-ho al revés deixa una finestra amb el marcador lliure i l'enforcement apagat,
-que és justament la combinació que crea comptes 'owner' des d'una capçalera.
+Doing this in reverse leaves the placeholder free while enforcement is disabled,
+which is exactly the combination that creates 'owner' accounts from a header.
 
-Si ja tens l'enforcement actiu, torna-ho a executar amb --i-understand."""
+If enforcement is already enabled, run this command again with --i-understand."""
 
 
 def set_password(db, user_id: str, email: str | None, name: str | None, force: bool,
                  acknowledged: bool = False) -> int:
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        print(f"No existeix cap usuari amb id '{user_id}'. Usa --list per veure'ls.", file=sys.stderr)
+        print(f"No user with id '{user_id}' exists. Use --list to view users.", file=sys.stderr)
         return 1
 
     if user.password_hash and not force:
         print(
-            f"L'usuari '{user_id}' ja té contrasenya. Fes login normalment, o torna-ho a "
-            "executar amb --force si realment la vols substituir.",
+            f"User '{user_id}' already has a password. Sign in normally, or run this "
+            "command again with --force if you really want to replace it.",
             file=sys.stderr,
         )
         return 1
@@ -144,8 +144,8 @@ def set_password(db, user_id: str, email: str | None, name: str | None, force: b
         # Setting a password without replacing it would leave that address as the
         # operator's permanent login identity — the outcome this exists to avoid.
         print(
-            f"L'usuari '{user_id}' encara té l'email marcador '{PLACEHOLDER_EMAIL}'. "
-            "Torna-ho a executar amb --email <el teu email real>.",
+            f"User '{user_id}' still has the placeholder email '{PLACEHOLDER_EMAIL}'. "
+            "Run this command again with --email <your real email>.",
             file=sys.stderr,
         )
         return 1
@@ -161,7 +161,7 @@ def set_password(db, user_id: str, email: str | None, name: str | None, force: b
             .first()
         )
         if clash:
-            print(f"L'email '{normalized}' ja el té l'usuari '{clash.id}'.", file=sys.stderr)
+            print(f"Email '{normalized}' is already assigned to user '{clash.id}'.", file=sys.stderr)
             return 1
         user.email = normalized
 
@@ -180,30 +180,30 @@ def set_password(db, user_id: str, email: str | None, name: str | None, force: b
         db.commit()
     except Exception as exc:  # noqa: BLE001 - surface the real cause to the operator
         db.rollback()
-        print(f"No s'ha pogut desar: {exc}", file=sys.stderr)
+        print(f"Could not save the account: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Fet. L'usuari '{user.id}' ({user.email}) ja pot iniciar sessió.")
-    print("L'id no ha canviat, així que conserva workspaces, vaults i tokens.")
+    print(f"Done. User '{user.id}' ({user.email}) can now sign in.")
+    print("The id did not change, so the account retains its workspaces, vaults, and tokens.")
     return 0
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--list", action="store_true", help="llista els usuaris i el seu estat")
-    parser.add_argument("--user-id", help="id de l'usuari a qui posar la contrasenya")
-    parser.add_argument("--email", help="email real (substitueix el marcador)")
-    parser.add_argument("--name", help="nom a mostrar")
+    parser.add_argument("--list", action="store_true", help="list users and their status")
+    parser.add_argument("--user-id", help="id of the user whose password should be set")
+    parser.add_argument("--email", help="real email address (replaces the placeholder)")
+    parser.add_argument("--name", help="display name")
     parser.add_argument(
         "--i-understand",
         action="store_true",
         dest="acknowledged",
-        help="confirma que has llegit l'avís sobre el minting per X-User-Id",
+        help="confirm that you read the warning about X-User-Id account minting",
     )
     parser.add_argument(
         "--force",
         action="store_true",
-        help="substitueix una contrasenya existent (per defecte es refusa)",
+        help="replace an existing password (refused by default)",
     )
     args = parser.parse_args()
 
@@ -212,7 +212,7 @@ def main() -> int:
         if args.list:
             return list_users(db)
         if not args.user_id:
-            parser.error("cal --user-id (o --list)")
+            parser.error("--user-id is required (or use --list)")
         return set_password(db, args.user_id, args.email, args.name, args.force, args.acknowledged)
     finally:
         db.close()

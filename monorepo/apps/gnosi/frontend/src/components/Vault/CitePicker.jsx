@@ -162,7 +162,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder={t('cite_picker.placeholder', {
-                            defaultValue: 'Cerca per citation key, títol o autor…',
+                            defaultValue: "Search by citation key, title or author…",
                         })}
                         className="flex-1 bg-transparent outline-none text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                         autoComplete="off"
@@ -172,7 +172,7 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
                         type="button"
                         onClick={() => onClose?.()}
                         className="text-[var(--text-tertiary)] hover:text-[var(--text-primary)] shrink-0"
-                        title={t('common.close', { defaultValue: 'Tanca' })}
+                        title={t('common.close', { defaultValue: "Close" })}
                     >
                         <X size={18} />
                     </button>
@@ -183,13 +183,13 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
                 >
                     {loading && items.length === 0 && (
                         <div className="px-4 py-6 text-sm text-[var(--text-tertiary)] text-center">
-                            {t('cite_picker.loading', { defaultValue: 'Cercant…' })}
+                            {t('cite_picker.loading', { defaultValue: "Searching…" })}
                         </div>
                     )}
                     {!loading && items.length === 0 && (
                         <div className="px-4 py-6 text-sm text-[var(--text-tertiary)] text-center">
                             {t('cite_picker.no_results', {
-                                defaultValue: 'Cap resultat. Prova un altre terme.',
+                                defaultValue: "No results. Try another term.",
                             })}
                         </div>
                     )}
@@ -229,9 +229,9 @@ export const CitePicker = ({ isOpen, onClose, onSelect }) => {
                     })}
                 </div>
                 <div className="px-4 py-2 text-xs text-[var(--text-tertiary)] border-t border-[var(--border-secondary)] bg-[var(--bg-secondary)] flex gap-4">
-                    <span>↑↓ {t('cite_picker.hint_navigate', { defaultValue: 'naveguer' })}</span>
-                    <span>↵ {t('cite_picker.hint_insert', { defaultValue: 'inserir' })}</span>
-                    <span>Esc {t('cite_picker.hint_close', { defaultValue: 'tancar' })}</span>
+                    <span>↑↓ {t('cite_picker.hint_navigate', { defaultValue: "navigate" })}</span>
+                    <span>↵ {t('cite_picker.hint_insert', { defaultValue: "insert" })}</span>
+                    <span>Esc {t('cite_picker.hint_close', { defaultValue: "close" })}</span>
                 </div>
             </div>
         </div>,

@@ -149,10 +149,10 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
                                     <ArrowUp size={11} className={`cursor-pointer hover:text-[var(--gnosi-primary)] ${idx === 0 ? 'opacity-20 pointer-events-none' : ''}`} onMouseDown={e => { e.preventDefault(); move(idx, -1); }} />
                                     <ArrowDown size={11} className={`cursor-pointer hover:text-[var(--gnosi-primary)] ${idx === authors.length - 1 ? 'opacity-20 pointer-events-none' : ''}`} onMouseDown={e => { e.preventDefault(); move(idx, 1); }} />
                                 </div>
-                                <input className={inputCls} placeholder={t('autoria.first_name', 'Nom')} {...fieldHandlers(idx, 'nom')} />
-                                <input className={inputCls} placeholder={t('autoria.surname1', 'Cognom 1')} {...fieldHandlers(idx, 'cognom1')} />
-                                <input className={inputCls} placeholder={t('autoria.surname2', 'Cognom 2')} {...fieldHandlers(idx, 'cognom2')} />
-                                <span title={t('common.delete', 'Elimina')} className="shrink-0 flex items-center cursor-pointer text-[var(--text-tertiary)] hover:text-red-500" onMouseDown={e => { e.preventDefault(); removeAt(idx); }}>
+                                <input className={inputCls} placeholder={t('autoria.first_name', "First name")} {...fieldHandlers(idx, 'nom')} />
+                                <input className={inputCls} placeholder={t('autoria.surname1', "Surname 1")} {...fieldHandlers(idx, 'cognom1')} />
+                                <input className={inputCls} placeholder={t('autoria.surname2', "Surname 2")} {...fieldHandlers(idx, 'cognom2')} />
+                                <span title={t('common.delete', "Delete")} className="shrink-0 flex items-center cursor-pointer text-[var(--text-tertiary)] hover:text-red-500" onMouseDown={e => { e.preventDefault(); removeAt(idx); }}>
                                     <X size={12} />
                                 </span>
                             </div>
@@ -179,7 +179,7 @@ export const AutoriaEditor = ({ value = [], suggestions = [], onSave }) => {
                 className="flex items-center gap-1 text-[11px] font-medium text-[var(--gnosi-primary)] hover:underline"
                 onMouseDown={e => { e.preventDefault(); setAuthors(prev => [...prev, emptyAuthor()]); }}
             >
-                <Plus size={11} /> {t('autoria.add_author', 'Afegir autor')}
+                <Plus size={11} /> {t('autoria.add_author', "Add author")}
             </button>
         </div>
     );

@@ -91,10 +91,10 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                 fetchSources();
             } else {
                 const err = await res.json();
-                toast.error(err.detail || t('feed_manager.error_add_feed', 'Error afegint feed'));
+                toast.error(err.detail || t('feed_manager.error_add_feed', "Error adding feed"));
             }
         } catch {
-            toast.error(t('feed_manager.error_connect', "No s'ha pogut connectar"));
+            toast.error(t('feed_manager.error_connect', "Could not connect"));
         } finally {
             setAddLoading(false);
         }
@@ -134,10 +134,10 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
             if (res.ok) {
                 fetchSources();
             } else {
-                toast.error(data.detail || t('feed_manager.error_opml', 'Error processant OPML'));
+                toast.error(data.detail || t('feed_manager.error_opml', "Error processing OPML"));
             }
         } catch {
-            toast.error(t('feed_manager.error_upload_file', 'Error al pujar el fitxer'));
+            toast.error(t('feed_manager.error_upload_file', "Error uploading the file"));
         }
     }
 
@@ -168,7 +168,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                 fetchScheduler();
             }
         } catch (e) {
-            toast.error(t('feed_manager.error_run_task', "No s'ha pogut executar"));
+            toast.error(t('feed_manager.error_run_task', "Could not run"));
             console.error('Error running task:', e);
         } finally {
             setRunningTask(null);
@@ -176,9 +176,9 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
     }
 
     const tabs = [
-        { id: 'sources', label: t('feed_manager.tab_sources', 'Fonts'), icon: Rss },
-        { id: 'add', label: t('feed_manager.tab_add', 'Afegir'), icon: Plus },
-        { id: 'scheduler', label: t('feed_manager.tab_scheduler', 'Automàtic'), icon: Clock },
+        { id: 'sources', label: t('feed_manager.tab_sources', "Sources"), icon: Rss },
+        { id: 'add', label: t('feed_manager.tab_add', "Add"), icon: Plus },
+        { id: 'scheduler', label: t('feed_manager.tab_scheduler', "Automatic"), icon: Clock },
     ];
 
     const rssSources = sources.filter(s => s.type === 'rss');
@@ -189,8 +189,8 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
             <div ref={modalRef} className="feed-modal" onMouseDown={(e) => e.stopPropagation()}>
                 {/* Header */}
                 <div className="settings-modal__header">
-                    <h2 className="settings-modal__title">📡 {t('feed_manager.title', 'Gestió de Feeds')}</h2>
-                    <button className="gnosi-close-btn" onClick={onClose} aria-label={t('common.close', 'Tancar')}>
+                    <h2 className="settings-modal__title">📡 {t('feed_manager.title', "Feed Management")}</h2>
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label={t('common.close', "Close")}>
                         <X />
                     </button>
                 </div>
@@ -218,7 +218,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                             {loading ? (
                                 <p className="feed-empty">{t('common.loading')}</p>
                             ) : sources.length === 0 ? (
-                                <p className="feed-empty">{t('feed_manager.empty_sources', 'Cap font configurada. Afegeix feeds RSS o importa un OPML.')}</p>
+                                <p className="feed-empty">{t('feed_manager.empty_sources', "No sources configured. Add RSS feeds or import an OPML file.")}</p>
                             ) : (
                                 <>
                                     {rssSources.length > 0 && (
@@ -269,12 +269,12 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                             {/* Add RSS Form */}
                             <section className="feed-add-section">
                                 <h3 className="feed-add-section__title">
-                                    <Rss size={16} /> {t('feed_manager.add_rss_title', 'Afegir Feed RSS')}
+                                    <Rss size={16} /> {t('feed_manager.add_rss_title', "Add RSS Feed")}
                                 </h3>
                                 <form onSubmit={handleAddFeed} className="feed-add-form">
                                     <input
                                         type="url"
-                                        placeholder={t('feed_manager.rss_url_placeholder', 'URL del feed RSS *')}
+                                        placeholder={t('feed_manager.rss_url_placeholder', "RSS feed URL *")}
                                         value={newUrl}
                                         onChange={(e) => setNewUrl(e.target.value)}
                                         required
@@ -282,21 +282,21 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                     />
                                     <input
                                         type="text"
-                                        placeholder={t('feed_manager.name_placeholder', 'Nom (opcional)')}
+                                        placeholder={t('feed_manager.name_placeholder', "Name (optional)")}
                                         value={newName}
                                         onChange={(e) => setNewName(e.target.value)}
                                         className="feed-input"
                                     />
                                     <input
                                         type="text"
-                                        placeholder={t('feed_manager.category_placeholder', 'Categoria (opcional)')}
+                                        placeholder={t('feed_manager.category_placeholder', "Category (optional)")}
                                         value={newCategory}
                                         onChange={(e) => setNewCategory(e.target.value)}
                                         className="feed-input"
                                     />
                                     <button type="submit" className="feed-submit-btn" disabled={addLoading}>
                                         <Plus size={16} />
-                                        <span>{addLoading ? t('feed_manager.adding', 'Afegint...') : t('feed_manager.add_feed_btn', 'Afegir Feed')}</span>
+                                        <span>{addLoading ? t('feed_manager.adding', "Adding...") : t('feed_manager.add_feed_btn', "Add Feed")}</span>
                                     </button>
                                 </form>
                             </section>
@@ -304,10 +304,10 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                             {/* OPML Import */}
                             <section className="feed-add-section">
                                 <h3 className="feed-add-section__title">
-                                    <Upload size={16} /> {t('feed_manager.import_opml_title', 'Importar OPML')}
+                                    <Upload size={16} /> {t('feed_manager.import_opml_title', "Import OPML")}
                                 </h3>
                                 <p className="feed-add-desc">
-                                    {t('feed_manager.opml_desc', "Puja un fitxer .opml per importar tots els feeds d'un cop.")}
+                                    {t('feed_manager.opml_desc', "Upload an .opml file to import all feeds at once.")}
                                 </p>
                                 <div
                                     className="feed-dropzone"
@@ -321,7 +321,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                     }}
                                 >
                                     <Upload size={24} className="feed-dropzone__icon" />
-                                    <span>{t('feed_manager.dropzone_text', 'Arrossega un fitxer .opml o clica per seleccionar')}</span>
+                                    <span>{t('feed_manager.dropzone_text', "Drag an .opml file here or click to select")}</span>
                                     <input
                                         ref={fileRef}
                                         type="file"
@@ -338,10 +338,10 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                     {activeTab === 'scheduler' && (
                         <div className="feed-scheduler">
                             <p className="feed-add-desc">
-                                {t('feed_manager.scheduler_desc', "Tasques automàtiques que s'executen periòdicament.")}
+                                {t('feed_manager.scheduler_desc', "Automatic tasks that run periodically.")}
                             </p>
                             {schedulerTasks.length === 0 ? (
-                                <p className="feed-empty">{t('feed_manager.scheduler_load_error', "No s'han pogut carregar les tasques.")}</p>
+                                <p className="feed-empty">{t('feed_manager.scheduler_load_error', "Could not load the tasks.")}</p>
                             ) : (
                                 <div className="feed-task-list">
                                     {schedulerTasks.map(task => (
@@ -355,23 +355,23 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                                                 task.status === 'success' ? <Check size={12} /> :
                                                                     task.status === 'error' ? <AlertCircle size={12} /> :
                                                                         null}
-                                                            {runningTask === task.name ? t('feed_manager.running', 'executant...') : task.status}
+                                                            {runningTask === task.name ? t('feed_manager.running', "running...") : task.status}
                                                         </span>
                                                     </div>
                                                     <span className="feed-source-meta">
-                                                        {t('feed_manager.task_interval', 'Cada {{interval}}', {
+                                                        {t('feed_manager.task_interval', "Every {{interval}}", {
                                                             interval: task.interval_minutes < 60
                                                                 ? `${task.interval_minutes} min`
                                                                 : `${Math.round(task.interval_minutes / 60)}h`
                                                         })}
-                                                        {task.last_run ? ` · ${t('feed_manager.task_last_run', 'Últim: {{date}}', { date: new Date(task.last_run).toLocaleString('ca') })}` : ''}
+                                                        {task.last_run ? ` · ${t('feed_manager.task_last_run', "Last: {{date}}", { date: new Date(task.last_run).toLocaleString('ca') })}` : ''}
                                                     </span>
                                                 </div>
                                                 <div className="feed-task-actions">
                                                     <button
                                                         className={`feed-task-run ${runningTask === task.name ? 'feed-task-run--active' : ''}`}
                                                         onClick={() => handleRunTask(task.name)}
-                                                        title={t('feed_manager.run_now', 'Executar ara')}
+                                                        title={t('feed_manager.run_now', "Run now")}
                                                         disabled={runningTask !== null}
                                                     >
                                                         <RefreshCw size={14} className={runningTask === task.name ? 'feed-spin' : ''} />
@@ -379,7 +379,7 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                                                     <button
                                                         className={`feed-task-toggle ${task.enabled ? 'feed-task-toggle--on' : ''}`}
                                                         onClick={() => handleToggleTask(task.name, task.enabled, task.interval_minutes)}
-                                                        title={task.enabled ? t('feed_manager.deactivate_task', 'Desactivar') : t('feed_manager.activate_task', 'Activar')}
+                                                        title={task.enabled ? t('feed_manager.deactivate_task', "Deactivate") : t('feed_manager.activate_task', "Activate")}
                                                     >
                                                         <div className="feed-task-toggle__dot" />
                                                     </button>
@@ -397,8 +397,8 @@ export function FeedManagerModal({ isOpen, onClose, onRefresh }) {
                     isOpen={confirmModal.isOpen}
                     onClose={() => setConfirmModal({ isOpen: false, id: null })}
                     onConfirm={executeDeleteSource}
-                    title={t('feed_manager.delete_feed_title', 'Eliminar Feed')}
-                    message={t('feed_manager.delete_feed_message', 'Segur que vols eliminar aquest feed i tots els seus articles? Aquesta acció no es pot desfer.')}
+                    title={t('feed_manager.delete_feed_title', "Delete Feed")}
+                    message={t('feed_manager.delete_feed_message', "Are you sure you want to delete this feed and all its articles? This action cannot be undone.")}
                     confirmText={t('common.delete')}
                     isDestructive={true}
                 />

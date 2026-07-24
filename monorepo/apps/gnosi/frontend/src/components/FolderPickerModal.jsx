@@ -67,7 +67,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                 setDirectories(data.directories || []);
             }
         } catch (err) {
-            setError(t('fs_picker.connection_error', 'Error de connexió'));
+            setError(t('fs_picker.connection_error', "Connection error"));
         } finally {
             setLoading(false);
         }
@@ -87,8 +87,8 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
         <div className="settings-overlay active" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
             <div ref={modalRef} className="settings-modal active" style={{ maxWidth: '500px', height: '640px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }} onMouseDown={(e) => e.stopPropagation()}>
                 <div className="settings-modal__header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '15px 20px' }}>
-                    <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 {t('fs_picker.title_folder', 'Seleccionar Carpeta')}</h2>
-                    <button className="gnosi-close-btn" onClick={onClose} aria-label={t('fs_picker.close', 'Tancar')}>
+                    <h2 className="settings-modal__title" style={{ margin: 0, fontSize: '1.1em' }}>📁 {t('fs_picker.title_folder', "Select folder")}</h2>
+                    <button className="gnosi-close-btn" onClick={onClose} aria-label={t('fs_picker.close', "Close")}>
                         <X />
                     </button>
                 </div>
@@ -98,7 +98,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                     {/* Path Bar */}
                     <div style={{ padding: '12px', background: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('fs_picker.real_path', 'Ruta real al Mac:')}</div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t('fs_picker.real_path', "Real path on this computer:")}</div>
                             <div style={{ fontSize: '0.85em', color: '#60a5fa', wordBreak: 'break-all', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', padding: '8px 10px', borderRadius: '4px', fontFamily: 'monospace', lineHeight: '1.4' }}>
                                 {displayPath || currentPath}
                             </div>
@@ -106,7 +106,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                         <button
                             onClick={() => browse(joinPath(currentPath, '..'))}
                             className="p-1 folder-picker-item rounded text-zinc-400"
-                            title={t('folder_picker.go_up', 'Pujar un nivell (Up)')}
+                            title={t('folder_picker.go_up', "Go up one level (Up)")}
                             style={{ background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                         >
                             <ArrowLeft size={16} />
@@ -115,7 +115,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
 
                     {/* Shortcuts Bar */}
                     <div style={{ padding: '8px 12px', background: 'var(--bg-primary)', borderBottom: '1px solid var(--border-primary)', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: '500', textTransform: 'uppercase' }}>{t('fs_picker.shortcuts', 'Dreceres:')}</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)', fontWeight: '500', textTransform: 'uppercase' }}>{t('fs_picker.shortcuts', "Shortcuts:")}</span>
                         <button
                             onClick={() => roots?.vault && browse(roots.vault)}
                             disabled={!roots?.vault}
@@ -146,7 +146,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                         <Search size={14} style={{ position: 'absolute', left: '20px', top: '18px', color: 'var(--text-tertiary)' }} />
                         <input
                             type="text"
-                            placeholder={t('folder_picker.filter_placeholder', 'Filtrar carpetes...')}
+                            placeholder={t('folder_picker.filter_placeholder', "Filter folders...")}
                             style={{ width: '100%', padding: '6px 12px 6px 30px', background: 'var(--bg-secondary)', border: '1px solid var(--border-primary)', borderRadius: '6px', fontSize: '0.9em', color: 'var(--text-primary)' }}
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
@@ -162,7 +162,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                             {filteredDirectories.length === 0 && (
-                                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-tertiary)', fontSize: '0.9em' }}>{t('fs_picker.no_folders', "No s'han trobat carpetes")}</div>
+                                <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-tertiary)', fontSize: '0.9em' }}>{t('fs_picker.no_folders', "No folders found")}</div>
                             )}
                             {filteredDirectories.map(dir => (
                                 <button
@@ -193,7 +193,7 @@ export function FolderPickerModal({ isOpen, onClose, onSelect, initialPath = '' 
                         onClick={() => onSelect(currentPath)}
                         style={{ padding: '8px 16px', borderRadius: '6px', background: 'var(--gnosi-primary)', border: 'none', color: 'white', cursor: 'pointer', fontWeight: '500' }}
                     >
-                        {t('folder_picker.select_btn', 'Seleccionar')}
+                        {t('folder_picker.select_btn', "Select")}
                     </button>
                 </div>
             </div>

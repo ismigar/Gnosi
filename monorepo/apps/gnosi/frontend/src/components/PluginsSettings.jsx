@@ -181,9 +181,9 @@ function WebClipperConfig() {
                 value={cfg[key] || ''}
                 onChange={(e) => setPluginSettings('web-clipper', { [key]: e.target.value })}
             >
-                <option value="">{tp('clipper_auto', { defaultValue: 'Automàtic' })}</option>
+                <option value="">{tp('clipper_auto', { defaultValue: "Automatic" })}</option>
                 <option value={CLIPPER_NO_MAPPING}>
-                    {unmappedLabel || tp('clipper_unmapped', { defaultValue: 'Cap columna' })}
+                    {unmappedLabel || tp('clipper_unmapped', { defaultValue: "No column" })}
                 </option>
                 {(table?.properties || [])
                     .filter((p) => types.includes(p.type))
@@ -200,12 +200,12 @@ function WebClipperConfig() {
             display: 'flex', flexDirection: 'column', gap: 12,
         }}>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                {tp('clipper_intro', { defaultValue: 'Tria a quina taula desa l\'extensió del navegador. Els camps que marquis apareixeran al formulari de l\'extensió per omplir-los abans de desar.' })}
+                {tp('clipper_intro', { defaultValue: "Choose which table the browser extension saves into. The fields you tick show up in the extension form so you can fill them before saving." })}
             </div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                    {tp('clipper_table', { defaultValue: 'Taula destí' })}
+                    {tp('clipper_table', { defaultValue: "Destination table" })}
                 </span>
                 <select
                     style={SELECT_STYLE}
@@ -213,7 +213,7 @@ function WebClipperConfig() {
                     disabled={loading}
                     onChange={(e) => onPickTable(e.target.value)}
                 >
-                    <option value="">{tp('clipper_table_none', { defaultValue: 'Cap (nota a la carpeta Clips/)' })}</option>
+                    <option value="">{tp('clipper_table_none', { defaultValue: "None (note in the Clips/ folder)" })}</option>
                     {tables.map((tbl) => (
                         <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
                     ))}
@@ -222,27 +222,27 @@ function WebClipperConfig() {
 
             {table && (
                 <>
-                    {roleSelect('url_property', tp('clipper_url_column', { defaultValue: 'Columna de l\'URL' }), ['url', 'text'])}
+                    {roleSelect('url_property', tp('clipper_url_column', { defaultValue: "URL column" }), ['url', 'text'])}
                     {roleSelect(
                         'tags_property',
-                        tp('clipper_tags_column', { defaultValue: 'Columna d\'etiquetes' }),
+                        tp('clipper_tags_column', { defaultValue: "Tags column" }),
                         ['multi_select'],
-                        tp('clipper_tags_frontmatter', { defaultValue: 'Cap columna (etiquetes al frontmatter)' }),
+                        tp('clipper_tags_frontmatter', { defaultValue: "No column (tags in the frontmatter)" }),
                     )}
                     {roleSelect(
                         'content_property',
-                        tp('clipper_content_column', { defaultValue: 'Columna de la nota' }),
+                        tp('clipper_content_column', { defaultValue: "Note column" }),
                         ['text', 'rich_text'],
-                        tp('clipper_content_body', { defaultValue: 'Cos de la pàgina' }),
+                        tp('clipper_content_body', { defaultValue: "Page body" }),
                     )}
 
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                            {tp('clipper_fields', { defaultValue: 'Camps que demana l\'extensió' })}
+                            {tp('clipper_fields', { defaultValue: "Fields the extension asks for" })}
                         </span>
                         {properties.length === 0 ? (
                             <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                                {tp('clipper_no_fields', { defaultValue: 'Aquesta taula no té columnes que es puguin omplir des del navegador.' })}
+                                {tp('clipper_no_fields', { defaultValue: "This table has no columns that can be filled from the browser." })}
                             </span>
                         ) : (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
@@ -280,7 +280,7 @@ function WebClipperConfig() {
 
 /**
  * Configuration for the llm-wiki plugin: designates which table plays the
- * "Cervell" (LLM Wiki knowledge base) role. Mirrors the References designation
+ * Brain (LLM Wiki knowledge base) role. Mirrors the References designation
  * but per-vault (`<vault>/.gnosi/llm_wiki.json`). The backend guarantees the
  * knowledge schema (Tipus, Fonts→Recursos, verification status, ...).
  */
@@ -326,7 +326,7 @@ function LlmWikiConfig() {
             setLint(r.data?.lint || null);
         } catch (err) {
             console.error('LLM Wiki maintenance failed:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: 'No s’ha pogut actualitzar el Cervell.' }));
+            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: "The Brain could not be updated." }));
         } finally { setLintBusy(false); }
     };
 
@@ -339,7 +339,7 @@ function LlmWikiConfig() {
             setPendingSuggestions(response.data?.suggestions_pending || 0);
         } catch (err) {
             console.error('LLM Wiki semantic audit failed:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: 'No s’ha pogut actualitzar el Cervell.' }));
+            setError(err.response?.data?.detail || tp('llm_wiki_error', { defaultValue: "The Brain could not be updated." }));
         } finally { setSemanticBusy(false); }
     };
 
@@ -467,7 +467,7 @@ function LlmWikiConfig() {
             if (response.data?.config) setDraft(response.data.config);
         } catch (err) {
             console.error('Could not save the LLM Wiki configuration:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_save_error', { defaultValue: 'No s’ha pogut desar la configuració.' }));
+            setError(err.response?.data?.detail || tp('llm_wiki_save_error', { defaultValue: "The configuration could not be saved." }));
         } finally { setBusy(false); }
     };
 
@@ -482,12 +482,12 @@ function LlmWikiConfig() {
             await reload();
         } catch (err) {
             console.error('Could not create the standard Brain table:', err);
-            setError(err.response?.data?.detail || tp('llm_wiki_create_error', { defaultValue: 'No s’ha pogut crear la taula Cervell.' }));
+            setError(err.response?.data?.detail || tp('llm_wiki_create_error', { defaultValue: "The Brain table could not be created." }));
         } finally { setBusy(false); }
     };
 
     if (loading) {
-        return <div style={{ padding: 14, fontSize: 12, color: 'var(--text-tertiary)' }}>{tp('llm_wiki_loading', { defaultValue: 'Carregant configuració…' })}</div>;
+        return <div style={{ padding: 14, fontSize: 12, color: 'var(--text-tertiary)' }}>{tp('llm_wiki_loading', { defaultValue: "Loading configuration…" })}</div>;
     }
 
     return (
@@ -499,12 +499,12 @@ function LlmWikiConfig() {
               display: 'flex', flexDirection: 'column', gap: 14,
           }}>
             <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                {tp('llm_wiki_intro_v2', { defaultValue: 'Tria el Cervell, una o més taules font i els camps categòrics que mantindran índexs.' })}
+                {tp('llm_wiki_intro_v2', { defaultValue: "Choose the Brain, one or more source tables, and the categorical fields that will maintain indexes." })}
             </div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
-                    {tp('llm_wiki_table', { defaultValue: 'Taula del Cervell' })}
+                    {tp('llm_wiki_table', { defaultValue: "Brain table" })}
                 </span>
                 <select
                     style={SELECT_STYLE}
@@ -512,7 +512,7 @@ function LlmWikiConfig() {
                     disabled={busy}
                     onChange={(e) => onPickBrain(e.target.value)}
                 >
-                    <option value="">{tp('llm_wiki_none', { defaultValue: 'Cap taula seleccionada' })}</option>
+                    <option value="">{tp('llm_wiki_none', { defaultValue: "None (disabled)" })}</option>
                     {tables.map((tbl) => (
                         <option key={tbl.id} value={tbl.id}>{tbl.name || tbl.id}</option>
                     ))}
@@ -531,15 +531,15 @@ function LlmWikiConfig() {
                         color: 'var(--text-primary, #0f172a)', fontSize: 13, opacity: busy ? 0.6 : 1,
                     }}
                 >
-                    {tp('llm_wiki_create', { defaultValue: 'Crea un Cervell estàndard' })}
+                    {tp('llm_wiki_create', { defaultValue: "Create a Brain table" })}
                 </button>
                 <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
                     {serverState?.brain?.configured
                         ? tp('llm_wiki_active', { name: serverState.brain.name, defaultValue: `Actiu a «${serverState.brain.name}»` })
-                        : tp('llm_wiki_inactive', { defaultValue: 'Cap taula designada encara.' })}
+                        : tp('llm_wiki_inactive', { defaultValue: "No table designated yet." })}
                     {serverState?.brain?.configured && pendingSuggestions > 0 && (
                         <span style={{ marginLeft: 8, fontWeight: 700, color: 'var(--gnosi-primary, #6366f1)' }}>
-                            {tp('llm_wiki_pending_connections', { count: pendingSuggestions, defaultValue: '{{count}} connexions pendents' })}
+                            {tp('llm_wiki_pending_connections', { count: pendingSuggestions, defaultValue: "{{count}} pending connections" })}
                         </span>
                     )}
                 </span>
@@ -549,7 +549,7 @@ function LlmWikiConfig() {
               <>
                 <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-                        {tp('llm_wiki_sources', { defaultValue: 'Taules font' })}
+                        {tp('llm_wiki_sources', { defaultValue: "Source tables" })}
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 7 }}>
                         {tables.filter((table) => table.id !== draft.brain_table_id).map((table) => (
@@ -570,7 +570,7 @@ function LlmWikiConfig() {
 
                 <div>
                     <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 8 }}>
-                        {tp('llm_wiki_index_fields', { defaultValue: 'Camps categòrics amb índex' })}
+                        {tp('llm_wiki_index_fields', { defaultValue: "Indexed categorical fields" })}
                     </div>
                     <div style={{ display: 'flex', gap: 7, flexWrap: 'wrap' }}>
                         {categoricalProps.map((prop) => (
@@ -588,7 +588,7 @@ function LlmWikiConfig() {
                         ))}
                         {categoricalProps.length === 0 && (
                             <span style={{ fontSize: 12, color: 'var(--text-tertiary)' }}>
-                                {tp('llm_wiki_no_index_fields', { defaultValue: 'Aquesta taula no té camps categòrics indexables.' })}
+                                {tp('llm_wiki_no_index_fields', { defaultValue: "This table has no indexable categorical fields." })}
                             </span>
                         )}
                     </div>
@@ -604,7 +604,7 @@ function LlmWikiConfig() {
                         <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 9 }}>{sourceTable?.name || source.table_id}</div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 9 }}>
                             <label style={{ fontSize: 11 }}>
-                                {tp('llm_wiki_title_field', { defaultValue: 'Camp de títol' })}
+                                {tp('llm_wiki_title_field', { defaultValue: "Title field" })}
                                 <select
                                     style={{ ...SELECT_STYLE, marginTop: 3 }}
                                     value={source.title_property_id || ''}
@@ -615,20 +615,20 @@ function LlmWikiConfig() {
                                 </select>
                             </label>
                             <label style={{ fontSize: 11 }}>
-                                {tp('llm_wiki_language_field', { defaultValue: 'Camp d’idioma' })}
+                                {tp('llm_wiki_language_field', { defaultValue: "Language field" })}
                                 <select
                                     style={{ ...SELECT_STYLE, marginTop: 3 }}
                                     value={source.language_property_id || ''}
                                     onChange={(event) => updateSource(source.table_id, (item) => ({ ...item, language_property_id: event.target.value }))}
                                 >
-                                    <option value="">{tp('llm_wiki_auto_language', { defaultValue: 'Detecció automàtica' })}</option>
+                                    <option value="">{tp('llm_wiki_auto_language', { defaultValue: "Automatic detection" })}</option>
                                     {props.map((prop) => <option key={prop.id} value={prop.id}>{prop.name}</option>)}
                                 </select>
                             </label>
                         </div>
                         <div style={{ marginTop: 9, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                             <div>
-                                <div style={{ fontSize: 11, fontWeight: 700 }}>{tp('llm_wiki_attachment_fields', { defaultValue: 'Camps d’adjunts' })}</div>
+                                <div style={{ fontSize: 11, fontWeight: 700 }}>{tp('llm_wiki_attachment_fields', { defaultValue: "Attachment fields" })}</div>
                                 {fileProps.map((prop) => (
                                     <label key={prop.id} style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
                                         <input
@@ -640,7 +640,7 @@ function LlmWikiConfig() {
                                 ))}
                             </div>
                             <div>
-                                <div style={{ fontSize: 11, fontWeight: 700 }}>{tp('llm_wiki_url_fields', { defaultValue: 'Camps d’URL' })}</div>
+                                <div style={{ fontSize: 11, fontWeight: 700 }}>{tp('llm_wiki_url_fields', { defaultValue: "URL fields" })}</div>
                                 {urlProps.map((prop) => (
                                     <label key={prop.id} style={{ display: 'block', fontSize: 11, marginTop: 4 }}>
                                         <input
@@ -671,10 +671,10 @@ function LlmWikiConfig() {
                                             },
                                         }))}
                                     >
-                                        <option value="ai">{tp('llm_wiki_map_ai', { defaultValue: 'Inferir amb IA' })}</option>
-                                        <option value="source">{tp('llm_wiki_map_source', { defaultValue: 'Copiar camp font' })}</option>
-                                        <option value="fixed">{tp('llm_wiki_map_fixed', { defaultValue: 'Valor fix' })}</option>
-                                        <option value="empty">{tp('llm_wiki_map_empty', { defaultValue: 'Deixar buit' })}</option>
+                                        <option value="ai">{tp('llm_wiki_map_ai', { defaultValue: "Infer with AI" })}</option>
+                                        <option value="source">{tp('llm_wiki_map_source', { defaultValue: "Copy source field" })}</option>
+                                        <option value="fixed">{tp('llm_wiki_map_fixed', { defaultValue: "Fixed value" })}</option>
+                                        <option value="empty">{tp('llm_wiki_map_empty', { defaultValue: "Leave empty" })}</option>
                                     </select>
                                     {mapping.mode === 'source' && (
                                         <select
@@ -728,7 +728,7 @@ function LlmWikiConfig() {
                     disabled={busy || !draft.brain_table_id || !(draft.source_tables || []).length}
                     className="btn-gnosi btn-gnosi-primary"
                 >
-                    {busy ? tp('llm_wiki_saving', { defaultValue: 'Desant…' }) : tp('llm_wiki_save', { defaultValue: 'Desa i prepara' })}
+                    {busy ? tp('llm_wiki_saving', { defaultValue: "Saving…" }) : tp('llm_wiki_save', { defaultValue: "Save and prepare" })}
                 </button>
                 <button
                     type="button"
@@ -736,7 +736,7 @@ function LlmWikiConfig() {
                     disabled={lintBusy || !serverState?.validation?.valid}
                     className="btn-gnosi"
                 >
-                    {lintBusy ? tp('llm_wiki_lint_running', { defaultValue: 'Revisant…' }) : tp('llm_wiki_lint_run', { defaultValue: 'Reconstrueix i revisa' })}
+                    {lintBusy ? tp('llm_wiki_lint_running', { defaultValue: "Reviewing…" }) : tp('llm_wiki_lint_run', { defaultValue: "Review the Brain (lint)" })}
                 </button>
                 <button
                     type="button"
@@ -745,8 +745,8 @@ function LlmWikiConfig() {
                     className="btn-gnosi"
                 >
                     {semanticBusy
-                        ? tp('llm_wiki_semantic_running', { defaultValue: 'Analitzant connexions…' })
-                        : tp('llm_wiki_semantic_run', { defaultValue: 'Proposa connexions amb IA' })}
+                        ? tp('llm_wiki_semantic_running', { defaultValue: "Analyzing connections…" })
+                        : tp('llm_wiki_semantic_run', { defaultValue: "Propose connections with AI" })}
                 </button>
             </div>
 
@@ -757,7 +757,7 @@ function LlmWikiConfig() {
                             ocr: serverState.capabilities.ocr ? '✓' : '—',
                             transcription: serverState.capabilities.transcription ? '✓' : '—',
                             streaming: serverState.capabilities.streaming ? '✓' : '—',
-                            defaultValue: 'OCR {{ocr}} · transcripció {{transcription}} · streaming {{streaming}}',
+                            defaultValue: "OCR {{ocr}} · transcription {{transcription}} · streaming {{streaming}}",
                         })}
                     </div>
                     {(!serverState.capabilities.ocr
@@ -766,13 +766,13 @@ function LlmWikiConfig() {
                         || (serverState.capabilities.ocr_missing_languages || []).length > 0) && (
                         <div style={{ marginTop: 3, color: 'var(--status-warning, #b45309)' }}>
                             {tp('llm_wiki_capability_help', {
-                                defaultValue: 'Instal·la Tesseract (ca/es/en/fr), FFmpeg i les dependències Python indicades a requirements.txt; després reinicia el backend natiu.',
+                                defaultValue: "Install Tesseract (ca/es/en/fr), FFmpeg, and the Python dependencies listed in requirements.txt, then restart the native backend.",
                             })}
                             {(serverState.capabilities.ocr_missing_languages || []).length > 0 && (
                                 <span style={{ display: 'block' }}>
                                     {tp('llm_wiki_missing_ocr_languages', {
                                         languages: serverState.capabilities.ocr_missing_languages.join(', '),
-                                        defaultValue: 'Idiomes OCR que falten: {{languages}}.',
+                                        defaultValue: "Missing OCR languages: {{languages}}.",
                                     })}
                                 </span>
                             )}
@@ -784,12 +784,12 @@ function LlmWikiConfig() {
             {lint && (
                 <div style={{ fontSize: 12, color: 'var(--text-secondary, #475569)', lineHeight: 1.6 }}>
                     <div style={{ fontWeight: 600, color: 'var(--text-primary, #0f172a)', marginBottom: 4 }}>
-                        {tp('llm_wiki_lint_summary', { count: lint.note_count, defaultValue: '{{count}} notes revisades' })}
+                        {tp('llm_wiki_lint_summary', { count: lint.note_count, defaultValue: "{{count}} notes reviewed" })}
                     </div>
-                    <div>• {tp('llm_wiki_lint_orphans', { count: lint.counts?.orphans || 0, defaultValue: '{{count}} òrfenes' })}</div>
-                    <div>• {tp('llm_wiki_lint_cites', { count: lint.counts?.broken_cites || 0, defaultValue: '{{count}} cites trencades' })}</div>
-                    <div>• {tp('llm_wiki_lint_indexes', { count: lint.counts?.index_drift || 0, defaultValue: '{{count}} índexs pendents' })}</div>
-                    <div>• {tp('llm_wiki_lint_reprocess', { count: lint.counts?.reprocess || 0, defaultValue: '{{count}} recursos per reprocessar' })}</div>
+                    <div>• {tp('llm_wiki_lint_orphans', { count: lint.counts?.orphans || 0, defaultValue: "{{count}} orphans (no other note links them)" })}</div>
+                    <div>• {tp('llm_wiki_lint_cites', { count: lint.counts?.broken_cites || 0, defaultValue: "{{count}} broken citations" })}</div>
+                    <div>• {tp('llm_wiki_lint_indexes', { count: lint.counts?.index_drift || 0, defaultValue: "{{count}} pending indexes" })}</div>
+                    <div>• {tp('llm_wiki_lint_reprocess', { count: lint.counts?.reprocess || 0, defaultValue: "{{count}} resources modified after processing" })}</div>
                 </div>
             )}
           </div>
@@ -798,9 +798,9 @@ function LlmWikiConfig() {
               onClose={() => setConfirmCreate(false)}
               onConfirm={onCreate}
               isDestructive={false}
-              title={tp('llm_wiki_create_confirm_title', { defaultValue: 'Crear un Cervell estàndard?' })}
-              message={tp('llm_wiki_create_confirm_message', { defaultValue: 'Es crearà una taula amb camps de tipus, àrees, etiquetes, posició i verificació, més l’Índex general, l’Esquema i el Registre. No s’eliminarà ni modificarà cap taula existent.' })}
-              confirmText={tp('llm_wiki_create_confirm', { defaultValue: 'Crea el Cervell' })}
+              title={tp('llm_wiki_create_confirm_title', { defaultValue: "Create a standard Brain?" })}
+              message={tp('llm_wiki_create_confirm_message', { defaultValue: "A table will be created with note type, areas, tags, position, and verification fields, plus the General index, Schema, and Log. No existing table will be removed or modified." })}
+              confirmText={tp('llm_wiki_create_confirm', { defaultValue: "Create Brain" })}
           />
         </>
     );
@@ -1310,9 +1310,9 @@ export function PluginsSettings() {
                 isOpen={confirmLlmWikiDisable}
                 onClose={() => setConfirmLlmWikiDisable(false)}
                 onConfirm={confirmDisableLlmWiki}
-                title={tp('llm_wiki_disable_title', { defaultValue: 'Desactivar el Cervell?' })}
-                message={tp('llm_wiki_disable_message', { defaultValue: 'S’eliminarà el perfil d’agent «Cervell» de Configuració → IA. La taula, les notes i les fonts del Cervell es conservaran.' })}
-                confirmText={tp('llm_wiki_disable_confirm', { defaultValue: 'Desactivar i eliminar l’agent' })}
+                title={tp('llm_wiki_disable_title', { defaultValue: "Disable the Brain?" })}
+                message={tp('llm_wiki_disable_message', { defaultValue: "The “Brain” agent profile will be removed from Settings → AI. The Brain table, notes, and sources will be kept." })}
+                confirmText={tp('llm_wiki_disable_confirm', { defaultValue: "Disable and remove agent" })}
                 isDestructive
             />
 

@@ -1,5 +1,7 @@
 """Tests for the declarative Zotero item → Recursos mapper.
 
+Quoted labels below are persisted schema values. @language-example
+
 Covers:
   - Bit-identical equivalence with the original `_zotero_item_to_recursos`
     from `vault_routes.py` for realistic fixtures (translation-server,

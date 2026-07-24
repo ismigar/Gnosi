@@ -132,9 +132,9 @@ function MailPageInner() {
             setRemovedMailId(null);
             setListRefreshToken(n => n + 1);
             fetchCounts(accounts);
-            toast.success(t('mail.undo_success', 'Acció desfeta'));
+            toast.success(t('mail.undo_success', "Action undone"));
         } catch {
-            toast.error(t('mail.undo_error', "No s'ha pogut desfer"));
+            toast.error(t('mail.undo_error', "Could not undo"));
         }
     };
     executeUndoRef.current = executeUndo;
@@ -144,7 +144,7 @@ function MailPageInner() {
         setTimeout(() => {
             if (undoRef.current?.mailId === mailId) undoRef.current = null;
         }, 8000);
-        const label = type === 'trash' ? t('mail.undo_label_trashed', 'Eliminat') : t('mail.undo_label_archived', 'Arxivat');
+        const label = type === 'trash' ? t('mail.undo_label_trashed', "Deleted") : t('mail.undo_label_archived', "Archived");
         toast(
             <span style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <span>{label}</span>
@@ -152,7 +152,7 @@ function MailPageInner() {
                     onClick={() => executeUndoRef.current?.()}
                     style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0, color: 'inherit' }}
                 >
-                    {t('common.undo', 'Desfer')}
+                    {t('common.undo', "Undo")}
                 </button>
                 <span style={{ opacity: 0.5, fontSize: '11px' }}>⌘Z</span>
             </span>,

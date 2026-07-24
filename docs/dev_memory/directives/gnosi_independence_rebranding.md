@@ -1,55 +1,46 @@
-# Directiva: GNOSI_INDEPENDENCE_REBRANDING
+# Directive: Gnosi independence and rebranding
 
 > ID: 2026-04-07
-> Associated Script: N/A (Manual Refactor)
-> Last Update: 2026-04-07
 > Status: ACTIVE
 
----
+## Objective
 
-## 1. Objectius i Abast
+Transition Gnosi from a Notion-import viewer into an independent application.
+Remove active Notion-import branding from UI, communication, and business
+logic except where it describes real historical data migration.
 
-Aquesta directiva estableix el marc de referència per a la transició de Gnosi de ser un visualitzador de Connector importació Notion a una aplicació totalment independent.
+Success means public documentation, UI, and active component names use Gnosi
+or Vault terminology, while actual Notion integration code remains explicit.
 
-- **Objectiu Principal:** Eliminar totes les referències actives a Connector importació Notion en interfícies, comunicacions i lògica de negoci que no estiguin estrictament relacionades amb la migració de dades històriques.
-- **Criteris d'Èxit:** Tota menció de "Connector importació Notion" en READMEs principals, interfícies d'usuari i noms de components actius ha de ser substituïda per "Gnosi" o "Vault".
+## Inputs and outputs
 
-## 2. Especificacions d'I/O
+- Inputs: source under `monorepo/apps/gnosi` and developer directives.
+- Outputs: safely refactored code and current English documentation.
 
-### Inputs
-- Codi font de `monorepo/apps/gnosi` i `temenos`.
-- Directives acadèmiques a `docs/dev_memory/directives/`.
+## Classification
 
-### Outputs
-- Codi refactoritzat i documentació actualitzada.
+Classify every occurrence before changing it:
 
-## 3. Flux Lògic (Algoritme)
+- **Identity:** project names, logos, and page titles → change.
+- **Internal Gnosi data:** variables named `notion_*` that no longer represent
+  Notion → migrate with all references.
+- **Integration:** import functions, migration scripts, Notion API clients,
+  persisted source fields, and credentials → keep and clarify.
 
-1. **Categorització:** Separar referències en:
-    - *Identitat:* Noms de projecte, logos, títols de pàgina. -> **CANVIAR**
-    - *Estructura de Dades:* Variables que emmagatzemen info de Gnosi però es diuen `notion_X`. -> **CANVIAR**
-    - *Integració:* Funcions de migració, scripts d'importació. -> **MANTENIR** (però clarificar).
-2. **Rebranding Documental:** Començar pels READMEs i directives per establir la nova veritat.
-3. **Refactorització de Codi:** Substituir de manera segura les variables i comentaris.
-4. **Verificació de Build:** Assegurar que el canvi de variables no trenca integracions.
+Update documentation first, refactor identifiers with language-aware tooling,
+then run build and tests.
 
-## 4. Eines i Llibreries
-- `grep` i `sed` per a cerques i substitucions massives (amb precaució).
-- `IDE Refactoring tools` per assegurar la integritat de les referències en Python i JavaScript.
+## Restrictions
 
-## 5. Restriccions i Casos de Cantonada
+- Do not rename classes or methods that genuinely call the Notion API.
+- Keep established Notion credential environment names until a deliberate
+  compatibility migration exists.
+- After renaming a React component, verify every import and dynamic registry
+  reference.
+- Prefer `rg` and IDE-aware symbol refactoring over blind text replacement.
 
-- **Migració:** NO s'han de rebatejar les classes o mètodes que realment parlen amb l'API de Connector importació Notion (`notion_api.py`).
-- **Secrets:** Les variables d'entorn a `.env_shared` que contenen tokens de Connector importació Notion han de mantenir el seu nom fins que es disposi d'una alternativa (si n'hi ha).
-
-## 6. Protocols de l'Observador (Antigravity)
-
-- Sempre que es trobi una nova menció de Connector importació Notion, s'ha de preguntar si és "Identitat" o "Integració".
-- Si es canvia un nom de component a React, s'ha de verificar la importació en tots els fitxers afectats.
-
-## 7. Exemples d'Ús
+Example audit:
 
 ```bash
-# Exemple de cerca de mencions pendents
-grep -r "Connector importació Notion" . --exclude-dir=node_modules
+rg -n "Notion import connector" monorepo/apps/gnosi docs
 ```

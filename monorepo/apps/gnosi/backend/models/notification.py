@@ -20,7 +20,7 @@ class Notification(Base):
     is_read = Column(Boolean, default=False)
 
     # `timezone=True` so that SQLAlchemy persists the offset and the response
-    # ISO inclogui `+00:00`. Vegeu backend/models/_datetime_utils.py.
+    # ISO output includes `+00:00`. See backend/models/_datetime_utils.py.
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     workspace = relationship("Workspace")

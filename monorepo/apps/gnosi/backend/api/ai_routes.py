@@ -74,14 +74,14 @@ async def validate_provider(provider_id: str, payload: ValidatePayload):
         )
 
         if not llm:
-            return {"success": False, "error": f"No s'ha pogut instanciar el proveïdor {provider}. Revisa que la dependència o la clau API siguin correctos. Model: {target_model}"}
+            return {"success": False, "error": f"Could not instantiate provider {provider}. Check the dependency and API key. Model: {target_model}"}
 
         # Minimal invocation attempt — to_thread avoids blocking the event loop
         # (some LLMs don't expose `ainvoke` or their sync version is the primary path).
         from langchain_core.messages import HumanMessage
         response = await asyncio.to_thread(
             llm.invoke,
-            [HumanMessage(content="Digues 'ok'")],
+            [HumanMessage(content="Say 'ok'")],
         )
 
         return {"success": True, "response": response.content}
@@ -449,48 +449,48 @@ def _build_generation_prompt(payload: "GeneratePayload") -> str:
     language = (payload.language or "").strip()
 
     style = (
-        "Respon NOMÉS amb el contingut sol·licitat, en format Markdown net "
-        "(títols, llistes, **negreta**, taules si cal). No afegeixis cap "
-        "introducció tipus «Aquí tens…» ni embolcallis tota la resposta en un "
-        "bloc de codi. Mantén el mateix idioma que el text d'entrada"
+        "Respond ONLY with the requested content in clean Markdown (headings, "
+        "lists, **bold**, and tables where appropriate). Do not add an "
+        "introduction such as “Here you go” or wrap the entire response in a "
+        "code block. Keep the same language as the input text"
     )
     if mode == "translate" and language:
-        style += f", excepte aquí: tradueix a {language}."
+        style += f", except in this case: translate it into {language}."
     else:
         style += "."
 
     if mode == "continue":
         body = (
-            "Continua escrivint el text següent de manera natural i coherent, "
-            "afegint un o dos paràgrafs nous. NO repeteixis el que ja hi ha.\n\n"
-            f"--- TEXT ACTUAL ---\n{context}"
+            "Continue the following text naturally and coherently by adding one "
+            "or two new paragraphs. Do NOT repeat existing content.\n\n"
+            f"--- CURRENT TEXT ---\n{context}"
         )
     elif mode == "summarize":
         body = (
-            "Fes un resum clar i estructurat (en punts si escau) del contingut "
-            f"següent.\n\n--- CONTINGUT ---\n{context}"
+            "Create a clear, structured summary of the following content, using "
+            f"bullet points where appropriate.\n\n--- CONTENT ---\n{context}"
         )
     elif mode == "improve":
         target = context or instruction
         body = (
-            "Reescriu el text següent millorant-ne la redacció, la claredat i el "
-            "to, sense canviar-ne el significat ni l'idioma.\n\n"
+            "Rewrite the following text to improve its wording, clarity, and "
+            "tone without changing its meaning or language.\n\n"
             f"--- TEXT ---\n{target}"
         )
     elif mode == "translate":
         target = context or instruction
         body = (
-            f"Tradueix fidelment el text següent a {language or 'anglès'}.\n\n"
+            f"Translate the following text faithfully into {language or 'English'}.\n\n"
             f"--- TEXT ---\n{target}"
         )
     else:  # free
         if context:
             body = (
-                f"{instruction}\n\nFes servir aquest context de la pàgina actual "
-                f"com a referència si cal:\n--- CONTEXT ---\n{context}"
+                f"{instruction}\n\nUse this context from the current page as a "
+                f"reference when needed:\n--- CONTEXT ---\n{context}"
             )
         else:
-            body = instruction or "Escriu un paràgraf útil sobre el tema."
+            body = instruction or "Write a useful paragraph about the topic."
 
     return f"{style}\n\n{body}"
 
@@ -510,7 +510,7 @@ async def generate_content(payload: GeneratePayload):
 
     final_prompt = _build_generation_prompt(payload)
     if not final_prompt.strip() or final_prompt.strip() == ".":
-        raise HTTPException(status_code=400, detail="Cal un prompt o context.")
+        raise HTTPException(status_code=400, detail="A prompt or context is required.")
 
     try:
         content, provider = await asyncio.to_thread(
@@ -519,7 +519,7 @@ async def generate_content(payload: GeneratePayload):
     except RuntimeError as e:
         raise HTTPException(
             status_code=503,
-            detail="No hi ha cap proveïdor d'IA disponible. Revisa Configuració › IA.",
+            detail="No AI provider is available. Check Settings › AI.",
         ) from e
     except Exception as e:
         # Invalid/expired key, rate-limit, or permissions → actionable message.
@@ -527,7 +527,7 @@ async def generate_content(payload: GeneratePayload):
         if any(k in msg for k in ("timeout", "timed out", "timed_out")):
             raise HTTPException(
                 status_code=504,
-                detail="El proveïdor d'IA no ha respost a temps. Torna-ho a provar.",
+                detail="The AI provider did not respond in time. Try again.",
             ) from e
         if any(k in msg for k in (
             "authentication", "api key", "api_key", "invalid_api_key",
@@ -535,7 +535,7 @@ async def generate_content(payload: GeneratePayload):
         )):
             raise HTTPException(
                 status_code=503,
-                detail="El proveïdor d'IA ha rebutjat la clau. Revisa Configuració › IA.",
+                detail="The AI provider rejected the key. Check Settings › AI.",
             ) from e
         raise HTTPException(
             status_code=502,
@@ -552,9 +552,9 @@ class CorrectPayload(BaseModel):
 
 
 _LANG_LABELS = {
-    "ca": "català",
-    "es": "castellà",
-    "en": "anglès",
+    "ca": "Catalan",
+    "es": "Spanish",
+    "en": "English",
 }
 
 
@@ -572,19 +572,19 @@ async def correct_text(payload: CorrectPayload):
 
     text = (payload.text or "").strip()
     if not text:
-        raise HTTPException(status_code=400, detail="Cal text per corregir.")
+        raise HTTPException(status_code=400, detail="Text is required for correction.")
 
     hint = (payload.language or "").strip()
-    lang_note = f" El text és en {_LANG_LABELS.get(hint, hint)}." if hint else ""
+    lang_note = f" The text is in {_LANG_LABELS.get(hint, hint)}." if hint else ""
 
     prompt = (
-        "Ets un corrector ortogràfic i gramatical. Corregeix el text següent: "
-        "faltes d'ortografia, accents, puntuació, concordança i gramàtica."
-        f"{lang_note} Conserva EXACTAMENT el mateix idioma, sentit, to i registre. "
-        "No reescriguis l'estil ni resumeixis, no afegeixis ni treguis idees. "
-        "Conserva el format Markdown, els salts de línia, els enllaços [[wiki]], "
-        "les URL i el codi tal com estan. Respon NOMÉS amb el text corregit, "
-        "sense cometes, sense explicacions ni comentaris.\n\n"
+        "You are a spelling and grammar checker. Correct spelling, diacritics, "
+        "punctuation, agreement, and grammar in the following text."
+        f"{lang_note} Preserve EXACTLY the same language, meaning, tone, and register. "
+        "Do not rewrite the style, summarize, add, or remove ideas. Preserve "
+        "Markdown formatting, line breaks, [[wiki]] links, URLs, and code exactly. "
+        "Respond ONLY with the corrected text, without quotation marks, "
+        "explanations, or comments.\n\n"
         f"--- TEXT ---\n{text}"
     )
 
@@ -595,14 +595,14 @@ async def correct_text(payload: CorrectPayload):
     except RuntimeError as e:
         raise HTTPException(
             status_code=503,
-            detail="No hi ha cap proveïdor d'IA disponible. Revisa Configuració › IA.",
+            detail="No AI provider is available. Check Settings › AI.",
         ) from e
     except Exception as e:
         msg = str(e).lower()
         if any(k in msg for k in ("timeout", "timed out", "timed_out")):
             raise HTTPException(
                 status_code=504,
-                detail="El proveïdor d'IA no ha respost a temps. Torna-ho a provar.",
+                detail="The AI provider did not respond in time. Try again.",
             ) from e
         if any(k in msg for k in (
             "authentication", "api key", "api_key", "invalid_api_key",
@@ -610,7 +610,7 @@ async def correct_text(payload: CorrectPayload):
         )):
             raise HTTPException(
                 status_code=503,
-                detail="El proveïdor d'IA ha rebutjat la clau. Revisa Configuració › IA.",
+                detail="The AI provider rejected the key. Check Settings › AI.",
             ) from e
         raise HTTPException(
             status_code=502,

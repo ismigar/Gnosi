@@ -473,15 +473,15 @@ def test_dimension_index_links_readings_and_manual_permanents_separately(monkeyp
         {"id": "area", "name": "Àrees", "type": "multi_select"},
         [reading],
         [permanent],
-        {"ui_locale": "ca", "brain_roles": {}},
+        {"ui_locale": "en", "brain_roles": {}},
     )
 
     body = captured[0][0][4]
     assert len(pages) == 1
     assert "[[Reading idea|reading-1]]" in body
     assert "[[Manual synthesis|permanent-1]]" in body
-    assert body.index("[[Reading idea|reading-1]]") < body.index("## Notes permanents manuals")
-    assert body.index("## Notes permanents manuals") < body.index("[[Manual synthesis|permanent-1]]")
+    assert body.index("[[Reading idea|reading-1]]") < body.index("## Manual permanent notes")
+    assert body.index("## Manual permanent notes") < body.index("[[Manual synthesis|permanent-1]]")
 
 
 def test_rebuildable_search_vectors_support_hybrid_ranking():

@@ -51,7 +51,7 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
     if (!isOpen) return null;
 
     // Use label as title if title is missing (common in graph data)
-    const displayTitle = data?.title || data?.label || t('common.untitled', 'Sense títol');
+    const displayTitle = data?.title || data?.label || t('common.untitled', "Untitled");
 
     return (
         <div className="node-details-panel" style={{
@@ -75,13 +75,13 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
                 <button
                     onClick={onClose}
                     className="gnosi-close-btn"
-                    aria-label={t('graph.node_panel.close', 'Tancar detalls')}
+                    aria-label={t('graph.node_panel.close', "Close details")}
                 >
                     <X />
                 </button>
             </div>
 
-            {loading && !data && <div style={{ marginTop: '40px', textAlign: 'center' }}>{t('graph.node_panel.loading', 'Carregant... ⏳')}</div>}
+            {loading && !data && <div style={{ marginTop: '40px', textAlign: 'center' }}>{t('graph.node_panel.loading', "Loading... ⏳")}</div>}
 
             {error && !data && (
                 <div style={{ marginTop: '40px', color: 'red', textAlign: 'center' }}>
@@ -126,20 +126,20 @@ export function NodeDetailsPanel({ nodeId, isOpen, onClose, initialData }) {
 
                         {data.last_edited_time && (
                             <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
-                                {t('graph.node_panel.updated', 'Actualitzat: {{date}}', { date: new Date(data.last_edited_time).toLocaleDateString() })}
+                                {t('graph.node_panel.updated', "Updated: {{date}}", { date: new Date(data.last_edited_time).toLocaleDateString() })}
                             </div>
                         )}
                     </div>
 
                     {/* Content Body */}
-                    {loading && <div style={{ marginBottom: '20px', color: 'var(--text-tertiary)' }}>{t('graph.node_panel.loading_content', 'Acabant de carregar contingut...')}</div>}
+                    {loading && <div style={{ marginBottom: '20px', color: 'var(--text-tertiary)' }}>{t('graph.node_panel.loading_content', "Finishing loading content...")}</div>}
 
                     <div className="markdown-body" style={{
                         lineHeight: '1.6',
                         fontSize: '0.95rem',
                         whiteSpace: 'pre-wrap'
                     }}>
-                        {data.content ? data.content : (!loading && <em style={{ color: 'var(--text-tertiary)' }}>{t('graph.node_panel.no_content', 'Sense contingut...')}</em>)}
+                        {data.content ? data.content : (!loading && <em style={{ color: 'var(--text-tertiary)' }}>{t('graph.node_panel.no_content', "No content...")}</em>)}
                     </div>
                 </div>
             )}

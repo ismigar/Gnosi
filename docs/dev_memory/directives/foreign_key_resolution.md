@@ -1,79 +1,53 @@
-# Directiva: Resolució de claus foranes (relations) → títols
+# Directive: Resolve relation IDs to titles
 
-## Objectiu
-Garantir que els camps de tipus `relation` mai mostrin l'ID en cru. Sempre han de mostrar el títol del registre referenciat.
+## Objective
 
-## Arquitectura
+Relation fields must display referenced record titles rather than raw IDs.
 
-El frontend manté un mapa `globalIndex` (variable d'estat a `VaultDashboard.jsx`, anomenat `idToTitle` als components fills) que tradueix `page_id → title`. Aquest mapa és la font única de veritat per renderitzar relacions.
+## Architecture
 
-El backend l'omple via `build_id_title_index()` a `vault_routes.py`, que recorre tot el VAULT i el DASHWORKS i retorna un diccionari complet. Es serveix a `GET /api/vault/global-index`.
+`VaultDashboard.jsx` maintains the `globalIndex` state, passed to children as
+`idToTitle`, mapping `page_id` to title. This is the single display source.
 
-## Principi obligatori: l'índex és **acumulatiu**, no s'esborra mai
+The backend builds it through `build_id_title_index()` across Vault and
+dashboard content and serves it from `GET /api/vault/global-index`.
 
-Tots els punts d'escriptura de `globalIndex` han de fer **merge** amb l'estat anterior, mai substituir-lo:
+## Accumulative index rule
 
-```js
-// Correcte
-setGlobalIndex(prev => ({ ...prev, ...nuevasEntradas }));
-
-// Incorrecte — destrueix entrades d'altres taules
-setGlobalIndex(Object.fromEntries(...));
-```
-
-Restriccions/Edge cases:
-- **No utilitzar `setGlobalIndex` amb un objecte literal**. Sempre amb funció d'updater (`prev => ...`).
-- **Després de `fetchPagesByTable`** s'ha de cridar `fetchGlobalIndex()` per refrescar l'índex complet del backend, perquè les pàgines en memòria només cobreixen la taula activa.
-- **Els components fills (`VaultTable`, `VaultGallery`, `VaultFeed`, `BlockEditor`)** mai han de derivar el seu propi mapping de títols a partir de `notes` o `pages` exclusivament. Han de rebre `idToTitle` per props.
-
-## Fallbacks de renderitzat
-
-Quan un ID no es troba al mapa (cas excepcional, p.ex. registre acabat de crear o pàgina externa):
-
-- **Mode lectura:** Si el camp té `relation_database_id` configurat al schema, enriquir el `displayMap` amb les notes d'aquella taula relacionada (mateixa lògica que ja fa el mode edició a `VaultTable.jsx:937`).
-- **Fallback final:** mostrar ID truncat (`it.substring(0, 8) + '…'`) — mai l'ID complet, que seria visualment confús.
-
-### Helper unificat
-
-Tots els components que renderitzen relacions (VaultTable, VaultGallery, VaultFeed) implementen una funció equivalent:
+Every local update must merge with previous state:
 
 ```js
-const getRelationDisplayMap = (field) => {
-    const config = getFieldConfig(schema, field);
-    const relatedTableId = config?.relation_database_id;
-    const relatedNotes = relatedTableId
-        ? (allNotes || []).filter(n => {
-            const nTableId = n.resolved_table_id || n.metadata?.table_id || n.metadata?.database_table_id;
-            return nTableId === relatedTableId;
-        })
-        : [];
-    return {
-        ...idToTitle,
-        ...Object.fromEntries(relatedNotes.map(n => [n.id, n.title || idToTitle[n.id] || n.id])),
-    };
-};
+setGlobalIndex((previous) => ({ ...previous, ...newEntries }));
 ```
 
-Per això han de rebre **el prop `allNotes`** (= `pages` complet de VaultDashboard, no només la taula activa).
+Never replace it with a partial active-table map. The only authorized complete
+replacement is a fresh response from the global-index endpoint.
 
-## Flux esperat
+After `fetchPagesByTable`, refresh the complete backend index. Child
+components such as Table, Gallery, Feed, and BlockEditor must receive
+`idToTitle`; they must not derive isolated maps from their current pages.
 
-1. `App` arrenca → `fetchGlobalIndex()` carrega l'índex complet.
-2. Usuari navega a una taula → `fetchPagesByTable()` actualitza `globalIndex` (merge) i refresca des del backend.
-3. `syncPagesState` afegeix entrades al `globalIndex` quan arriben pàgines noves (merge).
-4. Cap operació esborra entrades pre-existents.
+## Rendering fallbacks
 
-## Punts d'escriptura coneguts (`VaultDashboard.jsx`)
+If an ID is missing:
 
-| Línia | Funció | Patró requerit |
-|---|---|---|
-| ~350 | `syncPagesState` | merge |
-| ~479 | `fetchPagesByTable` | merge + crida a `fetchGlobalIndex` |
-| ~643 | `fetchGlobalIndex` | substitució directa (és el reset autoritzat des de backend) |
+1. When the schema has `relation_database_id`, enrich a display map with
+   `allNotes` from that table.
+2. As a final fallback, show a truncated ID rather than the full opaque value.
 
-## Tests manuals
+Every relation-rendering component should use an equivalent helper that merges
+`idToTitle` with related-table titles. It therefore needs complete
+`allNotes`, not only the active table.
 
-Després de qualsevol canvi en aquesta àrea:
-1. Navegar entre 2 taules amb relacions creuades.
-2. Verificar que els pills de relacions mostren títols i no IDs en mode lectura, edició, galeria i feed.
-3. Crear un registre nou i comprovar que es resol immediatament a títol als llocs on es referencia.
+## Expected flow
+
+1. App startup loads the complete global index.
+2. Table navigation merges newly fetched pages and refreshes the global index.
+3. `syncPagesState` adds entries for new pages.
+4. No partial operation deletes existing entries.
+
+## QA
+
+- Navigate between tables with cross-relations.
+- Verify titles in read, edit, gallery, and feed modes.
+- Create a record and verify references resolve immediately.

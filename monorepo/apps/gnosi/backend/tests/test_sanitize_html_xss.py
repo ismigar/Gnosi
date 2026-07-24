@@ -1,11 +1,11 @@
-"""`sanitize_html` ha de treure els vectors d'XSS/exfiltració dels emails:
-tags perillosos (`iframe`/`object`/`form`…) i URLs amb esquema perillós
-(`javascript:`/`data:text/…`), tot conservant el contingut legítim.
+"""`sanitize_html` removes email XSS and exfiltration vectors.
+
+It strips dangerous tags and URL schemes while preserving legitimate content.
 """
 from backend.services.mail_ingester import sanitize_html, _is_safe_url
 
 
-def test_treu_tags_perillosos():
+def test_removes_dangerous_tags():
     html = (
         '<p>ok</p>'
         '<iframe src="https://evil/x"></iframe>'
@@ -19,7 +19,7 @@ def test_treu_tags_perillosos():
     assert '<p>ok</p>' in out
 
 
-def test_treu_urls_javascript_i_data_text():
+def test_removes_javascript_and_data_text_urls():
     html = (
         '<a href="javascript:alert(1)">x</a>'
         '<a href="JavaScript:alert(2)">y</a>'
@@ -32,7 +32,7 @@ def test_treu_urls_javascript_i_data_text():
     assert 'data:text/html' not in out.lower()
 
 
-def test_conserva_enllacos_i_imatges_legitims():
+def test_preserves_legitimate_links_and_images():
     html = (
         '<a href="https://ok.example/p">enllaç</a>'
         '<a href="mailto:a@b.com">mail</a>'
@@ -45,11 +45,11 @@ def test_conserva_enllacos_i_imatges_legitims():
     assert 'mailto:a@b.com' in out
     assert '#seccio' in out
     assert 'https://ok.example/i.png' in out
-    assert 'data:image/png' in out  # imatge inline permesa
+    assert 'data:image/png' in out  # Allowed inline image.
 
 
-def test_esquema_ofuscat_amb_espais_es_detecta():
-    # Els navegadors ignoren espais/control chars dins l'esquema.
+def test_detects_scheme_obfuscated_with_whitespace():
+    # Browsers ignore spaces and control characters inside the scheme.
     assert _is_safe_url("java\tscript:alert(1)") is False
     assert _is_safe_url(" javascript:alert(1)") is False
     assert _is_safe_url("https://ok") is True

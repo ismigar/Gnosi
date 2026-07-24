@@ -1,111 +1,90 @@
-# Directiva: persistència del Vault per NOM (mai `fld_*` al `.md`) + àlies
+# Persist Vault Metadata by Name
 
-**Objectiu (decisió de l'usuari):** garantir que el frontmatter dels `.md` no
-guardi mai claus opaques `fld_*`; les claus han de ser **noms humans**. Mantenir
-la robustesa davant de renombrar columnes mitjançant **àlies** al registry
-(Opció B), no reescrivint files (Opció A, descartada per risc).
+## Objective
 
-## Principi clau
+Markdown frontmatter stores human-readable property names, never opaque
+`fld_*` keys. Immutable field IDs remain in the registry for views, filters,
+and schema references. Column renames use aliases instead of mass-rewriting
+every page.
 
-- "Brossa" = clau **opaca** per a un humà (`fld_a9e3dc94`). Un **nom**, encara
-  que sigui antic, **no és brossa**.
-- Per tant: la persistència a disc i les respostes API sempre per **nom actual**;
-  el `fld_*` (id immutable) segueix existint **només a l'esquema** (registry),
-  com a referència interna de vistes/filtres/seccions — NO al `.md`.
+## Registry model
 
-## Arquitectura actual (a invertir)
+Each property may contain `aliases: []` with previous names.
 
-- Emmagatzematge canònic = per **id** (`fld_*`). `migrate_metadata_keys`
-  (nom→id) s'aplica a l'escriptura: `POST /pages` (create_page, ~3018) i
-  `PUT /pages` (save_page, ~4977). `save_page_md` (6 callers) serialitza el que
-  rep.
-- Lectura: `expand_metadata_for_response` (id→nom) a `GET /pages/{id}` (3379) i
-  llistats (2909, 2932) afegeix el nom al costat de l'id.
-- Tota la gestió d'ids està **centralitzada a `services/field_resolver.py`**;
-  cap altre fitxer de runtime accedeix a `metadata['fld_…']` directament
-  (formules, rule_engine, relacions, graph, node n8n llegeixen via
-  `get_meta_value`, tolerant id|nom). → blast radius contingut.
-- Frontend `schemaUtils.js`: `getMetaValue` tolerant (id→nom); **`setMetaValue`
-  escriu per id** (reintrodueix `fld_` en editar cel·les). Vistes/filtres
-  referencien camps per id (correcte, viu al registry, NO al `.md`).
+## Field resolution
 
-## Disseny nou
+`field_resolver.py` supports:
 
-### Esquema (registry)
-- Cada property pot tenir `aliases: [str]` (noms antics). Absent = `[]`.
+- Resolve by field ID, current name, or alias.
+- Convert any resolvable metadata key to its current storage name.
+- Return response metadata only under current names.
+- Preserve genuinely unknown local properties.
 
-### `field_resolver.py`
-- `resolve_property(table, ref)`: casa per id, **nom actual o àlies**.
-- `canonical_name_for_key(table, key) -> Optional[str]`: nom actual de la
-  property si `key` casa per id/nom/àlies; si no, `None`.
-- `to_storage_names(metadata, table) -> (meta, changed)`: límit d'ESCRIPTURA.
-  Per cada clau resoluble → reanomena-la al **nom actual**. Conflicte (diverses
-  claus → mateixa property): prioritat **nom actual > id > àlies**. Claus no
-  resolubles (propietats locals reals) es deixen intactes.
-- `to_response_names(metadata, table)`: LECTURA. Còpia amb claus resoltes al nom
-  actual; **elimina** les claus `fld_*` i àlies de la resposta (el frontend mai
-  veu ids). Substitueix `expand_metadata_for_response`.
+When multiple input keys resolve to one property, precedence is:
 
-### Backend write boundary
-- **Dins `save_page_md`**: resoldre la taula via `table_id` i aplicar
-  `to_storage_names` ABANS de serialitzar. Així **els 6 callers** queden
-  coberts → garantia que cap `.md` rebrà `fld_*` sigui quin sigui el camí.
-- **Treure** `migrate_metadata_keys` (nom→id) de create_page i save_page.
-- PATCH segueix fent merge; `save_page_md` canonicalitza el resultat fusionat
-  (neutralitza els `fld_` que enviï el frontend durant la transició).
+1. Current name.
+2. Immutable ID.
+3. Alias.
 
-### Garantia "mai un `.md` sense `id`" (anti frontmatter-mutilat)
+Log collisions.
 
-A més de la canonicalització de claus, `save_page_md` garanteix que **cap
-pàgina s'escrigui sense `id`** al frontmatter. Motiu: una nota sense `id`
-s'indexa pel **nom de fitxer** (`metadata.get("id") or file_path.stem`,
-~2107/2256), de manera que tots els wikilinks per UUID que hi apunten passen a
-fer **404 silenciós** (red flag a `wikilink_interactions.md`).
+## Write boundary
 
-- **Vector real:** `parse_frontmatter` torna `{}` en llegir un fitxer
-  truncat/online-only d'OneDrive; un PATCH de reparent hi afegeix només
-  `parent_id` i el desa → frontmatter amb només `parent_id`. Detectat
-  2026-06 a la sub-nota «Model de pacte ètic…» de «Pla de futur i cures».
-- **Guarda (abans de serialitzar):** si el `metadata` no porta `id`, recupera'l
-  del fitxer en disc (frontmatter; o per regex sobre el text cru si el YAML és
-  corrupte); si no és recuperable, genera un uuid nou. Sempre `log.error`
-  perquè el caller defectuós es detecti. Cobreix els 6 callers de cop.
-- **Test:** `backend/tests/test_save_page_md_guard.py` (5 casos: escriptura
-  normal, recuperació del disc, YAML corrupte, generació d'uuid, metadata buit).
+`save_page_md` canonicalizes metadata to current names immediately before
+serialization. This central boundary protects all callers, including older
+frontend clients that still send an ID.
 
-### Rename de columna (`patch_table_property`, ~9106)
-- En canviar `name`: afegir el nom antic a `aliases` (dedup; treure el nom nou
-  dels propis àlies; si el nom nou és àlies d'una altra property, treure'l
-  d'allà). Desar registry. **No tocar cap pàgina** (instantani, robust offline).
-- Les files amb el nom antic segueixen resolent via àlies; es migren soles al
-  nom nou en el següent desament (lazy) i, en lectura, `to_response_names` ja
-  mostra el nom actual.
+Remove name-to-ID migration from page creation and replacement paths.
 
-### Frontend (`schemaUtils.js`)
-- `setMetaValue`: escriure per **nom actual** (no id) i esborrar qualsevol clau
-  `fld_*` residual del camp. `getMetaValue`: mantenir tolerant.
-- NO canviar com vistes/filtres/seccions referencien camps (segueixen per id,
-  viuen al registry).
+Frontend `setMetaValue` writes the current name and removes residual field-ID
+keys for that property. Read helpers remain tolerant. Registry-based views,
+filters, and sections continue using immutable IDs.
 
-## Restriccions / edge cases
+## Page ID guard
 
-- **No es perd cap id**: viu al registry; el `.md` només canvia de clau.
-- Conflicte de claus al desar → prioritat fixada (nom actual > id > àlies);
-  documentar i loguejar.
-- Col·lisió nom nou ↔ àlies d'una altra property → el nom actual guanya; treure
-  l'àlies conflictiu.
-- Migració de dades existents: lazy (en desar) + resolució en lectura. Pàgines
-  legacy amb `fld_` resolen igualment. Script batch opcional `to_storage_names`
-  per netejar-ho tot d'una (com es va fer amb Recursos).
+No Markdown page may be saved without an `id`.
 
-## QA (obligatori — contra Docker)
+Before serialization:
 
-Docker munta `~/Projectes/monorepo/apps/gnosi/backend`; **editar al checkout
-principal**, no al worktree. Frontend per HMR/dev server a 5173.
-1. Build/lint frontend; reiniciar/recarregar `gnosi_backend`.
-2. `GET /pages/{id}` d'una fitxa → claus per nom, cap `fld_`.
-3. PATCH amb clau-nom → disc segueix per nom.
-4. PATCH enviant una clau `fld_` (defensa) → disc canonicalitzat a nom.
-5. `PATCH /tables/{t}/properties/{f}` renombrant → registry guanya àlies, files
-   NO reescrites, `GET` resol al nom nou; fitxa amb nom antic encara resol.
-6. `/by-table` i una taula amb fórmules/relacions → 200 i valors presents.
+1. Use the provided metadata ID.
+2. Otherwise recover it from existing frontmatter.
+3. If YAML is corrupt, attempt a conservative raw-text recovery.
+4. If recovery is impossible, generate a new UUID and log an error.
+
+This prevents a partial cloud read followed by a patch from replacing complete
+frontmatter with only the patched field and breaking UUID wikilinks.
+
+`backend/tests/test_save_page_md_guard.py` covers normal writes, disk recovery,
+corrupt YAML, UUID generation, and empty metadata.
+
+## Column rename
+
+When a property name changes:
+
+- Add the old name to aliases.
+- Deduplicate aliases.
+- Remove the new current name from aliases.
+- Remove a conflicting alias from another property.
+- Save only the registry.
+
+Existing pages resolve through the alias and migrate lazily to the current name
+on their next save. API responses show the current name immediately.
+
+## Restrictions
+
+- Field IDs are not deleted; they remain registry identities.
+- Unknown semantic frontmatter fields are preserved.
+- Never rewrite all pages merely to rename a column.
+- A current name always wins over an alias collision.
+- Batch cleanup is optional, dry-run-first, backed up, and must use the same
+  canonical conversion helper.
+
+## QA
+
+1. Page responses contain current names and no field-ID keys.
+2. A patch by name persists by name.
+3. A defensive patch by ID still persists by name.
+4. Rename records the alias without rewriting page files.
+5. A legacy page under the old name resolves and later migrates lazily.
+6. Formulas, relations, filters, and by-table queries retain their values.
+7. The page ID guard passes all regression cases.

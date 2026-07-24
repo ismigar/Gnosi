@@ -1,16 +1,20 @@
-# Parches para Módulos Contrib de Drupal
+# Patches for Drupal contributed modules
 
-Este directorio contiene parches que deben aplicarse a módulos contrib de Drupal para corregir bugs o añadir funcionalidades necesarias.
+This directory contains patches applied to Drupal contributed modules to fix
+defects or add required behavior.
 
-## Uso con Composer Patches
+## Composer Patches usage
 
-### 1. Instalar el plugin
+### 1. Install the plugin
+
 ```bash
 composer require cweagans/composer-patches
 ```
 
-### 2. Configurar en composer.json
-Añadir en la sección `extra`:
+### 2. Configure `composer.json`
+
+Add this under `extra`:
+
 ```json
 {
   "extra": {
@@ -23,18 +27,19 @@ Añadir en la sección `extra`:
 }
 ```
 
-### 3. Aplicar parches
+### 3. Apply patches
+
 ```bash
 composer install
 ```
 
----
+## Available patches
 
-## Parches Disponibles
+### `mcp-toolslist-inputschema-fix.patch`
 
-### mcp-toolslist-inputschema-fix.patch
-- **Módulo**: `drupal/mcp`
-- **Archivo**: `src/Plugin/McpJsonRpc/ToolsList.php`
-- **Problema**: Plugins con `inputSchema` vacío (stdClass) causan error de validación JSON Schema.
-- **Solución**: Normaliza `inputSchema` para asegurar `'type' => 'object'`.
-- **Fecha**: 2026-01-22
+- **Module**: `drupal/mcp`
+- **File**: `src/Plugin/McpJsonRpc/ToolsList.php`
+- **Problem**: plugins with an empty `inputSchema` (`stdClass`) fail JSON
+  Schema validation.
+- **Solution**: normalize `inputSchema` to guarantee `'type' => 'object'`.
+- **Date**: 2026-01-22

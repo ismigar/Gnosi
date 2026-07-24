@@ -34,7 +34,7 @@ from pydantic import BaseModel
 import sqlite3
 from pathlib import Path
 
-# Import eines
+# Import tools
 from backend.agent.system_tools import SYSTEM_TOOLS
 from backend.agent.vault_tools import VAULT_KNOWLEDGE_TOOLS
 from backend.agent.agent_context import build_context_tools, describe_context_refs
@@ -126,20 +126,20 @@ class AgentState(TypedDict):
 
 
 # --- 2. Agent Prompts (Base) ---
-DEFAULT_SUPERVISOR_PROMPT = """Ets el Supervisor del "Gnosi".
-La teva feina és coordinar l'equip d'experts per resoldre la petició de l'usuari.
+DEFAULT_SUPERVISOR_PROMPT = """You are the Gnosi Supervisor.
+Your job is to coordinate the expert team and resolve the user's request.
 
-MEMBRES DE L'EQUIP:
-1. **Coder**: Enginyer de Software Sènior. Expert en Python, Git, Tests i Sistema de Fitxers. 
-2. **Brain**: Gestor de Coneixement i Automatització Sobirà. Expert en Gnosi Vault i Memòria a Llarg Termini.
+TEAM MEMBERS:
+1. **Coder**: Senior software engineer specializing in Python, Git, testing, and file systems.
+2. **Brain**: Sovereign knowledge and automation manager specializing in the Gnosi Vault and long-term memory.
 
-INSTRUCCIONS DE ROUTING:
-- Si l'usuari demana canvis de codi -> `Coder`.
-- Si l'usuari demana informació personal, gestionar el Vault de **Gnosi** o gestionar **Directives/Procediments** -> `Brain`.
-- Si és una xerrada general o una pregunta simple -> `General` (Tu mateix respons).
-- Si un agent ha acabat la feina -> `FINISH`.
+ROUTING INSTRUCTIONS:
+- Route code-change requests to `Coder`.
+- Route personal-information, Gnosi Vault, directive, and procedure requests to `Brain`.
+- Handle general conversation and simple questions through `General`.
+- Return `FINISH` when an agent has completed the work.
 
-Retorna EXCLUSIVAMENT el nom del següent worker: 'Coder', 'Brain', 'General' o 'FINISH'.
+Return ONLY the next worker's name: 'Coder', 'Brain', 'General', or 'FINISH'.
 """
 
 # --- 3. LLM Provider handling ---
@@ -448,7 +448,7 @@ async def create_agent_workflow(
     agents = ai_cfg.get("agents", [])
     providers = ai_cfg.get("providers", {})
     
-    # Prioritat: agent_id passat -> active_agent_id -> primer agent habilitat
+        # Priority: supplied agent_id -> active_agent_id -> first enabled agent.
     target_id = agent_id or ai_cfg.get("active_agent_id")
     
     agent_data = next((a for a in agents if a.get("id") == target_id), None)
@@ -498,7 +498,7 @@ async def create_agent_workflow(
 
         return None, {}
 
-    # 3. Preparar Prompts (Persona)
+        # 3. Prepare prompts (persona).
     persona = agent_data.get("persona", "")
     agent_name = agent_data.get("name", "Gnosy")
     
@@ -520,27 +520,27 @@ async def create_agent_workflow(
     context_refs = agent_data.get("context_refs") or []
     context_block = "\n\n".join(
         part for part in (
-            f"Context de treball indicat per l'usuari:\n{context_notes}" if context_notes else "",
+            f"Working context provided by the user:\n{context_notes}" if context_notes else "",
             describe_context_refs(context_refs),
         ) if part
     )
     if context_block:
         combined_persona = f"{combined_persona}\n\n{context_block}" if combined_persona else context_block
 
-    general_prompt = combined_persona or "Ets un assistent útil."
+    general_prompt = combined_persona or "You are a helpful assistant."
     if context_refs:
         # This node has no tools bound: saying so stops it from narrating a
         # tool call it cannot make and inventing the result.
         general_prompt += (
-            "\n\nIMPORTANT: en aquesta resposta NO tens cap eina disponible. No "
-            "simulis cap crida a cap eina ni te'n inventis el resultat. Si cal "
-            "consultar les fonts adjuntes, digues clarament que ho has de consultar."
+            "\n\nIMPORTANT: no tools are available for this response. Do not "
+            "simulate tool calls or invent their results. If the attached sources "
+            "must be consulted, state clearly that you need to consult them."
         )
 
     supervisor_prompt = (
-        f"Ets {agent_name}.\n{combined_persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
+        f"You are {agent_name}.\n{combined_persona}\n\n{DEFAULT_SUPERVISOR_PROMPT}"
         if combined_persona
-        else f"Ets {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
+        else f"You are {agent_name}.\n{DEFAULT_SUPERVISOR_PROMPT}"
     )
     if context_refs:
         # Only Brain holds the context tools. Without this rule the supervisor
@@ -550,14 +550,14 @@ async def create_agent_workflow(
         # ("return ONLY the worker's name") has to stay the last thing read, or
         # the supervisor answers with a sentence and the graph finishes empty.
         supervisor_prompt = (
-            f"Ets {agent_name}.\n{combined_persona}\n\n"
-            "Aquest agent té fonts de context adjuntes i només `Brain` té les eines "
-            "per consultar-les: qualsevol pregunta sobre documents, dades o "
-            "normativa va a `Brain`.\n\n"
+            f"You are {agent_name}.\n{combined_persona}\n\n"
+            "This agent has attached context sources, and only `Brain` has the "
+            "tools to inspect them. Route every question about documents, data, "
+            "or regulations to `Brain`.\n\n"
             f"{DEFAULT_SUPERVISOR_PROMPT}"
         )
 
-    # 4. Convertir eines MCP
+    # 4. Convert MCP tools
     mcp_langchain_tools = get_mcp_tools(mcp_tools_list, mcp_client)
     generated_tools = tool_loader.load_all_approved()
 
@@ -597,22 +597,22 @@ async def create_agent_workflow(
         messages = state["messages"]
         # Inject persona preference for coding style if defined? Optional for now.
         response = coder_llm.invoke(
-            [SystemMessage(content="Ets el Coder Agent.")] + messages
+            [SystemMessage(content="You are the Coder Agent.")] + messages
         )
         return {"messages": [response], "next": "supervisor"}
 
     def brain_node(state: AgentState):
         messages = state["messages"]
         brain_system = (
-            "Ets el Brain Agent (Gnosi Vault, Memòria Sobirana). Tens EINES per treballar amb "
-            "les dades de l'usuari, no només cercar-les:\n"
-            "- search_vault: cerca semàntica al vault.\n"
-            "- read_page(id_o_títol) / read_pdf(ruta): llegeix una nota o un PDF d'Assets/Library.\n"
-            "- create_page(title, content, folder): crea una nota nova.\n"
-            "- propose_links(id_o_títol): proposa connexions [[...]] per a una pàgina.\n"
-            "- summarize_to_cornell(source): resumeix una nota o PDF en una fitxa Cornell i la desa.\n"
-            "Usa les eines quan l'usuari demani crear, resumir, connectar o organitzar coneixement. "
-            "Confirma sempre el resultat (id/títol de la pàgina creada)."
+            "You are the Brain Agent (Gnosi Vault, Sovereign Memory). You have TOOLS "
+            "for working with the user's data, not merely searching it:\n"
+            "- search_vault: semantically search the vault.\n"
+            "- read_page(id_or_title) / read_pdf(path): read a note or an Assets/Library PDF.\n"
+            "- create_page(title, content, folder): create a new note.\n"
+            "- propose_links(id_or_title): propose [[...]] connections for a page.\n"
+            "- summarize_to_cornell(source): summarize a note or PDF into a saved Cornell note.\n"
+            "Use these tools when the user asks to create, summarize, connect, or organize "
+            "knowledge. Always confirm the result, including the created page ID or title."
         )
         if context_tools:
             # The Brain node is the one holding the context tools, so it needs the

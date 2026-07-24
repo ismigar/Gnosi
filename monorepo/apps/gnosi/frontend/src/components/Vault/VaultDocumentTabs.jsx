@@ -43,15 +43,15 @@ function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabCl
             }}
             className={tabClasses + " group cursor-pointer select-none flex-shrink-0"}
             onClick={() => onTabSelect(tab.id)}
-            title={tab.title || t('common.untitled', 'Sense títol')}
+            title={tab.title || t('common.untitled', "Untitled")}
         >
-            <span className="truncate flex-1 min-w-0" title={tab.title || t('common.untitled', 'Sense títol')}>{tab.title || t('common.untitled', 'Sense títol')}</span>
+            <span className="truncate flex-1 min-w-0" title={tab.title || t('common.untitled', "Untitled")}>{tab.title || t('common.untitled', "Untitled")}</span>
             <div className="flex items-center ml-1">
                 {!isActive && canSplit && (
                     <button
                         onClick={(e) => { e.stopPropagation(); onToggleSplit(tab.id); }}
                         className={`p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${isSplit ? 'text-purple-600 bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-indigo-600 hover:bg-indigo-50/20'}`}
-                        title={isSplit ? t('doc_tabs.remove_parallel', 'Treure de la vista paral·lela') : t('sidebar.open_parallel', 'Obrir en paral·lel')}
+                        title={isSplit ? t('doc_tabs.remove_parallel', "Remove from parallel view") : t('sidebar.open_parallel', "Open in parallel")}
                     >
                         <Columns2 size={14} />
                     </button>
@@ -59,7 +59,7 @@ function SortableDocTab({ tab, isActive, isSplit, canSplit, onTabSelect, onTabCl
                 <button
                     onClick={(e) => { e.stopPropagation(); onTabClose(tab.id); }}
                     className="p-1 rounded text-[var(--text-tertiary)] hover:text-red-500 hover:bg-red-50/10 transition-colors"
-                    title={t('doc_tabs.close_tab', 'Tancar pestanya')}
+                    title={t('doc_tabs.close_tab', "Close tab")}
                 >
                     <X size={14} />
                 </button>
@@ -327,7 +327,7 @@ export function VaultDocumentTabs({
                 title={t('doc_tabs.new_tab_tooltip', {
                     shortcut: quickOpenShortcutLabel,
                     tabShortcut: tabJumpShortcutLabel,
-                    defaultValue: 'Nova pestanya o cerca ràpida ({{shortcut}}). Canviar pestanya: {{tabShortcut}}',
+                    defaultValue: "New tab or quick search ({{shortcut}}). Switch tab: {{tabShortcut}}",
                 })}
             >
                 <Plus size={16} />
@@ -349,14 +349,14 @@ export function VaultDocumentTabs({
                                 setHighlightedIndex(0);
                             }}
                             onKeyDown={handleQuickOpenKeyDown}
-                            placeholder={t('doc_tabs.search_placeholder', 'Cerca pàgines i taules...')}
+                            placeholder={t('doc_tabs.search_placeholder', "Search pages and tables...")}
                             className="w-full text-sm text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)] bg-transparent outline-none"
                         />
                     </div>
 
                     <div className="max-h-72 overflow-y-auto py-1">
                         {filteredItems.length === 0 ? (
-                            <div className="px-3 py-4 text-xs text-slate-500">{t('doc_tabs.no_results', 'Sense resultats')}</div>
+                            <div className="px-3 py-4 text-xs text-slate-500">{t('doc_tabs.no_results', "No results")}</div>
                         ) : (
                             filteredItems.map((item, index) => {
                                 const isHighlighted = index === highlightedIndex;
@@ -388,7 +388,7 @@ export function VaultDocumentTabs({
                                         <button
                                             onClick={() => handleOpenParallel(item)}
                                             className={`p-1 rounded transition-colors ${isHighlighted ? 'text-purple-600 hover:bg-purple-100/20' : 'text-[var(--text-tertiary)] hover:text-purple-600 hover:bg-purple-50/10'}`}
-                                            title={item.type === 'table' ? t('doc_tabs.open_table_parallel', 'Obrir taula en paral·lel') : t('sidebar.open_parallel', 'Obrir en paral·lel')}
+                                            title={item.type === 'table' ? t('doc_tabs.open_table_parallel', "Open table in parallel") : t('sidebar.open_parallel', "Open in parallel")}
                                         >
                                             <Columns2 size={14} />
                                         </button>

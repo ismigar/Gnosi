@@ -66,7 +66,7 @@ def test_formula_reads_freshly_recomputed_rollup(tmp_path):
     }
     engine = _engine(tmp_path, related={"task1": {"title": "T1"}, "task2": {"title": "T2"}})
 
-    # Stale values from disk: total_tasques=0 and estat="buit".
+    # Stale persisted values from disk. @language-example
     metadata = {
         "database_table_id": "t_proj",
         "Tasques": ["task1", "task2"],

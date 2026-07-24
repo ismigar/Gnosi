@@ -3,8 +3,8 @@ import { Decoration, DecorationSet } from '@tiptap/pm/view';
 
 export const spellPluginKey = new PluginKey('gnosiSpellcheck');
 
-// Unicode regex: sequences of letters, including the Catalan middle dot (l·l) and
-// apostrophes (l'home). Then we split by apostrophe to check each piece.
+// @language-example: Unicode regex including the Catalan middle dot (l·l) and
+// @language-example: apostrophes (l'home). We split by apostrophe to check each piece.
 const WORD_RE = /[\p{L}·'’]+/gu;
 const APOSTROPHE_RE = /['’]/;
 

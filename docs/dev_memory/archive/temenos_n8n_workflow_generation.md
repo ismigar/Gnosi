@@ -16,7 +16,7 @@
 
 ### Inputs
 
-- **Connector importació Notion Database ID:** `ebe282f0a2e145afbd76cd2036b37882` (XXSS).
+- **Notion Database ID:** `ebe282f0a2e145afbd76cd2036b37882` (XXSS).
 - **Environment Variables** (in `.env.shared`):
     - `TEMENOS_NOTION_CRED_ID`
     - `TEMENOS_DATABASE_ID`
@@ -35,9 +35,9 @@
 ## 3. Logical Flow (Algorithm)
 
 1.  **Define Trigger:**
-    -   **Node:** Connector importació Notion Trigger.
+    -   **Node:** Notion Trigger.
     -   **Event:** Page Updated/Created.
-    -   **Filter:** Database "XXSS", Property "Estat" == "Pendent".
+    -   **Filter:** Database "Social Media", property "Status" equals "Pending".
 
 2.  **Define Content Extraction:**
     -   **Node:** IF / Switch.
@@ -65,8 +65,8 @@
     -   **Bluesky:** HTTP Request (POST) to AT Protocol (`com.atproto.repo.createRecord`).
 
 5.  **Define Closure:**
-    -   **Node:** Connector importació Notion Update.
-    -   **Action:** Set "Estat" to "Publicat".
+    -   **Node:** Notion Update.
+    -   **Action:** Set "Status" to "Published".
     -   **Action:** Set "Data Difusió" (if exists) or append to body.
 
 6.  **Construction:**
@@ -78,7 +78,8 @@
 
 ## 5. Restrictions and Edge Cases
 
-- **Field Names:** Ensure Connector importació Notion properties match the DB schema (`URL_Temenos`, `Estat`, `Resum/Excerpt`).
+- **Field Names:** Ensure Notion properties match the database schema
+  (`URL_Temenos`, `Estat`, `Resum/Excerpt`).
 - **Bluesky Auth:** The workflow will need a pre-authenticated credential or HTTP Request with specific headers. We will generate the HTTP Request node template.
 - **Error Handling:** Facebook node should have "Continue On Fail" enabled.
 - **Node Availability:** The native `htmlToMarkdown` node is not available. Use a `Code` node with Regex/JS for basic cleaning.

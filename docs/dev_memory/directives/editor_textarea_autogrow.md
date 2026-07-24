@@ -1,39 +1,38 @@
-# Directiva: Auto-grow de <textarea> sense saltar l'scroll
+# Directive: Auto-growing textareas without scroll jumps
 
-## Objectiu
-Els `<textarea>` que creixen amb el contingut (vista codi del Vault, títol de
-pàgina) no han de moure la posició d'scroll del document a cada tecla.
+## Objective
 
-## Context del bug
-Patró clàssic d'auto-grow:
+Auto-growing textareas, including Vault source view and page titles, must not
+move the document scroll position after each keystroke.
+
+## Cause
+
+The usual pattern temporarily collapses the textarea:
+
 ```js
-el.style.height = 'auto';
-el.style.height = `${el.scrollHeight}px`;
+element.style.height = "auto";
+element.style.height = `${element.scrollHeight}px`;
 ```
-`height:auto` col·lapsa el textarea un instant per poder mesurar el
-`scrollHeight` real. Si el textarea és enmig d'un document llarg dins d'un
-contenidor desplaçable, aquest col·lapse momentani fa que el navegador
-reajusti l'scroll (persegueix el cursor / retalla el `scrollTop` contra
-l'alçada encongida). Resultat: a cada caràcter la pàgina es desplaça i la
-línia que s'edita va caient cap al capdavall de la pantalla.
 
-## Solució (implementada)
-`BlockEditor.jsx` → helpers de mòdul `getScrollableAncestor()` +
-`autoGrowTextarea()`. Es desa el `scrollTop` de l'avantpassat desplaçable
-abans de tocar l'alçada i es restaura just després, **dins del mateix tick**
-(abans del paint → sense parpelleig).
+In a long scroll container, that collapse makes the browser clamp or adjust
+`scrollTop` while following the caret. The edited line drifts down the screen
+after every character.
 
-Punts d'ús: l'efecte d'auto-grow de `MarkdownCodeEditor` (vista codi) i el de
-`titleInputRef` a `EditorInner`.
+## Implementation
 
-## Restriccions / Edge cases
-- NO fer `height:auto` + `scrollHeight` sense preservar l'scroll → causa el
-  salt descrit → usar sempre `autoGrowTextarea()`.
-- La restauració ha de ser síncrona dins del mateix `useEffect` (no
-  `requestAnimationFrame` ni `setTimeout`): si es difereix, l'usuari veu el
-  parpelleig.
-- El contenidor desplaçable del Vault és un `div` amb `overflow-y-auto h-full`
-  (a `VaultDashboard.jsx`), no la finestra. `getScrollableAncestor()` el
-  troba pujant pel DOM; si no en troba cap, cau a `document.scrollingElement`.
-- Qualsevol `<textarea>` nou amb auto-grow ha de reutilitzar
-  `autoGrowTextarea()`, no recrear el patró cru.
+`BlockEditor.jsx` provides `getScrollableAncestor()` and
+`autoGrowTextarea()`. Save the scrollable ancestor's `scrollTop`, update the
+height, and restore the position synchronously in the same tick before paint.
+
+Use this helper in `MarkdownCodeEditor` and `EditorInner` title auto-growth.
+
+## Restrictions
+
+- Never use raw `height = "auto"` plus `scrollHeight` without preserving
+  scroll position.
+- Restore synchronously in the same effect. `requestAnimationFrame` or
+  `setTimeout` allows a visible flicker.
+- The Vault scroll container is a nested `overflow-y-auto h-full` element,
+  not necessarily `window`. Walk ancestors and fall back to
+  `document.scrollingElement`.
+- Every new auto-growing textarea must reuse `autoGrowTextarea()`.

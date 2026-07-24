@@ -30,7 +30,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
           {onSync && (
             <button
               onClick={onSync}
-              title={t('graph.sync_tooltip', 'Sincronitzar')}
+              title={t('graph.sync_tooltip', "Sync")}
               style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
             >
               <RefreshCw size={20} className={isSyncing ? 'spin-anim' : ''} />
@@ -39,7 +39,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
 
           <button
             id="btn-toggle-panel"
-            title={t('graph.toggle_panel_tooltip', 'Mostra / amaga panell')}
+            title={t('graph.toggle_panel_tooltip', "Show / hide panel")}
             onClick={() => setIsPanelOpen(!isPanelOpen)}
             style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}
           >
@@ -88,7 +88,7 @@ export function Layout({ children, sidebar, controls, bottomPanel, containerStyl
             gap: '8px'
           }}
         >
-          {isBottomPanelOpen ? `▼ ${t('graph.hide_connections', 'Amaga Connexions')}` : `▲ ${t('graph.show_connections', 'Mostra Connexions')}`}
+          {isBottomPanelOpen ? `▼ ${t('graph.hide_connections', "Hide Connections")}` : `▲ ${t('graph.show_connections', "Show Connections")}`}
         </button>
         {isBottomPanelOpen && (
           <div style={{ maxHeight: '35vh', overflowY: 'auto' }}>

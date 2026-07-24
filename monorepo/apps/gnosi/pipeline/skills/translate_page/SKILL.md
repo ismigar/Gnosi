@@ -1,106 +1,104 @@
 ---
 name: translate_page
-description: Tradueix el títol i el cos markdown d'una pàgina del Vault i crea una subpàgina filla per cada idioma destí, preservant les directives de Gnosi.
+description: Translate a Vault page title and Markdown body, creating one child page per target language while preserving Gnosi directives.
 type: skill
 status: active
 ---
 
 # Skill: translate_page
 
-## Propòsit
+## Purpose
 
-Donada una pàgina del Vault (document markdown `.md`), tradueix el seu **títol** i el
-seu **cos** als idiomes destí indicats per l'usuari i crea una **subpàgina filla**
-(`parent_id = page_id`) per cada idioma. És el germà de [translate_row](../translate_row/SKILL.md)
-per a documents sencers en lloc de files de taula.
+Translate the title and body of a Vault Markdown page into user-selected
+languages. Create one child page with `parent_id = page_id` for each language.
+This is the full-document counterpart of
+[translate_row](../translate_row/SKILL.md).
 
-**Abast**: només pàgines markdown del Vault. Els PDFs del reader queden fora.
+Only Vault Markdown pages are in scope. Reader PDFs are not.
 
-## Disparador
+## Trigger
 
-Disparada per la UI quan l'usuari clica «Tradueix la pàgina» al menú d'opcions de pàgina
-(`VaultShell`). El frontend obre `TranslateLanguagesModal` (`mode="page"`) i fa POST a:
+The user selects **Translate page** from the `VaultShell` page menu.
+`TranslateLanguagesModal` opens with `mode="page"` and sends:
 
 ```
 POST /api/vault/skills/translate-page
 Body: { page_id: str, target_languages: [str], button_action: "translate_page" }
 ```
 
-## Arquitectura
+## Architecture
 
-L'**endpoint** (a `backend/api/vault_routes.py`) coordina: llegeix la pàgina, detecta
-l'idioma origen, tradueix `title` (pla) i `content` (markdown) i crea una subpàgina filla
-per idioma via `create_page(...)`.
+The endpoint in `backend/api/vault_routes.py` loads the page, detects its
+source language, translates its plain title and Markdown body, and creates one
+child page per language through `create_page(...)`.
 
-La **skill** (`scripts/markdown_segmenter.py`) exposa:
-- `translate_markdown(body, src, tgt, ...) -> (str, set[providers])`: segmenta el markdown
-  enriquit, tradueix només el text natural i el reconstrueix preservant l'estructura.
-- `translate_title(title, src, tgt, ...) -> (str, provider)`: tradueix un títol pla.
-- `detect_source_lang` es reexporta de `translate_row`.
+`scripts/markdown_segmenter.py` exposes:
 
-La **traducció en si** (routing de proveïdors: Softcatalà, OPUS-MT, Apertium, DeepL) es
-reutilitza **tal qual** de `translate_row` via `translate()`. Aquest mòdul només afegeix
-la segmentació conscient de markdown.
+- `translate_markdown(body, src, tgt, ...) -> (str, set[providers])`
+- `translate_title(title, src, tgt, ...) -> (str, provider)`
+- `detect_source_lang`, re-exported from `translate_row`
 
-## Segmentador (mirall de `markdown-mapper.js`)
+Provider routing is reused directly from `translate_row`; this module adds
+Markdown-aware segmentation only.
 
-El cos és **markdown enriquit**; el segmentador n'és el mirall en Python perquè el
-resultat es re-parsegi net amb `richMarkdownToBlocks`. Processament línia a línia amb
-màquina d'estats de bloc:
+## Markdown segmenter
 
-- **Passthrough verbatim**: fences ` ``` ` (inclou `gnosi-database`/`gnosi-view`),
-  directives `:::`, `:::gnosi-ignore` (bloc sencer), `{{bibliography}}`, transclusions
-  `![[...]]` en línia pròpia, regla `---`, separador de taula.
-- **Marcador preservat**: headings, llistes, checklists, blockquotes/callouts → es
-  tradueix només el text, no el marcador ni la indentació.
-- **Etiqueta de toggle** i **cel·les de taula GFM** → es tradueixen.
-- **Protecció inline amb tokens `XSEGnnnZZZ`**: codi inline, etiquetes HTML, imatges,
-  wikilinks, cites (`[@key]`/`@key`), i la URL dels enllaços (el text de l'enllaç SÍ es
-  tradueix).
+The body uses enriched Markdown. The Python segmenter mirrors
+`markdown-mapper.js` so `richMarkdownToBlocks` can parse the result without
+structural changes. It processes lines with a block-state machine:
 
-El contracte complet i les limitacions v1 viuen a
+- Pass through fenced blocks, including `gnosi-database` and `gnosi-view`;
+  `:::` directives; complete `:::gnosi-ignore` blocks; `{{bibliography}}`;
+  standalone `![[...]]` transclusions; horizontal rules; and table separators.
+- Preserve headings, list markers, checklists, blockquotes, and callout
+  indentation while translating only their text.
+- Translate toggle labels and GFM table cells.
+- Protect inline code, HTML tags, images, wikilinks, citations such as
+  `[@key]` and `@key`, and link destinations with `XSEGnnnZZZ` tokens. Link
+  display text is translated.
+
+The complete contract and v1 limitations are documented in
 `docs/dev_memory/directives/translate_page_skill.md`.
 
-## Proveïdors i configuració
+## Providers and configuration
 
-Idèntics a [translate_row](../translate_row/SKILL.md): Softcatalà NMT (`en↔ca`), Softcatalà
-Apertium (`ca↔…`), OPUS-MT local (`es↔fr`), Apertium APy públic, DeepL (fallback, key al
-Keychain). Variables d'entorn a `.env_shared` compartides. Sense cap configuració, els
-parells principals funcionen out-of-the-box.
+Use the same providers as `translate_row`: Softcatalà NMT for `en↔ca`,
+Softcatalà Apertium for Catalan pairs, local OPUS-MT for `es↔fr`, public
+Apertium APy, and DeepL as a configured fallback. Environment variables are
+shared through `.env_shared`. Primary pairs work without extra configuration.
 
-## Estructura de la subpàgina creada
+## Child page shape
 
 ```json
 {
-  "title": "<títol traduït>",
-  "content": "<cos markdown traduït>",
-  "parent_id": "<page_id origen>",
+  "title": "<translated title>",
+  "content": "<translated Markdown body>",
+  "parent_id": "<source page id>",
   "metadata": {
-    "translation_lang": "<codi ISO 639-1>",
-    "translation_source_lang": "<idioma origen detectat>",
-    "translation_origin_id": "<page_id origen>",
+    "translation_lang": "<ISO 639-1 code>",
+    "translation_source_lang": "<detected source language>",
+    "translation_origin_id": "<source page id>",
     "translation_provider": "softcatala_nmt | apertium_public | deepl | mixed | ..."
   }
 }
 ```
 
-A diferència de `translate_row`, **no** s'hi posa `table_id`: la subpàgina és una pàgina
-normal que va a `WIKI/`.
+Unlike `translate_row`, do not add `table_id`; the child is a normal page
+stored under `WIKI/`.
 
-## Edge cases / Restriccions
+## Restrictions and edge cases
 
-- **Idioma origen igual al destí** → skip (no es crea filla).
-- **Pàgina sense cos** → es tradueix només el títol.
-- **Marcadors d'èmfasi** (`**`, `*`) i **alias de wikilink / text d'imatge** no es
-  tradueixen en v1 (vegeu la directiva).
-- **Una crida HTTP per segment**: pàgines llargues triguen i poden topar amb el rate-limit
-  d'Apertium públic. Millora futura: batching.
-- **Idempotència**: re-executar crea filles noves (no deduplica).
+- Skip a target identical to the source language.
+- Translate only the title when the page body is empty.
+- V1 does not translate emphasis aliases, wikilink aliases, or image alt text;
+  see the directive.
+- The current implementation makes one HTTP request per segment. Long pages
+  can hit public Apertium rate limits; batching is future work.
+- Re-running the action creates new child pages; it does not deduplicate.
 
-## Test ràpid
+## Quick test
 
 ```bash
-# Unit del segmentador (sense xarxa)
-cd /Users/ismaelgarcia/Projectes/monorepo/apps/gnosi
+cd monorepo/apps/gnosi
 python3 -m pytest pipeline/skills/translate_page/scripts/test_markdown_segmenter.py -v
 ```

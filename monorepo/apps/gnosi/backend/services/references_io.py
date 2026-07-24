@@ -225,7 +225,7 @@ def _parse_bibtex_fields(body: str) -> Dict[str, str]:
                 nxt = n
             value, i = body[i:nxt], nxt
         fields[name] = _strip_bibtex_value(value)
-        # consumeix la coma separadora
+        # Consume the separator comma.
         while i < n and body[i] in ' \t\r\n':
             i += 1
         if i < n and body[i] == ',':

@@ -1,134 +1,65 @@
-# Directiva: PDF Quote Capture (subratllats → cites al document)
+# PDF Quote Capture
 
-> ID: PDF-QUOTE-CAPTURE-20260528
-> Estat: Esquelet (component creat, cablejat al panell Vault pendent).
-> Relacionada: `gnosi_native_reference_manager.md` (P5 — capacitats ja completes
-> al refactor L1-L3 + PRs #240-#248), `zotero_reader_translation_contribution.md`.
+> ID: `PDF-QUOTE-CAPTURE-20260528`
+> Status: version 1 implemented; final browser E2E remains the completion gate.
 
----
+## Objective
 
-## 1. Objectiu
+Convert a PDF highlight into Markdown blockquote text with a citation that
+participates in the document bibliography.
 
-Permetre que un subratllat al PDF (via visor zotero-reader integrat) es pugui
-inserir al document Markdown del Vault com una **quote amb cita formatada**:
+Example output:
 
 ```markdown
-> El text capturat de la anotació, exactament com l'usuari l'ha subratllat.
+> Captured annotation text.
 >
-> — [@author2024], p. 47
+> — [@author2024, p. 47]
 ```
 
-Al render, `[@author2024]` es resol amb `CiteInline` com qualsevol altra cita,
-i la cita queda lligada a la bibliografia del document automàticament.
+## Existing components
 
-## 2. Estat actual
+- Integrated PDF reader.
+- Local SQLite annotation persistence.
+- Zotero-compatible highlight text, page index, and color.
+- `PdfAnnotationsToCite.jsx`.
+- PDF source URI helper.
+- BlockEditor properties-panel integration.
 
-**Ja existeix:**
-- Visor PDF (zotero/reader vendor) integrat a `ZoteroReaderTab.jsx`.
-- Persistència d'anotacions a `pdf_annotations` (SQLite via `/api/vault/pdf-annotations`).
-- Format canonical Zotero (highlights amb `text`, `pageIndex`, `color`).
-- Component nou **`PdfAnnotationsToCite.jsx`** (PR #249, *aquest commit*):
-  - Llista les anotacions d'un PDF (per `source_uri`).
-  - Botó "Copy as quote markdown" per cada anotació.
-  - Posa al portaretalls la quote amb la cita resolta a la `citationKey` del Recurs.
+## Source resolution
 
-**Falta cablejar:**
+Resolve an associated PDF from the canonical attachment property or a
+`file://` PDF URL. Normalize it to the source URI used by the annotation API.
 
-### A) Detecció del PDF associat a un Recurs
+Do not infer non-PDF URLs or expose arbitrary paths.
 
-Cada pàgina de Recursos pot tenir un PDF associat al frontmatter via:
-- `attachment_path: "/Users/.../Biblioteca/article.pdf"` (Phase 6)
-- `URL: "file:///Users/.../Biblioteca/article.pdf"` (alternatiu)
+## UI
 
-Cal una funció helper (frontend) que llegeixi `metadata` i retorni
-el `sourceUri` canonical:
+The first version displays a collapsible PDF Highlights section in the
+Resource properties panel. Each useful annotation can be copied as quote
+Markdown using the Resource citation key.
 
-```js
-function getPdfSourceUri(metadata) {
-    const attachment = metadata?.['attachment_path'] || '';
-    if (attachment) return `file://${encodeURI(attachment)}`;
-    const url = metadata?.['URL'] || '';
-    if (url.startsWith('file://') && /\.pdf$/i.test(url)) return url;
-    return null;
-}
-```
+All labels, empty states, and errors use i18n with English defaults.
 
-### B) Ubicació al UI del Vault
+Optional future improvements:
 
-Tres opcions (decisió pendent):
+- Drag a quote into the document.
+- Better support for note-only annotations.
+- Rich locator conventions driven by citation style.
 
-1. **Panell Propietats del Recurs** — secció expandible "Subratllats del PDF"
-   després de "Zotero Extras". Sempre visible si el Recurs té PDF.
+## Restrictions
 
-2. **Pestanya al BlockEditor** — quan estàs editant un Recurs amb PDF,
-   apareix una pestanya "Quotes" al costat de "Propietats". Més separat,
-   menys clutter al panell principal.
+- A Resource without a PDF shows an informative localized state.
+- Omit geometric highlights with no extracted text.
+- Prefix every line of a multiline quote with `>`.
+- Keep annotations local; do not send them to an external service.
+- Preserve source language and exact selected text.
+- Use Pandoc-compatible locator syntax where a page locator is included.
 
-3. **Sidebar global** — quan obres un document de notes que cita un Recurs,
-   apareixen automàticament les quotes disponibles per cita. Més invasiu
-   però redueix la barrera per usar-les.
+## QA
 
-Recomanació: **opció 1** com a primera entrega — mínim canvi al layout.
-
-### C) Cablejat als components consumidors
-
-Al `BlockEditor.jsx`, just després de `<ZoteroExtrasSection ...>`:
-
-```jsx
-import { PdfAnnotationsToCite } from './PdfAnnotationsToCite';
-
-const sourceUri = getPdfSourceUri(metadata);
-const citationKey = metadata?.['Citation Key'];
-
-{sourceUri && (
-    <PdfAnnotationsToCite
-        sourceUri={sourceUri}
-        citationKey={citationKey}
-        readOnly={!isEditor}
-    />
-)}
-```
-
-### D) Refinements opcionals
-
-- **Drag & drop**: arrossegar una quote directament al document en lloc
-  de copy/paste. Necessita HTML5 drag API + dropzone al BlockEditor.
-- **Subratllat sense text** (notes): el visor Zotero suporta anotacions
-  de tipus `note` (icona, no highlight). El component les inclou si tenen
-  `comment`; cal verificar a producció.
-- **Citation Key amb localització de pàgina**: ara hardcoded a `p. {pageIndex+1}`.
-  Si l'estil CSL té convencions diferents (pp., loc., chap.), caldria
-  parametritzar. citeproc-js no suporta locator inline al `[@key]` —
-  cal usar la sintaxi `[@key, p. 47]` que pandoc-citeproc sí entén.
-
-## 3. Restriccions i edge cases
-
-- **Sense PDF**: el component mostra un missatge informatiu en lloc d'amagar-se.
-  Decisió: avisar perquè l'usuari sàpiga que pot afegir un PDF si vol quotes.
-- **Anotacions sense text**: highlights estructurals (només quadre, sense
-  text extret) s'ometen — no fan quote útil.
-- **Multillinia**: si el text té salts de línia, el blockquote markdown
-  conserva l'estructura amb `> ` a cada línia. Verificar a producció.
-- **Privacy**: les anotacions són locals (SQLite). Cap cosa s'envia a un
-  servidor extern.
-
-## 4. Roadmap
-
-| Pas | Què | Cost |
-|---|---|---:|
-| ✅ | Component `PdfAnnotationsToCite.jsx` | fet (PR #249) |
-| ✅ | Helper `getPdfSourceUri(metadata)` (frontend) | fet |
-| ✅ | Integració al BlockEditor (opció 1) | fet |
-| ⏳ | Smoke test E2E: PDF → subratllar → quote → render | 1 hora |
-| ⏸ | Drag & drop de quote al document | 1 dia |
-| ⏸ | Suport `[@key, p. 47]` amb pandoc-citeproc | 1 dia |
-
-**v1 funcional desplegada.** L'usuari pot veure els subratllats al panell
-Propietats d'un Recurs amb PDF associat i copiar-los com a quote markdown
-amb cita formatada.
-
-## 5. Cicle d'aprenentatge
-
-| Data | Aprenentatge | Solució |
-|---|---|---|
-| 2026-05-28 | El visor Zotero ja exposa annotacions canonical via endpoint propi; no cal reinventar el storage. | Component nou simplement consumeix `/api/vault/pdf-annotations`. |
+1. Associate a disposable Resource with a PDF.
+2. Create a highlight.
+3. Open the properties panel and copy the quote.
+4. Paste it into a disposable document.
+5. Verify blockquote rendering, citation resolution, locator, and bibliography.
+6. Verify multiline and no-text annotation behavior.

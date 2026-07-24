@@ -54,7 +54,7 @@ export default function MeetingReminderWatcher() {
         <div className="fixed bottom-4 left-4 z-[100000] flex w-[360px] max-w-[calc(100vw-2rem)] flex-col gap-2">
             {reminders.map((r) => {
                 const mins = r.minutes_until ?? 0;
-                const when = mins <= 0 ? t('meeting_reminder.now', 'ara') : t('meeting_reminder.in_minutes', 'en {{count}} min', { count: mins });
+                const when = mins <= 0 ? t('meeting_reminder.now', "now") : t('meeting_reminder.in_minutes', "in {{count}} min", { count: mins });
                 const isOpen = !!expanded[r.id];
                 return (
                     <div
@@ -65,7 +65,7 @@ export default function MeetingReminderWatcher() {
                             <Bell size={18} className="mt-0.5 shrink-0 text-violet-500" />
                             <div className="min-w-0 flex-1">
                                 <div className="text-xs font-medium text-violet-600 dark:text-violet-300">
-                                    {t('meeting_reminder.meeting_when', 'Reunió {{when}}', { when })}
+                                    {t('meeting_reminder.meeting_when', "Meeting {{when}}", { when })}
                                 </div>
                                 <div className="truncate font-medium">{r.title}</div>
                                 {r.location && (
@@ -93,7 +93,7 @@ export default function MeetingReminderWatcher() {
                                 >
                                     {isOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                                     <Sparkles size={12} className="text-violet-500" />
-                                    {t('meeting_reminder.agenda', 'Ordre del dia')}
+                                    {t('meeting_reminder.agenda', "Agenda")}
                                 </button>
                                 {isOpen && (
                                     <div className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg bg-[var(--bg-secondary)] p-2 text-xs">
@@ -109,7 +109,7 @@ export default function MeetingReminderWatcher() {
                                 onClick={() => { navigate('/calendar'); dismiss(r.id); }}
                                 className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700"
                             >
-                                <Calendar size={14} /> {t('meeting_reminder.view_in_calendar', 'Veure al calendari')}
+                                <Calendar size={14} /> {t('meeting_reminder.view_in_calendar', "View in calendar")}
                             </button>
                             <button
                                 type="button"

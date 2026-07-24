@@ -65,11 +65,11 @@ def fetch_remote_index(url: str) -> List[Dict[str, Any]]:
         for chunk in resp.iter_content(64 * 1024):
             raw += chunk
             if len(raw) > _MAX_INDEX_BYTES:
-                logger.warning("índex remot massa gran, ignorat")
+                logger.warning("Remote index is too large; ignoring it")
                 return []
         data = json.loads(raw.decode("utf-8"))
     except Exception as e:  # noqa: BLE001
-        logger.warning("no s'ha pogut carregar l'índex remot: %s", e)
+        logger.warning("Could not load the remote index: %s", e)
         return []
     if not isinstance(data, list):
         return []
@@ -110,16 +110,16 @@ def install_bundled(config_dir: Path, entry_id: str) -> Dict[str, Any]:
     """Installs a `bundled` plugin from the catalog by its entry id."""
     entry = next((e for e in load_catalog() if e.get("id") == entry_id), None)
     if not entry or entry.get("source") != "bundled":
-        raise ps.PluginError(f"entrada de catàleg desconeguda: {entry_id!r}")
+        raise ps.PluginError(f"unknown catalog entry: {entry_id!r}")
     # `path` is relative to plugins-examples/ and validated against path traversal.
     rel = str(entry.get("path") or entry_id)
     if ".." in rel.split("/") or rel.startswith("/"):
-        raise ps.PluginError("ruta d'exemple invàlida")
+        raise ps.PluginError("invalid example path")
     src = (_examples_dir() / rel).resolve()
     if _examples_dir().resolve() not in src.parents:
-        raise ps.PluginError("ruta d'exemple fora del directori d'exemples")
+        raise ps.PluginError("example path is outside the examples directory")
     if not (src / "manifest.json").exists():
-        raise ps.PluginError(f"exemple sense manifest: {rel}")
+        raise ps.PluginError(f"example has no manifest: {rel}")
     return ps.install_from_zip(config_dir, _zip_dir_bytes(src), overwrite=True)
 
 
@@ -140,30 +140,30 @@ def install_from_url(
     
     """
     if not url.lower().startswith(("http://", "https://")):
-        raise ps.PluginError("url ha de ser http(s)")
+        raise ps.PluginError("URL must use HTTP or HTTPS")
     try:
         resp = requests.get(url, timeout=20, stream=True)
         resp.raise_for_status()
     except Exception as e:  # noqa: BLE001
-        raise ps.PluginError(f"no s'ha pogut descarregar: {e}") from e
+        raise ps.PluginError(f"could not download: {e}") from e
     data = b""
     for chunk in resp.iter_content(64 * 1024):
         data += chunk
         if len(data) > _MAX_DOWNLOAD_BYTES:
-            raise ps.PluginError("descàrrega massa gran")
+            raise ps.PluginError("download is too large")
     if expected_sha256:
         actual = hashlib.sha256(data).hexdigest()
         if actual.lower() != str(expected_sha256).strip().lower():
             raise ps.PluginError(
-                f"checksum SHA-256 no coincideix (esperat {expected_sha256[:12]}…, obtingut {actual[:12]}…)"
+                f"SHA-256 checksum mismatch (expected {expected_sha256[:12]}…, got {actual[:12]}…)"
             )
     signed_by = None
     if signature:
         signed_by = plugin_signing.verify_against_trust(config_dir, signature, data)
         if signed_by is None:
             raise ps.PluginError(
-                "la signatura del plugin no verifica amb cap clau de confiança "
-                "(editor desconegut o binari alterat)"
+                "the plugin signature does not verify against any trusted key "
+                "(unknown publisher or altered binary)"
             )
     manifest = ps.install_from_zip(config_dir, data, overwrite=True)
     manifest["signedBy"] = signed_by
@@ -179,13 +179,13 @@ def install_catalog_entry(config_dir: Path, entry_id: str) -> Dict[str, Any]:
     """
     entry = next((e for e in load_catalog() if e.get("id") == entry_id), None)
     if not entry:
-        raise ps.PluginError(f"entrada de catàleg desconeguda: {entry_id!r}")
+        raise ps.PluginError(f"unknown catalog entry: {entry_id!r}")
     source = entry.get("source")
     if source == "bundled":
         return install_bundled(config_dir, entry_id)
     if source == "url":
         url = str(entry.get("url") or "")
         if not url:
-            raise ps.PluginError("l'entrada `url` no declara cap URL")
+            raise ps.PluginError("the `url` entry does not declare a URL")
         return install_from_url(config_dir, url, entry.get("sha256"), entry.get("signature"))
-    raise ps.PluginError(f"font d'entrada desconeguda: {source!r}")
+    raise ps.PluginError(f"unknown entry source: {source!r}")

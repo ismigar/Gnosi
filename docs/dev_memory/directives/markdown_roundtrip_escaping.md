@@ -1,116 +1,101 @@
-# Directiva: Escapat contextual al round-trip Markdown de l'editor del Vault
+# Contextual Markdown Round-Trip Escaping
 
-**Estat:** activa · **Data:** 2026-06-23 · **Fitxer afectat:** `monorepo/apps/gnosi/frontend/src/components/Vault/markdown-mapper.js`
+**Status:** active
+**Date:** 2026-06-23
+**File:** `frontend/src/components/Vault/markdown-mapper.js`
 
-## Problema
+## Problem
 
-`inlineContentToMarkdown` serialitzava els nodes de text SENSE estil de manera literal
-(sense escapar). Quan un usuari escriu text pla amb seqüències que tenen significat
-Markdown, en desar+recarregar (blocs → md → blocs) markdown-it (via
-`tryParseMarkdownToBlocks`) les reinterpreta com a format i el text es **corromp** amb
-pèrdua silenciosa de dades:
+Unstyled text was serialized literally. Markdown punctuation could be
+reinterpreted after save and reload, silently changing plain text into
+emphasis, code, links, headings, quotes, lists, or thematic breaks.
 
-- `the __init__ method` → `__…__` es parseja com a **strong** "init" (es perden els `_`).
-- `use the \`ls\` command` → els backticks literals es tornen codi inline "ls".
-- `*word*` enganxat → cursiva.
-- (Adicional, mateix tipus de bug però a inici de línia: un paràgraf de text pla que
-  comença per `# `, `> `, `- `, `1. `, `---` es reinterpreta com a heading/quote/llista/hr.)
+## Design
 
-## Decisió de disseny (acordada amb l'usuari 2026-06-23)
+Use minimal contextual escaping, not blanket escaping. The stored Markdown
+must remain readable in Obsidian while preserving the user's literal text.
 
-**Escapat CONTEXTUAL (mínim), no escapat complet.** La filosofia del projecte és Markdown
-net i llegible a Obsidian; un escapat cec amb backslash a tot caràcter especial
-(`my\_var\_name`, `2 \* 3`) embruta massa el `.md`. S'escapa NOMÉS allò que
-CommonMark/markdown-it reinterpretaria de debò en aquell context.
+Escape only unstyled text nodes. Styled text, code spans, and code blocks retain
+their own balanced syntax.
 
-Opcions descartades: (a) escapat complet estil remark-stringify cru → massa pol·lució;
-(c) no escapar → la corrupció persisteix.
+## Inline rules
 
-## Regles d'implementació
+Process literal backslashes first so the operation remains idempotent.
 
-1. **Només text SENSE marques.** S'escapa un node `type:"text"` només si NO té cap de
-   `bold/italic/underline/strike/code`. Dins de marques i dins de **code spans** i **code
-   blocks** el text es deixa cru (paràmetre `escape=false` per a `codeBlock`). Ho exigeix
-   l'usuari: "Escapar NOMÉS en trossos de text sense estil".
+- Escape every literal backslash.
+- Escape every backtick in unstyled text.
+- Escape `*` only when CommonMark flanking rules would create emphasis.
+- Escape `_` under the same rules while preserving harmless intraword
+  underscores such as `my_var_name`.
+- Escape `~` when it forms a strike-through delimiter.
+- Escape the opening bracket only when it would form an inline link or image.
+- Leave standalone reference-like brackets literal when the parser already
+  preserves them.
 
-2. **Idempotència.** Escapar PRIMER el backslash literal (`\` → `\\`) i després la resta.
-   markdown-it desfà els escapes de puntuació ASCII en parsejar, així que
-   parse→serialize→parse és estable (no acumula backslashes). Verificació obligatòria:
-   `md1 === md2` al round-trip real al navegador.
+Treat text-node boundaries as whitespace for flanking calculations. BlockNote
+normally merges adjacent unstyled runs, while styled runs emit their own
+balanced delimiters.
 
-3. **Caràcters inline escapats (a qualsevol posició):**
-   - Backslash `\` → `\\` (sempre primer).
-   - Backtick `` ` `` → `` \` `` (tots; un backtick aïllat pot obrir codi).
-   - `*` → escapat si és left- o right-flanking (regla de flanking de CommonMark). El cas
-     net `2 * 3` (espais a banda i banda) NO s'escapa; `*word*`, `a*b` sí.
-   - `_` → com `*` PERÒ amb la restricció intraword de CommonMark: `my_var_name` queda NET
-     (els `_` envoltats de lletra/dígit no obren ni tanquen èmfasi); `__init__` SÍ s'escapa.
-   - `~` → escapat quan forma part d'un `~~` (strikethrough GFM).
-   - `[` d'un link/imatge inline `[...](` o `![...](` → escapat (`\[`). NO s'escapen els
-     `[ref]` solts (markdown-it ja els deixa literals) → mínima pol·lució.
+## Line-start block markers
 
-4. **Marcadors de bloc a INICI de línia** (només quan `atLineStart=true`, que es passa
-   NOMÉS per a `paragraph` i list items —no per a headings/callouts/columns/toggles/cel·les):
-   per cada línia del node, escapar el marcador inicial: `#{1,6}` (heading), `>` (quote),
-   `-`/`+`/`*` + espai (bullet), `\d+[.)]` + espai (ordenada), `---`/`***`/`___` (hr),
-   `===`/`--` solts (setext). Es processa per línia (split `\n`) ABANS de la conversió de
-   soft-breaks a `<br>`.
+Only paragraph and list-item text receives line-start escaping. For every line,
+escape markers that would become:
 
-5. **Boundary = whitespace.** Per al càlcul de flanking, l'inici/final del node de text es
-   tracta com a espai (límit de paraula). Segur a la pràctica perquè BlockNote fusiona els
-   nodes de text pla adjacents (un run de text pla és UN sol node) i els nodes amb marca
-   emeten els seus propis delimitadors balancejats.
+- ATX headings
+- Block quotes
+- Bulleted or numbered lists
+- Thematic breaks
+- Setext headings
 
-## Restriccions / Edge cases (NO fer)
+Do not apply line-start rules inside headings, callouts, columns, toggles, or
+table cells.
 
-- **NO escapar dins de code blocks** (`codeBlock` crida amb `escape=false`) → trencaria el
-  codi (`a ** b`, `arr[0]`, etc.).
-- **NO tocar wikilinks `[[…]]`, cites `[@key]`, transclusions `![[…]]`**: són branques
-  pròpies del serialitzador (nodes `wikilink`/`cite`/`transclusion`), no passen per
-  l'escapador de text. Verificar que segueixen round-trippejant.
-- **NO aplicar marcadors de bloc** (`atLineStart`) a headings, callouts, columnes, toggles
-  ni cel·les de taula: el seu prefix ja els treu d'inici de línia i són estructures fràgils.
-- **NO escapar `<` / `>` inguts d'HTML**: el serialitzador injecta `<br>`, `<u>`, `<div
-  style>` a propòsit; escapar `<` trencaria aquesta maquinària. Limitació coneguda: un
-  `<tag>` literal en text pla encara es pot interpretar com a HTML (no reportat; fora
-  d'abast).
-- **Taules**: les cel·les es re-llegeixen crues (parser GFM propi), com toggle/callout →
-  `escape=false`. Només escapen `|` (`\|`). NO afegir-hi escapat d'èmfasi/codi.
+## Restrictions
 
-## Blocs HTML tipus 6 (`<table>`) es mengen el markdown posterior (fix 2026-07-16)
+- Never escape code-block content.
+- Do not pass wikilinks, citations, or transclusions through the plain-text
+  escaper; they have dedicated serializer branches.
+- Do not escape intentional serializer HTML such as `<br>`, `<u>`, or layout
+  wrappers.
+- Table cells use their own parser and escape only pipe separators.
+- Round-trip must be idempotent: serialize(parse(serialize(parse(input)))) must
+  stabilize without accumulating backslashes.
 
-- **Símptoma:** enllaços `[text](url)` (i altres marques) es mostren com a text CRU a
-  l'editor en tot el que ve DESPRÉS d'una taula HTML (`<table header-row="true">`,
-  format del clon de Notion / serialitzador antic). Els wikilinks/mencions no ho
-  semblen perquè es converteixen en un post-procés sobre nodes de text.
-- **Causa:** per CommonMark, un bloc HTML tipus 6 (obert per `<table …>`) NOMÉS acaba
-  en línia EN BLANC. `</table>` seguit immediatament de més markdown fa que el parser
-  s'empassi la resta dins del bloc HTML.
-- **Fix:** `parsePlainMarkdownBlock` normalitza abans de parsejar: insereix línia en
-  blanc després de `</table>` (regex ancorada a línia: `/(^[ \t]*<\/table>[ \t]*)\n(?![ \t]*\n)/gm`).
-  Només tags SOLS a la seva línia — un `<table>…</table>` inline en un paràgraf no obre
-  bloc tipus 6 i no s'ha de tocar.
-- **QA de referència:** pàgina amb `[A](u)` + taula sense blanc + `- [B](u)` + taula amb
-  blanc + `- [C](u)` → els tres han de renderitzar com a enllaç ("Pla de futur i cures"
-  n'era el cas real: 6/9 enllaços crus).
+## HTML table boundary repair
 
-## Limitació PREEXISTENT (fora d'abast d'aquest fix)
+A CommonMark type-6 HTML block opened by a standalone `<table>` ends only at a
+blank line. Without a blank line after `</table>`, subsequent Markdown can be
+swallowed as raw HTML.
 
-El round-trip de paràgrafs amb **salts tous interns** (`\n` dins d'un node de text, p. ex.
-Shift+Enter) NO és idempotent, i això és **independent de l'escapat** (passa igual amb
-`alpha\nbeta`, sense cap caràcter especial). Causa: el serialitzador emet `\n` → `<br>\n`,
-però el parser remapeja `<br>\n` a `\n\n ` (dos salts + un espai), que es reserialitza a
-DOS `<br>`. Acumula `<br>` + espais a cada cicle desar/recarregar. Verificat al test de
-mòdul (editor bàsic). El present fix d'escapat NO ho causa i de fet MILLORA la variant amb
-marcador (`line1\n# line2` ja no promociona la 2a línia a heading, perquè s'escapa `\#`).
-Arreglar la deriva del `<br>` requereix tocar la lògica de soft-breaks (separada) — tasca a
-part.
+`parsePlainMarkdownBlock` inserts a blank line after a standalone closing table
+tag when one is missing. It does not modify inline table HTML.
 
-## QA (obligatori, vegeu `feedback_vault_editor_qa_safety` i `feedback_collab_ws_bypasses_fetch_block`)
+Browser QA must prove links before and after both repaired and already-correct
+tables render as links.
 
-Round-trip de MÒDUL al dev server del worktree (https://localhost:5185) via `preview_eval`:
-importar el mapper amb `?t=<nonce>` + `/@id/@blocknote/core`, `BlockNoteEditor.create()`,
-i comprovar `richMarkdownToBlocks(blocksToRichMarkdown(richMarkdownToBlocks(md)))` → `md`
-estable per a: `__init__`, `*word*`, backticks, `[ref]`, `my_var_name`, `2 * 3`, wikilinks,
-cites, taules, callouts, marcadors de bloc a inici de línia. **NO teclejar a notes reals**
-(autosave per WebSocket persisteix a disc).
+## Known separate limitation
+
+Soft line breaks inside a text node are not fully idempotent. The serializer
+emits `<br>` and the parser can expand it into additional breaks and spaces on
+subsequent cycles. This predates contextual escaping and requires a separate
+soft-break fix.
+
+The escaping change still prevents a line following a soft break from being
+promoted to a structural Markdown block.
+
+## QA
+
+Use an isolated editor instance and verify stable round-trips for:
+
+- Double underscores
+- Emphasis delimiters
+- Literal backticks
+- Harmless intraword underscores
+- Arithmetic asterisks with spaces
+- Links and standalone references
+- Wikilinks, citations, and transclusions
+- Tables and callouts
+- Every line-start marker
+
+Do not type into real notes during automated QA because WebSocket autosave can
+write to disk.

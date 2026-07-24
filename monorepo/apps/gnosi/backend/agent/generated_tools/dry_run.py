@@ -74,16 +74,16 @@ class DryRunManager:
         # Common patterns for Notion operations
         if "notion" in tool_name.lower() or "page" in tool_name.lower():
             if "create" in tool_name.lower():
-                return f"🆕 Crearà una nova pàgina a Notion amb: {json.dumps(arguments, indent=2, default=str)[:200]}..."
+                return f"🆕 Will create a new Notion page with: {json.dumps(arguments, indent=2, default=str)[:200]}..."
             elif "update" in tool_name.lower() or "patch" in tool_name.lower():
-                page_id = arguments.get("page_id", arguments.get("id", "desconegut"))
-                return f"✏️ Modificarà la pàgina {page_id} amb els canvis especificats"
+                page_id = arguments.get("page_id", arguments.get("id", "unknown"))
+                return f"✏️ Will modify page {page_id} with the specified changes"
             elif "delete" in tool_name.lower():
-                page_id = arguments.get("page_id", arguments.get("id", "desconegut"))
-                return f"🗑️ ELIMINARÀ la pàgina {page_id} - ACCIÓ IRREVERSIBLE"
+                page_id = arguments.get("page_id", arguments.get("id", "unknown"))
+                return f"🗑️ WILL DELETE page {page_id} — IRREVERSIBLE ACTION"
         
         # Generic fallback
-        return f"⚠️ Executarà '{tool_name}' amb arguments: {json.dumps(arguments, default=str)[:150]}..."
+        return f"⚠️ Will run '{tool_name}' with arguments: {json.dumps(arguments, default=str)[:150]}..."
     
     def get_pending(self, execution_id: str) -> Optional[Dict]:
         """Get a pending execution by ID."""
@@ -124,9 +124,9 @@ def dry_run_protect(risk_level: RiskLevel):
                     risk_level=risk_level
                 )
                 return (
-                    f"⚠️ ACCIÓ DE RISC: Requereix confirmació.\n"
-                    f"Previsualització:\n{preview.preview}\n\n"
-                    f"Per confirmar, aprova l'acció al Dashboard."
+                    "⚠️ RISKY ACTION: confirmation required.\n"
+                    f"Preview:\n{preview.preview}\n\n"
+                    "To confirm, approve the action in the Dashboard."
                 )
             else:
                 # Execute directly for safe operations

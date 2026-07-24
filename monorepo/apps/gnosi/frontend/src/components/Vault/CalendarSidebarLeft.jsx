@@ -36,8 +36,8 @@ export const CalendarSidebarLeft = ({
     ];
 
     const daysOfWeek = [
-        t('day_mo', 'Lu'), t('day_tu', 'Ma'), t('day_we', 'Mi'),
-        t('day_th', 'Ju'), t('day_fr', 'Vi'), t('day_sa', 'Sa'), t('day_su', 'Do')
+        t('day_mo', "Mo"), t('day_tu', "Tu"), t('day_we', "We"),
+        t('day_th', "Th"), t('day_fr', "Fr"), t('day_sa', 'Sa'), t('day_su', "Su")
     ];
 
     // Calendar Generation Math
@@ -81,7 +81,7 @@ export const CalendarSidebarLeft = ({
         calendarRef.current?.getApi().gotoDate(date);
     };
 
-    const monthName = currentDate.toLocaleString(i18n.language || 'ca-ES', { month: 'long', year: 'numeric' });
+    const monthName = currentDate.toLocaleString(i18n.resolvedLanguage || i18n.language || 'en', { month: 'long', year: 'numeric' });
     const capitalizedMonth = monthName.charAt(0).toUpperCase() + monthName.slice(1);
 
     const getCalendarColor = (source, index) => {
@@ -109,7 +109,7 @@ export const CalendarSidebarLeft = ({
                 <button 
                     onClick={onToggleSidebar}
                     className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--text-primary)] transition-colors"
-                    title={t('common.collapse', 'Col·lapsar')}
+                    title={t('common.collapse', "Collapse")}
                 >
                     <ChevronLeft size={16} />
                 </button>
@@ -148,12 +148,12 @@ export const CalendarSidebarLeft = ({
             {/* Calendars Header */}
             <div className="px-[11px] pt-4 pb-2 flex items-center justify-between group">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]/60">
-                    {t('calendars', 'Calendaris')}
+                    {t('calendars', "Calendars")}
                 </span>
                 <button
                     onClick={() => window.dispatchEvent(new CustomEvent('open-settings', { detail: 'integrations' }))}
                     className="p-1 hover:bg-[var(--bg-secondary)] rounded text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors"
-                    title={t('add_calendar', 'Afegir calendari')}
+                    title={t('add_calendar', "Add calendar")}
                 >
                     <Plus size={14} strokeWidth={2.5} />
                 </button>
@@ -264,7 +264,7 @@ export const CalendarSidebarLeft = ({
                                                             e.stopPropagation();
                                                             onSetDefaultCalendar?.(source);
                                                         }}
-                                                        title={t('set_default_calendar', 'Establir com a predeterminat')}
+                                                        title={t('set_default_calendar', "Set as default")}
                                                     >
                                                         <Star size={12} fill={defaultCalendar === source ? 'var(--gnosi-primary)' : 'none'} />
                                                     </button>
@@ -275,7 +275,7 @@ export const CalendarSidebarLeft = ({
                                                             setEditingSource(source);
                                                             setEditName(displayName);
                                                         }}
-                                                        title={t('rename_calendar', 'Reanomenar calendari')}
+                                                        title={t('rename_calendar', "Rename calendar")}
                                                     >
                                                         <Edit2 size={12} />
                                                     </button>
@@ -298,7 +298,7 @@ export const CalendarSidebarLeft = ({
                     <hr className="border-[var(--border-primary)] mx-4 my-2" />
                     <div className="px-[11px] pt-2 pb-2">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--text-secondary)]/60">
-                            {t('pending_notes', 'Pendent de programar')}
+                            {t('pending_notes', "Unscheduled")}
                         </span>
                         <div className="mt-2 space-y-1">
                             {undatedNotes.map(note => (

@@ -30,8 +30,8 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
             // recipient → redirect it to the real attachments and abort the insertion.
             if (!file.type.startsWith('image/') && onAttachFileRef.current) {
                 onAttachFileRef.current(file);
-                toast(t('mail.file_attached', 'Adjuntat: {{name}}', { name: file.name }), { icon: '📎' });
-                throw new Error('Fitxer desviat als adjunts');
+                toast(t('mail.file_attached', "Attached: {{name}}", { name: file.name }), { icon: '📎' });
+                throw new Error('File redirected to attachments');
             }
             return uploadFileToVault(file);
         },
@@ -92,11 +92,11 @@ export default function MailBlockEditor({ initialContent, onChange, editorRef, m
                         'after'
                     );
                 } catch {
-                    toast.error(t('mail.insert_image_error', 'Error inserint imatge'));
+                    toast.error(t('mail.insert_image_error', "Error inserting image"));
                 }
             } else if (onAttachFile) {
                 onAttachFile(file);
-                toast(t('mail.file_attached', 'Adjuntat: {{name}}', { name: file.name }), { icon: '📎' });
+                toast(t('mail.file_attached', "Attached: {{name}}", { name: file.name }), { icon: '📎' });
             }
         }
     }, [editor, onAttachFile, t]);

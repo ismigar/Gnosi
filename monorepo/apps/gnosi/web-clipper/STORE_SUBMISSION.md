@@ -1,40 +1,41 @@
-# Publicar el Web Clipper a la Chrome Web Store
+# Publishing the Web Clipper to Chrome Web Store
 
-Dossier de preparació. **Els passos de compte, pagament i acceptació de termes
-els ha de fer una persona** — no són automatitzables ni delegables.
+This is the publication preparation guide. **A person must complete the
+account, payment, and terms-acceptance steps**; they cannot be automated or
+delegated.
 
-## Per què val la pena
+## Why publication matters
 
-Ara mateix el clipper s'instal·la en **mode desenvolupador** («Carrega sense
-empaquetar»). Això vol dir: cada usuari ha d'activar el mode dev del navegador,
-Chrome li ensenya un avís permanent, i no hi ha actualitzacions automàtiques.
-És la limitació que fa que aquest connector no pugui presentar-se com a estable.
+The clipper is currently installed in **developer mode** through **Load
+unpacked**. Every user must enable developer mode, Chrome displays a permanent
+warning, and updates are not automatic. This prevents the connector from
+being presented as a stable installation.
 
-## Bloquejos que només pots resoldre tu
+## Prerequisites that require the maintainer
 
-1. **Compte de desenvolupador** a
+1. A developer account in the
    [Chrome Web Store Developer Dashboard](https://chrome.google.com/webstore/devconsole).
-2. **Quota única de 5 USD** de registre.
-3. **Acceptar els termes** del programa per a desenvolupadors.
+2. The one-time USD 5 registration fee.
+3. Acceptance of the developer program terms.
 
-Fins que aquests tres no estiguin fets, la resta del dossier no es pot fer servir.
+The rest of this guide cannot be used until all three steps are complete.
 
-## El paquet
+## Package
 
 ```bash
 ./build.sh
 ```
 
-Genera dos ZIP, i la diferència és important:
+The script generates two ZIP files with different structures:
 
-| Fitxer | Forma | Per a què |
+| File | Structure | Use |
 |---|---|---|
-| `gnosi-web-clipper.zip` | tot dins de `web-clipper/` | «Carrega sense empaquetar» i la release de GitHub |
-| `gnosi-web-clipper-store.zip` | `manifest.json` a l'arrel | **la botiga** — rebutja un ZIP amb el manifest dins d'una carpeta |
+| `gnosi-web-clipper.zip` | everything under `web-clipper/` | Load unpacked and GitHub releases |
+| `gnosi-web-clipper-store.zip` | `manifest.json` at the root | **Store upload**; the store rejects a ZIP with the manifest inside a directory |
 
-## El punt que et faran repetir: els permisos
+## Permission review
 
-El `manifest.json` declara:
+`manifest.json` declares:
 
 ```json
 "permissions": ["activeTab", "scripting", "storage"],
@@ -42,76 +43,72 @@ El `manifest.json` declara:
                      "http://127.0.0.1/*", "<all_urls>"]
 ```
 
-**`<all_urls>` és el que fa saltar la revisió.** Demana accés a qualsevol lloc
-web, i la botiga exigeix justificar-lo un per un al formulari de privacitat.
-Justificacions per a cada entrada:
+**`<all_urls>` triggers additional review.** It requests access to every site,
+so the store requires a justification for each permission:
 
-- **`activeTab`** — llegir el títol i la URL de la pestanya que l'usuari té al
-  davant, només quan clica el botó de l'extensió.
-- **`scripting`** — executar una funció que retorna el text seleccionat. No
-  injecta res persistent ni modifica la pàgina.
-- **`storage`** — desar en local la URL del backend de l'usuari i el seu token
-  d'API. No surt del dispositiu.
-- **`host_permissions` de localhost/127.0.0.1** — el cas habitual: el Gnosi de
-  l'usuari corre a la seva pròpia màquina.
-- **`<all_urls>`** — necessari perquè l'usuari pot allotjar el seu Gnosi a
-  **qualsevol** domini propi (és programari autoallotjable) i el clipper hi ha
-  d'enviar la petició. **Aquest és el punt feble de la sol·licitud.**
+- **`activeTab`** — reads the title and URL of the active tab only after the
+  user clicks the extension button.
+- **`scripting`** — runs a function that returns selected text. It does not
+  inject persistent content or modify the page.
+- **`storage`** — stores the user's backend URL and API token locally. This
+  data does not leave the device except when sent to that backend.
+- **localhost and `127.0.0.1` host permissions** — support the common case in
+  which Gnosi runs on the user's own computer.
+- **`<all_urls>`** — supports self-hosting Gnosi on **any** user-controlled
+  domain. This is the weakest part of the submission.
 
-### Alternativa que t'estalviaria la discussió
+### Recommended alternative
 
-Substituir `<all_urls>` per **`optional_host_permissions`**: l'extensió no
-demanaria res per endavant i, quan l'usuari configurés el seu backend, Chrome
-li demanaria permís només **per a aquell domini concret**. És més feina
-(cal cridar `chrome.permissions.request()` en desar la configuració) però
-converteix la sol·licitud més arriscada en una de rutinària, i és millor
-privacitat de debò, no només de cara a la revisió.
+Replace `<all_urls>` with **`optional_host_permissions`**. The extension would
+request no broad access up front. When the user saves a backend URL, Chrome
+would ask for access only to that specific domain through
+`chrome.permissions.request()`.
 
-Recomanació: fer aquest canvi **abans** d'enviar-ho, no després d'un rebuig.
+This requires additional implementation, but turns a high-risk permission
+request into a routine one and provides better privacy. Make this change
+**before** submission rather than after a rejection.
 
-## Declaració de privacitat (la demanaran)
+## Privacy declaration
 
-- L'extensió **no recull** analítica, ni telemetria, ni identificadors.
-- Les úniques dades que surten del navegador van **al servidor que l'usuari ha
-  configurat ell mateix** (per defecte, la seva pròpia màquina).
-- El token d'API viu a `chrome.storage.local` i no es transmet enlloc més que
-  a aquell servidor, com a capçalera `Authorization`.
-- No hi ha servidors nostres pel mig. Cal marcar-ho així al formulari.
+- The extension collects no analytics, telemetry, or identifiers.
+- The only data leaving the browser goes to the server configured by the
+  user, which defaults to their own computer.
+- The API token is stored in `chrome.storage.local` and is transmitted only to
+  that server in the `Authorization` header.
+- Gnosi-operated intermediary servers are not involved. State this clearly in
+  the store privacy form.
 
-## Abans d'enviar-ho
+## Pre-submission checklist
 
-- [ ] Puja `version` al `manifest.json` — la botiga rebutja una versió ja vista.
-      **Nota**: ara diu `1.1.0` mentre viatja en el tren de releases `0.1.x`;
-      val la pena alinear-ho abans de publicar res amb aquest número.
-- [ ] Decideix el tema de `<all_urls>` (vegeu l'alternativa de dalt).
-- [x] Icones: `icons/` (16/32/48/128/512, derivades de l'icona de l'app), a
-      `icons` i a `action.default_icon`. `build.sh` avorta si el manifest en
-      referencia alguna que no existeixi.
-- [ ] Captures de pantalla del popup (1280×800 o 640×400).
-- [ ] Descripció curta (132 caràcters) i llarga.
-- [ ] Política de privacitat accessible per URL pública.
-- [ ] `npm test` verd al frontend (cobreix la lògica del popup).
+- [ ] Increase `version` in `manifest.json`; the store rejects a version it
+      has already seen. The current `1.1.0` differs from the `0.1.x` release
+      train and should be aligned before publication.
+- [ ] Decide whether to replace `<all_urls>` with the recommended optional
+      permission.
+- [x] Provide 16/32/48/128/512 icons in `icons/`, derived from the app icon,
+      and reference them from `icons` and `action.default_icon`. `build.sh`
+      fails if the manifest references a missing icon.
+- [ ] Capture popup screenshots at 1280×800 or 640×400.
+- [ ] Prepare a short description of at most 132 characters and a longer
+      description.
+- [ ] Publish a privacy policy at a public URL.
+- [ ] Ensure frontend `npm test` passes; it covers popup logic.
 
-## L'altre canal: LibreOffice
+## Other distribution channel: LibreOffice
 
-El `.oxt` es publica a
-[extensions.libreoffice.org](https://extensions.libreoffice.org/), i el procés
-és força més barat que aquest: prou més per començar-hi si vols obrir un canal
-de distribució de debò. Les passes verificades són a
+Publish the `.oxt` package at
+[extensions.libreoffice.org](https://extensions.libreoffice.org/). The
+verified steps are documented in
 [`integrations/libreoffice-cite/PUBLISHING.md`](../integrations/libreoffice-cite/PUBLISHING.md).
-
-Diferències que compten, per si dubtes per on començar:
 
 | | Chrome Web Store | extensions.libreoffice.org |
 |---|---|---|
-| Quota | 5 USD (única) | cap |
-| Compte | Google + programa de desenvolupador | [compte TDF](https://user.documentfoundation.org) (SSO de LibreOffice) |
-| Revisió | automatitzada + humana, amb justificació de permisos | moderació humana |
-| Permisos a justificar | sí, un per un | no aplica |
+| Fee | USD 5 once | none |
+| Account | Google developer program | [TDF account](https://user.documentfoundation.org) through LibreOffice SSO |
+| Review | automated and human, with permission justifications | human moderation |
+| Permission justifications | required individually | not applicable |
 
-⚠️ **Correcció (2026-07-21)**: una versió anterior d'aquest document deia que
-al canal de LibreOffice «no hi ha revisió comparable». **És inexacte**: la
-documentació oficial diu literalment que *«after you hit publish, the request
-will be handled by a moderator»*. Sí que hi ha moderació humana. El que no hi
-ha és quota ni justificació de permisos; els criteris i terminis de moderació
-no són públics.
+Correction verified on 2026-07-21: LibreOffice publication **does have human
+moderation**. Official documentation says that publication requests are
+handled by a moderator. It has no fee or permission-justification form, but
+the moderation criteria and timelines are not public.

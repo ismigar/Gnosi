@@ -93,7 +93,7 @@ export default function ModelRegistrySettings() {
             setCatalog(catalogRes?.data?.providers?.length ? catalogRes.data : null);
             initializedRef.current = true;
         } catch (e) {
-            toast.error(ta('load_error', 'Error carregant els models'));
+            toast.error(ta('load_error', "Could not load the models"));
             console.error('ModelRegistrySettings load:', e);
         } finally {
             setLoading(false);
@@ -219,14 +219,14 @@ export default function ModelRegistrySettings() {
                 loadUsage(); // the cap/ratio shown in the spend panel just changed
             } catch (e) {
                 console.error('ModelRegistrySettings autosave:', e);
-                toast.error(ta('save_error', 'No s\'han pogut desar els canvis'));
+                toast.error(ta('save_error', "Could not save the changes"));
             }
         }, 800);
         return () => clearTimeout(handle);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [models, budget]);
 
-    if (loading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>{ta('loading', 'Carregant models…')}</div>;
+    if (loading) return <div style={{ padding: 24, color: 'var(--text-secondary)' }}>{ta('loading', "Loading models…")}</div>;
 
     const inp = { background: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--settings-border)', borderRadius: 8, padding: '5px 8px', fontSize: '0.82rem', minWidth: 0 };
     const iconBtn = { background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'inline-flex', alignItems: 'center' };
@@ -260,7 +260,7 @@ export default function ModelRegistrySettings() {
                     <input style={{ ...inp, width: 120 }} value={m.provider} placeholder="ollama"
                         onChange={e => update(i, { provider: e.target.value.trim().toLowerCase() })} />
                     {catalog && (
-                        <button title={ta('back_to_list', 'Tornar a la llista')} style={iconBtn}
+                        <button title={ta('back_to_list', "Back to the list")} style={iconBtn}
                             onClick={() => { setRowCustom(setCustomProviderRows, i, false); update(i, { provider: '', model_id: '' }); }}>
                             <List size={14} color="var(--text-tertiary)" />
                         </button>
@@ -280,12 +280,12 @@ export default function ModelRegistrySettings() {
                 onChange={e => onProviderChange(i, e.target.value)}>
                 <option value="">{t('settings.ai.select_provider_option')}</option>
                 {connected.length > 0 && (
-                    <optgroup label={ta('connected_group', 'Connectats')}>{connected.map(opt)}</optgroup>
+                    <optgroup label={ta('connected_group', "Connected")}>{connected.map(opt)}</optgroup>
                 )}
                 {others.length > 0 && (
-                    <optgroup label={ta('all_providers_group', 'Tots els proveïdors')}>{others.map(opt)}</optgroup>
+                    <optgroup label={ta('all_providers_group', "All providers")}>{others.map(opt)}</optgroup>
                 )}
-                <option value={CUSTOM}>{ta('custom_option', 'Personalitzat…')}</option>
+                <option value={CUSTOM}>{ta('custom_option', "Custom…")}</option>
             </select>
         );
     };
@@ -300,7 +300,7 @@ export default function ModelRegistrySettings() {
                     <input style={{ ...inp, flex: 1 }} value={m.model_id} placeholder="llama3.2"
                         onChange={e => update(i, { model_id: e.target.value.trim() })} />
                     {catalog && providerEntry && (
-                        <button title={ta('back_to_list', 'Tornar a la llista')} style={iconBtn}
+                        <button title={ta('back_to_list', "Back to the list")} style={iconBtn}
                             onClick={() => { setRowCustom(setCustomModelRows, i, false); update(i, { model_id: '' }); }}>
                             <List size={14} color="var(--text-tertiary)" />
                         </button>
@@ -320,7 +320,7 @@ export default function ModelRegistrySettings() {
                 {catalogModels.map(cm => (
                     <option key={cm.id} value={cm.id} title={cm.id}>{cm.name}</option>
                 ))}
-                <option value={CUSTOM}>{ta('custom_option', 'Personalitzat…')}</option>
+                <option value={CUSTOM}>{ta('custom_option', "Custom…")}</option>
             </select>
         );
     };
@@ -331,12 +331,12 @@ export default function ModelRegistrySettings() {
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
                 <div style={{ minWidth: 0 }}>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {ta('subtitle', "Registra els models (locals o remots); l'orquestrador tria segons la petició, tokens i cost.")}
+                        {ta('subtitle', "Register the models (local or remote); the orchestrator picks one depending on the request, tokens, and cost.")}
                     </div>
                     {catalog && (
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: 2 }}>
                             {ta('catalog_hint', {
-                                defaultValue: 'Catàleg de models actualitzat automàticament (font: {{source}}).',
+                                defaultValue: "Model catalog refreshed automatically (source: {{source}}).",
                                 source: catalog.source || 'models.dev',
                             })}
                         </div>
@@ -344,7 +344,7 @@ export default function ModelRegistrySettings() {
                 </div>
                 <button className="btn-gnosi-primary" onClick={addRow}
                     style={{ padding: '8px 16px', fontSize: '0.82rem', borderRadius: 12, display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                    <Plus size={15} /> {ta('add_model', 'Afegir model')}
+                    <Plus size={15} /> {ta('add_model', "Add model")}
                 </button>
             </div>
 
@@ -354,7 +354,7 @@ export default function ModelRegistrySettings() {
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             {/* Marking a row local also settles its price: local
                                 models are free, not "unknown price" */}
-                            <button title={m.is_local ? ta('local_tooltip', 'Local') : ta('remote_tooltip', 'Remot')}
+                            <button title={m.is_local ? ta('local_tooltip', 'Local') : ta('remote_tooltip', "Remote")}
                                 onClick={() => update(i, { is_local: !m.is_local, price_unknown: m.is_local && !m.price_from_catalog })}
                                 style={{ ...iconBtn, color: m.is_local ? 'var(--gnosi-primary)' : 'var(--text-tertiary)' }}>
                                 {m.is_local ? <Server size={18} /> : <Cloud size={18} />}
@@ -368,7 +368,7 @@ export default function ModelRegistrySettings() {
                                 return (
                                     <span
                                         title={t('settings.ai.model_fault_warning', {
-                                            defaultValue: 'Aquest model {{reason}} {{count}} vegades en els últims {{days}} dies.',
+                                            defaultValue: "This model {{reason}} {{count}} times in the last {{days}} days.",
                                             reason: t(reason.key, reason.fallback),
                                             count: fault.reasons[fault.top_model_reason],
                                             days: fault.window_days,
@@ -377,31 +377,31 @@ export default function ModelRegistrySettings() {
                                             background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', whiteSpace: 'nowrap',
                                             display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                         <Activity size={12} />
-                                        {ta('failures_badge', { defaultValue: '{{count}} fallades', count: fault.model_fault_total })}
+                                        {ta('failures_badge', { defaultValue: "{{count}} failures", count: fault.model_fault_total })}
                                     </span>
                                 );
                             })()}
                             {catalog && providersById[m.provider] && !providersById[m.provider].connected && !m.is_local && (
                                 <span
-                                    title={ta('not_connected_tooltip', "El router ometrà aquest model: el proveïdor no té cap credencial configurada. Connecta'l a «Proveïdors de Models».")}
+                                    title={ta('not_connected_tooltip', "The router will skip this model: the provider has no credential configured. Connect it under “Model Providers”.")}
                                     style={{ fontSize: '0.68rem', fontWeight: 800, padding: '2px 8px', borderRadius: 8,
                                         background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', whiteSpace: 'nowrap' }}>
-                                    {ta('not_connected_badge', 'Sense connectar')}
+                                    {ta('not_connected_badge', "Not connected")}
                                 </span>
                             )}
                             <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div className={`gnosi-toggle ${m.enabled ? 'active' : ''}`} title={ta('col_active', 'Actiu')}
+                                <div className={`gnosi-toggle ${m.enabled ? 'active' : ''}`} title={ta('col_active', "Active")}
                                     onClick={() => update(i, { enabled: !m.enabled })}>
                                     <div className="gnosi-toggle-handle" />
                                 </div>
-                                <button title={ta('remove_model', 'Treure')} onClick={() => requestRemoveRow(i)}
+                                <button title={ta('remove_model', "Remove")} onClick={() => requestRemoveRow(i)}
                                     style={{ ...iconBtn, color: 'var(--text-tertiary)' }}>
                                     <Trash2 size={16} />
                                 </button>
                             </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 16, flexWrap: 'wrap', marginTop: 10 }}>
-                            <Field label={ta('col_quality', 'Qualitat')}>
+                            <Field label={ta('col_quality', "Quality")}>
                                 <select style={{ ...inp, width: 128 }} value={m.quality} onChange={e => update(i, { quality: Number(e.target.value) })}>
                                     {[1, 2, 3].map(q => <option key={q} value={q}>{ta(QUALITY_KEYS[q], QUALITY_LABELS[q])}</option>)}
                                 </select>
@@ -411,12 +411,12 @@ export default function ModelRegistrySettings() {
                                 tariff into params.yaml that silently rotted. */}
                             <Field label={ta('col_cost', 'Cost in/out ($/M)')}>
                                 <div title={m.price_unknown
-                                    ? ta('price_unknown_tooltip', 'Model fora del catàleg: es comptabilitza com a cost 0.')
-                                    : ta('price_catalog_tooltip', 'Preu del catàleg (models.dev), actualitzat automàticament.')}
+                                    ? ta('price_unknown_tooltip', "Model not in the catalog: it is accounted for as zero cost.")
+                                    : ta('price_catalog_tooltip', "Price from the catalog (models.dev), refreshed automatically.")}
                                     style={{ display: 'flex', alignItems: 'center', gap: 6, height: 30, fontSize: '0.82rem',
                                         color: m.price_unknown ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
                                     {m.price_unknown ? (
-                                        <span>{ta('price_unknown', 'desconegut')}</span>
+                                        <span>{ta('price_unknown', "unknown")}</span>
                                     ) : (
                                         <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                                             {fmtPrice(m.cost_in)} / {fmtPrice(m.cost_out)}
@@ -430,18 +430,18 @@ export default function ModelRegistrySettings() {
                                 silently drifted from reality. */}
                             <Field label={ta('col_context', 'Context')}>
                                 <div title={m.price_unknown
-                                    ? ta('context_unknown_tooltip', 'Model fora del catàleg: no se\'n coneix el context.')
-                                    : ta('context_catalog_tooltip', 'Finestra de context del catàleg (models.dev), definida pel proveïdor.')}
+                                    ? ta('context_unknown_tooltip', "Model not in the catalog: its context window is unknown.")
+                                    : ta('context_catalog_tooltip', "Context window from the catalog (models.dev), defined by the provider.")}
                                     style={{ display: 'flex', alignItems: 'center', gap: 6, height: 30, fontSize: '0.82rem',
                                         color: m.price_unknown ? 'var(--text-tertiary)' : 'var(--text-primary)' }}>
                                     <span style={{ fontVariantNumeric: 'tabular-nums' }}>
                                         {m.price_unknown
-                                            ? ta('context_unknown', 'desconegut')
+                                            ? ta('context_unknown', "unknown")
                                             : fmtContext(m.context_window)}
                                     </span>
                                 </div>
                             </Field>
-                            <Field label={ta('col_capabilities', 'Capacitats')}>
+                            <Field label={ta('col_capabilities', "Capabilities")}>
                                 <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                                     {TAG_OPTIONS.map(tag => (
                                         <button key={tag} onClick={() => toggleTag(i, tag)}
@@ -459,20 +459,20 @@ export default function ModelRegistrySettings() {
 
             {/* Budget policy */}
             <div style={{ marginTop: 24, paddingTop: 16, borderTop: '1px solid var(--settings-border)' }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 10 }}>{ta('budget_policy_title', 'Política de pressupost')}</div>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)', marginBottom: 10 }}>{ta('budget_policy_title', "Budget policy")}</div>
 
                 {/* Monthly money cap (Settings currency) + live spend meter */}
                 <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'flex-end', marginBottom: 16 }}>
-                    <Field label={`${ta('cost_cap_label', 'Sostre de despesa mensual')} (${currencySymbol})`}>
+                    <Field label={`${ta('cost_cap_label', "Monthly spending cap")} (${currencySymbol})`}>
                         <input style={{ ...inp, width: 140 }} type="number" min="0" step="0.5"
-                            placeholder={ta('cost_cap_none', '(sense sostre)')}
+                            placeholder={ta('cost_cap_none', "(no cap)")}
                             value={budget.monthly_cost_cap ?? ''}
                             onChange={e => setBudget(b => ({ ...b, monthly_cost_cap: e.target.value }))} />
                     </Field>
                     {usage && (
                         <div style={{ flex: '1 1 260px', minWidth: 220 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: 4 }}>
-                                <span>{ta('spent_this_month', 'Gastat aquest mes')} ({usage.period})</span>
+                                <span>{ta('spent_this_month', "Spent this month")} ({usage.period})</span>
                                 <span style={{ fontWeight: 800, color: usage.over_cap ? '#ef4444' : 'var(--text-primary)' }}>
                                     {fmtCcy(usage.spent_ccy)}{usage.cap_ccy ? ` / ${fmtCcy(usage.cap_ccy)}` : ''}
                                 </span>
@@ -486,7 +486,7 @@ export default function ModelRegistrySettings() {
                             )}
                             {usage.over_cap && (
                                 <div style={{ marginTop: 6, fontSize: '0.75rem', fontWeight: 700, color: '#ef4444' }}>
-                                    {ta('budget_exhausted_warning', 'Sostre assolit: el router només farà servir models de cost 0 (locals).')}
+                                    {ta('budget_exhausted_warning', "Cap reached: the router will only use zero-cost (local) models.")}
                                 </div>
                             )}
                         </div>
@@ -498,15 +498,15 @@ export default function ModelRegistrySettings() {
                         <div className={`gnosi-toggle ${budget.prefer_local ? 'active' : ''}`} onClick={() => setBudget(b => ({ ...b, prefer_local: !b.prefer_local }))}>
                             <div className="gnosi-toggle-handle" />
                         </div>
-                        {ta('prefer_local_label', 'Prioritzar models locals (cost 0)')}
+                        {ta('prefer_local_label', "Prioritize local models (cost 0)")}
                     </label>
                     <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                        {ta('remaining_tokens_label', 'Tokens de pagament restants:')}&nbsp;
-                        <input style={{ ...inp, width: 120, display: 'inline-block' }} type="number" placeholder={ta('remaining_tokens_placeholder', '(sense límit)')}
+                        {ta('remaining_tokens_label', "Remaining paid tokens:")}&nbsp;
+                        <input style={{ ...inp, width: 120, display: 'inline-block' }} type="number" placeholder={ta('remaining_tokens_placeholder', "(no limit)")}
                             value={budget.remaining_tokens ?? ''} onChange={e => setBudget(b => ({ ...b, remaining_tokens: e.target.value }))} />
                     </label>
                     <label style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
-                        {ta('budget_below_label', 'Si en queden menys de:')}&nbsp;
+                        {ta('budget_below_label', "If fewer than remain:")}&nbsp;
                         <input style={{ ...inp, width: 110, display: 'inline-block' }} type="number"
                             value={budget.prefer_local_below ?? 0} onChange={e => setBudget(b => ({ ...b, prefer_local_below: e.target.value }))} />
                         &nbsp;{ta('budget_below_suffix', '→ local')}
@@ -517,7 +517,7 @@ export default function ModelRegistrySettings() {
                 {(usage?.per_model?.length || 0) > 0 && (
                     <details style={{ marginTop: 14 }}>
                         <summary style={{ cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-secondary)' }}>
-                            {ta('spend_breakdown', 'Desglossament per model')}
+                            {ta('spend_breakdown', "Per-model breakdown")}
                         </summary>
                         <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 4 }}>
                             {usage.per_model.map((row, idx) => (
@@ -547,12 +547,12 @@ export default function ModelRegistrySettings() {
                         if (confirmRemove) removeRow(confirmRemove.index);
                         setConfirmRemove(null);
                     }}
-                    title={ta('remove_confirm_title', 'Treure el model del registre?')}
+                    title={ta('remove_confirm_title', "Remove this model from the registry?")}
                     message={ta('remove_confirm_msg', {
-                        defaultValue: 'Es traurà «{{model}}» de la llista del router. El canvi es desa automàticament.',
+                        defaultValue: "“{{model}}” will be removed from the router list. The change is saved automatically.",
                         model: confirmRemove?.label || '',
                     })}
-                    confirmText={ta('remove_model', 'Treure')}
+                    confirmText={ta('remove_model', "Remove")}
                     isDestructive={true}
                 />,
                 document.body,

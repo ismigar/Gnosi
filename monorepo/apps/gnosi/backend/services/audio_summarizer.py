@@ -147,7 +147,7 @@ def _generate_tts_by_sentences(text, output_path):
                 buf.seek(0)
                 f.write(buf.read())
             except Exception as e:
-                log.warning(f"TTS error en frase {i + 1}: {e}")
+                log.warning(f"TTS failed for sentence {i + 1}: {e}")
                 # Skip this sentence but continue with others
                 continue
 
@@ -187,7 +187,7 @@ def generate_daily_podcast():
         log.info(f"Found {len(articles)} unread articles.")
         generation_status["progress"] = f"Found {len(articles)} articles."
 
-        # 2. Dividir en lots
+        # 2. Split into batches.
         batches = _build_batches(articles)
         total_batches = len(batches)
         total_articles = sum(len(b) for b in batches)
@@ -261,7 +261,7 @@ def generate_daily_podcast():
             return None
 
     except Exception as e:
-        log.error(f"Error global al generador de podcast: {e}")
+        log.error(f"Podcast generator failed: {e}")
         generation_status["error"] = str(e)
         return None
     finally:

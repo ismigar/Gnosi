@@ -20,7 +20,7 @@ const stripFrontmatter = (md) => {
 
 const splitSlides = (md) => {
     const body = stripFrontmatter(md).trim();
-    if (!body) return [i18n.t('editor.presentation_empty_note', '(Nota buida)')];
+    if (!body) return [i18n.t('editor.presentation_empty_note', "(Empty note)")];
     // 1) Explicit `---` separators on their own line.
     const bySep = body.split(/\n[ \t]*---[ \t]*\n/);
     if (bySep.length > 1) return bySep.map((s) => s.trim()).filter(Boolean);
@@ -74,8 +74,8 @@ export default function PresentationMode({ isOpen, onClose, markdown = '' }) {
             <div className="flex items-center justify-between px-4 py-2 text-[var(--text-tertiary)]">
                 <span className="text-sm">{idx + 1} / {slides.length}</span>
                 <div className="flex items-center gap-1">
-                    <button onClick={goFullscreen} title={t('editor.presentation_fullscreen', 'Pantalla completa')} className="rounded p-1.5 hover:bg-[var(--bg-secondary)]"><Maximize2 size={16} /></button>
-                    <button onClick={onClose} title={t('editor.presentation_exit', 'Surt (Esc)')} className="rounded p-1.5 hover:bg-[var(--bg-secondary)]"><X size={18} /></button>
+                    <button onClick={goFullscreen} title={t('editor.presentation_fullscreen', "Fullscreen")} className="rounded p-1.5 hover:bg-[var(--bg-secondary)]"><Maximize2 size={16} /></button>
+                    <button onClick={onClose} title={t('editor.presentation_exit', "Exit (Esc)")} className="rounded p-1.5 hover:bg-[var(--bg-secondary)]"><X size={18} /></button>
                 </div>
             </div>
             {/* Diapositiva */}

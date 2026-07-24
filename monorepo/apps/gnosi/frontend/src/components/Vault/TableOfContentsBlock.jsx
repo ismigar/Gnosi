@@ -76,11 +76,11 @@ export default function TableOfContentsBlock({ editor }) {
         >
             <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-[var(--text-tertiary)]">
                 <List size={14} />
-                <span>{t('editor.toc_block_title', 'Índex')}</span>
+                <span>{t('editor.toc_block_title', "Contents")}</span>
             </div>
             {headings.length === 0 ? (
                 <div className="text-sm italic text-[var(--text-tertiary)]">
-                    {t('editor.toc_empty', "Afegeix encapçalaments per generar l'índex.")}
+                    {t('editor.toc_empty', "Add headings to generate the index.")}
                 </div>
             ) : (
                 <ul className="space-y-0.5">

@@ -54,7 +54,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
             setComments(res.data?.comments || []);
         } catch (err) {
             console.error('Error loading comments:', err);
-            toast.error(t('errors.comments_load', { defaultValue: 'No s\'han pogut carregar els comentaris' }));
+            toast.error(t('errors.comments_load', { defaultValue: "Could not load comments" }));
         } finally {
             setLoading(false);
         }
@@ -67,7 +67,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
     // 403 (viewer role, PR #742) → permissions message; otherwise → generic key.
     const notifyMutationError = useCallback((err, key, fallback) => {
         if (err?.response?.status === 403) {
-            toast.error(t('errors.comment_forbidden', { defaultValue: 'El teu rol no permet modificar comentaris' }));
+            toast.error(t('errors.comment_forbidden', { defaultValue: "Your role does not allow modifying comments" }));
         } else {
             toast.error(t(key, { defaultValue: fallback }));
         }
@@ -156,14 +156,14 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                         <MessageSquare size={18} className="text-[var(--gnosi-blue)] shrink-0" />
                         <div className="min-w-0">
                             <h3 className="text-base font-bold text-[var(--text-primary)] truncate">
-                                {t('shell.view_comments', 'Comentaris')}
+                                {t('shell.view_comments', "Comments")}
                             </h3>
                             {pageTitle && (
                                 <p className="text-xs text-[var(--text-tertiary)] truncate">{pageTitle}</p>
                             )}
                         </div>
                     </div>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
                         <X />
                     </button>
                 </div>
@@ -172,12 +172,12 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                     {loading ? (
                         <div className="flex items-center justify-center py-12 text-[var(--text-tertiary)]">
                             <Loader2 size={18} className="animate-spin mr-2" />
-                            {t('common.loading', 'Carregant…')}
+                            {t('common.loading', "Loading...")}
                         </div>
                     ) : comments.length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-[var(--text-tertiary)]">
                             <MessageSquare size={28} className="mb-2 opacity-40" />
-                            <p className="text-sm">{t('comments.empty', 'Encara no hi ha comentaris')}</p>
+                            <p className="text-sm">{t('comments.empty', "No comments yet")}</p>
                         </div>
                     ) : (
                         comments.map((c) => (
@@ -193,7 +193,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                                         <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">{fmtWhen(c.created_at)}</span>
                                         {c.resolved && (
                                             <span className="text-[9px] uppercase font-bold text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded shrink-0">
-                                                {t('comments.resolved', 'Resolt')}
+                                                {t('comments.resolved', "Resolved")}
                                             </span>
                                         )}
                                     </div>
@@ -202,21 +202,21 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                                         <button
                                             onClick={() => toggleResolved(c)}
                                             className="p-1 rounded hover:bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] hover:text-emerald-600"
-                                            title={c.resolved ? t('comments.reopen', 'Reobre') : t('comments.resolve', 'Marca com a resolt')}
+                                            title={c.resolved ? t('comments.reopen', "Reopen") : t('comments.resolve', "Mark as resolved")}
                                         >
                                             {c.resolved ? <RotateCcw size={13} /> : <Check size={13} />}
                                         </button>
                                         <button
                                             onClick={() => { setEditingId(c.id); setEditDraft(c.body); }}
                                             className="p-1 rounded hover:bg-[var(--bg-tertiary)] text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
-                                            title={t('common.edit', 'Edita')}
+                                            title={t('common.edit', "Edit")}
                                         >
                                             <Pencil size={13} />
                                         </button>
                                         <button
                                             onClick={() => setDeleteTarget(c)}
                                             className="p-1 rounded hover:bg-red-500/10 text-[var(--text-tertiary)] hover:text-red-600"
-                                            title={t('common.delete', 'Elimina')}
+                                            title={t('common.delete', "Delete")}
                                         >
                                             <Trash2 size={13} />
                                         </button>
@@ -236,14 +236,14 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                                                 onClick={() => { setEditingId(null); setEditDraft(''); }}
                                                 className="px-3 py-1 text-xs text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] rounded"
                                             >
-                                                {t('common.cancel', 'Cancel·la')}
+                                                {t('common.cancel', "Cancel")}
                                             </button>
                                             <button
                                                 onClick={() => saveEdit(c.id)}
                                                 disabled={!editDraft.trim()}
                                                 className="px-3 py-1 text-xs font-medium text-white bg-[var(--gnosi-blue)] rounded hover:opacity-90 disabled:opacity-50"
                                             >
-                                                {t('common.save', 'Desa')}
+                                                {t('common.save', "Save")}
                                             </button>
                                         </div>
                                     </div>
@@ -258,7 +258,7 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                 <div className="border-t border-[var(--border-primary)] p-3 bg-[var(--bg-secondary)]/50">
                     {!canComment ? (
                         <p className="text-xs text-[var(--text-tertiary)] italic text-center py-1">
-                            {t('comments.read_only', 'El teu rol només permet llegir els comentaris')}
+                            {t('comments.read_only', "Your role only allows reading comments")}
                         </p>
                     ) : (
                     <div className="flex items-end gap-2">
@@ -272,14 +272,14 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
                                 }
                             }}
                             rows={2}
-                            placeholder={t('comments.placeholder', 'Escriu un comentari… (⌘+Enter per enviar)')}
+                            placeholder={t('comments.placeholder', "Write a comment… (⌘+Enter to send)")}
                             className="flex-1 px-3 py-2 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg text-sm text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-[var(--gnosi-blue)]/30 resize-none"
                         />
                         <button
                             onClick={submitComment}
                             disabled={!draft.trim() || submitting}
                             className="p-2.5 rounded-lg bg-[var(--gnosi-blue)] text-white hover:opacity-90 disabled:opacity-40 shrink-0"
-                            title={t('comments.send', 'Envia')}
+                            title={t('comments.send', "Send")}
                         >
                             {submitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
                         </button>
@@ -290,9 +290,9 @@ export function PageComments({ pageId, pageTitle, open, onClose }) {
 
             <ConfirmModal
                 isOpen={Boolean(deleteTarget)}
-                title={t('comments.delete_title', 'Eliminar comentari')}
-                message={t('comments.delete_msg', 'Segur que vols eliminar aquest comentari?')}
-                confirmText={t('common.delete', 'Elimina')}
+                title={t('comments.delete_title', "Delete comment")}
+                message={t('comments.delete_msg', "Are you sure you want to delete this comment?")}
+                confirmText={t('common.delete', "Delete")}
                 isDestructive
                 onConfirm={doDelete}
                 onClose={() => setDeleteTarget(null)}

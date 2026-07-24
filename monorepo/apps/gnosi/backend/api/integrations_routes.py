@@ -62,7 +62,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
         )
         from backend.api.mail_routes import _MAIL_CACHE, _COUNTS_CACHE
     except Exception as e:
-        log.warning(f"[CRED-CHANGE] No s'han pogut importar mòduls per invalidar: {e}")
+        log.warning("[CRED-CHANGE] Could not import modules for invalidation: %s", e)
         return
 
     for email in emails:
@@ -71,7 +71,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
             _LAST_AUTH_ERROR.pop(email, None)
             _COUNTS_CACHE.pop(email)
         except Exception as e:
-            log.debug(f"[CRED-CHANGE] Error invalidant cache per {email}: {e}")
+            log.debug(f"[CRED-CHANGE] Error invalidating cache for {email}: {e}")
     # _MAIL_CACHE indexes by (email, folder, category, ...); we do a full clear
     # since filtering by email is complex and the cost is low (short TTL).
     try:
@@ -88,7 +88,7 @@ def _invalidate_imap_state(emails: set[str]) -> None:
                 idle_manager.stop_worker(email)
                 idle_manager.start_worker(email)
             except Exception as e:
-                log.debug(f"[CRED-CHANGE] Error reiniciant IDLE per {email}: {e}")
+                log.debug(f"[CRED-CHANGE] Error restarting IDLE for {email}: {e}")
     except Exception:
         pass
 

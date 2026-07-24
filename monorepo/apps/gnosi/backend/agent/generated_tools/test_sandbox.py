@@ -84,11 +84,11 @@ class TestSandbox:
             tool_func = self._load_tool(tool_code)
             if tool_func is None:
                 result.success = False
-                result.errors.append("No s'ha pogut trobar la funció @tool al codi")
+                result.errors.append("Could not find the @tool function in the code")
                 return result
         except Exception as e:
             result.success = False
-            result.errors.append(f"Error carregant el codi: {str(e)}")
+            result.errors.append(f"Error loading the code: {str(e)}")
             return result
         
         # Run each test case
@@ -186,7 +186,7 @@ class TestSandbox:
         thread.join(timeout=self.timeout)
         
         if thread.is_alive():
-            result.error = f"Timeout després de {self.timeout}s"
+            result.error = f"Timeout after {self.timeout}s"
             return result
         
         # Evaluate results
@@ -197,17 +197,17 @@ class TestSandbox:
             return result
         
         if not test_case.should_succeed and not error:
-            result.error = "S'esperava un error però no n'hi ha hagut"
+            result.error = "An error was expected, but none occurred"
             return result
         
         if test_case.expected_contains:
             if test_case.expected_contains not in result.output:
-                result.error = f"El resultat no conté '{test_case.expected_contains}'"
+                result.error = f"The result does not contain '{test_case.expected_contains}'"
                 return result
         
         if test_case.should_not_contain:
             if test_case.should_not_contain in result.output:
-                result.error = f"El resultat conté '{test_case.should_not_contain}' (no hauria)"
+                result.error = f"The result contains '{test_case.should_not_contain}' but should not"
                 return result
         
         result.passed = True

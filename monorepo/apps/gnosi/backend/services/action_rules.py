@@ -168,7 +168,7 @@ def check_requires(
         if not values:
             continue
         reason = str(cond.get("reason") or "").strip() or (
-            f"L'estat actual no permet l'acció {action}"
+            f"The current status does not allow action {action}"
         )
         not_in = cond.get("not_in")
         if isinstance(not_in, list) and any(v in not_in for v in values):

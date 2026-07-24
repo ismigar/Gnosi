@@ -516,8 +516,8 @@ function GraphPage() {
         return (
             <div className="flex h-screen items-center justify-center bg-gray-50 flex-col gap-4">
                 <div className="text-4xl animate-bounce">🧠</div>
-                <div className="text-xl font-medium text-gray-600 animate-pulse">{t('graph.loading.title', 'Carregant el Cervell Digital...')}</div>
-                <div className="text-sm text-gray-400">{t('graph.loading.subtitle', 'Connectant neurones...')}</div>
+                <div className="text-xl font-medium text-gray-600 animate-pulse">{t('graph.loading.title', "Loading the Digital Brain...")}</div>
+                <div className="text-sm text-gray-400">{t('graph.loading.subtitle', "Connecting neurons...")}</div>
             </div>
         );
     }
@@ -530,15 +530,15 @@ function GraphPage() {
     const handleSync = async () => {
         if (isSyncing) return;
         setIsSyncing(true);
-        const toastId = toast.loading(t('graph.sync.updating', 'Actualitzant el graf...'));
+        const toastId = toast.loading(t('graph.sync.updating', "Updating the graph..."));
         try {
             const res = await fetch('/api/graph');
             if (!res.ok) throw new Error(`Graph API error: ${res.status}`);
-            toast.success(t('graph.sync.success', 'Graf actualitzat!'), { id: toastId });
+            toast.success(t('graph.sync.success', "Graph updated!"), { id: toastId });
             window.location.reload();
         } catch (e) {
             console.error(e);
-            toast.error(t('graph.sync.error', 'Error en actualitzar el graf'), { id: toastId });
+            toast.error(t('graph.sync.error', "Error updating the graph"), { id: toastId });
         } finally {
             setIsSyncing(false);
         }
@@ -606,7 +606,7 @@ function GraphPage() {
                     }
                 >
                     {/* Table Filters */}
-                    <CollapsibleSection title={t('graph.filters.tables_title', 'Filtre de Taules')} badge={activeTableFilters.size} defaultOpen={true}>
+                    <CollapsibleSection title={t('graph.filters.tables_title', "Table Filter")} badge={activeTableFilters.size} defaultOpen={true}>
                         <div className="filter-list">
                             {/* Wiki: only if visible_databases is empty or includes 'wiki' */}
                             {(visibleDatabases.length === 0 || visibleDatabases.includes('wiki')) && <div className="filter-item-advanced">
@@ -626,7 +626,7 @@ function GraphPage() {
                                     <span className="custom-checkbox" style={{ backgroundColor: '#9C27B0', opacity: activeTableFilters.has('__wiki__') ? 1 : 0.3 }}>
                                         {activeTableFilters.has('__wiki__') && <Check size={10} color="white" />}
                                     </span>
-                                    <span className="filter-label-text">📄 {t('graph.filters.wiki_pages', 'Pàgines Wiki')}</span>
+                                    <span className="filter-label-text">📄 {t('graph.filters.wiki_pages', "Wiki Pages")}</span>
                                 </label>
                             </div>}
                             {/* Configured table filters */}
@@ -661,7 +661,7 @@ function GraphPage() {
 
                     {/* Media Tags Filters (New) */}
                     {graphData?.nodes?.some(n => n.kind === 'media') && (
-                        <CollapsibleSection title={t('graph.filters.media_tags_title', 'Filtre de Tags de Fotos')} badge={activeMediaTags.size} defaultOpen={true}>
+                        <CollapsibleSection title={t('graph.filters.media_tags_title', "Photo Tags Filter")} badge={activeMediaTags.size} defaultOpen={true}>
                             <div className="filter-list">
                                 {mediaTagsList.map(tag => (
                                     <div key={tag} className="filter-item-advanced">
@@ -686,7 +686,7 @@ function GraphPage() {
                                     </div>
                                 ))}
                                 {Array.from(new Set(graphData.nodes.filter(n => n.kind === 'media').flatMap(n => n.metadata?.tags || []))).length === 0 && (
-                                    <p style={{ fontSize: '0.75rem', color: '#888', margin: '10px 0' }}>{t('graph.filters.no_tags_found', 'Cap etiqueta trobada en fotos')}</p>
+                                    <p style={{ fontSize: '0.75rem', color: '#888', margin: '10px 0' }}>{t('graph.filters.no_tags_found', "No tags found in photos")}</p>
                                 )}
                             </div>
                         </CollapsibleSection>
@@ -694,7 +694,7 @@ function GraphPage() {
 
                     {/* Field Value Filters (dynamic) */}
                     {visibleFields.length > 0 && (
-                        <CollapsibleSection title={t('graph.filters.fields_title', 'Filtre de Camps')} badge={visibleFields.length} defaultOpen={true}>
+                        <CollapsibleSection title={t('graph.filters.fields_title', "Field Filter")} badge={visibleFields.length} defaultOpen={true}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '10px' }}>
                                 {visibleFields.map(fieldKey => {
                                     if (!fieldKey || !fieldKey.includes(':')) return null;
@@ -707,11 +707,11 @@ function GraphPage() {
                                     } else {
                                         // Specific system entity labels
                                         if (tableId === 'wiki') tableName = t('graph.entities.wiki', 'Wiki');
-                                        else if (tableId === 'drawings') tableName = t('graph.entities.drawings', 'Dibuixos');
-                                        else if (tableId === 'images') tableName = t('graph.entities.images', 'Imatges');
-                                        else if (tableId === 'assets') tableName = t('graph.entities.attachments', 'Adjunts');
-                                        else if (tableId.startsWith('calendar:')) tableName = t('graph.entities.calendar', 'Calendari');
-                                        else if (tableId.startsWith('contact:')) tableName = t('graph.entities.contact', 'Contacte');
+                                        else if (tableId === 'drawings') tableName = t('graph.entities.drawings', "Drawings");
+                                        else if (tableId === 'images') tableName = t('graph.entities.images', "Images");
+                                        else if (tableId === 'assets') tableName = t('graph.entities.attachments', "Attachments");
+                                        else if (tableId.startsWith('calendar:')) tableName = t('graph.entities.calendar', "Calendar");
+                                        else if (tableId.startsWith('contact:')) tableName = t('graph.entities.contact', "Contact");
                                         else if (tableId.startsWith('mail:')) tableName = t('graph.entities.mail', 'Mail');
                                         else if (folderNameByTableId.get(tableId)) tableName = folderNameByTableId.get(tableId);
                                     }
@@ -726,7 +726,7 @@ function GraphPage() {
                                             </h5>
                                             {sortedValues.length === 0 ? (
                                                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0 }}>
-                                                    {t('graph.filters.no_values', 'Sense valors (el graf està buit)')}
+                                                    {t('graph.filters.no_values', "No values (the graph is empty)")}
                                                 </p>
                                             ) : (
                                             <div className="filter-list" style={{ maxHeight: '150px', overflowY: 'auto' }}>
@@ -771,7 +771,7 @@ function GraphPage() {
                     {/* Info message when no filters are configured */}
                     {graphTableFiltersSettings.length === 0 && visibleFields.length === 0 && (
                         <div style={{ padding: '15px', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                            <p>{t('graph.filters.none_configured', 'No hi ha filtres configurats.')}</p>
+                            <p>{t('graph.filters.none_configured', "No filters configured.")}</p>
                             <p style={{ marginTop: '5px' }}>
                                 <Trans i18nKey="graph.filters.none_configured_hint">
                                     Ves a <strong>Configuració → Graf</strong> per seleccionar taules i camps.
@@ -783,7 +783,7 @@ function GraphPage() {
                     {selectedNode && (
                         <div className="section">
                             <div id="depth-controls" className="depth-controls" style={{ display: 'block' }}>
-                                <p>{t('graph.selection.showing_neighbors_of', 'Mostrant veïns de:')}</p>
+                                <p>{t('graph.selection.showing_neighbors_of', "Showing neighbors of:")}</p>
                                 <strong>
                                     {graphInstance ? (graphInstance.getNodeAttribute(selectedNode, 'label') || selectedNode) : selectedNode}
                                 </strong>
@@ -800,7 +800,7 @@ function GraphPage() {
                                     />
                                     <span id="depth-label">{depth}</span>
                                 </div>
-                                <button id="clear-selection-btn" onClick={() => setSelectedNode(null)}>{t('graph.selection.clear', 'Neteja la selecció')}</button>
+                                <button id="clear-selection-btn" onClick={() => setSelectedNode(null)}>{t('graph.selection.clear', "Clear selection")}</button>
                             </div>
                         </div>
                     )}
@@ -833,17 +833,17 @@ function GraphPage() {
                     >
                         <AlertTriangle size={18} className="text-amber-600 dark:text-amber-400 shrink-0" />
                         <span className="text-sm text-amber-800 dark:text-amber-200">
-                            <strong>{t('graph.partial_warning.title', 'Graf parcial')}:</strong>{' '}
+                            <strong>{t('graph.partial_warning.title', "Partial graph")}:</strong>{' '}
                             {t('graph.partial_warning.message', {
                                 count: (graphData.skipped_dirs || []).length,
-                                defaultValue: "No s'han pogut llegir {{count}} carpetes del vault (el núvol encara sincronitza); el graf es mostra incomplet.",
+                                defaultValue: "{{count}} vault folders could not be read (cloud still syncing); the graph is incomplete.",
                             })}
                         </span>
                         <button
                             onClick={() => fetchGraphData()}
                             className="shrink-0 px-2.5 py-1 text-xs font-medium rounded-md bg-amber-600 hover:bg-amber-700 text-white"
                         >
-                            {t('graph.partial_warning.retry', 'Reintenta')}
+                            {t('graph.partial_warning.retry', "Retry")}
                         </button>
                     </div>
                 )}

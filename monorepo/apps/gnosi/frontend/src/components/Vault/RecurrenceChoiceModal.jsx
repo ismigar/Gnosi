@@ -52,10 +52,10 @@ export const RecurrenceChoiceModal = ({
                         className="w-full p-4 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-primary)] hover:border-[var(--gnosi-primary)] text-left transition-all group"
                     >
                         <div className="font-bold text-[var(--text-primary)] group-hover:text-[var(--gnosi-primary)]">
-                            {isDelete ? t('calendar.delete_instance', 'Només aquesta instància') : t('calendar.modify_instance', 'Només aquesta instància')}
+                            {isDelete ? t('calendar.delete_instance', "Only this instance") : t('calendar.modify_instance', "Only this instance")}
                         </div>
                         <div className="text-xs text-[var(--text-tertiary)] mt-1">
-                            {isDelete ? t('calendar.delete_instance_desc', 'Elimina només la cita d\'avui.') : t('calendar.modify_instance_desc', 'Aplica el canvi només a la cita seleccionada.')}
+                            {isDelete ? t('calendar.delete_instance_desc', "Deletes only this occurrence.") : t('calendar.modify_instance_desc', "Applies the change only to the selected event.")}
                         </div>
                     </button>
                     
@@ -64,10 +64,10 @@ export const RecurrenceChoiceModal = ({
                         className={`w-full p-4 rounded-2xl border text-left transition-all ${seriesBg} opacity-90`}
                     >
                         <div className={`font-bold ${seriesText}`}>
-                            {isDelete ? t('calendar.delete_following', 'Aquesta i les següents') : t('calendar.modify_following', 'Aquesta i les següents')}
+                            {isDelete ? t('calendar.delete_following', "This and following") : t('calendar.modify_following', "This and following")}
                         </div>
                         <div className={`text-xs ${seriesText} opacity-60 mt-1`}>
-                            {isDelete ? t('calendar.delete_following_desc', 'Elimina aquesta cita i totes les futures repeticions.') : t('calendar.modify_following_desc', 'Crea un tall a la sèrie i aplica els canvis d\'aquí en endavant.')}
+                            {isDelete ? t('calendar.delete_following_desc', "Deletes this event and all future repetitions.") : t('calendar.modify_following_desc', "Splits the series and applies the changes from here on.")}
                         </div>
                     </button>
 
@@ -76,10 +76,10 @@ export const RecurrenceChoiceModal = ({
                         className={`w-full p-4 rounded-2xl border text-left transition-all ${seriesBg}`}
                     >
                         <div className={`font-bold ${seriesText}`}>
-                            {isDelete ? t('calendar.delete_series', 'Tota la sèrie') : t('calendar.modify_series', 'Tota la sèrie')}
+                            {isDelete ? t('calendar.delete_series', "Entire series") : t('calendar.modify_series', "Entire series")}
                         </div>
                         <div className={`text-xs ${seriesText} opacity-60 mt-1`}>
-                            {isDelete ? t('calendar.delete_series_desc', 'Elimina permanentment totes les repeticions (passades i futures).') : t('calendar.modify_series_desc', 'Aplica el canvi a totes les repeticions de la sèrie.')}
+                            {isDelete ? t('calendar.delete_series_desc', "Permanently deletes all repetitions (past and future).") : t('calendar.modify_series_desc', "Applies the change to every repetition in the series.")}
                         </div>
                     </button>
                 </div>
@@ -87,7 +87,7 @@ export const RecurrenceChoiceModal = ({
                     onClick={onClose}
                     className="w-full mt-6 p-4 rounded-2xl font-bold text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)] transition-all"
                 >
-                    {t('common.cancel', 'Cancel·lar')}
+                    {t('common.cancel', "Cancel")}
                 </button>
             </div>
         </div>

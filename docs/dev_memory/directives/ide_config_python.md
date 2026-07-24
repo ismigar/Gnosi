@@ -8,40 +8,51 @@ Status: ACTIVE
 
 ## 1. Objectives and Scope
 
-Mantener una configuración de VS Code coherente y funcional para el monorepo, asegurando que los intérpretes de Python y PHP sean correctamente detectados y utilizados por las extensiones correspondientes.
+Maintain a coherent, functional VS Code configuration for the monorepo so the
+Python and PHP interpreters are detected and used correctly by their
+extensions.
 
-- **Main Objective:** Resolver errores de "Could not resolve interpreter path" y asegurar el correcto funcionamiento de Intelephense y Pylance.
-- **Success Criteria:** Eliminación de advertencias en el IDE y funcionalidad completa de autocompletado/linting.
+- **Main Objective:** Resolve "Could not resolve interpreter path" errors and
+  ensure Intelephense and Pylance work correctly.
+- **Success Criteria:** No IDE warnings and fully functional completion and
+  linting.
 
 ## 2. Input/Output (I/O) Specifications
 
 ### Inputs
-- **Ficheros de Configuración:** `.vscode/settings.json`.
-- **Rutas Esperadas:**
-    - Python: `${workspaceFolder}/monorepo/apps/gnosi/.venv/bin/python` (v3.11+ recomendado)
-    - PHP: `/opt/homebrew/opt/php@8.1/bin/php` (v8.1.0+ requerido para soporte `readonly`)
+- **Configuration Files:** `.vscode/settings.json`.
+- **Expected Paths:**
+    - Python: `${workspaceFolder}/monorepo/apps/gnosi/.venv/bin/python` (v3.11+
+      recommended)
+    - PHP: `/opt/homebrew/opt/php@8.1/bin/php` (v8.1.0+ required for `readonly`
+      support)
 
 ## 3. Configuration Steps
 
 ### Python
-1. Recrear venv si es necesario: `rm -rf .venv && /opt/homebrew/bin/python3.11 -m venv .venv`.
-2. Usar rutas relativas en `settings.json`.
+1. Recreate the virtual environment if necessary: `rm -rf .venv &&
+   /opt/homebrew/bin/python3.11 -m venv .venv`.
+2. Use relative paths in `settings.json`.
 
 ### PHP
-1. Asegurar que `php.executablePath` y `php.validate.executablePath` apuntan al binario correcto.
-2. Configurar `intelephense.environment.phpVersion` a `8.1.0` o superior.
+1. Ensure `php.executablePath` and `php.validate.executablePath` point to the
+   correct binary.
+2. Set `intelephense.environment.phpVersion` to `8.1.0` or newer.
 
-- **Symlinks:** Los entornos virtuales creados con el Python de macOS (CommandLineTools) pueden fallar si las herramientas se actualizan o se mueven. Es preferible usar versiones de Homebrew.
-- **Multi-root:** Al trabajar con un monorepo, las rutas en `analysis.extraPaths` deben ser absolutas o usar `${workspaceFolder}` correctamente.
+- **Symlinks:** Virtual environments created with macOS Command Line Tools
+  Python may fail when the tools are updated or moved. Prefer Homebrew
+  versions.
+- **Multi-root:** In a monorepo, paths in `analysis.extraPaths` must be absolute
+  or use `${workspaceFolder}` correctly.
 
 ## 6. Error Protocol and Learning (Live Memory)
 
 | Date | Error Detected | Root Cause | Solution/Patch Applied |
 | --- | --- | --- | --- |
-| 26/02 | Could not resolve interpreter path | Symlink de .venv apuntando a CommandLineTools inestable o inaccesible. | Verificar existencia del binario y actualizar settings.json o recrear .venv. |
-| 26/02 | Mensaje persistente de Pylance | Fijar explícitamente "Pylance" puede causar alertas falsas si la IDE no lo detecta de inicio. | Cambiar "python.languageServer" a "Default" para permitir gestión automática robusta. |
-| 26/02 | Errores sintaxis PHP (readonly) | El validador nativo de VS Code o Intelephense desactualizado detectan erróneamente sintaxis 8.1+. | Forzar `intelephense.environment.phpVersion` a `8.1.0` y establecer `"php.validate.enable": false`. |
+| 26/02 | Could not resolve interpreter path | The `.venv` symlink points to an unstable or inaccessible Command Line Tools installation. | Verify that the binary exists and update `settings.json`, or recreate `.venv`. |
+| 26/02 | Persistent Pylance message | Explicitly selecting "Pylance" can produce false warnings when the IDE does not detect it at startup. | Set `python.languageServer` to `Default` for robust automatic management. |
+| 26/02 | PHP `readonly` syntax errors | The native VS Code validator or an outdated Intelephense incorrectly rejects PHP 8.1+ syntax. | Set `intelephense.environment.phpVersion` to `8.1.0` and `"php.validate.enable"` to `false`. |
 
 ## 8. Pre-Execution Checklist
-- [ ] Verificar versiones de Python instaladas (`brew list python` / `which python3`)
-- [ ] Comprobar symlinks en `.venv/bin`
+- [ ] Check installed Python versions (`brew list python` / `which python3`).
+- [ ] Check symlinks under `.venv/bin`.

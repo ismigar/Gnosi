@@ -242,7 +242,7 @@ export const PageHoverCard = ({
         <div
             ref={cardRef}
             role="dialog"
-            aria-label={data?.title || t('common.untitled', 'Sense títol')}
+            aria-label={data?.title || t('common.untitled', "Untitled")}
             className="fixed z-[9999] flex flex-col bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-700/60 overflow-hidden animate-in fade-in zoom-in-95 duration-150"
             style={pos
                 ? { top: pos.top, left: pos.left, width: CARD_WIDTH, maxWidth: 'calc(100vw - 16px)', maxHeight: 'min(520px, calc(100vh - 16px))', opacity: 1, pointerEvents: 'auto' }
@@ -266,7 +266,7 @@ export const PageHoverCard = ({
                         <FileText size={15} className="text-slate-400 flex-shrink-0" />
                     )}
                     <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
-                        {data.title || t('common.untitled', 'Sense títol')}
+                        {data.title || t('common.untitled', "Untitled")}
                     </h4>
                 </div>
             )}
@@ -278,13 +278,13 @@ export const PageHoverCard = ({
                 {loading && (
                     <div className="flex items-center gap-2 text-sm text-slate-500">
                         <div className="w-3 h-3 border-2 border-slate-300 border-t-[var(--gnosi-primary)] rounded-full animate-spin" />
-                        <span>{t('common.loading', 'Carregant…')}</span>
+                        <span>{t('common.loading', "Loading...")}</span>
                     </div>
                 )}
                 {error && (
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                         <FileText size={14} />
-                        <span>{t('wikilink.preview_error', "No s'ha pogut carregar la pàgina")}</span>
+                        <span>{t('wikilink.preview_error', "Could not load the page")}</span>
                     </div>
                 )}
                 {!loading && !error && data && (
@@ -299,7 +299,7 @@ export const PageHoverCard = ({
                     ) : (
                         <div className="text-xs space-y-2">
                             {meta === null && (
-                                <span className="text-slate-400 italic">{t('common.loading', 'Carregant…')}</span>
+                                <span className="text-slate-400 italic">{t('common.loading', "Loading...")}</span>
                             )}
                             {meta !== null && visibleProps(meta).length > 0 && (
                                 <dl className="space-y-1.5">
@@ -312,7 +312,7 @@ export const PageHoverCard = ({
                                 </dl>
                             )}
                             {meta !== null && visibleProps(meta).length === 0 && !pickWebUrl(meta) && (
-                                <p className="text-slate-400 italic">{t('hovercard.no_content', 'Aquest registre no té contingut escrit.')}</p>
+                                <p className="text-slate-400 italic">{t('hovercard.no_content', "This record has no written content.")}</p>
                             )}
                             {meta !== null && pickWebUrl(meta) && (
                                 <a
@@ -323,7 +323,7 @@ export const PageHoverCard = ({
                                     className="inline-flex items-center gap-1 pt-1 text-[var(--gnosi-primary)] hover:underline"
                                 >
                                     <ExternalLink size={12} />
-                                    {t('hovercard.view_on_web', "Veure l'original a la web")}
+                                    {t('hovercard.view_on_web', "View the original on the web")}
                                 </a>
                             )}
                         </div>

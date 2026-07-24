@@ -17,7 +17,7 @@ from typing import Any, Callable, Dict, List, Optional
 # Default registry (the old hardcoded stacks, now as DATA)
 # One entry: provider, model_id, is_local, enabled, priority (lower=preferred),
 # cost_in/out (USD per 1M tokens; 0 = local), context_window, quality (1..3),
-# tags (capacitats: "code", "vision", "long", "tools"...), monthly_quota? (tokens).
+        # tags (capabilities: "code", "vision", "long", "tools"...), monthly_quota? (tokens).
 # ---------------------------------------------------------------------------
 DEFAULT_REGISTRY: List[Dict[str, Any]] = [
     {"provider": "groq", "model_id": "llama-3.1-8b-instant", "is_local": False,
@@ -128,7 +128,7 @@ def route_model(
         if is_available(manual.get("provider", "")):
             return {**manual, "reason": "manual"}
 
-    # Pressupost prim → preferir local (cost 0)
+    # Tight budget → prefer local (cost 0).
     remaining = budget.get("remaining_tokens")
     below = budget.get("prefer_local_below", 0)
     # Money cap (injected by the caller: cap in USD + USD spent this period)
@@ -174,7 +174,7 @@ def route_model(
         q_gap = max(0, desired - m.get("quality", 1)) * 10 + max(0, m.get("quality", 1) - desired)
         avg_cost = (m.get("cost_in", 0) + m.get("cost_out", 0)) / 2
         if budget_tight:
-            # Cost mana; local (cost 0) guanya
+    # Cost takes precedence; local (cost 0) wins.
             return (0 if m.get("is_local") else 1, avg_cost, q_gap, m.get("priority", 999))
         # Normal case: quality fit first, then cost, then priority
         return (q_gap, avg_cost, m.get("priority", 999))

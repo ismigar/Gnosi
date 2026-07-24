@@ -203,7 +203,7 @@ VIEW_MD_MULTI = (
     '</views>\n</database>'
 )
 
-# REAL chart view (excerpt from «Vista de Recursos»: 📊 Recursos per estat)
+        # Real chart-view fixture; quoted labels are persisted data. @language-example
 VIEW_MD_CHART = (
     'The title of this Data Source is: 📀 Recursos\n'
     '<views>\n<view url="{{view://9dce3651-42c0-4614-ab63-d6a1b7afb2bb}}">\n'

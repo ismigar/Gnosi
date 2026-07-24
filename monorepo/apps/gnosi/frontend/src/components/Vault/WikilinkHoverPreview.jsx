@@ -141,13 +141,13 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                 {loading && (
                     <div className="flex items-center gap-2 text-sm text-slate-500">
                         <div className="w-3 h-3 border-2 border-slate-300 border-t-[var(--gnosi-primary)] rounded-full animate-spin" />
-                        <span>{t('common.loading', 'Carregant…')}</span>
+                        <span>{t('common.loading', "Loading...")}</span>
                     </div>
                 )}
                 {error && (
                     <div className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                         <FileText size={14} />
-                        <span>{t('wikilink.preview_error', 'No s\'ha pogut carregar la pàgina')}</span>
+                        <span>{t('wikilink.preview_error', "Could not load the page")}</span>
                     </div>
                 )}
                 {!loading && !error && data && (
@@ -159,7 +159,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                                 <FileText size={14} className="text-slate-400 flex-shrink-0" />
                             )}
                             <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
-                                {data.title || t('common.untitled', 'Sense títol')}
+                                {data.title || t('common.untitled', "Untitled")}
                             </h4>
                         </div>
                         {data.excerpt ? (
@@ -167,7 +167,7 @@ export const WikilinkHoverPreview = ({ pageId, anchorRect, onMouseEnter, onMouse
                                 {data.excerpt}
                             </p>
                         ) : (
-                            <p className="text-xs text-slate-400 italic">{t('wikilink.empty_page', 'Pàgina buida')}</p>
+                            <p className="text-xs text-slate-400 italic">{t('wikilink.empty_page', "Empty page")}</p>
                         )}
                     </>
                 )}

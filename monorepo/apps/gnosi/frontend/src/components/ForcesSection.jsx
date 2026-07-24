@@ -56,14 +56,14 @@ export function ForcesSection({
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onLinLogModeChange(!linLogMode)}>
-                    {t('graph.forces.cloud_mode', 'Mode Núvol (LinLog)')} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.cloud_mode_hint', 'Millor per clústers')}</span>
+                    {t('graph.forces.cloud_mode', "Cloud Mode (LinLog)")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.cloud_mode_hint', "Better for clusters")}</span>
                 </label>
             </div>
 
             {/* Gravity (Centering Force) */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.forces.gravity', 'Força de centrat (Gravetat)')}
+                    {t('graph.forces.gravity', "Centering force (Gravity)")}
                     <span style={valueStyle}>{gravity}</span>
                 </label>
                 <input
@@ -80,7 +80,7 @@ export function ForcesSection({
             {/* Repulsion (Scaling Ratio) */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.forces.repulsion', 'Repulsió (Escalat)')}
+                    {t('graph.forces.repulsion', "Repulsion (Scaling)")}
                     <span style={valueStyle}>{repulsion}</span>
                 </label>
                 <input
@@ -98,7 +98,7 @@ export function ForcesSection({
             {/* Note: Higher friction (slowDown) means smoother but slower movement. Lower is more jittery. */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.forces.friction', 'Fricció (Suavitzat)')}
+                    {t('graph.forces.friction', "Friction (Smoothing)")}
                     <span style={valueStyle}>{friction}</span>
                 </label>
                 <input
@@ -117,7 +117,7 @@ export function ForcesSection({
             {/* 1 = Use full edge weight (Good for semantic clustering) */}
             <div style={sliderContainerStyle}>
                 <label style={labelStyle}>
-                    {t('graph.forces.edge_influence', 'Força dels Enllaços (Influència)')}
+                    {t('graph.forces.edge_influence', "Edge force (Influence)")}
                     <span style={valueStyle}>{edgeInfluence}</span>
                 </label>
                 <input
@@ -140,7 +140,7 @@ export function ForcesSection({
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onStrongGravityModeChange(!strongGravityMode)}>
-                    {t('graph.forces.strong_gravity', 'Gravetat forta')} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.strong_gravity_hint', 'Evita que els orfes escapin')}</span>
+                    {t('graph.forces.strong_gravity', "Strong gravity")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.strong_gravity_hint', "Prevents orphans from escaping")}</span>
                 </label>
             </div>
 
@@ -153,12 +153,12 @@ export function ForcesSection({
                     style={{ marginRight: '8px', cursor: 'pointer' }}
                 />
                 <label style={{ ...labelStyle, marginBottom: 0, cursor: 'pointer' }} onClick={() => onOutboundAttractionDistributionChange(!outboundAttractionDistribution)}>
-                    {t('graph.forces.outbound', 'Distribuir atracció per grau')} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.outbound_hint', 'Comprimeix hubs (off = radial tipus Obsidian)')}</span>
+                    {t('graph.forces.outbound', "Distribute attraction by degree")} - <span style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)' }}>{t('graph.forces.outbound_hint', "Compresses hubs (off = Obsidian-style radial)")}</span>
                 </label>
             </div>
 
             <div style={{ fontSize: '0.7rem', color: 'var(--text-tertiary)', marginTop: '8px', fontStyle: 'italic' }}>
-                {t('graph.forces.note', 'Nota: Canviar aquests valors reiniciarà la simulació física.')}
+                {t('graph.forces.note', "Note: Changing these values will restart the physics simulation.")}
             </div>
         </CollapsibleSection>
     );

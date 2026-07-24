@@ -127,7 +127,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                             <Clock size={12} />
                             <span>
                                 {t('feed.updated_at', {
-                                    defaultValue: 'Actualitzat el {{date}}',
+                                    defaultValue: "Updated {{date}}",
                                     date: new Date(note.last_modified).toLocaleDateString(i18n.language, {
                                         day: 'numeric', month: 'long', year: 'numeric',
                                         hour: '2-digit', minute: '2-digit'
@@ -143,17 +143,17 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                             {note.metadata?.icon && (
                                 <span className="shrink-0 inline-flex"><IconRenderer icon={note.metadata.icon} size={24} /></span>
                             )}
-                            <span className="min-w-0">{note.title || t('common.untitled', 'Sense títol')}</span>
+                            <span className="min-w-0">{note.title || t('common.untitled', "Untitled")}</span>
                         </h2>
                     </div>
                     <button
                         type="button"
                         onClick={openNote}
                         className="shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)] hover:border-[var(--gnosi-primary)]/50 transition-colors"
-                        title={t('feed.open_page', 'Obrir la pàgina')}
+                        title={t('feed.open_page', "Open page")}
                     >
                         <ExternalLink size={13} />
-                        {t('feed.open', 'Obrir')}
+                        {t('feed.open', "Open")}
                     </button>
                 </div>
 
@@ -191,7 +191,7 @@ function FeedCard({ note, pills, isSelected, selectionActive, onToggleSelect, on
                             {loadingContent
                                 ? <Loader2 size={13} className="animate-spin" />
                                 : (expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />)}
-                            {expanded ? t('feed.see_less', 'Veure menys') : t('feed.see_more', 'Veure més')}
+                            {expanded ? t('feed.see_less', "See less") : t('feed.see_more', "See more")}
                         </button>
                     </div>
                 )}
@@ -388,7 +388,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                         className="inline-flex items-center gap-1 rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-500 hover:bg-emerald-500/20"
                         title={String(value)}
                     >
-                        <LinkIcon size={14} /> {t('table.open_zotero', 'Obrir Zotero')}
+                        <LinkIcon size={14} /> {t('table.open_zotero', "Open Zotero")}
                     </button>
                 );
             case 'image': {
@@ -475,7 +475,7 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
         return (
             <div className="w-full h-full flex flex-col items-center justify-center text-[var(--text-tertiary)] p-10 bg-[var(--bg-primary)]">
                 <FileText size={48} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                <p>{t('feed.empty', 'No hi ha publicacions al feed.')}</p>
+                <p>{t('feed.empty', "No posts in the feed.")}</p>
             </div>
         );
     }

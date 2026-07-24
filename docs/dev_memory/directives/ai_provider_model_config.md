@@ -281,6 +281,10 @@ monthly spend ceiling in the Settings currency governs the router.
 - Adapt module names according to repository conventions.
 - Keep documentation and examples up to date.
 - Review AGENTS.md for the learning and consolidation cycle.
-- Note: En paquetes TypeScript con moduleResolution NodeNext, no usar imports relativos sin extension porque rompe el build. Usar siempre sufijo .js en los imports relativos.
-- Note: Con zod v4, no usar z.record con un solo argumento porque falla tipado/compilacion. Usar siempre z.record(clave, valor).
-- Note: No persistir nunca api_key en params.yaml (ni por migraciones desde entorno). Guardar solo credential_ref y resolver secretos desde keychain/secret store en runtime.
+- Note: TypeScript packages using NodeNext module resolution must include the
+  `.js` suffix in relative imports or the build fails.
+- Note: With Zod v4, never call `z.record` with one argument because type
+  checking and compilation fail. Always use `z.record(key, value)`.
+- Note: Never persist `api_key` in `params.yaml`, including during environment
+  migrations. Store only `credential_ref` and resolve secrets from Keychain or
+  the secret store at runtime.

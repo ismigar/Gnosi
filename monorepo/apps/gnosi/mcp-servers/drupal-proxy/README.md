@@ -1,28 +1,36 @@
-# Drupal MCP Proxy
+# Drupal MCP proxy
 
-Este es un servidor proxy MCP intermedio diseñado para optimizar la interacción con el servidor MCP de Drupal.
+An intermediate MCP proxy that makes the Drupal MCP server easier to use with
+LLMs.
 
-## Problema
-El servidor MCP original de Drupal expone todas las herramientas disponibles (97+), lo que satura el contexto de los LLMs y hace difícil su uso junto con otros servidores MCP.
+## Problem
 
-## Solución
-Este proxy se conecta al servidor Drupal MCP original y expone solo un conjunto reducido de "meta-herramientas" que permiten descubrir y ejecutar las herramientas subyacentes bajo demanda.
+The upstream Drupal MCP server exposes more than 97 tools. This consumes a
+large part of the model context and makes it difficult to combine with other
+MCP servers.
 
-## Herramientas Expuestas
-1. **`drupal_search_tools`**: Busca herramientas disponibles por nombre o descripción (búsqueda fuzzy).
-2. **`drupal_execute_tool`**: Ejecuta una herramienta específica de Drupal dado su nombre y argumentos.
-3. **`drupal_list_categories`**: Muestra las categorías o grupos de herramientas disponibles.
-4. **`drupal_get_tool_schema`**: Obtiene el esquema de entrada (inputSchema) de una herramienta específica para saber qué argumentos requiere.
+## Solution
 
-## Configuración
+The proxy connects to the upstream Drupal MCP server and exposes a small set
+of meta-tools for discovering and invoking the underlying tools on demand.
 
-### Cliente MCP (e.g., Claude Desktop)
+## Exposed tools
 
-Para usar este servidor, debes configurarlo en tu cliente MCP (por ejemplo, en `claude_desktop_config.json` o `mcp_config.json`).
+1. `drupal_search_tools`: fuzzy search by tool name or description.
+2. `drupal_execute_tool`: invoke a Drupal tool by name and arguments.
+3. `drupal_list_categories`: list available tool groups.
+4. `drupal_get_tool_schema`: return a tool's `inputSchema`.
 
-**Importante**: Debido a problemas con el PATH en entornos macOS (especialmente con `uv` y `docker` instalados vía Homebrew), se recomienda usar el script `start_server.sh` incluido.
+## Configuration
 
-Ejemplo de configuración:
+### MCP client
+
+Configure the proxy in an MCP client such as Claude Desktop through
+`claude_desktop_config.json` or `mcp_config.json`.
+
+On macOS, use the included `start_server.sh` because GUI-launched clients can
+have a restricted `PATH`, especially for Homebrew installations of `uv` and
+Docker.
 
 ```json
 {
@@ -36,8 +44,11 @@ Ejemplo de configuración:
 }
 ```
 
-> **Nota:** el campo `command` de los clientes MCP se ejecuta **sin shell**, por lo que `~`/`$HOME` no se expanden si se ponen tal cual (daría `No such file or directory`). Por eso se envuelve con `/bin/sh -c` (así `$HOME` resuelve por máquina), en lugar de una ruta absoluta atada a un usuario concreto.
+MCP clients execute `command` without a shell, so `~` and `$HOME` are not
+expanded when used directly. Wrapping the command with `/bin/sh -c` resolves
+`$HOME` per machine without hard-coding a username.
 
-### config.yaml
+### `config.yaml`
 
-Edita `config.yaml` para apuntar al comando correcto que inicia el servidor MCP de Drupal original (ej. `docker exec ...`).
+Set the command that starts the upstream Drupal MCP server, for example a
+`docker exec ...` command.

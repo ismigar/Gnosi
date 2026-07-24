@@ -44,7 +44,7 @@ def _handle_read_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
     path = find_page_path(page_id)
     if not path or not path.exists():
-        raise ValueError(f"pàgina no trobada: {page_id}")
+        raise ValueError(f"page not found: {page_id}")
     metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
     return {
         "pageId": page_id,
@@ -69,19 +69,19 @@ def _handle_write_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     page_id = _validate_safe_page_id(str(args.get("pageId") or ""))
     path = find_page_path(page_id)
     if not path or not path.exists():
-        raise ValueError(f"pàgina no trobada: {page_id}")
+        raise ValueError(f"page not found: {page_id}")
     metadata, body = parse_frontmatter(path.read_text(encoding="utf-8"), path)
     metadata = metadata or {}
 
     new_content = args.get("content")
     if new_content is not None:
         if not isinstance(new_content, str):
-            raise ValueError("content ha de ser una cadena de text")
+            raise ValueError("content must be a text string")
         body = new_content
     new_meta = args.get("metadata")
     if new_meta is not None:
         if not isinstance(new_meta, dict):
-            raise ValueError("metadata ha de ser un objecte")
+            raise ValueError("metadata must be an object")
         metadata = {**metadata, **new_meta}
     metadata["id"] = page_id  # the id cannot be changed via writePage
 
@@ -97,19 +97,19 @@ def _handle_create_page(args: Dict[str, Any], plugin_id: str) -> Dict[str, Any]:
     from backend.api.vault_routes import (
         save_page_md, register_page_in_index, _get_unique_filepath, get_p,
     )
-    title = str(args.get("title") or "Sense títol").strip() or "Sense títol"
+    title = str(args.get("title") or "Untitled").strip() or "Untitled"
     content = args.get("content") or ""
     if not isinstance(content, str):
-        raise ValueError("content ha de ser text")
+        raise ValueError("content must be text")
     vault = get_p("VAULT")
     target_dir = vault
     folder = str(args.get("folder") or "").strip().strip("/")
     if folder:
         if ".." in folder.split("/"):
-            raise ValueError("folder invàlid")
+            raise ValueError("invalid folder")
         target_dir = (vault / folder)
         if vault.resolve() not in target_dir.resolve().parents and target_dir.resolve() != vault.resolve():
-            raise ValueError("folder fora del vault")
+            raise ValueError("folder is outside the vault")
     target_dir.mkdir(parents=True, exist_ok=True)
     page_id = str(uuid.uuid4())
     metadata = {"id": page_id, "title": title}
@@ -222,7 +222,7 @@ def _dispatch(event: str, payload: Dict[str, Any]) -> None:
         config_dir = _config_dir()
         state = _load_state()
     except Exception:  # noqa: BLE001
-        logger.exception("plugin_dispatcher: no s'ha pogut carregar l'estat")
+        logger.exception("plugin_dispatcher: could not load state")
         return
 
     for entry in ps.discover_plugins(config_dir):
@@ -246,7 +246,7 @@ def _dispatch(event: str, payload: Dict[str, Any]) -> None:
             for line in res.get("logs") or []:
                 logger.info("[plugin %s] %s: %s", pid, line.get("level"), line.get("message"))
         except Exception:  # noqa: BLE001
-            logger.exception("plugin_dispatcher: fallada executant %s", pid)
+            logger.exception("plugin_dispatcher: failed while executing %s", pid)
 
 
 _wired = False

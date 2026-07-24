@@ -180,9 +180,9 @@ async def lifespan(app: FastAPI):
     try:
         from backend.services.plugin_dispatcher import wire as wire_plugins
         wire_plugins()
-        log.info("🧩 Sistema de plugins connectat")
+        log.info("🧩 Plugin system connected")
     except Exception as e:
-        log.warning(f"⚠️ No s'ha pogut connectar el sistema de plugins: {e}")
+        log.warning("⚠️ Could not connect the plugin system: %s", e)
 
     # 4b. Index of Vault file/folder names for the picker search
     #     ("Select file or folder"). The host_open_helper (Spotlight) does not
@@ -231,7 +231,7 @@ async def lifespan(app: FastAPI):
     # 6. IMAP IDLE workers for real push (new mail notifications).
     #    Each IMAP-eligible account (including Google via XOAUTH2) launches a
     #    daemon thread that keeps an IDLE connection open on INBOX. The
-    #    events EXISTS/EXPUNGE/FETCH es publiquen a clients SSE
+    #    EXISTS/EXPUNGE/FETCH events are published to SSE clients
     #    (/api/mail/events).
     try:
         from backend.services.imap_idle_service import idle_manager
@@ -305,11 +305,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# GZip per a respostes grans (`/pages`, `/by-table`, `/global-index`).
+# GZip for large responses (`/pages`, `/by-table`, `/global-index`).
 # `minimum_size=1024` avoids compressing small calls where the overhead of
 # compression isn't worth it. For 300 serialized PageInfo (~100-300KB), the
 # typical compression is 8-12x, reducing transfer time to
-# frontend significativament en xarxes lentes.
+# the frontend significantly faster on slow networks.
 app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 # Multi-vault: sets the ACTIVE vault from X-Vault-Id in a context that propagates to the endpoints
@@ -340,7 +340,7 @@ async def global_exception_handler(request: _Request, exc: Exception):
         try:
             short_tb = tb.split('\n')[-3] if tb else error_detail
             _notify_fn(
-                f"Error de l'Aplicació: {route}",
+                f"Application error: {route}",
                 f"{error_detail}\n\n{short_tb}",
                 level="ERROR"
             )

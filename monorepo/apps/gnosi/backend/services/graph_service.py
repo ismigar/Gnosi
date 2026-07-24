@@ -320,9 +320,9 @@ class GraphService:
                 data = json.load(f)
             if isinstance(data, dict):
                 cls._NODE_DATA_CACHE.update(data)
-                log.info(f"📥 Graph node cache: {len(data)} entrades carregades de disc")
+                log.info(f"📥 Graph node cache: loaded {len(data)} entries from disk")
         except Exception as e:
-            log.warning(f"No s'ha pogut carregar el graph node cache: {e}")
+            log.warning(f"Could not load the graph node cache: {e}")
 
     @classmethod
     def _save_node_cache(cls):
@@ -338,7 +338,7 @@ class GraphService:
                 json.dump(cls._NODE_DATA_CACHE, f, default=str)
             tmp.replace(p)
         except Exception as e:
-            log.warning(f"No s'ha pogut desar el graph node cache: {e}")
+            log.warning(f"Could not save the graph node cache: {e}")
 
     _LAYOUT_CACHE_LOADED = False
 
@@ -363,9 +363,9 @@ class GraphService:
             cls._LAYOUT_HASH = data.get("hash")
             cls._LAYOUT_CACHE = {k: tuple(v) for k, v in (data.get("pos") or {}).items()}
             if cls._LAYOUT_CACHE:
-                log.info(f"📥 Graph layout cache: {len(cls._LAYOUT_CACHE)} posicions de disc")
+                log.info(f"📥 Graph layout cache: loaded {len(cls._LAYOUT_CACHE)} positions from disk")
         except Exception as e:
-            log.warning(f"No s'ha pogut carregar el graph layout cache: {e}")
+            log.warning(f"Could not load the graph layout cache: {e}")
 
     @classmethod
     def _save_layout_cache(cls):
@@ -388,7 +388,7 @@ class GraphService:
                 )
             tmp.replace(p)
         except Exception as e:
-            log.warning(f"No s'ha pogut desar el graph layout cache: {e}")
+            log.warning(f"Could not save the graph layout cache: {e}")
 
     def __init__(self):
         self.registry = self._load_registry()

@@ -72,22 +72,26 @@ Status: [DRAFT / ACTIVE / DEPRECATED]
 > Implementation Note: If you find a new error, first fix it in the script, then document the rule here to prevent future regressions.
 > 
 
-## 7. Rationalizations (Anti-Atajos)
+## 7. Rationalizations
 
-*Lista de excusas comunes u omisiones que el Agente / Desarrollador podría pensar para ahorrar tiempo y por qué son inválidas.*
+Common shortcuts an agent or developer might consider and why they are
+invalid.
 
-| Excusa / Racionalización | Refutación y Consecuencia |
+| Rationalization | Consequence |
 | --- | --- |
-| *"Puedo hacer commit sin hacer una prueba visual porque solo he cambiado variables o texto."* | **Falso.** Un error simple de tipeo romperá el build del Frontend. Obligatorio lanzar `npm run build` o verlo en el navegador. |
-| *"No documentaré este error temporal porque ya lo he arreglado en el código."* | **Falso.** Si pasó una vez, el próximo agente caerá en la misma trampa. Actualiza la Sección 6 inmediatamente. |
+| "I can commit without visual QA because I changed only variables or text." | False. A typo can break the frontend build. Run `npm run build` and inspect the result in a browser. |
+| "I do not need to document this temporary error because the code is fixed." | False. Future maintainers can repeat it. Update Section 6 immediately. |
 
-## 8. Red Flags (Señales de Peligro)
+## 8. Red flags
 
-*Pausa el proceso y reevalúa el plan antes de continuar si ocurre alguna de estas condiciones:*
+Pause and reassess before continuing when any of these conditions occurs:
 
-- Estás reescribiendo más de 30-50 líneas de código que "parecía" que debían funcionar, sin investigar el *root cause*.
-- Estás intentando lanzar comandos `bash` fuera del contenedor de Docker en lugar de seguir la arquitectura de pipelines de Python en `sandbox/`.
-- Has encadenado 2 o 3 errores seguidos usando el mismo approach. Se requiere un paso de *diagnóstico* antes de continuar lanzando comandos parche.
+- More than 30–50 apparently valid lines are being rewritten without a root
+  cause.
+- Commands are being run in the wrong runtime instead of following the
+  current native-first environment directive.
+- The same approach has failed two or three times without a new diagnostic
+  step.
 
 ## 9. Examples of Use
 
@@ -108,12 +112,12 @@ python scripts/[script_name].py --input "value"
 
 ## 11. Post-Execution Checklist (Verification Gates)
 
-*CRÍTICO: No se puede dar la tarea por "Finalizada" sin poder presentar "Evidencias" tangibles.*
+Do not mark the task complete without tangible evidence.
 
-- [ ]  Outputs generados e **inspeccionados explícitamente** (No asumas que se generó, léelo).
-- [ ]  Logs revisados y limpios de errores/warnings.
-- [ ]  Resultados validados contra el criterio de éxito empíricamente (Ej. Pantallazo del navegador confirmando UI, o CURL validando endpoint).
-- [ ]  Directiva actualizada con los nuevos aprendizajes y "Red Flags" encontradas en la sesión.
+- [ ] Generated output explicitly inspected.
+- [ ] Logs reviewed and free of relevant errors or warnings.
+- [ ] Results validated empirically against success criteria.
+- [ ] Directive updated with new constraints and red flags.
 
 ## 12. Additional Notes
 

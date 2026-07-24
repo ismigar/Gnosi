@@ -14,19 +14,19 @@ import axios from 'axios';
 export const MODEL_FAULT_REASONS = {
     tool_use_failed: {
         key: 'settings.ai.reliability_tool_use_failed',
-        fallback: 'ha escrit malament les crides a les eines',
+        fallback: 'made malformed tool calls',
     },
     context_length_exceeded: {
         key: 'settings.ai.reliability_context_length',
-        fallback: 's\'ha quedat sense finestra de context',
+        fallback: 'ran out of context window',
     },
     schema_invalid: {
         key: 'settings.ai.reliability_schema_invalid',
-        fallback: 'no ha respectat el format demanat',
+        fallback: 'did not follow the requested format',
     },
     content_filter: {
         key: 'settings.ai.reliability_content_filter',
-        fallback: 'ha estat bloquejat pels filtres de contingut',
+        fallback: 'was blocked by content filters',
     },
 };
 

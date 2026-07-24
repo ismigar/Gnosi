@@ -60,7 +60,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 setSelected(new Set(list.filter((n) => n.configured).map((n) => n.id)));
             } catch (err) {
                 console.error('Error loading networks:', err);
-                toast.error(t('social.networks_error', 'No s\'han pogut carregar les xarxes.'));
+                toast.error(t('social.networks_error', "The networks could not be loaded."));
             }
 
             // If we come from a record, we load the page body to give
@@ -100,11 +100,11 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
 
     const handleGenerate = async () => {
         if (selected.size === 0) {
-            toast.error(t('social.pick_network', 'Selecciona almenys una xarxa.'));
+            toast.error(t('social.pick_network', "Select at least one network."));
             return;
         }
         if (!sourceContent.trim() && !sourceTitle.trim()) {
-            toast.error(t('social.need_content', 'Cal un contingut per generar les publicacions.'));
+            toast.error(t('social.need_content', "Content is required to generate the posts."));
             return;
         }
         setComposing(true);
@@ -122,8 +122,8 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             setStep('compose');
         } catch (err) {
             console.error('Error generating posts:', err);
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
-            toast.error(`${t('social.compose_error', 'Error generant les propostes')}: ${msg}`);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            toast.error(`${t('social.compose_error', "Error generating the proposals")}: ${msg}`);
         } finally {
             setComposing(false);
         }
@@ -149,8 +149,8 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 setVariationByNet((prev) => ({ ...prev, [net]: v }));
             }
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
-            toast.error(`${t('social.regen_error', 'Error regenerant')}: ${msg}`);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            toast.error(`${t('social.regen_error', "Error regenerating")}: ${msg}`);
         } finally {
             setRegeneratingNet(null);
         }
@@ -168,11 +168,11 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
     const handlePublish = async () => {
         const posts = buildPosts();
         if (Object.keys(posts).length === 0) {
-            toast.error(t('social.nothing_to_publish', 'No hi ha cap text per publicar.'));
+            toast.error(t('social.nothing_to_publish', "There is no text to publish."));
             return;
         }
         if (overLimitNets.length > 0) {
-            toast.error(t('social.over_limit', { nets: overLimitNets.map(nameFor).join(', '), defaultValue: 'Excedeix el límit a: {{nets}}.' }));
+            toast.error(t('social.over_limit', { nets: overLimitNets.map(nameFor).join(', '), defaultValue: "Exceeds the limit on: {{nets}}." }));
             return;
         }
         setPublishing(true);
@@ -186,8 +186,8 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
             if (onPublished) onPublished(res.data);
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
-            toast.error(`${t('social.publish_error', 'Error publicant')}: ${msg}`);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            toast.error(`${t('social.publish_error', "Error publishing")}: ${msg}`);
         } finally {
             setPublishing(false);
         }
@@ -196,15 +196,15 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
     const handleSchedule = async () => {
         const posts = buildPosts();
         if (Object.keys(posts).length === 0) {
-            toast.error(t('social.nothing_to_publish', 'No hi ha cap text per publicar.'));
+            toast.error(t('social.nothing_to_publish', "There is no text to publish."));
             return;
         }
         if (!scheduledAt || new Date(scheduledAt) <= new Date()) {
-            toast.error(t('social.schedule_future', 'Tria una data futura.'));
+            toast.error(t('social.schedule_future', "Choose a future date."));
             return;
         }
         if (overLimitNets.length > 0) {
-            toast.error(t('social.over_limit', { nets: overLimitNets.map(nameFor).join(', '), defaultValue: 'Excedeix el límit a: {{nets}}.' }));
+            toast.error(t('social.over_limit', { nets: overLimitNets.map(nameFor).join(', '), defaultValue: "Exceeds the limit on: {{nets}}." }));
             return;
         }
         setPublishing(true);
@@ -215,12 +215,12 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 source_page_id: noteId || null,
                 source_title: sourceTitle,
             });
-            toast.success(t('social.scheduled_ok', 'Publicació programada.'));
+            toast.success(t('social.scheduled_ok', "Post scheduled."));
             if (onPublished) onPublished(res.data);
             onClose();
         } catch (err) {
-            const msg = err.response?.data?.detail || err.message || t('errors.unknown', 'Error desconegut');
-            toast.error(`${t('social.schedule_error', 'Error programant')}: ${msg}`);
+            const msg = err.response?.data?.detail || err.message || t('errors.unknown', "Unknown error");
+            toast.error(`${t('social.schedule_error', "Error scheduling")}: ${msg}`);
         } finally {
             setPublishing(false);
         }
@@ -230,11 +230,11 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
         const oks = Object.entries(results).filter(([, r]) => r.status === 'success').map(([n]) => nameFor(n));
         const errs = Object.entries(results).filter(([, r]) => r.status === 'error').map(([n]) => nameFor(n));
         if (oks.length && !errs.length) {
-            toast.success(t('social.published_ok', { nets: oks.join(', '), defaultValue: 'Publicat a: {{nets}}.' }));
+            toast.success(t('social.published_ok', { nets: oks.join(', '), defaultValue: "Published to: {{nets}}." }));
         } else if (oks.length && errs.length) {
-            toast.success(t('social.published_partial', { ok: oks.join(', '), err: errs.join(', '), defaultValue: 'Publicat a {{ok}}. Ha fallat a {{err}}.' }));
+            toast.success(t('social.published_partial', { ok: oks.join(', '), err: errs.join(', '), defaultValue: "Published to {{ok}}. Failed on {{err}}." }));
         } else {
-            toast.error(t('social.published_none', { nets: errs.join(', '), defaultValue: 'No s\'ha pogut publicar a: {{nets}}.' }));
+            toast.error(t('social.published_none', { nets: errs.join(', '), defaultValue: "Could not publish to: {{nets}}." }));
         }
     };
 
@@ -255,9 +255,9 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                 <div className="px-5 py-3 border-b border-[var(--border-primary)] flex justify-between items-center bg-[var(--bg-secondary)] shrink-0">
                     <h2 className="text-base font-bold text-[var(--text-primary)] flex items-center gap-2">
                         <Send size={18} className="text-[var(--gnosi-primary)]" />
-                        {t('social.publish_title', 'Publicar a XXSS')}
+                        {t('social.publish_title', "Publish to social media")}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')} disabled={busy}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")} disabled={busy}>
                         <X />
                     </button>
                 </div>
@@ -271,27 +271,27 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                         type="text"
                                         value={sourceTitle}
                                         onChange={(e) => setSourceTitle(e.target.value)}
-                                        placeholder={t('social.source_title_ph', 'Títol o tema (opcional)')}
+                                        placeholder={t('social.source_title_ph', "Title or topic (optional)")}
                                         className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                     />
                                     <textarea
                                         value={sourceContent}
                                         onChange={(e) => setSourceContent(e.target.value)}
                                         rows={4}
-                                        placeholder={t('social.source_content_ph', 'Contingut que vols difondre…')}
+                                        placeholder={t('social.source_content_ph', "Content you want to share…")}
                                         className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] resize-y"
                                     />
                                 </div>
                             )}
                             {noteId && (
                                 <p className="text-xs text-[var(--text-secondary)]/80">
-                                    {t('social.from_record', { title: sourceTitle || '—', defaultValue: 'Origen: «{{title}}». La IA en proposarà un text per xarxa en el mateix idioma.' })}
+                                    {t('social.from_record', { title: sourceTitle || '—', defaultValue: "Source: \"{{title}}\". AI will suggest a text for each network in the same language." })}
                                 </p>
                             )}
 
                             <div>
                                 <p className="text-xs font-semibold text-[var(--text-secondary)] mb-2">
-                                    {t('social.pick_networks', 'Xarxes on publicar')}
+                                    {t('social.pick_networks', "Networks to publish to")}
                                 </p>
                                 <div className="grid grid-cols-2 gap-2">
                                     {networks.map((n) => {
@@ -307,7 +307,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                                             ? 'bg-[var(--gnosi-primary)]/10 border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] font-semibold cursor-pointer'
                                                             : 'border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] cursor-pointer'
                                                 }`}
-                                                title={disabled ? t('social.not_configured', 'No configurada — connecta-la a Configuració') : ''}
+                                                title={disabled ? t('social.not_configured', "Not configured — connect it in Settings") : ''}
                                             >
                                                 <input
                                                     type="checkbox"
@@ -318,7 +318,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                                 />
                                                 <span>{n.icon}</span>
                                                 <span className="flex-1">{n.name}</span>
-                                                {disabled && <span className="text-[10px] uppercase text-[var(--text-tertiary)]">{t('social.off', 'off')}</span>}
+                                                {disabled && <span className="text-[10px] uppercase text-[var(--text-tertiary)]">{t('social.off', "Off")}</span>}
                                             </label>
                                         );
                                     })}
@@ -329,7 +329,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                 type="text"
                                 value={hint}
                                 onChange={(e) => setHint(e.target.value)}
-                                placeholder={t('social.hint_ph', 'Instrucció per a la IA (opcional): to, èmfasi…')}
+                                placeholder={t('social.hint_ph', "Instruction for the AI (optional): tone, emphasis…")}
                                 className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
                             />
                         </>
@@ -355,7 +355,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                                     onClick={() => handleRegenerate(net)}
                                                     disabled={regeneratingNet === net || busy}
                                                     className="p-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)] transition-colors disabled:opacity-50"
-                                                    title={t('social.regenerate', 'Regenerar')}
+                                                    title={t('social.regenerate', "Regenerate")}
                                                 >
                                                     {regeneratingNet === net
                                                         ? <Loader2 size={14} className="animate-spin" />
@@ -376,13 +376,13 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                             {overLimitNets.length > 0 && (
                                 <p className="text-[11px] text-red-500 flex items-center gap-1">
                                     <AlertTriangle size={12} />
-                                    {t('social.over_limit_hint', 'Algun text supera el límit. Escurça\'l abans de publicar.')}
+                                    {t('social.over_limit_hint', "Some text exceeds the limit. Shorten it before publishing.")}
                                 </p>
                             )}
 
                             <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)] cursor-pointer">
                                 <input type="checkbox" checked={scheduleOpen} onChange={(e) => setScheduleOpen(e.target.checked)} disabled={busy} />
-                                {t('social.schedule_later', 'Programar per a més tard')}
+                                {t('social.schedule_later', "Schedule for later")}
                             </label>
                             {scheduleOpen && (
                                 <input
@@ -413,7 +413,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                 className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"
                             >
                                 {composing ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                                {t('social.generate', 'Generar amb IA')}
+                                {t('social.generate', "Generate with AI")}
                             </button>
                         </>
                     ) : (
@@ -423,7 +423,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                 disabled={busy}
                                 className="px-3 py-2 border border-[var(--border-primary)] rounded-md text-sm font-bold text-[var(--text-secondary)]/80 hover:bg-[var(--bg-primary)] transition-colors disabled:opacity-50 flex items-center gap-1"
                             >
-                                <ArrowLeft size={14} /> {t('common.back', 'Enrere')}
+                                <ArrowLeft size={14} /> {t('common.back', "Back")}
                             </button>
                             <button
                                 onClick={scheduleOpen ? handleSchedule : handlePublish}
@@ -431,7 +431,7 @@ export function PublishSocialModal({ isOpen, onClose, noteId = null, recordMetad
                                 className="btn-gnosi btn-gnosi-primary px-5 flex items-center gap-2 disabled:opacity-50"
                             >
                                 {publishing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                                {scheduleOpen ? t('social.schedule_submit', 'Programar') : t('social.publish_submit', 'Publica ara')}
+                                {scheduleOpen ? t('social.schedule_submit', "Schedule") : t('social.publish_submit', "Publish now")}
                             </button>
                         </>
                     )}

@@ -50,8 +50,8 @@ async function saveConfig() {
   await api.storage.local.set({ backend, token: $('token').value.trim() });
   setStatus(
     granted
-      ? 'Configuració desada.'
-      : 'Desada, però el navegador no ha donat permís per a aquest domini.',
+      ? 'Settings saved.'
+      : 'Saved, but the browser did not grant permission for this domain.',
     granted ? 'ok' : 'err',
   );
   // New credentials may point at another vault: re-read the destination.
@@ -153,7 +153,7 @@ async function loadClipSchema() {
       headers: { 'Authorization': 'Bearer ' + token },
     });
     if (!resp.ok) {
-      if (resp.status === 401) setStatus('Token invàlid o revocat (401).', 'err');
+      if (resp.status === 401) setStatus('Invalid or revoked token (401).', 'err');
       return;
     }
     const data = await resp.json();
@@ -161,12 +161,12 @@ async function loadClipSchema() {
     $('clip').disabled = disabled;
     $('clipSelection').disabled = disabled;
     if (disabled) {
-      $('target').textContent = 'El Web Clipper està desactivat a Gnosi.';
+      $('target').textContent = 'Web Clipper is disabled in Gnosi.';
       return;
     }
     $('target').textContent = data.table?.name
-      ? 'Destí: ' + data.table.name
-      : 'Destí: carpeta Clips/';
+      ? 'Destination: ' + data.table.name
+      : 'Destination: Clips/ folder';
     clipFields = Array.isArray(data.fields) ? data.fields : [];
     renderFields(clipFields);
   } catch (e) {
@@ -177,10 +177,10 @@ async function loadClipSchema() {
 async function clip(onlySelection) {
   const { backend, token } = await api.storage.local.get(['backend', 'token']);
   if (!backend || !token) {
-    setStatus('Configura primer l\'URL i el token (Configuració).', 'err');
+    setStatus('Configure the URL and token first (Settings).', 'err');
     return;
   }
-  setStatus('Desant…');
+  setStatus('Saving…');
   const tab = await getActiveTab();
   const selection = await getSelectionText(tab.id);
   const note = $('note').value.trim();
@@ -200,16 +200,16 @@ async function clip(onlySelection) {
     });
     if (resp.ok) {
       const data = await resp.json();
-      setStatus('✓ Desat a ' + (data.table || data.path || 'Clips/'), 'ok');
+      setStatus('✓ Saved to ' + (data.table || data.path || 'Clips/'), 'ok');
     } else if (resp.status === 401) {
-      setStatus('Token invàlid o revocat (401).', 'err');
+      setStatus('Invalid or revoked token (401).', 'err');
     } else if (resp.status === 403) {
-      setStatus('El Web Clipper està desactivat a Gnosi.', 'err');
+      setStatus('Web Clipper is disabled in Gnosi.', 'err');
     } else {
-      setStatus('Error ' + resp.status + ' en desar.', 'err');
+      setStatus('Error ' + resp.status + ' while saving.', 'err');
     }
   } catch (e) {
-    setStatus('No s\'ha pogut connectar amb Gnosi: ' + e.message, 'err');
+    setStatus('Could not connect to Gnosi: ' + e.message, 'err');
   }
 }
 

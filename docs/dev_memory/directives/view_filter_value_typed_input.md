@@ -1,38 +1,41 @@
-# Directiva: valor del filtre coherent amb el tipus de camp
+# Directive: Type-aware view-filter values
 
-## Objectiu
-Al modal "Edita la vista de BD" (PageViewModal, pestanya **Filtres**), el control
-del **valor** ha de casar amb el tipus del camp seleccionat. L'usuari va reportar
-que `Arxivar` (un checkbox sí/no) oferia un input de text lliure ("this o valor"),
-que no té sentit.
+## Objective
 
-## Abast
-- Toca NOMÉS el control de **valor** (no la llista d'operadors).
-- Tipus amb control dedicat i **autocontingut** (sense dades extra):
-  - `checkbox` → un **checkbox** (igual que el camp), amb etiqueta Marcat/Sense marcar → emet `"true"`/`"false"`. Default `'false'` (no buit) perquè la comparació booleana casi també els buits. (Un desplegable de 3 estats era una complicació innecessària.)
-  - `number` → `<input type="number">`.
-  - `date`/`datetime` → `<input type="date">` (o `datetime-local`).
-  - `relation` → `RelationValuePicker` (ja existia).
-  - resta (`text`, `status`, `select`, `multi_select`, `url`, `period`…) → text (com abans).
+In the database View Editor's Filters tab, the value control must match the
+selected field type. A boolean field such as Archive must not show an
+unconstrained text input.
 
-## Restriccions / Casos límit (apreses)
-- **`select`/`status`/`multi_select` NO porten `options` al registre** (`/api/vault/registry`
-  torna `options:null`); per oferir-ne un desplegable caldria replicar la càrrega de
-  `/api/graph` (cf. memòria `feedback_graph_field_default_typed_control`). → De moment
-  es deixen com a text per no mostrar un desplegable buit.
-- **Els checkbox es desen com a booleà** (`true`/`false`); un camp **sense marcar
-  sovint és absent** (metadata sense la clau), no `false` explícit.
-- Hi ha **DOS motors de filtre** i tots dos han de tractar el booleà igual:
-  - Frontend viu: `utils/vaultFilters.js` → `matchesFilters` (sense info de tipus).
-  - Backend snapshot: `services/view_snapshot.py` → `apply_filter` (port 1:1).
-  - Problemes previs: `equals "false"` no casava files sense valor (unset → `''`); i el
-    backend feia `str(True)`→`"True"` i comparava **sense `lower()`** → `equals "true"` fallava.
-- **Solució**: quan el valor del filtre és exactament `"true"`/`"false"`, `equals`/`not_equals`
-  comparen amb coerció booleana (paritat amb `rule_engine._is_truthy_checkbox`:
-  truthy = `{true,1,yes,si,sí,done,checked,completat}`; buit/0/false = no marcat).
-  No afecta cadenes literals "true"/"false" (mateix resultat) ni altres valors.
+## Scope
+
+Change the value control only, not the operator list:
+
+- `checkbox`: render a checkbox that emits `"true"` or `"false"`. Default to
+  `"false"` rather than empty so boolean comparison includes unset values.
+- `number`: use `<input type="number">`.
+- `date`/`datetime`: use date or `datetime-local`.
+- `relation`: use the existing `RelationValuePicker`.
+- `text`, `status`, `select`, `multi_select`, `url`, `period`, and remaining
+  types: keep text input until their option data is available.
+
+## Restrictions and edge cases
+
+- `/api/vault/registry` currently returns `options: null` for select-like
+  fields. A dropdown would require the option-loading behavior used by
+  `/api/graph`. Keep text inputs rather than showing empty dropdowns.
+- Checkbox values are stored as booleans, and unchecked fields are often
+  absent rather than explicit `false`.
+- Both filtering engines must handle booleans identically:
+  `utils/vaultFilters.js::matchesFilters` in the live frontend and
+  `services/view_snapshot.py::apply_filter` in backend snapshots.
+- When the filter value is exactly `"true"` or `"false"`, `equals` and
+  `not_equals` use boolean coercion compatible with
+  `rule_engine._is_truthy_checkbox`. Unset, zero, and false are unchecked;
+  configured truthy aliases remain compatibility data.
 
 ## QA
-- Build frontend net.
-- `equals true` mostra només marcats; `equals false` mostra no-marcats **incloent els sense valor**.
-- Verificar al navegador amb el camp `Arxivar` de la taula Àrees.
+
+- Frontend build succeeds.
+- `equals true` shows checked rows only.
+- `equals false` shows unchecked and unset rows.
+- Verify interactively with a checkbox field in the Areas table.

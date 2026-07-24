@@ -73,7 +73,7 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
 
     const data = useMemo(() => {
         if (!xField) return [];
-        const emptyLabel = t('chart.empty_category', '(buit)');
+        const emptyLabel = t('chart.empty_category', "(empty)");
         const buckets = new Map(); // label → array of values (to aggregate)
         for (const note of notes) {
             const rawCat = getMetaValue(note, schema, xField);
@@ -108,7 +108,7 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
                 <div className="max-w-sm text-sm">
                     <Trans
                         i18nKey="chart.configure_hint"
-                        defaults="Configura el gràfic: tria un camp d'<field>agrupació</field> (eix X) i, opcionalment, un camp de <value>valor</value> i una funció d'agregació al menú de la vista."
+                        defaults="Configure the chart: choose a <field>grouping</field> field (X axis) and, optionally, a <value>value</value> field and aggregation function from the view menu."
                         components={{ field: <strong />, value: <strong /> }}
                     />
                 </div>
@@ -117,7 +117,7 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
     }
 
     if (data.length === 0) {
-        return <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">{t('chart.no_data', 'Cap dada per mostrar.')}</div>;
+        return <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">{t('chart.no_data', "No data to display.")}</div>;
     }
 
     const maxVal = Math.max(...data.map((d) => d.value), 0) || 1;
@@ -127,7 +127,7 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
     // recalculates over the represented subset.
     const pieData = data.filter((d) => d.value > 0);
     const pieTotal = pieData.reduce((a, d) => a + d.value, 0) || 1;
-    const yLabel = yField ? `${aggregation}(${yField})` : t('chart.count_label', 'recompte');
+    const yLabel = yField ? `${aggregation}(${yField})` : t('chart.count_label', "count");
 
     return (
         <div className="vault-chart overflow-auto p-4">
@@ -145,7 +145,7 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
             {(chartType === 'pie' || chartType === 'donut') && (
                 pieData.length > 0
                     ? <PieChart data={pieData} total={pieTotal} donut={chartType === 'donut'} />
-                    : <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">{t('chart.no_data', 'Cap dada per mostrar.')}</div>
+                    : <div className="py-16 text-center text-sm text-[var(--text-tertiary)]">{t('chart.no_data', "No data to display.")}</div>
             )}
         </div>
     );

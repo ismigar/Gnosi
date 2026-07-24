@@ -175,7 +175,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
             <input
                 autoFocus
                 className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                placeholder={onCreate ? t('table.search_or_create_placeholder', 'Cercar o crear…') : t('table.search_placeholder', 'Cercar…')}
+                placeholder={onCreate ? t('table.search_or_create_placeholder', "Search or create…") : t('table.search_placeholder', "Search…")}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 onKeyDown={e => {
@@ -200,7 +200,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
                             {onDeleteOption && (
                                 <span
                                     role="button"
-                                    title={t('table.delete_option_tooltip', "Elimina l'opció del camp")}
+                                    title={t('table.delete_option_tooltip', "Delete the field's option")}
                                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); handleDelete(opt); }}
                                     className="shrink-0 p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
                                 >
@@ -214,7 +214,7 @@ const InlinePillsPicker = ({ value = [], options = [], idToTitle = {}, optionCol
                             className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] hover:bg-[var(--gnosi-primary)]/10 cursor-pointer"
                             onMouseDown={e => { e.preventDefault(); handleCreate(); }}
                         >
-                            <Plus size={12} /> {t('table.create_option', 'Crear «{{term}}»', { term })}
+                            <Plus size={12} /> {t('table.create_option', "Create \"{{term}}\"", { term })}
                         </div>
                     )}
                 </CellDropdownPortal>
@@ -280,7 +280,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
             <input
                 autoFocus
                 className="w-full px-2 py-0.5 text-xs border border-[var(--border-primary)] rounded bg-[var(--bg-primary)] text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--gnosi-primary)]"
-                placeholder={onCreate ? t('table.search_or_create_placeholder', 'Cercar o crear…') : t('table.search_placeholder', 'Cercar…')}
+                placeholder={onCreate ? t('table.search_or_create_placeholder', "Search or create…") : t('table.search_placeholder', "Search…")}
                 value={search}
                 onChange={e => { setSearch(e.target.value); setHighlightedIndex(0); }}
                 onKeyDown={handleKeyDown}
@@ -305,7 +305,7 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
                             {onDeleteOption && (
                                 <span
                                     role="button"
-                                    title={t('table.delete_option_tooltip', "Elimina l'opció del camp")}
+                                    title={t('table.delete_option_tooltip', "Delete the field's option")}
                                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); onDeleteOption(opt); }}
                                     className="shrink-0 p-0.5 rounded text-[var(--text-tertiary)]/50 opacity-0 group-hover:opacity-100 hover:text-[var(--status-error)] transition-colors"
                                 >
@@ -322,11 +322,11 @@ const InlineSelectPicker = ({ value = '', options = [], idToTitle = {}, optionCo
                         onMouseDown={e => { e.preventDefault(); onCreate(term); }}
                         className={`flex items-center gap-1 px-2 py-1 text-xs font-medium text-[var(--gnosi-primary)] cursor-pointer ${highlightedIndex === filtered.length ? 'bg-[var(--gnosi-primary)]/10' : ''}`}
                     >
-                        <Plus size={12} /> {t('table.create_option', 'Crear «{{term}}»', { term })}
+                        <Plus size={12} /> {t('table.create_option', "Create \"{{term}}\"", { term })}
                     </div>
                 )}
                 {filtered.length === 0 && !canCreate && (
-                    <div className="px-2 py-1 text-xs text-[var(--text-tertiary)]/60 italic">{t('table.no_options', 'Cap opció')}</div>
+                    <div className="px-2 py-1 text-xs text-[var(--text-tertiary)]/60 italic">{t('table.no_options', "No options")}</div>
                 )}
             </CellDropdownPortal>
         </div>
@@ -927,7 +927,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             else name = (raw === null || raw === undefined) ? '' : String(raw).trim();
             const gid = name === '' ? EMPTY : name;
             let g = groups.get(gid);
-            if (!g) { g = { key: gid, label: gid === EMPTY ? t('table.no_group_value', 'Sense valor') : (groupMeta.labelMap?.[name] || name), notes: [] }; groups.set(gid, g); }
+            if (!g) { g = { key: gid, label: gid === EMPTY ? t('table.no_group_value', "No value") : (groupMeta.labelMap?.[name] || name), notes: [] }; groups.set(gid, g); }
             g.notes.push(note);
         }
         // Order: defaults to that of the option catalog (→ uncataloged values
@@ -1471,7 +1471,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             });
             // Cell save failures used to be silent. Surface them so the user
             // doesn't believe the change was persisted when it wasn't.
-            notifyError('table-save-cell', error, t('table.save_cell_error', 'Error desant la cel·la'));
+            notifyError('table-save-cell', error, t('table.save_cell_error', "Error saving the cell"));
         }
     // `propagateToParent` and `t` are captured by the closure; adding them to the
     // dep array would create a recreation cycle with `propagateToParent` (which
@@ -1798,7 +1798,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             if (onCellSaved) onCellSaved();
         } catch (err) {
-            notifyError('remove-option-everywhere', err, t('table.remove_option_error', "Error eliminant l'opció dels registres"));
+            notifyError('remove-option-everywhere', err, t('table.remove_option_error', "Error removing the option from the records"));
         }
     };
 
@@ -2178,7 +2178,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 }
                 return next;
             });
-            notifyError('table-bulk-paste', new Error(`${failedPageIds.size} pages failed`), t('table.paste_error', { count: failedPageIds.size, defaultValue: `Error desant ${failedPageIds.size} pàgina(es)` }));
+            notifyError('table-bulk-paste', new Error(`${failedPageIds.size} pages failed`), t('table.paste_error', { count: failedPageIds.size, defaultValue: 'Error saving {{count}} pages' }));
         }
 
         // Propagates to parents for correctly saved children (status/dates).
@@ -2367,7 +2367,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             // notifyError (logs context + backend message) instead of a
             // generic toast, so we can diagnose 4xx/5xx and payload.detail.
             setOptimisticTitles(prev => { const n = new Map(prev); n.delete(noteId); return n; });
-            notifyError('table-save-title', error, t('table.title_save_error', { defaultValue: 'No s\'ha pogut desar el títol' }));
+            notifyError('table-save-title', error, t('table.title_save_error', { defaultValue: "Couldn't save the title" }));
         }
     }, [noteById, onCellSaved, t]);
 
@@ -2581,7 +2581,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             const cfg = getFieldConfig(schema, field) || {};
             const action = cfg.button_action || 'translate_row';
             const label = cfg.button_label?.trim() || (action === 'translate_row'
-                ? t('schema.button_label_translate', 'Traduir')
+                ? t('schema.button_label_translate', "Translate")
                 : field);
             const Icon = action === 'translate_row' ? Languages : Zap;
             return (
@@ -2747,10 +2747,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 return <div className="w-4 h-4 border border-[var(--border-primary)] rounded-sm"></div>;
             }
             if (type === 'files') {
-                return <span className="text-[var(--text-tertiary)] italic">{t('table.add_files', { defaultValue: '+ Arxius' })}</span>;
+                return <span className="text-[var(--text-tertiary)] italic">{t('table.add_files', { defaultValue: "+ Files" })}</span>;
             }
             if (isImageLikeField) {
-                return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: '+ Imatge' })}</span>;
+                return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: "+ Image" })}</span>;
             }
             return <span className="text-[var(--text-tertiary)]">-</span>;
         }
@@ -2814,7 +2814,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         <span className="text-[var(--text-tertiary)]">→</span>
                         <span>{fmtPeriodDate(end)}</span>
                         {days != null && (
-                            <span className="text-[var(--text-tertiary)] ml-0.5" title={t('table.period_days', { count: days, defaultValue: '{{count}} dies' })}>· {days} d</span>
+                            <span className="text-[var(--text-tertiary)] ml-0.5" title={t('table.period_days', { count: days, defaultValue: "{{count}} days" })}>· {days} d</span>
                         )}
                     </div>
                 );
@@ -2923,7 +2923,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     if (imageUrl) {
                         return <ImageHoverPreview src={imageUrl} alt={field} />;
                     }
-                    return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: '+ Imatge' })}</span>;
+                    return <span className="text-[var(--text-tertiary)] italic">{t('table.add_image', { defaultValue: "+ Image" })}</span>;
                 }
                 // A boolean (a Notion field with no type in the schema) is not a valid title.
                 return <span className="truncate max-w-[200px] block" title={typeof value === 'boolean' ? undefined : value}>{value}</span>;
@@ -3115,16 +3115,16 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         }}
                                         disabled={!gate.ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-                                        title={gate.ok ? t('table.translate_row', 'Traduir') : gate.reason}
+                                        title={gate.ok ? t('table.translate_row', "Translate") : gate.reason}
                                     >
                                         <Languages size={14} />
-                                        <span className="row-action-tooltip">{gate.ok ? t('table.translate_row', 'Traduir') : gate.reason}</span>
+                                        <span className="row-action-tooltip">{gate.ok ? t('table.translate_row', "Translate") : gate.reason}</span>
                                     </button>
                                 );
                             })()}
                             {isDrupalSyncTable && !isListView && !note.metadata?.translation_lang && (() => {
                                 const gate = checkActionRequires(schema, note.metadata || {}, 'sync_drupal', actionRules);
-                                const label = note.metadata?.drupal_uuid ? t('table.sync_drupal_update', 'Actualitzar a Drupal') : t('table.sync_drupal', 'Sincronitzar amb Drupal');
+                                const label = note.metadata?.drupal_uuid ? t('table.sync_drupal_update', "Update on Drupal") : t('table.sync_drupal', "Sync with Drupal");
                                 return (
                                     <button
                                         onClick={(e) => {
@@ -3159,10 +3159,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         }}
                                         disabled={!gate.ok}
                                         className={`relative p-1 transition-colors opacity-0 group-hover/row:opacity-100 ${gate.ok ? 'text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]/40 cursor-not-allowed'}`}
-                                        title={gate.ok ? t('table.publish_social', 'Publicar a XXSS') : gate.reason}
+                                        title={gate.ok ? t('table.publish_social', "Publish to social") : gate.reason}
                                     >
                                         <Send size={14} />
-                                        <span className="row-action-tooltip">{gate.ok ? t('table.publish_social', 'Publicar a XXSS') : gate.reason}</span>
+                                        <span className="row-action-tooltip">{gate.ok ? t('table.publish_social', "Publish to social") : gate.reason}</span>
                                     </button>
                                 );
                             })()}
@@ -3191,14 +3191,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                     ? new Date(processed * 1000).toLocaleDateString(i18n.language)
                                     : processed;
                                 const label = running
-                                    ? t('table.process_resource_running', 'En procés…')
+                                    ? t('table.process_resource_running', "Processing…")
                                     : !ok
-                                    ? t('table.process_resource_no_source', 'Aquest recurs no té cap adjunt ni URL configurats')
+                                    ? t('table.process_resource_no_source', "This resource has no configured attachment or URL")
                                     : retryable
-                                    ? t('table.reprocess_resource_error', 'Reprendre el processament interromput')
+                                    ? t('table.reprocess_resource_error', "Resume interrupted processing")
                                     : !processed
-                                    ? t('table.process_resource', 'Processar recurs (Cervell)')
-                                    : t('table.reprocess_resource', 'Reprocessar recurs (processat el {{date}})', { date: processedLabel });
+                                    ? t('table.process_resource', "Process resource (Brain)")
+                                    : t('table.reprocess_resource', "Reprocess resource (processed on {{date}})", { date: processedLabel });
                                 return (
                                     <button
                                         onClick={(e) => {
@@ -3260,8 +3260,8 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 <span
                                     className={`shrink-0 inline-flex items-center gap-0.5 px-1 py-px rounded text-[9px] font-bold uppercase ${note.metadata?.translation_stale ? 'bg-amber-500/15 text-amber-600' : 'bg-[var(--gnosi-primary)]/10 text-[var(--gnosi-primary)]'}`}
                                     title={note.metadata?.translation_stale
-                                        ? t('table.translation_stale', "L'original ha canviat — torna a traduir per actualitzar")
-                                        : t('table.translation_badge', 'Traducció')}
+                                        ? t('table.translation_stale', "The original changed — re-translate to update")
+                                        : t('table.translation_badge', "Translation")}
                                 >
                                     {note.metadata?.translation_stale && <AlertTriangle size={9} />}
                                     {!hasVisibleLanguageColumn && String(note.metadata.translation_lang).toUpperCase()}
@@ -3525,7 +3525,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                             onClick={() => toggleGroup(d.groupKey)}
                             onKeyDown={(e) => handleGroupHeaderKeyDown(e, { ...d, descriptorIndex: virtualItem.index })}
                             className="flex items-center gap-2 px-3 py-2 text-left hover:bg-[var(--bg-tertiary)] transition-colors w-full outline-none focus-visible:ring-1 focus-visible:ring-[var(--gnosi-primary)]"
-                            title={collapsed ? t('common.expand', 'Desplega') : t('common.collapse', 'Replega')}
+                            title={collapsed ? t('common.expand', "Expand") : t('common.collapse', "Collapse")}
                         >
                             {collapsed
                                 ? <ChevronRight size={15} className="text-[var(--text-tertiary)] shrink-0" />
@@ -3784,7 +3784,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                 onChange={(e) => setAggregations({ ...aggregations, title: e.target.value })}
                                             >
                                                 <option value="none">({t('table.none')})</option>
-                                                <option value="count">{t('table.agg_count', 'Recompte')}</option>
+                                                <option value="count">{t('table.agg_count', "Count")}</option>
                                             </select>
                                             {aggregations['title'] && aggregations['title'] !== 'none' && (
                                                 <span className="text-[var(--text-primary)] font-bold">{calculateAggregation('title', 'title')}</span>
@@ -3800,13 +3800,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                     onChange={(e) => setAggregations({ ...aggregations, [key]: e.target.value })}
                                                 >
                                                     <option value="none">({t('table.none')})</option>
-                                                    <option value="count">{t('table.agg_count', 'Recompte')}</option>
+                                                    <option value="count">{t('table.agg_count', "Count")}</option>
                                                     {(type === 'number' || type === 'formula' || type === 'rollup') && (
                                                         <>
-                                                            <option value="sum">{t('view.agg_sum', 'Suma')}</option>
-                                                            <option value="avg">{t('view.agg_avg', 'Mitjana')}</option>
-                                                            <option value="min">{t('view.agg_min', 'Mínim')}</option>
-                                                            <option value="max">{t('view.agg_max', 'Màxim')}</option>
+                                                            <option value="sum">{t('view.agg_sum', "Sum")}</option>
+                                                            <option value="avg">{t('view.agg_avg', "Average")}</option>
+                                                            <option value="min">{t('view.agg_min', "Min")}</option>
+                                                            <option value="max">{t('view.agg_max', "Max")}</option>
                                                         </>
                                                     )}
                                                     {(type === 'date' || type === 'datetime' || type === 'period') && (
@@ -3831,7 +3831,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                                     onChange={(e) => setAggregations({ ...aggregations, last_modified: e.target.value })}
                                                 >
                                                     <option value="none">({t('table.none')})</option>
-                                                    <option value="count">{t('table.agg_count', 'Recompte')}</option>
+                                                    <option value="count">{t('table.agg_count', "Count")}</option>
                                                     <option value="earliest">{t('table.earliest')}</option>
                                                     <option value="latest">{t('table.latest')}</option>
                                                 </select>
@@ -4022,10 +4022,10 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         onClick={(e) => e.stopPropagation()}
                     >
                         <h2 className="text-base font-semibold text-[var(--text-primary)] mb-1">
-                            {t('files.delete_title', { defaultValue: 'Eliminar fitxer' })}
+                            {t('files.delete_title', { defaultValue: "Delete file" })}
                         </h2>
                         <p className="text-sm text-[var(--text-secondary)] mb-4 break-words">
-                            {t('files.delete_question', { defaultValue: 'Què vols fer amb «{{name}}»?', name: fileDeletePrompt.fileName })}
+                            {t('files.delete_question', { defaultValue: "What do you want to do with “{{name}}”?", name: fileDeletePrompt.fileName })}
                         </p>
                         <div className="flex flex-col gap-2">
                             <button
@@ -4039,7 +4039,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 }}
                                 className="w-full text-left px-3 py-2 rounded-lg border border-[var(--border-primary)] hover:bg-[var(--bg-secondary)] text-sm text-[var(--text-primary)] disabled:opacity-50"
                             >
-                                {t('files.delete_link_only', { defaultValue: "Treure només l'enllaç (no esborra el fitxer)" })}
+                                {t('files.delete_link_only', { defaultValue: "Remove only the link (keep the file)" })}
                             </button>
                             <button
                                 type="button"
@@ -4061,18 +4061,18 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                         const next = p.arr.filter((_, i) => i !== p.idx);
                                         handleCellSave(p.rowId, p.field, next.length === 0 ? '' : (next.length === 1 ? next[0] : next), p.originalMetaKey);
                                         toast.success(data.method === 'macos_trash'
-                                            ? t('files.trashed', { defaultValue: 'Fitxer mogut a la Paperera' })
-                                            : t('files.deleted', { defaultValue: 'Fitxer eliminat' }));
+                                            ? t('files.trashed', { defaultValue: "File moved to Trash" })
+                                            : t('files.deleted', { defaultValue: "File deleted" }));
                                         setFileDeletePrompt(null);
                                     } catch (err) {
-                                        toast.error(t('files.delete_error', { defaultValue: "No s'ha pogut eliminar el fitxer: {{msg}}", msg: err.message }));
+                                        toast.error(t('files.delete_error', { defaultValue: "Could not delete the file: {{msg}}", msg: err.message }));
                                     } finally {
                                         setFileDeleteBusy(false);
                                     }
                                 }}
                                 className="w-full text-left px-3 py-2 rounded-lg border border-red-500/30 bg-red-500/5 hover:bg-red-500/10 text-sm text-red-600 disabled:opacity-50"
                             >
-                                {t('files.delete_physical', { defaultValue: 'Eliminar també el fitxer (a la Paperera)' })}
+                                {t('files.delete_physical', { defaultValue: "Also delete the file (to Trash)" })}
                             </button>
                             <button
                                 type="button"
@@ -4080,7 +4080,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                                 onClick={() => setFileDeletePrompt(null)}
                                 className="w-full px-3 py-2 rounded-lg hover:bg-[var(--bg-secondary)] text-sm text-[var(--text-secondary)] disabled:opacity-50"
                             >
-                                {t('common.cancel', { defaultValue: 'Cancel·lar' })}
+                                {t('common.cancel', { defaultValue: "Cancel" })}
                             </button>
                         </div>
                     </div>

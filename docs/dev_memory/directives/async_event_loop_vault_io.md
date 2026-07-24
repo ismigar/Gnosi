@@ -1,64 +1,59 @@
-# Directive: I/O del vault dins handlers async (no bloquejar l'event loop)
+# Directive: Vault I/O in async handlers
 
-## Símptoma
-L'app sencera "es penja": en obrir una secció (Calendari, Lector, Graf) el
-spinner no acaba, i a partir d'aquell moment **qualsevol** petició a l'API fa
-timeout (encua), encara que altres endpoints siguin trivials. El backend NO
-cau (health=healthy, RestartCount=0).
+## Symptom
 
-## Causa
-Un handler `async def` fa **I/O bloquejant** directament (no dins
-`asyncio.to_thread`): típicament `vault_path.rglob("*.md")` + `read_text()`
-sobre milers de fitxers del vault de OneDrive. Molts són **online-only**
-(`Mail/` en té ~8700 amb `st_blocks==0`); cada `read_text` força una descàrrega
-de OneDrive (segons, o `Errno 35`). Com que corre a l'event loop, **bloqueja
-TOTES les corutines** → l'app sencera deixa de respondre fins que acaba (minuts).
+Opening Calendar, Reader, or Graph never finishes, and every later API request
+times out even for trivial endpoints. The backend remains healthy and does not
+restart.
 
-Cas real (2026-06-01): `GET /api/calendar/events` → `_get_vault_events` feia
-`rglob` + `read_text` sobre els 11.690 `.md` del vault a l'event loop. Vegeu
-`api/calendar_routes.py`. `reader/sources` i `graph` "penjaven" en cascada
-NOMÉS perquè l'event loop estava bloquejat per calendar (ells anaven bé directe).
+## Cause
 
-## Regla
-Tot handler `async def` que toqui el vault:
-1. **Embolcalla la feina d'I/O amb `await asyncio.to_thread(fn, ...)`** — mai
-   `rglob`/`read_text`/`open` directament al cos async.
-2. **No llegeixis tot el vault.** Exclou carpetes enormes/irrellevants
-   (`Mail`, `Images`, `Assets`, `.git`, `.gnosi`, `node_modules`). Reutilitza
-   `get_markdown_files_efficient()` (`services/graph_service.py`) o un walk amb
-   poda de directoris.
-3. **Salta fitxers online-only** abans de llegir-los: `st = p.stat();
-   if getattr(st, "st_blocks", 1) == 0: continue` — no forcis descàrregues
-   bloquejants (el warmup proactiu / on-demand ja s'encarrega de materialitzar).
-4. **Caça externa amb timeout.** Crides a Google/CalDAV/IMAP dins `to_thread`
-   amb `timeout=` explícit (p. ex. client Google a `google_calendar_service.py`
-   sense timeout penja si el token és invàlid).
+An `async def` handler performs blocking filesystem I/O directly on the event
+loop, commonly `vault_path.rglob("*.md")` plus `read_text()` over thousands of
+OneDrive files. Online-only placeholders can take seconds to materialize or
+raise `Errno 35`. While a synchronous read runs on the event loop, every
+coroutine is blocked.
 
-## Diagnòstic (com es va trobar)
+The 2026-06-01 incident came from `GET /api/calendar/events`, where
+`_get_vault_events` scanned 11,690 Markdown files. Reader and Graph appeared
+broken only because Calendar had blocked their shared event loop.
+
+## Rules
+
+1. Wrap blocking vault work with `await asyncio.to_thread(fn, ...)`. Never call
+   `rglob`, `read_text`, or `open` directly from an async handler.
+2. Do not scan the complete vault. Exclude large or irrelevant directories
+   such as `Mail`, `Images`, `Assets`, `.git`, `.gnosi`, and `node_modules`.
+   Reuse `get_markdown_files_efficient()` or a pruned directory walk.
+3. Skip online-only files before reading:
+   `if getattr(path.stat(), "st_blocks", 1) == 0: continue`. Proactive and
+   on-demand warmup handle materialization.
+4. Run Google, CalDAV, and IMAP blocking clients in worker threads with
+   explicit timeouts.
+
+## Diagnosis
+
+Compare direct backend and Vite-proxy response times. In native development,
+inspect `~/Library/Logs/Gnosi/backend-native.{log,err}` and use `py-spy` on
+the uvicorn worker when needed. For Docker deployments, inspect the worker
+rather than the reload supervisor.
+
 ```bash
-export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
-# 1. Backend directe (5002) vs proxy Vite (5173): si directe va ràpid i proxy
-#    penja, l'event loop estava bloquejat per una crida anterior.
-curl -s  -o /dev/null -w "%{http_code} %{time_total}s\n" http://localhost:5002/api/<ep>
-curl -sk -o /dev/null -w "%{http_code} %{time_total}s\n" https://localhost:5173/api/<ep>
-# 2. Threaddump del WORKER (NO PID 1: amb --reload, PID 1 és el supervisor
-#    watchfiles; el worker és el fill spawn_main de multiprocessing).
-docker exec gnosi_backend sh -c 'command -v py-spy || pip install -q py-spy'
-docker exec gnosi_backend sh -c 'ps -eo pid,ppid,cmd | grep spawn_main'
-docker exec gnosi_backend py-spy dump --pid <worker_pid>
-# 3. Mesura components aïllats per descartar (load_params, get_all_safe...).
+curl -s -o /dev/null -w "%{http_code} %{time_total}s\n" \
+  http://localhost:5002/api/<endpoint>
+curl -sk -o /dev/null -w "%{http_code} %{time_total}s\n" \
+  https://localhost:5173/api/<endpoint>
 ```
 
-## Restriccions / Edge cases
-- **`networkidle` de Playwright no és fiable** amb Vite (HMR websocket sempre
-  actiu); no l'usis per esperar contingut (vegeu SKILL playwright_e2e §6.2).
-- Els `.db` operatius (management.sqlite, vault_dbs/) viuen a `local_data`, NO
-  al vault → llegir-los NO penja. El problema és sempre el vault de OneDrive.
-- `calendar/events?include_vault=true` encara triga ~11s (llegeix ~2939 `.md`
-  reals fora de `Mail/`). Millora futura: indexar (usar el `page_index` cachejat)
-  en lloc de llegir cada fitxer.
+## Restrictions
 
-## Causa-Efecte (memoritzar)
-> Handler `async` + `rglob`/`read_text` del vault OneDrive (online-only) a
-> l'event loop → bloqueja TOTES les peticions → l'app sencera penja. Sempre
-> `asyncio.to_thread` + excloure carpetes pesades + saltar online-only.
+- Playwright `networkidle` is unreliable with Vite because the HMR WebSocket
+  stays active. Wait for meaningful DOM state.
+- Operational databases live in `local_data`, not the Vault, and are not the
+  OneDrive placeholder problem.
+- Vault-backed calendar collection can still take seconds when reading
+  thousands of local files. A future improvement should reuse the cached page
+  index rather than opening every file.
+
+Remember: blocking OneDrive I/O inside an async handler blocks the entire app.
+Always combine `asyncio.to_thread`, directory pruning, and online-only checks.

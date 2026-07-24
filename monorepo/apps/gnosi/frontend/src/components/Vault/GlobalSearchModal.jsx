@@ -246,13 +246,13 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         type="text"
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
-                        placeholder={t('globalsearch.search_placeholder', 'Cerca…  tag:a/b  path:Carpeta  title:text  /regex/')}
+                        placeholder={t('globalsearch.search_placeholder', "Search…  tag:a/b  path:Folder  title:text  /regex/")}
                         className="w-full bg-transparent border-none focus:ring-0 text-lg px-3 py-1 outline-none text-[var(--text-primary)] placeholder:text-[var(--text-tertiary)]"
                     />
                     {query.trim() && (
                         <button
                             onClick={saveCurrent}
-                            title={isSaved ? t('globalsearch.search_saved', 'Cerca desada') : t('globalsearch.save_search', 'Desa aquesta cerca')}
+                            title={isSaved ? t('globalsearch.search_saved', "Search saved") : t('globalsearch.save_search', "Save this search")}
                             className={`shrink-0 mr-2 p-1 rounded hover:bg-[var(--bg-secondary)] ${isSaved ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'}`}
                         >
                             <Star size={16} fill={isSaved ? 'currentColor' : 'none'} />
@@ -266,12 +266,12 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                         <div className="px-4 py-6">
                             {saved.length > 0 ? (
                                 <>
-                                    <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">{t('globalsearch.saved_searches_heading', 'Cerques desades')}</div>
+                                    <div className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-tertiary)]">{t('globalsearch.saved_searches_heading', "Saved searches")}</div>
                                     <div className="flex flex-wrap gap-2">
                                         {saved.map((s) => (
                                             <span key={s.query} className="group inline-flex items-center gap-1.5 rounded-full border border-[var(--border-primary)] bg-[var(--bg-secondary)] py-1 pl-3 pr-1.5 text-sm">
                                                 <button className="text-[var(--text-secondary)] hover:text-[var(--gnosi-primary)]" onClick={() => setQuery(s.query)}>{s.label}</button>
-                                                <button className="rounded-full p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]" onClick={() => removeSaved(s.query)} title={t('globalsearch.remove_saved', 'Treu')}>
+                                                <button className="rounded-full p-0.5 text-[var(--text-tertiary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--gnosi-danger,#dc2626)]" onClick={() => removeSaved(s.query)} title={t('globalsearch.remove_saved', "Remove")}>
                                                     <X size={12} />
                                                 </button>
                                             </span>
@@ -280,12 +280,12 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                 </>
                             ) : (
                                 <div className="py-6 text-center text-[var(--text-secondary)] text-sm">
-                                    {t('globalsearch.operators_hint', 'Cerca per títol o amb operadors:')} <code className="text-[var(--gnosi-primary)]">tag:</code> <code className="text-[var(--gnosi-primary)]">path:</code> <code className="text-[var(--gnosi-primary)]">title:</code> <code className="text-[var(--gnosi-primary)]">/regex/</code>
+                                    {t('globalsearch.operators_hint', "Search by title or with operators:")} <code className="text-[var(--gnosi-primary)]">tag:</code> <code className="text-[var(--gnosi-primary)]">path:</code> <code className="text-[var(--gnosi-primary)]">title:</code> <code className="text-[var(--gnosi-primary)]">/regex/</code>
                                 </div>
                             )}
                         </div>
                     ) : filteredNotes.length === 0 ? (
-                        <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">{t('globalsearch.no_results', 'No s\'ha trobat cap resultat per "{{query}}"', { query })}</div>
+                        <div className="px-6 py-12 text-center text-[var(--text-secondary)] text-sm">{t('globalsearch.no_results', "No results found for \"{{query}}\"", { query })}</div>
                     ) : (
                         <div className="p-2 space-y-1">
                             {filteredNotes.map((note, index) => {
@@ -304,7 +304,7 @@ export function GlobalSearchModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                             ) : getIcon(note.folder)}
                                             <div>
                                                 <h3 className={`text-sm font-medium ${isSelected ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-primary)]'}`}>
-                                                    {note.title || note.id || t('common.untitled', 'Sense Títol')}
+                                                    {note.title || note.id || t('common.untitled', "Untitled")}
                                                 </h3>
                                                 <div className="flex items-center gap-2 mt-0.5 opacity-70">
                                                     {sourceDb ? (

@@ -1,138 +1,104 @@
-# Directiva: Sincronització Vault → Drupal (drupal_content_sync)
+# Vault to Drupal Content Synchronization
 
-## Objectiu
-Publicar files d'una taula del Vault com a **nodes de Drupal 10**
-(`temenosismael.org`) i mantenir-les sincronitzades, amb mapatge camp-a-camp,
-traduccions i identitat (nid/url) desada a la fila. Activable per taula.
+## Objective
 
-## Arquitectura (clau: el WAF de Pangea bloqueja PATCH **i** DELETE)
-| Operació | Mètode | Notes |
-|---|---|---|
-| Llegir tipus/camps | `GET /jsonapi/node_type/node_type`, `GET /jsonapi/field_config/field_config` | Descoberta. GET no bloquejat. |
-| **Crear** node | `POST /jsonapi/node/<bundle>` | POST **no** bloquejat pel WAF (verificat). |
-| **Actualitzar** node | `POST /custom/node-helper/update` `{uuid,type,attributes,relationships}` | Mòdul `n8n_helper` (esquiva el WAF). 404 si no existeix → caure a crear. |
-| **Traduir** (crear/actualitzar) | `POST /custom/translation-helper/add` `{uuid,langcode,fields}` | Idempotent. Només atributs (text/cos). |
-| Pujar imatge | `POST /jsonapi/node/<bundle>/<camp>` (binari) → file UUID | `Content-Disposition: file; filename="…"`. |
-| Taxonomia | `GET/POST /jsonapi/taxonomy_term/<vocab>` | Resol per `filter[name]`, crea si falta. |
+Publish selected vault table rows as Drupal 10 nodes and keep fields,
+translations, media, taxonomy, and stable identity synchronized.
 
-**Restricció verificada (2026-06-05):** el WAF retorna 403 a `DELETE /jsonapi/...`
-i bloqueja `PATCH`. Per això **mai** s'actualitza ni s'esborra via JSON:API: les
-actualitzacions van pels endpoints POST custom; els nodes de prova s'esborren per
-`drush` (no per API).
+## Transport architecture
 
-## Codi
-- Client: `monorepo/apps/gnosi/backend/services/drupal_sync_service.py`
-  (`list_content_types`, `list_fields`, `create_node`, `update_node`,
-  `add_translation`, `upload_image`, `resolve_or_create_term`,
-  `markdown_to_full_html` via pandoc, `base_url`).
-- Rutes + orquestració: `backend/api/vault_routes.py`
-  (`GET /api/vault/drupal/content-types`, `/{bundle}/fields`,
-  `POST /api/vault/skills/sync-drupal-row(+rows)`, `_do_sync_drupal_row`,
-  `_drupal_build_fields`).
-- Config UI: `frontend/src/components/Vault/SchemaConfigModal.jsx` (toggle +
-  desplegable de tipus + editor de mapatge + pseudo-camp `__body__` per al cos);
-  persistència a `pages/VaultDashboard.jsx`; flag `system` a `schemaUtils.js`.
-- Botó per fila: `frontend/src/components/Vault/VaultTable.jsx` +
-  `SyncDrupalModal.jsx`.
+The production WAF blocks JSON:API `PATCH` and `DELETE`.
 
-## Credencials
-`DRUPAL_URL` (a `.env_shared`, amb www) + `DRUPAL_ROOT_USER` (`admin`) +
-`DRUPAL_ROOT_PASSWORD`. Al host la contrasenya viu al keychain
-(`drupal_root_password`); dins Docker, al magatzem de secrets muntat (`~/.gnosi`,
-via `keychain_manager`). **El client normalitza la URL al host canònic sense
-`www`**: el lloc fa 301 www→no-www i el redirect deixa caure el Basic-auth.
+| Operation | Method |
+|---|---|
+| Discover bundles and fields | JSON:API `GET` |
+| Create node | JSON:API `POST` |
+| Update node | Custom helper `POST` |
+| Add or update translation | Custom translation-helper `POST` |
+| Upload file | JSON:API binary `POST` |
+| Resolve taxonomy | JSON:API `GET`/`POST` |
 
-## Mapatge i tipus de camp
-`drupal_field_mapping = { <propId|"__body__">: <camp_drupal> }`, desat a l'entrada
-de la taula (`drupal_sync_enabled`, `drupal_bundle`, `drupal_field_mapping`).
-- text/string/list_string/email → atribut string.
-- integer/decimal → número.
-- text_with_summary/text_long (p. ex. `body`) → `{value: <html>, format:'full_html'}`.
-  El **cos de la pàgina** es mapa via `__body__`. Conversió Markdown→HTML amb
-  pandoc: `-f markdown-smart` (no toca cometes/guions), `--shift-heading-level-by=1`
-  (els títols del cos no fan `<h1>`, que ja és el títol del node), i els blocs
-  `::: nom … :::` → `<div class="nom">`. **Abans** de pandoc, `_drupal_preprocess_md`
-  resol els wikilinks `[[X]]` / `[[X|àlies]]` (a un enllaç del node si el target ja
-  està sincronitzat —té `drupal_url`—, o a text pla si no) i treu els embeds `![[…]]`.
-- entity_reference (p. ex. `field_tags`) → `taxonomy_term--<vocab>`; el vocabulari
-  surt de `settings.handler_settings.target_bundles` (defecte `tags`). Crea termes
-  que faltin.
-- image/file (p. ex. `field_image`) → puja el fitxer i enllaça `file--file`. El
-  camp imatge pot ser COMPOST `{src, alt, title, caption, credit}` (vegeu
-  `fileResource.parseImageField`): `meta.alt`/`meta.title` surten del mapa (amb
-  fallback de l'alt al títol de la fila); un string es tracta com `{src}`. La
-  ruta relativa (p. ex. "Articles/x.jpg") es resol sota `<Vault>/Assets/`.
+Never update or delete through blocked JSON:API methods. Delete test nodes with
+an authorized Drush workflow.
 
-## Identitat i idempotència
-- Ancorada per `drupal_uuid` (metadata oculta de la fila). nid/url es desen a dues
-  **columnes reals** gestionades pel sistema ("Drupal NID" / "Drupal URL",
-  `config.system: true`, read-only) i també a metadata oculta (`drupal_nid`,
-  `drupal_url`).
-- **Crear** un node fa el build complet (imatge/tags/cos) en l'idioma de la fila.
-  **Actualitzar** un node existent toca NOMÉS el TEXT de l'idioma de la fila via
-  `add_translation(uuid, langcode, {title, body})` — apunta al langcode correcte
-  (no al per defecte) i **no re-puja la imatge**. Termes resolts-o-creats per nom.
-- **Re-empènyer mèdia** (`push_media`, param de `sync-drupal-row`): en
-  ACTUALITZAR, a més del text, torna a pujar i re-enllaça `field_image` (build
-  `_drupal_build_fields(media_only=True)` → `update_node`). La imatge és un camp
-  compartit entre traduccions → es fa **un sol cop** per al node. El
-  `NodeController` (n8n_helper) aplica `relationships.field_image.data.meta.alt`
-  a l'alt. Casella "Tornar a pujar la imatge" al `SyncDrupalModal` (només quan el
-  node ja existeix; en crear, la imatge sempre s'inclou).
-- **Abast del sync** (`scope`, param de `sync-drupal-row`): `"all"` (per defecte)
-  sincronitza l'idioma de la fila + les traduccions (subitems) + les **files
-  germanes** (altres registres amb el mateix `drupal_nid`, un per idioma);
-  `"lang_only"` només l'idioma d'aquesta fila. Triable al modal `SyncDrupalModal`.
-- **Guard de cos buit**: si el cos (markdown) de la fila és buit, NO s'envia el
-  camp `body` → no s'esborra el cos a Drupal. Per omplir buits, porta el contingut
-  de Drupal a Gnosi (HTML→MD) primer.
+## Components
 
-## Restriccions i casos límit (aprenentatge)
-- **`article` té `field_image` OBLIGATORI** → sincronitzar un article **exigeix**
-  mapar una imatge; si no, el create falla amb 422. (Altres tipus com `page`,
-  `recurs` no en tenen.) Si la imatge no s'hi pot posar, `_do_sync_drupal_row`
-  retorna un **400 amb missatge clar** (no el 422 cru).
-- **Límit de 2 MiB a `field_image`**: les imatges del Vault solen ser d'alta
-  resolució (6+ MB) i la pujada fallava amb 422 "excedeix el màxim de 2 MB" →
-  `field_image` nul → create 422. `_drupal_shrink_image` (Pillow) redueix la
-  còpia que va a Drupal (downscale progressiu + recompressió; PNG→JPEG si cal)
-  sota ~1,9 MB, **mantenint l'original al Vault intacte**. S'aplica a la pujada
-  (`_drupal_upload_field_image`); no-op si ja és petita o no és imatge (PDF d'un
-  camp `file`).
-- **Traduccions**: el `TranslationController` fa `set()` genèric → només s'hi
-  empeny text/cos. Tags i imatge són camps compartits (no traduïbles) a Drupal.
-- **OneDrive online-only**: materialitzar (`_materialize_if_online_only`) la fila,
-  els subitems i les imatges abans de llegir-los (errno 35 si no).
-- **langcode (regional)**: Drupal pot tenir codis regionals (`en-gb`, no `en`).
-  `_drupal_resolve_langcode` mapa el camp Idioma al langcode REAL de Drupal
-  (consulta `/jsonapi/configurable_language`; `detect_record_lang_raw` NO trunca).
-  NO usar `detect_record_source_lang` (2 lletres) per a Drupal. Els subitems de
-  traducció també han d'usar el langcode resolt (`en-gb`), no el cru (`en`).
-- **Evitar duplicats**: abans de CREAR, `_do_sync_drupal_row` busca un node del
-  mateix títol (`find_nodes_by_title`) i s'hi enllaça. Match NORMALITZAT
-  (`_norm_title`: minúscules, sense accents/puntuació/espais) perquè títols amb
-  espais finals o variacions no creïn duplicats (Drupal hi posa àlies `-0`). Si
-  n'hi ha >1 match, no desambigua → cal neteja manual (drush).
-- **field_image TRADUÏBLE**: si el camp imatge és traduïble a Drupal, les
-  traduccions NO hereten la imatge de l'original → la sync la posa a cada idioma.
-  Puja la imatge un cop (fid compartit via `_drupal_uuid_to_fid`) i la posa a
-  cada traducció amb el seu alt propi (`{target_id: fid, alt}`, que el `set()`
-  genèric del TranslationController accepta). `_drupal_field_translatable` ho
-  comprova. Si NO és traduïble, Drupal la comparteix sol (no cal per idioma).
-- **Vocabularis**: a temenosismael.org només hi ha `tags`.
-- **Diagnòstic de penjades**: si el backend deixa de respondre (event loop
-  bloquejat), `docker exec gnosi_backend py-spy dump --pid 1 --subprocesses`
-  mostra l'stack en viu. PID 1 és el supervisor de `uvicorn --reload`; el worker
-  real és un subprocés (d'aquí `--subprocesses`).
+- `backend/services/drupal_sync_service.py`: Drupal client and conversion.
+- Vault routes: discovery and row/bulk synchronization.
+- `SchemaConfigModal.jsx`: capability, bundle, and field mapping.
+- `VaultTable.jsx` and `SyncDrupalModal.jsx`: row action and options.
 
-## Neteja de nodes de prova
-DELETE per API està bloquejat. Esborra per `drush` (skill `.agent/skills/domain/drupal/`):
-`drush entity:delete node <nid>` o `drush php:eval "Node::load(<nid>)->delete();"`.
-Com que Claude Code no pot fer el diàleg del keychain per a l'SSH, delega la comanda
-al Terminal de l'usuari.
+Configuration stores `drupal_sync_enabled`, `drupal_bundle`, and a field map
+whose special `__body__` source represents page Markdown.
+
+## Credentials and URL
+
+Credentials belong in the configured secret store. Normalize the site URL to
+its canonical host before authenticated requests because redirects can drop
+Basic authorization.
+
+## Mapping
+
+- Scalar text, email, and list values map to strings.
+- Numeric fields map to numbers.
+- Long text maps to full HTML generated by Pandoc.
+- Page body maps through `__body__`.
+- Entity references resolve or create taxonomy terms.
+- Images and files upload first, then attach through file relationships.
+
+Markdown conversion:
+
+- Preserve smart punctuation.
+- Shift headings because the Drupal node title already owns the page heading.
+- Convert supported custom containers.
+- Resolve synchronized wikilinks to Drupal URLs and unsynchronized links to
+  plain readable text.
+- Remove unsupported transclusion embeds.
+
+Compound image values may contain source, alt, title, caption, and credit.
+Resolve relative paths under vault assets and preserve the original file.
+
+## Identity and idempotency
+
+Anchor a row by hidden `drupal_uuid`. Store NID and URL in system-managed,
+read-only columns and hidden metadata.
+
+Before creation, search for a normalized title match to avoid duplicates. If
+multiple matches exist, stop and require manual disambiguation.
+
+Existing nodes update the current language's title and body without
+unnecessarily re-uploading shared media. `push_media` explicitly re-uploads and
+reattaches the image.
+
+Synchronization scope:
+
+- `all`: current language, child translations, and sibling rows sharing the
+  Drupal node.
+- `lang_only`: only the selected row language.
+
+An empty vault body does not clear Drupal body content.
+
+## Restrictions
+
+- Required Drupal image fields must be mapped before creation.
+- Shrink only the upload copy to remain below Drupal limits; keep the vault
+  original unchanged.
+- Resolve regional Drupal language codes from configured languages. Do not
+  truncate them to two letters.
+- Shared taxonomy and non-translatable media are updated once.
+- If the Drupal image field is translatable, attach the same uploaded file to
+  every translation with language-specific alt text.
+- Materialize online-only rows, children, and assets before reading.
+- External network and conversion work must not block the event loop.
+- Logs and API errors are in English; UI text uses i18n.
 
 ## QA
-Backend: provat dins `gnosi_backend` contra Drupal real (create/update/translate/
-image/taxonomy + idempotència). Frontend: `npm run build` + navegador via
-`javascript_tool` (screenshot/read_page peten en aquesta SPA). Els nodes de prova
-es creen **despublicats** (`status:false`) i clarament etiquetats.
+
+1. Discover a real bundle and fields.
+2. Create an unpublished, clearly labeled test node.
+3. Update it idempotently without duplication.
+4. Add regional-language translations.
+5. Upload an oversized image and verify only the upload copy is reduced.
+6. Resolve taxonomy terms and validate all stored identity fields.
+7. Run frontend build and browser QA for mapping, scope, and media options.
+8. Remove test nodes through Drush.

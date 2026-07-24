@@ -53,7 +53,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
         <div className="bg-black/80 backdrop-blur-xl p-5 rounded-xl border border-white/10 mt-3 shadow-2xl">
             <h4 className="text-sm font-semibold mb-3 text-zinc-200 flex items-center gap-2">
                 <Calendar size={16} className="text-primary" />
-                <span>{t('social.scheduler_title', 'Programar Post')}</span>
+                <span>{t('social.scheduler_title', "Schedule Post")}</span>
             </h4>
 
             {/* Quick Options */}
@@ -72,7 +72,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
             {/* Date & Time Inputs */}
             <div className="flex gap-3 mb-4">
                 <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">{t('common.date', 'Data')}</label>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">{t('common.date', "Date")}</label>
                     <div className="relative">
                         <input
                             type="date"
@@ -84,7 +84,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
                     </div>
                 </div>
                 <div className="flex-1">
-                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">{t('common.time', 'Hora')}</label>
+                    <label className="block text-xs font-medium text-zinc-500 mb-1.5 ml-1">{t('common.time', "Time")}</label>
                     <div className="relative">
                         <input
                             type="time"
@@ -100,7 +100,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
             {date && time && (
                 <div className="text-xs text-zinc-400 mb-4 p-3 bg-primary/10 border border-primary/20 rounded-lg flex items-center gap-2">
                     <Clock size={14} className="text-primary" />
-                    <span>{t('social.scheduler_will_publish', 'Es publicarà el:')} <strong className="text-zinc-200">{new Date(`${date}T${time}`).toLocaleString()}</strong></span>
+                    <span>{t('social.scheduler_will_publish', "It will publish on:")} <strong className="text-zinc-200">{new Date(`${date}T${time}`).toLocaleString()}</strong></span>
                 </div>
             )}
 
@@ -110,7 +110,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
                     onClick={onCancel}
                     className="px-4 py-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors flex items-center gap-1"
                 >
-                    {t('common.cancel', 'Cancel·la')}
+                    {t('common.cancel', "Cancel")}
                 </button>
                 <button
                     onClick={handleSchedule}
@@ -118,7 +118,7 @@ const Scheduler = ({ onSchedule, onCancel }) => {
                     className="px-4 py-2 bg-primary hover:bg-blue-600 disabled:bg-zinc-700 disabled:text-zinc-500 text-white rounded-lg font-medium transition-all shadow-lg shadow-primary/20 flex items-center gap-1.5 transform active:scale-95"
                 >
                     <Check size={16} />
-                    {t('social.scheduler_confirm', 'Confirmar')}
+                    {t('social.scheduler_confirm', "Confirm")}
                 </button>
             </div>
         </div>

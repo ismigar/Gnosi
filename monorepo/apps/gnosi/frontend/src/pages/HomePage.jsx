@@ -9,49 +9,49 @@ const MODULES = [
         to: '/vault',
         icon: FileText,
         titleKey: 'common.knowledge',
-        title: 'Coneixement',
+        title: 'Knowledge',
         descKey: 'home.module_vault_desc',
-        description: 'Escriu i organitza les teves notes i documents.',
+        description: 'Write and organize your notes and documents.',
     },
     {
         to: '/graph',
         icon: Network,
         titleKey: 'home.module_graph_title',
-        title: 'Graf de Coneixement',
+        title: 'Knowledge Graph',
         descKey: 'home.module_graph_desc',
-        description: 'Explora les connexions entre les teves idees i recursos.',
+        description: 'Explore the connections between your ideas and resources.',
     },
     {
         to: '/contacts',
         icon: Users,
         titleKey: 'sidebar.nav_contacts',
-        title: 'Contactes',
+        title: 'Contacts',
         descKey: 'home.module_contacts_desc',
-        description: 'Gestiona els teus contactes i perfils.',
+        description: 'Manage your contacts and profiles.',
     },
     {
         to: '/mail',
         icon: Inbox,
         titleKey: 'home.module_mail_title',
-        title: 'Correu (Inbox)',
+        title: 'Mail (Inbox)',
         descKey: 'home.module_mail_desc',
-        description: 'Processa el teu correu entrant.',
+        description: 'Process your incoming mail.',
     },
     {
         to: '/calendar',
         icon: Calendar,
         titleKey: 'sidebar.nav_calendar',
-        title: 'Calendari',
+        title: 'Calendar',
         descKey: 'home.module_calendar_desc',
-        description: 'Visualitza i gestiona els teus esdeveniments.',
+        description: 'View and manage your events.',
     },
     {
         to: '/reader',
         icon: BookOpen,
         titleKey: 'home.module_reader_title',
-        title: 'Lector de Feeds',
+        title: 'Feed Reader',
         descKey: 'home.module_reader_desc',
-        description: 'Llegeix i escolta les darreres notícies amb podcast IA.',
+        description: 'Read and listen to the latest news with AI podcasts.',
     },
     {
         to: '/social-dashboard',
@@ -59,15 +59,15 @@ const MODULES = [
         titleKey: 'home.module_social_title',
         title: 'Social Media',
         descKey: 'home.module_social_desc',
-        description: 'Gestiona les teves xarxes socials des d\'un sol lloc.',
+        description: 'Manage your social networks from one place.',
     },
     {
         to: '/media',
         icon: ImageIcon,
         titleKey: 'home.module_media_title',
-        title: 'Fotos i Media',
+        title: 'Photos and Media',
         descKey: 'home.module_media_desc',
-        description: 'Explora la teva biblioteca de mitjans.',
+        description: 'Explore your media library.',
     },
     {
         to: '/dashboard',
@@ -75,15 +75,15 @@ const MODULES = [
         titleKey: 'home.module_dashboard_title',
         title: 'Control Center',
         descKey: 'home.module_dashboard_desc',
-        description: 'Monitoritza l\'estat del sistema i aprova eines.',
+        description: 'Monitor system status and approve tools.',
     },
     {
         id: 'settings',
         icon: Settings,
         titleKey: 'sidebar.nav_settings',
-        title: 'Configuració',
+        title: 'Settings',
         descKey: 'home.module_settings_desc',
-        description: 'Gestiona els paràmetres del teu ecosistema.',
+        description: 'Manage your ecosystem settings.',
     },
 ];
 
@@ -118,7 +118,7 @@ function HomePage() {
                     </span>
                 </div>
                 <p className="home-page__subtitle" style={{ marginTop: '8px' }}>
-                    {t('home.subtitle', 'El teu ecosistema de coneixement personal')}
+                    {t('home.subtitle', "Your personal knowledge ecosystem")}
                 </p>
             </header>
 

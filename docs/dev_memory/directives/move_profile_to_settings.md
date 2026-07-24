@@ -25,6 +25,6 @@ The user requested that the profile data entry form (Identity Profile) should be
 ## Verification Plan
 1. Open Gnosi.
 2. Verify "Identitat" is gone from the main sidebar.
-3. Open "Settings" (Configuració).
+3. Open "Settings".
 4. Verify a new "Perfil" or "Identitat" tab exists.
 5. Click it and verify the form loads and saves correctly.

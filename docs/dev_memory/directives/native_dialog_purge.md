@@ -31,20 +31,40 @@ Native dialogs are:
 ## 5. Lessons Learned
 *"Note: Using window.confirm in an async handler without a try-catch can crash the UI state if the dialog is blocked by the browser."*
 
-*"Cerca SEMPRE les dues formes: `window.confirm/alert/prompt` I les **pelades** sense prefix (`confirm(...)`, `alert(...)`, `prompt(...)`) — són el mateix objecte global. Un recompte que només busca `window.` se'n deixa la majoria (en una sessió, 10 amb `window.` vs 12 més pelades)."*
+*Always search both forms: `window.confirm/alert/prompt` and the unqualified
+calls `confirm(...)`, `alert(...)`, and `prompt(...)`. They reference the same
+global object. Counting only `window.` misses most occurrences; one audit found
+10 qualified and 12 additional unqualified calls.*
 
-*"Per als `prompt` cal un modal d'input; usa el component reutilitzable `PromptModal.jsx` (controlat: `isOpen`/`onClose`/`onSubmit(valor)`), germà de `ConfirmModal.jsx`. Per a `alert` → `toast.error` (wrapper `src/lib/toast`)."*
+*Replace `prompt` with the reusable controlled `PromptModal.jsx` component:
+`isOpen`, `onClose`, and `onSubmit(value)`. It is the input counterpart of
+`ConfirmModal.jsx`. Replace `alert` with `toast.error` through
+`src/lib/toast`.*
 
-*"Patró de refactor confirm→modal: el handler síncron `if(!confirm())return; …` es parteix en `handleX` (només obre: `setConfirmTarget(payload)`) i `doX` async (la lògica original, executada des de `onConfirm`). Captura el payload/context a l'estat en obrir, perquè `doX` corre més tard (clau en callbacks d'editor com BlockEditor)."*
+*For a confirm-to-modal refactor, split synchronous
+`if (!confirm()) return; …` into `handleX`, which only opens the modal through
+`setConfirmTarget(payload)`, and asynchronous `doX`, which contains the
+original logic and runs from `onConfirm`. Capture the payload and context in
+state when opening because `doX` runs later. This is essential in editor
+callbacks such as BlockEditor.*
 
-## 6. Components canòniques
-- `src/components/ConfirmModal.jsx` — confirmacions binàries (`isDestructive` per a accions perilloses).
-- `src/components/PromptModal.jsx` — entrada de text (substitut de `window.prompt`).
-- `src/lib/toast` — `toast.error` / `toast.success` (substitut de `window.alert`).
+## 6. Canonical components
+- `src/components/ConfirmModal.jsx` — binary confirmations (`isDestructive`
+  for dangerous actions).
+- `src/components/PromptModal.jsx` — text input, replacing `window.prompt`.
+- `src/lib/toast` — `toast.error` and `toast.success`, replacing
+  `window.alert`.
 
-## 7. Purga completa (sessió 2026-06-29)
-Purgats: `VaultSwitcher`, `Dashboard` (3 confirm + 1 confirm pelat + member), `ContentCalendar`, `WorkspaceMembersPanel`, `DbViewEmbed` (confirm+prompt+alert), `SchemaConfigModal` (prompt), `BlockEditor` (prompt), i `alert` pelats a `SettingsModal`, `GlobalSettingsModal`, `social/Composer`, `VaultTable`, `ContactsPage`. Verificat: grep net + `npm run build` OK. (`MediaCenter` i `VaultTrashView` ja estaven fets.)
+## 7. Complete purge (2026-06-29 session)
+Purged: `VaultSwitcher`, `Dashboard` (three qualified confirmations, one
+unqualified confirmation, and member handling), `ContentCalendar`,
+`WorkspaceMembersPanel`, `DbViewEmbed` (confirm, prompt, and alert),
+`SchemaConfigModal` (prompt), `BlockEditor` (prompt), and unqualified alerts in
+`SettingsModal`, `GlobalSettingsModal`, `social/Composer`, `VaultTable`, and
+`ContactsPage`. Verified with a clean search and a successful `npm run build`.
+`MediaCenter` and `VaultTrashView` had already been migrated.
 
 ---
 *Updated after a protocol failure detected in session ce6003d5.*
-*Ampliat 2026-06-29: PromptModal + lliçó dels diàlegs pelats + purga completa.*
+*Expanded 2026-06-29: PromptModal, the unqualified-dialog lesson, and the
+complete purge.*

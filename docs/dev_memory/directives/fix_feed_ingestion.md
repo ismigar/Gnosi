@@ -1,39 +1,43 @@
-# Directiva: Correcció d'Importacions de Base de Dades en Serveis de Background
+# Directive: Database sessions in background services
 
-**Estat:** Staging (En desenvolupament)
-**Data:** 2026-04-09
-**Relacionat amb:** #SovereignVault #Feeds #Database
+**Status:** Staging
+**Date:** 2026-04-09
 
-## Problema Detectat
-Els serveis que s'executen en segon pla (scheduler) o de forma independent, com `feed_ingester.py` i `mail_ingester.py`, fallaven amb un `ImportError` en intentar importar `SessionLocal` des de `backend.data.db`.
+## Problem
 
-Aquest error es deu a que `SessionLocal` ja no és una variable global, ja que ara la base de dades depèn del Vault seleccionat per l'usuari.
+Scheduler and standalone services such as `feed_ingester.py` and
+`mail_ingester.py` failed when importing `SessionLocal` from
+`backend.data.db`. The database is now selected per active vault, so
+`SessionLocal` is no longer a valid process-global variable.
 
-## Solució Estàndard
-Per obtenir una sessió de base de dades en un servei o script de background, s'ha de seguir aquest protocol:
+## Standard pattern
 
-1. **Importar les utilitats de context i de base de dades:**
-   ```python
-   from backend.services.context_vars import get_active_vault_path
-   from backend.data.db import get_engine_for_path
-   ```
+Import dynamic context and engine helpers:
 
-2. **Resoldre la sessió dinàmicament:**
-   ```python
-   v_path = get_active_vault_path()
-   _, SessionLocal = get_engine_for_path(v_path)
-   db = SessionLocal()
-   ```
+```python
+from backend.services.context_vars import get_active_vault_path
+from backend.data.db import get_engine_for_path
+```
 
-3. **Fallback:**
-   `get_active_vault_path()` té un fallback automàtic que carrega el `params.yaml` per defecte si no s'ha establert cap context de vault (com passa en el scheduler).
+Resolve the session at execution time:
 
-## Restriccions i Advertències
-- **MAI** importar `SessionLocal` directament de `backend.data.db` com a variable global.
-- Assegurar-se que el `PYTHONPATH` inclou l'arrel de l'aplicació quan s'executen scripts manualment.
-- Sempre tancar la sessió (`db.close()`) en el bloc `finally`.
+```python
+vault_path = get_active_vault_path()
+_, session_factory = get_engine_for_path(vault_path)
+db = session_factory()
+```
 
-## Passos per a la verificació
-1. Executar el script manualment: `export PYTHONPATH=$PYTHONPATH:$(pwd)/monorepo/apps/gnosi && python3 path/to/script.py`.
-2. Verificar que no hi ha errors d'importació.
-3. Comprovar el `scheduler_config.json` per assegurar que l'estat de la tasca és `success`.
+`get_active_vault_path()` falls back to default configuration when scheduler
+execution has no request-scoped vault context.
+
+## Restrictions
+
+- Never import a global `SessionLocal` from `backend.data.db`.
+- Ensure manual scripts run with the app root on `PYTHONPATH`.
+- Always close the session in `finally`.
+
+## Verification
+
+1. Run the script with the application environment and native virtualenv.
+2. Confirm there are no import errors.
+3. Check `scheduler_config.json` for a successful task state.

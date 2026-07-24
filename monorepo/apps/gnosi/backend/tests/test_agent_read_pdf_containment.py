@@ -29,8 +29,8 @@ def test_pdf_inside_vault_is_allowed(monkeypatch, tmp_path):
 
     out = _call("Assets/doc.pdf")
     # Containment passed (blank page → no extractable text, but NOT denied).
-    assert not out.startswith("Accés denegat")
-    assert "extraïble" in out or out  # reads, doesn't block
+    assert not out.startswith("Access denied")
+    assert "extractable" in out or out  # reads, doesn't block
 
 
 def test_absolute_path_outside_vault_denied(monkeypatch, tmp_path):
@@ -41,7 +41,7 @@ def test_absolute_path_outside_vault_denied(monkeypatch, tmp_path):
     _make_pdf(outside)
 
     out = _call(str(outside))
-    assert out.startswith("Accés denegat"), f"hauria de denegar, retorna: {out[:80]}"
+    assert out.startswith("Access denied"), f"expected access denial, got: {out[:80]}"
 
 
 def test_relative_traversal_denied(monkeypatch, tmp_path):
@@ -52,10 +52,10 @@ def test_relative_traversal_denied(monkeypatch, tmp_path):
     _make_pdf(tmp_path / "outside.pdf")
 
     out = _call("../outside.pdf")
-    assert out.startswith("Accés denegat"), f"hauria de denegar, retorna: {out[:80]}"
+    assert out.startswith("Access denied"), f"expected access denial, got: {out[:80]}"
 
 
 def test_no_active_vault(monkeypatch):
     monkeypatch.setattr(cv, "get_active_vault_path", lambda: None)
     out = _call("Assets/x.pdf")
-    assert "vault actiu" in out
+    assert "active vault" in out

@@ -44,7 +44,7 @@ def _load() -> Dict[str, Dict[str, str]]:
             data = json.load(f)
         return data if isinstance(data, dict) else {}
     except Exception as exc:
-        log.warning(f"translation-index: no s'ha pogut llegir {p}: {exc}")
+        log.warning(f"translation-index: could not read {p}: {exc}")
         return {}
 
 
@@ -57,7 +57,7 @@ def _save(data: Dict[str, Dict[str, str]]) -> None:
             json.dump(data, f, ensure_ascii=False)
         tmp.replace(p)  # atomic rename
     except Exception as exc:
-        log.warning(f"translation-index: no s'ha pogut desar {p}: {exc}")
+        log.warning(f"translation-index: could not save {p}: {exc}")
 
 
 def get_known_translations(origin_id: str) -> Dict[str, str]:

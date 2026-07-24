@@ -1,20 +1,15 @@
-# Directiva: Integració de Mail al Vault
+# Vault Mail Integration
 
-Aquesta directiva defineix l'arquitectura de la integració del correu electrònic amb el Cervell Digital. Els detalls tècnics d'implementació i els protocols de generació de fitxers estan consolidats a la Skill corresponent.
+> Historical architecture bridge; current implementation details live in the
+> mail skills and directives.
 
-## Visió General
-L'objectiu és que el flux de comunicació externa (Mail) sigui processat i emmagatzemat com a coneixement actiu (Notes) dins de la jerarquia del Vault.
+## Objective
 
-## Punts de Control Arquitectònics
-1. **Model de Dades**: Cada mail s'ha de tractar com un objecte de base de dades amb propietats de remitent, data i assumpte.
-2. **Visibilitat**: La integració ha de garantir que els correus siguin indexables i apareguin en les vistes agregades del Dashboard.
+Turn external email into searchable, structured vault knowledge.
 
----
+Each persisted message has stable identity, sender, recipients, date, subject,
+content, and account/folder context. Indexed messages appear in appropriate
+views without exposing raw internal state.
 
-## Implementació Tècnica
-Per a protocols de generació de frontmatter (YAML), IDs de taula (`mail`) i scripts d'execució, consulteu:
-
-- [**Skill: Mail Sync**](../../../monorepo/apps/gnosi/pipeline/skills/mail_sync/SKILL.md)
-
----
-*Nota: Aquesta directiva serveix com a nexe d'unió entre la lògica de negoci i l'eina técnica.*
+Frontmatter, table IDs, synchronization, and write behavior follow the current
+mail implementation. All visible UI text uses i18n with English defaults.

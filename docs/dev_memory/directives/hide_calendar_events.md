@@ -1,30 +1,30 @@
-# Directiva: Funcionalitat d'Amagar Cites (Privacy/Filter)
+# Directive: Hide Calendar Events (Privacy/Filter)
 
-## Objectiu
-Permetre que l'usuari amagui cites del calendari (tant de Notion com externes de Gmail) sense eliminar-les de la font original.
+## Objective
+Allow the user to hide calendar events (both Notion events and external Google Calendar events discovered through Gmail) without removing them from the original source.
 
-## Components a Modificar
+## Components to Modify
 
-### 1. Backend: Model de Dades
-- Crear `backend/models/calendar.py` amb el model `HiddenEvent`.
-- Taula: `hidden_events`
-- Camps: `event_id` (String, PK), `user_id` (String, opcional), `hidden_at` (DateTime).
+### 1. Backend: Data Model
+- Create `backend/models/calendar.py` with model `HiddenEvent`.
+- Table: `hidden_events`
+- Fields: `event_id` (String, PK), `user_id` (String, optional), `hidden_at` (DateTime).
 
 ### 2. Backend: API
-- **Filtre Global:** Modificar `_get_pages_snapshot` (`vault_routes.py`) i `get_events` (`calendar_routes.py`) per carregar la llista d'IDs ocults i descartar-los.
-- **Nous Endpoints:**
-    - `POST /api/calendar/events/{event_id}/hide`: Afegeix un ID a la llista d'ocults.
-    - `POST /api/calendar/events/{event_id}/unhide`: Elimina un ID de la llista d'ocults.
+- **Global filter:** Modify `_get_pages_snapshot` (`vault_routes.py`) and `get_events` (`calendar_routes.py`) to load the hidden ID list and discard matching events.
+- **New endpoints:**
+    - `POST /api/calendar/events/{event_id}/hide`: Add an ID to the hidden list.
+    - `POST /api/calendar/events/{event_id}/unhide`: Remove an ID from the hidden list.
 
-### 3. Frontend: Interfície
-- **Menú Contextual:** Afegir l'opció "Amagar" a `CalendarContextMenu.jsx`.
-- **Lògica de Filtre:** Assegurar que el calendari es refresca després d'amagar una cita.
+### 3. Frontend: Interface
+- **Context menu:** Add the "Hide" option to `CalendarContextMenu.jsx`.
+- **Filter logic:** Ensure the calendar refreshes after hiding an event.
 
-## Restriccions
-- Les cites externes (Gmail) s'han d'amagar només localment a Gnosi.
-- No s'ha de modificar la cita a Gmail ni a Notion per defecte, només l'estat local a `gnosi.db`.
+## Restrictions
+- External events should be hidden only locally in Gnosi.
+- Do not modify the source event in Google Calendar or Notion by default; update only the local state in `gnosi.db`.
 
 ## QA
-- Verificar que una cita de Gmail amagada desapareix de Gnosi però segueix a Google Calendar.
-- Verificar que una cita de Notion amagada desapareix de Gnosi però segueix a Notion.
-- Verificar que es pot revertir l'ocultació (opcionalment mitjançant una vista de "Paperera" o "Ocults").
+- Verify that a hidden Google Calendar event disappears from Gnosi but remains in Google Calendar.
+- Verify that a hidden Notion event disappears from Gnosi but remains in Notion.
+- Verify that hiding can be reversed, optionally through a "Trash" or "Hidden" view.

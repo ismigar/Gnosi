@@ -38,7 +38,7 @@ def parse_opml(filepath):
                         if feed_url:
                             feeds.append({"title": title, "url": feed_url, "category": folder_title})
     except Exception as e:
-        print(f"Error llegint OPML: {e}")
+        print(f"Error reading OPML: {e}")
     return feeds
 
 def fetch_rss_24h(feeds):
@@ -47,7 +47,7 @@ def fetch_rss_24h(feeds):
     articles = []
     
     for feed in feeds:
-        print(f"Llegint feed: {feed['title']} ({feed['url']})")
+        print(f"Reading feed: {feed['title']} ({feed['url']})")
         try:
             parsed = feedparser.parse(feed['url'])
             for entry in parsed.entries:
@@ -69,7 +69,7 @@ def fetch_rss_24h(feeds):
                         "content": text_content[:2000] # We limit this to avoid excessively long articles
                     })
         except Exception as e:
-            print(f"Error processant el feed {feed['url']}: {e}")
+            print(f"Error processing feed {feed['url']}: {e}")
             continue
             
     return articles
@@ -77,30 +77,30 @@ def fetch_rss_24h(feeds):
 def generate_summary(articles):
     """Joins the articles, manages the tokens, and makes the request to the Groq model for audio synthesis."""
     if not GROQ_API_KEY:
-        print("Falta GROQ_API_KEY!")
-        return "Error: Falta la clau de l'API de Groq."
+        print("GROQ_API_KEY is missing!")
+        return "Error: the Groq API key is missing."
         
     if not articles:
-        return "Bon dia. No hi ha cap article nou en les últimes 24 hores per a les categories seleccionades. Salutacions."
+        return "Hello. There are no new articles from the last 24 hours in the selected categories."
         
     client = Groq(api_key=GROQ_API_KEY)
     
-    prompt = "Ets un assistent editorial d'alt nivell. Resumeix els següents articles per a un oient amb formació en enginyeria i filosofia. No busquis el titular fàcil; cerca la profunditat, la connexió entre temes i les implicacions ètiques. Estructura el resum com un guió de podcast fluid de 10-15 minuts. Llengua: Català.\n\nARTICLES:\n"
+    prompt = "You are a senior editorial assistant. Summarize the following articles for a listener with a background in engineering and philosophy. Avoid shallow headlines; focus on depth, connections between topics, and ethical implications. Structure the summary as a fluid 10–15 minute podcast script. Language: English.\n\nARTICLES:\n"
     
     for idx, art in enumerate(articles):
-        article_text = f"--- Article {idx+1} ---\nFont: {art['source']} (Categoria: {art['category']})\nTítol: {art['title']}\nContingut: {art['content']}\n\n"
+        article_text = f"--- Article {idx+1} ---\nSource: {art['source']} (Category: {art['category']})\nTitle: {art['title']}\nContent: {art['content']}\n\n"
         if len(prompt) + len(article_text) > 25000:
-            print(f"Límit de tokens aproximat assolit. S'han descartat alguns articles per aquesta iteració.")
+            print("Approximate token limit reached. Some articles were skipped for this run.")
             break
         prompt += article_text
         
-    print("Trucant a l'API de Groq (Llama-3-70b)... Aquest procés pot tardar uns segons.")
+    print("Calling the Groq API (Llama-3-70b)... This may take a few seconds.")
     try:
         chat_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "system",
-                    "content": "Ets un assistent de podcast intel·ligent. Escriu exclusivament el text que serà llegit literalment, sense afegir notes, ni meta-comentaris."
+                    "content": "You are an intelligent podcast assistant. Write only the text that will be read aloud, without notes or meta-commentary."
                 },
                 {
                     "role": "user",
@@ -112,42 +112,42 @@ def generate_summary(articles):
         )
         return chat_completion.choices[0].message.content
     except Exception as e:
-        print(f"Error a Groq API: {e}")
-        return "Error generant el resum a causa del proveïdor LLM."
+        print(f"Groq API error: {e}")
+        return "The summary could not be generated because of an LLM provider error."
 
 def text_to_audio(text, filename):
-    """Converts text to audio using gTTS in Catalan."""
-    print(f"Generant àudio amb gTTS, es guardarà com a {filename}...")
+    """Converts English text to audio using gTTS."""
+    print(f"Generating audio with gTTS; it will be saved as {filename}...")
     try:
-        tts = gTTS(text=text, lang='ca', slow=False)
+        tts = gTTS(text=text, lang='en', slow=False)
         tts.save(filename)
-        print(f"Podcast desat correctament a: {filename}")
+        print(f"Podcast saved successfully to: {filename}")
     except Exception as e:
-        print(f"Error generant l'àudio TTS: {e}")
+        print(f"Error generating TTS audio: {e}")
 
 def main():
     base_dir = os.path.dirname(__file__)
     opml_path = os.path.join(base_dir, "feeds.opml")
     
     if not os.path.exists(opml_path):
-        print(f"El fitxer {opml_path} no existeix. Comprova que l'has exportat des de l'app de RSS.")
+        print(f"{opml_path} does not exist. Check that you exported it from the RSS app.")
         sys.exit(1)
         
     feeds = parse_opml(opml_path)
-    print(f"S'han trobat {len(feeds)} feeds de les teves categories.")
+    print(f"Found {len(feeds)} feeds in the selected categories.")
     
     articles = fetch_rss_24h(feeds)
-    print(f"S'han descarregat {len(articles)} articles únics de les últimes 24 hores.")
+    print(f"Downloaded {len(articles)} unique articles from the last 24 hours.")
     
     summary_text = generate_summary(articles)
     
     # Save script text for review
-    txt_filename = os.path.join(base_dir, f"resum_{datetime.now().strftime('%Y_%m_%d')}.txt")
+    txt_filename = os.path.join(base_dir, f"summary_{datetime.now().strftime('%Y_%m_%d')}.txt")
     with open(txt_filename, 'w', encoding='utf-8') as f:
         f.write(summary_text)
         
     # Generate Audio
-    audio_filename = os.path.join(base_dir, f"resum_{datetime.now().strftime('%Y_%m_%d')}.mp3")
+    audio_filename = os.path.join(base_dir, f"summary_{datetime.now().strftime('%Y_%m_%d')}.mp3")
     text_to_audio(summary_text, audio_filename)
 
 if __name__ == "__main__":

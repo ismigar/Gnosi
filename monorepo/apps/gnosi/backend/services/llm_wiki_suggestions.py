@@ -158,7 +158,7 @@ def _mirror_to_graph() -> None:
 
 def _suggest_prompt(reading_notes: List[Dict[str, str]], language: str) -> str:
     listing = "\n".join(
-        f"- [{n['id']}] «{n['title']}» (font: {n['source']}) — {n['excerpt']}"
+        f"- [{n['id']}] «{n['title']}» (source: {n['source']}) — {n['excerpt']}"
         for n in reading_notes
     )
     return f"""You audit a personal Zettelkasten. Detect meaningful relationships among
@@ -176,16 +176,16 @@ Only propose groups with a real relationship, normally spanning different
 resources. Return an empty list when none qualify. Maximum
 {MAX_SUGGESTIONS_PER_PASS} proposals.
 
-NOTES DE LECTURA:
+READING NOTES:
 {listing}
 
 Return only JSON: {{"suggestions": [{{"kind": "connection", "title": "…",
 "member_ids": ["…"], "why": "…", "evidence": ["…"]}}]}}"""
 
 
-def generate_suggestions(brain_table_id: str, language: str = "català",
+def generate_suggestions(brain_table_id: str, language: str = "English",
                          focus_ids: Optional[List[str]] = None) -> int:
-    """Runs the LLM pass over the Cervell's reading notes and queues proposals.
+    """Run the LLM pass over the Brain's reading notes and queue proposals.
 
     ``focus_ids`` (post-ingest mode) limits proposals to groups touching at
     least one of the given notes; None (lint mode) scans everything. Degrades

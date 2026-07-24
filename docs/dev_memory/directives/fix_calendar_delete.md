@@ -1,23 +1,23 @@
-# Directiva: Correcció d'Errors en l'Eliminació de Cites al Calendari
+# Directive: Fix Calendar Event Deletion Errors
 
 ## Context
-S'ha detectat un error visual on les notificacions d'error (toasts) apareixen i desapareixen ràpidament sense deixar rastre a la consola quan s'intenta eliminar una cita. Això sol ser causat per:
-1. Claus de traducció inexistents (`event_deleted`, `event_delete_error`).
-2. Intents d'eliminar recursos externs (ex. Google Calendar) des d'endpoints que només accepten fitxers locals (.md).
+A visual error was detected where error notifications (toasts) appeared and disappeared quickly without leaving a console trace when deleting a calendar event.
+1. Translation keys do not exist (`event_deleted`, `event_delete_error`).
+2. External resource deletion attempts (e.g. Google Calendar) from endpoints that only accept local files (.md).
 
-## Protocols de Resolució
+## Protocols for Resolution
 
-### 1. Traduccions Robustes
-- Totes les operacions de CRUD han de tenir les seves claus de traducció definides als fitxers JSON de cada idioma.
-- Mai s'ha de confiar al 100% en el text per defecte de la funció `t()` si s'espera una notificació d'error crítica.
+### 1. Robust Translations
+- All CRUD operations must define their translation keys in each language's JSON file.
+- Never rely 100% on the default text of `t()` for critical error notifications.
 
-### 2. Validació d'Origen (Local vs Extern)
-- Abans de cridar `axios.delete`, cal verificar si l'objecte té un origen local (`source === 'Gnosi'` o similar).
-- Si la cita és externa, el botó d'eliminació hauria d'estar deshabilitat o mostrar un missatge explicatiu indicant que s'ha de gestionar des de la plataforma d'origen.
+### 2. Origin Validation (Local vs External)
+- Before calling `axios.delete`, verify if the object has a local origin (`source === 'Gnosi'` or similar).
+- If the citation is external, the delete button should be disabled or display an explanatory message indicating that it needs to be managed from the originating platform.
 
-### 3. Gestió d'Errors
-- El bloc `catch` ha d'assegurar-se de registrar l'error complet a la consola abans de llançar el *toast*.
-- Si el component es pot "desmuntar" durant l'eliminació, les operacions de tancament han d'esperar que la promesa de l'API s'hagi resolt.
+### 3. Error Management
+- The `catch` block must ensure that the complete error is registered in the console before launching the *toast*.
+- If the component can be "unmounted" during removal, operations of closure must wait for the API promise to resolve.
 
-## Historial de Canvis
-- **2026-04-10**: Corregit l'error de claus de traducció faltants i afegida validació bàsica d'origen.
+## Historical Changes
+- **2026-04-10**: Corrected missing translation keys and added basic origin validation.

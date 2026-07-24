@@ -1,20 +1,33 @@
-# Directiva: Correcció de TypeError a GraphPage (Filtres de Camps)
+# Directive: GraphPage field-filter TypeError fix
 
 ## Context
-S'ha detectat un error en temps d'execució (`Uncaught TypeError: Cannot read properties of undefined (reading 'name')`) a la pàgina del Graf (`GraphPage.jsx`). L'error es produeix en renderitzar els filtres de camps dinàmics quan una taula no es troba a la llista de taules disponibles (per exemple, entitats de sistema com 'wiki', 'images', etc.).
 
-## Problema
-Al component `GraphPage`, dins del bloc de filtres de camps (`visibleFields.map`), s'està intentant accedir a `table.name` directament en l'etiqueta `<h5>`, malgrat que existeix una lògica prèvia per calcular un `tableName` que gestiona els casos on `table` és `undefined`.
+`GraphPage.jsx` raised
+`Uncaught TypeError: Cannot read properties of undefined (reading 'name')`
+while rendering dynamic field filters. It occurs when a table is absent from
+the available-table list, including system entities such as `wiki` or
+`images`.
 
-## Solució
-1. Utilitzar la variable `tableName` (ja calculada) en lloc de `table.name` a la línia 633 (aprox.).
-2. Assegurar-se que qualsevol accés a l'objecte `table` sigui segur (ús de optional chaining `?.`).
+## Cause
 
-## Passos d'Execució
-1. Localitzar el map de `visibleFields` a `GraphPage.jsx`.
-2. Canviar `{table.name}` per `{tableName}`.
-3. Verificar que no hi hagi altres accessos insegurs a `table` en aquest context.
+Inside the `visibleFields.map` filter block, the `<h5>` label accessed
+`table.name` directly even though the component had already computed a safe
+`tableName` fallback for cases where `table` is undefined.
 
-## Verificació (QA)
-1. Executar `npm run build` al directori `frontend` per assegurar que no hi ha errors de sintaxi.
-2. (Opcional) Obrir el navegador a la pàgina del graf i verificar que els filtres de camps es carreguen correctament sense petar, especialment per a camps de sistema.
+## Fix
+
+1. Use the precomputed `tableName` instead of `table.name`.
+2. Make every other table access in this context null-safe with optional
+   chaining where appropriate.
+
+## Execution
+
+1. Locate `visibleFields.map` in `GraphPage.jsx`.
+2. Replace `{table.name}` with `{tableName}`.
+3. Check the surrounding block for unsafe table access.
+
+## QA
+
+1. Run `npm run build` in `frontend`.
+2. Open the graph page and verify field filters render without errors,
+   especially for system fields.

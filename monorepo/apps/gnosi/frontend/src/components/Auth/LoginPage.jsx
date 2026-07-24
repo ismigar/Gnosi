@@ -29,25 +29,25 @@ export function LoginPage() {
         e.preventDefault();
         setError('');
         if (!email || !password) {
-            setError(t('auth.missing_fields', 'Cal indicar email i contrasenya.'));
+            setError(t('auth.missing_fields', "Email and password are required."));
             return;
         }
         if (isRegister && password.length < 8) {
-            setError(t('auth.password_too_short', 'La contrasenya ha de tenir almenys 8 caràcters.'));
+            setError(t('auth.password_too_short', "The password must be at least 8 characters long."));
             return;
         }
         setSubmitting(true);
         try {
             if (isRegister) {
                 await register(email, password, name);
-                toast.success(t('auth.register_success', 'Compte creat. Benvingut/da a Gnosi!'));
+                toast.success(t('auth.register_success', "Account created. Welcome to Gnosi!"));
             } else {
                 await login(email, password);
-                toast.success(t('auth.login_success', 'Sessió iniciada.'));
+                toast.success(t('auth.login_success', "Signed in."));
             }
             // No need to navigate: AuthProvider updates `user` and App renders the app.
         } catch (err) {
-            setError(err.message || t('auth.auth_error', "Error d'autenticació."));
+            setError(err.message || t('auth.auth_error', "Authentication error."));
         } finally {
             setSubmitting(false);
         }
@@ -105,10 +105,10 @@ export function LoginPage() {
                         G
                     </div>
                     <h1 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--text-primary)', margin: 0 }}>
-                        {isRegister ? t('auth.register_title', 'Crea el teu compte') : t('auth.login_title', 'Benvingut/da a Gnosi')}
+                        {isRegister ? t('auth.register_title', "Create your account") : t('auth.login_title', "Welcome to Gnosi")}
                     </h1>
                     <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                        {isRegister ? t('auth.register_subtitle', 'Uneix-te al teu espai de treball') : t('auth.login_subtitle', 'Inicia sessió per continuar')}
+                        {isRegister ? t('auth.register_subtitle', "Join your workspace") : t('auth.login_subtitle', "Sign in to continue")}
                     </p>
                 </div>
 
@@ -116,7 +116,7 @@ export function LoginPage() {
                     <input
                         className="gnosi-input"
                         type="text"
-                        placeholder={t('auth.name_placeholder', 'Nom (opcional)')}
+                        placeholder={t('auth.name_placeholder', "Name (optional)")}
                         value={name}
                         onChange={(e) => setName(e.target.value)}
                         autoComplete="name"
@@ -136,7 +136,7 @@ export function LoginPage() {
                 <input
                     className="gnosi-input"
                     type="password"
-                    placeholder={t('auth.password_placeholder', 'Contrasenya')}
+                    placeholder={t('auth.password_placeholder', "Password")}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     autoComplete={isRegister ? 'new-password' : 'current-password'}
@@ -185,7 +185,7 @@ export function LoginPage() {
                     ) : (
                         <LogIn size={16} />
                     )}
-                    {submitting ? t('auth.processing', 'Processant…') : isRegister ? t('auth.create_account_btn', 'Crear compte') : t('auth.enter_btn', 'Entrar')}
+                    {submitting ? t('auth.processing', "Processing…") : isRegister ? t('auth.create_account_btn', "Create account") : t('auth.enter_btn', "Sign in")}
                 </button>
 
                 <button
@@ -200,7 +200,7 @@ export function LoginPage() {
                         padding: '4px',
                     }}
                 >
-                    {isRegister ? t('auth.switch_to_login', 'Ja tens compte? Inicia sessió') : t('auth.switch_to_register', 'No tens compte? Registra-t’hi')}
+                    {isRegister ? t('auth.switch_to_login', "Already have an account? Sign in") : t('auth.switch_to_register', "Don't have an account? Sign up")}
                 </button>
             </form>
         </div>

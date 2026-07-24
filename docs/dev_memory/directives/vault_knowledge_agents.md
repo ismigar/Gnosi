@@ -1,132 +1,128 @@
-# Directiva: Agents de coneixement sobre el Vault (ampliació de l'agent existent)
+# Knowledge Agents for the Vault
 
-**Objectiu:** que els agents IA de Gnosi puguin **treballar amb les dades** (no només
-cercar-les) i, via MCP, **connectar amb l'exterior** — començant pels casos que l'usuari
-vol: proposar connexions entre notes, generar resums/fitxes Cornell de PDFs, curar el
-vault, xat-RAG sobre el coneixement, i recerca externa → nota.
+## Objective
 
-## Punt de partida REAL (no construïm de zero)
+Extend Gnosi's existing AI agent system so agents can safely act on vault
+knowledge, not merely search it. Target workflows include link suggestions,
+PDF summaries and Cornell notes, vault curation, grounded chat, and external
+research captured as a note.
 
-Gnosi JA TÉ un arnès d'agents madur. **Ampliem, no dupliquem.** Inventari verificat:
+## Existing foundation
 
-| Capacitat | On viu | Estat |
-|---|---|---|
-| Loop multi-agent (supervisor→coder/brain/general) | `backend/agent/factory.py` (~337-527) | ✅ |
-| Crida LLM multi-proveïdor + `generate_text` | `backend/agent/factory.py` (139-331) | ✅ |
-| **Client MCP** (tools externes → langchain) | `backend/mcp/client.py`, `backend/agent/tools.py` | ✅ |
-| Auto-creació de tools (validator/sandbox/learning) | `backend/agent/generated_tools/` | ✅ |
-| Memòria vectorial (Chroma) | `backend/agent/memory.py` | ✅ |
-| Xat streaming SSE amb tool-calls | `backend/api/agent_routes.py` (`POST /api/chat`), `frontend/src/components/AgentChat.jsx` | ✅ |
-| Persones/instruccions com a markdown | `backend/agent/instructions/*.md` | ✅ |
-| Tools de **lectura** del vault | `system_tools.py`: `search_vault`, `get_vault_registry` | ✅ |
-| **Tools d'ACCIÓ sobre el vault** (crear/editar/relacionar/llegir pàgina/PDF) | — | ❌ **EL FORAT** |
-| Tools actuals d'acció | git, `apply_patch`, `run_tests`, `inspect_codebase` | ⚠️ centrades en CODI, no en coneixement |
+Gnosi already provides:
 
-**Diagnòstic:** l'agent "brain" pot CERCAR el vault però no pot ACTUAR-hi. Les úniques
-tools d'escriptura són de programador. El que falta és el **cinturó d'eines de coneixement**.
+- Supervisor, coder, brain, and general-agent routing.
+- Multi-provider LLM calls.
+- MCP tools.
+- Generated-tool validation and sandboxing.
+- Vector memory.
+- SSE chat with tool-call events.
+- Markdown agent instructions.
+- Read-only vault search and registry tools.
 
-## Fase 1 — Cinturó d'eines de coneixement (EL TOTXO)
+The missing layer is a generic set of knowledge-writing tools. Extend the
+existing brain agent; do not create a parallel agent framework.
 
-Nou mòdul `backend/agent/vault_tools.py` amb `@tool` (langchain) que embolcallen l'API/serveis
-de vault que JA existeixen (reusar la lògica de `vault_routes`, no reimplementar):
+## Knowledge tool belt
 
-| Tool | Acció | Reusa |
-|---|---|---|
-| `read_page(id_or_title)` | cos + metadata d'una pàgina | `GET /pages/{id}` / page index |
-| `read_pdf(path_or_asset)` | text d'un PDF d'`Assets/`/`Biblioteca/` | extractor PDF (materialitzar si OneDrive) |
-| `create_page(title, content, table_id?, metadata?)` | crea pàgina/fila | lògica de `POST /pages` + `register_page_in_index` |
-| `update_page(id, content?/metadata?, targeted_replacements?)` | edita | `PATCH /pages` (merge + reemplaçaments dirigits) |
-| `get_relations(id)` | directes + inverses | `GET /pages/by-table` (font del backend) |
-| `link_pages(from_id, to_id, field?)` | crea relació/wikilink | PATCH + `sync_inverse_relations` |
-| `query_table(table_id, filters?)` | files d'una taula | `by-table` + apply_filter |
-| `list_tables()` | catàleg de taules | `GET /tables` |
-| `propose_links(id)` | (composta) cerca relacionades i SUGGEREIX `[[...]]` | search_vault + read_page |
+Add `backend/agent/vault_tools.py` with reusable tools:
 
-**Registre:** afegir-les al conjunt de l'agent **brain** (`factory.py`, on es construeix
-`brain_tools`). NO al coder. Mantenir el coder per a tasques de codi.
+- `read_page`
+- `read_pdf`
+- `create_page`
+- `update_page`
+- `get_relations`
+- `link_pages`
+- `query_table`
+- `list_tables`
+- `propose_links`
 
-### Restriccions de seguretat (OBLIGATORI)
-- Nivells de risc del validador existent: escriptures al vault = `LOCAL_WRITE` (no demanen
-  aprovació); res no és `EXTERNAL_WRITE` excepte tools MCP que escriguin fora.
-- **Mai escriure a notes reals durant QA**: l'autosave/collab persisteix per WebSocket
-  (cf. [[feedback_collab_ws_bypasses_fetch_block]], [[feedback_vault_editor_qa_safety]]) →
-  usar pàgines d'usar i llençar o un vault de proves a `/tmp`.
-- `read_only`/derivats (formula/rollup, Creat/Editat per) → mai escriure'ls.
-- Tota escriptura passa pel servei (estampat d'autoria, carpetes, índex) — no a disc cru.
-- Confirmar accions destructives (esborrar/buidar) via la UI, mai dins una tool silenciosa
-  (cf. [[feedback_destructive_action_confirm_accessibility]]).
+Wrap existing vault services rather than reimplementing route logic. Every
+write must preserve authorship, atomic persistence, folders, aliases, and
+index updates.
 
-## Fase 2 — Persones/skills de coneixement (prompts, no codi nou)
+Register these tools with the brain agent, not the coder.
 
-Cada "agent" que l'usuari vol és una **persona** (markdown a `backend/agent/instructions/`)
-que orquestra el MATEIX cinturó d'eines. No calen nodes nous si el supervisor sap encaminar:
+## Safety rules
 
-- **Curador**: detecta òrfenes/duplicats, suggereix tags, omple buits → `query_table`+`update_page`.
-- **Connector** (el que l'usuari va afegir): `propose_links` sobre la pàgina activa.
-- **Resumidor/Cornell**: `read_pdf`/`read_page` → `generate_text` (plantilla Cornell) → `create_page`.
-- **Xat-RAG**: `search_vault` (ja hi és) + cites → resposta conversacional (ja és el xat actual).
-- **Correu/agenda**: tools sobre Gmail/Google (ja connectats) — fase posterior.
+- Vault writes are local writes under the existing risk model.
+- External MCP writes remain external actions.
+- Never test write tools against real notes; use a temporary vault or
+  disposable pages.
+- Never write derived, read-only, formula, rollup, or authorship audit fields.
+- Destructive actions require an accessible UI confirmation and must not be
+  hidden inside an agent tool.
+- Reads of PDFs and assets must respect containment and provider
+  materialization.
+- Tools return explicit changed targets so the user can audit the result.
 
-**Context dinàmic:** injectar "pàgina/taula activa" al context del xat (avui hi ha `mentions`
-però no auto-context) — passar `active_page_id` al `POST /api/chat` i exposar-lo a les tools.
+## Knowledge personas
 
-## Component transversal — Router de models (data-driven + conscient de pressupost)
+Personas are Markdown instructions orchestrating the same tool belt:
 
-**Estat actual** (`agent/factory.py`): proveïdors configurables (`load_params().ai.providers`,
-UI a Configuració › IA) + `_resolve_auto_llm` que tria per complexitat/disponibilitat. **Límit:**
-els stacks de models són HARDCODED dins la funció i el router NO sap de tokens/cost/quota.
+- Curator: find orphaned or duplicate records, suggest tags, and fill gaps.
+- Connector: propose links for the active page.
+- Summarizer: create summaries or Cornell notes from a page or PDF.
+- Grounded chat: answer from vault search with citations.
+- Researcher: combine external MCP research with a new vault note.
 
-**Objectiu de l'usuari:** configurar tants proveïdors/models com vulgui (locals o no) i que
-l'orquestrador triï per petició + tokens restants + cost + disponibilitat.
+Inject `active_page_id` and active table context into `/api/chat` so personas
+can operate on the user's current scope without guessing.
 
-**1. Registry de models data-driven** (Configuració › IA, desat a config/secrets):
-cada entrada = `{provider, model_id, endpoint?, is_local, enabled, priority, cost_in/out
-(per 1k tok), context_window, tags[] (p.ex. code/vision/long-context/tools), monthly_quota?}`.
-Afegir/treure models sense tocar codi. Substitueix els stacks hardcoded de `_resolve_auto_llm`.
+## Data-driven model router
 
-**2. Router per política** (puntua candidats, no llista fixa):
-- **Capacitat**: filtrar pels `tags` que la petició necessita (codi, visió, context llarg, tools).
-- **Disponibilitat/salut**: reusar `_provider_is_available` + health (no triar un proveïdor 401/down).
-- **Pressupost/tokens**: si la quota del proveïdor de pagament s'esgota o el cost estimat supera
-  el sostre → **degradar a model més barat o LOCAL** (Ollama: cost 0 → preferit quan apreta).
-- **Cost/qualitat**: a igualtat, el de millor relació segons complexitat estimada.
+Replace hard-coded model stacks with a configurable registry:
 
-**3. Comptabilitat d'ús** (NOU — verificar si existeix): comptar tokens in/out per
-proveïdor i període (taula/JSON a GNOSI_LOCAL_DATA) → alimenta "queden tokens". Per a models
-locals, cost 0; per a quotes de free-tier, comptador mensual amb reset.
+```text
+provider, model_id, endpoint, is_local, enabled, priority,
+input/output cost, context window, capability tags, monthly quota
+```
 
-**On tocar:** `_resolve_auto_llm` → `route_model(request_features, registry, usage, budget)`;
-el `llm_mode` del xat (`auto|manual|agent_default`) es manté (manual = força un model del registry).
-Encaixa amb l'**escletxa oberta**: afegir un proveïdor/model local nou = una fila al registry.
+Routing policy:
 
-## Fase 3 — Connexió exterior (reusar el client MCP que JA hi és)
+1. Filter by required capabilities such as tools, code, vision, or long
+   context.
+2. Exclude unavailable or unhealthy providers.
+3. Respect quota and estimated-cost ceilings.
+4. Prefer cheaper or local models when budget is constrained.
+5. Rank remaining candidates by expected quality for task complexity.
 
-- Registry de servidors MCP a Configuració (stdio/HTTP/OAuth) → `backend/mcp/client.py`.
-- **Tanca el cercle amb l'importador de Notion**: configurar el **MCP allotjat de Notion**
-  com a servidor → l'agent obté pàgines/BD/**vistes** sense l'API REST (Fase 2 de
-  [[notion_api_importer]] feta "gratis" per aquí).
-- Web/recerca: tool MCP o `WebFetch`-like per a l'agent "Investigador → nota".
+Keep chat modes `auto`, `manual`, and `agent_default`. Manual selection forces
+an enabled registry entry.
 
-## Escletxa oberta (objectius futurs sense redisseny) — requisit de l'usuari
+Persist usage accounting under local data, grouped by provider and billing
+period. Local models have zero monetary cost. Monthly quota counters reset
+deterministically.
 
-Ja és estructural; només cal **no tancar-la**:
-1. **Auto-tools** (`generated_tools/`): l'agent pot crear-se tools ndnoves dins el sandbox →
-   capacitats que avui no imaginem entren sense tocar el core.
-2. **MCP**: qualsevol servei extern futur = afegir un servidor MCP, zero codi.
-3. **Registry de persones/skills**: les persones són markdown → afegir un agent = afegir un
-   `.md` + (si cal) encaminament al supervisor. Mantenir-ho data-driven, no hardcoded.
-4. Mantenir el cinturó d'eines **genèric** (read/write/relate/query), no fet a mida d'un sol
-   cas → qualsevol agent nou el reutilitza.
+## External connections through MCP
 
-## QA (obligatori)
-1. **Tools**: tests del nucli amb un vault de proves a `/tmp` (cf.
-   [[feedback_isolated_testclient_e2e]]); mai contra notes reals.
-2. **E2E al xat**: obrir `AgentChat`, demanar "resumeix aquest PDF en una fitxa Cornell" i
-   "proposa connexions per a aquesta nota", verificar tool_start/tool_end al stream i la
-   pàgina creada (re-fetch + esborrar — cf. [[feedback_qa_verify_persistence]]).
-3. **Stopping rule**: "no s'ha pogut provar" = no fet.
+Expose a settings-managed MCP server registry covering stdio, HTTP, and OAuth.
+Reuse `backend/mcp/client.py`.
 
-## Ordre d'execució
-1. **Fase 1** (cinturó d'eines) — desbloqueja TOT. Primer agent demo: **Connector + Cornell/resum**.
-2. Persones de coneixement (Fase 2) sobre el mateix cinturó.
-3. Connexió exterior via MCP (Fase 3) — Notion-amb-vistes inclòs.
+This can provide exact Notion views through the hosted Notion MCP connector and
+support future web research without new core architecture.
+
+## Extensibility requirements
+
+- Generated tools remain sandboxed and validated.
+- Any future external service should be addable through MCP.
+- Personas remain data-driven Markdown resources.
+- Vault tools remain generic read, write, relate, and query primitives rather
+  than one-off workflow implementations.
+
+## QA
+
+1. Unit and integration tests use a temporary vault and isolated local data.
+2. Chat E2E requests a Cornell summary and link suggestions.
+3. Verify `tool_start` and `tool_end` events.
+4. Refetch the created page and relation to prove persistence.
+5. Remove disposable QA data through the normal confirmed workflow.
+6. “Could not test” is not completion.
+
+## Implementation order
+
+1. Generic vault tool belt.
+2. Connector and summarizer demonstration personas.
+3. Remaining knowledge personas.
+4. Data-driven model routing and usage accounting.
+5. External MCP registry and research workflows.

@@ -1,26 +1,34 @@
-# Contribució de traduccions al reader de Zotero (català, castellà)
+# Contributing Catalan and Spanish translations to Zotero Reader
 
 ## Context
 
-El visor de PDF/EPUB/HTML embedat al Vault de Gnosi és [`zotero/reader`](https://github.com/zotero/reader). Les seves traduccions venen del repo principal `zotero/zotero` a `chrome/locale/<lang>/zotero/reader.ftl`.
+Gnosi embeds [`zotero/reader`](https://github.com/zotero/reader) for PDF,
+EPUB, and HTML documents. Its translations come from the main Zotero
+repository under `chrome/locale/<lang>/zotero/reader.ftl`.
 
-Al moment d'aquesta sessió (2026-05-19), el `ca-AD/reader.ftl` (i el `es-ES/reader.ftl`) tenen ~13 claus encara en anglès. Mentre Zotero no les tradueix, Gnosi les sobreescriu localment via un overlay (vegeu [`frontend/src/components/Vault/zotero-locale-overlays/`](../../monorepo/apps/gnosi/frontend/src/components/Vault/zotero-locale-overlays/)).
+As of 2026-05-19, the Catalan and Spanish `reader.ftl` files still had about
+13 English keys. Gnosi overrides them through local overlays under
+[`zotero-locale-overlays`](../../monorepo/apps/gnosi/frontend/src/components/Vault/zotero-locale-overlays/).
 
-L'**objectiu d'aquest document** és facilitar enviar les mateixes traduccions upstream perquè el dia que Zotero les incorpori, puguem treure l'overlay i la comunitat sencera se'n beneficiï.
+The objective is to contribute these translations upstream so the overlays
+can eventually be removed and the wider Zotero community benefits.
 
-## Procés
+## Process
 
-Zotero **no accepta pull requests directes** a `chrome/locale/*/` (vegeu [CONTRIBUTING.md](https://github.com/zotero/zotero/blob/main/CONTRIBUTING.md) i [zotero.org/support/dev/localization](https://www.zotero.org/support/dev/localization)). La via oficial és **Transifex**:
+Zotero does not accept direct pull requests to `chrome/locale/*/`. Follow
+[Zotero contribution guidance](https://github.com/zotero/zotero/blob/main/CONTRIBUTING.md)
+and the [localization guide](https://www.zotero.org/support/dev/localization)
+through Transifex:
 
-1. Crear compte gratuït a [transifex.com](https://www.transifex.com) (si encara no en tens).
-2. Anar al projecte **Zotero Desktop** a Transifex: <https://explore.transifex.com/zotero/zotero/> (es redirigeix al projecte; busca "zotero/zotero").
-3. Demanar accés a l'equip català (`ca`/`ca-AD`) o castellà (`es`/`es-ES`).
-4. Un cop aprovat, anar al component **`reader.ftl`** i traduir les claus de sota.
-5. Repetir per `zotero.ftl` si hi ha algun string del visor que viu allí (`reader-` és l'únic prefix afectat ara).
+1. Create a free Transifex account.
+2. Open the [Zotero Desktop project](https://explore.transifex.com/zotero/zotero/).
+3. Request access to the Catalan or Spanish team.
+4. Translate the listed keys in the `reader.ftl` component.
+5. Check `zotero.ftl` for reader-prefixed strings as well.
 
-Les traduccions catalanes a Transifex es revisen pel coordinador de l'equip català de Zotero (Carles Pina darrerament, però pot canviar).
+The relevant Zotero language-team coordinator reviews submissions.
 
-## Claus a traduir (català)
+## Catalan keys
 
 ```ftl
 reader-note-annotation = Nota
@@ -52,7 +60,7 @@ reader-import-from-epub-prompt-title = Importa les anotacions de l'EPUB
 reader-import-from-epub-select-other = Tria un altre fitxer…
 ```
 
-## Claus a traduir (castellà)
+## Spanish keys
 
 ```ftl
 reader-note-annotation = Nota
@@ -84,18 +92,21 @@ reader-import-from-epub-prompt-title = Importar anotaciones del EPUB
 reader-import-from-epub-select-other = Elegir otro archivo…
 ```
 
-## Després del merge upstream
+## After the upstream merge
 
-Quan Zotero aprovi i incorpori les traduccions:
+After Zotero accepts the translations:
 
-1. El proper `git submodule update --remote` del submodule `frontend/vendor/zotero-reader/` portarà un `.zotero-locale-commit` nou amb les traduccions ja al `chrome/locale/`.
-2. `sh build-zotero-reader.sh` les baixarà automàticament a `public/zotero-reader/locales/`.
-3. **No cal treure l'overlay**: Fluent l'aplica com a darrer bundle i no es trenca res si la traducció upstream coincideix.
-4. Quan totes les claus del overlay siguin idèntiques a les d'upstream, es pot esborrar el fitxer overlay (i la branca del script que el copia) per reduir manteniment.
+1. Updating the reader submodule brings a new `.zotero-locale-commit` with the
+   translations in `chrome/locale/`.
+2. `build-zotero-reader.sh` copies them into
+   `public/zotero-reader/locales/`.
+3. The overlay can remain temporarily; Fluent applies it last and identical
+   values are harmless.
+4. Remove the overlay and copy branch once every override matches upstream.
 
-## Verificació periòdica
+## Periodic verification
 
-Per saber si Zotero ja ha incorporat traduccions:
+Check whether the pinned Zotero locale commit contains the translations:
 
 ```bash
 COMMIT=$(cat monorepo/apps/gnosi/frontend/vendor/zotero-reader/.zotero-locale-commit)
@@ -103,4 +114,5 @@ curl -s "https://raw.githubusercontent.com/zotero/zotero/$COMMIT/chrome/locale/c
     | grep -E "^reader-(note-annotation|page-options|prompt-delete-annotations-title) ="
 ```
 
-Si veus les traduccions catalanes (no "Note Annotation", etc.), l'overlay ja és redundant per aquelles claus.
+When the upstream file contains the Catalan translations, those overlay keys
+are redundant.

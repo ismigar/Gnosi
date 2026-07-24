@@ -1,167 +1,163 @@
-# Directiva: Importador de Notion (API) → Vault de Gnosi
+# Notion API Importer
 
-**Objectiu:** funció reutilitzable al backend que reprodueix l'estructura d'un workspace
-de Notion (bases de dades → taules, pàgines → pàgines, relacions, contingut → Markdown,
-fitxers) dins el vault de Gnosi, amb un token d'integració de Notion configurable a la UI.
+## Objective
 
-## Abast i fidelitat (LLEGIR PRIMER)
+Provide a reusable backend importer that reproduces a Notion workspace inside a
+Gnosi vault: databases, pages, properties, relationships, Markdown content,
+and downloaded files. The integration token is configured through the UI.
 
-La fidelitat alta d'una "migració manual via connector MCP" té DUES fonts diferents:
-- **API REST pública** (`api.notion.com`, token d'integració): exposa esquema, pàgines,
-  relacions, blocs i fitxers. → reproduïble per una funció backend.
-- **Connector MCP allotjat de Notion** (endpoint AI/intern): exposa a més un **resum de
-  vistes** (`type`, `displayProperties`). → un token d'integració NO ho dóna.
+## Fidelity boundary
 
-**Conseqüència:** la funció backend (Fase 1) reprodueix ~90% (estructura + dades +
-relacions + contingut + fitxers). Les **vistes** NO són a l'API pública → s'apliquen
-heurístiques. La fidelitat 100% de vistes requereix MCP-OAuth (Fase 2, opcional).
+The public Notion REST API exposes schemas, pages, relationships, blocks, and
+files. It does not expose complete view definitions. Phase 1 therefore imports
+roughly 90% of the structure and generates heuristic views. Exact view filters,
+sorts, grouping, and display properties require the optional MCP OAuth phase.
 
-## Arquitectura
+## Architecture
 
-```
-backend/services/notion_importer.py   # client + transforms purs + orquestrador
-backend/api/notion_routes.py          # endpoints (registrat a server.py prefix /api/notion)
-frontend: NotionImportSettings.jsx     # pestanya a GlobalSettingsModal (token + botó importar)
+```text
+backend/services/notion_importer.py
+backend/api/notion_routes.py
+frontend/src/.../NotionImportSettings.jsx
 ```
 
-- **Token:** a `cfg.paths["SECRETS"]/integrations.json` sota clau `notion` (patró Google).
-  Mai al registry ni al vault. Capçaleres: `Authorization: Bearer <token>`,
-  `Notion-Version: 2022-06-28`.
-- **Escriptura a Gnosi:** REUSAR els endpoints existents (NO escriure fitxers a mà):
-  - Taules: `POST /api/vault/tables` (upsert per `id`; `properties[]` amb `id/name/type/...`).
-  - Files/pàgines: `POST /api/vault/pages` (`metadata.table_id` + valors per NOM de camp).
-  - Vistes: `POST /api/vault/views` (upsert per `id`).
-  Així l'estampat d'autoria, carpetes, assets i índex es fan sols.
+Store the token under `cfg.paths["SECRETS"]/integrations.json`, never in the
+registry or vault.
 
-## Endpoints Notion usats (REST pública)
+Reuse Gnosi creation services or endpoints rather than writing files directly,
+so authorship, folders, assets, atomic writes, and indexing remain consistent.
 
-- `POST /v1/search` (filtra `object:database`) → descobreix BD compartides amb la integració.
-- `GET /v1/databases/{id}` → esquema (properties + opcions select/multi amb color).
-- `POST /v1/databases/{id}/query` (paginat, `start_cursor`/`has_more`) → files.
-- `GET /v1/pages/{id}` → valors de propietats d'una pàgina.
-- `GET /v1/blocks/{id}/children` (paginat, recursiu) → contingut.
-- Fitxers: l'URL de `file`/`image` és S3 amb expiració ~1h → baixar a l'instant.
+## Notion endpoints
 
-**Rate limit:** ~3 req/s de mitjana. Implementar throttle + retry exponencial al 429
-(respecta `Retry-After`). Paginació a TOTS els llistats.
+- `POST /v1/search`
+- `GET /v1/databases/{id}`
+- `POST /v1/databases/{id}/query`
+- `GET /v1/pages/{id}`
+- `GET /v1/blocks/{id}/children`
+- `/v1/users` for people resolution
 
-## Mapeig de tipus de propietat (Notion → Gnosi)
+Paginate every listing. Apply an average three-request-per-second throttle and
+exponential retry for `429`, respecting `Retry-After`. Download expiring S3
+file URLs immediately.
 
-| Notion | Gnosi `type` | Notes |
-|---|---|---|
-| `title` | `title` | és el títol de la pàgina (camp canònic) |
-| `rich_text` | `text` | concatenar `plain_text` |
-| `number` | `number` | preservar `format` si cal |
-| `select` | `select` | opcions `{name,color}` (mapejar paleta Notion→Gnosi) |
-| `multi_select` | `multi_select` | íd. |
-| `status` | `status` | íd. + grups si Gnosi els suporta |
-| `date` | `date` / `period` | si té `end` → `period` |
-| `people` | `text`/`person` | resoldre nom via `/v1/users` |
-| `files` | `file` | baixar a `Assets/` de la taula |
-| `checkbox` | `checkbox` | |
-| `url`/`email`/`phone` | `url`/`email`/`phone` o `text` | |
-| `relation` | `relation` | `relation_database_id` ← mapa de BD; 2 passades |
-| `formula`/`rollup` | derivat (read-only) | desar el valor calculat com a text; NO recalcular |
-| `created_time`/`created_by`/`last_edited_*` | camps natius d'autoria | ja existeixen a Gnosi |
+## Property mapping
 
-## Mapeig de blocs (Notion → Markdown)
+| Notion | Gnosi |
+|---|---|
+| `title` | `title` |
+| `rich_text` | `text` |
+| `number` | `number` |
+| `select` | `select` with rich options |
+| `multi_select` | `multi_select` with rich options |
+| `status` | `status` |
+| `date` | `date`, or `period` when an end exists |
+| `people` | `person` or resolved text |
+| `files` | downloaded `file` assets |
+| `checkbox` | `checkbox` |
+| `url`, `email`, `phone` | corresponding field or text |
+| `relation` | `relation`, wired in pass two |
+| `formula`, `rollup` | stored read-only calculated value |
+| created/edited metadata | native authorship fields |
 
-paragraph→text · heading_1/2/3→`#`/`##`/`###` · bulleted/numbered_list_item→`-`/`1.`
-· to_do→`- [ ]`/`- [x]` · toggle→`> ` o detall · quote→`>` · code→fence amb llenguatge
-· callout→`> [!note]` · divider→`---` · image/file→`![](ruta)` (baixat) · bookmark→
-`[bookmark: url](url)` (LinkCardBlock ja existeix) · table→taula Markdown · equation→`$$`
-· child_page/child_database→enllaç `[[…]]` a la pàgina/taula importada · synced_block→
-contingut inline (Gnosi té els seus). Rich text: bold/italic/code/strike/link/color.
+## Block mapping
 
-## Tancament transitiu (crawler BFS) — IMPLEMENTAT 2026-06-26
+Map paragraphs, headings, lists, tasks, toggles, quotes, code, callouts,
+dividers, tables, equations, bookmarks, media, child pages, child databases,
+and synchronized blocks to their closest Markdown or Gnosi block equivalent.
+Preserve rich-text emphasis, code, strike-through, links, and supported color
+semantics.
 
-Importar una sola BD deixava ORFES: relacions a BD no importades, blocs
-`child_page`/`child_database` i mencions a altres pàgines. Solució: `import_workspace` és
-un **crawler BFS sobre el graf de referències**:
-- En importar una BD → s'encuen les BD destí de les seves propietats `relation` (esquema).
-- En importar una pàgina/fila → `discover_block_refs` escaneja els blocs i encua els
-  `child_page`/`child_database`/`link_to_page`/mencions inline.
-- **Conjunt de visitats** (BD + pàgines) → segur amb cicles (Projects↔Tasks↔Areas).
-- Una pàgina descoberta amb `parent.type == database_id` s'enruta a importar la seva BD
-  (no com a pàgina solta sense `table_id`).
-- `max_pages` (def. 5000) evita desbordaments i es REPORTA `truncated` (cap tall silenciós).
-- Flags `follow_relations`/`follow_children` (UI: toggle "Seguir relacions i enllaços").
-Com que `gnosi_id_for` és determinista, el cablejat de relacions casa sol un cop el destí
-s'importa. Tests amb `FakeClient`: tancament, cicle, child page, fila→BD, truncament.
+Files and images are downloaded into the table's asset directory. Child
+objects become stable Gnosi links.
 
-## Resolució de relacions (2 passades, OBLIGATORI)
+## Transitive BFS import
 
-1. **Passada A:** crear TOTES les taules i TOTES les pàgines, mantenint un mapa
-   `notion_page_id → gnosi_page_id` (i `notion_db_id → gnosi_table_id`).
-2. **Passada B:** per cada propietat `relation`, traduir els IDs de Notion al `gnosi_id`
-   via el mapa i fer `PATCH`/`POST` per cablejar. El backend NO sincronitza inversos →
-   executar `sync_inverse_relations` després (cf. [[feedback_vault_relations_bytable_source]]).
+`import_workspace` performs breadth-first traversal across:
 
-## Vistes (heurística — Fase 1)
+- Database relation targets
+- Child pages and child databases
+- `link_to_page`
+- Inline page mentions
 
-L'API pública no dóna vistes. Per cada taula importada:
-1. Crear SEMPRE la vista de taula per defecte amb totes les propietats visibles.
-2. Si la taula té un camp `status` (o un únic `select` dominant), crear OPCIONALMENT una
-   segona vista agrupada per aquest camp (`groupBy`), reusant el suport d'agrupació de
-   `VaultTable`/`PageViewModal` (afegit 2026-06-25). Configurable amb un flag de la petició.
+Maintain visited sets for databases and pages so cyclic graphs terminate.
+A discovered row whose parent is a database must import through that database,
+not as an unscoped page.
 
-Fidelitat 100% de vistes (filtres/sort/group reals) = **Fase 2** via MCP-OAuth a
-`mcp.notion.com` (client MCP + OAuth al backend). Documentat, no implementat a Fase 1.
+`max_pages` defaults to 5000. When reached, return `truncated: true`; never
+silently cut the graph. Request flags control following relationships and
+children.
 
-## Endpoints de la funció
+## Two-pass relationship resolution
 
-- `POST /api/notion/token` — desa/valida el token (prova amb `/v1/users/me`).
-- `GET  /api/notion/databases` — llista BD compartides amb la integració.
-- `POST /api/notion/import` — body `{database_ids?, root_page_id?, create_group_views?,
-  target_folder?}`; retorna `{tables, pages, relations, files, errors[]}`. Llarg → ideal
-  com a job amb progrés (SSE estil mail), o síncron amb timeout generós a Fase 1.
+1. Create every table and page while building Notion-to-Gnosi ID maps.
+2. Translate relation IDs through those maps and patch the source records.
+3. Run inverse-relation synchronization afterward.
 
-## Reconciliació amb un vault JA migrat (CRÍTIC — descobert 2026-06-26)
+Never wire a relation during pass one because its target may not exist yet.
 
-El vault de Gnosi es va sembrar des d'aquest Notion i **CONSERVA els ids de Notion**:
-`metadata.id` de cada pàgina == id de Notion (p.ex. vault "Oci" = `103268e5-2714-8069-…`
-= Notion "📌 Ocio"); i els `table_id` == id de la BD de Notion (p.ex. Àrees =
-`90e31c41f815489b99f30086b120cbfa`, que és l'`ancestor-2-database` real, NO l'id que torna
-`/search`, afectat per la dualitat database↔data_source de 2025). Conseqüències:
+## Views
 
-1. **Aparellament per id, exacte** (no per títol). 13/13 BD de Notion ja existeixen com a
-   taules (noms en català). Eina: `services/notion_diff.match_pages` (id → fallback títol).
-2. **El contingut HA DIVERGIT**: el vault s'ha traduït ES→CA i editat des de la migració
-   (demo real "Ocio/Oci": `body_similarity=0.196`, 6 vs 5 vistes incrustades, relacions
-   4 vs 3). **Un re-import amb `gnosi_id_for(uuid5)` DUPLICARIA; un re-import per id raw
-   SOBREESCRIURIA la feina en català.** Cap de les dues és acceptable per defecte.
-3. **Per tant NO és una migració, és un SYNC amb el vault per davant.** L'importador, sobre
-   aquest vault, ha de: (a) usar l'id RAW de Notion (no uuid5); (b) per defecte **dry-run
-   diff** (`services/notion_diff`); (c) **mai sobreescriure pàgines `diverged`** sense
-   confirmació explícita — només afegir les genuïnament NOVES (`notion_only`).
-4. **Vistes incrustades**: representacions diferents (vault `<!-- gnosi-view:def {view_id} -->`
-   ↔ Notion `child_database`/`<database inline>`). Comparar per nombre + secció (heading),
-   no per text. Eines: `extract_vault_views` / `extract_notion_child_databases`.
+The public API cannot reproduce Notion views exactly.
 
-Motor de diff (PUR, testejat 9/9): `services/notion_diff.py` — `diff_page` retorna
-`{body_similarity, body_status(identical|similar|diverged), notion/vault_embeds, safe_action}`.
+For each imported table:
 
-## Restriccions / casos límit (omplir a mesura que es trobin)
+1. Create a default table view with all properties.
+2. Optionally create a second view grouped by a status field or the dominant
+   select field.
 
-- **Files S3 expiren ~1h** → baixar durant la importació, no desar l'URL.
-- **Rate limit 429** → throttle + `Retry-After`; no paral·lelitzar agressiu.
-- **Paginació** a search/query/blocks/users → no assumir 1 sola pàgina.
-- **Relacions primer crear-ho tot** → mai cablejar a la passada A (l'objectiu pot no existir).
-- **`formula`/`rollup` read-only** → desar valor, no intentar recalcular (cf.
-  [[feedback_zotero_mapping]] READ_ONLY_FIELDS).
-- **Opcions select** → normalitzar a `{name,color}` (cf. [[feedback_rich_option_catalog_normalize]]).
-- **Reimportació** → upsert idempotent per `id` derivat de l'ID de Notion (uuid5) per no duplicar.
+Exact views are phase 2 through Notion MCP OAuth.
 
-## QA (obligatori abans de tancar)
+## API
 
-1. **Transforms purs** (mapeig propietat + bloc→markdown): pytest amb fixtures sintètiques
-   de payloads Notion (NO cal token). Verificable amb py_compile + funcions extretes
-   (cf. [[feedback_local_backend_test_verification]]).
-2. **E2E live**: amb un token d'integració real, importar 1 BD a una carpeta de proves i
-   verificar taula+files+relacions+contingut al navegador (cf. [[feedback_qa_verify_persistence]]).
-3. **Stopping rule**: "no s'ha pogut provar" = no fet.
+- `POST /api/notion/token`: save and validate the token with `/v1/users/me`.
+- `GET /api/notion/databases`: list databases shared with the integration.
+- `POST /api/notion/import`: start an import and return table, page,
+  relationship, file, and error counts.
 
-## Fases
+A long import should eventually become a progress job using SSE.
 
-- **Fase 1** (aquesta): REST pública + heurística de vistes + transforms testejats.
-- **Fase 2** (opcional): MCP-OAuth per a fidelitat 100% de vistes; job amb progrés SSE.
+## Existing-vault reconciliation
+
+The current vault was originally seeded from Notion and retains raw Notion IDs.
+Its translated and edited content has since diverged.
+
+Rules:
+
+1. Match by exact raw ID first, with title only as a diagnostic fallback.
+2. Default to a dry-run diff.
+3. Never overwrite a diverged vault page without explicit confirmation.
+4. Add genuinely new `notion_only` pages safely.
+5. Compare embedded views by count and section, not literal serialized text.
+
+`services/notion_diff.py` provides pure, tested comparison helpers and returns
+body similarity, body status, embedded-view summaries, and a safe action.
+
+Do not use UUID5 IDs for this existing vault; doing so would duplicate pages.
+Do not overwrite by raw ID without a diff; doing so would destroy translated
+and edited work.
+
+## Restrictions
+
+- Download expiring files during the import.
+- Paginate search, queries, blocks, and users.
+- Do not aggressively parallelize against the Notion rate limit.
+- Store formula and rollup results; do not attempt to recalculate them.
+- Normalize select options to rich option objects.
+- Make fresh imports idempotent by stable source ID.
+- Treat existing-vault reconciliation as synchronization, not migration.
+- Preserve user content in its chosen language.
+
+## QA gates
+
+1. Pure mapping tests use synthetic Notion fixtures without a live token.
+2. BFS tests cover cycles, child pages, row-to-database routing, references,
+   and truncation.
+3. Diff tests cover identical, similar, diverged, and new pages.
+4. A live E2E import uses a test database and verifies schema, rows,
+   relationships, content, files, and browser rendering.
+5. “Could not test” is not completion.
+
+## Phases
+
+- Phase 1: public REST API, heuristic views, and tested transforms.
+- Phase 2: optional MCP OAuth for exact view fidelity and SSE progress.

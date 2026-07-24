@@ -8,10 +8,14 @@ Status: ACTIVE
 
 ## 1. Objectives and Scope
 
-Separar la subida de iconos de la subida de portadas en el Vault, y robustecer el pipeline de iconos.
+Separate icon uploads from cover uploads in the Vault and make the icon
+pipeline more robust.
 
-- Main Objective: disponer de un endpoint específico para iconos y almacenarlos en una carpeta distinta de Covers.
-- Success Criteria: `IconPicker` usa `/api/vault/upload-icon`, los iconos subidos se guardan en `Assets/Icons`, las portadas siguen usando `Assets/Covers`, y las URL externas se importan al almacenamiento local.
+- Main Objective: provide a dedicated icon endpoint and store icons in a
+  folder separate from covers.
+- Success Criteria: `IconPicker` uses `/api/vault/upload-icon`, uploaded icons
+  are stored in `Assets/Icons`, covers continue to use `Assets/Covers`, and
+  external URLs are imported into local storage.
 
 ## 2. Input/Output (I/O) Specifications
 

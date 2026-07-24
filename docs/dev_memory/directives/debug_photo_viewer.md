@@ -1,10 +1,15 @@
-# Directiva de Depuració: Visor de Fotos i Servit d'Imatges
+# Debugging directive: Photo viewer image serving
 
 ## Context
-L'usuari informa que el visor de fotos no troba els arxius de les imatges. Les imatges es llisten correctament (indicant que el backend les llegeix del disc), però els thumbnails apareixen buits, indicant que la ruta de servit (`/api/vault/images/...`) falla.
 
-## Problema Detectat
-A `monorepo/apps/gnosi/backend/api/vault_routes.py`, la funció `serve_vault_image` utilitza `.resolve()` per validar que el fitxer demanat està dins de `VAULT/Images`:
+The photo viewer can list images correctly while thumbnails remain blank.
+This means the backend can read the directory, but the
+`/api/vault/images/...` serving route fails.
+
+## Suspected cause
+
+In `monorepo/apps/gnosi/backend/api/vault_routes.py`, `serve_vault_image`
+uses `.resolve()` to verify containment under `VAULT/Images`:
 
 ```python
 img_root = (get_p("VAULT") / "Images").resolve()
@@ -14,14 +19,23 @@ if not str(requested).startswith(str(img_root)):
     raise HTTPException(status_code=403, detail="Access denied")
 ```
 
-A macOS amb OneDrive, `~/Library/CloudStorage/...` pot resoldre's a camins que comencen de forma diferent (ex: `/Volumes/...`) o tenir problemes amb espais, causant un 403 o 404.
+On macOS with OneDrive, `~/Library/CloudStorage/...` can resolve to a different
+physical prefix such as `/Volumes/...`. Spaces and URL encoding can also
+produce false `403` or `404` responses.
 
-## Protocol de Verificació
-1. Crear un script a `sandbox/` per simular la resolució de camins amb els paràmetres reals del sistema.
-2. Comprovar si `requested.startswith(img_root)` falla tot i ser el mateix directori lògic.
-3. Validar el maneig d'espais en la URL (`image_path`).
+## Verification
 
-## Possibles Solucions
-- Relaxar la validació de camins o utilitzar `os.path.commonpath`.
-- Assegurar-se que el encoding d'espais a la URL es gestiona correctament fins arribar al sistema de fitxers.
-- Si `.resolve()` és el culpable, utilitzar camins absoluts normalitzats sense resoldre symlinks si no és estrictament necessari per seguretat.
+1. Create a `sandbox/` script that resolves paths using the actual runtime
+   configuration.
+2. Check whether string-prefix containment fails for the same logical
+   directory.
+3. Verify URL decoding of spaces in `image_path`.
+
+## Safe fixes
+
+- Prefer `os.path.commonpath` or `Path.is_relative_to` over string-prefix
+  containment.
+- Preserve correct URL decoding through to the filesystem layer.
+- If `.resolve()` causes cloud-path aliasing, use normalized absolute paths
+  without resolving symlinks only when equivalent containment security is
+  maintained.

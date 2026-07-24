@@ -74,7 +74,7 @@ class HttpMCPClient:
             sid = resp.headers.get("Mcp-Session-Id")
             if sid:
                 self._session_id = sid
-            if resp.status_code == 429:  # rate limit → espera i reintenta
+            if resp.status_code == 429:  # Rate limit → wait and retry.
                 time.sleep(_retry_after_seconds(resp.headers.get("Retry-After"), attempt))
                 last = resp
                 continue

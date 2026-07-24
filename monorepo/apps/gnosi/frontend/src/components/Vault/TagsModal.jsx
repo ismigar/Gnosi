@@ -117,20 +117,20 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                 <div className="flex w-1/2 flex-col border-r border-[var(--border-primary)]">
                     <div className="flex items-center gap-2 border-b border-[var(--border-primary)] px-3 py-2.5">
                         <Hash size={16} className="text-[var(--gnosi-primary)]" />
-                        <span className="text-sm font-semibold text-[var(--text-primary)]">{t('tags.title', 'Etiquetes')}</span>
+                        <span className="text-sm font-semibold text-[var(--text-primary)]">{t('tags.title', "Tags")}</span>
                         <span className="text-xs text-[var(--text-tertiary)]">({totalTags})</span>
                     </div>
                     <div className="border-b border-[var(--border-primary)] px-2 py-1.5">
                         <input
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            placeholder={t('tags.filter_placeholder', 'Filtra etiquetes…')}
+                            placeholder={t('tags.filter_placeholder', "Filter tags…")}
                             className="w-full rounded bg-[var(--bg-secondary)] px-2 py-1 text-sm text-[var(--text-primary)] outline-none"
                         />
                     </div>
                     <div className="flex-1 overflow-auto p-1.5">
                         {topNodes.length === 0 ? (
-                            <div className="px-3 py-6 text-center text-sm text-[var(--text-tertiary)]">{t('tags.empty_vault', 'Cap etiqueta al Vault.')}</div>
+                            <div className="px-3 py-6 text-center text-sm text-[var(--text-tertiary)]">{t('tags.empty_vault', "No tags in the Vault.")}</div>
                         ) : topNodes.map((node) => (
                             <TagNode key={node.fullPath} node={node} depth={0} selected={selected} onSelect={setSelected} expanded={expanded} toggle={toggle} />
                         ))}
@@ -140,15 +140,15 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                 <div className="flex w-1/2 flex-col">
                     <div className="flex items-center justify-between border-b border-[var(--border-primary)] px-3 py-2.5">
                         <span className="truncate text-sm font-medium text-[var(--text-secondary)]">
-                            {selected ? `#${selected}` : t('tags.pick_tag', 'Tria una etiqueta')}
+                            {selected ? `#${selected}` : t('tags.pick_tag', "Choose a tag")}
                         </span>
                         <button onClick={onClose} className="rounded p-1 text-[var(--text-tertiary)] hover:bg-[var(--bg-secondary)]"><X size={16} /></button>
                     </div>
                     <div className="flex-1 overflow-auto p-1.5">
                         {!selected ? (
-                            <div className="px-3 py-8 text-center text-sm text-[var(--text-tertiary)]">{t('tags.pick_tag_hint', "Selecciona una etiqueta per veure'n les pàgines.")}</div>
+                            <div className="px-3 py-8 text-center text-sm text-[var(--text-tertiary)]">{t('tags.pick_tag_hint', "Select a tag to see its pages.")}</div>
                         ) : pages.length === 0 ? (
-                            <div className="px-3 py-8 text-center text-sm text-[var(--text-tertiary)]">{t('tags.no_pages', 'Cap pàgina.')}</div>
+                            <div className="px-3 py-8 text-center text-sm text-[var(--text-tertiary)]">{t('tags.no_pages', "No pages.")}</div>
                         ) : pages.map((note) => (
                             <button
                                 key={note.id}
@@ -156,7 +156,7 @@ export default function TagsModal({ isOpen, onClose, allNotes = [], onNoteSelect
                                 className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-[var(--bg-secondary)]"
                             >
                                 {note.metadata?.icon ? <IconRenderer icon={note.metadata.icon} size={15} className="shrink-0" /> : <FileText size={15} className="shrink-0 text-[var(--text-tertiary)]" />}
-                                <span className="truncate text-[var(--text-primary)]">{note.title || t('common.untitled', 'Sense títol')}</span>
+                                <span className="truncate text-[var(--text-primary)]">{note.title || t('common.untitled', "Untitled")}</span>
                             </button>
                         ))}
                     </div>

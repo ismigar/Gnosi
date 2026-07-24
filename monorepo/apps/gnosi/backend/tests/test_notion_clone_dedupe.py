@@ -1,15 +1,15 @@
-"""Tests del write_page de _run_clone_sync (notion_routes): dedupe de re-clon per id.
+"""Tests `_run_clone_sync` write_page reclone deduplication by id.
 
-Incident 2026-07-04: re-clonar sobre un vault amb un clon previ creava un SEGON fitxer
-«Títol id8.md» per a cada pàgina (els ids del clon són deterministes). Aquí es prova que:
-  · re-clonar NO fa créixer el nombre de fitxers (sobreescriu pel mateix id),
-  · dues pàgines DIFERENTS amb el mateix títol segueixen coexistint amb sufix id8,
-  · les files fantasma (id ja no a Notion) s'informen al report sense esborrar-se.
+During the 2026-07-04 incident, recloning a vault created a SECOND
+«Title id8.md» file for every page even though clone ids are deterministic.
+These tests verify that recloning does not increase the file count, distinct
+pages with the same title coexist using the id8 suffix, and orphan rows are
+reported without being deleted.
 """
 import sys
 from pathlib import Path
 
-# arrel `gnosi` al path → `backend...` importable (com al runtime)
+# Add the `gnosi` root to the path so `backend...` imports match runtime.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import yaml  # noqa: E402
@@ -26,7 +26,7 @@ def _page(pid, title):
 
 
 def _fake_clone_workspace(pages):
-    """Simula clone_workspace: crida els callbacks reals de _run_clone_sync."""
+    """Simulates clone_workspace by invoking the real _run_clone_sync callbacks."""
     def fake(rest, *, write_table, write_page, write_view, **kw):
         write_table({"id": TID, "name": "Tasques", "folder": "Tasques", "properties": []})
         for p in pages:
@@ -38,7 +38,7 @@ def _fake_clone_workspace(pages):
 
 @pytest.fixture()
 def clone_env(tmp_path, monkeypatch):
-    """Aïlla _run_clone_sync: token/MCP/vault/registre en memòria, sense xarxa ni índex."""
+    """Isolates _run_clone_sync with in-memory state and no network or index."""
     vault = tmp_path / "vault"
     vault.mkdir()
     registry = {"tables": [], "views": [], "databases": []}
@@ -75,10 +75,10 @@ def test_reclone_does_not_duplicate_files(clone_env):
     first = _md_files(vault)
     assert first == ["Filosofia.md", "Postgrau.md"]
 
-    rep = run(pages)  # re-clon del MATEIX workspace: mateixos ids deterministes
-    assert _md_files(vault) == first          # cap fitxer nou
-    assert rep["warnings"] == []              # cap fantasma
-    # i el contingut s'ha sobreescrit al mateix path (id intacte)
+    rep = run(pages)  # Same workspace: same deterministic ids.
+    assert _md_files(vault) == first          # No new files.
+    assert rep["warnings"] == []              # No orphans.
+    # Content was overwritten at the same path without changing the id.
     assert _fm(vault / "BD" / "Tasques" / "Postgrau.md")["id"] == "aaaa1111-id"
 
 
@@ -88,7 +88,7 @@ def test_same_title_different_ids_coexist_with_suffix(clone_env):
     files = _md_files(vault)
     assert files == ["Duplicada bbbb2222.md", "Duplicada.md"]
 
-    # re-clon: cada pàgina retroba el SEU fitxer (per id), sense crear-ne més
+    # Each page finds its own file by id without creating another one.
     run([_page("aaaa1111-id", "Duplicada"), _page("bbbb2222-id", "Duplicada")])
     assert _md_files(vault) == files
     assert _fm(vault / "BD" / "Tasques" / "Duplicada.md")["id"] == "aaaa1111-id"
@@ -98,20 +98,19 @@ def test_same_title_different_ids_coexist_with_suffix(clone_env):
 def test_ghost_rows_reported_not_deleted(clone_env):
     vault, run = clone_env
     run([_page("aaaa1111-id", "Viva"), _page("bbbb2222-id", "Esborrada a Notion")])
-    rep = run([_page("aaaa1111-id", "Viva")])  # el 2n clon ja no porta la segona fila
+    rep = run([_page("aaaa1111-id", "Viva")])  # The second clone omits the second row.
     ghost = vault / "BD" / "Tasques" / "Esborrada a Notion.md"
-    assert ghost.exists()                      # MAI s'esborra automàticament
-    assert any("bbbb2222-id" in w and "fantasma" in w.lower() for w in rep["warnings"])
+    assert ghost.exists()                      # Never deleted automatically.
+    assert any("bbbb2222-id" in w and "orphan" in w.lower() for w in rep["warnings"])
     assert not any("aaaa1111-id" in w for w in rep["warnings"])
 
 
 def test_reclone_empty_schema_does_not_wipe_existing_properties(tmp_path, monkeypatch):
-    """GUARD: un re-clon degenerat (fetch parcial de Notion o override buit) que porta
-    `properties: []` NO ha de destruir l'esquema ric existent al registre.
+    """Guards a rich schema against a degenerate reclone.
 
-    Incident: «Recursos» va perdre les seves 35 propietats i la graella només pintava
-    Títol + última edició. write_table sobreescriu l'entrada per id, així que ha de
-    preservar les propietats existents quan les entrants venen buides.
+    A partial Notion fetch or empty override with `properties: []` must not
+    destroy the existing registry schema. During the incident, «Resources» lost
+    35 properties because write_table overwrote the entry by id.
     """
     vault = tmp_path / "vault"
     vault.mkdir()
@@ -136,7 +135,7 @@ def test_reclone_empty_schema_does_not_wipe_existing_properties(tmp_path, monkey
     monkeypatch.setitem(notion_routes._CLONE_CANCEL, "flag", False)
 
     def fake(rest, *, write_table, write_page, write_view, **kw):
-        # Re-clon degenerat: la mateixa taula però amb esquema buit.
+        # Degenerate reclone: the same table with an empty schema.
         write_table({"id": TID, "name": "Recursos", "folder": "Recursos", "properties": []})
         return {"tables": 1, "pages": 0, "views": 0, "attachments": 0,
                 "collected": 0, "errors": [], "warnings": [], "truncated": False}
@@ -145,4 +144,4 @@ def test_reclone_empty_schema_does_not_wipe_existing_properties(tmp_path, monkey
     notion_routes._run_clone_sync(["db1"], target_folder="")
 
     table = next(t for t in registry["tables"] if t["id"] == TID)
-    assert table["properties"] == rich_props  # esquema intacte, no clobberat per []
+    assert table["properties"] == rich_props  # Schema remains intact.

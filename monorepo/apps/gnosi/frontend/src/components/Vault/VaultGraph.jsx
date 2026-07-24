@@ -76,7 +76,7 @@ export function VaultGraph({
             <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900/50">
                 <div className="flex flex-col items-center gap-3">
                     <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
-                    <span className="text-sm text-gray-500">{t('graph.vault_embed.building', 'Construint graf...')}</span>
+                    <span className="text-sm text-gray-500">{t('graph.vault_embed.building', "Building graph...")}</span>
                 </div>
             </div>
         );
@@ -116,7 +116,7 @@ export function VaultGraph({
                 <button 
                     onClick={() => viewerRef.current?.center()}
                     className="p-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300"
-                    title={t('graph.vault_embed.center_tooltip', 'Centrar')}
+                    title={t('graph.vault_embed.center_tooltip', "Center")}
                 >
                     <Target size={18} />
                 </button>
@@ -127,7 +127,7 @@ export function VaultGraph({
                 <div className="absolute top-4 left-4 px-3 py-1.5 bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 rounded-full flex items-center gap-2 pointer-events-none">
                     <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                     <span className="text-xs font-medium text-indigo-700 dark:text-indigo-300">
-                        {t('graph.vault_embed.filters_applied', 'Filtres de vista aplicats ({{n}})', { n: view.filters?.length || 0 })}
+                        {t('graph.vault_embed.filters_applied', "View filters applied ({{n}})", { n: view.filters?.length || 0 })}
                     </span>
                 </div>
             )}
@@ -141,13 +141,13 @@ export function VaultGraph({
                 >
                     <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
                     <span className="text-xs font-medium text-amber-700 dark:text-amber-300">
-                        {t('graph.partial_warning.title', 'Graf parcial')}
+                        {t('graph.partial_warning.title', "Partial graph")}
                     </span>
                     <button
                         onClick={fetchData}
                         className="text-xs font-semibold text-amber-700 dark:text-amber-300 underline hover:no-underline"
                     >
-                        {t('graph.partial_warning.retry', 'Reintenta')}
+                        {t('graph.partial_warning.retry', "Retry")}
                     </button>
                 </div>
             )}

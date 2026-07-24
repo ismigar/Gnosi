@@ -220,7 +220,7 @@ class OneDriveProvider(FilesProvider):
             )
             _, err = await proc.communicate()
         except OSError as e:
-            log.warning("☁️ No s'ha pogut executar `open` per %s: %r", container_path, e)
+            log.warning("☁️ Could not run `open` for %s: %r", container_path, e)
             return False
         if proc.returncode != 0:
             log.warning(
@@ -297,7 +297,7 @@ class OneDriveProvider(FilesProvider):
             )
             await launcher.communicate()
         except OSError as e:
-            log.warning("☁️ No s'ha pogut reiniciar OneDrive: %r", e)
+            log.warning("☁️ Could not restart OneDrive: %r", e)
             return False
         # Give the client time to reconnect before the retry.
         await asyncio.sleep(self._restart_wait_s)
@@ -347,7 +347,7 @@ class OneDriveProvider(FilesProvider):
         if self.warmup_mode == "direct":
             return await self._materialize_direct(container_path)
         if not self.vault_host_path:
-            log.debug("VAULT_HOST_PATH no configurat: warmup desactivat")
+            log.debug("VAULT_HOST_PATH is not configured: warmup disabled")
             return False
         try:
             rel = container_path.relative_to(self.container_root)
@@ -364,8 +364,8 @@ class OneDriveProvider(FilesProvider):
             resolved = container_path.resolve()
             if not any(self._is_under(resolved, root) for root in self.identity_roots):
                 log.warning(
-                    "☁️ Path fora de %s i de cap mount identitat, "
-                    "no es pot warmup: %s",
+                    "☁️ Path outside %s and every identity mount; "
+                    "cannot warm it up: %s",
                     self.container_root, container_path,
                 )
                 return False

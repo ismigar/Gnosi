@@ -165,7 +165,7 @@ const AddStreamModal = ({ isOpen, onClose, onAdd }) => {
                         className="w-full bg-primary hover:bg-blue-600 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-2 mt-4"
                     >
                         <Plus size={20} />
-                        {t('social.add_stream', 'Add Stream')}
+                        {t('social.add_stream', "Add stream")}
                     </button>
                 </form>
             </div>

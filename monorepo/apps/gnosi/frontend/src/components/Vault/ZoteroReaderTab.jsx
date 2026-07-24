@@ -109,7 +109,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
         let cancelled = false;
         setError(null); setPdfUrl(null);
         if (!rawSrc) {
-            setError(t('pdf.no_src', { defaultValue: 'No hi ha cap PDF per mostrar' }));
+            setError(t('pdf.no_src', { defaultValue: "There is no PDF to display" }));
             return undefined;
         }
         if (/^https?:\/\//i.test(rawSrc) || rawSrc.startsWith('/api/')) {
@@ -126,13 +126,13 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
                 });
                 if (!res.ok) {
                     const detail = await res.text().catch(() => '');
-                    if (!cancelled) setError(`No s'ha pogut obrir el PDF: ${detail || 'HTTP ' + res.status}`);
+                    if (!cancelled) setError(`Could not open the PDF: ${detail || 'HTTP ' + res.status}`);
                     return;
                 }
                 const data = await res.json();
                 if (!cancelled) setPdfUrl(data.url);
             } catch (err) {
-                if (!cancelled) setError(`No s'ha pogut obrir el PDF: ${err?.message || err}`);
+                if (!cancelled) setError(`Could not open the PDF: ${err?.message || err}`);
             }
         })();
         return () => { cancelled = true; };
@@ -386,7 +386,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             });
             if (!res.ok) throw new Error('HTTP ' + res.status);
         } catch (err) {
-            toast.error(t('pdf.open_external_error', 'No s\'ha pogut obrir externament: {{message}}', { message: err.message }));
+            toast.error(t('pdf.open_external_error', "Could not open externally: {{message}}", { message: err.message }));
         }
     };
 
@@ -395,7 +395,7 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
              style={{ background: '#3c3f41', borderBottom: '1px solid #222' }}>
             {onClose && (
                 <button onClick={onClose}
-                    title={t('pdf.back', { defaultValue: 'Enrere' })}
+                    title={t('pdf.back', { defaultValue: "Back" })}
                     className="w-8 h-8 flex items-center justify-center rounded text-white/80 hover:bg-white/10">
                     <ArrowLeft size={16} />
                 </button>
@@ -405,11 +405,11 @@ export function ZoteroReaderTab({ src, title: titleProp, onClose, kind: kindProp
             </div>
             {!readerReady && !error && (
                 <span className="text-white/40 text-[11px] ml-2 italic">
-                    {t('pdf.loading', { defaultValue: 'Carregant…' })}
+                    {t('pdf.loading', { defaultValue: "Loading…" })}
                 </span>
             )}
             <button onClick={openExternal}
-                title={t('pdf.open_external', { defaultValue: "Obre amb l'app del sistema" })}
+                title={t('pdf.open_external', { defaultValue: "Open with the system app" })}
                 className="ml-auto w-7 h-7 flex items-center justify-center rounded text-white/70 hover:bg-white/10 hover:text-white">
                 <ExternalLink size={15} />
             </button>

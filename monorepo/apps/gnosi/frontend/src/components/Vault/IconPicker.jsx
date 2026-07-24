@@ -190,7 +190,7 @@ export const IconPicker = ({ isOpen, onClose, onSelectIcon, currentIcon, trigger
             toast.success(t('icon_picker.toast.upload_success'));
         } catch (error) {
             logError('icon-picker', error);
-            const errorMessage = error.code === 'ECONNABORTED' ? t('icon_picker.toast.upload_timeout', 'Temps d\'espera esgotat (Timeout)') : t('icon_picker.toast.upload_error');
+            const errorMessage = error.code === 'ECONNABORTED' ? t('icon_picker.toast.upload_timeout', "Timeout exceeded") : t('icon_picker.toast.upload_error');
             toast.error(errorMessage);
         } finally {
             setIsUploading(false);

@@ -710,8 +710,8 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
                         >
                             {canMulti
                                 ? (checkedPaths.length > 0
-                                    ? tn('selected_count', { defaultValue: '{{count}} seleccionats', count: checkedPaths.length })
-                                    : tn('multi_hint', { defaultValue: 'Clica per marcar diversos fitxers; doble clic per triar-ne només un' }))
+                                    ? tn('selected_count', { defaultValue: "{{count}} files selected", count: checkedPaths.length })
+                                    : tn('multi_hint', { defaultValue: "Click to tick several files · double-click to pick just one" }))
                                 : tn('keyboard_hints')}
                         </span>
                         <div style={{ display: 'flex', gap: '10px', flexShrink: 0 }}>
@@ -728,7 +728,7 @@ export function FilesystemPickerModal({ isOpen, onClose, onSelect, onSelectMany 
                                     className="btn-gnosi btn-gnosi-primary"
                                     style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontWeight: 500 }}
                                 >
-                                    {tn('select_files_count', { defaultValue: 'Selecciona {{count}} fitxers', count: checkedPaths.length })}
+                                    {tn('select_files_count', { defaultValue: "Select {{count}} files", count: checkedPaths.length })}
                                 </button>
                             )}
                             {/* With a batch pending, the folder button would be an

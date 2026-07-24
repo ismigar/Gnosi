@@ -405,7 +405,7 @@ async def upload_image(
     _raise_for(r, "upload_image")
     fid = r.json().get("data", {}).get("id")
     if not fid:
-        raise DrupalSyncError(f"upload_image: resposta sense UUID de fitxer ({r.text[:200]})")
+        raise DrupalSyncError(f"upload_image: response has no file UUID ({r.text[:200]})")
     return fid
 
 

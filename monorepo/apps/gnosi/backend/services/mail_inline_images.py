@@ -69,7 +69,7 @@ def _resolve_asset_file(url: str, assets_root: Path) -> Path | None:
         return None
     candidate = (assets_root / rel).resolve()
     if not candidate.is_relative_to(assets_root):
-        log.warning("Asset fora d'Assets/ ignorat per inline: %r", url)
+        log.warning("Asset outside Assets/ ignored for inline rendering: %r", url)
         return None
     if not candidate.is_file():
         return None
@@ -96,7 +96,7 @@ def extract_vault_inline_images(body: str) -> tuple[str, list[dict]]:
     try:
         assets_root = (get_active_vault_path() / "Assets").resolve()
     except Exception as e:
-        log.warning("No s'ha pogut resoldre Assets/ del vault actiu: %s", e)
+        log.warning("Could not resolve Assets/ for the active vault: %s", e)
         return body, []
 
     images: list[dict] = []
@@ -108,15 +108,15 @@ def extract_vault_inline_images(body: str) -> tuple[str, list[dict]]:
             cid_by_url[url] = None
             asset = _resolve_asset_file(url, assets_root)
             if asset is None:
-                log.warning("Imatge inline no trobada al vault, es deixa la URL: %r", url)
+                log.warning("Inline image not found in the vault; preserving URL: %r", url)
             else:
                 content_type = mimetypes.guess_type(asset.name)[0] or ""
                 data = asset.read_bytes()
                 if not content_type.startswith("image/"):
-                    log.warning("src d'asset no-imatge (%s), es deixa la URL: %r", content_type, url)
+                    log.warning("Asset source is not an image (%s); preserving URL: %r", content_type, url)
                 elif not data:
                     # 0 bytes = likely a non-materialized OneDrive online-only file
-                    log.warning("Asset buit (online-only?), es deixa la URL: %r", url)
+                    log.warning("Asset is empty (possibly online-only); preserving URL: %r", url)
                 else:
                     cid = new_content_id()
                     images.append({

@@ -14,27 +14,27 @@ OUT_JSON = cfg.paths["OUT_JSON"] # suggestions.json
 CACHE_PATH = cfg.paths["OUT_DIR"] / "content_cache.json"
 
 MACRO_CLUSTERS = [
-    "Filosofia i Pensament",
-    "Societat i Política",
-    "Ciència i Tecnologia",
-    "Art i Cultura",
-    "Psicologia i Vida",
-    "Història",
-    "Economia",
-    "Religió i Espiritualitat",
-    "Metodología i Aprenentatge"
+    "Philosophy and Thought",
+    "Society and Politics",
+    "Science and Technology",
+    "Art and Culture",
+    "Psychology and Life",
+    "History",
+    "Economics",
+    "Religion and Spirituality",
+    "Methodology and Learning",
 ]
 
 PROMPT_TEMPLATE = """
-Classifica la següent nota en UN d'aquests macro-temes:
+Classify the following note under ONE of these macro-topics:
 {clusters}
 
-Si no encaixa en cap, inventa un de nou (màxim 2 paraules).
-Retorna NOMÉS el nom del clúster.
+If none fits, create a new one using at most two words.
+Return ONLY the cluster name.
 
-Títol: {title}
+Title: {title}
 Tags: {tags}
-Contingut: {content}
+Content: {content}
 """
 
 def load_json(path):

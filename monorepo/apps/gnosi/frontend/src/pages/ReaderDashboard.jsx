@@ -141,7 +141,7 @@ const fitIframeToContent = (event) => {
 
 const ReaderDashboard = () => {
     const { t, i18n } = useTranslation();
-    const locale = LOCALE_MAP[i18n.language?.split('-')[0]] || 'ca-ES';
+    const locale = LOCALE_MAP[i18n.resolvedLanguage?.split('-')[0]] || 'en-US';
 
     const [displayArticles, setDisplayArticles] = useState([]);
     const [unreadArticles, setUnreadArticles] = useState([]);

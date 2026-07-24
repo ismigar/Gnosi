@@ -125,13 +125,13 @@ async def list_databases():
     """Lists the Notion DBs shared with the integration."""
     token = _get_token()
     if not token:
-        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+        raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         dbs = await asyncio.to_thread(NotionClient(token).search_databases)
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Error consultant Notion: {e}")
     return {"databases": [
-        {"id": d["id"], "title": _plain_title(d.get("title")) or "Sense títol"} for d in dbs
+        {"id": d["id"], "title": _plain_title(d.get("title")) or "Untitled"} for d in dbs
     ]}
 
 
@@ -143,7 +143,7 @@ async def database_schema(db_id: str):
     from backend.services.notion_schema_config import notion_props_to_modal_schema
     token = _get_token()
     if not token:
-        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+        raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         db = await asyncio.to_thread(NotionClient(token).get_database, db_id)
     except Exception as e:
@@ -195,7 +195,7 @@ def _collect_loose_pages(token: str) -> list:
         cache[key] = res
         return res
 
-    return [{"id": p["id"], "title": _page_title(p) or "Sense títol"}
+    return [{"id": p["id"], "title": _page_title(p) or "Untitled"}
             for p in pages if _is_loose(p["id"], "page", set())]
 
 
@@ -228,8 +228,8 @@ def _find_linked_databases(token: str, max_pages: int = 400) -> dict:
             kind = client.database_kind(dbid)
             if kind in ("linked", "inaccessible", "page"):
                 found[dbid] = {
-                    "title": (b.get("child_database") or {}).get("title") or "Sense títol",
-                    "page_title": p.get("title") or "Sense títol",
+                    "title": (b.get("child_database") or {}).get("title") or "Untitled",
+                    "page_title": p.get("title") or "Untitled",
                     "kind": kind,
                 }
     return {"linked": list(found.values()), "scanned": scanned, "capped": capped}
@@ -240,7 +240,7 @@ async def list_linked_databases():
     """Linked DBs (views) that show up in Notion but can't be imported via API."""
     token = _get_token()
     if not token:
-        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+        raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         out = await asyncio.to_thread(_find_linked_databases, token)
     except Exception as e:
@@ -253,7 +253,7 @@ async def list_loose_pages():
     """Notion pages OUTSIDE any DB → for choosing wiki/dashboard."""
     token = _get_token()
     if not token:
-        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+        raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         out = await asyncio.to_thread(_collect_loose_pages, token)
     except Exception as e:
@@ -352,7 +352,7 @@ async def clone_abort():
     """Requests to abort the ongoing clone. Cooperative cancellation: it stops at the next
     checkpoint (between pages), leaving what's already been cloned on disk. Non-blocking."""
     if not _CLONE_PROGRESS.get("running"):
-        return {"status": "idle", "detail": "No hi ha cap clon en curs"}
+        return {"status": "idle", "detail": "No clone is running"}
     _CLONE_CANCEL["flag"] = True
     return {"status": "aborting"}
 
@@ -361,24 +361,24 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
                     loose_page_types=None, download_assets=True) -> dict:
     token = _get_token()
     if not token:
-        raise RuntimeError("No hi ha cap token d'integració de Notion configurat")
+        raise RuntimeError("No Notion integration token is configured")
     if not notion_mcp.is_connected():
-        raise RuntimeError("Cal connectar l'MCP de Notion (vistes incrustades) per al clon")
+        raise RuntimeError("Connect Notion MCP (embedded views) before cloning")
     vault = get_active_vault_path()
     if not vault:
-        raise RuntimeError("No hi ha cap vault actiu")
+        raise RuntimeError("There is no active vault")
     rest = NotionClient(token)
     folder_by_table: dict = {}
     # Optional subfolder: empty ("") = the clone goes DIRECTLY to the vault root (no wrapper).
     tf = sanitize_rel_folder(target_folder)
 
-    # DEDUPE RE-CLON (incident 2026-07-04, 907 duplicats): els ids del clon són deterministes
-    # (uuid5 de l'id de Notion), així que re-clonar sobre un vault que ja té un clon ha de
-    # SOBREESCRIURE el fitxer existent de cada pàgina (mateix id al frontmatter), mai crear-ne
-    # un segon «Títol id8.md». El sufix id8 queda NOMÉS per a col·lisions reals de títol entre
-    # pàgines d'ids DIFERENTS. Mapa id→path construït UNA vegada escanejant NOMÉS les arrels
-    # on escriu el clon (BD/Wiki/.Dashboards): llegir tot el vault forçaria descàrregues de
-    # fitxers OneDrive online-only aliens al clon.
+    # RECLONE DEDUPLICATION (2026-07-04 incident, 907 duplicates): clone ids are
+    # deterministic (UUID5 from the Notion id). Recloning a vault that already
+    # contains a clone must OVERWRITE each page's existing file (same frontmatter
+    # id), never create a second "Title id8.md". The id8 suffix is reserved for
+    # genuine title collisions between pages with DIFFERENT ids. Build the
+    # id-to-path map once by scanning ONLY clone output roots (BD/Wiki/.Dashboards);
+    # reading the entire vault would download unrelated online-only OneDrive files.
 
     def _frontmatter_meta(p: Path) -> dict:
         try:
@@ -402,7 +402,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
             pid = _frontmatter_meta(p).get("id")
             if pid:
                 path_by_id.setdefault(str(pid), p)
-    written_ids_by_table: dict = {}  # table_id → set d'ids escrits (per detectar fantasmes)
+    written_ids_by_table: dict = {}  # table_id → written ids, used to detect orphan files
 
     def write_table(table: dict):
         # The clone runs in a worker thread (via asyncio.to_thread): without the shared
@@ -479,15 +479,15 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         folder = folder_by_table.get(meta.get("table_id"))
         if folder is None:
             folder = ".Dashboards" if meta.get("is_dashboard") else "Wiki"
-        meta["title"] = page.get("title") or "Sense títol"
+        meta["title"] = page.get("title") or "Untitled"
         meta["id"] = page.get("id") or str(uuid.uuid4())
         meta = {k: v for k, v in meta.items() if v is not None}
         safe = sanitize_vault_title(meta["title"])
         target_dir = vault / folder
         target_dir.mkdir(parents=True, exist_ok=True)
-        # Re-clon: si ja hi ha un fitxer amb aquest id (frontmatter), es SOBREESCRIU al mateix
-        # path. Si la pàgina ha canviat de carpeta (moguda de taula a Notion), es reubica:
-        # s'esborra l'antic i s'escriu al nou — mai dos fitxers per al mateix id.
+        # Recloning OVERWRITES a file with the same frontmatter id in place. If
+        # the page moved to a different folder in Notion, delete the old file and
+        # write the new one so the same id never has two files.
         existing = path_by_id.get(meta["id"])
         if existing is not None and existing.exists() and existing.parent != target_dir:
             existing.unlink()
@@ -497,7 +497,7 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         else:
             path = target_dir / f"{safe}.md"
             if path.exists() and str(_frontmatter_meta(path).get("id")) != meta["id"]:
-                # Col·lisió REAL de títol entre pàgines d'ids diferents → sufix id8.
+                # Genuine title collision between pages with different ids: add id8.
                 path = target_dir / f"{safe} {meta['id'][:8]}.md"
         path_by_id[meta["id"]] = path
         if meta.get("table_id"):
@@ -558,10 +558,10 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
         registry_tables=vault_routes.load_registry().get("tables", []),
     )
 
-    # FILES FANTASMA: fitxers del vault amb table_id d'una taula clonada l'id dels quals ja NO
-    # existeix a Notion (rows esborrades/recreades). NOMÉS s'informa (warning al report), mai
-    # s'esborra automàticament. Si el clon s'ha truncat, avortat o té errors, se salta el
-    # diagnòstic: les pàgines no escrites semblarien fantasmes sense ser-ho.
+    # ORPHAN FILES have a cloned table_id but an id that no longer exists in
+    # Notion (deleted or recreated rows). Report them as warnings but never
+    # delete them automatically. Skip this diagnosis for truncated, cancelled,
+    # or failed clones because unwritten pages would look like false orphans.
     if not report.get("truncated") and not report.get("errors") and not _CLONE_CANCEL["flag"]:
         for table_id, phys in folder_by_table.items():
             table_dir = vault / phys
@@ -572,8 +572,8 @@ def _run_clone_sync(database_ids, target_folder="Clon Notion", schema_overrides=
                 m = _frontmatter_meta(p)
                 if str(m.get("table_id")) == str(table_id) and str(m.get("id")) not in written:
                     report["warnings"].append(
-                        f"Fila fantasma (l'id ja no és a Notion): «{p.relative_to(vault)}» "
-                        f"(id {m.get('id')}). No s'ha esborrat automàticament.")
+                        f"Orphan row (id no longer exists in Notion): «{p.relative_to(vault)}» "
+                        f"(id {m.get('id')}). It was not deleted automatically.")
     return report
 
 
@@ -600,20 +600,22 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
         if not ok:
             raise HTTPException(
                 status_code=400,
-                detail="El vault destí indicat no existeix (potser s'ha esborrat). "
-                       "Refresca la pàgina i torna a triar-lo abans de clonar.",
+                detail="The selected destination vault does not exist and may have "
+                       "been deleted. Refresh the page and select it again before cloning.",
             )
     if not notion_mcp.is_connected():
-        raise HTTPException(status_code=400,
-                            detail="Connecta l'MCP de Notion (vistes incrustades) per al clon exacte")
+        raise HTTPException(
+            status_code=400,
+            detail="Connect the Notion MCP for embedded views before running an exact clone",
+        )
     # Preflight: a single live MCP check. If the token has expired (and can't
     # be renewed) we abort RIGHT AWAY with a clear message, instead of running a long clone that would come out
     # empty, hitting the dead MCP for every single page (this was the "never finishes" bug).
     ok, reason = await asyncio.to_thread(notion_mcp.healthcheck)
     if not ok:
-        msg = ("L'MCP de Notion ha caducat: reconnecta'l (botó «Connecta MCP») i torna a clonar"
+        msg = ("The Notion MCP has expired; reconnect it with “Connect MCP” and clone again"
                if reason in ("expired", "no_token")
-               else f"L'MCP de Notion no respon ({reason}); reconnecta'l i torna-ho a provar")
+               else f"The Notion MCP is not responding ({reason}); reconnect it and try again")
         raise HTTPException(status_code=400, detail=msg)
     _CLONE_CANCEL["flag"] = False
     _CLONE_PROGRESS.update({"running": True, "phase": "starting", "done": 0, "total": 0,
@@ -632,10 +634,10 @@ async def run_clone(payload: ClonePayload, x_vault_id: Optional[str] = Header(de
                 "tables": _CLONE_PROGRESS.get("tables", 0), "pages": _CLONE_PROGRESS.get("pages", 0),
                 "views": _CLONE_PROGRESS.get("views", 0),
                 "attachments": _CLONE_PROGRESS.get("attachments", 0),
-                "errors": [], "warnings": ["Clon avortat per l'usuari: parcial (el que ja s'havia "
-                                           "clonat queda al disc)."], "truncated": False}
+                "errors": [], "warnings": ["Clone aborted by the user. This is a partial "
+                                           "clone; completed content remains on disk."], "truncated": False}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error clonant de Notion: {e}")
+        raise HTTPException(status_code=500, detail=f"Error cloning from Notion: {e}")
     finally:
         _CLONE_PROGRESS["running"] = False
         _CLONE_CANCEL["flag"] = False
@@ -666,7 +668,7 @@ def _run_verify_sync(token: str, database_ids, target_folder="") -> dict:
     from backend.services.relation_links import relation_keys_from_table
     vault = get_active_vault_path()
     if not vault:
-        raise RuntimeError("No hi ha cap vault actiu")
+        raise RuntimeError("There is no active vault")
     rest = NotionClient(token)
     db_ids = database_ids or [d["id"] for d in rest.search_databases()]
     notion_counts = {}
@@ -708,11 +710,10 @@ async def verify_clone_route(payload: VerifyPayload):
     orphaned relations, recreated views, and attachments missing from disk. Doesn't touch anything."""
     token = _get_token()
     if not token:
-        raise HTTPException(status_code=400, detail="No hi ha cap token de Notion configurat")
+        raise HTTPException(status_code=400, detail="No Notion token is configured")
     try:
         result = await asyncio.to_thread(_run_verify_sync, token, payload.database_ids,
                                          payload.target_folder)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error verificant el clon: {e}")
     return {"status": "success", **result}
-

@@ -605,12 +605,12 @@ function Dashboard() {
         if (executingTasks.has(taskName)) return;
         
         setExecutingTasks(prev => new Set(prev).add(taskName));
-        const t_id = toast.loading(`${t('dashboard.running_task', 'Executant tasca')} ${taskName.replace(/_/g, ' ')}...`);
+        const t_id = toast.loading(`${t('dashboard.running_task', "Running task")} ${taskName.replace(/_/g, ' ')}...`);
         
         try {
             const data = await apiFetch(`/api/schedulers/${taskName}/run`, { method: 'POST' });
             if (data.success) {
-                toast.success(t('dashboard.task_started', 'Tasca iniciada correctament'), { id: t_id });
+                toast.success(t('dashboard.task_started', "Task started successfully"), { id: t_id });
             } else {
                 toast.error(data.error || t('dashboard.unknown_error'), { id: t_id });
             }
@@ -618,7 +618,7 @@ function Dashboard() {
             setTimeout(() => refreshSchedulers(true), 500);
         } catch (e) {
             console.error("Error running scheduler", e);
-            toast.error(`${t('dashboard.run_error', 'Error en l\'execució')}: ${e.message}`, { id: t_id });
+            toast.error(`${t('dashboard.run_error', "Run error")}: ${e.message}`, { id: t_id });
         } finally {
             setExecutingTasks(prev => {
                 const next = new Set(prev);
@@ -887,7 +887,7 @@ function Dashboard() {
                                 className="inline-flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-all hover:scale-105"
                             >
                                 <RefreshCw size={14} />
-                                {t('common.refresh', 'Refresh All')}
+                                {t('common.refresh', "Refresh")}
                             </button>
                         </div>
 
@@ -1032,8 +1032,8 @@ function Dashboard() {
                                 <div className="flex items-center justify-between mb-4">
                                     <h3 className="text-gray-500 text-xs uppercase font-bold tracking-widest flex items-center gap-2">
                                         <Activity size={14} className="text-blue-500" />
-                                        {t('dashboard.system_logs', 'Logs de Sistema')}
-                                        <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{notifTotal} {t('common.entries', 'entrades')}</span>
+                                        {t('dashboard.system_logs', "System Logs")}
+                                        <span className="text-[10px] text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-full">{notifTotal} {t('common.entries', "entries")}</span>
                                     </h3>
                                     <div className="flex items-center gap-2">
                                         <button 
@@ -1054,18 +1054,18 @@ function Dashboard() {
                                 </div>
                             
                             {notificationsLoading && notifications.length === 0 ? (
-                                <p className="text-gray-400">{t('dashboard.loading_logs', 'Carregant logs...')}</p>
+                                <p className="text-gray-400">{t('dashboard.loading_logs', "Loading logs...")}</p>
                             ) : notifications.length === 0 ? (
-                                <p className="text-gray-500 italic">{t('dashboard.no_logs', 'Sense activitat recent registrada.')}</p>
+                                <p className="text-gray-500 italic">{t('dashboard.no_logs', "There are no recorded logs.")}</p>
                             ) : (
                                 <>
                                     <div className="overflow-x-auto">
                                         <table className="w-full text-left text-xs">
                                             <thead>
                                                 <tr className="border-b border-[var(--border-primary)] text-[var(--text-secondary)] font-bold">
-                                                    <th className="pb-2 w-32">{t('common.time', 'Hora')}</th>
-                                                    <th className="pb-2 w-20">{t('common.level', 'Nivell')}</th>
-                                                    <th className="pb-2">{t('common.event', 'Esdeveniment')}</th>
+                                                    <th className="pb-2 w-32">{t('common.time', "Time")}</th>
+                                                    <th className="pb-2 w-20">{t('common.level', "Level")}</th>
+                                                    <th className="pb-2">{t('common.event', "Event")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[var(--border-primary)]">
@@ -1219,8 +1219,8 @@ function Dashboard() {
                                     <Database size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.memory_details', 'Detall de la Memòria')}</h3>
-                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.memories_stored_desc', 'Llistat de records guardats al Graf de Coneixement.')}</p>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.memory_details', "Memory Details")}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.memories_stored_desc', "List of memories stored in the Knowledge Graph.")}</p>
                                 </div>
                             </div>
                             <button 
@@ -1300,7 +1300,7 @@ function Dashboard() {
                                                         </div>
                                                     </div>
                                                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">{t('dashboard.view_graph', 'Veure Graf')}</span>
+                                                        <span className="text-[10px] font-bold text-cyan-500 uppercase tracking-tighter">{t('dashboard.view_graph', "View Graph")}</span>
                                                         <ExternalLink size={14} className="text-cyan-500" />
                                                     </div>
                                                 </div>
@@ -1334,8 +1334,8 @@ function Dashboard() {
                                     <Bug size={24} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.documented_pitfalls_modal', 'Trampes Documentades')}</h3>
-                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.errors_prevented_desc', 'Lliçons apreses i errors evitats automàticament.')}</p>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.documented_pitfalls_modal', "Documented Pitfalls")}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.errors_prevented_desc', "Errors prevented thanks to the directives.")}</p>
                                 </div>
                             </div>
                             <button 
@@ -1363,10 +1363,10 @@ function Dashboard() {
                                         <table className="w-full text-left table-fixed">
                                             <thead>
                                                 <tr className="text-xs font-bold text-[var(--text-secondary)] uppercase tracking-wider border-b border-[var(--border-primary)]">
-                                                    <th className="px-4 py-3 w-32">{t('common.date', 'Data')}</th>
-                                                    <th className="px-4 py-3 w-40">{t('common.source', 'Font')}</th>
-                                                    <th className="px-4 py-3 w-1/3">{t('common.trap', 'Trampa / Error')}</th>
-                                                    <th className="px-4 py-3">{t('common.solution', 'Solució Aplicada')}</th>
+                                                    <th className="px-4 py-3 w-32">{t('common.date', "Date")}</th>
+                                                    <th className="px-4 py-3 w-40">{t('common.source', "Source")}</th>
+                                                    <th className="px-4 py-3 w-1/3">{t('common.trap', "Pitfall / Error")}</th>
+                                                    <th className="px-4 py-3">{t('common.solution', "Applied Solution")}</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[var(--border-primary)]">
@@ -1426,8 +1426,8 @@ function Dashboard() {
                                     <FileText size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.directives_modal', 'Directives')}</h3>
-                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.directives_desc', 'Protocols i limitacions del sistema.')}</p>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.directives_modal', "System Directives")}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.directives_desc', "Active SOPs and lessons learned by the system.")}</p>
                                 </div>
                             </div>
                             <button 
@@ -1463,7 +1463,7 @@ function Dashboard() {
                                                 </div>
                                                 <div className="flex items-center gap-4">
                                                     <span className="text-[10px] font-bold text-red-400 bg-red-400/10 px-2 py-1 rounded-md">
-                                                        {d.trap_count} {t('dashboard.traps', 'traps')}
+                                                        {d.trap_count} {t('dashboard.traps', "pitfalls")}
                                                     </span>
                                                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                         <button 
@@ -1559,8 +1559,8 @@ function Dashboard() {
                                     <ShieldCheck size={20} />
                                 </div>
                                 <div>
-                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.intelligence_details', 'Detall d\'Intel·ligència')}</h3>
-                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.tools_and_capabilities', 'Eines generades i capacitats de l\'agent.')}</p>
+                                    <h3 className="text-xl font-bold text-[var(--text-primary)] font-gnosi">{t('dashboard.intelligence_details', "Intelligence Details")}</h3>
+                                    <p className="text-xs text-[var(--text-secondary)]">{t('dashboard.tools_and_capabilities', "Tools and Capabilities")}</p>
                                 </div>
                             </div>
                             <button 
@@ -1619,7 +1619,7 @@ function Dashboard() {
                                 <div>
                                     <h4 className="text-sm font-bold text-[var(--text-secondary)] uppercase tracking-widest mb-4 flex items-center gap-2">
                                         <ShieldCheck size={14} className="text-green-500" />
-                                        {t('dashboard.recent_approved', 'Darreres Aprovades')}
+                                        {t('dashboard.recent_approved', "Recently Approved")}
                                     </h4>
                                     <div className="space-y-3 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
                                         {approvedTools.length === 0 ? (

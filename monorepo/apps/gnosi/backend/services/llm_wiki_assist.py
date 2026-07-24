@@ -1,4 +1,4 @@
-"""Accessible editing for the Bústia del Cervell (F6).
+"""Accessible editing for the Brain Inbox (F6).
 
 Designed for a user with reduced mobility and dysarthria (variable
 pronunciation — conventional ASR alone does not understand them reliably).
@@ -8,7 +8,7 @@ Three levels, none of which ever applies input raw:
     draft to PICK with one click (no typing, no voice needed).
   * ``correct_dictation()`` — raw ASR text (faster-whisper) + the suggestion's
     context + the personal glossary → the LLM reconstructs the INTENT and the
-    user confirms («Volies dir…?»). The narrow domain of a suggestion makes
+    user confirms ("Did you mean…?"). The narrow domain of a suggestion makes
     noisy ASR usable where free-form dictation fails.
   * glossary — per-vault (heard → meant) pairs confirmed by the user, injected
     into the corrector: the "intuition component" that grows over time.
@@ -31,7 +31,7 @@ GLOSSARY_MAX_PAIRS = 100
 
 # Variant labels are DATA (like column names), not UI chrome: they travel to
 # the frontend as-is and describe the editorial angle of each variant.
-VARIANT_LABELS = ("Més concisa", "Més matisada", "Amb contraargument")
+VARIANT_LABELS = ("More concise", "More nuanced", "With counterargument")
 
 
 # ---------------------------------------------------------------------------
@@ -82,33 +82,33 @@ def learn_pair(heard: str, meant: str) -> int:
 def _suggestion_context(sug: Dict[str, Any]) -> str:
     members = ", ".join(sug.get("member_titles") or [])
     return (
-        f"PREGUNTA que la nota respon: {sug.get('question') or '(cap)'}\n"
-        f"PER QUÈ connecten les notes: {sug.get('why') or '(no indicat)'}\n"
-        f"NOTES DE LECTURA implicades: {members or '(cap)'}\n"
-        f"ESBORRANY ACTUAL:\n{sug.get('draft_md') or '(buit)'}"
+        f"QUESTION answered by the note: {sug.get('question') or '(none)'}\n"
+        f"WHY the notes connect: {sug.get('why') or '(not specified)'}\n"
+        f"READING NOTES involved: {members or '(none)'}\n"
+        f"CURRENT DRAFT:\n{sug.get('draft_md') or '(empty)'}"
     )
 
 
-def reformulate(sug: Dict[str, Any], language: str = "català") -> List[Dict[str, str]]:
+def reformulate(sug: Dict[str, Any], language: str = "English") -> List[Dict[str, str]]:
     """LLM variants of a suggestion's draft, one per editorial angle.
 
     Raises RuntimeError when no AI provider is available (endpoint → 503)."""
     from backend.agent.factory import generate_text
 
     labels = "\n".join(f"- \"{lb}\"" for lb in VARIANT_LABELS)
-    prompt = f"""Ets l'editor d'una nota permanent d'un Zettelkasten. L'usuari tria entre
-variants amb un clic (no tecleja): reescriu l'ESBORRANY en {language} en {len(VARIANT_LABELS)}
-variants, una per cada angle editorial següent, mantenint els [[wikilinks]] existents:
+    prompt = f"""You edit a permanent note in a Zettelkasten. The user chooses among
+variants with one click and does not type. Rewrite the DRAFT in {language} as
+{len(VARIANT_LABELS)} variants, one for each editorial angle below, while preserving existing [[wikilinks]]:
 {labels}
 
 {_suggestion_context(sug)}
 
-Retorna NOMÉS un JSON: {{"variants": [{{"label": "…", "text": "…"}}]}} amb exactament
-aquests labels."""
+Return ONLY JSON: {{"variants": [{{"label": "…", "text": "…"}}]}} using exactly
+these labels."""
     raw, _model = generate_text(prompt, timeout=90)
     variants = _parse_variants(raw)
     if not variants:
-        raise RuntimeError("El model no ha retornat variants vàlides")
+        raise RuntimeError("The model returned no valid variants")
     return variants
 
 
@@ -136,7 +136,7 @@ def _parse_variants(raw: str) -> List[Dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 def correct_dictation(sug: Dict[str, Any], transcript: str,
-                      language: str = "català") -> Dict[str, Any]:
+                      language: str = "English") -> Dict[str, Any]:
     """Reconstructs what the user MEANT from a noisy ASR transcript.
 
     The corrector is context-first: it gets the suggestion being edited plus
@@ -152,24 +152,24 @@ def correct_dictation(sug: Dict[str, Any], transcript: str,
     glossary = load_glossary()
     glossary_block = ""
     if glossary:
-        pairs = "\n".join(f'- si sents «{p["heard"]}» sol voler dir «{p["meant"]}»'
+        pairs = "\n".join(f'- hearing "{p["heard"]}" usually means "{p["meant"]}"'
                           for p in glossary[-30:])
         glossary_block = f"""
-GLOSSARI PERSONAL (correccions que l'usuari ha confirmat abans; el seu patró de parla):
+PERSONAL GLOSSARY (corrections the user previously confirmed; their speech pattern):
 {pairs}
 """
-    prompt = f"""L'usuari té disàrtria: la transcripció automàtica del seu dictat és SOROLLOSA
-i la seva pronúncia varia. La teva feina NO és netejar fonemes sinó reconstruir LA INTENCIÓ:
-què volia dir, en {language}, com a edició o afegit a l'esborrany d'una nota permanent.
-Recolza't en el context (la pregunta, l'esborrany, les notes) per resoldre ambigüitats.
+    prompt = f"""The user has dysarthria: the automatic dictation transcript is NOISY
+and their pronunciation varies. Do NOT merely clean up phonemes; reconstruct THE INTENT:
+what they meant in {language}, as an edit or addition to a permanent-note draft.
+Use the context (question, draft, and notes) to resolve ambiguities.
 {glossary_block}
-CONTEXT DE LA NOTA QUE S'ESTÀ EDITANT:
+CONTEXT OF THE NOTE BEING EDITED:
 {_suggestion_context(sug)}
 
-TRANSCRIPCIÓ EN BRUT DEL DICTAT:
+RAW DICTATION TRANSCRIPT:
 «{transcript}»
 
-Retorna NOMÉS un JSON: {{"proposed": "el text que probablement volia dir, llest per inserir"}}"""
+Return ONLY JSON: {{"proposed": "the text the user probably meant, ready to insert"}}"""
     try:
         from backend.agent.factory import generate_text
 

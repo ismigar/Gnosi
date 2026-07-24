@@ -1,122 +1,94 @@
-# Directiva: fer traduïbles els missatges d'UI escrits en dur (i18n)
+# Directive: Localize Hardcoded User-Interface Text
 
-**Objectiu:** cap text visible per l'usuari escrit en dur al frontend. Tot passa per
-react-i18next amb claus als quatre `src/locales/{ca,en,es,fr}/translation.json`.
+## Objective
 
-## Estat (2026-07-04)
+No user-visible React text may be hardcoded. Route every label, description,
+placeholder, status, error, confirmation, tooltip, empty state, and accessible
+name through `react-i18next`, with complete catalogs for English, Spanish,
+French, and Catalan.
 
-Fets traduïbles fins ara:
-- **Tanda 0 (patró de referència):** `components/NotionImportSettings.jsx` → `settings.notion.*`
-  (93 claus); `components/VaultSwitcher.jsx` → `settings.vaults.*` (10 claus).
-- **Tanda 2 — Modals del Vault (aquest PR):** `SchemaConfigModal.jsx`, `PageViewModal.jsx`,
-  `InsertContentModal.jsx`, `ShareModal.jsx`, `TranslateLanguagesModal.jsx`,
-  `RecurrenceChoiceModal.jsx`. ~355 claus noves per idioma (namespaces `view.*`, `insert.*`,
-  `share.*`, `schema.*`, `calendar.*` de recurrència, `translate.lang_*`, i `common.*`/`errors.*`
-  compartides). Build OK; QA al navegador en ca i en sense claus crues.
-- **Tanda 4 (parcial) — Comentaris del Vault (2026-07-06):** `Vault/InlineComments.jsx`
-  passat a `t()` (namespace nou `inline_comments.*`, reusant `common.cancel`); a més
-  s'han afegit als 4 locales les claus `comments.*`, `errors.comment_*`/`comments_load` i
-  `shell.view_comments` que `PageComments.jsx` i `InlineComments.jsx` ja invocaven amb
-  `defaultValue` però no existien enlloc (21 claus/idioma). Comptador via `inline_comments.title`
-  amb `{{count}}`. Build OK; QA aïllat (createRoot + `changeLanguage` als 4 idiomes) sense claus
-  crues al DOM.
-- **Tanda 4 (continuació) — Vistes incrustades del Vault (2026-07-08):** `Vault/DbViewEmbed.jsx`
-  (cablejat i18n de zero als 4 subcomponents: `ViewActionsBar`, `ColumnPlusButton`, `GraphRender`
-  i `DbViewEmbed`), `Vault/VaultGallery.jsx` (títol per defecte + estat buit) i el `alt="Cover"`
-  residual de `Vault/BlockEditor.jsx`. La MAJORIA de textos ja tenien clau existent (`views_header.*`,
-  `common.*`, `view.untitled`, plural `views_header.records_count`) → es REUTILITZEN; només 22 claus
-  noves/idioma (`views_header.view_settings|create_in_column|default_view_name|tab_tooltip|
-  view_options|add_view|remove_from_page|delete_everywhere|delete_view_title|delete_view_confirm|
-  rename_view_title|new_view_name_label`, `view.graph_*`/`no_records_in_view`, `errors.no_active_page|
-  view_missing_id|load_view|delete_only_view`, `editor.cover_alt`). Capçalera del graf i confirm
-  d'esborrat amb interpolació (`{{nodes}}/{{edges}}`, `{{name}}`). Build OK (`vite build`, 0 errors)
-  + test runtime i18next real als 4 idiomes (interpolació/plural/fallback, sense `{{}}` ni claus crues).
+English is the first-run and fallback language. Users may explicitly select any
+supported language.
 
-Queden ~740 línies amb text visible en dur repartides en ~110 fitxers (heurística per
-caràcters accentuats dins de literals/JSX, comentaris exclosos; els textos sense accents
-no hi compten, així que el total real és una mica més alt).
+## Standard pattern
 
-## SOP (el patró establert a NotionImportSettings)
+1. Choose a namespace that follows the existing screen/component hierarchy.
+   Settings panels use `settings.<panel>.*`; shared UI uses `common.*`; feature
+   areas use their established namespace.
+2. Call `t('namespace.key')` or use a short namespaced helper when a component
+   has many related keys.
+3. Add the key to all four catalogs in the same change:
+   `frontend/src/locales/{ca,en,es,fr}/translation.json`.
+4. When an inline default is useful, write it in English and still add the key
+   to every catalog. A default is not a substitute for catalog parity.
+5. Preserve existing JSON formatting and create a minimal diff.
 
-1. **Namespace per pantalla/pestanya**: les claus van niades seguint la convenció existent
-   (`settings.<pestanya>.*` per a pestanyes de Configuració; `view`, `insert`, `share`,
-   `schema`, `table`, `editor`, `calendar`, etc. per a la resta — mira les claus arrel del
-   `translation.json` de `ca`).
-2. **Helper curt o `t()` directe**: si un component repeteix molt un namespace, definir un
-   `tn(clau, opts)` que el prefixa. Als modals del Vault s'ha usat `t('view.…', 'default ca')`
-   directe amb el valor català com a fallback in-line (llegible i resistent a claus absents).
-3. **Interpolació, mai concatenació**: comptadors i noms van com a variables de la clau
-   (`{{count}}`, `{{name}}`, `{{matched}}/{{unmatched}}`) perquè l'ordre pugui canviar per idioma.
-4. **Plurals**: sufixos `_one` / `_other` amb `count` (p.ex. `schema.option_usage_*`,
-   `schema.remove_option_in_use_*`, `view.usage_count_*`). Cridar `t('clau', { count })` SENSE el
-   sufix; i18next tria la variant.
-5. **Negretes o marques dins de frase**: component `Trans` amb la clau contenint `<b>…</b>` i el
-   mapa de components. No trossejar la frase en claus separades (trenca l'ordre en altres idiomes).
-6. **Els 4 idiomes alhora**: cada clau nova s'afegeix a ca, en, es i fr en el mateix canvi.
-   El fallback és `en` (vegeu `src/i18n.js`), així que si en falta una es veu anglès, mai la clau.
-7. **Inserció al JSON amb diff mínim**: afegir claus programàticament respectant les existents
-   (no re-serialitzar amb un formatador que canviaria totes les línies) i validar que el JSON
-   parseja abans d'escriure. Script d'ajuda: fusió idempotent que salta claus ja presents.
+## Composition rules
 
-## Restriccions / Edge cases
+- Use interpolation (`{{name}}`, `{{count}}`) instead of concatenating
+  translated fragments.
+- Use i18next plural variants (`_one`, `_other`) and pass `count`.
+- Use `<Trans>` when a sentence contains links, emphasis, or embedded
+  components. Do not split one grammatical sentence into unrelated keys.
+- Format dates with the selected/resolved interface locale, falling back to
+  English.
+- Provide translated `aria-label`, `alt`, `title`, and placeholder text.
 
-- **No traduir valors desats, només etiquetes.** Els catàlegs d'opcions de select desen el
-  NOM com a valor (vegeu memòria `feedback_rich_option_catalog_normalize`), i hi ha codi que
-  compara strings. A `SchemaConfigModal` són **valors desats/comparats, mai i18n**:
-  `SOCIAL_PUBLISH_COL = 'XXSS'`, `DRUPAL_NID_COL = 'Drupal NID'`, `DRUPAL_URL_COL = 'Drupal URL'`
-  (el sync els busca pel nom; `RULE_PROTECTED_OPTIONS` conté 'Esborrany'/'Traduït'/…). Traduir-los
-  trencaria la detecció en taules creades en un altre idioma. Igual amb els `value=` dels `<option>`
-  (`'dayGridMonth'`, `'bar'`, `'count'`, `'YYYY-MM-DD'`): només es tradueix el TEXT de l'opció.
-- **No tocar comentaris** en català: no són UI.
-- **Textos d'error de handlers**: també van per `t()` (accessible des dels handlers), però el
-  detall tècnic del backend s'hi concatena tal qual (`${t('insert.error')}: ${msg}`). Fallback
-  genèric `errors.unknown`.
-- **Dates**: `toLocaleDateString(i18n.language)` en lloc de `'ca-ES'` fix (ShareModal).
-- **`markdown-mapper.js`, `formulaUtils.js`, `cslEngine.js` i similars**: molts strings són
-  sintaxi de fitxer o dades (fences, noms de camps, CSL), no UI → revisar cas per cas.
-- **Títols per defecte persistits ≠ chrome.** Els valors per defecte de dades que s'ESCRIUEN
-  (p.ex. `createPageInTable({ title = 'Nou registre' })`, `\`Nou (${tpl})\``, o el set
-  `FILTER_TRUTHY = ['sí','done',…]` a `DbViewEmbed`) NO es tradueixen: acaben com a dada al vault
-  (o com a valor comparat), i traduir-los faria divergir registres/comparacions segons l'idioma
-  del creador. Es tradueix l'ETIQUETA visible (el botó «Nou registre»), no el `title` per defecte.
-- **Reutilitzar claus pot destapar buits d'un locale.** En reusar claus existents (`views_header.*`)
-  es va veure que **`fr` no en tenia diverses** que sí eren a ca/en/es (queien a l'anglès via
-  `fallbackLng`, no mostraven la clau crua, però trencaven la paritat). Sempre verifica la paritat
-  dels 4 idiomes de forma **plural-aware** (`clau` o `clau_one`/`clau_other`) i omple el que falti;
-  un check literal marca `records_count` com a absent quan de fet és plural. Vegeu memòria
-  `feedback_i18n_reused_keys_locale_parity_gap`.
-- **QA**: `npm run build` + muntar cada modal aïllat al navegador (dev server del worktree via
-  `createRoot` sobre imports Vite: `/@id/react`, `/@id/react-dom/client`, `/src/i18n.js`) i
-  comparar el DOM en `ca` i `en` amb `i18n.changeLanguage()`. Comprovar que no es filtra cap clau
-  crua (`/^(view|schema|insert|share|translate|calendar|common|errors|page_view)\.[a-z_]+/`).
-  **Gotcha:** `SchemaConfigModal` es renderitza amb `createPortal(document.body)` → escanejar el
-  `body`, no el host del `createRoot`.
+## Restrictions and edge cases
 
-## Inventari pendent (top, per línies de text visible)
+- Translate labels, not persisted values. Field names, enum values, table
+  identifiers, view types, chart types, date format tokens, and strings used in
+  comparisons must remain stable.
+- A title written into a vault record is user data, not interface chrome. Keep
+  persisted defaults stable unless a separate migration explicitly changes
+  them.
+- Technical backend detail may be appended to a localized generic error, but
+  the user-facing framing must be translated.
+- File syntax, Markdown fences, CSL data, prompt payloads, and schema values
+  require case-by-case review; do not classify them as UI solely because they
+  are string literals.
+- Reusing an existing key can expose a catalog gap. Check all four catalogs,
+  including plural variants.
+- Language endonyms are intentionally literal.
 
-| Fitxer | ~línies |
-|---|---|
-| components/GlobalSettingsModal.jsx | 84 |
-| components/Vault/BlockEditor.jsx | 35 |
-| pages/VaultDashboard.jsx | 25 |
-| components/Vault/TldrawEditor.jsx | 25 |
-| pages/MediaCenter.jsx | 20 |
-| components/MeetingRecorder.jsx | 19 |
-| pages/Dashboard.jsx | 18 |
-| components/CommandPalette.jsx | 18 |
-| components/Vault/CalendarSidebarRight.jsx | 17 |
-| components/Vault/VaultTable.jsx | 14 |
-| components/PluginsSettings.jsx | 12 |
-| pages/CalendarPage.jsx | 11 |
-| components/Vault/slashMenuUtils.js | 11 |
-| ~~components/Vault/DbViewEmbed.jsx~~ | ~~11~~ **FET (2026-07-08)** |
-| (+ ~95 fitxers més amb <10 línies) | |
+## Detection
 
-**Pla per tandes** (cada tanda = 1 PR amb QA de les seves pantalles):
-1. Configuració: GlobalSettingsModal + PluginsSettings + FilesystemPickerModal.
-2. ~~Modals del Vault: SchemaConfigModal, PageViewModal, InsertContentModal, ShareModal,
-   TranslateLanguagesModal, RecurrenceChoiceModal.~~ **FET (2026-07-04).**
-3. Editors i pàgines: BlockEditor, TldrawEditor, VaultDashboard, Dashboard, MediaCenter,
-   CommandPalette, MeetingRecorder.
-4. Resta del Vault (VaultTable, ~~DbViewEmbed~~ **FET**, ~~VaultGallery~~ **FET**,
-   CalendarSidebarRight, slashMenuUtils…) i cua llarga.
+Use an AST-aware scan:
+
+- `JSXText` nodes with meaningful text.
+- Rendered string literals in JSX expressions.
+- UI-bearing attributes such as `placeholder`, `title`, `alt`, `aria-label`,
+  and `aria-description`.
+- Toast, modal, and confirmation arguments.
+- Arrays/objects whose labels or descriptions are rendered.
+
+Exclude tests, localization catalogs, vendor code, generated assets, URLs,
+identifiers, persisted data, and syntax literals. Accent-only searches miss
+ASCII Catalan/Spanish and produce false positives from data; they are an
+inventory aid, not a compliance gate.
+
+Extract every static `t()` key and verify that it exists in all four catalogs.
+Account for prefixed helpers (for example, a helper that expands
+`accounts.title` to `settings.accounts.title`) and plural keys.
+
+## Historical lessons
+
+- A Catalan inline default once masked missing keys in every locale. Catalog
+  presence is mandatory even when the fallback text appears correct.
+- A naive JavaScript scanner confused regex literals and JSX apostrophes, then
+  modified user-visible code. Use Espree or another real parser.
+- Portal-based modals render under `document.body`; browser QA must inspect the
+  body rather than only the React root.
+- Reused keys had incomplete French coverage even though English fallback
+  prevented raw-key rendering. Fallback behavior is not locale parity.
+
+## Required validation
+
+- Parse all four JSON catalogs and confirm referenced-key parity.
+- Run the frontend unit tests, lint, and `npm run build`.
+- In a clean browser profile, verify the startup screen is English and contains
+  no raw keys or Catalan/Spanish leaks.
+- Switch to Catalan, Spanish, and French and confirm the affected screen
+  updates without reload.
+- Reload after a non-English selection and confirm the explicit choice
+  persists.

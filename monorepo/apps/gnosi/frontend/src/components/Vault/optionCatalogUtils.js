@@ -184,7 +184,7 @@ export function checkActionRequires(schema = {}, metadata = {}, action, actionRu
         const raw = metadata?.[cfg.id] ?? metadata?.[fieldName];
         const values = valuesOf(raw);
         if (!values.length) continue;
-        const reason = String(cond.reason || '').trim() || 'L’estat actual no permet aquesta acció';
+        const reason = String(cond.reason || '').trim() || 'The current status does not allow this action';
         if (Array.isArray(cond.not_in) && values.some((v) => cond.not_in.includes(v))) {
             return { ok: false, reason };
         }

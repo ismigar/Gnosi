@@ -1,82 +1,87 @@
 # Gnosi Web Clipper
 
-Extensió de navegador (Manifest V3) per desar pàgines web —o la selecció de
-text— al teu vault de Gnosi. Funciona a Chromium (Chrome, Edge, Brave, Vivaldi,
-Opera, Arc), a Firefox i a Safari.
+A Manifest V3 browser extension for saving a web page or selected text to a
+Gnosi vault. It supports Chromium browsers (Chrome, Edge, Brave, Vivaldi,
+Opera, and Arc), Firefox, and Safari.
 
-## Com funciona
-Envia `POST {backend}/api/public/clip` amb `Authorization: Bearer <PAT>`. On va
-a parar el clip ho decideix Gnosi, no l'extensió: **Configuració → Plugins →
-Web Clipper**.
+## How it works
 
-- **Sense taula destí** (per defecte): el backend crea una nota a la carpeta
-  `Clips/` del vault amb la font enllaçada, el contingut capturat i les
-  etiquetes.
-- **Amb taula destí** (p. ex. «Recursos»): crea un registre a la taula, amb
-  l'URL, les etiquetes i la nota a les columnes configurades. Els camps que
-  hagis marcat es demanen al popup abans de desar; el popup els llegeix de
-  `GET /api/public/clip/config`, així que segueixen l'esquema real de la taula.
+The extension sends `POST {backend}/api/public/clip` with
+`Authorization: Bearer <PAT>`. Gnosi, not the extension, determines the clip
+destination through **Settings > Plugins > Web Clipper**.
 
-Si desactives el plugin a Gnosi, el clipper deixa de desar (403) i el popup
-ho diu.
+- **No destination table** (default): the backend creates a note in the
+  vault's `Clips/` folder with the source link, captured content, and tags.
+- **Destination table configured**, such as `Resources`: the backend creates
+  a table record with the URL, tags, and note in the configured columns.
+  Fields marked for prompting appear in the popup before saving. The popup
+  reads them from `GET /api/public/clip/config`, so they always match the
+  current table schema.
 
-## Instal·lació (mode desenvolupador)
+When the plugin is disabled in Gnosi, the backend returns `403` and the popup
+reports that clipping is disabled.
 
-Primer, a Gnosi: **Configuració → API i tokens → Crea un token** i copia'l (es
-mostra una sola vegada). Després, carrega l'extensió al teu navegador:
+## Development installation
 
-### Chromium: Chrome, Edge, Brave, Vivaldi, Opera, Arc
-`chrome://extensions` (o `edge://`, `brave://`, `vivaldi://`, `opera://`,
-`arc://`) → activa **Mode de desenvolupador** → **Carrega sense empaquetar** →
-tria aquesta carpeta (`web-clipper/`).
+First create a token in **Gnosi > Settings > API and tokens > Create token**.
+Copy it when shown; it is displayed only once. Then load the extension:
+
+### Chromium: Chrome, Edge, Brave, Vivaldi, Opera, and Arc
+
+Open `chrome://extensions` or the browser equivalent, enable **Developer
+mode**, choose **Load unpacked**, and select this `web-clipper/` directory.
 
 ### Firefox
-`about:debugging#/runtime/this-firefox` → **Carrega un complement temporal** →
-tria el `manifest.json` d'aquesta carpeta. La instal·lació és temporal: dura
-fins que tanques el Firefox. Per fer-la permanent cal signar el paquet a
-[addons.mozilla.org](https://addons.mozilla.org/developers/) (puja el
-`gnosi-web-clipper-store.zip` que genera `./build.sh`).
 
-A Firefox els permisos de host són **opcionals**: quan deses la configuració,
-el navegador et demanarà accés al domini del teu Gnosi. Si el deneges, el
-clipper no podrà enviar-hi res.
+Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**,
+and select this directory's `manifest.json`. The temporary installation lasts
+until Firefox closes. For a permanent installation, sign the package at
+[addons.mozilla.org](https://addons.mozilla.org/developers/) by uploading the
+`gnosi-web-clipper-store.zip` produced by `./build.sh`.
 
-### Safari (macOS, cal Xcode)
-Safari no carrega extensions web directament; cal convertir-les a una app. Amb
-un Xcode acabat d'instal·lar, primer les dues passes que no són òbvies —sense
-elles el converter falla amb *«A required plugin failed to load»*—:
+Firefox host permissions are optional. When saving settings, Firefox asks for
+access to the configured Gnosi domain. If access is denied, the clipper cannot
+send requests to that domain.
+
+### Safari on macOS
+
+Safari requires converting the web extension into an app with Xcode. After a
+new Xcode installation, run these otherwise non-obvious initialization steps;
+without them the converter can fail with "A required plugin failed to load."
 
 ```bash
 sudo xcodebuild -license accept
 xcodebuild -runFirstLaunch
 ```
 
-I després la conversió:
+Then convert the extension:
 
 ```bash
 xcrun safari-web-extension-converter monorepo/apps/gnosi/web-clipper
 ```
 
-Obre el projecte Xcode que genera, compila'l i executa'l un cop. Després,
-**Safari → Configuració → Extensions** → activa el clipper (amb *Permet
-extensions no signades* al menú Desenvolupament si no la signes amb un compte
-de desenvolupador d'Apple).
+Open the generated Xcode project, build it, and run it once. Then open
+**Safari > Settings > Extensions** and enable the clipper. If it is not signed
+with an Apple Developer account, enable unsigned extensions from Safari's
+Develop menu.
 
-### Un cop instal·lada (igual a tots els navegadors)
-1. Obre el popup de l'extensió → **Configuració** → posa l'URL de Gnosi
-   (p. ex. `https://localhost:5173`) i enganxa el token. Desa.
-2. En qualsevol web, clica la icona → **Desa aquesta pàgina** (o **només la
-   selecció**).
+### After installation
+
+1. Open the extension popup, choose **Settings**, enter the Gnosi URL such as
+   `https://localhost:5173`, paste the token, and save.
+2. On any web page, select **Save this page** or **Save selection only**.
 
 ## Notes
-- L'endpoint és part de l'API pública amb PAT (`/api/public/*`), separada de la
-  sessió de cookies; els tokens es revoquen des de la mateixa pestanya de
-  Configuració.
-- El codi crida `browser.*` quan existeix (Firefox, Safari) i `chrome.*` altrament
-  (Chromium); totes dues variants retornen promeses sota MV3.
-- Les icones d'`icons/` es generen des del logo canònic
-  (`frontend/public/favicon.svg`) — no les editis a mà. Per regenerar-les si el
-  logo canvia:
+
+- The endpoint belongs to the PAT-authenticated public API under
+  `/api/public/*`, separate from cookie sessions. Tokens can be revoked from
+  the same Gnosi settings tab.
+- The implementation uses `browser.*` when available in Firefox or Safari and
+  falls back to `chrome.*` in Chromium. Both variants return promises under
+  Manifest V3.
+- Icons in `icons/` are generated from the canonical
+  `frontend/public/favicon.svg`; do not edit them manually. Regenerate them
+  after a logo change with:
 
   ```bash
   for s in 16 32 48 128 512; do
@@ -85,8 +90,8 @@ de desenvolupador d'Apple).
           ../frontend/public/favicon.svg
   done
   ```
-- Sense taula destí, les notes desades apareixen a `Clips/`; pots
-  reorganitzar-les com qualsevol altra nota del vault.
-- Amb taula destí, el registre passa pel mateix camí que si el creessis a
-  l'app: automatismes, fórmules i valors per defecte de les columnes s'hi
-  apliquen igual.
+
+- Without a destination table, saved notes appear in `Clips/` and can be
+  reorganized like any other vault note.
+- With a destination table, the new record follows the same path as a record
+  created in the app, including automations, formulas, and column defaults.

@@ -1,129 +1,79 @@
-# Directiva: traducció de files via botó (skill `translate_row`)
+# Row Translation Skill
 
-## Resum
+## Summary
 
-Permet marcar una **taula** com a traduïble i un o més **camps** com a traduïbles.
-S'afegeix un nou tipus de camp `button` que, en clicar-lo, demana els idiomes
-destí i crea un subitem (parent_id = fila origen) per cada idioma amb les
-traduccions dels camps marcats.
+The `translate_row` skill allows a table and selected fields to be marked
+translatable. A row action opens target-language selection and creates or
+updates child rows containing translated field values.
 
-## Components
+## Configuration
 
-| Capa | Fitxer | Rol |
-|------|--------|-----|
-| Frontend | `frontend/src/components/Vault/SchemaConfigModal.jsx` | Toggle de taula traduïble + per camp + tipus `button` |
-| Frontend | `frontend/src/components/Vault/TranslateLanguagesModal.jsx` | Modal de selecció d'idiomes destí |
-| Frontend | `frontend/src/components/Vault/VaultTable.jsx` | Render de la cel·la `button` i obertura del modal |
-| Frontend | `frontend/src/components/Vault/schemaUtils.js` | Persistència de `translatable`, `button_action`, `button_label` |
-| Frontend | `frontend/src/pages/VaultDashboard.jsx` | Persisteix `translation_enabled` a la taula |
-| Backend | `backend/api/vault_routes.py` (`POST /api/vault/skills/translate-row`) | Coordina lectura, traducció i creació de subitems |
-| Skill | `pipeline/skills/translate_row/SKILL.md` | Documentació de la skill |
-| Skill | `pipeline/skills/translate_row/scripts/translate_text.py` | `translate(text, src, tgt) -> (str, provider)` |
+Table:
 
-## Persistència
+- `translation_enabled`
 
-- **A la taula** (`registry.tables[i]`): `translation_enabled: true|false`
-- **A cada propietat** (`registry.tables[i].properties[j]`):
-  - `type: "button"` per als camps d'acció
-  - `button_action: "translate_row"` (per ara l'única acció)
-  - `button_label: "..."` (text mostrat al botó; opcional)
-  - `translatable: true` per a camps que el botó ha de traduir
+Properties:
 
-## Subitem creat
+- `type: "button"` for the action.
+- `button_action: "translate_row"`.
+- Optional localized `button_label`.
+- `translatable: true` for supported source fields.
 
-Cada subitem té `parent_id` = id de la fila origen i hereta `table_id` perquè
-es desa a la mateixa carpeta. Els camps traduïts es persisteixen amb la
-**mateixa clau** que el pare (preferint `field_id` estable). Metadades
-addicionals:
+User-visible labels are i18n keys with English defaults.
 
-- `translation_lang`: codi ISO 639-1 (`en`, `es`, `fr`, ...)
-- `translation_source_lang`: idioma origen detectat
-- `translation_origin_id`: `id` de la fila pare (redundant amb `parent_id`,
-  però explícit per filtres)
-- `translation_provider`: `softcatala` | `deepl` | `placeholder` | `mixed`
+## Created translation
 
-## Proveïdors (Mid plan — eines lliures per defecte)
+Each translation:
 
-| Parell | Proveïdor | On |
-|--------|-----------|------|
-| `en↔ca` | Softcatalà NMT | Online (públic, gratis) |
-| `ca↔{es, fr, …}` | Softcatalà Apertium + acronym-fix | Online (públic, gratis) |
-| `es↔fr`, `fr↔es` | OPUS-MT (`Helsinki-NLP/opus-mt-{es-fr,fr-es}`) | **Local, lazy** |
-| Altres pairs sense `ca` | Apertium APy + acronym-fix | Online (públic, gratis) |
-| Fallback opcional | DeepL | Online (necessita key) |
+- Uses the source row as `parent_id`.
+- Retains the table ID and folder.
+- Stores translated values under canonical current property names.
+- Records target language, detected source language, source row ID, and
+  provider.
 
-**Acronym fix**: pre/post-processor que protegeix `[A-Z][A-Z0-9-]{1,5}` amb
-tokens `XACRN###ZZZ`. Aplica només a Apertium (no NMT — ja preserva). Soluciona
-"API→apio/céleri", "JSON→json", etc.
+Persisted metadata identifiers remain stable compatibility keys. Do not
+reintroduce opaque field IDs into Markdown; follow
+`vault_persist_by_name.md`.
 
-**OPUS-MT lazy**: el model no es carrega fins la primera crida `es↔fr`.
-Una vegada carregat, queda en memòria fins que passa `OPUS_IDLE_TIMEOUT_S`
-(default 5 min) sense ús, llavors s'allibera. RAM en repòs = 0; pic durant
-ús = ~300-500 MB per model (es-fr i fr-es per separat).
+## Providers
 
-**Sense cap configuració**, els 5 primers parells funcionen out-of-the-box
-gràcies als endpoints públics i el model local. DeepL només cal si
-necessites parells sense català que Apertium no cobreix bé.
+Provider selection supports free public or local translation paths and an
+optional configured DeepL fallback. Protect acronyms before providers known to
+alter them, then restore them after translation.
 
-## Restriccions / Edge cases apresos
+Local models load lazily and unload after an idle timeout. Model caches belong
+outside OneDrive.
 
-- **Idioma origen igual al destí** → skip (no es genera subitem).
-- **Cap camp traduïble amb contingut** → skip aquell idioma.
-- **Camp tipus `button`** no és mai traduïble (sense valor textual).
-- **Camps derivats** (formula/rollup/virtual) no apareixen com a traduïbles.
-- **Subprocess no pot importar `backend.*`** → la coordinació viu a l'endpoint
-  i només la funció pura `translate(...)` viu a la skill (importada
-  directament pel backend, sense subprocess).
-- **`get_table_id`** llegeix tant `database_table_id` (preferit) com
-  `table_id` (legacy). Per al subitem escrivim totes dues.
-- **Resolució `id` vs `name`**: les metadades del Vault s'escriuen per
-  `field_id` (`fld_xxxxxxxx`) preferentment; en llegir provem `id` primer i
-  després `name`. Per als subitems escrivim per `id` perquè el pare l'usa.
+Do not assume any third-party public endpoint is permanently available.
+Provider errors must produce a clear per-language result and preserve source
+data.
 
-## Activació
+## Restrictions
 
-1. Edita el schema de la taula → activa "Taula traduïble". Subitems s'activa
-   automàticament la primera vegada (necessari per la jerarquia).
-2. Per cada camp textual rellevant, marca "Traduïble".
-3. Afegeix una nova propietat de tipus "Botó", deixa l'acció a "Traduir fila"
-   i posa-li una etiqueta (per defecte: "Traduir").
-4. Desa. A la fila apareixerà el botó; en clicar-lo s'obre el modal d'idiomes.
+- Skip a target equal to the source language.
+- Skip a target when no translatable field has content.
+- Button, formula, rollup, virtual, and other derived fields are not
+  translatable.
+- Backend orchestration uses the pure skill function directly; it does not
+  launch a subprocess that imports backend internals.
+- Store arrays and structured fields without string coercion.
+- Preserve the user's selected content language.
+- Action-rule status requirements and effects are specified in
+  `vault_option_catalogs_action_rules.md`.
 
-## Configuració d'entorn
+## Activation
 
-A `.env_shared` (totes opcionals):
+1. Enable translation for the table.
+2. Mark eligible text fields translatable.
+3. Add a button property whose action is `translate_row`.
+4. Save and invoke the action from a disposable test row.
 
-```bash
-# DEEPL_API_KEY=xxxx                # https://www.deepl.com/pro-api (al Keychain via Settings; també llegit de l'env)
-# DEEPL_API_URL=...                 # override DeepL endpoint
-# SOFTCATALA_API_URL=...            # override Softcatalà NMT i Apertium
-# APERTIUM_PUBLIC_API_URL=...       # override apertium.org/apy
-# OPUS_IDLE_TIMEOUT_S=300           # segons d'inactivitat abans d'unload OPUS-MT
-# HF_HOME=${HOME}/.cache/huggingface  # cache models — FORA d'OneDrive (regla de caches)
-```
+## QA
 
-Després de canvis al `.env_shared`, reinicia el backend (`docker-compose restart`)
-perquè els llegeixi.
-
-## Dependencies addicionals
-
-`requirements.txt` afegeix `sentencepiece` (necessari per Marian/OPUS-MT).
-`torch` i `transformers` ja venen transitivament via `sentence-transformers`,
-així que no cal afegir-los explícitament. La primera crida `es↔fr` triga
-~20 s (descàrrega del model ~300 MB de HuggingFace); les següents són <1 s.
-
-## Test ràpid
-
-```bash
-# Test directe de la funció de traducció
-cd ~/Projectes/monorepo/apps/gnosi
-python3 -m pipeline.skills.translate_row.scripts.translate_text \
-    --text "Hola, com estàs?" --source ca --target en
-```
-
-```bash
-# Test de l'endpoint (assumint backend a localhost:5002)
-curl -X POST http://localhost:5002/api/vault/skills/translate-row \
-  -H 'Content-Type: application/json' \
-  -d '{"item_id":"<UUID>", "target_languages":["en","es"], "button_action":"translate_row"}'
-```
+1. Unit-test provider selection, acronym protection, and fallback behavior.
+2. Translate a disposable row to multiple targets.
+3. Verify parent/table identity, canonical property names, language metadata,
+   status effects, and persistence after restart.
+4. Test same-language skip, empty fields, provider failure, and retry.
+5. Browser-test modal labels and progress in English and another selected
+   locale.

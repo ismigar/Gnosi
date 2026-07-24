@@ -86,9 +86,9 @@ def run_event(
     pid = manifest["id"]
     backend_entry = manifest.get("backend")
     if not backend_entry:
-        return {"ok": False, "error": "el plugin no declara entry backend"}
+        return {"ok": False, "error": "the plugin does not declare a backend entry"}
     if not node_available():
-        return {"ok": False, "error": "node no disponible al host"}
+        return {"ok": False, "error": "Node.js is unavailable on the host"}
 
     try:
         pdir = ps.plugin_dir(config_dir, pid)
@@ -96,9 +96,9 @@ def run_event(
         return {"ok": False, "error": str(e)}
     main_path = (pdir / backend_entry).resolve()
     if pdir.resolve() not in main_path.parents:
-        return {"ok": False, "error": "entry backend fora del directori del plugin"}
+        return {"ok": False, "error": "backend entry is outside the plugin directory"}
     if not main_path.exists():
-        return {"ok": False, "error": f"entry backend no trobat: {backend_entry}"}
+        return {"ok": False, "error": f"backend entry not found: {backend_entry}"}
 
     granted_set = set(granted or [])
     net = "1" if "network" in granted_set else "0"
@@ -132,13 +132,13 @@ def run_event(
             cwd=str(pdir),
         )
     except Exception as e:  # noqa: BLE001
-        return {"ok": False, "error": f"no s'ha pogut arrencar node: {e}"}
+        return {"ok": False, "error": f"could not start Node.js: {e}"}
 
     def _kill_on_timeout() -> None:
         try:
             proc.wait(timeout=timeout_s)
         except subprocess.TimeoutExpired:
-            logger.warning("Plugin %s: timeout, matant subprocés", pid)
+            logger.warning("Plugin %s: timed out; terminating subprocess", pid)
             try:
                 proc.kill()
             except Exception:  # noqa: BLE001

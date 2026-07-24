@@ -120,30 +120,33 @@ def get_email_body(msg):
     return html_body or text_body or ""
 
 
-# Tags que un email mai no ha de portar: executen codi, carreguen contingut
-# extern arbitrari o exfiltren dades. Encara que el render usi un iframe
-# sandbox, `<iframe>`/`<form>` NO els bloqueja `allow-same-origin allow-popups`;
-# i si algun dia s'hi afegís `allow-scripts`, `<script>`/`javascript:` tornarien
-# a ser executables. Es treuen a la sanització (defense-in-depth).
+# Tags an email must never contain: they execute code, load arbitrary external
+# content, or exfiltrate data. Even though rendering uses a sandboxed iframe,
+# `allow-same-origin allow-popups` does not block `<iframe>` or `<form>`. If
+# `allow-scripts` were ever added, `<script>` and `javascript:` would become
+# executable again. Sanitization removes them as defense in depth.
 _UNSAFE_TAGS = [
     'script', 'style', 'meta', 'link', 'head',
     'iframe', 'object', 'embed', 'applet',
     'form', 'base', 'frame', 'frameset',
 ]
 
-# Atributs que porten una URL i, per tant, poden dur un esquema perillós.
+# Attributes that contain URLs and can therefore carry a dangerous scheme.
 _URL_ATTRS = ('href', 'src', 'action', 'formaction', 'poster', 'background', 'xlink:href', 'data')
 
 
 def _is_safe_url(value: str) -> bool:
-    """False si l'URL usa un esquema perillós (`javascript:`/`vbscript:`/`file:`,
-    o `data:` que NO sigui una imatge inline). Els URLs relatius/àncora i els
-    esquemes normals (http, https, mailto, tel…) són segurs."""
+    """Returns False for dangerous URL schemes.
+
+    Blocks `javascript:`, `vbscript:`, `file:`, and non-image `data:` URLs.
+    Relative URLs, anchors, and normal schemes such as HTTP, HTTPS, mailto, and
+    tel are safe.
+    """
     v = value or ''
     if ':' not in v:
-        return True  # relatiu, àncora (#…), ruta (/…): segur
-    # Els navegadors ignoren espais/control chars DINS l'esquema (p. ex.
-    # "java\tscript:"): els traiem abans de comprovar-lo.
+        return True  # Relative URL, anchor, or absolute path.
+    # Browsers ignore spaces and control characters INSIDE schemes, such as
+    # "java\tscript:", so remove them before checking.
     scheme = re.sub(r'[\s\x00-\x20]', '', v.split(':', 1)[0]).lower()
     if scheme in ('javascript', 'vbscript', 'file'):
         return False
@@ -323,7 +326,7 @@ def fetch_and_store_newsletters():
 
         if not cfg["email"] or not cfg["password"] or not _is_valid_host(server):
             log.warning(
-                f"⚠️ Newsletter POP3 no configurat o host invàlid ('{server}'). "
+                f"⚠️ Newsletter POP3 is not configured or has an invalid host ('{server}'). "
                 "Skipping newsletters."
             )
             return 0
@@ -446,7 +449,7 @@ def fetch_and_store_newsletters():
                         delete_ids.append(i)
                 except Exception as e:
                     log.warning(
-                        f"  ⚠️ Saltant newsletter #{i} malformat ({subject.strip()[:60]!r}): {e}"
+                        f"  ⚠️ Skipping malformed newsletter #{i} ({subject.strip()[:60]!r}): {e}"
                     )
                     continue
 

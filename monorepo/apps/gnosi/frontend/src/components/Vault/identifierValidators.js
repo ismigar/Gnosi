@@ -68,23 +68,23 @@ export function validateIdentifier(kind, raw) {
         case 'doi':
             return isValidDOI(raw)
                 ? { valid: true, hint: null }
-                : { valid: false, hint: 'Format DOI esperat: 10.xxxx/yyyy' };
+                : { valid: false, hint: 'Expected DOI format: 10.xxxx/yyyy' };
         case 'isbn':
             return isValidISBN(raw)
                 ? { valid: true, hint: null }
-                : { valid: false, hint: 'ISBN ha de tenir 10 o 13 dígits (X final acceptada a ISBN-10)' };
+                : { valid: false, hint: 'ISBN must contain 10 or 13 digits (a final X is accepted for ISBN-10)' };
         case 'pmid':
             return isValidPMID(raw)
                 ? { valid: true, hint: null }
-                : { valid: false, hint: 'PMID només pot tenir dígits (p. ex. 29083320)' };
+                : { valid: false, hint: 'PMID may contain digits only (for example, 29083320)' };
         case 'arxiv':
             return isValidArxivId(raw)
                 ? { valid: true, hint: null }
-                : { valid: false, hint: 'arXiv id esperat: 2103.00020 o cat.SUB/0703001' };
+                : { valid: false, hint: 'Expected arXiv ID: 2103.00020 or cat.SUB/0703001' };
         case 'url':
             return isValidURL(raw)
                 ? { valid: true, hint: null }
-                : { valid: false, hint: 'URL ha de començar amb http:// o https://' };
+                : { valid: false, hint: 'URL must start with http:// or https://' };
         default:
             return { valid: true, hint: null };
     }

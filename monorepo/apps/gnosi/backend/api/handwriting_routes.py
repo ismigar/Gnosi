@@ -56,14 +56,14 @@ async def recognize_handwriting(
     if not handwriting.is_available():
         raise HTTPException(
             status_code=503,
-            detail="El motor de reconeixement local no està disponible (falta transformers/PIL).",
+            detail="The local recognition engine is unavailable (transformers/PIL is missing).",
         )
 
     data = await image.read()
     if not data:
-        raise HTTPException(status_code=400, detail="Imatge buida.")
+        raise HTTPException(status_code=400, detail="Image is empty.")
     if len(data) > _MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Imatge massa gran.")
+        raise HTTPException(status_code=413, detail="Image is too large.")
 
     try:
         # TrOCR on CPU is heavy and blocking: keep it off the event loop.
@@ -71,7 +71,7 @@ async def recognize_handwriting(
             handwriting.recognize, data, True, correct, language
         )
     except Exception as e:
-        log.exception("Error reconeixent escriptura a mà")
-        raise HTTPException(status_code=500, detail=f"Error de reconeixement: {e}")
+        log.exception("Handwriting recognition failed")
+        raise HTTPException(status_code=500, detail=f"Recognition failed: {e}")
 
     return result

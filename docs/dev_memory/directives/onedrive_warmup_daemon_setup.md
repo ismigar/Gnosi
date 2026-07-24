@@ -1,144 +1,75 @@
-# Directive: Arquitectura del OneDrive Warmup Daemon
+# OneDrive Warmup Daemon
 
-## Objectiu
+## Objective
 
-Documentar el setup robust del daemon `onedrive_warmup_daemon.py` perquè
-sobrevisqui reboots, relaunch i actualitzacions de codi sense ritual manual.
+Document safe operation of `onedrive_warmup_daemon.py`, which requests macOS
+File Provider materialization for online-only files.
 
-## ⚠️ CORRECCIÓ CRÍTICA (2026-06-06) — el LaunchAgent NO materialitza
+## Critical launch-context finding
 
-**El setup de LaunchAgent d'aquesta directiva NO pot materialitzar fitxers
-online-only.** Provat empíricament (sessió tender-shtern): macOS denega la
-materialització del File Provider de tercers (OneDrive) als processos de
-**fons** (LaunchAgent, fins i tot `gui/$UID`): `read()` → **EDEADLK (errno 11)**,
-`qlmanage` → timeout. El **MATEIX daemon, mateix binari `/usr/bin/python3`,
-arrencat des d'una SESSIÓ GRÀFICA** (Terminal o Login Item) SÍ materialitza
-(provat: instància a port 5010 → `{"status":"materialized"}` en 1,3s).
+A background LaunchAgent can serve health and already-local files but may fail
+to materialize third-party File Provider placeholders with `EDEADLK`. The same
+Python daemon started from a graphical login session can materialize them.
 
-**No és FDA** (l'errno és 11, no 1) ni el bundle `.app` (el llançador no llegeix,
-només fa `exec` de python3). És el **context de llançament**.
+For active hydration, install the daemon as a Login Item through
+`sh/install_warmup_loginitem.sh`, not as a background-only LaunchAgent.
 
-→ **Fix**: arrencar el daemon com a **Login Item** (sessió gràfica), no com a
-LaunchAgent. Vegeu `sh/install_warmup_loginitem.sh`. La resta d'aquesta directiva
-(plist/LaunchAgent) queda **obsoleta** per a la materialització (el LaunchAgent
-encara serveix `/healthz` i `/thumb` de fitxers ja locals, però no materialitza).
+The native backend no longer depends on this daemon for normal reads. It is
+retained as a recovery tool.
 
 ## Components
 
-| Component | Path | Funció |
-|-----------|------|--------|
-| Daemon (codi) | `monorepo/apps/gnosi/sh/onedrive_warmup_daemon.py` | Llegeix fitxers placeholder per disparar el File Provider macOS |
-| Plist | `~/Library/LaunchAgents/com.gnosi.onedrive-warmup.plist` | Llança el daemon al login + KeepAlive |
-| Script dev | `monorepo/apps/gnosi/sh/start_warmup_daemon.sh` | Per arrencar manualment durant desenvolupament |
+- `sh/onedrive_warmup_daemon.py`
+- `sh/start_warmup_daemon.sh`
+- Login Item installer
+- Legacy LaunchAgent for health/local-only support
 
-## Setup correcte (verificat 2026-05-18)
+## Permissions and configuration
 
-### 1. Full Disk Access
+Grant Full Disk Access to the stable `/usr/bin/python3` binary when required.
+Do not wrap it in an ad-hoc-signed application bundle; code changes can
+invalidate TCC responsibility and permissions.
 
-Settings → Privacy & Security → Full Disk Access → `+` → afegir
-**`/usr/bin/python3`** (Cmd+Shift+G al diàleg de Finder). Aquesta entrada
-és compartida amb el `host_open_helper`, així que si aquell funciona, el
-daemon també.
+Important environment settings:
 
-**No cal** afegir-hi `OneDriveWarmup.app` ni cap altre bundle. El plist
-nou invoca `/usr/bin/python3` directament.
+- Allowed roots: colon-separated absolute directories.
+- Bind host and port.
+- Bounded materialization timeout.
 
-### 2. Plist
+Requests must be contained within an allowed root.
 
-```xml
-<key>ProgramArguments</key>
-<array>
-    <string>/usr/bin/python3</string>
-    <string>/Users/<user>/Projectes/monorepo/apps/gnosi/sh/onedrive_warmup_daemon.py</string>
-</array>
+## Diagnosis
 
-<key>EnvironmentVariables</key>
-<dict>
-    <key>ONEDRIVE_WARMUP_ALLOWED_ROOTS</key>
-    <string>/Users/<user>/Library/CloudStorage/OneDrive-UNED</string>
-    <key>ONEDRIVE_WARMUP_PORT</key>
-    <string>5009</string>
-    <key>ONEDRIVE_WARMUP_BIND</key>
-    <string>0.0.0.0</string>
-    <key>ONEDRIVE_WARMUP_TIMEOUT</key>
-    <string>90</string>
-</dict>
-```
+| Result | Meaning | Action |
+|---|---|---|
+| `materialized` | Success | Continue. |
+| `out_of_scope` | Path outside allowed roots | Correct configuration. |
+| `errno 1` | Permission denial | Check Full Disk Access and relaunch. |
+| `EDEADLK` | Provider cannot hydrate in current state/context | Check graphical launch and OneDrive. |
+| `EAGAIN` | Provider temporarily busy | Retry with backoff. |
+| `timeout` | Slow download | Wait; a later request may find it local. |
 
-Punts clau:
+Use symbolic errno names in code because numeric values differ between macOS
+and Linux.
 
-- **Sense bundle `.app` intermediari.** TCC pot perdre permisos a un
-  bundle adhoc-signed quan el codi es modifica (cas verificat: cada
-  rebuild del wrapper feia perdre FDA i caldria reautoritzar). Llançant
-  `/usr/bin/python3` directament hereta el FDA estable del binari.
-- **`ONEDRIVE_WARMUP_ALLOWED_ROOTS`** (`:`-separat, com `$PATH`):
-  substitueix la variable `VAULT_HOST_PATH` legacy que limitava el scope
-  a una sola carpeta. El daemon ara accepta qualsevol fitxer dins de
-  qualsevol root permès — necessari quan el Vault enllaça PDFs/imatges
-  de carpetes germanes (`OneDrive-UNED/Documents`, etc.).
-- **`KeepAlive=true`** al plist (reinicia si el procés mor).
+If Preview or Finder also cannot open the file, the failure belongs to
+OneDrive/File Provider rather than Gnosi.
 
-### 3. Recàrrega
+## Restrictions
 
-```bash
-launchctl unload ~/Library/LaunchAgents/com.gnosi.onedrive-warmup.plist
-pkill -f onedrive_warmup_daemon.py   # mata orfes que podrien retenir port 5009
-launchctl load   ~/Library/LaunchAgents/com.gnosi.onedrive-warmup.plist
-sleep 2
-launchctl list | grep onedrive-warmup        # PID, no `-`
-curl -s http://localhost:5009/healthz        # → {"status":"ok","allowed_roots":[...]}
-```
+- Do not package the helper in an ad-hoc-signed `.app`.
+- Do not use `nohup`, tmux, or an always-open Terminal as permanent setup.
+- Do not assume a healthy HTTP endpoint proves placeholder hydration works.
+- Do not run the helper inside Docker; it must access the host File Provider.
+- Do not expose arbitrary host paths.
+- Use bounded concurrency to avoid saturating OneDrive.
 
-## Diagnòstic per codi d'errno
+## QA
 
-Test directe (salta el backend Docker):
+1. Health endpoint reports allowed roots.
+2. Out-of-scope paths are rejected.
+3. A graphical-session instance hydrates a known online-only file.
+4. Timeout returns within its configured bound.
+5. Native backend continues to function when the helper is unavailable.
 
-```bash
-curl -s "http://localhost:5009/warmup?path=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))' "/abs/path/to/file.pdf")"
-```
-
-| Resposta | Causa | Acció |
-|----------|-------|-------|
-| `{"status": "materialized", ...}` | OK | — |
-| `{"status": "out_of_scope", "allowed_roots": [...]}` | Path fora dels roots permesos | Estendre `ONEDRIVE_WARMUP_ALLOWED_ROOTS` al plist |
-| `{"status": "read_error", "errno": 1, ...}` | EPERM: `/usr/bin/python3` no té FDA | Afegir `/usr/bin/python3` a Full Disk Access; relaunch |
-| `{"status": "read_error", "errno": 11, ...}` (EDEADLK) | OneDrive no descarrega el placeholder | **Fora de Gnosi**: revisar estat del client OneDrive |
-| `{"status": "read_error", "errno": 35, ...}` (EAGAIN) | OneDrive temporalment ocupat | Reintentar |
-| `{"status": "timeout", ...}` | Descàrrega lenta (>90s) | Esperar; la propera crida pel mateix path sovint encerta |
-
-## Antipattern: bundle `.app` adhoc-signed
-
-L'antic plist invocava `~/Library/Application Support/Gnosi/OneDriveWarmup.app/Contents/MacOS/OneDriveWarmup`
-(un wrapper bash amb signatura adhoc). Problema doble:
-
-1. TCC tracta bundles adhoc-signed amb `Sealed Resources version=2 rules=13`
-   com a "responsible process" del fitxer wrapper. Si el fitxer canvia
-   (rebuild), TCC l'invalida i revoca FDA dels fills.
-2. Quan el wrapper feia `exec /usr/bin/python3 ...`, el procés Python
-   passava a ser el procés principal però mantenia el `responsible
-   process` del bundle. Sense FDA al bundle, el python heretava la
-   denegació tot i tenir el binari (`/usr/bin/python3`) autoritzat
-   per separat.
-
-L'usuari acabava havent d'afegir **ambdós** binaris al TCC i reautoritzar
-després de cada actualització. El setup actual evita el problema d'arrel.
-
-## Què no fer
-
-- No tornar a empaquetar el daemon a un bundle `.app` per "ordre". Els
-  bundles són útils només si la signatura és estable (Developer ID o
-  Notarized) — l'adhoc no compleix la garantia de TCC.
-- No barrejar amb `nohup`/`tmux`/Terminal manual com a workaround
-  permanent. El plist actual ja és estable; si falla, és per FDA o
-  per port ocupat per un procés orfe.
-- No assumir que `errno 11`/`errno 35` són culpa del daemon. Vol dir
-  que OneDrive està en estat dolent (pausat, sense xarxa, sense
-  autenticació, o el File Provider no respon). Verifica obrint el
-  fitxer amb Preview.app — si Preview tampoc el carrega, és OneDrive.
-
-## Vegeu també
-
-- [file_response_warmup_pattern.md](file_response_warmup_pattern.md) — patró
-  obligatori per a endpoints del backend que serveixen fitxers físics.
-- `feedback_onedrive_warmup_daemon.md` (memòria personal) — playbook
-  d'incidents amb troubleshooting pas a pas.
+See `file_response_warmup_pattern.md` for backend response integration.

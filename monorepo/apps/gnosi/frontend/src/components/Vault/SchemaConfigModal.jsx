@@ -102,7 +102,7 @@ function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, o
                 onClick={() => setPaletteOpen((v) => !v)}
                 className="shrink-0 w-4 h-4 rounded-full border border-black/10 hover:scale-110 transition-transform"
                 style={{ backgroundColor: optionColorHex(option.color) }}
-                title={t('schema.option_color', "Color de l'opció")}
+                title={t('schema.option_color', "Option color")}
             />
             {paletteOpen && (
                 <div className="absolute left-8 top-7 z-50 flex gap-1 p-1.5 rounded-lg border border-[var(--border-primary)] bg-[var(--bg-primary)] shadow-lg">
@@ -132,7 +132,7 @@ function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, o
             {typeof usageCount === 'number' && (
                 <span
                     className="shrink-0 text-[10px] tabular-nums text-[var(--text-tertiary)]/70"
-                    title={t('schema.option_usage', { count: usageCount, defaultValue: '{{count}} registres usen aquesta opció' })}
+                    title={t('schema.option_usage', { count: usageCount, defaultValue: "{{count}} records use this option" })}
                 >
                     {usageCount}
                 </span>
@@ -142,9 +142,9 @@ function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, o
                     value={option.group || ''}
                     onChange={(e) => onSetGroup(option.name, e.target.value)}
                     className="shrink-0 text-[10px] border border-[var(--border-primary)] rounded px-1 py-0.5 bg-[var(--bg-secondary)] text-[var(--text-secondary)] outline-none"
-                    title={t('schema.option_group', 'Grup')}
+                    title={t('schema.option_group', "Group")}
                 >
-                    <option value="">{t('schema.option_group_none', '— grup —')}</option>
+                    <option value="">{t('schema.option_group_none', "— group —")}</option>
                     {groups.map((g) => <option key={g} value={g}>{g}</option>)}
                 </select>
             )}
@@ -152,15 +152,15 @@ function SortableOptionRow({ option, fieldType, groups, usageCount, isDefault, o
                 type="button"
                 onClick={() => onSetDefault(isDefault ? '' : option.name)}
                 className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border transition-colors ${isDefault ? 'border-[var(--gnosi-primary)] text-[var(--gnosi-primary)] bg-[var(--gnosi-primary)]/10' : 'border-transparent text-[var(--text-tertiary)]/50 hover:text-[var(--text-secondary)]'}`}
-                title={t('schema.option_default_hint', "Opció per defecte en crear un registre")}
+                title={t('schema.option_default_hint', "Default option when creating a record")}
             >
-                {t('schema.option_default', 'defecte')}
+                {t('schema.option_default', "default")}
             </button>
             <button
                 type="button"
                 onClick={() => onRemove(option.name)}
                 className="btn-gnosi-danger !p-1"
-                title={t('common.delete', 'Elimina')}
+                title={t('common.delete', "Delete")}
             >
                 <Trash2 size={14} />
             </button>
@@ -186,12 +186,12 @@ function RemoveOptionDialog({ state, options, onCancel, onConfirm }) {
         >
             <div className="bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl w-full max-w-md p-5 animate-in zoom-in-95 duration-150">
                 <h3 className="text-base font-semibold text-[var(--text-primary)] mb-2">
-                    {t('schema.confirm_remove_option_title', 'Eliminar opció')}
+                    {t('schema.confirm_remove_option_title', "Delete option")}
                 </h3>
                 <p className="text-sm text-[var(--text-secondary)] mb-3">
                     {typeof state.usageCount === 'number' && state.usageCount > 0
-                        ? t('schema.remove_option_in_use', { name: state.value, count: state.usageCount, defaultValue: "L'opció «{{name}}» l'usen {{count}} registres. Què en fem, dels seus valors?" })
-                        : t('schema.remove_option_unused', { name: state.value, defaultValue: "Segur que vols eliminar l'opció «{{name}}»?" })}
+                        ? t('schema.remove_option_in_use', { name: state.value, count: state.usageCount, defaultValue: "The option “{{name}}” is used by {{count}} records. What should we do with their values?" })
+                        : t('schema.remove_option_unused', { name: state.value, defaultValue: "Are you sure you want to delete the option “{{name}}”?" })}
                 </p>
                 {state.protectedReason && (
                     <p className="text-xs text-amber-600 dark:text-amber-400 mb-3">
@@ -200,23 +200,23 @@ function RemoveOptionDialog({ state, options, onCancel, onConfirm }) {
                 )}
                 {others.length > 0 && (
                     <label className="flex items-center gap-2 mb-4 text-sm text-[var(--text-secondary)]">
-                        {t('schema.remove_option_reassign', 'Reassignar a')}
+                        {t('schema.remove_option_reassign', "Reassign to")}
                         <select
                             value={reassignTo}
                             onChange={(e) => setReassignTo(e.target.value)}
                             className="flex-1 text-sm border border-[var(--border-primary)] rounded-md px-2 py-1 bg-[var(--bg-secondary)] text-[var(--text-primary)] outline-none"
                         >
-                            <option value="">{t('schema.remove_option_clear', '— buidar els valors —')}</option>
+                            <option value="">{t('schema.remove_option_clear', "— clear the values —")}</option>
                             {others.map((o) => <option key={o.name} value={o.name}>{o.name}</option>)}
                         </select>
                     </label>
                 )}
                 <div className="flex justify-end gap-2">
                     <button type="button" onClick={onCancel} className="px-3 py-1.5 text-sm text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors">
-                        {t('common.cancel', 'Cancel·lar')}
+                        {t('common.cancel', "Cancel")}
                     </button>
                     <button type="button" onClick={() => onConfirm(reassignTo || null)} className="btn-gnosi-danger px-3 py-1.5 text-sm rounded-md">
-                        {t('schema.confirm_remove_option_confirm', 'Eliminar')}
+                        {t('schema.confirm_remove_option_confirm', "Delete")}
                     </button>
                 </div>
             </div>
@@ -281,7 +281,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         if (isShared) {
             // Row rewriting for shared catalogs (multi-table)
             // is not yet supported: renaming would leave orphaned values.
-            toast.error(t('schema.shared_catalog_rename_unsupported', 'Renombrar opcions d\'un catàleg compartit encara no està suportat.'));
+            toast.error(t('schema.shared_catalog_rename_unsupported', "Renaming options of a shared catalog is not supported yet."));
             return;
         }
         onChange(richOptions.map((o) => (o.name === oldVal ? { ...o, name: newVal } : o)));
@@ -317,7 +317,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
     // confirmation (accessibility: never destructive on the first click).
     const requestRemoveOption = (val) => {
         if (isShared) {
-            toast.error(t('schema.shared_catalog_remove_unsupported', 'Eliminar opcions d\'un catàleg compartit encara no està suportat.'));
+            toast.error(t('schema.shared_catalog_remove_unsupported', "Deleting options from a shared catalog is not supported yet."));
             return;
         }
         setConfirmRemove({
@@ -325,7 +325,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
             value: val,
             usageCount: usage ? (usage[val] || 0) : null,
             protectedReason: RULE_PROTECTED_OPTIONS.has(val)
-                ? t('schema.remove_option_rule_warning', "Aquesta opció l'usen les regles d'acció (traduir/publicar); si una regla la necessita, es recrearà sola.")
+                ? t('schema.remove_option_rule_warning', "This option is used by the action rules (translate/publish); if a rule needs it, it will be recreated automatically.")
                 : '',
         });
     };
@@ -384,10 +384,10 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
         <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                 <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
-                    <Tag size={12} /> {t('schema.options_label', 'Opcions')}
+                    <Tag size={12} /> {t('schema.options_label', "Options")}
                     {catalogRef && (
                         <span className="normal-case tracking-normal font-medium text-[var(--text-tertiary)]">
-                            · {t('schema.options_shared_catalog', { name: catalogRef, defaultValue: 'catàleg compartit «{{name}}»' })}
+                            · {t('schema.options_shared_catalog', { name: catalogRef, defaultValue: "shared catalog “{{name}}”" })}
                         </span>
                     )}
                 </label>
@@ -415,7 +415,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
                     </DndContext>
                 ) : (
                     <p className="text-[11px] text-[var(--text-secondary)]/60 px-1 italic">
-                        {t('schema.options_empty', 'Encara no hi ha opcions. També se\'n creen automàticament en omplir registres.')}
+                        {t('schema.options_empty', "No options yet. They're also created automatically when filling records.")}
                     </p>
                 )}
                 <div className="flex items-center gap-2 pt-1">
@@ -427,7 +427,7 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
                             if (e.key === 'Enter') { e.preventDefault(); addOption(); }
                             if (e.key === 'Escape') { e.stopPropagation(); setNewOption(''); }
                         }}
-                        placeholder={t('schema.options_add_placeholder', 'Nova opció…')}
+                        placeholder={t('schema.options_add_placeholder', "New option…")}
                         className="flex-1 text-sm rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                     />
                     <button
@@ -436,26 +436,26 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
                         disabled={!newOption.trim() || names.includes(newOption.trim())}
                         className="btn-gnosi btn-gnosi-primary !text-xs !py-1.5 !px-3 flex items-center gap-1 disabled:opacity-40"
                     >
-                        <Plus size={14} /> {t('common.add', 'Afegir')}
+                        <Plus size={14} /> {t('common.add', "Add")}
                     </button>
                 </div>
                 {onLinkCatalog && (
                     <div className="flex items-center gap-2 pt-1">
                         <Link2 size={12} className="text-[var(--text-tertiary)]/60" />
                         <label className="text-[10px] text-[var(--text-tertiary)]/80">
-                            {t('schema.shared_catalog_label', 'Catàleg')}
+                            {t('schema.shared_catalog_label', "Catalog")}
                         </label>
                         <select
                             value={catalogRef || ''}
                             onChange={(e) => handleCatalogLink(e.target.value)}
                             className="text-[11px] border border-[var(--border-primary)] rounded px-1.5 py-0.5 bg-[var(--bg-secondary)] text-[var(--text-secondary)] outline-none"
-                            title={t('schema.shared_catalog_hint', 'Comparteix la mateixa llista d\'opcions entre taules: editar-la en un lloc l\'actualitza pertot.')}
+                            title={t('schema.shared_catalog_hint', "Shares the same option list across tables: editing it in one place updates it everywhere.")}
                         >
-                            <option value="">{t('schema.shared_catalog_own', 'Propi del camp')}</option>
+                            <option value="">{t('schema.shared_catalog_own', "Field's own")}</option>
                             {Object.keys(sharedCatalogs).sort().map((name) => (
                                 <option key={name} value={name}>{name}</option>
                             ))}
-                            <option value="__create__">{t('schema.shared_catalog_create', '+ Convertir en catàleg compartit…')}</option>
+                            <option value="__create__">{t('schema.shared_catalog_create', "+ Convert into shared catalog…")}</option>
                         </select>
                     </div>
                 )}
@@ -472,10 +472,10 @@ function OptionsEditor({ options = [], onChange, fieldType = 'select', groups = 
             isOpen={showNewCatalog}
             onClose={() => setShowNewCatalog(false)}
             onSubmit={doNewCatalog}
-            title={t('schema.shared_catalog_new_title', 'Nou catàleg compartit')}
-            label={t('schema.shared_catalog_new_prompt', 'Nom del nou catàleg compartit:')}
-            confirmText={t('common.create', 'Crea')}
-            cancelText={t('common.cancel', 'Cancel·la')}
+            title={t('schema.shared_catalog_new_title', "New shared catalog")}
+            label={t('schema.shared_catalog_new_prompt', "Name of the new shared catalog:")}
+            confirmText={t('common.create', "Create")}
+            cancelText={t('common.cancel', "Cancel")}
         />
         </>
     );
@@ -546,7 +546,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             { value: 'number', label: t('schema.type_number') },
                             { value: 'select', label: t('schema.type_select') },
                             { value: 'multi_select', label: t('schema.type_multi_select') },
-                            { value: 'autoria', label: t('schema.type_autoria', 'Autoria') },
+                            { value: 'autoria', label: t('schema.type_autoria', "Authorship") },
                             { value: 'status', label: t('schema.type_status') },
                             { value: 'date', label: t('schema.type_date') },
                             { value: 'datetime', label: t('schema.type_datetime') },
@@ -555,16 +555,16 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             { value: 'url', label: t('schema.type_url') },
                             { value: 'zotero', label: t('schema.type_zotero', 'Zotero') },
                             { value: 'files', label: t('schema.type_files') },
-                            { value: 'image', label: t('schema.type_image', 'Imatge') },
+                            { value: 'image', label: t('schema.type_image', "Image") },
                             { value: 'relation', label: t('schema.type_relation') },
                             { value: 'formula', label: t('schema.type_formula') },
                             { value: 'rollup', label: t('schema.type_rollup') },
-                            { value: 'virtual', label: t('schema.type_virtual', 'Derivat') },
-                            { value: 'created_time', label: t('schema.type_created_time', 'Creat el') },
-                            { value: 'last_edited_time', label: t('schema.type_last_edited_time', 'Editat el') },
-                            { value: 'created_by', label: t('schema.type_created_by', 'Creat per') },
-                            { value: 'last_edited_by', label: t('schema.type_last_edited_by', 'Editat per') },
-                            { value: 'button', label: t('schema.type_button', 'Botó') },
+                            { value: 'virtual', label: t('schema.type_virtual', "Derived") },
+                            { value: 'created_time', label: t('schema.type_created_time', "Created at") },
+                            { value: 'last_edited_time', label: t('schema.type_last_edited_time', "Edited at") },
+                            { value: 'created_by', label: t('schema.type_created_by', "Created by") },
+                            { value: 'last_edited_by', label: t('schema.type_last_edited_by', "Edited by") },
+                            { value: 'button', label: t('schema.type_button', "Button") },
                             { value: 'title', label: t('schema.type_title') },
                         ]
                             .sort((a, b) => a.label.localeCompare(b.label))
@@ -577,7 +577,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 {enableTranslation && TRANSLATABLE_FIELD_TYPES.has(field.type) && (
                     <label
                         className="flex items-center gap-1.5 cursor-pointer select-none px-2 py-1 rounded-md hover:bg-[var(--bg-secondary)] transition-colors"
-                        title={t('schema.field_translatable_hint', 'Marca aquest camp com a traduïble — el botó de traducció el processarà.')}
+                        title={t('schema.field_translatable_hint', "Mark this field as translatable — the translate button will process it.")}
                     >
                         <input
                             type="checkbox"
@@ -587,7 +587,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         />
                         <Languages size={13} className={field.translatable ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
                         <span className="text-[10px] uppercase tracking-wider font-bold text-[var(--text-secondary)]">
-                            {t('schema.field_translatable', 'Traduïble')}
+                            {t('schema.field_translatable', "Translatable")}
                         </span>
                     </label>
                 )}
@@ -595,7 +595,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 {enableDrupalSync && drupalBundle && field.name?.trim() && field.type !== 'button' && !field.system && (
                     <div
                         className="flex items-center gap-1.5 px-2 py-1 rounded-md"
-                        title={t('schema.field_drupal_map_hint', 'Associa aquest camp a un camp del tipus de contingut de Drupal.')}
+                        title={t('schema.field_drupal_map_hint', "Map this field to a field of the Drupal content type.")}
                     >
                         <Globe size={13} className={drupalFieldMapping[field.id] ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
                         <select
@@ -608,7 +608,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             })}
                             className="text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)] max-w-[150px]"
                         >
-                            <option value="">{t('schema.drupal_no_map', '— No sincronitzar —')}</option>
+                            <option value="">{t('schema.drupal_no_map', "— Do not sync —")}</option>
                             {drupalFields.map((df) => (
                                 <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
                             ))}
@@ -637,7 +637,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 block">
-                            {t('schema.number_format', 'Format del número')}
+                            {t('schema.number_format', "Number format")}
                         </label>
                         <div className="grid grid-cols-3 gap-2">
                             <select
@@ -645,10 +645,10 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), kind: e.target.value })}
                                 className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                             >
-                                <option value="number">{t('schema.number_plain', 'Número')}</option>
-                                <option value="currency">{t('schema.number_currency', 'Moneda')}</option>
-                                <option value="percent">{t('schema.number_percent', 'Percentatge')}</option>
-                                <option value="year">{t('schema.number_year', 'Any')}</option>
+                                <option value="number">{t('schema.number_plain', "Number")}</option>
+                                <option value="currency">{t('schema.number_currency', "Currency")}</option>
+                                <option value="percent">{t('schema.number_percent', "Percent")}</option>
+                                <option value="year">{t('schema.number_year', "Year")}</option>
                             </select>
                             {field.format?.kind !== 'year' && (
                                 <input
@@ -667,7 +667,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                     onChange={(e) => handleUpdateField(idx, 'format', { ...(field.format || {}), currency: e.target.value })}
                                     className="text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                 >
-                                    <option value="">{t('schema.currency_default', 'Per defecte')}</option>
+                                    <option value="">{t('schema.currency_default', "Default")}</option>
                                     <option value="EUR (€)">EUR (€)</option>
                                     <option value="USD ($)">USD ($)</option>
                                     <option value="GBP (£)">GBP (£)</option>
@@ -677,7 +677,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             )}
                         </div>
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                            {t('schema.number_format_hint', "Buit/«Número» = format global de Settings. El percentatge mostra el valor tal qual amb «%». «Any» suprimeix el punt de milers (2024, no 2.024).")}
+                            {t('schema.number_format_hint', "Empty/“Number” = global Settings format. Percent shows the value as-is with “%”. “Year” drops the thousands separator (2024, not 2,024).")}
                         </p>
                     </div>
                 </div>
@@ -688,7 +688,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 block">
-                            {t('schema.date_format', 'Format de data')}
+                            {t('schema.date_format', "Date format")}
                         </label>
                         <select
                             value={field.format?.dateFormat || ''}
@@ -696,10 +696,10 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                         >
                             <option value="">{t('schema.date_format_global', 'Global (Settings)')}</option>
-                            <option value="locale">{t('schema.date_format_locale', "Segons l'idioma")}</option>
-                            <option value="DD/MM/YYYY">{t('schema.date_format_dmy', 'DD/MM/AAAA')}</option>
-                            <option value="MM/DD/YYYY">{t('schema.date_format_mdy', 'MM/DD/AAAA')}</option>
-                            <option value="YYYY-MM-DD">{t('schema.date_format_iso', 'AAAA-MM-DD (ISO)')}</option>
+                            <option value="locale">{t('schema.date_format_locale', "By language")}</option>
+                            <option value="DD/MM/YYYY">{t('schema.date_format_dmy', "DD/MM/YYYY")}</option>
+                            <option value="MM/DD/YYYY">{t('schema.date_format_mdy', "MM/DD/YYYY")}</option>
+                            <option value="YYYY-MM-DD">{t('schema.date_format_iso', "YYYY-MM-DD (ISO)")}</option>
                         </select>
                     </div>
                 </div>
@@ -710,7 +710,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                 <div className="px-3 pb-3 pt-1 border-t border-[var(--border-primary)] bg-[var(--gnosi-primary)]/5 animate-in fade-in slide-in-from-top-1 duration-200">
                     <div className="p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--gnosi-primary)]/20 shadow-inner space-y-2">
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 flex items-center gap-1.5">
-                            <Zap size={12} /> {t('schema.button_action', 'Acció del botó')}
+                            <Zap size={12} /> {t('schema.button_action', "Button action")}
                         </label>
                         <select
                             value={field.button_action || 'translate_row'}
@@ -724,17 +724,17 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                             ))}
                         </select>
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1 mt-2 block">
-                            {t('schema.button_label', 'Etiqueta del botó')}
+                            {t('schema.button_label', "Button label")}
                         </label>
                         <input
                             type="text"
                             value={field.button_label || ''}
                             onChange={(e) => handleUpdateField(idx, 'button_label', e.target.value)}
-                            placeholder={t('schema.button_label_placeholder', 'p.ex. Traduir')}
+                            placeholder={t('schema.button_label_placeholder', "e.g. Translate")}
                             className="w-full text-sm border border-[var(--border-primary)] rounded-md p-1.5 focus:ring-2 focus:ring-[var(--gnosi-primary)]/20 outline-none bg-[var(--bg-primary)] text-[var(--text-primary)]"
                         />
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                            {t('schema.button_hint', "El botó executarà l'acció seleccionada sobre la fila i, en el cas de la traducció, crearà subitems amb les traduccions.")}
+                            {t('schema.button_hint', "The button runs the selected action on the row and, for translation, creates one subitem per target language.")}
                         </p>
                     </div>
                 </div>
@@ -749,8 +749,8 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         </label>
                         <div className="flex gap-2">
                             {[
-                                { value: 'link', label: t('schema.file_mode_link', 'Enllaç') },
-                                { value: 'upload', label: t('schema.file_mode_upload', 'Pujar') },
+                                { value: 'link', label: t('schema.file_mode_link', "Link") },
+                                { value: 'upload', label: t('schema.file_mode_upload', "Upload") },
                             ].map(opt => (
                                 <button
                                     key={opt.value}
@@ -768,20 +768,20 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         </div>
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
                             {(field.file_mode || 'upload') === 'link'
-                                ? t('schema.file_mode_link_desc', 'Enllaça un fitxer local sense copiar-lo (referència).')
-                                : t('schema.file_mode_upload_desc', 'Copia el fitxer a la carpeta de destinació.')}
+                                ? t('schema.file_mode_link_desc', "Links a local file without copying it (reference).")
+                                : t('schema.file_mode_upload_desc', "Copies the file to the destination folder.")}
                         </p>
 
                         {(field.file_mode || 'upload') === 'upload' && (
                         <div className="pt-2 mt-1 space-y-2 border-t border-[var(--border-primary)]/50">
                         <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
-                            {t('schema.storage_folder', 'Carpeta de destinació')}
+                            {t('schema.storage_folder', "Storage folder")}
                         </label>
                         <div className="flex gap-2">
                             {[
-                                { value: 'assets',    label: 'Assets',    desc: t('schema.storage_assets_desc', 'Carpeta Assets del vault') },
-                                { value: 'library', label: 'Library', desc: t('schema.storage_library_desc', 'Library de referència compartida') },
-                                { value: 'free',      label: t('schema.storage_free', 'Lliure'), desc: t('schema.storage_free_desc', "L'usuari tria la carpeta o fitxer en cada adjunt") },
+                                { value: 'assets',    label: 'Assets',    desc: t('schema.storage_assets_desc', "Vault Assets folder") },
+                                { value: 'library', label: 'Library', desc: t('schema.storage_library_desc', "Shared reference library (OneDrive/Library)") },
+                                { value: 'free',      label: t('schema.storage_free', "Free"), desc: t('schema.storage_free_desc', "User selects the destination folder or existing file on each attachment") },
                             ].map(opt => (
                                 <button
                                     key={opt.value}
@@ -800,21 +800,21 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         </div>
                         <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
                             {{
-                                assets:    t('schema.storage_assets_desc', 'Carpeta Assets del vault'),
-                                library: t('schema.storage_library_desc', 'Library de referència compartida (OneDrive/Library)'),
-                                free:      t('schema.storage_free_desc', "L'usuari tria la carpeta de destinació o el fitxer existent en cada adjunt"),
+                                assets:    t('schema.storage_assets_desc', "Vault Assets folder"),
+                                library: t('schema.storage_library_desc', "Shared reference library (OneDrive/Library)"),
+                                free:      t('schema.storage_free_desc', "User selects the destination folder or existing file on each attachment"),
                             }[field.storage_folder || 'assets']}
                         </p>
 
                         <div className="pt-2 mt-1 space-y-1 border-t border-[var(--border-primary)]/50">
                             <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
-                                {t('schema.name_pattern', 'Patró de nom')}
+                                {t('schema.name_pattern', "Name pattern")}
                             </label>
                             <input
                                 type="text"
                                 value={field.name_pattern || ''}
                                 onChange={(e) => handleUpdateField(idx, 'name_pattern', e.target.value)}
-                                placeholder={t('schema.name_pattern_ph', 'Ex: {Authors} - {Any} - {Títol}')}
+                                placeholder={t('schema.name_pattern_ph', "E.g. {Authors} - {Any} - {Títol}")}
                                 className="w-full text-xs rounded-lg border border-[var(--border-primary)] bg-[var(--bg-secondary)] px-2 py-1.5 text-[var(--text-primary)] outline-none focus:border-[var(--gnosi-primary)]"
                             />
                             {allFields.filter(f => f !== field && (f.name || '').trim()).length > 0 && (
@@ -826,7 +826,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                                 type="button"
                                                 onClick={() => handleUpdateField(idx, 'name_pattern', `${field.name_pattern || ''}{${tok}}`)}
                                                 className="text-[10px] rounded border border-[var(--border-primary)] px-1.5 py-0.5 text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                                                title={t('schema.name_pattern_insert', 'Insereix el camp al patró')}
+                                                title={t('schema.name_pattern_insert', "Insert the field into the pattern")}
                                             >
                                                 {`{${tok}}`}
                                             </button>
@@ -835,7 +835,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                 </div>
                             )}
                             <p className="text-[10px] text-[var(--text-secondary)]/70 px-1">
-                                {t('schema.name_pattern_hint', 'En pujar, el fitxer es reanomena al disc segons el patró (els camps buits s\'ometen). Per a autors: {Autor.nom}, {Autor.cognom1} i {Autor.cognom2} (i {Autor} sol, el nom complet).')}
+                                {t('schema.name_pattern_hint', "On upload, the file is renamed on disk according to the pattern (empty fields are omitted). For authors: {Autor.nom}, {Autor.cognom1} and {Autor.cognom2} (and {Autor} alone, the full name).")}
                             </p>
                         </div>
                         </div>
@@ -851,14 +851,14 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                         {field.type === 'virtual' && (
                             <div className="space-y-2">
                                 <label className="text-[10px] uppercase tracking-wider text-[var(--gnosi-primary)] font-bold ml-1">
-                                    {t('schema.virtual_compute', 'Computador derivat')}
+                                    {t('schema.virtual_compute', "Derived computer")}
                                 </label>
                                 <select
                                     value={field.compute || ''}
                                     onChange={(e) => handleUpdateField(idx, 'compute', e.target.value)}
                                     className="w-full text-sm bg-transparent text-[var(--text-primary)] outline-none border-none focus:ring-0"
                                 >
-                                    <option value="">{t('schema.virtual_pick', '— Tria un computador —')}</option>
+                                    <option value="">{t('schema.virtual_pick', "— Pick a computer —")}</option>
                                     {(virtualComputers || []).map(c => (
                                         <option key={c.compute} value={c.compute}>
                                             {c.label} ({c.compute})
@@ -871,7 +871,7 @@ function SortableField({ field, idx, allFields, handleUpdateField, handleRemoveF
                                     </p>
                                 )}
                                 <p className="text-[10px] text-[var(--text-secondary)]/60 px-1">
-                                    {t('schema.virtual_hint', 'Camp derivat (read-only). El backend el calcula a partir del graf o altres índexs.')}
+                                    {t('schema.virtual_hint', "Derived (read-only) field. The backend computes it from the graph or other indexes.")}
                                 </p>
                             </div>
                         )}
@@ -1184,7 +1184,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     // existing fields (silent validation).
     const addTranslateButton = () => {
         if (hasTranslateButton) return;
-        const baseName = t('schema.button_label_translate', 'Traduir');
+        const baseName = t('schema.button_label_translate', "Translate");
         const usedNames = new Set(fields.map((f) => (f.name || '').trim()).filter(Boolean));
         let candidate = baseName;
         let i = 2;
@@ -1243,9 +1243,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             try {
                 const res = await axios.post(`/api/vault/tables/${tableId}/options/rename`, { field_id: fieldId, old: oldVal, new: newVal });
                 const n = res.data?.files_changed ?? 0;
-                if (n > 0) toast.success(t('schema.option_renamed', { count: n, defaultValue: '{{count}} registres actualitzats' }));
+                if (n > 0) toast.success(t('schema.option_renamed', { count: n, defaultValue: "{{count}} records updated" }));
             } catch (err) {
-                toast.error(err.response?.data?.detail || t('schema.option_rename_error', "No s'ha pogut renombrar l'opció als registres"));
+                toast.error(err.response?.data?.detail || t('schema.option_rename_error', "Could not rename the option in the records"));
             }
         } : null,
         removeEverywhere: tableId ? async (fieldId, value, reassignTo) => {
@@ -1253,9 +1253,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             try {
                 const res = await axios.post(`/api/vault/tables/${tableId}/options/remove`, { field_id: fieldId, value, reassign_to: reassignTo || undefined });
                 const n = res.data?.files_changed ?? 0;
-                if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: '{{count}} registres actualitzats' }));
+                if (n > 0) toast.success(t('schema.option_removed_rows', { count: n, defaultValue: "{{count}} records updated" }));
             } catch (err) {
-                toast.error(err.response?.data?.detail || t('schema.option_remove_error', "No s'ha pogut eliminar l'opció dels registres"));
+                toast.error(err.response?.data?.detail || t('schema.option_remove_error', "Could not remove the option from the records"));
             }
         } : null,
         updateSharedCatalog: async (name, options) => {
@@ -1263,7 +1263,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                 const res = await axios.put(`/api/vault/option-catalogs/${encodeURIComponent(name)}`, { options });
                 setSharedCatalogs((prev) => ({ ...prev, [name]: res.data?.options || options }));
             } catch (err) {
-                toast.error(err.response?.data?.detail || t('schema.shared_catalog_save_error', "No s'ha pogut desar el catàleg compartit"));
+                toast.error(err.response?.data?.detail || t('schema.shared_catalog_save_error', "Could not save the shared catalog"));
             }
         },
     };
@@ -1297,9 +1297,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const handleToggleTranslation = (next) => {
         if (!next && enableTranslation && fields.some((f) => f.translatable)) {
             requestDisableConfirm({
-                title: t('schema.translation_disable_title', 'Desactivar traducció'),
-                message: t('schema.translation_disable_confirm', "Vols desactivar la traducció d'aquesta taula? Les traduccions ja creades es conserven, però la taula deixarà de ser traduïble."),
-                confirmText: t('schema.disable', 'Desactivar'),
+                title: t('schema.translation_disable_title', "Disable translation"),
+                message: t('schema.translation_disable_confirm', "Disable translation for this table? Existing translations are kept, but the table will no longer be translatable."),
+                confirmText: t('schema.disable', "Disable"),
                 onConfirm: () => setEnableTranslation(false),
             });
             return;
@@ -1371,9 +1371,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         // table unsynced without warning. The mapping is preserved on the backend.
         if (!next && enableDrupalSync && Object.keys(drupalFieldMapping || {}).length > 0) {
             requestDisableConfirm({
-                title: t('schema.drupal_sync_disable_title', 'Desactivar sincronització amb Drupal'),
-                message: t('schema.drupal_sync_disable_confirm', 'Vols desactivar la sincronització amb Drupal? El mapeig de camps es conservarà per si la tornes a activar.'),
-                confirmText: t('schema.disable', 'Desactivar'),
+                title: t('schema.drupal_sync_disable_title', "Disable Drupal sync"),
+                message: t('schema.drupal_sync_disable_confirm', "Disable Drupal sync? The field mapping will be kept in case you enable it again."),
+                confirmText: t('schema.disable', "Disable"),
                 onConfirm: () => setEnableDrupalSync(false),
             });
             return;
@@ -1416,9 +1416,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const handleToggleSocialPublish = (next) => {
         if (!next && enableSocialPublish) {
             requestDisableConfirm({
-                title: t('schema.social_disable_title', 'Desactivar publicació a XXSS'),
-                message: t('schema.social_publish_disable_confirm', { col: SOCIAL_PUBLISH_COL, defaultValue: "Vols desactivar la publicació a XXSS? S'eliminarà la columna «{{col}}» de l'esquema i la taula deixarà de ser publicable a les xarxes socials." }),
-                confirmText: t('schema.disable', 'Desactivar'),
+                title: t('schema.social_disable_title', "Disable social publishing"),
+                message: t('schema.social_publish_disable_confirm', { col: SOCIAL_PUBLISH_COL, defaultValue: "Disable social publishing? The “{{col}}” column will be removed from the schema and the table will no longer be publishable to social networks." }),
+                confirmText: t('schema.disable', "Disable"),
                 onConfirm: () => { setEnableSocialPublish(false); removeSocialPublishColumns(); },
             });
             return;
@@ -1439,9 +1439,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         try {
             const res = await axios.post('/api/vault/skills/match-drupal-rows', { table_id: tableId, dry_run: false });
             const c = res.data?.counts || {};
-            toast.success(t('schema.drupal_match_done', { matched: c.matched || 0, unmatched: c.unmatched || 0, defaultValue: '{{matched}} vinculats · {{unmatched}} sense match.' }));
+            toast.success(t('schema.drupal_match_done', { matched: c.matched || 0, unmatched: c.unmatched || 0, defaultValue: "{{matched}} linked · {{unmatched}} unmatched." }));
         } catch (err) {
-            toast.error(err.response?.data?.detail || t('schema.drupal_match_error', 'Error vinculant amb Drupal.'));
+            toast.error(err.response?.data?.detail || t('schema.drupal_match_error', "Error linking with Drupal."));
         } finally {
             setMatching(false);
         }
@@ -1455,7 +1455,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         setDrupalError('');
         axios.get('/api/vault/drupal/content-types')
             .then((res) => { if (!cancelled) setDrupalContentTypes(res.data?.content_types || []); })
-            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_load_error', "No s'ha pogut connectar amb Drupal.")); })
+            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_load_error', "Could not connect to Drupal.")); })
             .finally(() => { if (!cancelled) setDrupalLoading(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1469,7 +1469,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
         setDrupalError('');
         axios.get(`/api/vault/drupal/content-types/${encodeURIComponent(drupalBundle)}/fields`)
             .then((res) => { if (!cancelled) setDrupalFields(res.data?.fields || []); })
-            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_fields_error', "No s'han pogut carregar els camps.")); })
+            .catch((err) => { if (!cancelled) setDrupalError(err.response?.data?.detail || t('schema.drupal_fields_error', "Could not load the fields.")); })
             .finally(() => { if (!cancelled) setDrupalLoading(false); });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1552,7 +1552,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const [confirmRemoveField, setConfirmRemoveField] = useState({ isOpen: false, index: null, name: '' });
 
     const handleRemoveField = (index) => {
-        const name = fields[index]?.name?.trim() || t('schema.untitled_property', 'sense nom');
+        const name = fields[index]?.name?.trim() || t('schema.untitled_property', "unnamed");
         setConfirmRemoveField({ isOpen: true, index, name });
     };
 
@@ -1580,11 +1580,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
     const validate = () => {
         if (fields.some(f => !f.name.trim())) return t('schema.error_name_required');
         if (fields.some(f => f.type === 'formula' && !f.formula?.trim())) return t('schema.error_formula_required');
-        if (fields.some(f => f.type === 'virtual' && !f.compute?.trim())) return t('schema.error_compute_required', 'Cal seleccionar un computador per al camp derivat.');
+        if (fields.some(f => f.type === 'virtual' && !f.compute?.trim())) return t('schema.error_compute_required', "Pick a computer for the derived field.");
         if (fields.some(f => f.type === 'rollup' && !f.relationField?.trim())) return t('schema.error_relation_field_required');
         if (fields.some(f => f.type === 'rollup' && f.aggregation !== 'count_all' && !f.targetProperty?.trim())) return t('schema.error_target_property_required');
-        if (fields.some(f => f.type === 'button' && !f.button_action?.trim())) return t('schema.error_button_action_required', "Cal seleccionar una acció per al camp de tipus botó.");
-        if (enableTranslation && !fields.some(f => f.translatable)) return t('schema.error_no_translatable_fields', 'Si la taula és traduïble, marca almenys un camp com a traduïble.');
+        if (fields.some(f => f.type === 'button' && !f.button_action?.trim())) return t('schema.error_button_action_required', "Pick an action for the button field.");
+        if (enableTranslation && !fields.some(f => f.translatable)) return t('schema.error_no_translatable_fields', "If the table is translatable, mark at least one field as translatable.");
         return null;
     };
 
@@ -1920,7 +1920,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                         <Settings size={20} className="text-[var(--gnosi-primary)]" />
                         {t('schema.manage_properties_of')} {folder}{tableName ? ` · ${tableName}` : ''}
                     </h2>
-                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', 'Tanca')}>
+                    <button onClick={onClose} className="gnosi-close-btn" aria-label={t('common.close', "Close")}>
                         <X />
                     </button>
                 </div>
@@ -1937,7 +1937,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                             <AlertTriangle size={16} className="mt-px shrink-0 text-amber-500" />
                             <span>
                                 <strong className="font-semibold">
-                                    {t('schema.autosave_paused', 'Canvis sense desar')}
+                                    {t('schema.autosave_paused', "Unsaved changes")}
                                 </strong>
                                 {' — '}
                                 {validationError}
@@ -1953,7 +1953,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                         <div>
                             <label
                                 className={`flex items-center gap-3 group ${enableTranslation ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                                title={enableTranslation ? t('schema.subitems_locked_by_translation', 'Els subitems són necessaris per a la traducció. Desactiva primer "Taula traduïble".') : undefined}
+                                title={enableTranslation ? t('schema.subitems_locked_by_translation', "Subitems are required for translation. Disable “Translatable table” first.") : undefined}
                             >
                                 <div className={`w-10 h-6 flex items-center rounded-full p-1 transition-colors ${enableSubitems ? 'bg-[var(--gnosi-primary)]' : 'bg-[var(--text-tertiary)]/20'} ${enableTranslation ? 'opacity-60' : ''}`}>
                                     <input
@@ -1976,7 +1976,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
                                 {enableTranslation
-                                    ? t('schema.subitems_required_for_translation', 'Activat automàticament: les traduccions es desen com a subitems.')
+                                    ? t('schema.subitems_required_for_translation', "Enabled automatically: translations are saved as subitems.")
                                     : t('schema.subitems_hint')}
                             </p>
                         </div>
@@ -1994,11 +1994,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                 </div>
                                 <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5">
                                     <Languages size={14} className={enableTranslation ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
-                                    {t('schema.translation_enabled', 'Taula traduïble')}
+                                    {t('schema.translation_enabled', "Translatable table")}
                                 </span>
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                                {t('schema.translation_hint', 'Permet marcar camps com a traduïbles i afegir botons que generen subitems amb la traducció a altres idiomes.')}
+                                {t('schema.translation_hint', "Lets you mark fields as translatable and add buttons that generate subitems with the translation to other languages.")}
                             </p>
                         </div>
 
@@ -2015,11 +2015,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                 </div>
                                 <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5">
                                     <Send size={14} className={enableSocialPublish ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
-                                    {t('schema.social_publish_enabled', 'Publicable a XXSS')}
+                                    {t('schema.social_publish_enabled', "Publishable to social media")}
                                 </span>
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                                {t('schema.social_publish_hint', 'Afegeix un botó per generar amb IA i publicar els registres a les xarxes socials configurades.')}
+                                {t('schema.social_publish_hint', "Adds a button to generate with AI and publish the records to the configured social networks.")}
                             </p>
                         </div>
 
@@ -2036,11 +2036,11 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                 </div>
                                 <span className="text-sm font-medium text-[var(--text-secondary)] group-hover:text-[var(--text-primary)] transition-colors flex items-center gap-1.5">
                                     <Globe size={14} className={enableDrupalSync ? 'text-[var(--gnosi-primary)]' : 'text-[var(--text-tertiary)]'} />
-                                    {t('schema.drupal_sync_enabled', 'Sincronitzar amb Drupal')}
+                                    {t('schema.drupal_sync_enabled', "Sync with Drupal")}
                                 </span>
                             </label>
                             <p className="mt-2 text-xs text-[var(--text-secondary)]/60">
-                                {t('schema.drupal_sync_hint', 'Publica els registres com a nodes de Drupal. Tria el tipus de contingut; després associa cada camp des de la llista de columnes de sota.')}
+                                {t('schema.drupal_sync_hint', "Publishes the records as Drupal nodes. Pick the content type; then map each field from the column list below.")}
                             </p>
 
                             {enableDrupalSync && (
@@ -2050,14 +2050,14 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                     )}
                                     <div className="flex items-center gap-2">
                                         <label className="text-xs font-medium text-[var(--text-secondary)] w-36 shrink-0">
-                                            {t('schema.drupal_content_type', 'Tipus de contingut')}
+                                            {t('schema.drupal_content_type', "Content type")}
                                         </label>
                                         <select
                                             value={drupalBundle}
                                             onChange={(e) => setDrupalBundle(e.target.value)}
                                             className="flex-1 text-sm px-2 py-1.5 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                         >
-                                            <option value="">{drupalLoading && drupalContentTypes.length === 0 ? t('common.loading', 'Carregant…') : t('schema.drupal_pick_type', '— Tria un tipus —')}</option>
+                                            <option value="">{drupalLoading && drupalContentTypes.length === 0 ? t('common.loading', "Loading...") : t('schema.drupal_pick_type', "— Pick a type —")}</option>
                                             {drupalContentTypes.map((ct) => (
                                                 <option key={ct.machine} value={ct.machine}>{ct.label} ({ct.machine})</option>
                                             ))}
@@ -2072,12 +2072,12 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                     {drupalBundle && (
                                         <div className="rounded-lg border border-[var(--border-primary)] overflow-hidden">
                                             <div className="px-3 py-2 bg-[var(--bg-tertiary)] text-xs font-semibold text-[var(--text-secondary)] flex items-center justify-between">
-                                                <span>{t('schema.drupal_field_mapping', 'Associació de camps')}</span>
-                                                <span className="text-[var(--text-tertiary)] font-normal">{t('schema.drupal_field_drupal', 'camp de Drupal')}</span>
+                                                <span>{t('schema.drupal_field_mapping', "Field mapping")}</span>
+                                                <span className="text-[var(--text-tertiary)] font-normal">{t('schema.drupal_field_drupal', "Drupal field")}</span>
                                             </div>
                                             <div className="divide-y divide-[var(--border-primary)]">
                                                 <div className="flex items-center gap-2 px-3 py-1.5">
-                                                    <span className="text-xs italic text-[var(--text-secondary)] w-36 shrink-0 truncate" title={t('schema.drupal_body_hint', 'El text Markdown del cos de la pàgina')}>{t('schema.drupal_body_field', 'Cos de la pàgina')}</span>
+                                                    <span className="text-xs italic text-[var(--text-secondary)] w-36 shrink-0 truncate" title={t('schema.drupal_body_hint', "The Markdown text of the page body")}>{t('schema.drupal_body_field', "Page body")}</span>
                                                     <span className="text-[var(--text-tertiary)] text-xs">→</span>
                                                     <select
                                                         value={drupalFieldMapping['__body__'] || ''}
@@ -2089,7 +2089,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                                         })}
                                                         className="flex-1 text-xs px-2 py-1 rounded-md border border-[var(--border-primary)] bg-[var(--bg-primary)] text-[var(--text-primary)]"
                                                     >
-                                                        <option value="">{t('schema.drupal_no_map', '— No sincronitzar —')}</option>
+                                                        <option value="">{t('schema.drupal_no_map', "— Do not sync —")}</option>
                                                         {drupalFields.map((df) => (
                                                             <option key={df.field_name} value={df.field_name}>{df.label} · {df.field_type}</option>
                                                         ))}
@@ -2100,7 +2100,7 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                                     </select>
                                                 </div>
                                                 <div className="px-3 py-2 text-[11px] text-[var(--text-secondary)]/60">
-                                                    {t('schema.drupal_perfield_note', "L'associació de cada camp es configura a la llista de columnes de sota, al costat de cada camp.")}
+                                                    {t('schema.drupal_perfield_note', "Each field's mapping is configured in the column list below, next to each field.")}
                                                 </div>
                                             </div>
                                         </div>
@@ -2111,10 +2111,10 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
                                             onClick={handleMatchExisting}
                                             disabled={matching}
                                             className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] disabled:opacity-50"
-                                            title={t('schema.drupal_match_hint', 'Cerca per títol nodes ja existents a Drupal i n\'omple el NID/URL a les files (no crea res).')}
+                                            title={t('schema.drupal_match_hint', "Searches Drupal for existing nodes by title and fills their NID/URL into the rows (creates nothing).")}
                                         >
                                             {matching ? <Loader2 size={12} className="animate-spin" /> : <Link2 size={12} />}
-                                            {t('schema.drupal_match_existing', 'Vincular registres existents per títol')}
+                                            {t('schema.drupal_match_existing', "Link existing records by title")}
                                         </button>
                                     )}
                                 </div>
@@ -2172,9 +2172,9 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             isOpen={confirmRemoveField.isOpen}
             onClose={() => setConfirmRemoveField({ isOpen: false, index: null, name: '' })}
             onConfirm={executeRemoveField}
-            title={t('schema.confirm_remove_field_title', 'Eliminar propietat')}
-            message={t('schema.confirm_remove_field_message', { name: confirmRemoveField.name, defaultValue: 'Segur que vols eliminar la propietat «{{name}}»? Aquesta acció no es pot desfer.' })}
-            confirmText={t('schema.confirm_remove_field_confirm', 'Eliminar')}
+            title={t('schema.confirm_remove_field_title', "Delete property")}
+            message={t('schema.confirm_remove_field_message', { name: confirmRemoveField.name, defaultValue: "Are you sure you want to delete the property “{{name}}”? This action cannot be undone." })}
+            confirmText={t('schema.confirm_remove_field_confirm', "Delete")}
             isDestructive={true}
         />
 
@@ -2184,8 +2184,8 @@ export function SchemaConfigModal({ isOpen, onClose, folder, tableName = '', cur
             onConfirm={async () => { await toggleConfirm.onConfirm?.(); closeToggleConfirm(); }}
             title={toggleConfirm.title}
             message={toggleConfirm.message}
-            confirmText={toggleConfirm.confirmText || t('schema.disable', 'Desactivar')}
-            cancelText={t('common.cancel', 'Cancel·lar')}
+            confirmText={toggleConfirm.confirmText || t('schema.disable', "Disable")}
+            cancelText={t('common.cancel', "Cancel")}
             isDestructive={true}
         />
         </>,

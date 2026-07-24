@@ -1,5 +1,5 @@
 import React from 'react'
-import './i18n';
+import i18n from './i18n';
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.jsx'
@@ -7,6 +7,7 @@ import './index.css'
 import { installPageEtagInterceptor } from './lib/pageEtagInterceptor.js'
 import { syncActiveVaultCookie } from './lib/fileResource.js'
 import { AuthProvider } from './context/AuthContext.jsx'
+import { initializeInterfaceLanguage } from './lib/interfaceLanguage.js'
 
 // Multi-vault: reflects the active vault (localStorage) in a same-origin cookie
 // BEFORE the first render, because EVERY request —raw fetch, <img>/<video>/<iframe>
@@ -20,12 +21,17 @@ syncActiveVaultCookie();
 // lib/pageEtagInterceptor.js for the rationale.
 installPageEtagInterceptor();
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-        <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <AuthProvider>
-                <App />
-            </AuthProvider>
-        </BrowserRouter>
-    </React.StrictMode>,
-)
+async function bootstrap() {
+    await initializeInterfaceLanguage(i18n);
+    ReactDOM.createRoot(document.getElementById('root')).render(
+        <React.StrictMode>
+            <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+                <AuthProvider>
+                    <App />
+                </AuthProvider>
+            </BrowserRouter>
+        </React.StrictMode>,
+    )
+}
+
+void bootstrap();

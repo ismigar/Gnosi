@@ -833,7 +833,7 @@ export default function VaultDashboard() {
                 parent_id: newParentId,
                 metadata: { parent_id: newParentId },
             });
-            toast.success(t('success.page_moved', 'Pàgina moguda'));
+            toast.success(t('success.page_moved', "Page moved"));
             void fetchPages();
             // Refreshes globalIndex so title-based wikilinks keep
             // resolving correctly (idToTitle is used in BlockEditor without
@@ -1016,7 +1016,7 @@ export default function VaultDashboard() {
             await fetchRegistry();
         } catch (err) {
             console.error("Error reordering views:", err);
-            toast.error(t('errors.reorder_views', 'Error reordenant vistes'));
+            toast.error(t('errors.reorder_views', "Error reordering views"));
             await fetchRegistry();
         }
     };
@@ -1030,7 +1030,7 @@ export default function VaultDashboard() {
         if (!view) return;
         // The main view is never hidden: there must always remain one anchor tab.
         if (isMainView(view, tableViews)) {
-            toast.error(t('errors.hide_main_view', 'No es pot amagar la vista principal'));
+            toast.error(t('errors.hide_main_view', "The main view cannot be hidden"));
             return;
         }
         // If we hide the active view, we jump to the first visible one (or to the main one).
@@ -1150,7 +1150,7 @@ export default function VaultDashboard() {
             loadPage(res.data.id);
         } catch (err) {
             console.error("Error creating the record from a source:", err);
-            toast.error(t('errors.record_create', { defaultValue: 'Error creant el registre' }));
+            toast.error(t('errors.record_create', { defaultValue: "Error creating the record" }));
         }
     }, [applySchemaDefaults, fetchPages, loadPage, t]);
 
@@ -1170,7 +1170,7 @@ export default function VaultDashboard() {
             loadPage(res.data.id);
         } catch (err) {
             console.error('Error opening the daily note:', err);
-            toast.error(t('errors.daily_note', { defaultValue: 'Error obrint la nota diària' }));
+            toast.error(t('errors.daily_note', { defaultValue: "Error opening the daily note" }));
         }
     }, [fetchPages, loadPage, t]);
 
@@ -1235,7 +1235,7 @@ export default function VaultDashboard() {
         };
     }, []);
 
-    // Sincronitzar URL -> Estat Intern
+    // Synchronize the URL with internal state.
     useEffect(() => {
         if (!registry.tables) return;
 
@@ -1339,7 +1339,7 @@ export default function VaultDashboard() {
         const onImported = (e) => {
             const d = e.detail || {};
             if (d.error) {
-                const importErrorMsg = t('errors.import_notes', 'Error important: {{error}}', { error: d.error });
+                const importErrorMsg = t('errors.import_notes', "Error importing: {{error}}", { error: d.error });
                 toast.error?.(importErrorMsg) || toast(importErrorMsg);
                 return;
             }
@@ -2185,7 +2185,7 @@ export default function VaultDashboard() {
     const handleDeletePage = useCallback(async (pageId, pageTitle) => {
         if (!pageId) return;
         const id = pageId;
-        const title = pageTitle || t('common.untitled', 'Sense títol');
+        const title = pageTitle || t('common.untitled', "Untitled");
 
         const removeFromState = () => {
             setPages(prev => prev.filter(page => page.id !== id));
@@ -2250,7 +2250,7 @@ export default function VaultDashboard() {
                         }}
                         className="px-2 py-0.5 rounded text-xs font-semibold bg-[var(--gnosi-primary)] text-white hover:opacity-90"
                     >
-                        {t('common.undo', 'Desfer')}
+                        {t('common.undo', "Undo")}
                     </button>
                 </span>
             ), { duration: 8000 });
@@ -2259,10 +2259,10 @@ export default function VaultDashboard() {
             if (err?.response?.status === 404) {
                 removeFromState();
                 refreshAfterDelete();
-                toast.success(t('success.page_deleted_ghost', 'Pàgina eliminada (entrada fantasma del cache)'));
+                toast.success(t('success.page_deleted_ghost', "Page deleted (ghost cache entry)"));
             } else {
                 console.error('Error moving the page to trash:', err);
-                toast.error(t('errors.delete_page', 'Error eliminant pàgina'));
+                toast.error(t('errors.delete_page', "Error deleting page"));
             }
         }
     }, [nestedPath, navigate, handleTabClose, fetchPages, fetchPagesByTable, activeTableId, t, tabs, pushToHistory]);
@@ -2755,8 +2755,8 @@ export default function VaultDashboard() {
         },
         canTranslatePage,
         translateLabel: openPageIsTranslatableRecord
-            ? t('shell.translate_record', 'Tradueix el registre')
-            : t('shell.translate_page', 'Tradueix la pàgina'),
+            ? t('shell.translate_record', "Translate record")
+            : t('shell.translate_page', "Translate page"),
         onTranslatePage: () => {
             if (!canTranslatePage || !currentOpenPage?.id) return;
             setTranslatePageMode(openPageIsTranslatableRecord ? 'row' : 'page');
@@ -3156,7 +3156,7 @@ export default function VaultDashboard() {
                     type="button"
                     onClick={() => { const p = shiftDay(dailyDate, -1); if (p) handleOpenDailyNote(p); }}
                     className="p-1 rounded hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]"
-                    title={t('vault.daily_prev', 'Dia anterior')}
+                    title={t('vault.daily_prev', "Previous daily note")}
                 >
                     <ChevronLeft size={16} />
                 </button>
@@ -3165,13 +3165,13 @@ export default function VaultDashboard() {
                     onClick={() => handleOpenDailyNote()}
                     className="px-2 py-0.5 rounded hover:bg-[var(--bg-primary)] text-[var(--text-primary)] font-medium"
                 >
-                    {t('vault.daily_today', 'Avui')}
+                    {t('vault.daily_today', "Today's daily note")}
                 </button>
                 <button
                     type="button"
                     onClick={() => { const n = shiftDay(dailyDate, 1); if (n) handleOpenDailyNote(n); }}
                     className="p-1 rounded hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]"
-                    title={t('vault.daily_next', 'Dia següent')}
+                    title={t('vault.daily_next', "Next daily note")}
                 >
                     <ChevronRight size={16} />
                 </button>
@@ -3617,20 +3617,20 @@ export default function VaultDashboard() {
                     ) : (
                         <div className="flex flex-col items-center justify-center w-full h-[80vh] text-[var(--text-tertiary)] px-4">
                             <FileText size={64} className="mb-4 text-[var(--bg-tertiary)]" strokeWidth={1} />
-                            <h2 className="text-xl font-medium text-[var(--text-secondary)]">{t('vault_welcome_title', 'Benvinguda')}</h2>
-                            <p className="mt-2 max-w-md text-center">{t('vault_welcome_subtitle', 'Selecciona una pàgina del vault o')}</p>
+                            <h2 className="text-xl font-medium text-[var(--text-secondary)]">{t('vault_welcome_title', "Welcome")}</h2>
+                            <p className="mt-2 max-w-md text-center">{t('vault_welcome_subtitle', "Select a knowledge page or")}</p>
                             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
                                 <button
                                     onClick={() => handleOpenCreatePrompt(null, false)}
                                     className="btn btn-gnosi-primary"
                                 >
-                                    {t('vault_welcome_create_page', 'Crea una pàgina')}
+                                    {t('vault_welcome_create_page', "Create a page")}
                                 </button>
                                 <button
                                     onClick={() => handleOpenCreatePrompt(null, true)}
                                     className="btn btn-gnosi-primary"
                                 >
-                                    {t('vault_welcome_create_db', 'Crea una BD')}
+                                    {t('vault_welcome_create_db', "Create a DB")}
                                 </button>
                             </div>
                         </div>

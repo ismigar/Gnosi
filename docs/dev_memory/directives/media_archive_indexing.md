@@ -1,139 +1,100 @@
-# Directiva: Indexació de l'Arxiu Fotogràfic (MediaCenter)
+# Media Archive Indexing
 
 ## Context
-La pàgina `MediaCenter` (`/media`) llista fotos de `VAULT/Images`. El vault de
-producció viu a OneDrive amb ~56k imatges en ~99 subcarpetes (àlbums); això és
-un cas qualitativament diferent al d'un FS local i imposa restriccions
-fortes sobre com cal indexar.
 
-## Problema observat
-1. L'arxiu apareixia buit en obrir-lo.
-2. Clicar "Totes les fotos" provocava timeout (>60s) sense resposta.
+`MediaCenter` lists photos under `VAULT/Images`. Production contains roughly
+56,000 images across about 99 albums on OneDrive, which requires a different
+strategy from a small local directory.
 
-Diagnòstic:
-- El frontend s'inicialitzava amb `activeAlbum = 'General'`. La carpeta `Images/General`
-  està buida → la primera vista era "0 fotos" tot i tenir 56k a la resta d'àlbums.
-- El servei feia `rglob("*.*")` + `path.stat()` separat per ordenar 56.829 fitxers.
-  Cada `Path.stat()` a OneDrive és una crida separada (no comparteix res amb el
-  llistat) i, amb fitxers possiblement online-only, costa centenars de ms cada un.
-  Resultat real: passada superior a 60s i sovint amb timeout del client.
-- `fetchAlbums()` estava definit però no es cridava mai (faltava el `useEffect`),
-  així que la sidebar només mostrava "Totes les fotos" sense els àlbums reals.
-- La ruta `GET /media` no propagava `limit`/`offset` al servei: la paginació
-  del frontend s'ignorava silenciosament (sempre `offset=0`).
+## Root causes
 
-## Restriccions / Edge Cases
-- **No fer `Path.rglob` + `Path.stat()` sobre OneDrive amb desenes de milers
-  de fitxers**: cada `stat` és una crida cloud-aware separada → temps no-lineal.
-  Usar `os.scandir` recursiu i llegir `entry.stat().st_mtime` (compartit amb el
-  listing). Estalvi: ~50% del temps a OneDrive.
-- **Encara amb scandir, una passada freda triga ~25–40s amb 56k fitxers**.
-  És inevitable a OneDrive: cal cache en memòria (TTL recomanat: 5 min) per
-  evitar repetir-la a cada paginació o canvi de viewport. Invalidar el cache
-  a `upload_media` (i en qualsevol mutació) o l'usuari no veurà els seus uploads.
-- **`General` no és un bon defecte**: el frontend l'havia de crear per
-  consistència però sol estar buit. Defecte sa: `activeAlbum = null`
-  (= "Totes les fotos"), que activa el path cachat.
-- **Defecte d'axios = 0 (sense timeout) a v1, però `0` ≠ "infinit" en alguns
-  proxies/Vite**: per a la primera indexació calenta posar `timeout: 300000`
-  explícitament al `axios.get` del fetch de `/media`.
-- **Noms d'àlbum amb espais o caràcters Unicode**: cal `encodeURIComponent`
-  al construir l'URL del frontend o el FastAPI rep paràmetres truncats.
-- **HTTP/1.1 i 50 thumbs en grid**: el navegador limita a 6 connexions per host;
-  amb fotos de >1MB es percep com "lent". `loading="lazy"` n'és la mitigació
-  natural però cal verificar que les primeres files del grid siguin al viewport
-  inicial; si no, l'usuari veu cards buides fins que faci scroll.
+- The UI initially selected an empty `General` album, making the archive appear
+  empty.
+- Recursive `Path.rglob()` followed by a separate `stat()` per file caused
+  more than a minute of cloud-aware I/O.
+- The album loader existed but was never called.
+- The route ignored frontend `limit` and `offset`.
 
-## Codi de referència
-- Servei: `monorepo/apps/gnosi/backend/services/media_service.py`
-  - `_scan_recursive` (os.scandir)
-  - `_scan_with_cache` + `_scan_locks` (TTL 5 min, lock per `target_dir`)
-  - `invalidate_cache(target_dir|None)` cridat des de `upload_media`
-- Ruta: `monorepo/apps/gnosi/backend/api/vault_routes.py` (`/media`)
-  - Propaga `limit`, `offset` a `media_service.get_all_media`
-- UI: `monorepo/apps/gnosi/frontend/src/pages/MediaCenter.jsx`
-  - `useState(null)` per a `activeAlbum`
-  - `useEffect(() => fetchAlbums(), [])` (faltava)
-  - `axios.get(url, { timeout: 300000 })`
-  - `encodeURIComponent(activeAlbum)` al construir la URL
+## Indexing policy
 
-## Verificació
-1. Backend reiniciat: primer `GET /api/vault/media?limit=10&offset=0` → ~25–40s.
-2. Següents crides (mateix `target_dir`) → <1s.
-3. `GET /api/vault/media/albums` → llista de 99 àlbums.
-4. UI a `localhost:5173/media`: sidebar amb "Totes les fotos" + 99 àlbums,
-   grid amb les primeres 50 fotos, paginació disponible. Total reportat:
-   `56.829`.
+- Use recursive `os.scandir` and reuse `DirEntry.stat()` metadata.
+- Cache scans in memory for five minutes per target directory.
+- Protect each target scan with its own lock.
+- Invalidate the relevant cache after upload or any media mutation.
+- Default `activeAlbum` to `null`, meaning all photos.
+- Load albums on mount.
+- Propagate pagination through the API.
+- Use an explicit five-minute client timeout for the first cold scan.
+- Apply `encodeURIComponent` to album names.
+- Use lazy-loaded thumbnails while ensuring the first viewport rows start
+  loading immediately.
 
-## Treball futur (no fet aquí)
-- Persistir l'índex (SQLite o JSON al `gnosi_local_data` volume) per evitar la
-  passada freda en cada reinici del backend.
-- Indexació en background a l'arrencada (no fer esperar el primer client).
-- Considerar la Fototeca iPhoto migrada (`Fototeca iPhoto.migratedphotolibrary`)
-  com un cas a part: 1342 fitxers ja inclosos en el comptador però amb
-  estructura interna pròpia que potser no és el que l'usuari vol veure barrejat.
+Reference code:
 
-## Servit d'imatges (`GET /api/vault/images/...`) — restriccions OneDrive
+- `backend/services/media_service.py`: `_scan_recursive`,
+  `_scan_with_cache`, scan locks, and invalidation.
+- `backend/api/vault_routes.py`: media pagination.
+- `frontend/src/pages/MediaCenter.jsx`: default album, album loading, timeout,
+  and encoded URLs.
 
-Després d'arreglar la indexació, els thumbnails apareixien en negre. Diagnòstic:
+## Expected performance
 
-- **Fitxers OneDrive online-only**: tenen `st_size > 0` (mida lògica del cloud)
-  però `st_blocks == 0` (cap dada local). Llegir-los des del bind-mount Docker
-  del Mac dispara repetidament `OSError [Errno 35] Resource deadlock avoided`,
-  per molts retries que es facin. El File Provider d'OneDrive només dispara
-  la baixada si la lectura es fa **des del host** (Finder, `cat`, qualsevol
-  procés natiu del Mac). Des de dins el contenidor, el grpcfuse de Docker no
-  propaga el trigger.
-- **Concurrència**: encara que estiguin materialitzats, lectures simultànies
-  sobre OneDrive també poden provocar Errno 35. Cal serialitzar amb un
-  `asyncio.Semaphore(3)` global + retry exponencial (0.2/0.4/0.8/1.6 s) per
-  Errno 35 al `open(); read(1)` warm-up abans del `FileResponse`.
+- First cold OneDrive scan: approximately 25–40 seconds.
+- Subsequent cached requests: under one second.
+- Album endpoint: about 99 albums.
+- Initial grid: first 50 photos with pagination.
 
-### Daemon de warmup al host (solució "descarrega al vol")
+Persisting the index in local SQLite or JSON and warming it in the background
+remain future improvements.
 
-`sh/onedrive_warmup_daemon.py` és un servei HTTP minimalista que:
-- Escolta a `0.0.0.0:5009` al **host** (Mac).
-- Endpoint `GET /warmup?path=<absolute_host_path>`.
-- Llegeix el fitxer sencer (això **bloqueja** fins que el File Provider acaba
-  la baixada — és un dataless-file, `read()` sincronitzat amb sync).
-- Retorna `{"status":"materialized","blocks":N,"elapsed":s}` o `timeout`/`notfound`.
-- Confina les peticions a `VAULT_HOST_PATH` per seguretat.
+## Serving online-only images
 
-Llançar-lo: `sh/start_warmup_daemon.sh --bg` (PID a `/tmp/onedrive_warmup_daemon.pid`,
-log a `/tmp/onedrive_warmup_daemon.log`).
+The native backend should use the selected `FilesProvider` abstraction. Do not
+hard-code `host.docker.internal` or direct `st_blocks` logic in route handlers.
 
-### Integració al backend
+When a provider reports an online-only file:
 
-A `serve_vault_image`, quan `st_blocks == 0`:
-1. Demana materialització a `http://host.docker.internal:5009/warmup`.
-2. Coalescing: peticions simultànies pel mateix fitxer comparteixen un `Future`.
-3. Semàfor `_WARMUP_SEMAPHORE = 2`: més paral·lelisme satura el File Provider.
-4. Si el daemon retorna `materialized`, refrequem `stat()` i continuem.
-5. Si falla (timeout, daemon parat), retornem **410 Gone** amb missatge.
+1. Request materialization through the provider.
+2. Coalesce concurrent requests for the same path.
+3. Limit concurrent provider operations.
+4. Refresh filesystem metadata after success.
+5. Return a deliberate unavailable response after a bounded failure.
 
-### Latències observades (perfil OneDrive d'aquest setup, ~5 MB per foto)
+For already materialized cloud files, serialize enough initial reads to avoid
+File Provider saturation and retry only transient `EDEADLK`/`EAGAIN` errors
+with exponential backoff.
 
-- Fitxer ja al disc: ~80–120 ms.
-- Warmup primer cop (un fitxer): 15–45 s (depèn de l'amplada de banda d'OneDrive).
-- Warmup primer cop (5 fitxers en paral·lel, semàfor=2): ~80–120 s en total.
-- Després de materialitzar, l'arxiu queda a disc i les crides futures són
-  instantànies. El frontend ho percep com una primera càrrega lenta i després
-  fluidesa total.
+Historical Docker behavior required a host daemon because container reads did
+not trigger macOS File Provider hydration. That daemon is still available as a
+recovery tool, but native mode is the default. Runtime-specific URLs must be
+selected through environment detection.
 
-### UX
+## User experience
 
-`MediaCenter.jsx` substitueix la imatge en error per una icona `cloud-off` amb
-text "No descarregat", de manera que els thumbnails que encara estan baixant
-(o que no s'han pogut materialitzar) mostren una indicació clara.
+If a thumbnail cannot be materialized, show a translated cloud-unavailable
+placeholder instead of a black image. Do not expose provider-specific or
+non-English fallback text.
 
-### Restriccions / Edge cases
-- Si `st_blocks` no està disponible al filesystem, `getattr(st, "st_blocks", 1)`
-  per defecte fa que la lectura prossegueixi normal.
-- El daemon **NO** ha d'arrencar dins de Docker: la seva utilitat és precisament
-  cridar el File Provider, que viu al host.
-- Si `host.docker.internal` no resol (Linux pur), el warmup retorna excepció;
-  el backend degrada a 410 i el frontend mostra "No descarregat". El sistema
-  no es trenca, només deixa de "descarregar al vol".
-- El daemon usa `ThreadingHTTPServer` però limita la concurrència real al host
-  per la naturalesa serialitzada del File Provider d'OneDrive (proves: ~1.5×
-  més lent amb 4 paral·lels que amb 2).
+## Restrictions
+
+- Never run a separate `stat()` for every file after listing a large cloud
+  tree.
+- Do not cache a partial scan as complete.
+- Cache invalidation is mandatory after mutations.
+- Album names may contain spaces and Unicode.
+- The photo library bundle is a distinct structure and may need explicit
+  exclusion or a separate importer.
+- The warmup helper must run on the host when Docker is used; running it in the
+  container defeats its purpose.
+- A provider failure degrades individual media, not the entire archive.
+
+## Verification
+
+1. Cold `GET /api/vault/media?limit=10&offset=0` completes within the extended
+   timeout.
+2. A second request is served from cache in under one second.
+3. `/api/vault/media/albums` returns real albums.
+4. The browser starts on all photos, shows albums, renders thumbnails, and
+   paginates.
+5. Upload invalidates the cache and the new image appears.
+6. Online-only and provider-failure states render a localized placeholder.

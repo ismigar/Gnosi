@@ -7,64 +7,64 @@ import { CSS } from '@dnd-kit/utilities';
 import { useModalKeyboard } from '../../hooks/useModalKeyboard';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-// `label` keeps the original Catalan text as the i18n fallback default; `labelKey`
+// `label` keeps the English text as the i18n fallback default; `labelKey`
 // is the translation key resolved via t() at each render site (see FieldRow/FilterRow
 // below). `key`/`value` fields are stored/compared identifiers and are never translated.
 
 const ALL_FIELDS = [
-    { key: 'sender',          label: 'De',         labelKey: 'mail.from_label' },
-    { key: 'recipient',       label: 'Per a',       labelKey: 'mail.to_label' },
+    { key: 'sender',          label: 'From',        labelKey: 'mail.from_label' },
+    { key: 'recipient',       label: 'To',          labelKey: 'mail.to_label' },
     { key: 'cc',              label: 'CC',          labelKey: 'mail.cc_label' },
-    { key: 'bcc',             label: 'CCO',         labelKey: 'mail.bcc_label' },
-    { key: 'subject',         label: 'Assumpte',    labelKey: 'mail.subject_label' },
-    { key: 'labels',          label: 'Etiquetes',   labelKey: 'mail.labels' },
-    { key: 'has_attachments', label: 'Arxius',      labelKey: 'mail_view_editor.field_attachments' },
-    { key: 'date',            label: 'Data',        labelKey: 'mail.date_label' },
-    { key: 'snippet',         label: 'Extracte',    labelKey: 'mail_view_editor.field_snippet' },
-    { key: 'category',        label: 'Categoria',   labelKey: 'mail_view_editor.field_category' },
+    { key: 'bcc',             label: 'BCC',         labelKey: 'mail.bcc_label' },
+    { key: 'subject',         label: 'Subject',     labelKey: 'mail.subject_label' },
+    { key: 'labels',          label: 'Labels',      labelKey: 'mail.labels' },
+    { key: 'has_attachments', label: 'Files',       labelKey: 'mail_view_editor.field_attachments' },
+    { key: 'date',            label: 'Date',        labelKey: 'mail.date_label' },
+    { key: 'snippet',         label: 'Snippet',     labelKey: 'mail_view_editor.field_snippet' },
+    { key: 'category',        label: 'Category',    labelKey: 'mail_view_editor.field_category' },
 ];
 
 const DEFAULT_FIELDS = ALL_FIELDS.map((f, i) => ({ key: f.key, visible: true, order: i }));
 
 const FILTER_FIELDS = [
-    { key: 'sender',          label: 'De',           labelKey: 'mail.from_label',                     type: 'text' },
-    { key: 'recipient',       label: 'Per a',        labelKey: 'mail.to_label',                        type: 'text' },
+    { key: 'sender',          label: 'From',         labelKey: 'mail.from_label',                     type: 'text' },
+    { key: 'recipient',       label: 'To',           labelKey: 'mail.to_label',                        type: 'text' },
     { key: 'cc',              label: 'CC',            labelKey: 'mail.cc_label',                       type: 'text' },
-    { key: 'bcc',             label: 'CCO',           labelKey: 'mail.bcc_label',                       type: 'text' },
-    { key: 'subject',         label: 'Assumpte',     labelKey: 'mail.subject_label',                   type: 'text' },
-    { key: 'category',        label: 'Categoria',    labelKey: 'mail_view_editor.field_category',       type: 'text' },
-    { key: 'labels',          label: 'Etiquetes',    labelKey: 'mail.labels',                           type: 'text' },
-    { key: 'is_read',         label: 'Llegit',       labelKey: 'mail_view_editor.field_read',           type: 'bool' },
-    { key: 'has_attachments', label: 'Té adjunts',   labelKey: 'mail_view_editor.field_has_attachments', type: 'bool' },
-    { key: 'archived',        label: 'Arxivat',      labelKey: 'mail.undo_label_archived',              type: 'bool' },
-    { key: 'is_starred',      label: 'Destacat',     labelKey: 'mail_view_editor.field_starred',         type: 'bool' },
-    { key: 'timestamp',       label: 'Data',         labelKey: 'mail.date_label',                       type: 'date' },
+    { key: 'bcc',             label: 'BCC',          labelKey: 'mail.bcc_label',                       type: 'text' },
+    { key: 'subject',         label: 'Subject',      labelKey: 'mail.subject_label',                   type: 'text' },
+    { key: 'category',        label: 'Category',     labelKey: 'mail_view_editor.field_category',       type: 'text' },
+    { key: 'labels',          label: 'Labels',       labelKey: 'mail.labels',                           type: 'text' },
+    { key: 'is_read',         label: 'Read',         labelKey: 'mail_view_editor.field_read',           type: 'bool' },
+    { key: 'has_attachments', label: 'Has attachments', labelKey: 'mail_view_editor.field_has_attachments', type: 'bool' },
+    { key: 'archived',        label: 'Archived',     labelKey: 'mail.undo_label_archived',              type: 'bool' },
+    { key: 'is_starred',      label: 'Starred',      labelKey: 'mail_view_editor.field_starred',         type: 'bool' },
+    { key: 'timestamp',       label: 'Date',         labelKey: 'mail.date_label',                       type: 'date' },
 ];
 
 const TEXT_OPERATORS = [
-    { value: 'contains',    label: 'conté',        labelKey: 'view_config.operators.contains' },
-    { value: 'starts_with', label: 'comença per',  labelKey: 'mail_view_editor.operator_starts_with' },
-    { value: 'equals',      label: 'és igual a',   labelKey: 'view_config.operators.equals' },
-    { value: 'is_not',      label: 'no és',        labelKey: 'mail_view_editor.operator_is_not' },
+    { value: 'contains',    label: 'contains',     labelKey: 'view_config.operators.contains' },
+    { value: 'starts_with', label: 'starts with',  labelKey: 'mail_view_editor.operator_starts_with' },
+    { value: 'equals',      label: 'equals',       labelKey: 'view_config.operators.equals' },
+    { value: 'is_not',      label: 'is not',       labelKey: 'mail_view_editor.operator_is_not' },
 ];
 
 const BOOL_OPERATORS = [
-    { value: 'is',     label: 'és',     labelKey: 'mail_view_editor.operator_is' },
-    { value: 'is_not', label: 'no és',  labelKey: 'mail_view_editor.operator_is_not' },
+    { value: 'is',     label: 'is',     labelKey: 'mail_view_editor.operator_is' },
+    { value: 'is_not', label: 'is not', labelKey: 'mail_view_editor.operator_is_not' },
 ];
 
 const DATE_OPERATORS = [
-    { value: 'before', label: 'abans de',     labelKey: 'mail_view_editor.operator_before' },
-    { value: 'after',  label: 'després de',   labelKey: 'mail_view_editor.operator_after' },
+    { value: 'before', label: 'before', labelKey: 'mail_view_editor.operator_before' },
+    { value: 'after',  label: 'after',  labelKey: 'mail_view_editor.operator_after' },
 ];
 
 const ALL_ACTIONS = [
-    { value: 'archive',   label: 'Arxivar',       labelKey: 'mail.archive_action' },
-    { value: 'trash',     label: 'Eliminar',      labelKey: 'mail.delete_action' },
-    { value: 'mark_read', label: 'Marcar llegit', labelKey: 'mail_view_editor.action_mark_read' },
-    { value: 'star',      label: 'Destacar',      labelKey: 'mail_view_editor.action_star' },
-    { value: 'snooze',    label: 'Ajornar',       labelKey: 'mail_view_editor.action_snooze' },
-    { value: 'reply',     label: 'Respondre',     labelKey: 'mail_view_editor.action_reply' },
+    { value: 'archive',   label: 'Archive',       labelKey: 'mail.archive_action' },
+    { value: 'trash',     label: 'Delete',        labelKey: 'mail.delete_action' },
+    { value: 'mark_read', label: 'Mark as read',  labelKey: 'mail_view_editor.action_mark_read' },
+    { value: 'star',      label: 'Star',          labelKey: 'mail_view_editor.action_star' },
+    { value: 'snooze',    label: 'Snooze',        labelKey: 'mail_view_editor.action_snooze' },
+    { value: 'reply',     label: 'Reply',         labelKey: 'mail_view_editor.action_reply' },
 ];
 
 const DEFAULT_VIEW = {
@@ -154,7 +154,7 @@ function FieldRow({ field, onToggle }) {
                 type="button"
                 onClick={() => onToggle(field.key)}
                 className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                title={field.visible ? t('mail_view_editor.hide_field', 'Amagar') : t('mail_view_editor.show_field', 'Mostrar')}
+                title={field.visible ? t('mail_view_editor.hide_field', "Hide") : t('mail_view_editor.show_field', "Show")}
             >
                 {field.visible ? <Eye size={14} /> : <EyeOff size={14} className="opacity-40" />}
             </button>
@@ -203,7 +203,7 @@ function FilterRow({ filter, index, onChange, onRemove }) {
                     onChange={e => onChange(index, { ...filter, value: e.target.value === 'true' })}
                     className="text-[12px] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-[var(--text-primary)] shrink-0"
                 >
-                    <option value="true">{t('common.yes', 'Sí')}</option>
+                    <option value="true">{t('common.yes', "Yes")}</option>
                     <option value="false">{t('mail_view_editor.bool_no', 'No')}</option>
                 </select>
             ) : fieldMeta?.type === 'date' ? (
@@ -218,7 +218,7 @@ function FilterRow({ filter, index, onChange, onRemove }) {
                     type="text"
                     value={filter.value || ''}
                     onChange={e => onChange(index, { ...filter, value: e.target.value })}
-                    placeholder={t('view_config.value_placeholder', 'Valor...')}
+                    placeholder={t('view_config.value_placeholder', "Value...")}
                     className="text-[12px] bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-md px-2 py-1 text-[var(--text-primary)] flex-1 min-w-0"
                 />
             )}
@@ -306,7 +306,7 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!form.name.trim()) { setError(t('mail_view_editor.error_name_required', 'Cal un nom per a la vista')); return; }
+        if (!form.name.trim()) { setError(t('mail_view_editor.error_name_required', "A name is required for the view")); return; }
         setSaving(true);
         setError(null);
         try {
@@ -336,7 +336,7 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--border-primary)] shrink-0">
                     <h2 className="text-[15px] font-bold text-[var(--text-primary)]">
-                        {initialView ? t('mail_view_editor.edit_title', 'Editar vista') : t('view.new_view', 'Nova vista')}
+                        {initialView ? t('mail_view_editor.edit_title', "Edit view") : t('view.new_view', "New view")}
                     </h2>
                     <button type="button" onClick={onCancel} className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-colors">
                         <X size={15} />
@@ -348,12 +348,12 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
 
                     {/* Name */}
                     <div>
-                        <SectionTitle>{t('mail_view_editor.section_name', 'Nom')}</SectionTitle>
+                        <SectionTitle>{t('mail_view_editor.section_name', "Name")}</SectionTitle>
                         <input
                             type="text"
                             value={form.name}
                             onChange={e => set('name', e.target.value)}
-                            placeholder={t('mail_view_editor.name_placeholder', 'Ex: Newsletters, Feina...')}
+                            placeholder={t('mail_view_editor.name_placeholder', "E.g.: Newsletters, Work...")}
                             data-autofocus="true"
                             className="w-full text-[13px] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:border-[var(--gnosi-blue)]"
                         />
@@ -361,7 +361,7 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
 
                     {/* Fields */}
                     <div>
-                        <SectionTitle>{t('mail_view_editor.section_fields', 'Camps visibles')}</SectionTitle>
+                        <SectionTitle>{t('mail_view_editor.section_fields', "Visible fields")}</SectionTitle>
                         <div className="border border-[var(--border-primary)] rounded-xl overflow-hidden">
                             <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleFieldDragEnd}>
                                 <SortableContext items={form.fields.map(f => f.key)} strategy={verticalListSortingStrategy}>
@@ -380,12 +380,12 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
                     {/* Filters */}
                     <div>
                         <div className="flex items-center justify-between mb-2">
-                            <SectionTitle>{t('view.tab_filters', 'Filtres')}</SectionTitle>
+                            <SectionTitle>{t('view.tab_filters', "Filters")}</SectionTitle>
                             {form.filters.length > 1 && (
                                 <Pills
                                     options={[
-                                        { value: 'AND', label: t('mail_view_editor.logic_and', 'I (AND)') },
-                                        { value: 'OR', label: t('mail_view_editor.logic_or', 'O (OR)') },
+                                        { value: 'AND', label: t('mail_view_editor.logic_and', "AND") },
+                                        { value: 'OR', label: t('mail_view_editor.logic_or', "OR") },
                                     ]}
                                     value={form.filter_logic}
                                     onChange={v => set('filter_logic', v)}
@@ -408,43 +408,43 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
                             onClick={addFilter}
                             className="mt-2 flex items-center gap-1.5 text-[12px] text-[var(--gnosi-blue)] hover:opacity-80 transition-opacity font-medium"
                         >
-                            <Plus size={13} /> {t('view.add_filter', 'Afegir filtre')}
+                            <Plus size={13} /> {t('view.add_filter', "Add filter")}
                         </button>
                     </div>
 
                     {/* Grouping & Sort */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <SectionTitle>{t('mail_view_editor.section_group_by', 'Agrupar per')}</SectionTitle>
+                            <SectionTitle>{t('mail_view_editor.section_group_by', "Group by")}</SectionTitle>
                             <select
                                 value={form.group_by}
                                 onChange={e => set('group_by', e.target.value)}
                                 className="w-full text-[12px] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-[var(--text-primary)]"
                             >
-                                <option value="none">{t('table.none', 'Cap')}</option>
-                                <option value="date">{t('mail.date_label', 'Data')}</option>
-                                <option value="sender">{t('mail_view_editor.option_sender', 'Remitent')}</option>
-                                <option value="category">{t('mail_view_editor.field_category', 'Categoria')}</option>
-                                <option value="label">{t('mail_view_editor.option_label', 'Etiqueta')}</option>
+                                <option value="none">{t('table.none', "None")}</option>
+                                <option value="date">{t('mail.date_label', "Date")}</option>
+                                <option value="sender">{t('mail_view_editor.option_sender', "Sender")}</option>
+                                <option value="category">{t('mail_view_editor.field_category', "Category")}</option>
+                                <option value="label">{t('mail_view_editor.option_label', "Label")}</option>
                             </select>
                         </div>
                         <div>
-                            <SectionTitle>{t('mail_view_editor.section_sort_by', 'Ordenar per')}</SectionTitle>
+                            <SectionTitle>{t('mail_view_editor.section_sort_by', "Sort by")}</SectionTitle>
                             <div className="flex gap-1">
                                 <select
                                     value={form.sort_by}
                                     onChange={e => set('sort_by', e.target.value)}
                                     className="flex-1 text-[12px] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg px-3 py-2 text-[var(--text-primary)]"
                                 >
-                                    <option value="date">{t('mail.date_label', 'Data')}</option>
-                                    <option value="sender">{t('mail_view_editor.option_sender', 'Remitent')}</option>
-                                    <option value="subject">{t('mail.subject_label', 'Assumpte')}</option>
+                                    <option value="date">{t('mail.date_label', "Date")}</option>
+                                    <option value="sender">{t('mail_view_editor.option_sender', "Sender")}</option>
+                                    <option value="subject">{t('mail.subject_label', "Subject")}</option>
                                 </select>
                                 <button
                                     type="button"
                                     onClick={() => set('sort_dir', form.sort_dir === 'asc' ? 'desc' : 'asc')}
                                     className="px-2.5 text-[13px] bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                                    title={form.sort_dir === 'asc' ? t('view.asc', 'Ascendent') : t('view.desc', 'Descendent')}
+                                    title={form.sort_dir === 'asc' ? t('view.asc', "Ascending") : t('view.desc', "Descending")}
                                 >
                                     {form.sort_dir === 'asc' ? '↑' : '↓'}
                                 </button>
@@ -454,7 +454,7 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
 
                     {/* Actions */}
                     <div>
-                        <SectionTitle>{t('mail_view_editor.section_actions', 'Accions disponibles')}</SectionTitle>
+                        <SectionTitle>{t('mail_view_editor.section_actions', "Available actions")}</SectionTitle>
                         <div className="flex flex-wrap gap-2">
                             {ALL_ACTIONS.map(a => (
                                 <button
@@ -483,14 +483,14 @@ export default function MailViewEditor({ initialView = null, onSave, onCancel })
                             onClick={onCancel}
                             className="px-4 py-2 text-[13px] rounded-lg border border-[var(--border-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
                         >
-                            {t('common.cancel', 'Cancel·lar')}
+                            {t('common.cancel', "Cancel")}
                         </button>
                         <button
                             type="submit"
                             disabled={saving}
                             className="px-4 py-2 text-[13px] font-semibold rounded-lg bg-[var(--gnosi-blue)] text-white hover:opacity-90 transition-opacity disabled:opacity-50"
                         >
-                            {saving ? t('view.saving', 'Desant...') : (initialView ? t('common.save', 'Desar') : t('common.create', 'Crear'))}
+                            {saving ? t('view.saving', "Saving…") : (initialView ? t('common.save', "Save") : t('common.create', "Create"))}
                         </button>
                     </div>
                 </div>

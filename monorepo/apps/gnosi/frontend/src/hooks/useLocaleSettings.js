@@ -31,7 +31,7 @@ export function useLocaleSettings() {
     useConfigChanged(() => { invalidateCachedJson('/api/config'); load(); });
 
     const decimalSymbol = settings?.decimal_symbol || ',';
-    const dateLocale = i18n.language || 'ca';
+    const dateLocale = i18n.resolvedLanguage || i18n.language || 'en';
     return {
         currencyCode: parseCurrencyCode(settings?.currency, 'EUR'),
         decimalSymbol,

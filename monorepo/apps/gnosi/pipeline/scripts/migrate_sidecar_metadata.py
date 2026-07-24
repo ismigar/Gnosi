@@ -62,8 +62,8 @@ def find_vault_root(start: Path) -> Path:
             return current
         current = current.parent
     raise SystemExit(
-        f"No s'ha trobat `.gnosi/` partint de {start}. "
-        f"Defineix DIGITAL_BRAIN_VAULT_PATH a l'arrel del vault."
+        f"No `.gnosi/` directory was found while walking up from {start}. "
+        f"Set DIGITAL_BRAIN_VAULT_PATH to the vault root."
     )
 
 
@@ -140,25 +140,25 @@ def migrate_file(path: Path, vault_root: Path, dry_run: bool) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Migra flags internes del frontmatter al sidecar JSON."
+        description="Migrate internal frontmatter flags to the JSON sidecar."
     )
     parser.add_argument(
         "--vault",
         type=Path,
         default=None,
-        help="Ruta del vault. Per defecte: $DIGITAL_BRAIN_VAULT_PATH.",
+        help="Vault path. Defaults to $DIGITAL_BRAIN_VAULT_PATH.",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="No modifica fitxers; només reporta el que faria.",
+        help="Do not modify files; only report what would change.",
     )
     args = parser.parse_args()
 
     vault_arg = args.vault or os.environ.get("DIGITAL_BRAIN_VAULT_PATH")
     if not vault_arg:
         print(
-            "Defineix --vault o DIGITAL_BRAIN_VAULT_PATH",
+            "Set --vault or DIGITAL_BRAIN_VAULT_PATH",
             file=sys.stderr,
         )
         return 2
@@ -194,23 +194,23 @@ def main() -> int:
             counters["errors"] += 1
             error_paths.append((path, result))
 
-    print("\n— Resum —")
+    print("\n— Summary —")
     for k in ("scanned", "clean", "migrated", "no-frontmatter", "no-id", "errors"):
         print(f"  {k:>16}: {counters[k]}")
 
     if no_id_paths:
-        print("\nPàgines sense `id` al frontmatter (no migrades):")
+        print("\nPages without an `id` in frontmatter (not migrated):")
         for p in no_id_paths[:20]:
             print(f"  - {p}")
         if len(no_id_paths) > 20:
-            print(f"  … i {len(no_id_paths) - 20} més")
+            print(f"  … and {len(no_id_paths) - 20} more")
 
     if error_paths:
         print("\nErrors:")
         for p, msg in error_paths[:20]:
             print(f"  - {p}: {msg}")
         if len(error_paths) > 20:
-            print(f"  … i {len(error_paths) - 20} més")
+            print(f"  … and {len(error_paths) - 20} more")
 
     return 0 if counters["errors"] == 0 else 1
 

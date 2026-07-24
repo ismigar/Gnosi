@@ -40,7 +40,7 @@ _DEFAULT_MODEL = "microsoft/trocr-base-handwritten"
 # Line cap to prevent a large canvas from stalling the CPU for minutes.
 _MAX_LINES = 40
 
-_LANG_LABELS = {"ca": "català", "es": "castellà", "en": "anglès", "fr": "francès"}
+_LANG_LABELS = {"ca": "Catalan", "es": "Spanish", "en": "English", "fr": "French"}
 
 
 def _cache_dir() -> str:
@@ -100,11 +100,11 @@ def _load():
             from transformers import TrOCRProcessor, VisionEncoderDecoderModel
             mid = _model_id()
             cache = _cache_dir()
-            log.info(f"handwriting: carregant TrOCR '{mid}' (CPU)… (1r cop baixa el model)")
+            log.info("handwriting: loading TrOCR '%s' on CPU (downloads on first use)", mid)
             _PROCESSOR = TrOCRProcessor.from_pretrained(mid, cache_dir=cache)
             _MODEL = VisionEncoderDecoderModel.from_pretrained(mid, cache_dir=cache)
             _MODEL.eval()
-            log.info("handwriting: model carregat.")
+            log.info("handwriting: model loaded")
     return _PROCESSOR, _MODEL
 
 
@@ -128,12 +128,12 @@ def warmup() -> bool:
         def _run():
             try:
                 _load()
-            except Exception as e:  # pragma: no cover - degradació neta
-                log.warning(f"handwriting: warmup fallit: {e}")
+            except Exception as e:  # pragma: no cover - clean degradation
+                log.warning("handwriting: warmup failed: %s", e)
 
         _WARMUP_THREAD = threading.Thread(target=_run, daemon=True, name="trocr-warmup")
         _WARMUP_THREAD.start()
-    log.info("handwriting: warmup del model engegat en segon pla.")
+    log.info("handwriting: model warmup started in the background")
     return True
 
 
@@ -152,12 +152,12 @@ def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
 
     lang_note = ""
     if language and language in _LANG_LABELS:
-        lang_note = f" El text és en {_LANG_LABELS[language]}."
+        lang_note = f" The text is in {_LANG_LABELS[language]}."
     prompt = (
-        "Ets un corrector ortogràfic per a text reconegut d'escriptura a mà (OCR)."
-        f"{lang_note} Corregeix accents, dígrafs i errors ortogràfics evidents,"
-        " respectant el sentit i les paraules originals. NO afegeixis ni treguis"
-        " contingut, ni comentis res. Respon NOMÉS amb el text corregit:\n\n"
+        "You are a spelling corrector for handwritten text recognized by OCR."
+        f"{lang_note} Correct accents, digraphs, and obvious spelling errors"
+        " while preserving the original meaning and wording. Do not add or remove"
+        " content and do not comment on it. Return ONLY the corrected text:\n\n"
         f"{text}"
     )
     try:
@@ -165,7 +165,7 @@ def _correct_text(text: str, language: Optional[str] = None) -> Optional[str]:
         corrected = (content or "").strip()
         return corrected or None
     except Exception as e:
-        log.info(f"handwriting: correcció IA no aplicada ({e}); es retorna el text cru.")
+        log.info("handwriting: AI correction was not applied (%s); returning raw text", e)
         return None
 
 

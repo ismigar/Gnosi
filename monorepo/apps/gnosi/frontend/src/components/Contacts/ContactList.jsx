@@ -32,7 +32,7 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                     }} />
                     <input
                         type="text"
-                        placeholder={t('contacts.search_placeholder', 'Cerca...')}
+                        placeholder={t('contacts.search_placeholder', "Search contacts...")}
                         value={filter.search}
                         onChange={(e) => onFilterChange({ ...filter, search: e.target.value })}
                         style={{
@@ -71,9 +71,9 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                             cursor: 'pointer'
                         }}
                     >
-                        <option value="">{t('contacts.filter_all', 'Tots els tipus')}</option>
+                        <option value="">{t('contacts.filter_all', "All")}</option>
                         <option value="personal">{t('contacts.type_personal', 'Personal')}</option>
-                        <option value="b2b">{t('contacts.type_business', 'Empresa')}</option>
+                        <option value="b2b">{t('contacts.type_business', "Business")}</option>
                     </select>
                 </div>
             </div>
@@ -95,7 +95,7 @@ export default function ContactList({ contacts, selectedId, onSelect, filter, on
                     </div>
                 ) : contacts.length === 0 ? (
                     <div style={{ padding: '48px 16px', textAlign: 'center', opacity: 0.4 }}>
-                        <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('contacts.no_contacts', 'Cap contacte')}</p>
+                        <p style={{ fontSize: '13px', color: 'var(--text-tertiary)' }}>{t('contacts.no_contacts', "You don't have any contacts yet.")}</p>
                     </div>
                 ) : (
                     contacts.map((contact) => (

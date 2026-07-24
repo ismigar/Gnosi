@@ -1,13 +1,13 @@
-# Directive: Controls de Física del Graf (Sigma/ForceAtlas2)
+# Directive: Controls of Physics of the Graph (Sigma/ForceAtlas2)
 
-## Objectiu
-Donar control a l'usuari sobre la distribució espacial del graf mitjançant paràmetres de simulació física.
+## Objective
+Give control to the user over the spatial distribution of the graph through simulation physical parameters.
 
-## Arquitectura i Estabilitat (CRÍTIC)
+## Architecture and Stability (CRITICAL)
 
 ### 1. Debouncing (Anti-Crash)
-El worker de `ForceAtlas2` triga a reiniciar-se. Si enviem cada canvi del slider (centenars d'events per segon), el worker es satura i penja el navegador.
-**SOLUCIÓ: Patró d'Estat Dual**
+The `ForceAtlas2` worker is taking too long to restart. If I send each change of the slider (hundreds of events per second), the worker becomes saturated and crashes the browser.
+**Solution: Dual State Pattern**
 ```javascript
 // A GraphPage.jsx
 const [gravityUI, setGravityUI] = useState(0.05); // Feedback instantani al slider
@@ -22,19 +22,19 @@ useEffect(() => {
 // Passeu 'gravity' a GraphViewer, NO gravityUI
 ```
 
-### 2. Edge Weight Influence (Dispersió)
-Per defecte, `ForceAtlas2` utilitza el pes de les arestes per atreure nodes. Si els pesos són alts (ex: 80-100), ni tan sols una repulsió màxima (50.000) separarà els nodes.
-**SOLUCIÓ: Slider d'Influència**
-- Afegir paràmetre `edgeWeightInfluence` a la configuració.
-- **Valor 0:** Ignora pesos de les arestes (Crucial per efecte "Núvol" / "obsidian-like").
-- **Valor 1:** Comportament normal.
+### 2. Edge Weight Influence (Dispersion)
+By default, `ForceAtlas2` uses edge weights to attract nodes. If the weights are high (e.g., 80-100), not even a maximum repulsion of 50,000 will separate the nodes.
+**Solution: Slider Influence**
+- Add `edgeWeightInfluence` parameter to the configuration.
+- **Value 0:** Ignore edge weights (Critical for effect "Cloud" / "obsidian-like").
+- **Value 1:** Normal behavior.
 
-### 3. Rangs Desbloquejats
-Els valors per defecte de les llibreries són massa conservadors per a grafs grans o densos.
-- **Repulsió (Scaling Ratio):** Permetre fins a **50.000** (o més).
-- **Gravetat:** Permetre baixar fins a **0.00** (pas 0.01).
+### 3. Unlocked Ranges
+The default values of the libraries are too conservative for large or dense graphs.
+- **Repulsion (Scaling Ratio):** Allow up to **50,000** (or more).
+- **Gravity:** Allow down to **0.00** (steps 0.01).
 
-## Implementació Tècnica (GraphViewer.jsx)
+## Implementation Technical (GraphViewer.jsx)
 
 ```javascript
 useEffect(() => {
@@ -55,7 +55,7 @@ useEffect(() => {
 }, [gravity, repulsion, friction, edgeInfluence]);
 ```
 
-## Fitxers Relacionats
+## Related Files
 - `frontend/src/components/ForcesSection.jsx`
 - `frontend/src/pages/GraphPage.jsx`
 - `frontend/src/components/GraphViewer.jsx`

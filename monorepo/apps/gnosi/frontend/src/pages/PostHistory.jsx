@@ -47,9 +47,9 @@ const PostHistory = () => {
 
     const getStatusConfig = (status) => {
         const configs = {
-            success: { bg: 'bg-green-500/10', text: 'text-green-400', icon: CheckCircle, label: t('social.status_published', 'Publicat') },
+            success: { bg: 'bg-green-500/10', text: 'text-green-400', icon: CheckCircle, label: t('social.status_published', "Published") },
             failed: { bg: 'bg-red-500/10', text: 'text-red-400', icon: XCircle, label: t('common.error', 'Error') },
-            pending: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', icon: Clock, label: t('dashboard.status_pending', 'Pendent') }
+            pending: { bg: 'bg-yellow-500/10', text: 'text-yellow-400', icon: Clock, label: t('dashboard.status_pending', "Pending") }
         };
         return configs[status] || configs.pending;
     };
@@ -60,7 +60,7 @@ const PostHistory = () => {
                 <button
                     onClick={fetchHistory}
                     className={`p-2 rounded-lg bg-[var(--bg-secondary)] hover:bg-[var(--bg-tertiary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-primary)] transition-all ${isRefreshing ? 'animate-spin' : ''}`}
-                    title={t('common.refresh', 'Refrescar')}
+                    title={t('common.refresh', "Refresh")}
                 >
                     <RefreshCw size={18} />
                 </button>
@@ -69,12 +69,12 @@ const PostHistory = () => {
                 {loading ? (
                     <div className="flex flex-col justify-center items-center h-64 text-zinc-500 gap-4">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                        <span>{t('social.history_loading', 'Carregant historial...')}</span>
+                        <span>{t('social.history_loading', "Loading history...")}</span>
                     </div>
                 ) : history.length === 0 ? (
                     <div className="flex flex-col items-center justify-center p-12 text-zinc-500 bg-white/5 rounded-2xl border border-white/5">
                         <div className="text-4xl mb-4 opacity-50">📜</div>
-                        <p>{t('social.history_empty', "Encara no hi ha posts a l'historial.")}</p>
+                        <p>{t('social.history_empty', "No posts in the history yet.")}</p>
                     </div>
                 ) : (
                     history.map((post, idx) => {

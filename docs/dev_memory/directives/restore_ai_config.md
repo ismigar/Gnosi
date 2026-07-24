@@ -1,19 +1,25 @@
-# Directiva: Restauració de Configuració d'AI
+# Directive: Restore AI configuration
 
 ## Context
-La configuració de l'AI a Gnosi es guarda al fitxer `params.yaml`. Si la llista d'agents està buida o l'`active_agent_id` no existeix, el sistema retorna un error "No LLM provider available".
 
-## Procediment de Restauració
-1. Localitzar el fitxer `params.yaml` actiu (normalment al Vault o a `~/.gnosi/`).
-2. Verificar la secció `ai:`.
-3. Si `agents` és una llista buida, s'ha de restaurar l'agent predeterminat `gnosy`.
-4. Assegurar-se que el proveïdor (provider) i el model (model) coincideixen amb els que el sistema pot gestionar (ex: Groq, OpenAI).
-5. Establir `active_agent_id` al ID de l'agent restaurat.
+Gnosi stores AI configuration in `params.yaml`. An empty agent list or missing
+`active_agent_id` produces "No LLM provider available."
 
-## Restriccions i Casos de Cantonada
-- **Keychain:** Si el provider utilitza el prefix `__keychain__:`, la clau d'API s'ha de gestionar via el sistema de credencials de Gnosi, no directament al fitxer YAML.
-- **Enabled:** L'agent ha de tenir `enabled: true`.
+## Recovery
 
-## Verificació
-- El backend ha de ser capaç d'instanciar el workflow sense errors 503.
-- El xat del frontend ha de mostrar que el model s'ha seleccionat correctament.
+1. Locate the active `params.yaml`, normally in the configured data directory.
+2. Inspect the `ai:` section.
+3. Restore the default `gnosy` agent when `agents` is empty.
+4. Select a provider and model supported by the current runtime.
+5. Set `active_agent_id` to the restored agent ID.
+
+## Restrictions
+
+- If the provider value uses a `__keychain__:` reference, manage its API key
+  through Gnosi's credential system, never directly in YAML.
+- The restored agent must have `enabled: true`.
+
+## Verification
+
+- The backend creates the agent workflow without HTTP 503.
+- Frontend chat displays the selected model correctly.

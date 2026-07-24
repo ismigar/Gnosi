@@ -90,7 +90,7 @@ export const CiteInline = ({ citationKey }) => {
     // Citation style and locale come from the context (set by the page via
     // frontmatter, or the global default). Without a style, "raw" mode (shows @key).
     const cslStyle = ctx.cslStyle || 'apa';
-    const cslLocale = ctx.cslLocale || 'ca-AD';
+    const cslLocale = ctx.cslLocale || 'en-US';
 
     useEffect(() => {
         let cancelled = false;

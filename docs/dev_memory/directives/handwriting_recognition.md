@@ -1,61 +1,46 @@
-# Directiva: Reconeixement d'escriptura a mà (ink → text) al canvas
+# Directive: Local handwriting recognition
 
-**Objectiu:** convertir els traços manuscrits del canvas de dibuix (Tldraw) en
-text, i millorar l'entrada amb llapis (palm rejection). Tot LOCAL, sense núvol,
-coherent amb el vault offline-first.
+## Objective
 
-## Arquitectura
+Convert handwritten Tldraw strokes to text and provide optional palm
+rejection. Processing remains local for offline-first Vault privacy.
 
-- **Backend**
-  - `backend/services/handwriting.py` — motor TrOCR (transformers) singleton lazy,
-    CPU. Cache a `GNOSI_LOCAL_DATA/cache/trocr` (mai OneDrive). Segmentació simple
-    per projecció horitzontal (TrOCR és mono-línia → partim en línies).
-  - `backend/api/handwriting_routes.py` — `POST /api/vault/handwriting/recognize`
-    (multipart `image` PNG + `correct`/`language` opcionals → `{text, raw, lines,
-    model, corrected}`), `POST .../warmup` i `GET .../status`.
-  - Registrat a `server.py` (`include_router(handwriting_routes.router)`, el router
-    ja porta el prefix `/api/vault/handwriting`).
-  - **Correcció IA (accents ca/es):** després de TrOCR, opcionalment es passa el
-    text per l'LLM local (Ollama, mateix `generate_text` que `POST /api/ai/correct`)
-    per fixar accents/dígrafs. Degradació NETA: si no hi ha proveïdor d'IA, es
-    retorna el text cru (`raw`) sense fallar. Default via `ai.handwriting.correct`.
-  - **Warmup:** `handwriting.warmup()` precarrega el model en thread daemon
-    (idempotent). NO es fa a l'arrencada (reservaria ~1.3 GB sempre): es dispara
-    quan el frontend obre el llenç.
-- **Frontend** — `components/Vault/TldrawEditor.jsx`:
-  - En muntar el llenç, `POST .../warmup` (fire-and-forget) → el model es carrega
-    mentre l'usuari dibuixa.
-  - Botó **"Passar a text"**: exporta els shapes seleccionats (o tot el llenç) amb
-    `editor.toImage(ids, { format:'png', background:true, darkMode:false })` i POST
-    a l'endpoint; insereix el text reconegut com a shape `text` sota els traços. El
-    toast indica si s'ha aplicat correcció IA.
-  - Toggle **"Només llapis"** (palm rejection): bloqueja `pointerType==='touch'` en
-    fase de captura al wrapper → el palmell no dibuixa; llapis/ratolí sí.
+## Architecture
 
-## Restriccions / Edge cases (apreses)
+- `backend/services/handwriting.py` lazily loads a singleton TrOCR model on
+  CPU, cached under `GNOSI_LOCAL_DATA/cache/trocr`, never OneDrive. Horizontal
+  projection segments input into lines because TrOCR is single-line.
+- Handwriting routes expose recognize, warmup, and status endpoints under
+  `/api/vault/handwriting`.
+- Optional AI correction restores accents and digraphs through the configured
+  local-capable generation path. If no provider is available, return raw text
+  successfully.
+- Warmup starts from the frontend when the canvas opens rather than at backend
+  startup, avoiding permanent 1.3 GB model memory.
+- `TldrawEditor.jsx` exports selected shapes or the complete canvas as a white
+  background PNG and inserts recognized text below the strokes.
+- The stylus-only toggle blocks touch pointers in capture phase while
+  retaining pen and mouse input.
 
-- **NO usar núvol.** TrOCR local encara que sigui pitjor: el vault és privat. Model
-  configurable via env `GNOSI_TROCR_MODEL` o `ai.handwriting.model` a params.yaml.
-- **TrOCR és ANGLÈS.** `microsoft/trocr-base-handwritten` va entrenat en anglès →
-  en català/castellà encerta la forma però falla accents/dígrafs. És "de notes".
-  No prometre transcripció perfecta. `-large-` millora però és MOLT lent en Intel.
-- **CPU + torch 2.2.2 (Mac Intel):** lent (segons per línia). Per això:
-  - Cap de línies a `_MAX_LINES=40` per no encallar la CPU amb un llenç enorme.
-  - `recognize` corre a `asyncio.to_thread` (bloqueja: fora de l'event loop).
-  - Export amb `background:true` + `darkMode:false` → fons blanc (TrOCR espera
-    document fosc sobre blanc; amb fons transparent/fosc el resultat és brossa).
-- **1a crida baixa el model (~1.3 GB).** Trigarà; el frontend ha de mostrar estat
-  "Reconeixent…". No és penjada.
-- **Backend SENSE --reload** (LaunchAgent): després de tocar codi backend cal
-  `launchctl kickstart -k gui/$UID/com.gnosi.backend` (cf. memòria
-  `backend_no_autoreload`). Endpoint nou = 404 fins a reiniciar.
-- **Palm rejection** bloqueja també el pan/zoom amb dos dits mentre està actiu:
-  és esperat (mode "només llapis"). És un toggle, off per defecte.
-- La pressió del llapis (gruix variable) JA la fa Tldraw de forma nativa; no cal
-  afegir res per això.
+## Restrictions
 
-## Verificació
+- Do not upload handwriting to a cloud recognition service.
+- The default Microsoft model is trained primarily on English and can miss
+  Catalan or Spanish accents. Present this as note recognition, not perfect
+  transcription.
+- Limit processing to `_MAX_LINES = 40` and run recognition through
+  `asyncio.to_thread`.
+- Export with `background: true` and `darkMode: false`; transparent or dark
+  input produces poor OCR.
+- First use downloads the configured model and can take time. Show a localized
+  recognizing state.
+- Native backend uses reload for backend source, but dependency changes still
+  require a LaunchAgent restart.
+- Stylus-only mode also disables two-finger pan and zoom; it is off by default.
+- Tldraw already supports pen pressure.
 
-- `GET /api/vault/handwriting/status` → `{available:true, model:...}`.
-- `POST .../recognize` amb un PNG → `{text, lines, model}`.
-- Build frontend net (`npm run build`).
+## QA
+
+- Status returns model availability.
+- Recognize accepts a PNG and returns text, line count, and model.
+- Frontend build passes and the insertion action works from the canvas.

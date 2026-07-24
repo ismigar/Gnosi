@@ -308,7 +308,7 @@ function ViewActionsBar({
                         type="text"
                         value={searchTerm}
                         onChange={e => setSearchTerm?.(e.target.value)}
-                        placeholder={t('common.search_placeholder', 'Cerca...')}
+                        placeholder={t('common.search_placeholder', "Search...")}
                         className="text-xs outline-none w-28 text-[var(--text-primary)] bg-transparent"
                     />
                     <button
@@ -322,7 +322,7 @@ function ViewActionsBar({
                 <button
                     onClick={() => setShowSearch?.(true)}
                     className="p-1.5 rounded-md text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] transition-colors"
-                    title={t('views_header.search_title', 'Cerca')}
+                    title={t('views_header.search_title', "Search")}
                 >
                     <Search size={14} />
                 </button>
@@ -332,7 +332,7 @@ function ViewActionsBar({
                 <button
                     onClick={onOpenConfig}
                     className="flex items-center gap-1.5 px-2 py-1.5 text-xs text-[var(--text-tertiary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] rounded-md transition-colors"
-                    title={t('views_header.view_settings', 'Configuració de la vista')}
+                    title={t('views_header.view_settings', "View settings")}
                 >
                     <SlidersHorizontal size={13} />
                 </button>
@@ -346,7 +346,7 @@ function ViewActionsBar({
                         style={{ boxShadow: 'none' }}
                     >
                         <Plus size={14} />
-                        <span>{t('views_header.new_action', 'Nou')}</span>
+                        <span>{t('views_header.new_action', "New")}</span>
                         <span
                             role="button"
                             tabIndex={0}
@@ -364,12 +364,12 @@ function ViewActionsBar({
                                 className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left"
                             >
                                 <Plus size={14} className="text-[var(--text-tertiary)]" />
-                                <span>{t('views_header.new_empty_record', 'Nou registre')}</span>
+                                <span>{t('views_header.new_empty_record', "New record")}</span>
                             </button>
                             {templates.length > 0 && (
                                 <>
                                     <div className="h-px bg-[var(--border-primary)] my-1 mx-2" />
-                                    <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title', 'Plantilles')}</div>
+                                    <div className="px-3 py-1 text-[10px] font-bold text-[var(--text-tertiary)] uppercase tracking-tighter">{t('views_header.templates_title', "Templates")}</div>
                                     {templates.map(tpl => (
                                         <button
                                             key={tpl.id}
@@ -377,7 +377,7 @@ function ViewActionsBar({
                                             className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] text-left group"
                                         >
                                             <LayoutTemplate size={14} className="text-[var(--text-tertiary)] group-hover:text-[var(--gnosi-primary)]" />
-                                            <span className="truncate">{tpl.title || t('view.untitled', '(sense títol)')}</span>
+                                            <span className="truncate">{tpl.title || t('view.untitled', "(untitled)")}</span>
                                         </button>
                                     ))}
                                 </>
@@ -396,7 +396,7 @@ function ColumnPlusButton({ onClick }) {
         <button
             onClick={onClick}
             className="text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-            title={t('views_header.create_in_column', 'Crear a aquesta columna')}
+            title={t('views_header.create_in_column', "Create in this column")}
         >
             <Plus size={12} />
         </button>
@@ -464,7 +464,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
 
     const { nodes, links } = useMemo(() => {
         const nodeMap = new Map();
-        (rows || []).forEach(r => nodeMap.set(r.id, { id: r.id, title: r.title || t('view.untitled', '(sense títol)') }));
+        (rows || []).forEach(r => nodeMap.set(r.id, { id: r.id, title: r.title || t('view.untitled', "(untitled)") }));
         const edges = [];
         if (relationCol) {
             (rows || []).forEach(r => {
@@ -536,7 +536,7 @@ function GraphRender({ rows, columns, onOpenPage }) {
     return (
         <div className="my-2 bg-[var(--bg-secondary)]/30">
             <div className="p-2 border-b border-[var(--border-primary)]/40 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
-                {t('view.graph_title', 'Graf')} {relationCol ? <>{t('view.graph_via', 'via')} <code>{relationCol}</code></> : t('view.graph_no_relations', '(sense relacions)')} · {t('view.graph_stats', '{{nodes}} nodes · {{edges}} arestes', { nodes: nodes.length, edges: links.length })}
+                {t('view.graph_title', "Graph")} {relationCol ? <>{t('view.graph_via', 'via')} <code>{relationCol}</code></> : t('view.graph_no_relations', "(no relations)")} · {t('view.graph_stats', "{{nodes}} nodes · {{edges}} edges", { nodes: nodes.length, edges: links.length })}
             </div>
             <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 400 }}>
                 {links.map((l, i) => {
@@ -642,8 +642,8 @@ export function DbViewEmbed({ block }) {
     const [activeViewId, setActiveViewId] = useState('');
     const [loading, setLoading] = useState(() => Boolean(pageId && viewId));
     const [error, setError] = useState(() => {
-        if (!pageId) return t('errors.no_active_page', 'Sense pàgina activa per resoldre la vista.');
-        if (!viewId) return t('errors.view_missing_id', 'Vista sense view_id.');
+        if (!pageId) return t('errors.no_active_page', "No active page to resolve the view.");
+        if (!viewId) return t('errors.view_missing_id', "View without view_id.");
         return '';
     });
     const [reloadKey, setReloadKey] = useState(0);
@@ -733,7 +733,7 @@ export function DbViewEmbed({ block }) {
                         setView(null);
                         setRawRecords([]);
                         setTemplates([]);
-                        setError(t('errors.view_not_found_registry', 'Vista "{{id}}..." no trobada al registry.', { id: viewId.slice(0, 8) }));
+                        setError(t('errors.view_not_found_registry', "View \"{{id}}...\" not found in the registry.", { id: viewId.slice(0, 8) }));
                         setLoading(false);
                     }
                     return;
@@ -793,7 +793,7 @@ export function DbViewEmbed({ block }) {
                     const tv = registryViews.filter(v => String(v.table_id) === String(tableId));
                     const sectionAsView = {
                         id: section.view_id,
-                        name: section.heading || t('views_header.default_view_name', 'Vista'),
+                        name: section.heading || t('views_header.default_view_name', "View"),
                         type: section.view_type || 'table',
                         table_id: tableId,
                         filters: section.filters || [],
@@ -834,7 +834,7 @@ export function DbViewEmbed({ block }) {
                 }
             } catch (e) {
                 if (!cancelled) {
-                    setError(e?.response?.data?.detail || e?.message || t('errors.load_view', 'Error carregant la vista'));
+                    setError(e?.response?.data?.detail || e?.message || t('errors.load_view', "Error loading the view"));
                     setRawRecords([]);
                     setTemplates([]);
                     setLoading(false);
@@ -992,7 +992,7 @@ export function DbViewEmbed({ block }) {
 
     const handleDeleteView = useCallback((v) => {
         if (!v?.id) return;
-        if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "No es pot eliminar l'única vista.")); return; }
+        if (tableViews.length <= 1) { toast.error(t('errors.delete_only_view', "Cannot delete the only view.")); return; }
         setConfirmDeleteView(v);
     }, [tableViews]);
 
@@ -1121,7 +1121,7 @@ export function DbViewEmbed({ block }) {
     // the embed (onEditSchema('filters'|'sorts') → handleOpenConfig).
     const embeddedView = useMemo(() => ({
         id: effectiveView?.id || effectiveView?.view_id || 'embedded',
-        name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', 'Vista'),
+        name: effectiveView?.name || effectiveView?.heading || t('views_header.default_view_name', "View"),
         type: viewType === 'list' ? 'list' : 'table',
         filters: [],
         sort: (effectiveView?.sorts && effectiveView.sorts.length) ? effectiveView.sorts : (effectiveView?.sort ? [effectiveView.sort] : []),
@@ -1155,7 +1155,7 @@ export function DbViewEmbed({ block }) {
         return (
             <div className="my-4 p-4 flex items-center gap-2 text-xs text-[var(--text-tertiary)]">
                 <Loader2 size={14} className="animate-spin" />
-                {t('views_header.loading_view', 'Carregant vista...')}
+                {t('views_header.loading_view', "Loading view...")}
             </div>
         );
     }
@@ -1341,13 +1341,13 @@ export function DbViewEmbed({ block }) {
                                     try { localStorage.setItem(`gnosi_embed_view_${pageId}_${viewId}`, v.id); } catch { /* noop */ }
                                 }}
                                 onDoubleClick={() => handleRenameView(v)}
-                                title={t('views_header.tab_tooltip', 'Clic per canviar · doble clic per renombrar')}
+                                title={t('views_header.tab_tooltip', "Click to switch · double-click to rename")}
                             >
-                                <span>{v.name || v.heading || t('views_header.default_view_name', 'Vista')}</span>
+                                <span>{v.name || v.heading || t('views_header.default_view_name', "View")}</span>
                                 <button
                                     onClick={(e) => { e.stopPropagation(); decideMenuDir(e); setTabMenuFor(m => m === v.id ? null : v.id); }}
                                     className={`${tabMenuFor === v.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} text-[var(--text-tertiary)] hover:text-[var(--text-primary)]`}
-                                    title={t('views_header.view_options', 'Opcions de la vista')}
+                                    title={t('views_header.view_options', "View options")}
                                 >
                                     <MoreHorizontal size={13} />
                                 </button>
@@ -1360,21 +1360,21 @@ export function DbViewEmbed({ block }) {
                                                 className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
                                                 <Settings size={13} className="text-[var(--text-tertiary)]" />
-                                                {t('views_header.configure', 'Configurar')}
+                                                {t('views_header.configure', "Configure")}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleRenameView(v); }}
                                                 className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
                                                 <Edit2 size={13} className="text-[var(--text-tertiary)]" />
-                                                {t('views_header.rename', 'Reanomenar')}
+                                                {t('views_header.rename', "Rename")}
                                             </button>
                                             <button
                                                 onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDuplicateView(v); }}
                                                 className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                             >
                                                 <Copy size={13} className="text-[var(--text-tertiary)]" />
-                                                {t('views_header.duplicate', 'Duplicar')}
+                                                {t('views_header.duplicate', "Duplicate")}
                                             </button>
                                             {!isAnchor && (
                                                 <>
@@ -1384,14 +1384,14 @@ export function DbViewEmbed({ block }) {
                                                         className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs hover:bg-[var(--bg-tertiary)]"
                                                     >
                                                         <X size={13} className="text-[var(--text-tertiary)]" />
-                                                        {t('views_header.remove_from_page', "Treure d'aquesta pàgina")}
+                                                        {t('views_header.remove_from_page', "Remove from this page")}
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); setTabMenuFor(null); handleDeleteView(v); }}
                                                         className="w-full flex items-center gap-2 text-left px-3 py-1.5 text-xs text-red-500 hover:bg-[var(--bg-tertiary)]"
                                                     >
                                                         <Trash2 size={13} />
-                                                        {t('views_header.delete_everywhere', 'Eliminar a tot arreu…')}
+                                                        {t('views_header.delete_everywhere', "Delete everywhere…")}
                                                     </button>
                                                 </>
                                             )}
@@ -1404,7 +1404,7 @@ export function DbViewEmbed({ block }) {
                     <button
                         onClick={() => handleAddView('table')}
                         className="px-1.5 py-1 text-[var(--text-tertiary)] hover:text-[var(--gnosi-primary)]"
-                        title={t('views_header.add_view', 'Afegir vista')}
+                        title={t('views_header.add_view', "Add view")}
                     >
                         <Plus size={13} />
                     </button>
@@ -1416,21 +1416,21 @@ export function DbViewEmbed({ block }) {
                 isOpen={confirmDeleteView != null}
                 onClose={() => setConfirmDeleteView(null)}
                 onConfirm={doDeleteView}
-                title={t('views_header.delete_view_title', 'Eliminar vista')}
-                message={confirmDeleteView ? t('views_header.delete_view_confirm', 'Eliminar la vista "{{name}}" a TOT arreu? Desapareixerà de totes les pàgines.', { name: confirmDeleteView.name || confirmDeleteView.heading || '' }) : ''}
-                confirmText={t('common.delete', 'Eliminar')}
-                cancelText={t('common.cancel', 'Cancel·la')}
+                title={t('views_header.delete_view_title', "Delete view")}
+                message={confirmDeleteView ? t('views_header.delete_view_confirm', "Delete the view \"{{name}}\" EVERYWHERE? It will disappear from all pages.", { name: confirmDeleteView.name || confirmDeleteView.heading || '' }) : ''}
+                confirmText={t('common.delete', "Delete")}
+                cancelText={t('common.cancel', "Cancel")}
                 isDestructive
             />
             <PromptModal
                 isOpen={renameView != null}
                 onClose={() => setRenameView(null)}
                 onSubmit={doRename}
-                title={t('views_header.rename_view_title', 'Reanomenar vista')}
-                label={t('views_header.new_view_name_label', 'Nou nom de la vista')}
+                title={t('views_header.rename_view_title', "Rename view")}
+                label={t('views_header.new_view_name_label', "New view name")}
                 defaultValue={renameView ? (renameView.name || renameView.heading || '') : ''}
-                confirmText={t('common.rename', 'Reanomenar')}
-                cancelText={t('common.cancel', 'Cancel·la')}
+                confirmText={t('common.rename', "Rename")}
+                cancelText={t('common.cancel', "Cancel")}
             />
         </div>
     );

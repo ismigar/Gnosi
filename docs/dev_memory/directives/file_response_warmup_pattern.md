@@ -1,102 +1,91 @@
-# Directive: Patró de Warmup d'OneDrive per a Qualsevol FileResponse
+# Directive: OneDrive warmup before every FileResponse
 
-## Objectiu
-Qualsevol endpoint del backend que serveixi un fitxer físic via
-`FileResponse(path=...)` ha de gestionar el cas online-only d'OneDrive
-ABANS d'enviar els headers. Sense això, FastAPI envia `200 OK` i quan
-prova de streamejar el contingut peta amb `Errno 35 (Resource deadlock
-avoided)` mid-stream → el navegador rep una resposta truncada i el
-fitxer no s'obre.
+## Objective
 
-## Abast
-Qualsevol nou endpoint a `monorepo/apps/gnosi/backend/api/vault_routes.py`
-del tipus:
-```python
-@router.get("/some-file-path/{token_or_path}")
-async def serve_X(...):
-    p = Path(abs_path)
-    ...
-    return FileResponse(path=str(p), ...)  # ← aquí el bug si p és online-only
-```
+Every endpoint serving a physical file through `FileResponse` must handle an
+online-only OneDrive placeholder **before sending headers**. Otherwise FastAPI
+can send `200 OK`, then fail mid-stream with `Errno 35`, leaving the browser
+with a truncated response.
 
-Llocs on el patró JA està aplicat (per copy-reference):
-- `_serve_file_with_containment` (Assets/Images, vault/raw) — patró original.
-- `serve_local_file` (`/api/vault/local-file/{token}`) — afegit a #117.
+## Scope
 
-## Protocol d'implementació
-Abans del `FileResponse`:
+Apply this pattern to every backend endpoint that returns a local
+`FileResponse`. Existing references include `_serve_file_with_containment`
+for assets and raw Vault files, and `serve_local_file`.
+
+## Protocol
+
+Before creating `FileResponse`:
 
 ```python
-# 1. Warmup proactiu si online-only
+# 1. Proactively materialize online-only content.
 try:
     provider = get_files_provider()
-    st = p.stat()
-    if provider.is_online_only(p, st):
-        await provider.materialize(p)
+    stat_result = path.stat()
+    if provider.is_online_only(path, stat_result):
+        await provider.materialize(path)
         try:
-            st = p.stat()
+            stat_result = path.stat()
         except OSError:
-            raise HTTPException(503, "File temporarily unavailable",
-                headers={"Cache-Control": "no-store, must-revalidate"})
-        if provider.is_online_only(p, st):
-            raise HTTPException(503, "File warmup pending; try again",
-                headers={"Cache-Control": "no-store, must-revalidate"})
+            raise HTTPException(
+                503,
+                "File temporarily unavailable",
+                headers={"Cache-Control": "no-store, must-revalidate"},
+            )
+        if provider.is_online_only(path, stat_result):
+            raise HTTPException(
+                503,
+                "File warmup pending; try again",
+                headers={"Cache-Control": "no-store, must-revalidate"},
+            )
 except HTTPException:
     raise
-except Exception as e:
-    log.debug(f"Warmup proactiu per {p} ha fallat: {e}")
-    # Continuem: el 1-byte probe següent gestionarà errors residuals.
+except Exception as exc:
+    log.debug("Proactive warmup failed for %s: %s", path, exc)
 
-# 2. 1-byte probe amb backoff (estabilitza el handle abans del stream)
+# 2. Probe one byte with backoff before streaming.
 last_error = None
 for attempt in range(5):
     try:
-        with open(p, "rb") as f:
-            f.read(1)
+        with open(path, "rb") as stream:
+            stream.read(1)
         last_error = None
         break
-    except OSError as e:
-        last_error = e
-        if e.errno == 35 and attempt < 4:
+    except OSError as exc:
+        last_error = exc
+        if exc.errno == 35 and attempt < 4:
             await asyncio.sleep(0.2 * (2 ** attempt))
             continue
         break
+
 if last_error is not None:
-    raise HTTPException(503, "File temporarily unavailable; try again",
-        headers={"Cache-Control": "no-store, must-revalidate"})
+    raise HTTPException(
+        503,
+        "File temporarily unavailable; try again",
+        headers={"Cache-Control": "no-store, must-revalidate"},
+    )
 
-# 3. Ara sí, FileResponse
-return FileResponse(path=str(p), media_type=media_type)
+return FileResponse(path=str(path), media_type=media_type)
 ```
 
-## Restriccions i casos límit
-- **Headers `Cache-Control: no-store, must-revalidate` als 503**.
-  Sense això, Chrome guarda els 503 al disk cache i el fitxer queda
-  "trencat" indefinidament al navegador fins a un hard refresh.
-- **Mai retornar 200 OK abans del 1-byte probe**. Si retornem `200`
-  abans i el body peta, el navegador rep una resposta corrupta i el
-  contingut no s'obre. El probe garanteix que el handle estigui llest
-  abans d'enviar res al client.
-- **Backoff exponencial 0.2 → 0.4 → 0.8 → 1.6 s (4 intents)** és el
-  mateix patró que `_serve_file_with_containment` per a Assets.
-  Mantenir consistència entre endpoints.
+## Restrictions
 
-## Per què
-Errno 35 (`EAGAIN`/Resource deadlock avoided) ve del macOS File Provider
-d'OneDrive quan un fitxer és "online-only" (placeholder al disc, contingut
-al núvol). Cal demanar la materialització abans de llegir.
+- Add `Cache-Control: no-store, must-revalidate` to every 503. Otherwise
+  Chrome can cache the transient failure and keep the file broken until a hard
+  refresh.
+- Never return 200 before the one-byte probe. A later body failure corrupts
+  the response.
+- Keep the established exponential delays of 0.2, 0.4, 0.8, and 1.6 seconds
+  consistent across endpoints.
 
-## Validació
-Verificació empírica per a un fitxer online-only:
-```bash
-# Abans del fix → 200 OK mid-stream-error, log "❌ Unhandled exception"
-curl -v "http://localhost:5002/api/vault/<endpoint>" | wc -c
-# → bytes count truncats; user opens nothing.
+`Errno 35` comes from macOS File Provider when OneDrive content exists only
+in the cloud. Materialize it before reading.
 
-# Després del fix → primer cop 503 (warmup en curs) o triga uns segons,
-# però responde correctament. Segon cop instantani.
-```
+## Validation
 
-## PRs relacionades
-- #117 (`serve_local_file`) — afegir el patró a l'endpoint d'enllaços `file://`
-- Patró original a `_serve_file_with_containment` (Assets/Images)
+Request a known online-only file twice. The first request can return a
+non-cacheable 503 or wait while materialization completes. The second must
+return the complete file immediately, never a truncated 200 response.
+
+Related implementation: `serve_local_file` and
+`_serve_file_with_containment`.

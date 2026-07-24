@@ -85,10 +85,10 @@ _LANG_HINTS = {
 def detect_source_lang(text: str) -> str:
     """Return the most plausible ISO 639-1 code for ``text``.
 
-    Defaults to ``"ca"`` when nothing matches — Gnosi's primary content language.
+    Defaults to ``"en"`` when nothing matches, matching Gnosi's default language.
     """
     if not text:
-        return "ca"
+        return "en"
     sample = text.lower()[:500]
     scores = {}
     for code, (words_re, chars_re) in _LANG_HINTS.items():
@@ -97,7 +97,7 @@ def detect_source_lang(text: str) -> str:
             score += len(re.findall(chars_re, sample))
         scores[code] = score
     best = max(scores, key=scores.get)
-    return best if scores[best] > 0 else "ca"
+    return best if scores[best] > 0 else "en"
 
 
 # ---------------------------------------------------------------------------

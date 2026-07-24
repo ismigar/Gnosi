@@ -69,7 +69,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     options.hour = '2-digit';
                     options.minute = '2-digit';
                 }
-                setInputValue(date.toLocaleString(dateLocale || 'ca-ES', options).replace(',', ''));
+                setInputValue(date.toLocaleString(dateLocale || 'en-US', options).replace(',', ''));
             }
         } catch (e) {
             setInputValue(value);
@@ -86,7 +86,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
             const parts = val.split(/[/\- :]/);
             if (parts.length >= 3) {
                 let d, m, y, h = 0, min = 0;
-                // Suposem format DD/MM/YYYY o YYYY-MM-DD
+                // Accept either DD/MM/YYYY or YYYY-MM-DD.
                 if (parts[0].length === 4) { // YYYY-MM-DD
                     [y, m, d] = parts;
                 } else { // DD/MM/YYYY
@@ -181,8 +181,8 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     value={days ?? ''}
                     onChange={handleDaysChange}
                     disabled={!start}
-                    placeholder={t('vault_date.days_placeholder', 'dies')}
-                    title={t('vault_date.days_count_hint', 'Nombre de dies (recalcula la data de fi)')}
+                    placeholder={t('vault_date.days_placeholder', "days")}
+                    title={t('vault_date.days_count_hint', "Number of days (recalculates the end date)")}
                     className="w-12 shrink-0 bg-transparent hover:bg-[var(--bg-tertiary)] text-xs text-right rounded px-1 transition-colors outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                 />
                 <span className="text-[10px] text-[var(--text-tertiary)] shrink-0">{t('vault_date.days_unit', 'd')}</span>
@@ -206,7 +206,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     // If it already has focus and you click again, we open the picker (like Motion)
                     triggerPicker();
                 }}
-                placeholder={type === 'datetime' ? t('vault_date.format_datetime_placeholder', 'DD/MM/AAAA HH:MM') : t('vault_date.format_date_placeholder', 'DD/MM/AAAA')}
+                placeholder={type === 'datetime' ? t('vault_date.format_datetime_placeholder', "DD/MM/YYYY HH:MM") : t('vault_date.format_date_placeholder', "DD/MM/YYYY")}
                 className="w-full bg-transparent text-sm text-[var(--text-primary)] outline-none hover:bg-[var(--bg-secondary)] rounded px-1 -ml-1 transition-colors"
             />
 
@@ -217,7 +217,7 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
                     triggerPicker();
                 }}
                 className="opacity-0 group-hover:opacity-100 p-1 text-[var(--text-tertiary)] hover:text-indigo-500 transition-all focus:opacity-100"
-                title={t('vault_date.open_calendar', 'Obrir calendari')}
+                title={t('vault_date.open_calendar', "Open calendar")}
             >
                 {type === 'datetime' ? <Clock size={12} /> : <CalendarIcon size={12} />}
             </button>

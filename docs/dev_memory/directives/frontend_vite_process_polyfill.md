@@ -1,37 +1,46 @@
-# Directiva: Polyfill de `process` en Vite para Gnosi
+# Directive: Vite `process` polyfill
 
-## Contexto
-D'algunes llibreries (ex. `@excalidraw/excalidraw`) requereixen l'objecte global `process` que no existeix de forma nativa en el navegador sota Vite. Això provoca un `ReferenceError: process is not defined`.
+## Context
 
-## Solució Implementada
-S'ha d'utilitzar la propietat `define` a `vite.config.js` per substituir les referències a `process.env` en temps de compilació/servei.
+Some libraries, including older Excalidraw builds, expect a global `process`
+object that browsers do not provide under Vite. They fail with
+`ReferenceError: process is not defined`.
 
-### `vite.config.js`
+## Implementation
+
+Use Vite's `define` setting to replace `process.env` references at build and
+development-server time:
+
 ```javascript
 export default defineConfig(({ mode }) => {
   return {
-    // ...
     define: {
-      "process.env": "({})", // Polyfill segur
-      global: "window",      // Polyfill per a llibreries legacy
+      "process.env": "({})", // Safe browser replacement.
+      global: "window",      // Compatibility for legacy libraries.
     },
-    // ...
   };
 });
 ```
 
-## Lliçons Apreses i Restriccions
+## Restrictions and lessons
 
 > [!CAUTION]
-> **React 19 i Excalidraw**: S'ha confirmat que la versió 0.17.6 d'Excalidraw **CRASHA** fatalment l'aplicació en React 19 degut a l'accés a `ReactCurrentDispatcher`. No s'ha de rehabilitar fins a actualitzar la llibreria o trobar un workaround per als dispatchers.
+> **React 19 and Excalidraw:** Excalidraw 0.17.6 crashes the application under
+> React 19 because it accesses `ReactCurrentDispatcher`. Do not re-enable that
+> version without upgrading the library or implementing a verified workaround.
 
 > [!WARNING]
-> **BlockNote Multi-column**: Pot causar `Duplicate use of selection JSON ID` si s'utilitza amb certes configuracions d'HMR de Vite.
+> **BlockNote multi-column:** some Vite HMR configurations can trigger
+> `Duplicate use of selection JSON ID`.
 
 > [!IMPORTANT]
-> **Ordre d'Imports en ESM**: En els fitxers `.jsx` sota Vite, els `import` han d'estar SEMPRE a la part superior. Posar codi executable (com `console.log` o `alert`) abans dels imports pot trencar l'avaluació del mòdul i provocar pantalles en blanc silencioses.
+> **ESM import order:** keep every import at the top of `.jsx` modules. Running
+> code such as `console.log` or `alert` before imports can break module
+> evaluation and produce a silent blank screen.
 
-### Protocol de Depuració
-1. Si hi ha pantalla en blanc, comprovar la consola per `ReferenceError`.
-2. Si no hi ha errors però està en blanc, comprovar si hi ha un bucle de recàrrega (pestanya Network parpellejant).
-3. Desactivar imports pesats (Excalidraw, BlockNote) un per un per identificar el bloquejador.
+## Debugging
+
+1. For a blank screen, inspect the console for `ReferenceError`.
+2. If the console is clean, check for a reload loop in the Network tab.
+3. Disable heavy imports such as Excalidraw and BlockNote individually to
+   isolate the module that prevents startup.

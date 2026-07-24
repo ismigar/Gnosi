@@ -327,7 +327,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                             w: 260,
                             h: 170,
                             pageId: noteData.id,
-                            pageTitle: noteData.title || 'Pàgina sense títol',
+                            pageTitle: noteData.title || 'Untitled page',
                         },
                     });
                 } else {
@@ -337,8 +337,8 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                         type: 'note',
                         x: point.x - 100,
                         y: point.y - 50,
-                        props: { color: 'blue', size: 'm', font: 'sans', richText: toRichText(noteData.title || 'Pàgina sense títol') },
-                        meta: { pageId: noteData.id, pageTitle: noteData.title || 'Pàgina sense títol' },
+                        props: { color: 'blue', size: 'm', font: 'sans', richText: toRichText(noteData.title || 'Untitled page') },
+                        meta: { pageId: noteData.id, pageTitle: noteData.title || 'Untitled page' },
                     });
                 }
 
@@ -366,7 +366,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
     const insertPageOnCanvas = useCallback((pageId, pageTitle) => {
         const editor = editorRef.current;
         if (!editor) return;
-        const displayTitle = pageTitle || 'Pàgina sense títol';
+        const displayTitle = pageTitle || 'Untitled page';
         const center = editor.getViewportPageBounds().center;
         const shapeId = createShapeId();
         if (cardsEnabled) {
@@ -453,7 +453,7 @@ export default function TldrawEditor({ drawingId, title, onClose, onSaveSuccess,
                 padding: 16,
                 scale: 2,
             });
-            if (!img?.blob) throw new Error('No s\'ha pogut exportar la imatge');
+            if (!img?.blob) throw new Error('Could not export the image');
 
             const form = new FormData();
             form.append('image', img.blob, 'ink.png');

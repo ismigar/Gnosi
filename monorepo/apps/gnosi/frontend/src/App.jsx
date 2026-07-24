@@ -44,7 +44,7 @@ function RouteFallback() {
   const { t } = useTranslation();
   return (
     <div className="flex h-full items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
-      <div className="animate-pulse text-sm">{t('common.loading', 'Carregant…')}</div>
+      <div className="animate-pulse text-sm">{t('common.loading', "Loading...")}</div>
     </div>
   );
 }
@@ -70,7 +70,7 @@ function App() {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-secondary)] text-[var(--text-secondary)]">
-        <div className="animate-pulse text-sm">{t('common.loading', 'Carregant…')}</div>
+        <div className="animate-pulse text-sm">{t('common.loading', "Loading...")}</div>
       </div>
     );
   }

@@ -413,16 +413,16 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (selectedIds.size === 0) return;
 
         let confirmMsg = null;
-        let confirmTitle = t('mail.confirm_action_title', 'Confirmar acció');
+        let confirmTitle = t('mail.confirm_action_title', "Confirm action");
         const isTrash = folder === 'TRASH' || folder?.toUpperCase() === 'TRASH';
 
         if (action === 'trash') {
             if (isTrash) {
-                confirmTitle = t('mail.delete_permanently_title', 'Eliminar permanentment');
-                confirmMsg = t('mail.delete_permanently_confirm', { count: selectedIds.size, defaultValue_one: 'Vols eliminar permanentment aquest missatge? Aquesta acció no es pot desfer.', defaultValue_other: 'Vols eliminar permanentment aquests {{count}} missatges? Aquesta acció no es pot desfer.' });
+                confirmTitle = t('mail.delete_permanently_title', "Delete permanently");
+                confirmMsg = t('mail.delete_permanently_confirm', { count: selectedIds.size, defaultValue_one: "Do you want to permanently delete this message? This action cannot be undone.", defaultValue_other: "Do you want to permanently delete these {{count}} messages? This action cannot be undone." });
             } else if (selectedIds.size > 5) {
-                confirmTitle = t('mail.move_to_trash_title', 'Moure a la paperera');
-                confirmMsg = t('mail.move_to_trash_confirm', { count: selectedIds.size, defaultValue: 'Vols moure aquests {{count}} missatges a la paperera?' });
+                confirmTitle = t('mail.move_to_trash_title', "Move to trash");
+                confirmMsg = t('mail.move_to_trash_confirm', { count: selectedIds.size, defaultValue: "Do you want to move these {{count}} messages to the trash?" });
             }
         }
 
@@ -443,10 +443,10 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
     const handleEmptyFolder = () => {
         const isTrash = folder === 'TRASH' || folder?.toUpperCase() === 'TRASH';
-        const title = isTrash ? t('mail.empty_trash_title', 'Buidar paperera') : t('mail.empty_junk_title', 'Buidar brossa');
+        const title = isTrash ? t('mail.empty_trash_title', "Empty trash") : t('mail.empty_junk_title', "Empty junk");
         const msg = isTrash
-            ? (account ? t('mail.empty_trash_confirm_account', 'Vols buidar tota la paperera permanentment? Aquesta acció no es pot desfer.') : t('mail.empty_trash_confirm_all', 'Vols buidar la paperera de TOTES les comptes?'))
-            : (account ? t('mail.empty_junk_confirm_account', 'Vols moure tota la brossa a la paperera?') : t('mail.empty_junk_confirm_all', 'Vols moure la brossa a la paperera de TOTES les comptes?'));
+            ? (account ? t('mail.empty_trash_confirm_account', "Do you want to permanently empty the entire trash? This action cannot be undone.") : t('mail.empty_trash_confirm_all', "Do you want to empty the trash for ALL accounts?"))
+            : (account ? t('mail.empty_junk_confirm_account', "Do you want to move all junk mail to the trash?") : t('mail.empty_junk_confirm_all', "Do you want to move junk mail to the trash for ALL accounts?"));
 
         setConfirmConfig({
             isOpen: true,
@@ -459,7 +459,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
                 if (emailList.length === 0) {
                     setConfirmConfig({ isOpen: false });
-                    toast.error(t('mail.no_accounts_configured', 'No hi ha comptes configurats'));
+                    toast.error(t('mail.no_accounts_configured', "No accounts configured"));
                     return;
                 }
 
@@ -475,7 +475,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
 
                     if (succeeded.length === 0) {
                         const errData = await failed[0].res.json().catch(() => ({}));
-                        throw new Error(errData.detail || t('mail.server_error', 'Error al servidor'));
+                        throw new Error(errData.detail || t('mail.server_error', "Server error"));
                     }
 
                     if (failed.length > 0) {
@@ -483,9 +483,9 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                             const d = await f.res.json().catch(() => ({}));
                             return `${f.email}: ${d.detail || t('errors.unknown')}`;
                         }));
-                        toast.error(t('mail.empty_partial_error', 'Buidat parcialment. Errors: {{errors}}', { errors: errDetails.join('; ') }), { duration: 6000 });
+                        toast.error(t('mail.empty_partial_error', "Partially emptied. Errors: {{errors}}", { errors: errDetails.join('; ') }), { duration: 6000 });
                     } else {
-                        toast.success(isTrash ? t('mail.trash_emptied', 'Paperera buidada') : t('mail.junk_moved_to_trash', 'Brossa moguda a la paperera'));
+                        toast.success(isTrash ? t('mail.trash_emptied', "Trash emptied") : t('mail.junk_moved_to_trash', "Junk mail moved to trash"));
                     }
 
                     setLoading(false);
@@ -500,7 +500,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                     setLoading(false);
                     setConfirmConfig({ isOpen: false });
                     console.error("Error emptying folder:", err);
-                    toast.error(`${t('mail.error_prefix', 'Error')}: ${err.message || t('mail.empty_folder_fallback_error', "No s'ha pogut buidar")}`);
+                    toast.error(`${t('mail.error_prefix', 'Error')}: ${err.message || t('mail.empty_folder_fallback_error', "Couldn't empty it")}`);
                 }
             }
         });
@@ -664,7 +664,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             let groupTitle;
 
             if (effectiveConfig.groupBy === 'sender') {
-                groupTitle = (msg.thread_senders?.[0] || msg.sender || t('mail.unknown_sender', 'Desconegut')).split('<')[0].trim();
+                groupTitle = (msg.thread_senders?.[0] || msg.sender || t('mail.unknown_sender', "Unknown")).split('<')[0].trim();
             } else {
                 const ts = msg.timestamp || (Date.now() / 1000);
                 const date = parseISO(new Date(ts * 1000).toISOString());
@@ -717,16 +717,16 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             });
             if (!res.ok) {
                 const err = await res.json().catch(() => ({}));
-                toast.error(err.detail || t('mail.move_message_failed', "No s'ha pogut moure el missatge"));
+                toast.error(err.detail || t('mail.move_message_failed', "Couldn't move the message"));
                 setMessages(prev => [msg, ...prev]);
                 return;
             }
         } catch {
-            toast.error(t('mail.move_connection_error', 'Error de connexió en moure el missatge'));
+            toast.error(t('mail.move_connection_error', "Connection error while moving the message"));
             setMessages(prev => [msg, ...prev]);
             return;
         }
-        toast.success(t('mail.moved_to_folder', 'Mogut a {{folder}}', { folder: folderName }));
+        toast.success(t('mail.moved_to_folder', "Moved to {{folder}}", { folder: folderName }));
         onBatchDone?.();
     };
 
@@ -775,7 +775,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
         if (failedIds.size > 0) {
             const failedMsgs = removedMsgs.filter(m => failedIds.has(m.id));
             setMessages(prev => [...failedMsgs, ...prev]);
-            toast.error(t('mail.move_batch_error', { count: failedIds.size, defaultValue_one: "No s'han pogut moure {{count}} missatge", defaultValue_other: "No s'han pogut moure {{count}} missatges" }));
+            toast.error(t('mail.move_batch_error', { count: failedIds.size, defaultValue_one: "Couldn't move {{count}} message", defaultValue_other: "Couldn't move {{count}} messages" }));
         }
         onBatchDone?.();
     };
@@ -914,7 +914,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
             <div className="px-4 py-4 flex items-center justify-between border-b border-[var(--border-primary)] min-h-[72px] gap-2">
                 <button
                     onClick={onToggleMailboxSidebar}
-                    title={showMailboxSidebar ? t('mail.hide_mailbox', 'Amaga bústia') : t('mail.show_mailbox', 'Mostra bústia')}
+                    title={showMailboxSidebar ? t('mail.hide_mailbox', "Hide mailbox") : t('mail.show_mailbox', "Show mailbox")}
                     className="p-2 text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-lg transition-colors shrink-0"
                 >
                     <PanelLeft size={16} />
@@ -932,21 +932,21 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 <span className="text-sm font-bold text-[var(--text-primary)]">{selectedIds.size} {t('mail.selected')}</span>
                             </div>
                             <div className="flex items-center gap-0.5">
-                                <button onClick={() => handleBatchActionWithConfirm('archive')} title={t('mail.archive_selected', 'Arxivar seleccionats')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
+                                <button onClick={() => handleBatchActionWithConfirm('archive')} title={t('mail.archive_selected', "Archive selected")} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
                                     <Archive size={16} />
                                 </button>
-                                <button onClick={() => handleBatchActionWithConfirm('trash')} title={t('mail.delete_selected', 'Eliminar seleccionats')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-all">
+                                <button onClick={() => handleBatchActionWithConfirm('trash')} title={t('mail.delete_selected', "Delete selected")} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-all">
                                     <Trash2 size={16} />
                                 </button>
-                                <button onClick={handleBatchMoveOpen} title={t('mail.move_to_folder_title', 'Moure a carpeta')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
+                                <button onClick={handleBatchMoveOpen} title={t('mail.move_to_folder_title', "Move to folder")} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
                                     <FolderInput size={16} />
                                 </button>
-                                <button onClick={() => handleBatchAction('read')} title={t('mail.mark_read', 'Marcar com a llegit')} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
+                                <button onClick={() => handleBatchAction('read')} title={t('mail.mark_read', "Mark as read")} className="p-2 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] transition-all">
                                     <CheckCircle2 size={16} />
                                 </button>
                                 <div className="relative">
                                     <button
-                                        title={t('mail.assign_tag', 'Assignar etiqueta')}
+                                        title={t('mail.assign_tag', "Assign tag")}
                                         onClick={e => {
                                             const rect = e.currentTarget.getBoundingClientRect();
                                             setInlineTagPicker(prev => prev?.msgId === '__batch__' ? null : { msgId: '__batch__', rect });
@@ -1006,7 +1006,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                 <button
                                     onClick={handleEmptyFolder}
                                     className="p-2 text-[var(--status-error)] hover:bg-[var(--status-error)]/10 rounded-xl transition-all"
-                                    title={folder?.toUpperCase() === 'TRASH' ? t('mail.empty_trash_tooltip', 'Buida paperera') : t('mail.empty_junk_tooltip', 'Buida brossa')}
+                                    title={folder?.toUpperCase() === 'TRASH' ? t('mail.empty_trash_tooltip', "Empty trash") : t('mail.empty_junk_tooltip', "Empty junk")}
                                 >
                                     <Trash2 size={16} />
                                 </button>
@@ -1014,7 +1014,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                             <button
                                 onClick={() => setUnreadOnly(!unreadOnly)}
                                 className={`p-2 rounded-xl transition-all ${unreadOnly ? 'bg-[var(--gnosi-blue)] text-white shadow-lg' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
-                                title={unreadOnly ? t('mail.show_all', 'Mostra-ho tot') : t('mail.filter_unread', 'Filtra no llegits')}
+                                title={unreadOnly ? t('mail.show_all', "Show all") : t('mail.filter_unread', "Filter unread")}
                             >
                                 <CircleDot size={16} fill={unreadOnly ? 'currentColor' : 'none'} />
                             </button>
@@ -1081,7 +1081,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                                 <span className={`text-[13.5px] truncate ${msg.thread_unread > 0 ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
                                                     {msg.thread_senders?.length > 1
                                                         ? msg.thread_senders.slice(0, 2).join(', ') + (msg.thread_senders.length > 2 ? '…' : '')
-                                                        : cleanName(msg.sender) || t('mail.unknown_sender', 'Desconegut')
+                                                        : cleanName(msg.sender) || t('mail.unknown_sender', "Unknown")
                                                     }
                                                 </span>
                                                 {msg.thread_count > 1 && (
@@ -1138,35 +1138,35 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                                                 {msg.has_attachments && <Paperclip size={14} className="text-[var(--text-secondary)]" />}
                                                 <div className={`flex items-center gap-0.5 transition-opacity ${(selectedMailId || isComposing) ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
                                                     <button
-                                                        title={msg.is_starred ? t('mail.unstar', 'Treure destacat') : t('mail.star_action', 'Marcar com a destacat')}
+                                                        title={msg.is_starred ? t('mail.unstar', "Remove star") : t('mail.star_action', "Mark as starred")}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] hover:text-[var(--status-warning)] transition-colors"
                                                         onClick={e => handleInlineAction(e, 'star', msg)}
                                                     >
                                                         <Star size={15} fill={msg.is_starred ? 'currentColor' : 'none'} className={msg.is_starred ? 'text-[var(--status-warning)]' : ''} />
                                                     </button>
                                                     <button
-                                                        title={t('mail.archive_action', 'Arxivar')}
+                                                        title={t('mail.archive_action', "Archive")}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] transition-colors"
                                                         onClick={e => handleInlineAction(e, 'archive', msg)}
                                                     >
                                                         <Archive size={15} />
                                                     </button>
                                                     <button
-                                                        title={t('mail.move_to_folder_title', 'Moure a carpeta')}
+                                                        title={t('mail.move_to_folder_title', "Move to folder")}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] transition-colors"
                                                         onClick={e => handleInlineMoveOpen(e, msg)}
                                                     >
                                                         <FolderInput size={15} />
                                                     </button>
                                                     <button
-                                                        title={t('mail.delete_action', 'Eliminar')}
+                                                        title={t('mail.delete_action', "Delete")}
                                                         className="p-1.5 hover:bg-[var(--bg-tertiary)] rounded text-[var(--text-secondary)] hover:text-[var(--status-error)] transition-colors"
                                                         onClick={e => handleInlineAction(e, 'trash', msg)}
                                                     >
                                                         <Trash2 size={15} />
                                                     </button>
                                                     <button
-                                                        title={t('mail.labels', 'Etiquetes')}
+                                                        title={t('mail.labels', "Labels")}
                                                         className={`p-1.5 rounded transition-colors ${inlineTagPicker?.msgId === msg.id ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)]'}`}
                                                         onClick={e => {
                                                             e.stopPropagation();
@@ -1244,7 +1244,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         style={{ left: moveMenu.x, top: moveMenu.y, zIndex: 10001 }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', 'Moure a...')}</div>
+                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_to_ellipsis', "Move to...")}</div>
                         {moveMenu.folders.length === 0
                             ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">{t('common.loading')}</div>
                             : moveMenu.folders
@@ -1274,7 +1274,7 @@ export default function MailList({ account, accounts = [], onSelectMail, folder,
                         style={{ left: batchMoveMenu.x, top: batchMoveMenu.y, zIndex: 10001 }}
                         onClick={e => e.stopPropagation()}
                     >
-                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_batch_menu_title', { count: selectedIds.size, defaultValue_one: 'Moure {{count}} missatge a...', defaultValue_other: 'Moure {{count}} missatges a...' })}</div>
+                        <div className="px-3 py-1.5 text-[11px] font-bold text-[var(--text-secondary)] uppercase tracking-wider">{t('mail.move_batch_menu_title', { count: selectedIds.size, defaultValue_one: "Move {{count}} message to...", defaultValue_other: "Move {{count}} messages to..." })}</div>
                         {batchMoveMenu.folders.length === 0
                             ? <div className="px-3 py-2 text-[13px] text-[var(--text-secondary)]">{t('common.loading')}</div>
                             : batchMoveMenu.folders.map(f => (

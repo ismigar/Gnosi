@@ -1,91 +1,57 @@
-# Directive: Resiliència de la config del Planificador (Scheduler)
+# Scheduler Configuration Resilience
 
-## Objectiu
+## Objective
 
-Que el Planificador **mai** quedi buit/inactiu en tornar a la màquina després
-de dies o setmanes. Símptoma històric: "Logs, historial i planificador surten
-buits; acabo funcionalitats i passades unes setmanes no funcionen".
+Ensure scheduled tasks do not disappear or remain inactive after a machine has
+been offline for days or weeks.
 
-## Causa arrel (diagnòstic 2026-06-01)
+## Root causes
 
-El planificador patia **tres** problemes encadenats, tots derivats de posar
-estat operatiu al vault de OneDrive (sistema "fred") en lloc de a `local_data`:
+Operational state was stored in the cloud-synchronized vault:
 
-1. **Backend mort** — Docker Desktop no arrencava sol de manera fiable. Sense
-   `gnosi_backend`, totes les pàgines que depenen de l'API (Logs, Historial,
-   Planificador) surten buides encara que les dades hi siguin. → resolt amb el
-   LaunchAgent `com.gnosi.boot` (vegeu `gnosi_boot.sh`).
+- An online-only scheduler file could not be read.
+- The error fallback overwrote the good file with disabled defaults.
+- Two Macs produced synchronization conflicts.
+- A scheduler `flock` inside OneDrive could remain effectively stuck after a
+  process restart, preventing the loop from starting.
 
-2. **`scheduler_config.json` online-only + auto-sobreescriptura** — el fitxer
-   viu a `${VAULT}/.gnosi/scheduler_config.json`. OneDrive el deixa *dataless*
-   (i el backend l'escriu constantment, fet que genera conflictes entre les dues
-   Macs: `scheduler_config-MacBook Pro de Ismael.json`). Quan `_load_config` no
-   el podia llegir, queia a l'`except` i cridava `_init_default_tasks()` que
-   **sobreescrivia el fitxer amb totes les tasques desactivades**. La config bona
-   es perdia i OneDrive propagava el buit a l'altra màquina.
+## Implemented policy
 
-3. **`.scheduler.lock` fantasma** — el mutex `flock` vivia a
-   `${VAULT}/.gnosi/.scheduler.lock`. Un `flock` sobre OneDrive/virtiofs **no
-   s'allibera de manera fiable** quan el procés mor; cada `--reload` d'uvicorn hi
-   deixava un lock fantasma. Resultat: a cada arrencada `start()` trobava el lock
-   pres → `"Another scheduler already holds... Skipping startup"` → **el loop
-   `_run_loop` no arrencava MAI** → cap tasca s'executava automàticament (només
-   les disparades a mà via `POST /api/schedulers/{name}/run`).
+1. Save scheduler configuration to both the vault and a local mirror under
+   `LOCAL_DATA/system/scheduler_config.local.json`.
+2. Load in order: vault, local mirror, then in-memory defaults.
+3. Retry transient vault reads with short backoff.
+4. If an existing vault file is unreadable, enter degraded mode and do not
+   overwrite it.
+5. While degraded, defaults remain in memory only.
+6. Store `.scheduler.lock` under local data, never in the cloud vault.
 
-## Regla (implementada a `backend/scheduler/manager.py`)
+The local mirror is per instance and reliably readable. The vault copy remains
+the synchronized user configuration when available.
 
-1. **Mirror local sempre llegible.** `_save_config()` escriu al vault **i** a
-   `LOCAL_DATA/system/scheduler_config.local.json`. El mirror viu al volum
-   `gnosi_local_data` (ext4 real) → mai online-only, per-instància.
+## First-run recovery
 
-2. **Ordre de càrrega resilient.** `_load_config()`:
-   `vault → (si il·legible) mirror local → (si cap) defaults`. Llegir amb
-   reintents (`_try_read_tasks`, backoff curt) perquè OneDrive sovint serveix el
-   fitxer al 2n intent.
+If both the vault file and local mirror are unavailable, degraded mode starts
+with disabled defaults without persisting them. Seed the mirror only from a
+known-good backup, not from a newly imported scheduler object that may already
+be degraded.
 
-3. **MAI sobreescriure un fitxer existent però il·legible.** Si el vault EXISTEIX
-   però no es pot llegir ara mateix, s'arrenca en **mode degradat** (`_degraded`):
-   defaults *en memòria*, **sense persistir**, preservant la config bona al disc.
-   `_save_config` no toca el vault mentre `_degraded` és True.
+Back up and materialize the vault configuration before operational repair.
 
-4. **El lock va a `local_data`, no al vault.** `start()` posa
-   `.scheduler.lock` a `LOCAL_DATA/system/` → `flock` s'allibera bé i el loop
-   arrenca.
+## Restrictions
 
-## Verificació (QA feta)
+- Never overwrite an existing but temporarily unreadable configuration.
+- Never place process locks on OneDrive.
+- Do not infer that an empty settings page means data loss until backend health
+  and scheduler loop state are checked.
+- Consider moving all scheduler configuration to local data if cross-device
+  task execution becomes more harmful than useful.
 
-```bash
-export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
-# El loop arrenca (abans MAI):
-docker logs gnosi_backend 2>&1 | grep -c "thread started"        # >= 1
-# La config no cau a defaults:
-docker logs gnosi_backend 2>&1 | grep "config carregada des de"  # vault o mirror local
-# 12 tasques, actives preservades:
-curl -sk https://localhost:5173/api/schedulers | python3 -c "import sys,json;d=json.load(sys.stdin);print(len(d),'tasques')"
-# El lock és local, no al vault:
-docker exec gnosi_backend ls /app/data/system/.scheduler.lock     # existeix
-docker exec gnosi_backend ls /vault/.gnosi/.scheduler.lock        # NO existeix
-```
+## QA
 
-## Restriccions / Edge cases
-
-- **Sembrar el mirror la 1a vegada:** si actives el codi nou amb el vault
-  dataless i el mirror inexistent, s'arrenca en mode degradat (defaults en
-  memòria) — NO es perd res, però el planificador no executa res aquella sessió.
-  Per evitar-ho, sembra el mirror amb la config bona abans del primer restart:
-  `docker cp <backup>.json gnosi_backend:/app/data/system/scheduler_config.local.json`.
-  ⚠️ NO sembris el mirror llegint `scheduler_manager._tasks` d'un `docker exec`
-  acabat d'importar: aquell procés també pot haver caigut en mode degradat i
-  t'escriuria els defaults. Usa el backup del fitxer.
-- **Backup de seguretat:** abans de tocar res, materialitza i fes còpia del
-  fitxer del vault (`/tmp/gnosi_scheduler_backup/`).
-- **Millora futura possible:** moure `SCHEDULER` del tot a `local_data` (com
-  `MGMT_DB`). Trade-off: la config deixaria de sincronitzar-se entre Macs (cosa
-  probablement desitjable: evita que dues màquines executin les mateixes tasques).
-
-## Causa-Efecte (memoritzar)
-
-> Estat operatiu (config escrita sovint, locks) al vault de OneDrive → online-only
-> + conflictes entre Macs + flock fantasma → `_load_config` sobreescriu amb
-> defaults i el loop no arrenca mai → planificador buit/inactiu. Solució: mirror
-> local + mai-sobreescriure + lock a local_data. Vegeu `environment_integrity.md`.
+1. Scheduler loop starts exactly once.
+2. Enabled tasks survive restart.
+3. An unreadable vault file loads the local mirror.
+4. An unreadable file with no mirror does not get replaced.
+5. Lock exists only under local data.
+6. API lists expected tasks and reports meaningful English diagnostics.

@@ -35,37 +35,20 @@ Before considering a view complete, verify:
 2. That adding a filter from the configuration modal applies it immediately and saves it.
 3. That multi-column sorting prioritizes fields according to the order defined in the `sorts` array.
 
-## Edge Cases / Regressions (carrera registre↔esquema)
+## Edge cases and regressions
 
-- **Recàrrega (Cmd+R) sobre `/vault/table/:id` → no es renderitza cap columna.**
-  L'efecte de `VaultDashboard` que sincronitza la URL amb l'estat NO ha de
-  seleccionar la taula fins que `registry.tables` la contingui.
-  - **No fer:** actuar quan `registry.tables` és truthy. Arrenca com a `[]`
-    (array buit = truthy), així que en una recàrrega l'efecte s'executa abans que
-    `/api/vault/registry` resolgui.
-  - **Causa:** `handleTableSelect` fixa `activeTableId` però el guard de registre
-    (`registry.tables.find(...)`) falla amb el registre buit i **no crida
-    `setSchema`**. Quan el registre carrega i l'efecte es re-executa, el guard
-    `activeTableId !== tableId` ja és fals → `handleTableSelect` no es torna a
-    cridar → `schema` queda `{}` → `dynamicColumns` buit.
-  - **Fer:** `if (!registry.tables?.some(t => t.id === tableId)) return;` abans de
-    seleccionar, perquè esquema + vista inicial es resolguin en una sola passada
-    amb dades completes.
+- **Reloading `/vault/table/:id` renders no columns.** Do not select the table
+  from the URL until `registry.tables` contains its ID. An empty array is
+  truthy, so checking only `registry.tables` runs too early.
+  `handleTableSelect` can set `activeTableId` while failing to set schema from
+  an empty registry. When registry loading finishes, the ID equality guard
+  prevents another call and `dynamicColumns` remains empty. Guard with
+  `if (!registry.tables?.some((table) => table.id === tableId)) return;`.
 
-- **Ordenar per una columna poc poblada amaga les files amb contingut
-  ("no es veuen els adjunts").** La vista principal de Recursos tenia
-  `sort = { field: "Adjunts", direction: "asc" }`. Com que `''` < qualsevol
-  ruta a `localeCompare`, les ~115 files amb Adjunts buit suraven al capdamunt i
-  les 178 amb fitxers quedaven a les posicions 116–293, que la virtualització
-  (batch de 50) ni arribava a carregar → semblava que els adjunts no es
-  renderitzaven (de fet el renderitzat era correcte).
-  - **Causa:** el comparador de `useVaultViewData` aplicava la direcció (`asc`/
-    `desc`) també als valors buits, en comptes de fixar-los sempre al final.
-  - **Fer:** els buits van SEMPRE al final, independentment de `direction` (com a
-    Notion). Generalitza a TOTS els camps el que ja es feia per a dates:
-    `const aEmpty = aVal.trim() === ''; if (aEmpty || bEmpty) { if (aEmpty && bEmpty) continue; return aEmpty ? 1 : -1; }`
-    abans de la comparació numèrica/locale.
-  - **Diagnòstic:** quan "falta" contingut a una taula, comprova primer
-    `activeView.sort` (via fiber: `memoizedProps.activeView`) abans de sospitar
-    del renderitzat; el comptador "N registres" segueix dient el total perquè el
-    sort no filtra, només reordena.
+- **Sorting by a sparse column appears to hide populated rows.** Empty values
+  sorted first can occupy the initial virtualized batches, making non-empty
+  rows appear missing. In `useVaultViewData`, place empty values last for both
+  ascending and descending order, for every field type:
+  `if (aEmpty || bEmpty) { if (aEmpty && bEmpty) continue; return aEmpty ? 1 : -1; }`.
+  When content seems missing, inspect `activeView.sort` before suspecting cell
+  rendering; sorting reorders rows but does not change the total count.

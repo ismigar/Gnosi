@@ -1,56 +1,37 @@
-# Directive: Feed Entry Truncation ("Veure més")
+# Directive: Feed entry truncation
 
-## Objectiu
-A les vistes de tipus **feed**, el cos d'una entrada llarga s'ha de retallar a
-~25 línies i oferir un botó amb fletxa ("Veure més") per desplegar-lo i
-("Veure menys") per tornar-lo a plegar. Replica el comportament de Notion.
+## Objective
 
-## Abast
-- La vista feed que renderitza el cos de l'entrada és `FeedItem` dins
-  `monorepo/apps/gnosi/frontend/src/components/Vault/DbViewEmbed.jsx` (vista
-  feed incrustada a les pàgines via blocs de base de dades).
-- La vista feed de pantalla completa (`VaultFeed.jsx`) NO renderitza el cos de
-  l'entrada (només portada, títol i propietats); no hi ha res a retallar i
-  queda fora d'abast.
+Embedded feed entries collapse bodies longer than about 25 lines and expose
+i18n-backed Expand and Collapse actions, matching Notion-style behavior.
 
-## Protocol d'implementació
-1. **Llindar de col·lapse**: constant en píxels equivalent a ~25 línies del cos
-   (`text-sm` 14px + `leading-relaxed` 1,625 ≈ 22,75px/línia → ~570px).
-   Documentar el càlcul a la constant.
-2. **Mesura**: el cos es mesura amb un element de referència NO retallat
-   (`offsetHeight`). El retall (`max-height` + `overflow:hidden`) s'aplica a un
-   contenidor pare, no a l'element mesurat — així el `ResizeObserver` continua
-   veient l'alçada real quan les imatges del markdown carreguen tard.
-3. **Botó**: fletxa avall ("Veure més") quan està plegat, fletxa amunt
-   ("Veure menys") quan està desplegat. Només apareix si el cos supera el
-   llindar.
-4. **Degradat**: franja de degradat (`bg-primary` → transparent) a la part
-   inferior del cos retallat per indicar que hi ha més contingut, amb
-   `pointer-events-none` perquè no bloquegi els enllaços de sota.
+## Scope
 
-## Restriccions i casos límit
-- **No usar `-webkit-line-clamp`** per al retall: amb contingut markdown mixt
-  (encapçalaments, llistes, imatges, cites) i `display:-webkit-box` el layout
-  dels fills de bloc es trenca. Usar `max-height` + `overflow:hidden`.
-- **No observar amb `ResizeObserver` l'element retallat**: si l'element té
-  `max-height`, el seu border-box queda fixat i el `ResizeObserver` no dispara
-  quan el contingut intern creix (imatges que carreguen tard). Observar sempre
-  l'element de contingut sense retallar.
-- **La decisió `bodyOverflows` HA DE SER MONÒTONA** (només `false → true`):
-  el `ResizeObserver` dispara a cada càrrega d'imatge i si la condició
-  oscil·la al voltant del llindar (alçades 540→620→580→610...), el toggle
-  del `max-height`/`overflow` causa flicker subframe — visible a Safari,
-  dissimulat per scroll anchoring a Chrome. NO restablir a `false` quan el
-  contingut s'encongeix; una vegada ha demostrat que excedia el llindar,
-  queda decidit fins al remount. Fix #119; un `setBodyOverflows(false)`
-  bidireccional és una regressió coneguda.
-- L'estat de desplegament és efímer (per instància de `FeedItem`); no es
-  persisteix — es reinicia si el bloc es remunta. És acceptable.
+Implement in `FeedItem` inside `DbViewEmbed.jsx`. Full-screen
+`VaultFeed.jsx` does not render entry bodies and is out of scope.
 
-## Validació
-1. `npm run build` i `npm run lint` sense errors.
-2. Una entrada de feed amb cos > ~25 línies mostra el retall + botó "Veure més".
-3. Una entrada curta NO mostra cap botó.
-4. Clic a "Veure més" desplega tot el cos; clic a "Veure menys" el torna a
-   plegar.
-5. El retall no trenca wikilinks, imatges ni encapçalaments del markdown.
+## Implementation
+
+1. Define a pixel threshold derived from the actual text size and line height,
+   approximately 570 px for 25 lines.
+2. Measure an unclipped content element through `offsetHeight`. Apply
+   `max-height` and `overflow: hidden` to its parent so `ResizeObserver` still
+   sees late-loading images change the real height.
+3. Show a down or up arrow only when content exceeds the threshold.
+4. Add a non-interactive gradient at the bottom of collapsed content.
+
+## Restrictions
+
+- Do not use `-webkit-line-clamp`; mixed Markdown blocks break under its box
+  layout.
+- Do not observe the clipped element because its border box remains fixed.
+- `bodyOverflows` is monotonic for a mounted item: once true, never reset it
+  to false. Late image loading can oscillate around the threshold and cause a
+  Safari flicker if clipping toggles repeatedly.
+- Expansion state is intentionally per component instance and not persisted.
+
+## QA
+
+- Build and lint pass.
+- Long content collapses and expands; short content has no action.
+- Wikilinks, images, and headings remain interactive and correctly laid out.

@@ -174,7 +174,7 @@ def to_storage_names(metadata: Dict, table: Dict) -> Tuple[Dict, bool]:
             if a and a != cname and a not in name_set:
                 alias_to_name[a] = cname
 
-    chosen: Dict[str, Tuple[int, Any]] = {}  # nom_actual -> (prioritat, valor)
+    chosen: Dict[str, Tuple[int, Any]] = {}  # current_name -> (priority, value)
     passthrough: Dict[str, Any] = {}          # unresolvable keys (real locals)
     order: List[Tuple[str, str]] = []         # order of first appearance
 

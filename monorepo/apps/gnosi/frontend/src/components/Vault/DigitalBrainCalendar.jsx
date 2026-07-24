@@ -206,7 +206,7 @@ export const DigitalBrainCalendar = ({
 
             if (!ignoreCalendarFilter && !selectedCalendars.has(eventSource)) return;
 
-            const noteTitle = title || metadata.title || t('common.untitled', 'Sense Títol');
+            const noteTitle = title || metadata.title || t('common.untitled', "Untitled");
 
             if (searchQuery && !foldAccents(noteTitle).includes(foldAccents(searchQuery))) {
                 return;
@@ -368,7 +368,7 @@ export const DigitalBrainCalendar = ({
         }
 
         if (readonly) {
-            toast.error(t('calendar.external_readonly_error', 'Esdeveniment extern (només lectura).'));
+            toast.error(t('calendar.external_readonly_error', "External event (read-only)."));
             return;
         }
         if (id && onEventEdit) {
@@ -391,7 +391,7 @@ export const DigitalBrainCalendar = ({
 
         if (readonly) {
             dropInfo.revert();
-            toast.error(t('calendar.external_move_error', 'No pots moure un esdeveniment extern (Read-Only).'));
+            toast.error(t('calendar.external_move_error', "You can't move an external event (Read-Only)."));
             return;
         }
 
@@ -419,7 +419,7 @@ export const DigitalBrainCalendar = ({
         // the WHOLE series without asking. We revert and warn.
         if (isRecurrent) {
             dropInfo.revert();
-            toast.error(t('calendar.recurrent_edit_elsewhere', "Els esdeveniments recurrents s'editen des del calendari principal."));
+            toast.error(t('calendar.recurrent_edit_elsewhere', "Recurring events are edited from the main calendar."));
             return;
         }
 
@@ -454,12 +454,12 @@ export const DigitalBrainCalendar = ({
                 }
                 await axios.patch(`/api/vault/pages/${id}`, patchData);
             }
-            toast.success(t('calendar.date_updated', 'Data actualitzada!'));
+            toast.success(t('calendar.date_updated', "Date updated!"));
             onRefresh?.();
         } catch (error) {
             console.error('Error moving event:', error);
             dropInfo.revert();
-            toast.error(t('calendar.move_event_error', "Error movent l'esdeveniment."));
+            toast.error(t('calendar.move_event_error', "Error moving the event."));
         }
     }, [onRefresh, onEventEdit, dateField, endDateField, t]);
 
@@ -470,7 +470,7 @@ export const DigitalBrainCalendar = ({
 
         if (readonly) {
             resizeInfo.revert();
-            toast.error(t('calendar.external_resize_error', 'No pots redimensionar un esdeveniment extern.'));
+            toast.error(t('calendar.external_resize_error', "You can't resize an external event."));
             return;
         }
 
@@ -493,7 +493,7 @@ export const DigitalBrainCalendar = ({
         // Recurring with no handler (DB view): we revert so as not to touch the series.
         if (isRecurrent) {
             resizeInfo.revert();
-            toast.error(t('calendar.recurrent_edit_elsewhere', "Els esdeveniments recurrents s'editen des del calendari principal."));
+            toast.error(t('calendar.recurrent_edit_elsewhere', "Recurring events are edited from the main calendar."));
             return;
         }
 
@@ -520,12 +520,12 @@ export const DigitalBrainCalendar = ({
                 }
                 await axios.patch(`/api/vault/pages/${id}`, patchData);
             }
-            toast.success(t('calendar.duration_updated', 'Durada actualitzada!'));
+            toast.success(t('calendar.duration_updated', "Duration updated!"));
             onRefresh?.();
         } catch (error) {
             console.error('Error resizing event:', error);
             resizeInfo.revert();
-            toast.error(t('calendar.resize_event_error', "Error redimensionant l'esdeveniment."));
+            toast.error(t('calendar.resize_event_error', "Error resizing the event."));
         }
     }, [onRefresh, onEventEdit, dateField, endDateField, t]);
 
@@ -584,7 +584,7 @@ export const DigitalBrainCalendar = ({
                             type="button"
                             onClick={() => calRef.current?.getApi()?.prev()}
                             className="p-1.5 rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                            title={t('calendar.prev', 'Anterior')}
+                            title={t('calendar.prev', "Previous")}
                         >
                             <ChevronLeft size={14} />
                         </button>
@@ -592,7 +592,7 @@ export const DigitalBrainCalendar = ({
                             type="button"
                             onClick={() => calRef.current?.getApi()?.next()}
                             className="p-1.5 rounded-md border border-[var(--border-primary)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                            title={t('calendar.next', 'Següent')}
+                            title={t('calendar.next', "Next")}
                         >
                             <ChevronRight size={14} />
                         </button>
@@ -601,7 +601,7 @@ export const DigitalBrainCalendar = ({
                             onClick={() => calRef.current?.getApi()?.today()}
                             className="ml-1 px-2.5 py-1 rounded-md border border-[var(--border-primary)] text-xs font-medium text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
                         >
-                            {t('calendar.today', 'Avui')}
+                            {t('calendar.today', "Today")}
                         </button>
                     </div>
                     <div className="text-sm font-semibold text-[var(--text-primary)] truncate">{tbTitle}</div>
@@ -640,7 +640,7 @@ export const DigitalBrainCalendar = ({
                     }}
                     headerToolbar={false}
                     dayMaxEvents={4}
-                    moreLinkContent={(arg) => `+ ${arg.shortText} ${t('calendar.more_suffix', 'més')}`}
+                    moreLinkContent={(arg) => `+ ${arg.shortText} ${t('calendar.more_suffix', "more")}`}
                     locales={[caLocale, esLocale]}
                     locale={i18n.language || 'en'}
                     events={events}
@@ -803,7 +803,7 @@ export const DigitalBrainCalendar = ({
                                     <Clock className="w-4 h-4 mr-3 opacity-70 shrink-0" />
                                     <span>
                                         {hoveredEvent.allDay
-                                            ? t('calendar.all_day', 'Tot el dia')
+                                            ? t('calendar.all_day', "All day")
                                             : `${new Date(hoveredEvent.start).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' })}${hoveredEvent.end ? ' - ' + new Date(hoveredEvent.end).toLocaleTimeString(i18n.language, { hour: '2-digit', minute: '2-digit' }) : ''}`
                                         }
                                     </span>
@@ -819,14 +819,14 @@ export const DigitalBrainCalendar = ({
                                 {hoveredEvent.travelTime ? (
                                     <div className="flex items-center text-[var(--text-secondary)]">
                                         <Navigation className="w-4 h-4 mr-3 opacity-70 shrink-0" />
-                                        <span>{t('calendar.travel_time', 'Temps de desplaçament')}: {hoveredEvent.travelTime} min</span>
+                                        <span>{t('calendar.travel_time', "Travel time")}: {hoveredEvent.travelTime} min</span>
                                     </div>
                                 ) : null}
 
                                 {hoveredEvent.reminder ? (
                                     <div className="flex items-center text-[var(--text-secondary)]">
                                         <Bell className="w-4 h-4 mr-3 opacity-70 shrink-0" />
-                                        <span>{(() => { const n = parseInt(hoveredEvent.reminder); const v = n % 1440 === 0 ? `${n / 1440} d` : n % 60 === 0 ? `${n / 60} h` : `${n} min`; return t('calendar.reminder_before', 'Avís {{value}} abans', { value: v }); })()}</span>
+                                        <span>{(() => { const n = parseInt(hoveredEvent.reminder); const v = n % 1440 === 0 ? `${n / 1440} d` : n % 60 === 0 ? `${n / 60} h` : `${n} min`; return t('calendar.reminder_before', "Reminder {{value}} before", { value: v }); })()}</span>
                                     </div>
                                 ) : null}
 

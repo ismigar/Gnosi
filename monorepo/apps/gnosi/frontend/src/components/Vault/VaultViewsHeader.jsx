@@ -90,7 +90,7 @@ function SortableTab({ view, tableViews, isActive, onSelect, onAction, onConfigu
                     {...listeners}
                     className="cursor-grab active:cursor-grabbing flex items-center"
                     onClick={(e) => e.stopPropagation()}
-                    title={t('views_header.drag_to_reorder', 'Arrossega per reordenar')}
+                    title={t('views_header.drag_to_reorder', "Drag to reorder")}
                 >
                     <ViewIcon size={13} className={isActive ? 'text-[var(--gnosi-blue)]' : 'text-[var(--text-tertiary)]'} />
                 </span>
@@ -187,7 +187,7 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
             <span
                 {...listeners}
                 className="cursor-grab active:cursor-grabbing text-[var(--text-tertiary)] shrink-0"
-                title={t('views_header.drag_to_reorder', 'Arrossega per reordenar')}
+                title={t('views_header.drag_to_reorder', "Drag to reorder")}
             >
                 <GripVertical size={14} />
             </span>
@@ -208,8 +208,8 @@ function SortableManageRow({ view, tableViews, isActive, onToggleHidden }) {
                     type="button"
                     onClick={() => onToggleHidden?.(view, !hidden)}
                     className="shrink-0 inline-flex items-center justify-center w-7 h-6 rounded text-[var(--text-tertiary)] hover:text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] transition-colors"
-                    title={hidden ? t('views_header.show_view', 'Mostra la vista') : t('views_header.hide_view', 'Amaga la vista')}
-                    aria-label={hidden ? t('views_header.show_view', 'Mostra la vista') : t('views_header.hide_view', 'Amaga la vista')}
+                    title={hidden ? t('views_header.show_view', "Show view") : t('views_header.hide_view', "Hide view")}
+                    aria-label={hidden ? t('views_header.show_view', "Show view") : t('views_header.hide_view', "Hide view")}
                     aria-pressed={!hidden}
                 >
                     {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
@@ -603,7 +603,7 @@ export function VaultViewsHeader({
                         <button
                             type="button"
                             onClick={() => setShowNewMenu(o => !o)}
-                            aria-label={t('views_header.new_options', 'Opcions de creació')}
+                            aria-label={t('views_header.new_options', "Creation options")}
                             aria-haspopup="menu"
                             aria-expanded={showNewMenu}
                             className="btn-gnosi btn-gnosi-primary !px-2 !py-1.5 !shadow-none !rounded-l-none border-l border-white/20 hover:text-white/80 active:scale-95"
@@ -634,7 +634,7 @@ export function VaultViewsHeader({
                                         className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text-primary)] hover:bg-[var(--bg-tertiary)] transition-colors text-left"
                                     >
                                         <Search size={14} className="text-[var(--text-tertiary)]" />
-                                        <span>{t('views_header.new_from_source', { defaultValue: 'Crear des d\'una font…' })}</span>
+                                        <span>{t('views_header.new_from_source', { defaultValue: "Create from a source…" })}</span>
                                     </button>
                                 )}
 
@@ -743,7 +743,7 @@ export function VaultViewsHeader({
                     <div className="absolute top-full left-10 mt-1 w-64 bg-[var(--bg-primary)] border border-[var(--border-primary)] rounded-lg shadow-xl z-[1002] py-1.5 animate-in slide-in-from-top-2 duration-200">
                         {/* Section: management of existing views */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                            {t('views_header.manage_views', 'Vistes')}
+                            {t('views_header.manage_views', "Views")}
                         </div>
                         <div className="max-h-64 overflow-y-auto px-1">
                             <DndContext
@@ -769,7 +769,7 @@ export function VaultViewsHeader({
 
                         {/* Section: create a new view */}
                         <div className="px-3 py-1 text-[10px] font-semibold text-[var(--text-tertiary)] uppercase tracking-wider">
-                            {t('views_header.add_new_view', 'Afegir vista nova')}
+                            {t('views_header.add_new_view', "Add new view")}
                         </div>
                         {VIEW_TYPES.map(vt => {
                              const ViewIcon = vt.icon;

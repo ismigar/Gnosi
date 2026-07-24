@@ -55,10 +55,10 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
     """Upload an OPML file to import feeds"""
     log.info(f"[OPML] Iniciant pujada de: {file.filename}")
     if not file.filename.endswith('.opml') and not file.filename.endswith('.xml'):
-        log.warning(f"[OPML] Fitxer amb extensió no suportada: {file.filename}")
+        log.warning("[OPML] File has an unsupported extension: %s", file.filename)
         raise HTTPException(status_code=400, detail="File must be .opml or .xml")
     
-    log.info("[OPML] Llegint contingut del fitxer...")
+    log.info("[OPML] Reading file contents")
     content = await file.read()
     log.info(f"[OPML] Contingut llegit: {len(content)} bytes. Parsejant XML...")
     try:
@@ -74,7 +74,7 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
 
     imported_count = 0
     outlines = tree.findall('.//outline')
-    log.info(f"[OPML] S'han trobat {len(outlines)} elements outline.")
+    log.info("[OPML] Found %d outline elements", len(outlines))
     for idx, outline in enumerate(outlines):
         if 'xmlUrl' not in outline.attrib:
             continue
@@ -109,7 +109,7 @@ async def upload_opml(file: UploadFile = File(...), db: Session = Depends(get_db
             imported_count += 1
             log.info(f"  [OPML] Afegida nova font a la sessió.")
 
-    log.info(f"[OPML] Fent commit a la base de dades. Nous importats: {imported_count}...")
+    log.info("[OPML] Committing to the database; newly imported: %d", imported_count)
     db.commit()
     log.info("[OPML] Commit completat amb èxit!")
     return {"message": f"Successfully imported {imported_count} new feeds."}
@@ -239,7 +239,7 @@ def test_newsletter_account(payload: Optional[models.NewsletterAccountUpdate] = 
             password = payload.password
 
     if not email_account or not password or not server:
-        raise HTTPException(status_code=400, detail="Falta completar el servidor, l'email i la contrasenya.")
+        raise HTTPException(status_code=400, detail="Server, email, and password are required.")
 
     try:
         n = test_connection(
@@ -552,4 +552,3 @@ def get_latest_podcast():
     file_path = os.path.join(pod_dir, latest_file)
     
     return FileResponse(file_path, media_type="audio/mpeg", filename="gnosi_daily.mp3")
-

@@ -114,7 +114,7 @@ async def callback(request: Request):
         resp.raise_for_status()
         tokens = resp.json()
     except Exception as e:
-        log.error(f"[Microsoft] Error intercanviant codi: {e}")
+        log.error(f"[Microsoft] Error exchanging code: {e}")
         raise HTTPException(status_code=500, detail="Error obtenint token")
 
     access_token  = tokens.get("access_token")
@@ -132,10 +132,10 @@ async def callback(request: Request):
         email = me.get("mail") or me.get("userPrincipalName", "")
         name  = me.get("displayName", email)
     except Exception as e:
-        log.error(f"[Microsoft] Error obtenint perfil: {e}")
-        raise HTTPException(status_code=500, detail="No s'ha pogut obtenir el perfil")
+        log.error(f"[Microsoft] Error retrieving profile: {e}")
+        raise HTTPException(status_code=500, detail="Could not retrieve the profile")
 
-    log.info(f"[Microsoft] OAuth completat per {email}")
+    log.info(f"[Microsoft] OAuth completed for {email}")
 
     account_data = {
         "id":                    f"microsoft_{email}",
