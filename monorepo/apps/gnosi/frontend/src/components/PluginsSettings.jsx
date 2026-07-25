@@ -10,6 +10,22 @@ import { sortFieldItems } from '../utils/fieldOrdering';
 
 const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
+const isValidIsoDate = (value) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+    const [year, month, day] = value.split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day));
+    return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+};
+
+const getHolidayRowsForYear = (holidays, descriptions, year) => {
+    const descriptionMap = descriptions && typeof descriptions === 'object' ? descriptions : {};
+    return (Array.isArray(holidays) ? holidays : [])
+        .map((date) => String(date))
+        .filter((date) => date.startsWith(`${year}-`) && isValidIsoDate(date))
+        .sort()
+        .map((date) => ({ date, description: String(descriptionMap[date] || '') }));
+};
+
 const SELECT_STYLE = {
     width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
     border: '1px solid var(--border-primary, #e2e8f0)',
@@ -124,11 +140,11 @@ function ProjectPlanningConfig() {
     const [holidayYearInput, setHolidayYearInput] = useState(
         String(Number(config.holiday_year) || defaultHolidayYear),
     );
-    const [holidayDraft, setHolidayDraft] = useState(
-        (Array.isArray(config.holidays) ? config.holidays : [])
-            .filter((value) => String(value).startsWith(`${Number(config.holiday_year) || defaultHolidayYear}-`))
-            .join('\n'),
-    );
+    const [holidayRows, setHolidayRows] = useState(() => getHolidayRowsForYear(
+        config.holidays,
+        config.holiday_descriptions,
+        Number(config.holiday_year) || defaultHolidayYear,
+    ));
     const [planningState, setPlanningState] = useState(null);
     const [planningLoading, setPlanningLoading] = useState(true);
     const [planningError, setPlanningError] = useState('');
@@ -214,11 +230,10 @@ function ProjectPlanningConfig() {
 
     useEffect(() => {
         const nextYear = Number(config.holiday_year) || defaultHolidayYear;
-        const allHolidays = Array.isArray(config.holidays) ? config.holidays : [];
         setHolidayYear(nextYear);
         setHolidayYearInput(String(nextYear));
-        setHolidayDraft(allHolidays.filter((value) => String(value).startsWith(`${nextYear}-`)).join('\n'));
-    }, [config.holiday_year, config.holidays, defaultHolidayYear]);
+        setHolidayRows(getHolidayRowsForYear(config.holidays, config.holiday_descriptions, nextYear));
+    }, [config.holiday_year, config.holidays, config.holiday_descriptions, defaultHolidayYear]);
 
     const setPlanningSettings = (patch) => {
         setPluginSettings('project-planning', patch);
@@ -270,25 +285,50 @@ function ProjectPlanningConfig() {
     };
     const commitHolidayYear = (value) => {
         const nextYear = Math.min(2200, Math.max(1900, Number(value) || defaultHolidayYear));
-        const allHolidays = Array.isArray(config.holidays) ? config.holidays : [];
         setHolidayYear(nextYear);
         setHolidayYearInput(String(nextYear));
-        setHolidayDraft(allHolidays.filter((holiday) => String(holiday).startsWith(`${nextYear}-`)).join('\n'));
+        setHolidayRows(getHolidayRowsForYear(config.holidays, config.holiday_descriptions, nextYear));
         setPlanningSettings({ holiday_year: nextYear });
     };
-    const saveHolidays = () => {
+    const saveHolidays = (rows = holidayRows) => {
         const yearPrefix = `${holidayYear}-`;
-        const holidaysForYear = [...new Set(
-            holidayDraft
-                .split(/[\n,;]+/)
-                .map((value) => value.trim())
-                .filter((value) => value.startsWith(yearPrefix) && /^\d{4}-\d{2}-\d{2}$/.test(value)),
-        )].sort();
+        const holidaysForYear = rows
+            .map((row) => ({ date: row.date.trim(), description: row.description.trim() }))
+            .filter((row) => row.date.startsWith(yearPrefix) && isValidIsoDate(row.date))
+            .filter((row, index, rows) => rows.findIndex((candidate) => candidate.date === row.date) === index)
+            .sort((left, right) => left.date.localeCompare(right.date));
         const existingHolidays = (Array.isArray(config.holidays) ? config.holidays : [])
             .filter((holiday) => !String(holiday).startsWith(yearPrefix));
-        const holidays = [...new Set([...existingHolidays, ...holidaysForYear])].sort();
-        setHolidayDraft(holidaysForYear.join('\n'));
-        setPlanningSettings({ holidays, holiday_year: holidayYear });
+        const existingDescriptions = config.holiday_descriptions && typeof config.holiday_descriptions === 'object'
+            ? config.holiday_descriptions
+            : {};
+        const holidayDescriptions = Object.fromEntries(
+            Object.entries(existingDescriptions)
+                .filter(([date]) => !date.startsWith(yearPrefix))
+                .filter(([, description]) => String(description).trim()),
+        );
+        holidaysForYear.forEach(({ date, description }) => {
+            if (description) holidayDescriptions[date] = description;
+        });
+        const holidays = [...new Set([...existingHolidays, ...holidaysForYear.map(({ date }) => date)])].sort();
+        setHolidayRows(holidaysForYear);
+        setPlanningSettings({ holidays, holiday_descriptions: holidayDescriptions, holiday_year: holidayYear });
+    };
+
+    const updateHolidayRow = (index, field, value) => {
+        setHolidayRows((current) => current.map((row, rowIndex) => (
+            rowIndex === index ? { ...row, [field]: value } : row
+        )));
+    };
+
+    const addHolidayRow = () => {
+        setHolidayRows((current) => [...current, { date: '', description: '' }]);
+    };
+
+    const removeHolidayRow = (index) => {
+        const nextRows = holidayRows.filter((_, rowIndex) => rowIndex !== index);
+        setHolidayRows(nextRows);
+        saveHolidays(nextRows);
     };
 
     const createResource = async () => {
@@ -494,18 +534,67 @@ function ProjectPlanningConfig() {
                         style={{ ...SELECT_STYLE, width: 120 }}
                     />
                 </div>
-                <textarea
-                    rows={4}
-                    value={holidayDraft}
-                    onChange={(event) => setHolidayDraft(event.target.value)}
-                    onBlur={saveHolidays}
-                    placeholder={tp('planning_holidays_placeholder', { defaultValue: "One YYYY-MM-DD date for the selected year per line" })}
-                    style={{ ...SELECT_STYLE, resize: 'vertical', fontFamily: 'monospace' }}
-                />
+                <div style={{ border: '1px solid var(--border-primary, #e2e8f0)', borderRadius: 8, overflow: 'hidden' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                            <tr style={{ background: 'var(--bg-secondary, #f8fafc)', textAlign: 'left' }}>
+                                <th style={{ padding: '8px 10px', fontWeight: 700 }}>{tp('planning_holiday_date', { defaultValue: 'Date' })}</th>
+                                <th style={{ padding: '8px 10px', fontWeight: 700 }}>{tp('planning_holiday_description', { defaultValue: 'Description' })}</th>
+                                <th style={{ width: 40, padding: '8px 10px' }} />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {holidayRows.map((row, index) => (
+                                <tr key={`${row.date || 'new'}-${index}`}>
+                                    <td style={{ padding: '6px 10px', borderTop: '1px solid var(--border-primary, #e2e8f0)' }}>
+                                        <input
+                                            type="date"
+                                            lang={i18nInstance.language}
+                                            min={`${holidayYear}-01-01`}
+                                            max={`${holidayYear}-12-31`}
+                                            value={row.date}
+                                            aria-label={tp('planning_holiday_date', { defaultValue: 'Holiday date' })}
+                                            onChange={(event) => updateHolidayRow(
+                                                index,
+                                                'date',
+                                                event.target.value.startsWith(`${holidayYear}-`) ? event.target.value : '',
+                                            )}
+                                            onBlur={saveHolidays}
+                                            style={{ ...SELECT_STYLE, minWidth: 150 }}
+                                        />
+                                    </td>
+                                    <td style={{ padding: '6px 10px', borderTop: '1px solid var(--border-primary, #e2e8f0)' }}>
+                                        <input
+                                            type="text"
+                                            value={row.description}
+                                            aria-label={tp('planning_holiday_description', { defaultValue: 'Holiday description' })}
+                                            placeholder={tp('planning_holiday_description_placeholder', { defaultValue: 'e.g. Local holiday' })}
+                                            onChange={(event) => updateHolidayRow(index, 'description', event.target.value)}
+                                            onBlur={saveHolidays}
+                                            style={SELECT_STYLE}
+                                        />
+                                    </td>
+                                    <td style={{ padding: '6px 10px', borderTop: '1px solid var(--border-primary, #e2e8f0)' }}>
+                                        <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ padding: '6px 8px' }} aria-label={tp('planning_delete_holiday', { defaultValue: 'Delete holiday' })} title={tp('planning_delete_holiday', { defaultValue: 'Delete holiday' })} onClick={() => removeHolidayRow(index)}><Trash2 size={14} /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {!holidayRows.length && (
+                                <tr>
+                                    <td colSpan="3" style={{ padding: '10px', color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_no_holidays', { defaultValue: 'No holidays configured for this year.' })}</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+                <button type="button" className="btn-gnosi btn-gnosi-secondary" onClick={addHolidayRow}>{tp('planning_add_holiday', { defaultValue: 'Add holiday' })}</button>
             </label>
             <div style={{ borderTop: '1px solid var(--border-primary, #e2e8f0)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #0f172a)' }}>
                     {tp('planning_calendars_title', { defaultValue: 'Resource calendars' })}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                    {tp('planning_calendars_intro', { defaultValue: 'Project default is the base calendar for the project and for resources without their own calendar. Create another calendar when a resource follows a different schedule.' })}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <input
@@ -518,7 +607,7 @@ function ProjectPlanningConfig() {
                 </div>
                 {!planningLoading && (planningState?.calendars || []).map((calendar) => (
                     <div key={calendar.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                        <span>{calendar.name} · {calendar.hours_per_day} h/{tp('planning_day', { defaultValue: 'day' })}</span>
+                        <span>{calendar.id === 'project-default' ? tp('planning_project_default_calendar', { defaultValue: 'Project default (base calendar)' }) : calendar.name} · {calendar.hours_per_day} h/{tp('planning_day', { defaultValue: 'day' })}</span>
                         {calendar.id !== 'project-default' && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ padding: '6px 8px' }} aria-label={tp('planning_delete_calendar', { defaultValue: 'Delete calendar' })} title={tp('planning_delete_calendar', { defaultValue: 'Delete calendar' })} onClick={() => deleteCalendar(calendar.id)}><Trash2 size={14} /></button>}
                     </div>
                 ))}
@@ -526,7 +615,7 @@ function ProjectPlanningConfig() {
                     {tp('planning_resources_title', { defaultValue: 'Resource pool' })}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                    {tp('planning_resources_intro', { defaultValue: 'Resources and assignments are stored separately from Markdown. Allocation warnings never move tasks automatically.' })}
+                    {tp('planning_resources_intro', { defaultValue: 'Define the people, teams, materials, or costs that can be used by assignments. Availability, rates, and calendars are used to calculate workload and capacity warnings; tasks are never moved automatically.' })}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 100px minmax(120px, 1fr) 75px 90px', gap: 8 }}>
                     <input
