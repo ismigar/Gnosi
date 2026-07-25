@@ -3960,6 +3960,8 @@
     "period_duration": "Dies laborables",
     "period_predecessors": "Predecessores",
     "period_dependency_type": "Tipus de dependència",
+    "period_dependency_details": "Detalls de dependència",
+    "period_dependency_lag": "Retard en minuts",
     "period_constraint": "Restricció",
     "period_constraint_date": "Data de restricció",
     "period_deadline": "Data límit",

@@ -3960,6 +3960,8 @@
     "period_duration": "Jours ouvrés",
     "period_predecessors": "Prédécesseurs",
     "period_dependency_type": "Type de dépendance",
+    "period_dependency_details": "Détails de la dépendance",
+    "period_dependency_lag": "Retard en minutes",
     "period_constraint": "Contrainte",
     "period_constraint_date": "Date de contrainte",
     "period_deadline": "Échéance",

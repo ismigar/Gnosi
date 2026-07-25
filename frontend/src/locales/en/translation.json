@@ -3928,6 +3928,8 @@
     "period_duration": "Working days",
     "period_predecessors": "Predecessors",
     "period_dependency_type": "Dependency type",
+    "period_dependency_details": "Dependency details",
+    "period_dependency_lag": "Lag minutes",
     "period_constraint": "Constraint",
     "period_constraint_date": "Constraint date",
     "period_deadline": "Deadline",
