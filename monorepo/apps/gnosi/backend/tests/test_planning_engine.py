@@ -53,3 +53,14 @@ def test_actual_boundaries_freeze_completed_task_schedule():
     ], CALENDAR, status_date="2026-08-01T09:00")
     assert schedule["tasks"][0]["start"] == "2026-07-27T09:00"
     assert schedule["tasks"][0]["end"] == "2026-07-27T12:00"
+
+
+def test_backward_pass_calculates_slack_for_parallel_paths():
+    schedule = build_schedule([
+        task("long", {"start": "2026-07-27T09:00", "durationDays": 3, "startMode": "manual"}),
+        task("short", {"start": "2026-07-27T09:00", "durationDays": 1, "startMode": "manual"}),
+    ], CALENDAR)
+    results = {item["id"]: item for item in schedule["tasks"]}
+    assert results["long"]["freeSlackMinutes"] == 0
+    assert results["short"]["freeSlackMinutes"] > 0
+    assert results["short"]["lateEnd"] == results["long"]["end"]
