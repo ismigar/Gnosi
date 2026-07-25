@@ -188,7 +188,7 @@ def test_baseline_variance_compares_derived_schedule(route_store, monkeypatch):
     route_store.append_history({"id": "b1", "type": "baseline", "projectId": "p1", "scheduleRevision": 1, "schedule": {"tasks": [{"id": "task-1", "start": "2026-07-27T09:00", "end": "2026-07-27T17:00", "durationDays": 1}]}})
 
     variance = asyncio.run(routes.get_baseline_variance("p1", "b1"))
-    assert variance["tasks"] == [{"taskId": "task-1", "baselineStart": "2026-07-27T09:00", "currentStart": "2026-07-28T09:00", "baselineEnd": "2026-07-27T17:00", "currentEnd": "2026-07-29T17:00", "durationDaysVariance": 1.0}]
+    assert variance["tasks"] == [{"taskId": "task-1", "baselineStart": "2026-07-27T09:00", "currentStart": "2026-07-28T09:00", "baselineEnd": "2026-07-27T17:00", "currentEnd": "2026-07-29T17:00", "durationDaysVariance": 1.0, "workHoursVariance": 0.0, "costVariance": 0.0}]
 
 
 def test_worklogs_return_append_only_derived_totals(route_store):

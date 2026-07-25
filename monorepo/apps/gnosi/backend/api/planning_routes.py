@@ -185,7 +185,8 @@ async def create_baseline(project_id: str, payload: BaselinePayload):
     existing = await asyncio.to_thread(store.history, "baseline")
     if any(item.get("projectId") == project_id and item.get("name") == name for item in existing):
         raise HTTPException(status_code=409, detail="Baseline name already exists")
-    baseline = {"id": str(uuid.uuid4()), "type": "baseline", "projectId": project_id, "name": name, "createdAt": datetime.now().isoformat(timespec="seconds"), "scheduleRevision": schedule["scheduleRevision"], "schedule": schedule}
+    allocation = calculate_allocation(await asyncio.to_thread(store.load))
+    baseline = {"id": str(uuid.uuid4()), "type": "baseline", "projectId": project_id, "name": name, "createdAt": datetime.now().isoformat(timespec="seconds"), "scheduleRevision": schedule["scheduleRevision"], "schedule": schedule, "allocation": allocation}
     await asyncio.to_thread(store.append_history, baseline)
     return {"baseline": baseline}
 
@@ -207,6 +208,9 @@ async def get_baseline_variance(project_id: str, baseline_id: str):
         raise HTTPException(status_code=409, detail="Recalculate the project before requesting variance")
     original_tasks = {item["id"]: item for item in baseline["schedule"].get("tasks", [])}
     current_tasks = {item["id"]: item for item in current.get("tasks", [])}
+    baseline_costs = {item["task_id"]: item for item in baseline.get("allocation", {}).get("assignment_summaries", [])}
+    current_allocation = calculate_allocation(await asyncio.to_thread(_store().load))
+    current_costs = {item["task_id"]: item for item in current_allocation.get("assignment_summaries", [])}
     rows = []
     for task_id in sorted(set(original_tasks) | set(current_tasks)):
         original = original_tasks.get(task_id) or {}
@@ -216,8 +220,10 @@ async def get_baseline_variance(project_id: str, baseline_id: str):
             "baselineStart": original.get("start"), "currentStart": revised.get("start"),
             "baselineEnd": original.get("end"), "currentEnd": revised.get("end"),
             "durationDaysVariance": round(float(revised.get("durationDays") or 0) - float(original.get("durationDays") or 0), 4),
+            "workHoursVariance": round(float(current_costs.get(task_id, {}).get("planned_work_hours") or 0) - float(baseline_costs.get(task_id, {}).get("planned_work_hours") or 0), 4),
+            "costVariance": round(float(current_costs.get(task_id, {}).get("estimated_cost") or 0) - float(baseline_costs.get(task_id, {}).get("estimated_cost") or 0), 2),
         })
-    return {"baselineId": baseline_id, "baselineScheduleRevision": baseline.get("scheduleRevision"), "currentScheduleRevision": current.get("scheduleRevision"), "tasks": rows}
+    return {"baselineId": baseline_id, "baselineScheduleRevision": baseline.get("scheduleRevision"), "currentScheduleRevision": current.get("scheduleRevision"), "totalCostVariance": round(current_allocation["total_estimated_cost"] - float(baseline.get("allocation", {}).get("total_estimated_cost") or 0), 2), "tasks": rows}
 
 
 @router.post("/planning/worklogs", dependencies=[Depends(require_role("editor"))])
