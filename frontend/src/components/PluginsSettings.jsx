@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
+import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 import ConfirmModal from './ConfirmModal';
 import { sortFieldItems } from '../utils/fieldOrdering';
 
-const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
+const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
 const SELECT_STYLE = {
     width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
@@ -106,6 +106,189 @@ function DailyNotesConfig() {
                     )}
                 </label>
             )}
+        </div>
+    );
+}
+
+function ProjectPlanningConfig() {
+    const { t, i18n: i18nInstance } = useTranslation();
+    const tp = (key, options) => t('settings.plugins.' + key, options);
+    const { getPluginSettings, setPluginSettings } = usePlugins();
+    const config = getPluginSettings('project-planning');
+    const [tables, setTables] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [holidayDraft, setHolidayDraft] = useState(
+        Array.isArray(config.holidays) ? config.holidays.join('\n') : '',
+    );
+
+    useEffect(() => {
+        let alive = true;
+        axios.get('/api/vault/tables')
+            .then((response) => {
+                if (alive) setTables(Array.isArray(response.data) ? response.data : []);
+            })
+            .catch((error) => {
+                if (alive) {
+                    console.error('Project planning: could not load tables:', error);
+                    setTables([]);
+                }
+            })
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, []);
+
+    const sortedTables = sortFieldItems(
+        tables,
+        (table) => table.name || table.id,
+        i18nInstance.language,
+    );
+    const workingWeekdays = Array.isArray(config.working_weekdays)
+        ? config.working_weekdays.map(Number)
+        : [1, 2, 3, 4, 5];
+    const weekdayOptions = [
+        [1, tp('planning_monday', { defaultValue: "Mon" })],
+        [2, tp('planning_tuesday', { defaultValue: "Tue" })],
+        [3, tp('planning_wednesday', { defaultValue: "Wed" })],
+        [4, tp('planning_thursday', { defaultValue: "Thu" })],
+        [5, tp('planning_friday', { defaultValue: "Fri" })],
+        [6, tp('planning_saturday', { defaultValue: "Sat" })],
+        [0, tp('planning_sunday', { defaultValue: "Sun" })],
+    ];
+    const toggleWeekday = (day) => {
+        const next = workingWeekdays.includes(day)
+            ? workingWeekdays.filter((candidate) => candidate !== day)
+            : [...workingWeekdays, day];
+        if (next.length === 0) return;
+        setPluginSettings('project-planning', { working_weekdays: next });
+    };
+    const saveHolidays = () => {
+        const holidays = [...new Set(
+            holidayDraft
+                .split(/[\n,;]+/)
+                .map((value) => value.trim())
+                .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)),
+        )].sort();
+        setHolidayDraft(holidays.join('\n'));
+        setPluginSettings('project-planning', { holidays });
+    };
+
+    const tableSelect = (key, label) => (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                {label}
+            </span>
+            <select
+                style={SELECT_STYLE}
+                value={config[key] || ''}
+                disabled={loading}
+                onChange={(event) => setPluginSettings('project-planning', { [key]: event.target.value })}
+            >
+                <option value="">{tp('planning_table_none', { defaultValue: "— Not configured —" })}</option>
+                {sortedTables.map((table) => (
+                    <option key={table.id} value={table.id}>{table.name || table.id}</option>
+                ))}
+            </select>
+        </label>
+    );
+
+    return (
+        <div style={{
+            marginTop: 8,
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: '1px dashed var(--border-primary, #e2e8f0)',
+            background: 'var(--bg-primary, #fff)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+        }}>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                {tp('planning_intro', { defaultValue: "Choose the project and task tables, then define the calendar used by enhanced period fields." })}
+            </div>
+            {tableSelect(
+                'project_table_id',
+                tp('planning_project_table', { defaultValue: "Projects table" }),
+            )}
+            {tableSelect(
+                'task_table_id',
+                tp('planning_task_table', { defaultValue: "Tasks table" }),
+            )}
+            <fieldset style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <legend style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)', marginBottom: 4 }}>
+                    {tp('planning_working_week', { defaultValue: "Working week" })}
+                </legend>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {weekdayOptions.map(([day, label]) => (
+                        <label
+                            key={day}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '5px 7px',
+                                borderRadius: 7,
+                                border: '1px solid var(--border-primary, #e2e8f0)',
+                                fontSize: 11,
+                                color: 'var(--text-secondary, #475569)',
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={workingWeekdays.includes(day)}
+                                onChange={() => toggleWeekday(day)}
+                            />
+                            {label}
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                        {tp('planning_hours_per_day', { defaultValue: "Working hours per day" })}
+                    </span>
+                    <input
+                        type="number"
+                        min="0.25"
+                        max="24"
+                        step="0.25"
+                        style={SELECT_STYLE}
+                        value={config.hours_per_day ?? 8}
+                        onChange={(event) => setPluginSettings('project-planning', {
+                            hours_per_day: Math.min(
+                                24,
+                                Math.max(0.25, Number(event.target.value) || 8),
+                            ),
+                        })}
+                    />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                        {tp('planning_workday_start', { defaultValue: "Working day starts" })}
+                    </span>
+                    <input
+                        type="time"
+                        style={SELECT_STYLE}
+                        value={config.workday_start || '09:00'}
+                        onChange={(event) => setPluginSettings('project-planning', {
+                            workday_start: event.target.value || '09:00',
+                        })}
+                    />
+                </label>
+            </div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                    {tp('planning_holidays', { defaultValue: "Non-working holidays" })}
+                </span>
+                <textarea
+                    rows={4}
+                    value={holidayDraft}
+                    onChange={(event) => setHolidayDraft(event.target.value)}
+                    onBlur={saveHolidays}
+                    placeholder={tp('planning_holidays_placeholder', { defaultValue: "One YYYY-MM-DD date per line" })}
+                    style={{ ...SELECT_STYLE, resize: 'vertical', fontFamily: 'monospace' }}
+                />
+            </label>
         </div>
     );
 }
@@ -1195,6 +1378,7 @@ const CONFIGURABLE = {
     'daily-notes': DailyNotesConfig,
     'llm-wiki': LlmWikiConfig,
     'web-clipper': WebClipperConfig,
+    'project-planning': ProjectPlanningConfig,
 };
 
 export function PluginsSettings() {
