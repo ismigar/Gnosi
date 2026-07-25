@@ -83,3 +83,11 @@ Refactor and redesign the `GlobalSettingsModal.jsx` to follow the new component 
 
 ## 9. Additional Notes
 The redesign must feel premium, using smooth transitions and a clear layout.
+
+## 10. AI Model Comparison Dashboard
+
+- Settings → AI exposes an explicit action that opens a dedicated model-comparison dialog.
+- The dialog keeps model data separate from rendering logic and supports client-side search,
+  profile filtering, price/context thresholds, sortable columns, and monthly cost estimates.
+- The dialog follows the modal standard: backdrop clicks do not close it, Escape does, and
+  every user-visible string is present in all supported locale catalogs.

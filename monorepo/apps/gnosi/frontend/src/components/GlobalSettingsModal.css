@@ -249,3 +249,53 @@
 .folder-picker-item:hover {
     background: var(--sidebar-item-hover) !important;
 }
+
+.ai-comparison-launcher {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 22px;
+    margin-bottom: 40px;
+    padding: 22px 24px;
+    border: 1px solid rgba(59, 130, 246, 0.24);
+    border-radius: 22px;
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(139, 92, 246, 0.05));
+}
+
+.ai-comparison-launcher strong,
+.ai-comparison-launcher span {
+    display: block;
+}
+
+.ai-comparison-launcher strong {
+    margin-bottom: 5px;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.ai-comparison-launcher span {
+    max-width: 520px;
+    color: var(--text-secondary);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
+.ai-comparison-launcher button {
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    flex-shrink: 0;
+    padding: 11px 17px;
+    border-radius: 14px;
+}
+
+@media (max-width: 640px) {
+    .ai-comparison-launcher {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .ai-comparison-launcher button {
+        justify-content: center;
+    }
+}

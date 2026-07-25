@@ -24,6 +24,7 @@ import { WorkspaceMembersPanel } from './Workspace/WorkspaceMembersPanel';
 import ApiTokensSettings from './ApiTokensSettings';
 import { PluginsSettings } from './PluginsSettings';
 import ModelRegistrySettings from './ModelRegistrySettings';
+import AIModelComparisonModal from './AIModelComparisonModal';
 import NotionImportSettings from './NotionImportSettings';
 import VaultSwitcher from './VaultSwitcher';
 import AgentContextSources from './AgentContextSources';
@@ -580,6 +581,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     const [editingAgent, setEditingAgent] = useState(null);
     const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
     const [providerToEdit, setProviderToEdit] = useState(null);
+    const [isModelComparisonOpen, setIsModelComparisonOpen] = useState(false);
 
     // Newsletter State
     const [newsletterSources, setNewsletterSources] = useState([]);
@@ -1030,7 +1032,7 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
     // render as siblings OUTSIDE `.settings-modal` and have their own
     // have their own focus-trap. While one is open, we disable this trap
     // so it doesn't steal their focus (Tab would get trapped in the background panel).
-    const childModalOpen = pickerOpen || confirmConfig.isOpen;
+    const childModalOpen = pickerOpen || confirmConfig.isOpen || isModelComparisonOpen;
 
     const handleClose = async () => {
         try {
@@ -3739,6 +3741,17 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                             {/* IA */}
                             {activeTab === 'ai' && (
                                 <>
+                                    <div className="ai-comparison-launcher">
+                                        <div>
+                                            <strong>{t('model_comparison.launch_title')}</strong>
+                                            <span>{t('model_comparison.launch_description')}</span>
+                                        </div>
+                                        <button type="button" className="btn-gnosi-primary" onClick={() => setIsModelComparisonOpen(true)}>
+                                            <Activity size={18} />
+                                            {t('model_comparison.open')}
+                                        </button>
+                                    </div>
+
                                     <Section 
                                         title={tn('ai.providers_section')} 
                                         icon={Database} 
@@ -4092,6 +4105,10 @@ export function GlobalSettingsModal({ isOpen, onClose, initialTab = 'general' })
                 isDestructive={true}
             />
 
+            <AIModelComparisonModal
+                isOpen={isModelComparisonOpen}
+                onClose={() => setIsModelComparisonOpen(false)}
+            />
 
         </>
     );

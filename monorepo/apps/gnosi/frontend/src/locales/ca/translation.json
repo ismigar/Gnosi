@@ -3630,6 +3630,27 @@
       }
     }
   },
+  "model_comparison": {
+    "launch_title": "Compara models d’IA",
+    "launch_description": "Explora cost, context, velocitat i perfils de tasca recomanats en un únic dashboard interactiu.",
+    "open": "Obrir comparativa",
+    "close": "Tancar la comparativa de models",
+    "eyebrow": "Intel·ligència de models d’IA",
+    "title": "Comparativa de models d’IA",
+    "subtitle": "Troba el model adequat per a cada rol, càrrega de treball i pressupost.",
+    "search": "Cerca model o proveïdor",
+    "profile": "Perfil de tasca",
+    "all_profiles": "Tots els perfils",
+    "max_price": "Preu màx. entrada ($/1M)",
+    "min_context": "Context mínim (K tokens)",
+    "calculator": "Calculadora de cost mensual",
+    "input_tokens": "Tokens d’entrada / mes",
+    "output_tokens": "Tokens de sortida / mes",
+    "no_results": "Cap model coincideix amb aquests filtres.",
+    "data_note": "Dades de referència per a la comparació. Els preus i el rendiment dels proveïdors poden canviar.",
+    "profiles": { "worker": "Peó", "administrative": "Administratiu", "documentalist": "Documentalista", "allrounder": "Totterreny", "expert": "Perit / Director" },
+    "columns": { "model": "Model", "provider": "Proveïdor", "input_price": "Entrada $/1M", "output_price": "Sortida $/1M", "context": "Context", "speed": "Velocitat", "uptime": "Disponibilitat", "profile": "Perfil", "quantization": "Quantització", "monthly_cost": "Est. $/mes" }
+  },
   "tags": {
     "empty": "Encara no hi ha etiquetes. Afegeix-ne via la propietat «tags».",
     "no_match": "Cap etiqueta coincideix",

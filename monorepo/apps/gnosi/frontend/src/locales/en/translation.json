@@ -4199,5 +4199,26 @@
       "kind_gap": "Gap",
       "notes": "Notes"
     }
+  },
+  "model_comparison": {
+    "launch_title": "Compare AI models",
+    "launch_description": "Explore cost, context, speed and recommended task profiles in one interactive dashboard.",
+    "open": "Open comparison",
+    "close": "Close model comparison",
+    "eyebrow": "AI model intelligence",
+    "title": "AI Model Comparison",
+    "subtitle": "Find the right model for each role, workload and budget.",
+    "search": "Search model or provider",
+    "profile": "Task profile",
+    "all_profiles": "All profiles",
+    "max_price": "Max. input price ($/1M)",
+    "min_context": "Min. context (K tokens)",
+    "calculator": "Monthly cost calculator",
+    "input_tokens": "Input tokens / month",
+    "output_tokens": "Output tokens / month",
+    "no_results": "No models match these filters.",
+    "data_note": "Reference data for comparison. Provider prices and performance may change.",
+    "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director" },
+    "columns": { "model": "Model", "provider": "Provider", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "uptime": "Uptime", "profile": "Profile", "quantization": "Quantization", "monthly_cost": "Est. $/month" }
   }
 }
