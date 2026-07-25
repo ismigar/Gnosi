@@ -3918,6 +3918,17 @@ async def create_page(request: PageSaveRequest, background_tasks: BackgroundTask
 
         background_tasks.add_task(update_link_index_for_page, file_path)
 
+        # Project planning owns derived schedules, not editable Markdown facts.
+        # Queue a coalesced refresh after every page mutation; the scheduler
+        # filters to the configured task table and only writes auto boundaries
+        # when their source ETag still matches.
+        try:
+            from backend.services.planning_scheduler import enqueue_recalculation
+            from backend.services.context_vars import get_active_vault_path
+            background_tasks.add_task(enqueue_recalculation, Path(get_active_vault_path()))
+        except Exception as error:
+            log.debug("Could not queue planning recalculation: %s", error)
+
         # Bidirectional sync: when creating a page with relation fields,
         # populate the INVERSE field of the referenced pages (old empty → all are
         # new relationships). Run in the background defensively.
