@@ -1320,6 +1320,16 @@
         "name": "Project planning",
         "desc": "Add working durations, predecessors, and work calendars to period fields."
       },
+      "catalog": {
+        "daily-notes": { "name": "Daily notes", "description": "Quick access to the daily note and date navigation, in the style of Obsidian." },
+        "tags-page": { "name": "Tags page", "description": "Index of every vault tag with counts and navigation." },
+        "page-comments": { "name": "Comments", "description": "Per-page comment thread, in the style of Notion." },
+        "share-links": { "name": "External sharing", "description": "Public read-only links for pages." },
+        "canvas-cards": { "name": "Canvas cards", "description": "Embed pages as live cards on the drawing canvas." },
+        "web-clipper": { "name": "Web Clipper", "description": "Save web pages from the browser to a table of your choice and populate its fields." },
+        "llm-wiki": { "name": "Brain (LLM Wiki)", "description": "Process resources with AI to maintain a linked knowledge wiki, in the style of Karpathy." },
+        "project-planning": { "name": "Project planning", "description": "Add working durations, predecessors, and work calendars to period fields." }
+      },
       "planning_intro": "Choose the project and task tables, then define the calendar used by enhanced period fields.",
       "planning_project_table": "Projects table",
       "planning_task_table": "Tasks table",

@@ -1334,6 +1334,16 @@
         "name": "Planificació de projectes",
         "desc": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període."
       },
+      "catalog": {
+        "daily-notes": { "name": "Notes diàries", "description": "Accés ràpid a la nota diària i la navegació per dates, a l'estil d'Obsidian." },
+        "tags-page": { "name": "Pàgina d'etiquetes", "description": "Índex de totes les etiquetes del vault amb recompte i navegació." },
+        "page-comments": { "name": "Comentaris", "description": "Fil de comentaris per pàgina, a l'estil de Notion." },
+        "share-links": { "name": "Compartició externa", "description": "Enllaços públics de només lectura per a pàgines." },
+        "canvas-cards": { "name": "Targetes del canvas", "description": "Insereix pàgines com a targetes vives al canvas." },
+        "web-clipper": { "name": "Web Clipper", "description": "Desa pàgines web des del navegador a la taula que triïs i omple'n els camps." },
+        "llm-wiki": { "name": "Cervell (wiki LLM)", "description": "Processa recursos amb IA per mantenir un wiki de coneixement enllaçat, a l'estil de Karpathy." },
+        "project-planning": { "name": "Planificació de projectes", "description": "Afegeix durades laborables, predecessores i calendaris de treball als camps de període." }
+      },
       "planning_intro": "Tria les taules de projectes i tasques i defineix el calendari dels camps de període ampliats.",
       "planning_project_table": "Taula de projectes",
       "planning_task_table": "Taula de tasques",

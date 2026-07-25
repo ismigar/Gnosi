@@ -724,6 +724,16 @@
         "name": "Planification de projets",
         "desc": "Ajoute les durées ouvrées, les prédécesseurs et les calendriers de travail aux champs de période."
       },
+      "catalog": {
+        "daily-notes": { "name": "Notes quotidiennes", "description": "Accès rapide à la note quotidienne et à la navigation par date, comme dans Obsidian." },
+        "tags-page": { "name": "Page des étiquettes", "description": "Index de toutes les étiquettes du coffre avec compteurs et navigation." },
+        "page-comments": { "name": "Commentaires", "description": "Fil de commentaires par page, comme dans Notion." },
+        "share-links": { "name": "Partage externe", "description": "Liens publics en lecture seule vers les pages." },
+        "canvas-cards": { "name": "Cartes du canvas", "description": "Intégrez des pages sous forme de cartes interactives sur le canvas." },
+        "web-clipper": { "name": "Web Clipper", "description": "Enregistrez des pages web depuis le navigateur dans la table de votre choix et renseignez ses champs." },
+        "llm-wiki": { "name": "Cerveau (wiki LLM)", "description": "Traitez des ressources avec l'IA pour maintenir un wiki de connaissances relié, comme Karpathy." },
+        "project-planning": { "name": "Planification de projets", "description": "Ajoute les durées ouvrées, les prédécesseurs et les calendriers de travail aux champs de période." }
+      },
       "planning_intro": "Choisissez les tables des projets et des tâches, puis définissez le calendrier des champs de période enrichis.",
       "planning_project_table": "Table des projets",
       "planning_task_table": "Table des tâches",
