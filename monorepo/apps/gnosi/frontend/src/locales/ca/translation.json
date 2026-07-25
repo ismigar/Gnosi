@@ -418,6 +418,7 @@
     "nav_reader": "Lector",
     "nav_social": "Social",
     "nav_media": "Fotos",
+    "nav_planning": "Planificació",
     "nav_dashboard": "Tauler",
     "nav_settings": "Configuració",
     "daily_note": "Nota diària",
@@ -3946,6 +3947,9 @@
     "pick_folder_hint": "Tria una carpeta o «Tot el contingut»",
     "indexing": "Indexant…",
     "no_files": "No s'han trobat fitxers"
+  },
+  "planning_page": {
+    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics"
   },
   "vault_date": {
     "days_placeholder": "dies",
