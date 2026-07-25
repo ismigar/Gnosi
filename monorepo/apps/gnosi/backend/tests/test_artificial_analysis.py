@@ -88,9 +88,16 @@ def test_fetch_all_models_follows_every_page(monkeypatch):
         return Response(pages[params["page"]])
 
     monkeypatch.setattr(aa.requests.Session, "get", fake_get)
-    monkeypatch.setattr(aa, "load_catalog", lambda refresh: {"providers": []})
+    refresh_requests = []
+
+    def fake_load_catalog(force_refresh=False):
+        refresh_requests.append(force_refresh)
+        return {"providers": []}
+
+    monkeypatch.setattr(aa, "load_catalog", fake_load_catalog)
     result = aa.fetch_all_models()
     assert requested_pages == [1, 2]
+    assert refresh_requests == [True]
     assert result["count"] == 2
 
 

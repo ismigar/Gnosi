@@ -313,6 +313,9 @@ Artificial Analysis rather than a hand-maintained shortlist.
 - The Free tier does not include every Pro metadata field. Missing values must
   remain unknown or come from an explicitly attributed models.dev enrichment;
   they must never be invented.
+- Call the models.dev loader with its public `force_refresh` parameter. Do not
+  invent a `refresh` keyword: unit tests must exercise the same keyword used in
+  production so a permissive mock cannot hide a runtime signature mismatch.
 - Note: Never persist `api_key` in `params.yaml`, including during environment
   migrations. Store only `credential_ref` and resolve secrets from Keychain or
   the secret store at runtime.
