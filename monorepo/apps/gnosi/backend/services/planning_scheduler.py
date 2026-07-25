@@ -112,7 +112,8 @@ def recalculate_vault(vault_path: Path) -> None:
     calendar = next((item for item in planning["calendars"] if item["id"] == DEFAULT_CALENDAR_ID), planning["calendars"][0])
     index = ScheduleIndex(vault_path)
     for project_id, tasks in projects.items():
-        schedule = build_schedule(tasks, calendar)
+        external_tasks = [task for other_project, other_tasks in projects.items() if other_project != project_id for task in other_tasks]
+        schedule = build_schedule(tasks, calendar, external_facts=external_tasks)
         schedule["projectId"] = project_id
         schedule["automaticWriteConflicts"] = _write_automatic_boundaries(sources, schedule)
         index.save(project_id, schedule, planning["revision"])
