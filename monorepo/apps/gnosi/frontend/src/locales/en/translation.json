@@ -3923,6 +3923,7 @@
     "period_end": "Finish date and time",
     "period_duration": "Working days",
     "period_predecessors": "Predecessors",
+    "period_dependency_type": "Dependency type",
     "period_predecessors_hint": "Select one or more tasks that must finish first",
     "period_predecessor_count_one": "{{count}} predecessor",
     "period_predecessor_count_other": "{{count}} predecessors",

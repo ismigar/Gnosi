@@ -3955,6 +3955,7 @@
     "period_end": "Data i hora de fi",
     "period_duration": "Dies laborables",
     "period_predecessors": "Predecessores",
+    "period_dependency_type": "Tipus de dependència",
     "period_predecessors_hint": "Selecciona una o més tasques que han d'acabar abans",
     "period_predecessor_count_one": "{{count}} predecessora",
     "period_predecessor_count_many": "{{count}} predecessores",

@@ -21,7 +21,7 @@ import uuid
 from backend.utils.safe_io import safe_write_json
 
 
-STORE_VERSION = 1
+STORE_VERSION = 2
 DEFAULT_CALENDAR_ID = "project-default"
 _store_lock = Lock()
 
@@ -70,6 +70,8 @@ def default_state() -> dict[str, Any]:
         }],
         "resources": [],
         "assignments": [],
+        "recurrences": [],
+        "defaults": {"currency": "EUR", "project_relation_field_id": None},
     }
 
 
@@ -308,6 +310,7 @@ class PlanningStore:
 
     def __init__(self, config_dir: Path):
         self.path = config_dir / "project_planning.json"
+        self.history_path = config_dir / "project_planning_history.jsonl"
 
     def load(self) -> dict[str, Any]:
         with _store_lock:
@@ -315,10 +318,13 @@ class PlanningStore:
                 if not self.path.exists():
                     return default_state()
                 value = json.loads(self.path.read_text(encoding="utf-8"))
-                if not isinstance(value, dict) or value.get("version") != STORE_VERSION:
+                if not isinstance(value, dict):
+                    return default_state()
+                if value.get("version") not in {1, STORE_VERSION}:
                     return default_state()
                 state = default_state()
                 state.update({key: value.get(key, state[key]) for key in state})
+                state["version"] = STORE_VERSION
                 return state
             except (OSError, json.JSONDecodeError):
                 return default_state()
@@ -331,3 +337,24 @@ class PlanningStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             safe_write_json(self.path, next_state, indent=2, ensure_ascii=False)
             return next_state
+
+    def append_history(self, entry: dict[str, Any]) -> None:
+        """Appends an auditable event without changing previous records."""
+        with _store_lock:
+            self.history_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.history_path.open("a", encoding="utf-8") as output:
+                output.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+
+    def history(self, event_type: str | None = None) -> list[dict[str, Any]]:
+        with _store_lock:
+            if not self.history_path.exists():
+                return []
+            result = []
+            for line in self.history_path.read_text(encoding="utf-8").splitlines():
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not event_type or value.get("type") == event_type:
+                    result.append(value)
+            return result

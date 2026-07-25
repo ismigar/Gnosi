@@ -3955,6 +3955,7 @@
     "period_end": "Date et heure de fin",
     "period_duration": "Jours ouvrés",
     "period_predecessors": "Prédécesseurs",
+    "period_dependency_type": "Type de dépendance",
     "period_predecessors_hint": "Sélectionnez une ou plusieurs tâches qui doivent se terminer avant",
     "period_predecessor_count_one": "{{count}} prédécesseur",
     "period_predecessor_count_many": "{{count}} prédécesseurs",
