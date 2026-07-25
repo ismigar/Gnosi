@@ -181,9 +181,14 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
         end = parse_datetime(period["end"]) if period["endMode"] == "manual" else None
         if end is None:
             end = calendar.add_duration(start, duration)
+        if constraint == "FNET" and constraint_date and end < constraint_date:
+            end = constraint_date
+            start = calendar.add_duration(end, -duration)
         if constraint == "MFO" and constraint_date:
             end = constraint_date
             start = calendar.add_duration(end, -duration)
+        if constraint == "ALAP":
+            diagnostics.append({"code": "alap_pending", "severity": "info", "taskId": task_id, "message": "ALAP is resolved during the backward scheduling pass"})
         if constraint in {"SNLT", "FNLT"} and constraint_date and ((constraint == "SNLT" and start > constraint_date) or (constraint == "FNLT" and end > constraint_date)):
             diagnostics.append({"code": "constraint_violation", "severity": "warning", "taskId": task_id, "message": f"{constraint} cannot be met"})
         deadline = parse_datetime(period["deadline"])

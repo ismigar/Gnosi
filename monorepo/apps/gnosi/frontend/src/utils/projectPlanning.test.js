@@ -65,6 +65,11 @@ describe('project planning periods', () => {
         )).toMatchObject({ startMode: 'manual', endMode: 'manual' });
     });
 
+    it('reads backend automatic modes without converting them to manual', () => {
+        expect(parsePeriod({ startMode: 'automatic', endMode: 'automatic' }))
+            .toMatchObject({ startMode: 'auto', endMode: 'auto' });
+    });
+
     it('skips weekends and configured holidays', () => {
         expect(addWorkingDuration('2026-07-31T09:00', 2, settings, true))
             .toBe('2026-08-04T17:00');
