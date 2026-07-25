@@ -550,9 +550,15 @@ function ProjectPlanningConfig() {
                                         <input
                                             type="date"
                                             lang={i18nInstance.language}
+                                            min={`${holidayYear}-01-01`}
+                                            max={`${holidayYear}-12-31`}
                                             value={row.date}
                                             aria-label={tp('planning_holiday_date', { defaultValue: 'Holiday date' })}
-                                            onChange={(event) => updateHolidayRow(index, 'date', event.target.value)}
+                                            onChange={(event) => updateHolidayRow(
+                                                index,
+                                                'date',
+                                                event.target.value.startsWith(`${holidayYear}-`) ? event.target.value : '',
+                                            )}
                                             onBlur={saveHolidays}
                                             style={{ ...SELECT_STYLE, minWidth: 150 }}
                                         />
@@ -588,7 +594,7 @@ function ProjectPlanningConfig() {
                     {tp('planning_calendars_title', { defaultValue: 'Resource calendars' })}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
-                    {tp('planning_calendars_intro', { defaultValue: 'A calendar defines the working days and hours for a resource. Create one when a resource follows a schedule different from the project default.' })}
+                    {tp('planning_calendars_intro', { defaultValue: 'Project default is the base calendar for the project and for resources without their own calendar. Create another calendar when a resource follows a different schedule.' })}
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                     <input
@@ -601,7 +607,7 @@ function ProjectPlanningConfig() {
                 </div>
                 {!planningLoading && (planningState?.calendars || []).map((calendar) => (
                     <div key={calendar.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
-                        <span>{calendar.name} · {calendar.hours_per_day} h/{tp('planning_day', { defaultValue: 'day' })}</span>
+                        <span>{calendar.id === 'project-default' ? tp('planning_project_default_calendar', { defaultValue: 'Project default (base calendar)' }) : calendar.name} · {calendar.hours_per_day} h/{tp('planning_day', { defaultValue: 'day' })}</span>
                         {calendar.id !== 'project-default' && <button type="button" className="btn-gnosi btn-gnosi-secondary" style={{ padding: '6px 8px' }} aria-label={tp('planning_delete_calendar', { defaultValue: 'Delete calendar' })} title={tp('planning_delete_calendar', { defaultValue: 'Delete calendar' })} onClick={() => deleteCalendar(calendar.id)}><Trash2 size={14} /></button>}
                     </div>
                 ))}
