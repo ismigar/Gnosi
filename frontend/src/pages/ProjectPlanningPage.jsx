@@ -15,6 +15,11 @@ export default function ProjectPlanningPage() {
     const [allocation, setAllocation] = useState(null);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const [baselines, setBaselines] = useState([]);
+    const [worklogs, setWorklogs] = useState([]);
+    const [proposal, setProposal] = useState(null);
+    const [baselineName, setBaselineName] = useState('');
+    const [worklog, setWorklog] = useState({ task_id: '', date: '', hours: '' });
 
     useEffect(() => {
         const tableId = planningSettings.project_table_id;
@@ -44,6 +49,11 @@ export default function ProjectPlanningPage() {
             ]);
             setSchedule(scheduleResponse.data);
             setAllocation(allocationResponse.data);
+            const [baselineResponse, worklogResponse] = await Promise.all([
+                axios.get(`/api/planning/projects/${encodeURIComponent(projectId)}/baselines`), axios.get('/api/planning/worklogs'),
+            ]);
+            setBaselines(baselineResponse.data.baselines || []);
+            setWorklogs(worklogResponse.data.worklogs || []);
             setError('');
         } catch (requestError) {
             setError(t('planning_page.load_error', 'Could not load the project schedule.'));
@@ -60,6 +70,10 @@ export default function ProjectPlanningPage() {
         title: task.title,
         metadata: { Schedule: { start: task.start, end: task.end } },
     }));
+    const createBaseline = async () => { if (!baselineName.trim() || !schedule?.scheduleRevision) return; await axios.post(`/api/planning/projects/${encodeURIComponent(projectId)}/baselines`, { name: baselineName, schedule_revision: schedule.scheduleRevision }); setBaselineName(''); void load(); };
+    const addWorklog = async () => { if (!worklog.task_id || !worklog.date || !worklog.hours) return; await axios.post('/api/planning/worklogs', { ...worklog, hours: Number(worklog.hours) }); setWorklog({ task_id: '', date: '', hours: '' }); void load(); };
+    const createProposal = async () => { const response = await axios.post(`/api/planning/projects/${encodeURIComponent(projectId)}/leveling/proposals`); setProposal(response.data); };
+    const applyProposal = async () => { if (!proposal) return; await axios.post(`/api/planning/leveling/proposals/${proposal.id}/apply`, { schedule_revision: proposal.scheduleRevision, etags: proposal.sourceEtags || {} }); setProposal(null); void load(); };
     return (
         <main className="mx-auto max-w-7xl space-y-6 p-6">
             <header className="flex flex-wrap items-end justify-between gap-3">
@@ -74,6 +88,8 @@ export default function ProjectPlanningPage() {
             </section>
             <section className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.schedule', 'Schedule')}</h2>{loading ? <p>{t('common.loading', 'Loading...')}</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">{t('planning_page.task', 'Task')}</th><th className="p-2">{t('planning_page.start', 'Start')}</th><th className="p-2">{t('planning_page.finish', 'Finish')}</th><th className="p-2">{t('planning_page.slack', 'Slack')}</th></tr></thead><tbody>{tasks.map((task) => <tr className="border-b" key={task.id}><td className={task.critical ? 'p-2 font-semibold text-red-600' : 'p-2'}>{task.title}</td><td className="p-2">{task.start}</td><td className="p-2">{task.end}</td><td className="p-2">{task.freeSlackMinutes}</td></tr>)}</tbody></table></div>}</section>
             {tasks.length > 0 && <section className="h-[620px] overflow-hidden rounded border bg-[var(--bg-primary)]"><VaultTimeline notes={ganttNotes} schema={{ Schedule: 'period' }} activeView={{ dateField: 'Schedule', endDateField: 'Schedule' }} idToTitle={Object.fromEntries(tasks.map((task) => [task.id, task.title]))} /></section>}
+            <section className="grid gap-4 lg:grid-cols-2"><article className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.baselines', 'Baselines')}</h2><div className="flex gap-2"><input value={baselineName} onChange={(event) => setBaselineName(event.target.value)} placeholder={t('planning_page.baseline_name', 'Baseline name')} className="flex-1 rounded border bg-[var(--bg-primary)] px-2" /><button onClick={() => void createBaseline()} className="rounded border px-3">{t('planning_page.create', 'Create')}</button></div><ul className="mt-3 text-sm">{baselines.map((baseline) => <li key={baseline.id}>{baseline.name} · r{baseline.scheduleRevision}</li>)}</ul></article><article className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.worklogs', 'Work logs')}</h2><div className="grid grid-cols-3 gap-2"><select value={worklog.task_id} onChange={(event) => setWorklog({ ...worklog, task_id: event.target.value })} className="rounded border bg-[var(--bg-primary)]"><option value="">{t('planning_page.task', 'Task')}</option>{tasks.map((task) => <option key={task.id} value={task.id}>{task.title}</option>)}</select><input type="date" value={worklog.date} onChange={(event) => setWorklog({ ...worklog, date: event.target.value })} className="rounded border bg-[var(--bg-primary)]" /><input type="number" step="0.25" value={worklog.hours} onChange={(event) => setWorklog({ ...worklog, hours: event.target.value })} className="rounded border bg-[var(--bg-primary)]" /></div><button onClick={() => void addWorklog()} className="mt-2 rounded border px-3">{t('planning_page.add_worklog', 'Add work log')}</button><p className="mt-2 text-sm text-[var(--text-tertiary)]">{worklogs.length} {t('planning_page.entries', 'entries')}</p></article></section>
+            <section className="grid gap-4 lg:grid-cols-2"><article className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.resource_heatmap', 'Resource load')}</h2><div className="grid grid-cols-7 gap-1">{(allocation?.buckets || []).map((bucket) => <div key={`${bucket.resource_id}-${bucket.date}`} title={`${bucket.resource_name}: ${bucket.assigned_hours}/${bucket.capacity_hours} h`} className={`rounded p-2 text-xs ${bucket.overallocated_hours ? 'bg-red-500 text-white' : 'bg-emerald-100 text-emerald-900'}`}>{bucket.resource_name}<br />{bucket.date}<br />{bucket.assigned_hours}h</div>)}</div></article><article className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.leveling', 'Resource leveling')}</h2><button onClick={() => void createProposal()} className="rounded border px-3 py-1">{t('planning_page.generate_proposal', 'Generate proposal')}</button>{proposal && <div className="mt-3 text-sm"><p>{proposal.proposals?.length || 0} {t('planning_page.proposed_changes', 'proposed changes')}</p><button onClick={() => void applyProposal()} className="mt-2 rounded bg-[var(--accent-primary)] px-3 py-1 text-white">{t('planning_page.apply_proposal', 'Apply proposal')}</button></div>}<ul className="mt-3 text-sm">{(allocation?.assignment_summaries || []).map((assignment) => <li key={assignment.id}>{assignment.task_id}: {assignment.planned_work_hours}h · {assignment.estimated_cost}</li>)}</ul></article></section>
             {diagnostics.length > 0 && <section className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-2 text-lg font-medium">{t('planning_page.diagnostics', 'Diagnostics')}</h2><ul className="space-y-1 text-sm">{diagnostics.map((item, index) => <li key={`${item.code}-${index}`}>{item.message}</li>)}</ul></section>}
         </main>
     );
