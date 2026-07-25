@@ -158,12 +158,13 @@ def _backward_bound(successor: dict[str, Any], dependency: dict[str, Any], prede
     return "start", calendar.add_working_minutes(successor["lateEnd"], -lag)
 
 
-def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, Any] | None = None, *, status_date: str | None = None) -> dict[str, Any]:
+def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, Any] | None = None, *, status_date: str | None = None, external_facts: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Calculates dates, diagnostics, slack and critical tasks for a task graph."""
     calendar = WorkingCalendar.from_dict(calendar_data)
     tasks: dict[str, dict[str, Any]] = {}
     diagnostics: list[dict[str, Any]] = []
-    for item in task_facts:
+    requested_ids = {str(item.get("id") or "") for item in task_facts}
+    for item in [*(external_facts or []), *task_facts]:
         task_id = str(item.get("id") or "")
         if not task_id:
             continue
@@ -237,7 +238,8 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
             task["start"] = late_start
             if task["period"]["endMode"] == "automatic" and not task["actualEnd"]:
                 task["end"] = late_end
-    return {"scheduleRevision": None, "generatedAt": datetime.now().isoformat(timespec="seconds"), "tasks": [{**item, "start": item["start"].isoformat(timespec="minutes"), "end": item["end"].isoformat(timespec="minutes"), "lateStart": item["lateStart"].isoformat(timespec="minutes"), "lateEnd": item["lateEnd"].isoformat(timespec="minutes"), "period": None} for item in calculated.values()], "diagnostics": diagnostics, "criticalTaskIds": [item["id"] for item in calculated.values() if item["critical"]], "cycles": cycles}
+    visible_tasks = [item for item in calculated.values() if item["id"] in requested_ids]
+    return {"scheduleRevision": None, "generatedAt": datetime.now().isoformat(timespec="seconds"), "tasks": [{**item, "start": item["start"].isoformat(timespec="minutes"), "end": item["end"].isoformat(timespec="minutes"), "lateStart": item["lateStart"].isoformat(timespec="minutes"), "lateEnd": item["lateEnd"].isoformat(timespec="minutes"), "period": None} for item in visible_tasks], "diagnostics": diagnostics, "criticalTaskIds": [item["id"] for item in visible_tasks if item["critical"]], "cycles": cycles}
 
 
 class ScheduleIndex:

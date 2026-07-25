@@ -64,3 +64,10 @@ def test_backward_pass_calculates_slack_for_parallel_paths():
     assert results["long"]["freeSlackMinutes"] == 0
     assert results["short"]["freeSlackMinutes"] > 0
     assert results["short"]["lateEnd"] == results["long"]["end"]
+
+
+def test_external_predecessors_are_used_without_becoming_project_tasks():
+    schedule = build_schedule([task("local", {"durationDays": 1, "dependencies": [{"predecessorId": "external"}]})], CALENDAR, status_date="2026-07-01T09:00", external_facts=[task("external", {"start": "2026-07-27T09:00", "durationDays": 1, "startMode": "manual"})])
+    assert [item["id"] for item in schedule["tasks"]] == ["local"]
+    assert schedule["tasks"][0]["start"] == "2026-07-27T17:00"
+    assert not any(item["code"] == "external_dependency" for item in schedule["diagnostics"])
