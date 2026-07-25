@@ -47,6 +47,7 @@ class ResourcePayload(BaseModel):
     overtime_rate: Optional[float] = None
     cost_per_use: Optional[float] = None
     active: Optional[bool] = None
+    rate_history: Optional[list[dict]] = None
 
 
 class AssignmentPayload(BaseModel):
@@ -59,6 +60,11 @@ class AssignmentPayload(BaseModel):
     rate_override: Optional[float] = None
     start: Optional[str] = None
     end: Optional[str] = None
+    task_type: Optional[str] = None
+    effort_driven: Optional[bool] = None
+    overtime_work_hours: Optional[float] = None
+    material_quantity: Optional[float] = None
+    fixed_cost: Optional[float] = None
 
 
 class TaskFactPayload(BaseModel):

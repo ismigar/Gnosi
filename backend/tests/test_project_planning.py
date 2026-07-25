@@ -85,6 +85,15 @@ def test_assignment_requires_existing_resource_and_valid_range():
             {"task_id": "task", "resource_id": "r1", "start": "2026-07-27T10:00", "end": "2026-07-27T09:00"},
             {"r1"},
         )
+    with pytest.raises(PlanningValidationError, match="task_type"):
+        normalize_assignment({"task_id": "task", "resource_id": "r1", "task_type": "other"}, {"r1"})
+
+
+def test_allocation_includes_overtime_material_and_fixed_costs():
+    state = default_state()
+    state["resources"] = [_resource(standard_rate=10, overtime_rate=20)]
+    state["assignments"] = [_assignment(overtime_work_hours=2, fixed_cost=7)]
+    assert calculate_allocation(state)["total_estimated_cost"] == 112
 
 
 def test_resource_rejects_missing_calendar():
