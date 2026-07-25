@@ -354,6 +354,19 @@ export const VaultDateProperty = ({
                             className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
                         />
                     </label>
+                    {['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].includes(period.constraintType) && (
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                {t('vault_date.period_constraint_date', 'Constraint date')}
+                            </span>
+                            <input
+                                type="datetime-local"
+                                value={asInputDateTime(period.constraintDate)}
+                                onChange={(event) => commit({ ...period, constraintDate: event.target.value })}
+                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            />
+                        </label>
+                    )}
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                             {t('vault_date.period_end', "Finish date and time")}
@@ -422,6 +435,32 @@ export const VaultDateProperty = ({
                             </select>
                         </label>
                     )}
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_constraint', 'Constraint')}
+                        </span>
+                        <select
+                            value={period.constraintType || 'ASAP'}
+                            onChange={(event) => commit({ ...period, constraintType: event.target.value })}
+                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                        >
+                            <option value="ASAP">ASAP</option><option value="ALAP">ALAP</option>
+                            <option value="SNET">SNET</option><option value="SNLT">SNLT</option>
+                            <option value="FNET">FNET</option><option value="FNLT">FNLT</option>
+                            <option value="MSO">MSO</option><option value="MFO">MFO</option>
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_deadline', 'Deadline')}
+                        </span>
+                        <input
+                            type="datetime-local"
+                            value={asInputDateTime(period.deadline)}
+                            onChange={(event) => commit({ ...period, deadline: event.target.value })}
+                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                        />
+                    </label>
                 </div>
             );
         }
