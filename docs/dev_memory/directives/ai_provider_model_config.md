@@ -285,6 +285,34 @@ monthly spend ceiling in the Settings currency governs the router.
   `.js` suffix in relative imports or the build fails.
 - Note: With Zod v4, never call `z.record` with one argument because type
   checking and compilation fail. Always use `z.record(key, value)`.
+
+## Artificial Analysis comparison feed (implemented 2026-07-26)
+
+The Settings model-comparison dashboard uses the official Artificial Analysis
+Data API, never HTML scraping. The backend owns the API key and follows every
+pagination page so the UI receives the complete language-model set tracked by
+Artificial Analysis rather than a hand-maintained shortlist.
+
+- Fetch `/api/v2/language/models/free` on every dashboard open.
+- Keep `ARTIFICIAL_ANALYSIS_API_KEY` server-side; never send it to the browser.
+- Merge optional context-window and capability metadata from the existing live
+  models.dev catalog when the Free response omits Pro-only fields.
+- Derive the recommended role deterministically from benchmark, price,
+  performance, context, and reasoning signals; return the reasons with the role.
+- Surface authentication, quota, and network failures as localized dashboard
+  states. Never silently present the former five-row sample as current data.
+
+### Restrictions / Edge Cases
+
+- Do not scrape artificialanalysis.ai → the official Data API is stable and
+  scraping violates the integration architecture.
+- Do not stop at page one → the Free endpoint currently paginates at 200 rows,
+  so frontier or long-tail models may otherwise be omitted.
+- Do not call Artificial Analysis from React → exposes the API key and shares
+  the organisation quota with every browser client.
+- The Free tier does not include every Pro metadata field. Missing values must
+  remain unknown or come from an explicitly attributed models.dev enrichment;
+  they must never be invented.
 - Note: Never persist `api_key` in `params.yaml`, including during environment
   migrations. Store only `credential_ref` and resolve secrets from Keychain or
   the secret store at runtime.
