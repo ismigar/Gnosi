@@ -212,15 +212,36 @@ async def create_leveling_proposal(project_id: str):
     schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(project_id)
     proposal = propose_leveling(state)
     proposal.update({"id": str(uuid.uuid4()), "projectId": project_id, "scheduleRevision": (schedule or {}).get("scheduleRevision", 0), "createdAt": datetime.now().isoformat(timespec="seconds")})
+    proposal["type"] = "leveling_proposal"
+    proposal["status"] = "pending"
+    proposal["sourceEtags"] = {item["id"]: item.get("sourceEtag") for item in (schedule or {}).get("tasks", []) if item.get("sourceEtag")}
+    await asyncio.to_thread(_store().append_history, proposal)
     return proposal
 
 
 @router.post("/planning/leveling/proposals/{proposal_id}/apply", dependencies=[Depends(require_role("editor"))])
 async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload):
-    """Audits explicit acceptance; automatic task writes remain ETag-gated."""
-    entry = {"id": str(uuid.uuid4()), "type": "leveling_decision", "proposalId": proposal_id, "scheduleRevision": payload.schedule_revision, "etags": payload.etags, "acceptedAt": datetime.now().isoformat(timespec="seconds")}
+    """Accepts a current proposal only after revision and ETag validation."""
+    store = _store()
+    proposals = await asyncio.to_thread(store.history, "leveling_proposal")
+    proposal = next((item for item in reversed(proposals) if item.get("id") == proposal_id), None)
+    if not proposal:
+        raise _not_found("leveling proposal")
+    if proposal.get("status") != "pending":
+        raise HTTPException(status_code=409, detail="Leveling proposal has already been decided")
+    if payload.schedule_revision != proposal.get("scheduleRevision"):
+        raise HTTPException(status_code=409, detail="Schedule revision is stale; regenerate the proposal")
+    schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(proposal["projectId"])
+    if not schedule or schedule.get("scheduleRevision") != proposal.get("scheduleRevision"):
+        raise HTTPException(status_code=409, detail="Schedule changed; regenerate the proposal")
+    current_etags = {item["id"]: item.get("sourceEtag") for item in schedule.get("tasks", []) if item.get("sourceEtag")}
+    expected_etags = proposal.get("sourceEtags") or {}
+    if current_etags != expected_etags or payload.etags != expected_etags:
+        raise HTTPException(status_code=409, detail="Task ETags changed; regenerate the proposal")
+    entry = {"id": str(uuid.uuid4()), "type": "leveling_decision", "proposalId": proposal_id, "scheduleRevision": payload.schedule_revision, "etags": payload.etags, "acceptedAt": datetime.now().isoformat(timespec="seconds"), "appliedChanges": proposal["proposals"]}
     await asyncio.to_thread(_store().append_history, entry)
-    return {"decision": entry, "automaticWrites": []}
+    await asyncio.to_thread(store.append_history, {**proposal, "status": "accepted", "decidedAt": entry["acceptedAt"]})
+    return {"decision": entry, "automaticWrites": [], "requiresPageWriter": True}
 
 
 @router.post("/planning/recurrences", dependencies=[Depends(require_role("editor"))])
