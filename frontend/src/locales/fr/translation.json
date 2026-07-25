@@ -3630,6 +3630,27 @@
       }
     }
   },
+  "model_comparison": {
+    "launch_title": "Comparer les modèles d’IA",
+    "launch_description": "Explorez le coût, le contexte, la vitesse et les profils de tâches recommandés dans un tableau de bord interactif.",
+    "open": "Ouvrir le comparatif",
+    "close": "Fermer le comparatif des modèles",
+    "eyebrow": "Intelligence des modèles d’IA",
+    "title": "Comparatif des modèles d’IA",
+    "subtitle": "Trouvez le modèle adapté à chaque rôle, charge de travail et budget.",
+    "search": "Rechercher un modèle ou fournisseur",
+    "profile": "Profil de tâche",
+    "all_profiles": "Tous les profils",
+    "max_price": "Prix d’entrée max. ($/1M)",
+    "min_context": "Contexte min. (K jetons)",
+    "calculator": "Calculateur de coût mensuel",
+    "input_tokens": "Jetons d’entrée / mois",
+    "output_tokens": "Jetons de sortie / mois",
+    "no_results": "Aucun modèle ne correspond à ces filtres.",
+    "data_note": "Données de référence pour la comparaison. Les prix et performances des fournisseurs peuvent changer.",
+    "profiles": { "worker": "Exécutant", "administrative": "Administratif", "documentalist": "Documentaliste", "allrounder": "Polyvalent", "expert": "Expert / Directeur" },
+    "columns": { "model": "Modèle", "provider": "Fournisseur", "input_price": "Entrée $/1M", "output_price": "Sortie $/1M", "context": "Contexte", "speed": "Vitesse", "uptime": "Disponibilité", "profile": "Profil", "quantization": "Quantification", "monthly_cost": "Est. $/mois" }
+  },
   "tags": {
     "empty": "Aucune étiquette pour l'instant. Ajoutez-en via la propriété « tags ».",
     "no_match": "Aucune étiquette ne correspond",

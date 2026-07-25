@@ -3630,6 +3630,27 @@
       }
     }
   },
+  "model_comparison": {
+    "launch_title": "Compara modelos de IA",
+    "launch_description": "Explora coste, contexto, velocidad y perfiles de tarea recomendados en un único panel interactivo.",
+    "open": "Abrir comparativa",
+    "close": "Cerrar la comparativa de modelos",
+    "eyebrow": "Inteligencia de modelos de IA",
+    "title": "Comparativa de modelos de IA",
+    "subtitle": "Encuentra el modelo adecuado para cada rol, carga de trabajo y presupuesto.",
+    "search": "Buscar modelo o proveedor",
+    "profile": "Perfil de tarea",
+    "all_profiles": "Todos los perfiles",
+    "max_price": "Precio máx. entrada ($/1M)",
+    "min_context": "Contexto mínimo (K tokens)",
+    "calculator": "Calculadora de coste mensual",
+    "input_tokens": "Tokens de entrada / mes",
+    "output_tokens": "Tokens de salida / mes",
+    "no_results": "Ningún modelo coincide con estos filtros.",
+    "data_note": "Datos de referencia para la comparación. Los precios y el rendimiento de los proveedores pueden cambiar.",
+    "profiles": { "worker": "Peón", "administrative": "Administrativo", "documentalist": "Documentalista", "allrounder": "Todoterreno", "expert": "Perito / Director" },
+    "columns": { "model": "Modelo", "provider": "Proveedor", "input_price": "Entrada $/1M", "output_price": "Salida $/1M", "context": "Contexto", "speed": "Velocidad", "uptime": "Disponibilidad", "profile": "Perfil", "quantization": "Cuantización", "monthly_cost": "Est. $/mes" }
+  },
   "tags": {
     "empty": "Aún no hay etiquetas. Añádelas mediante la propiedad «tags».",
     "no_match": "Ninguna etiqueta coincide",
