@@ -21,7 +21,7 @@ import uuid
 from backend.utils.safe_io import safe_write_json
 
 
-STORE_VERSION = 1
+STORE_VERSION = 2
 DEFAULT_CALENDAR_ID = "project-default"
 _store_lock = Lock()
 
@@ -70,6 +70,8 @@ def default_state() -> dict[str, Any]:
         }],
         "resources": [],
         "assignments": [],
+        "recurrences": [],
+        "defaults": {"currency": "EUR", "project_relation_field_id": None},
     }
 
 
@@ -119,6 +121,7 @@ def normalize_resource(value: dict[str, Any], calendar_ids: set[str], *, existin
         "standard_rate": _number(value.get("standard_rate", 0), "standard_rate"),
         "overtime_rate": _number(value.get("overtime_rate", 0), "overtime_rate"),
         "cost_per_use": _number(value.get("cost_per_use", 0), "cost_per_use"),
+        "rate_history": list(value.get("rate_history") or []),
         "active": bool(value.get("active", True)),
     }
 
@@ -138,6 +141,9 @@ def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, exist
     normalized_end = _iso_datetime(end, "end").isoformat(timespec="minutes") if end else None
     if normalized_start and normalized_end and normalized_end <= normalized_start:
         raise PlanningValidationError("assignment end must be after start")
+    task_type = str(value.get("task_type") or "fixed_duration")
+    if task_type not in {"fixed_duration", "fixed_work", "fixed_units"}:
+        raise PlanningValidationError("task_type must be fixed_duration, fixed_work, or fixed_units")
     return {
         "id": assignment_id,
         "task_id": task_id,
@@ -149,6 +155,11 @@ def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, exist
         "rate_override": None if value.get("rate_override") in (None, "") else _number(value.get("rate_override"), "rate_override"),
         "start": normalized_start,
         "end": normalized_end,
+        "task_type": task_type,
+        "effort_driven": bool(value.get("effort_driven", False)),
+        "overtime_work_hours": _number(value.get("overtime_work_hours", 0), "overtime_work_hours"),
+        "material_quantity": _number(value.get("material_quantity", 0), "material_quantity"),
+        "fixed_cost": _number(value.get("fixed_cost", 0), "fixed_cost"),
     }
 
 
@@ -174,6 +185,25 @@ def _assignment_daily_hours(assignment: dict[str, Any], calendar: dict[str, Any]
     return {day.isoformat(): each for day in days}
 
 
+def _effective_rate(resource: dict[str, Any], assignment: dict[str, Any]) -> float:
+    """Resolves an assignment override or the latest rate effective at start."""
+    if assignment.get("rate_override") is not None:
+        return assignment["rate_override"]
+    start = str(assignment.get("start") or "9999-12-31")[:10]
+    candidates = []
+    for item in resource.get("rate_history") or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            effective = _iso_day(item.get("effective_from"), "rate effective_from")
+            rate = _number(item.get("standard_rate"), "rate standard_rate")
+        except (PlanningValidationError, TypeError):
+            continue
+        if effective <= start:
+            candidates.append((effective, rate))
+    return max(candidates, default=("", resource["standard_rate"]))[1]
+
+
 def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
     """Derives costs and daily allocation warnings without mutating state.
 
@@ -189,8 +219,10 @@ def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
         resource = resources.get(assignment["resource_id"])
         if not resource:
             continue
-        rate = assignment["rate_override"] if assignment.get("rate_override") is not None else resource["standard_rate"]
-        cost = assignment["planned_work_hours"] * rate + resource["cost_per_use"]
+        rate = _effective_rate(resource, assignment)
+        overtime_cost = assignment.get("overtime_work_hours", 0) * resource.get("overtime_rate", 0)
+        material_cost = assignment.get("material_quantity", 0) * rate if resource["type"] == "material" else 0
+        cost = assignment["planned_work_hours"] * rate + overtime_cost + material_cost + resource["cost_per_use"] + assignment.get("fixed_cost", 0)
         assignment_summaries.append({
             "id": assignment["id"], "task_id": assignment["task_id"], "resource_id": resource["id"],
             "planned_work_hours": assignment["planned_work_hours"], "remaining_work_hours": assignment["remaining_work_hours"],
@@ -291,6 +323,8 @@ def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
             "reason": "resource_overallocated",
             "source_date": warning["date"],
             "delay_working_days": delay_days,
+            "source_start": candidate["start"],
+            "source_end": candidate["end"],
             "suggested_start": _shift_to_next_working_date(start, calendar, delay_days).isoformat(timespec="minutes"),
             "suggested_end": _shift_to_next_working_date(end, calendar, delay_days).isoformat(timespec="minutes"),
             "requires_review": True,
@@ -308,6 +342,7 @@ class PlanningStore:
 
     def __init__(self, config_dir: Path):
         self.path = config_dir / "project_planning.json"
+        self.history_path = config_dir / "project_planning_history.jsonl"
 
     def load(self) -> dict[str, Any]:
         with _store_lock:
@@ -315,10 +350,13 @@ class PlanningStore:
                 if not self.path.exists():
                     return default_state()
                 value = json.loads(self.path.read_text(encoding="utf-8"))
-                if not isinstance(value, dict) or value.get("version") != STORE_VERSION:
+                if not isinstance(value, dict):
+                    return default_state()
+                if value.get("version") not in {1, STORE_VERSION}:
                     return default_state()
                 state = default_state()
                 state.update({key: value.get(key, state[key]) for key in state})
+                state["version"] = STORE_VERSION
                 return state
             except (OSError, json.JSONDecodeError):
                 return default_state()
@@ -331,3 +369,24 @@ class PlanningStore:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             safe_write_json(self.path, next_state, indent=2, ensure_ascii=False)
             return next_state
+
+    def append_history(self, entry: dict[str, Any]) -> None:
+        """Appends an auditable event without changing previous records."""
+        with _store_lock:
+            self.history_path.parent.mkdir(parents=True, exist_ok=True)
+            with self.history_path.open("a", encoding="utf-8") as output:
+                output.write(json.dumps(entry, ensure_ascii=False, sort_keys=True) + "\n")
+
+    def history(self, event_type: str | None = None) -> list[dict[str, Any]]:
+        with _store_lock:
+            if not self.history_path.exists():
+                return []
+            result = []
+            for line in self.history_path.read_text(encoding="utf-8").splitlines():
+                try:
+                    value = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if not event_type or value.get("type") == event_type:
+                    result.append(value)
+            return result

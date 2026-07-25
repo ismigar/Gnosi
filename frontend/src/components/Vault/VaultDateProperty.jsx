@@ -217,7 +217,7 @@ export const VaultDateProperty = ({
             };
             const getPredecessorIds = (note) => {
                 const parsed = parsePeriod(getPeriodValue(note));
-                return parsed.version === 2
+                return parsed.version >= 2
                     ? parsed.predecessorIds
                     : (note?.metadata?.predecessor_ids || []);
             };
@@ -324,7 +324,14 @@ export const VaultDateProperty = ({
                     event.target.selectedOptions,
                     (option) => option.value,
                 );
-                const next = { ...period, predecessorIds };
+                const next = {
+                    ...period,
+                    predecessorIds,
+                    dependencies: predecessorIds.map((predecessorId) => (
+                        period.dependencies.find((dependency) => dependency.predecessorId === predecessorId)
+                        || { predecessorId, type: 'FS', lagMinutes: 0 }
+                    )),
+                };
                 if (predecessorIds.length === 0 && next.startMode === 'auto') {
                     next.start = '';
                     if (next.endMode === 'auto') next.end = '';
@@ -346,6 +353,37 @@ export const VaultDateProperty = ({
                             onChange={(event) => handleStartChange(event.target.value)}
                             className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
                         />
+                    </label>
+                    {['SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].includes(period.constraintType) && (
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                {t('vault_date.period_constraint_date', 'Constraint date')}
+                            </span>
+                            <input
+                                type="datetime-local"
+                                value={asInputDateTime(period.constraintDate)}
+                                onChange={(event) => commit({ ...period, constraintDate: event.target.value })}
+                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            />
+                        </label>
+                    )}
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_complete', 'Complete (%)')}
+                        </span>
+                        <input type="number" min="0" max="100" value={period.percentComplete} onChange={(event) => commit({ ...period, percentComplete: Math.min(100, Math.max(0, Number(event.target.value) || 0)) })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_actual_start', 'Actual start')}
+                        </span>
+                        <input type="datetime-local" value={asInputDateTime(period.actualStart)} onChange={(event) => commit({ ...period, actualStart: event.target.value })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_actual_end', 'Actual finish')}
+                        </span>
+                        <input type="datetime-local" value={asInputDateTime(period.actualEnd)} onChange={(event) => commit({ ...period, actualEnd: event.target.value, percentComplete: event.target.value ? 100 : period.percentComplete })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
                     </label>
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
@@ -394,6 +432,46 @@ export const VaultDateProperty = ({
                             </select>
                         </label>
                     )}
+                    {predecessorsEnabled && period.dependencies.length > 0 && (
+                        <div className="col-span-2 flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                {t('vault_date.period_dependency_details', 'Dependency details')}
+                            </span>
+                            {period.dependencies.map((dependency, index) => (
+                                <div key={dependency.predecessorId} className="grid grid-cols-[1fr_76px_96px] gap-1">
+                                    <span className="truncate rounded bg-[var(--bg-secondary)] px-2 py-1 text-[var(--text-secondary)]">{idToTitle[dependency.predecessorId] || dependency.predecessorId}</span>
+                                    <select value={dependency.type || 'FS'} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, type: event.target.value } : item) })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"><option value="FS">FS</option><option value="SS">SS</option><option value="FF">FF</option><option value="SF">SF</option></select>
+                                    <input type="number" step="15" value={dependency.lagMinutes ?? 0} onChange={(event) => commit({ ...period, dependencies: period.dependencies.map((item, itemIndex) => itemIndex === index ? { ...item, lagMinutes: Number(event.target.value) || 0 } : item) })} aria-label={t('vault_date.period_dependency_lag', 'Lag minutes')} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_constraint', 'Constraint')}
+                        </span>
+                        <select
+                            value={period.constraintType || 'ASAP'}
+                            onChange={(event) => commit({ ...period, constraintType: event.target.value })}
+                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                        >
+                            <option value="ASAP">ASAP</option><option value="ALAP">ALAP</option>
+                            <option value="SNET">SNET</option><option value="SNLT">SNLT</option>
+                            <option value="FNET">FNET</option><option value="FNLT">FNLT</option>
+                            <option value="MSO">MSO</option><option value="MFO">MFO</option>
+                        </select>
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_deadline', 'Deadline')}
+                        </span>
+                        <input
+                            type="datetime-local"
+                            value={asInputDateTime(period.deadline)}
+                            onChange={(event) => commit({ ...period, deadline: event.target.value })}
+                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                        />
+                    </label>
                 </div>
             );
         }

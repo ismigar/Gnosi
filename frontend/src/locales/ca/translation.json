@@ -418,6 +418,7 @@
     "nav_reader": "Lector",
     "nav_social": "Social",
     "nav_media": "Fotos",
+    "nav_planning": "Planificació",
     "nav_dashboard": "Tauler",
     "nav_settings": "Configuració",
     "daily_note": "Nota diària",
@@ -3947,6 +3948,9 @@
     "indexing": "Indexant…",
     "no_files": "No s'han trobat fitxers"
   },
+  "planning_page": {
+    "title": "Planificació de projectes", "subtitle": "Calendari, camí crític, recursos i diagnòstics.", "project_id": "ID del projecte", "project": "Projecte", "default_project": "Projecte predeterminat", "refresh": "Actualitza", "load_error": "No s'ha pogut carregar la planificació.", "critical_tasks": "Tasques crítiques", "estimated_cost": "Cost estimat", "warnings": "Avisos", "schedule": "Calendari", "task": "Tasca", "start": "Inici", "finish": "Fi", "slack": "Folgança", "diagnostics": "Diagnòstics"
+  },
   "vault_date": {
     "days_placeholder": "dies",
     "days_count_hint": "Nombre de dies (recalcula la data de fi)",
@@ -3955,6 +3959,15 @@
     "period_end": "Data i hora de fi",
     "period_duration": "Dies laborables",
     "period_predecessors": "Predecessores",
+    "period_dependency_type": "Tipus de dependència",
+    "period_dependency_details": "Detalls de dependència",
+    "period_dependency_lag": "Retard en minuts",
+    "period_constraint": "Restricció",
+    "period_constraint_date": "Data de restricció",
+    "period_deadline": "Data límit",
+    "period_complete": "Complet (%)",
+    "period_actual_start": "Inici real",
+    "period_actual_end": "Fi real",
     "period_predecessors_hint": "Selecciona una o més tasques que han d'acabar abans",
     "period_predecessor_count_one": "{{count}} predecessora",
     "period_predecessor_count_many": "{{count}} predecessores",

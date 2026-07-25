@@ -458,6 +458,7 @@
     "nav_reader": "Reader",
     "nav_social": "Social",
     "nav_media": "Photos",
+    "nav_planning": "Planning",
     "nav_dashboard": "Dashboard",
     "nav_settings": "Settings",
     "favorites": "Favorites",
@@ -3915,6 +3916,9 @@
     "indexing": "Indexing…",
     "no_files": "No files found"
   },
+  "planning_page": {
+    "title": "Project planning", "subtitle": "Schedule, critical path, resources and diagnostics.", "project_id": "Project ID", "project": "Project", "default_project": "Default project", "refresh": "Refresh", "load_error": "Could not load the project schedule.", "critical_tasks": "Critical tasks", "estimated_cost": "Estimated cost", "warnings": "Warnings", "schedule": "Schedule", "task": "Task", "start": "Start", "finish": "Finish", "slack": "Slack", "diagnostics": "Diagnostics"
+  },
   "vault_date": {
     "days_placeholder": "days",
     "days_count_hint": "Number of days (recalculates the end date)",
@@ -3923,6 +3927,15 @@
     "period_end": "Finish date and time",
     "period_duration": "Working days",
     "period_predecessors": "Predecessors",
+    "period_dependency_type": "Dependency type",
+    "period_dependency_details": "Dependency details",
+    "period_dependency_lag": "Lag minutes",
+    "period_constraint": "Constraint",
+    "period_constraint_date": "Constraint date",
+    "period_deadline": "Deadline",
+    "period_complete": "Complete (%)",
+    "period_actual_start": "Actual start",
+    "period_actual_end": "Actual finish",
     "period_predecessors_hint": "Select one or more tasks that must finish first",
     "period_predecessor_count_one": "{{count}} predecessor",
     "period_predecessor_count_other": "{{count}} predecessors",

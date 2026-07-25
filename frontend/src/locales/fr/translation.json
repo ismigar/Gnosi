@@ -1918,6 +1918,7 @@
     "nav_reader": "Lecteur",
     "nav_social": "Social",
     "nav_media": "Photos",
+    "nav_planning": "Planification",
     "nav_dashboard": "Tableau de bord",
     "dashboards": "Tableaux de bord",
     "no_dashboard_pages": "Aucun tableau de bord",
@@ -3947,6 +3948,9 @@
     "indexing": "Indexation…",
     "no_files": "Aucun fichier trouvé"
   },
+  "planning_page": {
+    "title": "Planification de projets", "subtitle": "Planning, chemin critique, ressources et diagnostics.", "project_id": "ID du projet", "project": "Projet", "default_project": "Projet par défaut", "refresh": "Actualiser", "load_error": "Impossible de charger le planning du projet.", "critical_tasks": "Tâches critiques", "estimated_cost": "Coût estimé", "warnings": "Avertissements", "schedule": "Planning", "task": "Tâche", "start": "Début", "finish": "Fin", "slack": "Marge", "diagnostics": "Diagnostics"
+  },
   "vault_date": {
     "days_placeholder": "jours",
     "days_count_hint": "Nombre de jours (recalcule la date de fin)",
@@ -3955,6 +3959,15 @@
     "period_end": "Date et heure de fin",
     "period_duration": "Jours ouvrés",
     "period_predecessors": "Prédécesseurs",
+    "period_dependency_type": "Type de dépendance",
+    "period_dependency_details": "Détails de la dépendance",
+    "period_dependency_lag": "Retard en minutes",
+    "period_constraint": "Contrainte",
+    "period_constraint_date": "Date de contrainte",
+    "period_deadline": "Échéance",
+    "period_complete": "Terminé (%)",
+    "period_actual_start": "Début réel",
+    "period_actual_end": "Fin réel",
     "period_predecessors_hint": "Sélectionnez une ou plusieurs tâches qui doivent se terminer avant",
     "period_predecessor_count_one": "{{count}} prédécesseur",
     "period_predecessor_count_many": "{{count}} prédécesseurs",

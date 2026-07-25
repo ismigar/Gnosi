@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut } from 'lucide-react';
+import { Home, Network, BookOpen, Gauge, Share2, Settings, Menu, X, FileText, Calendar, Inbox, LayoutGrid, Clock, PenTool, Image as ImageIcon, Users, User, LogOut, CalendarRange } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 // The Settings modal drags in the BlockEditor (blocknote/tiptap) and other
 // heavy views. By lazy-loading it we avoid these libraries
@@ -39,6 +39,7 @@ const navItems = [
     { to: '/reader',            icon: BookOpen,   labelKey: 'sidebar.nav_reader',    shortcut: 'Ctrl 6' },
     { to: '/social-dashboard',  icon: Share2,     labelKey: 'sidebar.nav_social',    shortcut: 'Ctrl 7' },
     { to: '/media',             icon: ImageIcon,  labelKey: 'sidebar.nav_media',     shortcut: 'Ctrl 8' },
+    { to: '/planning',          icon: CalendarRange, labelKey: 'sidebar.nav_planning', shortcut: '' },
 ];
 
 export function AppSidebar() {
