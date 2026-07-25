@@ -185,6 +185,25 @@ def _assignment_daily_hours(assignment: dict[str, Any], calendar: dict[str, Any]
     return {day.isoformat(): each for day in days}
 
 
+def _effective_rate(resource: dict[str, Any], assignment: dict[str, Any]) -> float:
+    """Resolves an assignment override or the latest rate effective at start."""
+    if assignment.get("rate_override") is not None:
+        return assignment["rate_override"]
+    start = str(assignment.get("start") or "9999-12-31")[:10]
+    candidates = []
+    for item in resource.get("rate_history") or []:
+        if not isinstance(item, dict):
+            continue
+        try:
+            effective = _iso_day(item.get("effective_from"), "rate effective_from")
+            rate = _number(item.get("standard_rate"), "rate standard_rate")
+        except (PlanningValidationError, TypeError):
+            continue
+        if effective <= start:
+            candidates.append((effective, rate))
+    return max(candidates, default=("", resource["standard_rate"]))[1]
+
+
 def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
     """Derives costs and daily allocation warnings without mutating state.
 
@@ -200,7 +219,7 @@ def calculate_allocation(state: dict[str, Any]) -> dict[str, Any]:
         resource = resources.get(assignment["resource_id"])
         if not resource:
             continue
-        rate = assignment["rate_override"] if assignment.get("rate_override") is not None else resource["standard_rate"]
+        rate = _effective_rate(resource, assignment)
         overtime_cost = assignment.get("overtime_work_hours", 0) * resource.get("overtime_rate", 0)
         material_cost = assignment.get("material_quantity", 0) * rate if resource["type"] == "material" else 0
         cost = assignment["planned_work_hours"] * rate + overtime_cost + material_cost + resource["cost_per_use"] + assignment.get("fixed_cost", 0)

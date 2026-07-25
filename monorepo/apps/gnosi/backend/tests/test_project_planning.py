@@ -96,6 +96,13 @@ def test_allocation_includes_overtime_material_and_fixed_costs():
     assert calculate_allocation(state)["total_estimated_cost"] == 112
 
 
+def test_allocation_uses_rate_effective_on_assignment_start():
+    state = default_state()
+    state["resources"] = [_resource(standard_rate=10, cost_per_use=0, rate_history=[{"effective_from": "2026-07-01", "standard_rate": 20}])]
+    state["assignments"] = [_assignment(planned_work_hours=2)]
+    assert calculate_allocation(state)["total_estimated_cost"] == 40
+
+
 def test_resource_rejects_missing_calendar():
     with pytest.raises(PlanningValidationError, match="calendar"):
         normalize_resource({"name": "Ada", "calendar_id": "missing"}, {"project-default"})
