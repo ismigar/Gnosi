@@ -169,3 +169,15 @@ def test_leveling_proposal_requires_current_revision_and_etags(route_store, monk
     proposal, accepted = asyncio.run(scenario())
     assert proposal["status"] == "pending"
     assert accepted["decision"]["appliedChanges"] == proposal["proposals"]
+
+
+def test_baseline_variance_compares_derived_schedule(route_store, monkeypatch):
+    class Index:
+        def load(self):
+            return {"projects": {"p1": {"scheduleRevision": 2, "tasks": [{"id": "task-1", "start": "2026-07-28T09:00", "end": "2026-07-29T17:00", "durationDays": 2}]}}}
+
+    monkeypatch.setattr(routes, "_index", lambda: Index())
+    route_store.append_history({"id": "b1", "type": "baseline", "projectId": "p1", "scheduleRevision": 1, "schedule": {"tasks": [{"id": "task-1", "start": "2026-07-27T09:00", "end": "2026-07-27T17:00", "durationDays": 1}]}})
+
+    variance = asyncio.run(routes.get_baseline_variance("p1", "b1"))
+    assert variance["tasks"] == [{"taskId": "task-1", "baselineStart": "2026-07-27T09:00", "currentStart": "2026-07-28T09:00", "baselineEnd": "2026-07-27T17:00", "currentEnd": "2026-07-29T17:00", "durationDaysVariance": 1.0}]
