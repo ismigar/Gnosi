@@ -1280,6 +1280,16 @@
         "name": "Planificación de proyectos",
         "desc": "Añade duraciones laborables, predecesoras y calendarios de trabajo a los campos de período."
       },
+      "catalog": {
+        "daily-notes": { "name": "Notas diarias", "description": "Acceso rápido a la nota diaria y navegación por fechas, al estilo de Obsidian." },
+        "tags-page": { "name": "Página de etiquetas", "description": "Índice de todas las etiquetas del vault con recuentos y navegación." },
+        "page-comments": { "name": "Comentarios", "description": "Hilo de comentarios por página, al estilo de Notion." },
+        "share-links": { "name": "Compartición externa", "description": "Enlaces públicos de solo lectura para páginas." },
+        "canvas-cards": { "name": "Tarjetas del canvas", "description": "Inserta páginas como tarjetas dinámicas en el canvas." },
+        "web-clipper": { "name": "Web Clipper", "description": "Guarda páginas web desde el navegador en la tabla que elijas y completa sus campos." },
+        "llm-wiki": { "name": "Cerebro (wiki LLM)", "description": "Procesa recursos con IA para mantener una wiki de conocimiento enlazada, al estilo de Karpathy." },
+        "project-planning": { "name": "Planificación de proyectos", "description": "Añade duraciones laborables, predecesoras y calendarios de trabajo a los campos de período." }
+      },
       "planning_intro": "Elige las tablas de proyectos y tareas y define el calendario de los campos de período ampliados.",
       "planning_project_table": "Tabla de proyectos",
       "planning_task_table": "Tabla de tareas",
