@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { useTranslation } from 'react-i18next';
 import { AlertTriangle, RefreshCw, Route, Wallet } from 'lucide-react';
+import { VaultTimeline } from '../components/Vault/VaultTimeline';
 
 export default function ProjectPlanningPage() {
     const { t } = useTranslation();
@@ -31,6 +32,11 @@ export default function ProjectPlanningPage() {
     useEffect(() => { void load(); }, [load]);
     const diagnostics = schedule?.diagnostics || [];
     const tasks = schedule?.tasks || [];
+    const ganttNotes = tasks.map((task) => ({
+        id: task.id,
+        title: task.title,
+        metadata: { Schedule: { start: task.start, end: task.end } },
+    }));
     return (
         <main className="mx-auto max-w-7xl space-y-6 p-6">
             <header className="flex flex-wrap items-end justify-between gap-3">
@@ -44,6 +50,7 @@ export default function ProjectPlanningPage() {
                 <article className="rounded border bg-[var(--bg-primary)] p-4"><AlertTriangle size={18} /><p className="mt-2 text-sm text-[var(--text-tertiary)]">{t('planning_page.warnings', 'Warnings')}</p><strong className="text-2xl">{diagnostics.length + (allocation?.warnings?.length || 0)}</strong></article>
             </section>
             <section className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-3 text-lg font-medium">{t('planning_page.schedule', 'Schedule')}</h2>{loading ? <p>{t('common.loading', 'Loading...')}</p> : <div className="overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="border-b"><th className="p-2">{t('planning_page.task', 'Task')}</th><th className="p-2">{t('planning_page.start', 'Start')}</th><th className="p-2">{t('planning_page.finish', 'Finish')}</th><th className="p-2">{t('planning_page.slack', 'Slack')}</th></tr></thead><tbody>{tasks.map((task) => <tr className="border-b" key={task.id}><td className={task.critical ? 'p-2 font-semibold text-red-600' : 'p-2'}>{task.title}</td><td className="p-2">{task.start}</td><td className="p-2">{task.end}</td><td className="p-2">{task.freeSlackMinutes}</td></tr>)}</tbody></table></div>}</section>
+            {tasks.length > 0 && <section className="h-[620px] overflow-hidden rounded border bg-[var(--bg-primary)]"><VaultTimeline notes={ganttNotes} schema={{ Schedule: 'period' }} activeView={{ dateField: 'Schedule', endDateField: 'Schedule' }} idToTitle={Object.fromEntries(tasks.map((task) => [task.id, task.title]))} /></section>}
             {diagnostics.length > 0 && <section className="rounded border bg-[var(--bg-primary)] p-4"><h2 className="mb-2 text-lg font-medium">{t('planning_page.diagnostics', 'Diagnostics')}</h2><ul className="space-y-1 text-sm">{diagnostics.map((item, index) => <li key={`${item.code}-${index}`}>{item.message}</li>)}</ul></section>}
         </main>
     );
