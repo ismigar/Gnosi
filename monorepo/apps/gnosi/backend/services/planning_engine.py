@@ -59,6 +59,8 @@ def normalize_period(value: Any) -> dict[str, Any]:
         "mode": "manual" if mode == "manual" else "automatic",
         "constraintType": str(source.get("constraintType") or "ASAP").upper(),
         "constraintDate": source.get("constraintDate"), "deadline": source.get("deadline"),
+        "percentComplete": min(100.0, max(0.0, float(source.get("percentComplete") or 0))),
+        "actualStart": source.get("actualStart"), "actualEnd": source.get("actualEnd"),
     }
 
 
@@ -162,7 +164,9 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
         task = tasks[task_id]
         period = task["period"]
         duration = period["durationDays"]
-        start = parse_datetime(period["start"]) if period["startMode"] == "manual" else None
+        actual_start = parse_datetime(period["actualStart"])
+        actual_end = parse_datetime(period["actualEnd"])
+        start = actual_start or (parse_datetime(period["start"]) if period["startMode"] == "manual" else None)
         trace: list[str] = []
         candidate = epoch
         for dependency in period["dependencies"]:
@@ -178,7 +182,7 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
             candidate = max(candidate, constraint_date)
         if start is None:
             start = candidate
-        end = parse_datetime(period["end"]) if period["endMode"] == "manual" else None
+        end = actual_end or (parse_datetime(period["end"]) if period["endMode"] == "manual" else None)
         if end is None:
             end = calendar.add_duration(start, duration)
         if constraint == "FNET" and constraint_date and end < constraint_date:
@@ -194,7 +198,7 @@ def build_schedule(task_facts: list[dict[str, Any]], calendar_data: dict[str, An
         deadline = parse_datetime(period["deadline"])
         if deadline and end > deadline:
             diagnostics.append({"code": "deadline_missed", "severity": "warning", "taskId": task_id, "message": "Deadline is missed"})
-        calculated[task_id] = {"id": task_id, "title": task.get("title") or task_id, "start": start, "end": end, "durationDays": duration, "trace": trace, "sourceEtag": task.get("etag"), "period": period}
+        calculated[task_id] = {"id": task_id, "title": task.get("title") or task_id, "start": start, "end": end, "durationDays": duration, "percentComplete": period["percentComplete"], "actualStart": period["actualStart"], "actualEnd": period["actualEnd"], "trace": trace, "sourceEtag": task.get("etag"), "period": period}
     finish = max((item["end"] for item in calculated.values()), default=epoch)
     for task in calculated.values():
         task["freeSlackMinutes"] = round((finish - task["end"]).total_seconds() / 60, 2)
