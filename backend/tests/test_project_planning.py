@@ -137,3 +137,26 @@ def test_api_rejects_assignment_with_unknown_resource(route_store):
 
     error = asyncio.run(scenario())
     assert getattr(error, "status_code", None) == 422
+
+
+def test_leveling_proposal_requires_current_revision_and_etags(route_store, monkeypatch):
+    class Index:
+        def load(self):
+            return {"projects": {"p1": {"scheduleRevision": 4, "tasks": [{"id": "task-1", "sourceEtag": "etag-1"}]}}}
+
+    monkeypatch.setattr(routes, "_index", lambda: Index())
+    state = route_store.load()
+    state["resources"] = [_resource()]
+    state["assignments"] = [_assignment(), _assignment("a2", task_id="task-2")]
+    route_store.save(state)
+
+    async def scenario():
+        proposal = await routes.create_leveling_proposal("p1")
+        accepted = await routes.apply_leveling_proposal(
+            proposal["id"], routes.ProposalApplyPayload(schedule_revision=4, etags={"task-1": "etag-1"}),
+        )
+        return proposal, accepted
+
+    proposal, accepted = asyncio.run(scenario())
+    assert proposal["status"] == "pending"
+    assert accepted["decision"]["appliedChanges"] == proposal["proposals"]
