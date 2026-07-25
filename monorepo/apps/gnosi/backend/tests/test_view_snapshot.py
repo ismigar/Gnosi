@@ -68,6 +68,43 @@ def test_filter_contains_and_numeric():
     assert apply_filter({"n": "2"}, PAGE, {"field": "n", "operator": "greater_than", "value": "3"}) is False
 
 
+def test_structured_period_filter_can_target_start_or_end():
+    meta = {
+        "Window": {
+            "version": 2,
+            "start": "2026-07-27T09:00",
+            "end": "2026-07-28T17:00",
+            "durationDays": 2,
+            "predecessorIds": ["task-a"],
+        }
+    }
+    assert apply_filter(
+        meta,
+        PAGE,
+        {
+            "field": "Window",
+            "operator": "equals",
+            "periodPart": "start",
+            "value": "2026-07-27T09:00",
+        },
+    )
+    assert apply_filter(
+        meta,
+        PAGE,
+        {
+            "field": "Window",
+            "operator": "equals",
+            "periodPart": "end",
+            "value": "2026-07-28T17:00",
+        },
+    )
+    assert apply_filter(
+        meta,
+        PAGE,
+        {"field": "Window", "operator": "equals", "value": "2026-07-27T09:00"},
+    )
+
+
 def test_filter_no_field_is_passthrough():
     assert apply_filter({}, PAGE, {"operator": "equals", "value": "x"}) is True
 

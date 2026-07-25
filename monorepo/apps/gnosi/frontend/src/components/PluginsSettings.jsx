@@ -1,14 +1,14 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useTranslation, Trans } from 'react-i18next';
-import { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
+import { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Puzzle, Settings, Trash2, Upload, Download, ShieldCheck, Globe, KeyRound, Scissors } from 'lucide-react';
 import { BUILTIN_PLUGINS } from '../plugins/registry';
 import { usePlugins } from '../plugins/usePlugins';
 import { reloadPlugins } from '../plugins/usePluginHost';
 import ConfirmModal from './ConfirmModal';
 import { sortFieldItems } from '../utils/fieldOrdering';
 
-const ICONS = { CalendarDays, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
+const ICONS = { CalendarDays, CalendarRange, Hash, MessageSquare, Share2, LayoutDashboard, BrainCircuit, Scissors };
 
 const SELECT_STYLE = {
     width: '100%', padding: '8px 10px', borderRadius: 8, fontSize: 13,
@@ -106,6 +106,419 @@ function DailyNotesConfig() {
                     )}
                 </label>
             )}
+        </div>
+    );
+}
+
+function ProjectPlanningConfig() {
+    const { t, i18n: i18nInstance } = useTranslation();
+    const tp = useCallback((key, options) => t('settings.plugins.' + key, options), [t]);
+    const { getPluginSettings, setPluginSettings } = usePlugins();
+    const config = getPluginSettings('project-planning');
+    const [tables, setTables] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [holidayDraft, setHolidayDraft] = useState(
+        Array.isArray(config.holidays) ? config.holidays.join('\n') : '',
+    );
+    const [planningState, setPlanningState] = useState(null);
+    const [planningLoading, setPlanningLoading] = useState(true);
+    const [planningError, setPlanningError] = useState('');
+    const [taskPages, setTaskPages] = useState([]);
+    const [resourceDraft, setResourceDraft] = useState({
+        name: '', type: 'work', calendar_id: 'project-default', availability_units: 100, standard_rate: 0,
+    });
+    const [calendarDraft, setCalendarDraft] = useState('');
+    const [assignmentDraft, setAssignmentDraft] = useState({
+        task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '',
+    });
+    const [levelingProposal, setLevelingProposal] = useState(null);
+
+    const refreshPlanning = useCallback(async () => {
+        setPlanningLoading(true);
+        try {
+            const response = await axios.get('/api/planning/state');
+            setPlanningState(response.data);
+            setPlanningError('');
+        } catch (error) {
+            console.error('Project planning: could not load resources:', error);
+            setPlanningError(tp('planning_resources_load_error', { defaultValue: 'Could not load planning resources.' }));
+        } finally {
+            setPlanningLoading(false);
+        }
+    }, [tp]);
+
+    useEffect(() => {
+        let alive = true;
+        axios.get('/api/vault/tables')
+            .then((response) => {
+                if (alive) setTables(Array.isArray(response.data) ? response.data : []);
+            })
+            .catch((error) => {
+                if (alive) {
+                    console.error('Project planning: could not load tables:', error);
+                    setTables([]);
+                }
+            })
+            .finally(() => { if (alive) setLoading(false); });
+        return () => { alive = false; };
+    }, []);
+
+    useEffect(() => {
+        void refreshPlanning();
+    }, [refreshPlanning]);
+
+    useEffect(() => {
+        if (!config.task_table_id) {
+            setTaskPages([]);
+            return undefined;
+        }
+        let alive = true;
+        axios.get('/api/vault/pages', { params: { table_id: config.task_table_id, limit: 300 } })
+            .then((response) => {
+                if (alive) setTaskPages(Array.isArray(response.data) ? response.data : []);
+            })
+            .catch((error) => {
+                console.error('Project planning: could not load task pages:', error);
+                if (alive) setTaskPages([]);
+            });
+        return () => { alive = false; };
+    }, [config.task_table_id]);
+
+    const setPlanningSettings = (patch) => {
+        setPluginSettings('project-planning', patch);
+        const calendarPatch = {};
+        if (Object.hasOwn(patch, 'working_weekdays')) calendarPatch.working_weekdays = patch.working_weekdays;
+        if (Object.hasOwn(patch, 'holidays')) calendarPatch.holidays = patch.holidays;
+        if (Object.hasOwn(patch, 'hours_per_day')) calendarPatch.hours_per_day = patch.hours_per_day;
+        if (Object.hasOwn(patch, 'workday_start')) calendarPatch.workday_start = patch.workday_start;
+        if (Object.keys(calendarPatch).length) {
+            axios.patch('/api/planning/calendars/project-default', calendarPatch)
+                .then(() => refreshPlanning())
+                .catch((error) => console.error('Project planning: could not sync default calendar:', error));
+        }
+    };
+
+    const sortedTables = sortFieldItems(
+        tables,
+        (table) => table.name || table.id,
+        i18nInstance.language,
+    );
+    const workingWeekdays = Array.isArray(config.working_weekdays)
+        ? config.working_weekdays.map(Number)
+        : [1, 2, 3, 4, 5];
+    const weekdayOptions = [
+        [1, tp('planning_monday', { defaultValue: "Mon" })],
+        [2, tp('planning_tuesday', { defaultValue: "Tue" })],
+        [3, tp('planning_wednesday', { defaultValue: "Wed" })],
+        [4, tp('planning_thursday', { defaultValue: "Thu" })],
+        [5, tp('planning_friday', { defaultValue: "Fri" })],
+        [6, tp('planning_saturday', { defaultValue: "Sat" })],
+        [0, tp('planning_sunday', { defaultValue: "Sun" })],
+    ];
+    const toggleWeekday = (day) => {
+        const next = workingWeekdays.includes(day)
+            ? workingWeekdays.filter((candidate) => candidate !== day)
+            : [...workingWeekdays, day];
+        if (next.length === 0) return;
+        setPlanningSettings({ working_weekdays: next });
+    };
+    const saveHolidays = () => {
+        const holidays = [...new Set(
+            holidayDraft
+                .split(/[\n,;]+/)
+                .map((value) => value.trim())
+                .filter((value) => /^\d{4}-\d{2}-\d{2}$/.test(value)),
+        )].sort();
+        setHolidayDraft(holidays.join('\n'));
+        setPlanningSettings({ holidays });
+    };
+
+    const createResource = async () => {
+        try {
+            await axios.post('/api/planning/resources', resourceDraft);
+            setResourceDraft({ name: '', type: 'work', calendar_id: 'project-default', availability_units: 100, standard_rate: 0 });
+            await refreshPlanning();
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_resource_save_error', { defaultValue: 'Could not save the resource.' }));
+        }
+    };
+
+    const createCalendar = async () => {
+        try {
+            await axios.post('/api/planning/calendars', {
+                name: calendarDraft,
+                working_weekdays: workingWeekdays,
+                holidays: Array.isArray(config.holidays) ? config.holidays : [],
+                hours_per_day: config.hours_per_day ?? 8,
+                workday_start: config.workday_start || '09:00',
+            });
+            setCalendarDraft('');
+            await refreshPlanning();
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_calendar_save_error', { defaultValue: 'Could not save the calendar.' }));
+        }
+    };
+
+    const deleteCalendar = async (calendarId) => {
+        try {
+            await axios.delete(`/api/planning/calendars/${encodeURIComponent(calendarId)}`);
+            await refreshPlanning();
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_calendar_delete_error', { defaultValue: 'Could not delete the calendar.' }));
+        }
+    };
+
+    const deleteResource = async (resourceId) => {
+        try {
+            await axios.delete(`/api/planning/resources/${encodeURIComponent(resourceId)}`);
+            await refreshPlanning();
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_resource_delete_error', { defaultValue: 'Could not delete the resource.' }));
+        }
+    };
+
+    const createAssignment = async () => {
+        try {
+            await axios.post('/api/planning/assignments', {
+                ...assignmentDraft,
+                planned_work_hours: Number(assignmentDraft.planned_work_hours) || 0,
+                start: assignmentDraft.start || null,
+                end: assignmentDraft.end || null,
+            });
+            setAssignmentDraft({ task_id: '', resource_id: '', planned_work_hours: 0, start: '', end: '' });
+            await refreshPlanning();
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_assignment_save_error', { defaultValue: 'Could not save the assignment.' }));
+        }
+    };
+
+    const deleteAssignment = async (assignmentId) => {
+        try {
+            await axios.delete(`/api/planning/assignments/${encodeURIComponent(assignmentId)}`);
+            await refreshPlanning();
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_assignment_delete_error', { defaultValue: 'Could not delete the assignment.' }));
+        }
+    };
+
+    const previewLeveling = async () => {
+        try {
+            const response = await axios.get('/api/planning/leveling/proposal');
+            setLevelingProposal(response.data);
+            setPlanningError('');
+        } catch (error) {
+            setPlanningError(error.response?.data?.detail || tp('planning_leveling_load_error', { defaultValue: 'Could not generate the leveling proposal.' }));
+        }
+    };
+
+    const tableSelect = (key, label) => (
+        <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                {label}
+            </span>
+            <select
+                style={SELECT_STYLE}
+                value={config[key] || ''}
+                disabled={loading}
+                onChange={(event) => setPlanningSettings({ [key]: event.target.value })}
+            >
+                <option value="">{tp('planning_table_none', { defaultValue: "— Not configured —" })}</option>
+                {sortedTables.map((table) => (
+                    <option key={table.id} value={table.id}>{table.name || table.id}</option>
+                ))}
+            </select>
+        </label>
+    );
+
+    return (
+        <div style={{
+            marginTop: 8,
+            padding: '12px 14px',
+            borderRadius: 10,
+            border: '1px dashed var(--border-primary, #e2e8f0)',
+            background: 'var(--bg-primary, #fff)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+        }}>
+            <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                {tp('planning_intro', { defaultValue: "Choose the project and task tables, then define the calendar used by enhanced period fields." })}
+            </div>
+            {tableSelect(
+                'project_table_id',
+                tp('planning_project_table', { defaultValue: "Projects table" }),
+            )}
+            {tableSelect(
+                'task_table_id',
+                tp('planning_task_table', { defaultValue: "Tasks table" }),
+            )}
+            <fieldset style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <legend style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)', marginBottom: 4 }}>
+                    {tp('planning_working_week', { defaultValue: "Working week" })}
+                </legend>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {weekdayOptions.map(([day, label]) => (
+                        <label
+                            key={day}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 4,
+                                padding: '5px 7px',
+                                borderRadius: 7,
+                                border: '1px solid var(--border-primary, #e2e8f0)',
+                                fontSize: 11,
+                                color: 'var(--text-secondary, #475569)',
+                            }}
+                        >
+                            <input
+                                type="checkbox"
+                                checked={workingWeekdays.includes(day)}
+                                onChange={() => toggleWeekday(day)}
+                            />
+                            {label}
+                        </label>
+                    ))}
+                </div>
+            </fieldset>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                        {tp('planning_hours_per_day', { defaultValue: "Working hours per day" })}
+                    </span>
+                    <input
+                        type="number"
+                        min="0.25"
+                        max="24"
+                        step="0.25"
+                        style={SELECT_STYLE}
+                        value={config.hours_per_day ?? 8}
+                        onChange={(event) => setPlanningSettings({
+                            hours_per_day: Math.min(
+                                24,
+                                Math.max(0.25, Number(event.target.value) || 8),
+                            ),
+                        })}
+                    />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                        {tp('planning_workday_start', { defaultValue: "Working day starts" })}
+                    </span>
+                    <input
+                        type="time"
+                        style={SELECT_STYLE}
+                        value={config.workday_start || '09:00'}
+                        onChange={(event) => setPlanningSettings({
+                            workday_start: event.target.value || '09:00',
+                        })}
+                    />
+                </label>
+            </div>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary, #475569)' }}>
+                    {tp('planning_holidays', { defaultValue: "Non-working holidays" })}
+                </span>
+                <textarea
+                    rows={4}
+                    value={holidayDraft}
+                    onChange={(event) => setHolidayDraft(event.target.value)}
+                    onBlur={saveHolidays}
+                    placeholder={tp('planning_holidays_placeholder', { defaultValue: "One YYYY-MM-DD date per line" })}
+                    style={{ ...SELECT_STYLE, resize: 'vertical', fontFamily: 'monospace' }}
+                />
+            </label>
+            <div style={{ borderTop: '1px solid var(--border-primary, #e2e8f0)', paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #0f172a)' }}>
+                    {tp('planning_calendars_title', { defaultValue: 'Resource calendars' })}
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <input
+                        style={SELECT_STYLE}
+                        value={calendarDraft}
+                        placeholder={tp('planning_calendar_name', { defaultValue: 'Calendar name' })}
+                        onChange={(event) => setCalendarDraft(event.target.value)}
+                    />
+                    <button type="button" className="gnosi-btn-primary" disabled={!calendarDraft.trim()} onClick={createCalendar}>{tp('planning_add_calendar', { defaultValue: 'Add calendar' })}</button>
+                </div>
+                {!planningLoading && (planningState?.calendars || []).map((calendar) => (
+                    <div key={calendar.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <span>{calendar.name} · {calendar.hours_per_day} h/{tp('planning_day', { defaultValue: 'day' })}</span>
+                        {calendar.id !== 'project-default' && <button type="button" className="gnosi-btn-icon" title={tp('planning_delete_calendar', { defaultValue: 'Delete calendar' })} onClick={() => deleteCalendar(calendar.id)}><Trash2 size={14} /></button>}
+                    </div>
+                ))}
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #0f172a)' }}>
+                    {tp('planning_resources_title', { defaultValue: 'Resource pool' })}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>
+                    {tp('planning_resources_intro', { defaultValue: 'Resources and assignments are stored separately from Markdown. Allocation warnings never move tasks automatically.' })}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 100px minmax(120px, 1fr) 75px 90px', gap: 8 }}>
+                    <input
+                        style={SELECT_STYLE}
+                        value={resourceDraft.name}
+                        placeholder={tp('planning_resource_name', { defaultValue: 'Resource name' })}
+                        onChange={(event) => setResourceDraft({ ...resourceDraft, name: event.target.value })}
+                    />
+                    <select style={SELECT_STYLE} value={resourceDraft.type} onChange={(event) => setResourceDraft({ ...resourceDraft, type: event.target.value })}>
+                        <option value="work">{tp('planning_resource_work', { defaultValue: 'Work' })}</option>
+                        <option value="material">{tp('planning_resource_material', { defaultValue: 'Material' })}</option>
+                        <option value="cost">{tp('planning_resource_cost', { defaultValue: 'Cost' })}</option>
+                    </select>
+                    <select style={SELECT_STYLE} disabled={resourceDraft.type !== 'work'} value={resourceDraft.calendar_id} onChange={(event) => setResourceDraft({ ...resourceDraft, calendar_id: event.target.value })}>
+                        {(planningState?.calendars || []).map((calendar) => <option key={calendar.id} value={calendar.id}>{calendar.name}</option>)}
+                    </select>
+                    <input type="number" min="1" max="1000" style={SELECT_STYLE} value={resourceDraft.availability_units} title={tp('planning_resource_capacity', { defaultValue: 'Availability (%)' })} onChange={(event) => setResourceDraft({ ...resourceDraft, availability_units: Number(event.target.value) || 100 })} />
+                    <button type="button" className="gnosi-btn-primary" disabled={!resourceDraft.name.trim()} onClick={createResource}>{tp('planning_add_resource', { defaultValue: 'Add' })}</button>
+                </div>
+                {!planningLoading && (planningState?.resources || []).map((resource) => (
+                    <div key={resource.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <span>{resource.name} · {resource.type} · {resource.availability_units}% · {resource.standard_rate}/h</span>
+                        <button type="button" className="gnosi-btn-icon" title={tp('planning_delete_resource', { defaultValue: 'Delete resource' })} onClick={() => deleteResource(resource.id)}><Trash2 size={14} /></button>
+                    </div>
+                ))}
+                {!planningLoading && !(planningState?.resources || []).length && <span style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_no_resources', { defaultValue: 'No resources yet.' })}</span>}
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-primary, #0f172a)', marginTop: 4 }}>
+                    {tp('planning_assignments_title', { defaultValue: 'Assignments' })}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) 80px minmax(130px, 1fr) minmax(130px, 1fr) 90px', gap: 8 }}>
+                    <select style={SELECT_STYLE} value={assignmentDraft.task_id} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, task_id: event.target.value })}>
+                        <option value="">{tp('planning_select_task', { defaultValue: 'Select task' })}</option>
+                        {taskPages.map((page) => <option key={page.id} value={page.id}>{page.title || page.id}</option>)}
+                    </select>
+                    <select style={SELECT_STYLE} value={assignmentDraft.resource_id} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, resource_id: event.target.value })}>
+                        <option value="">{tp('planning_select_resource', { defaultValue: 'Select resource' })}</option>
+                        {(planningState?.resources || []).map((resource) => <option key={resource.id} value={resource.id}>{resource.name}</option>)}
+                    </select>
+                    <input type="number" min="0" step="0.25" style={SELECT_STYLE} value={assignmentDraft.planned_work_hours} title={tp('planning_assignment_hours', { defaultValue: 'Planned hours' })} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, planned_work_hours: event.target.value })} />
+                    <input type="datetime-local" style={SELECT_STYLE} value={assignmentDraft.start} title={tp('planning_assignment_start', { defaultValue: 'Assignment start' })} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, start: event.target.value })} />
+                    <input type="datetime-local" style={SELECT_STYLE} value={assignmentDraft.end} title={tp('planning_assignment_end', { defaultValue: 'Assignment end' })} onChange={(event) => setAssignmentDraft({ ...assignmentDraft, end: event.target.value })} />
+                    <button type="button" className="gnosi-btn-primary" disabled={!assignmentDraft.task_id || !assignmentDraft.resource_id} onClick={createAssignment}>{tp('planning_add_assignment', { defaultValue: 'Assign' })}</button>
+                </div>
+                {!planningLoading && (planningState?.assignments || []).map((assignment) => (
+                    <div key={assignment.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 12 }}>
+                        <span>{assignment.task_id} · {(planningState?.resources || []).find((resource) => resource.id === assignment.resource_id)?.name || assignment.resource_id} · {assignment.planned_work_hours} h</span>
+                        <button type="button" className="gnosi-btn-icon" title={tp('planning_delete_assignment', { defaultValue: 'Delete assignment' })} onClick={() => deleteAssignment(assignment.id)}><Trash2 size={14} /></button>
+                    </div>
+                ))}
+                {!planningLoading && (planningState?.allocation?.warnings || []).map((warning) => (
+                    <div key={`${warning.resource_id}-${warning.date}`} style={{ fontSize: 12, color: '#b45309' }}>
+                        {warning.message}
+                    </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <button type="button" className="gnosi-btn-secondary" disabled={!(planningState?.allocation?.warnings || []).length} onClick={previewLeveling}>{tp('planning_preview_leveling', { defaultValue: 'Preview leveling' })}</button>
+                    <span style={{ fontSize: 11, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_leveling_review_only', { defaultValue: 'Suggestions never change task dates automatically.' })}</span>
+                </div>
+                {(levelingProposal?.proposals || []).map((proposal) => (
+                    <div key={proposal.id} style={{ fontSize: 12, color: 'var(--text-secondary, #475569)' }}>
+                        {tp('planning_leveling_proposal', { defaultValue: 'Move task {{task}} to {{start}} after reviewing the proposal.', task: proposal.task_id, start: proposal.suggested_start })}
+                    </div>
+                ))}
+                {levelingProposal && !(levelingProposal.proposals || []).length && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_no_leveling_proposal', { defaultValue: 'No dated assignment can be safely proposed for leveling.' })}</div>}
+                {!planningLoading && planningState && <div style={{ fontSize: 12, color: 'var(--text-tertiary, #94a3b8)' }}>{tp('planning_estimated_cost', { defaultValue: 'Estimated assignment cost: {{cost}}', cost: planningState.allocation?.total_estimated_cost ?? 0 })}</div>}
+                {planningError && <div style={{ fontSize: 12, color: '#dc2626' }}>{planningError}</div>}
+            </div>
         </div>
     );
 }
@@ -1195,6 +1608,7 @@ const CONFIGURABLE = {
     'daily-notes': DailyNotesConfig,
     'llm-wiki': LlmWikiConfig,
     'web-clipper': WebClipperConfig,
+    'project-planning': ProjectPlanningConfig,
 };
 
 export function PluginsSettings() {

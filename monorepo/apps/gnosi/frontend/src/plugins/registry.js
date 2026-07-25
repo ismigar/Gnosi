@@ -53,6 +53,12 @@ export const BUILTIN_PLUGINS = [
         description: 'Process resources with AI to maintain a linked knowledge wiki, in the style of Karpathy.',
         icon: 'BrainCircuit',
     },
+    {
+        id: 'project-planning',
+        name: 'Project planning',
+        description: 'Add working durations, predecessors, and work calendars to period fields.',
+        icon: 'CalendarRange',
+    },
 ];
 
 export const PLUGIN_IDS = BUILTIN_PLUGINS.map((p) => p.id);

@@ -2,24 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Calendar as CalendarIcon, Clock, X } from 'lucide-react';
 import { useLocaleSettings } from '../../hooks/useLocaleSettings';
+import {
+    addWorkingDuration,
+    dependencySuccessorIds,
+    formatLocalDateTime,
+    latestPredecessorEnd,
+    nextWorkingInstant,
+    parsePeriod,
+    periodDaysInclusive,
+    serializePeriod,
+    workingDurationDays,
+} from '../../utils/projectPlanning';
 
-// --- Period helpers (format "YYYY-MM-DD/YYYY-MM-DD") ---
-// Shared with VaultTable to show/calculate the number of days without
-// duplicating date logic.
-export const parsePeriod = (value) => {
-    const [start = '', end = ''] = String(value || '').split('/');
-    return { start, end };
-};
-
-// Inclusive number of days between start and end (1 = same day). null if it cannot be calculated.
-export const periodDaysInclusive = (start, end) => {
-    if (!start || !end) return null;
-    const a = new Date(`${start}T00:00:00`);
-    const b = new Date(`${end}T00:00:00`);
-    if (isNaN(a.getTime()) || isNaN(b.getTime())) return null;
-    const diff = Math.round((b - a) / 86400000) + 1;
-    return diff >= 1 ? diff : null;
-};
+// Compatibility re-exports for existing period consumers.
+export { parsePeriod, periodDaysInclusive };
 
 // Adds `days` days to an ISO date (YYYY-MM-DD) and returns ISO. '' if the base isn't valid.
 export const addDaysISO = (isoDate, days) => {
@@ -43,7 +39,18 @@ const _toLocalDateStr = (date, type) => {
     return type === 'datetime' ? `${day}T${pad(date.getHours())}:${pad(date.getMinutes())}` : day;
 };
 
-export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
+export const VaultDateProperty = ({
+    value,
+    onChange,
+    type = 'date',
+    fieldConfig = {},
+    fieldName = '',
+    noteId = '',
+    notes = [],
+    idToTitle = {},
+    planningSettings = {},
+    planningEnabled = false,
+}) => {
     const { t } = useTranslation();
     const inputRef = useRef(null);
     const hiddenInputRef = useRef(null);
@@ -60,9 +67,15 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         }
 
         try {
-            const date = new Date(value);
+            // Some Notion imports stored a date range as `{ start, end }`
+            // even when the schema still says `date`. Keep those values
+            // editable by treating the start boundary as the scalar date.
+            const scalarValue = value && typeof value === 'object'
+                ? parsePeriod(value).start
+                : value;
+            const date = new Date(scalarValue);
             if (isNaN(date.getTime())) {
-                setInputValue(value); // If it's not valid, we keep the original text (manual entry in progress)
+                setInputValue(String(scalarValue || '')); // Keep manual text without rendering `[object Object]`.
             } else {
                 const options = { day: '2-digit', month: '2-digit', year: 'numeric' };
                 if (type === 'datetime') {
@@ -109,7 +122,10 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
     // Formatting for the hidden input (local HTML/ISO format)
     const toHTMLValue = (val) => {
         if (!val) return '';
-        const d = new Date(val);
+        const scalarValue = val && typeof val === 'object'
+            ? parsePeriod(val).start
+            : val;
+        const d = new Date(scalarValue);
         if (isNaN(d.getTime())) return '';
 
         const pad = (n) => String(n).padStart(2, '0');
@@ -145,11 +161,244 @@ export const VaultDateProperty = ({ value, onChange, type = 'date' }) => {
         onChange(val);
     };
 
-    // Period handling: two dates (start → end) + number of days.
-    // The number of days is derived from the dates; if the user edits it and there is
-    // start date, we recalculate the end date (start + N-1 days, inclusive).
+    // Enhanced project-planning periods store start, finish, duration, and
+    // predecessors in one value. The legacy range editor remains available
+    // while the built-in plugin is disabled.
     if (type === 'period') {
-        const { start, end } = parsePeriod(value);
+        const period = parsePeriod(value);
+        const durationEnabled = planningEnabled && fieldConfig.duration_enabled !== false;
+        const predecessorsEnabled = planningEnabled && fieldConfig.predecessors_enabled !== false;
+        const skipNonWorkingDays = fieldConfig.skip_non_working_days !== false;
+
+        if (planningEnabled) {
+            const workdayStart = /^\d{2}:\d{2}$/.test(planningSettings.workday_start || '')
+                ? planningSettings.workday_start
+                : '09:00';
+            const asInputDateTime = (raw, isEnd = false) => {
+                if (!raw) return '';
+                if (String(raw).includes('T')) return formatLocalDateTime(raw);
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(String(raw))) return formatLocalDateTime(raw);
+                if (!isEnd) return `${raw}T${workdayStart}`;
+                const startOfDay = `${raw}T${workdayStart}`;
+                return addWorkingDuration(startOfDay, 1, planningSettings, false) || startOfDay;
+            };
+            const displayStart = asInputDateTime(period.start);
+            const displayEnd = asInputDateTime(period.end, true);
+            const derivedDuration = workingDurationDays(
+                displayStart,
+                displayEnd,
+                planningSettings,
+                skipNonWorkingDays,
+            );
+            const duration = period.durationDays
+                ?? derivedDuration
+                ?? periodDaysInclusive(period.start, period.end);
+            const taskTableId = String(planningSettings.task_table_id || '');
+            const getTableId = (note) => String(
+                note?.resolved_table_id
+                || note?.metadata?.table_id
+                || note?.metadata?.database_table_id
+                || '',
+            );
+            const scopedNotes = (notes || []).filter((note) => (
+                !taskTableId || getTableId(note) === taskTableId
+            ));
+            const periodKeys = [
+                fieldName,
+                fieldConfig.id,
+                ...(Array.isArray(fieldConfig.aliases) ? fieldConfig.aliases : []),
+            ].filter(Boolean);
+            const getPeriodValue = (note) => {
+                const metadata = note?.metadata || {};
+                const key = periodKeys.find((candidate) => (
+                    Object.prototype.hasOwnProperty.call(metadata, candidate)
+                ));
+                return key ? metadata[key] : '';
+            };
+            const getPredecessorIds = (note) => {
+                const parsed = parsePeriod(getPeriodValue(note));
+                return parsed.version === 2
+                    ? parsed.predecessorIds
+                    : (note?.metadata?.predecessor_ids || []);
+            };
+            const blockedCandidateIds = dependencySuccessorIds(
+                noteId,
+                scopedNotes,
+                getPredecessorIds,
+            );
+            const candidates = scopedNotes.filter((note) => (
+                !blockedCandidateIds.has(String(note.id))
+            ));
+
+            const fillAutomaticBoundaries = (next, recalculateStart = false) => {
+                if (predecessorsEnabled && next.predecessorIds.length > 0
+                    && (!next.start || (next.startMode === 'auto' && recalculateStart))) {
+                    const predecessorEnd = latestPredecessorEnd(
+                        next.predecessorIds,
+                        scopedNotes,
+                        getPeriodValue,
+                    );
+                    next.start = predecessorEnd
+                        ? nextWorkingInstant(
+                            predecessorEnd,
+                            planningSettings,
+                            skipNonWorkingDays,
+                        )
+                        : next.start;
+                    if (next.start) next.startMode = 'auto';
+                }
+                if (
+                    durationEnabled
+                    && next.start
+                    && next.durationDays !== null
+                    && (!next.end || next.endMode === 'auto')
+                ) {
+                    next.end = addWorkingDuration(
+                        next.start,
+                        next.durationDays,
+                        planningSettings,
+                        skipNonWorkingDays,
+                    );
+                    if (next.end) next.endMode = 'auto';
+                }
+                return next;
+            };
+
+            const commit = (next) => onChange(serializePeriod(next));
+            const handleStartChange = (newStart) => {
+                const next = { ...period, start: newStart, startMode: 'manual' };
+                if (durationEnabled && next.endMode === 'auto' && duration !== null) {
+                    next.durationDays = duration;
+                    next.end = addWorkingDuration(
+                        newStart,
+                        duration,
+                        planningSettings,
+                        skipNonWorkingDays,
+                    );
+                } else if (durationEnabled && newStart && displayEnd) {
+                    next.durationDays = workingDurationDays(
+                        newStart,
+                        displayEnd,
+                        planningSettings,
+                        skipNonWorkingDays,
+                    );
+                }
+                commit(next);
+            };
+            const handleEndChange = (newEnd) => {
+                const next = { ...period, end: newEnd, endMode: 'manual' };
+                if (durationEnabled && displayStart && newEnd) {
+                    next.durationDays = workingDurationDays(
+                        displayStart,
+                        newEnd,
+                        planningSettings,
+                        skipNonWorkingDays,
+                    );
+                }
+                commit(next);
+            };
+            const handleDurationChange = (event) => {
+                const raw = event.target.value;
+                const nextDuration = raw === '' ? null : Number(raw);
+                if (nextDuration !== null && (!Number.isFinite(nextDuration) || nextDuration < 0)) return;
+                const next = {
+                    ...period,
+                    durationDays: nextDuration,
+                    endMode: 'auto',
+                };
+                if (!next.start) fillAutomaticBoundaries(next, true);
+                if (next.start && nextDuration !== null) {
+                    next.end = addWorkingDuration(
+                        asInputDateTime(next.start),
+                        nextDuration,
+                        planningSettings,
+                        skipNonWorkingDays,
+                    );
+                } else if (nextDuration === null && next.endMode === 'auto') {
+                    next.end = '';
+                }
+                commit(next);
+            };
+            const handlePredecessorsChange = (event) => {
+                const predecessorIds = Array.from(
+                    event.target.selectedOptions,
+                    (option) => option.value,
+                );
+                const next = { ...period, predecessorIds };
+                if (predecessorIds.length === 0 && next.startMode === 'auto') {
+                    next.start = '';
+                    if (next.endMode === 'auto') next.end = '';
+                } else {
+                    fillAutomaticBoundaries(next, true);
+                }
+                commit(next);
+            };
+
+            return (
+                <div className="grid min-w-[430px] grid-cols-2 gap-2 p-1 text-xs">
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_start', "Start date and time")}
+                        </span>
+                        <input
+                            type="datetime-local"
+                            value={displayStart}
+                            onChange={(event) => handleStartChange(event.target.value)}
+                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                        />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_end', "Finish date and time")}
+                        </span>
+                        <input
+                            type="datetime-local"
+                            value={displayEnd}
+                            onChange={(event) => handleEndChange(event.target.value)}
+                            className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                        />
+                    </label>
+                    {durationEnabled && (
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                {t('vault_date.period_duration', "Working days")}
+                            </span>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.25"
+                                value={duration ?? ''}
+                                onChange={handleDurationChange}
+                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            />
+                        </label>
+                    )}
+                    {predecessorsEnabled && (
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                {t('vault_date.period_predecessors', "Predecessors")}
+                            </span>
+                            <select
+                                multiple
+                                size={Math.min(4, Math.max(2, candidates.length))}
+                                value={period.predecessorIds}
+                                onChange={handlePredecessorsChange}
+                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                                title={t('vault_date.period_predecessors_hint', "Select one or more tasks that must finish first")}
+                            >
+                                {candidates.map((candidate) => (
+                                    <option key={candidate.id} value={candidate.id}>
+                                        {candidate.title || idToTitle[candidate.id] || candidate.id}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    )}
+                </div>
+            );
+        }
+
+        const { start, end } = period;
         const days = periodDaysInclusive(start, end);
         const handleDaysChange = (e) => {
             const n = parseInt(e.target.value, 10);

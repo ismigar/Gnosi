@@ -12,7 +12,8 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { FileText, Tag, Clock, Hash, CheckSquare, Calendar, Link as LinkIcon, Type, ArrowUp, ArrowDown, Settings, Settings2, Plus, ChevronDown, ChevronRight, ExternalLink, Search, X, Trash2, Filter, List, LayoutPanelLeft, Unlock, Columns2, Languages, Zap, Globe, Send, AlertTriangle, BrainCircuit } from 'lucide-react';
 import { IconRenderer } from './IconRenderer';
-import { VaultDateProperty, periodDaysInclusive } from './VaultDateProperty';
+import { VaultDateProperty, parsePeriod, periodDaysInclusive } from './VaultDateProperty';
+import { withPeriodBoundaries } from '../../utils/projectPlanning';
 import { ImageHoverPreview } from './ImageHoverPreview';
 import { FileFieldValue } from './FileFieldValue';
 import { filenameFromTarget, isImageFieldName, getImageSrc, parseImageField, buildImageValue, fileTargetKey, withActiveVault, canonicalStorageFolder } from '../../lib/fileResource';
@@ -426,7 +427,9 @@ let _gridKeyboardOwner = null;
 let _gridInstanceSeq = 0;
 
 export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, allNotes = [], activeView, onUpdateView, isEmbedded = false, onEditSchema, isListView = false, onCreateRecord, onDeletePage, onDeleteSelected, onCellSaved, onUpdateFieldOptions, onOpenParallel, onTranslated, searchTerm: searchTermProp, onSearchChange, actionRules = null, maxHeight = null, registerNavApi = null, onExitTop = null, onExitBottom = null, onEscape = null }) {
-    const { isEnabled: isPluginEnabled } = usePlugins();
+    const { isEnabled: isPluginEnabled, getPluginSettings } = usePlugins();
+    const projectPlanningEnabled = isPluginEnabled('project-planning');
+    const projectPlanningSettings = getPluginSettings('project-planning');
     const [llmWikiConfig, setLlmWikiConfig] = useState(null);
     const [llmWikiJobs, setLlmWikiJobs] = useState({});
     useEffect(() => {
@@ -1415,7 +1418,7 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
         if (!note) return;
 
         const currentValue = note.metadata?.[originalMetaKey];
-        if (currentValue === newValue) return;
+        if (sameCellValue(currentValue, newValue)) return;
 
         // 1. OPTIMISTIC: applies the change locally right away — the user
         //    sees the new value before the backend responds (~200-450 ms).
@@ -1539,20 +1542,35 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                 const val = overrides?.has(child.id)
                     ? overrides.get(child.id)
                     : (child.id === changedChildId ? newValue : child.metadata?.[getMetaKey(child, changedField)]);
-                return val ? String(val) : null;
+                return val || null;
             }).filter(Boolean);
 
             if (allDates.length > 0) {
                 if (getFieldType(schema, changedField) === 'period') {
-                    // format "YYYY-MM-DD/YYYY-MM-DD"
-                    const starts = allDates.map(v => v.split('/')[0]).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
-                    const ends = allDates.map(v => v.split('/')[1]).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
+                    const starts = allDates.map(v => parsePeriod(v).start).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
+                    const ends = allDates.map(v => parsePeriod(v).end).filter(Boolean).map(d => new Date(d)).filter(d => !isNaN(d));
                     if (starts.length > 0 && ends.length > 0) {
-                        const minStart = new Date(Math.min(...starts)).toISOString().split('T')[0];
-                        const maxEnd = new Date(Math.max(...ends)).toISOString().split('T')[0];
-                        const newPeriod = `${minStart}/${maxEnd}`;
+                        const minStart = new Date(Math.min(...starts));
+                        const maxEnd = new Date(Math.max(...ends));
                         const parentMetaKey = getMetaKey(parent, changedField);
-                        if (parent.metadata?.[parentMetaKey] !== newPeriod) {
+                        const parentValue = parent.metadata?.[parentMetaKey];
+                        const hasTime = allDates.some((item) => (
+                            parsePeriod(item).start.includes('T') || parsePeriod(item).end.includes('T')
+                        ));
+                        const padDatePart = (number) => String(number).padStart(2, '0');
+                        const localDate = (date) => {
+                            const day = `${date.getFullYear()}-${padDatePart(date.getMonth() + 1)}-${padDatePart(date.getDate())}`;
+                            return hasTime
+                                ? `${day}T${padDatePart(date.getHours())}:${padDatePart(date.getMinutes())}`
+                                : day;
+                        };
+                        const newPeriod = withPeriodBoundaries(
+                            parentValue,
+                            localDate(minStart),
+                            localDate(maxEnd),
+                            { startMode: 'auto', endMode: 'auto' },
+                        );
+                        if (JSON.stringify(parentValue) !== JSON.stringify(newPeriod)) {
                             await handleCellSave(parentId, changedField, newPeriod, parentMetaKey, true);
                         }
                     }
@@ -2694,6 +2712,13 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                     <VaultDateProperty
                         value={value || ''}
                         type={type}
+                        fieldConfig={getFieldConfig(schema, field)}
+                        fieldName={field}
+                        noteId={noteId}
+                        notes={(allNotes && allNotes.length > 0) ? allNotes : safeNotes}
+                        idToTitle={idToTitle}
+                        planningSettings={projectPlanningSettings}
+                        planningEnabled={projectPlanningEnabled}
                         onChange={(newVal) => handleCellSave(noteId, field, newVal, originalMetaKey)}
                     />
                 );
@@ -2784,30 +2809,60 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             }
             case 'date':
             case 'datetime': {
-                const parsed = new Date(value);
+                const importedRange = value && typeof value === 'object'
+                    ? parsePeriod(value)
+                    : null;
+                const displayValue = importedRange?.start || value;
+                const parsed = new Date(displayValue);
                 if (isNaN(parsed.getTime())) {
                     // Corrupt value: we show the raw text instead of "Invalid Date".
-                    return <span className="truncate max-w-[200px] block text-[var(--text-tertiary)]" title={String(value)}>{String(value)}</span>;
+                    const rawLabel = typeof value === 'object'
+                        ? JSON.stringify(value)
+                        : String(value);
+                    return <span className="truncate max-w-[200px] block text-[var(--text-tertiary)]" title={rawLabel}>{rawLabel}</span>;
                 }
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
+                const formatBoundary = (boundary) => formatDate(boundary, {
+                    dateFormat: fmt.dateFormat,
+                    type: String(boundary).includes('T') ? 'datetime' : type,
+                    locale: fmt.dateLocale,
+                });
                 return (
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-[var(--text-primary)]">
                         {type === 'datetime' ? <Clock size={14} className="text-[var(--text-tertiary)]" /> : <Calendar size={14} className="text-[var(--text-tertiary)]" />}
-                        <span>{formatDate(value, { dateFormat: fmt.dateFormat, type, locale: fmt.dateLocale })}</span>
+                        <span>{formatBoundary(displayValue)}</span>
+                        {importedRange?.end && importedRange.end !== importedRange.start && (
+                            <>
+                                <span className="text-[var(--text-tertiary)]">→</span>
+                                <span>{formatBoundary(importedRange.end)}</span>
+                            </>
+                        )}
                     </div>
                 );
             }
             case 'period': {
-                const [start, end] = String(value).split('/');
+                const { start, end, durationDays, predecessorIds } = parsePeriod(value);
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 // 'locale' mode → compact (day + short month, no year) to avoid inflating
                 // the chip; an explicit format (DD/MM/YYYY…) is respected as-is.
                 const fmtPeriodDate = (d) => {
                     if (!d) return '?';
-                    if (fmt.dateFormat && fmt.dateFormat !== 'locale') return formatDate(d, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale });
-                    return new Date(d).toLocaleDateString(fmt.dateLocale || i18n.language, { day: '2-digit', month: 'short' });
+                    const hasTime = String(d).includes('T');
+                    if (fmt.dateFormat && fmt.dateFormat !== 'locale') {
+                        return formatDate(d, {
+                            dateFormat: fmt.dateFormat,
+                            type: hasTime ? 'datetime' : 'date',
+                            locale: fmt.dateLocale,
+                        });
+                    }
+                    return new Date(d).toLocaleString(
+                        fmt.dateLocale || i18n.language,
+                        hasTime
+                            ? { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }
+                            : { day: '2-digit', month: 'short' },
+                    );
                 };
-                const days = periodDaysInclusive(start, end);
+                const days = durationDays ?? periodDaysInclusive(start, end);
                 return (
                     <div className="flex items-center gap-1 text-[11px] font-medium text-[var(--text-secondary)] bg-[var(--bg-tertiary)] px-1.5 py-0.5 rounded border border-[var(--border-primary)] w-fit">
                         <span>{fmtPeriodDate(start)}</span>
@@ -2815,6 +2870,17 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
                         <span>{fmtPeriodDate(end)}</span>
                         {days != null && (
                             <span className="text-[var(--text-tertiary)] ml-0.5" title={t('table.period_days', { count: days, defaultValue: "{{count}} days" })}>· {days} d</span>
+                        )}
+                        {predecessorIds.length > 0 && (
+                            <span
+                                className="text-[var(--text-tertiary)] ml-0.5"
+                                title={predecessorIds.map((id) => idToTitle[id] || id).join(', ')}
+                            >
+                                · {t('vault_date.period_predecessor_count', {
+                                    count: predecessorIds.length,
+                                    defaultValue: "{{count}} predecessors",
+                                })}
+                            </span>
                         )}
                     </div>
                 );
@@ -2968,11 +3034,14 @@ export function VaultTable({ notes, onNoteSelect, schema = {}, idToTitle = {}, a
             if (type === 'period') {
                 // earliest = min start, latest = max end
                 if (func === 'earliest') {
-                    const dates = values.map(v => new Date(String(v).split('/')[0])).filter(d => !isNaN(d));
+                    const dates = values.map(v => new Date(parsePeriod(v).start)).filter(d => !isNaN(d));
                     return dates.length ? formatAggDate(new Date(Math.min(...dates))) : '-';
                 }
                 if (func === 'latest') {
-                    const dates = values.map(v => new Date((String(v).split('/')[1] || String(v).split('/')[0]))).filter(d => !isNaN(d));
+                    const dates = values.map(v => {
+                        const period = parsePeriod(v);
+                        return new Date(period.end || period.start);
+                    }).filter(d => !isNaN(d));
                     return dates.length ? formatAggDate(new Date(Math.max(...dates))) : '-';
                 }
             } else {

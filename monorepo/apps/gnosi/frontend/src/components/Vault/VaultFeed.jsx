@@ -306,7 +306,11 @@ export function VaultFeed({ notes, onNoteSelect, schema = {}, idToTitle = {}, al
                 // localized (before it fell back to the default and showed the raw ISO).
                 const fmt = resolveFieldFormat(getFieldConfig(schema, field), localeSettings);
                 const { start, end } = parsePeriod(value);
-                const fmtOne = (v) => formatDate(v, { dateFormat: fmt.dateFormat, type: 'date', locale: fmt.dateLocale });
+                const fmtOne = (v) => formatDate(v, {
+                    dateFormat: fmt.dateFormat,
+                    type: String(v || '').includes('T') ? 'datetime' : 'date',
+                    locale: fmt.dateLocale,
+                });
                 return (
                     <div className="flex items-center gap-1.5 whitespace-nowrap text-sm">
                         <Calendar size={14} className="text-[var(--text-tertiary)]" />
