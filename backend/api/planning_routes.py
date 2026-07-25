@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime
 from pathlib import Path
+import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +21,7 @@ from backend.services.project_planning import (
     normalize_calendar,
     normalize_resource,
 )
+from backend.services.planning_engine import ScheduleIndex, build_schedule
 from backend.services.context_vars import get_active_vault_path
 from backend.services.workspace_service import get_workspace_context, require_role
 
@@ -58,6 +61,42 @@ class AssignmentPayload(BaseModel):
     end: Optional[str] = None
 
 
+class TaskFactPayload(BaseModel):
+    id: str
+    title: Optional[str] = None
+    period: dict = {}
+    etag: Optional[str] = None
+
+
+class RecalculatePayload(BaseModel):
+    tasks: list[TaskFactPayload] = []
+    status_date: Optional[str] = None
+
+
+class BaselinePayload(BaseModel):
+    name: str
+    schedule_revision: Optional[int] = None
+
+
+class WorklogPayload(BaseModel):
+    task_id: str
+    resource_id: Optional[str] = None
+    date: str
+    hours: float
+    correction_of: Optional[str] = None
+
+
+class RecurrencePayload(BaseModel):
+    task_id: str
+    rrule: str
+    exdates: list[str] = []
+
+
+class ProposalApplyPayload(BaseModel):
+    schedule_revision: int
+    etags: dict[str, str] = {}
+
+
 def _payload(value: BaseModel) -> dict:
     if hasattr(value, "model_dump"):
         return value.model_dump(exclude_none=True)
@@ -66,6 +105,10 @@ def _payload(value: BaseModel) -> dict:
 
 def _store() -> PlanningStore:
     return PlanningStore(Path(get_active_vault_path()) / ".gnosi")
+
+
+def _index() -> ScheduleIndex:
+    return ScheduleIndex(Path(get_active_vault_path()))
 
 
 def _not_found(kind: str) -> HTTPException:
@@ -95,6 +138,115 @@ async def get_leveling_proposal():
     """Returns review-only delay suggestions; it never changes task dates."""
     state = await asyncio.to_thread(_store().load)
     return propose_leveling(state)
+
+
+@router.get("/planning/projects/{project_id}/schedule")
+async def get_project_schedule(project_id: str):
+    """Returns the cached, reconstructible schedule for one project."""
+    schedule = await asyncio.to_thread(_index().load)
+    return ((schedule or {}).get("projects") or {}).get(project_id) or {
+        "projectId": project_id, "tasks": [], "diagnostics": [], "criticalTaskIds": [], "scheduleRevision": 0,
+    }
+
+
+@router.post("/planning/projects/{project_id}/recalculate", dependencies=[Depends(require_role("editor"))])
+async def recalculate_project(project_id: str, payload: RecalculatePayload):
+    """Rebuilds a project schedule from caller-provided Markdown task facts.
+
+    Persisting automatic boundaries is deliberately handled by the page writer,
+    which owns ETag checks. This endpoint has no authority to overwrite Markdown.
+    """
+    state = await asyncio.to_thread(_store().load)
+    calendar = next((item for item in state["calendars"] if item["id"] == DEFAULT_CALENDAR_ID), state["calendars"][0])
+    schedule = await asyncio.to_thread(build_schedule, [_payload(task) for task in payload.tasks], calendar, status_date=payload.status_date)
+    schedule["projectId"] = project_id
+    schedule = await asyncio.to_thread(_index().save, project_id, schedule, state["revision"])
+    return schedule
+
+
+@router.post("/planning/projects/{project_id}/baselines", dependencies=[Depends(require_role("editor"))])
+async def create_baseline(project_id: str, payload: BaselinePayload):
+    """Captures an immutable named schedule snapshot in append-only history."""
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="baseline name is required")
+    schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(project_id)
+    if not schedule:
+        raise HTTPException(status_code=409, detail="Recalculate the project before creating a baseline")
+    if payload.schedule_revision is not None and payload.schedule_revision != schedule.get("scheduleRevision"):
+        raise HTTPException(status_code=409, detail="Schedule revision is stale")
+    store = _store()
+    existing = await asyncio.to_thread(store.history, "baseline")
+    if any(item.get("projectId") == project_id and item.get("name") == name for item in existing):
+        raise HTTPException(status_code=409, detail="Baseline name already exists")
+    baseline = {"id": str(uuid.uuid4()), "type": "baseline", "projectId": project_id, "name": name, "createdAt": datetime.now().isoformat(timespec="seconds"), "scheduleRevision": schedule["scheduleRevision"], "schedule": schedule}
+    await asyncio.to_thread(store.append_history, baseline)
+    return {"baseline": baseline}
+
+
+@router.get("/planning/projects/{project_id}/baselines")
+async def list_baselines(project_id: str):
+    return {"baselines": [item for item in await asyncio.to_thread(_store().history, "baseline") if item.get("projectId") == project_id]}
+
+
+@router.post("/planning/worklogs", dependencies=[Depends(require_role("editor"))])
+async def create_worklog(payload: WorklogPayload):
+    if payload.hours == 0:
+        raise HTTPException(status_code=422, detail="worklog hours cannot be zero")
+    entry = {"id": str(uuid.uuid4()), "type": "worklog", "taskId": payload.task_id, "resourceId": payload.resource_id, "date": payload.date, "hours": payload.hours, "correctionOf": payload.correction_of, "createdAt": datetime.now().isoformat(timespec="seconds")}
+    await asyncio.to_thread(_store().append_history, entry)
+    return {"worklog": entry}
+
+
+@router.get("/planning/worklogs")
+async def list_worklogs(task_id: Optional[str] = None):
+    entries = await asyncio.to_thread(_store().history, "worklog")
+    if task_id:
+        entries = [entry for entry in entries if entry.get("taskId") == task_id]
+    return {"worklogs": entries}
+
+
+@router.post("/planning/projects/{project_id}/leveling/proposals")
+async def create_leveling_proposal(project_id: str):
+    state = await asyncio.to_thread(_store().load)
+    schedule = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(project_id)
+    proposal = propose_leveling(state)
+    proposal.update({"id": str(uuid.uuid4()), "projectId": project_id, "scheduleRevision": (schedule or {}).get("scheduleRevision", 0), "createdAt": datetime.now().isoformat(timespec="seconds")})
+    return proposal
+
+
+@router.post("/planning/leveling/proposals/{proposal_id}/apply", dependencies=[Depends(require_role("editor"))])
+async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayload):
+    """Audits explicit acceptance; automatic task writes remain ETag-gated."""
+    entry = {"id": str(uuid.uuid4()), "type": "leveling_decision", "proposalId": proposal_id, "scheduleRevision": payload.schedule_revision, "etags": payload.etags, "acceptedAt": datetime.now().isoformat(timespec="seconds")}
+    await asyncio.to_thread(_store().append_history, entry)
+    return {"decision": entry, "automaticWrites": []}
+
+
+@router.post("/planning/recurrences", dependencies=[Depends(require_role("editor"))])
+async def create_recurrence(payload: RecurrencePayload):
+    """Stores an RRULE declaration; materialization always creates stable tasks."""
+    recurrence = {"id": str(uuid.uuid4()), **_payload(payload)}
+    async with _mutation_lock:
+        store = _store()
+        state = await asyncio.to_thread(store.load)
+        state["recurrences"].append(recurrence)
+        state = await asyncio.to_thread(store.save, state)
+    return {"recurrence": recurrence, "revision": state["revision"]}
+
+
+@router.post("/planning/recurrences/{recurrence_id}/materialize", dependencies=[Depends(require_role("editor"))])
+async def materialize_recurrence(recurrence_id: str):
+    """Returns a reviewed materialization instruction without editing Markdown.
+
+    Page creation stays with the vault writer so generated tasks receive normal
+    page IDs and ETags; each is marked with this immutable origin identifier.
+    """
+    state = await asyncio.to_thread(_store().load)
+    recurrence = next((item for item in state["recurrences"] if item["id"] == recurrence_id), None)
+    if not recurrence:
+        raise _not_found("recurrence")
+    return {"recurrence": recurrence, "materialization": {"recurrenceOriginId": recurrence_id, "sourceTaskId": recurrence["task_id"], "requiresPageWriter": True}}
 
 
 @router.post("/planning/calendars", dependencies=[Depends(require_role("editor"))])

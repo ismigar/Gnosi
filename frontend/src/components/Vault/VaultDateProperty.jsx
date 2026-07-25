@@ -217,7 +217,7 @@ export const VaultDateProperty = ({
             };
             const getPredecessorIds = (note) => {
                 const parsed = parsePeriod(getPeriodValue(note));
-                return parsed.version === 2
+                return parsed.version >= 2
                     ? parsed.predecessorIds
                     : (note?.metadata?.predecessor_ids || []);
             };
@@ -324,7 +324,14 @@ export const VaultDateProperty = ({
                     event.target.selectedOptions,
                     (option) => option.value,
                 );
-                const next = { ...period, predecessorIds };
+                const next = {
+                    ...period,
+                    predecessorIds,
+                    dependencies: predecessorIds.map((predecessorId) => (
+                        period.dependencies.find((dependency) => dependency.predecessorId === predecessorId)
+                        || { predecessorId, type: 'FS', lagMinutes: 0 }
+                    )),
+                };
                 if (predecessorIds.length === 0 && next.startMode === 'auto') {
                     next.start = '';
                     if (next.endMode === 'auto') next.end = '';
@@ -391,6 +398,27 @@ export const VaultDateProperty = ({
                                         {candidate.title || idToTitle[candidate.id] || candidate.id}
                                     </option>
                                 ))}
+                            </select>
+                        </label>
+                    )}
+                    {predecessorsEnabled && period.dependencies.length > 0 && (
+                        <label className="flex flex-col gap-1">
+                            <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                                {t('vault_date.period_dependency_type', 'Dependency type')}
+                            </span>
+                            <select
+                                value={period.dependencies[0]?.type || 'FS'}
+                                onChange={(event) => commit({
+                                    ...period,
+                                    dependencies: period.dependencies.map((dependency) => ({
+                                        ...dependency,
+                                        type: event.target.value,
+                                    })),
+                                })}
+                                className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]"
+                            >
+                                <option value="FS">FS</option><option value="SS">SS</option>
+                                <option value="FF">FF</option><option value="SF">SF</option>
                             </select>
                         </label>
                     )}

@@ -36,11 +36,12 @@ describe('project planning periods', () => {
             durationDays: 1,
             predecessorIds: ['task-a'],
         })).toMatchObject({
-            version: 2,
+            version: 3,
             start: '2026-07-27T09:00',
             end: '2026-07-27T17:00',
             durationDays: 1,
             predecessorIds: ['task-a'],
+            dependencies: [{ predecessorId: 'task-a', type: 'FS', lagMinutes: 0 }],
         });
     });
 
