@@ -4208,6 +4208,17 @@
     "eyebrow": "AI model intelligence",
     "title": "AI Model Comparison",
     "subtitle": "Find the right model for each role, workload and budget.",
+    "loading": "Loading every tracked model…",
+    "loading_description": "Fetching all Artificial Analysis pages and enriching the live model catalog.",
+    "retry": "Try again",
+    "api_key_label": "Artificial Analysis API key",
+    "api_key_placeholder": "Paste your server-side API key",
+    "save_and_load": "Save and load models",
+    "get_api_key": "Get an Artificial Analysis API key",
+    "model_count_one": "{{count}} current model",
+    "model_count_other": "{{count}} current models",
+    "updated_at": "Updated {{date}}",
+    "index_version": "Intelligence Index v{{version}}",
     "search": "Search model or provider",
     "profile": "Task profile",
     "all_profiles": "All profiles",
@@ -4217,8 +4228,19 @@
     "input_tokens": "Input tokens / month",
     "output_tokens": "Output tokens / month",
     "no_results": "No models match these filters.",
-    "data_note": "Reference data for comparison. Provider prices and performance may change.",
+    "data_note": "Live benchmark, pricing and performance data. Attribution:",
+    "errors": {
+      "api_key_missing": "Artificial Analysis is not configured on this server.",
+      "api_key_invalid": "The Artificial Analysis API key is invalid.",
+      "tier_forbidden": "This Artificial Analysis API tier cannot access the requested data.",
+      "rate_limited": "The daily Artificial Analysis request quota has been reached.",
+      "network_error": "Artificial Analysis could not be reached.",
+      "invalid_response": "Artificial Analysis returned an invalid response.",
+      "credential_save_error": "The API key could not be saved securely.",
+      "upstream_error": "The current model data could not be loaded.",
+      "help": "Create a free key, paste it below, and Gnosi will store it securely on the backend."
+    },
     "profiles": { "worker": "Worker", "administrative": "Administrative", "documentalist": "Documentalist", "allrounder": "All-rounder", "expert": "Expert / Director" },
-    "columns": { "model": "Model", "provider": "Provider", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "uptime": "Uptime", "profile": "Profile", "quantization": "Quantization", "monthly_cost": "Est. $/month" }
+    "columns": { "model": "Model", "creator": "Creator", "provider": "Provider", "intelligence": "Intelligence", "coding": "Coding", "agentic": "Agentic", "input_price": "Input $/1M", "output_price": "Output $/1M", "context": "Context", "speed": "Speed", "latency": "Latency", "uptime": "Uptime", "profile": "Recommended use", "quantization": "Quantization", "monthly_cost": "Est. $/month" }
   }
 }
