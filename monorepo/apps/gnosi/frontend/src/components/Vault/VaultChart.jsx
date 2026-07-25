@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { useTranslation, Trans } from 'react-i18next';
 import { BarChart3 } from 'lucide-react';
 import { getMetaValue, getFieldType } from './schemaUtils';
+import { periodBoundary } from '../../utils/projectPlanning';
 
 /**
  * VaultChart
@@ -74,9 +75,11 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
     const data = useMemo(() => {
         if (!xField) return [];
         const emptyLabel = t('chart.empty_category', "(empty)");
+        const xType = getFieldType(schema, xField);
         const buckets = new Map(); // label → array of values (to aggregate)
         for (const note of notes) {
-            const rawCat = getMetaValue(note, schema, xField);
+            const rawValue = getMetaValue(note, schema, xField);
+            const rawCat = xType === 'period' ? periodBoundary(rawValue, 'start') : rawValue;
             const labels = categoryLabels(rawCat, emptyLabel);
             const rawVal = yField ? getMetaValue(note, schema, yField) : null;
             const num = yField ? toNum(rawVal) : null;
@@ -92,7 +95,6 @@ export function VaultChart({ notes = [], schema = {}, activeView = {} }) {
         // Sorts descending by value (like Notion) unless the X axis is
         // temporal (date/datetime/period: the ISO lexicographic order is
         // chronological; a "start/end" period sorts by its start).
-        const xType = getFieldType(schema, xField);
         if (xType === 'date' || xType === 'datetime' || xType === 'period') {
             rows.sort((a, b) => String(a.label).localeCompare(String(b.label)));
         } else {

@@ -2,6 +2,7 @@
  * vaultFilters.js
  * Shared filtering utilities for the Vault and the Graph.
  */
+import { periodBoundary } from './projectPlanning';
 
 // Values that a checkbox considers "checked" (parity with the backend:
 // rule_engine._is_truthy_checkbox and view_snapshot._as_bool). Any other
@@ -58,9 +59,20 @@ export function parseNumericValue(s) {
 export function matchesRule(item, filter) {
     if (!filter || !filter.field) return true;
     // Get the field's value (supports special 'title' or metadata)
-    const rawVal = filter.field === 'title'
+    let rawVal = filter.field === 'title'
         ? (item.title || item.label || '')
         : ((item.metadata || {})[filter.field] ?? (item[filter.field] ?? ''));
+    if (
+        filter.periodPart
+        || (
+            rawVal
+            && typeof rawVal === 'object'
+            && !Array.isArray(rawVal)
+            && 'start' in rawVal
+        )
+    ) {
+        rawVal = periodBoundary(rawVal, filter.periodPart || 'start');
+    }
 
     // Normalizes the value to an array of strings —1:1 parity with the
     // backend's snapshot engine (view_snapshot.apply_filter) and the one for
@@ -217,8 +229,15 @@ export function sortKey(value) {
  * @returns {number} negative if A goes before, positive if after, 0 if tied
  */
 export function compareFieldValues(aRaw, bRaw, direction = 'asc') {
-    const aVal = String(aRaw ?? '');
-    const bVal = String(bRaw ?? '');
+    const comparable = (raw) => {
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+            if ('start' in raw) return raw.start || '';
+            return raw.name ?? raw.title ?? '';
+        }
+        return raw ?? '';
+    };
+    const aVal = String(comparable(aRaw));
+    const bVal = String(comparable(bRaw));
     const aEmpty = aVal.trim() === '';
     const bEmpty = bVal.trim() === '';
     if (aEmpty || bEmpty) {

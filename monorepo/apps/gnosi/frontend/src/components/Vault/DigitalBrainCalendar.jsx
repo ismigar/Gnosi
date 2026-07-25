@@ -16,6 +16,7 @@ import { VaultBulkActionsBar } from './VaultBulkActionsBar';
 import { useVaultSelectionShortcuts } from '../../hooks/useVaultSelectionShortcuts';
 import './CalendarStyles.css';
 import { useTitlePreview } from './useTitlePreview';
+import { parsePeriod, withPeriodBoundaries } from '../../utils/projectPlanning';
 
 // Serializes a Date to "YYYY-MM-DDTHH:MM:SS" in LOCAL time (not UTC). When moving or
 // when resizing a timed Vault event we must save the local time: `toISOString()`
@@ -219,11 +220,16 @@ export const DigitalBrainCalendar = ({
             let dateStr = dateField
                 ? ((metadata[dateField] != null && metadata[dateField] !== '') ? metadata[dateField] : null)
                 : (metadata.date || metadata.data || metadata.start_time || metadata.due_date);
-            // A `period` field stores "YYYY-MM-DD/YYYY-MM-DD" (start and end in a single
-            // value): we break it down so FullCalendar never receives the raw range.
             let periodEnd = null;
-            const _pm = String(dateStr || '').match(/^(\d{4}-\d{2}-\d{2})\/(\d{4}-\d{2}-\d{2})$/);
-            if (_pm) { dateStr = _pm[1]; periodEnd = _pm[2]; }
+            const isPeriodValue = (
+                dateStr
+                && typeof dateStr === 'object'
+            ) || String(dateStr || '').includes('/');
+            if (isPeriodValue) {
+                const period = parsePeriod(dateStr);
+                dateStr = period.start || null;
+                periodEnd = period.end || null;
+            }
 
             if (dateStr) {
                 const isExternal = metadata.source !== undefined && metadata.source !== 'Gnosi' && metadata.source !== 'Gnosi Vault';
@@ -442,12 +448,19 @@ export const DigitalBrainCalendar = ({
                 // field) gets fully re-serialized.
                 const startKey = dateField || 'date';
                 const endKey = endDateField || 'end_date';
-                const isPeriodValue = /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(String(metadata?.[startKey] || '').trim());
+                const currentStartValue = metadata?.[startKey];
+                const isPeriodValue = (
+                    currentStartValue
+                    && typeof currentStartValue === 'object'
+                ) || String(currentStartValue || '').includes('/');
                 const patchData = { metadata: {} };
                 if (isPeriodValue) {
-                    const startDay = String(newStart).split('T')[0];
-                    const endDay = newEnd ? String(newEnd).split('T')[0] : startDay;
-                    patchData.metadata[startKey] = `${startDay}/${endDay}`;
+                    patchData.metadata[startKey] = withPeriodBoundaries(
+                        currentStartValue,
+                        newStart,
+                        newEnd || newStart,
+                        { startMode: 'manual', endMode: 'manual' },
+                    );
                 } else {
                     patchData.metadata[startKey] = newStart;
                     if (newEnd) patchData.metadata[endKey] = newEnd;
@@ -509,12 +522,20 @@ export const DigitalBrainCalendar = ({
                 // in full into the start field (see handleEventDrop).
                 const startKey = dateField || 'date';
                 const endKey = endDateField || 'end_date';
-                const isPeriodValue = /^\d{4}-\d{2}-\d{2}\/\d{4}-\d{2}-\d{2}$/.test(String(metadata?.[startKey] || '').trim());
+                const currentStartValue = metadata?.[startKey];
+                const isPeriodValue = (
+                    currentStartValue
+                    && typeof currentStartValue === 'object'
+                ) || String(currentStartValue || '').includes('/');
                 const patchData = { metadata: {} };
                 if (isPeriodValue) {
-                    const startDay = String(metadata[startKey]).split('/')[0];
-                    const endDay = newEnd ? String(newEnd).split('T')[0] : startDay;
-                    patchData.metadata[startKey] = `${startDay}/${endDay}`;
+                    const currentPeriod = parsePeriod(currentStartValue);
+                    patchData.metadata[startKey] = withPeriodBoundaries(
+                        currentStartValue,
+                        currentPeriod.start,
+                        newEnd || currentPeriod.start,
+                        { endMode: 'manual' },
+                    );
                 } else {
                     patchData.metadata[endKey] = newEnd;
                 }
