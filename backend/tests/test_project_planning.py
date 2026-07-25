@@ -78,6 +78,11 @@ def test_leveling_proposal_is_review_only_and_skips_weekends():
 
 
 def test_assignment_requires_existing_resource_and_valid_range():
+    assignment = normalize_assignment(
+        {"project_id": "project-1", "task_id": "task", "resource_id": "r1"},
+        {"r1"},
+    )
+    assert assignment["project_id"] == "project-1"
     with pytest.raises(PlanningValidationError, match="resource"):
         normalize_assignment({"task_id": "task", "resource_id": "missing"}, set())
     with pytest.raises(PlanningValidationError, match="after start"):
