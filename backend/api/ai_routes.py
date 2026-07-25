@@ -345,6 +345,23 @@ async def get_model_catalog(refresh: bool = False):
     return await asyncio.to_thread(_load)
 
 
+@router.get("/model-comparison")
+async def get_model_comparison():
+    """Complete, freshly paginated Artificial Analysis language-model feed."""
+    from backend.services.artificial_analysis import (
+        ArtificialAnalysisError,
+        fetch_all_models,
+    )
+
+    try:
+        return await asyncio.to_thread(fetch_all_models)
+    except ArtificialAnalysisError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code},
+        ) from exc
+
+
 @router.get("/usage")
 async def get_ai_usage():
     """Current-period AI spend: USD + the Settings currency, cap, ratio and a
