@@ -195,6 +195,31 @@ async def list_baselines(project_id: str):
     return {"baselines": [item for item in await asyncio.to_thread(_store().history, "baseline") if item.get("projectId") == project_id]}
 
 
+@router.get("/planning/projects/{project_id}/baselines/{baseline_id}/variance")
+async def get_baseline_variance(project_id: str, baseline_id: str):
+    """Compares the current derived schedule with an immutable baseline."""
+    baselines = await asyncio.to_thread(_store().history, "baseline")
+    baseline = next((item for item in baselines if item.get("id") == baseline_id and item.get("projectId") == project_id), None)
+    if not baseline:
+        raise _not_found("baseline")
+    current = ((await asyncio.to_thread(_index().load) or {}).get("projects") or {}).get(project_id)
+    if not current:
+        raise HTTPException(status_code=409, detail="Recalculate the project before requesting variance")
+    original_tasks = {item["id"]: item for item in baseline["schedule"].get("tasks", [])}
+    current_tasks = {item["id"]: item for item in current.get("tasks", [])}
+    rows = []
+    for task_id in sorted(set(original_tasks) | set(current_tasks)):
+        original = original_tasks.get(task_id) or {}
+        revised = current_tasks.get(task_id) or {}
+        rows.append({
+            "taskId": task_id,
+            "baselineStart": original.get("start"), "currentStart": revised.get("start"),
+            "baselineEnd": original.get("end"), "currentEnd": revised.get("end"),
+            "durationDaysVariance": round(float(revised.get("durationDays") or 0) - float(original.get("durationDays") or 0), 4),
+        })
+    return {"baselineId": baseline_id, "baselineScheduleRevision": baseline.get("scheduleRevision"), "currentScheduleRevision": current.get("scheduleRevision"), "tasks": rows}
+
+
 @router.post("/planning/worklogs", dependencies=[Depends(require_role("editor"))])
 async def create_worklog(payload: WorklogPayload):
     if payload.hours == 0:
