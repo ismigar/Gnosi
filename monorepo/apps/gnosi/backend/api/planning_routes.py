@@ -51,6 +51,7 @@ class ResourcePayload(BaseModel):
 
 
 class AssignmentPayload(BaseModel):
+    project_id: Optional[str] = None
     task_id: Optional[str] = None
     resource_id: Optional[str] = None
     units: Optional[float] = None

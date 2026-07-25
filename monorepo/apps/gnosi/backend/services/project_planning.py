@@ -146,6 +146,7 @@ def normalize_assignment(value: dict[str, Any], resource_ids: set[str], *, exist
         raise PlanningValidationError("task_type must be fixed_duration, fixed_work, or fixed_units")
     return {
         "id": assignment_id,
+        "project_id": str(value.get("project_id") or "").strip() or None,
         "task_id": task_id,
         "resource_id": resource_id,
         "units": _number(value.get("units", 100), "units", minimum=0, strict=True),

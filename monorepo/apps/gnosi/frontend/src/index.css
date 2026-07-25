@@ -718,6 +718,14 @@ button:hover > .row-action-tooltip {
   transform: scale(0.96);
 }
 
+.btn-gnosi:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+  transform: none;
+}
+
 .btn-gnosi-primary {
   background-color: var(--gnosi-primary);
   color: white !important;
