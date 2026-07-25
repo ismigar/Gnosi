@@ -168,7 +168,8 @@ def test_leveling_proposal_requires_current_revision_and_etags(route_store, monk
 
     proposal, accepted = asyncio.run(scenario())
     assert proposal["status"] == "pending"
-    assert accepted["decision"]["appliedChanges"] == proposal["proposals"]
+    assert accepted["updatedAssignments"][0]["assignmentId"] == proposal["proposals"][0]["assignment_id"]
+    assert route_store.load()["assignments"][1]["start"] == proposal["proposals"][0]["suggested_start"]
 
 
 def test_baseline_variance_compares_derived_schedule(route_store, monkeypatch):

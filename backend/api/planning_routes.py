@@ -269,10 +269,24 @@ async def apply_leveling_proposal(proposal_id: str, payload: ProposalApplyPayloa
     expected_etags = proposal.get("sourceEtags") or {}
     if current_etags != expected_etags or payload.etags != expected_etags:
         raise HTTPException(status_code=409, detail="Task ETags changed; regenerate the proposal")
-    entry = {"id": str(uuid.uuid4()), "type": "leveling_decision", "proposalId": proposal_id, "scheduleRevision": payload.schedule_revision, "etags": payload.etags, "acceptedAt": datetime.now().isoformat(timespec="seconds"), "appliedChanges": proposal["proposals"]}
+    state = await asyncio.to_thread(store.load)
+    by_assignment = {item["id"]: item for item in state["assignments"]}
+    applied_changes = []
+    for change in proposal["proposals"]:
+        assignment = by_assignment.get(change["assignment_id"])
+        if not assignment:
+            raise HTTPException(status_code=409, detail="An assignment in the proposal no longer exists")
+        if assignment.get("start") != change.get("source_start", assignment.get("start")) or assignment.get("end") != change.get("source_end", assignment.get("end")):
+            raise HTTPException(status_code=409, detail="An assignment changed; regenerate the proposal")
+        assignment["start"] = change["suggested_start"]
+        assignment["end"] = change["suggested_end"]
+        applied_changes.append({"assignmentId": assignment["id"], "start": assignment["start"], "end": assignment["end"]})
+    if applied_changes:
+        await asyncio.to_thread(store.save, state)
+    entry = {"id": str(uuid.uuid4()), "type": "leveling_decision", "proposalId": proposal_id, "scheduleRevision": payload.schedule_revision, "etags": payload.etags, "acceptedAt": datetime.now().isoformat(timespec="seconds"), "appliedChanges": applied_changes}
     await asyncio.to_thread(_store().append_history, entry)
     await asyncio.to_thread(store.append_history, {**proposal, "status": "accepted", "decidedAt": entry["acceptedAt"]})
-    return {"decision": entry, "automaticWrites": [], "requiresPageWriter": True}
+    return {"decision": entry, "automaticWrites": [], "updatedAssignments": applied_changes}
 
 
 @router.post("/planning/recurrences", dependencies=[Depends(require_role("editor"))])

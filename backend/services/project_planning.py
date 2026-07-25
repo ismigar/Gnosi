@@ -304,6 +304,8 @@ def propose_leveling(state: dict[str, Any]) -> dict[str, Any]:
             "reason": "resource_overallocated",
             "source_date": warning["date"],
             "delay_working_days": delay_days,
+            "source_start": candidate["start"],
+            "source_end": candidate["end"],
             "suggested_start": _shift_to_next_working_date(start, calendar, delay_days).isoformat(timespec="minutes"),
             "suggested_end": _shift_to_next_working_date(end, calendar, delay_days).isoformat(timespec="minutes"),
             "requires_review": True,
