@@ -45,3 +45,11 @@ def test_manual_boundary_is_preserved_and_critical_path_is_exposed():
     results = {item["id"]: item for item in schedule["tasks"]}
     assert results["a"]["start"] == "2026-07-27T09:00"
     assert results["b"]["id"] in schedule["criticalTaskIds"]
+
+
+def test_actual_boundaries_freeze_completed_task_schedule():
+    schedule = build_schedule([
+        task("a", {"durationDays": 4, "actualStart": "2026-07-27T09:00", "actualEnd": "2026-07-27T12:00", "percentComplete": 100}),
+    ], CALENDAR, status_date="2026-08-01T09:00")
+    assert schedule["tasks"][0]["start"] == "2026-07-27T09:00"
+    assert schedule["tasks"][0]["end"] == "2026-07-27T12:00"

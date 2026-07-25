@@ -83,6 +83,9 @@ export function parsePeriod(value) {
             constraintType: String(value.constraintType || 'ASAP').toUpperCase(),
             constraintDate: String(value.constraintDate || ''),
             deadline: String(value.deadline || ''),
+            percentComplete: Math.min(100, Math.max(0, Number(value.percentComplete) || 0)),
+            actualStart: String(value.actualStart || ''),
+            actualEnd: String(value.actualEnd || ''),
         };
     }
 
@@ -100,6 +103,9 @@ export function parsePeriod(value) {
         constraintType: 'ASAP',
         constraintDate: '',
         deadline: '',
+        percentComplete: 0,
+        actualStart: '',
+        actualEnd: '',
     };
 }
 
@@ -126,6 +132,9 @@ export function serializePeriod(value) {
         constraintType: period.constraintType,
         constraintDate: period.constraintDate,
         deadline: period.deadline,
+        percentComplete: period.percentComplete,
+        actualStart: period.actualStart,
+        actualEnd: period.actualEnd,
     };
 }
 

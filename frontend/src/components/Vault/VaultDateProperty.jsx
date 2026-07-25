@@ -369,6 +369,24 @@ export const VaultDateProperty = ({
                     )}
                     <label className="flex flex-col gap-1">
                         <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_complete', 'Complete (%)')}
+                        </span>
+                        <input type="number" min="0" max="100" value={period.percentComplete} onChange={(event) => commit({ ...period, percentComplete: Math.min(100, Math.max(0, Number(event.target.value) || 0)) })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_actual_start', 'Actual start')}
+                        </span>
+                        <input type="datetime-local" value={asInputDateTime(period.actualStart)} onChange={(event) => commit({ ...period, actualStart: event.target.value })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
+                            {t('vault_date.period_actual_end', 'Actual finish')}
+                        </span>
+                        <input type="datetime-local" value={asInputDateTime(period.actualEnd)} onChange={(event) => commit({ ...period, actualEnd: event.target.value, percentComplete: event.target.value ? 100 : period.percentComplete })} className="rounded border border-[var(--border-primary)] bg-[var(--bg-primary)] px-2 py-1 text-[var(--text-primary)]" />
+                    </label>
+                    <label className="flex flex-col gap-1">
+                        <span className="text-[10px] font-semibold text-[var(--text-tertiary)]">
                             {t('vault_date.period_end', "Finish date and time")}
                         </span>
                         <input
